@@ -5,16 +5,26 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     householdMember: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       count: vi.fn(),
     },
   },
 }))
 
+vi.mock('@/lib/env', () => ({
+  getServerBaseURL: () => 'https://wobblepot.test',
+}))
+
 import { prisma } from '@/lib/prisma'
-import { getHouseholdMembership, isUserSoleOwnerWithOtherMembers } from './household'
+import {
+  getHouseholdMembership,
+  isUserSoleOwnerWithOtherMembers,
+  listHouseholdMembers,
+} from './household'
 
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockCount = vi.mocked(prisma.householdMember.count)
+const mockFindMany = vi.mocked(prisma.householdMember.findMany)
 
 describe('getHouseholdMembership', () => {
   beforeEach(() => {
@@ -134,5 +144,71 @@ describe('isUserSoleOwnerWithOtherMembers', () => {
     expect(mockCount).toHaveBeenCalledWith({
       where: { householdId: 'household-456' },
     })
+  })
+})
+
+describe('listHouseholdMembers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const joinedAt = new Date('2026-01-01T00:00:00.000Z')
+
+  function memberRow(overrides: Record<string, unknown>) {
+    return {
+      id: 'member-1',
+      householdId: 'household-123',
+      userId: null,
+      name: 'Kid',
+      role: 'member',
+      joinedAt,
+      user: null,
+      preferences: null,
+      invite: null,
+      ...overrides,
+    }
+  }
+
+  it('reads the household roster oldest member first', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await listHouseholdMembers('household-123')
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { householdId: 'household-123' },
+        orderBy: { joinedAt: 'asc' },
+      }),
+    )
+  })
+
+  it('maps an unexpired invite to an active invite URL', async () => {
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+    mockFindMany.mockResolvedValue([memberRow({ invite: { code: 'abc123', expiresAt } })] as never)
+
+    const [member] = await listHouseholdMembers('household-123')
+
+    expect(member?.invite).toEqual({
+      url: 'https://wobblepot.test/invite/abc123',
+      expiresAt: expiresAt.toISOString(),
+      isActive: true,
+    })
+  })
+
+  it('marks an expired invite inactive', async () => {
+    const expiresAt = new Date(Date.now() - 60 * 1000)
+    mockFindMany.mockResolvedValue([memberRow({ invite: { code: 'old', expiresAt } })] as never)
+
+    const [member] = await listHouseholdMembers('household-123')
+
+    expect(member?.invite?.isActive).toBe(false)
+  })
+
+  it('returns null invite and preferences when the member has neither', async () => {
+    mockFindMany.mockResolvedValue([memberRow({})] as never)
+
+    const [member] = await listHouseholdMembers('household-123')
+
+    expect(member).toMatchObject({ id: 'member-1', name: 'Kid', invite: null, preferences: null })
   })
 })

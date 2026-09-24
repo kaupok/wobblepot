@@ -12,8 +12,7 @@ import { EditMemberPreferencesDialog } from './EditMemberPreferencesDialog'
 import { MemberInviteDialog } from './MemberInviteDialog'
 import type { Member } from '@/types/member'
 import { FieldError } from '@/components/FieldError'
-
-const MEMBERS_QUERY_KEY = ['household-members']
+import { MEMBERS_QUERY_KEY, type MembersResponse } from './members-query'
 
 interface MemberListProps {
   isOwner: boolean
@@ -46,7 +45,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
     error,
   } = useQuery({
     queryKey: MEMBERS_QUERY_KEY,
-    queryFn: () => apiFetch<{ members: Member[] }>('/api/households/me/members'),
+    queryFn: () => apiFetch<MembersResponse>('/api/households/me/members'),
     select: (data) => data.members,
   })
 

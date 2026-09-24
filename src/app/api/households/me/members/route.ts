@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+import { getHouseholdMembership, listHouseholdMembers } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
-import { getServerBaseURL } from '@/lib/env'
 import { captureApiError } from '@/lib/errors'
 import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
 
@@ -57,66 +56,9 @@ export async function GET() {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    const members = await prisma.householdMember.findMany({
-      where: { householdId: householdMembership.householdId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-        preferences: true,
-        invite: true,
-      },
-      orderBy: { joinedAt: 'asc' },
-    })
-
-    const baseUrl = getServerBaseURL()
-    const now = new Date()
-
     return NextResponse.json({
       householdId: householdMembership.householdId,
-      members: members.map((member) => {
-        // Compute invite status
-        let invite = null
-        if (member.invite) {
-          // Expiry alone: an invite that still has a row has not been used,
-          // because claiming one deletes it (HON-680).
-          const isExpired = member.invite.expiresAt < now
-          invite = {
-            url: `${baseUrl}/invite/${member.invite.code}`,
-            expiresAt: member.invite.expiresAt.toISOString(),
-            isActive: !isExpired,
-          }
-        }
-
-        return {
-          id: member.id,
-          userId: member.userId,
-          name: member.name,
-          role: member.role,
-          joinedAt: member.joinedAt,
-          user: member.user,
-          preferences: member.preferences
-            ? {
-                displayName: member.preferences.displayName,
-                portionMultiplier: member.preferences.portionMultiplier,
-                targetCalories: member.preferences.targetCalories,
-                targetProtein: member.preferences.targetProtein,
-                targetCarbs: member.preferences.targetCarbs,
-                targetFat: member.preferences.targetFat,
-                dietaryType: member.preferences.dietaryType,
-                allergens: member.preferences.allergens,
-                restrictions: member.preferences.restrictions,
-                excludedIngredients: member.preferences.excludedIngredients,
-              }
-            : null,
-          invite,
-        }
-      }),
+      members: await listHouseholdMembers(householdMembership.householdId),
     })
   } catch (error) {
     captureApiError(error, { route: '/api/households/me/members', userId: session.user.id })
