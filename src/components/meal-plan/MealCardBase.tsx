@@ -45,8 +45,10 @@ interface MealCardBaseProps {
   /**
    * When the ingredient list shows. `'md-up'` hides it below `md`, for the
    * recipe library, where the list is uncoloured names only and makes a phone
-   * card nearly two screens tall (HON-784). The alternatives grid and imagine
-   * panel keep `'always'`: there the list is colour-coded against the pantry.
+   * card nearly two screens tall (HON-784). The alternatives grid keeps
+   * `'always'`, because there the list is colour-coded against the pantry. The
+   * imagine panel and results keep it too, left unchanged by HON-784's scope
+   * decision even though they pass no pantry data.
    */
   ingredients?: 'always' | 'md-up'
   /**

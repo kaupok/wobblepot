@@ -50,7 +50,7 @@ export const IngredientsAlways: Story = {
     docs: {
       description: {
         story:
-          'The default. The alternatives grid and the imagine panel keep the ingredient list at every width, because there it is colour-coded against the pantry and is how a household picks between swaps.',
+          'The default. The alternatives grid keeps the ingredient list at every width, because there it is colour-coded against the pantry and is how a household picks between swaps. The imagine panel and results also keep the default.',
       },
     },
   },
