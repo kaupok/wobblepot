@@ -346,6 +346,7 @@ export function ShoppingSection({
             neededQuantity: 1, // Actual value doesn't matter for display, just needs to be > 0
             neededDisplayQuantity: shoppingItem.displayQuantity,
             windowDays,
+            isVague: shoppingItem.isVague,
           }),
         }
         onItemPurchased(enhancedPantryItem)
@@ -412,9 +413,16 @@ export function ShoppingSection({
       <ShoppingListHeader
         windowDays={windowDays}
         summary={
+          // Each separator is kept on the line of the fragment after it, so a
+          // phone-width wrap never starts a line with "·" (HON-783).
           <>
-            {getWindowLabel()} · {tShopping('itemCount', { count: totalItems })} ·{' '}
-            {tShopping('purchasedTail', { count: totalPurchased })}
+            {getWindowLabel()}{' '}
+            <span className="whitespace-nowrap">
+              · {tShopping('itemCount', { count: totalItems })}
+            </span>{' '}
+            <span className="whitespace-nowrap">
+              · {tShopping('purchasedTail', { count: totalPurchased })}
+            </span>
           </>
         }
       >

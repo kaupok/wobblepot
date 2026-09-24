@@ -252,10 +252,14 @@ export function PantryItemRow({
             item.neededDisplayQuantity &&
             item.windowDays !== undefined && (
               <Body variant="caption">
-                {tPantry('neededInWindow', {
-                  quantity: item.neededDisplayQuantity,
-                  days: item.windowDays,
-                })}
+                {/* A vague quantity's display is the phrase itself, so it would
+                    read "to taste needed in…" — drop it instead (HON-783). */}
+                {item.isVague
+                  ? tPantry('neededInWindowVague', { days: item.windowDays })
+                  : tPantry('neededInWindow', {
+                      quantity: item.neededDisplayQuantity,
+                      days: item.windowDays,
+                    })}
               </Body>
             )}
         </div>

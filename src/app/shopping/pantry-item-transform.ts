@@ -13,8 +13,6 @@ export interface PantryApiItem extends Omit<PantryItemData, 'updatedAt'> {
   updatedAt: string | Date
   /** Duplicates `ingredient.id`. */
   ingredientId: string
-  /** Only present alongside the window fields; no pantry surface styles on it. */
-  isVague?: boolean
 }
 
 /**
@@ -23,12 +21,13 @@ export interface PantryApiItem extends Omit<PantryItemData, 'updatedAt'> {
  *
  * Written as a rest-spread on purpose, for the same reason as
  * `toShoppingItemData`: the enumerated projection it replaces silently dropped
- * `isVague`, the exact shape of defect HON-631 fixed on the shopping side.
+ * `isVague`, the exact shape of defect HON-631 fixed on the shopping side — and
+ * the pantry row now reads it too (HON-783).
  * Removing named fields, rather than listing kept ones, means the next field
  * added to `PantryItemData` arrives without a second edit here (HON-656).
  */
 export function toPantryItemData(item: PantryApiItem): PantryItemData {
-  const { ingredientId: _ingredientId, isVague: _isVague, updatedAt, ...itemData } = item
+  const { ingredientId: _ingredientId, updatedAt, ...itemData } = item
   return {
     ...itemData,
     updatedAt: typeof updatedAt === 'string' ? updatedAt : updatedAt.toISOString(),
