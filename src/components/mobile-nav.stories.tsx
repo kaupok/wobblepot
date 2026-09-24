@@ -50,12 +50,18 @@ function rowNames(nav: HTMLElement): string[] {
 // measured, since the class names alone cannot show the rows fill it.
 const TOUCH_FLOOR_PX = 44
 
+// Layout reports fractional pixels: a 44px box can measure 43.99997 in CI.
+// Round to 0.01px so float noise does not fail the floor.
+const px = (value: number) => Math.round(value * 100) / 100
+
 function assertTouchTargets(nav: HTMLElement) {
   const scoped = within(nav)
   const rows = [...scoped.queryAllByRole('link'), ...scoped.queryAllByRole('button')]
   const close = within(document.body).getByRole('button', { name: 'Close' })
   for (const el of [...rows, close]) {
-    const { height, width } = el.getBoundingClientRect()
+    const rect = el.getBoundingClientRect()
+    const height = px(rect.height)
+    const width = px(rect.width)
     expect(height, `${el.textContent?.trim()} height`).toBeGreaterThanOrEqual(TOUCH_FLOOR_PX)
     if (el === close) expect(width, 'Close width').toBeGreaterThanOrEqual(TOUCH_FLOOR_PX)
   }

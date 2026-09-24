@@ -34,12 +34,23 @@ interface MealCardBaseProps {
   /** When provided, ingredients are color-coded by pantry availability */
   pantryIngredients?: PantryIngredient[]
   /**
-   * HTML tag for the meal name. The visual level is always the `h4` title size;
-   * this only moves the tag in the document outline. Pass `h3` when the card is
-   * rendered directly under a Dialog title (an `h2`) so axe's heading-order rule
-   * stays valid.
+   * HTML tag for the meal name. The visual level is always Section: a card sits
+   * under a page or dialog title and never repeats the Title size (HON-784,
+   * docs/DESIGN.md → Type scale). This only moves the tag in the document
+   * outline. `variant="section"` would otherwise render an `h2`, so pick the tag
+   * one level below the enclosing title: `h2` under a page `h1`, `h3` under a
+   * Dialog title (an `h2`), so axe's heading-order rule stays valid.
    */
   nameHeadingTag?: HeadingTag
+  /**
+   * When the ingredient list shows. `'md-up'` hides it below `md`, for the
+   * recipe library, where the list is uncoloured names only and makes a phone
+   * card nearly two screens tall (HON-784). The alternatives grid keeps
+   * `'always'`, because there the list is colour-coded against the pantry. The
+   * imagine panel and results keep it too, left unchanged by HON-784's scope
+   * decision even though they pass no pantry data.
+   */
+  ingredients?: 'always' | 'md-up'
   /**
    * The card's actions, aligned right on the name's row (docs/DESIGN.md →
    * Composition, "Actions sit on the title row"). For a `layout="bottom"`
@@ -67,6 +78,7 @@ export function MealCardBase({
   meal,
   pantryIngredients,
   nameHeadingTag = 'h4',
+  ingredients = 'always',
   titleActions,
 }: MealCardBaseProps) {
   const tDetail = useTranslations('meal-plan.detail')
@@ -81,11 +93,12 @@ export function MealCardBase({
 
   return (
     <div className="flex flex-col gap-1.5">
-      {/* 1. Meal name — wraps before the image on a tinted `MealImageCard`, full
-          width anywhere else (HON-749) */}
+      {/* 1. Meal name — Section, not Title: the page or dialog title above owns
+          that size (HON-784). Wraps before the image on a tinted
+          `MealImageCard`, full width anywhere else (HON-749) */}
       <div className="flex items-start justify-between gap-2">
         <div className={mealImageTitleWidth()}>
-          <Heading variant="h4" as={nameHeadingTag}>
+          <Heading variant="section" as={nameHeadingTag}>
             {meal.name}
           </Heading>
         </div>
@@ -138,7 +151,13 @@ export function MealCardBase({
       </div>
 
       {/* 6. Ingredient list (names only, color-coded when pantry data available) */}
-      <ul className={cn('ml-4 list-disc text-sm', !hasPantryData && 'text-muted-foreground')}>
+      <ul
+        className={cn(
+          'ml-4 list-disc text-sm',
+          !hasPantryData && 'text-muted-foreground',
+          ingredients === 'md-up' && 'hidden md:block',
+        )}
+      >
         {meal.components.map((comp) => {
           const isAvailable =
             availableIds !== null &&

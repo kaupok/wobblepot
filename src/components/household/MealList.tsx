@@ -123,10 +123,12 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
         {meals.map((meal) => (
           <MealImageCard key={meal.id} meal={meal} layout="bottom" className="flex h-full flex-col">
             <CardContent className="flex-1 p-4">
-              {/* h2: the page title is the h1 (HON-747) */}
+              {/* h2: the page title is the h1 (HON-747). No ingredient list on a
+                  phone: uncoloured names only, and it doubled the card (HON-784) */}
               <MealCardBase
                 meal={meal}
                 nameHeadingTag="h2"
+                ingredients="md-up"
                 titleActions={
                   <>
                     <Button
