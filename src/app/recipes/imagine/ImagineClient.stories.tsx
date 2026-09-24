@@ -189,6 +189,11 @@ export const WithResults: Story = {
     await canvas.findByText('Smoky red lentil stew')
     await canvas.findByText('Lentil ragù with orzo')
 
+    // The page title is the only h1, on the page background, and each result
+    // card's name sits one level below it (HON-779).
+    expect(canvas.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(canvas.getByRole('heading', { level: 2, name: 'Smoky red lentil stew' })).toBeVisible()
+
     // The stash is what a later mount restores from.
     await waitFor(() => expect(sessionStorage.getItem(STORAGE_KEY)).not.toBeNull())
   },

@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { Loader2, ArrowLeft, Sparkles, AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
@@ -318,68 +317,69 @@ export function RecipeImportClient() {
   }
 
   return (
-    <div className="min-h-screen-below-header grid place-items-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
+    <div className="container mx-auto px-4 py-8">
+      {/* A form page: a narrow column, top-aligned, no bordered page wrapper (HON-779). */}
+      <div className="flex max-w-2xl flex-col gap-6">
+        <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild className="-ml-2">
               <Link href="/recipes" aria-label={t('backAria')}>
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <Heading variant="h4">{t('title')}</Heading>
+            <Heading variant="h4" as="h1">
+              {t('title')}
+            </Heading>
           </div>
           <Body variant="muted">{t('description')}</Body>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-4">
-            <Textarea
-              value={recipeText}
-              onChange={(e) => {
-                setRecipeText(e.target.value)
-                setError('')
-                setWarning(null)
-              }}
-              placeholder={t('placeholder')}
-              rows={12}
-              className="resize-none"
-              disabled={isParsing}
-            />
-            {error && <FieldError>{error}</FieldError>}
-            {warning && (
-              <div className="border-warning/30 bg-warning-muted rounded-md border p-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="text-warning mt-0.5 h-5 w-5 shrink-0" />
-                  <div className="flex flex-col gap-3">
-                    <Body variant="paragraph" tone="warning">
-                      {warning.message}
-                    </Body>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => navigateToCreate(warning.recipe)}
-                      >
-                        {t('continueAnyway')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setWarning(null)
-                          setRecipeText('')
-                        }}
-                      >
-                        {t('tryDifferent')}
-                      </Button>
-                    </div>
+        </div>
+        <div className="flex flex-col gap-4">
+          <Textarea
+            value={recipeText}
+            onChange={(e) => {
+              setRecipeText(e.target.value)
+              setError('')
+              setWarning(null)
+            }}
+            placeholder={t('placeholder')}
+            rows={12}
+            className="resize-none"
+            disabled={isParsing}
+          />
+          {error && <FieldError>{error}</FieldError>}
+          {warning && (
+            <div className="border-warning/30 bg-warning-muted rounded-md border p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="text-warning mt-0.5 h-5 w-5 shrink-0" />
+                <div className="flex flex-col gap-3">
+                  <Body variant="paragraph" tone="warning">
+                    {warning.message}
+                  </Body>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => navigateToCreate(warning.recipe)}
+                    >
+                      {t('continueAnyway')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setWarning(null)
+                        setRecipeText('')
+                      }}
+                    >
+                      {t('tryDifferent')}
+                    </Button>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-3">
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col gap-3">
           <Button
             onClick={handleParse}
             disabled={isParsing || !recipeText.trim()}
@@ -416,8 +416,8 @@ export function RecipeImportClient() {
               </Link>
             </Body>
           )}
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
