@@ -15,7 +15,8 @@ export default function HouseholdLoading() {
             <Skeleton className="h-touch w-full md:h-10" />
             <Skeleton className="h-touch w-full md:h-10" />
           </div>
-          <Skeleton className="h-touch w-24 md:h-10" />
+          {/* Save settings: full width on a phone, label-sized from md (HON-782) */}
+          <Skeleton className="h-touch w-full md:h-10 md:w-28" />
         </div>
 
         {/* Right column: Members */}
