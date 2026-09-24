@@ -15,8 +15,8 @@ export default function RecipeImportLoading() {
         {/* Textarea (12 rows) */}
         <Skeleton className="h-72 w-full" />
 
-        {/* Submit button */}
-        <Skeleton className="h-touch w-full md:h-10" />
+        {/* Submit button: full width on a phone, label-sized from md (HON-782) */}
+        <Skeleton className="h-touch w-full md:h-10 md:w-32" />
       </div>
     </div>
   )

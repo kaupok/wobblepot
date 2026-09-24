@@ -174,3 +174,28 @@ export const SubmitValidatesRequiredFields: Story = {
     await waitFor(() => expect(args.onSuccess).not.toHaveBeenCalled())
   },
 }
+
+export const Desktop: Story = {
+  args: { defaultServings: 4 },
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Desktop width. Cancel and "Create meal" are label-sized at the start of the column; on a phone they share the row two-up (HON-782).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const cancel = canvas.getByRole('button', { name: 'Cancel' })
+    const create = canvas.getByRole('button', { name: 'Create meal' })
+    const row = create.parentElement!.getBoundingClientRect()
+    await expect(cancel.getBoundingClientRect().left).toBe(row.left)
+    await expect(create.getBoundingClientRect().left).toBeGreaterThan(
+      cancel.getBoundingClientRect().left,
+    )
+    // On a phone the grid puts Create flush with the row's right edge; from md it is not
+    await expect(create.getBoundingClientRect().right).toBeLessThan(row.right)
+  },
+}

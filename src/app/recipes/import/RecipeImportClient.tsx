@@ -383,7 +383,7 @@ export function RecipeImportClient() {
           <Button
             onClick={handleParse}
             disabled={isParsing || !recipeText.trim()}
-            className="w-full"
+            className="w-full md:w-auto md:self-start"
           >
             {isParsing ? (
               <>

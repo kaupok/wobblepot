@@ -467,7 +467,7 @@ export function HouseholdSettingsForm({
           <div className="flex flex-col gap-4 pt-2">
             {error && <FieldError id="form-error">{error}</FieldError>}
             {isOwner && (
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full md:w-auto md:self-start" disabled={isLoading}>
                 {isLoading ? tSettings('saving') : tSettings('saveButton')}
               </Button>
             )}

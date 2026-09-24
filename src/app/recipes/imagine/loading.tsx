@@ -15,8 +15,8 @@ export default function ImagineRecipeLoading() {
         {/* Prompt textarea (3 rows) */}
         <Skeleton className="h-24 w-full" />
 
-        {/* Generate button */}
-        <Skeleton className="h-touch w-full md:h-10" />
+        {/* Generate button: full width on a phone, label-sized from md (HON-782) */}
+        <Skeleton className="h-touch w-full md:h-10 md:w-36" />
       </div>
     </div>
   )

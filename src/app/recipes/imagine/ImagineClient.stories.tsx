@@ -326,3 +326,21 @@ export const ReviewTimeoutStillOpensDialog: Story = {
     await expect(canvas.queryByText(/too long/i)).not.toBeInTheDocument()
   },
 }
+
+export const Desktop: Story = {
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Desktop width. "Imagine meals" is as wide as its label and starts at the column edge; on a phone it fills the column (HON-782).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: /imagine meals/i })
+    await expect(button.getBoundingClientRect().width).toBeLessThan(
+      button.parentElement!.getBoundingClientRect().width,
+    )
+  },
+}

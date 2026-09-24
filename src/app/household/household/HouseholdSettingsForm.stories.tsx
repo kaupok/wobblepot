@@ -164,3 +164,22 @@ export const NonOwner: Story = {
     await expect(canvas.queryByRole('button', { name: 'Save settings' })).not.toBeInTheDocument()
   },
 }
+
+export const Desktop: Story = {
+  args: Default.args,
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Desktop width. "Save settings" is as wide as its label and starts at the column edge; on a phone it fills the column (HON-782).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: 'Save settings' })
+    await expect(button.getBoundingClientRect().width).toBeLessThan(
+      button.parentElement!.getBoundingClientRect().width,
+    )
+  },
+}

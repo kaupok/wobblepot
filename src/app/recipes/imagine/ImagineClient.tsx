@@ -272,7 +272,7 @@ export function ImagineClient() {
             disabled={
               isGenerating || reviewingMealId !== null || (!prompt.trim() && images.length === 0)
             }
-            className="w-full"
+            className="w-full md:w-auto md:self-start"
           >
             {isGenerating ? (
               <>
@@ -287,7 +287,12 @@ export function ImagineClient() {
             )}
           </Button>
           {isGenerating && (
-            <Button variant="ghost" size="sm" onClick={handleCancel}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              className="w-full md:w-auto md:self-start"
+            >
               {t('cancel')}
             </Button>
           )}
