@@ -145,8 +145,11 @@ export const Desktop: Story = {
   },
   play: async ({ canvasElement }) => {
     const button = within(canvasElement).getByRole('button', { name: 'Generate meal plan' })
-    await expect(button.getBoundingClientRect().width).toBeLessThan(
-      button.parentElement!.getBoundingClientRect().width,
-    )
+    // Compare against the content box: CardContent's px-6 would make a
+    // full-width button narrower than the parent's border box too.
+    const parent = button.parentElement!
+    const { paddingLeft, paddingRight } = getComputedStyle(parent)
+    const contentWidth = parent.clientWidth - parseFloat(paddingLeft) - parseFloat(paddingRight)
+    await expect(button.getBoundingClientRect().width).toBeLessThan(contentWidth)
   },
 }
