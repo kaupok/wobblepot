@@ -216,7 +216,7 @@ export function TimelineView({
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="lg:grid-cols-timeline grid gap-6">
+      <div className="lg:grid-cols-timeline grid gap-8">
         {/* Left column: Timeline. `gap-8` between days, wider than the `gap-2`
             between one day's cards, so the days read as groups. */}
         <div className="flex flex-col gap-8">

@@ -139,14 +139,6 @@
   grid-template-columns: 1fr 320px;
 }
 
-/* A shopping row on the Today card: name, quantity, due tag. Rows share the
-   columns through `grid-cols-subgrid`, so the tag column is as wide as the
-   widest tag in the list and every quantity ends at the same x, whatever the
-   locale's "Today" / "Tomorrow" measure (HON-762). */
-@utility grid-cols-shopping-row {
-  grid-template-columns: minmax(0, 1fr) auto auto;
-}
-
 /* The one page width (docs/DESIGN.md → Composition rules → "One page width",
    HON-376), shared by the main column and the footer row. The header's pills
    sit at the viewport's edges instead (src/components/header-chrome.tsx).
@@ -213,6 +205,12 @@
   --meal-muted-c: 0.03;
   --meal-chip-l: 0.9;
   --meal-chip-c: 0.11;
+  /* The shopping note's sheet: paler than a meal tint, so beside the white
+     meal cards it reads as paper rather than a fourth coloured card. Dark text
+     on a lighter surface only gains contrast, so the meal-tint pairings the
+     test measures stay the floor. */
+  --note-surface-l: 0.985;
+  --note-surface-c: 0.025;
 }
 
 .dark {
@@ -268,6 +266,9 @@
   --meal-muted-c: 0.02;
   --meal-chip-l: 0.27;
   --meal-chip-c: 0.11;
+  /* No paler note in the dark: a lighter sheet there would glow. */
+  --note-surface-l: 0.35;
+  --note-surface-c: 0.035;
 }
 
 /* A meal's tinted surface: a meal card or the modal hero with an image and an
@@ -300,12 +301,15 @@
     --meal-chip-c: 0;
   }
 
-  /* A paper note — the shopping summary on Today (`UrgentShopping`). The same
-     lightness and chroma as a meal tint, at a fixed yellow hue, so every
-     text and chip pairing inside it is one src/lib/meal-tint.test.ts already
-     measures; it also takes the meal surface's transparent edge below. */
+  /* A paper note — the shopping summary on Today (`UrgentShopping`). A fixed
+     yellow hue on a sheet paler than a meal tint (`--note-surface-*`), with
+     the tint's own text and chip values, so every pairing inside it is at
+     least as legible as one src/lib/meal-tint.test.ts measures; it also
+     takes the meal surface's transparent edge below. */
   [data-surface='note'] {
     --meal-hue: 95;
+    --meal-surface-l: var(--note-surface-l);
+    --meal-surface-c: var(--note-surface-c);
   }
 
   [data-meal-surface],

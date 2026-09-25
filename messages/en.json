@@ -133,7 +133,7 @@
     "alreadyInPantry": "{name} is already in your pantry"
   },
   "today": {
-    "shoppingTitle": "Shopping",
+    "shoppingTitle": "Shopping list",
     "viewFullList": "View full list",
     "allSet": "You're all set for the next 2 days",
     "summaryToday": "{count} for today",

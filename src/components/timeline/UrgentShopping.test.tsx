@@ -78,18 +78,58 @@ describe('UrgentShopping', () => {
     expect(names).toEqual(['Zucchini', 'Apple'])
   })
 
-  // HON-762: needing something today is urgency, not failure (DESIGN.md → Color).
-  it('marks today with the warning token and leaves tomorrow muted', () => {
+  it('groups items into a Today and a Tomorrow list instead of tagging each row', () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
-        <UrgentShopping items={[item('Apple', 'tomorrow'), item('Zucchini', 'today')]} />
+        <UrgentShopping
+          items={[item('Apple', 'tomorrow'), item('Zucchini', 'today'), item('Tomato', 'today')]}
+        />
       </NextIntlClientProvider>,
     )
 
-    const today = screen.getByText('Today')
-    expect(today).toHaveClass('text-warning')
-    expect(today).not.toHaveClass('text-destructive')
-    expect(screen.getByText('Tomorrow')).toHaveClass('text-muted-foreground')
+    const rowsOf = (list: HTMLElement) =>
+      within(list)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent)
+    const lists = screen.getAllByRole('list')
+    expect(lists).toHaveLength(2)
+    expect(rowsOf(screen.getByRole('list', { name: 'Today' }))).toEqual([
+      'Tomato1 pc',
+      'Zucchini1 pc',
+    ])
+    expect(rowsOf(screen.getByRole('list', { name: 'Tomorrow' }))).toEqual(['Apple1 pc'])
+    expect(lists.indexOf(screen.getByRole('list', { name: 'Today' }))).toBe(0)
+    // The day is said once, as the list's label: no per-row due tag, and no
+    // heading that would outrank the meal days' `h5`s in the page outline.
+    expect(screen.getAllByText('Today')).toHaveLength(1)
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
+  })
+
+  it('shows only the label for the one day that has items', () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <UrgentShopping items={[item('Apple', 'tomorrow')]} />
+      </NextIntlClientProvider>,
+    )
+
+    expect(screen.getByRole('list', { name: 'Tomorrow' })).toBeInTheDocument()
+    expect(screen.queryByText('Today')).not.toBeInTheDocument()
+  })
+
+  it('titles the panel "Shopping list" with neither a summary line nor an item count', () => {
+    const { container } = render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <UrgentShopping items={items} />
+      </NextIntlClientProvider>,
+    )
+
+    expect(screen.getByText('Shopping list')).toBeInTheDocument()
+    expect(screen.queryByText(/^Need /)).not.toBeInTheDocument()
+    expect(container.querySelector('.text-warning')).toBeNull()
+    expect(screen.getByRole('link', { name: 'View full list' })).toHaveAttribute(
+      'href',
+      '/shopping',
+    )
   })
 
   describe('compact (HON-766)', () => {
@@ -108,33 +148,23 @@ describe('UrgentShopping', () => {
       )
     }
 
-    function summaryOf(container: HTMLElement) {
-      const view = within(container)
-      return {
-        count: container.querySelector('.text-warning')?.textContent,
-        summary: view.getByText(/^Need /).textContent,
-        link: view.getByRole('link', { name: 'View full list' }).getAttribute('href'),
-      }
-    }
-
-    it('shows the same count, summary and link as the full panel', () => {
-      const full = renderForm(fixture, false)
-      const expected = summaryOf(full.container)
-      full.unmount()
-
+    // The phone form has no list, so the summary line is the whole message;
+    // the item count that used to sit beside the title is gone from both forms.
+    it('shows the summary and the link, but no item count', () => {
       const { container } = renderForm(fixture, true)
-      expect(summaryOf(container)).toEqual(expected)
-      expect(expected).toEqual({
-        count: '3',
-        summary: 'Need 2 for today, 1 for tomorrow',
-        link: '/shopping',
-      })
+
+      expect(screen.getByText('Need 2 for today, 1 for tomorrow')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'View full list' })).toHaveAttribute(
+        'href',
+        '/shopping',
+      )
+      expect(container.querySelector('.text-warning')).toBeNull()
     })
 
     it('leaves out the item list and the purchased section', () => {
       renderForm(fixture, true)
 
-      expect(screen.getByText('Shopping')).toBeInTheDocument()
+      expect(screen.getByText('Shopping list')).toBeInTheDocument()
       expect(screen.queryByRole('list')).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /purchased/i })).not.toBeInTheDocument()
     })

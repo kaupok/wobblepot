@@ -21,7 +21,6 @@ const UNCLASSIFIED_LAYOUT = [
   'scroll-mt-below-header',
   'max-h-dialog',
   'grid-cols-timeline',
-  'grid-cols-shopping-row',
   'max-w-page',
 ]
 const LAYOUT = ['layout', ...UNCLASSIFIED_LAYOUT]
