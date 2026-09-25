@@ -96,8 +96,9 @@
    Adding one here without adding it there fails utils.test.ts. */
 
 /* Fills the viewport below the fixed header. The 4rem is the header's own
-   h-16 row (src/components/header.tsx); its safe-area top padding sits outside
-   this, exactly as the 25 hand-written copies had it. */
+   band — its pt-4 offset plus the h-12 pill (src/components/header-chrome.tsx);
+   its safe-area top padding sits outside this, exactly as the 25 hand-written
+   copies had it. */
 @utility min-h-screen-below-header {
   min-height: calc(100vh - 4rem);
 }
@@ -109,9 +110,10 @@
 }
 
 /* Clears the fixed header when an element is scrolled to with
-   `scrollIntoView({ block: 'start' })`: the header's h-16 row, its safe-area top
-   padding, and 1rem of breathing room so the target's heading is not flush
-   against the header's border. Used by the timeline's past days (HON-691). */
+   `scrollIntoView({ block: 'start' })`: the header's 4rem band (pt-4 offset plus
+   the h-12 pill), its safe-area top padding, and 1rem of breathing room so the
+   target's heading is not flush against the pill. Used by the timeline's past
+   days (HON-691). */
 @utility scroll-mt-below-header {
   scroll-margin-top: calc(5rem + env(safe-area-inset-top, 0px));
 }

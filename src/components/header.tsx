@@ -1,37 +1,22 @@
-import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
-import { Heading } from '@/components/ui/typography'
 import { getSession, getHasHousehold } from '@/lib/session'
-import { HeaderActions } from './header-actions'
-import { NavigationLeft, NavigationRight } from './navigation'
-import { MobileNav } from './mobile-nav'
+import { HeaderChrome } from './header-chrome'
 
+/**
+ * Resolves the session and hands it to `HeaderChrome`, which owns the markup.
+ * Split this way because `getSession()` and `getHasHousehold()` import Prisma
+ * transitively, so the chrome could not otherwise be mounted in Storybook.
+ */
 export async function Header() {
   const session = await getSession()
   const hasHousehold = session ? await getHasHousehold(session.user.id) : false
   const t = await getTranslations('nav')
 
   return (
-    <header className="bg-background fixed top-0 right-0 left-0 z-50 border-b pt-[env(safe-area-inset-top,0px)]">
-      <a
-        href="#main-content"
-        className="focus:bg-background focus:text-foreground sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-4 focus:py-2 focus:ring-2 focus:ring-offset-2"
-      >
-        {t('skipToContent')}
-      </a>
-      <div className="max-w-page mx-auto flex h-16 w-full items-center justify-between px-4">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="transition-opacity hover:opacity-70">
-            <Heading variant="h4">Wobblepot</Heading>
-          </Link>
-          <NavigationLeft isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
-        </div>
-        <div className="flex items-center gap-8">
-          <NavigationRight isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
-          <HeaderActions session={session} hasHousehold={hasHousehold} />
-          <MobileNav session={session} hasHousehold={hasHousehold} />
-        </div>
-      </div>
-    </header>
+    <HeaderChrome
+      session={session}
+      hasHousehold={hasHousehold}
+      skipToContentLabel={t('skipToContent')}
+    />
   )
 }
