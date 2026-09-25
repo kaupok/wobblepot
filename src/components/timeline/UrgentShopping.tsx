@@ -4,7 +4,7 @@ import { useId, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
@@ -59,13 +59,22 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
   const unpurchasedItems = urgentItems.filter((item) => !item.purchased)
   const purchasedItems = urgentItems.filter((item) => item.purchased)
 
+  // The link sits on the title row in every form (DESIGN.md → "Actions sit on
+  // the title row"), not in a footer under the list.
+  const titleRow = (
+    <div className="flex items-center justify-between gap-2">
+      <CardTitle>{tToday('shoppingTitle')}</CardTitle>
+      <Button variant="ghost" size="sm" asChild>
+        <Link href="/shopping">{tToday('viewFullList')}</Link>
+      </Button>
+    </div>
+  )
+
   if (unpurchasedItems.length === 0) {
     if (compact) return null
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>{tToday('shoppingTitle')}</CardTitle>
-        </CardHeader>
+        <CardHeader>{titleRow}</CardHeader>
         <CardContent>
           <div className="flex flex-col items-center gap-2 py-6 text-center">
             <span className="bg-success-muted flex h-10 w-10 items-center justify-center rounded-full">
@@ -74,25 +83,13 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
             <Body variant="muted">{tToday('allSet')}</Body>
           </div>
         </CardContent>
-        <CardFooter>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/shopping">{tToday('viewFullList')}</Link>
-          </Button>
-        </CardFooter>
       </Card>
     )
   }
 
-  const viewFullList = (
-    <Button variant="ghost" size="sm" asChild>
-      <Link href="/shopping">{tToday('viewFullList')}</Link>
-    </Button>
-  )
-
-  // The phone form is one tight block, so its link sits on the title row
-  // (DESIGN.md → "Actions sit on the title row") rather than in a footer. It
-  // has no item list, so the "Need 2 for today, 1 for tomorrow" line is the
-  // whole message; the full panel says the same through its day groups.
+  // The phone form has no item list, so the "Need 2 for today, 1 for
+  // tomorrow" line is the whole message; the full panel says the same through
+  // its day groups.
   if (compact) {
     const todayCount = unpurchasedItems.filter((item) => item.urgency === 'today').length
     const tomorrowCount = unpurchasedItems.filter((item) => item.urgency === 'tomorrow').length
@@ -107,12 +104,7 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
 
     return (
       <Card size="sm" data-surface="note">
-        <CardHeader>
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle>{tToday('shoppingTitle')}</CardTitle>
-            {viewFullList}
-          </div>
-        </CardHeader>
+        <CardHeader>{titleRow}</CardHeader>
         <CardContent>
           <Body variant="muted">{summary}</Body>
         </CardContent>
@@ -134,9 +126,7 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
     // The note surface (globals.css → `[data-surface='note']`): the list is
     // the note on the fridge door, a pale yellow sheet rather than a card.
     <Card data-surface="note">
-      <CardHeader>
-        <CardTitle>{tToday('shoppingTitle')}</CardTitle>
-      </CardHeader>
+      <CardHeader>{titleRow}</CardHeader>
       <CardContent>
         <div className="flex flex-col gap-4">
           {groups.map((group) => (
@@ -190,7 +180,6 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
           )}
         </div>
       </CardContent>
-      <CardFooter>{viewFullList}</CardFooter>
     </Card>
   )
 }
