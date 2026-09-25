@@ -152,6 +152,13 @@ const config = defineConfig([
             // the same thing: `transition-colors` drops box-shadow and
             // `transition-shadow` drops colour — they replace, not compose.
             'transition-[color,box-shadow]',
+            // The header's fold (src/components/header-chrome.tsx): the logo's
+            // box narrows, the pill's padding and the wrapper's margin close
+            // up, the text fades, and visibility flips at the end to take the
+            // hidden link out of the tab order. DESIGN.md → Motion asks for the
+            // properties by name rather than `transition-all`, and no stock
+            // `transition-*` utility lists this set.
+            'transition-[max-width,padding,margin,opacity,visibility]',
           ],
         },
       ],

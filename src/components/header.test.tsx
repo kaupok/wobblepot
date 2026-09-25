@@ -193,6 +193,26 @@ describe('Header component', () => {
     expect(pill).toHaveClass('pointer-events-auto', 'border', 'bg-background', 'shadow-float')
   })
 
+  it('folds the logo away on scroll, from a data attribute on the banner', async () => {
+    const { getSession } = await import('@/lib/session')
+    vi.mocked(getSession).mockResolvedValue(null)
+
+    const component = await Header()
+    render(component)
+
+    // At rest: no attribute, so none of the `group-data-scrolled:` styles apply.
+    expect(screen.getByRole('banner')).toHaveClass('group')
+    expect(screen.getByRole('banner')).not.toHaveAttribute('data-scrolled')
+
+    const fold = screen.getByRole('link', { name: 'Wobblepot' }).parentElement
+    expect(fold).toHaveClass(
+      'overflow-hidden',
+      'group-data-scrolled:max-w-0',
+      'group-data-scrolled:opacity-0',
+      'group-data-scrolled:invisible',
+    )
+  })
+
   it('renders the skip link first, labelled from the nav catalog', async () => {
     const { getSession } = await import('@/lib/session')
     vi.mocked(getSession).mockResolvedValue(null)

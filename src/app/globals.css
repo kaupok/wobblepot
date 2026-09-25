@@ -148,7 +148,8 @@
 }
 
 /* The one page width (docs/DESIGN.md → Composition rules → "One page width",
-   HON-376), shared by the main column, the header row and the footer row.
+   HON-376), shared by the main column and the footer row. The header's pills
+   sit at the viewport's edges instead (src/components/header-chrome.tsx).
    Literal px on purpose: 1152px is an absolute cap, so it must not scale with
    the root font size the way the scale value `max-w-288` (= 72rem) would. */
 @utility max-w-page {

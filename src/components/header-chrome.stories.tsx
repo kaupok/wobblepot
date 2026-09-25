@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
-import { expect, within } from 'storybook/test'
+import { expect, waitFor, within } from 'storybook/test'
 import { Body, Heading } from '@/components/ui/typography'
 import { createSession } from '@/stories/fixtures'
 import { HeaderChrome } from './header-chrome'
@@ -79,6 +79,32 @@ export const LoggedIn: Story = {
     await expect(banner).toHaveStyle({ pointerEvents: 'none' })
     const logo = within(banner).getByRole('link', { name: 'Wobblepot' })
     await expect(logo.closest('div')).toHaveStyle({ pointerEvents: 'auto' })
+  },
+}
+
+export const Scrolled: Story = {
+  args: { session: authedSession, hasHousehold: true },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The fold. Scrolling past the top narrows the logo to nothing as it fades, so the daily views slide left and the pill closes around them; on a phone the whole pill draws in to a disc around the account icon. Back at the top it unfolds. The play scrolls the page both ways and asserts the `data-scrolled` attribute that drives the styles.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    const logo = within(banner).getByRole('link', { name: 'Wobblepot' })
+    await expect(banner).not.toHaveAttribute('data-scrolled')
+
+    window.scrollTo(0, 400)
+    await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
+    // Out of the tab order once folded (`invisible` after the transition).
+    await waitFor(() => expect(logo).not.toBeVisible(), { timeout: 1500 })
+
+    window.scrollTo(0, 0)
+    await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
+    await waitFor(() => expect(logo).toBeVisible(), { timeout: 1500 })
   },
 }
 
