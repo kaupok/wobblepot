@@ -19,10 +19,20 @@ import { extendTailwindMerge } from 'tailwind-merge'
  * `isAny`, so it accepts arbitrary names. Radius is **not** in that group: its
  * scale is `isTshirtSize`, so `--radius-sm/md/lg/xl` resolve only because they
  * happen to be t-shirt names, and a `--radius-card` would reproduce this bug
- * unguarded. The same holds for `--text-*`, `--shadow-*`, `--blur-*` and
- * `--container-*`.
+ * unguarded. The same holds for `--text-*`, `--blur-*` and `--container-*`;
+ * `--shadow-*` has its own list below.
  */
 export const CUSTOM_SPACING_VALUES = ['touch'] as const
+
+/**
+ * Every custom value in the `--shadow-*` family, as declared in
+ * `src/app/globals.css`. `float` is the header pills' lift (docs/DESIGN.md →
+ * Elevation). Same hole as spacing: tailwind-merge's `shadow` scale is
+ * `isTshirtSize`, so an unregistered `shadow-float` keeps both sides of
+ * `cn('shadow-float', 'shadow-md')`. Must stay in sync with `globals.css`;
+ * `utils.test.ts` fails if the two drift.
+ */
+export const CUSTOM_SHADOW_VALUES = ['float'] as const
 
 /**
  * Every custom `@utility` declared in `src/app/globals.css`, mapped to the
@@ -52,7 +62,7 @@ export const CUSTOM_UTILITY_CLASS_GROUPS = {
 
 const twMerge = extendTailwindMerge({
   extend: {
-    theme: { spacing: [...CUSTOM_SPACING_VALUES] },
+    theme: { spacing: [...CUSTOM_SPACING_VALUES], shadow: [...CUSTOM_SHADOW_VALUES] },
     // Spread rather than re-listed, so the const above is the only place a
     // utility is named. `readonly` has to be widened for tailwind-merge's type.
     classGroups: Object.fromEntries(

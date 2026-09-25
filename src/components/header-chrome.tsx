@@ -41,16 +41,16 @@ export function HeaderChrome({ session, hasHousehold, skipToContentLabel }: Head
       <div className="max-w-page mx-auto flex w-full justify-between px-4 pt-4">
         {/* One pill on a phone; from `md` it dissolves (`contents`) and the
             two groups inside become pills of their own. Each pill is opaque
-            and bordered, not shadowed: only overlays cast a shadow
-            (DESIGN.md → Elevation), and the border is the edge. */}
-        <div className="bg-background pointer-events-auto flex h-12 w-full items-center justify-between rounded-full border pr-1 pl-4 md:contents">
-          <div className="md:bg-background flex items-center gap-6 md:h-12 md:rounded-full md:border md:px-5">
+            and bordered, with the faint `shadow-float` lift that DESIGN.md →
+            Elevation allows floating chrome and nothing else in the page. */}
+        <div className="bg-background shadow-float pointer-events-auto flex h-12 w-full items-center justify-between rounded-full border pr-0.5 pl-4 md:contents">
+          <div className="md:bg-background md:shadow-float flex items-center gap-6 md:h-12 md:rounded-full md:border md:px-5">
             <Link href="/" className="transition-opacity hover:opacity-70">
               <Heading variant="h4">Wobblepot</Heading>
             </Link>
             <NavigationLeft isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
           </div>
-          <div className="md:bg-background flex items-center gap-6 md:h-12 md:rounded-full md:border md:pr-2 md:pl-5">
+          <div className="md:bg-background md:shadow-float flex items-center gap-6 md:h-12 md:rounded-full md:border md:pr-1 md:pl-5">
             <NavigationRight isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
             <HeaderActions session={session} hasHousehold={hasHousehold} />
             <MobileNav session={session} hasHousehold={hasHousehold} />

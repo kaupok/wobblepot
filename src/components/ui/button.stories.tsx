@@ -25,6 +25,7 @@ const meta = {
       control: 'select',
       options: ['default', 'sm', 'lg', 'icon', 'icon-sm', 'icon-lg', 'inline'],
     },
+    shape: { control: 'select', options: ['default', 'pill'] },
     disabled: { control: 'boolean' },
   },
   args: {
@@ -151,6 +152,33 @@ export const AllSizes: Story = {
       </Button>
     </div>
   ),
+}
+
+/**
+ * `shape="pill"` for controls inside a rounded-full surface, the header's
+ * pills: the filled sign-up, the ghost sign-in beside it, and the ghost icon
+ * discs. Wins over the `rounded-md` that `sm` restates.
+ */
+export const Pill: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-1">
+      <Button variant="ghost" size="sm" shape="pill">
+        Sign in
+      </Button>
+      <Button size="sm" shape="pill">
+        Sign up
+      </Button>
+      <Button variant="ghost" size="icon" shape="pill" aria-label="Add">
+        <Plus />
+      </Button>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    for (const button of within(canvasElement).getAllByRole('button')) {
+      await expect(button).toHaveClass('rounded-full')
+      await expect(button).not.toHaveClass('rounded-md')
+    }
+  },
 }
 
 // Press feedback (docs/DESIGN.md → Motion): every variant scales to 0.97 on

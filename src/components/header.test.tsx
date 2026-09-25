@@ -190,7 +190,7 @@ describe('Header component', () => {
     expect(header).not.toHaveClass('bg-background')
 
     const pill = screen.getByRole('link', { name: 'Wobblepot' }).closest('.rounded-full')
-    expect(pill).toHaveClass('pointer-events-auto', 'border', 'bg-background')
+    expect(pill).toHaveClass('pointer-events-auto', 'border', 'bg-background', 'shadow-float')
   })
 
   it('renders the skip link first, labelled from the nav catalog', async () => {

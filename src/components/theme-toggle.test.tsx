@@ -60,12 +60,14 @@ describe('ThemeToggle', () => {
     expect(button).toBeInTheDocument()
   })
 
-  it('renders with outline variant and icon size', () => {
+  it('renders as a ghost pill-shaped icon button', () => {
     mockUseTheme.mockReturnValue(createMockTheme('light'))
 
     render(<ThemeToggle />, { wrapper: makeWrapper('en') })
     const button = screen.getByRole('button')
-    expect(button).toHaveClass('relative')
+    expect(button).toHaveClass('relative', 'rounded-full')
+    expect(button).toHaveAttribute('data-variant', 'ghost')
+    expect(button).toHaveAttribute('data-shape', 'pill')
   })
 
   it('shows placeholder before hydration', () => {

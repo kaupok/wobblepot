@@ -81,6 +81,15 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* The lift under floating chrome — the header's pills. Wide and faint rather
+     than offset, so it reads as the pill sitting just off the page instead of
+     a card's drop shadow; the one shadow docs/DESIGN.md → Elevation allows
+     outside an overlay. Invisible on the dark background, where the pill's
+     border is its edge. A theme token rather than an @utility so Tailwind
+     classes `shadow-float` as a box-shadow and `shadcn/no-raw-colors` does not
+     read it as a shadow colour. Registered with tailwind-merge through
+     CUSTOM_SHADOW_VALUES in src/lib/utils.ts. */
+  --shadow-float: 0 0 24px 0 rgb(0 0 0 / 0.06);
 }
 
 /* Values that no Tailwind token or scale value can express, declared once here
