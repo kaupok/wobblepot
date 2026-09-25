@@ -78,7 +78,7 @@ describe('UrgentShopping', () => {
     expect(names).toEqual(['Zucchini', 'Apple'])
   })
 
-  it('groups items under a Today and a Tomorrow heading instead of tagging each row', () => {
+  it('groups items into a Today and a Tomorrow list instead of tagging each row', () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
         <UrgentShopping
@@ -87,28 +87,32 @@ describe('UrgentShopping', () => {
       </NextIntlClientProvider>,
     )
 
-    const headings = screen.getAllByRole('heading', { level: 3 })
-    expect(headings.map((h) => h.textContent)).toEqual(['Today', 'Tomorrow'])
-
     const rowsOf = (list: HTMLElement) =>
       within(list)
         .getAllByRole('listitem')
         .map((li) => li.textContent)
-    const [todayList, tomorrowList] = screen.getAllByRole('list')
-    expect(rowsOf(todayList!)).toEqual(['Tomato1 pc', 'Zucchini1 pc'])
-    expect(rowsOf(tomorrowList!)).toEqual(['Apple1 pc'])
-    // The day is said once, in the heading: no per-row due tag.
+    const lists = screen.getAllByRole('list')
+    expect(lists).toHaveLength(2)
+    expect(rowsOf(screen.getByRole('list', { name: 'Today' }))).toEqual([
+      'Tomato1 pc',
+      'Zucchini1 pc',
+    ])
+    expect(rowsOf(screen.getByRole('list', { name: 'Tomorrow' }))).toEqual(['Apple1 pc'])
+    expect(lists.indexOf(screen.getByRole('list', { name: 'Today' }))).toBe(0)
+    // The day is said once, as the list's label: no per-row due tag, and no
+    // heading that would outrank the meal days' `h5`s in the page outline.
     expect(screen.getAllByText('Today')).toHaveLength(1)
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
   })
 
-  it('shows only the heading for the one day that has items', () => {
+  it('shows only the label for the one day that has items', () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
         <UrgentShopping items={[item('Apple', 'tomorrow')]} />
       </NextIntlClientProvider>,
     )
 
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('Tomorrow')
+    expect(screen.getByRole('list', { name: 'Tomorrow' })).toBeInTheDocument()
     expect(screen.queryByText('Today')).not.toBeInTheDocument()
   })
 

@@ -21,14 +21,19 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * The full panel says each day once, as a Caption heading over its items, and
- * never as a tag on the row. Every quantity still ends at the same x.
+ * The full panel says each day once, as a Caption label naming its list, and
+ * never as a tag on the row. The label is not a heading (it would outrank the
+ * meal days' `h5`s). Every quantity still ends at the same x.
  */
 async function expectDayGroups(canvasElement: HTMLElement, days: string[]) {
   const canvas = within(canvasElement)
-  const headings = canvas.getAllByRole('heading', { level: 3 })
-  await expect(headings.map((h) => h.textContent)).toEqual(days)
-  for (const day of days) await expect(canvas.getAllByText(day)).toHaveLength(1)
+  const lists = canvas.getAllByRole('list')
+  await expect(lists).toHaveLength(days.length)
+  for (const [i, day] of days.entries()) {
+    await expect(canvas.getByRole('list', { name: day })).toBe(lists[i])
+    await expect(canvas.getAllByText(day)).toHaveLength(1)
+  }
+  await expect(canvas.queryByRole('heading')).not.toBeInTheDocument()
 
   const rows = canvas.getAllByRole('listitem')
   const [first, ...rest] = rows.map((row) => row.children[1]?.getBoundingClientRect().right)
@@ -115,7 +120,7 @@ export const TomorrowOnly: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByRole('heading', { level: 3 })).toHaveTextContent('Tomorrow')
+    await expect(canvas.getByRole('list', { name: 'Tomorrow' })).toBeVisible()
     await expect(canvas.queryByText('Today')).not.toBeInTheDocument()
   },
 }
@@ -151,7 +156,7 @@ export const Compact: Story = {
       '/shopping',
     )
     await expect(canvas.queryByRole('list')).not.toBeInTheDocument()
-    await expect(canvas.queryByRole('heading', { level: 3 })).not.toBeInTheDocument()
+    await expect(canvas.queryByText('Today')).not.toBeInTheDocument()
   },
 }
 

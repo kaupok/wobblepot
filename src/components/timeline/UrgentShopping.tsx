@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useId, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
@@ -36,6 +36,7 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
   const tToday = useTranslations('today')
   const tUrgency = useTranslations('dates.urgency')
   const locale = useLocale()
+  const labelId = useId()
   const [isPurchasedExpanded, setIsPurchasedExpanded] = useState(false)
 
   // Filter to only today and tomorrow items, sorted by urgency (today first)
@@ -119,8 +120,11 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
     )
   }
 
-  // One group per day, headed by a Caption ("Today", "Tomorrow"), so the day
+  // One group per day, labelled by a Caption ("Today", "Tomorrow"), so the day
   // is said once above its items rather than repeated as a tag on every row.
+  // The label is not a heading: the card's title is a div, and the meal days
+  // beside it are `h5`, so an `h3` here would outrank them in the outline
+  // under no heading of its own. The list is named by the label instead.
   const groups = URGENT_DAYS.map((urgency) => ({
     urgency,
     items: unpurchasedItems.filter((item) => item.urgency === urgency),
@@ -137,8 +141,10 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
         <div className="flex flex-col gap-4">
           {groups.map((group) => (
             <div key={group.urgency} className="flex flex-col gap-2">
-              <Heading variant="caption">{tUrgency(group.urgency)}</Heading>
-              <ul className="flex flex-col gap-2">
+              <Heading variant="caption" as="p" id={`${labelId}-${group.urgency}`}>
+                {tUrgency(group.urgency)}
+              </Heading>
+              <ul aria-labelledby={`${labelId}-${group.urgency}`} className="flex flex-col gap-2">
                 {group.items.map((item) => (
                   <li
                     key={item.ingredientId}
