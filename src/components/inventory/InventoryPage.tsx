@@ -67,7 +67,6 @@ export function InventoryPage({
   // header-less states (`no-plan`, `error`) and can never fire twice.
   useWindowReconcile(windowDays ?? 7, windowDaysFromUrl)
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
-  const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set())
   const [removedIngredientIds, setRemovedIngredientIds] = useState<Set<string>>(new Set())
 
   const handleItemPurchased = useCallback((newItem: PantryItemData) => {
@@ -83,16 +82,6 @@ export function InventoryPage({
       // Add new item and sort alphabetically by ingredient name
       return [...prev, newItem].sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
     })
-    // Track new items for animation
-    setNewlyAddedIds((prev) => new Set(prev).add(newItem.id))
-    // Remove from animation set after animation completes
-    setTimeout(() => {
-      setNewlyAddedIds((prev) => {
-        const next = new Set(prev)
-        next.delete(newItem.id)
-        return next
-      })
-    }, 300)
   }, [])
 
   const handleItemUnpurchased = useCallback((ingredientId: string) => {
@@ -114,15 +103,18 @@ export function InventoryPage({
     setRemovedIngredientIds(new Set())
   }, [])
 
+  // The page shell every in-app page uses (docs/DESIGN.md → Composition
+  // rules, "No page-level Card"); the two columns sit on the background with
+  // their own titles, `gap-8` apart so the seam reads as two sections rather
+  // than one grid.
   return (
-    <div className="container mx-auto max-w-6xl p-4">
-      <div className="grid gap-6 md:grid-cols-2">
+    <div className="container mx-auto px-4 py-8">
+      <div className="grid gap-8 md:grid-cols-2">
         {/* Pantry left, list right from `md`; a phone sees only `view`'s half. */}
         <div className={cn(view !== 'pantry' && 'hidden md:block')} data-testid="pantry-column">
           <PantrySection
             items={pantryItems}
             onItemsChange={setPantryItems}
-            newlyAddedIds={newlyAddedIds}
             loadFailed={pantryLoadFailed}
             onPantryItemRemoved={handlePantryItemRemoved}
           />

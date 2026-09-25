@@ -228,7 +228,7 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
       await expect(windowPicker).toBeVisible()
 
       await windowPicker.click()
-      await page.getByRole('option', { name: '14 days' }).click()
+      await page.getByRole('option', { name: 'Next 14 days' }).click()
       await expect(page).toHaveURL(/[?&]days=14\b/)
       await expect(page.getByText('Next 14 days')).toBeVisible()
       // Still the populated list, not an empty state: widening can only add.
@@ -238,7 +238,7 @@ test.describe('Shopping list → pantry handoff', { tag: '@smoke' }, () => {
 
       // Back again — the half that had no control at all before HON-624.
       await page.getByRole('combobox', { name: 'Time window' }).click()
-      await page.getByRole('option', { name: '7 days' }).click()
+      await page.getByRole('option', { name: 'Next 7 days' }).click()
       await expect(page).toHaveURL(/[?&]days=7\b/)
       await expect(page.getByText('Next 7 days')).toBeVisible()
 

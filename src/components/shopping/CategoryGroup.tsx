@@ -1,7 +1,7 @@
 'use client'
 
 import type { IngredientCategory } from '@/generated/prisma/enums'
-import { Body } from '@/components/ui/typography'
+import { GroupHeading } from '@/components/inventory/GroupHeading'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
 import { CustomShoppingItem } from './CustomShoppingItem'
@@ -60,16 +60,10 @@ export function CategoryGroup({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <Body variant="small" tone="muted">
-          {emoji} {categoryLabel} ({totalCount})
-        </Body>
-        {purchasedCount > 0 && (
-          <Body variant="muted">
-            {purchasedCount}/{totalCount}
-          </Body>
-        )}
-      </div>
+      <GroupHeading
+        label={`${emoji} ${categoryLabel} (${totalCount})`}
+        count={purchasedCount > 0 && `${purchasedCount}/${totalCount}`}
+      />
       <div className="flex flex-col gap-1">
         {items.map((item) => (
           <ShoppingItem

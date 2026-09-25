@@ -530,15 +530,25 @@ describe('ShoppingSection server render', () => {
 })
 
 describe('ShoppingSection header summary', () => {
-  // A wrap at phone width must never start a line with "·": each separator is
-  // held on the line of the fragment after it (HON-783).
-  it('keeps each separator with the fragment that follows it', () => {
+  // The picker is the only place the window is stated, and "0 purchased" says
+  // nothing the list does not already show.
+  it('states the count alone until something is purchased', () => {
     renderSection()
 
-    for (const tail of ['· 3 items', '· 0 purchased']) {
-      const fragment = screen.getByText(tail)
-      expect(fragment.tagName).toBe('SPAN')
-      expect(fragment).toHaveClass('whitespace-nowrap')
-    }
+    expect(screen.getByText('3 items')).toBeInTheDocument()
+    expect(screen.queryByText(/purchased/)).not.toBeInTheDocument()
+    // The window is stated once — in the picker — and not repeated in the summary.
+    expect(screen.getAllByText('Next 7 days')).toHaveLength(1)
+    expect(screen.getByRole('combobox', { name: 'Time window' })).toHaveTextContent('Next 7 days')
+  })
+
+  // A wrap at phone width must never start a line with "·": the separator is
+  // held on the line of the fragment after it (HON-783).
+  it('keeps the purchased tail with its separator once something is purchased', () => {
+    renderSection({ initialPurchasedIds: new Set(['v1']) })
+
+    const fragment = screen.getByText('· 1 purchased')
+    expect(fragment.tagName).toBe('SPAN')
+    expect(fragment).toHaveClass('whitespace-nowrap')
   })
 })

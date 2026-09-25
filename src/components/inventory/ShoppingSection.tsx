@@ -5,7 +5,6 @@ import { Check, Copy, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLocale, useTranslations } from 'next-intl'
 import type { IngredientCategory } from '@/generated/prisma/enums'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -14,12 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
 import { CategoryGroup, CATEGORY_EMOJI } from '@/components/shopping/CategoryGroup'
 import { UrgencyGroup, URGENCY_KEYS } from '@/components/shopping/UrgencyGroup'
 import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
+import { GroupHeading } from './GroupHeading'
 import { ShoppingEmptyState } from './ShoppingEmptyState'
 import { ShoppingListHeader } from './ShoppingListHeader'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
@@ -167,10 +166,6 @@ export function ShoppingSection({
     () => splitCustomItems(customItems),
     [customItems],
   )
-
-  const getWindowLabel = () => {
-    return windowDays === 14 ? tShopping('windowNext14') : tShopping('windowNext7')
-  }
 
   /**
    * Sections for the clipboard export, mirroring the grouping and ordering of
@@ -409,23 +404,38 @@ export function ShoppingSection({
   }
 
   return (
-    <Card className="w-full">
+    <section className="flex flex-col gap-6">
       <ShoppingListHeader
         windowDays={windowDays}
         summary={
-          // Each separator is kept on the line of the fragment after it, so a
+          // The window itself is stated by the picker, so the summary is the
+          // count and, once something is bought, the purchased tail. The
+          // separator is kept on the line of the fragment after it, so a
           // phone-width wrap never starts a line with "·" (HON-783).
           <>
-            {getWindowLabel()}{' '}
-            <span className="whitespace-nowrap">
-              · {tShopping('itemCount', { count: totalItems })}
-            </span>{' '}
-            <span className="whitespace-nowrap">
-              · {tShopping('purchasedTail', { count: totalPurchased })}
-            </span>
+            {tShopping('itemCount', { count: totalItems })}
+            {totalPurchased > 0 && (
+              <>
+                {' '}
+                <span className="whitespace-nowrap">
+                  · {tShopping('purchasedTail', { count: totalPurchased })}
+                </span>
+              </>
+            )}
           </>
         }
       >
+        {/* Label passed explicitly so the server HTML is not an empty trigger — see ShoppingListHeader. */}
+        <Select value={sortMode} onValueChange={handleSortModeChange}>
+          <SelectTrigger size="sm" className="w-37.5" aria-label={tShopping('ariaSort')}>
+            <SelectValue>{tSort(sortMode)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="category">{tSort('category')}</SelectItem>
+            <SelectItem value="urgency">{tSort('urgency')}</SelectItem>
+            <SelectItem value="alphabetical">{tSort('alphabetical')}</SelectItem>
+          </SelectContent>
+        </Select>
         {hasItemsToCopy && (
           <Button variant="quiet" size="sm" onClick={handleCopy}>
             {copied ? (
@@ -442,30 +452,34 @@ export function ShoppingSection({
             {tShopping('clearChecked')}
           </Button>
         )}
-        {/* Label passed explicitly so the server HTML is not an empty trigger — see ShoppingListHeader. */}
-        <Select value={sortMode} onValueChange={handleSortModeChange}>
-          <SelectTrigger size="sm" className="w-37.5" aria-label={tShopping('ariaSort')}>
-            <SelectValue>{tSort(sortMode)}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="category">{tSort('category')}</SelectItem>
-            <SelectItem value="urgency">{tSort('urgency')}</SelectItem>
-            <SelectItem value="alphabetical">{tSort('alphabetical')}</SelectItem>
-          </SelectContent>
-        </Select>
       </ShoppingListHeader>
-      <CardContent>
-        <div className="flex flex-col gap-6">
-          <CustomItemInput onItemAdded={handleCustomItemAdded} disabled={isPending} />
+      <div className="flex flex-col gap-6">
+        <CustomItemInput onItemAdded={handleCustomItemAdded} disabled={isPending} />
 
-          {sortMode === 'category' && (
-            <div className="flex flex-col gap-6">
-              {enhancedGroups.map((group) => (
+        {sortMode === 'category' && (
+          <div className="flex flex-col gap-6">
+            {enhancedGroups.map((group) => (
+              <CategoryGroup
+                key={group.category}
+                category={group.category}
+                items={group.items}
+                customItems={linkedCustomByCategory.get(group.category)}
+                onToggleItem={handleToggle}
+                onToggleCustomItem={handleCustomToggle}
+                onUnlinkCustomItem={handleCustomUnlink}
+                onDeleteCustomItem={handleCustomDelete}
+                pendingIds={allPendingIds}
+              />
+            ))}
+            {/* Render category groups that only have custom items (no computed items) */}
+            {Array.from(linkedCustomByCategory.entries())
+              .filter(([cat]) => !enhancedGroups.some((g) => g.category === cat))
+              .map(([category, items]) => (
                 <CategoryGroup
-                  key={group.category}
-                  category={group.category}
-                  items={group.items}
-                  customItems={linkedCustomByCategory.get(group.category)}
+                  key={category}
+                  category={category as IngredientCategory}
+                  items={[]}
+                  customItems={items}
                   onToggleItem={handleToggle}
                   onToggleCustomItem={handleCustomToggle}
                   onUnlinkCustomItem={handleCustomUnlink}
@@ -473,119 +487,92 @@ export function ShoppingSection({
                   pendingIds={allPendingIds}
                 />
               ))}
-              {/* Render category groups that only have custom items (no computed items) */}
-              {Array.from(linkedCustomByCategory.entries())
-                .filter(([cat]) => !enhancedGroups.some((g) => g.category === cat))
-                .map(([category, items]) => (
-                  <CategoryGroup
-                    key={category}
-                    category={category as IngredientCategory}
-                    items={[]}
-                    customItems={items}
-                    onToggleItem={handleToggle}
-                    onToggleCustomItem={handleCustomToggle}
-                    onUnlinkCustomItem={handleCustomUnlink}
-                    onDeleteCustomItem={handleCustomDelete}
-                    pendingIds={allPendingIds}
-                  />
-                ))}
-              {/* Unlinked custom items in "Other" section */}
-              {unlinkedCustomItems.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <Body variant="small" tone="muted">
-                      {tShopping('otherSection', { count: unlinkedCustomItems.length })}
-                    </Body>
-                    {unlinkedCustomItems.filter((i) => i.checked).length > 0 && (
-                      <Body variant="muted">
-                        {unlinkedCustomItems.filter((i) => i.checked).length}/
-                        {unlinkedCustomItems.length}
-                      </Body>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    {unlinkedCustomItems.map((item) => (
-                      <CustomShoppingItem
-                        key={item.id}
-                        item={item}
-                        onToggle={handleCustomToggle}
-                        onUnlink={handleCustomUnlink}
-                        onDelete={handleCustomDelete}
-                        pending={pendingCustomIds.has(item.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {sortMode === 'urgency' && (
-            <div className="flex flex-col gap-6">
-              {urgencyGroups.map((group) => (
-                <UrgencyGroup
-                  key={group.bucket}
-                  bucket={group.bucket}
-                  items={group.items}
-                  onToggleItem={handleToggle}
-                  pendingIds={pendingIds}
+            {/* Unlinked custom items in "Other" section */}
+            {unlinkedCustomItems.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <GroupHeading
+                  label={tShopping('otherSection', { count: unlinkedCustomItems.length })}
+                  count={
+                    unlinkedCustomItems.filter((i) => i.checked).length > 0 &&
+                    `${unlinkedCustomItems.filter((i) => i.checked).length}/${unlinkedCustomItems.length}`
+                  }
                 />
-              ))}
-              {/* In urgency mode, show all custom items in a single "Custom items" group */}
-              {customItems.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <Body variant="small" tone="muted">
-                      {tShopping('customItemsSection', { count: customItems.length })}
-                    </Body>
-                    {checkedCustomCount > 0 && (
-                      <Body variant="muted">
-                        {checkedCustomCount}/{customItems.length}
-                      </Body>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    {customItems.map((item) => (
-                      <CustomShoppingItem
-                        key={item.id}
-                        item={item}
-                        onToggle={handleCustomToggle}
-                        onUnlink={handleCustomUnlink}
-                        onDelete={handleCustomDelete}
-                        pending={pendingCustomIds.has(item.id)}
-                      />
-                    ))}
-                  </div>
+                <div className="flex flex-col gap-1">
+                  {unlinkedCustomItems.map((item) => (
+                    <CustomShoppingItem
+                      key={item.id}
+                      item={item}
+                      onToggle={handleCustomToggle}
+                      onUnlink={handleCustomUnlink}
+                      onDelete={handleCustomDelete}
+                      pending={pendingCustomIds.has(item.id)}
+                    />
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )}
 
-          {sortMode === 'alphabetical' && (
-            <div className="flex flex-col gap-1">
-              {alphabeticalItems.map((entry) =>
-                entry.kind === 'computed' ? (
-                  <ShoppingItem
-                    key={entry.item.ingredientId}
-                    item={entry.item}
-                    onToggle={handleToggle}
-                    pending={pendingIds.has(entry.item.ingredientId)}
-                  />
-                ) : (
-                  <CustomShoppingItem
-                    key={entry.item.id}
-                    item={entry.item}
-                    onToggle={handleCustomToggle}
-                    onUnlink={handleCustomUnlink}
-                    onDelete={handleCustomDelete}
-                    pending={pendingCustomIds.has(entry.item.id)}
-                  />
-                ),
-              )}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        {sortMode === 'urgency' && (
+          <div className="flex flex-col gap-6">
+            {urgencyGroups.map((group) => (
+              <UrgencyGroup
+                key={group.bucket}
+                bucket={group.bucket}
+                items={group.items}
+                onToggleItem={handleToggle}
+                pendingIds={pendingIds}
+              />
+            ))}
+            {/* In urgency mode, show all custom items in a single "Custom items" group */}
+            {customItems.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <GroupHeading
+                  label={tShopping('customItemsSection', { count: customItems.length })}
+                  count={checkedCustomCount > 0 && `${checkedCustomCount}/${customItems.length}`}
+                />
+                <div className="flex flex-col gap-1">
+                  {customItems.map((item) => (
+                    <CustomShoppingItem
+                      key={item.id}
+                      item={item}
+                      onToggle={handleCustomToggle}
+                      onUnlink={handleCustomUnlink}
+                      onDelete={handleCustomDelete}
+                      pending={pendingCustomIds.has(item.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {sortMode === 'alphabetical' && (
+          <div className="flex flex-col gap-1">
+            {alphabeticalItems.map((entry) =>
+              entry.kind === 'computed' ? (
+                <ShoppingItem
+                  key={entry.item.ingredientId}
+                  item={entry.item}
+                  onToggle={handleToggle}
+                  pending={pendingIds.has(entry.item.ingredientId)}
+                />
+              ) : (
+                <CustomShoppingItem
+                  key={entry.item.id}
+                  item={entry.item}
+                  onToggle={handleCustomToggle}
+                  onUnlink={handleCustomUnlink}
+                  onDelete={handleCustomDelete}
+                  pending={pendingCustomIds.has(entry.item.id)}
+                />
+              ),
+            )}
+          </div>
+        )}
+      </div>
+    </section>
   )
 }

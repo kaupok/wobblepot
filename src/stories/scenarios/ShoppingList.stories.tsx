@@ -2,11 +2,10 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { useTranslations } from 'next-intl'
 import { expect, fn, within } from 'storybook/test'
-import { Card, CardContent } from '@/components/ui/card'
-import { Body } from '@/components/ui/typography'
 import { CategoryGroup } from '@/components/shopping/CategoryGroup'
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { UrgencyGroup } from '@/components/shopping/UrgencyGroup'
+import { GroupHeading } from '@/components/inventory/GroupHeading'
 import { ShoppingEmptyState } from '@/components/inventory/ShoppingEmptyState'
 import { ShoppingListHeader } from '@/components/inventory/ShoppingListHeader'
 import { WINDOW_STORAGE_KEY } from '@/components/inventory/use-shopping-window'
@@ -102,111 +101,104 @@ function ShoppingListScreen({
   const checkedUnlinkedCount = unlinkedCustomItems.filter((item) => item.checked).length
 
   return (
-    <Card className="w-full">
+    <section className="flex flex-col gap-6">
       <ShoppingListHeader
         windowDays={7}
         summary={
           <>
-            {tShopping('windowNext7')} · {tShopping('itemCount', { count: totalItems })} ·{' '}
-            {tShopping('purchasedTail', { count: totalPurchased })}
+            {tShopping('itemCount', { count: totalItems })}{' '}
+            <span className="whitespace-nowrap">
+              · {tShopping('purchasedTail', { count: totalPurchased })}
+            </span>
           </>
         }
       />
-      <CardContent>
-        <div className="flex flex-col gap-6">
-          {sort === 'urgency' ? (
-            <>
-              {URGENCY_BUCKETS.map((bucket) => (
-                <UrgencyGroup
-                  key={bucket}
-                  bucket={bucket}
-                  items={shoppingItemsByUrgency[bucket]}
-                  onToggleItem={onToggleItem}
-                />
-              ))}
-              {/* Urgency mode has no per-item date for custom items, so it
+      <div className="flex flex-col gap-6">
+        {sort === 'urgency' ? (
+          <>
+            {URGENCY_BUCKETS.map((bucket) => (
+              <UrgencyGroup
+                key={bucket}
+                bucket={bucket}
+                items={shoppingItemsByUrgency[bucket]}
+                onToggleItem={onToggleItem}
+              />
+            ))}
+            {/* Urgency mode has no per-item date for custom items, so it
                   collapses all of them into one group. */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <Body variant="small" tone="muted">
-                    {tShopping('customItemsSection', { count: customShoppingItems.length })}
-                  </Body>
-                  <Body variant="muted">
-                    {checkedCustomCount}/{customShoppingItems.length}
-                  </Body>
-                </div>
-                <div className="flex flex-col gap-1">
-                  {customShoppingItems.map((item) => (
-                    <CustomShoppingItem
-                      key={item.id}
-                      item={item}
-                      onToggle={onToggleCustomItem}
-                      onUnlink={onUnlinkCustomItem}
-                      onDelete={onDeleteCustomItem}
-                    />
-                  ))}
-                </div>
+            <div className="flex flex-col gap-2">
+              <GroupHeading
+                label={tShopping('customItemsSection', { count: customShoppingItems.length })}
+                count={`${checkedCustomCount}/${customShoppingItems.length}`}
+              />
+              <div className="flex flex-col gap-1">
+                {customShoppingItems.map((item) => (
+                  <CustomShoppingItem
+                    key={item.id}
+                    item={item}
+                    onToggle={onToggleCustomItem}
+                    onUnlink={onUnlinkCustomItem}
+                    onDelete={onDeleteCustomItem}
+                  />
+                ))}
               </div>
-            </>
-          ) : (
-            <>
-              {CATEGORY_GROUPS.map((group) => (
-                <CategoryGroup
-                  key={group.category}
-                  category={group.category}
-                  items={group.items}
-                  customItems={customShoppingItems.filter(
-                    (item) => item.ingredientCategory === group.category,
-                  )}
-                  onToggleItem={onToggleItem}
-                  onToggleCustomItem={onToggleCustomItem}
-                  onUnlinkCustomItem={onUnlinkCustomItem}
-                  onDeleteCustomItem={onDeleteCustomItem}
-                />
-              ))}
-              {customOnlyCategories.map((category) => (
-                <CategoryGroup
-                  key={category}
-                  category={category}
-                  items={[]}
-                  customItems={customShoppingItems.filter(
-                    (item) => item.ingredientCategory === category,
-                  )}
-                  onToggleItem={onToggleItem}
-                  onToggleCustomItem={onToggleCustomItem}
-                  onUnlinkCustomItem={onUnlinkCustomItem}
-                  onDeleteCustomItem={onDeleteCustomItem}
-                />
-              ))}
-              {/* Custom items with no ingredient have no category to sit in. */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <Body variant="small" tone="muted">
-                    {tShopping('otherSection', { count: unlinkedCustomItems.length })}
-                  </Body>
-                  {checkedUnlinkedCount > 0 && (
-                    <Body variant="muted">
-                      {checkedUnlinkedCount}/{unlinkedCustomItems.length}
-                    </Body>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1">
-                  {unlinkedCustomItems.map((item) => (
-                    <CustomShoppingItem
-                      key={item.id}
-                      item={item}
-                      onToggle={onToggleCustomItem}
-                      onUnlink={onUnlinkCustomItem}
-                      onDelete={onDeleteCustomItem}
-                    />
-                  ))}
-                </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {CATEGORY_GROUPS.map((group) => (
+              <CategoryGroup
+                key={group.category}
+                category={group.category}
+                items={group.items}
+                customItems={customShoppingItems.filter(
+                  (item) => item.ingredientCategory === group.category,
+                )}
+                onToggleItem={onToggleItem}
+                onToggleCustomItem={onToggleCustomItem}
+                onUnlinkCustomItem={onUnlinkCustomItem}
+                onDeleteCustomItem={onDeleteCustomItem}
+              />
+            ))}
+            {customOnlyCategories.map((category) => (
+              <CategoryGroup
+                key={category}
+                category={category}
+                items={[]}
+                customItems={customShoppingItems.filter(
+                  (item) => item.ingredientCategory === category,
+                )}
+                onToggleItem={onToggleItem}
+                onToggleCustomItem={onToggleCustomItem}
+                onUnlinkCustomItem={onUnlinkCustomItem}
+                onDeleteCustomItem={onDeleteCustomItem}
+              />
+            ))}
+            {/* Custom items with no ingredient have no category to sit in. */}
+            <div className="flex flex-col gap-2">
+              <GroupHeading
+                label={tShopping('otherSection', { count: unlinkedCustomItems.length })}
+                count={
+                  checkedUnlinkedCount > 0 &&
+                  `${checkedUnlinkedCount}/${unlinkedCustomItems.length}`
+                }
+              />
+              <div className="flex flex-col gap-1">
+                {unlinkedCustomItems.map((item) => (
+                  <CustomShoppingItem
+                    key={item.id}
+                    item={item}
+                    onToggle={onToggleCustomItem}
+                    onUnlink={onUnlinkCustomItem}
+                    onDelete={onDeleteCustomItem}
+                  />
+                ))}
               </div>
-            </>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -219,7 +211,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The `/shopping` screen as a whole, not a single component. Makes the composition rules visible: headings divide the list while only the interactive rows carry a border, every row clears the 44px touch floor, and the page title stays at the Title level. Props are fixed — see `.storybook/README.md` → "Scenario stories".',
+          'The `/shopping` screen as a whole, not a single component. Makes the composition rules visible: the column title and its group headings sit on the page background, only the interactive rows carry a border, every row clears the 44px touch floor, and the title stays at the Title level. Props are fixed — see `.storybook/README.md` → "Scenario stories".',
       },
     },
   },

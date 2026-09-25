@@ -2,10 +2,8 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { getRouter } from '@storybook/nextjs-vite/navigation.mock'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { useTranslations } from 'next-intl'
-import { Check, Copy, Trash2 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import { Copy, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
 import {
   Select,
   SelectContent,
@@ -17,37 +15,34 @@ import { ShoppingListHeader } from './ShoppingListHeader'
 import { WINDOW_STORAGE_KEY } from './use-shopping-window'
 
 interface SummaryProps {
-  windowDays: number
   total: number
   purchased: number
 }
 
-/** The summary line `ShoppingSection` passes: window · item count · purchased tail. */
-function Summary({ windowDays, total, purchased }: SummaryProps) {
+/** The summary `ShoppingSection` passes: item count, then the purchased tail once something is bought. */
+function Summary({ total, purchased }: SummaryProps) {
   const tShopping = useTranslations('shopping')
   return (
     <>
-      {windowDays === 14 ? tShopping('windowNext14') : tShopping('windowNext7')} ·{' '}
-      {tShopping('itemCount', { count: total })} ·{' '}
-      {tShopping('purchasedTail', { count: purchased })}
+      {tShopping('itemCount', { count: total })}
+      {purchased > 0 && (
+        <>
+          {' '}
+          <span className="whitespace-nowrap">
+            · {tShopping('purchasedTail', { count: purchased })}
+          </span>
+        </>
+      )}
     </>
   )
 }
 
-/** The three controls `ShoppingSection` passes as `children`, at their busiest. */
+/** The three controls `ShoppingSection` passes as `children`, at their busiest, in its order. */
 function ListControls() {
   const tShopping = useTranslations('shopping')
   const tSort = useTranslations('shopping.sort')
   return (
     <>
-      <Button variant="ghost" size="sm" className="text-muted-foreground">
-        <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-        {tShopping('copyList')}
-      </Button>
-      <Button variant="ghost" size="sm" className="text-muted-foreground">
-        <Trash2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-        {tShopping('clearChecked')}
-      </Button>
       <Select defaultValue="category">
         <SelectTrigger size="sm" className="w-37.5" aria-label={tShopping('ariaSort')}>
           <SelectValue />
@@ -58,6 +53,14 @@ function ListControls() {
           <SelectItem value="alphabetical">{tSort('alphabetical')}</SelectItem>
         </SelectContent>
       </Select>
+      <Button variant="quiet" size="sm">
+        <Copy className="mr-1 size-4" aria-hidden="true" />
+        {tShopping('copyList')}
+      </Button>
+      <Button variant="quiet" size="sm">
+        <Trash2 className="mr-1 size-4" aria-hidden="true" />
+        {tShopping('clearChecked')}
+      </Button>
     </>
   )
 }
@@ -74,7 +77,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The `CardHeader` both `/shopping` branches share. It carries the page title, the populated list's summary line, whatever controls that branch owns, and — always — the 7/14-day window picker. Putting the picker here is the point: before HON-624 it lived only in the `nothing-needed` empty state, so widening to 14 days surfaced items, swapped in `ShoppingSection`, and took the only control that could narrow it back off the screen.",
+          "The header both `/shopping` branches share, on the page background: the column title with the populated list's summary on its baseline, then one row of controls — the 7/14-day window picker first, followed by whatever the branch owns. Putting the picker here is the point: before HON-624 it lived only in the `nothing-needed` empty state, so widening to 14 days surfaced items, swapped in `ShoppingSection`, and took the only control that could narrow it back off the screen.",
       },
     },
   },
@@ -84,18 +87,6 @@ const meta = {
   args: {
     windowDays: 7,
   },
-  // Every story renders inside a Card — the header is CardHeader contents, not
-  // a standalone block, and `pt-0` on the body is what closes the gap.
-  decorators: [
-    (Story) => (
-      <Card className="w-full">
-        <Story />
-        <CardContent className="pt-0">
-          <Body variant="muted">Card body</Body>
-        </CardContent>
-      </Card>
-    ),
-  ],
 } satisfies Meta<typeof ShoppingListHeader>
 
 export default meta
@@ -106,7 +97,7 @@ export const EmptyState: Story = {
     docs: {
       description: {
         story:
-          "The shape `ShoppingEmptyState` renders for its two list-shaped variants: title and picker only. With no summary the row centres, so the picker sits on the title's optical line rather than above it.",
+          'The shape `ShoppingEmptyState` renders for its two list-shaped variants: title, then the picker alone on the controls row.',
       },
     },
   },
@@ -115,20 +106,20 @@ export const EmptyState: Story = {
     // rather than appearing after a mount effect, so it is in the server HTML
     // and does not pop in and re-wrap the row after hydration (HON-771).
     const picker = within(canvasElement).getByRole('combobox', { name: /time window/i })
-    await expect(picker).toHaveTextContent('7 days')
+    await expect(picker).toHaveTextContent('Next 7 days')
   },
 }
 
 export const Populated: Story = {
   args: {
-    summary: <Summary windowDays={7} total={12} purchased={3} />,
+    summary: <Summary total={12} purchased={3} />,
     children: <ListControls />,
   },
   parameters: {
     docs: {
       description: {
         story:
-          "`ShoppingSection`'s header at its busiest — all three list controls plus the window picker. None of them can shrink (`Button`'s cva base is `shrink-0 whitespace-nowrap`, the sort select is `w-37.5` and this one `w-25` (150px and 100px at the default root font size)), so at the default 390px viewport the row wraps rather than overflowing the card. This is the case the wrap exists for.",
+          "`ShoppingSection`'s header at its busiest — the window picker plus all three list controls. None of them can shrink (`Button`'s cva base is `shrink-0 whitespace-nowrap`, both selects are `w-37.5`), so at the default 390px viewport the two selects share the first line and the buttons take the next. This is the case the wrap exists for.",
       },
     },
   },
@@ -137,7 +128,7 @@ export const Populated: Story = {
 export const PopulatedFourteenDays: Story = {
   args: {
     windowDays: 14,
-    summary: <Summary windowDays={14} total={19} purchased={3} />,
+    summary: <Summary total={19} purchased={3} />,
     children: <ListControls />,
   },
   // Seeded so the story models a real user state — someone who chose 14 days.
@@ -151,7 +142,7 @@ export const PopulatedFourteenDays: Story = {
     docs: {
       description: {
         story:
-          'The wider window. The picker and the summary line read from the same `windowDays`, so they can never disagree about which window is on screen.',
+          'The wider window. The picker is the only place the window is stated — the summary carries the count and the purchased tail — so nothing on screen can disagree with it.',
       },
     },
   },
@@ -162,7 +153,7 @@ export const WindowPickerSwitchesWindow: Story = {
     docs: {
       description: {
         story:
-          'Behavioural contract of the picker on the empty state: choosing "14 days" persists the preference under `shopping-list-window-days` and routes to `/shopping?days=14`. The persistence is what makes the choice survive the navigation — the new page reads it back on mount.',
+          'Behavioural contract of the picker on the empty state: choosing "Next 14 days" persists the preference under `shopping-list-window-days` and routes to `/shopping?days=14`. The persistence is what makes the choice survive the navigation — the new page reads it back on mount.',
       },
     },
   },
@@ -172,7 +163,7 @@ export const WindowPickerSwitchesWindow: Story = {
 
     // Radix portals `SelectContent` outside the canvas.
     const body = within(document.body)
-    await userEvent.click(await body.findByRole('option', { name: '14 days' }))
+    await userEvent.click(await body.findByRole('option', { name: 'Next 14 days' }))
 
     // Radix keeps the listbox mounted through its exit animation and leaves an
     // `aria-hidden` wrapper in place until it finishes. The a11y gate runs in an
@@ -189,7 +180,7 @@ export const WindowPickerSwitchesWindow: Story = {
 export const WindowPickerNarrowsWithItemsOnScreen: Story = {
   args: {
     windowDays: 14,
-    summary: <Summary windowDays={14} total={19} purchased={3} />,
+    summary: <Summary total={19} purchased={3} />,
     children: <ListControls />,
   },
   // Seeded to 14 so the story starts from the state it claims to: a user whose
@@ -212,7 +203,7 @@ export const WindowPickerNarrowsWithItemsOnScreen: Story = {
     await userEvent.click(canvas.getByRole('combobox', { name: /time window/i }))
 
     const body = within(document.body)
-    await userEvent.click(await body.findByRole('option', { name: '7 days' }))
+    await userEvent.click(await body.findByRole('option', { name: 'Next 7 days' }))
 
     await waitFor(() => {
       expect(document.querySelectorAll('[role="listbox"]').length).toBe(0)

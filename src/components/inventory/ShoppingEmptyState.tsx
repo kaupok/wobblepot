@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { ShoppingListHeader } from './ShoppingListHeader'
@@ -53,6 +52,14 @@ const HEADER_VARIANTS: ReadonlySet<ShoppingEmptyStateVariant> = new Set([
   'all-purchased',
 ])
 
+/**
+ * Sits on the page background like the populated list does, and starts at the
+ * top of its column rather than centring in a card, so the column keeps the
+ * same top edge whichever state it lands on (docs/DESIGN.md → Composition
+ * rules, "Content starts at the top"). Under the shared header the message's
+ * heading is a Section under the column's Title; without one it is the
+ * column's title itself.
+ */
 export function ShoppingEmptyState({ variant, windowDays = 7 }: ShoppingEmptyStateProps) {
   const t = useTranslations('shopping.emptyState')
   const keys = VARIANT_KEYS[variant]
@@ -61,25 +68,27 @@ export function ShoppingEmptyState({ variant, windowDays = 7 }: ShoppingEmptySta
   const showHeader = HEADER_VARIANTS.has(variant)
 
   return (
-    <Card className="w-full">
+    <section className="flex flex-col gap-6">
       {showHeader && <ShoppingListHeader windowDays={windowDays} />}
-      <CardContent className={showHeader ? 'pt-0' : 'py-12'}>
-        <div
-          className={`flex flex-col items-center justify-center gap-4 text-center ${showHeader ? 'py-8' : ''}`}
-        >
-          <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          {showHeader ? (
+            <Heading variant="section" as="h3">
+              {t(keys.heading)}
+            </Heading>
+          ) : (
             <Heading variant="h4" as="h2">
               {t(keys.heading)}
             </Heading>
-            <Body variant="muted">{description}</Body>
-          </div>
-          {keys.cta && keys.href && (
-            <Button asChild>
-              <Link href={keys.href}>{t(keys.cta)}</Link>
-            </Button>
           )}
+          <Body variant="muted">{description}</Body>
         </div>
-      </CardContent>
-    </Card>
+        {keys.cta && keys.href && (
+          <Button asChild className="w-full md:w-auto md:self-start">
+            <Link href={keys.href}>{t(keys.cta)}</Link>
+          </Button>
+        )}
+      </div>
+    </section>
   )
 }

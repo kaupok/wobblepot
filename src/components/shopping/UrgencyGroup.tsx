@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
-import { Body } from '@/components/ui/typography'
+import { GroupHeading } from '@/components/inventory/GroupHeading'
 import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
 
 /**
@@ -38,16 +38,10 @@ export function UrgencyGroup({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <Body variant="small" tone="muted">
-          {label} ({totalCount})
-        </Body>
-        {purchasedCount > 0 && (
-          <Body variant="muted">
-            {purchasedCount}/{totalCount}
-          </Body>
-        )}
-      </div>
+      <GroupHeading
+        label={`${label} (${totalCount})`}
+        count={purchasedCount > 0 && `${purchasedCount}/${totalCount}`}
+      />
       <div className="flex flex-col gap-1">
         {items.map((item) => (
           <ShoppingItem

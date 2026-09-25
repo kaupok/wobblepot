@@ -12,7 +12,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The card `/shopping` renders instead of `ShoppingSection` when there is nothing to buy. Four variants cover the four reasons the list can be empty. The two list-shaped ones — `nothing-needed` and `all-purchased` — render the shared `ShoppingListHeader`, so the 7/14-day window picker is reachable from either; widening the window is the natural next step in both. `no-plan` and `error` are not list states, so they stay header-less.',
+          'What `/shopping` renders instead of `ShoppingSection` when there is nothing to buy: a heading, one muted line and at most one primary button, at the top of the column on the page background. Four variants cover the four reasons the list can be empty. The two list-shaped ones — `nothing-needed` and `all-purchased` — render the shared `ShoppingListHeader`, so the 7/14-day window picker is reachable from either; widening the window is the natural next step in both. `no-plan` and `error` are not list states, so they stay header-less.',
       },
     },
   },

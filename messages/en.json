@@ -56,8 +56,6 @@
     "purchasedTail": "{count} purchased",
     "ariaSort": "Sort items",
     "ariaTimeWindow": "Time window",
-    "windowOption7": "7 days",
-    "windowOption14": "14 days",
     "sort": {
       "category": "By category",
       "urgency": "By urgency",

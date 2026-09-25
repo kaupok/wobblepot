@@ -56,8 +56,6 @@
     "purchasedTail": "{count} ostetud",
     "ariaSort": "Sorteeri tooteid",
     "ariaTimeWindow": "Ajavahemik",
-    "windowOption7": "7 päeva",
-    "windowOption14": "14 päeva",
     "sort": {
       "category": "Kategooria järgi",
       "urgency": "Kiireloomulisuse järgi",
