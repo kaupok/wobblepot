@@ -64,7 +64,9 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="sm" className="md:hidden">
+        {/* `icon` for the full touch target, `pill` so its hover disc sits
+            inside the header pill's curve. */}
+        <Button variant="ghost" size="icon" shape="pill" className="md:hidden">
           <User className="h-5 w-5" />
           <span className="sr-only">{t('userMenu')}</span>
         </Button>

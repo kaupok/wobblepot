@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Desktop top-nav link groups rendered inside the `Header`. `NavigationLeft` covers daily operational views (Today, Pantry & shopping); `NavigationRight` covers configuration (My recipes, Household). The link for the current route is underlined and carries `aria-current="page"`, using the same `isNavItemActive` rule as `BottomTabBar`. Both render `null` when not authenticated or no household — the desktop nav only exists after onboarding.',
+          'Desktop top-nav link groups rendered inside the `Header`. `NavigationLeft` covers daily operational views (Today, Pantry & shopping); `NavigationRight` covers configuration (My recipes, Household). The link for the current route is in the foreground colour (the rest are muted) and carries `aria-current="page"`, using the same `isNavItemActive` rule as `BottomTabBar`. Both render `null` when not authenticated or no household — the desktop nav only exists after onboarding.',
       },
     },
   },
@@ -73,7 +73,7 @@ const activeStory = (pathname: string, label: string): Story => ({
     nextjs: { navigation: { pathname } },
     docs: {
       description: {
-        story: `On \`${pathname}\`, "${label}" is the current page: foreground colour, an underline, and \`aria-current="page"\`. Every other link stays muted.`,
+        story: `On \`${pathname}\`, "${label}" is the current page: foreground colour and \`aria-current="page"\`. Every other link stays muted.`,
       },
     },
   },

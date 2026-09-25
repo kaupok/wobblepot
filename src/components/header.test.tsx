@@ -175,7 +175,7 @@ describe('Header component', () => {
     expect(screen.getByTestId('navigation-right')).toHaveTextContent('hidden-nav-right')
   })
 
-  it('renders header with correct styling classes', async () => {
+  it('floats: the fixed bar is transparent and lets clicks through, the pill does not', async () => {
     const { getSession } = await import('@/lib/session')
     vi.mocked(getSession).mockResolvedValue(null)
 
@@ -183,6 +183,45 @@ describe('Header component', () => {
     render(component)
 
     const header = screen.getByRole('banner')
-    expect(header).toHaveClass('fixed', 'top-0', 'z-50', 'border-b')
+    expect(header).toHaveClass('fixed', 'top-0', 'z-50', 'pointer-events-none')
+    // One class per call: `not.toHaveClass(a, b)` passes when either is
+    // missing, so a single call would let the opaque background come back.
+    expect(header).not.toHaveClass('border-b')
+    expect(header).not.toHaveClass('bg-background')
+
+    const pill = screen.getByRole('link', { name: 'Wobblepot' }).closest('.rounded-full')
+    expect(pill).toHaveClass('pointer-events-auto', 'border', 'bg-background', 'shadow-float')
+  })
+
+  it('folds the logo away on scroll, from a data attribute on the banner', async () => {
+    const { getSession } = await import('@/lib/session')
+    vi.mocked(getSession).mockResolvedValue(null)
+
+    const component = await Header()
+    render(component)
+
+    // At rest: no attribute, so none of the `group-data-scrolled:` styles apply.
+    expect(screen.getByRole('banner')).toHaveClass('group')
+    expect(screen.getByRole('banner')).not.toHaveAttribute('data-scrolled')
+
+    const fold = screen.getByRole('link', { name: 'Wobblepot' }).parentElement
+    expect(fold).toHaveClass(
+      'overflow-hidden',
+      'group-data-scrolled:max-w-0',
+      'group-data-scrolled:opacity-0',
+      'group-data-scrolled:invisible',
+    )
+  })
+
+  it('renders the skip link first, labelled from the nav catalog', async () => {
+    const { getSession } = await import('@/lib/session')
+    vi.mocked(getSession).mockResolvedValue(null)
+
+    const component = await Header()
+    render(component)
+
+    const skip = screen.getByRole('link', { name: 'Skip to content' })
+    expect(skip).toHaveAttribute('href', '#main-content')
+    expect(screen.getByRole('banner').firstElementChild).toBe(skip)
   })
 })

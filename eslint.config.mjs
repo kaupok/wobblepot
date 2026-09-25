@@ -119,7 +119,24 @@ const config = defineConfig([
       },
     },
     rules: {
-      'shadcn/no-raw-colors': 'error',
+      'shadcn/no-raw-colors': [
+        'error',
+        {
+          allow: [
+            // `--shadow-float` is a box-shadow token in globals.css (the
+            // header pills' lift, docs/DESIGN.md → Elevation), not a colour.
+            // The rule reads any `shadow-<name>` it does not know as a shadow
+            // colour and does not consult `--shadow-*` tokens. Two entries
+            // because a glob's `*` matches one character or more, so
+            // `*shadow-float` alone misses the bare class. tailwind-merge does
+            // know the token, through CUSTOM_SHADOW_VALUES in src/lib/utils.ts.
+            // REMOVE WHEN: @shadcn/lint's `no-raw-colors` reads custom
+            // `--shadow-*` tokens from globals.css (checked against 0.1.0).
+            'shadow-float',
+            '*:shadow-float',
+          ],
+        },
+      ],
       'shadcn/no-inline-styles': 'error',
       'shadcn/no-arbitrary-values': [
         'error',
@@ -135,6 +152,13 @@ const config = defineConfig([
             // the same thing: `transition-colors` drops box-shadow and
             // `transition-shadow` drops colour — they replace, not compose.
             'transition-[color,box-shadow]',
+            // The header's fold (src/components/header-chrome.tsx): the logo's
+            // box narrows, the pill's padding and the wrapper's margin close
+            // up, the text fades, and visibility flips at the end to take the
+            // hidden link out of the tab order. DESIGN.md → Motion asks for the
+            // properties by name rather than `transition-all`, and no stock
+            // `transition-*` utility lists this set.
+            'transition-[max-width,padding,margin,opacity,visibility]',
           ],
         },
       ],

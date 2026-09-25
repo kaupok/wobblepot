@@ -48,10 +48,19 @@ const buttonVariants = cva(
         // only where the surrounding text is the tap area's context.
         inline: 'h-auto p-0 has-[>svg]:px-0',
       },
+      // `pill` rounds the control fully, for a button that sits inside a
+      // rounded-full surface — the header's pills — where a `rounded-md` hover
+      // box or filled button clashes with the curve around it. Listed after
+      // `size` so it wins over the `rounded-md` that `sm` and `lg` restate.
+      shape: {
+        default: '',
+        pill: 'rounded-full',
+      },
     },
     defaultVariants: {
       variant: 'default',
       size: 'default',
+      shape: 'default',
     },
   },
 )
@@ -60,6 +69,7 @@ function Button({
   className,
   variant = 'default',
   size = 'default',
+  shape = 'default',
   asChild = false,
   type = 'button',
   ...props
@@ -75,7 +85,8 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-shape={shape}
+      className={cn(buttonVariants({ variant, size, shape, className }))}
       {...props}
     />
   )

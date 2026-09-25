@@ -65,6 +65,10 @@ export const ALLOWLIST: AllowlistEntry[] = [
     path: 'src/components/inventory/InventoryPage.tsx',
     why: 'The /shopping and /pantry page shell: a two-column grid (one column per route on a phone, HON-776) around PantrySection, ShoppingSection and ShoppingEmptyState, each of which has its own story. Scenarios/Shopping list (src/stories/scenarios/ShoppingList.stories.tsx) covers the composed screen, and InventoryPage.test.tsx covers the state it wires between the two halves.',
   },
+  {
+    path: 'src/components/header.tsx',
+    why: 'The server half of the header: it awaits getSession() and getHasHousehold() (both import Prisma transitively, so it cannot mount in Storybook) and renders HeaderChrome, which owns every bit of markup and has the story (header-chrome.stories.tsx). header.test.tsx covers the session wiring.',
+  },
 ]
 
 // ============================================

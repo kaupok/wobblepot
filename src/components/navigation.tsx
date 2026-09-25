@@ -12,9 +12,10 @@ interface NavigationProps {
 }
 
 /**
- * A header link that marks the current page. The underline is the non-colour
- * cue DESIGN.md asks for; `aria-current` carries the same signal to assistive
- * tech. Active-route matching is shared with `BottomTabBar`.
+ * A header link that marks the current page by colour alone — foreground
+ * against the muted rest — with `aria-current` carrying the signal to
+ * assistive tech. No underline: inside the header's pill it read as a second
+ * edge under the curve. Active-route matching is shared with `BottomTabBar`.
  */
 function NavLink({
   href,
@@ -35,9 +36,7 @@ function NavLink({
       aria-current={isActive ? 'page' : undefined}
       className={cn(
         'text-sm font-medium transition-colors',
-        isActive
-          ? 'text-foreground underline decoration-2 underline-offset-8'
-          : 'text-muted-foreground hover:text-primary',
+        isActive ? 'text-foreground' : 'text-muted-foreground hover:text-primary',
       )}
     >
       {children}

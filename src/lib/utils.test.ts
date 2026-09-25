@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
+  CUSTOM_SHADOW_VALUES,
   CUSTOM_SPACING_VALUES,
   CUSTOM_UTILITY_CLASS_GROUPS,
   cn,
@@ -179,8 +180,8 @@ describe('cn utility function', () => {
     const srcDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 
     /**
-     * Every custom `--spacing-*` value declared in an `@theme` block anywhere
-     * under `src/`.
+     * Every custom `--<family>-*` value declared in an `@theme` block anywhere
+     * under `src/` — `spacing` here, `shadow` in the describe below.
      *
      * Globbed rather than pointed at `globals.css`, because a second stylesheet
      * with its own `@theme` block would otherwise pass unnoticed — and passing
@@ -189,7 +190,7 @@ describe('cn utility function', () => {
      * generate utilities in Tailwind v4; a `--spacing-*` in `:root` generates
      * nothing, so it can conflict with nothing.
      */
-    function declaredSpacingValues(): string[] {
+    function declaredThemeValues(family: string): string[] {
       const cssFiles = readdirSync(srcDir, { recursive: true, encoding: 'utf8' }).filter((file) =>
         file.endsWith('.css'),
       )
@@ -211,7 +212,9 @@ describe('cn utility function', () => {
         // Declarations carry no braces, so a non-greedy run to the first `}` is
         // the whole block.
         for (const [, block = ''] of css.matchAll(/@theme[^{]*\{([^}]*)\}/g)) {
-          for (const [, token = ''] of block.matchAll(/--spacing-([a-zA-Z0-9-]+)\s*:/g)) {
+          for (const [, token = ''] of block.matchAll(
+            new RegExp(`--${family}-([a-zA-Z0-9-]+)\\s*:`, 'g'),
+          )) {
             declared.add(token)
           }
         }
@@ -221,7 +224,7 @@ describe('cn utility function', () => {
     }
 
     it('registers every --spacing-* token declared in a @theme block', () => {
-      const declared = declaredSpacingValues()
+      const declared = declaredThemeValues('spacing')
       const registered = new Set<string>(CUSTOM_SPACING_VALUES)
 
       const missing = declared.filter((token) => !registered.has(token))
@@ -244,6 +247,42 @@ describe('cn utility function', () => {
       expect(
         stale,
         `CUSTOM_SPACING_VALUES in src/lib/utils.ts lists ${stale.join(', ')}, which is no longer declared in any @theme block. Remove it.`,
+      ).toEqual([])
+    })
+
+    // The same guard for the `--shadow-*` family. tailwind-merge's `shadow`
+    // scale is `isTshirtSize`, so `--shadow-float` (the header pills' lift)
+    // needs registering the way `touch` did, or `cn('shadow-float',
+    // 'shadow-md')` keeps both. `--radius-*` and `--text-*` dodge this only
+    // because their names happen to be t-shirt sizes.
+    it('registers every --shadow-* token declared in a @theme block', () => {
+      const declared = declaredThemeValues('shadow')
+      const registered = new Set<string>(CUSTOM_SHADOW_VALUES)
+
+      const missing = declared.filter((token) => !registered.has(token))
+      expect(
+        missing,
+        `--shadow-${missing.join(', --shadow-')} is declared in a @theme block but not in CUSTOM_SHADOW_VALUES in src/lib/utils.ts. Until it is registered, tailwind-merge keeps both sides of any conflict on it (cn('shadow-md', 'shadow-${missing[0]}') returns both).`,
+      ).toEqual([])
+
+      const unresolved = declared.filter(
+        (token) =>
+          cn('shadow-md', `shadow-${token}`) !== `shadow-${token}` ||
+          cn(`shadow-${token}`, 'shadow-md') !== 'shadow-md',
+      )
+      expect(
+        unresolved,
+        `tailwind-merge does not resolve ${unresolved.join(', ')} as a shadow value. Register it in CUSTOM_SHADOW_VALUES in src/lib/utils.ts, under extend.theme.shadow.`,
+      ).toEqual([])
+
+      // Not mistaken for a shadow colour: `shadow-float` must lose to a later
+      // box-shadow, and a shadow colour must survive beside it.
+      expect(cn('shadow-float', 'shadow-primary')).toBe('shadow-float shadow-primary')
+
+      const stale = [...registered].filter((token) => !declared.includes(token))
+      expect(
+        stale,
+        `CUSTOM_SHADOW_VALUES in src/lib/utils.ts lists ${stale.join(', ')}, which is no longer declared in any @theme block. Remove it.`,
       ).toEqual([])
     })
 

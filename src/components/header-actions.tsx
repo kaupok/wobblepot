@@ -55,7 +55,8 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
       {session ? (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            {/* `pill`: the hover disc sits inside the header pill's curve. */}
+            <Button variant="ghost" size="icon" shape="pill">
               <User className="h-5 w-5" />
               <span className="sr-only">{t('userMenu')}</span>
             </Button>
@@ -80,11 +81,14 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
+        <div className="flex items-center gap-1">
+          {/* Signed out, inside the header pill: Sign in as a ghost so no
+              control border sits inside the pill's, Sign up as the one filled
+              pill, and the theme toggle a ghost disc like the account icon. */}
+          <Button asChild variant="ghost" size="sm" shape="pill">
             <Link href="/sign-in">{t('signIn')}</Link>
           </Button>
-          <Button asChild size="sm">
+          <Button asChild size="sm" shape="pill">
             <Link href="/sign-up">{t('signUp')}</Link>
           </Button>
           <ThemeToggle />

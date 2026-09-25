@@ -33,7 +33,9 @@ describe('active page', () => {
       .filter((link) => link.getAttribute('aria-current') === 'page')
     expect(current).toHaveLength(1)
     expect(current[0]).toHaveAccessibleName(expected)
-    expect(current[0]).toHaveClass('text-foreground', 'underline')
+    expect(current[0]).toHaveClass('text-foreground')
+    // Colour and `aria-current` only: no underline inside the header pill.
+    expect(current[0]).not.toHaveClass('underline')
   })
 
   it('styles inactive links as muted with no aria-current', () => {
@@ -43,7 +45,7 @@ describe('active page', () => {
     const today = screen.getByRole('link', { name: 'Today' })
     expect(today).not.toHaveAttribute('aria-current')
     expect(today).toHaveClass('text-muted-foreground')
-    expect(today).not.toHaveClass('underline')
+    expect(today).not.toHaveClass('text-foreground')
   })
 })
 
