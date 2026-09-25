@@ -90,10 +90,14 @@ export const PhoneShoppingSummary: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    // Both forms are in the markup; below lg only the compact one shows.
-    const [summary, sidebarSummary] = canvas.getAllByText(/^Need /)
+    // Both forms are in the markup; below lg only the compact one shows. The
+    // "Need …" line is the compact form's alone: the full panel lists its
+    // items under day headings instead.
+    const summary = canvas.getByText(/^Need /)
     await expect(summary).toBeVisible()
-    await expect(sidebarSummary).not.toBeVisible()
+    const [compactTitle, sidebarTitle] = canvas.getAllByText('Shopping list')
+    await expect(compactTitle).toBeVisible()
+    await expect(sidebarTitle).not.toBeVisible()
     // One Shopping panel in the accessibility tree: the full one is display:none.
     await expect(canvas.getAllByRole('link', { name: 'View full list' })).toHaveLength(1)
     const [today] = canvas.getAllByText('Today')

@@ -21,11 +21,16 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * Every unpurchased row's quantity must end at the same x, whichever due tag
- * follows it — "Today" and "Tomorrow" differ in width (HON-762).
+ * The full panel says each day once, as a Caption heading over its items, and
+ * never as a tag on the row. Every quantity still ends at the same x.
  */
-async function expectQuantitiesAligned(canvasElement: HTMLElement) {
-  const rows = within(canvasElement).getAllByRole('listitem')
+async function expectDayGroups(canvasElement: HTMLElement, days: string[]) {
+  const canvas = within(canvasElement)
+  const headings = canvas.getAllByRole('heading', { level: 3 })
+  await expect(headings.map((h) => h.textContent)).toEqual(days)
+  for (const day of days) await expect(canvas.getAllByText(day)).toHaveLength(1)
+
+  const rows = canvas.getAllByRole('listitem')
   const [first, ...rest] = rows.map((row) => row.children[1]?.getBoundingClientRect().right)
   await expect(rest.length).toBeGreaterThan(0)
   for (const right of rest) await expect(right).toBeCloseTo(first ?? Number.NaN, 0)
@@ -34,15 +39,16 @@ async function expectQuantitiesAligned(canvasElement: HTMLElement) {
 export const MixedUrgency: Story = {
   args: { items: urgentShoppingItems },
   play: async ({ canvasElement }) => {
-    await expectQuantitiesAligned(canvasElement)
-    const today = within(canvasElement).getByText('today')
-    await expect(today).toHaveClass('text-warning')
-    await expect(today).not.toHaveClass('text-destructive')
+    const canvas = within(canvasElement)
+    await expectDayGroups(canvasElement, ['Today', 'Tomorrow'])
+    await expect(canvas.getByText('Shopping list')).toBeVisible()
+    // Neither the "Need …" line nor the item count: the groups carry both.
+    await expect(canvas.queryByText(/^Need /)).not.toBeInTheDocument()
   },
 }
 
-// Estonian tags ("Täna" / "Homme") measure differently from English ones; the
-// quantity column has to line up in both.
+// The day headings come from the `dates.urgency` catalog, so the Estonian
+// panel groups under "Täna" / "Homme".
 export const MixedUrgencyEstonian: Story = {
   globals: { locale: 'et' },
   args: {
@@ -70,7 +76,7 @@ export const MixedUrgencyEstonian: Story = {
     ],
   },
   play: async ({ canvasElement }) => {
-    await expectQuantitiesAligned(canvasElement)
+    await expectDayGroups(canvasElement, ['Täna', 'Homme'])
   },
 }
 
@@ -89,6 +95,9 @@ export const TodayOnly: Story = {
       }),
     ],
   },
+  play: async ({ canvasElement }) => {
+    await expectDayGroups(canvasElement, ['Today'])
+  },
 }
 
 export const TomorrowOnly: Story = {
@@ -103,6 +112,11 @@ export const TomorrowOnly: Story = {
         urgency: 'tomorrow',
       }),
     ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { level: 3 })).toHaveTextContent('Tomorrow')
+    await expect(canvas.queryByText('Today')).not.toBeInTheDocument()
   },
 }
 
@@ -124,19 +138,20 @@ export const Empty: Story = {
 }
 
 /**
- * The phone form that leads the Today screen below `lg` (HON-766): title row,
- * summary and link, no item list.
+ * The phone form that leads the Today screen below `lg` (HON-766): title row
+ * with the link, the "Need …" summary, no item list and no item count.
  */
 export const Compact: Story = {
   args: { items: urgentShoppingItems, compact: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByText(/^Need /)).toBeVisible()
+    await expect(canvas.getByText('Need 1 for today, 1 for tomorrow')).toBeVisible()
     await expect(canvas.getByRole('link', { name: 'View full list' })).toHaveAttribute(
       'href',
       '/shopping',
     )
     await expect(canvas.queryByRole('list')).not.toBeInTheDocument()
+    await expect(canvas.queryByRole('heading', { level: 3 })).not.toBeInTheDocument()
   },
 }
 
@@ -151,7 +166,7 @@ export const CompactTomorrowOnly: Story = {
 export const CompactEmpty: Story = {
   args: { items: [], compact: true },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).queryByText('Shopping')).not.toBeInTheDocument()
+    await expect(within(canvasElement).queryByText('Shopping list')).not.toBeInTheDocument()
   },
 }
 

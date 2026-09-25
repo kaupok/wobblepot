@@ -2,12 +2,11 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Check, ChevronDown, ChevronUp, ShoppingCart } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
-import { Body } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 
 interface ShoppingItem {
@@ -30,8 +29,12 @@ interface UrgentShoppingProps {
   compact?: boolean
 }
 
+// The two days the panel covers, in the order they are listed.
+const URGENT_DAYS = ['today', 'tomorrow'] as const
+
 export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) {
   const tToday = useTranslations('today')
+  const tUrgency = useTranslations('dates.urgency')
   const locale = useLocale()
   const [isPurchasedExpanded, setIsPurchasedExpanded] = useState(false)
 
@@ -54,9 +57,6 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
 
   const unpurchasedItems = urgentItems.filter((item) => !item.purchased)
   const purchasedItems = urgentItems.filter((item) => item.purchased)
-
-  const todayCount = unpurchasedItems.filter((item) => item.urgency === 'today').length
-  const tomorrowCount = unpurchasedItems.filter((item) => item.urgency === 'tomorrow').length
 
   if (unpurchasedItems.length === 0) {
     if (compact) return null
@@ -82,22 +82,6 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
     )
   }
 
-  const summaryParts: string[] = []
-  if (todayCount > 0) {
-    summaryParts.push(tToday('summaryToday', { count: todayCount }))
-  }
-  if (tomorrowCount > 0) {
-    summaryParts.push(tToday('summaryTomorrow', { count: tomorrowCount }))
-  }
-  const summary = tToday('summaryNeed', { parts: summaryParts.join(', ') })
-
-  const count = (
-    <span className="text-warning flex items-center gap-1.5">
-      <ShoppingCart className="h-4 w-4" />
-      <span className="text-sm font-medium">{unpurchasedItems.length}</span>
-    </span>
-  )
-
   const viewFullList = (
     <Button variant="ghost" size="sm" asChild>
       <Link href="/shopping">{tToday('viewFullList')}</Link>
@@ -105,17 +89,27 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
   )
 
   // The phone form is one tight block, so its link sits on the title row
-  // (DESIGN.md → "Actions sit on the title row") rather than in a footer.
+  // (DESIGN.md → "Actions sit on the title row") rather than in a footer. It
+  // has no item list, so the "Need 2 for today, 1 for tomorrow" line is the
+  // whole message; the full panel says the same through its day groups.
   if (compact) {
+    const todayCount = unpurchasedItems.filter((item) => item.urgency === 'today').length
+    const tomorrowCount = unpurchasedItems.filter((item) => item.urgency === 'tomorrow').length
+    const summaryParts: string[] = []
+    if (todayCount > 0) {
+      summaryParts.push(tToday('summaryToday', { count: todayCount }))
+    }
+    if (tomorrowCount > 0) {
+      summaryParts.push(tToday('summaryTomorrow', { count: tomorrowCount }))
+    }
+    const summary = tToday('summaryNeed', { parts: summaryParts.join(', ') })
+
     return (
       <Card size="sm" data-surface="note">
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <CardTitle>{tToday('shoppingTitle')}</CardTitle>
-            <div className="flex items-center gap-2">
-              {count}
-              {viewFullList}
-            </div>
+            {viewFullList}
           </div>
         </CardHeader>
         <CardContent>
@@ -125,40 +119,38 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
     )
   }
 
+  // One group per day, headed by a Caption ("Today", "Tomorrow"), so the day
+  // is said once above its items rather than repeated as a tag on every row.
+  const groups = URGENT_DAYS.map((urgency) => ({
+    urgency,
+    items: unpurchasedItems.filter((item) => item.urgency === urgency),
+  })).filter((group) => group.items.length > 0)
+
   return (
     // The note surface (globals.css → `[data-surface='note']`): the list is
     // the note on the fridge door, a pale yellow sheet rather than a card.
     <Card data-surface="note">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>{tToday('shoppingTitle')}</CardTitle>
-          {count}
-        </div>
+        <CardTitle>{tToday('shoppingTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col gap-3">
-          <Body variant="muted">{summary}</Body>
-          <ul className="grid-cols-shopping-row grid gap-2">
-            {unpurchasedItems.map((item) => (
-              <li
-                key={item.ingredientId}
-                className="col-span-3 grid grid-cols-subgrid items-center text-sm"
-              >
-                <span className="min-w-0 truncate">{item.name}</span>
-                <span className="text-muted-foreground justify-self-end whitespace-nowrap">
-                  {item.displayQuantity}
-                </span>
-                <span
-                  className={cn(
-                    'justify-self-end text-xs whitespace-nowrap',
-                    item.urgency === 'today' ? 'text-warning font-medium' : 'text-muted-foreground',
-                  )}
-                >
-                  {item.neededByRelative}
-                </span>
-              </li>
-            ))}
-          </ul>
+        <div className="flex flex-col gap-4">
+          {groups.map((group) => (
+            <div key={group.urgency} className="flex flex-col gap-2">
+              <Heading variant="caption">{tUrgency(group.urgency)}</Heading>
+              <ul className="flex flex-col gap-2">
+                {group.items.map((item) => (
+                  <li
+                    key={item.ingredientId}
+                    className="flex items-center justify-between gap-2 text-sm"
+                  >
+                    <span className="min-w-0 truncate">{item.name}</span>
+                    <span className="text-muted-foreground shrink-0">{item.displayQuantity}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
           {purchasedItems.length > 0 && (
             <div className="border-t pt-3">
               <button
