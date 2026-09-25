@@ -5,18 +5,17 @@ import { useState } from 'react'
 import { Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body, Heading } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { InlineAddItem } from '@/components/pantry/InlineAddItem'
 import { cn } from '@/lib/utils'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
+import { GroupHeading } from './GroupHeading'
 
 interface PantrySectionProps {
   items: PantryItemData[]
   onItemsChange: Dispatch<SetStateAction<PantryItemData[]>>
-  newlyAddedIds?: Set<string>
   /**
    * The pantry could not be fetched. Renders an error in place of the list, so
    * a failed load is never shown as "Your pantry is empty" — and hides the add
@@ -29,7 +28,6 @@ interface PantrySectionProps {
 export function PantrySection({
   items,
   onItemsChange,
-  newlyAddedIds = new Set(),
   loadFailed = false,
   onPantryItemRemoved,
 }: PantrySectionProps) {
@@ -95,91 +93,80 @@ export function PantrySection({
   // Create a set of ingredient IDs currently in pantry for the search indicator
   const pantryIngredientIds = new Set(items.map((item) => item.ingredient.id))
 
-  const content = (
+  const content = loadFailed ? (
+    <div role="alert">
+      <Body tone="destructive">{tPantry('loadFailed')}</Body>
+    </div>
+  ) : items.length === 0 ? (
     <>
-      {loadFailed ? (
-        <div role="alert" className="rounded-lg border border-dashed p-6 text-center">
-          <Body tone="destructive">{tPantry('loadFailed')}</Body>
-        </div>
-      ) : items.length === 0 ? (
-        <div className="flex flex-col gap-4">
-          <InlineAddItem onItemAdded={handleItemAdded} pantryIngredientIds={pantryIngredientIds} />
-          <div className="rounded-lg border border-dashed p-6 text-center">
-            <Body variant="muted">{tPantry('empty')}</Body>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <InlineAddItem onItemAdded={handleItemAdded} pantryIngredientIds={pantryIngredientIds} />
+      <InlineAddItem onItemAdded={handleItemAdded} pantryIngredientIds={pantryIngredientIds} />
+      <Body variant="muted">{tPantry('empty')}</Body>
+    </>
+  ) : (
+    <>
+      <InlineAddItem onItemAdded={handleItemAdded} pantryIngredientIds={pantryIngredientIds} />
 
-          {staples.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Body variant="small" tone="muted">
-                  {tPantry('stapleSection')}
-                </Body>
-                <Body variant="muted">{tPantry('ingredientCount', { count: staples.length })}</Body>
-              </div>
-              <div className="flex flex-col gap-2">
-                {staples.map((item) => (
-                  <PantryItemRow
-                    key={item.id}
-                    item={item}
-                    isNewlyAdded={newlyAddedIds.has(item.id)}
-                    onToggleStaple={handleToggleStaple}
-                    onRemove={handleRemove}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {onHand.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Body variant="small" tone="muted">
-                  {tPantry('onHandSection')}
-                </Body>
-                <Body variant="muted">{tPantry('ingredientCount', { count: onHand.length })}</Body>
-              </div>
-              <div className="flex flex-col gap-2">
-                {onHand.map((item) => (
-                  <PantryItemRow
-                    key={item.id}
-                    item={item}
-                    isNewlyAdded={newlyAddedIds.has(item.id)}
-                    onToggleStaple={handleToggleStaple}
-                    onRemove={handleRemove}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="border-t pt-3">
-            <Body variant="muted" className="text-center">
-              {tPantry('footerHint')}
-            </Body>
+      {staples.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <GroupHeading
+            label={tPantry('stapleSection')}
+            count={tPantry('ingredientCount', { count: staples.length })}
+          />
+          <div className="flex flex-col gap-2">
+            {staples.map((item) => (
+              <PantryItemRow
+                key={item.id}
+                item={item}
+                onToggleStaple={handleToggleStaple}
+                onRemove={handleRemove}
+              />
+            ))}
           </div>
         </div>
       )}
+
+      {onHand.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <GroupHeading
+            label={tPantry('onHandSection')}
+            count={tPantry('ingredientCount', { count: onHand.length })}
+          />
+          <div className="flex flex-col gap-2">
+            {onHand.map((item) => (
+              <PantryItemRow
+                key={item.id}
+                item={item}
+                onToggleStaple={handleToggleStaple}
+                onRemove={handleRemove}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Body variant="muted">{tPantry('footerHint')}</Body>
     </>
   )
 
+  // Title and subtitle on the page background, the rows the only bordered
+  // things under them — the same shape as the list beside it and the
+  // timeline on Today (docs/DESIGN.md → Composition rules, "Headings divide,
+  // borders contain"). `gap-6` between the header, the search and each group.
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <Heading variant="h4">{tPantry('title')}</Heading>
+    <section className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <Heading variant="h4" as="h2">
+          {tPantry('title')}
+        </Heading>
         <Body variant="muted">{tPantry('subtitle')}</Body>
-      </CardHeader>
-      <CardContent>{content}</CardContent>
-    </Card>
+      </div>
+      {content}
+    </section>
   )
 }
 
 interface PantryItemRowProps {
   item: PantryItemData
-  isNewlyAdded?: boolean
   onToggleStaple: (id: string, currentIsStaple: boolean) => Promise<void>
   onRemove: (id: string) => Promise<void>
 }
@@ -191,12 +178,7 @@ interface PantryItemRowProps {
  * (`components/pantry/PantryItem.tsx` is a near-duplicate with no callsite of
  * its own; only its `PantryItemData` type is used.)
  */
-export function PantryItemRow({
-  item,
-  isNewlyAdded = false,
-  onToggleStaple,
-  onRemove,
-}: PantryItemRowProps) {
+export function PantryItemRow({ item, onToggleStaple, onRemove }: PantryItemRowProps) {
   const tPantry = useTranslations('pantry')
   const [isToggling, setIsToggling] = useState(false)
   const [isRemoving, setIsRemoving] = useState(false)
@@ -222,12 +204,10 @@ export function PantryItemRow({
   }
 
   return (
-    <div
-      className={cn(
-        'flex items-center justify-between rounded-lg border p-3',
-        isNewlyAdded && 'animate-in fade-in slide-in-from-top-2 duration-200 ease-out',
-      )}
-    >
+    // No entrance when a ticked shopping item lands here: it happens many
+    // times a session, and the row appearing is the change (docs/DESIGN.md →
+    // Reject list).
+    <div className="flex items-center justify-between rounded-lg border p-3">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -238,7 +218,7 @@ export function PantryItemRow({
         >
           <Star
             className={cn(
-              'h-4 w-4',
+              'size-4',
               item.isStaple
                 ? 'fill-warning text-warning'
                 : 'text-muted-foreground hover:text-warning',
@@ -270,7 +250,7 @@ export function PantryItemRow({
         onClick={() => setShowRemoveDialog(true)}
         aria-label={tPantry('ariaRemove', { name: item.ingredient.name })}
       >
-        <Trash2 className="h-4 w-4" />
+        <Trash2 className="size-4" />
       </Button>
 
       <ConfirmDialog
