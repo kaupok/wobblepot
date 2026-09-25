@@ -184,7 +184,10 @@ describe('Header component', () => {
 
     const header = screen.getByRole('banner')
     expect(header).toHaveClass('fixed', 'top-0', 'z-50', 'pointer-events-none')
-    expect(header).not.toHaveClass('border-b', 'bg-background')
+    // One class per call: `not.toHaveClass(a, b)` passes when either is
+    // missing, so a single call would let the opaque background come back.
+    expect(header).not.toHaveClass('border-b')
+    expect(header).not.toHaveClass('bg-background')
 
     const pill = screen.getByRole('link', { name: 'Wobblepot' }).closest('.rounded-full')
     expect(pill).toHaveClass('pointer-events-auto', 'border', 'bg-background')
