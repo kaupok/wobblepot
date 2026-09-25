@@ -58,7 +58,9 @@ export function PantryColumnSkeleton() {
 
 /**
  * `ShoppingSection`'s shape: the Title line, the controls row (two `sm`
- * selects, `h-8`), the add-item input, a group heading, then rows at `gap-1`.
+ * selects and Copy list, all `h-8`, wrapping as the real row does so a 390px
+ * column reserves the second line), the add-item input, a group heading,
+ * then rows at `gap-1`.
  */
 export function ShoppingColumnSkeleton() {
   return (
@@ -67,9 +69,10 @@ export function ShoppingColumnSkeleton() {
         <div className="flex h-7.5 items-center">
           <Skeleton className="h-6 w-40" />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Skeleton aria-hidden className="h-8 w-37.5" />
           <Skeleton aria-hidden className="h-8 w-37.5" />
+          <Skeleton aria-hidden className="h-8 w-28" />
         </div>
       </div>
       <Skeleton aria-hidden className="h-11 w-full" />
