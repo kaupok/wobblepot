@@ -69,6 +69,19 @@ describe('BottomTabBar', () => {
     expect(current[0]).toHaveAccessibleName(expected)
   })
 
+  // DESIGN.md's reject list names glass effects: the bar is opaque like the
+  // header pills, so page content never shows through it (HON-809).
+  it('is opaque, with no backdrop blur', async () => {
+    const { usePathname } = await import('next/navigation')
+    vi.mocked(usePathname).mockReturnValue('/')
+
+    render(<BottomTabBar session={mockSession} hasHousehold={true} />)
+
+    const nav = screen.getByRole('navigation')
+    expect(nav).toHaveClass('bg-background')
+    expect(nav.className).not.toMatch(/\bbg-background\/|\bbackdrop-blur/)
+  })
+
   it('renders nothing when no session', () => {
     const { container } = render(<BottomTabBar session={null} hasHousehold={false} />)
 
