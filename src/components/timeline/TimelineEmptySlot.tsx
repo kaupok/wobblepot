@@ -64,7 +64,12 @@ export function TimelineEmptySlot({
         method: 'DELETE',
       }),
     onError: () => router.refresh(),
+    // Here rather than in `mutate()`'s options, which are skipped once the
+    // component unmounts. Guarded so a slow discard cannot clear a newer
+    // placeholder.
+    onSettled: (_data, _error, id) => setEntryId((current) => (current === id ? null : current)),
   })
+  const isDiscarding = discardEntryMutation.isPending
 
   function handlePickMeal() {
     hasSelectedRef.current = false
@@ -80,14 +85,15 @@ export function TimelineEmptySlot({
     router.refresh()
   }
 
-  async function handleSelectorClose(open: boolean) {
-    if (!open && entryId && !hasSelectedRef.current) {
-      // Awaited so the selector stays open until the placeholder is gone, as
-      // before. A rejection is already handled by the mutation's `onError`.
-      await discardEntryMutation.mutateAsync(entryId).catch(() => {})
-      setEntryId(null)
-    }
+  function handleSelectorClose(open: boolean) {
+    // Close first: the modal's `reset()` has just dropped this entry's
+    // suggestions query, and while `open` is still true the re-render the
+    // pending discard causes would recreate and refetch it for the entry being
+    // deleted (HON-799).
     setIsSelectorOpen(open)
+    if (!open && entryId && !hasSelectedRef.current) {
+      discardEntryMutation.mutate(entryId)
+    }
   }
 
   return (
@@ -97,7 +103,13 @@ export function TimelineEmptySlot({
           <MealTypeBadge mealType={mealType} />
           <Body variant="caption">{tCard('noMealPlanned')}</Body>
         </div>
-        <Button variant="outline" size="sm" onClick={handlePickMeal} disabled={isCreating}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePickMeal}
+          // No second placeholder while the last one is still being deleted.
+          disabled={isCreating || isDiscarding}
+        >
           {isCreating ? tCard('adding') : tCard('pickMeal')}
         </Button>
       </div>
