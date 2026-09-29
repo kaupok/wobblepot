@@ -1,0 +1,56 @@
+{
+  "mealName": "Kartulisalat",
+  "servings": 4,
+  "ingredients": [
+    {
+      "ingredientId": "ing-potato",
+      "name": "potato",
+      "quantityPerServing": 150,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-sour-cream",
+      "name": "sour cream",
+      "quantityPerServing": 400,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-egg",
+      "name": "egg",
+      "quantityPerServing": 1,
+      "unit": "piece"
+    },
+    {
+      "ingredientId": "ing-pickle",
+      "name": "pickled cucumber",
+      "quantityPerServing": 30,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-onion",
+      "name": "onion",
+      "quantityPerServing": 2,
+      "unit": "g"
+    }
+  ],
+  "locale": "et",
+  "expected": {
+    "ing-potato": {
+      "unchanged": true
+    },
+    "ing-sour-cream": {
+      "min": 10,
+      "max": 50
+    },
+    "ing-egg": {
+      "unchanged": true
+    },
+    "ing-pickle": {
+      "unchanged": true
+    },
+    "ing-onion": {
+      "min": 20,
+      "max": 40
+    }
+  }
+}

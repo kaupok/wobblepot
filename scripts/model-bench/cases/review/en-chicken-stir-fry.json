@@ -1,0 +1,62 @@
+{
+  "mealName": "Chicken and vegetable stir-fry",
+  "servings": 4,
+  "ingredients": [
+    {
+      "ingredientId": "ing-chicken",
+      "name": "chicken breast",
+      "quantityPerServing": 150,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-broccoli",
+      "name": "broccoli",
+      "quantityPerServing": 100,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-soy",
+      "name": "soy sauce",
+      "quantityPerServing": 150,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-garlic",
+      "name": "garlic",
+      "quantityPerServing": 4,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-rice",
+      "name": "white rice",
+      "quantityPerServing": 5,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-oil",
+      "name": "vegetable oil",
+      "quantityPerServing": 8,
+      "unit": "g"
+    }
+  ],
+  "locale": "en",
+  "expected": {
+    "ing-chicken": {
+      "unchanged": true
+    },
+    "ing-broccoli": {
+      "unchanged": true
+    },
+    "ing-soy": {
+      "min": 10,
+      "max": 20
+    },
+    "ing-garlic": {
+      "unchanged": true
+    },
+    "ing-rice": {
+      "min": 65,
+      "max": 80
+    }
+  }
+}

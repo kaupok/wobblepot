@@ -442,6 +442,7 @@ The failure mode this prevents: checking one file, finding nothing, and generali
 | [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                            |
 | [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                                     |
 | [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees                          |
+| [docs/AI_MODELS.md](docs/AI_MODELS.md)                 | Model IDs, the model benchmark, changing a model                 |
 
 <!-- BEGIN:nextjs-agent-rules -->
 

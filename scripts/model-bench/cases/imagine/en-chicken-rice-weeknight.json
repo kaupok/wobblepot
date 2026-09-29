@@ -1,0 +1,12 @@
+{
+  "prompt": "something cosy with chicken and rice for a rainy weeknight",
+  "household": {
+    "allergens": ["peanuts"],
+    "dietaryType": null,
+    "excludedIngredients": ["mushroom"],
+    "restrictions": [],
+    "householdSize": 4
+  },
+  "locale": "en",
+  "forbiddenKeywords": ["peanut", "mushroom"]
+}

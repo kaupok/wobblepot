@@ -58,6 +58,9 @@ next-env.d.ts
 # AI output samples (HON-504): dev-only JSONL files for ongoing voice review
 /.ai-samples
 
+# Model benchmark raw outputs (HON-795); the markdown report beside each is committed
+/scripts/model-bench/results/*.json
+
 # Claude Code local settings (may contain secrets)
 .claude/settings.local.json
 

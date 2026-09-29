@@ -1,0 +1,638 @@
+{
+  "startDate": "2026-10-05",
+  "endDate": "2026-10-12",
+  "weekdayMealTypes": ["dinner"],
+  "weekendMealTypes": ["dinner"],
+  "dietaryType": null,
+  "restrictions": ["kid-friendly weeknights"],
+  "pantryIngredients": ["potato", "canned tuna"],
+  "locale": "en",
+  "candidatePools": {
+    "fish": [
+      {
+        "id": "m-fish-1",
+        "name": "Baked salmon with potatoes",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "salmon",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "lemon",
+            "category": "fruit"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-fish-2",
+        "name": "Fish tacos",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "cod",
+            "category": "protein"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "cabbage",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-fish-3",
+        "name": "Tuna pasta bake",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "canned tuna",
+            "category": "protein"
+          },
+          {
+            "name": "pasta",
+            "category": "carb"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      }
+    ],
+    "legume": [
+      {
+        "id": "m-leg-1",
+        "name": "Chickpea curry",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "coconut milk",
+            "category": "fat"
+          },
+          {
+            "name": "rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-leg-2",
+        "name": "Black bean chili",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "black bean",
+            "category": "legume"
+          },
+          {
+            "name": "tomato",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-leg-3",
+        "name": "Red lentil soup",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "red lentil",
+            "category": "legume"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "cumin",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ],
+    "any": [
+      {
+        "id": "m-any-1",
+        "name": "Chicken stir-fry",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "broccoli",
+            "category": "vegetable"
+          },
+          {
+            "name": "soy sauce",
+            "category": "condiment"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-2",
+        "name": "Spaghetti bolognese",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "ground beef",
+            "category": "protein"
+          },
+          {
+            "name": "spaghetti",
+            "category": "carb"
+          },
+          {
+            "name": "tomato",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-3",
+        "name": "Pork schnitzel with mash",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "pork loin",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "breadcrumbs",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-4",
+        "name": "Roast chicken thighs",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-5",
+        "name": "Lamb meatballs",
+        "kidFriendly": false,
+        "primaryProteinType": "lamb",
+        "topIngredients": [
+          {
+            "name": "ground lamb",
+            "category": "protein"
+          },
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "yogurt",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-6",
+        "name": "Cheese omelette with salad",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          },
+          {
+            "name": "lettuce",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-7",
+        "name": "Beef tacos",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "ground beef",
+            "category": "protein"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-8",
+        "name": "Margherita pizza",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "mozzarella",
+            "category": "dairy"
+          },
+          {
+            "name": "pizza dough",
+            "category": "carb"
+          },
+          {
+            "name": "tomato",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      }
+    ]
+  },
+  "candidatesByMealType": {
+    "dinner": [
+      {
+        "id": "m-fish-1",
+        "name": "Baked salmon with potatoes",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "salmon",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "lemon",
+            "category": "fruit"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-fish-2",
+        "name": "Fish tacos",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "cod",
+            "category": "protein"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "cabbage",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-fish-3",
+        "name": "Tuna pasta bake",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "canned tuna",
+            "category": "protein"
+          },
+          {
+            "name": "pasta",
+            "category": "carb"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "m-leg-1",
+        "name": "Chickpea curry",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "coconut milk",
+            "category": "fat"
+          },
+          {
+            "name": "rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-leg-2",
+        "name": "Black bean chili",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "black bean",
+            "category": "legume"
+          },
+          {
+            "name": "tomato",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-leg-3",
+        "name": "Red lentil soup",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "red lentil",
+            "category": "legume"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "cumin",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-1",
+        "name": "Chicken stir-fry",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "broccoli",
+            "category": "vegetable"
+          },
+          {
+            "name": "soy sauce",
+            "category": "condiment"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-2",
+        "name": "Spaghetti bolognese",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "ground beef",
+            "category": "protein"
+          },
+          {
+            "name": "spaghetti",
+            "category": "carb"
+          },
+          {
+            "name": "tomato",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-3",
+        "name": "Pork schnitzel with mash",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "pork loin",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "breadcrumbs",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-4",
+        "name": "Roast chicken thighs",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-5",
+        "name": "Lamb meatballs",
+        "kidFriendly": false,
+        "primaryProteinType": "lamb",
+        "topIngredients": [
+          {
+            "name": "ground lamb",
+            "category": "protein"
+          },
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "yogurt",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-6",
+        "name": "Cheese omelette with salad",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          },
+          {
+            "name": "lettuce",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-7",
+        "name": "Beef tacos",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "ground beef",
+            "category": "protein"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-8",
+        "name": "Margherita pizza",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "mozzarella",
+            "category": "dairy"
+          },
+          {
+            "name": "pizza dough",
+            "category": "carb"
+          },
+          {
+            "name": "tomato",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      }
+    ]
+  }
+}

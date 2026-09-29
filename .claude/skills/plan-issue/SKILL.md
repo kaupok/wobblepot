@@ -120,6 +120,8 @@ Focus on files directly relevant to the issue (2-5 files max).
 
 Two mechanical scans over the file set from step 6, for the two ways a change breaks code the plan never names: **7a** — specs that assert on a route or copy you are changing; **7b** — callsites that hardcode a copy of a shared primitive's geometry. They are independent: run each one whose trigger list matches, skip the ones that don't, and go to step 8 when both are settled. Both are cheap greps, and both are cheaper here than in review.
 
+**Model changes:** a plan that changes a constant in `src/lib/ai/models.ts` must include running `pnpm bench:models` (current model as `--baseline`, new one as `--candidate`) and attaching the report to the PR — see `docs/AI_MODELS.md`.
+
 #### 7a. E2E impact
 
 **Why:** When a plan touches a route, renames user-visible copy, or restructures a modal/dialog, one or more `tests/e2e/*.spec.ts` files are almost always affected. Historically (see HON-518) these updates lagged the UI change by months and surfaced as an unrecoverable batch when CI came back online. Catching the impact at planning time is the cheapest place to fix it — the plan can list the specs explicitly and the implementation step ships UI + spec updates in one PR.

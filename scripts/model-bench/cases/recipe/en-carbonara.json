@@ -1,0 +1,45 @@
+{
+  "text": "Spaghetti carbonara\n\nServes 4. Ready in 25 minutes.\n\nIngredients\n- 400 g spaghetti\n- 150 g pancetta, diced\n- 3 eggs\n- 50 g parmesan cheese, finely grated\n- 2 cloves garlic, peeled\n- salt to taste\n- black pepper to taste\n\nMethod\n1. Bring a large pot of salted water to the boil and cook the spaghetti until al dente.\n2. Meanwhile, fry the pancetta with the whole garlic cloves over medium heat until crisp, then discard the garlic.\n3. Whisk the eggs with the parmesan and plenty of black pepper.\n4. Drain the pasta, keeping a cup of the cooking water, and toss it with the pancetta off the heat.\n5. Stir in the egg mixture quickly, loosening with a splash of pasta water until glossy, and serve at once.",
+  "locale": "en",
+  "expected": {
+    "ingredients": [
+      {
+        "names": ["spaghetti"],
+        "quantity": 400,
+        "unit": "g"
+      },
+      {
+        "names": ["pancetta"],
+        "quantity": 150,
+        "unit": "g"
+      },
+      {
+        "names": ["egg", "eggs"],
+        "quantity": 3,
+        "unit": "piece"
+      },
+      {
+        "names": ["parmesan", "parmesan cheese"],
+        "quantity": 50,
+        "unit": "g"
+      },
+      {
+        "names": ["garlic", "garlic clove", "garlic cloves"],
+        "quantity": 2,
+        "unit": "piece"
+      },
+      {
+        "names": ["salt"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["black pepper"],
+        "quantity": null,
+        "unit": null
+      }
+    ],
+    "lowConfidence": false,
+    "stepCount": 5
+  }
+}
