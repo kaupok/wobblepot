@@ -15,12 +15,13 @@ export default function RecipesLoading() {
         <Skeleton className="h-5 w-64" />
       </div>
 
-      {/* Search and actions on one row from `sm` */}
+      {/* Search and actions on one row from `sm`; below it the actions are
+          two-up under the search, as `RecipesPageClient` lays them out (HON-812) */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Skeleton className="h-touch w-full sm:max-w-md sm:flex-1 md:h-10" />
-        <div className="flex shrink-0 gap-2">
-          <Skeleton className="h-touch w-32 md:h-10" />
-          <Skeleton className="h-touch w-32 md:h-10" />
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+          <Skeleton className="h-touch w-full sm:w-32 md:h-10" />
+          <Skeleton className="h-touch w-full sm:w-32 md:h-10" />
         </div>
       </div>
 

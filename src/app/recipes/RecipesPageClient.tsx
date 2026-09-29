@@ -114,7 +114,7 @@ export function RecipesPageClient() {
 
       {/* Search and the actions share a row from `sm`; the search takes the
           room the actions leave, up to `max-w-md`. On a phone they stack and
-          the search runs the width. */}
+          the search runs the width, with the actions two-up under it (HON-812). */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="sm:max-w-md sm:flex-1">
           <Input
@@ -125,16 +125,16 @@ export function RecipesPageClient() {
             aria-label={tLibrary('searchAria')}
           />
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
           <Button variant="outline" asChild>
             <Link href="/recipes/imagine">
-              <Sparkles className="mr-2 h-4 w-4" />
+              <Sparkles />
               {tLibrary('imagineButton')}
             </Link>
           </Button>
           <Button asChild>
             <Link href="/recipes/import">
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus />
               {tLibrary('addButton')}
             </Link>
           </Button>
