@@ -7,7 +7,7 @@ import { getDatesBetween, toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import { PLANNING_MODEL } from './models'
-import { buildMealPlanPrompt } from './prompts'
+import { buildMealPlanRequest } from './prompts'
 import { logAiSample } from './sampling'
 import { toAiUsageStats, withUsageOnFailure } from './usage'
 import { getFavoriteMealIds, getRecentMealIds, loadCandidatePools } from './plan-candidates'
@@ -18,7 +18,6 @@ import {
   validateAndRepairPlan,
 } from './plan-helpers'
 import {
-  MealPlanResponseSchema,
   InsufficientCandidatesError,
   NoEmptySlotsError,
   type GeneratePlanResult,
@@ -155,22 +154,15 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     throw new NoEmptySlotsError()
   }
 
-  // Compute remaining slots (not required protein slots)
-  const requiredSlotKeys = new Set(requiredSlots.map((s) => slotKey(s.date, s.mealType)))
-  const remainingSlots = fillableSlots.filter(
-    (s) => !requiredSlotKeys.has(slotKey(s.date, s.mealType)),
-  )
-
-  // Build prompt and call AI for fillable slots only
-  const prompt = buildMealPlanPrompt({
+  // Request for the fillable slots only
+  const request = buildMealPlanRequest({
     startDate,
     endDate,
-    totalEntries: fillableSlots.length,
+    slots: fillableSlots,
     requiredSlots,
-    remainingSlots,
     candidatePools,
-    restrictions,
     candidatesByMealType,
+    restrictions,
     pantryIngredients,
     locale,
   })
@@ -185,9 +177,8 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
 
   const result = await withUsageOnFailure(PLANNING_MODEL, onAiUsage, () =>
     generateObject({
+      ...request,
       model: anthropic(PLANNING_MODEL),
-      schema: MealPlanResponseSchema,
-      prompt,
       // Wall-clock budget owned by `/api/meal-plans/generate` — shared by this
       // attempt and every retry, not a per-attempt timeout. Undefined only in
       // tests and other direct callers, which is the pre-HON-694 behaviour.
