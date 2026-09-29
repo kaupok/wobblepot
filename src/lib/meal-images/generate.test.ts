@@ -213,7 +213,11 @@ describe('generateMealImage', () => {
     )
     expect(onUsage).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ model: 'claude-sonnet-5', inputTokens: 2_000, outputTokens: 500 }),
+      expect.objectContaining({
+        model: 'claude-sonnet-5-5',
+        inputTokens: 2_000,
+        outputTokens: 500,
+      }),
     )
   })
 

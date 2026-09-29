@@ -313,7 +313,7 @@ describe('POST /api/meals/[id]/image', () => {
       expect.objectContaining({
         householdId: HOUSEHOLD_ID,
         feature: 'meal_image',
-        model: 'claude-sonnet-5',
+        model: 'claude-sonnet-5-5',
       }),
     )
   })

@@ -5,37 +5,37 @@ import { PLANNING_MODEL, RECIPE_MODEL, TIPS_MODEL, IMAGINE_MODEL, REVIEW_MODEL }
 describe('estimateCostUsd', () => {
   it('charges 1M input tokens at the table rate', () => {
     const cost = estimateCostUsd({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 1_000_000,
       outputTokens: 0,
     })
-    expect(cost).toBe(MODEL_PRICES['claude-sonnet-5']!.inputPerMTok)
+    expect(cost).toBe(MODEL_PRICES['claude-sonnet-5-5']!.inputPerMTok)
   })
 
   it('charges 1M output tokens at the table rate', () => {
     const cost = estimateCostUsd({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 0,
       outputTokens: 1_000_000,
     })
-    expect(cost).toBe(MODEL_PRICES['claude-sonnet-5']!.outputPerMTok)
+    expect(cost).toBe(MODEL_PRICES['claude-sonnet-5-5']!.outputPerMTok)
   })
 
   it('sums input + output for combined token counts', () => {
     const cost = estimateCostUsd({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 1_000_000,
       outputTokens: 1_000_000,
     })
     expect(cost).toBe(
-      MODEL_PRICES['claude-sonnet-5']!.inputPerMTok +
-        MODEL_PRICES['claude-sonnet-5']!.outputPerMTok,
+      MODEL_PRICES['claude-sonnet-5-5']!.inputPerMTok +
+        MODEL_PRICES['claude-sonnet-5-5']!.outputPerMTok,
     )
   })
 
   it('scales linearly for partial token counts', () => {
     const cost = estimateCostUsd({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 1000,
       outputTokens: 200,
     })
@@ -50,7 +50,7 @@ describe('estimateCostUsd', () => {
   })
 
   it('returns 0 when token counts are 0', () => {
-    expect(estimateCostUsd({ model: 'claude-sonnet-5', inputTokens: 0, outputTokens: 0 })).toBe(0)
+    expect(estimateCostUsd({ model: 'claude-sonnet-5-5', inputTokens: 0, outputTokens: 0 })).toBe(0)
   })
 
   // The guard that matters for *live* traffic. `estimateCostUsd` returns 0 for
@@ -70,22 +70,25 @@ describe('estimateCostUsd', () => {
     expect(estimateCostUsd({ model, inputTokens: 1000, outputTokens: 1000 })).toBeGreaterThan(0)
   })
 
-  // The app moved to Sonnet 5 in HON-693, but usage rows written before that
-  // still name 4-6. Dropping the entry would silently reprice their model to
-  // $0 via the unknown-model path, so the retention is a requirement, not
-  // leftover cruft.
-  it('still prices the superseded claude-sonnet-4-6 for historical usage rows', () => {
+  // The app moved to Sonnet 5 in HON-693 and to Sonnet 5.5 in HON-794, but
+  // usage rows written before each upgrade still name the older model.
+  // Dropping an entry would silently reprice its model to $0 via the
+  // unknown-model path, so the retention is a requirement, not leftover cruft.
+  it.each([
+    ['claude-sonnet-5', 12],
+    ['claude-sonnet-4-6', 18],
+  ])('still prices the superseded %s for historical usage rows', (model, expected) => {
     const cost = estimateCostUsd({
-      model: 'claude-sonnet-4-6',
+      model,
       inputTokens: 1_000_000,
       outputTokens: 1_000_000,
     })
-    expect(cost).toBe(18)
+    expect(cost).toBe(expected)
   })
 })
 
 describe('estimateCostUsd › prompt-cache tiers', () => {
-  const price = MODEL_PRICES['claude-sonnet-5']!
+  const price = MODEL_PRICES['claude-sonnet-5-5']!
 
   it('carries both cache rates for every Claude model in the table', () => {
     // The OpenAI image model is excluded: it uses no prompt caching.
@@ -112,13 +115,13 @@ describe('estimateCostUsd › prompt-cache tiers', () => {
     const outputTokens = 787
 
     const tiered = estimateCostUsd({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens,
       cacheReadTokens,
       outputTokens,
     })
     const allAtBaseRate = estimateCostUsd({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: inputTokens + cacheReadTokens,
       outputTokens,
     })
@@ -133,7 +136,7 @@ describe('estimateCostUsd › prompt-cache tiers', () => {
 
   it('charges 1M cache-read tokens at the cache-read rate', () => {
     const cost = estimateCostUsd({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 0,
       cacheReadTokens: 1_000_000,
       outputTokens: 0,
@@ -143,7 +146,7 @@ describe('estimateCostUsd › prompt-cache tiers', () => {
 
   it('charges 1M cache-write tokens at the cache-write rate', () => {
     const cost = estimateCostUsd({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 0,
       cacheWriteTokens: 1_000_000,
       outputTokens: 0,
@@ -153,7 +156,7 @@ describe('estimateCostUsd › prompt-cache tiers', () => {
 
   it('sums every tier for a mixed call', () => {
     const cost = estimateCostUsd({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 1_000_000,
       cacheReadTokens: 1_000_000,
       cacheWriteTokens: 1_000_000,
@@ -165,14 +168,14 @@ describe('estimateCostUsd › prompt-cache tiers', () => {
 
   it('matches the uncached figure when cache counts are explicitly 0', () => {
     const withZeros = estimateCostUsd({
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 1000,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       outputTokens: 200,
     })
     expect(withZeros).toBe(
-      estimateCostUsd({ model: 'claude-sonnet-5', inputTokens: 1000, outputTokens: 200 }),
+      estimateCostUsd({ model: 'claude-sonnet-5-5', inputTokens: 1000, outputTokens: 200 }),
     )
   })
 
