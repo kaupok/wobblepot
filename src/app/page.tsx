@@ -29,7 +29,8 @@ export default async function Home() {
     const t = await getTranslations('landing')
     return (
       <div className="min-h-screen-below-header grid place-items-center px-4">
-        <main className="flex max-w-2xl flex-col items-center gap-8 text-center">
+        {/* Not <main>: the root layout's <main id="main-content"> is the page landmark (HON-820). */}
+        <div className="flex max-w-2xl flex-col items-center gap-8 text-center">
           <div className="flex flex-col gap-4">
             <Heading>{t('headline')}</Heading>
             <Body variant="lead">{t('sub')}</Body>
@@ -61,7 +62,7 @@ export default async function Home() {
               <Body>{t('feature3')}</Body>
             </li>
           </ul>
-        </main>
+        </div>
       </div>
     )
   }
