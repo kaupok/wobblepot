@@ -40,13 +40,15 @@ export const Adult: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Linked-account adult member — Name field hidden, regular portion preselected.',
+        story:
+          'Linked-account adult member — Name field hidden, regular portion preselected. The display name is optional: the account name stands in for it.',
       },
     },
   },
   play: async () => {
     const body = within(document.body)
     await body.findByRole('dialog')
+    await expect(body.getByLabelText('Display name (optional)')).not.toBeRequired()
     // The presets are a named radiogroup with the matching preset checked (HON-828).
     const presets = await body.findByRole('radiogroup', { name: /portion size/i })
     const checked = within(presets)
@@ -89,9 +91,14 @@ export const Child: Story = {
     docs: {
       description: {
         story:
-          'Manual child member — Name field visible, "Small" portion preselected with the matching display name.',
+          'Manual child member — Name field visible, "Small" portion preselected with the matching display name. The display name carries no "(optional)" mark: a manual member has no account name to fall back on, so the API requires it.',
       },
     },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await body.findByRole('dialog')
+    await expect(body.getByLabelText('Display name')).toBeRequired()
   },
 }
 

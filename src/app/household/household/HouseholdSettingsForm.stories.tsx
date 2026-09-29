@@ -160,7 +160,7 @@ export const NonOwner: Story = {
     await expect(canvas.getByLabelText('Household name')).toBeDisabled()
     await expect(canvas.getByLabelText('Gluten')).toBeDisabled()
     await expect(canvas.getByLabelText('Vegan')).toBeDisabled()
-    await expect(canvas.getByLabelText('Dietary restrictions')).toBeDisabled()
+    await expect(canvas.getByLabelText('Dietary restrictions (optional)')).toBeDisabled()
     await expect(canvas.queryByRole('button', { name: 'Save settings' })).not.toBeInTheDocument()
   },
 }
