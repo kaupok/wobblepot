@@ -7,6 +7,7 @@ import { Minus, Plus } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { ChoiceChips } from '@/components/ui/choice-chips'
 import { Input } from '@/components/ui/input'
 import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
@@ -260,23 +261,18 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
                       className="flex-1"
                       aria-label={t('memberAria', { index: index + 1 })}
                     />
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant={row.portionType === 'adult' ? 'default' : 'outline'}
-                        onClick={() => handlePortionTypeChange(index, 'adult')}
+                    {/* shrink-0: the name input gives way, so the pair never wraps onto two lines */}
+                    <div className="shrink-0">
+                      <ChoiceChips
+                        aria-label={t('memberTypeAria', { index: index + 1 })}
+                        value={row.portionType}
+                        onValueChange={(v) => handlePortionTypeChange(index, v as PortionType)}
+                        options={[
+                          { value: 'adult', label: t('adult') },
+                          { value: 'child', label: t('child') },
+                        ]}
                         disabled={isLoading || index === 0}
-                      >
-                        {t('adult')}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={row.portionType === 'child' ? 'default' : 'outline'}
-                        onClick={() => handlePortionTypeChange(index, 'child')}
-                        disabled={isLoading || index === 0}
-                      >
-                        {t('child')}
-                      </Button>
+                      />
                     </div>
                   </div>
                 ))}

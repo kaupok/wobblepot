@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { ChoiceChips } from '@/components/ui/choice-chips'
 import { Input } from '@/components/ui/input'
 import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
@@ -183,21 +184,27 @@ export function EditMemberPreferencesDialog({
 
             {/* Portion size */}
             <div className="flex flex-col gap-2">
-              <Label>{tPortion('size')}</Label>
-              <div className="flex flex-wrap gap-2">
-                {PORTION_PRESETS.map((preset) => (
-                  <Button
-                    key={preset.value}
-                    type="button"
-                    variant={portionMultiplier === preset.value ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setPortionMultiplier(preset.value)}
-                    disabled={isLoading}
-                  >
-                    {tPortion('preset', { label: tPortion(preset.key), multiplier: preset.value })}
-                  </Button>
-                ))}
-              </div>
+              <Label id="edit-member-portion-label">{tPortion('size')}</Label>
+              <ChoiceChips
+                aria-labelledby="edit-member-portion-label"
+                size="sm"
+                // A custom multiplier from the input below can match no preset:
+                // then no chip is checked.
+                value={
+                  PORTION_PRESETS.some((preset) => preset.value === portionMultiplier)
+                    ? String(portionMultiplier)
+                    : undefined
+                }
+                onValueChange={(v) => setPortionMultiplier(Number(v))}
+                options={PORTION_PRESETS.map((preset) => ({
+                  value: String(preset.value),
+                  label: tPortion('preset', {
+                    label: tPortion(preset.key),
+                    multiplier: preset.value,
+                  }),
+                }))}
+                disabled={isLoading}
+              />
               <div className="flex items-center gap-2">
                 <NumberInput
                   value={portionMultiplier}

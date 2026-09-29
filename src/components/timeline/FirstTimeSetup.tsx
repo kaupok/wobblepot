@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { ChefHat } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ChoiceChips } from '@/components/ui/choice-chips'
 import { Heading, Body } from '@/components/ui/typography'
 import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
 import {
@@ -141,38 +142,34 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
                 <Heading variant="section" as="h3" id="start-from-heading">
                   {tFirst('startFromLabel')}
                 </Heading>
-                <div className="flex flex-wrap gap-2">
-                  {startDateOptions.map((option) => (
-                    <Button
-                      key={option.date}
-                      variant={selectedDate === option.date ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedDate(option.date)}
-                      disabled={isGenerating}
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
+                <ChoiceChips
+                  aria-labelledby="start-from-heading"
+                  size="sm"
+                  value={selectedDate}
+                  onValueChange={setSelectedDate}
+                  options={startDateOptions.map((option) => ({
+                    value: option.date,
+                    label: option.label,
+                  }))}
+                  disabled={isGenerating}
+                />
               </section>
 
               <section className="flex flex-col gap-2" aria-labelledby="days-count-heading">
                 <Heading variant="section" as="h3" id="days-count-heading">
                   {tFirst('daysCountLabel')}
                 </Heading>
-                <div className="flex flex-wrap gap-2">
-                  {daysCountOptions.map((option) => (
-                    <Button
-                      key={option.value}
-                      variant={daysCount === option.value ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setDaysCount(option.value)}
-                      disabled={isGenerating}
-                    >
-                      {tFirst('dayOption', { count: option.value })}
-                    </Button>
-                  ))}
-                </div>
+                <ChoiceChips
+                  aria-labelledby="days-count-heading"
+                  size="sm"
+                  value={String(daysCount)}
+                  onValueChange={(v) => setDaysCount(Number(v))}
+                  options={daysCountOptions.map((option) => ({
+                    value: String(option.value),
+                    label: tFirst('dayOption', { count: option.value }),
+                  }))}
+                  disabled={isGenerating}
+                />
               </section>
             </div>
 

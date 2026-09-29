@@ -110,8 +110,9 @@ export const SubmitInvokesCallback: Story = {
     const displayNameInput = await body.findByLabelText(/display name/i)
     await userEvent.type(displayNameInput, 'kid')
 
-    const smallPortion = await body.findByRole('button', { name: /small \(0\.75x\)/i })
+    const smallPortion = await body.findByRole('radio', { name: /small \(0\.75x\)/i })
     await userEvent.click(smallPortion)
+    await expect(smallPortion).toHaveAttribute('aria-checked', 'true')
 
     const submitButton = await body.findByRole('button', { name: /^add member$/i })
     await userEvent.click(submitButton)

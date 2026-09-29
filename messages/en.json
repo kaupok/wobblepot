@@ -1048,6 +1048,7 @@
     "membersLabel": "Members",
     "membersHelper": "You can edit names and types later in settings.",
     "memberAria": "Member {index} name",
+    "memberTypeAria": "Member {index} type",
     "adult": "Adult",
     "child": "Child",
     "defaultName": "{type} {index}",
