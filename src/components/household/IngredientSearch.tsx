@@ -109,6 +109,7 @@ export function IngredientSearch({
           onFocus={() => setIsDropdownDismissed(false)}
           onKeyDown={handleSearchKeyDown}
           placeholder={t('placeholder')}
+          aria-label={t('aria')}
           className="pr-9 pl-9"
           disabled={disabled}
           role="combobox"

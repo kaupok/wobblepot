@@ -318,3 +318,17 @@ describe('RecipeImportClient error localization', () => {
     expect(screen.queryByText(SERVER_WARNING)).not.toBeInTheDocument()
   })
 })
+
+describe('RecipeImportClient paste field name', () => {
+  // The placeholder is ten lines of example text; without a label that is what
+  // a screen reader announces as the field's name (HON-808).
+  it.each(['en', 'et'] as const)('names the paste textarea in %s', (locale) => {
+    const messages = locale === 'en' ? enMessages : etMessages
+    renderInLocale(<RecipeImportClient />, locale)
+
+    expect(screen.getByLabelText(messages.recipes.import.textAria)).toHaveAttribute(
+      'placeholder',
+      messages.recipes.import.placeholder,
+    )
+  })
+})

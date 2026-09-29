@@ -139,3 +139,15 @@ describe('ImaginePanel error localization', () => {
     )
   })
 })
+
+describe('ImaginePanel prompt field name', () => {
+  // getByLabelText matches aria-label but not a placeholder (HON-808).
+  it.each(['en', 'et'] as const)('names the prompt textarea in %s', (locale) => {
+    const messages = locale === 'en' ? enMessages : etMessages
+    renderInLocale(<ImaginePanel onExit={vi.fn()} onMealSaved={vi.fn()} />, locale)
+
+    expect(
+      screen.getByLabelText(messages['meal-plan'].selector.imagine.promptAria),
+    ).toHaveAttribute('placeholder', messages['meal-plan'].selector.imagine.promptPlaceholder)
+  })
+})

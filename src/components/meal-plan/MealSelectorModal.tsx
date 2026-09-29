@@ -275,6 +275,7 @@ export function MealSelectorModal({
               <Input
                 type="search"
                 placeholder={tSelector('searchPlaceholder')}
+                aria-label={tSelector('searchAria')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="min-w-0 flex-1"
@@ -283,7 +284,7 @@ export function MealSelectorModal({
                 variant="outline"
                 size="icon"
                 onClick={() => setIsImagineMode(true)}
-                title={tSelector('imagineButton')}
+                aria-label={tSelector('imagineButton')}
                 className="shrink-0"
               >
                 <Sparkles className="h-4 w-4" />
