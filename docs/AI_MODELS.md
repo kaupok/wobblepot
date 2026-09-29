@@ -59,7 +59,7 @@ The markdown report is written to `scripts/model-bench/results/<date>-<baseline>
 
 Neither model accepts `temperature`, so the same case gives different output on each run. Each metric is shown as the mean across runs, with the min–max range in brackets.
 
-**The noise flag.** A difference is **noise** when the gap between the two means is no larger than the wider of the two models' ranges. Such a difference says nothing either way, however large it looks. If an important metric is flagged noise, run again with more `--runs` rather than reading the delta.
+**The noise flag.** A difference is **noise** when the gap between the two means is no larger than the wider of the two models' ranges. Such a difference says nothing either way, however large it looks. If an important metric is flagged noise, run again with more `--runs` rather than reading the delta. With `--runs 1`, or for a task a `--max-usd` stop reached only once, no range is measured at all, so every difference is listed as noise (marked `noise (1 run)`).
 
 The report opens with two lists:
 

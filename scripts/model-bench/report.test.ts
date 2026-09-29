@@ -101,6 +101,35 @@ describe('the noise rule', () => {
   })
 })
 
+describe('a single run', () => {
+  it('measures no range, so a threshold-crossing drop is noise, not a regression', () => {
+    const calls = series('recipe', 'recall', [1], [0.929])
+    const cmp = compareMetric(
+      recall,
+      calls.filter((c) => c.role === 'baseline'),
+      calls.filter((c) => c.role === 'candidate'),
+    )
+    expect(cmp).toMatchObject({ rangeMeasured: false, noise: true, thresholdBreached: true })
+
+    const r = report(calls, ['recipe'])
+    expect(r.regressions).toEqual([])
+    expect(r.withinNoise.map((f) => f.text)).toEqual([
+      expect.stringMatching(/Ingredient recall.*only one run, so no run-to-run range was measured/),
+    ])
+    expect(renderMarkdown(r)).toContain('| noise (1 run) |')
+  })
+
+  it('applies per side: one model with a single run still counts as unmeasured', () => {
+    const calls = series('recipe', 'recall', [1, 1, 1], [0.8])
+    const cmp = compareMetric(
+      recall,
+      calls.filter((c) => c.role === 'baseline'),
+      calls.filter((c) => c.role === 'candidate'),
+    )
+    expect(cmp.noise).toBe(true)
+  })
+})
+
 describe('buildReport', () => {
   it('lists a threshold-crossing drop inside the range under "Within noise", and one outside it under "Regressions"', () => {
     const calls = [

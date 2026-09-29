@@ -11,6 +11,10 @@
  * a noise-flagged difference is listed under "Within noise", never under
  * "Regressions". The latency rule is the exception — it compares the
  * candidate's max against the route budget, not against the baseline.
+ *
+ * A side with a single per-run value (`--runs 1`, or a task a `--max-usd` stop
+ * reached only once) has measured no range at all, so nothing it shows can be
+ * "outside the range": every such difference counts as noise.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
@@ -36,6 +40,8 @@ export interface MetricComparison {
   delta: number | null
   /** `null` when there is nothing to compare. */
   noise: boolean | null
+  /** `false` when either side has fewer than two per-run values. */
+  rangeMeasured: boolean
   /** The delta crosses the metric's regression threshold, noise or not. */
   thresholdBreached: boolean
 }
@@ -123,19 +129,32 @@ export function compareMetric(
   baselineCalls: CallRecord[],
   candidateCalls: CallRecord[],
 ): MetricComparison {
-  const baseline = summarize(perRunValues(baselineCalls, metric.key))
-  const candidate = summarize(perRunValues(candidateCalls, metric.key))
+  const baselineRuns = perRunValues(baselineCalls, metric.key)
+  const candidateRuns = perRunValues(candidateCalls, metric.key)
+  const baseline = summarize(baselineRuns)
+  const candidate = summarize(candidateRuns)
+  const rangeMeasured = baselineRuns.length >= 2 && candidateRuns.length >= 2
 
   if (!baseline || !candidate) {
-    return { metric, baseline, candidate, delta: null, noise: null, thresholdBreached: false }
+    return {
+      metric,
+      baseline,
+      candidate,
+      delta: null,
+      noise: null,
+      rangeMeasured,
+      thresholdBreached: false,
+    }
   }
 
   const delta = candidate.mean - baseline.mean
   const widerRange = Math.max(baseline.max - baseline.min, candidate.max - candidate.min)
-  const noise = Math.abs(delta) <= widerRange
+  // One per-run value measures no range, so it cannot show a difference lies
+  // outside one.
+  const noise = !rangeMeasured || Math.abs(delta) <= widerRange
   const thresholdBreached = metric.regressionDrop !== undefined && delta < -metric.regressionDrop
 
-  return { metric, baseline, candidate, delta, noise, thresholdBreached }
+  return { metric, baseline, candidate, delta, noise, rangeMeasured, thresholdBreached }
 }
 
 function operational(calls: CallRecord[], budgetMs: number): Operational {
@@ -197,11 +216,16 @@ export function buildReport(args: {
       if (cmp.delta === null || cmp.delta === 0) continue
       const line = `**${task} · ${cmp.metric.label}:** ${describeChange(cmp)}`
       if (cmp.noise) {
+        const why = cmp.rangeMeasured
+          ? 'inside the run-to-run range'
+          : 'only one run, so no run-to-run range was measured'
         withinNoise.push({
           task,
           text: cmp.thresholdBreached
-            ? `${line} — past the regression threshold, but inside the run-to-run range`
-            : line,
+            ? `${line} — past the regression threshold, but ${why}`
+            : cmp.rangeMeasured
+              ? line
+              : `${line} — ${why}`,
         })
       } else if (cmp.thresholdBreached) {
         regressions.push({ task, text: `${line}, outside the run-to-run range` })
@@ -332,7 +356,14 @@ export function renderMarkdown(report: BenchReport): string {
     lines.push(`| Metric | ${baseline} | ${candidate} | Delta | Noise |`)
     lines.push('| --- | --- | --- | --- | --- |')
     for (const cmp of t.metrics) {
-      const noise = cmp.noise === null ? '—' : cmp.noise ? 'noise' : 'outside range'
+      const noise =
+        cmp.noise === null
+          ? '—'
+          : !cmp.rangeMeasured
+            ? 'noise (1 run)'
+            : cmp.noise
+              ? 'noise'
+              : 'outside range'
       lines.push(
         `| ${cmp.metric.label} | ${formatSummary(cmp.metric, cmp.baseline)} | ${formatSummary(cmp.metric, cmp.candidate)} | ${formatDelta(cmp.metric, cmp.delta)} | ${noise} |`,
       )

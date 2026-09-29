@@ -231,6 +231,39 @@ describe('scoreImagine', () => {
   })
 })
 
+describe('the Estonian vegetarian imagine case', () => {
+  const input = starter('imagine', 'et-vegetarian-lentils')
+  const meals = (ingredient: string) =>
+    Array.from({ length: 3 }, () => ({
+      name: 'Läätsesupp',
+      description: null,
+      timeMinutes: 30,
+      servings: 3,
+      mealTypes: ['dinner' as const],
+      kidFriendly: true,
+      ingredients: ['punane lääts', ingredient].map((name) => ({
+        name,
+        quantity: 100,
+        unit: 'g' as const,
+        originalText: name,
+        isVague: false,
+        vaguePhrase: null,
+        isDried: null,
+      })),
+    }))
+
+  it.each(['kanamuna', 'sojahakkliha', 'köögiviljapuljong'])('allows %s', (name) => {
+    expect(scoreImagine(input, { meals: meals(name) }).noForbiddenIngredients).toBe(1)
+  })
+
+  it.each(['kanafilee', 'sink', 'verivorst', 'kuningkrevett', 'seahakkliha', 'luupuljong'])(
+    'flags %s',
+    (name) => {
+      expect(scoreImagine(input, { meals: meals(name) }).noForbiddenIngredients).toBe(0)
+    },
+  )
+})
+
 describe('scoreReview', () => {
   const input = starter('review', 'en-chicken-stir-fry')
   const reviewed = (overrides: Record<string, number>) => ({
