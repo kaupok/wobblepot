@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
+import { getIngredientAvailabilitySets, hasPantryData } from './AvailabilityIndicator'
 import type { PantryIngredient } from './types'
 
 describe('getIngredientAvailabilitySets', () => {
@@ -37,5 +37,25 @@ describe('getIngredientAvailabilitySets', () => {
     const result = getIngredientAvailabilitySets(pantry)
     expect(result.availableIds.has('a')).toBe(true)
     expect(result.stapleIds.has('a')).toBe(true)
+  })
+})
+
+describe('hasPantryData', () => {
+  it('is false without a pantry', () => {
+    expect(hasPantryData(undefined)).toBe(false)
+    expect(hasPantryData([])).toBe(false)
+  })
+
+  it('is false when the pantry holds only staples (HON-769 defaults)', () => {
+    expect(hasPantryData([{ ingredientId: 'salt', isStaple: true }])).toBe(false)
+  })
+
+  it('is true once the pantry holds a non-staple', () => {
+    expect(
+      hasPantryData([
+        { ingredientId: 'salt', isStaple: true },
+        { ingredientId: 'rice', isStaple: false },
+      ]),
+    ).toBe(true)
   })
 })

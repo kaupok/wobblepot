@@ -83,13 +83,82 @@ export const Vegetarian: Story = {
   },
 }
 
+/** Salmon is in the pantry and miso is a staple; the rice is missing. */
+const somePantry = [
+  { ingredientId: 'salmon-fillet', isStaple: false },
+  { ingredientId: 'miso-paste', isStaple: true },
+] satisfies PantryIngredient[]
+
+const fullPantry = [
+  ...somePantry,
+  { ingredientId: 'short-grain-rice', isStaple: false },
+] satisfies PantryIngredient[]
+
+const tintedMeal = {
+  ...mealFixture,
+  imageStatus: 'ready' as const,
+  imageUrl: mealIllustration.src,
+  imageHue: 200,
+}
+
+/**
+ * Each ingredient carries an icon and hidden state text as well as its colour,
+ * and the card's last content row gives the pantry's verdict, as the card on
+ * Today does (HON-816). The badge counts exactly the rows marked missing.
+ */
 export const WithPantryAvailability: Story = {
+  name: 'Pantry: some missing',
+  args: { meal: tintedMeal, pantryIngredients: somePantry },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('1 ingredient missing')).toBeVisible()
+    await expect(canvas.getAllByText(', not available')).toHaveLength(1)
+    await expect(canvas.getByText('Short-grain rice').closest('li')).toHaveTextContent(
+      'Short-grain rice, not available',
+    )
+  },
+}
+
+export const WithPantryAvailabilityDark: Story = {
+  ...WithPantryAvailability,
+  name: 'Pantry: some missing (dark)',
+  globals: { theme: 'dark' },
+}
+
+export const PantryAllAvailable: Story = {
+  name: 'Pantry: all available',
+  args: { meal: tintedMeal, pantryIngredients: fullPantry },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Have all ingredients')).toBeVisible()
+    await expect(canvas.queryByText(', not available')).not.toBeInTheDocument()
+  },
+}
+
+export const PantryAllAvailableDark: Story = {
+  ...PantryAllAvailable,
+  name: 'Pantry: all available (dark)',
+  globals: { theme: 'dark' },
+}
+
+/**
+ * No pantry data, or a pantry holding only the default staples (HON-769):
+ * bulleted muted names and no badge, rather than a badge calling every
+ * non-staple missing.
+ */
+export const PantryOnlyStaples: Story = {
+  name: 'Pantry: no data (staples only)',
   args: {
-    meal: mealFixture,
+    meal: tintedMeal,
     pantryIngredients: [
       { ingredientId: 'short-grain-rice', isStaple: true },
       { ingredientId: 'miso-paste', isStaple: true },
     ] satisfies PantryIngredient[],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByText(/ingredients? missing|Have all ingredients/)).toBeNull()
+    await expect(canvas.getByRole('list')).toHaveClass('list-disc')
   },
 }
 

@@ -194,4 +194,58 @@ describe('MealCardBase', () => {
       expect(screen.getByText('Avocado').closest('li')).toHaveClass('text-warning')
     })
   })
+
+  // Colour is never the only cue (docs/DESIGN.md → Color, HON-816).
+  describe('ingredient availability cues beyond colour', () => {
+    const pantry: PantryIngredient[] = [
+      { ingredientId: 'ing-salmon', isStaple: false },
+      { ingredientId: 'ing-soy', isStaple: true },
+    ]
+
+    it('names the state of an available and a missing ingredient in hidden text', () => {
+      render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} />)
+
+      const salmon = screen.getByText('Salmon').closest('li')!
+      const avocado = screen.getByText('Avocado').closest('li')!
+      expect(salmon).toHaveTextContent('Salmon, available')
+      expect(avocado).toHaveTextContent('Avocado, not available')
+      expect(screen.getAllByText(', available')[0]).toHaveClass('sr-only')
+      expect(screen.getAllByText(', not available')[0]).toHaveClass('sr-only')
+    })
+
+    it('marks staples as available in the hidden text too', () => {
+      render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} />)
+
+      expect(screen.getByText('Soy sauce').closest('li')).toHaveTextContent('Soy sauce, available')
+    })
+
+    it('gives available and missing rows different decorative icons in place of bullets', () => {
+      render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} />)
+
+      const salmon = screen.getByText('Salmon').closest('li')!
+      const avocado = screen.getByText('Avocado').closest('li')!
+      const salmonIcon = salmon.querySelector('svg')!
+      const avocadoIcon = avocado.querySelector('svg')!
+      expect(salmonIcon).toHaveClass('lucide-check')
+      expect(avocadoIcon).toHaveClass('lucide-minus')
+      expect(salmonIcon).toHaveAttribute('aria-hidden', 'true')
+      expect(avocadoIcon).toHaveAttribute('aria-hidden', 'true')
+      expect(salmon.closest('ul')).not.toHaveClass('list-disc')
+    })
+
+    it('keeps the muted bulleted list, with no icons or state text, without pantry data', () => {
+      render(<MealCardBase meal={mockMeal} />)
+
+      const list = screen.getByText('Salmon').closest('ul')!
+      expect(list).toHaveClass('list-disc', 'text-muted-foreground')
+      expect(list.querySelector('svg')).toBeNull()
+      expect(screen.queryByText(/available/)).not.toBeInTheDocument()
+    })
+
+    it('keeps the md-up visibility with pantry data', () => {
+      render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} ingredients="md-up" />)
+
+      expect(screen.getByText('Salmon').closest('ul')).toHaveClass('hidden', 'md:flex')
+    })
+  })
 })

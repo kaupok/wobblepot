@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { AlternativeCard } from './AlternativeCard'
-import type { AlternativeMeal } from './types'
+import type { AlternativeMeal, PantryIngredient } from './types'
 
 const mockMeal: AlternativeMeal = {
   id: 'meal-1',
@@ -228,6 +228,52 @@ describe('AlternativeCard', () => {
     it('shows no reason for a meal the household has not rated', () => {
       renderWith(mockMeal)
       expect(screen.queryByText(/You've rated this/)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('pantry availability badge (HON-816)', () => {
+    const renderCard = (pantryIngredients?: PantryIngredient[]) =>
+      render(
+        <AlternativeCard
+          meal={mockMeal}
+          householdSize={3}
+          onSelect={vi.fn()}
+          isSelecting={false}
+          pantryIngredients={pantryIngredients}
+        />,
+      )
+
+    it('counts the rows marked missing', () => {
+      renderCard([{ ingredientId: 'ingredient-1', isStaple: false }])
+
+      expect(screen.getByText('1 ingredient missing')).toBeInTheDocument()
+      expect(screen.getAllByText(', not available')).toHaveLength(1)
+    })
+
+    it('says so when every ingredient is in the pantry or a staple', () => {
+      renderCard([
+        { ingredientId: 'ingredient-1', isStaple: false },
+        { ingredientId: 'ingredient-2', isStaple: true },
+      ])
+
+      expect(screen.getByText('Have all ingredients')).toBeInTheDocument()
+      expect(screen.queryByText(', not available')).not.toBeInTheDocument()
+    })
+
+    it('shows no badge without pantry data', () => {
+      renderCard()
+
+      expect(
+        screen.queryByText(/ingredients? missing|Have all ingredients/),
+      ).not.toBeInTheDocument()
+    })
+
+    it('shows no badge when the pantry holds only staples (HON-769 defaults)', () => {
+      renderCard([{ ingredientId: 'salt', isStaple: true }])
+
+      expect(
+        screen.queryByText(/ingredients? missing|Have all ingredients/),
+      ).not.toBeInTheDocument()
     })
   })
 })
