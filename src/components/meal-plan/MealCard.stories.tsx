@@ -74,7 +74,8 @@ export const PlannedWithImage: Story = {
     await canvas.findByRole('img', { name: mealFixture.name })
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     await expect(card.style.getPropertyValue('--meal-hue')).toBe('52')
-    const menu = canvas.getByRole('button', { name: /more actions/i })
+    // Every card has this menu, so its name carries the meal (HON-807).
+    const menu = canvas.getByRole('button', { name: `More actions: ${mealFixture.name}` })
     await expect(menu).toBeVisible()
     // The image ends before the menu, and the title and the description wrap
     // before the image's opaque part (HON-749).
@@ -323,7 +324,7 @@ export const SwapDropsCachedTips: Story = {
 
     // Generate tips for the meal currently on the entry.
     await expect(canvas.getByText('6 servings')).toBeInTheDocument()
-    await userEvent.click(canvas.getByRole('button', { name: /lemon-garlic roast chicken/i }))
+    await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
     await userEvent.click(await body.findByRole('button', { name: /how to prepare/i }))
     await body.findByText(/roasting tin/i)
 
@@ -346,7 +347,7 @@ export const SwapDropsCachedTips: Story = {
     // Reopen the modal. The panel offers the prompt again rather than the
     // previous meal's expanded tips, and the serving control agrees with the
     // card...
-    await userEvent.click(canvas.getByRole('button', { name: /lemon-garlic roast chicken/i }))
+    await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
     const reopened = await body.findByRole('dialog')
     await expect(within(reopened).getByRole('button', { name: /serves 4/i })).toBeInTheDocument()
     const prompt = await body.findByRole('button', { name: /how to prepare/i })
@@ -461,7 +462,7 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
 
     // Generate tips for the planned meal, so there is something to lose.
     await expect(canvas.getByText('6 servings')).toBeInTheDocument()
-    await userEvent.click(canvas.getByRole('button', { name: /lemon-garlic roast chicken/i }))
+    await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
     await userEvent.click(await body.findByRole('button', { name: /how to prepare/i }))
     await body.findByText(/roasting tin/i)
     await expect(reselectTipsRequests).toBe(1)
@@ -487,7 +488,7 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
     // And the tips were not discarded: reopening shows them still expanded,
     // and no second POST was issued. `SwapDropsCachedTips` asserts the exact
     // opposite pair for a real swap.
-    await userEvent.click(canvas.getByRole('button', { name: /lemon-garlic roast chicken/i }))
+    await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
     const reopened = await body.findByRole('dialog')
     await expect(within(reopened).getByText(/roasting tin/i)).toBeInTheDocument()
     await expect(reselectTipsRequests).toBe(1)

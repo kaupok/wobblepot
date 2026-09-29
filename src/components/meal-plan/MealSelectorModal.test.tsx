@@ -63,7 +63,9 @@ vi.mock('./meal-selector/ImaginePanel', () => ({
 /** Verbatim from the plan-entry PATCH route's 404 branch. */
 const SERVER_PROSE = 'Entry not found or access denied'
 
-function renderModal() {
+function renderModal(
+  props: Partial<Pick<React.ComponentProps<typeof MealSelectorModal>, 'mode' | 'dayLabel'>> = {},
+) {
   return render(
     <NextIntlClientProvider locale="et" messages={etMessages}>
       <MealSelectorModal
@@ -75,10 +77,38 @@ function renderModal() {
         householdSize={4}
         onSwapComplete={vi.fn()}
         mode="add"
+        {...props}
       />
     </NextIntlClientProvider>,
   )
 }
+
+describe('MealSelectorModal description', () => {
+  // The dialog covers the timeline row that was tapped, so in add mode it names
+  // the slot. Estonian, with a separator rather than a preposition, so neither
+  // the day nor the meal needs declining (HON-807).
+  it('names the slot in add mode when given the day', () => {
+    renderModal({ dayLabel: 'Laupäev 3. okt' })
+
+    expect(screen.getByRole('dialog')).toHaveAccessibleDescription('Laupäev 3. okt · Õhtusöök')
+  })
+
+  it('keeps the generic add copy without the day', () => {
+    renderModal()
+
+    expect(screen.getByRole('dialog')).toHaveAccessibleDescription(
+      etMessages['meal-plan'].selector.addDescription,
+    )
+  })
+
+  it('ignores the day in swap mode', () => {
+    renderModal({ mode: 'swap', dayLabel: 'Laupäev 3. okt' })
+
+    expect(screen.getByRole('dialog')).toHaveAccessibleDescription(
+      etMessages['meal-plan'].selector.swapDescriptionGeneric,
+    )
+  })
+})
 
 describe('MealSelectorModal plan-assignment error localization', () => {
   let consoleError: ReturnType<typeof vi.spyOn>

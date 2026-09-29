@@ -56,8 +56,10 @@ vi.mock('@/components/meal-plan/MealCard', () => ({
 
 // Mock TimelineEmptySlot
 vi.mock('./TimelineEmptySlot', () => ({
-  TimelineEmptySlot: vi.fn(({ mealType }) => (
-    <div data-testid={`empty-slot-${mealType}`}>Empty {mealType}</div>
+  TimelineEmptySlot: vi.fn(({ mealType, dayLabel }) => (
+    <div data-testid={`empty-slot-${mealType}`}>
+      Empty {mealType} on {dayLabel}
+    </div>
   )),
 }))
 
@@ -92,6 +94,26 @@ describe('TimelineDayCard', () => {
   it('renders empty slots for future days', () => {
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
     expect(screen.getByTestId('empty-slot-dinner')).toBeInTheDocument()
+  })
+
+  // The slot's button is named after its day (HON-807): the heading's text,
+  // with the date when the day has one.
+  it('passes the day to empty slots', () => {
+    render(<TimelineDayCard day={baseDay} {...defaultProps} />)
+    expect(screen.getByTestId('empty-slot-dinner')).toHaveTextContent('Empty dinner on Today')
+  })
+
+  it('passes the day with its date to empty slots', () => {
+    const saturday: TimelineDay = {
+      ...baseDay,
+      label: 'Saturday',
+      dateLabel: 'Oct 3',
+      isToday: false,
+    }
+    render(<TimelineDayCard day={saturday} {...defaultProps} />)
+    expect(screen.getByTestId('empty-slot-dinner')).toHaveTextContent(
+      'Empty dinner on Saturday Oct 3',
+    )
   })
 
   it('does not render empty slots for past days', () => {

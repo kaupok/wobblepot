@@ -11,12 +11,15 @@ import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { apiFetch } from '@/lib/api'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { MealType } from '@/generated/prisma/enums'
 import type { PantryIngredient } from '@/components/meal-plan/types'
 
 interface TimelineEmptySlotProps {
   planId: string
   date: string
+  /** The day as its heading reads it, e.g. "Saturday Oct 3" or "Tomorrow". */
+  dayLabel: string
   mealType: MealType
   householdSize: number
   pantryIngredients?: PantryIngredient[]
@@ -25,6 +28,7 @@ interface TimelineEmptySlotProps {
 export function TimelineEmptySlot({
   planId,
   date,
+  dayLabel,
   mealType,
   householdSize,
   pantryIngredients = [],
@@ -32,6 +36,7 @@ export function TimelineEmptySlot({
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
+  const mealTypeLabel = useEnumLabel('MealType', mealType)
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
   const hasSelectedRef = useRef(false)
@@ -110,6 +115,8 @@ export function TimelineEmptySlot({
     pickButtonRef.current?.focus()
   }
 
+  const buttonText = isCreating ? tCard('adding') : tCard('pickMeal')
+
   return (
     <>
       <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed px-3 py-2">
@@ -125,8 +132,16 @@ export function TimelineEmptySlot({
           // Not `disabled`: a disabled button drops focus and cannot take it
           // back when the selector closes (HON-803).
           aria-disabled={isPending || undefined}
+          // Every empty slot on Today reads "Pick a meal", so the name adds the
+          // slot. It starts with the visible text, so a voice user can still
+          // say what they see (WCAG 2.5.3, HON-807).
+          aria-label={tCard('slotActionLabel', {
+            action: buttonText,
+            day: dayLabel,
+            mealType: mealTypeLabel,
+          })}
         >
-          {isCreating ? tCard('adding') : tCard('pickMeal')}
+          {buttonText}
         </Button>
       </div>
       {entryId && (
@@ -136,6 +151,7 @@ export function TimelineEmptySlot({
           planId={planId}
           entryId={entryId}
           mealType={mealType}
+          dayLabel={dayLabel}
           householdSize={householdSize}
           onSwapComplete={handleSwapComplete}
           mode="add"

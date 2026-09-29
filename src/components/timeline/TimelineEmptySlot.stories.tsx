@@ -18,6 +18,7 @@ const meta = {
   args: {
     planId: 'plan-1',
     date: '2026-04-16',
+    dayLabel: 'Thursday Apr 16',
     mealType: MealType.dinner,
     householdSize: 4,
     pantryIngredients: lemonGarlicChickenPantry,
@@ -34,7 +35,17 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Dinner: Story = {}
+// The button's name carries the slot: every empty slot on Today reads "Pick a
+// meal", so the name adds the day and meal after the visible text (HON-807).
+export const Dinner: Story = {
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole('button', {
+        name: 'Pick a meal: Thursday Apr 16, Dinner',
+      }),
+    ).toBeVisible()
+  },
+}
 
 export const Lunch: Story = {
   args: { mealType: MealType.lunch },
@@ -42,6 +53,16 @@ export const Lunch: Story = {
 
 export const Breakfast: Story = {
   args: { mealType: MealType.breakfast },
+}
+
+/** Today and Tomorrow have no date beside them, so the day is the word alone. */
+export const Tomorrow: Story = {
+  args: { dayLabel: 'Tomorrow' },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole('button', { name: 'Pick a meal: Tomorrow, Dinner' }),
+    ).toBeVisible()
+  },
 }
 
 export const Adding: Story = {
@@ -56,8 +77,10 @@ export const Adding: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('button', { name: 'Pick a meal' }))
-    const adding = await canvas.findByRole('button', { name: 'Adding…' })
+    await userEvent.click(canvas.getByRole('button', { name: /^Pick a meal/ }))
+    const adding = await canvas.findByRole('button', {
+      name: 'Adding…: Thursday Apr 16, Dinner',
+    })
     await expect(adding).toHaveAttribute('aria-disabled', 'true')
   },
 }
@@ -74,12 +97,14 @@ export const Discarding: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('button', { name: 'Pick a meal' }))
-    await within(document.body).findByRole('dialog')
+    await userEvent.click(canvas.getByRole('button', { name: /^Pick a meal/ }))
+    const dialog = await within(document.body).findByRole('dialog')
+    // The dialog covers the row that was tapped, so it names the slot (HON-807).
+    await expect(dialog).toHaveAccessibleDescription('Thursday Apr 16 · Dinner')
     await pressEscape()
     await awaitDialogClosed()
     await waitFor(() =>
-      expect(canvas.getByRole('button', { name: 'Pick a meal' })).toHaveAttribute(
+      expect(canvas.getByRole('button', { name: /^Pick a meal/ })).toHaveAttribute(
         'aria-disabled',
         'true',
       ),

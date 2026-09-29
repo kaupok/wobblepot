@@ -64,6 +64,23 @@ export const BreakfastSlot: Story = {
   },
 }
 
+/**
+ * Opened from an empty slot on Today: the description names the slot, since
+ * the dialog covers the row that was tapped (HON-807).
+ */
+export const AddModeWithSlot: Story = {
+  args: {
+    mode: 'add',
+    mealType: MealType.breakfast,
+    dayLabel: 'Saturday Oct 3',
+  },
+  play: async () => {
+    await expect(await within(document.body).findByRole('dialog')).toHaveAccessibleDescription(
+      'Saturday Oct 3 · Breakfast',
+    )
+  },
+}
+
 export const Populated: Story = {
   args: {
     mode: 'swap',

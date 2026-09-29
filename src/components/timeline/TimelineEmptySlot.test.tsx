@@ -20,6 +20,7 @@ vi.mock('@/components/meal-plan/meal-selector/AlternativesList', () => ({
 }))
 
 const PLAN_ID = 'plan-1'
+const PICK_NAME = 'Pick a meal: Thursday Apr 16, Dinner'
 const ENTRY_ID = 'entry-1'
 const ENTRY_URL = `/api/meal-plans/${PLAN_ID}/entries/${ENTRY_ID}`
 
@@ -85,13 +86,19 @@ function renderSlot() {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
     <Wrapper>
-      <TimelineEmptySlot planId={PLAN_ID} date="2026-04-16" mealType="dinner" householdSize={4} />
+      <TimelineEmptySlot
+        planId={PLAN_ID}
+        date="2026-04-16"
+        dayLabel="Thursday Apr 16"
+        mealType="dinner"
+        householdSize={4}
+      />
     </Wrapper>,
   )
 }
 
 async function openSelector() {
-  fireEvent.click(screen.getByRole('button', { name: 'Pick a meal' }))
+  fireEvent.click(pickButton())
   await screen.findByRole('dialog')
   await waitFor(() => expect(suggestionRequests()).toHaveLength(1))
 }
@@ -111,13 +118,43 @@ function expectIdle(button: HTMLElement) {
   expect(button).not.toHaveAttribute('aria-disabled')
 }
 
-const pickButton = () => screen.getByRole('button', { name: 'Pick a meal' })
+const pickButton = () => screen.getByRole('button', { name: PICK_NAME })
 const createRequests = () =>
   requests.filter((r) => r.method === 'POST' && r.url === `/api/meal-plans/${PLAN_ID}/entries`)
 const suggestionRequests = () => requests.filter((r) => r.url === `${ENTRY_URL}/suggestions`)
 const deleteRequests = () => requests.filter((r) => r.method === 'DELETE')
 
 describe('TimelineEmptySlot', () => {
+  // Today renders one of these per empty slot, so the name has to say which
+  // one, and start with the visible text (WCAG 2.5.3) (HON-807).
+  it('names the day and meal after the visible text', () => {
+    renderSlot()
+    const button = pickButton()
+    expect(button).toHaveTextContent('Pick a meal')
+    expect(button).toHaveAccessibleName(PICK_NAME)
+  })
+
+  it('keeps the day and meal in the name while the placeholder is being created', async () => {
+    createResponse = deferred()
+    renderSlot()
+
+    fireEvent.click(pickButton())
+    const adding = await screen.findByRole('button', {
+      name: 'Adding…: Thursday Apr 16, Dinner',
+    })
+    expect(adding).toHaveTextContent('Adding…')
+
+    createResponse.resolve(json({ id: ENTRY_ID }))
+    await screen.findByRole('dialog')
+  })
+
+  it('names the slot in the selector description', async () => {
+    renderSlot()
+    await openSelector()
+
+    expect(screen.getByRole('dialog')).toHaveAccessibleDescription('Thursday Apr 16 · Dinner')
+  })
+
   it('discards the placeholder without asking for its suggestions again', async () => {
     renderSlot()
     await openSelector()
@@ -161,7 +198,7 @@ describe('TimelineEmptySlot', () => {
     renderSlot()
 
     fireEvent.click(pickButton())
-    const adding = await screen.findByRole('button', { name: 'Adding…' })
+    const adding = await screen.findByRole('button', { name: /^Adding…/ })
     expectPending(adding)
 
     // `pointer-events-none` is CSS, which jsdom does not apply, so a click here
