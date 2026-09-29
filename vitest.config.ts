@@ -80,6 +80,12 @@ export default defineConfig({
             UPSTASH_REDIS_REST_URL: 'https://test.upstash.io',
             UPSTASH_REDIS_REST_TOKEN: 'test-upstash-token',
             ADMIN_EMAIL: 'admin@example.com',
+            // Run as production does (Vercel and CI are UTC). The shopping-list
+            // routes build their reference day with runtime-local date helpers
+            // and compare it in the household's zone, which only agrees on a
+            // UTC runtime — west of UTC their tests shift by a day (HON-772).
+            // Overrides a TZ set in the developer's shell.
+            TZ: 'UTC',
           },
           testTimeout: 10000,
         },
