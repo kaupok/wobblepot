@@ -169,6 +169,22 @@ describe('RootLayout', () => {
     expect(mockGetHouseholdIdForUser).not.toHaveBeenCalled()
     expect(mockBootstrapFlags).toHaveBeenCalledWith('anonymous')
   })
+
+  // The admin title in the client catalog would put "Signup codes" in every
+  // page's HTML and give the hidden admin route away (HON-830).
+  it('keeps the admin page titles out of the client message catalog', async () => {
+    mockGetMessages.mockResolvedValue({
+      nav: { home: 'Home' },
+      meta: { root: { title: 'Wobblepot' }, admin: { signupCodes: { title: 'Signup codes' } } },
+    })
+
+    const element = await RootLayout({ children: null })
+
+    expect(findPropsWith(element, 'messages')?.messages).toEqual({
+      nav: { home: 'Home' },
+      meta: { root: { title: 'Wobblepot' } },
+    })
+  })
 })
 
 describe('generateMetadata', () => {

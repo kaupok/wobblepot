@@ -8,6 +8,11 @@ import { Heading, Body } from '@/components/ui/typography'
 import { SignupCodesClient, type SignupCodeRow } from './SignupCodesClient'
 
 export async function generateMetadata(): Promise<Metadata> {
+  // Metadata resolves independently of the layout's and page's gates, so it
+  // needs its own: without it a non-admin gets the 404 body under this page's
+  // title (HON-830). `notFound()` here resolves the not-found metadata instead.
+  if (!isAdmin(await getSession())) notFound()
+
   const t = await getTranslations('meta.admin.signupCodes')
   return {
     title: t('title'),

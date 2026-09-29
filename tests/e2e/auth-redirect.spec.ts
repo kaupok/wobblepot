@@ -1,4 +1,4 @@
-// ROUTES: /profile, /invite/[code], /admin/signup-codes, / · COMPONENTS: src/proxy.ts (PROTECTED_PREFIXES)
+// ROUTES: /profile, /invite/[code], /admin/signup-codes, /does-not-exist, / · COMPONENTS: src/proxy.ts (PROTECTED_PREFIXES)
 import { test, expect } from '@playwright/test'
 
 /**
@@ -37,12 +37,27 @@ test.describe('Anonymous access to protected routes', () => {
   })
 
   // /admin is deliberately NOT in PROTECTED_PREFIXES: a sign-in redirect would
-  // advertise that the route exists. Its intended response is a 404 served by
-  // `src/app/admin/layout.tsx` (HON-593). The status itself belongs to that
-  // issue, so assert only the contract this one owns — no bounce to sign-in.
+  // advertise that the route exists. Instead the proxy rewrites an anonymous
+  // request to a path no route matches, so it gets the ordinary 404 — same
+  // status, same title, no admin copy — before anything streams (HON-830).
   test('admin routes are not redirected to sign-in', async ({ request }) => {
     const response = await request.get('/admin/signup-codes', { maxRedirects: 0 })
 
     expect(response.headers()['location'] ?? '').not.toContain('/sign-in')
+  })
+
+  test('admin routes are indistinguishable from a missing page', async ({ request }) => {
+    const titleOf = (html: string) => html.match(/<title>([^<]*)<\/title>/)?.[1]
+
+    const admin = await request.get('/admin/signup-codes', { maxRedirects: 0 })
+    const missing = await request.get('/does-not-exist', { maxRedirects: 0 })
+    const adminHtml = await admin.text()
+    const missingHtml = await missing.text()
+
+    expect(admin.status()).toBe(404)
+    expect(missing.status()).toBe(404)
+    expect(adminHtml).not.toContain('Signup codes')
+    expect(titleOf(adminHtml)).toBeDefined()
+    expect(titleOf(adminHtml)).toBe(titleOf(missingHtml))
   })
 })
