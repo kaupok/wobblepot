@@ -504,7 +504,7 @@
         "totalQuantityAria": "„{name}\" üldkogus"
       },
       "ingredientSearch": {
-        "placeholder": "Otsi rohkem koostisosi…",
+        "placeholder": "Otsi koostisosi…",
         "aria": "Otsi lisatavaid koostisosi",
         "noResults": "Koostisosi ei leitud",
         "added": "Lisatud"

@@ -33,6 +33,9 @@ const buttonVariants = cva(
         'quiet-destructive':
           'text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20',
         link: 'text-primary underline-offset-4 hover:underline active:scale-100',
+        // A `link` that recedes: one item in a row of muted text links (the
+        // footer's cookie settings), matching their colour, weight and hover.
+        'quiet-link': 'text-muted-foreground font-normal hover:underline active:scale-100',
       },
       // Control height is `touch` (44px) below `md` and 40px from `md` up — a
       // thumb on a phone, a cursor on a dashboard. `sm` stays at 32px: it is

@@ -10,8 +10,8 @@ export function Footer() {
   const year = new Date().getFullYear()
   const t = useTranslations('footer')
   return (
-    <footer className="border-t px-4 py-6 pb-[calc(1.5rem+5rem+env(safe-area-inset-bottom,0px))] md:pb-6">
-      <div className="max-w-page mx-auto flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
+    <footer className="border-t py-6 pb-[calc(1.5rem+5rem+env(safe-area-inset-bottom,0px))] md:pb-6">
+      <div className="max-w-page mx-auto flex flex-col items-center gap-2 px-4 sm:flex-row sm:justify-between">
         {/* Trade name by design; the copyright holder is Honkadori OÜ (see LICENSE). */}
         <Body variant="muted">© {year} Wobblepot</Body>
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-4">

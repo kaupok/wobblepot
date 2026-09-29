@@ -68,6 +68,13 @@ describe('Button component', () => {
       const button = screen.getByRole('button')
       expect(button).toHaveClass('text-primary', 'underline-offset-4')
     })
+
+    it('applies quiet-link variant classes: muted, regular weight, underline on hover', () => {
+      render(<Button variant="quiet-link">Cookie settings</Button>)
+      const button = screen.getByRole('button')
+      expect(button).toHaveClass('text-muted-foreground', 'font-normal', 'hover:underline')
+      expect(button).not.toHaveClass('text-primary', 'font-medium')
+    })
   })
 
   // docs/DESIGN.md → Motion. The computed 0.97 scale is asserted in the
@@ -95,12 +102,15 @@ describe('Button component', () => {
       },
     )
 
-    it('does not scale on press for the link variant', () => {
-      render(<Button variant="link">Link</Button>)
-      const button = screen.getByRole('button')
-      expect(button).toHaveClass('active:scale-100')
-      expect(button).not.toHaveClass('active:scale-[0.97]')
-    })
+    it.each(['link', 'quiet-link'] as const)(
+      'does not scale on press for the %s variant',
+      (variant) => {
+        render(<Button variant={variant}>Link</Button>)
+        const button = screen.getByRole('button')
+        expect(button).toHaveClass('active:scale-100')
+        expect(button).not.toHaveClass('active:scale-[0.97]')
+      },
+    )
   })
 
   describe('sizes', () => {

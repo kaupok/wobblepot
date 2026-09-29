@@ -504,7 +504,7 @@
         "totalQuantityAria": "Total quantity for {name}"
       },
       "ingredientSearch": {
-        "placeholder": "Search to add more ingredients…",
+        "placeholder": "Search to add ingredients…",
         "aria": "Search ingredients to add",
         "noResults": "No ingredients found",
         "added": "Added"

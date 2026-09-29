@@ -19,6 +19,7 @@ const meta = {
         'quiet',
         'quiet-destructive',
         'link',
+        'quiet-link',
       ],
     },
     size: {
@@ -72,7 +73,7 @@ export const Link: Story = {
 }
 
 // `inline` drops the control box so a link sits on the line of the sentence
-// around it — the cookie-settings link in the footer.
+// around it.
 export const InlineLink: Story = {
   render: () => (
     <p className="text-muted-foreground text-sm">
@@ -86,6 +87,29 @@ export const InlineLink: Story = {
     const button = within(canvasElement).getByRole('button', { name: 'Cookie settings' })
     await expect(getComputedStyle(button).paddingLeft).toBe('0px')
     await expect(button.getBoundingClientRect().height).toBeLessThan(32)
+  },
+}
+
+// `quiet-link` sits in a row of muted text links — the footer's cookie
+// settings beside its privacy and terms links — and must not outrank them.
+export const QuietLink: Story = {
+  render: () => (
+    <div className="flex gap-4">
+      <a href="#privacy" className="text-muted-foreground text-sm hover:underline">
+        Privacy policy
+      </a>
+      <Button variant="quiet-link" size="inline">
+        Cookie settings
+      </Button>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const link = getComputedStyle(canvas.getByRole('link', { name: 'Privacy policy' }))
+    const button = getComputedStyle(canvas.getByRole('button', { name: 'Cookie settings' }))
+    await expect(button.color).toBe(link.color)
+    await expect(button.fontSize).toBe(link.fontSize)
+    await expect(button.fontWeight).toBe(link.fontWeight)
   },
 }
 
@@ -145,6 +169,7 @@ export const AllVariants: Story = {
       <Button variant="quiet">Quiet</Button>
       <Button variant="quiet-destructive">Quiet destructive</Button>
       <Button variant="link">Link</Button>
+      <Button variant="quiet-link">Quiet link</Button>
     </div>
   ),
 }
