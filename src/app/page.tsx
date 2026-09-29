@@ -40,7 +40,7 @@ export default async function Home() {
             role="note"
             aria-label="Private beta notice"
           >
-            <Body variant="small">{t('privateBeta')}</Body>
+            <Body variant="paragraph">{t('privateBeta')}</Body>
           </div>
 
           <Button asChild size="lg">

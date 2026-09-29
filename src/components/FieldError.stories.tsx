@@ -41,3 +41,23 @@ export const UnderAnInput: Story = {
     await expect(alert).toHaveAttribute('id', 'form-error')
   },
 }
+
+// The longest error a user meets: /reset-password without a token. At the
+// 390px mobile viewport it wraps, which is what the `paragraph` level is for —
+// the single-line `small` level set the two lines touching (HON-827).
+export const WrappingMessage: Story = {
+  args: {
+    children: 'No reset token found. Please request a new password reset link.',
+  },
+  render: (args) => (
+    <div className="max-w-xs">
+      <FieldError {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const alert = canvas.getByRole('alert')
+    // Two lines at a 24px line height. At the old 16px leading it measured 32px.
+    await expect(alert.getBoundingClientRect().height).toBeGreaterThanOrEqual(48)
+  },
+}
