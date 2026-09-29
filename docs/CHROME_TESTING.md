@@ -83,3 +83,49 @@ These routes exist only to keep old links working. Their `page.tsx` bodies are a
 | -------------------- | ------------ | ---------------------------------------------------------- |
 | `/meal-plan`         | `/`          | The weekly plan now lives on the Today dashboard           |
 | `/household/invites` | `/household` | Invites are managed in the Members section of `/household` |
+
+## Reviewing sign-up and onboarding
+
+Sign-up → onboarding → first plan cannot be walked on staging, and that is deliberate (HON-851):
+
+- Staging requires an invite code, and `/api/e2e-seed` — the route that mints one — returns 404 on staging and preview (HON-560).
+- A reviewing agent must not create accounts or type passwords on a deployed host. On `localhost`, with test values, it may.
+- Onboarding is one-shot: once an account has a household, `/onboarding` redirects to `/`, so a fixture account is used up by the first review.
+
+Review these screens on the **local review server** instead. It runs the checked-out commit with the test-only routes switched on, on its own port:
+
+```bash
+pnpm review:local              # branch mode: a throwaway Neon branch forked from staging
+pnpm review:local --db env     # env mode: the DATABASE_URL in .env, no branch
+```
+
+Start it in the background and wait for the line containing `REVIEW-READY http://localhost:3200`; it is printed once the server answers, so the URL works as soon as you see it. The port is `3200` (`REVIEW_LOCAL_PORT` overrides it), clear of `pnpm dev` on 3000 and `pnpm test:e2e:local` on 3100. Stop it with Ctrl-C or `kill`. It listens on `127.0.0.1` only: the test-only routes are on and rate limiting is off, so it must not be reachable from the network.
+
+| Mode             | Database                                                           | Migrations                                                                                             | When                                                                                                                                                                               |
+| ---------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| branch (default) | Ephemeral `e2e-local-*` Neon branch, deleted when the server stops | `prisma migrate deploy` on the branch; `--seed` also runs `pnpm db:seed`                               | Normally. It holds one Neon branch while it runs — see `docs/PARALLEL_WORKFLOW.md` → the branch budget                                                                             |
+| `--db env`       | `DATABASE_URL` from `.env`                                         | Checked with `prisma migrate status`, never applied — it refuses to start on a database that is behind | When no branch slot is free; the branch-mode cap error names this flag. **Accounts you create persist.** Refuses a `.env` whose `NEXT_PUBLIC_APP_ENV` names a deployed environment |
+
+### Walking the flow
+
+1. Mint an invite code: `curl -X POST http://localhost:3200/api/e2e-seed` → `{"code":"e2e-…"}` (201).
+2. Sign up on `/sign-up` with that code, an email of the form `review-<timestamp>@example.com`, and the password `TEST_PASSWORD` from `tests/e2e/utils/test-helpers.ts`. Never a real address or a real password.
+3. Sign-up lands on `/onboarding`; complete both steps and `/` shows the first-plan screen.
+
+Each sign-up is a fresh account with no household, so a second sign-up (new code, new email) gives a second fresh onboarding.
+
+### Cleanup
+
+In branch mode, stopping the server deletes the branch and everything on it. In `--db env` mode, remove the review account through the product's own deletion path:
+
+1. Signed in as the review account, delete it on `/profile`.
+2. `curl -X POST "http://localhost:3200/api/e2e-support?action=expire-purge&email=<review email>"` — back-dates its purge window.
+3. `curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3200/api/cron/purge-deleted-users` → `{"purged":1,"scanned":1}`. `$CRON_SECRET` is the value the server started with: `CRON_SECRET` from `.env`, or the fallback literal in `scripts/e2e-local.sh` when `.env` has none.
+4. `curl "http://localhost:3200/api/e2e-support?action=user-state&email=<review email>"` → `{"exists":false}`.
+
+**The purge cron purges every account whose deletion window has elapsed, not only the review account.** In `--db env` mode, check before step 3 that nothing else is due — `scanned` should be the number of review accounts you expired:
+
+```sql
+SELECT email, "purgeScheduledFor" FROM "user"
+WHERE "deletedAt" IS NOT NULL AND "purgeScheduledFor" < now();
+```
