@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
 import { IngredientRow } from '@/components/recipes/IngredientRow'
 import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from '@/components/meal-plan/NutritionSummary'
@@ -105,9 +106,14 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
     // client supplies the container and the `max-w-2xl` column.
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <Heading variant="h4" as="h1">
-          {isEditing ? t('titleEdit') : t('titleCreate')}
-        </Heading>
+        {/* The arrow is a plain way out, like the imagine and import pages'
+            (HON-822); Cancel below keeps its own return target and confirm. */}
+        <div className="flex items-center gap-2">
+          <BackToRecipesLink />
+          <Heading variant="h4" as="h1">
+            {isEditing ? t('titleEdit') : t('titleCreate')}
+          </Heading>
+        </div>
         <Body variant="muted">{isEditing ? t('descriptionEdit') : t('descriptionCreate')}</Body>
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
