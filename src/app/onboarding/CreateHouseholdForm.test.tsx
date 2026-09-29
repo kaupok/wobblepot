@@ -560,7 +560,9 @@ describe('CreateHouseholdForm', () => {
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Create household' })).toHaveFocus()
       })
-      expect(screen.getByRole('alert')).toHaveTextContent('Failed to create household')
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        "We couldn't create your household. Try again.",
+      )
     })
 
     // Enter in the step 1 name input submits the form. What that does is out of
