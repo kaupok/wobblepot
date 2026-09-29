@@ -30,8 +30,13 @@ export const STARTER_CASE_IDS: readonly string[] = [
   'tips/et-supplementary-ahjulohe',
 ]
 
+/** Throws if a starter case is missing, so a renamed file cannot shrink a test's input. */
 export function loadStarterCases(tasks: readonly Task[]): BenchCase[] {
-  return loadCases(tasks).filter((c) => STARTER_CASE_IDS.includes(c.id))
+  const cases = loadCases(tasks).filter((c) => STARTER_CASE_IDS.includes(c.id))
+  const wanted = STARTER_CASE_IDS.filter((id) => tasks.some((t) => id.startsWith(`${t}/`)))
+  const missing = wanted.filter((id) => !cases.some((c) => c.id === id))
+  if (missing.length > 0) throw new Error(`Starter cases not found: ${missing.join(', ')}`)
+  return cases
 }
 
 /** A temporary cases directory holding only the starter set. The caller removes it. */
