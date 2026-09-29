@@ -91,6 +91,74 @@ export const Populated: Story = {
     for (const card of cards) {
       await expect(card.parentElement?.closest('[data-slot="card"]')).toBeNull()
     }
+    await expectActionsTwoUp(canvasElement)
+  },
+}
+
+/** The "Imagine a meal" and "Add recipe" links, in their row order. */
+function actionLinks(canvasElement: HTMLElement) {
+  const links = ['/recipes/imagine', '/recipes/import'].map((href) =>
+    canvasElement.querySelector<HTMLAnchorElement>(`a[href="${href}"]`),
+  )
+  return links.filter((link): link is HTMLAnchorElement => link !== null)
+}
+
+/**
+ * On a phone the two actions are two-up across the column: one row, together
+ * as wide as it, and neither label overflowing its button (HON-812).
+ */
+async function expectActionsTwoUp(canvasElement: HTMLElement) {
+  const links = actionLinks(canvasElement)
+  await expect(links).toHaveLength(2)
+  const [imagine, add] = links.map((link) => link.getBoundingClientRect())
+  const row = links[0]!.parentElement!.getBoundingClientRect()
+  await expect(imagine!.top).toBe(add!.top)
+  await expect(imagine!.left).toBeCloseTo(row.left, 0)
+  await expect(add!.right).toBeCloseTo(row.right, 0)
+  for (const link of links) {
+    await expect(link.scrollWidth).toBeLessThanOrEqual(link.clientWidth)
+  }
+}
+
+export const PhoneEstonian: Story = {
+  name: 'Phone, Estonian',
+  globals: { locale: 'et' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The longer Estonian labels still fit two-up at 390px, so the pair never has to stack (HON-812).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findAllByRole('button', { name: /kustuta/i })
+    await expectActionsTwoUp(canvasElement)
+  },
+}
+
+export const Desktop: Story = {
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'From `sm` the search and the actions share a row, and the actions are as wide as their labels at its end (HON-812).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const search = (await within(canvasElement).findByRole('searchbox')).getBoundingClientRect()
+    const links = actionLinks(canvasElement)
+    const actions = links[0]!.parentElement!
+    const outer = actions.parentElement!.getBoundingClientRect()
+    // Label-sized: the pair takes only its labels' room, after the search,
+    // on the search's line and flush with the end of the row.
+    await expect(actions.getBoundingClientRect().left).toBeGreaterThan(search.right)
+    await expect(actions.getBoundingClientRect().right).toBeCloseTo(outer.right, 0)
+    for (const link of links) {
+      await expect(link.getBoundingClientRect().top).toBeCloseTo(search.top, 0)
+    }
   },
 }
 
