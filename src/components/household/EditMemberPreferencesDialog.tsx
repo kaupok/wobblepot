@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
+import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import type { Member } from '@/types/member'
 import { FieldError } from '@/components/FieldError'
+import { apiFetch } from '@/lib/api'
 
 const PORTION_PRESETS: Array<{ key: 'small' | 'regular' | 'large' | 'extraLarge'; value: number }> =
   [
@@ -46,19 +48,46 @@ export function EditMemberPreferencesDialog({
   const tPortion = useTranslations('household.portion')
 
   // Member name (only for manual members)
-  const [name, setName] = useState('')
+  const [name, setName] = useState(member?.name || '')
 
   // Preferences state
-  const [displayName, setDisplayName] = useState('')
-  const [portionMultiplier, setPortionMultiplier] = useState(1.0)
+  const [displayName, setDisplayName] = useState(member?.preferences?.displayName || '')
+  const [portionMultiplier, setPortionMultiplier] = useState(
+    member?.preferences?.portionMultiplier || 1.0,
+  )
   const [portionError, setPortionError] = useState<string | null>(null)
 
   // Form state
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Reset form when member changes
-  useEffect(() => {
+  const saveMember = useMutation({
+    mutationFn: ({ memberId, payload }: { memberId: string; payload: Record<string, unknown> }) =>
+      apiFetch<Member>(
+        `/api/households/me/members/${memberId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+        t('errors.saveFailed'),
+      ),
+    onSuccess: (updatedMember) => {
+      onSaved(updatedMember)
+      onOpenChange(false)
+      toast.success(t('savedToast'))
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : t('errors.saveFailed'))
+    },
+  })
+
+  const isLoading = saveMember.isPending
+
+  // Reset form when member changes — during render rather than in an effect,
+  // so the dialog never paints the previous member's values first.
+  const [formMember, setFormMember] = useState(member)
+  if (member !== formMember) {
+    setFormMember(member)
     if (member) {
       setName(member.name || '')
       setDisplayName(member.preferences?.displayName || '')
@@ -66,9 +95,9 @@ export function EditMemberPreferencesDialog({
       setError('')
       setPortionError(null)
     }
-  }, [member])
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!member) return
 
@@ -79,42 +108,20 @@ export function EditMemberPreferencesDialog({
       return
     }
 
-    setIsLoading(true)
-
-    try {
-      const payload: Record<string, unknown> = {
-        preferences: {
-          displayName: displayName || null,
-          portionMultiplier,
-        },
-      }
-
-      // Only include name for manual members
-      const trimmedName = name.trim()
-      if (isManualMember && trimmedName) {
-        payload.name = trimmedName
-      }
-
-      const response = await fetch(`/api/households/me/members/${member.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || t('errors.saveFailed'))
-      }
-
-      const updatedMember = await response.json()
-      onSaved(updatedMember)
-      onOpenChange(false)
-      toast.success(t('savedToast'))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('errors.saveFailed'))
-    } finally {
-      setIsLoading(false)
+    const payload: Record<string, unknown> = {
+      preferences: {
+        displayName: displayName || null,
+        portionMultiplier,
+      },
     }
+
+    // Only include name for manual members
+    const trimmedName = name.trim()
+    if (isManualMember && trimmedName) {
+      payload.name = trimmedName
+    }
+
+    saveMember.mutate({ memberId: member.id, payload })
   }
 
   const handlePortionInputChange = (value: number | null) => {

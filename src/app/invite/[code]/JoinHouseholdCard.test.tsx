@@ -9,6 +9,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { JoinHouseholdCard } from './JoinHouseholdCard'
 
 vi.mock('next/navigation', () => ({
@@ -23,10 +24,12 @@ const SERVER_PROSE = 'Invite code not found.'
 
 function renderInLocale(node: ReactNode, locale: 'en' | 'et') {
   const messages = locale === 'et' ? etMessages : enMessages
+  const { wrapper } = createQueryWrapper()
   return render(
     <NextIntlClientProvider locale={locale} messages={messages}>
       {node}
     </NextIntlClientProvider>,
+    { wrapper },
   )
 }
 

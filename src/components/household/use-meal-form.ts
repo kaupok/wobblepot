@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
+import { useMutation } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
 import {
@@ -13,6 +14,7 @@ import {
   mealComponentErrorMessage,
 } from './meal-form-types'
 import { prefersReducedMotion } from '@/lib/utils'
+import { apiFetch } from '@/lib/api'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import { componentGramsPerServing } from '@/lib/meal-planning/nutrition'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
@@ -132,7 +134,6 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
     initIngredientRows(meal),
   )
 
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const ingredientRowsRef = useRef<HTMLDivElement>(null)
 
@@ -349,7 +350,29 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
     )
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const saveMeal = useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiFetch(
+        isEditing ? `/api/households/me/meals/${meal.id}` : '/api/households/me/meals',
+        {
+          method: isEditing ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+        isEditing ? t('errors.updateFailed') : t('errors.createFailed'),
+      ),
+    onSuccess: () => {
+      toast.success(isEditing ? t('successUpdated') : t('successCreated'))
+      onSuccess()
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : t('errors.generic'))
+    },
+  })
+
+  const isSubmitting = saveMeal.isPending
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
@@ -394,56 +417,26 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
       return
     }
 
-    setIsSubmitting(true)
-
-    try {
-      const timeMinutesNum = timeMinutes
-        ? parseLocalizedNumber(timeMinutes, { integer: true })
-        : null
-      if (
-        timeMinutes &&
-        (timeMinutesNum === null || timeMinutesNum < 1 || timeMinutesNum > MAX_PREP_MINUTES)
-      ) {
-        setError(t('errors.prepTimeRange'))
-        setIsSubmitting(false)
-        return
-      }
-
-      const payload = {
-        name: name.trim(),
-        description: description.trim() || null,
-        preparationNotes: preparationNotes.trim() || null,
-        sourceUrl: sourceUrl.trim() || null,
-        timeMinutes: timeMinutesNum,
-        kidFriendly,
-        suitableFor,
-        servings: servingsNum,
-        components: result.components,
-      }
-
-      const url = isEditing ? `/api/households/me/meals/${meal.id}` : '/api/households/me/meals'
-      const method = isEditing ? 'PATCH' : 'POST'
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(
-          data.error || (isEditing ? t('errors.updateFailed') : t('errors.createFailed')),
-        )
-      }
-
-      toast.success(isEditing ? t('successUpdated') : t('successCreated'))
-      onSuccess()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('errors.generic'))
-    } finally {
-      setIsSubmitting(false)
+    const timeMinutesNum = timeMinutes ? parseLocalizedNumber(timeMinutes, { integer: true }) : null
+    if (
+      timeMinutes &&
+      (timeMinutesNum === null || timeMinutesNum < 1 || timeMinutesNum > MAX_PREP_MINUTES)
+    ) {
+      setError(t('errors.prepTimeRange'))
+      return
     }
+
+    saveMeal.mutate({
+      name: name.trim(),
+      description: description.trim() || null,
+      preparationNotes: preparationNotes.trim() || null,
+      sourceUrl: sourceUrl.trim() || null,
+      timeMinutes: timeMinutesNum,
+      kidFriendly,
+      suitableFor,
+      servings: servingsNum,
+      components: result.components,
+    })
   }
 
   const servingsNum = parseLocalizedNumber(servings, { integer: true }) ?? 1

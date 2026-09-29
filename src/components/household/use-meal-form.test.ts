@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { MealFormData } from './meal-form-types'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { useMealForm } from './use-meal-form'
 
 vi.mock('sonner', () => ({
@@ -35,14 +36,17 @@ function submitEvent() {
 
 function renderForm(meal?: MealFormData, defaultServings?: number) {
   const onSuccess = vi.fn()
-  const view = renderHook(() => useMealForm({ meal, defaultServings, onSuccess }))
+  const { wrapper } = createQueryWrapper()
+  const view = renderHook(() => useMealForm({ meal, defaultServings, onSuccess }), { wrapper })
   return { ...view, onSuccess }
 }
 
+/** Submits and waits for the save mutation, if one started, to settle. */
 async function submit(result: { current: ReturnType<typeof useMealForm> }) {
-  await act(async () => {
-    await result.current.handleSubmit(submitEvent())
+  act(() => {
+    result.current.handleSubmit(submitEvent())
   })
+  await waitFor(() => expect(result.current.isSubmitting).toBe(false))
 }
 
 describe('useMealForm', () => {
