@@ -25,7 +25,8 @@ type StorybookLocale = keyof typeof messagesByLocale
 const setupMswWorker = async () => {
   const worker = setupWorker()
   await worker.start({
-    onUnhandledRequest: 'bypass',
+    // msw 3 renamed `onUnhandledRequest` to `onUnhandledFrame`.
+    onUnhandledFrame: 'bypass',
     // WHY: msw defaults to the origin-absolute `/mockServiceWorker.js`. The static
     // build is served from a sub-path on GitHub Pages (/wobblepot/), where that
     // URL 404s and every story then fails inside the msw loader — not just the
