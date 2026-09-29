@@ -85,15 +85,8 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-// The past day cards include meal-card action buttons, so inactive-state
-// contrast is waived — same as the other expanded timeline stories.
-const inactiveStateA11y = {
-  config: { rules: [{ id: 'color-contrast', enabled: false }] },
-}
-
 export const Expanded: Story = {
   args: { days: pastDaysWithCatchUp, expanded: true },
-  parameters: { a11y: inactiveStateA11y },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByText(/tuesday apr 14/i)).toBeVisible()
@@ -109,7 +102,6 @@ export const Expanded: Story = {
 
 export const ExpandedAllResolved: Story = {
   args: { days: pastDaysAllResolved, expanded: true },
-  parameters: { a11y: inactiveStateA11y },
 }
 
 export const Collapsed: Story = {

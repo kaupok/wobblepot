@@ -51,14 +51,11 @@ export function TimelineDayCard({
     })),
   ].sort((a, b) => a.order - b.order)
 
-  // Visual styling based on day type
-  let containerClass = 'flex flex-col gap-2'
-  if (day.isPast) {
-    containerClass += ' opacity-70'
-  }
-
+  // A past day is drawn at full opacity: its cards are what "N to catch up"
+  // asks the user to act on, so their text keeps its measured contrast
+  // (HON-805). Its own section and card layout already set it apart.
   return (
-    <div className={containerClass}>
+    <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <Heading variant="section" as="h2" className={day.isToday ? 'text-primary' : undefined}>
           {day.label}

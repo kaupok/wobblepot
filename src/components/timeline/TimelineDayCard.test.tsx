@@ -127,6 +127,23 @@ describe('TimelineDayCard', () => {
     expect(screen.queryByTestId('empty-slot-dinner')).not.toBeInTheDocument()
   })
 
+  // Past cards are the ones "N to catch up" asks the user to act on, so an
+  // opacity on their wrapper would fade actionable text below AA (HON-805).
+  it('does not fade a past day', () => {
+    const pastDay: TimelineDay = {
+      ...baseDay,
+      label: 'Friday Mar 27',
+      isToday: false,
+      isPast: true,
+    }
+    render(<TimelineDayCard day={pastDay} {...defaultProps} />)
+    let node: HTMLElement | null = screen.getByRole('heading', { name: 'Friday Mar 27' })
+    while (node && node !== document.body) {
+      expect(node.className).not.toMatch(/(^|\s)opacity-/)
+      node = node.parentElement
+    }
+  })
+
   it('renders meal cards for entries', () => {
     const dayWithEntry: TimelineDay = {
       ...baseDay,
