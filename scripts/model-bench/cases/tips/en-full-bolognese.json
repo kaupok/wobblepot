@@ -1,0 +1,39 @@
+{
+  "kind": "full",
+  "mealName": "Spaghetti bolognese",
+  "servings": 4,
+  "timeMinutes": 45,
+  "components": [
+    {
+      "name": "spaghetti",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "ground beef",
+      "quantityPerServing": 125,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "canned diced tomatoes",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "garlic",
+      "quantityPerServing": 1,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "olive oil",
+      "quantityPerServing": 5,
+      "defaultUnit": "ml"
+    }
+  ],
+  "locale": "en"
+}

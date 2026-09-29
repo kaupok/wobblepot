@@ -1,0 +1,21 @@
+{
+  "prompt": "kiire taimetoit läätsedega, mis meeldiks ka lastele",
+  "household": {
+    "allergens": [],
+    "dietaryType": "vegetarian",
+    "excludedIngredients": ["koriander"],
+    "restrictions": [],
+    "householdSize": 3
+  },
+  "locale": "et",
+  "forbiddenKeywords": [
+    "kana",
+    "sealiha",
+    "veiseliha",
+    "hakkliha",
+    "kala",
+    "lõhe",
+    "peekon",
+    "koriander"
+  ]
+}

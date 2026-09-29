@@ -1,0 +1,50 @@
+{
+  "text": "Hakklihakaste\n\n4 portsjonit, umbes 40 minutit.\n\nKoostisosad:\n500 g sea-veisehakkliha\n1 sibul\n2 porgandit\n30 g nisujahu\n300 ml vett\n200 ml hapukoort\nsoola ja pipart maitse järgi\n\nValmistamine:\n1. Haki sibul ja riivi porgandid.\n2. Prae hakkliha pannil pruuniks, lisa sibul ja porgand ning hauta 5 minutit.\n3. Puista peale jahu, sega läbi ja vala juurde vesi. Lase 15 minutit tasasel tulel podiseda.\n4. Sega sisse hapukoor, maitsesta soola ja pipraga ning serveeri kartulitega.",
+  "locale": "et",
+  "expected": {
+    "ingredients": [
+      {
+        "names": ["hakkliha", "sea-veisehakkliha", "sealiha-veiseliha hakkliha"],
+        "quantity": 500,
+        "unit": "g"
+      },
+      {
+        "names": ["sibul"],
+        "quantity": 1,
+        "unit": "piece"
+      },
+      {
+        "names": ["porgand"],
+        "quantity": 2,
+        "unit": "piece"
+      },
+      {
+        "names": ["nisujahu", "jahu"],
+        "quantity": 30,
+        "unit": "g"
+      },
+      {
+        "names": ["vesi"],
+        "quantity": 300,
+        "unit": "ml"
+      },
+      {
+        "names": ["hapukoor"],
+        "quantity": 200,
+        "unit": "ml"
+      },
+      {
+        "names": ["sool"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["must pipar", "pipar"],
+        "quantity": null,
+        "unit": null
+      }
+    ],
+    "lowConfidence": false,
+    "stepCount": 4
+  }
+}
