@@ -359,7 +359,7 @@ describe('MealForm - Duplicate Detection', () => {
 
       render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
 
-      await user.click(screen.getByRole('button', { name: /update meal/i }))
+      await user.click(screen.getByRole('button', { name: /update recipe/i }))
 
       expect(await screen.findByText(/each ingredient can only be used once/i)).toBeInTheDocument()
       expect(fetchSpy).not.toHaveBeenCalled()
@@ -392,7 +392,7 @@ describe('MealForm - Duplicate Detection', () => {
 
       render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
 
-      await user.click(screen.getByRole('button', { name: /create meal/i }))
+      await user.click(screen.getByRole('button', { name: /create recipe/i }))
 
       expect(await screen.findByText(/each ingredient can only be used once/i)).toBeInTheDocument()
       expect(fetchSpy).not.toHaveBeenCalled()
@@ -423,9 +423,11 @@ describe('MealForm - Duplicate Detection', () => {
 
       render(<MealForm meal={mockMeal} onSuccess={mockOnSuccess} onCancel={mockOnCancel} />)
 
-      await user.click(screen.getByRole('button', { name: /create meal/i }))
+      await user.click(screen.getByRole('button', { name: /create recipe/i }))
 
-      expect(await screen.findByText(/a meal can have at most 50 ingredients/i)).toBeInTheDocument()
+      expect(
+        await screen.findByText(/a recipe can have at most 50 ingredients/i),
+      ).toBeInTheDocument()
       expect(fetchSpy).not.toHaveBeenCalled()
     })
   })
@@ -668,7 +670,7 @@ describe('MealForm - section heading hierarchy', () => {
   it('renders the form title as the page h1 and every section one level below it', () => {
     render(<MealForm meal={mockMeal} onSuccess={vi.fn()} onCancel={vi.fn()} />)
 
-    const title = screen.getByRole('heading', { name: 'Edit meal', level: 1 })
+    const title = screen.getByRole('heading', { name: 'Edit recipe', level: 1 })
     const titleLevel = Number(title.tagName.slice(1))
 
     for (const name of ['Basic information', 'Ingredients', 'Additional details']) {

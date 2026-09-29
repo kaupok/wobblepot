@@ -86,7 +86,8 @@ export const Create: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Empty create form — header reads "Create meal", submit button reads "Create meal".',
+        story:
+          'Empty create form — header reads "Create recipe", submit button reads "Create recipe".',
       },
     },
   },
@@ -100,7 +101,7 @@ export const Edit: Story = {
     docs: {
       description: {
         story:
-          'Edit form prefilled with an existing meal — the page title reads "Edit meal" (the page `h1`, on the page background since HON-779), submit button reads "Update meal".',
+          'Edit form prefilled with an existing meal — the page title reads "Edit recipe" (the page `h1`, on the page background since HON-779), submit button reads "Update recipe".',
       },
     },
   },
@@ -108,7 +109,7 @@ export const Edit: Story = {
     const canvas = within(canvasElement)
     // One h1, the page title; every section one level below it (HON-779).
     expect(canvas.getAllByRole('heading', { level: 1 })).toHaveLength(1)
-    expect(canvas.getByRole('heading', { level: 1, name: 'Edit meal' })).toBeVisible()
+    expect(canvas.getByRole('heading', { level: 1, name: 'Edit recipe' })).toBeVisible()
     for (const name of ['Basic information', 'Ingredients', 'Additional details']) {
       expect(canvas.getByRole('heading', { level: 2, name })).toBeVisible()
     }
@@ -130,7 +131,7 @@ export const Submitting: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const submitButton = await canvas.findByRole('button', { name: /update meal/i })
+    const submitButton = await canvas.findByRole('button', { name: /update recipe/i })
     await userEvent.click(submitButton)
     await canvas.findByRole('button', { name: /saving/i })
   },
@@ -163,10 +164,10 @@ export const SubmitValidatesRequiredFields: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const nameInput = await canvas.findByLabelText(/meal name/i)
+    const nameInput = await canvas.findByLabelText(/recipe name/i)
     await userEvent.type(nameInput, 'Test meal')
 
-    const submitButton = await canvas.findByRole('button', { name: /create meal/i })
+    const submitButton = await canvas.findByRole('button', { name: /create recipe/i })
     await userEvent.click(submitButton)
 
     const errorAlert = await canvas.findByRole('alert')
@@ -182,14 +183,14 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          'Desktop width. Cancel and "Create meal" are label-sized at the start of the column; on a phone they share the row two-up (HON-782).',
+          'Desktop width. Cancel and "Create recipe" are label-sized at the start of the column; on a phone they share the row two-up (HON-782).',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const cancel = canvas.getByRole('button', { name: 'Cancel' })
-    const create = canvas.getByRole('button', { name: 'Create meal' })
+    const create = canvas.getByRole('button', { name: 'Create recipe' })
     const row = create.parentElement!.getBoundingClientRect()
     await expect(cancel.getBoundingClientRect().left).toBe(row.left)
     await expect(create.getBoundingClientRect().left).toBeGreaterThan(

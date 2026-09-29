@@ -236,7 +236,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     })
 
     if (!existingMeal) {
-      return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Recipe not found' }, { status: 404 })
     }
 
     const {
@@ -622,7 +622,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     })
   } catch (error) {
     captureApiError(error, { route: '/api/households/me/meals/[id]', userId: session.user.id })
-    return NextResponse.json({ error: 'Failed to update meal' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update recipe' }, { status: 500 })
   }
 }
 

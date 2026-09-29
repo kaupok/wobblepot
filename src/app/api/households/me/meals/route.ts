@@ -258,6 +258,6 @@ export async function POST(request: Request) {
     )
   } catch (error) {
     captureApiError(error, { route: '/api/households/me/meals', userId: session.user.id })
-    return NextResponse.json({ error: 'Failed to create meal' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create recipe' }, { status: 500 })
   }
 }

@@ -37,7 +37,7 @@ export const InTitleRow: Story = {
     <div className="flex items-center gap-2">
       <BackToRecipesLink />
       <Heading variant="h4" as="h1">
-        Create meal
+        Create recipe
       </Heading>
     </div>
   ),

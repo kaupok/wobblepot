@@ -355,8 +355,8 @@
       "loadMore": "Load more",
       "loadingMore": "Loading…",
       "emptySearch": "No recipes found matching \"{query}\"",
-      "loadFailed": "Failed to load meals",
-      "loadMoreFailed": "Failed to load more meals"
+      "loadFailed": "Failed to load recipes",
+      "loadMoreFailed": "Failed to load more recipes"
     },
     "imagine": {
       "title": "Imagine a meal",
@@ -370,7 +370,7 @@
       "cancel": "Cancel",
       "fineTuning": "Fine-tuning recipe…",
       "select": "Select",
-      "savedToast": "Meal saved to your library",
+      "savedToast": "Recipe saved to your library",
       "errors": {
         "promptOrPhotoRequired": "Please describe what kind of meal you want or attach a photo",
         "tooManyImages": "You can attach up to {max} images",
@@ -429,15 +429,15 @@
       }
     },
     "edit": {
-      "mealNotFound": "Meal not found",
-      "loadFailed": "Failed to load meal",
+      "mealNotFound": "Recipe not found",
+      "loadFailed": "Failed to load recipe",
       "backToRecipes": "Back to recipes"
     },
     "form": {
-      "titleEdit": "Edit meal",
-      "titleCreate": "Create meal",
-      "descriptionEdit": "Update your custom meal details",
-      "descriptionCreate": "Add a new meal to your household collection",
+      "titleEdit": "Edit recipe",
+      "titleCreate": "Create recipe",
+      "descriptionEdit": "Update your recipe details",
+      "descriptionCreate": "Add a new recipe to your household collection",
       "originalTextLabel": "Original recipe text",
       "ingredientsHeading": "Ingredients",
       "ingredientsHelper": "Enter the total quantity needed for the entire recipe ({count, plural, one {# serving} other {# servings}}). We will calculate per-serving amounts automatically.",
@@ -447,27 +447,27 @@
       "toVerifyBadge": "{count} to verify",
       "unmatchedBadge": "{count} unmatched",
       "preparationNotesLabel": "Preparation notes (optional)",
-      "preparationNotesHelper": "How do you prepare this meal? Steps, tips, or other notes.",
+      "preparationNotesHelper": "How do you make this recipe? Steps, tips, or other notes.",
       "preparationNotesPlaceholder": "e.g., steps, cooking tips",
       "sourceUrlLabel": "Source URL (optional)",
       "sourceUrlPlaceholder": "https://example.com/recipe",
       "sourceUrlClearAria": "Clear source URL",
       "cancel": "Cancel",
       "saving": "Saving…",
-      "update": "Update meal",
-      "create": "Create meal",
-      "successCreated": "Meal created",
-      "successUpdated": "Meal updated",
+      "update": "Update recipe",
+      "create": "Create recipe",
+      "successCreated": "Recipe created",
+      "successUpdated": "Recipe updated",
       "alreadyAdded": "{name} is already added",
       "errors": {
         "nameRequired": "Name is required",
         "mealTypeRequired": "Select at least one meal type",
         "servingsRange": "Servings must be between 1 and 50",
         "prepTimeRange": "Prep time must be between 1 and 480 minutes",
-        "createFailed": "Failed to create meal",
-        "updateFailed": "Failed to update meal",
+        "createFailed": "Failed to create recipe",
+        "updateFailed": "Failed to update recipe",
         "duplicateIngredients": "Each ingredient can only be used once. Remove or merge the repeated rows",
-        "tooManyIngredients": "A meal can have at most {max} ingredients",
+        "tooManyIngredients": "A recipe can have at most {max} ingredients",
         "noIngredients": "Add at least one ingredient",
         "invalidQuantity": "Quantity must be greater than 0: {names}{more, plural, =0 {} other { +# more}}",
         "unmatchedIngredients": "Resolve unmatched ingredients: {names}{more, plural, =0 {} other { +# more}}",
@@ -482,10 +482,10 @@
       },
       "basic": {
         "heading": "Basic information",
-        "nameLabel": "Meal name",
+        "nameLabel": "Recipe name",
         "namePlaceholder": "e.g., Chicken stir fry",
         "descriptionLabel": "Description (optional)",
-        "descriptionPlaceholder": "Brief description of the meal…",
+        "descriptionPlaceholder": "Brief description of the recipe…",
         "servingsLabel": "Recipe makes (servings)"
       },
       "details": {
@@ -529,7 +529,7 @@
     "review": {
       "nutritionLine": "{calories} kcal · {protein}g protein · {carbs}g carbs · {fat}g fat",
       "matchedCollapse": "{count, plural, one {# ingredient matched} other {# ingredients matched}}",
-      "save": "Save meal",
+      "save": "Save recipe",
       "saving": "Saving…",
       "editDetails": "Edit details",
       "saveBlocked": {
@@ -538,23 +538,23 @@
         "both": "Match or drop {unmatched, plural, one {# ingredient} other {# ingredients}} and confirm {lowConfidence} to save"
       },
       "errors": {
-        "saveFailed": "Failed to save meal"
+        "saveFailed": "Failed to save recipe"
       }
     },
     "list": {
-      "emptyHeading": "No meals yet",
-      "emptyBody": "Create your first custom meal to get started",
+      "emptyHeading": "No recipes yet",
+      "emptyBody": "Create your first recipe to get started",
       "addToFavoritesAria": "Add to favorites",
       "removeFromFavoritesAria": "Remove from favorites",
-      "editAria": "Edit meal",
-      "deleteAria": "Delete meal",
+      "editAria": "Edit recipe",
+      "deleteAria": "Delete recipe",
       "favoriteUpdateFailed": "Failed to update favorite",
       "addedToFavorites": "Added to favorites",
       "removedFromFavorites": "Removed from favorites",
-      "deleted": "Meal deleted",
-      "deleteFailed": "Failed to delete meal",
+      "deleted": "Recipe deleted",
+      "deleteFailed": "Failed to delete recipe",
       "deleteDialog": {
-        "title": "Delete meal",
+        "title": "Delete recipe",
         "description": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
         "confirm": "Delete",
         "cancel": "Cancel",

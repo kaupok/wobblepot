@@ -85,7 +85,7 @@ export const Populated: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(await canvas.findByRole('heading', { level: 1, name: 'My recipes' })).toBeVisible()
-    await canvas.findAllByRole('button', { name: /delete meal/i })
+    await canvas.findAllByRole('button', { name: /delete recipe/i })
     const cards = canvasElement.querySelectorAll('[data-slot="card"]')
     await expect(cards.length).toBeGreaterThan(0)
     for (const card of cards) {

@@ -208,7 +208,7 @@ describe('useMealForm', () => {
         servings: 4,
         components: [{ ingredientId: 'tomato', totalQuantity: 400, isVague: false }],
       })
-      expect(toast.success).toHaveBeenCalledWith('Meal created')
+      expect(toast.success).toHaveBeenCalledWith('Recipe created')
       expect(onSuccess).toHaveBeenCalled()
     })
 
@@ -220,7 +220,7 @@ describe('useMealForm', () => {
       const [url, init] = fetchMock.mock.calls[0]!
       expect(url).toBe('/api/households/me/meals/meal-42')
       expect(init.method).toBe('PATCH')
-      expect(toast.success).toHaveBeenCalledWith('Meal updated')
+      expect(toast.success).toHaveBeenCalledWith('Recipe updated')
       expect(onSuccess).toHaveBeenCalled()
     })
 
@@ -244,7 +244,7 @@ describe('useMealForm', () => {
 
       await submit(result)
 
-      expect(result.current.error).toBe('Failed to create meal')
+      expect(result.current.error).toBe('Failed to create recipe')
     })
 
     it('clears the submitting flag when fetch itself rejects', async () => {

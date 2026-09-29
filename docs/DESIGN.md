@@ -188,6 +188,7 @@ Full voice guide: [docs/PROJECT_SPEC.md → Brand voice and tone](PROJECT_SPEC.m
 - Errors say what happened and what to do, never what went wrong technically. "We couldn't save that. Try again." not "Request failed (500)."
 - One light-touch phrase per screen at most. Warm is a seasoning, not the dish.
 - An optional text field ends its label with "(optional)" ("(vabatahtlik)" in Estonian). Placeholders only give an example and never say it; required fields, checkboxes, radio groups and selects carry no mark, and there are no asterisks.
+- A household's own item in My recipes is a **recipe**: you create, import, edit, save and delete a recipe. A **meal** is what is planned into a day's slot, or eaten: "Pick a meal", "No meal planned", "meal plan", "meal type". "Imagine a meal" keeps the word, because it imagines something to eat and what you save from it is a recipe. In Estonian: "retsept" and "toit".
 
 ## Reject list
 
