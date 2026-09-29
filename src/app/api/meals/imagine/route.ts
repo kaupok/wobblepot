@@ -21,29 +21,12 @@ import { withRequestId } from '@/lib/request-id'
 import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
 import { MAX_ATTACHED_IMAGES, validateImageAttachments } from '@/lib/image-attachments'
 import type { ImagineErrorCode } from '@/lib/ai/error-codes'
+// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
+import { IMAGINE_AI_BUDGET_MS } from '@/lib/ai/budgets'
 
 const imagineRequestSchema = z.object({
   prompt: z.string().min(1).max(500),
 })
-
-/**
- * Wall-clock budget for all AI time in this request, in milliseconds.
- *
- * Shared by the initial attempt and every `maxRetries` retry rather than being
- * a per-attempt timeout, which makes it the real bound on retries — a fast
- * failure (429, 5xx) costs well under a second and still retries freely; a
- * slow generation does not.
- *
- * Sized against the figures recorded on Sonnet 5 during HON-693: preparation
- * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs.
- * Imagine is the quantity-review shape, but it also accepts photos, which add
- * input tokens and latency — so it is sized above that anchor rather than at
- * it. The remaining 20s under `maxDuration` covers base64-decoding up to
- * `MAX_ATTACHED_IMAGES` before the call and the three parallel
- * `matchIngredients` passes plus nutrition reads after it, which is what keeps
- * the 504 below reachable instead of the platform killing the function first.
- */
-const AI_BUDGET_MS = 40_000
 
 /**
  * Failure body for this route: English prose for logs and Sentry breadcrumbs,
@@ -198,7 +181,7 @@ async function handlePOST(request: Request) {
       household.locale,
       images.length > 0 ? images : undefined,
       (usage) => recordAiUsage({ householdId: household.id, feature: 'meal_imagine', ...usage }),
-      AbortSignal.timeout(AI_BUDGET_MS),
+      AbortSignal.timeout(IMAGINE_AI_BUDGET_MS),
     )
 
     // Match ingredients and compute nutrition for each meal
@@ -355,7 +338,7 @@ export const POST = withRequestId(handlePOST)
 /**
  * Platform execution ceiling for this route, in seconds.
  *
- * Stated explicitly because `AI_BUDGET_MS` is only meaningful if the platform
+ * Stated explicitly because `IMAGINE_AI_BUDGET_MS` is only meaningful if the platform
  * lets the function run that long — otherwise the request is killed first and
  * the friendly 504 above never runs. 60 is the value every Vercel plan allows,
  * so this cannot fail to deploy (HON-693).

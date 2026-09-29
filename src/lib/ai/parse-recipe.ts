@@ -6,14 +6,13 @@ import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from './usage'
 import type { MealType } from '@/generated/prisma/enums'
 import { logAiSample } from './sampling'
 import { RecipeParseError } from './recipe-errors'
-import { RecipeExtractionSchema } from './recipe-schema'
 import type { RecipeExtraction } from './recipe-schema'
 import {
   evaluateRecipeConfidence,
   type ConfidenceResult,
   type ConfidenceTier,
 } from './recipe-confidence'
-import { buildRecipeExtractionPrompt } from './recipe-prompt'
+import { buildRecipeRequest } from './recipe-prompt'
 import { isAiBudgetTimeout } from './timeout'
 import { matchIngredients, type IngredientMatchResult } from './match-ingredients'
 
@@ -50,14 +49,13 @@ export async function parseRecipeText(
   }
 
   const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
-  const prompt = buildRecipeExtractionPrompt(trimmedText, locale)
+  const request = buildRecipeRequest(trimmedText, locale)
 
   try {
     const result = await withUsageOnFailure(RECIPE_MODEL, onAiUsage, () =>
       generateObject({
+        ...request,
         model: anthropic(RECIPE_MODEL),
-        schema: RecipeExtractionSchema,
-        prompt,
         // Wall-clock budget owned by `/api/recipes/parse` — shared by this
         // attempt and every retry, not a per-attempt timeout.
         abortSignal,

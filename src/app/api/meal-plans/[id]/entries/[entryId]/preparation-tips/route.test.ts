@@ -67,6 +67,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { logAiSample } from '@/lib/ai/sampling'
 import { TIPS_MODEL } from '@/lib/ai/models'
+import { buildFullTipsRequest, buildSupplementaryTipsRequest } from '@/lib/ai/preparation-tips'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from '@/lib/ai/usage-fixture'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
@@ -503,6 +504,67 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(data.tips).toEqual(supplementary)
     const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }
     expect(call.prompt).toContain("User's preparation notes")
+  })
+
+  describe('request builders (HON-796)', () => {
+    // Fractional and `piece` quantities, so the ingredient-list scaling,
+    // rounding and `pcs` label are part of what is compared.
+    const components = [
+      { quantityPerServing: 150, ingredient: { name: 'Chicken breast', defaultUnit: 'g' } },
+      { quantityPerServing: 0.5, ingredient: { name: 'Onion', defaultUnit: 'piece' } },
+      { quantityPerServing: 12.3, ingredient: { name: 'Soy sauce', defaultUnit: 'ml' } },
+    ]
+    const builderInput = {
+      mealName: 'Chicken stir fry',
+      servings: 4,
+      timeMinutes: 30,
+      components: components.map((c) => ({
+        name: c.ingredient.name,
+        quantityPerServing: c.quantityPerServing,
+        defaultUnit: c.ingredient.defaultUnit,
+      })),
+      locale: 'et',
+    }
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(buildMembership('et') as never)
+    })
+
+    // The model benchmark (HON-795) sends the builder's output. If the route
+    // adds an argument, or builds any of these inline, the two drift apart.
+    it('sends exactly the request buildFullTipsRequest builds, plus model and signal', async () => {
+      mockEntryFindFirst.mockResolvedValue(
+        sampleEntry({ meal: { ...sampleEntry().meal, components } }) as never,
+      )
+      mockGenerateObject.mockResolvedValue({
+        object: { equipment: [], steps: [], pitfalls: [] },
+      } as never)
+
+      await callPost()
+
+      expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
+        ...buildFullTipsRequest(builderInput),
+        model: { modelId: TIPS_MODEL },
+        abortSignal: expect.any(AbortSignal),
+      })
+    })
+
+    it('sends exactly the request buildSupplementaryTipsRequest builds, plus model and signal', async () => {
+      const preparationNotes = 'Sear the chicken first, then simmer.'
+      mockEntryFindFirst.mockResolvedValue(
+        sampleEntry({ meal: { ...sampleEntry().meal, components, preparationNotes } }) as never,
+      )
+      mockGenerateObject.mockResolvedValue({ object: { pitfalls: [], tip: 'Rest it' } } as never)
+
+      await callPost()
+
+      expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
+        ...buildSupplementaryTipsRequest({ ...builderInput, preparationNotes }),
+        model: { modelId: TIPS_MODEL },
+        abortSignal: expect.any(AbortSignal),
+      })
+    })
   })
 
   it('records the SDK usage via toAiUsageStats for full tips', async () => {
