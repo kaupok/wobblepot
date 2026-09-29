@@ -8,6 +8,7 @@ import { authClient } from '@/lib/auth-client'
 import { useAuthErrorMessage } from '@/lib/auth-errors-client'
 import { getValidReturnUrl } from '@/lib/utils'
 import { track } from '@/lib/analytics'
+import { supportMailtoHref } from '@/lib/support'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -18,17 +19,11 @@ import { FieldError } from '@/components/FieldError'
 
 interface SignUpFormProps {
   inviteRequired: boolean
-  privateBetaBanner: string
   inviteCodeLabel: string
   inviteCodeHint: string
 }
 
-export function SignUpForm({
-  inviteRequired,
-  privateBetaBanner,
-  inviteCodeLabel,
-  inviteCodeHint,
-}: SignUpFormProps) {
+export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: SignUpFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = getValidReturnUrl(searchParams.get('returnUrl'))
@@ -121,7 +116,16 @@ export function SignUpForm({
                 role="note"
                 aria-label={t('privateBetaNoticeLabel')}
               >
-                <Body variant="paragraph">{privateBetaBanner}</Body>
+                <Body variant="paragraph">
+                  {t('privateBetaBanner')}{' '}
+                  {t.rich('requestInvite', {
+                    link: (chunks) => (
+                      <a href={supportMailtoHref(t('requestInviteSubject'))} className="underline">
+                        {chunks}
+                      </a>
+                    ),
+                  })}
+                </Body>
               </div>
             )}
             <div className="flex flex-col gap-2">

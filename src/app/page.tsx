@@ -6,11 +6,13 @@ import { CheckCircle2 } from 'lucide-react'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { auth } from '@/lib/auth'
+import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership } from '@/lib/household'
 import { getLocale } from '@/lib/i18n/get-locale'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
+import { supportMailtoHref } from '@/lib/support'
 import { getTodayInTimezone, getUrgencyBucket, parseLocalDate } from '@/lib/meal-planning/dates'
 import { TimelineView } from '@/components/timeline'
 import { FirstTimeSetup } from '@/components/timeline'
@@ -26,7 +28,11 @@ export default async function Home() {
 
   // Landing page for unauthenticated users
   if (!session) {
-    const t = await getTranslations('landing')
+    const [t, tSignUp, inviteRequired] = await Promise.all([
+      getTranslations('landing'),
+      getTranslations('auth.signUp'),
+      getServerFlag('invite_code_required', 'anonymous'),
+    ])
     return (
       <div className="min-h-screen-below-header grid place-items-center px-4">
         {/* Not <main>: the root layout's <main id="main-content"> is the page landmark (HON-820). */}
@@ -36,13 +42,27 @@ export default async function Home() {
             <Body variant="lead">{t('sub')}</Body>
           </div>
 
-          <div
-            className="border-primary/30 bg-primary/5 max-w-md rounded-md border px-4 py-2"
-            role="note"
-            aria-label="Private beta notice"
-          >
-            <Body variant="paragraph">{t('privateBeta')}</Body>
-          </div>
+          {inviteRequired && (
+            <div
+              className="border-primary/30 bg-primary/5 max-w-md rounded-md border px-4 py-2"
+              role="note"
+              aria-label={tSignUp('privateBetaNoticeLabel')}
+            >
+              <Body variant="paragraph">
+                {t('privateBeta')}{' '}
+                {tSignUp.rich('requestInvite', {
+                  link: (chunks) => (
+                    <a
+                      href={supportMailtoHref(tSignUp('requestInviteSubject'))}
+                      className="underline"
+                    >
+                      {chunks}
+                    </a>
+                  ),
+                })}
+              </Body>
+            </div>
+          )}
 
           <Button asChild size="lg">
             <Link href="/sign-up">{t('cta')}</Link>
