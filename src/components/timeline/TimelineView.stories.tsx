@@ -142,18 +142,11 @@ export const DinnersPlannedBreakfastsEmpty: Story = {
   },
 }
 
-// Past day cards include meal-card action buttons, so inactive-state contrast
-// is waived for the stories that expand them.
-const inactiveStateA11y = {
-  config: { rules: [{ id: 'color-contrast', enabled: false }] },
-}
-
 export const ShowPastMeals: Story = {
   args: {
     entries: baseEntries,
   },
   parameters: {
-    a11y: inactiveStateA11y,
     docs: {
       description: {
         story:
