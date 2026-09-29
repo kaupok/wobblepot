@@ -195,7 +195,14 @@ describe('SignUpForm', () => {
       expect(privacyLink).toHaveAttribute('target', '_blank')
     })
 
-    it('disables submit until the checkbox is ticked, and never calls the API unchecked', async () => {
+    it('keeps submit enabled while the checkbox is unticked (HON-848)', () => {
+      renderForm()
+
+      expect(screen.getByRole('button', { name: /sign up/i })).toBeEnabled()
+      expect(consentCheckbox()).toHaveAttribute('aria-required', 'true')
+    })
+
+    it('submitting unticked shows the consent error, focuses the checkbox and never calls the API (HON-848)', async () => {
       const { authClient } = await import('@/lib/auth-client')
       const user = userEvent.setup({ delay: null })
       renderForm()
@@ -203,15 +210,36 @@ describe('SignUpForm', () => {
       await user.type(screen.getByLabelText(/name/i), 'Test User')
       await user.type(screen.getByLabelText(/email/i), 'test@example.com')
       await user.type(screen.getByLabelText('Password'), 'password123')
+      await user.click(screen.getByRole('button', { name: /sign up/i }))
 
-      const submit = screen.getByRole('button', { name: /sign up/i })
-      expect(submit).toBeDisabled()
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent(
+        'To create an account, accept the terms of service and privacy policy.',
+      )
+      expect(alert).toHaveAttribute('id', 'consent-error')
 
-      await user.click(submit)
+      const checkbox = consentCheckbox()
+      expect(checkbox).toHaveFocus()
+      expect(checkbox).toHaveAttribute('aria-invalid', 'true')
+      expect(checkbox).toHaveAttribute('aria-describedby', 'consent-error')
       expect(authClient.signUp.email).not.toHaveBeenCalled()
+    })
+
+    it('ticking the checkbox clears the consent error (HON-848)', async () => {
+      const user = userEvent.setup({ delay: null })
+      renderForm()
+
+      await user.type(screen.getByLabelText(/name/i), 'Test User')
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+      await user.type(screen.getByLabelText('Password'), 'password123')
+      await user.click(screen.getByRole('button', { name: /sign up/i }))
+      expect(screen.getByRole('alert')).toBeInTheDocument()
 
       await user.click(consentCheckbox())
-      expect(submit).toBeEnabled()
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(consentCheckbox()).toHaveAttribute('aria-invalid', 'false')
+      expect(consentCheckbox()).not.toHaveAttribute('aria-describedby')
     })
 
     it('includes acceptedTerms: true in the payload when checked', async () => {

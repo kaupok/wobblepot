@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
@@ -29,18 +29,29 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
   const searchParams = useSearchParams()
   const returnUrl = getValidReturnUrl(searchParams.get('returnUrl'))
   const t = useTranslations('auth.signUp')
+  const tErrors = useTranslations('errors.auth')
   const friendlyError = useAuthErrorMessage()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [consentError, setConsentError] = useState(false)
+  const consentRef = useRef<HTMLButtonElement>(null)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSlowRequest, setIsSlowRequest] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Consent is checked here rather than by disabling the button (HON-848):
+    // a disabled button takes no click, so it cannot say what is missing.
+    // The server still refuses a sign-up without it (assertTermsAccepted).
+    if (!acceptedTerms) {
+      setConsentError(true)
+      consentRef.current?.focus()
+      return
+    }
     setError('')
     setIsLoading(true)
     setIsSlowRequest(false)
@@ -195,15 +206,22 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
             )}
             <div className="flex items-start gap-2">
               <Checkbox
+                ref={consentRef}
                 id="acceptTerms"
                 checked={acceptedTerms}
-                onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-                required
+                onCheckedChange={(checked) => {
+                  setAcceptedTerms(checked === true)
+                  if (checked === true) setConsentError(false)
+                }}
+                // Not `required`: Radix would render a hidden native input whose
+                // browser validation blocks the submit before handleSubmit can
+                // show the consent error, anchored to an input nobody can see.
+                aria-required="true"
                 disabled={isLoading}
-                aria-invalid={!!error}
-                aria-describedby={error ? 'form-error' : undefined}
+                aria-invalid={consentError || !!error}
+                aria-describedby={consentError ? 'consent-error' : error ? 'form-error' : undefined}
               />
-              <Label htmlFor="acceptTerms" id="consent-label" className="font-normal">
+              <Label htmlFor="acceptTerms" className="font-normal">
                 {/* A multi-line consent label: Label is `leading-none`, which
                     would crowd the wrapped lines. The span is a flex item, so
                     its own line-height applies. */}
@@ -233,20 +251,16 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
                 </span>
               </Label>
             </div>
+            {consentError && (
+              <FieldError id="consent-error">{tErrors('termsNotAccepted')}</FieldError>
+            )}
             {error && <FieldError id="form-error">{error}</FieldError>}
             {isSlowRequest && !error && <Body variant="muted">{t('slowRequest')}</Body>}
           </div>
         </CardContent>
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading || !acceptedTerms}
-              // Tells screen-reader users *why* the button is disabled while
-              // the consent checkbox is unchecked.
-              aria-describedby={!acceptedTerms ? 'consent-label' : undefined}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? t('submitting') : t('submit')}
             </Button>
             <Body variant="muted" className="text-center">
