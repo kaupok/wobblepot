@@ -158,7 +158,7 @@ describe('SignUpForm', () => {
 
       const notice = screen.getByRole('note', { name: 'Private beta notice' })
       expect(notice).toHaveTextContent(
-        "Private beta — sign-up is by invite code only. Don't have one? Ask for an invite.",
+        "Private beta — sign-up is by invite code only. Don't have one? Ask for an invite at support@wobblepot.com.",
       )
       expect(within(notice).getByRole('link', { name: 'Ask for an invite' })).toHaveAttribute(
         'href',

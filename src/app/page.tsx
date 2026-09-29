@@ -12,7 +12,7 @@ import { getLocale } from '@/lib/i18n/get-locale'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
-import { supportMailtoHref } from '@/lib/support'
+import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support'
 import { getTodayInTimezone, getUrgencyBucket, parseLocalDate } from '@/lib/meal-planning/dates'
 import { TimelineView } from '@/components/timeline'
 import { FirstTimeSetup } from '@/components/timeline'
@@ -51,6 +51,7 @@ export default async function Home() {
               <Body variant="paragraph">
                 {t('privateBeta')}{' '}
                 {tSignUp.rich('requestInvite', {
+                  email: SUPPORT_EMAIL,
                   link: (chunks) => (
                     <a
                       href={supportMailtoHref(tSignUp('requestInviteSubject'))}

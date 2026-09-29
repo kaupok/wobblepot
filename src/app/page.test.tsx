@@ -197,7 +197,7 @@ describe('Home page component', () => {
       expect(getServerFlag).toHaveBeenCalledWith('invite_code_required', 'anonymous')
       const notice = screen.getByRole('note', { name: 'Private beta notice' })
       expect(notice).toHaveTextContent(
-        "We're in private beta. You'll need an invite code to sign up. Don't have one? Ask for an invite.",
+        "We're in private beta. You'll need an invite code to sign up. Don't have one? Ask for an invite at support@wobblepot.com.",
       )
       const link = within(notice).getByRole('link', { name: 'Ask for an invite' })
       expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com?subject=Invite%20request')

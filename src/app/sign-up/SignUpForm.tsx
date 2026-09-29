@@ -8,7 +8,7 @@ import { authClient } from '@/lib/auth-client'
 import { useAuthErrorMessage } from '@/lib/auth-errors-client'
 import { getValidReturnUrl } from '@/lib/utils'
 import { track } from '@/lib/analytics'
-import { supportMailtoHref } from '@/lib/support'
+import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -119,6 +119,7 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
                 <Body variant="paragraph">
                   {t('privateBetaBanner')}{' '}
                   {t.rich('requestInvite', {
+                    email: SUPPORT_EMAIL,
                     link: (chunks) => (
                       <a href={supportMailtoHref(t('requestInviteSubject'))} className="underline">
                         {chunks}

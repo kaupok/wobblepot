@@ -653,7 +653,7 @@
       "signInLink": "Logi sisse",
       "privateBetaBanner": "Suletud beeta – registreerumiseks on vaja kutsekoodi.",
       "privateBetaNoticeLabel": "Suletud beeta märguanne",
-      "requestInvite": "Sul pole koodi? <link>Küsi kutset</link>.",
+      "requestInvite": "Sul pole koodi? <link>Küsi kutset</link> aadressil {email}.",
       "requestInviteSubject": "Soovin kutset",
       "inviteCodeLabel": "Kutsekood",
       "inviteCodeHint": "Sisesta kutses saadud kood.",
