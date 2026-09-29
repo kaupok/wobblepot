@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
 import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -30,6 +31,13 @@ import {
   saveImagineSession,
 } from './imagine-session'
 import { FieldError } from '@/components/FieldError'
+
+/**
+ * Thrown so `useMutation` treats a failed imagine response as an error. Its
+ * `message` is the already-translated string the page renders — the route's
+ * English prose never reaches it (HON-700).
+ */
+class ImagineRequestError extends Error {}
 
 function SkeletonCard() {
   return (
@@ -66,8 +74,6 @@ export function ImagineClient() {
   const router = useRouter()
   const t = useTranslations('recipes.imagine')
   const [prompt, setPrompt] = useState('')
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [reviewingMealId, setReviewingMealId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [meals, setMeals] = useState<ImaginedMealResponse[] | null>(null)
   const [reviewMeal, setReviewMeal] = useState<ReviewMealData | null>(null)
@@ -97,19 +103,21 @@ export function ImagineClient() {
   useEffect(() => {
     const stored = loadImagineSession()
     if (!stored) return
+    // The hydration reason above is why this sets state in an effect; the rule
+    // only started seeing it once the compiler could analyse this component.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPrompt(stored.prompt)
     setMeals(stored.meals)
   }, [])
 
-  const navigateToCreate = async (meal: ImaginedMealResponse) => {
-    setReviewingMealId(meal.id)
+  // Degrades on failure and reports it — see `reviewImaginedMeal` (HON-699),
+  // so this mutation never errors.
+  const review = useMutation({
+    mutationFn: reviewImaginedMeal,
+    onSuccess: (finalMeal) => setReviewMeal(convertToPrefilledData(finalMeal)),
+  })
 
-    // Degrades on failure and reports it — see `reviewImaginedMeal` (HON-699).
-    const finalMeal = await reviewImaginedMeal(meal)
-
-    setReviewingMealId(null)
-    setReviewMeal(convertToPrefilledData(finalMeal))
-  }
+  const reviewingMealId = review.isPending ? review.variables.id : null
 
   const handleReviewSaved = (mealId: string) => {
     void track('meal:imagined', { meal_id: mealId, source: 'imagine_page' })
@@ -135,31 +143,18 @@ export function ImagineClient() {
     router.push('/recipes/create?prefilled=true')
   }
 
-  const handleCancel = () => {
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = null
-    setIsGenerating(false)
-  }
-
-  const handleGenerate = async () => {
-    if (!prompt.trim() && images.length === 0) {
-      setError(t('errors.promptOrPhotoRequired'))
-      return
-    }
-
-    setError('')
-    setMeals(null)
-    // A new generation supersedes the stashed one; drop it now so an aborted or
-    // failed run cannot restore stale suggestions on the next mount.
-    clearImagineSession()
-    setIsGenerating(true)
-
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-
-    try {
+  const imagine = useMutation({
+    mutationFn: async ({
+      prompt,
+      imageFiles,
+      controller,
+    }: {
+      prompt: string
+      imageFiles: File[]
+      controller: AbortController
+    }): Promise<ImaginedMealResponse[]> => {
       let response: Response
-      if (images.length > 0) {
+      if (imageFiles.length > 0) {
         const formData = new FormData()
         if (prompt.trim()) {
           formData.append('prompt', prompt.trim())
@@ -197,25 +192,52 @@ export function ImagineClient() {
           message: data.message,
           error: data.error,
         })
-        setError(
+        throw new ImagineRequestError(
           t(`errors.${translateErrorCode(data.code, IMAGINE_ERROR_KEYS, 'generic')}`, {
             max: MAX_ATTACHED_IMAGES,
           }),
         )
-        return
       }
 
-      setMeals(data.meals)
-      saveImagineSession({ prompt, meals: data.meals })
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        return
-      }
-      setError(t('errors.imagineFailed'))
-    } finally {
-      abortControllerRef.current = null
-      setIsGenerating(false)
+      return data.meals
+    },
+    onSuccess: (meals, { prompt }) => {
+      setMeals(meals)
+      saveImagineSession({ prompt, meals })
+    },
+    onError: (err) => {
+      // A user-initiated cancel is not a failure — leave the page untouched.
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof ImagineRequestError ? err.message : t('errors.imagineFailed'))
+    },
+    onSettled: (_data, _err, { controller }) => {
+      if (abortControllerRef.current === controller) abortControllerRef.current = null
+    },
+  })
+
+  const isGenerating = imagine.isPending
+
+  const handleCancel = () => {
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    imagine.reset()
+  }
+
+  const handleGenerate = () => {
+    if (!prompt.trim() && images.length === 0) {
+      setError(t('errors.promptOrPhotoRequired'))
+      return
     }
+
+    setError('')
+    setMeals(null)
+    // A new generation supersedes the stashed one; drop it now so an aborted or
+    // failed run cannot restore stale suggestions on the next mount.
+    clearImagineSession()
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    imagine.mutate({ prompt, imageFiles, controller })
   }
 
   return (
@@ -311,7 +333,7 @@ export function ImagineClient() {
                     <CardFooter className="p-4 pt-0">
                       <Button
                         className="w-full"
-                        onClick={() => navigateToCreate(meal)}
+                        onClick={() => review.mutate(meal)}
                         disabled={reviewingMealId !== null}
                       >
                         {reviewingMealId === meal.id ? (
