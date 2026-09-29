@@ -567,7 +567,7 @@
   "landing": {
     "headline": "Meal planning for busy families",
     "sub": "AI-powered weekly meal plans tailored to your household's preferences, dietary needs, and what's already in your pantry.",
-    "cta": "Get started - it's free",
+    "cta": "Get started — it's free",
     "feature1": "Personalized for your household",
     "feature2": "Smart shopping lists",
     "feature3": "Tracks what you have on hand",
@@ -648,7 +648,7 @@
       "emailLabel": "Email",
       "passwordLabel": "Password",
       "passwordHint": "Use at least 12 characters. Avoid passwords from past data breaches.",
-      "consentLabel": "I have read and agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>",
+      "consentLabel": "I have read and agree to the <terms>terms of service</terms> and <privacy>privacy policy</privacy>",
       "submit": "Sign up",
       "submitting": "Creating account…",
       "alreadyHaveAccount": "Already have an account?",
@@ -692,13 +692,13 @@
         "title": "Already a member",
         "description": "You are already a member of \"{householdName}\"",
         "body": "You can only be a member of one household at a time. To join a different household, you would need to leave your current one first.",
-        "action": "Go to dashboard"
+        "action": "Go home"
       },
       "invalid": {
         "title": "Invite expired",
         "description": "This invite is no longer valid",
-        "body": "This invite link has expired or reached its maximum number of uses. Please ask the household owner for a new invite.",
-        "action": "Go to home"
+        "body": "This invite link has expired. Ask the household owner for a new one.",
+        "action": "Go home"
       },
       "valid": {
         "title": "Join household",
@@ -1055,7 +1055,7 @@
     "child": "Child",
     "defaultName": "{type} {index}",
     "nameLabel": "Household name",
-    "defaultHouseholdName": "{name}'s Household",
+    "defaultHouseholdName": "{name}'s household",
     "back": "Back",
     "continue": "Continue",
     "submit": "Create household",
@@ -1064,7 +1064,7 @@
     "errors": {
       "nameRequired": "Household name is required",
       "network": "Unable to connect. Please check your internet connection.",
-      "createFailed": "Failed to create household"
+      "createFailed": "We couldn't create your household. Try again."
     }
   },
   "enums": {

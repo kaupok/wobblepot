@@ -49,7 +49,7 @@ describe('CreateHouseholdForm', () => {
       renderForm()
 
       const nameInput = screen.getByLabelText('Household name')
-      expect(nameInput).toHaveValue("John's Household")
+      expect(nameInput).toHaveValue("John's household")
     })
 
     // The input's id is `name`, so without this a browser offers the person's own name.
@@ -307,7 +307,7 @@ describe('CreateHouseholdForm', () => {
         json: () =>
           Promise.resolve({
             id: 'household-123',
-            name: "John's Household",
+            name: "John's household",
           }),
       })
 
@@ -321,7 +321,7 @@ describe('CreateHouseholdForm', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: "John's Household",
+            name: "John's household",
             members: [],
           }),
         })
@@ -334,7 +334,7 @@ describe('CreateHouseholdForm', () => {
         json: () =>
           Promise.resolve({
             id: 'household-123',
-            name: "John's Household",
+            name: "John's household",
           }),
       })
 
@@ -353,7 +353,7 @@ describe('CreateHouseholdForm', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: "John's Household",
+            name: "John's household",
             members: [
               { name: 'Adult 2', portionType: 'adult' },
               { name: 'Adult 3', portionType: 'adult' },
@@ -369,7 +369,7 @@ describe('CreateHouseholdForm', () => {
         json: () =>
           Promise.resolve({
             id: 'household-123',
-            name: "John's Household",
+            name: "John's household",
           }),
       })
 
@@ -395,7 +395,7 @@ describe('CreateHouseholdForm', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: "John's Household",
+            name: "John's household",
             members: [
               { name: 'Child 1', portionType: 'child' },
               { name: 'Adult 2', portionType: 'adult' },
@@ -411,7 +411,7 @@ describe('CreateHouseholdForm', () => {
         json: () =>
           Promise.resolve({
             id: 'household-123',
-            name: "John's Household",
+            name: "John's household",
           }),
       })
 
@@ -486,7 +486,9 @@ describe('CreateHouseholdForm', () => {
       await waitFor(() => {
         // The raw `error` field is a machine code or untranslated English, so
         // it must not reach the user — the translated string does.
-        expect(screen.getByRole('alert')).toHaveTextContent('Failed to create household')
+        expect(screen.getByRole('alert')).toHaveTextContent(
+          "We couldn't create your household. Try again.",
+        )
       })
       expect(mockFetch).toHaveBeenCalled()
     })

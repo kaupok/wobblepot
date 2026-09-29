@@ -566,9 +566,9 @@
   },
   "landing": {
     "headline": "Söögiplaanid hõivatud peredele",
-    "sub": "Tehisintellekti abil loodud nädalased söögiplaanid, mis arvestavad teie leibkonna eelistusi, toitumispiiranguid ja seda, mis on juba sahvris olemas.",
+    "sub": "Tehisintellekti abil loodud nädalased söögiplaanid, mis arvestavad sinu leibkonna eelistusi, toitumispiiranguid ja seda, mis on juba sahvris olemas.",
     "cta": "Alusta – see on tasuta",
-    "feature1": "Kohandatud teie leibkonnale",
+    "feature1": "Kohandatud sinu leibkonnale",
     "feature2": "Nutikad poenimekirjad",
     "feature3": "Jälgib, mis sul käepärast on",
     "privateBeta": "Oleme suletud beetaversioonis. Registreerumiseks on vaja kutsekoodi."
@@ -697,7 +697,7 @@
       "invalid": {
         "title": "Kutse on aegunud",
         "description": "See kutse pole enam kehtiv",
-        "body": "See kutselink on aegunud või kasutatud maksimaalse arv kordi. Palu leibkonna omanikult uut kutset.",
+        "body": "See kutselink on aegunud. Palu leibkonna omanikult uut kutset.",
         "action": "Mine avalehele"
       },
       "valid": {
@@ -1064,7 +1064,7 @@
     "errors": {
       "nameRequired": "Leibkonna nimi on kohustuslik",
       "network": "Ühendus ebaõnnestus. Palun kontrolli internetiühendust.",
-      "createFailed": "Leibkonna loomine ebaõnnestus"
+      "createFailed": "Leibkonna loomine ei õnnestunud. Proovi uuesti."
     }
   },
   "enums": {

@@ -211,7 +211,7 @@ describe('Home page component', () => {
 
     const component = await Home()
     render(component)
-    const ctaLink = screen.getByRole('link', { name: "Get started - it's free" })
+    const ctaLink = screen.getByRole('link', { name: "Get started — it's free" })
     expect(ctaLink).toBeInTheDocument()
     expect(ctaLink).toHaveAttribute('href', '/sign-up')
   })
