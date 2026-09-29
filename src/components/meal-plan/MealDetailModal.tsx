@@ -3,8 +3,10 @@
 import { useState, useCallback, useImperativeHandle } from 'react'
 import type { Ref } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
+import { apiFetch } from '@/lib/api'
 import {
   Dialog,
   DialogContent,
@@ -87,49 +89,51 @@ export function MealDetailModal({
     setLocalServings(effectiveServings)
   }
 
-  const handleServingsChange = useCallback(
-    async (newServings: number | null): Promise<boolean> => {
+  const servingsMutation = useMutation({
+    mutationFn: (newServings: number | null) =>
+      apiFetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ servingOverride: newServings }),
+      }),
+    onMutate: (newServings) => {
       const previousServings = localServings
-
       // Optimistic update
-      const displayServings = newServings ?? householdSize
-      setLocalServings(displayServings)
-
-      try {
-        const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ servingOverride: newServings }),
-        })
-
-        if (!response.ok) {
-          setLocalServings(previousServings)
-          toast.error(tServing('updateFailed'))
-          return false
-        }
-
-        // Notify parent of change
-        onServingOverrideChange?.(newServings)
-
-        // The PATCH just nulled this entry's cached `preparationTips`, because
-        // the prompt scales by the serving count (HON-681). This component is
-        // rendered unconditionally by `MealCard`, so it never unmounts and the
-        // hook's `tips` survives a close and reopen — and `handleHowToPrepare`
-        // short-circuits on a non-null `tips`, so without dropping it here the
-        // panel keeps showing pan sizes for the old count and never re-POSTs.
-        //
-        // `cancelTips` rather than clearing the state, because a generation
-        // started before this change is still running and would otherwise
-        // resolve into the state we just emptied.
-        cancelTips()
-        return true
-      } catch {
-        setLocalServings(previousServings)
-        toast.error(tServing('updateFailed'))
-        return false
-      }
+      setLocalServings(newServings ?? householdSize)
+      return { previousServings }
     },
-    [planId, entryId, householdSize, localServings, onServingOverrideChange, tServing, cancelTips],
+    onSuccess: (_data, newServings) => {
+      // Notify parent of change
+      onServingOverrideChange?.(newServings)
+
+      // The PATCH just nulled this entry's cached `preparationTips`, because
+      // the prompt scales by the serving count (HON-681). This component is
+      // rendered unconditionally by `MealCard`, so it never unmounts and the
+      // hook's `tips` survives a close and reopen — and `handleHowToPrepare`
+      // short-circuits on a non-null `tips`, so without dropping it here the
+      // panel keeps showing pan sizes for the old count and never re-POSTs.
+      //
+      // `cancelTips` rather than clearing the state, because a generation
+      // started before this change is still running and would otherwise
+      // resolve into the state we just emptied.
+      cancelTips()
+    },
+    onError: (_err, _newServings, context) => {
+      if (context) setLocalServings(context.previousServings)
+      toast.error(tServing('updateFailed'))
+    },
+  })
+
+  const { mutateAsync: updateServings } = servingsMutation
+  // `ServingControl` awaits a boolean rather than the mutation's result, so
+  // the rejection is already handled by `onError` and only the outcome crosses.
+  const handleServingsChange = useCallback(
+    (newServings: number | null): Promise<boolean> =>
+      updateServings(newServings).then(
+        () => true,
+        () => false,
+      ),
+    [updateServings],
   )
 
   // A swap repoints this entry at a different meal, and the same PATCH nulls

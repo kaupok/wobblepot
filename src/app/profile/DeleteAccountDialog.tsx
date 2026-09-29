@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { authClient } from '@/lib/auth-client'
+import { ApiError, apiFetch } from '@/lib/api'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -40,39 +42,15 @@ export function DeleteAccountDialog({
   const t = useTranslations('profile.delete')
   const locale = useLocale() as Locale
   const router = useRouter()
-  const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState('')
   const [open, setOpen] = useState(false)
 
-  const handleDelete = async () => {
-    setIsDeleting(true)
-    setError('')
-
-    try {
-      const response = await fetch('/api/auth/user', {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        // The route's `message` is English on every branch, so the `code`
-        // picks the copy; the prose is kept as a console breadcrumb only
-        // (HON-725).
-        console.error('[delete-account] request failed', {
-          code: data.code,
-          error: data.error,
-          message: data.message,
-        })
-        const key = translateErrorCode(data.code, ACCOUNT_DELETION_ERROR_KEYS, 'deleteFailed')
-        setError(
-          t(`errors.${key}`, {
-            householdName: typeof data.householdName === 'string' ? data.householdName : '',
-            count: typeof data.otherMemberCount === 'number' ? data.otherMemberCount : 0,
-          }),
-        )
-        setIsDeleting(false)
-        return
-      }
+  const deleteAccount = useMutation({
+    mutationFn: async () => {
+      const { purgeScheduledFor } = await apiFetch<{ purgeScheduledFor?: string }>(
+        '/api/auth/user',
+        { method: 'DELETE' },
+      )
 
       // Surface the scheduled purge date returned by the route. The Toaster is
       // mounted at the root layout, so this survives the redirect below.
@@ -81,13 +59,13 @@ export function DeleteAccountDialog({
       // Pinned to UTC for the same reason the email is: `purgeScheduledFor` is a
       // UTC instant and the purge cron runs at 03:00 UTC, so the browser zone
       // could otherwise show a different calendar day (see HON-481 review).
-      const { purgeScheduledFor } = (await response.json()) as { purgeScheduledFor?: string }
       if (purgeScheduledFor) {
         const date = formatLongDate(new Date(purgeScheduledFor), locale, { timeZone: 'UTC' })
         toast.success(t('scheduledToast', { date }))
       }
 
-      // Sign out and redirect
+      // Sign out and redirect. Inside the mutation, so a sign-out failure lands
+      // in `onError` like any other.
       await authClient.signOut({
         fetchOptions: {
           onSuccess: () => {
@@ -99,10 +77,43 @@ export function DeleteAccountDialog({
           },
         },
       })
-    } catch {
-      setError(t('errors.unexpected'))
-      setIsDeleting(false)
-    }
+    },
+    onError: (err) => {
+      if (!(err instanceof ApiError)) {
+        setError(t('errors.unexpected'))
+        return
+      }
+      // The route's `message` is English on every branch, so the `code`
+      // picks the copy; the prose is kept as a console breadcrumb only
+      // (HON-725).
+      const body = err.body as {
+        error?: unknown
+        message?: unknown
+        householdName?: unknown
+        otherMemberCount?: unknown
+      }
+      console.error('[delete-account] request failed', {
+        code: err.code,
+        error: body.error,
+        message: body.message,
+      })
+      const key = translateErrorCode(err.code, ACCOUNT_DELETION_ERROR_KEYS, 'deleteFailed')
+      setError(
+        t(`errors.${key}`, {
+          householdName: typeof body.householdName === 'string' ? body.householdName : '',
+          count: typeof body.otherMemberCount === 'number' ? body.otherMemberCount : 0,
+        }),
+      )
+    },
+  })
+
+  // A successful delete stays "deleting" until the redirect lands: the account
+  // is gone, so the buttons must not come back to life in between.
+  const isDeleting = deleteAccount.isPending || deleteAccount.isSuccess
+
+  const handleDelete = () => {
+    setError('')
+    deleteAccount.mutate()
   }
 
   const hasOtherMembers = Boolean(isOwner && memberCount && memberCount > 1)
@@ -155,7 +166,7 @@ export function DeleteAccountDialog({
               // below are actually seen; a successful delete redirects away
               // (HON-725).
               event.preventDefault()
-              void handleDelete()
+              handleDelete()
             }}
             disabled={isDeleting || hasOtherMembers}
             className={buttonVariants({ variant: 'destructive' })}
