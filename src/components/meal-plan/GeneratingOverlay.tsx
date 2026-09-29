@@ -35,7 +35,7 @@ export function GeneratingOverlay() {
   const displayMessage = isSlow ? t('slow') : t(progressKey)
 
   return (
-    <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+    <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center">
       <div className="flex flex-col items-center gap-6 text-center">
         <Loader2 className="text-primary h-12 w-12 animate-spin" />
         <div className="flex flex-col items-center gap-2">

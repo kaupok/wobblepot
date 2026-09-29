@@ -1,5 +1,16 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, waitFor } from 'storybook/test'
+import axe from 'axe-core'
+import { expect, waitFor, within } from 'storybook/test'
+import { MealType } from '@/generated/prisma/enums'
+import { TimelineView } from '@/components/timeline/TimelineView'
+import {
+  createExpectedMealTypes,
+  createPlanEntry,
+  lemonGarlicChickenPantry,
+  lemonGarlicChickenPantryItems,
+  timelineTodayDate,
+  urgentShoppingItems,
+} from '@/stories/fixtures'
 import { GeneratingOverlay } from './GeneratingOverlay'
 
 const meta = {
@@ -44,4 +55,71 @@ export const ReducedMotion: Story = {
     expect(style.animationIterationCount).toBe('infinite')
     expect(style.animationDuration).toBe('1s')
   },
+}
+
+// Seven planned dinners from today, as in the `FullyPlanned` TimelineView story:
+// enough text behind the scrim that the overlay's own copy has to hold up.
+const plannedEntries = Array.from({ length: 7 }, (_, i) => {
+  const day = new Date(timelineTodayDate)
+  day.setDate(day.getDate() + i)
+  const iso = day.toISOString().slice(0, 10)
+  return createPlanEntry({ id: `e-planned-${iso}`, date: iso, mealType: MealType.dinner })
+})
+
+function OverTimeline() {
+  return (
+    <>
+      <TimelineView
+        planId="plan-1"
+        householdSize={4}
+        entries={plannedEntries}
+        expectedMealTypes={createExpectedMealTypes()}
+        pantryIngredients={lemonGarlicChickenPantry}
+        pantryItems={lemonGarlicChickenPantryItems}
+        shoppingItems={urgentShoppingItems}
+        todayDate={timelineTodayDate}
+      />
+      <GeneratingOverlay />
+    </>
+  )
+}
+
+// HON-823: the scrim is a plain 80% wash, no blur (docs/DESIGN.md → Reject
+// list, "glass effects"). These stories put a populated timeline behind it so
+// the heading and status line are checked against what really sits under them.
+//
+// The story-level axe gate alone cannot pin that: axe reports text it cannot
+// resolve a background for as `incomplete`, which does not fail the gate. So
+// the play function runs `color-contrast` itself and requires both lines in
+// `passes`. axe blends the backgrounds behind the scrim, not the page's text
+// that shows faintly through it — if that text starts fighting the copy, raise
+// the scrim's opacity; do not bring the blur back or add a card behind it.
+async function assertScrimOverTimeline({ canvasElement }: { canvasElement: HTMLElement }) {
+  const canvas = within(canvasElement)
+  const heading = canvas.getByRole('heading', { name: 'Generating your meal plan…' })
+  const status = canvas.getByText('Analyzing your preferences…')
+  await expect(heading).toBeVisible()
+  await expect(status).toBeVisible()
+
+  const scrim = heading.closest('.fixed')
+  expect(scrim).not.toBeNull()
+  expect(window.getComputedStyle(scrim as Element).backdropFilter).toBe('none')
+
+  const results = await axe.run(scrim as Element, { runOnly: ['color-contrast'] })
+  const passed = results.passes.flatMap((rule) => rule.nodes.map((node) => node.html))
+  expect(results.violations).toEqual([])
+  expect(results.incomplete).toEqual([])
+  expect(passed).toContainEqual(expect.stringContaining('Generating your meal plan…'))
+  expect(passed).toContainEqual(expect.stringContaining('Analyzing your preferences…'))
+}
+
+export const OverPopulatedTimeline: Story = {
+  render: () => <OverTimeline />,
+  play: assertScrimOverTimeline,
+}
+
+export const OverPopulatedTimelineDark: Story = {
+  globals: { theme: 'dark' },
+  render: () => <OverTimeline />,
+  play: assertScrimOverTimeline,
 }
