@@ -1050,6 +1050,7 @@
     "membersLabel": "Liikmed",
     "membersHelper": "Nimesid ja tüüpe saad hiljem sätetes muuta.",
     "memberAria": "{index}. liikme nimi",
+    "memberTypeAria": "{index}. liikme tüüp",
     "adult": "Täiskasvanu",
     "child": "Laps",
     "defaultName": "{type} {index}",

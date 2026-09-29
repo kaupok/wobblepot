@@ -47,6 +47,36 @@ export const Adult: Story = {
   play: async () => {
     const body = within(document.body)
     await body.findByRole('dialog')
+    // The presets are a named radiogroup with the matching preset checked (HON-828).
+    const presets = await body.findByRole('radiogroup', { name: /portion size/i })
+    const checked = within(presets)
+      .getAllByRole('radio')
+      .filter((radio) => radio.getAttribute('aria-checked') === 'true')
+    await expect(checked).toHaveLength(1)
+    await expect(checked[0]).toHaveAccessibleName(/regular \(1x\)/i)
+  },
+}
+
+export const CustomPortion: Story = {
+  args: {
+    member: createMember({
+      preferences: createMemberPreferences({ portionMultiplier: 1.25 }),
+    }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A portion multiplier that matches no preset (1.25x, typed into the input): no preset chip is checked.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    const presets = await body.findByRole('radiogroup', { name: /portion size/i })
+    for (const radio of within(presets).getAllByRole('radio')) {
+      await expect(radio).toHaveAttribute('aria-checked', 'false')
+    }
   },
 }
 
@@ -114,8 +144,9 @@ export const SaveInvokesCallback: Story = {
     await userEvent.clear(displayNameInput)
     await userEvent.type(displayNameInput, 'Sammy')
 
-    const largePortion = await body.findByRole('button', { name: /large \(1\.5x\)/i })
+    const largePortion = await body.findByRole('radio', { name: /^large \(1\.5x\)/i })
     await userEvent.click(largePortion)
+    await expect(largePortion).toHaveAttribute('aria-checked', 'true')
 
     const submitButton = await body.findByRole('button', { name: /save preferences/i })
     await userEvent.click(submitButton)

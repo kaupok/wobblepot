@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CreateHouseholdForm } from './CreateHouseholdForm'
@@ -190,15 +190,37 @@ describe('CreateHouseholdForm', () => {
       // Add a second member
       await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
 
-      // Find the Child buttons (there are 2: one for member 1 disabled, one for member 2)
-      const childButtons = screen.getAllByRole('button', { name: 'Child' })
-      // Click the second Child button (for member 2)
-      const member2ChildBtn = childButtons[1]
-      if (!member2ChildBtn) throw new Error('Member 2 Child button not found')
-      await userEvent.click(member2ChildBtn)
+      // Each member row is its own radiogroup, named by its position (HON-828)
+      const member2Type = screen.getByRole('radiogroup', { name: 'Member 2 type' })
+      const adult = within(member2Type).getByRole('radio', { name: 'Adult' })
+      const child = within(member2Type).getByRole('radio', { name: 'Child' })
+      expect(adult).toHaveAttribute('aria-checked', 'true')
+      expect(child).toHaveAttribute('aria-checked', 'false')
 
-      // The Child button for member 2 should now be the "default" variant
-      expect(member2ChildBtn).toHaveClass('bg-primary')
+      await userEvent.click(child)
+
+      expect(child).toHaveAttribute('aria-checked', 'true')
+      expect(adult).toHaveAttribute('aria-checked', 'false')
+    })
+
+    it('names every member type group distinctly and keeps the first one disabled', async () => {
+      renderForm()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      for (let i = 0; i < 3; i++) {
+        await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+      }
+
+      const groups = screen.getAllByRole('radiogroup')
+      expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual([
+        'Member 1 type',
+        'Member 2 type',
+        'Member 3 type',
+        'Member 4 type',
+      ])
+      const member1Radios = within(screen.getByRole('radiogroup', { name: 'Member 1 type' }))
+      expect(member1Radios.getByRole('radio', { name: 'Adult' })).toBeDisabled()
+      expect(member1Radios.getByRole('radio', { name: 'Child' })).toBeDisabled()
     })
 
     it('allows entering names for additional members', async () => {
@@ -255,10 +277,11 @@ describe('CreateHouseholdForm', () => {
       await userEvent.type(member2Input, 'Emma')
 
       // Toggle member 2 to Child
-      const childButtons = screen.getAllByRole('button', { name: 'Child' })
-      const member2ChildBtn = childButtons[1]
-      if (!member2ChildBtn) throw new Error('Member 2 Child button not found')
-      await userEvent.click(member2ChildBtn)
+      await userEvent.click(
+        within(screen.getByRole('radiogroup', { name: 'Member 2 type' })).getByRole('radio', {
+          name: 'Child',
+        }),
+      )
 
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 
@@ -355,10 +378,11 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
 
       // Toggle member 2 to Child
-      const childButtons = screen.getAllByRole('button', { name: 'Child' })
-      const member2ChildBtn = childButtons[1]
-      if (!member2ChildBtn) throw new Error('Member 2 Child button not found')
-      await userEvent.click(member2ChildBtn)
+      await userEvent.click(
+        within(screen.getByRole('radiogroup', { name: 'Member 2 type' })).getByRole('radio', {
+          name: 'Child',
+        }),
+      )
 
       await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
 

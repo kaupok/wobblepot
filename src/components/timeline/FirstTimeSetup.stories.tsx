@@ -113,11 +113,27 @@ export const SetupFlowInvokesApi: Story = {
     generateSpy.mockClear()
     const canvas = within(canvasElement)
 
+    // Both choices are named radiogroups, labelled by their section headings,
+    // with exactly one radio checked (HON-828).
+    const startFrom = within(canvas.getByRole('radiogroup', { name: /^start from$/i }))
+    const daysCount = within(canvas.getByRole('radiogroup', { name: /^how many days$/i }))
+    await expect(daysCount.getByRole('radio', { name: /^7 days$/i })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+
     // Switch to "Tomorrow" (default is Today).
-    await userEvent.click(canvas.getByRole('button', { name: /^tomorrow$/i }))
+    const tomorrow = startFrom.getByRole('radio', { name: /^tomorrow$/i })
+    await userEvent.click(tomorrow)
+    await expect(tomorrow).toHaveAttribute('aria-checked', 'true')
 
     // Switch day count from 7 to 3.
-    await userEvent.click(canvas.getByRole('button', { name: /^3 days$/i }))
+    const threeDays = daysCount.getByRole('radio', { name: /^3 days$/i })
+    await userEvent.click(threeDays)
+    await expect(threeDays).toHaveAttribute('aria-checked', 'true')
+    await expect(
+      daysCount.getAllByRole('radio').filter((r) => r.getAttribute('aria-checked') === 'true'),
+    ).toHaveLength(1)
 
     await userEvent.click(canvas.getByRole('button', { name: /^generate meal plan$/i }))
 
