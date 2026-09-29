@@ -15,7 +15,9 @@ export default async function NotFound() {
     <div className="min-h-screen-below-header flex flex-col items-center justify-center gap-4 p-8">
       <div className="max-w-md text-center">
         <div className="flex flex-col gap-3">
-          <Heading variant="h2">{t('title')}</Heading>
+          <Heading as="h1" variant="h2">
+            {t('title')}
+          </Heading>
           <Body>{t('body')}</Body>
         </div>
         <div className="mt-6">

@@ -27,7 +27,9 @@ describe('ForgotPasswordForm', () => {
     it('renders forgot password form with heading', () => {
       render(<ForgotPasswordForm />)
 
-      expect(screen.getByRole('heading', { name: /forgot password/i })).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { level: 1, name: /forgot password/i }),
+      ).toBeInTheDocument()
     })
 
     it('renders email input with label', () => {

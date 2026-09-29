@@ -41,7 +41,7 @@ describe('ResetPasswordForm', () => {
     it('renders reset password form with heading', () => {
       render(<ResetPasswordForm />)
 
-      expect(screen.getByRole('heading', { name: /reset password/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 1, name: /reset password/i })).toBeInTheDocument()
     })
 
     it('renders new password input with label', () => {
