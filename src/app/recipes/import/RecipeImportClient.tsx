@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
+import { ApiError, apiFetch } from '@/lib/api'
 import { RECIPE_IMPORT_ERROR_KEYS, translateErrorCode } from '@/lib/ai/error-codes'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
@@ -161,13 +162,6 @@ function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim()) || /^www\./i.test(text.trim())
 }
 
-/**
- * Thrown so `useMutation` treats a failed parse response as an error. Its
- * `message` is the already-translated string the page renders — the route's
- * English prose never reaches it (HON-700).
- */
-class RecipeImportRequestError extends Error {}
-
 type ParseResponse = { confidenceTier?: string; recipe: ParsedRecipeData }
 
 const URL_STEP_DELAYS = [0, 4000, 10000]
@@ -261,33 +255,14 @@ export function RecipeImportClient() {
       text: string
       controller: AbortController
     }): Promise<ParseResponse> => {
-      const response = await fetch('/api/recipes/parse', {
+      // Every failure branch of the route answers non-2xx, so a resolved call
+      // is always `success: true`.
+      return apiFetch<ParseResponse>('/api/recipes/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
         signal: controller.signal,
       })
-
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        // Deliberately not falling back to `data.error`: it carries
-        // untranslated English, which would render verbatim to an Estonian
-        // household. The route's machine-readable `code` is what picks the
-        // copy; the prose is kept as a console breadcrumb only (HON-700).
-        console.error('[recipe-import] request failed', {
-          code: data.code,
-          // `message` carries the detail on the 429 and 503 branches — the
-          // hourly limit, the AI-cap reset date, the kill-switch note.
-          message: data.message,
-          error: data.error,
-        })
-        throw new RecipeImportRequestError(
-          t(`errors.${translateErrorCode(data.code, RECIPE_IMPORT_ERROR_KEYS, 'parseGeneric')}`),
-        )
-      }
-
-      return data
     },
     onSuccess: (data) => {
       // `recipe:imported` fires when the user actually saves the recipe to
@@ -297,7 +272,7 @@ export function RecipeImportClient() {
 
       // Handle medium confidence — show warning with options
       if (data.confidenceTier === 'medium') {
-        // Same reason the error path above ignores `data.error`:
+        // Same reason the error path below ignores the route's `error`:
         // `evaluateRecipeConfidence` always sets a message on the medium tier,
         // so `data.confidenceWarning ||` never reached the translation and an
         // Estonian household read the English sentence. There is exactly one
@@ -312,7 +287,25 @@ export function RecipeImportClient() {
     onError: (err) => {
       // A user-initiated cancel is not a failure — leave the page untouched.
       if (err instanceof Error && err.name === 'AbortError') return
-      setError(err instanceof RecipeImportRequestError ? err.message : t('errors.parseGeneric'))
+      if (!(err instanceof ApiError)) {
+        setError(t('errors.parseGeneric'))
+        return
+      }
+      // Deliberately not falling back to the route's `error`: it carries
+      // untranslated English, which would render verbatim to an Estonian
+      // household. The route's machine-readable `code` is what picks the
+      // copy; the prose is kept as a console breadcrumb only (HON-700).
+      const body = err.body as { error?: unknown; message?: unknown }
+      console.error('[recipe-import] request failed', {
+        code: err.code,
+        // `message` carries the detail on the 429 and 503 branches — the
+        // hourly limit, the AI-cap reset date, the kill-switch note.
+        message: body.message,
+        error: body.error,
+      })
+      setError(
+        t(`errors.${translateErrorCode(err.code, RECIPE_IMPORT_ERROR_KEYS, 'parseGeneric')}`),
+      )
     },
     onSettled: (_data, _err, { controller }) => {
       // A cancelled run was already wound down by `handleCancel`, and may

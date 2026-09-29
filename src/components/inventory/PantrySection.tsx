@@ -75,17 +75,8 @@ export function PantrySection({
 
   const removeMutation = useMutation({
     mutationKey: REMOVE_KEY,
-    // Not `apiFetch`: the route answers 204 with no body, which it would try to
-    // parse as JSON.
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/pantry/${id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error(tPantry('errors.removeFailed'))
-      }
-    },
+    // The route answers 204 with no body.
+    mutationFn: (id: string) => apiFetch<void>(`/api/pantry/${id}`, { method: 'DELETE' }),
     onMutate: (id) => {
       const removedItem = items.find((item) => item.id === id)
       onItemsChange((prev) => prev.filter((item) => item.id !== id))
