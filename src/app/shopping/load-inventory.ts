@@ -4,46 +4,15 @@ import { headers } from 'next/headers'
 import type { ComponentProps } from 'react'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { getServerBaseURL } from '@/lib/env'
+import { captureApiError } from '@/lib/errors'
+import { getLocale } from '@/lib/i18n/get-locale'
+import { loadPantry, type PantryResult } from '@/lib/meal-planning/load-pantry'
+import { loadShoppingList, type ShoppingListResult } from '@/lib/shopping/load-shopping-list'
 import type { InventoryPage } from '@/components/inventory/InventoryPage'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
-import type { IngredientCategory } from '@/generated/prisma/enums'
-import { toShoppingItemData, type ShoppingListApiItem } from './shopping-item-transform'
-import { toPantryItemData, type PantryApiItem } from './pantry-item-transform'
+import { toShoppingItemData } from './shopping-item-transform'
+import { toPantryItemData } from './pantry-item-transform'
 import { getShoppingEmptyStateVariant } from './shopping-empty-state-variant'
-
-interface PantryResponse {
-  items: PantryApiItem[]
-}
-
-interface ShoppingListGroup {
-  category: IngredientCategory
-  items: ShoppingListApiItem[]
-}
-
-interface CustomShoppingItemResponse {
-  id: string
-  name: string
-  checked: boolean
-  ingredientId: string | null
-  ingredientCategory: string | null
-  createdAt: string
-}
-
-interface ShoppingListResponse {
-  windowDays: number
-  startDate: string
-  endDate: string
-  generatedAt: string | null
-  hasAnyPlan: boolean
-  groups: ShoppingListGroup[]
-  customItems: CustomShoppingItemResponse[]
-  summary: {
-    totalItems: number
-    purchasedItems: number
-    remainingItems: number
-  }
-}
 
 export type InventoryPageData = Omit<ComponentProps<typeof InventoryPage>, 'view'>
 
@@ -54,10 +23,8 @@ export type InventoryPageData = Omit<ComponentProps<typeof InventoryPage>, 'view
  * passes its own `view` (HON-776). Redirects to sign-in or onboarding itself.
  */
 export async function loadInventory(daysParam: string | undefined): Promise<InventoryPageData> {
-  const requestHeaders = await headers()
-
   const session = await auth.api.getSession({
-    headers: requestHeaders,
+    headers: await headers(),
   })
 
   if (!session) {
@@ -71,7 +38,7 @@ export async function loadInventory(daysParam: string | undefined): Promise<Inve
 
   // Parse days from query param (used when client preference differs from default)
   // Default to 7 days if not specified or invalid
-  const days = daysParam === '14' ? 14 : 7
+  const days: 7 | 14 = daysParam === '14' ? 14 : 7
   // Whether the URL actually named a window, as opposed to falling through to
   // the default. `days` alone cannot say — `/shopping`, `?days=7` and
   // `?days=garbage` all produce 7 — and the client-side reconcile needs the
@@ -79,33 +46,44 @@ export async function loadInventory(daysParam: string | undefined): Promise<Inve
   // none, so an explicit link or a Back press is not overridden.
   const daysFromUrl = daysParam === '7' || daysParam === '14'
 
-  const baseURL = getServerBaseURL()
-  const cookieHeader = requestHeaders.get('cookie') ?? ''
+  const { household } = membership
+  const locale = await getLocale()
 
-  // Fetch pantry items and shopping list concurrently (independent requests)
-  const [pantryResponse, shoppingResponse] = await Promise.all([
-    fetch(`${baseURL}/api/pantry?days=${days}`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
+  // Each loader settles on its own, so one failing does not take the other
+  // section down with it (below).
+  const [pantryResult, shoppingList] = await Promise.all([
+    loadPantry(household, { days }).catch((error: unknown): PantryResult | null => {
+      captureApiError(error, {
+        route: '/shopping',
+        section: 'pantry',
+        userId: session.user.id,
+        householdId: household.id,
+      })
+      return null
     }),
-    fetch(`${baseURL}/api/shopping-list?days=${days}`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
+    loadShoppingList(household, { days, locale }).catch(
+      (error: unknown): ShoppingListResult | null => {
+        captureApiError(error, {
+          route: '/shopping',
+          section: 'shopping-list',
+          userId: session.user.id,
+          householdId: household.id,
+        })
+        return null
+      },
+    ),
   ])
 
-  // A failed pantry fetch must not read as an empty pantry: on a phone `/pantry`
+  // A failed pantry load must not read as an empty pantry: on a phone `/pantry`
   // is nothing but this list, so "Your pantry is empty" after a transient 500
   // would tell the user their stock is gone. Not thrown either — the shopping
   // list beside it on desktop loaded fine and should still render.
-  let formattedPantryItems: PantryItemData[] = []
-  const pantryLoadFailed = !pantryResponse.ok
-  if (pantryResponse.ok) {
-    const pantryData: PantryResponse = await pantryResponse.json()
-    formattedPantryItems = pantryData.items.map(toPantryItemData)
-  }
+  const pantryLoadFailed = pantryResult === null
+  const formattedPantryItems: PantryItemData[] = pantryResult
+    ? pantryResult.items.map(toPantryItemData)
+    : []
 
-  if (!shoppingResponse.ok) {
+  if (!shoppingList) {
     return {
       pantryItems: formattedPantryItems,
       pantryLoadFailed,
@@ -115,8 +93,6 @@ export async function loadInventory(daysParam: string | undefined): Promise<Inve
       windowDaysFromUrl: daysFromUrl,
     }
   }
-
-  const shoppingList: ShoppingListResponse = await shoppingResponse.json()
 
   const emptyStateVariant = getShoppingEmptyStateVariant({
     hasAnyPlan: shoppingList.hasAnyPlan,

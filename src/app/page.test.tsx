@@ -53,9 +53,65 @@ vi.mock('@/components/timeline', () => ({
   FirstTimeSetup: vi.fn(() => <div data-testid="first-time-setup">First Time Setup</div>),
 }))
 
-// Mock fetch for API calls
+// The page reads through the same loaders the API routes wrap (HON-789).
+vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn() }))
+vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
+vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
+vi.mock('@/lib/i18n/get-locale', () => ({ getLocale: vi.fn(async () => 'en') }))
+
+// Nothing on this page may call back into our own API over HTTP (HON-789).
 const mockFetch = vi.fn()
 global.fetch = mockFetch
+
+const PLANNED_ENTRY = {
+  id: 'entry-1',
+  date: '2026-03-29',
+  mealType: 'dinner',
+  status: 'planned',
+  rating: null,
+  meal: { id: 'meal-1', name: 'Chicken Rice', components: [], nutrition: {} },
+  preparationTips: null,
+  note: null,
+  servingOverride: null,
+  pantryDeducted: false,
+}
+
+const EMPTY_SHOPPING_LIST = {
+  windowDays: 7,
+  startDate: '2026-03-29',
+  endDate: '2026-04-05',
+  generatedAt: null,
+  hasAnyPlan: true,
+  groups: [],
+  customItems: [],
+  summary: { totalItems: 0, purchasedItems: 0, remainingItems: 0 },
+}
+
+async function mockLoaders({
+  entries = { entries: [], planId: null },
+  pantry = { items: [], windowDays: null },
+  shoppingList = EMPTY_SHOPPING_LIST,
+}: {
+  entries?: unknown
+  pantry?: unknown
+  shoppingList?: unknown
+} = {}) {
+  const { loadPlanEntries } = await import('@/lib/meal-planning/load-plan-entries')
+  const { loadPantry } = await import('@/lib/meal-planning/load-pantry')
+  const { loadShoppingList } = await import('@/lib/shopping/load-shopping-list')
+  vi.mocked(loadPlanEntries).mockImplementation(async () => {
+    if (entries instanceof Error) throw entries
+    return entries as never
+  })
+  vi.mocked(loadPantry).mockImplementation(async () => {
+    if (pantry instanceof Error) throw pantry
+    return pantry as never
+  })
+  vi.mocked(loadShoppingList).mockImplementation(async () => {
+    if (shoppingList instanceof Error) throw shoppingList
+    return shoppingList as never
+  })
+}
 
 /**
  * Signs in a user who owns a household with the given preferences row. The
@@ -106,51 +162,14 @@ async function mockAuthedHouseholdSession(
   } as never)
 }
 
-/**
- * Serves one entry and a plan id on /api/entries, and an empty pantry and
- * shopping list, so the page falls through to <TimelineView />.
- */
-function mockFetchWithPlannedEntry() {
-  mockFetch.mockImplementation((url: string) => {
-    if (url.includes('/api/entries')) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({
-          entries: [
-            {
-              id: 'entry-1',
-              date: '2026-03-29',
-              mealType: 'dinner',
-              status: 'planned',
-              rating: null,
-              meal: { id: 'meal-1', name: 'Chicken Rice', components: [], nutrition: {} },
-              preparationTips: null,
-              note: null,
-              servingOverride: null,
-            },
-          ],
-          planId: 'plan-1',
-        }),
-      })
-    }
-    if (url.includes('/api/pantry')) {
-      return Promise.resolve({ ok: true, json: async () => ({ items: [] }) })
-    }
-    if (url.includes('/api/shopping-list')) {
-      return Promise.resolve({ ok: true, json: async () => ({ groups: [], summary: {} }) })
-    }
-    return Promise.resolve({ ok: false, json: async () => ({}) })
-  })
+/** One planned entry, an empty pantry and shopping list → <TimelineView />. */
+function mockLoadersWithPlannedEntry() {
+  return mockLoaders({ entries: { entries: [PLANNED_ENTRY], planId: 'plan-1' } })
 }
 
 describe('Home page component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Default mock responses for fetch
-    mockFetch.mockResolvedValue({
-      ok: false,
-      json: async () => ({}),
-    })
   })
 
   it('renders landing page heading when not authenticated', async () => {
@@ -239,16 +258,8 @@ describe('Home page component', () => {
       },
     } as never)
 
-    // Mock entries response: no entries, no plan
-    mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/api/entries')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ entries: [], planId: null }),
-        })
-      }
-      return Promise.resolve({ ok: false, json: async () => ({}) })
-    })
+    // No entries, no plan
+    await mockLoaders()
 
     const component = await Home()
     render(component)
@@ -297,43 +308,7 @@ describe('Home page component', () => {
       },
     } as never)
 
-    // Mock entries response: has entries
-    mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/api/entries')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            entries: [
-              {
-                id: 'entry-1',
-                date: '2026-03-29',
-                mealType: 'dinner',
-                status: 'planned',
-                rating: null,
-                meal: { id: 'meal-1', name: 'Chicken Rice', components: [], nutrition: {} },
-                preparationTips: null,
-                note: null,
-                servingOverride: null,
-              },
-            ],
-            planId: 'plan-1',
-          }),
-        })
-      }
-      if (url.includes('/api/pantry')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ items: [] }),
-        })
-      }
-      if (url.includes('/api/shopping-list')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ groups: [], summary: {} }),
-        })
-      }
-      return Promise.resolve({ ok: false, json: async () => ({}) })
-    })
+    await mockLoadersWithPlannedEntry()
 
     const component = await Home()
     render(component)
@@ -345,7 +320,7 @@ describe('Home page component', () => {
   it('renders timeline view with default meal types when household has no preferences', async () => {
     const { TimelineView } = await import('@/components/timeline')
     await mockAuthedHouseholdSession(null)
-    mockFetchWithPlannedEntry()
+    await mockLoadersWithPlannedEntry()
 
     const component = await Home()
     render(component)
@@ -363,7 +338,7 @@ describe('Home page component', () => {
       weekdayMealTypes: ['breakfast', 'dinner'],
       weekendMealTypes: ['breakfast', 'lunch', 'dinner'],
     })
-    mockFetchWithPlannedEntry()
+    await mockLoadersWithPlannedEntry()
 
     const component = await Home()
     render(component)
@@ -374,18 +349,105 @@ describe('Home page component', () => {
     })
   })
 
-  // The preferences are already on the membership row, so the dashboard must
-  // not pay a server-to-self hop to re-read them (HON-676).
-  it('does not fetch the household preferences endpoint', async () => {
+  // The preferences are already on the membership row (HON-676), and plan,
+  // pantry and shopping data come from the loaders directly (HON-789): the
+  // dashboard pays no server-to-self hop at all.
+  it('does not fetch its own API routes', async () => {
     await mockAuthedHouseholdSession(null)
-    mockFetchWithPlannedEntry()
+    await mockLoadersWithPlannedEntry()
 
     await Home()
 
-    expect(mockFetch).toHaveBeenCalledTimes(3)
-    for (const [url] of mockFetch.mock.calls) {
-      expect(url).not.toContain('/api/households/me/preferences')
-    }
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('reads the pantry and a 7-day shopping list for the household', async () => {
+    const { loadPantry } = await import('@/lib/meal-planning/load-pantry')
+    const { loadShoppingList } = await import('@/lib/shopping/load-shopping-list')
+    await mockAuthedHouseholdSession(null)
+    await mockLoadersWithPlannedEntry()
+
+    await Home()
+
+    expect(vi.mocked(loadPantry).mock.calls[0]?.[0]).toMatchObject({ id: 'household-123' })
+    expect(vi.mocked(loadShoppingList).mock.calls[0]?.[1]).toEqual({ days: 7, locale: 'en' })
+  })
+
+  it('maps pantry items and shopping items onto the timeline props', async () => {
+    const { TimelineView } = await import('@/components/timeline')
+    await mockAuthedHouseholdSession(null)
+    await mockLoaders({
+      entries: { entries: [PLANNED_ENTRY], planId: 'plan-1' },
+      pantry: {
+        items: [
+          {
+            id: 'pantry-1',
+            ingredientId: 'ing-salt',
+            ingredient: { id: 'ing-salt', name: 'Salt', category: 'spices', defaultUnit: 'g' },
+            quantity: null,
+            isStaple: true,
+            updatedAt: new Date(),
+          },
+        ],
+        windowDays: null,
+      },
+      shoppingList: {
+        ...EMPTY_SHOPPING_LIST,
+        groups: [
+          {
+            category: 'produce',
+            categoryLabel: 'Produce',
+            items: [
+              {
+                ingredientId: 'ing-onion',
+                name: 'Onion',
+                quantity: 2,
+                unit: 'piece',
+                displayQuantity: '2',
+                mealCount: 1,
+                purchased: false,
+                neededByDate: '2026-03-29',
+                neededByRelative: 'Today',
+                neededByAbsolute: 'Sun, 29 Mar',
+                dueToday: true,
+                isVague: false,
+              },
+            ],
+          },
+        ],
+      },
+    })
+
+    render(await Home())
+
+    const props = vi.mocked(TimelineView).mock.calls[0]?.[0]
+    expect(props?.pantryIngredients).toEqual([{ ingredientId: 'ing-salt', isStaple: true }])
+    expect(props?.shoppingItems).toEqual([
+      expect.objectContaining({ ingredientId: 'ing-onion', name: 'Onion', purchased: false }),
+    ])
+  })
+
+  // A failed read used to render as empty data: a pantry 500 showed Today as if
+  // the pantry were empty (HON-789). Now it reaches `src/app/error.tsx`.
+  it.each([
+    ['pantry', { pantry: new Error('pantry down') }],
+    ['shopping list', { shoppingList: new Error('shopping down') }],
+  ])('surfaces a failed %s load instead of rendering an empty section', async (_, failure) => {
+    const { TimelineView } = await import('@/components/timeline')
+    await mockAuthedHouseholdSession(null)
+    await mockLoaders({ entries: { entries: [PLANNED_ENTRY], planId: 'plan-1' }, ...failure })
+
+    await expect(Home()).rejects.toThrow(/down/)
+    expect(TimelineView).not.toHaveBeenCalled()
+  })
+
+  it('does not mistake a failed entries load for a first-time household', async () => {
+    const { FirstTimeSetup } = await import('@/components/timeline')
+    await mockAuthedHouseholdSession(null)
+    await mockLoaders({ entries: new Error('entries down') })
+
+    await expect(Home()).rejects.toThrow('entries down')
+    expect(FirstTimeSetup).not.toHaveBeenCalled()
   })
 
   it('redirects to onboarding when authenticated without household', async () => {
