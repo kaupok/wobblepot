@@ -183,6 +183,18 @@ describe('Home page component', () => {
     ).toBeInTheDocument()
   })
 
+  it('renders no main landmark of its own when not authenticated', async () => {
+    const { auth } = await import('@/lib/auth')
+    vi.mocked(auth.api.getSession).mockResolvedValue(null)
+
+    // The root layout's <main id="main-content"> is the page landmark; a second
+    // one here would nest main inside main (HON-820).
+    const component = await Home()
+    const { container } = render(component)
+    expect(container.querySelector('main')).toBeNull()
+    expect(screen.queryByRole('main')).not.toBeInTheDocument()
+  })
+
   it('renders value proposition when not authenticated', async () => {
     const { auth } = await import('@/lib/auth')
     vi.mocked(auth.api.getSession).mockResolvedValue(null)
