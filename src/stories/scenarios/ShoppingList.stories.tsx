@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { useTranslations } from 'next-intl'
 import { expect, fn, within } from 'storybook/test'
-import { CategoryGroup } from '@/components/shopping/CategoryGroup'
+import { CategoryGroup, CUSTOM_ITEMS_EMOJI } from '@/components/shopping/CategoryGroup'
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { UrgencyGroup } from '@/components/shopping/UrgencyGroup'
 import { GroupHeading } from '@/components/inventory/GroupHeading'
@@ -128,6 +128,7 @@ function ShoppingListScreen({
                   collapses all of them into one group. */}
             <div className="flex flex-col gap-2">
               <GroupHeading
+                emoji={CUSTOM_ITEMS_EMOJI}
                 label={tShopping('customItemsSection', { count: customShoppingItems.length })}
                 count={`${checkedCustomCount}/${customShoppingItems.length}`}
               />
@@ -177,6 +178,7 @@ function ShoppingListScreen({
             {/* Custom items with no ingredient have no category to sit in. */}
             <div className="flex flex-col gap-2">
               <GroupHeading
+                emoji={CUSTOM_ITEMS_EMOJI}
                 label={tShopping('otherSection', { count: unlinkedCustomItems.length })}
                 count={
                   checkedUnlinkedCount > 0 &&

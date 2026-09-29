@@ -45,6 +45,13 @@ describe('CategoryGroup', () => {
     expect(screen.getByText(/Protein \(2\)/)).toBeInTheDocument()
   })
 
+  it('keeps the emoji out of the heading name', () => {
+    renderInLocale(<CategoryGroup category="protein" items={items} onToggleItem={vi.fn()} />)
+    const heading = screen.getByRole('heading', { level: 3, name: 'Protein (2)' })
+    expect(heading).toHaveTextContent('🥩')
+    expect(screen.getByText('🥩')).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('shows purchase progress when some items are purchased', () => {
     renderInLocale(<CategoryGroup category="protein" items={items} onToggleItem={vi.fn()} />)
     expect(screen.getByText('1/2')).toBeInTheDocument()

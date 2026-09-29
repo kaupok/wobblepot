@@ -1,5 +1,6 @@
 'use client'
 
+import { Check, ClipboardList, SkipForward, type LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   Select,
@@ -13,10 +14,10 @@ import { cn } from '@/lib/utils'
 
 export type MealStatus = 'planned' | 'completed' | 'skipped'
 
-const STATUS_ICON: Record<MealStatus, string> = {
-  planned: '\u{1F4CB}',
-  completed: '\u2713',
-  skipped: '\u23ED\uFE0F',
+const STATUS_ICON: Record<MealStatus, LucideIcon> = {
+  planned: ClipboardList,
+  completed: Check,
+  skipped: SkipForward,
 }
 
 const STATUS_VALUES: MealStatus[] = ['planned', 'completed', 'skipped']
@@ -32,6 +33,7 @@ interface StatusSelectProps {
 // same node in the trigger, so one tint covers both places.
 function StatusOption({ status }: { status: MealStatus }) {
   const label = useEnumLabel('MealPlanEntryStatus', status)
+  const Icon = STATUS_ICON[status]
   return (
     <span
       className={cn(
@@ -41,7 +43,9 @@ function StatusOption({ status }: { status: MealStatus }) {
         status === 'skipped' && 'text-warning',
       )}
     >
-      <span>{STATUS_ICON[status]}</span>
+      {/* `text-current`: the trigger and item paint any svg without a `text-*`
+          class muted, which would drop the status tint from the icon. */}
+      <Icon className="size-4 text-current" aria-hidden="true" />
       <span>{label}</span>
     </span>
   )
