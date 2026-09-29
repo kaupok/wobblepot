@@ -307,12 +307,19 @@ bash_timeout() {
   # as soon as the command finishes and never has to be killed: killing a
   # background job can make bash write a job-status line to stderr, which the
   # triage call captures with 2>&1 and would then parse as a verdict.
+  #
+  # Poll in tenths, not whole seconds. The caller waits on the watchdog below,
+  # so its poll interval is added to every call still running at the first
+  # check, not just ones that hit the bound: at `sleep 1` a triage that
+  # answered in milliseconds still took a full second, which put a six-second
+  # floor under the six-step circuit-breaker test and timed it out whenever the
+  # machine was busy (HON-802).
   (
-    waited=0
-    while [ "$waited" -lt "$secs" ]; do
+    ticks=0
+    while [ "$ticks" -lt $((secs * 10)) ]; do
       kill -0 "$cmd_pid" 2>/dev/null || exit 0
-      sleep 1
-      waited=$((waited + 1))
+      sleep 0.1
+      ticks=$((ticks + 1))
     done
     kill -TERM "$cmd_pid" 2>/dev/null || exit 0
     sleep 2

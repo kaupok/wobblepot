@@ -1492,6 +1492,18 @@ describe('orchestrator.sh', () => {
       // empty log and asked to diagnose it.
       expect(out).toContain('OUT:piped-stdin')
     })
+
+    it('returns promptly when the command finishes well inside the bound', () => {
+      // Every handle_failure test goes through this watchdog on a Mac, so its
+      // poll interval is a floor under each one. At the old whole-second poll
+      // ten 50 ms calls measured 10 s; at tenths they take about one.
+      // The bound leaves room for a loaded machine without letting the old
+      // floor back in (HON-802).
+      const out = runHarness('bash-timeout-return', '10')
+      const elapsed = Number(out.match(/^ELAPSED:(\d+)$/m)?.[1])
+
+      expect(elapsed).toBeLessThan(5)
+    })
   })
 
   // ─── HON-578: log rotation and pruning ────────────────────────────────────
