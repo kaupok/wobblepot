@@ -221,9 +221,9 @@ describe('POST /api/meals/imagine', () => {
     expect(response.headers.get('Retry-After')).toBe('60')
     expect(data.error).toBe('Rate limit exceeded')
     expect(data.code).toBe('rate_limited')
-    // Both clients gate on `!response.ok || !data.success`, and the happy path
-    // of this route already sends `success: true` — the failure shape must
-    // match `/api/recipes/parse` rather than differing by route.
+    // The clients rely on the status alone, but the happy path of this route
+    // sends `success: true` — the failure shape must match
+    // `/api/recipes/parse` rather than differing by route.
     expect(data.success).toBe(false)
     // The detail lives in `message`, not `error`, on this branch.
     expect(data.message).toContain('per hour')
