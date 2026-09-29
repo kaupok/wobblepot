@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { Minus, Plus } from 'lucide-react'
@@ -46,6 +46,19 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
       return () => clearTimeout(timeoutId)
     }
   }, [justTransitioned])
+
+  // Move focus to the step title when the step changes, so a screen reader
+  // announces the new step and a keyboard user starts at its top. Compared
+  // against the previous step rather than a first-render flag: StrictMode runs
+  // mount effects twice, and step 1 keeps its `autoFocus` on the name input.
+  const stepId = useId()
+  const titleRef = useRef<HTMLElement>(null)
+  const prevStepRef = useRef(currentStep)
+  useEffect(() => {
+    if (prevStepRef.current === currentStep) return
+    prevStepRef.current = currentStep
+    titleRef.current?.focus()
+  }, [currentStep])
 
   // Step 1: Household name (localized default; the user can edit it)
   const [name, setName] = useState(() => t('defaultHouseholdName', { name: userName }))
@@ -121,6 +134,9 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
     }
   }
 
+  const submitRef = useRef<HTMLButtonElement>(null)
+  const refocusSubmitRef = useRef(false)
+
   const createHousehold = useMutation({
     mutationFn: () =>
       apiFetch<{ id: string }>('/api/households', {
@@ -144,6 +160,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
       // `apiFetch` throws `ApiError` for every answer the route gave, so
       // anything else is the request never getting one.
       if (!(err instanceof ApiError)) {
+        refocusSubmitRef.current = true
         setError(t('errors.network'))
         return
       }
@@ -165,6 +182,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
       // intercepts. Every other failure carries `error` only, so this always
       // resolves to `t('errors.createFailed')`. If that route ever adds a
       // second `message`, translate it here rather than rendering it.
+      refocusSubmitRef.current = true
       setError(
         typeof body.message === 'string' && body.message ? body.message : t('errors.createFailed'),
       )
@@ -184,6 +202,15 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
   }
 
   const isLoading = createHousehold.isPending
+
+  // The submit button is disabled while the request is pending, which drops
+  // focus to the body. `onError` still runs while pending, so it only flags the
+  // refocus; the button takes focus once it is enabled again.
+  useEffect(() => {
+    if (isLoading || !refocusSubmitRef.current) return
+    refocusSubmitRef.current = false
+    submitRef.current?.focus()
+  }, [isLoading])
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -312,8 +339,10 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
     <Card className="w-full max-w-md">
       <CardHeader>
         <div className="flex flex-col gap-2">
-          <Body variant="muted">{t('step', { current: currentStep, total: TOTAL_STEPS })}</Body>
-          <Heading as="h1" variant="h4">
+          <Body variant="muted" id={stepId}>
+            {t('step', { current: currentStep, total: TOTAL_STEPS })}
+          </Body>
+          <Heading ref={titleRef} as="h1" variant="h4" tabIndex={-1} aria-describedby={stepId}>
             {getStepTitle()}
           </Heading>
           <Body variant="muted">{getStepDescription()}</Body>
@@ -341,7 +370,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
               {t('continue')}
             </Button>
           ) : (
-            <Button type="submit" disabled={isLoading}>
+            <Button ref={submitRef} type="submit" disabled={isLoading}>
               {isLoading ? t('submitting') : t('submit')}
             </Button>
           )}
