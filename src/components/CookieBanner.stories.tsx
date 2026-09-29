@@ -80,6 +80,9 @@ export const EssentialOnly: Story = {
 async function assertPhoneLayout(expectedBottomInset: number, maxHeight: number) {
   const body = within(document.body)
   const region = await body.findByRole('region', { name: /cookie consent|küpsiste nõusolek/i })
+  // Geist loads async; measuring before it swaps in reads the fallback font's
+  // line breaks, and the height then varies from run to run.
+  await document.fonts.ready
   const [essentialBox, acceptBox] = within(region)
     .getAllByRole('button')
     .map((button) => button.getBoundingClientRect())
