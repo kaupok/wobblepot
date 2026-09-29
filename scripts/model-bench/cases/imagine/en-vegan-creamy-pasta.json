@@ -12,7 +12,6 @@
     "chicken",
     "beef",
     "pork",
-    "bacon",
     "pancetta",
     "prosciutto",
     "salami",
@@ -42,6 +41,7 @@
     "gelatin",
     "worcestershire",
     "oyster sauce",
+    "guanciale",
     "pecorino",
     "gruyère",
     "gruyere",
@@ -53,7 +53,6 @@
     "whey",
     "ghee",
     "lard",
-    "honey",
-    "egg yolk"
+    "honey"
   ]
 }
