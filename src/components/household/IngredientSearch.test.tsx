@@ -191,6 +191,6 @@ describe('IngredientSearch field name', () => {
 
     const input = screen.getByLabelText('Search ingredients to add')
     expect(input).toHaveAttribute('role', 'combobox')
-    expect(input).toHaveAttribute('placeholder', 'Search to add more ingredients…')
+    expect(input).toHaveAttribute('placeholder', 'Search to add ingredients…')
   })
 })

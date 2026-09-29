@@ -49,6 +49,11 @@ export const Default: Story = {
     await expect(privacy).toHaveAttribute('href', '/privacy')
     const terms = await canvas.findByRole('link', { name: /terms of service/i })
     await expect(terms).toHaveAttribute('href', '/terms')
+    // Cookie settings is one of four equal items, not the emphasised one (HON-813).
+    const cookies = getComputedStyle(canvas.getByRole('button', { name: /cookie settings/i }))
+    const privacyStyle = getComputedStyle(privacy)
+    await expect(cookies.color).toBe(privacyStyle.color)
+    await expect(cookies.fontSize).toBe(privacyStyle.fontSize)
   },
 }
 

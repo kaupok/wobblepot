@@ -431,7 +431,7 @@ export function RecipeImportClient() {
               {t('cancel')}
             </Button>
           ) : (
-            <Body variant="muted" className="text-center">
+            <Body variant="muted">
               {t('footerOr')}{' '}
               <Link href="/recipes/create" className="text-primary underline">
                 {t('createManuallyLink')}

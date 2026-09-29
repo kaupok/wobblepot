@@ -36,7 +36,7 @@ export function CookieSettingsTrigger() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="link" size="inline">
+        <Button variant="quiet-link" size="inline">
           {t('trigger')}
         </Button>
       </DialogTrigger>
