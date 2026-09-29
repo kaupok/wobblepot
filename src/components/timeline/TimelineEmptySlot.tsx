@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ import { Body } from '@/components/ui/typography'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
+import { apiFetch } from '@/lib/api'
 import type { MealType } from '@/generated/prisma/enums'
 import type { PantryIngredient } from '@/components/meal-plan/types'
 
@@ -31,34 +33,42 @@ export function TimelineEmptySlot({
   const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
   const hasSelectedRef = useRef(false)
 
-  async function handlePickMeal() {
-    setIsCreating(true)
-    hasSelectedRef.current = false
-
-    try {
-      const response = await fetch(`/api/meal-plans/${planId}/entries`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, mealType }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || tCard('createEntryFailed'))
-      }
-
-      const data = await response.json()
+  const createEntryMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<{ id: string }>(
+        `/api/meal-plans/${planId}/entries`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date, mealType }),
+        },
+        tCard('createEntryFailed'),
+      ),
+    onSuccess: (data) => {
       setEntryId(data.id)
       setIsSelectorOpen(true)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : tCard('createEntryFailed'))
-    } finally {
-      setIsCreating(false)
-    }
+    },
+    onError: (err) => toast.error(err.message),
+  })
+  const isCreating = createEntryMutation.isPending
+
+  // Drops the placeholder entry `handlePickMeal` created when the selector
+  // closes without a pick. Only a network failure refreshes the page — an
+  // error status is ignored, as before.
+  const discardEntryMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetch(`/api/meal-plans/${planId}/entries/${id}`, {
+        method: 'DELETE',
+      }),
+    onError: () => router.refresh(),
+  })
+
+  function handlePickMeal() {
+    hasSelectedRef.current = false
+    createEntryMutation.mutate()
   }
 
   function handleSwapComplete() {
@@ -72,13 +82,9 @@ export function TimelineEmptySlot({
 
   async function handleSelectorClose(open: boolean) {
     if (!open && entryId && !hasSelectedRef.current) {
-      try {
-        await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
-          method: 'DELETE',
-        })
-      } catch {
-        router.refresh()
-      }
+      // Awaited so the selector stays open until the placeholder is gone, as
+      // before. A rejection is already handled by the mutation's `onError`.
+      await discardEntryMutation.mutateAsync(entryId).catch(() => {})
       setEntryId(null)
     }
     setIsSelectorOpen(open)

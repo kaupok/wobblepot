@@ -8,6 +8,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { ImagineClient } from './ImagineClient'
 
@@ -22,10 +23,13 @@ const SERVER_PROSE = 'Generating meal ideas took too long. Please try again.'
 
 function renderInLocale(node: ReactNode, locale: 'en' | 'et') {
   const messages = locale === 'en' ? enMessages : etMessages
+  const { wrapper: QueryWrapper } = createQueryWrapper()
   return render(
-    <NextIntlClientProvider locale={locale} messages={messages}>
-      {node}
-    </NextIntlClientProvider>,
+    <QueryWrapper>
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        {node}
+      </NextIntlClientProvider>
+    </QueryWrapper>,
   )
 }
 

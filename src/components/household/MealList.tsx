@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { useMutation } from '@tanstack/react-query'
 import { Pencil, Trash2, Heart } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ import { Body } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { cn } from '@/lib/utils'
+import { apiFetch } from '@/lib/api'
 import { MealImageCard, type MealImageFields } from '@/components/meal-plan/MealImageCard'
 import type { IngredientCategory, MealType, ProteinType, Unit } from '@/generated/prisma/enums'
 
@@ -58,50 +60,37 @@ interface MealListProps {
 export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
   const t = useTranslations('recipes.list')
   const [deleteConfirmMeal, setDeleteConfirmMeal] = useState<MealData | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null)
 
-  const handleDelete = async () => {
-    if (!deleteConfirmMeal) return
-    setIsDeleting(true)
-    try {
-      const response = await fetch(`/api/households/me/meals/${deleteConfirmMeal.id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error('delete-failed')
-      }
-
-      onDelete(deleteConfirmMeal.id)
+  const deleteMeal = useMutation({
+    mutationFn: (mealId: string) =>
+      apiFetch(`/api/households/me/meals/${mealId}`, { method: 'DELETE' }),
+    onSuccess: (_data, mealId) => {
+      onDelete(mealId)
       toast.success(t('deleted'))
       setDeleteConfirmMeal(null)
-    } catch {
+    },
+    onError: () => {
       toast.error(t('deleteFailed'))
-    } finally {
-      setIsDeleting(false)
-    }
-  }
+    },
+  })
 
-  const handleToggleFavorite = async (meal: MealData) => {
-    setTogglingFavorite(meal.id)
-    try {
-      const method = meal.isFavorite ? 'DELETE' : 'POST'
-      const response = await fetch(`/api/meals/${meal.id}/favorite`, {
-        method,
-      })
-
-      if (!response.ok) {
-        throw new Error('favorite-failed')
-      }
-
+  const toggleFavorite = useMutation({
+    mutationFn: (meal: MealData) =>
+      apiFetch(`/api/meals/${meal.id}/favorite`, {
+        method: meal.isFavorite ? 'DELETE' : 'POST',
+      }),
+    onSuccess: (_data, meal) => {
       onToggleFavorite(meal.id, !meal.isFavorite)
       toast.success(meal.isFavorite ? t('removedFromFavorites') : t('addedToFavorites'))
-    } catch {
+    },
+    onError: () => {
       toast.error(t('favoriteUpdateFailed'))
-    } finally {
-      setTogglingFavorite(null)
-    }
+    },
+  })
+
+  const handleDelete = () => {
+    if (!deleteConfirmMeal) return
+    deleteMeal.mutate(deleteConfirmMeal.id)
   }
 
   if (meals.length === 0) {
@@ -142,8 +131,10 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleToggleFavorite(meal)}
-                      disabled={togglingFavorite === meal.id}
+                      onClick={() => toggleFavorite.mutate(meal)}
+                      disabled={
+                        toggleFavorite.isPending && toggleFavorite.variables?.id === meal.id
+                      }
                       aria-label={
                         meal.isFavorite ? t('removeFromFavoritesAria') : t('addToFavoritesAria')
                       }
@@ -185,7 +176,7 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
         loadingLabel={t('deleteDialog.deleting')}
         variant="destructive"
         onConfirm={handleDelete}
-        isLoading={isDeleting}
+        isLoading={deleteMeal.isPending}
       />
     </>
   )

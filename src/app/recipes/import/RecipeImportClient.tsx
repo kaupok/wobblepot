@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
 import { Loader2, ArrowLeft, Sparkles, AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -160,6 +161,15 @@ function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim()) || /^www\./i.test(text.trim())
 }
 
+/**
+ * Thrown so `useMutation` treats a failed parse response as an error. Its
+ * `message` is the already-translated string the page renders — the route's
+ * English prose never reaches it (HON-700).
+ */
+class RecipeImportRequestError extends Error {}
+
+type ParseResponse = { confidenceTier?: string; recipe: ParsedRecipeData }
+
 const URL_STEP_DELAYS = [0, 4000, 10000]
 const TEXT_STEP_DELAYS = [0, 4000]
 
@@ -167,7 +177,6 @@ export function RecipeImportClient() {
   const router = useRouter()
   const t = useTranslations('recipes.import')
   const [recipeText, setRecipeText] = useState('')
-  const [isParsing, setIsParsing] = useState(false)
   const [error, setError] = useState('')
   const [progressStep, setProgressStep] = useState('')
   const [stepVisible, setStepVisible] = useState(false)
@@ -188,8 +197,10 @@ export function RecipeImportClient() {
   )
 
   useEffect(() => {
+    const timers = timersRef
     return () => {
       abortControllerRef.current?.abort()
+      timers.current.forEach(clearTimeout)
     }
   }, [])
 
@@ -202,18 +213,18 @@ export function RecipeImportClient() {
     router.push('/recipes/create?prefilled=true')
   }
 
-  useEffect(() => {
-    if (!isParsing) {
-      timersRef.current.forEach(clearTimeout)
-      timersRef.current = []
-      setStepVisible(false)
-      // Small delay before clearing text so fade-out completes
-      const clearTimer = setTimeout(() => setProgressStep(''), 150)
-      return () => clearTimeout(clearTimer)
-    }
+  const clearProgressTimers = () => {
+    timersRef.current.forEach(clearTimeout)
+    timersRef.current = []
+  }
 
-    const steps = isUrl(recipeText) ? urlSteps : textSteps
-    const delays = isUrl(recipeText) ? URL_STEP_DELAYS : TEXT_STEP_DELAYS
+  // Driven from the parse's start and end rather than an effect on `isPending`,
+  // so the steps change in the same event that starts or ends the request.
+  const startProgress = (text: string) => {
+    clearProgressTimers()
+
+    const steps = isUrl(text) ? urlSteps : textSteps
+    const delays = isUrl(text) ? URL_STEP_DELAYS : TEXT_STEP_DELAYS
 
     // Show first step immediately
     setProgressStep(steps[0]!)
@@ -233,37 +244,27 @@ export function RecipeImportClient() {
       }, delay)
       timersRef.current.push(timer)
     }
-
-    return () => {
-      timersRef.current.forEach(clearTimeout)
-      timersRef.current = []
-    }
-  }, [isParsing]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleCancel = () => {
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = null
-    setIsParsing(false)
   }
 
-  const handleParse = async () => {
-    if (!recipeText.trim()) {
-      setError(t('errors.empty'))
-      return
-    }
+  const stopProgress = () => {
+    clearProgressTimers()
+    setStepVisible(false)
+    // Small delay before clearing text so fade-out completes
+    timersRef.current.push(setTimeout(() => setProgressStep(''), 150))
+  }
 
-    setError('')
-    setWarning(null)
-    setIsParsing(true)
-
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-
-    try {
+  const parse = useMutation({
+    mutationFn: async ({
+      text,
+      controller,
+    }: {
+      text: string
+      controller: AbortController
+    }): Promise<ParseResponse> => {
       const response = await fetch('/api/recipes/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: recipeText }),
+        body: JSON.stringify({ text }),
         signal: controller.signal,
       })
 
@@ -281,12 +282,14 @@ export function RecipeImportClient() {
           message: data.message,
           error: data.error,
         })
-        setError(
+        throw new RecipeImportRequestError(
           t(`errors.${translateErrorCode(data.code, RECIPE_IMPORT_ERROR_KEYS, 'parseGeneric')}`),
         )
-        return
       }
 
+      return data
+    },
+    onSuccess: (data) => {
       // `recipe:imported` fires when the user actually saves the recipe to
       // their library on `/recipes/create` (see `CreateRecipeClient`), not
       // when the parse succeeds. Counting parses inflates the activation
@@ -305,15 +308,43 @@ export function RecipeImportClient() {
       }
 
       navigateToCreate(data.recipe)
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        return
-      }
-      setError(t('errors.parseGeneric'))
-    } finally {
+    },
+    onError: (err) => {
+      // A user-initiated cancel is not a failure — leave the page untouched.
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof RecipeImportRequestError ? err.message : t('errors.parseGeneric'))
+    },
+    onSettled: (_data, _err, { controller }) => {
+      // A cancelled run was already wound down by `handleCancel`, and may
+      // settle after a newer run has started.
+      if (abortControllerRef.current !== controller) return
       abortControllerRef.current = null
-      setIsParsing(false)
+      stopProgress()
+    },
+  })
+
+  const isParsing = parse.isPending
+
+  const handleCancel = () => {
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    parse.reset()
+    stopProgress()
+  }
+
+  const handleParse = () => {
+    if (!recipeText.trim()) {
+      setError(t('errors.empty'))
+      return
     }
+
+    setError('')
+    setWarning(null)
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    startProgress(recipeText)
+    parse.mutate({ text: recipeText, controller })
   }
 
   return (

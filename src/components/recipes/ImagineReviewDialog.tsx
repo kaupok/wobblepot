@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useId } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, ChevronDown, ChevronRight, Clock, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
@@ -22,7 +23,8 @@ import {
   formatUnit,
   mealComponentErrorMessage,
 } from '@/components/household/meal-form-types'
-import type { PrefilledIngredient } from '@/components/household/meal-form-types'
+import type { FinalComponent, PrefilledIngredient } from '@/components/household/meal-form-types'
+import { ApiError, apiFetch } from '@/lib/api'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { formatInteger, formatQuantity } from '@/lib/i18n/format-number'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
@@ -196,7 +198,6 @@ export function ImagineReviewDialog({
   const [ingredientRows, setIngredientRows] = useState<IngredientRowData[]>(() =>
     initIngredientRows(meal.prefilledIngredients),
   )
-  const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isMatchedOpen, setIsMatchedOpen] = useState(false)
   const locale = useLocale() as Locale
@@ -252,7 +253,50 @@ export function ImagineReviewDialog({
     [],
   )
 
-  const handleSave = async () => {
+  const queryClient = useQueryClient()
+  const save = useMutation({
+    mutationFn: (components: FinalComponent[]) =>
+      apiFetch<{ id: string }>('/api/households/me/meals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: meal.name,
+          description: meal.description,
+          preparationNotes: meal.preparationNotes ?? null,
+          sourceUrl: meal.sourceUrl ?? null,
+          timeMinutes: meal.timeMinutes,
+          kidFriendly: meal.kidFriendly,
+          suitableFor: meal.mealTypes,
+          servings: meal.servings,
+          components,
+        }),
+      }),
+    onSuccess: (data) => {
+      // The new meal belongs in the recipe library and the selector's
+      // "my recipes" list.
+      void queryClient.invalidateQueries({ queryKey: ['meals'] })
+      void queryClient.invalidateQueries({ queryKey: ['my-recipes'] })
+      onSaved(data.id)
+    },
+    onError: (err) => {
+      // `POST /api/households/me/meals` sets an English `error` on every
+      // failure branch (`Failed to create meal`, `Validation failed`, …), so
+      // preferring it meant the translated fallback never fired and an
+      // Estonian household read English on the step right after a localized
+      // imagine (HON-724). None of those branches needs distinct copy here —
+      // the user's only move is to retry — so the server string is logged,
+      // never rendered, as in `JoinHouseholdCard` (HON-697). A network
+      // failure's `message` is browser English too.
+      console.error(
+        '[imagine-review] save failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      setError(t('errors.saveFailed'))
+    },
+  })
+  const isSaving = save.isPending
+
+  const handleSave = () => {
     setError(null)
 
     // The rows are already flagged inline; the API would reject the payload,
@@ -272,50 +316,7 @@ export function ImagineReviewDialog({
       return
     }
 
-    setIsSaving(true)
-    try {
-      const response = await fetch('/api/households/me/meals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: meal.name,
-          description: meal.description,
-          preparationNotes: meal.preparationNotes ?? null,
-          sourceUrl: meal.sourceUrl ?? null,
-          timeMinutes: meal.timeMinutes,
-          kidFriendly: meal.kidFriendly,
-          suitableFor: meal.mealTypes,
-          servings: meal.servings,
-          components: result.components,
-        }),
-      })
-
-      if (!response.ok) {
-        // `POST /api/households/me/meals` sets an English `error` on every
-        // failure branch (`Failed to create meal`, `Validation failed`, …), so
-        // preferring it meant the translated fallback never fired and an
-        // Estonian household read English on the step right after a localized
-        // imagine (HON-724). None of those branches needs distinct copy here —
-        // the user's only move is to retry — so the server string is logged,
-        // never rendered, as in `JoinHouseholdCard` (HON-697).
-        const data = await response.json().catch(() => ({}))
-        console.error('[imagine-review] save failed', {
-          status: response.status,
-          error: data.error,
-        })
-        setError(t('errors.saveFailed'))
-        return
-      }
-
-      const data = await response.json()
-      onSaved(data.id)
-    } catch (err) {
-      // A network failure's `message` is browser English too.
-      console.error('[imagine-review] save failed', { error: err })
-      setError(t('errors.saveFailed'))
-    } finally {
-      setIsSaving(false)
-    }
+    save.mutate(result.components)
   }
 
   const nutrition = useMemo(

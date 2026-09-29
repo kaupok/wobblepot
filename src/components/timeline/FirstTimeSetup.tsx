@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { ChefHat } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -35,6 +36,12 @@ import { FieldError } from '@/components/FieldError'
  */
 const CLIENT_TIMEOUT_MS = 65000
 
+/**
+ * A non-OK generate response, carrying copy already localized from the route's
+ * `code`. `apiFetch` is not used here because it drops that `code`.
+ */
+class GenerateRequestError extends Error {}
+
 interface FirstTimeSetupProps {
   userName?: string
 }
@@ -50,17 +57,12 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
 
   const [selectedDate, setSelectedDate] = useState(startDateOptions[0]?.date ?? '')
   const [daysCount, setDaysCount] = useState(7)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  async function handleGenerate() {
-    setIsGenerating(true)
-    setError(null)
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS)
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS)
-
-    try {
       const endDate = computeEndDate(selectedDate, daysCount)
       const response = await fetch('/api/meal-plans/generate', {
         method: 'POST',
@@ -71,9 +73,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
           endDate,
         }),
         signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
+      }).finally(() => clearTimeout(timeoutId))
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
@@ -86,7 +86,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
           error: data.error,
           message: data.message,
         })
-        setError(
+        throw new GenerateRequestError(
           tErrors(
             translateErrorCode(
               data.code,
@@ -95,26 +95,30 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
             ),
           ),
         )
-        return
       }
 
       // Generate route returns `{ id: <planId>, ... }` (see GeneratePlanResult).
-      const data = (await response.json().catch(() => ({}))) as { id?: string }
+      return (await response.json().catch(() => ({}))) as { id?: string }
+    },
+    onSuccess: (data) => {
       if (data.id) {
         void track('meal_plan:plan_generated', { plan_id: data.id })
       }
-
       router.refresh()
-    } catch (err) {
-      clearTimeout(timeoutId)
-      if (err instanceof Error && err.name === 'AbortError') {
-        setError(tErrors('generationTimeout'))
-      } else {
-        setError(tErrors('generic'))
-      }
-    } finally {
-      setIsGenerating(false)
-    }
+    },
+  })
+  const isGenerating = generateMutation.isPending
+  const mutationError = generateMutation.error
+  const error = !mutationError
+    ? null
+    : mutationError instanceof GenerateRequestError
+      ? mutationError.message
+      : mutationError.name === 'AbortError'
+        ? tErrors('generationTimeout')
+        : tErrors('generic')
+
+  function handleGenerate() {
+    generateMutation.mutate()
   }
 
   return (

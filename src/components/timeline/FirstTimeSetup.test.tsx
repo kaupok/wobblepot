@@ -8,6 +8,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { FirstTimeSetup } from './FirstTimeSetup'
 
 vi.mock('next/navigation', () => ({
@@ -26,10 +27,13 @@ function respondWith(body: unknown, status: number) {
 
 function clickGenerate(locale: 'en' | 'et') {
   const messages = locale === 'et' ? etMessages : enMessages
+  const { wrapper: Wrapper } = createQueryWrapper()
   render(
-    <NextIntlClientProvider locale={locale} messages={messages} timeZone="Europe/Tallinn">
-      <FirstTimeSetup userName="Kaupo" />
-    </NextIntlClientProvider>,
+    <Wrapper>
+      <NextIntlClientProvider locale={locale} messages={messages} timeZone="Europe/Tallinn">
+        <FirstTimeSetup userName="Kaupo" />
+      </NextIntlClientProvider>
+    </Wrapper>,
   )
   fireEvent.click(screen.getByRole('button', { name: messages['meal-plan'].firstTime.submit }))
 }
@@ -105,5 +109,23 @@ describe('FirstTimeSetup error localization', () => {
     clickGenerate('et')
 
     await screen.findByText(etErrors.generationTimeout)
+  })
+
+  it('renders the generic copy for a network failure, and a timeout copy for an abort', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
+    )
+    clickGenerate('et')
+    await screen.findByText(etErrors.generic)
+
+    // Retrying clears the previous error while the new request runs.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new DOMException('The operation was aborted.', 'AbortError'))),
+    )
+    fireEvent.click(screen.getByRole('button', { name: etMessages['meal-plan'].firstTime.submit }))
+    await screen.findByText(etErrors.generationTimeout)
+    expect(screen.queryByText(etErrors.generic)).not.toBeInTheDocument()
   })
 })

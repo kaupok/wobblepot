@@ -56,7 +56,6 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
   const [imaginedMeals, setImaginedMeals] = useState<ImaginedMealResponse[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [reviewMeal, setReviewMeal] = useState<ReviewMealData | null>(null)
-  const [reviewingMealId, setReviewingMealId] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const {
@@ -78,60 +77,61 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
   }, [])
 
   const imagine = useMutation({
-    mutationFn: async () => {
-      const controller = new AbortController()
-      abortControllerRef.current = controller
-
-      try {
-        let response: Response
-        if (images.length > 0) {
-          const formData = new FormData()
-          if (prompt.trim()) {
-            formData.append('prompt', prompt.trim())
-          }
-          for (const image of imageFiles) {
-            formData.append('image', image)
-          }
-          response = await fetch('/api/meals/imagine', {
-            method: 'POST',
-            body: formData,
-            signal: controller.signal,
-          })
-        } else {
-          response = await fetch('/api/meals/imagine', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: prompt.trim() }),
-            signal: controller.signal,
-          })
+    mutationFn: async ({
+      prompt,
+      imageFiles,
+      controller,
+    }: {
+      prompt: string
+      imageFiles: File[]
+      controller: AbortController
+    }): Promise<ImaginedMealResponse[]> => {
+      let response: Response
+      if (imageFiles.length > 0) {
+        const formData = new FormData()
+        if (prompt.trim()) {
+          formData.append('prompt', prompt.trim())
         }
-
-        const data = await response.json()
-
-        if (!response.ok || !data.success) {
-          // Deliberately not falling back to `data.error` / `data.message`:
-          // both carry untranslated English, which would render verbatim to an
-          // Estonian household. The route's machine-readable `code` is what
-          // picks the copy; the prose is kept as a console breadcrumb only.
-          console.error('[imagine] request failed', {
-            code: data.code,
-            // `message` carries the detail on the 429 branches — the hourly
-            // limit, and the household-local date the AI cap resets on.
-            // `error` is a bare label there.
-            message: data.message,
-            error: data.error,
-          })
-          throw new ImagineRequestError(
-            tRouteErrors(translateErrorCode(data.code, IMAGINE_ERROR_KEYS, 'imagineFailed'), {
-              max: MAX_ATTACHED_IMAGES,
-            }),
-          )
+        for (const image of imageFiles) {
+          formData.append('image', image)
         }
-
-        return data.meals as ImaginedMealResponse[]
-      } finally {
-        abortControllerRef.current = null
+        response = await fetch('/api/meals/imagine', {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal,
+        })
+      } else {
+        response = await fetch('/api/meals/imagine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: prompt.trim() }),
+          signal: controller.signal,
+        })
       }
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        // Deliberately not falling back to `data.error` / `data.message`:
+        // both carry untranslated English, which would render verbatim to an
+        // Estonian household. The route's machine-readable `code` is what
+        // picks the copy; the prose is kept as a console breadcrumb only.
+        console.error('[imagine] request failed', {
+          code: data.code,
+          // `message` carries the detail on the 429 branches — the hourly
+          // limit, and the household-local date the AI cap resets on.
+          // `error` is a bare label there.
+          message: data.message,
+          error: data.error,
+        })
+        throw new ImagineRequestError(
+          tRouteErrors(translateErrorCode(data.code, IMAGINE_ERROR_KEYS, 'imagineFailed'), {
+            max: MAX_ATTACHED_IMAGES,
+          }),
+        )
+      }
+
+      return data.meals
     },
     onSuccess: (meals) => setImaginedMeals(meals),
     onError: (err) => {
@@ -139,9 +139,24 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof ImagineRequestError ? err.message : t('imagineFailed'))
     },
+    onSettled: (_data, _err, { controller }) => {
+      if (abortControllerRef.current === controller) abortControllerRef.current = null
+    },
+  })
+
+  /**
+   * Sanity-check the AI's per-serving quantities before opening the save
+   * dialog. `reviewImaginedMeal` degrades on any failure — the original
+   * quantities are used and the failure is reported, not surfaced (HON-699) —
+   * so this mutation never errors.
+   */
+  const review = useMutation({
+    mutationFn: reviewImaginedMeal,
+    onSuccess: (finalMeal) => setReviewMeal(convertToPrefilledData(finalMeal)),
   })
 
   const isImagining = imagine.isPending
+  const reviewingMealId = review.isPending ? review.variables.id : null
 
   const handleGenerate = () => {
     if (!prompt.trim() && images.length === 0) {
@@ -151,7 +166,10 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
 
     setError(null)
     setImaginedMeals(null)
-    imagine.mutate()
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    imagine.mutate({ prompt, imageFiles, controller })
   }
 
   const handleCancel = () => {
@@ -167,22 +185,8 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
     resetImages()
     setImaginedMeals(null)
     setError(null)
-    setReviewingMealId(null)
+    review.reset()
     onExit()
-  }
-
-  /**
-   * Sanity-check the AI's per-serving quantities before opening the save
-   * dialog. `reviewImaginedMeal` degrades on any failure — the original
-   * quantities are used and the failure is reported, not surfaced (HON-699).
-   */
-  const handleSelectImaginedMeal = async (meal: ImaginedMealResponse) => {
-    setReviewingMealId(meal.id)
-
-    const finalMeal = await reviewImaginedMeal(meal)
-
-    setReviewingMealId(null)
-    setReviewMeal(convertToPrefilledData(finalMeal))
   }
 
   const handleSaved = async (mealId: string) => {
@@ -268,7 +272,7 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
                     <CardFooter className="p-4 pt-0">
                       <Button
                         className="w-full"
-                        onClick={() => handleSelectImaginedMeal(meal)}
+                        onClick={() => review.mutate(meal)}
                         disabled={reviewingMealId !== null}
                       >
                         {reviewingMealId === meal.id ? (

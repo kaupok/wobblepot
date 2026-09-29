@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useMutation, useMutationState } from '@tanstack/react-query'
 import { Check, Copy, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLocale, useTranslations } from 'next-intl'
@@ -23,6 +24,7 @@ import { ShoppingEmptyState } from './ShoppingEmptyState'
 import { ShoppingListHeader } from './ShoppingListHeader'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { track } from '@/lib/analytics'
+import { apiFetch } from '@/lib/api'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { formatDateRange } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
@@ -39,6 +41,19 @@ import {
   type SortMode,
 } from './shopping-sort'
 import { useCustomShoppingItems } from './use-custom-shopping-items'
+
+const PURCHASE_TOGGLE_KEY = ['shopping-list', 'purchase-toggle'] as const
+
+interface PurchaseToggleVariables {
+  ingredientId: string
+  purchased: boolean
+}
+
+/** What `/api/shopping-list/purchase` and `/unpurchase` answer with. */
+interface PurchaseToggleResponse {
+  success?: boolean
+  results?: Array<{ pantryItem?: PantryItemData }>
+}
 
 interface ShoppingListGroup {
   category: IngredientCategory
@@ -77,7 +92,6 @@ export function ShoppingSection({
   const tCategory = useTranslations('enums.IngredientCategory')
   const tUrgency = useTranslations('dates.urgency')
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
-  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [sortMode, setSortMode] = useState<SortMode>('category')
   const [copied, setCopied] = useState(false)
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -299,9 +313,7 @@ export function ShoppingSection({
     }
   }
 
-  const handleToggle = async (ingredientId: string, purchased: boolean) => {
-    if (pendingIds.has(ingredientId)) return
-
+  const setPurchased = (ingredientId: string, purchased: boolean) =>
     setPurchasedIds((prev) => {
       const next = new Set(prev)
       if (purchased) {
@@ -311,22 +323,23 @@ export function ShoppingSection({
       }
       return next
     })
-    setPendingIds((prev) => new Set(prev).add(ingredientId))
 
-    try {
+  const purchaseToggleMutation = useMutation({
+    mutationKey: PURCHASE_TOGGLE_KEY,
+    mutationFn: ({ ingredientId, purchased }: PurchaseToggleVariables) => {
       const endpoint = purchased ? 'purchase' : 'unpurchase'
-      const response = await fetch(`/api/shopping-list/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredientId }),
-      })
-
-      const data = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(data.error || tErrors('updateFailed'))
-      }
-
+      return apiFetch<PurchaseToggleResponse>(
+        `/api/shopping-list/${endpoint}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ingredientId }),
+        },
+        tErrors('updateFailed'),
+      )
+    },
+    onMutate: ({ ingredientId, purchased }) => setPurchased(ingredientId, purchased),
+    onSuccess: (data, { ingredientId, purchased }) => {
       // Notify parent about pantry changes (for real-time update)
       if (purchased && onItemPurchased && data.results?.[0]?.pantryItem) {
         // Find the shopping item to get its quantity info
@@ -348,26 +361,24 @@ export function ShoppingSection({
       } else if (!purchased && onItemUnpurchased && data.success) {
         onItemUnpurchased(ingredientId)
       }
-    } catch (error) {
-      setPurchasedIds((prev) => {
-        const next = new Set(prev)
-        if (purchased) {
-          next.delete(ingredientId)
-        } else {
-          next.add(ingredientId)
-        }
-        return next
-      })
+    },
+    onError: (error, { ingredientId, purchased }) => {
+      setPurchased(ingredientId, !purchased)
+      toast.error(error.message)
+    },
+  })
 
-      const message = error instanceof Error ? error.message : tErrors('updateFailed')
-      toast.error(message)
-    } finally {
-      setPendingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(ingredientId)
-        return next
-      })
-    }
+  // Several rows can be in flight at once, so the pending set is derived from
+  // the mutation cache rather than the single-observer `isPending`.
+  const pendingIdList = useMutationState({
+    filters: { mutationKey: PURCHASE_TOGGLE_KEY, status: 'pending' },
+    select: (mutation) => (mutation.state.variables as PurchaseToggleVariables).ingredientId,
+  })
+  const pendingIds = useMemo(() => new Set(pendingIdList), [pendingIdList])
+
+  const handleToggle = (ingredientId: string, purchased: boolean) => {
+    if (pendingIds.has(ingredientId)) return
+    purchaseToggleMutation.mutate({ ingredientId, purchased })
   }
 
   const isPending = pendingIds.size > 0 || pendingCustomIds.size > 0

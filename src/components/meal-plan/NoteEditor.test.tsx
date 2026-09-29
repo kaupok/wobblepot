@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NoteEditor } from './NoteEditor'
 
@@ -28,23 +29,27 @@ describe('NoteEditor', () => {
 
   describe('display mode', () => {
     it('shows "Add note" button when no note exists', () => {
-      render(<NoteEditor {...defaultProps} />)
+      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       expect(screen.getByText('Add note')).toBeInTheDocument()
     })
 
     it('shows note text when note exists', () => {
-      render(<NoteEditor {...defaultProps} note="Eating out tonight" />)
+      render(<NoteEditor {...defaultProps} note="Eating out tonight" />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
       expect(screen.getByText('Eating out tonight')).toBeInTheDocument()
     })
 
     it('enters edit mode when "Add note" button is clicked', async () => {
-      render(<NoteEditor {...defaultProps} />)
+      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByText('Add note'))
       expect(screen.getByPlaceholderText('Add a note…')).toBeInTheDocument()
     })
 
     it('enters edit mode when existing note is clicked', async () => {
-      render(<NoteEditor {...defaultProps} note="Existing note" />)
+      render(<NoteEditor {...defaultProps} note="Existing note" />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
       await userEvent.click(screen.getByText('Existing note'))
       expect(screen.getByDisplayValue('Existing note')).toBeInTheDocument()
     })
@@ -52,13 +57,13 @@ describe('NoteEditor', () => {
 
   describe('edit mode', () => {
     it('shows character count', async () => {
-      render(<NoteEditor {...defaultProps} />)
+      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByText('Add note'))
       expect(screen.getByText('0/200')).toBeInTheDocument()
     })
 
     it('updates character count as user types', async () => {
-      render(<NoteEditor {...defaultProps} />)
+      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByText('Add note'))
 
       const textarea = screen.getByPlaceholderText('Add a note…')
@@ -67,7 +72,7 @@ describe('NoteEditor', () => {
     })
 
     it('enforces 200 character limit', async () => {
-      render(<NoteEditor {...defaultProps} />)
+      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByText('Add note'))
 
       const textarea = screen.getByPlaceholderText('Add a note…')
@@ -78,7 +83,9 @@ describe('NoteEditor', () => {
     })
 
     it('cancels editing and reverts to original note', async () => {
-      render(<NoteEditor {...defaultProps} note="Original note" />)
+      render(<NoteEditor {...defaultProps} note="Original note" />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
       await userEvent.click(screen.getByText('Original note'))
 
       const textarea = screen.getByDisplayValue('Original note')
@@ -90,9 +97,9 @@ describe('NoteEditor', () => {
     })
 
     it('saves note when Save button is clicked', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: true })
+      mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
 
-      render(<NoteEditor {...defaultProps} />)
+      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByText('Add note'))
 
       const textarea = screen.getByPlaceholderText('Add a note…')
@@ -111,9 +118,9 @@ describe('NoteEditor', () => {
     })
 
     it('saves note when Enter is pressed', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: true })
+      mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
 
-      render(<NoteEditor {...defaultProps} />)
+      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByText('Add note'))
 
       const textarea = screen.getByPlaceholderText('Add a note…')
@@ -126,7 +133,7 @@ describe('NoteEditor', () => {
     })
 
     it('cancels editing when Escape is pressed', async () => {
-      render(<NoteEditor {...defaultProps} />)
+      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByText('Add note'))
 
       const textarea = screen.getByPlaceholderText('Add a note…')
@@ -137,10 +144,12 @@ describe('NoteEditor', () => {
     })
 
     it('calls onNoteChange after successful save', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: true })
+      mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
       const onNoteChange = vi.fn()
 
-      render(<NoteEditor {...defaultProps} onNoteChange={onNoteChange} />)
+      render(<NoteEditor {...defaultProps} onNoteChange={onNoteChange} />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
       await userEvent.click(screen.getByText('Add note'))
 
       const textarea = screen.getByPlaceholderText('Add a note…')
@@ -153,9 +162,11 @@ describe('NoteEditor', () => {
     })
 
     it('sends null when clearing an existing note', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: true })
+      mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
 
-      render(<NoteEditor {...defaultProps} note="Existing note" />)
+      render(<NoteEditor {...defaultProps} note="Existing note" />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
       await userEvent.click(screen.getByText('Existing note'))
 
       const textarea = screen.getByDisplayValue('Existing note')
@@ -178,14 +189,16 @@ describe('NoteEditor', () => {
     // the note stays at the Secondary level instead of dropping to Caption
     // (HON-688).
     it('keeps the note at the Secondary level when compact', () => {
-      render(<NoteEditor {...defaultProps} note="Test note" compact />)
+      render(<NoteEditor {...defaultProps} note="Test note" compact />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
       const noteElement = screen.getByText('Test note')
       expect(noteElement.className).toContain('text-sm')
       expect(noteElement.className).not.toContain('text-xs')
     })
 
     it('renders the textarea at one row when compact', async () => {
-      render(<NoteEditor {...defaultProps} compact />)
+      render(<NoteEditor {...defaultProps} compact />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByRole('button', { name: 'Add note' }))
       expect(screen.getByRole('textbox')).toHaveAttribute('rows', '1')
     })

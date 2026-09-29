@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -39,6 +40,12 @@ import { FieldError } from '@/components/FieldError'
  */
 const CLIENT_TIMEOUT_MS = 65000
 
+/**
+ * A non-OK generate response, carrying copy already localized from the route's
+ * `code`. `apiFetch` is not used here because it drops that `code`.
+ */
+class GenerateRequestError extends Error {}
+
 const DAY_OPTION_VALUES = ['3', '5', '7', '14'] as const
 
 interface FillDaysActionProps {
@@ -53,8 +60,6 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
   const tFill = useTranslations('meal-plan.fillDays')
   const tErrors = useTranslations('meal-plan.errors')
   const [days, setDays] = useState('7')
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const dateRangeLabel = useMemo(() => {
     const start = parseLocalDate(startDate)
@@ -64,14 +69,11 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
     return formatDateRange(start, endInclusive, locale)
   }, [startDate, days, locale])
 
-  async function handleFill() {
-    setIsGenerating(true)
-    setError(null)
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS)
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS)
-
-    try {
       const endDate = computeEndDate(startDate, Number(days))
       const response = await fetch('/api/meal-plans/generate', {
         method: 'POST',
@@ -83,9 +85,7 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
           endDate,
         }),
         signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
+      }).finally(() => clearTimeout(timeoutId))
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
@@ -98,7 +98,7 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
           error: data.error,
           message: data.message,
         })
-        setError(
+        throw new GenerateRequestError(
           tErrors(
             translateErrorCode(
               data.code,
@@ -107,11 +107,12 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
             ),
           ),
         )
-        return
       }
 
       // Generate route returns `{ id: <planId>, ... }` (see GeneratePlanResult).
-      const data = (await response.json().catch(() => ({}))) as { id?: string }
+      return (await response.json().catch(() => ({}))) as { id?: string }
+    },
+    onSuccess: (data) => {
       if (data.id) {
         void track('meal_plan:plan_generated', { plan_id: data.id })
       }
@@ -121,16 +122,20 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
       // suggestion list on the page is stale (HON-682).
       dropSuggestionCache()
       router.refresh()
-    } catch (err) {
-      clearTimeout(timeoutId)
-      if (err instanceof Error && err.name === 'AbortError') {
-        setError(tErrors('generationTimeout'))
-      } else {
-        setError(tErrors('generic'))
-      }
-    } finally {
-      setIsGenerating(false)
-    }
+    },
+  })
+  const isGenerating = generateMutation.isPending
+  const mutationError = generateMutation.error
+  const error = !mutationError
+    ? null
+    : mutationError instanceof GenerateRequestError
+      ? mutationError.message
+      : mutationError.name === 'AbortError'
+        ? tErrors('generationTimeout')
+        : tErrors('generic')
+
+  function handleFill() {
+    generateMutation.mutate()
   }
 
   return (

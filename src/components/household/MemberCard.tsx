@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Body } from '@/components/ui/typography'
 import { Pencil, Trash2, User, Crown, Mail } from 'lucide-react'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { apiFetch } from '@/lib/api'
 import type { Member, MemberInvite } from '@/types/member'
 
 const PORTION_PRESET_KEYS: Record<number, 'small' | 'regular' | 'large' | 'extraLarge'> = {
@@ -41,7 +43,6 @@ export function MemberCard({
   const tMembers = useTranslations('household.members')
   const tPortion = useTranslations('household.portion')
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
-  const [isRemoving, setIsRemoving] = useState(false)
 
   const displayName =
     member.preferences?.displayName || member.user?.name || member.name || tMembers('unknownName')
@@ -57,27 +58,22 @@ export function MemberCard({
       })
     : tPortion('custom', { multiplier: portionMultiplier })
 
-  const handleRemove = async () => {
-    setIsRemoving(true)
-    try {
-      const response = await fetch(`/api/households/me/members/${member.id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || tMembers('removeFailed'))
-      }
-
+  const removeMember = useMutation({
+    mutationFn: () =>
+      apiFetch(
+        `/api/households/me/members/${member.id}`,
+        { method: 'DELETE' },
+        tMembers('removeFailed'),
+      ),
+    onSuccess: () => {
       setShowRemoveDialog(false)
       onRemove(member.id)
       toast.success(tMembers('removed'))
-    } catch (err) {
+    },
+    onError: (err) => {
       toast.error(err instanceof Error ? err.message : tMembers('removeFailed'))
-    } finally {
-      setIsRemoving(false)
-    }
-  }
+    },
+  })
 
   return (
     <div className="rounded-lg border p-4">
@@ -150,8 +146,8 @@ export function MemberCard({
         description={tMembers('removeDialog.description', { name: displayName })}
         confirmLabel={tMembers('removeDialog.confirm')}
         variant="destructive"
-        onConfirm={handleRemove}
-        isLoading={isRemoving}
+        onConfirm={() => removeMember.mutate()}
+        isLoading={removeMember.isPending}
       />
     </div>
   )
