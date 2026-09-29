@@ -2,6 +2,7 @@
 
 import type { Dispatch, SetStateAction } from 'react'
 import { useState } from 'react'
+import { useMutation, useMutationState } from '@tanstack/react-query'
 import { Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -10,8 +11,17 @@ import { Body, Heading } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { InlineAddItem } from '@/components/pantry/InlineAddItem'
 import { cn } from '@/lib/utils'
+import { apiFetch } from '@/lib/api'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { GroupHeading } from './GroupHeading'
+
+const TOGGLE_STAPLE_KEY = ['pantry', 'toggle-staple'] as const
+const REMOVE_KEY = ['pantry', 'remove'] as const
+
+interface ToggleStapleVariables {
+  id: string
+  currentIsStaple: boolean
+}
 
 interface PantrySectionProps {
   items: PantryItemData[]
@@ -36,34 +46,38 @@ export function PantrySection({
   const staples = items.filter((item) => item.isStaple)
   const onHand = items.filter((item) => !item.isStaple)
 
-  const handleToggleStaple = async (id: string, currentIsStaple: boolean) => {
-    onItemsChange((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, isStaple: !currentIsStaple } : item)),
-    )
-
-    try {
-      const response = await fetch(`/api/pantry/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isStaple: !currentIsStaple }),
-      })
-
-      if (!response.ok) {
-        throw new Error(tPantry('errors.updateFailed'))
-      }
-    } catch {
+  // The list is the parent's state rather than a query, so the optimistic
+  // updates write through `onItemsChange` and roll back the same way.
+  const toggleStapleMutation = useMutation({
+    mutationKey: TOGGLE_STAPLE_KEY,
+    mutationFn: ({ id, currentIsStaple }: ToggleStapleVariables) =>
+      apiFetch(
+        `/api/pantry/${id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isStaple: !currentIsStaple }),
+        },
+        tPantry('errors.updateFailed'),
+      ),
+    onMutate: ({ id, currentIsStaple }) => {
+      onItemsChange((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, isStaple: !currentIsStaple } : item)),
+      )
+    },
+    onError: (_error, { id, currentIsStaple }) => {
       onItemsChange((prev) =>
         prev.map((item) => (item.id === id ? { ...item, isStaple: currentIsStaple } : item)),
       )
       toast.error(tPantry('errors.updateFailed'))
-    }
-  }
+    },
+  })
 
-  const handleRemove = async (id: string) => {
-    const removedItem = items.find((item) => item.id === id)
-    onItemsChange((prev) => prev.filter((item) => item.id !== id))
-
-    try {
+  const removeMutation = useMutation({
+    mutationKey: REMOVE_KEY,
+    // Not `apiFetch`: the route answers 204 with no body, which it would try to
+    // parse as JSON.
+    mutationFn: async (id: string) => {
       const response = await fetch(`/api/pantry/${id}`, {
         method: 'DELETE',
       })
@@ -71,20 +85,44 @@ export function PantrySection({
       if (!response.ok) {
         throw new Error(tPantry('errors.removeFailed'))
       }
-
+    },
+    onMutate: (id) => {
+      const removedItem = items.find((item) => item.id === id)
+      onItemsChange((prev) => prev.filter((item) => item.id !== id))
+      return { removedItem }
+    },
+    onSuccess: (_data, _id, context) => {
       toast.success(tPantry('success.removed'))
 
       // Notify parent so shopping list can uncheck this item
-      if (removedItem && onPantryItemRemoved) {
-        onPantryItemRemoved(removedItem.ingredient.id)
+      if (context.removedItem && onPantryItemRemoved) {
+        onPantryItemRemoved(context.removedItem.ingredient.id)
       }
-    } catch {
+    },
+    onError: (_error, _id, context) => {
+      const removedItem = context?.removedItem
       if (removedItem) {
         onItemsChange((prev) => [...prev, removedItem])
       }
       toast.error(tPantry('errors.removeFailed'))
-    }
-  }
+    },
+  })
+
+  // Several rows can be in flight at once, so per-row pending state comes from
+  // the mutation cache rather than the single-observer `isPending`.
+  const togglingIds = useMutationState({
+    filters: { mutationKey: TOGGLE_STAPLE_KEY, status: 'pending' },
+    select: (mutation) => (mutation.state.variables as ToggleStapleVariables).id,
+  })
+  const removingIds = useMutationState({
+    filters: { mutationKey: REMOVE_KEY, status: 'pending' },
+    select: (mutation) => mutation.state.variables as string,
+  })
+
+  const handleToggleStaple = (id: string, currentIsStaple: boolean) =>
+    toggleStapleMutation.mutate({ id, currentIsStaple })
+
+  const handleRemove = (id: string) => removeMutation.mutate(id)
 
   const handleItemAdded = (newItem: PantryItemData) => {
     onItemsChange((prev) => [...prev, newItem])
@@ -119,6 +157,8 @@ export function PantrySection({
                 item={item}
                 onToggleStaple={handleToggleStaple}
                 onRemove={handleRemove}
+                isToggling={togglingIds.includes(item.id)}
+                isRemoving={removingIds.includes(item.id)}
               />
             ))}
           </div>
@@ -138,6 +178,8 @@ export function PantrySection({
                 item={item}
                 onToggleStaple={handleToggleStaple}
                 onRemove={handleRemove}
+                isToggling={togglingIds.includes(item.id)}
+                isRemoving={removingIds.includes(item.id)}
               />
             ))}
           </div>
@@ -167,8 +209,10 @@ export function PantrySection({
 
 interface PantryItemRowProps {
   item: PantryItemData
-  onToggleStaple: (id: string, currentIsStaple: boolean) => Promise<void>
-  onRemove: (id: string) => Promise<void>
+  onToggleStaple: (id: string, currentIsStaple: boolean) => void
+  onRemove: (id: string) => void
+  isToggling?: boolean
+  isRemoving?: boolean
 }
 
 /**
@@ -178,29 +222,23 @@ interface PantryItemRowProps {
  * (`components/pantry/PantryItem.tsx` is a near-duplicate with no callsite of
  * its own; only its `PantryItemData` type is used.)
  */
-export function PantryItemRow({ item, onToggleStaple, onRemove }: PantryItemRowProps) {
+export function PantryItemRow({
+  item,
+  onToggleStaple,
+  onRemove,
+  isToggling = false,
+  isRemoving = false,
+}: PantryItemRowProps) {
   const tPantry = useTranslations('pantry')
-  const [isToggling, setIsToggling] = useState(false)
-  const [isRemoving, setIsRemoving] = useState(false)
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
 
-  const handleToggle = async () => {
-    setIsToggling(true)
-    try {
-      await onToggleStaple(item.id, item.isStaple)
-    } finally {
-      setIsToggling(false)
-    }
-  }
+  const handleToggle = () => onToggleStaple(item.id, item.isStaple)
 
-  const handleRemove = async () => {
-    setIsRemoving(true)
-    try {
-      await onRemove(item.id)
-      setShowRemoveDialog(false)
-    } finally {
-      setIsRemoving(false)
-    }
+  // `onRemove` drops the row optimistically in the same render, so closing the
+  // dialog here only matters for a parent that keeps the row mounted.
+  const handleRemove = () => {
+    onRemove(item.id)
+    setShowRemoveDialog(false)
   }
 
   return (

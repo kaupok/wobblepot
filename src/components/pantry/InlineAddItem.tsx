@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Search, Plus, Loader2, Check } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
+import { apiFetch, ApiError } from '@/lib/api'
 import { track } from '@/lib/analytics'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { useIngredientSearch, type IngredientResult } from '@/hooks/use-ingredient-search'
@@ -29,7 +31,6 @@ export function InlineAddItem({
 }: InlineAddItemProps) {
   const tPantry = useTranslations('pantry')
   const [query, setQuery] = useState('')
-  const [isAdding, setIsAdding] = useState(false)
   // The dropdown opens as soon as results exist; this only tracks whether the
   // user dismissed it (Escape, click outside, or after adding an item).
   const [isDropdownDismissed, setIsDropdownDismissed] = useState(false)
@@ -65,39 +66,38 @@ export function InlineAddItem({
     setHighlightedIndex(-1)
   }
 
-  const addItem = async (ingredient: IngredientResult) => {
-    setIsAdding(true)
-    try {
-      const response = await fetch('/api/pantry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ingredientId: ingredient.id,
-          isStaple: false,
-        }),
-      })
-
-      if (!response.ok) {
-        if (response.status === 409) {
-          toast.error(tPantry('alreadyInPantry', { name: ingredient.name }))
-          return
-        }
-        throw new Error(tPantry('errors.addFailed'))
-      }
-
-      const data = await response.json()
+  const addMutation = useMutation({
+    mutationFn: (ingredient: IngredientResult) =>
+      apiFetch<PantryItemData>(
+        '/api/pantry',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ingredientId: ingredient.id,
+            isStaple: false,
+          }),
+        },
+        tPantry('errors.addFailed'),
+      ),
+    onSuccess: (data, ingredient) => {
       void track('pantry:item_added', { source: 'pantry_inline' })
       onItemAdded(data)
       setQuery('')
       setIsDropdownDismissed(true)
       setHighlightedIndex(-1)
       toast.success(tPantry('success.added', { name: ingredient.name }))
-    } catch {
+    },
+    onError: (error, ingredient) => {
+      if (error instanceof ApiError && error.status === 409) {
+        toast.error(tPantry('alreadyInPantry', { name: ingredient.name }))
+        return
+      }
       toast.error(tPantry('errors.addFailed'))
-    } finally {
-      setIsAdding(false)
-    }
-  }
+    },
+  })
+  const isAdding = addMutation.isPending
+  const addItem = (ingredient: IngredientResult) => addMutation.mutate(ingredient)
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
