@@ -135,6 +135,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
   }
 
   const submitRef = useRef<HTMLButtonElement>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
   const refocusSubmitRef = useRef(false)
 
   const createHousehold = useMutation({
@@ -203,13 +204,15 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
 
   const isLoading = createHousehold.isPending
 
-  // The submit button is disabled while the request is pending, which drops
-  // focus to the body. `onError` still runs while pending, so it only flags the
-  // refocus; the button takes focus once it is enabled again.
+  // The control that submitted is disabled while the request is pending, which
+  // drops focus to the body. `onError` still runs while pending, so it only
+  // flags the refocus; the control takes focus once it is enabled again. Step 1
+  // has no submit button — Enter in the name input submits there — so focus
+  // goes back to that input.
   useEffect(() => {
     if (isLoading || !refocusSubmitRef.current) return
     refocusSubmitRef.current = false
-    submitRef.current?.focus()
+    ;(submitRef.current ?? nameInputRef.current)?.focus()
   }, [isLoading])
 
   const renderStepContent = () => {
@@ -220,6 +223,7 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">{t('nameLabel')}</Label>
               <Input
+                ref={nameInputRef}
                 id="name"
                 name="householdName"
                 type="text"

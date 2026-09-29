@@ -563,6 +563,30 @@ describe('CreateHouseholdForm', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Failed to create household')
     })
 
+    // Enter in the step 1 name input submits the form. What that does is out of
+    // scope for HON-833; only where focus lands after it fails is covered here.
+    it('returns focus to the household name input after a failed create from step 1', async () => {
+      let rejectRequest!: (reason: Error) => void
+      mockFetch.mockReturnValue(
+        new Promise((_, reject) => {
+          rejectRequest = reject
+        }),
+      )
+
+      renderForm()
+
+      await userEvent.type(screen.getByLabelText('Household name'), '{Enter}')
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      dropFocusToBody()
+
+      await act(async () => rejectRequest(new Error('Network error')))
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Household name')).toHaveFocus()
+      })
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+    })
+
     it('shows the translated fallback when the failure carries no message', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
