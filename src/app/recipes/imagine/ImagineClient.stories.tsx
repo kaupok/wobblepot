@@ -86,7 +86,7 @@ const imaginePending = [
 
 /**
  * The review round-trip: "Select" fine-tunes quantities, then the dialog's
- * "Save meal" posts the meal. Both are stubbed so `SavingOneKeepsTheStash` can
+ * "Save recipe" posts the recipe. Both are stubbed so `SavingOneKeepsTheStash` can
  * drive the flow end to end.
  */
 const reviewAndSaveHandlers = [
@@ -265,7 +265,7 @@ export const SavingOneKeepsTheStash: Story = {
     await userEvent.click(firstSelect!)
 
     // The dialog is portalled, so it lives outside `canvasElement`.
-    const save = await body.findByRole('button', { name: /save meal/i })
+    const save = await body.findByRole('button', { name: /save recipe/i })
     await userEvent.click(save)
 
     await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())

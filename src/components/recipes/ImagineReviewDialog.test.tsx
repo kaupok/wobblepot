@@ -156,27 +156,27 @@ describe('ImagineReviewDialog save-blocked reason', () => {
 
   it('asks to match or drop unmatched ingredients, pluralised', () => {
     renderWith([matched, unmatched, { ...unmatched, extractedName: 'yuzu' }])
-    expectDescribedSave(/^save meal$/i, 'Match or drop 2 ingredients to save')
+    expectDescribedSave(/^save recipe$/i, 'Match or drop 2 ingredients to save')
   })
 
   it('asks to confirm a single low-confidence ingredient', () => {
     renderWith([matched, lowConfidence])
-    expectDescribedSave(/^save meal$/i, 'Confirm 1 ingredient to save')
+    expectDescribedSave(/^save recipe$/i, 'Confirm 1 ingredient to save')
   })
 
   it('combines both counts when both kinds are unresolved', () => {
     renderWith([unmatched, lowConfidence])
-    expectDescribedSave(/^save meal$/i, 'Match or drop 1 ingredient and confirm 1 to save')
+    expectDescribedSave(/^save recipe$/i, 'Match or drop 1 ingredient and confirm 1 to save')
   })
 
   it('renders the reason in Estonian', () => {
     renderWith([unmatched, unmatched], 'et')
-    expectDescribedSave(/^salvesta toit$/i, 'Salvestamiseks sobita või eemalda 2 koostisosa')
+    expectDescribedSave(/^salvesta retsept$/i, 'Salvestamiseks sobita või eemalda 2 koostisosa')
   })
 
   it('shows no reason and no description when everything is matched', () => {
     renderWith([matched])
-    const save = screen.getByRole('button', { name: /^save meal$/i })
+    const save = screen.getByRole('button', { name: /^save recipe$/i })
     expect(save).toBeEnabled()
     expect(save).not.toHaveAttribute('aria-describedby')
     expect(screen.queryByText(/to save$/)).not.toBeInTheDocument()
@@ -185,7 +185,7 @@ describe('ImagineReviewDialog save-blocked reason', () => {
 
 describe('ImagineReviewDialog save failure', () => {
   /** Verbatim from `POST /api/households/me/meals`'s catch-all branch. */
-  const SERVER_PROSE = 'Failed to create meal'
+  const SERVER_PROSE = 'Failed to create recipe'
 
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -324,7 +324,7 @@ describe('ImagineReviewDialog ingredient cap', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: etMessages.recipes.review.save }))
 
-    expect(await screen.findByText('Toidul saab olla kuni 50 koostisosa')).toBeInTheDocument()
+    expect(await screen.findByText('Retseptil saab olla kuni 50 koostisosa')).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

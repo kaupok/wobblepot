@@ -35,7 +35,7 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
     // flag, timestamps); `select` picks out the ones the form owns.
     queryFn: () => apiFetch<MealFormData>(`/api/households/me/meals/${mealId}`),
     // A 404 (or any 4xx) is an answer, not a transient failure — retrying it
-    // just delays the "meal not found" copy behind three round trips.
+    // just delays the "recipe not found" copy behind three round trips.
     retry: (failureCount, err) =>
       !(err instanceof ApiError && isClientError(err)) && failureCount < 2,
     select: (data): MealFormData => ({

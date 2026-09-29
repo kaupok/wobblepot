@@ -78,8 +78,8 @@ describe('EditRecipeClient', () => {
 
       renderClient()
 
-      expect(screen.queryByText('Meal not found')).not.toBeInTheDocument()
-      expect(screen.queryByText('Failed to load meal')).not.toBeInTheDocument()
+      expect(screen.queryByText('Recipe not found')).not.toBeInTheDocument()
+      expect(screen.queryByText('Failed to load recipe')).not.toBeInTheDocument()
       expect(screen.queryByTestId('meal-form')).not.toBeInTheDocument()
     } finally {
       onlineManager.setOnline(true)
@@ -114,12 +114,12 @@ describe('EditRecipeClient', () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 404,
-      json: () => Promise.resolve({ error: 'Meal not found' }),
+      json: () => Promise.resolve({ error: 'Recipe not found' }),
     })
 
     renderClient()
 
-    expect(await screen.findByText('Meal not found')).toBeInTheDocument()
+    expect(await screen.findByText('Recipe not found')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to recipes' })).toHaveAttribute(
       'href',
       '/recipes',
@@ -136,8 +136,8 @@ describe('EditRecipeClient', () => {
 
     renderClient()
 
-    expect(await screen.findByText('Failed to load meal')).toBeInTheDocument()
-    expect(screen.queryByText('Meal not found')).not.toBeInTheDocument()
+    expect(await screen.findByText('Failed to load recipe')).toBeInTheDocument()
+    expect(screen.queryByText('Recipe not found')).not.toBeInTheDocument()
   })
 
   it('retries a server error before showing the generic failure copy', async () => {
@@ -151,7 +151,7 @@ describe('EditRecipeClient', () => {
 
     // Two retries with the default 1 s / 2 s backoff, so allow for the wait.
     expect(
-      await screen.findByText('Failed to load meal', undefined, { timeout: 8000 }),
+      await screen.findByText('Failed to load recipe', undefined, { timeout: 8000 }),
     ).toBeInTheDocument()
     expect(mockFetch).toHaveBeenCalledTimes(3)
   })

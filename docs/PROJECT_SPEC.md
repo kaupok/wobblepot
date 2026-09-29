@@ -69,6 +69,7 @@ AI-powered meal planning that generates personalized weekly ingredient-based mea
 | Term                | Definition                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------- |
 | **Meal**            | Template: ingredient combination with per-serving quantities. Reusable across plans.  |
+| **Recipe**          | User-facing name for a household's own Meal in My recipes. Meal stays the model name. |
 | **Entry**           | Instance: meal assigned to a date + mealType with status (planned/completed/skipped). |
 | **Slot**            | A date + mealType position in a plan.                                                 |
 | **SlotRequirement** | Slot with required protein type (dinner-only, for balance).                           |

@@ -61,7 +61,7 @@ export const WithUnmatchedIngredients: Story = {
     docs: {
       description: {
         story:
-          'One row the extractor could not match. The "Save meal" button is disabled until the user resolves it, and the macro line stays hidden until then — without that row it would be a partial total.',
+          'One row the extractor could not match. The "Save recipe" button is disabled until the user resolves it, and the macro line stays hidden until then — without that row it would be a partial total.',
       },
     },
   },
@@ -227,7 +227,7 @@ export const EscapeClosesDialog: Story = {
 export const SaveInvokesCallback: Story = {
   play: async ({ args }) => {
     const body = within(document.body)
-    const saveButton = await body.findByRole('button', { name: /^save meal$/i })
+    const saveButton = await body.findByRole('button', { name: /^save recipe$/i })
     await userEvent.click(saveButton)
     // handleSave awaits the POST before firing onSaved
     await waitFor(() => expect(args.onSaved).toHaveBeenCalledWith('new-meal-123'))
@@ -240,7 +240,7 @@ export const SaveFailedEstonian: Story = {
     msw: {
       handlers: [
         http.post('/api/households/me/meals', () =>
-          HttpResponse.json({ error: 'Failed to create meal' }, { status: 500 }),
+          HttpResponse.json({ error: 'Failed to create recipe' }, { status: 500 }),
         ),
       ],
     },
@@ -253,9 +253,9 @@ export const SaveFailedEstonian: Story = {
   },
   play: async ({ args }) => {
     const body = within(document.body)
-    await userEvent.click(await body.findByRole('button', { name: /^salvesta toit$/i }))
-    await body.findByText('Toidu salvestamine ebaõnnestus')
-    await expect(body.queryByText('Failed to create meal')).not.toBeInTheDocument()
+    await userEvent.click(await body.findByRole('button', { name: /^salvesta retsept$/i }))
+    await body.findByText('Retsepti salvestamine ebaõnnestus')
+    await expect(body.queryByText('Failed to create recipe')).not.toBeInTheDocument()
     await expect(args.onSaved).not.toHaveBeenCalled()
   },
 }
@@ -280,7 +280,7 @@ export const SaveDisabledWhenUnresolved: Story = {
   },
   play: async ({ args }) => {
     const body = within(document.body)
-    const saveButton = await body.findByRole('button', { name: /^save meal$/i })
+    const saveButton = await body.findByRole('button', { name: /^save recipe$/i })
     await expect(saveButton).toBeDisabled()
     await expect(args.onSaved).not.toHaveBeenCalled()
 
@@ -325,7 +325,7 @@ export const DesktopWithUnresolvedIngredients: Story = {
   play: async () => {
     const body = within(document.body)
     const dialog = await body.findByRole('dialog')
-    const saveButton = await body.findByRole('button', { name: /^save meal$/i })
+    const saveButton = await body.findByRole('button', { name: /^save recipe$/i })
     await expect(saveButton).toHaveAccessibleDescription(
       'Match or drop 2 ingredients and confirm 1 to save',
     )

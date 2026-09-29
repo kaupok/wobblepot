@@ -280,7 +280,7 @@ export function ImagineReviewDialog({
     },
     onError: (err) => {
       // `POST /api/households/me/meals` sets an English `error` on every
-      // failure branch (`Failed to create meal`, `Validation failed`, …), so
+      // failure branch (`Failed to create recipe`, `Validation failed`, …), so
       // preferring it meant the translated fallback never fired and an
       // Estonian household read English on the step right after a localized
       // imagine (HON-724). None of those branches needs distinct copy here —

@@ -31,7 +31,7 @@ export const Empty: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Empty state — verbiage encourages the user to create their first custom meal.',
+        story: 'Empty state — verbiage encourages the user to create their first recipe.',
       },
     },
   },
@@ -85,7 +85,7 @@ export const WithSearch: Story = {
 export const DeleteConfirmInvokesCallback: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const deleteButtons = await canvas.findAllByRole('button', { name: /delete meal/i })
+    const deleteButtons = await canvas.findAllByRole('button', { name: /delete recipe/i })
     await userEvent.click(deleteButtons[0]!)
 
     const body = within(document.body)
