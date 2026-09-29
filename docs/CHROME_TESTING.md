@@ -40,13 +40,13 @@ Or enable mid-session with `/chrome`.
 
 ## Page map
 
-Regenerated from `find src/app -name page.tsx` on 2026-08-27. Route groups such as `(legal)` are stripped from the paths; `/api/*` route handlers are excluded.
+Regenerated from `find src/app -name page.tsx` on 2026-09-29. Route groups such as `(legal)` are stripped from the paths; `/api/*` route handlers are excluded.
 
 **Access** is derived from each page's server code:
 
 - **Public** — renders without a session.
 - **Auth** — calls `auth.api.getSession()` and redirects to `/sign-in` when signed out. Most Auth pages also require a household: without one they redirect to `/onboarding` (and `/onboarding` itself redirects to `/` once you have one).
-- **Admin** — Auth plus `isAdmin(session)`; non-admins get a 404, not a redirect.
+- **Admin** — requires `isAdmin(session)`, and never redirects to `/sign-in`, so the route does not advertise itself. Signed out, the proxy serves a 404; signed in as a non-admin, you get the not-found page with a 200 status, because the proxy cannot see who is an admin.
 
 To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough to classify it, and update the tables below. The review skills (`/chrome-review`, `/voice-review`, `/ideate`) point here instead of carrying their own copy.
 
@@ -64,7 +64,8 @@ To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough
 | `/recipes/imagine`       | Auth          | Imagine a meal — AI recipe generation                                                              |
 | `/recipes/import`        | Auth          | Import a recipe from a URL (AI extraction)                                                         |
 | `/recipes/[id]/edit`     | Auth          | Edit an existing recipe                                                                            |
-| `/shopping`              | Auth          | Shopping list (urgency grouping) plus pantry inventory                                             |
+| `/shopping`              | Auth          | Shopping list (urgency grouping) on a phone; from `md` up, pantry left and list right              |
+| `/pantry`                | Auth          | Pantry inventory on a phone (its own tab); from `md` up, the same two-column page as `/shopping`   |
 | `/household`             | Auth          | Household settings, members, and invite links                                                      |
 | `/profile`               | Auth          | User profile, your data (export), and account danger zone (delete)                                 |
 | `/admin/signup-codes`    | Admin         | Manage private-beta signup codes                                                                   |
@@ -81,5 +82,4 @@ These routes exist only to keep old links working. Their `page.tsx` bodies are a
 | Route                | Redirects to | Note                                                       |
 | -------------------- | ------------ | ---------------------------------------------------------- |
 | `/meal-plan`         | `/`          | The weekly plan now lives on the Today dashboard           |
-| `/pantry`            | `/shopping`  | Pantry inventory now lives on the shopping page            |
 | `/household/invites` | `/household` | Invites are managed in the Members section of `/household` |
