@@ -4,9 +4,10 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
-import { Loader2, ArrowLeft, Sparkles, AlertTriangle } from 'lucide-react'
+import { Loader2, Sparkles, AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
@@ -346,11 +347,7 @@ export function RecipeImportClient() {
       <div className="flex max-w-2xl flex-col gap-6">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild className="-ml-2">
-              <Link href="/recipes" aria-label={t('backAria')}>
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
+            <BackToRecipesLink />
             <Heading variant="h4" as="h1">
               {t('title')}
             </Heading>

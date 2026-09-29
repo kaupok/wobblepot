@@ -676,3 +676,36 @@ describe('MealForm - section heading hierarchy', () => {
     }
   })
 })
+
+describe('MealForm - back arrow (HON-822)', () => {
+  const editMeal: MealFormData = {
+    id: '1',
+    name: 'Test Meal',
+    kidFriendly: false,
+    suitableFor: ['dinner' as MealType],
+    servings: 4,
+    components: [],
+  }
+
+  it.each([
+    ['edit', editMeal],
+    ['create', undefined],
+  ])('links back to /recipes beside the title in %s mode', (_mode, meal) => {
+    render(<MealForm meal={meal} onSuccess={vi.fn()} onCancel={vi.fn()} />)
+
+    expect(screen.getByRole('link', { name: 'Back to recipes' })).toHaveAttribute(
+      'href',
+      '/recipes',
+    )
+  })
+
+  it('keeps Cancel, which still calls onCancel', async () => {
+    const user = userEvent.setup()
+    const onCancel = vi.fn()
+    render(<MealForm meal={editMeal} onSuccess={vi.fn()} onCancel={onCancel} />)
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+})
