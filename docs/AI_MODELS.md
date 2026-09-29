@@ -28,6 +28,7 @@ pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5
 | `--runs`      | `3`                               | Times each case runs per model                                          |
 | `--max-usd`   | `10`                              | Stop, and mark the report partial, once measured spend passes this      |
 | `--dry-run`   | off                               | Print the call count and an estimated cost. No API calls, no key needed |
+| `--judge`     | off                               | Also compare imagine and tips output with a judge model (below)         |
 
 **It costs real money.** A full run bills both models for every case, every run. Start with `--dry-run` to see the call count and a rough estimate. A real run needs `ANTHROPIC_API_KEY` in `.env`. The benchmark never runs in CI.
 
@@ -43,7 +44,7 @@ The two models run back to back on each case, and which one goes first alternate
 
 ### What it scores
 
-Every check is deterministic, with no model judging another:
+Every check is deterministic. The optional judge, below, is the only place one model rates another.
 
 - **plan:** structure valid; **first-try valid** (`validatePlan` before any repair, the number that matters); valid after `repairPlan`; out-of-pool meal IDs; distinct dinner proteins.
 - **recipe:** ingredient recall and precision against the expected list; exact quantity and unit on matched ingredients; whether the confidence tier agrees with the case; the step-count difference (reported, never pass or fail).
@@ -66,4 +67,25 @@ The report opens with two lists:
 - **Regressions:** a difference outside the noise range that crosses a threshold. Those are a first-try plan validity drop of more than 10 points, or a recipe recall or precision drop of more than 5 points. Also listed is any task where the candidate's max latency is above 80% of the route budget. That rule compares against the budget, not the baseline, so noise does not apply.
 - **Within noise:** every difference flagged noise, including any that crossed a threshold. Noise beats thresholds, so these never count as regressions.
 
-Then comes one table per task, and the total cost. A **partial** report was stopped by `--max-usd` and is missing later runs and cases.
+With `--judge`, a **Judge** section follows the two lists. Then comes one table per task, and the total cost. A **partial** report was stopped by `--max-usd` and is missing later runs and cases, or, if the judge was stopped, later judged pairs.
+
+## The judge (`--judge`)
+
+The deterministic checks for imagine and tips mostly count items. They can't tell whether a meal sounds appetising, whether a tip is useful, or whether Estonian reads naturally. `--judge` adds a blind comparison for those two tasks:
+
+```bash
+pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5 --judge --dry-run
+```
+
+After the normal run, `claude-opus-5-5` (`JUDGE_MODEL` in `scripts/model-bench/judge.ts`) compares the two models' output for every imagine and tips case, run by run. It sees the case input and the two answers labelled A and B, never a model name. The rubric is `scripts/model-bench/judge-prompt.md`: fit to the household, then accuracy, then usefulness, then writing. For Estonian cases the judge also gets all of [AI_VOICE_ET.md](./AI_VOICE_ET.md). Plan, recipe and review are not judged: their deterministic scores already measure what matters.
+
+Each pair is judged **twice**, once with each model as A, to cancel any preference for a position. For the candidate:
+
+- **Win:** both orders picked the candidate.
+- **Loss:** both orders picked the baseline.
+- **Tie:** the orders disagreed, or either said `tie`. A disagreement usually means the judge was following position, not quality.
+- **Skipped:** either model's call errored, so there was nothing to compare. **Judge errors** are pairs where a judge call failed. Neither counts for or against the candidate.
+
+The **win rate** is wins ÷ (wins + losses). Ties are left out of it and shown beside it, so many ties and a 50% win rate mean "no visible difference", not "worse". A win rate **under 40%** over **at least 5** decided pairs is listed under Regressions. With fewer than 5 decided pairs the table says "too few decided pairs" and nothing is flagged: run more `--runs` if the task matters. The noise rule doesn't apply to the judge. The `.json` report keeps both verdicts and both one-sentence reasons for every pair; read them before trusting a regression.
+
+**It costs extra.** Two Opus calls per imagine and tips case per run, each sending the case, both answers, the rubric and, for Estonian cases, the voice reference. `--dry-run --judge` shows the judge calls as their own line and adds them to the total, and says when the estimate is above `--max-usd`. Judge calls count toward `--max-usd`, and with the full case set and 3 runs the estimate comes out above the default $10 cap, so raise the cap (`--max-usd 15`) when you pass `--judge`. The estimate errs high, since it sizes each answer by the benchmarked model's reasoning tokens, which the judge never sees. The limit is checked after each pair, so a stop never leaves a pair judged in only one order.

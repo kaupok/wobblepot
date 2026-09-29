@@ -4,6 +4,7 @@ import type { Task } from './case-schema'
 import { buildReport, compareMetric, perRunValues, renderMarkdown } from './report'
 import type { CallRecord, Role, RunResult } from './runner'
 import { TASK_SPECS } from './tasks'
+import type { JudgedPair, JudgeResult } from './judge'
 
 function call(
   task: Task,
@@ -213,7 +214,7 @@ describe('buildReport', () => {
       errorsByName: { AI_NoObjectGeneratedError: 1 },
       totalCostUsd: 0.02,
     })
-    expect(r.cost).toEqual({ baseline: 0.007, candidate: 0.02 })
+    expect(r.cost).toEqual({ baseline: 0.007, candidate: 0.02, judge: 0 })
 
     const md = renderMarkdown(r)
     expect(md).toContain('| Errors | none | AI_NoObjectGeneratedError × 1 |')
@@ -226,5 +227,80 @@ describe('buildReport', () => {
     const md = renderMarkdown(r)
     expect(md).toContain('**Partial run.**')
     expect(md).toMatch(/Total cost:.*partial run/)
+  })
+
+  describe('with --judge', () => {
+    const judged = (outcomes: JudgedPair['outcome'][], partial = false): JudgeResult => ({
+      pairs: outcomes.map((outcome, i) => ({
+        caseId: 'imagine/case',
+        task: 'imagine',
+        run: i + 1,
+        outcome,
+        skipReason: outcome === 'skipped' ? 'baseline errored' : null,
+        calls: [],
+      })),
+      plannedPairs: outcomes.length + (partial ? 3 : 0),
+      spendUsd: 0.5,
+      partial,
+    })
+
+    const judgeReport = (judge: JudgeResult, tasks: Task[] = ['imagine', 'tips']) =>
+      buildReport({
+        result: result([call('imagine', 'baseline', 1, {}), call('imagine', 'candidate', 1, {})]),
+        judge,
+        baseline: 'claude-sonnet-5',
+        candidate: 'claude-sonnet-5-5',
+        runs: 3,
+        maxUsd: 10,
+        tasks,
+        date: '2026-10-01',
+      })
+
+    it('lists a win rate under 40% over 5 decided pairs as a regression', () => {
+      const r = judgeReport(judged(['win', 'loss', 'loss', 'loss', 'loss', 'tie']))
+      expect(r.regressions.map((f) => f.text)).toEqual([
+        '**imagine · Judge win rate:** 20.0% (1 won of 5 decided) is under 40%',
+      ])
+      const md = renderMarkdown(r)
+      expect(md).toContain('## Judge')
+      expect(md).toContain('| imagine | 1 | 1 | 4 | 0 | 0 | 20.0% (1 won of 5 decided) |')
+    })
+
+    it('flags nothing and says so below 5 decided pairs', () => {
+      const r = judgeReport(judged(['loss', 'loss', 'loss', 'loss', 'skipped']))
+      expect(r.regressions).toEqual([])
+      expect(renderMarkdown(r)).toContain(
+        '| imagine | 0 | 0 | 4 | 1 | 0 | too few decided pairs (4 of 5) |',
+      )
+    })
+
+    it('only covers the judged tasks the run included', () => {
+      const r = judgeReport(judged([]), ['imagine', 'recipe'])
+      expect(r.judge!.tasks.map((t) => t.task)).toEqual(['imagine'])
+      expect(renderMarkdown(judgeReport(judged([]), ['recipe']))).toContain('No judged task')
+    })
+
+    it('adds the judge to the total cost', () => {
+      const md = renderMarkdown(judgeReport(judged(['win'])))
+      expect(md).toMatch(/Total cost:\*\* \$0\.51 .*judge claude-opus-5-5 \$0\.50 over 0 calls/)
+    })
+
+    it('says the judge never ran when the benchmark had already passed --max-usd', () => {
+      const md = renderMarkdown(
+        judgeReport({ pairs: [], plannedPairs: 4, spendUsd: 0, partial: true }),
+      )
+      expect(md).toContain(
+        '**Not judged:** spend had already passed `--max-usd` before the first of 4 pairs',
+      )
+      expect(md).not.toContain('too few decided pairs')
+    })
+
+    it('marks a run the judge stopped as partial', () => {
+      const r = judgeReport(judged(['win'], true))
+      expect(r.partial).toBe(false)
+      const md = renderMarkdown(r)
+      expect(md).toContain('while judging, after 1 of 4 pairs')
+      expect(md).toMatch(/Total cost:.*partial run/)
+    })
   })
 })

@@ -47,6 +47,16 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
     cacheWritePerMTok: 3.75,
     outputPerMTok: 15,
   },
+  // Not an app model: the model benchmark's `--judge` (HON-798,
+  // `scripts/model-bench/judge.ts`). Anthropic's Claude Opus 5.5 rates, checked
+  // 2026-09-29 (https://platform.claude.com/docs/en/about-claude/pricing).
+  // Cache reads are 0.05× base input on this model, not the usual 0.1×.
+  'claude-opus-5-5': {
+    inputPerMTok: 4,
+    cacheReadPerMTok: 0.2,
+    cacheWritePerMTok: 5,
+    outputPerMTok: 20,
+  },
   // Meal illustrations (HON-735). OpenAI's GPT Image 2.5 rates, checked
   // 2026-09-21: text in $5, image out $30 per 1M
   // (https://developers.openai.com/api/docs/pricing). Image calls use no

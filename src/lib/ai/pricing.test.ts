@@ -109,6 +109,21 @@ describe('estimateCostUsd › prompt-cache tiers', () => {
     ).toBeCloseTo(0.04171, 5)
   })
 
+  // The model benchmark's judge (HON-798). Without an entry `--judge` exits at
+  // startup, and a $0 price would let judge calls slip past `--max-usd`.
+  it('prices the benchmark judge claude-opus-5-5 at its own cache-read rate', () => {
+    // 1M each of input, output, 5m cache write and cache read: $4 + $20 + $5 + $0.20.
+    expect(
+      estimateCostUsd({
+        model: 'claude-opus-5-5',
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        cacheWriteTokens: 1_000_000,
+        cacheReadTokens: 1_000_000,
+      }),
+    ).toBeCloseTo(29.2, 10)
+  })
+
   it('bills cache-read tokens below the all-at-base-rate figure by the rate difference', () => {
     const inputTokens = 1031
     const cacheReadTokens = 500

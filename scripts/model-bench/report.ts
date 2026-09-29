@@ -22,6 +22,15 @@ import { join } from 'node:path'
 import { TASKS, type Task } from './case-schema'
 import { TASK_SPECS, type MetricDef } from './tasks'
 import type { CallRecord, Role, RunResult } from './runner'
+import {
+  JUDGE_MIN_DECIDED,
+  JUDGE_MIN_WIN_RATE,
+  JUDGE_MODEL,
+  JUDGED_TASKS,
+  summarizeJudge,
+  type JudgeResult,
+  type JudgeTaskSummary,
+} from './judge'
 
 /** The candidate's max latency may use at most this share of the route budget. */
 export const LATENCY_BUDGET_SHARE = 0.8
@@ -77,6 +86,16 @@ export interface Finding {
   text: string
 }
 
+export interface JudgeReport {
+  model: string
+  tasks: JudgeTaskSummary[]
+  /** `true` when `--max-usd` stopped the judge before every pair was judged. */
+  partial: boolean
+  judgedPairs: number
+  plannedPairs: number
+  calls: number
+}
+
 export interface BenchReport {
   baseline: string
   candidate: string
@@ -85,11 +104,14 @@ export interface BenchReport {
   tasks: TaskReport[]
   regressions: Finding[]
   withinNoise: Finding[]
+  /** `--max-usd` stopped the benchmark. A judge stop is `judge.partial`. */
   partial: boolean
   plannedCalls: number
   madeCalls: number
   maxUsd: number
-  cost: Record<Role, number>
+  /** `null` without `--judge`. */
+  judge: JudgeReport | null
+  cost: Record<Role | 'judge', number>
 }
 
 function summarize(values: number[]): Summary | null {
@@ -192,6 +214,8 @@ function operational(calls: CallRecord[], budgetMs: number): Operational {
 
 export function buildReport(args: {
   result: RunResult
+  /** Present only under `--judge`. */
+  judge?: JudgeResult
   baseline: string
   candidate: string
   runs: number
@@ -254,6 +278,15 @@ export function buildReport(args: {
     }
   })
 
+  const judge = args.judge ? judgeReport(args.judge, args.tasks) : null
+  for (const s of judge?.tasks ?? []) {
+    if (s.status !== 'regression') continue
+    regressions.push({
+      task: s.task,
+      text: `**${s.task} · Judge win rate:** ${formatWinRate(s)} is under ${JUDGE_MIN_WIN_RATE * 100}%`,
+    })
+  }
+
   return {
     baseline,
     candidate,
@@ -266,10 +299,26 @@ export function buildReport(args: {
     plannedCalls: result.plannedCalls,
     madeCalls: result.calls.length,
     maxUsd,
+    judge,
     cost: {
       baseline: sumCost(result.calls, 'baseline'),
       candidate: sumCost(result.calls, 'candidate'),
+      judge: args.judge?.spendUsd ?? 0,
     },
+  }
+}
+
+function judgeReport(judge: JudgeResult, tasks: readonly Task[]): JudgeReport {
+  return {
+    model: JUDGE_MODEL,
+    tasks: summarizeJudge(
+      judge.pairs,
+      JUDGED_TASKS.filter((t) => tasks.includes(t)),
+    ),
+    partial: judge.partial,
+    judgedPairs: judge.pairs.length,
+    plannedPairs: judge.plannedPairs,
+    calls: judge.pairs.reduce((n, p) => n + p.calls.length, 0),
   }
 }
 
@@ -307,6 +356,11 @@ function describeChange(cmp: MetricComparison): string {
   return `${formatSummary(cmp.metric, cmp.baseline)} → ${formatSummary(cmp.metric, cmp.candidate)} (${formatDelta(cmp.metric, cmp.delta)})`
 }
 
+function formatWinRate(s: JudgeTaskSummary): string {
+  if (s.winRate === null) return '—'
+  return `${(s.winRate * 100).toFixed(1)}% (${s.wins} won of ${s.decided} decided)`
+}
+
 function formatErrors(errors: Record<string, number>): string {
   const entries = Object.entries(errors)
   return entries.length === 0 ? 'none' : entries.map(([name, n]) => `${name} × ${n}`).join(', ')
@@ -335,6 +389,11 @@ export function renderMarkdown(report: BenchReport): string {
       `> **Partial run.** Measured spend passed \`--max-usd ${report.maxUsd}\` after ${report.madeCalls} of ${report.plannedCalls} planned calls, so the run stopped. Later runs and cases are missing; read every number below with that in mind.`,
       '',
     )
+  } else if (report.judge?.partial) {
+    lines.push(
+      `> **Partial run.** Measured spend passed \`--max-usd ${report.maxUsd}\` while judging, after ${report.judge.judgedPairs} of ${report.judge.plannedPairs} pairs. Every benchmark call was made; the judge's counts are missing later pairs.`,
+      '',
+    )
   }
 
   lines.push('## Regressions', '')
@@ -350,6 +409,8 @@ export function renderMarkdown(report: BenchReport): string {
   if (report.withinNoise.length === 0) lines.push('None.')
   for (const f of report.withinNoise) lines.push(`- ${f.text}`)
   lines.push('')
+
+  if (report.judge) lines.push(...renderJudge(report.judge, candidate))
 
   for (const t of report.tasks) {
     lines.push(`## ${t.task}`, '')
@@ -393,13 +454,49 @@ export function renderMarkdown(report: BenchReport): string {
     lines.push('')
   }
 
-  const total = report.cost.baseline + report.cost.candidate
+  const total = report.cost.baseline + report.cost.candidate + report.cost.judge
+  const judgeCost = report.judge
+    ? `, judge ${report.judge.model} ${usd(report.cost.judge)} over ${report.judge.calls} calls`
+    : ''
   lines.push(
-    `**Total cost:** ${usd(total)} (${baseline} ${usd(report.cost.baseline)}, ${candidate} ${usd(report.cost.candidate)}) over ${report.madeCalls} calls${report.partial ? ' — partial run' : ''}.`,
+    `**Total cost:** ${usd(total)} (${baseline} ${usd(report.cost.baseline)}, ${candidate} ${usd(report.cost.candidate)} over ${report.madeCalls} calls${judgeCost})${report.partial || report.judge?.partial ? ' — partial run' : ''}.`,
     '',
   )
 
   return lines.join('\n')
+}
+
+function renderJudge(judge: JudgeReport, candidate: string): string[] {
+  const lines = ['## Judge', '']
+  lines.push(
+    `Counts are for ${candidate}. ${judge.model} compared the two models' output for each case and run without knowing which wrote which, once in each order. A **win** or **loss** needs both orders to agree; a disagreement, or a \`tie\` from either, is a **tie**. Win rate is wins ÷ (wins + losses): ties are left out and shown beside it. A win rate under ${JUDGE_MIN_WIN_RATE * 100}% over at least ${JUDGE_MIN_DECIDED} decided pairs is a regression. A pair is skipped when either model's call errored.`,
+    '',
+  )
+  if (judge.partial && judge.judgedPairs === 0) {
+    lines.push(
+      `**Not judged:** spend had already passed \`--max-usd\` before the first of ${judge.plannedPairs} pairs, so no judge call was made.`,
+      '',
+    )
+    return lines
+  }
+  if (judge.tasks.length === 0) {
+    lines.push(`No judged task in this run: the judge covers ${JUDGED_TASKS.join(' and ')}.`, '')
+    return lines
+  }
+
+  lines.push('| Task | Wins | Ties | Losses | Skipped | Judge errors | Win rate |')
+  lines.push('| --- | --- | --- | --- | --- | --- | --- |')
+  for (const s of judge.tasks) {
+    const rate =
+      s.status === 'too-few'
+        ? `too few decided pairs (${s.decided} of ${JUDGE_MIN_DECIDED})`
+        : formatWinRate(s)
+    lines.push(
+      `| ${s.task} | ${s.wins} | ${s.ties} | ${s.losses} | ${s.skipped} | ${s.judgeErrors} | ${rate} |`,
+    )
+  }
+  lines.push('')
+  return lines
 }
 
 // ---------------------------------------------------------------------------
@@ -424,6 +521,7 @@ export function writeReport(
   outDir: string,
   report: BenchReport,
   result: RunResult,
+  judge?: JudgeResult,
 ): { markdownPath: string; jsonPath: string } {
   mkdirSync(outDir, { recursive: true })
   const base = `${report.date}-${report.baseline}-vs-${report.candidate}`
@@ -449,9 +547,19 @@ export function writeReport(
         runs: report.runs,
         partial: report.partial,
         plannedCalls: report.plannedCalls,
-        spendUsd: result.spendUsd,
+        spendUsd: result.spendUsd + (judge?.spendUsd ?? 0),
         maxUsd: report.maxUsd,
         calls: result.calls,
+        // Both verdicts and both reasons for every pair.
+        ...(judge && {
+          judge: {
+            model: JUDGE_MODEL,
+            spendUsd: judge.spendUsd,
+            partial: judge.partial,
+            plannedPairs: judge.plannedPairs,
+            pairs: judge.pairs,
+          },
+        }),
       },
       null,
       2,

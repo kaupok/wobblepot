@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { MODEL_PRICES } from '../../src/lib/ai/pricing'
 import { main, type MainDeps } from './run'
 import { mockModelFactory, starterCasesDir, type MockCall, type MockResponse } from './test-utils'
 
@@ -14,6 +15,9 @@ const STEM = '2026-10-01-claude-sonnet-5-vs-claude-sonnet-5-5'
  * prompt carries. The pipeline test checks the plumbing, not model quality.
  */
 function respond({ promptText }: MockCall): MockResponse {
+  if (promptText.includes('You are judging two answers')) {
+    return { object: { winner: 'tie', reason: 'Neither is better.' } }
+  }
   if (promptText.includes('cooking quantity reviewer')) return { object: { ingredients: [] } }
   if (promptText.includes('creative home cooking assistant')) return { object: { meals: [] } }
   if (promptText.includes('recipe parsing assistant')) {
@@ -147,6 +151,49 @@ describe('main', () => {
     expect(existsSync(join(outDir, `${STEM}.md`))).toBe(false)
   })
 
+  it('adds two judge calls per imagine and tips case and run under --dry-run --judge', async () => {
+    const code = await main([...BASE_ARGS, '--dry-run', '--judge'], deps)
+
+    expect(code).toBe(0)
+    const text = out.join('\n')
+    // 60 benchmark calls, plus 4 judged starter cases × 3 runs × 2 orders.
+    expect(text).toContain('Total calls: 84')
+    expect(text).toMatch(/claude-opus-5-5 \(judge\): 24 calls, .*~\$\d+\.\d\d/)
+  })
+
+  it('warns under --dry-run when the estimate is above --max-usd', async () => {
+    await main([...BASE_ARGS, '--dry-run', '--judge', '--max-usd', '0.01'], deps)
+    expect(out.join('\n')).toContain('The estimate is above --max-usd 0.01')
+  })
+
+  it('judges imagine and tips pairs with --judge and reports them', async () => {
+    const { factory, calls } = mockModelFactory(respond)
+    const code = await main(
+      [...BASE_ARGS, '--runs', '1', '--task', 'imagine,tips,recipe', '--judge'],
+      {
+        ...deps,
+        modelFactory: factory,
+      },
+    )
+
+    expect(code).toBe(0)
+    // 6 cases × 2 models, then 4 judged pairs × 2 orders.
+    expect(calls).toHaveLength(12 + 8)
+    expect(calls.slice(12).every((c) => c.modelId === 'claude-opus-5-5')).toBe(true)
+
+    const md = readFileSync(join(outDir, `${STEM}.md`), 'utf8')
+    expect(md).toContain('## Judge')
+    expect(md).toContain('| imagine | 0 | 2 | 0 | 0 | 0 | too few decided pairs (0 of 5) |')
+    expect(out.join('\n')).toContain('## Judge')
+
+    const json = JSON.parse(readFileSync(join(outDir, `${STEM}.json`), 'utf8'))
+    expect(json.judge.pairs).toHaveLength(4)
+    expect(json.judge.pairs[0].calls.map((c: { reason: string }) => c.reason)).toEqual([
+      'Neither is better.',
+      'Neither is better.',
+    ])
+  })
+
   it('narrows the run with --task', async () => {
     await main([...BASE_ARGS, '--dry-run', '--task', 'recipe,tips', '--runs', '1'], deps)
     expect(out.join('\n')).toContain('Total calls: 8')
@@ -162,6 +209,18 @@ describe('main', () => {
     expect(out).toEqual([])
   })
 
+  it('with --judge, exits non-zero if the judge model has no MODEL_PRICES entry', async () => {
+    const saved = MODEL_PRICES['claude-opus-5-5']
+    delete MODEL_PRICES['claude-opus-5-5']
+    try {
+      const code = await main([...BASE_ARGS, '--dry-run', '--judge'], deps)
+      expect(code).toBe(1)
+      expect(err.join('\n')).toMatch(/No MODEL_PRICES entry for "claude-opus-5-5"/)
+    } finally {
+      MODEL_PRICES['claude-opus-5-5'] = saved!
+    }
+  })
+
   it('refuses a real run without ANTHROPIC_API_KEY', async () => {
     const code = await main(BASE_ARGS, deps)
     expect(code).toBe(1)
@@ -173,7 +232,7 @@ describe('main', () => {
     [[...BASE_ARGS, '--task', 'plan,dessert'], /Unknown --task dessert/],
     [[...BASE_ARGS, '--runs', '0'], /--runs must be a positive integer/],
     [[...BASE_ARGS, '--max-usd', 'lots'], /--max-usd must be a positive number/],
-    [[...BASE_ARGS, '--judge'], /Unknown option '--judge'/],
+    [[...BASE_ARGS, '--verbose'], /Unknown option '--verbose'/],
   ])('rejects bad arguments: %j', async (argv, message) => {
     const code = await main(argv, deps)
     expect(code).toBe(2)

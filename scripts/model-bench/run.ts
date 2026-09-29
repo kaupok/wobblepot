@@ -7,7 +7,10 @@
  *
  * Usage:
  *   pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5 \
- *     [--task plan,recipe,imagine,review,tips] [--runs 3] [--dry-run] [--max-usd 10]
+ *     [--task plan,recipe,imagine,review,tips] [--runs 3] [--dry-run] [--max-usd 10] [--judge]
+ *
+ * `--judge` (HON-798) adds a blind pairwise comparison of imagine and tips
+ * output by `JUDGE_MODEL`; see `judge.ts`.
  *
  * Output: scripts/model-bench/results/<YYYY-MM-DD>-<baseline>-vs-<candidate>.md
  * (commit it, attach it to the upgrade PR) and a gitignored `.json` beside it.
@@ -30,6 +33,7 @@ import { TASKS, type Task } from './case-schema'
 import { CASES_DIR, loadCases } from './load-cases'
 import { estimateRun } from './dry-run'
 import { runBenchmark, type ModelFactory } from './runner'
+import { JUDGE_MODEL, runJudge, type JudgeResult } from './judge'
 import { buildReport, localDateString, renderMarkdown, writeReport } from './report'
 
 export const RESULTS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'results')
@@ -37,7 +41,7 @@ export const RESULTS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'result
 const DEFAULT_RUNS = 3
 const DEFAULT_MAX_USD = 10
 
-const USAGE = `Usage: pnpm bench:models --baseline <model> --candidate <model> [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]`
+const USAGE = `Usage: pnpm bench:models --baseline <model> --candidate <model> [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge]`
 
 export interface MainDeps {
   /** Defaults to `createAnthropic` with `ANTHROPIC_API_KEY`; never built under `--dry-run`. */
@@ -64,6 +68,7 @@ function parseCli(argv: string[]) {
         runs: { type: 'string' },
         'dry-run': { type: 'boolean', default: false },
         'max-usd': { type: 'string' },
+        judge: { type: 'boolean', default: false },
       },
       strict: true,
       allowPositionals: false,
@@ -99,6 +104,7 @@ function parseCli(argv: string[]) {
     runs,
     maxUsd,
     dryRun: values['dry-run'],
+    judge: values.judge,
   }
 }
 
@@ -120,7 +126,8 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
 
   // Before any call, and under --dry-run too: `estimateCostUsd` prices an
   // unknown model at $0, which would silently disable --max-usd.
-  const unpriced = [args.baseline, args.candidate].filter((id) => !MODEL_PRICES[id])
+  const priced = [args.baseline, args.candidate, ...(args.judge ? [JUDGE_MODEL] : [])]
+  const unpriced = priced.filter((id) => !MODEL_PRICES[id])
   if (unpriced.length > 0) {
     for (const id of unpriced) {
       error(
@@ -141,16 +148,26 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
       cases,
       runs: args.runs,
       models: [args.baseline, args.candidate],
+      judge: args.judge,
     })
     log(`Dry run — no API calls made.`)
     log(`Cases: ${estimate.caseCount} (${args.tasks.join(', ')}), runs: ${args.runs}`)
     log(`Total calls: ${estimate.totalCalls}`)
-    for (const m of estimate.perModel) {
+    const models = [
+      ...estimate.perModel.map((m) => ({ ...m, label: m.model })),
+      ...(estimate.judge ? [{ ...estimate.judge, label: `${estimate.judge.model} (judge)` }] : []),
+    ]
+    for (const m of models) {
       log(
-        `  ${m.model}: ${m.calls} calls, ~${m.inputTokens} input + ~${m.outputTokens} output tokens, ~$${m.costUsd.toFixed(2)}`,
+        `  ${m.label}: ${m.calls} calls, ~${m.inputTokens} input + ~${m.outputTokens} output tokens, ~$${m.costUsd.toFixed(2)}`,
       )
     }
     log(`Estimated cost: ~$${estimate.totalCostUsd.toFixed(2)} (--max-usd ${args.maxUsd})`)
+    if (estimate.totalCostUsd > args.maxUsd) {
+      log(
+        `The estimate is above --max-usd ${args.maxUsd}: a real run would likely stop early and write a partial report. Raise --max-usd, or lower --runs.`,
+      )
+    }
     return 0
   }
 
@@ -182,8 +199,25 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
       ),
   })
 
+  let judge: JudgeResult | undefined
+  if (args.judge) {
+    log('')
+    log(`Judging imagine and tips pairs with ${JUDGE_MODEL}, twice each`)
+    judge = await runJudge({
+      result,
+      cases,
+      maxUsd: args.maxUsd,
+      modelFactory,
+      onPair: (p, progress) =>
+        log(
+          `[judge ${progress.done}/${progress.planned}] ${p.caseId} run ${p.run}: ${p.outcome}${p.skipReason ? ` (${p.skipReason})` : ''} (total $${progress.spendUsd.toFixed(2)})`,
+        ),
+    })
+  }
+
   const report = buildReport({
     result,
+    judge,
     baseline: args.baseline,
     candidate: args.candidate,
     runs: args.runs,
@@ -192,16 +226,24 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     date: localDateString((deps.today ?? (() => new Date()))()),
   })
   const outDir = deps.outDir ?? RESULTS_DIR
-  const { markdownPath, jsonPath } = writeReport(outDir, report, result)
+  const { markdownPath, jsonPath } = writeReport(outDir, report, result, judge)
 
-  if (result.partial) {
+  if (result.partial || judge?.partial) {
+    const spend = result.spendUsd + (judge?.spendUsd ?? 0)
     error(
-      `Stopped early: spend $${result.spendUsd.toFixed(2)} passed --max-usd ${args.maxUsd}. The report is marked partial.`,
+      `Stopped early${result.partial ? '' : ' while judging'}: spend $${spend.toFixed(2)} passed --max-usd ${args.maxUsd}. The report is marked partial.`,
     )
   }
-  // Echo the header, "Regressions" and "Within noise"; the per-task tables stay in the file.
+  // Echo the header, "Regressions", "Within noise" and any "Judge"; the
+  // per-task tables stay in the file.
   log('')
-  log(renderMarkdown(report).split('\n## ').slice(0, 3).join('\n## ').trim())
+  log(
+    renderMarkdown(report)
+      .split('\n## ')
+      .slice(0, report.judge ? 4 : 3)
+      .join('\n## ')
+      .trim(),
+  )
   log('')
   log(`Report: ${relative(process.cwd(), markdownPath)} (commit it and attach it to the PR)`)
   log(`Raw outputs: ${relative(process.cwd(), jsonPath)} (gitignored)`)
