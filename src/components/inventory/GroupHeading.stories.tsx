@@ -42,14 +42,20 @@ export const WithCount: Story = {
 }
 
 export const Progress: Story = {
-  args: { label: '🥩 Protein (4)', count: '1/4' },
+  args: { emoji: '🥩', label: 'Protein (4)', count: '1/4' },
   parameters: {
     docs: {
       description: {
         story:
-          'A shopping category once something in it is bought: the fact is the purchased fraction.',
+          'A shopping category once something in it is bought: the fact is the purchased fraction. The category emoji sits before the label with a gap, hidden from screen readers.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const heading = canvas.getByRole('heading', { level: 3, name: 'Protein (4)' })
+    await expect(heading).toHaveTextContent('🥩')
+    await expect(canvas.getByText('🥩')).toHaveAttribute('aria-hidden', 'true')
   },
 }
 

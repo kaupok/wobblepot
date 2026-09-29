@@ -14,7 +14,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { CategoryGroup, CATEGORY_EMOJI } from '@/components/shopping/CategoryGroup'
+import {
+  CategoryGroup,
+  CATEGORY_EMOJI,
+  CUSTOM_ITEMS_EMOJI,
+} from '@/components/shopping/CategoryGroup'
 import { UrgencyGroup, URGENCY_KEYS } from '@/components/shopping/UrgencyGroup'
 import { ShoppingItem, type ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
@@ -216,7 +220,7 @@ export function ShoppingSection({
 
       const customLines = unchecked(customItems).map(customLine)
       sections.push({
-        heading: tShopping('customItemsSection', { count: customLines.length }),
+        heading: `${CUSTOM_ITEMS_EMOJI} ${tShopping('customItemsSection', { count: customLines.length })}`,
         lines: customLines,
       })
 
@@ -247,7 +251,7 @@ export function ShoppingSection({
 
     const otherLines = unchecked(unlinkedCustomItems).map(customLine)
     sections.push({
-      heading: tShopping('otherSection', { count: otherLines.length }),
+      heading: `${CUSTOM_ITEMS_EMOJI} ${tShopping('otherSection', { count: otherLines.length })}`,
       lines: otherLines,
     })
 
@@ -502,6 +506,7 @@ export function ShoppingSection({
             {unlinkedCustomItems.length > 0 && (
               <div className="flex flex-col gap-2">
                 <GroupHeading
+                  emoji={CUSTOM_ITEMS_EMOJI}
                   label={tShopping('otherSection', { count: unlinkedCustomItems.length })}
                   count={
                     unlinkedCustomItems.filter((i) => i.checked).length > 0 &&
@@ -540,6 +545,7 @@ export function ShoppingSection({
             {customItems.length > 0 && (
               <div className="flex flex-col gap-2">
                 <GroupHeading
+                  emoji={CUSTOM_ITEMS_EMOJI}
                   label={tShopping('customItemsSection', { count: customItems.length })}
                   count={checkedCustomCount > 0 && `${checkedCustomCount}/${customItems.length}`}
                 />

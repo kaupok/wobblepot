@@ -354,7 +354,7 @@ export async function PATCH(
         updateData.servingOverride = null
         // Third column describing the meal, same treatment: a rating is a
         // verdict on *the meal this entry points at*, so it does not survive
-        // the entry being repointed. Left in place it is a 👍 the household
+        // the entry being repointed. Left in place it is a thumbs-up the household
         // gave a dish they then replaced, now attached to one they have said
         // nothing about — reachable as complete → rate → revert to `planned`
         // (which the guard above still allows to swap, nothing having been

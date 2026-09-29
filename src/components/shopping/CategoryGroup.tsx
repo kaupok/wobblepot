@@ -26,6 +26,14 @@ export const CATEGORY_EMOJI: Record<IngredientCategory, string> = {
   spice: '🌿',
 }
 
+/**
+ * The emoji for the groups with no ingredient category: "Other" in category
+ * mode and "Custom items" in urgency mode. Kept in code rather than in the
+ * translated string, so the heading can hide it from screen readers while the
+ * clipboard export still prints it.
+ */
+export const CUSTOM_ITEMS_EMOJI = '📝'
+
 interface CategoryGroupProps {
   category: IngredientCategory
   items: ShoppingItemData[]
@@ -61,7 +69,8 @@ export function CategoryGroup({
   return (
     <div className="flex flex-col gap-2">
       <GroupHeading
-        label={`${emoji} ${categoryLabel} (${totalCount})`}
+        emoji={emoji}
+        label={`${categoryLabel} (${totalCount})`}
         count={purchasedCount > 0 && `${purchasedCount}/${totalCount}`}
       />
       <div className="flex flex-col gap-1">
