@@ -1,0 +1,989 @@
+{
+  "startDate": "2026-10-12",
+  "endDate": "2026-10-19",
+  "weekdayMealTypes": ["dinner"],
+  "weekendMealTypes": ["dinner"],
+  "dietaryType": "vegan",
+  "restrictions": ["no mushrooms on weeknights"],
+  "pantryIngredients": ["white rice", "canned diced tomatoes"],
+  "locale": "en",
+  "candidatePools": {
+    "fish": [],
+    "legume": [
+      {
+        "id": "meal-leg-01",
+        "name": "Chickpea and spinach stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-02",
+        "name": "Lentil shepherd's pie",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "green lentil",
+            "category": "legume"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-03",
+        "name": "White bean and kale stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "cannellini bean",
+            "category": "legume"
+          },
+          {
+            "name": "kale",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-04",
+        "name": "Bean burritos",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "pinto bean",
+            "category": "legume"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-05",
+        "name": "Tofu and vegetable stir-fry",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "tofu",
+            "category": "legume"
+          },
+          {
+            "name": "broccoli",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-06",
+        "name": "Lentil bolognese",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "brown lentil",
+            "category": "legume"
+          },
+          {
+            "name": "spaghetti",
+            "category": "carb"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-07",
+        "name": "Yellow split pea soup",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "yellow split pea",
+            "category": "legume"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-08",
+        "name": "Dal with rice",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "red lentil",
+            "category": "legume"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "turmeric",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-09",
+        "name": "Edamame noodle bowl",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "edamame",
+            "category": "legume"
+          },
+          {
+            "name": "rice noodles",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-leg-10",
+        "name": "Falafel wraps with cucumber",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "flatbread",
+            "category": "carb"
+          },
+          {
+            "name": "cucumber",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ],
+    "any": [
+      {
+        "id": "meal-any-01",
+        "name": "Mushroom and pea risotto",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "arborio rice",
+            "category": "carb"
+          },
+          {
+            "name": "mushroom",
+            "category": "vegetable"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-02",
+        "name": "Roasted vegetable couscous",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-03",
+        "name": "Ratatouille with crusty bread",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "eggplant",
+            "category": "vegetable"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-04",
+        "name": "Potato and cauliflower curry",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "cauliflower",
+            "category": "vegetable"
+          },
+          {
+            "name": "coconut milk",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-05",
+        "name": "Stuffed peppers with herby rice",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "parsley",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-06",
+        "name": "Vegetable paella",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "paella rice",
+            "category": "carb"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "green beans",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-07",
+        "name": "Pasta primavera",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "pasta",
+            "category": "carb"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "asparagus",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-08",
+        "name": "Sweet potato and spinach curry",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "sweet potato",
+            "category": "carb"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "coconut milk",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-09",
+        "name": "Vegetable noodle stir-fry",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "rice noodles",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "cabbage",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-any-10",
+        "name": "Roast potato and root vegetable traybake",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "parsnip",
+            "category": "vegetable"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-11",
+        "name": "Pumpkin soup with bread",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "pumpkin",
+            "category": "vegetable"
+          },
+          {
+            "name": "bread",
+            "category": "carb"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-12",
+        "name": "Baked sweet potatoes with salsa",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "sweet potato",
+            "category": "carb"
+          },
+          {
+            "name": "tomato",
+            "category": "vegetable"
+          },
+          {
+            "name": "red onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      }
+    ]
+  },
+  "candidatesByMealType": {
+    "dinner": [
+      {
+        "id": "meal-leg-01",
+        "name": "Chickpea and spinach stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-02",
+        "name": "Lentil shepherd's pie",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "green lentil",
+            "category": "legume"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-03",
+        "name": "White bean and kale stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "cannellini bean",
+            "category": "legume"
+          },
+          {
+            "name": "kale",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-04",
+        "name": "Bean burritos",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "pinto bean",
+            "category": "legume"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-05",
+        "name": "Tofu and vegetable stir-fry",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "tofu",
+            "category": "legume"
+          },
+          {
+            "name": "broccoli",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-06",
+        "name": "Lentil bolognese",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "brown lentil",
+            "category": "legume"
+          },
+          {
+            "name": "spaghetti",
+            "category": "carb"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-07",
+        "name": "Yellow split pea soup",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "yellow split pea",
+            "category": "legume"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-08",
+        "name": "Dal with rice",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "red lentil",
+            "category": "legume"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "turmeric",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-09",
+        "name": "Edamame noodle bowl",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "edamame",
+            "category": "legume"
+          },
+          {
+            "name": "rice noodles",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-leg-10",
+        "name": "Falafel wraps with cucumber",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "flatbread",
+            "category": "carb"
+          },
+          {
+            "name": "cucumber",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-01",
+        "name": "Mushroom and pea risotto",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "arborio rice",
+            "category": "carb"
+          },
+          {
+            "name": "mushroom",
+            "category": "vegetable"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-02",
+        "name": "Roasted vegetable couscous",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-03",
+        "name": "Ratatouille with crusty bread",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "eggplant",
+            "category": "vegetable"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-04",
+        "name": "Potato and cauliflower curry",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "cauliflower",
+            "category": "vegetable"
+          },
+          {
+            "name": "coconut milk",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-05",
+        "name": "Stuffed peppers with herby rice",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "parsley",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-06",
+        "name": "Vegetable paella",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "paella rice",
+            "category": "carb"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "green beans",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-07",
+        "name": "Pasta primavera",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "pasta",
+            "category": "carb"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "asparagus",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-08",
+        "name": "Sweet potato and spinach curry",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "sweet potato",
+            "category": "carb"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "coconut milk",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-09",
+        "name": "Vegetable noodle stir-fry",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "rice noodles",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "cabbage",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-any-10",
+        "name": "Roast potato and root vegetable traybake",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "parsnip",
+            "category": "vegetable"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-11",
+        "name": "Pumpkin soup with bread",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "pumpkin",
+            "category": "vegetable"
+          },
+          {
+            "name": "bread",
+            "category": "carb"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-12",
+        "name": "Baked sweet potatoes with salsa",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "sweet potato",
+            "category": "carb"
+          },
+          {
+            "name": "tomato",
+            "category": "vegetable"
+          },
+          {
+            "name": "red onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,1078 @@
+{
+  "startDate": "2026-11-02",
+  "endDate": "2026-11-09",
+  "weekdayMealTypes": ["dinner"],
+  "weekendMealTypes": ["dinner"],
+  "dietaryType": null,
+  "restrictions": ["pähkliallergia"],
+  "pantryIngredients": ["kartul", "porgand", "hapukoor"],
+  "locale": "et",
+  "candidatePools": {
+    "fish": [
+      {
+        "id": "meal-fish-01",
+        "name": "Ahjulõhe kartulitega",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "lõhe",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "till",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-02",
+        "name": "Kalasupp",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "tursk",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-03",
+        "name": "Praetud räim kartulipudruga",
+        "kidFriendly": false,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "räim",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "või",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-04",
+        "name": "Kalapulgad riisi ja hernestega",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "kalapulk",
+            "category": "protein"
+          },
+          {
+            "name": "riis",
+            "category": "carb"
+          },
+          {
+            "name": "hernes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-05",
+        "name": "Ahjuforell köögiviljadega",
+        "kidFriendly": false,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "forell",
+            "category": "protein"
+          },
+          {
+            "name": "suvikõrvits",
+            "category": "vegetable"
+          },
+          {
+            "name": "paprika",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ],
+    "legume": [
+      {
+        "id": "meal-leg-01",
+        "name": "Läätsesupp",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "punane lääts",
+            "category": "legume"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          },
+          {
+            "name": "sibul",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ],
+    "any": [
+      {
+        "id": "meal-any-01",
+        "name": "Kanakarri",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "kanafilee",
+            "category": "protein"
+          },
+          {
+            "name": "riis",
+            "category": "carb"
+          },
+          {
+            "name": "kookospiim",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-02",
+        "name": "Ahjukana köögiviljadega",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "kanakoib",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-03",
+        "name": "Kanasupp",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "kanakoib",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-04",
+        "name": "Kanapasta küüslaugukastmes",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "kanafilee",
+            "category": "protein"
+          },
+          {
+            "name": "pasta",
+            "category": "carb"
+          },
+          {
+            "name": "vahukoor",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-05",
+        "name": "Hakklihakaste kartulitega",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "sea-veisehakkliha",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "hapukoor",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-06",
+        "name": "Seapraad hapukapsaga",
+        "kidFriendly": false,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "sealiha",
+            "category": "protein"
+          },
+          {
+            "name": "hapukapsas",
+            "category": "vegetable"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-07",
+        "name": "Kapsarullid",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "seahakkliha",
+            "category": "protein"
+          },
+          {
+            "name": "valge kapsas",
+            "category": "vegetable"
+          },
+          {
+            "name": "riis",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-08",
+        "name": "Veiselihahautis",
+        "kidFriendly": false,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "veiseliha",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-09",
+        "name": "Spagetid Bolognese",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "veisehakkliha",
+            "category": "protein"
+          },
+          {
+            "name": "spagetid",
+            "category": "carb"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-any-10",
+        "name": "Pikkpoiss kartulipudruga",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "seahakkliha",
+            "category": "protein"
+          },
+          {
+            "name": "muna",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-11",
+        "name": "Pelmeenid hapukoorega",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "pelmeen",
+            "category": "protein"
+          },
+          {
+            "name": "hapukoor",
+            "category": "dairy"
+          },
+          {
+            "name": "till",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-12",
+        "name": "Lambalihahautis",
+        "kidFriendly": false,
+        "primaryProteinType": "lamb",
+        "topIngredients": [
+          {
+            "name": "lambaliha",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-13",
+        "name": "Omlett juustu ja tomatiga",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "muna",
+            "category": "protein"
+          },
+          {
+            "name": "juust",
+            "category": "dairy"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-14",
+        "name": "Shakshuka",
+        "kidFriendly": false,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "muna",
+            "category": "protein"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          },
+          {
+            "name": "paprika",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-15",
+        "name": "Juustune makaronivorm",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "makaron",
+            "category": "carb"
+          },
+          {
+            "name": "juust",
+            "category": "dairy"
+          },
+          {
+            "name": "piim",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-16",
+        "name": "Seeneragu tatraga",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "šampinjon",
+            "category": "vegetable"
+          },
+          {
+            "name": "tatar",
+            "category": "carb"
+          },
+          {
+            "name": "sibul",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-17",
+        "name": "Ahjuköögiviljad kuskussiga",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "kuskuss",
+            "category": "carb"
+          },
+          {
+            "name": "suvikõrvits",
+            "category": "vegetable"
+          },
+          {
+            "name": "paprika",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-18",
+        "name": "Ratatouille",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "baklažaan",
+            "category": "vegetable"
+          },
+          {
+            "name": "suvikõrvits",
+            "category": "vegetable"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": true
+      }
+    ]
+  },
+  "candidatesByMealType": {
+    "dinner": [
+      {
+        "id": "meal-fish-01",
+        "name": "Ahjulõhe kartulitega",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "lõhe",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "till",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-02",
+        "name": "Kalasupp",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "tursk",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-03",
+        "name": "Praetud räim kartulipudruga",
+        "kidFriendly": false,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "räim",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "või",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-04",
+        "name": "Kalapulgad riisi ja hernestega",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "kalapulk",
+            "category": "protein"
+          },
+          {
+            "name": "riis",
+            "category": "carb"
+          },
+          {
+            "name": "hernes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-05",
+        "name": "Ahjuforell köögiviljadega",
+        "kidFriendly": false,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "forell",
+            "category": "protein"
+          },
+          {
+            "name": "suvikõrvits",
+            "category": "vegetable"
+          },
+          {
+            "name": "paprika",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-01",
+        "name": "Läätsesupp",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "punane lääts",
+            "category": "legume"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          },
+          {
+            "name": "sibul",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-01",
+        "name": "Kanakarri",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "kanafilee",
+            "category": "protein"
+          },
+          {
+            "name": "riis",
+            "category": "carb"
+          },
+          {
+            "name": "kookospiim",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-02",
+        "name": "Ahjukana köögiviljadega",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "kanakoib",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-03",
+        "name": "Kanasupp",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "kanakoib",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-04",
+        "name": "Kanapasta küüslaugukastmes",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "kanafilee",
+            "category": "protein"
+          },
+          {
+            "name": "pasta",
+            "category": "carb"
+          },
+          {
+            "name": "vahukoor",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-05",
+        "name": "Hakklihakaste kartulitega",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "sea-veisehakkliha",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "hapukoor",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-06",
+        "name": "Seapraad hapukapsaga",
+        "kidFriendly": false,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "sealiha",
+            "category": "protein"
+          },
+          {
+            "name": "hapukapsas",
+            "category": "vegetable"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-07",
+        "name": "Kapsarullid",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "seahakkliha",
+            "category": "protein"
+          },
+          {
+            "name": "valge kapsas",
+            "category": "vegetable"
+          },
+          {
+            "name": "riis",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-08",
+        "name": "Veiselihahautis",
+        "kidFriendly": false,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "veiseliha",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-09",
+        "name": "Spagetid Bolognese",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "veisehakkliha",
+            "category": "protein"
+          },
+          {
+            "name": "spagetid",
+            "category": "carb"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-any-10",
+        "name": "Pikkpoiss kartulipudruga",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "seahakkliha",
+            "category": "protein"
+          },
+          {
+            "name": "muna",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-11",
+        "name": "Pelmeenid hapukoorega",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "pelmeen",
+            "category": "protein"
+          },
+          {
+            "name": "hapukoor",
+            "category": "dairy"
+          },
+          {
+            "name": "till",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-12",
+        "name": "Lambalihahautis",
+        "kidFriendly": false,
+        "primaryProteinType": "lamb",
+        "topIngredients": [
+          {
+            "name": "lambaliha",
+            "category": "protein"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-13",
+        "name": "Omlett juustu ja tomatiga",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "muna",
+            "category": "protein"
+          },
+          {
+            "name": "juust",
+            "category": "dairy"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-14",
+        "name": "Shakshuka",
+        "kidFriendly": false,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "muna",
+            "category": "protein"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          },
+          {
+            "name": "paprika",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-15",
+        "name": "Juustune makaronivorm",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "makaron",
+            "category": "carb"
+          },
+          {
+            "name": "juust",
+            "category": "dairy"
+          },
+          {
+            "name": "piim",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-16",
+        "name": "Seeneragu tatraga",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "šampinjon",
+            "category": "vegetable"
+          },
+          {
+            "name": "tatar",
+            "category": "carb"
+          },
+          {
+            "name": "sibul",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-17",
+        "name": "Ahjuköögiviljad kuskussiga",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "kuskuss",
+            "category": "carb"
+          },
+          {
+            "name": "suvikõrvits",
+            "category": "vegetable"
+          },
+          {
+            "name": "paprika",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-18",
+        "name": "Ratatouille",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "baklažaan",
+            "category": "vegetable"
+          },
+          {
+            "name": "suvikõrvits",
+            "category": "vegetable"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": true
+      }
+    ]
+  }
+}

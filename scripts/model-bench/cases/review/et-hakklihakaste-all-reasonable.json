@@ -1,0 +1,72 @@
+{
+  "mealName": "Hakklihakaste kartulitega",
+  "servings": 4,
+  "ingredients": [
+    {
+      "ingredientId": "ing-pork",
+      "name": "ground pork",
+      "quantityPerServing": 150,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-potato",
+      "name": "potato",
+      "quantityPerServing": 150,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-onion",
+      "name": "onion",
+      "quantityPerServing": 30,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-carrot",
+      "name": "carrot",
+      "quantityPerServing": 30,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-sour-cream",
+      "name": "sour cream",
+      "quantityPerServing": 15,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-oil",
+      "name": "vegetable oil",
+      "quantityPerServing": 7,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-pepper",
+      "name": "black pepper",
+      "quantityPerServing": 1,
+      "unit": "g"
+    }
+  ],
+  "locale": "et",
+  "expected": {
+    "ing-pork": {
+      "unchanged": true
+    },
+    "ing-potato": {
+      "unchanged": true
+    },
+    "ing-onion": {
+      "unchanged": true
+    },
+    "ing-carrot": {
+      "unchanged": true
+    },
+    "ing-sour-cream": {
+      "unchanged": true
+    },
+    "ing-oil": {
+      "unchanged": true
+    },
+    "ing-pepper": {
+      "unchanged": true
+    }
+  }
+}

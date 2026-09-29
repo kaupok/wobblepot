@@ -1,0 +1,1478 @@
+{
+  "startDate": "2026-10-26",
+  "endDate": "2026-11-02",
+  "weekdayMealTypes": ["breakfast", "lunch", "dinner"],
+  "weekendMealTypes": ["breakfast", "lunch", "dinner"],
+  "dietaryType": null,
+  "restrictions": ["peanut allergy", "kids eat the same lunch"],
+  "pantryIngredients": ["rolled oats", "bread", "egg"],
+  "locale": "en",
+  "candidatePools": {
+    "fish": [
+      {
+        "id": "meal-fish-01",
+        "name": "Baked salmon with dill potatoes",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "salmon",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "dill",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-02",
+        "name": "Fish tacos with slaw",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "cod",
+            "category": "protein"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "cabbage",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-03",
+        "name": "Tuna pasta bake",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "canned tuna",
+            "category": "protein"
+          },
+          {
+            "name": "pasta",
+            "category": "carb"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-04",
+        "name": "Pan-fried trout with green beans",
+        "kidFriendly": false,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "trout",
+            "category": "protein"
+          },
+          {
+            "name": "green beans",
+            "category": "vegetable"
+          },
+          {
+            "name": "butter",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ],
+    "legume": [
+      {
+        "id": "meal-leg-01",
+        "name": "Chickpea and spinach stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-02",
+        "name": "Lentil shepherd's pie",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "green lentil",
+            "category": "legume"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-03",
+        "name": "White bean and kale stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "cannellini bean",
+            "category": "legume"
+          },
+          {
+            "name": "kale",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-04",
+        "name": "Bean burritos",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "pinto bean",
+            "category": "legume"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ],
+    "any": [
+      {
+        "id": "meal-any-01",
+        "name": "Chicken fajitas",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-02",
+        "name": "Turkey meatballs with spaghetti",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "ground turkey",
+            "category": "protein"
+          },
+          {
+            "name": "spaghetti",
+            "category": "carb"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-03",
+        "name": "Chicken and leek pie",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "leek",
+            "category": "vegetable"
+          },
+          {
+            "name": "puff pastry",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-04",
+        "name": "Lemon chicken with couscous",
+        "kidFriendly": false,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "lemon",
+            "category": "fruit"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-05",
+        "name": "Chicken noodle soup",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "egg noodles",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-06",
+        "name": "Beef and broccoli",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "beef steak",
+            "category": "protein"
+          },
+          {
+            "name": "broccoli",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-07",
+        "name": "Cottage pie",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "ground beef",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-08",
+        "name": "Beef stew with carrots",
+        "kidFriendly": false,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "beef chuck",
+            "category": "protein"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-09",
+        "name": "Pork and apple traybake",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "pork chop",
+            "category": "protein"
+          },
+          {
+            "name": "apple",
+            "category": "fruit"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-any-10",
+        "name": "Sausages with mash and peas",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "pork sausage",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-11",
+        "name": "Pulled pork buns",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "pork shoulder",
+            "category": "protein"
+          },
+          {
+            "name": "burger bun",
+            "category": "carb"
+          },
+          {
+            "name": "cabbage",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-12",
+        "name": "Lamb kofta with flatbread",
+        "kidFriendly": false,
+        "primaryProteinType": "lamb",
+        "topIngredients": [
+          {
+            "name": "ground lamb",
+            "category": "protein"
+          },
+          {
+            "name": "flatbread",
+            "category": "carb"
+          },
+          {
+            "name": "yogurt",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-13",
+        "name": "Mushroom and pea risotto",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "arborio rice",
+            "category": "carb"
+          },
+          {
+            "name": "mushroom",
+            "category": "vegetable"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-14",
+        "name": "Roasted vegetable couscous",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-15",
+        "name": "Ratatouille with crusty bread",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "eggplant",
+            "category": "vegetable"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-16",
+        "name": "Potato and cauliflower curry",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "cauliflower",
+            "category": "vegetable"
+          },
+          {
+            "name": "coconut milk",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ]
+  },
+  "candidatesByMealType": {
+    "dinner": [
+      {
+        "id": "meal-fish-01",
+        "name": "Baked salmon with dill potatoes",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "salmon",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "dill",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-02",
+        "name": "Fish tacos with slaw",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "cod",
+            "category": "protein"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "cabbage",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-03",
+        "name": "Tuna pasta bake",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "canned tuna",
+            "category": "protein"
+          },
+          {
+            "name": "pasta",
+            "category": "carb"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-04",
+        "name": "Pan-fried trout with green beans",
+        "kidFriendly": false,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "trout",
+            "category": "protein"
+          },
+          {
+            "name": "green beans",
+            "category": "vegetable"
+          },
+          {
+            "name": "butter",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-01",
+        "name": "Chickpea and spinach stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-02",
+        "name": "Lentil shepherd's pie",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "green lentil",
+            "category": "legume"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-03",
+        "name": "White bean and kale stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "cannellini bean",
+            "category": "legume"
+          },
+          {
+            "name": "kale",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-04",
+        "name": "Bean burritos",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "pinto bean",
+            "category": "legume"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-01",
+        "name": "Chicken fajitas",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-02",
+        "name": "Turkey meatballs with spaghetti",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "ground turkey",
+            "category": "protein"
+          },
+          {
+            "name": "spaghetti",
+            "category": "carb"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-03",
+        "name": "Chicken and leek pie",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "leek",
+            "category": "vegetable"
+          },
+          {
+            "name": "puff pastry",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-04",
+        "name": "Lemon chicken with couscous",
+        "kidFriendly": false,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "lemon",
+            "category": "fruit"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-05",
+        "name": "Chicken noodle soup",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "egg noodles",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-06",
+        "name": "Beef and broccoli",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "beef steak",
+            "category": "protein"
+          },
+          {
+            "name": "broccoli",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-07",
+        "name": "Cottage pie",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "ground beef",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-08",
+        "name": "Beef stew with carrots",
+        "kidFriendly": false,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "beef chuck",
+            "category": "protein"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-09",
+        "name": "Pork and apple traybake",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "pork chop",
+            "category": "protein"
+          },
+          {
+            "name": "apple",
+            "category": "fruit"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-any-10",
+        "name": "Sausages with mash and peas",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "pork sausage",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-11",
+        "name": "Pulled pork buns",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "pork shoulder",
+            "category": "protein"
+          },
+          {
+            "name": "burger bun",
+            "category": "carb"
+          },
+          {
+            "name": "cabbage",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-12",
+        "name": "Lamb kofta with flatbread",
+        "kidFriendly": false,
+        "primaryProteinType": "lamb",
+        "topIngredients": [
+          {
+            "name": "ground lamb",
+            "category": "protein"
+          },
+          {
+            "name": "flatbread",
+            "category": "carb"
+          },
+          {
+            "name": "yogurt",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-13",
+        "name": "Mushroom and pea risotto",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "arborio rice",
+            "category": "carb"
+          },
+          {
+            "name": "mushroom",
+            "category": "vegetable"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-14",
+        "name": "Roasted vegetable couscous",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-15",
+        "name": "Ratatouille with crusty bread",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "eggplant",
+            "category": "vegetable"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-16",
+        "name": "Potato and cauliflower curry",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "cauliflower",
+            "category": "vegetable"
+          },
+          {
+            "name": "coconut milk",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ],
+    "breakfast": [
+      {
+        "id": "meal-bf-01",
+        "name": "Porridge with berries",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "rolled oats",
+            "category": "carb"
+          },
+          {
+            "name": "milk",
+            "category": "dairy"
+          },
+          {
+            "name": "blueberry",
+            "category": "fruit"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-bf-02",
+        "name": "Scrambled eggs on toast",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "bread",
+            "category": "carb"
+          },
+          {
+            "name": "butter",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-bf-03",
+        "name": "Yogurt with oat granola and banana",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "yogurt",
+            "category": "dairy"
+          },
+          {
+            "name": "granola",
+            "category": "carb"
+          },
+          {
+            "name": "banana",
+            "category": "fruit"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-bf-04",
+        "name": "Pancakes with berries",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "flour",
+            "category": "carb"
+          },
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "milk",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-bf-05",
+        "name": "Avocado toast",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "bread",
+            "category": "carb"
+          },
+          {
+            "name": "avocado",
+            "category": "fruit"
+          },
+          {
+            "name": "lemon",
+            "category": "fruit"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-bf-06",
+        "name": "Ham and cheese toastie",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "bread",
+            "category": "carb"
+          },
+          {
+            "name": "ham",
+            "category": "protein"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-bf-07",
+        "name": "Banana oat smoothie",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "banana",
+            "category": "fruit"
+          },
+          {
+            "name": "milk",
+            "category": "dairy"
+          },
+          {
+            "name": "rolled oats",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-bf-08",
+        "name": "Boiled eggs with toast soldiers",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "bread",
+            "category": "carb"
+          },
+          {
+            "name": "butter",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ],
+    "lunch": [
+      {
+        "id": "meal-lunch-01",
+        "name": "Tomato soup with grilled cheese",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          },
+          {
+            "name": "bread",
+            "category": "carb"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-lunch-02",
+        "name": "Chicken caesar wrap",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "romaine lettuce",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-lunch-03",
+        "name": "Tuna and sweetcorn sandwich",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "canned tuna",
+            "category": "protein"
+          },
+          {
+            "name": "bread",
+            "category": "carb"
+          },
+          {
+            "name": "sweetcorn",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-lunch-04",
+        "name": "Hummus and vegetable wrap",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-lunch-05",
+        "name": "Red lentil and carrot soup",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "red lentil",
+            "category": "legume"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-lunch-06",
+        "name": "Ham and cheese sandwich",
+        "kidFriendly": true,
+        "primaryProteinType": "pork",
+        "topIngredients": [
+          {
+            "name": "bread",
+            "category": "carb"
+          },
+          {
+            "name": "ham",
+            "category": "protein"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-lunch-07",
+        "name": "Egg salad sandwich",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "bread",
+            "category": "carb"
+          },
+          {
+            "name": "mayonnaise",
+            "category": "condiment"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-lunch-08",
+        "name": "Pasta salad with feta",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "pasta",
+            "category": "carb"
+          },
+          {
+            "name": "feta",
+            "category": "dairy"
+          },
+          {
+            "name": "cucumber",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-lunch-09",
+        "name": "Jacket potato with baked beans",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "baked beans",
+            "category": "legume"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-lunch-10",
+        "name": "Chicken and rice soup",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "celery",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ]
+  }
+}

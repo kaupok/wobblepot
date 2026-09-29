@@ -1,0 +1,990 @@
+{
+  "startDate": "2026-10-19",
+  "endDate": "2026-10-26",
+  "weekdayMealTypes": ["dinner"],
+  "weekendMealTypes": ["dinner"],
+  "dietaryType": "pescatarian",
+  "restrictions": ["shellfish allergy", "quick meals on weekdays"],
+  "pantryIngredients": ["potato", "frozen peas"],
+  "locale": "en",
+  "candidatePools": {
+    "fish": [
+      {
+        "id": "meal-fish-01",
+        "name": "Baked salmon with dill potatoes",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "salmon",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "dill",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-02",
+        "name": "Teriyaki salmon rice bowl",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "salmon",
+            "category": "protein"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "soy sauce",
+            "category": "condiment"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ],
+    "legume": [
+      {
+        "id": "meal-leg-01",
+        "name": "Chickpea and spinach stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-02",
+        "name": "Lentil shepherd's pie",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "green lentil",
+            "category": "legume"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-03",
+        "name": "White bean and kale stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "cannellini bean",
+            "category": "legume"
+          },
+          {
+            "name": "kale",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-04",
+        "name": "Bean burritos",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "pinto bean",
+            "category": "legume"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-05",
+        "name": "Tofu and vegetable stir-fry",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "tofu",
+            "category": "legume"
+          },
+          {
+            "name": "broccoli",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-06",
+        "name": "Lentil bolognese",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "brown lentil",
+            "category": "legume"
+          },
+          {
+            "name": "spaghetti",
+            "category": "carb"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      }
+    ],
+    "any": [
+      {
+        "id": "meal-any-01",
+        "name": "Shakshuka with crusty bread",
+        "kidFriendly": false,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-02",
+        "name": "Cheese and spinach frittata",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-03",
+        "name": "Egg fried rice",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-04",
+        "name": "Spanish tortilla with salad",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-05",
+        "name": "Macaroni cheese",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "macaroni",
+            "category": "carb"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          },
+          {
+            "name": "milk",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-06",
+        "name": "Halloumi traybake",
+        "kidFriendly": false,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "halloumi",
+            "category": "dairy"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-07",
+        "name": "Spinach and ricotta cannelloni",
+        "kidFriendly": false,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "cannelloni",
+            "category": "carb"
+          },
+          {
+            "name": "ricotta",
+            "category": "dairy"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-08",
+        "name": "Paneer and pea curry",
+        "kidFriendly": false,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "paneer",
+            "category": "dairy"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-09",
+        "name": "Mushroom and pea risotto",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "arborio rice",
+            "category": "carb"
+          },
+          {
+            "name": "mushroom",
+            "category": "vegetable"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-any-10",
+        "name": "Roasted vegetable couscous",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-11",
+        "name": "Ratatouille with crusty bread",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "eggplant",
+            "category": "vegetable"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-12",
+        "name": "Potato and cauliflower curry",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "cauliflower",
+            "category": "vegetable"
+          },
+          {
+            "name": "coconut milk",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-13",
+        "name": "Stuffed peppers with herby rice",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "parsley",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-14",
+        "name": "Vegetable paella",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "paella rice",
+            "category": "carb"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "green beans",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ]
+  },
+  "candidatesByMealType": {
+    "dinner": [
+      {
+        "id": "meal-fish-01",
+        "name": "Baked salmon with dill potatoes",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "salmon",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "dill",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-fish-02",
+        "name": "Teriyaki salmon rice bowl",
+        "kidFriendly": true,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "salmon",
+            "category": "protein"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "soy sauce",
+            "category": "condiment"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-01",
+        "name": "Chickpea and spinach stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-02",
+        "name": "Lentil shepherd's pie",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "green lentil",
+            "category": "legume"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-03",
+        "name": "White bean and kale stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "cannellini bean",
+            "category": "legume"
+          },
+          {
+            "name": "kale",
+            "category": "vegetable"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-04",
+        "name": "Bean burritos",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "pinto bean",
+            "category": "legume"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-05",
+        "name": "Tofu and vegetable stir-fry",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "tofu",
+            "category": "legume"
+          },
+          {
+            "name": "broccoli",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-leg-06",
+        "name": "Lentil bolognese",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "brown lentil",
+            "category": "legume"
+          },
+          {
+            "name": "spaghetti",
+            "category": "carb"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-01",
+        "name": "Shakshuka with crusty bread",
+        "kidFriendly": false,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-02",
+        "name": "Cheese and spinach frittata",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-03",
+        "name": "Egg fried rice",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-04",
+        "name": "Spanish tortilla with salad",
+        "kidFriendly": true,
+        "primaryProteinType": "eggs",
+        "topIngredients": [
+          {
+            "name": "egg",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "onion",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-05",
+        "name": "Macaroni cheese",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "macaroni",
+            "category": "carb"
+          },
+          {
+            "name": "cheddar",
+            "category": "dairy"
+          },
+          {
+            "name": "milk",
+            "category": "dairy"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-06",
+        "name": "Halloumi traybake",
+        "kidFriendly": false,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "halloumi",
+            "category": "dairy"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-07",
+        "name": "Spinach and ricotta cannelloni",
+        "kidFriendly": false,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "cannelloni",
+            "category": "carb"
+          },
+          {
+            "name": "ricotta",
+            "category": "dairy"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-08",
+        "name": "Paneer and pea curry",
+        "kidFriendly": false,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "paneer",
+            "category": "dairy"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-09",
+        "name": "Mushroom and pea risotto",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "arborio rice",
+            "category": "carb"
+          },
+          {
+            "name": "mushroom",
+            "category": "vegetable"
+          },
+          {
+            "name": "peas",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "meal-any-10",
+        "name": "Roasted vegetable couscous",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-11",
+        "name": "Ratatouille with crusty bread",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "eggplant",
+            "category": "vegetable"
+          },
+          {
+            "name": "zucchini",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-12",
+        "name": "Potato and cauliflower curry",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "cauliflower",
+            "category": "vegetable"
+          },
+          {
+            "name": "coconut milk",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-13",
+        "name": "Stuffed peppers with herby rice",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          },
+          {
+            "name": "parsley",
+            "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-14",
+        "name": "Vegetable paella",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "paella rice",
+            "category": "carb"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "green beans",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      }
+    ]
+  }
+}

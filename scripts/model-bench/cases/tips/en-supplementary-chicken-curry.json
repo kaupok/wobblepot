@@ -1,0 +1,40 @@
+{
+  "kind": "supplementary",
+  "mealName": "Chicken tikka curry",
+  "servings": 4,
+  "timeMinutes": 50,
+  "components": [
+    {
+      "name": "chicken thigh",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "yogurt",
+      "quantityPerServing": 40,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "tikka paste",
+      "quantityPerServing": 20,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "canned diced tomatoes",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "white rice",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": "1. Marinate the chicken in the yogurt and half the paste for at least 20 minutes.\n2. Fry the onion until golden, add the rest of the paste and cook for a minute.\n3. Add the chicken and brown it, then pour in the tomatoes and simmer for 20 minutes.\n4. Serve with rice.",
+  "locale": "en"
+}

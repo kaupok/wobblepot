@@ -1,0 +1,39 @@
+{
+  "kind": "full",
+  "mealName": "Mulgikapsad",
+  "servings": 4,
+  "timeMinutes": null,
+  "components": [
+    {
+      "name": "hapukapsas",
+      "quantityPerServing": 200,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "sealiha",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "odrakruup",
+      "quantityPerServing": 30,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "sibul",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "loorberileht",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "kartul",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    }
+  ],
+  "locale": "et"
+}

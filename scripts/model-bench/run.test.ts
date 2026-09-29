@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { main, type MainDeps } from './run'
-import { mockModelFactory, type MockCall, type MockResponse } from './test-utils'
+import { mockModelFactory, starterCasesDir, type MockCall, type MockResponse } from './test-utils'
 
 const BASE_ARGS = ['--baseline', 'claude-sonnet-5', '--candidate', 'claude-sonnet-5-5']
 const STEM = '2026-10-01-claude-sonnet-5-vs-claude-sonnet-5-5'
@@ -53,23 +53,29 @@ function respond({ promptText }: MockCall): MockResponse {
 
 describe('main', () => {
   let outDir: string
+  let casesDir: string
   let out: string[]
   let err: string[]
   let deps: MainDeps
 
   beforeEach(() => {
     outDir = mkdtempSync(join(tmpdir(), 'model-bench-results-'))
+    casesDir = starterCasesDir()
     out = []
     err = []
     deps = {
       outDir,
+      casesDir,
       log: (line) => out.push(line),
       error: (line) => err.push(line),
       today: () => new Date(2026, 9, 1),
       env: {},
     }
   })
-  afterEach(() => rmSync(outDir, { recursive: true, force: true }))
+  afterEach(() => {
+    rmSync(outDir, { recursive: true, force: true })
+    rmSync(casesDir, { recursive: true, force: true })
+  })
 
   it('runs the whole pipeline on MockLanguageModelV4 and writes both reports', async () => {
     const { factory, calls } = mockModelFactory(respond)

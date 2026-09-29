@@ -1,0 +1,40 @@
+{
+  "kind": "supplementary",
+  "mealName": "Pannkoogid moosiga",
+  "servings": 4,
+  "timeMinutes": 30,
+  "components": [
+    {
+      "name": "nisujahu",
+      "quantityPerServing": 60,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "piim",
+      "quantityPerServing": 125,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "muna",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "suhkur",
+      "quantityPerServing": 5,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "või",
+      "quantityPerServing": 8,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "maasikamoos",
+      "quantityPerServing": 30,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": "1. Vispelda muna, suhkur ja pool piimast.\n2. Sega juurde jahu, siis ülejäänud piim ja sulatatud või.\n3. Lase taignal 10 minutit seista.\n4. Küpseta kuumal pannil õhukesed pannkoogid ja serveeri moosiga.",
+  "locale": "et"
+}

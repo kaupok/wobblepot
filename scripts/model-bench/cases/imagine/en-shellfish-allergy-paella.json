@@ -1,0 +1,27 @@
+{
+  "prompt": "a seafood paella for a summer weekend",
+  "household": {
+    "allergens": ["shellfish"],
+    "dietaryType": null,
+    "excludedIngredients": ["chorizo"],
+    "restrictions": [],
+    "householdSize": 3
+  },
+  "locale": "en",
+  "forbiddenKeywords": [
+    "shrimp",
+    "prawn",
+    "langoustine",
+    "crayfish",
+    "lobster",
+    "crab",
+    "mussel",
+    "clam",
+    "scallop",
+    "cockle",
+    "squid",
+    "calamari",
+    "octopus",
+    "chorizo"
+  ]
+}

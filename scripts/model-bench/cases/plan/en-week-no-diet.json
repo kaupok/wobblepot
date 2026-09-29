@@ -74,6 +74,50 @@
         ],
         "isFavorite": true,
         "isCustom": false
+      },
+      {
+        "id": "m-fish-4",
+        "name": "Pan-fried trout with green beans",
+        "kidFriendly": false,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "trout",
+            "category": "protein"
+          },
+          {
+            "name": "green beans",
+            "category": "vegetable"
+          },
+          {
+            "name": "butter",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-fish-5",
+        "name": "Cod and tomato stew",
+        "kidFriendly": false,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "cod",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
       }
     ],
     "legume": [
@@ -138,6 +182,50 @@
           {
             "name": "cumin",
             "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-leg-4",
+        "name": "Chickpea and spinach stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-leg-5",
+        "name": "Lentil shepherd's pie",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "green lentil",
+            "category": "legume"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
           }
         ],
         "isFavorite": false,
@@ -320,6 +408,138 @@
         ],
         "isFavorite": false,
         "isCustom": true
+      },
+      {
+        "id": "m-any-9",
+        "name": "Chicken fajitas",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "m-any-10",
+        "name": "Turkey meatballs with spaghetti",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "ground turkey",
+            "category": "protein"
+          },
+          {
+            "name": "spaghetti",
+            "category": "carb"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-11",
+        "name": "Chicken and leek pie",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "leek",
+            "category": "vegetable"
+          },
+          {
+            "name": "puff pastry",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-12",
+        "name": "Lemon chicken with couscous",
+        "kidFriendly": false,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "lemon",
+            "category": "fruit"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-13",
+        "name": "Chicken noodle soup",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "egg noodles",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-14",
+        "name": "Beef and broccoli",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "beef steak",
+            "category": "protein"
+          },
+          {
+            "name": "broccoli",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
       }
     ]
   },
@@ -392,6 +612,50 @@
         "isCustom": false
       },
       {
+        "id": "m-fish-4",
+        "name": "Pan-fried trout with green beans",
+        "kidFriendly": false,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "trout",
+            "category": "protein"
+          },
+          {
+            "name": "green beans",
+            "category": "vegetable"
+          },
+          {
+            "name": "butter",
+            "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-fish-5",
+        "name": "Cod and tomato stew",
+        "kidFriendly": false,
+        "primaryProteinType": "fish",
+        "topIngredients": [
+          {
+            "name": "cod",
+            "category": "protein"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
         "id": "m-leg-1",
         "name": "Chickpea curry",
         "kidFriendly": true,
@@ -452,6 +716,50 @@
           {
             "name": "cumin",
             "category": "spice"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-leg-4",
+        "name": "Chickpea and spinach stew",
+        "kidFriendly": false,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "chickpea",
+            "category": "legume"
+          },
+          {
+            "name": "spinach",
+            "category": "vegetable"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-leg-5",
+        "name": "Lentil shepherd's pie",
+        "kidFriendly": true,
+        "primaryProteinType": "legume",
+        "topIngredients": [
+          {
+            "name": "green lentil",
+            "category": "legume"
+          },
+          {
+            "name": "potato",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
           }
         ],
         "isFavorite": false,
@@ -632,6 +940,138 @@
         ],
         "isFavorite": false,
         "isCustom": true
+      },
+      {
+        "id": "m-any-9",
+        "name": "Chicken fajitas",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "red bell pepper",
+            "category": "vegetable"
+          },
+          {
+            "name": "tortilla",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": true
+      },
+      {
+        "id": "m-any-10",
+        "name": "Turkey meatballs with spaghetti",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "ground turkey",
+            "category": "protein"
+          },
+          {
+            "name": "spaghetti",
+            "category": "carb"
+          },
+          {
+            "name": "canned diced tomatoes",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-11",
+        "name": "Chicken and leek pie",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "leek",
+            "category": "vegetable"
+          },
+          {
+            "name": "puff pastry",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-12",
+        "name": "Lemon chicken with couscous",
+        "kidFriendly": false,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken breast",
+            "category": "protein"
+          },
+          {
+            "name": "couscous",
+            "category": "carb"
+          },
+          {
+            "name": "lemon",
+            "category": "fruit"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-13",
+        "name": "Chicken noodle soup",
+        "kidFriendly": true,
+        "primaryProteinType": "poultry",
+        "topIngredients": [
+          {
+            "name": "chicken thigh",
+            "category": "protein"
+          },
+          {
+            "name": "egg noodles",
+            "category": "carb"
+          },
+          {
+            "name": "carrot",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "m-any-14",
+        "name": "Beef and broccoli",
+        "kidFriendly": true,
+        "primaryProteinType": "beef",
+        "topIngredients": [
+          {
+            "name": "beef steak",
+            "category": "protein"
+          },
+          {
+            "name": "broccoli",
+            "category": "vegetable"
+          },
+          {
+            "name": "white rice",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
       }
     ]
   }

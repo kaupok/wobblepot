@@ -1,17 +1,17 @@
 {
-  "startDate": "2026-10-05",
-  "endDate": "2026-10-12",
+  "startDate": "2026-10-15",
+  "endDate": "2026-10-19",
   "weekdayMealTypes": ["dinner"],
-  "weekendMealTypes": ["lunch", "dinner"],
+  "weekendMealTypes": ["dinner"],
   "dietaryType": "vegetarian",
-  "restrictions": [],
-  "pantryIngredients": ["kartul", "punane lääts"],
+  "restrictions": ["lapsed ei söö vürtsikat"],
+  "pantryIngredients": ["tatar", "muna"],
   "locale": "et",
   "candidatePools": {
     "fish": [],
     "legume": [
       {
-        "id": "m-et-leg-1",
+        "id": "meal-leg-01",
         "name": "Läätsesupp",
         "kidFriendly": true,
         "primaryProteinType": "legume",
@@ -33,7 +33,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-leg-2",
+        "id": "meal-leg-02",
         "name": "Kikerhernekarri",
         "kidFriendly": true,
         "primaryProteinType": "legume",
@@ -55,29 +55,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-leg-3",
-        "name": "Oaburgerid",
-        "kidFriendly": true,
-        "primaryProteinType": "legume",
-        "topIngredients": [
-          {
-            "name": "must uba",
-            "category": "legume"
-          },
-          {
-            "name": "burgerisai",
-            "category": "carb"
-          },
-          {
-            "name": "salat",
-            "category": "vegetable"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": true
-      },
-      {
-        "id": "m-et-leg-4",
+        "id": "meal-leg-03",
         "name": "Punase oa hautis riisiga",
         "kidFriendly": true,
         "primaryProteinType": "legume",
@@ -99,7 +77,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-leg-5",
+        "id": "meal-leg-04",
         "name": "Hernesupp",
         "kidFriendly": false,
         "primaryProteinType": "legume",
@@ -121,7 +99,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-leg-6",
+        "id": "meal-leg-05",
         "name": "Läätsebolognese",
         "kidFriendly": true,
         "primaryProteinType": "legume",
@@ -139,167 +117,13 @@
             "category": "vegetable"
           }
         ],
-        "isFavorite": true,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-leg-7",
-        "name": "Tofuwokk köögiviljadega",
-        "kidFriendly": true,
-        "primaryProteinType": "legume",
-        "topIngredients": [
-          {
-            "name": "tofu",
-            "category": "legume"
-          },
-          {
-            "name": "brokkoli",
-            "category": "vegetable"
-          },
-          {
-            "name": "riis",
-            "category": "carb"
-          }
-        ],
         "isFavorite": false,
         "isCustom": false
       }
     ],
     "any": [
       {
-        "id": "m-et-any-1",
-        "name": "Kodujuustukauss",
-        "kidFriendly": true,
-        "primaryProteinType": "dairy",
-        "topIngredients": [
-          {
-            "name": "kodujuust",
-            "category": "dairy"
-          },
-          {
-            "name": "kurk",
-            "category": "vegetable"
-          },
-          {
-            "name": "tomat",
-            "category": "vegetable"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-2",
-        "name": "Juustune ahjupasta",
-        "kidFriendly": true,
-        "primaryProteinType": "dairy",
-        "topIngredients": [
-          {
-            "name": "pasta",
-            "category": "carb"
-          },
-          {
-            "name": "juust",
-            "category": "dairy"
-          },
-          {
-            "name": "koor",
-            "category": "dairy"
-          }
-        ],
-        "isFavorite": true,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-3",
-        "name": "Köögiviljaomlett",
-        "kidFriendly": true,
-        "primaryProteinType": "eggs",
-        "topIngredients": [
-          {
-            "name": "muna",
-            "category": "protein"
-          },
-          {
-            "name": "paprika",
-            "category": "vegetable"
-          },
-          {
-            "name": "sibul",
-            "category": "vegetable"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-4",
-        "name": "Seenerisoto",
-        "kidFriendly": true,
-        "primaryProteinType": "none",
-        "topIngredients": [
-          {
-            "name": "riis",
-            "category": "carb"
-          },
-          {
-            "name": "šampinjon",
-            "category": "vegetable"
-          },
-          {
-            "name": "parmesan",
-            "category": "dairy"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-5",
-        "name": "Kõrvitsasupp",
-        "kidFriendly": true,
-        "primaryProteinType": "none",
-        "topIngredients": [
-          {
-            "name": "kõrvits",
-            "category": "vegetable"
-          },
-          {
-            "name": "kartul",
-            "category": "carb"
-          },
-          {
-            "name": "koor",
-            "category": "dairy"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-6",
-        "name": "Pannkoogid kohupiimaga",
-        "kidFriendly": true,
-        "primaryProteinType": "dairy",
-        "topIngredients": [
-          {
-            "name": "jahu",
-            "category": "carb"
-          },
-          {
-            "name": "muna",
-            "category": "protein"
-          },
-          {
-            "name": "kohupiim",
-            "category": "dairy"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-7",
+        "id": "meal-any-01",
         "name": "Omlett juustu ja tomatiga",
         "kidFriendly": true,
         "primaryProteinType": "eggs",
@@ -321,7 +145,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-any-8",
+        "id": "meal-any-02",
         "name": "Shakshuka",
         "kidFriendly": false,
         "primaryProteinType": "eggs",
@@ -343,7 +167,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-any-9",
+        "id": "meal-any-03",
         "name": "Juustune makaronivorm",
         "kidFriendly": true,
         "primaryProteinType": "dairy",
@@ -362,10 +186,10 @@
           }
         ],
         "isFavorite": false,
-        "isCustom": true
+        "isCustom": false
       },
       {
-        "id": "m-et-any-10",
+        "id": "meal-any-04",
         "name": "Halloumi ahjuköögiviljadega",
         "kidFriendly": false,
         "primaryProteinType": "dairy",
@@ -387,7 +211,73 @@
         "isCustom": false
       },
       {
-        "id": "m-et-any-11",
+        "id": "meal-any-05",
+        "name": "Pitsa Margherita",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "mozzarella",
+            "category": "dairy"
+          },
+          {
+            "name": "pitsapõhi",
+            "category": "carb"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-06",
+        "name": "Spinatitäidisega cannelloni",
+        "kidFriendly": false,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "cannelloni",
+            "category": "carb"
+          },
+          {
+            "name": "ricotta",
+            "category": "dairy"
+          },
+          {
+            "name": "spinat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-07",
+        "name": "Kohupiimavorm",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "kohupiim",
+            "category": "dairy"
+          },
+          {
+            "name": "muna",
+            "category": "protein"
+          },
+          {
+            "name": "manna",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-08",
         "name": "Seeneragu tatraga",
         "kidFriendly": false,
         "primaryProteinType": "none",
@@ -409,7 +299,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-any-12",
+        "id": "meal-any-09",
         "name": "Ahjuköögiviljad kuskussiga",
         "kidFriendly": true,
         "primaryProteinType": "none",
@@ -427,11 +317,11 @@
             "category": "vegetable"
           }
         ],
-        "isFavorite": true,
-        "isCustom": false
+        "isFavorite": false,
+        "isCustom": true
       },
       {
-        "id": "m-et-any-13",
+        "id": "meal-any-10",
         "name": "Ratatouille",
         "kidFriendly": false,
         "primaryProteinType": "none",
@@ -453,7 +343,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-any-14",
+        "id": "meal-any-11",
         "name": "Kartuli-lillkapsakarri",
         "kidFriendly": false,
         "primaryProteinType": "none",
@@ -469,6 +359,94 @@
           {
             "name": "kookospiim",
             "category": "fat"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-12",
+        "name": "Täidetud paprikad riisiga",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "paprika",
+            "category": "vegetable"
+          },
+          {
+            "name": "riis",
+            "category": "carb"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-13",
+        "name": "Köögiviljapaella",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "riis",
+            "category": "carb"
+          },
+          {
+            "name": "paprika",
+            "category": "vegetable"
+          },
+          {
+            "name": "aeduba",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-14",
+        "name": "Köögiviljawokk riisinuudlitega",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "riisinuudel",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
+          },
+          {
+            "name": "brokkoli",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-15",
+        "name": "Hautatud kapsas kartulitega",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "valge kapsas",
+            "category": "vegetable"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
+            "category": "vegetable"
           }
         ],
         "isFavorite": false,
@@ -479,7 +457,7 @@
   "candidatesByMealType": {
     "dinner": [
       {
-        "id": "m-et-leg-1",
+        "id": "meal-leg-01",
         "name": "Läätsesupp",
         "kidFriendly": true,
         "primaryProteinType": "legume",
@@ -501,7 +479,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-leg-2",
+        "id": "meal-leg-02",
         "name": "Kikerhernekarri",
         "kidFriendly": true,
         "primaryProteinType": "legume",
@@ -523,29 +501,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-leg-3",
-        "name": "Oaburgerid",
-        "kidFriendly": true,
-        "primaryProteinType": "legume",
-        "topIngredients": [
-          {
-            "name": "must uba",
-            "category": "legume"
-          },
-          {
-            "name": "burgerisai",
-            "category": "carb"
-          },
-          {
-            "name": "salat",
-            "category": "vegetable"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": true
-      },
-      {
-        "id": "m-et-leg-4",
+        "id": "meal-leg-03",
         "name": "Punase oa hautis riisiga",
         "kidFriendly": true,
         "primaryProteinType": "legume",
@@ -567,7 +523,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-leg-5",
+        "id": "meal-leg-04",
         "name": "Hernesupp",
         "kidFriendly": false,
         "primaryProteinType": "legume",
@@ -589,7 +545,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-leg-6",
+        "id": "meal-leg-05",
         "name": "Läätsebolognese",
         "kidFriendly": true,
         "primaryProteinType": "legume",
@@ -607,165 +563,11 @@
             "category": "vegetable"
           }
         ],
-        "isFavorite": true,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-leg-7",
-        "name": "Tofuwokk köögiviljadega",
-        "kidFriendly": true,
-        "primaryProteinType": "legume",
-        "topIngredients": [
-          {
-            "name": "tofu",
-            "category": "legume"
-          },
-          {
-            "name": "brokkoli",
-            "category": "vegetable"
-          },
-          {
-            "name": "riis",
-            "category": "carb"
-          }
-        ],
         "isFavorite": false,
         "isCustom": false
       },
       {
-        "id": "m-et-any-1",
-        "name": "Kodujuustukauss",
-        "kidFriendly": true,
-        "primaryProteinType": "dairy",
-        "topIngredients": [
-          {
-            "name": "kodujuust",
-            "category": "dairy"
-          },
-          {
-            "name": "kurk",
-            "category": "vegetable"
-          },
-          {
-            "name": "tomat",
-            "category": "vegetable"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-2",
-        "name": "Juustune ahjupasta",
-        "kidFriendly": true,
-        "primaryProteinType": "dairy",
-        "topIngredients": [
-          {
-            "name": "pasta",
-            "category": "carb"
-          },
-          {
-            "name": "juust",
-            "category": "dairy"
-          },
-          {
-            "name": "koor",
-            "category": "dairy"
-          }
-        ],
-        "isFavorite": true,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-3",
-        "name": "Köögiviljaomlett",
-        "kidFriendly": true,
-        "primaryProteinType": "eggs",
-        "topIngredients": [
-          {
-            "name": "muna",
-            "category": "protein"
-          },
-          {
-            "name": "paprika",
-            "category": "vegetable"
-          },
-          {
-            "name": "sibul",
-            "category": "vegetable"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-4",
-        "name": "Seenerisoto",
-        "kidFriendly": true,
-        "primaryProteinType": "none",
-        "topIngredients": [
-          {
-            "name": "riis",
-            "category": "carb"
-          },
-          {
-            "name": "šampinjon",
-            "category": "vegetable"
-          },
-          {
-            "name": "parmesan",
-            "category": "dairy"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-5",
-        "name": "Kõrvitsasupp",
-        "kidFriendly": true,
-        "primaryProteinType": "none",
-        "topIngredients": [
-          {
-            "name": "kõrvits",
-            "category": "vegetable"
-          },
-          {
-            "name": "kartul",
-            "category": "carb"
-          },
-          {
-            "name": "koor",
-            "category": "dairy"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-6",
-        "name": "Pannkoogid kohupiimaga",
-        "kidFriendly": true,
-        "primaryProteinType": "dairy",
-        "topIngredients": [
-          {
-            "name": "jahu",
-            "category": "carb"
-          },
-          {
-            "name": "muna",
-            "category": "protein"
-          },
-          {
-            "name": "kohupiim",
-            "category": "dairy"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-any-7",
+        "id": "meal-any-01",
         "name": "Omlett juustu ja tomatiga",
         "kidFriendly": true,
         "primaryProteinType": "eggs",
@@ -787,7 +589,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-any-8",
+        "id": "meal-any-02",
         "name": "Shakshuka",
         "kidFriendly": false,
         "primaryProteinType": "eggs",
@@ -809,7 +611,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-any-9",
+        "id": "meal-any-03",
         "name": "Juustune makaronivorm",
         "kidFriendly": true,
         "primaryProteinType": "dairy",
@@ -828,10 +630,10 @@
           }
         ],
         "isFavorite": false,
-        "isCustom": true
+        "isCustom": false
       },
       {
-        "id": "m-et-any-10",
+        "id": "meal-any-04",
         "name": "Halloumi ahjuköögiviljadega",
         "kidFriendly": false,
         "primaryProteinType": "dairy",
@@ -853,7 +655,73 @@
         "isCustom": false
       },
       {
-        "id": "m-et-any-11",
+        "id": "meal-any-05",
+        "name": "Pitsa Margherita",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "mozzarella",
+            "category": "dairy"
+          },
+          {
+            "name": "pitsapõhi",
+            "category": "carb"
+          },
+          {
+            "name": "tomat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-06",
+        "name": "Spinatitäidisega cannelloni",
+        "kidFriendly": false,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "cannelloni",
+            "category": "carb"
+          },
+          {
+            "name": "ricotta",
+            "category": "dairy"
+          },
+          {
+            "name": "spinat",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-07",
+        "name": "Kohupiimavorm",
+        "kidFriendly": true,
+        "primaryProteinType": "dairy",
+        "topIngredients": [
+          {
+            "name": "kohupiim",
+            "category": "dairy"
+          },
+          {
+            "name": "muna",
+            "category": "protein"
+          },
+          {
+            "name": "manna",
+            "category": "carb"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-08",
         "name": "Seeneragu tatraga",
         "kidFriendly": false,
         "primaryProteinType": "none",
@@ -875,7 +743,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-any-12",
+        "id": "meal-any-09",
         "name": "Ahjuköögiviljad kuskussiga",
         "kidFriendly": true,
         "primaryProteinType": "none",
@@ -893,11 +761,11 @@
             "category": "vegetable"
           }
         ],
-        "isFavorite": true,
-        "isCustom": false
+        "isFavorite": false,
+        "isCustom": true
       },
       {
-        "id": "m-et-any-13",
+        "id": "meal-any-10",
         "name": "Ratatouille",
         "kidFriendly": false,
         "primaryProteinType": "none",
@@ -919,7 +787,7 @@
         "isCustom": false
       },
       {
-        "id": "m-et-any-14",
+        "id": "meal-any-11",
         "name": "Kartuli-lillkapsakarri",
         "kidFriendly": false,
         "primaryProteinType": "none",
@@ -939,91 +807,89 @@
         ],
         "isFavorite": false,
         "isCustom": false
-      }
-    ],
-    "lunch": [
-      {
-        "id": "m-et-l-1",
-        "name": "Juustuvõileivad",
-        "kidFriendly": true,
-        "primaryProteinType": "dairy",
-        "topIngredients": [
-          {
-            "name": "leib",
-            "category": "carb"
-          },
-          {
-            "name": "juust",
-            "category": "dairy"
-          },
-          {
-            "name": "kurk",
-            "category": "vegetable"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
       },
       {
-        "id": "m-et-l-2",
-        "name": "Tomatisupp",
+        "id": "meal-any-12",
+        "name": "Täidetud paprikad riisiga",
         "kidFriendly": true,
         "primaryProteinType": "none",
         "topIngredients": [
           {
+            "name": "paprika",
+            "category": "vegetable"
+          },
+          {
+            "name": "riis",
+            "category": "carb"
+          },
+          {
             "name": "tomat",
             "category": "vegetable"
+          }
+        ],
+        "isFavorite": true,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-13",
+        "name": "Köögiviljapaella",
+        "kidFriendly": false,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "riis",
+            "category": "carb"
           },
           {
-            "name": "sibul",
+            "name": "paprika",
             "category": "vegetable"
           },
           {
-            "name": "koor",
-            "category": "dairy"
+            "name": "aeduba",
+            "category": "vegetable"
           }
         ],
         "isFavorite": false,
         "isCustom": false
       },
       {
-        "id": "m-et-l-3",
-        "name": "Munasalat",
+        "id": "meal-any-14",
+        "name": "Köögiviljawokk riisinuudlitega",
         "kidFriendly": true,
-        "primaryProteinType": "eggs",
+        "primaryProteinType": "none",
         "topIngredients": [
           {
-            "name": "muna",
-            "category": "protein"
-          },
-          {
-            "name": "hapukoor",
-            "category": "dairy"
-          },
-          {
-            "name": "kartul",
+            "name": "riisinuudel",
             "category": "carb"
-          }
-        ],
-        "isFavorite": false,
-        "isCustom": false
-      },
-      {
-        "id": "m-et-l-4",
-        "name": "Hummus köögiviljadega",
-        "kidFriendly": true,
-        "primaryProteinType": "legume",
-        "topIngredients": [
-          {
-            "name": "kikerhernes",
-            "category": "legume"
           },
           {
             "name": "porgand",
             "category": "vegetable"
           },
           {
-            "name": "kurk",
+            "name": "brokkoli",
+            "category": "vegetable"
+          }
+        ],
+        "isFavorite": false,
+        "isCustom": false
+      },
+      {
+        "id": "meal-any-15",
+        "name": "Hautatud kapsas kartulitega",
+        "kidFriendly": true,
+        "primaryProteinType": "none",
+        "topIngredients": [
+          {
+            "name": "valge kapsas",
+            "category": "vegetable"
+          },
+          {
+            "name": "kartul",
+            "category": "carb"
+          },
+          {
+            "name": "porgand",
             "category": "vegetable"
           }
         ],

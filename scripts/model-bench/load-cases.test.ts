@@ -7,17 +7,41 @@ import { TASKS } from './case-schema'
 import { loadCases } from './load-cases'
 import { prepareCase } from './tasks'
 
-describe('the committed starter cases', () => {
+describe('the committed cases', () => {
   const cases = loadCases(TASKS)
 
-  it.each(TASKS)('%s has one English and one Estonian case', (task) => {
+  // HON-797: enough cases per task that one failure does not move a rate past
+  // a regression threshold on its own.
+  it.each(TASKS)('%s has 8 to 10 cases, at least 3 of them Estonian', (task) => {
     const locales = cases.filter((c) => c.task === task).map((c) => c.input.locale)
-    expect(locales.sort()).toEqual(['en', 'et'])
+    expect(locales.length).toBeGreaterThanOrEqual(8)
+    expect(locales.length).toBeLessThanOrEqual(10)
+    expect(locales.filter((l) => l === 'et').length).toBeGreaterThanOrEqual(3)
   })
 
-  it('tips has one full and one supplementary case', () => {
+  it('tips has at least 3 cases of each kind', () => {
     const kinds = cases.flatMap((c) => (c.task === 'tips' ? [c.input.kind] : []))
-    expect(kinds.sort()).toEqual(['full', 'supplementary'])
+    expect(kinds.filter((k) => k === 'full').length).toBeGreaterThanOrEqual(3)
+    expect(kinds.filter((k) => k === 'supplementary').length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('every plan case offers 20 to 50 dinner candidates, with meal IDs unique in the case', () => {
+    for (const c of cases) {
+      if (c.task !== 'plan') continue
+      const { fish, legume, any } = c.input.candidatePools
+      const dinner = [...fish, ...legume, ...any]
+      expect(dinner.length, c.id).toBeGreaterThanOrEqual(20)
+      expect(dinner.length, c.id).toBeLessThanOrEqual(50)
+
+      // The same meal may appear under several meal types, so compare by ID
+      // only across different meals: one ID must never name two meals.
+      const names = new Map<string, string>()
+      for (const meal of [...dinner, ...Object.values(c.input.candidatesByMealType).flat()]) {
+        expect(names.get(meal.id) ?? meal.name, `${c.id}: ${meal.id}`).toBe(meal.name)
+        names.set(meal.id, meal.name)
+      }
+      expect(new Set(dinner.map((m) => m.id)).size, c.id).toBe(dinner.length)
+    }
   })
 
   it('ids come from the directory and file name', () => {
