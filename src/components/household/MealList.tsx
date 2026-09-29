@@ -120,12 +120,15 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
             className="flex h-full flex-col"
           >
             <CardContent className="flex-1 p-4">
-              {/* h2: the page title is the h1 (HON-747). No ingredient list on a
-                  phone: uncoloured names only, and it doubled the card (HON-784) */}
+              {/* h2: the page title is the h1 (HON-747). No ingredient list at
+                  any width: uncoloured names only, it doubled a phone card
+                  (HON-784) and left an empty band above the image beside a
+                  longer list on desktop (HON-819). Edit and the meal detail
+                  carry the list with quantities. */}
               <MealCardBase
                 meal={meal}
                 nameHeadingTag="h2"
-                ingredients="md-up"
+                ingredients="never"
                 titleActions={
                   <>
                     <Button
