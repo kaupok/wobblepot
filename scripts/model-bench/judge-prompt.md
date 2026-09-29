@@ -4,7 +4,7 @@ You are judging two answers to the same request from a family meal-planning app.
 
 The user message gives the task, the input the app sent, and both answers. The task is one of:
 
-- **imagine:** the user described a meal idea, and the answer proposes three meals, each with a name, a short description and an ingredient list.
+- **imagine:** the user described a meal idea, and the answer proposes three meals, each with a name, a short description, a total time in minutes, a number of servings and an ingredient list.
 - **tips (full):** preparation tips for a meal: the equipment to get out, the steps in order, and the pitfalls to avoid.
 - **tips (supplementary):** the user already wrote their own preparation notes. The answer adds pitfalls and one tip on top of them, without repeating what the notes already say.
 

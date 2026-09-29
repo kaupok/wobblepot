@@ -139,11 +139,18 @@ interface ImagineOutput {
   meals?: {
     name?: string
     description?: string | null
+    timeMinutes?: number | null
+    servings?: number
     ingredients?: { originalText?: string }[]
   }[]
 }
 
-/** Imagine is judged on names, descriptions and ingredient lists only. */
+/**
+ * Imagine is judged on what the user reads: names, descriptions, ingredient
+ * lists, and the time and servings the rubric's accuracy point checks. The
+ * flags the app acts on (`mealTypes`, `kidFriendly`, the parsed quantity
+ * fields) are left out.
+ */
 function judgeOutput(task: JudgedTask, output: unknown): unknown {
   if (task !== 'imagine') return output
   const meals = (output as ImagineOutput | null)?.meals ?? []
@@ -151,6 +158,8 @@ function judgeOutput(task: JudgedTask, output: unknown): unknown {
     meals: meals.map((m) => ({
       name: m.name,
       description: m.description,
+      timeMinutes: m.timeMinutes,
+      servings: m.servings,
       ingredients: (m.ingredients ?? []).map((i) => i.originalText),
     })),
   }

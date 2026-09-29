@@ -139,11 +139,19 @@ describe('buildJudgePrompt via runJudge', () => {
     expect(et!.promptText).toContain('# Estonian AI voice reference')
   })
 
-  it('shows imagine meals as names, descriptions and ingredient lists', async () => {
+  it('shows imagine meals as what the user reads: name, description, time, servings, ingredients', async () => {
     const { calls } = await judgeOne(() => 'tie')
     const answerA = JSON.parse(between(calls[0]!.promptText, 'answer_a'))
     expect(answerA).toEqual({
-      meals: [{ name: MARK.baseline, description: 'd', ingredients: ['300 g rice'] }],
+      meals: [
+        {
+          name: MARK.baseline,
+          description: 'd',
+          timeMinutes: 30,
+          servings: 4,
+          ingredients: ['300 g rice'],
+        },
+      ],
     })
     // The scorer's forbidden list is not what the app sent.
     expect(between(calls[0]!.promptText, 'input')).not.toContain('forbiddenKeywords')
