@@ -236,7 +236,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     })
 
     if (!existingMeal) {
-      return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Recipe not found' }, { status: 404 })
     }
 
     const {

@@ -375,7 +375,7 @@ describe('PATCH /api/households/me/meals/[id]', () => {
     const data = await response.json()
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('Meal not found')
+    expect(data.error).toBe('Recipe not found')
   })
 
   it('updates meal name successfully', async () => {
