@@ -429,13 +429,13 @@ Key enums: `DietaryType`, `MealType`, `MealPlanEntryStatus`, `Unit`, `Ingredient
 ### Frontend Pages
 
 - `/` - Today dashboard (default home)
-- `/meal-plan` - Weekly plan with status controls and week navigation
-- `/shopping` - Unified shopping list with urgency sorting
-- `/pantry` - Pantry management
+- `/meal-plan` - Redirects to `/` (the weekly plan lives on the Today dashboard)
+- `/shopping` - Shopping list with urgency sorting on a phone; from `md` up, pantry and list side by side
+- `/pantry` - Pantry inventory on a phone (its own tab); from `md` up, the same page as `/shopping`
 - `/recipes` - Recipe/meal library
 - `/recipes/import` - Import recipe from URL
 - `/household` - Household settings and members
-- `/household/invites` - Manage invite links
+- `/household/invites` - Redirects to `/household` (invites are managed in its Members section)
 - `/profile` - Personal preferences and account
 - `/onboarding` - New user household setup
 - `/sign-in` - Login

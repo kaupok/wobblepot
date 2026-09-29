@@ -82,7 +82,7 @@ mcp__voicemode__converse({
 
 ### App page map for reference
 
-Page map: see `docs/CHROME_TESTING.md` → Page map (regenerate from `find src/app -name page.tsx` if routes changed). It also lists the redirect stubs (`/meal-plan`, `/pantry`, `/household/invites`) — landing on their targets is expected behaviour, not a bug.
+Page map: see `docs/CHROME_TESTING.md` → Page map (regenerate from `find src/app -name page.tsx` if routes changed). It also lists the redirect stubs (`/meal-plan`, `/household/invites`) — landing on their targets is expected behaviour, not a bug.
 
 Default itinerary for a broad sweep — start here, then branch out using the full map:
 
