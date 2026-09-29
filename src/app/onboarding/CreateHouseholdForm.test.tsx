@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CreateHouseholdForm } from './CreateHouseholdForm'
@@ -88,6 +88,35 @@ describe('CreateHouseholdForm', () => {
 
       expect(screen.getByRole('alert')).toHaveTextContent('Household name is required')
       expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
+    })
+  })
+
+  describe('Focus management', () => {
+    it('focuses the household name input on first render', () => {
+      renderForm()
+
+      expect(screen.getByLabelText('Household name')).toHaveFocus()
+    })
+
+    it('focuses the step 2 title, described by the step number, after Continue', async () => {
+      renderForm()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      const title = screen.getByRole('heading', { level: 1, name: 'Household members' })
+      expect(title).toHaveFocus()
+      expect(title).toHaveAccessibleDescription('Step 2 of 2')
+    })
+
+    it('focuses the step 1 title, described by the step number, after Back', async () => {
+      renderForm()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+      const title = screen.getByRole('heading', { level: 1, name: 'Create your household' })
+      expect(title).toHaveFocus()
+      expect(title).toHaveAccessibleDescription('Step 1 of 2')
     })
   })
 
@@ -467,6 +496,95 @@ describe('CreateHouseholdForm', () => {
       await waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent('Invalid data')
       })
+    })
+
+    // Chromium blurs a focused button when it becomes disabled, so while the
+    // request is pending focus is on the body. jsdom keeps it on the button
+    // (and ignores `blur()` on a disabled element), so move it to the body the
+    // way the browser does before the request settles.
+    function dropFocusToBody() {
+      act(() => {
+        document.body.tabIndex = -1
+        document.body.focus()
+        document.body.removeAttribute('tabindex')
+      })
+      expect(document.body).toHaveFocus()
+    }
+
+    it('returns focus to the submit button after a failed create', async () => {
+      let rejectRequest!: (reason: Error) => void
+      mockFetch.mockReturnValue(
+        new Promise((_, reject) => {
+          rejectRequest = reject
+        }),
+      )
+
+      renderForm()
+
+      await navigateToFinalStep()
+      await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
+      expect(screen.getByRole('button', { name: 'Creating…' })).toBeDisabled()
+      dropFocusToBody()
+
+      await act(async () => rejectRequest(new Error('Network error')))
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Create household' })).toHaveFocus()
+      })
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Unable to connect. Please check your internet connection.',
+      )
+    })
+
+    it('returns focus to the submit button after the route answers with an error', async () => {
+      let resolveRequest!: (value: unknown) => void
+      mockFetch.mockReturnValue(
+        new Promise((resolve) => {
+          resolveRequest = resolve
+        }),
+      )
+
+      renderForm()
+
+      await navigateToFinalStep()
+      await userEvent.click(screen.getByRole('button', { name: 'Create household' }))
+      dropFocusToBody()
+
+      await act(async () =>
+        resolveRequest({
+          ok: false,
+          json: () => Promise.resolve({ error: 'Validation failed' }),
+        }),
+      )
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Create household' })).toHaveFocus()
+      })
+      expect(screen.getByRole('alert')).toHaveTextContent('Failed to create household')
+    })
+
+    // Enter in the step 1 name input submits the form. What that does is out of
+    // scope for HON-833; only where focus lands after it fails is covered here.
+    it('returns focus to the household name input after a failed create from step 1', async () => {
+      let rejectRequest!: (reason: Error) => void
+      mockFetch.mockReturnValue(
+        new Promise((_, reject) => {
+          rejectRequest = reject
+        }),
+      )
+
+      renderForm()
+
+      await userEvent.type(screen.getByLabelText('Household name'), '{Enter}')
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      dropFocusToBody()
+
+      await act(async () => rejectRequest(new Error('Network error')))
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Household name')).toHaveFocus()
+      })
+      expect(screen.getByRole('alert')).toBeInTheDocument()
     })
 
     it('shows the translated fallback when the failure carries no message', async () => {
