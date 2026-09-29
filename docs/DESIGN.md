@@ -187,6 +187,7 @@ Full voice guide: [docs/PROJECT_SPEC.md → Brand voice and tone](PROJECT_SPEC.m
 - Empty states say what is true and what to do next, in that order: a `Body variant="muted"` line plus one primary `Button`. No illustrations, no jokes about the emptiness.
 - Errors say what happened and what to do, never what went wrong technically. "We couldn't save that. Try again." not "Request failed (500)."
 - One light-touch phrase per screen at most. Warm is a seasoning, not the dish.
+- An optional text field ends its label with "(optional)" ("(vabatahtlik)" in Estonian). Placeholders only give an example and never say it; required fields, checkboxes, radio groups and selects carry no mark, and there are no asterisks.
 
 ## Reject list
 

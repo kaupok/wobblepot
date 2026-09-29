@@ -279,8 +279,8 @@ describe('HouseholdSettingsForm', () => {
       for (const checkbox of screen.getAllByLabelText('Dinner')) {
         expect(checkbox).toBeDisabled()
       }
-      expect(screen.getByLabelText('Dietary restrictions')).toBeDisabled()
-      expect(screen.getByLabelText('Ingredients to exclude')).toBeDisabled()
+      expect(screen.getByLabelText('Dietary restrictions (optional)')).toBeDisabled()
+      expect(screen.getByLabelText('Ingredients to exclude (optional)')).toBeDisabled()
     })
 
     it('enables preferences for owners', () => {
