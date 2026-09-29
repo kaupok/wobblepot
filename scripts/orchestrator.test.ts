@@ -1483,6 +1483,16 @@ describe('orchestrator.sh', () => {
       expect(out).not.toContain('piped-stdin')
     })
 
+    it('stops the command at once when the bound is not a whole number of seconds', () => {
+      // GNU timeout accepts `1.5`, so ORCHESTRATOR_TRIAGE_TIMEOUT can carry one.
+      // The watchdog cannot count it in ticks and must fail closed, not exit
+      // on an arithmetic error and leave the triage call unbounded (HON-802).
+      const out = drive('1.5', '2')
+
+      expect(out).toContain('EXIT:124')
+      expect(out).not.toContain('piped-stdin')
+    })
+
     it('passes stdin through and returns the real status inside the bound', () => {
       const out = drive('5', '0')
 

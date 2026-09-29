@@ -314,9 +314,15 @@ bash_timeout() {
   # answered in milliseconds still took a full second, which put a six-second
   # floor under the six-step circuit-breaker test and timed it out whenever the
   # machine was busy (HON-802).
+  #
+  # A bound that is not a whole number of seconds (`1.5`, `90s` — both valid
+  # for GNU timeout) gets a limit of 0 ticks, so the command is stopped at once.
+  # `$((secs * 10))` would be an arithmetic syntax error that exits the watchdog
+  # before it signals anything, leaving the command unbounded: fail closed.
   (
-    ticks=0
-    while [ "$ticks" -lt $((secs * 10)) ]; do
+    ticks=0 limit=0
+    case "$secs" in "" | *[!0-9]*) ;; *) limit=$((secs * 10)) ;; esac
+    while [ "$ticks" -lt "$limit" ]; do
       kill -0 "$cmd_pid" 2>/dev/null || exit 0
       sleep 0.1
       ticks=$((ticks + 1))
