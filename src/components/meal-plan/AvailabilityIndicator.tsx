@@ -21,6 +21,16 @@ export function getIngredientAvailabilitySets(pantryIngredients: PantryIngredien
 }
 
 /**
+ * Whether the pantry says anything about a meal. Staples alone do not count:
+ * every household starts with salt, black pepper and water as staples
+ * (HON-769), so counting them would mark every other ingredient missing for a
+ * household that has never used the pantry.
+ */
+export function hasPantryData(pantryIngredients: PantryIngredient[] | undefined): boolean {
+  return pantryIngredients?.some((p) => !p.isStaple) ?? false
+}
+
+/**
  * Compute meal availability based on pantry contents.
  * An ingredient is considered available if it exists in the pantry
  * (regardless of quantity). Staples are always considered available

@@ -1,10 +1,16 @@
 'use client'
 
+import { useMemo } from 'react'
 import { ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
+import {
+  AvailabilityIndicator,
+  computeMealAvailability,
+  hasPantryData,
+} from './AvailabilityIndicator'
 import { MealCardBase } from './MealCardBase'
 import { MealImageCard } from './MealImageCard'
 import type { AlternativeMeal, PantryIngredient } from './types'
@@ -24,6 +30,15 @@ export function AlternativeCard({
   pantryIngredients,
 }: AlternativeCardProps) {
   const t = useTranslations('meal-plan.alternative')
+  // Same gate as the ingredient rows in `MealCardBase`, so a staples-only
+  // pantry shows neither the marks nor a badge counting everything missing.
+  const availability = useMemo(
+    () =>
+      hasPantryData(pantryIngredients) && pantryIngredients
+        ? computeMealAvailability(meal, pantryIngredients)
+        : null,
+    [meal, pantryIngredients],
+  )
   return (
     // The dialog's cards are taller than wide, so the image sits below the
     // ingredients instead of behind them (HON-750).
@@ -54,6 +69,13 @@ export function AlternativeCard({
             <Body variant="small">
               {t(meal.ratingSignal === 'liked' ? 'ratedUp' : 'ratedDown')}
             </Body>
+          </div>
+        )}
+        {/* The pantry's verdict, as the last row, where the card on Today puts
+            it (HON-816). */}
+        {availability && (
+          <div className="mt-2 flex flex-wrap items-center gap-1">
+            <AvailabilityIndicator availability={availability} />
           </div>
         )}
       </CardContent>

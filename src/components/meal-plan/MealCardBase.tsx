@@ -1,12 +1,12 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Clock, ExternalLink } from 'lucide-react'
+import { Check, Clock, ExternalLink, Minus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Body, Heading, type HeadingTag } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
-import { getIngredientAvailabilitySets } from './AvailabilityIndicator'
+import { getIngredientAvailabilitySets, hasPantryData } from './AvailabilityIndicator'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { mealImageTitleWidth, type MealImageFields } from './MealImageCard'
 import { MealTypeBadge } from './MealTypeBadge'
@@ -34,7 +34,10 @@ export interface MealCardBaseData extends MealImageFields {
 
 interface MealCardBaseProps {
   meal: MealCardBaseData
-  /** When provided, ingredients are color-coded by pantry availability */
+  /**
+   * When provided, each ingredient is marked by pantry availability: an icon,
+   * visually hidden state text and the colour (docs/DESIGN.md → Color).
+   */
   pantryIngredients?: PantryIngredient[]
   /**
    * HTML tag for the meal name. The visual level is always Section: a card sits
@@ -75,14 +78,11 @@ export function MealCardBase({
   titleActions,
 }: MealCardBaseProps) {
   const tDetail = useTranslations('meal-plan.detail')
-  // Staples alone are not pantry data: every household starts with salt, black
-  // pepper and water as staples (HON-769), so counting them would paint every
-  // other ingredient amber for a household that has never used the pantry.
-  const hasPantryData = pantryIngredients?.some((p) => !p.isStaple) ?? false
-  const { availableIds, stapleIds } =
-    hasPantryData && pantryIngredients
+  const tAvailability = useTranslations('meal-plan.availability')
+  const availability =
+    hasPantryData(pantryIngredients) && pantryIngredients
       ? getIngredientAvailabilitySets(pantryIngredients)
-      : { availableIds: null, stapleIds: null }
+      : null
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -141,30 +141,52 @@ export function MealCardBase({
         </div>
       )}
 
-      {/* 6. Ingredient list (names only, color-coded when pantry data available) */}
-      <ul
-        className={cn(
-          'ml-4 list-disc text-sm',
-          !hasPantryData && 'text-muted-foreground',
-          ingredients === 'md-up' && 'hidden md:block',
-        )}
-      >
-        {meal.components.map((comp) => {
-          const isAvailable =
-            availableIds !== null &&
-            (stapleIds!.has(comp.ingredientId) || availableIds.has(comp.ingredientId))
-          const isMissing = availableIds !== null && !isAvailable
+      {/* 6. Ingredient list. Names only and muted without pantry data. With
+          it, each row's icon, hidden state text and colour say whether the
+          pantry has it: colour is never the only cue (HON-816). Staples count
+          as available. */}
+      {availability ? (
+        <ul className={cn('flex flex-col text-sm', ingredients === 'md-up' && 'hidden md:flex')}>
+          {meal.components.map((comp) => {
+            const isAvailable =
+              availability.stapleIds.has(comp.ingredientId) ||
+              availability.availableIds.has(comp.ingredientId)
+            const Icon = isAvailable ? Check : Minus
 
-          return (
-            <li
-              key={comp.ingredientId}
-              className={cn(isAvailable && 'text-success', isMissing && 'text-warning')}
-            >
-              {comp.ingredient.name}
-            </li>
-          )
-        })}
-      </ul>
+            return (
+              <li
+                key={comp.ingredientId}
+                className={cn(
+                  'flex items-start gap-1.5',
+                  isAvailable ? 'text-success' : 'text-warning',
+                )}
+              >
+                {/* A box one `text-sm` line tall centres the icon on the first
+                    line, so a wrapped name keeps it beside that line. */}
+                <span className="flex h-5 shrink-0 items-center">
+                  <Icon className="size-3.5" aria-hidden="true" />
+                </span>
+                <span>{comp.ingredient.name}</span>
+                <span className="sr-only">
+                  {', '}
+                  {tAvailability(isAvailable ? 'stateAvailable' : 'stateUnavailable')}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <ul
+          className={cn(
+            'text-muted-foreground ml-4 list-disc text-sm',
+            ingredients === 'md-up' && 'hidden md:block',
+          )}
+        >
+          {meal.components.map((comp) => (
+            <li key={comp.ingredientId}>{comp.ingredient.name}</li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

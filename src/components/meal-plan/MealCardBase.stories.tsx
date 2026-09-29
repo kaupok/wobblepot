@@ -1,9 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import { Heart, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { CardContent } from '@/components/ui/card'
 import { MealType } from '@/generated/prisma/enums'
+import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMealCardBaseData, createMealComponent } from '@/stories/fixtures'
 import { MealCardBase } from './MealCardBase'
+import { MealImageCard } from './MealImageCard'
 import type { PantryIngredient } from './types'
 
 const mealFixture = createMealCardBaseData()
@@ -132,23 +136,99 @@ export const NoDescription: Story = {
   },
 }
 
+/** Lemon is missing; chicken is in the pantry and garlic and olive oil are staples. */
+const somePantry = [
+  { ingredientId: 'chicken-thigh', isStaple: false },
+  { ingredientId: 'garlic', isStaple: true },
+  { ingredientId: 'olive-oil', isStaple: true },
+] satisfies PantryIngredient[]
+
+const fullPantry = [
+  ...somePantry,
+  { ingredientId: 'lemon', isStaple: false },
+] satisfies PantryIngredient[]
+
 export const WithPantryAvailability: Story = {
-  args: {
-    meal: mealFixture,
-    pantryIngredients: [
-      { ingredientId: 'chicken-thigh', isStaple: false },
-      { ingredientId: 'garlic', isStaple: true },
-      { ingredientId: 'olive-oil', isStaple: true },
-    ] satisfies PantryIngredient[],
-  },
+  name: 'Pantry: some missing',
+  args: { meal: mealFixture, pantryIngredients: somePantry },
   parameters: {
     docs: {
       description: {
         story:
-          'When pantryIngredients is provided, available ingredients are green and missing ones are amber.',
+          'With pantry data each ingredient carries a check (available) or a minus (missing) in place of its bullet, visually hidden text naming the state, and the colour: green available, amber missing. Colour is never the only cue (docs/DESIGN.md → Color, HON-816). Staples count as available.',
       },
     },
   },
+  play: async ({ canvasElement }) => {
+    const items = within(canvasElement).getAllByRole('listitem')
+    await expect(items.map((li) => li.textContent)).toEqual([
+      'Chicken thigh, available',
+      'Garlic, available',
+      'Lemon, not available',
+      'Olive oil, available',
+    ])
+    await expect(items[2]!.querySelector('svg')).toHaveClass('lucide-minus')
+    await expect(items[0]!.querySelector('svg')).toHaveClass('lucide-check')
+  },
+}
+
+export const PantryAllAvailable: Story = {
+  name: 'Pantry: all available',
+  args: { meal: mealFixture, pantryIngredients: fullPantry },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByText(', not available')).not.toBeInTheDocument()
+    await expect(canvas.getAllByText(', available')).toHaveLength(4)
+  },
+}
+
+export const NoPantryData: Story = {
+  name: 'Pantry: no data',
+  args: { meal: mealFixture },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Without `pantryIngredients` the list is muted names with bullets: no icons and no state text, since there is no state to name.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const list = within(canvasElement).getByRole('list')
+    await expect(list).toHaveClass('list-disc')
+    await expect(list.querySelector('svg')).toBeNull()
+  },
+}
+
+const tintedMeal = createMealCardBaseData({
+  imageStatus: 'ready',
+  imageUrl: mealIllustration.src,
+  imageHue: 52,
+})
+
+/**
+ * The marks on the meal's tint, where the alternatives grid shows them. The
+ * success and warning colours are measured against every hue in
+ * `src/lib/meal-tint.test.ts`; this story puts the axe gate on them too.
+ */
+export const PantryOnTint: Story = {
+  name: 'Pantry: some missing, on a tinted card',
+  args: { meal: tintedMeal, pantryIngredients: somePantry },
+  decorators: [
+    (Story, { args }) => (
+      <MealImageCard meal={args.meal} layout="bottom" size="sm">
+        <CardContent className="p-4">
+          <Story />
+        </CardContent>
+      </MealImageCard>
+    ),
+  ],
+}
+
+export const PantryOnTintDark: Story = {
+  ...PantryOnTint,
+  name: 'Pantry: some missing, on a tinted card (dark)',
+  globals: { theme: 'dark' },
 }
 
 export const WithOnlyDefaultStaples: Story = {
