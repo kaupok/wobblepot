@@ -852,8 +852,8 @@
     "banner": {
       "ariaLabel": "Cookie consent",
       "header": "We use cookies",
-      "body": "Essential cookies keep you signed in. Analytics cookies help us understand how the app is used so we can improve it. You can change this any time from the footer.",
-      "policyLink": "Learn more in our <link>privacy policy</link>.",
+      "body": "Essential cookies keep you signed in. Analytics cookies are optional and help us improve the app. Change your choice any time in the footer.",
+      "policyLink": "<link>Privacy policy</link>",
       "acceptAll": "Accept all",
       "essentialOnly": "Essential only"
     },

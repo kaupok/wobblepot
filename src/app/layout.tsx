@@ -141,7 +141,10 @@ export default async function RootLayout({
             disableTransitionOnChange
             nonce={nonce}
           >
-            <ConsentProvider initialDecision={consentDecision}>
+            <ConsentProvider
+              initialDecision={consentDecision}
+              hasTabBar={Boolean(session) && hasHousehold}
+            >
               <Providers
                 isAuthenticated={Boolean(session)}
                 userId={session?.user.id}

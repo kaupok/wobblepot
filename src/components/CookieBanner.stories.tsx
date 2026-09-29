@@ -4,6 +4,7 @@ import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvi
 import { CookieBanner } from '@/components/CookieBanner'
 
 interface CookieBannerStoryArgs {
+  hasTabBar: boolean
   granted: boolean | null
   grant: () => void
   withdraw: () => void
@@ -22,7 +23,9 @@ const meta = {
       },
     },
   },
+  render: ({ hasTabBar }) => <CookieBanner hasTabBar={hasTabBar} />,
   args: {
+    hasTabBar: false,
     granted: null,
     grant: fn(),
     withdraw: fn(),
@@ -40,7 +43,7 @@ const meta = {
       )
     },
   ],
-} satisfies Meta<typeof CookieBanner>
+} satisfies Meta<CookieBannerStoryArgs>
 
 export default meta
 type Story = StoryObj<CookieBannerStoryArgs>
@@ -70,4 +73,66 @@ export const EssentialOnly: Story = {
     await userEvent.click(await body.findByRole('button', { name: 'Essential only' }))
     expect(args.withdraw).toHaveBeenCalledTimes(1)
   },
+}
+
+// The banner is `fixed`, so these measure it against the story's viewport,
+// which `.storybook/vitest.setup.ts` syncs to the Vitest page (390×844 here).
+async function assertPhoneLayout(expectedBottomInset: number, maxHeight: number) {
+  const body = within(document.body)
+  const region = await body.findByRole('region', { name: /cookie consent|küpsiste nõusolek/i })
+  const [essentialBox, acceptBox] = within(region)
+    .getAllByRole('button')
+    .map((button) => button.getBoundingClientRect())
+  if (!essentialBox || !acceptBox) throw new Error('Expected two consent buttons')
+
+  // One row below `sm`, each half the row at the full 44px control height.
+  expect(essentialBox.top).toBe(acceptBox.top)
+  expect(essentialBox.height).toBe(44)
+  expect(acceptBox.height).toBe(44)
+
+  const regionBox = region.getBoundingClientRect()
+  expect(window.innerHeight - regionBox.bottom).toBe(expectedBottomInset)
+  // It covered the landing page's only button at 328px (HON-845).
+  expect(regionBox.height).toBeLessThanOrEqual(maxHeight)
+
+  // Informed consent: the link survives the shorter copy (HON-457).
+  expect(within(region).getByRole('link')).toHaveAttribute('href', '/privacy#cookies')
+}
+
+/** Signed out, on onboarding or an invite: no tab bar, so a 16px inset (HON-845). */
+export const PhoneWithoutTabBar: Story = {
+  args: { hasTabBar: false },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  play: async () => {
+    await assertPhoneLayout(16, 240)
+  },
+}
+
+/** Signed in with a household: the banner sits 80px up, clear of the 64px tab bar. */
+export const PhoneWithTabBar: Story = {
+  args: { hasTabBar: true },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  play: async () => {
+    await assertPhoneLayout(80, 240)
+  },
+}
+
+/** The longer Estonian labels still fit side by side at 390px. */
+export const PhoneEstonian: Story = {
+  args: { hasTabBar: false },
+  globals: { locale: 'et', viewport: { value: 'mobileIphone', isRotated: false } },
+  play: async () => {
+    await assertPhoneLayout(16, 264)
+    const body = within(document.body)
+    for (const name of ['Ainult olulised', 'Nõustu kõigega']) {
+      const button = body.getByRole('button', { name })
+      // `whitespace-nowrap` keeps the label on one line; this catches it
+      // overflowing the half-row instead.
+      expect(button.scrollWidth).toBeLessThanOrEqual(button.clientWidth)
+    }
+  },
+}
+
+export const Desktop: Story = {
+  globals: { viewport: { value: 'desktop', isRotated: false } },
 }

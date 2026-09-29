@@ -153,8 +153,12 @@ describe('RootLayout', () => {
     })
 
     householdId.resolve('household-1')
-    const props = findPropsWith(await tree, 'hasHousehold')
+    const element = await tree
+    const props = findPropsWith(element, 'hasHousehold')
     expect(props?.hasHousehold).toBe(true)
+
+    // The tab bar renders, so the cookie banner must lift above it (HON-845).
+    expect(findPropsWith(element, 'hasTabBar')?.hasTabBar).toBe(true)
   })
 
   it('renders the signed-out tree without touching the household lookup', async () => {
@@ -165,6 +169,9 @@ describe('RootLayout', () => {
 
     const tabBarProps = findPropsWith(element, 'hasHousehold')
     expect(tabBarProps?.hasHousehold).toBe(false)
+
+    // No tab bar, so no reserved space under the cookie banner (HON-845).
+    expect(findPropsWith(element, 'hasTabBar')?.hasTabBar).toBe(false)
 
     expect(mockGetHouseholdIdForUser).not.toHaveBeenCalled()
     expect(mockBootstrapFlags).toHaveBeenCalledWith('anonymous')
