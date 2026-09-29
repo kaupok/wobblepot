@@ -86,15 +86,16 @@ describe('MealCardBase', () => {
       render(<MealCardBase meal={mockMeal} />)
 
       const list = screen.getByText('Salmon').closest('ul')
+      expect(list).toBeInTheDocument()
       expect(list).not.toHaveClass('hidden')
-      expect(list).not.toHaveClass('md:block')
     })
 
-    it("hides the list below md with ingredients='md-up' (HON-784)", () => {
-      render(<MealCardBase meal={mockMeal} ingredients="md-up" />)
+    it("leaves the list out of the DOM with ingredients='never' (HON-819)", () => {
+      const { container } = render(<MealCardBase meal={mockMeal} ingredients="never" />)
 
-      const list = screen.getByText('Salmon').closest('ul')
-      expect(list).toHaveClass('hidden', 'md:block')
+      expect(container.querySelector('ul')).toBeNull()
+      expect(screen.queryByText('Salmon')).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Salmon Rice Bowl' })).toBeInTheDocument()
     })
   })
 
@@ -242,10 +243,13 @@ describe('MealCardBase', () => {
       expect(screen.queryByText(/available/)).not.toBeInTheDocument()
     })
 
-    it('keeps the md-up visibility with pantry data', () => {
-      render(<MealCardBase meal={mockMeal} pantryIngredients={pantry} ingredients="md-up" />)
+    it("renders no list with ingredients='never', even with pantry data", () => {
+      const { container } = render(
+        <MealCardBase meal={mockMeal} pantryIngredients={pantry} ingredients="never" />,
+      )
 
-      expect(screen.getByText('Salmon').closest('ul')).toHaveClass('hidden', 'md:flex')
+      expect(container.querySelector('ul')).toBeNull()
+      expect(screen.queryByText(/available/)).not.toBeInTheDocument()
     })
   })
 })

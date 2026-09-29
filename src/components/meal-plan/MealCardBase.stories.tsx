@@ -60,17 +60,21 @@ export const IngredientsAlways: Story = {
   },
 }
 
-export const IngredientsMdUp: Story = {
-  name: 'Ingredients: md and up (phone)',
-  args: { meal: mealFixture, ingredients: 'md-up' },
-  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+export const IngredientsNever: Story = {
+  name: 'Ingredients: never',
+  args: { meal: mealFixture, ingredients: 'never' },
   parameters: {
     docs: {
       description: {
         story:
-          '`ingredients="md-up"` hides the list below `md`. The recipe library passes it: there the list is uncoloured names only, and on a phone it made each card nearly two screens tall (HON-784). Widen the viewport past `md` to see the list return.',
+          '`ingredients="never"` leaves the list out of the DOM at every width. The recipe library passes it: there the list is uncoloured names only, it made a phone card nearly two screens tall (HON-784) and a desktop card nearly one viewport (HON-819). The edit page and meal detail carry the list with quantities.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { name: mealFixture.name })).toBeVisible()
+    await expect(canvasElement.querySelector('ul')).toBeNull()
   },
 }
 

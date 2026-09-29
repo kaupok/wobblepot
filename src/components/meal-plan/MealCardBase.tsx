@@ -49,14 +49,16 @@ interface MealCardBaseProps {
    */
   nameHeadingTag?: HeadingTag
   /**
-   * When the ingredient list shows. `'md-up'` hides it below `md`, for the
-   * recipe library, where the list is uncoloured names only and makes a phone
-   * card nearly two screens tall (HON-784). The alternatives grid keeps
-   * `'always'`, because there the list is colour-coded against the pantry. The
-   * imagine panel and results keep it too, left unchanged by HON-784's scope
-   * decision even though they pass no pantry data.
+   * Whether the ingredient list renders. `'never'` leaves it out of the DOM,
+   * for the recipe library: there the list is uncoloured names only, it made a
+   * phone card nearly two screens tall (HON-784) and a desktop card nearly one
+   * viewport (HON-819), and the edit page and meal detail carry the full list
+   * with quantities. The alternatives grid keeps `'always'`, because there the
+   * list is colour-coded against the pantry. The imagine panel and results keep
+   * it too, left unchanged by HON-784's scope decision even though they pass no
+   * pantry data.
    */
-  ingredients?: 'always' | 'md-up'
+  ingredients?: 'always' | 'never'
   /**
    * The card's actions, aligned right on the name's row (docs/DESIGN.md →
    * Composition, "Actions sit on the title row"). For a `layout="bottom"`
@@ -144,9 +146,9 @@ export function MealCardBase({
       {/* 6. Ingredient list. Names only and muted without pantry data. With
           it, each row's icon, hidden state text and colour say whether the
           pantry has it: colour is never the only cue (HON-816). Staples count
-          as available. */}
-      {availability ? (
-        <ul className={cn('flex flex-col text-sm', ingredients === 'md-up' && 'hidden md:flex')}>
+          as available. Left out entirely with `ingredients="never"`. */}
+      {ingredients === 'never' ? null : availability ? (
+        <ul className="flex flex-col text-sm">
           {meal.components.map((comp) => {
             const isAvailable =
               availability.stapleIds.has(comp.ingredientId) ||
@@ -176,12 +178,7 @@ export function MealCardBase({
           })}
         </ul>
       ) : (
-        <ul
-          className={cn(
-            'text-muted-foreground ml-4 list-disc text-sm',
-            ingredients === 'md-up' && 'hidden md:block',
-          )}
-        >
+        <ul className="text-muted-foreground ml-4 list-disc text-sm">
           {meal.components.map((comp) => (
             <li key={comp.ingredientId}>{comp.ingredient.name}</li>
           ))}
