@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import { ChefHat } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ChoiceChips } from '@/components/ui/choice-chips'
@@ -127,9 +126,6 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
       <div className="min-h-screen-below-header-gutters container mx-auto flex items-center justify-center px-4 py-8">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center gap-6 pt-8 pb-8">
-            <div className="bg-primary/10 flex h-16 w-16 items-center justify-center rounded-full">
-              <ChefHat className="text-primary h-8 w-8" />
-            </div>
             <div className="flex flex-col gap-2 text-center">
               <Heading variant="h4" as="h2">
                 {userName ? tFirst('welcome', { userName }) : tFirst('welcomeNoName')}
