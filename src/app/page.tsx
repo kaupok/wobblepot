@@ -5,63 +5,19 @@ import { getTranslations } from 'next-intl/server'
 import { CheckCircle2 } from 'lucide-react'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
-import { getServerBaseURL } from '@/lib/env'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import {
-  getTodayInTimezone,
-  getUrgencyBucket,
-  toDateString,
-  parseLocalDate,
-} from '@/lib/meal-planning/dates'
+import { getLocale } from '@/lib/i18n/get-locale'
+import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
+import { loadPantry } from '@/lib/meal-planning/load-pantry'
+import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
+import { getTodayInTimezone, getUrgencyBucket, parseLocalDate } from '@/lib/meal-planning/dates'
 import { TimelineView } from '@/components/timeline'
 import { FirstTimeSetup } from '@/components/timeline'
-import type {
-  PantryIngredient,
-  PantryItemFull,
-  PlanEntry,
-  ExpectedMealTypes,
-} from '@/components/meal-plan/types'
-import type { UrgencyBucket } from '@/lib/meal-planning/dates'
-import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
+import type { ComponentProps } from 'react'
+import type { ExpectedMealTypes } from '@/components/meal-plan/types'
 
-interface ShoppingItem {
-  ingredientId: string
-  name: string
-  displayQuantity: string
-  neededByDate: string
-  neededByRelative: string
-  purchased: boolean
-  urgency: UrgencyBucket
-}
-
-interface ShoppingListResponse {
-  windowDays: number
-  startDate: string
-  endDate: string
-  generatedAt: string | null
-  groups: {
-    category: IngredientCategory
-    categoryLabel: string
-    items: {
-      ingredientId: string
-      name: string
-      quantity: number
-      unit: Unit
-      displayQuantity: string
-      mealCount: number
-      purchased: boolean
-      neededByDate: string
-      neededByRelative: string
-      neededByAbsolute: string
-    }[]
-  }[]
-  summary: {
-    totalItems: number
-    purchasedItems: number
-    remainingItems: number
-  }
-}
+type TimelineShoppingItem = ComponentProps<typeof TimelineView>['shoppingItems'][number]
 
 export default async function Home() {
   const session = await auth.api.getSession({
@@ -128,79 +84,44 @@ export default async function Home() {
   const fourteenDaysAhead = new Date(todayParsed)
   fourteenDaysAhead.setDate(fourteenDaysAhead.getDate() + 15) // +15 because endDate is exclusive
 
-  // Fetch data in parallel
-  const requestHeaders = await headers()
-  const baseURL = getServerBaseURL()
-  const cookieHeader = requestHeaders.get('cookie') ?? ''
-
   // Rode along on the membership query's `_count` — no round-trip of its own.
   const householdSize = household._count.members
 
-  const [entriesResponse, pantryResponse, shoppingResponse] = await Promise.all([
-    fetch(
-      `${baseURL}/api/entries?startDate=${toDateString(sevenDaysAgo)}&endDate=${toDateString(fourteenDaysAhead)}`,
-      {
-        headers: { cookie: cookieHeader },
-        cache: 'no-store',
-      },
-    ),
-    fetch(`${baseURL}/api/pantry`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
-    fetch(`${baseURL}/api/shopping-list?days=7`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    }),
+  // Read straight from the loaders the API routes wrap, not over HTTP into our
+  // own deployment (HON-789). A loader that throws is not caught here: it
+  // reaches `src/app/error.tsx` rather than rendering Today as if the plan,
+  // pantry or shopping list were empty, and a failed entries load can never be
+  // mistaken for a first-time household.
+  const locale = await getLocale()
+  const [{ entries, planId }, pantry, shoppingList] = await Promise.all([
+    loadPlanEntries(household, { startDate: sevenDaysAgo, endDate: fourteenDaysAhead }),
+    loadPantry(household, { days: null }),
+    loadShoppingList(household, { days: 7, locale }),
   ])
 
-  // Parse entries
-  let entries: PlanEntry[] = []
-  let planId: string | null = null
-  if (entriesResponse.ok) {
-    const entriesData = await entriesResponse.json()
-    entries = entriesData.entries
-    planId = entriesData.planId
-  }
-
-  // First-time user: no entries and no plan (only when API succeeded)
-  if (entriesResponse.ok && entries.length === 0 && !planId) {
+  // First-time user: no entries and no plan
+  if (entries.length === 0 && !planId) {
     return <FirstTimeSetup userName={session.user.name} />
   }
 
-  // Parse pantry
-  let pantryIngredients: PantryIngredient[] = []
-  let pantryItems: PantryItemFull[] = []
-  if (pantryResponse.ok) {
-    const pantryData = await pantryResponse.json()
-    pantryItems = pantryData.items
-    pantryIngredients = pantryData.items.map(
-      (item: { ingredient: { id: string }; isStaple: boolean }) => ({
-        ingredientId: item.ingredient.id,
-        isStaple: item.isStaple,
-      }),
-    )
-  }
+  const pantryItems = pantry.items
+  const pantryIngredients = pantry.items.map((item) => ({
+    ingredientId: item.ingredient.id,
+    isStaple: item.isStaple,
+  }))
 
-  // Parse shopping list
-  const shoppingItems: ShoppingItem[] = []
-  if (shoppingResponse.ok) {
-    const shoppingData: ShoppingListResponse = await shoppingResponse.json()
-    for (const group of shoppingData.groups) {
-      for (const item of group.items) {
-        shoppingItems.push({
-          ingredientId: item.ingredientId,
-          name: item.name,
-          displayQuantity: item.displayQuantity,
-          neededByDate: item.neededByDate,
-          neededByRelative: item.neededByRelative,
-          purchased: item.purchased,
-          // Bucket against the household's day, not the server's (HON-762).
-          urgency: getUrgencyBucket(item.neededByDate, new Date(todayParsed)),
-        })
-      }
-    }
-  }
+  const shoppingItems: TimelineShoppingItem[] = shoppingList.groups.flatMap((group) =>
+    group.items.map((item) => ({
+      ingredientId: item.ingredientId,
+      name: item.name,
+      displayQuantity: item.displayQuantity,
+      neededByDate: item.neededByDate,
+      neededByRelative: item.neededByRelative,
+      purchased: item.purchased,
+      // Bucket against the household's day, not the server's (HON-762).
+      urgency: getUrgencyBucket(item.neededByDate, new Date(todayParsed)),
+    })),
+  )
 
   // Expected meal types come off the membership row, which already eager-loads
   // `preferences` — no request to /api/households/me/preferences (HON-676).
