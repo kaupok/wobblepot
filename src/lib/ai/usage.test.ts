@@ -139,7 +139,7 @@ describe('recordAiUsage', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'plan_generate',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 1_000_000,
       outputTokens: 0,
     })
@@ -148,7 +148,7 @@ describe('recordAiUsage', () => {
       data: expect.objectContaining({
         householdId: 'h1',
         feature: 'plan_generate',
-        model: 'claude-sonnet-5',
+        model: 'claude-sonnet-5-5',
         inputTokens: 1_000_000,
         outputTokens: 0,
         estimatedCostUsd: 2,
@@ -159,13 +159,31 @@ describe('recordAiUsage', () => {
     })
   })
 
-  it('prices cache-read and cache-write tokens at their own rates in the row and the PostHog event', async () => {
+  // A request in flight across the Sonnet 5.5 deploy (HON-794) still reports
+  // the superseded model; it must price from its retained entry, not at $0.
+  it('prices a row for the superseded claude-sonnet-5', async () => {
     mockCreate.mockResolvedValue({} as never)
 
     await recordAiUsage({
       householdId: 'h1',
       feature: 'plan_generate',
       model: 'claude-sonnet-5',
+      inputTokens: 1_000_000,
+      outputTokens: 0,
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ model: 'claude-sonnet-5', estimatedCostUsd: 2 }),
+    })
+  })
+
+  it('prices cache-read and cache-write tokens at their own rates in the row and the PostHog event', async () => {
+    mockCreate.mockResolvedValue({} as never)
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'plan_generate',
+      model: 'claude-sonnet-5-5',
       inputTokens: 1_000_000,
       cacheReadTokens: 2_000_000,
       cacheWriteTokens: 1_000_000,
@@ -199,7 +217,7 @@ describe('recordAiUsage', () => {
       recordAiUsage({
         householdId: 'h1',
         feature: 'recipe_parse',
-        model: 'claude-sonnet-5',
+        model: 'claude-sonnet-5-5',
         inputTokens: 100,
         outputTokens: 50,
       }),
@@ -274,7 +292,7 @@ describe('recordAiUsage › PostHog streaming', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'plan_generate',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 1_000_000,
       outputTokens: 0,
       retryCount: 0,
@@ -290,7 +308,7 @@ describe('recordAiUsage › PostHog streaming', () => {
         $ai_cache_read_input_tokens: 0,
         $ai_cache_creation_input_tokens: 0,
         $ai_output_tokens: 0,
-        $ai_model: 'claude-sonnet-5',
+        $ai_model: 'claude-sonnet-5-5',
         $ai_total_cost_usd: 2,
         $ai_provider: 'anthropic',
         $ai_trace_id: 'req-abc',
@@ -308,7 +326,7 @@ describe('recordAiUsage › PostHog streaming', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 100,
       outputTokens: 50,
     })
@@ -326,7 +344,7 @@ describe('recordAiUsage › PostHog streaming', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'meal_imagine',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 100,
       outputTokens: 0,
       success: false,
@@ -349,7 +367,7 @@ describe('recordAiUsage › PostHog streaming', () => {
       recordAiUsage({
         householdId: 'h1',
         feature: 'recipe_parse',
-        model: 'claude-sonnet-5',
+        model: 'claude-sonnet-5-5',
         inputTokens: 100,
         outputTokens: 50,
       }),
@@ -365,7 +383,7 @@ describe('recordAiUsage › PostHog streaming', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 100,
       outputTokens: 50,
     })
@@ -380,7 +398,7 @@ describe('recordAiUsage › PostHog streaming', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 100,
       outputTokens: 50,
     })
@@ -397,7 +415,7 @@ describe('recordAiUsage › requestId resolution', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 100,
       outputTokens: 50,
       requestId: 'explicit-id',
@@ -420,7 +438,7 @@ describe('recordAiUsage › requestId resolution', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 100,
       outputTokens: 50,
     })
@@ -442,7 +460,7 @@ describe('recordAiUsage › requestId resolution', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'recipe_parse',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 100,
       outputTokens: 50,
     })
@@ -466,7 +484,7 @@ describe('recordAiUsage › missing usage counts', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'plan_generate',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 0,
       outputTokens: 0,
       usageMissing: true,
@@ -485,7 +503,7 @@ describe('recordAiUsage › missing usage counts', () => {
     )
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn.mock.calls[0]![0]).toContain('plan_generate')
-    expect(warn.mock.calls[0]![0]).toContain('claude-sonnet-5')
+    expect(warn.mock.calls[0]![0]).toContain('claude-sonnet-5-5')
   })
 
   it('omits $ai_usage_missing and does not warn when usage is present', async () => {
@@ -495,7 +513,7 @@ describe('recordAiUsage › missing usage counts', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'plan_generate',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 1_000,
       outputTokens: 500,
       usageMissing: false,
@@ -514,7 +532,7 @@ describe('recordAiUsage › missing usage counts', () => {
     await recordAiUsage({
       householdId: 'h1',
       feature: 'meal_imagine',
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       inputTokens: 0,
       outputTokens: 0,
       usageMissing: true,
@@ -525,7 +543,7 @@ describe('recordAiUsage › missing usage counts', () => {
 })
 
 describe('withUsageOnFailure', () => {
-  const MODEL = 'claude-sonnet-5'
+  const MODEL = 'claude-sonnet-5-5'
 
   it('returns the result and reports nothing when the call succeeds', async () => {
     const onUsage = vi.fn()

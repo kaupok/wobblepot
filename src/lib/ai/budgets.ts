@@ -18,6 +18,22 @@
  *
  * Sized against the figures recorded on Sonnet 5 during HON-693: preparation
  * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs.
+ *
+ * Re-measured on Sonnet 5.5 during HON-794. These are whole-request times, so
+ * they include each route's own DB work and overstate the time spent against
+ * the budget:
+ *
+ * - plan: 10s for 7 days, 13s for the 14-day maximum, 8s to fill six empty days
+ * - recipe parse: 19s for a long pasted recipe (about 25 ingredients), 13s from
+ *   a URL including the page fetch
+ * - imagine: 11s for a simple prompt, 28s for hard ones (16-18 ingredients),
+ *   29s with three photos attached
+ * - quantity review: 6s for 18 ingredients
+ * - preparation tips: 7-9s, including an 18-ingredient meal on both prompts
+ *
+ * No call came within 20% of its budget, so every value stays as sized.
+ * Imagine has the least headroom, at 73%, and is the first to revisit if 504s
+ * appear.
  */
 
 /**

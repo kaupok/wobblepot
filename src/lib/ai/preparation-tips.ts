@@ -141,7 +141,8 @@ export function buildFullTipsRequest(input: TipsRequestInput) {
     // Same adaptive-thinking headroom as the supplementary call below
     // (HON-693). The full schema is larger, and on the same hard meal this
     // reached 892 output tokens (330 reasoning) — 89% of the old 1000, close
-    // enough to truncation to move.
+    // enough to truncation to move. On Sonnet 5.5 an 18-ingredient meal
+    // reached 791 (HON-794).
     maxOutputTokens: 2000,
     maxRetries: 3,
   }
@@ -170,7 +171,8 @@ export function buildSupplementaryTipsRequest(input: SupplementaryTipsRequestInp
     // this call reached 593 output tokens (335 of them reasoning) and
     // truncated outright at 400 — `finish: 'length'`, then
     // NoObjectGeneratedError and no tips for the user. This is a ceiling, not
-    // a target: a typical call still returns in ~195 tokens.
+    // a target: a typical call still returns in ~195 tokens. On Sonnet 5.5 an
+    // 18-ingredient meal reached 398 (HON-794).
     maxOutputTokens: 1200,
     maxRetries: 3,
   }
