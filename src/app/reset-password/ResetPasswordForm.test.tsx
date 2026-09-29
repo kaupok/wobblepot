@@ -50,7 +50,6 @@ describe('ResetPasswordForm', () => {
       const input = screen.getByLabelText(/new password/i)
       expect(input).toBeInTheDocument()
       expect(input).toHaveAttribute('type', 'password')
-      expect(input).toHaveAttribute('placeholder', 'At least 12 characters')
     })
 
     it('renders confirm password input with label', () => {
@@ -59,7 +58,6 @@ describe('ResetPasswordForm', () => {
       const input = screen.getByLabelText(/confirm password/i)
       expect(input).toBeInTheDocument()
       expect(input).toHaveAttribute('type', 'password')
-      expect(input).toHaveAttribute('placeholder', 'Re-enter your password')
     })
 
     // `new-password` is what makes a password manager offer to generate and save one.
@@ -73,6 +71,17 @@ describe('ResetPasswordForm', () => {
       const confirmPassword = screen.getByLabelText(/confirm password/i)
       expect(confirmPassword).toHaveAttribute('name', 'confirmPassword')
       expect(confirmPassword).toHaveAttribute('autocomplete', 'new-password')
+    })
+
+    // The hint under the field and the label already say what a placeholder would.
+    it('renders the password fields without placeholders, with the hint', () => {
+      render(<ResetPasswordForm />)
+
+      expect(screen.getByLabelText(/new password/i)).not.toHaveAttribute('placeholder')
+      expect(screen.getByLabelText(/confirm password/i)).not.toHaveAttribute('placeholder')
+      expect(screen.getByLabelText(/new password/i)).toHaveAccessibleDescription(
+        /use at least 12 characters/i,
+      )
     })
 
     it('renders reset password button', () => {
@@ -95,8 +104,12 @@ describe('ResetPasswordForm', () => {
     })
   })
 
-  describe('token extraction', () => {
-    it('extracts token from URL on mount', () => {
+  describe('without a token', () => {
+    beforeEach(() => {
+      mockGet.mockReturnValue(null)
+    })
+
+    it('reads the token from the URL', () => {
       mockGet.mockReturnValue('my-reset-token-456')
 
       render(<ResetPasswordForm />)
@@ -104,31 +117,56 @@ describe('ResetPasswordForm', () => {
       expect(mockGet).toHaveBeenCalledWith('token')
     })
 
-    it('shows error when no token in URL', () => {
-      mockGet.mockReturnValue(null)
+    it('says the link is incomplete, without the word "token"', () => {
+      render(<ResetPasswordForm />)
+
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent(
+        'This reset link is incomplete. Request a new one and open the link from that email.',
+      )
+      expect(alert).not.toHaveTextContent(/token/i)
+    })
+
+    it('links to request a new reset email', () => {
+      render(<ResetPasswordForm />)
+
+      expect(screen.getByRole('link', { name: 'Request a new link' })).toHaveAttribute(
+        'href',
+        '/forgot-password',
+      )
+    })
+
+    // Read during render, so the fields are absent from the first paint rather
+    // than rendered and then replaced.
+    it('renders no password field and no submit button', () => {
+      const { container } = render(<ResetPasswordForm />)
+
+      expect(container.querySelector('input')).toBeNull()
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    })
+
+    // Better Auth redirects an expired or already-used emailed link to
+    // /reset-password?error=INVALID_TOKEN, with no token. "Incomplete" would be
+    // the wrong cause for someone who did open the email.
+    it('says the link has expired when Better Auth reports an invalid token', () => {
+      mockGet.mockImplementation((key: string) => (key === 'error' ? 'INVALID_TOKEN' : null))
 
       render(<ResetPasswordForm />)
 
       expect(screen.getByRole('alert')).toHaveTextContent(
-        /no reset token found. please request a new password reset link/i,
+        'This password reset link has expired. Please request a new one.',
       )
+      expect(screen.getByRole('link', { name: 'Request a new link' })).toHaveAttribute(
+        'href',
+        '/forgot-password',
+      )
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
     })
 
-    it('disables form inputs when no token present', () => {
-      mockGet.mockReturnValue(null)
-
+    it('keeps the sign in link', () => {
       render(<ResetPasswordForm />)
 
-      expect(screen.getByLabelText(/new password/i)).toBeDisabled()
-      expect(screen.getByLabelText(/confirm password/i)).toBeDisabled()
-    })
-
-    it('disables submit button when no token present', () => {
-      mockGet.mockReturnValue(null)
-
-      render(<ResetPasswordForm />)
-
-      expect(screen.getByRole('button', { name: /reset password/i })).toBeDisabled()
+      expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/sign-in')
     })
   })
 
@@ -404,15 +442,6 @@ describe('ResetPasswordForm', () => {
       await vi.waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent(/connection failed/i)
       })
-    })
-
-    it('error has role="alert" for screen readers', async () => {
-      mockGet.mockReturnValue(null)
-
-      render(<ResetPasswordForm />)
-
-      const alert = screen.getByRole('alert')
-      expect(alert).toBeInTheDocument()
     })
   })
 })

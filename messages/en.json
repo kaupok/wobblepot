@@ -677,14 +677,14 @@
       "title": "Reset password",
       "description": "Enter your new password below",
       "newPasswordLabel": "New password",
-      "newPasswordPlaceholder": "At least 12 characters",
       "confirmPasswordLabel": "Confirm password",
-      "confirmPasswordPlaceholder": "Re-enter your password",
       "passwordHint": "Use at least 12 characters. Avoid passwords from past data breaches.",
       "submit": "Reset password",
       "submitting": "Resetting password…",
       "rememberPassword": "Remember your password?",
-      "signInLink": "Sign in"
+      "signInLink": "Sign in",
+      "missingLink": "This reset link is incomplete. Request a new one and open the link from that email.",
+      "requestNewLink": "Request a new link"
     },
     "invite": {
       "metaTitle": "Join household",
@@ -848,8 +848,7 @@
   },
   "validation": {
     "passwordsDoNotMatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 12 characters long",
-    "noResetToken": "No reset token found. Please request a new password reset link."
+    "passwordTooShort": "Password must be at least 12 characters long"
   },
   "consent": {
     "banner": {

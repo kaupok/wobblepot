@@ -47,7 +47,7 @@ export const UnderAnInput: Story = {
 // the single-line `small` level set the two lines touching (HON-827).
 export const WrappingMessage: Story = {
   args: {
-    children: 'No reset token found. Please request a new password reset link.',
+    children: 'This reset link is incomplete. Request a new one and open the link from that email.',
   },
   render: (args) => (
     <div className="max-w-xs">
