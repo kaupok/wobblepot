@@ -18,14 +18,19 @@ export function ResetPasswordForm() {
   // Read during render, not in an effect, so a link without a token never
   // shows the password fields before the message replaces them.
   const token = searchParams.get('token')
+  // Better Auth sends an expired or already-used emailed link here as
+  // `?error=INVALID_TOKEN`, without a token. That user did open the email.
+  const expired = searchParams.get('error') === 'INVALID_TOKEN'
 
-  return token ? <ResetPasswordFields token={token} /> : <MissingLinkCard />
+  return token ? <ResetPasswordFields token={token} /> : <MissingLinkCard expired={expired} />
 }
 
-// A truncated email link, a bookmark, or a URL copied without its query string
-// lands here. There is nothing to reset, so offer the one way forward.
-function MissingLinkCard() {
+// A truncated email link, a bookmark, a URL copied without its query string, or
+// an expired link lands here. There is nothing to reset, so offer the one way
+// forward.
+function MissingLinkCard({ expired }: { expired: boolean }) {
   const t = useTranslations('auth.resetPassword')
+  const tErrors = useTranslations('errors.auth')
 
   return (
     <Card className="w-full max-w-md">
@@ -35,7 +40,7 @@ function MissingLinkCard() {
         </Heading>
       </CardHeader>
       <CardContent>
-        <FieldError>{t('missingLink')}</FieldError>
+        <FieldError>{expired ? tErrors('tokenExpired') : t('missingLink')}</FieldError>
       </CardContent>
       <CardFooter className="pt-6">
         <div className="flex w-full flex-col gap-4">

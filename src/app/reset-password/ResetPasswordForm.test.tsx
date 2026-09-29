@@ -145,6 +145,24 @@ describe('ResetPasswordForm', () => {
       expect(screen.queryByRole('button')).not.toBeInTheDocument()
     })
 
+    // Better Auth redirects an expired or already-used emailed link to
+    // /reset-password?error=INVALID_TOKEN, with no token. "Incomplete" would be
+    // the wrong cause for someone who did open the email.
+    it('says the link has expired when Better Auth reports an invalid token', () => {
+      mockGet.mockImplementation((key: string) => (key === 'error' ? 'INVALID_TOKEN' : null))
+
+      render(<ResetPasswordForm />)
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'This password reset link has expired. Please request a new one.',
+      )
+      expect(screen.getByRole('link', { name: 'Request a new link' })).toHaveAttribute(
+        'href',
+        '/forgot-password',
+      )
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    })
+
     it('keeps the sign in link', () => {
       render(<ResetPasswordForm />)
 
