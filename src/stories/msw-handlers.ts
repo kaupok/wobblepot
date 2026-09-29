@@ -614,3 +614,15 @@ export const slowCreateEntryHandlers: HttpHandler[] = [
     return HttpResponse.json({ id: 'entry-slow' })
   }),
 ]
+
+/**
+ * Hold the placeholder `DELETE /api/meal-plans/:planId/entries/:entryId` open.
+ * Use to render the `TimelineEmptySlot` state after the selector is closed
+ * without a pick, while the discard is still in flight.
+ */
+export const slowDiscardEntryHandlers: HttpHandler[] = [
+  http.delete('/api/meal-plans/:planId/entries/:entryId', async () => {
+    await delay('infinite')
+    return HttpResponse.json({ ok: true })
+  }),
+]

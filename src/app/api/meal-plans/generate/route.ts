@@ -23,6 +23,8 @@ import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import type { MealPlanGenerateErrorCode } from '@/lib/ai/error-codes'
+// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
+import { PLAN_AI_BUDGET_MS } from '@/lib/ai/budgets'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
@@ -35,39 +37,6 @@ const generateRequestSchema = z.object({
 
 /** Maximum number of days allowed in a single generation request. */
 const MAX_DAYS = 14
-
-/**
- * Wall-clock budget for all AI time in this request, in milliseconds.
- *
- * One budget, not one per call site: `mode` is an enum and each branch
- * returns, so `generateMealPlan` and `fillEmptySlots` are mutually exclusive
- * and exactly one of them runs. It is shared by the initial attempt and every
- * `maxRetries` retry rather than being a per-attempt timeout, which makes it
- * the real bound on retries — a fast failure (429, 5xx) costs well under a
- * second and still retries freely; a slow generation does not.
- *
- * Sized against the figures recorded on Sonnet 5 during HON-693: preparation
- * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs. Plan
- * generation is the app's largest generation, so assume worse than the 25-32s
- * anchor; 40s covers a worst-case attempt with room for the fast failures
- * above.
- *
- * Re-measured on Sonnet 5.5 (HON-794), whole request: 10s for a 7-day plan,
- * 13s for the 14-day maximum, 8s to fill six empty days. That is a third of
- * the budget at worst, so it stays as sized.
- *
- * Passed as a duration, not a ready-made signal: this route's DB prelude runs
- * *inside* `generateMealPlan` / `fillEmptySlots` (the kept-slot read, the
- * parallel history/favourite/pantry fetch, `loadCandidatePools`, and for
- * fill-empty a nested plan `findUnique`), so a signal started here would spend
- * the AI budget on queries. The lib starts the clock immediately before the
- * model call instead. That leaves the 20s under `maxDuration` for the prelude
- * plus `hydratePlan` and the bulk entry write afterwards — more than the 15s
- * the tips route reserves, because this route's DB work is the heaviest in the
- * app. That headroom is what keeps the 504 below reachable instead of the
- * platform killing the function first.
- */
-const AI_BUDGET_MS = 40_000
 
 /**
  * Every error body carries a `code` from `MealPlanGenerateErrorCode` (HON-725).
@@ -207,7 +176,7 @@ async function handlePOST(request: Request) {
 
     try {
       const result = await fillEmptySlots({
-        aiBudgetMs: AI_BUDGET_MS,
+        aiBudgetMs: PLAN_AI_BUDGET_MS,
         planId,
         householdId: household.id,
         startDate,
@@ -316,7 +285,7 @@ async function handlePOST(request: Request) {
   try {
     // Generate meal plan (default mode)
     const result = await generateMealPlan({
-      aiBudgetMs: AI_BUDGET_MS,
+      aiBudgetMs: PLAN_AI_BUDGET_MS,
       householdId: household.id,
       startDate,
       endDate,
@@ -391,7 +360,7 @@ export const POST = withRequestId(handlePOST)
 /**
  * Platform execution ceiling for this route, in seconds.
  *
- * Stated explicitly because `AI_BUDGET_MS` is only meaningful if the platform
+ * Stated explicitly because `PLAN_AI_BUDGET_MS` is only meaningful if the platform
  * lets the function run that long — otherwise the request is killed first and
  * the friendly 504s above never run. 60 is the value every Vercel plan allows,
  * so this cannot fail to deploy (HON-693).

@@ -4,11 +4,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // one — which is the entire bug under test here (HON-725). Use the real
 // provider so the `et` assertions below are meaningful.
 vi.unmock('next-intl')
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
+import { authClient } from '@/lib/auth-client'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
 
 vi.mock('next/navigation', () => ({
@@ -31,10 +33,13 @@ function respondWith(body: unknown, status: number) {
 async function openAndConfirm(locale: 'en' | 'et') {
   const user = userEvent.setup()
   const messages = locale === 'et' ? etMessages : enMessages
+  const { wrapper: QueryWrapper } = createQueryWrapper()
   render(
-    <NextIntlClientProvider locale={locale} messages={messages}>
-      <DeleteAccountDialog userEmail="kaupo@example.com" />
-    </NextIntlClientProvider>,
+    <QueryWrapper>
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <DeleteAccountDialog userEmail="kaupo@example.com" />
+      </NextIntlClientProvider>
+    </QueryWrapper>,
   )
   await user.click(screen.getByRole('button', { name: messages.profile.delete.trigger }))
   const dialog = await screen.findByRole('alertdialog')
@@ -110,5 +115,52 @@ describe('DeleteAccountDialog error localization', () => {
     await screen.findByText(
       'You can\'t delete your account yet: you are the only owner of "Kõrvid", which has 1 other member. Please transfer ownership or remove other members first.',
     )
+  })
+})
+
+describe('DeleteAccountDialog pending state', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('keeps the confirm button disabled from a successful delete until the redirect', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({ success: true, purgeScheduledFor: '2026-10-29T03:00:00.000Z' }),
+        }),
+      ),
+    )
+    let finishSignOut!: () => void
+    vi.mocked(authClient.signOut).mockImplementation(
+      () => new Promise((resolve) => (finishSignOut = () => resolve(undefined as never))),
+    )
+
+    await openAndConfirm('en')
+
+    const dialog = screen.getByRole('alertdialog')
+    const deleting = await within(dialog).findByRole('button', {
+      name: enMessages.profile.delete.deleting,
+    })
+    expect(deleting).toBeDisabled()
+    await waitFor(() => expect(authClient.signOut).toHaveBeenCalled())
+
+    // Sign-out resolved, but the redirect has not landed — the account is gone,
+    // so the button must not come back.
+    finishSignOut()
+    // Let the mutation settle, then assert without retrying: a `waitFor` would
+    // pass on its first check, before the mutation had left `isPending`.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+    expect(
+      within(dialog).getByRole('button', { name: enMessages.profile.delete.deleting }),
+    ).toBeDisabled()
+    expect(
+      within(dialog).getByRole('button', { name: enMessages.profile.delete.cancel }),
+    ).toBeDisabled()
   })
 })

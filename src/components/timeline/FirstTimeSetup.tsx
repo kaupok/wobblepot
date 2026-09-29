@@ -17,6 +17,7 @@ import {
 import type { Locale } from '@/lib/i18n/locales'
 import type { DatesTranslator } from '@/lib/i18n/format-dates'
 import { track } from '@/lib/analytics'
+import { ApiError, apiFetch } from '@/lib/api'
 import {
   MEAL_PLAN_GENERATE_ERROR_KEYS,
   mealPlanGenerateFallbackKey,
@@ -35,12 +36,6 @@ import { FieldError } from '@/components/FieldError'
  * mapped 504 handled below.
  */
 const CLIENT_TIMEOUT_MS = 65000
-
-/**
- * A non-OK generate response, carrying copy already localized from the route's
- * `code`. `apiFetch` is not used here because it drops that `code`.
- */
-class GenerateRequestError extends Error {}
 
 interface FirstTimeSetupProps {
   userName?: string
@@ -64,7 +59,8 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
       const timeoutId = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS)
 
       const endDate = computeEndDate(selectedDate, daysCount)
-      const response = await fetch('/api/meal-plans/generate', {
+      // Generate route returns `{ id: <planId>, ... }` (see GeneratePlanResult).
+      return apiFetch<{ id?: string } | undefined>('/api/meal-plans/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,34 +70,21 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
         }),
         signal: controller.signal,
       }).finally(() => clearTimeout(timeoutId))
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        // The route's `error` / `message` are English on every branch, so the
-        // `code` picks the copy and the prose is kept as a console breadcrumb
-        // only (HON-725). A body with no known `code` — a platform 504, a
-        // proxy error page — falls back on the status.
-        console.error('[first-time-setup] request failed', {
-          code: data.code,
-          error: data.error,
-          message: data.message,
-        })
-        throw new GenerateRequestError(
-          tErrors(
-            translateErrorCode(
-              data.code,
-              MEAL_PLAN_GENERATE_ERROR_KEYS,
-              mealPlanGenerateFallbackKey(response.status),
-            ),
-          ),
-        )
-      }
-
-      // Generate route returns `{ id: <planId>, ... }` (see GeneratePlanResult).
-      return (await response.json().catch(() => ({}))) as { id?: string }
+    },
+    onError: (err) => {
+      if (!(err instanceof ApiError)) return
+      // The route's `error` / `message` are English on every branch, so the
+      // `code` picks the copy below and the prose is kept as a console
+      // breadcrumb only (HON-725).
+      const body = err.body as { error?: unknown; message?: unknown }
+      console.error('[first-time-setup] request failed', {
+        code: err.code,
+        error: body.error,
+        message: body.message,
+      })
     },
     onSuccess: (data) => {
-      if (data.id) {
+      if (data?.id) {
         void track('meal_plan:plan_generated', { plan_id: data.id })
       }
       router.refresh()
@@ -111,8 +94,16 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
   const mutationError = generateMutation.error
   const error = !mutationError
     ? null
-    : mutationError instanceof GenerateRequestError
-      ? mutationError.message
+    : mutationError instanceof ApiError
+      ? // A body with no known `code` — a platform 504, a proxy error page —
+        // falls back on the status.
+        tErrors(
+          translateErrorCode(
+            mutationError.code,
+            MEAL_PLAN_GENERATE_ERROR_KEYS,
+            mealPlanGenerateFallbackKey(mutationError.status),
+          ),
+        )
       : mutationError.name === 'AbortError'
         ? tErrors('generationTimeout')
         : tErrors('generic')

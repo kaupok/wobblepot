@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest'
 import { ProteinType, IngredientCategory } from '@/generated/prisma/enums'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
@@ -43,7 +43,7 @@ vi.mock('ai', async (importOriginal) => ({
 }))
 
 vi.mock('@ai-sdk/anthropic', () => ({
-  createAnthropic: vi.fn(() => vi.fn()),
+  createAnthropic: vi.fn(() => vi.fn((modelId: string) => ({ modelId }))),
 }))
 
 vi.mock('@/lib/meal-planning/candidates', () => ({
@@ -78,6 +78,8 @@ import { fillEmptySlots } from './fill-plan'
 import { InsufficientCandidatesError, NoEmptySlotsError } from './types'
 import { logAiSample } from './sampling'
 import { PLANNING_MODEL } from './models'
+import { loadCandidatePools } from './plan-candidates'
+import { buildMealPlanRequest } from './prompts'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 
 // Type assertions for mocks
@@ -341,6 +343,69 @@ describe('fillEmptySlots', () => {
     expect(mockGenerateObject).toHaveBeenCalledWith(
       expect.objectContaining({ abortSignal: expect.any(AbortSignal) }),
     )
+  })
+
+  it('sends exactly the request buildMealPlanRequest builds for the fillable slots (HON-796)', async () => {
+    mockMealPlanFindUnique.mockResolvedValueOnce({
+      id: 'plan-1',
+      householdId: 'household-1',
+      entries: [
+        entry('2026-01-12', 'dinner', 'meal-1'),
+        entry('2026-01-13', 'dinner', 'meal-2'),
+        entry('2026-01-14', 'dinner', 'meal-3'),
+        entry('2026-01-15', 'dinner', 'meal-4'),
+        entry('2026-01-16', 'dinner', 'meal-5'),
+      ],
+    } as never)
+    const requiredSlots = [
+      { date: date('2026-01-17'), mealType: 'dinner' as const, proteinType: 'fish' as const },
+    ]
+    mockComputeRequiredSlots.mockReturnValue(requiredSlots)
+    const fish = [createCandidate({ id: 'fish-1', primaryProteinType: ProteinType.fish })]
+    const dinner = [...fish, ...createMockMeals(6, 10)]
+    // `clearAllMocks` keeps implementations, so drop this one once the test ends.
+    onTestFinished(() => {
+      mockGetCandidates.mockReset()
+    })
+    mockGetCandidates.mockImplementation(async ({ primaryProteinType }) =>
+      primaryProteinType === 'fish' ? fish : primaryProteinType === 'legume' ? [] : dinner,
+    )
+    mockGenerateObject.mockRejectedValue(new Error('stop after the call'))
+
+    const options = { ...fillOptions, restrictions: ['low salt'], locale: 'et' }
+    await expect(fillEmptySlots({ ...options, aiBudgetMs: 40_000 })).rejects.toThrow(
+      'stop after the call',
+    )
+
+    const emptySlots = createDefaultMealSlots().slice(5)
+    // The pools the builder is handed are the ones production loads.
+    const { candidatePools, candidatesByMealType } = await loadCandidatePools({
+      slots: emptySlots,
+      householdId: options.householdId,
+      allergensToAvoid: [],
+      excludedIngredientIds: [],
+      recentMealIds: [],
+      dietaryType: null,
+      favoriteMealIds: [],
+    })
+
+    // Fill shares plan generation's builder. If it goes back to building its
+    // request by hand, the two modes can drift apart.
+    expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
+      ...buildMealPlanRequest({
+        startDate: options.startDate,
+        endDate: options.endDate,
+        slots: emptySlots,
+        requiredSlots,
+        candidatePools,
+        candidatesByMealType,
+        restrictions: ['low salt'],
+        pantryIngredients: [],
+        locale: 'et',
+      }),
+      model: { modelId: PLANNING_MODEL },
+      abortSignal: expect.any(AbortSignal),
+    })
   })
 
   it('reports the billed usage with success: false when generateObject throws NoObjectGeneratedError', async () => {

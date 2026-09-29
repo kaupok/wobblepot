@@ -1053,7 +1053,6 @@
     "errors": {
       "nameRequired": "Household name is required",
       "network": "Unable to connect. Please check your internet connection.",
-      "generic": "An error occurred",
       "createFailed": "Failed to create household"
     }
   },

@@ -9,24 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
+import { ApiError, apiFetch } from '@/lib/api'
 
+/** The route's error body: `error` is a machine-readable code, `message` English prose. */
 interface JoinErrorBody {
-  error?: string
-  message?: string
-}
-
-/**
- * Carries the route's whole error body, not just a message: the card branches
- * on the `error` code and logs the `message` prose, which `ApiError` drops.
- */
-class JoinFailedError extends Error {
-  readonly data: JoinErrorBody
-
-  constructor(data: JoinErrorBody) {
-    super(data.error ?? 'join_failed')
-    this.name = 'JoinFailedError'
-    this.data = data
-  }
+  error?: unknown
+  message?: unknown
 }
 
 interface JoinHouseholdCardProps {
@@ -47,26 +35,17 @@ export function JoinHouseholdCard({
   const [error, setError] = useState('')
 
   const join = useMutation({
-    mutationFn: async () => {
-      const response = await fetch(`/api/invites/${code}/join`, {
-        method: 'POST',
-      })
-
-      if (!response.ok) {
-        // A non-JSON body rejects here and lands on the generic copy below.
-        throw new JoinFailedError(await response.json())
-      }
-    },
+    mutationFn: () => apiFetch<void>(`/api/invites/${code}/join`, { method: 'POST' }),
     onSuccess: () => {
       router.push('/')
       router.refresh()
     },
     onError: (err) => {
-      if (!(err instanceof JoinFailedError)) {
+      if (!(err instanceof ApiError)) {
         setError(t('errors.generic'))
         return
       }
-      const { data } = err
+      const data = err.body as JoinErrorBody
       if (data.error === 'already_in_household') {
         setError(t('errors.alreadyInHousehold'))
       } else if (data.error === 'invite_invalid') {

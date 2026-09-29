@@ -18,6 +18,11 @@ import { getServerFlag } from '@/lib/feature-flags'
 import { captureApiError } from '@/lib/errors'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import type { RecipeImportErrorCode } from '@/lib/ai/error-codes'
+// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
+import {
+  RECIPE_PARSE_AFTER_URL_FETCH_AI_BUDGET_MS,
+  RECIPE_PARSE_AI_BUDGET_MS,
+} from '@/lib/ai/budgets'
 
 /**
  * Resolve the locale the recipe parser runs in. The `FEATURE_RECIPE_PARSER_ET`
@@ -46,40 +51,6 @@ function errorBody(error: string, code: RecipeImportErrorCode) {
 const parseRecipeSchema = z.object({
   text: z.string().min(1, 'Recipe text is required'),
 })
-
-/**
- * Wall-clock budget for all AI time in this request, in milliseconds — one
- * value per input path, because only one of them pays a fetch first.
- *
- * Each is shared by the initial attempt and every `maxRetries` retry rather
- * than being a per-attempt timeout, which makes it the real bound on retries —
- * a fast failure (429, 5xx) costs well under a second and still retries
- * freely; a slow generation does not. Both signals are created *after* any
- * fetch, so network time is spent from the ceiling below, never from the model
- * budget.
- *
- * Sized against the figures recorded on Sonnet 5 during HON-693: preparation
- * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs.
- * Recipe extraction is the quantity-review shape, so it wants the full 45s the
- * tips route uses — and on pasted text it gets it, leaving 15s under
- * `maxDuration` for ingredient matching and the response.
- *
- * Re-measured on Sonnet 5.5 (HON-794), whole request: 19s for a long pasted
- * recipe (about 25 ingredients), 13s for a URL import including the page
- * fetch. Both sit under half of their budget, so both stay as sized.
- *
- * A URL import cannot afford that. `fetchRecipeFromUrl` runs two sequential
- * network calls before returning any text: `checkRobotsAllowed`, up to 5s on a
- * cache miss (`ROBOTS_FETCH_TIMEOUT_MS`, `src/lib/robots.ts`), and then the
- * page itself, up to 15s (`AbortSignal.timeout(15000)`, `recipe-fetch.ts`).
- * Worst case that is 20s gone before the model starts, so the budget drops to
- * 30s: 20 + 30 = 50s, the same 10s of slack the other two routes keep. A
- * single 45s constant would put the worst case at 65s — past the ceiling, so
- * the platform would kill the function and the 504 below would never run,
- * which is the whole failure this issue exists to close.
- */
-const AI_BUDGET_MS = 45_000
-const AI_BUDGET_AFTER_URL_FETCH_MS = 30_000
 
 /**
  * `Retry-After` for a `provider_unavailable` 503. The SDK has already retried
@@ -214,7 +185,9 @@ async function handlePOST(request: Request) {
       // Started here, after any URL fetch above, so the budget covers AI time
       // only. `sourceUrl` is set exactly when that fetch ran, so it is also
       // the test for which budget applies.
-      AbortSignal.timeout(sourceUrl ? AI_BUDGET_AFTER_URL_FETCH_MS : AI_BUDGET_MS),
+      AbortSignal.timeout(
+        sourceUrl ? RECIPE_PARSE_AFTER_URL_FETCH_AI_BUDGET_MS : RECIPE_PARSE_AI_BUDGET_MS,
+      ),
     )
 
     return NextResponse.json({

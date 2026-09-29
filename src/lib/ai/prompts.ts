@@ -1,6 +1,7 @@
 import { toDateString } from '@/lib/meal-planning/dates'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
-import type { PromptInput, CandidatePools } from './types'
+import { MealPlanResponseSchema, type PromptInput, type CandidatePools } from './types'
+import { slotKey } from './slot-key'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
 import type { MealType } from '@/generated/prisma/enums'
@@ -297,4 +298,52 @@ Each entry must include: date (YYYY-MM-DD format), mealType (breakfast/lunch/din
   prompt += localeInstruction(locale)
 
   return prompt
+}
+
+/**
+ * Input for `buildMealPlanRequest`: everything plan generation reads from the
+ * database, already loaded. `slots` are the replaceable slots — the configured
+ * slots minus any kept `completed` entry.
+ */
+export interface MealPlanRequestInput {
+  startDate: Date
+  endDate: Date
+  slots: MealSlot[]
+  requiredSlots: SlotRequirement[]
+  candidatePools: CandidatePools
+  candidatesByMealType: Map<MealType, CandidateMeal[]>
+  restrictions: string[]
+  pantryIngredients: string[]
+  locale: string
+}
+
+/**
+ * Every `generateObject` argument plan generation sends except `model` and
+ * `abortSignal`. Pure, so the model benchmark (HON-795) sends the request
+ * production sends without a database (HON-796).
+ *
+ * Derives `totalEntries` and the slots left after the required protein slots
+ * here rather than in `generateMealPlan`, so a caller never has to copy that
+ * logic to build the same prompt.
+ */
+export function buildMealPlanRequest(input: MealPlanRequestInput) {
+  const { slots, requiredSlots } = input
+  const requiredSlotKeys = new Set(requiredSlots.map((s) => slotKey(s.date, s.mealType)))
+  const remainingSlots = slots.filter((s) => !requiredSlotKeys.has(slotKey(s.date, s.mealType)))
+
+  return {
+    schema: MealPlanResponseSchema,
+    prompt: buildMealPlanPrompt({
+      startDate: input.startDate,
+      endDate: input.endDate,
+      totalEntries: slots.length,
+      requiredSlots,
+      remainingSlots,
+      candidatePools: input.candidatePools,
+      restrictions: input.restrictions,
+      candidatesByMealType: input.candidatesByMealType,
+      pantryIngredients: input.pantryIngredients,
+      locale: input.locale,
+    }),
+  }
 }

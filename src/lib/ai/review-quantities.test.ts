@@ -22,6 +22,7 @@ vi.mock('./sampling', () => ({
 import { generateObject } from 'ai'
 import { reviewMealQuantities, type ReviewIngredient } from './review-quantities'
 import { REVIEW_MODEL } from './models'
+import { buildReviewRequest } from './review-request'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 import { logAiSample } from './sampling'
 
@@ -78,6 +79,33 @@ describe('reviewMealQuantities', () => {
     // The route owns the budget; if it stops arriving here the AI call is
     // unbounded again and the platform kills the function before the 504.
     expect(mockGenerateObject).toHaveBeenCalledWith(expect.objectContaining({ abortSignal }))
+  })
+
+  it('sends exactly the request buildReviewRequest builds, plus model and signal (HON-796)', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { ingredients: [] } } as never)
+    const abortSignal = AbortSignal.timeout(45_000)
+
+    await reviewMealQuantities(
+      'Chicken stir fry',
+      4,
+      sampleIngredients,
+      'et',
+      undefined,
+      abortSignal,
+    )
+
+    // The model benchmark (HON-795) sends the builder's output. If production
+    // adds an argument, or builds any of these inline, the two drift apart.
+    expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
+      ...buildReviewRequest({
+        mealName: 'Chicken stir fry',
+        servings: 4,
+        ingredients: sampleIngredients,
+        locale: 'et',
+      }),
+      model: 'mock-model',
+      abortSignal,
+    })
   })
 
   it('reports the SDK usage to onAiUsage via toAiUsageStats', async () => {

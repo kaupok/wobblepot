@@ -35,6 +35,7 @@ export function TimelineEmptySlot({
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
   const hasSelectedRef = useRef(false)
+  const pickButtonRef = useRef<HTMLButtonElement>(null)
 
   const createEntryMutation = useMutation({
     mutationFn: () =>
@@ -64,9 +65,18 @@ export function TimelineEmptySlot({
         method: 'DELETE',
       }),
     onError: () => router.refresh(),
+    // Here rather than in `mutate()`'s options, which are skipped once the
+    // component unmounts. Guarded so a slow discard cannot clear a newer
+    // placeholder.
+    onSettled: (_data, _error, id) => setEntryId((current) => (current === id ? null : current)),
   })
+  const isDiscarding = discardEntryMutation.isPending
+  // No second placeholder while the last one is still being created or deleted.
+  const isPending = isCreating || isDiscarding
 
   function handlePickMeal() {
+    // `aria-disabled` stops only the pointer; Enter and Space still land here.
+    if (isPending) return
     hasSelectedRef.current = false
     createEntryMutation.mutate()
   }
@@ -80,14 +90,24 @@ export function TimelineEmptySlot({
     router.refresh()
   }
 
-  async function handleSelectorClose(open: boolean) {
-    if (!open && entryId && !hasSelectedRef.current) {
-      // Awaited so the selector stays open until the placeholder is gone, as
-      // before. A rejection is already handled by the mutation's `onError`.
-      await discardEntryMutation.mutateAsync(entryId).catch(() => {})
-      setEntryId(null)
-    }
+  function handleSelectorClose(open: boolean) {
+    // Close first: the modal's `reset()` has just dropped this entry's
+    // suggestions query, and while `open` is still true the re-render the
+    // pending discard causes would recreate and refetch it for the entry being
+    // deleted (HON-799).
     setIsSelectorOpen(open)
+    if (!open && entryId && !hasSelectedRef.current) {
+      discardEntryMutation.mutate(entryId)
+    }
+  }
+
+  // Radix hands focus back to a `DialogTrigger`, and the selector has none, so
+  // return it to "Pick a meal" ourselves (HON-803). The button is still pending
+  // here — the discard is in flight — which is why it is `aria-disabled` rather
+  // than `disabled`: a disabled button cannot take focus.
+  function handleCloseAutoFocus(event: Event) {
+    event.preventDefault()
+    pickButtonRef.current?.focus()
   }
 
   return (
@@ -97,7 +117,15 @@ export function TimelineEmptySlot({
           <MealTypeBadge mealType={mealType} />
           <Body variant="caption">{tCard('noMealPlanned')}</Body>
         </div>
-        <Button variant="outline" size="sm" onClick={handlePickMeal} disabled={isCreating}>
+        <Button
+          ref={pickButtonRef}
+          variant="outline"
+          size="sm"
+          onClick={handlePickMeal}
+          // Not `disabled`: a disabled button drops focus and cannot take it
+          // back when the selector closes (HON-803).
+          aria-disabled={isPending || undefined}
+        >
           {isCreating ? tCard('adding') : tCard('pickMeal')}
         </Button>
       </div>
@@ -112,6 +140,7 @@ export function TimelineEmptySlot({
           onSwapComplete={handleSwapComplete}
           mode="add"
           pantryIngredients={pantryIngredients}
+          onCloseAutoFocus={handleCloseAutoFocus}
         />
       )}
     </>

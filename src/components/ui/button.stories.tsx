@@ -120,6 +120,20 @@ export const Disabled: Story = {
   args: { disabled: true },
 }
 
+// A pending action: looks like `Disabled` but stays focusable, so a dialog it
+// opened can hand focus back to it on close. The handler must guard itself —
+// `pointer-events-none` stops the pointer, not Enter or Space (HON-803).
+export const AriaDisabled: Story = {
+  args: { 'aria-disabled': true, children: 'Adding…' },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: 'Adding…' })
+    await expect(button).toHaveAttribute('aria-disabled', 'true')
+    await expect(getComputedStyle(button).pointerEvents).toBe('none')
+    button.focus()
+    await expect(button).toHaveFocus()
+  },
+}
+
 export const AllVariants: Story = {
   render: () => (
     <div className="flex flex-wrap gap-3">

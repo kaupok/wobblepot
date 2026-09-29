@@ -9,12 +9,8 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { TIPS_MODEL } from '@/lib/ai/models'
-import {
-  buildFullTipsPrompt,
-  buildSupplementaryTipsPrompt,
-  fullTipsSchema,
-  supplementaryTipsSchema,
-} from '@/lib/ai/preparation-tips'
+import { TIPS_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import { buildFullTipsRequest, buildSupplementaryTipsRequest } from '@/lib/ai/preparation-tips'
 import { parseStoredTips } from '@/lib/tips'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { logAiSample } from '@/lib/ai/sampling'
@@ -131,45 +127,25 @@ async function handlePOST(
     const timeMinutes = entry.meal.timeMinutes
     const preparationNotes = entry.meal.preparationNotes
 
-    const ingredientsList = entry.meal.components
-      .map((comp) => {
-        const quantity = comp.quantityPerServing * effectiveServings
-        const unit = comp.ingredient.defaultUnit === 'piece' ? 'pcs' : comp.ingredient.defaultUnit
-        return `- ${comp.ingredient.name}: ${Math.round(quantity)}${unit}`
-      })
-      .join('\n')
+    const components = entry.meal.components.map((comp) => ({
+      name: comp.ingredient.name,
+      quantityPerServing: comp.quantityPerServing,
+      defaultUnit: comp.ingredient.defaultUnit,
+    }))
 
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
     // One wall-clock budget for all AI time in this request, shared by the
-    // initial attempt and every `maxRetries` retry below — not a per-attempt
-    // timeout. It is the real bound on retries: `maxRetries: 3` permits four
-    // attempts, but how many actually fit depends on how each one fails. A
-    // fast failure (429, 5xx) costs well under a second, so those still retry
-    // freely; a slow generation does not.
-    //
-    // Sonnet 5's adaptive thinking made a single hard-meal generation take up
-    // to 21s (measured, HON-693), so at the old 30s a slow first attempt left
-    // no room for even one retry — the call aborted and the user got a 504
-    // instead of the tips the larger token ceilings were meant to buy. 45s
-    // covers two worst-case attempts plus ai@7's ~2s backoff (~45s), and
-    // leaves 15s under the 60s `maxDuration` for the DB reads before this
-    // point and the writes after it, so the 504 branch below stays reachable
-    // rather than the platform killing the function first.
-    //
-    // Re-measured on Sonnet 5.5 (HON-794): 7-9s per generation, whole request,
-    // including an 18-ingredient meal on both prompt paths. The budget and
-    // both token ceilings below stay as sized: the supplementary call used 398
-    // of its 1200 output tokens and the full call at most 791 of its 2000.
-    const timeout = AbortSignal.timeout(45_000)
+    // initial attempt and every retry. Sized against `maxDuration` in `@/lib/ai/budgets`.
+    const timeout = AbortSignal.timeout(TIPS_AI_BUDGET_MS)
 
     let tips: StructuredTips
 
     if (preparationNotes && preparationNotes.trim()) {
-      const prompt = buildSupplementaryTipsPrompt({
+      const request = buildSupplementaryTipsRequest({
         mealName,
-        householdSize: effectiveServings,
+        servings: effectiveServings,
         timeMinutes,
-        ingredientsList,
+        components,
         preparationNotes,
         locale: household.locale,
       })
@@ -184,19 +160,8 @@ async function handlePOST(
           }),
         () =>
           generateObject({
+            ...request,
             model: anthropic(TIPS_MODEL),
-            schema: supplementaryTipsSchema,
-            prompt,
-            // Sized for Sonnet 5's adaptive thinking (HON-693): reasoning
-            // tokens are billed as output and count against this cap, so the
-            // old 400 was not a tips-sized budget any more. Measured against
-            // a deliberately hard meal, this call reached 593 output tokens
-            // (335 of them reasoning) and truncated outright at 400 —
-            // `finish: 'length'`, then NoObjectGeneratedError and no tips for
-            // the user. This is a ceiling, not a target: a typical call still
-            // returns in ~195 tokens.
-            maxOutputTokens: 1200,
-            maxRetries: 3,
             abortSignal: timeout,
           }),
       )
@@ -222,11 +187,11 @@ async function handlePOST(
 
       tips = result.object
     } else {
-      const prompt = buildFullTipsPrompt({
+      const request = buildFullTipsRequest({
         mealName,
-        householdSize: effectiveServings,
+        servings: effectiveServings,
         timeMinutes,
-        ingredientsList,
+        components,
         locale: household.locale,
       })
 
@@ -240,15 +205,8 @@ async function handlePOST(
           }),
         () =>
           generateObject({
+            ...request,
             model: anthropic(TIPS_MODEL),
-            schema: fullTipsSchema,
-            prompt,
-            // Same adaptive-thinking headroom as the supplementary call above
-            // (HON-693). The full schema is larger, and on the same hard meal
-            // this reached 892 output tokens (330 reasoning) — 89% of the old
-            // 1000, close enough to truncation to move.
-            maxOutputTokens: 2000,
-            maxRetries: 3,
             abortSignal: timeout,
           }),
       )

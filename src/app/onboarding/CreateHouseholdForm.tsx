@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { track } from '@/lib/analytics'
+import { ApiError, apiFetch } from '@/lib/api'
 import { FieldError } from '@/components/FieldError'
 
 const TOTAL_STEPS = 2
@@ -120,59 +121,52 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
   }
 
   const createHousehold = useMutation({
-    mutationFn: async () => {
-      let response: Response
-      try {
-        response = await fetch('/api/households', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: name.trim(),
-            members: memberRows.slice(1).map((row, index) => ({
-              name: generateDefaultName(index + 1, row),
-              portionType: row.portionType,
-            })),
-          }),
-        })
-      } catch {
-        throw new Error(t('errors.network'))
-      }
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        if (data.error === 'already_in_household') {
-          router.push('/')
-          router.refresh()
-          return
-        }
-        // Deliberately not falling back to `data.error`: that field carries a
-        // machine code or untranslated English (`Validation failed`,
-        // `Failed to create household`), which would render verbatim to an
-        // Estonian user. `JoinHouseholdCard` went further for the same reason
-        // and now ignores the server string entirely (HON-697).
-        //
-        // `data.message` is not a translated channel either — it is simply
-        // unreachable here today: `POST /api/households` sets it on the
-        // `already_in_household` branch alone, which the early return above
-        // intercepts. Every other failure carries `error` only, so this throw
-        // always resolves to `t('errors.createFailed')`. If that route ever
-        // adds a second `message`, translate it here rather than rendering it.
-        throw new Error(data.message || t('errors.createFailed'))
-      }
-
-      return data
-    },
+    mutationFn: () =>
+      apiFetch<{ id: string }>('/api/households', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          members: memberRows.slice(1).map((row, index) => ({
+            name: generateDefaultName(index + 1, row),
+            portionType: row.portionType,
+          })),
+        }),
+      }),
     onSuccess: (data) => {
-      if (data) {
-        void track('onboarding:household_created', { household_id: data.id })
-        toast.success(t('createdToast'))
-        router.push('/')
-        router.refresh()
-      }
+      void track('onboarding:household_created', { household_id: data.id })
+      toast.success(t('createdToast'))
+      router.push('/')
+      router.refresh()
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : t('errors.generic'))
+      // `apiFetch` throws `ApiError` for every answer the route gave, so
+      // anything else is the request never getting one.
+      if (!(err instanceof ApiError)) {
+        setError(t('errors.network'))
+        return
+      }
+      const body = err.body as { error?: unknown; message?: unknown }
+      if (body.error === 'already_in_household') {
+        router.push('/')
+        router.refresh()
+        return
+      }
+      // Deliberately not falling back to `body.error`: that field carries a
+      // machine code or untranslated English (`Validation failed`,
+      // `Failed to create household`), which would render verbatim to an
+      // Estonian user. `JoinHouseholdCard` went further for the same reason
+      // and now ignores the server string entirely (HON-697).
+      //
+      // `body.message` is not a translated channel either — it is simply
+      // unreachable here today: `POST /api/households` sets it on the
+      // `already_in_household` branch alone, which the early return above
+      // intercepts. Every other failure carries `error` only, so this always
+      // resolves to `t('errors.createFailed')`. If that route ever adds a
+      // second `message`, translate it here rather than rendering it.
+      setError(
+        typeof body.message === 'string' && body.message ? body.message : t('errors.createFailed'),
+      )
     },
   })
 

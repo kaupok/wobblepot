@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { apiFetch } from '@/lib/api'
 import { MoreHorizontal, NotebookPen, Repeat, X } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -157,17 +158,14 @@ export function MealCard({
       newStatus: MealStatus
       deductPantry?: boolean
     }) => {
-      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, deductPantry }),
-      })
-
-      if (!response.ok) {
-        throw new Error(tCard('statusUpdateFailed'))
-      }
-
-      const data: { pantryDeducted?: boolean } = await response.json()
+      const data = await apiFetch<{ pantryDeducted?: boolean }>(
+        `/api/meal-plans/${planId}/entries/${entryId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus, deductPantry }),
+        },
+      )
       return { newStatus, deductPantry, pantryDeducted: data.pantryDeducted === true }
     },
     onMutate: async ({ newStatus }) => {
@@ -206,15 +204,10 @@ export function MealCard({
   })
 
   const clearMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
+    mutationFn: () =>
+      apiFetch<{ success: true }>(`/api/meal-plans/${planId}/entries/${entryId}`, {
         method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error(tCard('clearFailed'))
-      }
-    },
+      }),
     onSuccess: () => {
       // Clearing frees this entry's meal to be suggested elsewhere again, so
       // every other card's cached list is now wrong in the other direction.

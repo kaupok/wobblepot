@@ -14,6 +14,8 @@ import { captureApiError } from '@/lib/errors'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { withRequestId } from '@/lib/request-id'
+// This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
+import { REVIEW_AI_BUDGET_MS } from '@/lib/ai/budgets'
 
 /**
  * Bounds on what one review may carry into the prompt: the ingredient count and
@@ -41,32 +43,6 @@ const reviewRequestSchema = z.object({
     .min(1)
     .max(MAX_REVIEW_INGREDIENTS),
 })
-
-/**
- * Wall-clock budget for the AI call in this request, in milliseconds.
- *
- * Shared by the initial attempt and every `maxRetries` retry rather than being
- * a per-attempt timeout, which makes it the real bound on retries — a fast
- * failure (429, 5xx) costs well under a second and still retries freely; a
- * slow generation does not.
- *
- * Sized against the figures recorded on Sonnet 5 during HON-693: preparation
- * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs. This
- * route *is* the quantity review, so 45s is ~1.4x its own measured upper bound
- * — no extrapolation from a neighbouring call site is involved.
- *
- * Re-measured on Sonnet 5.5 (HON-794): 6s for an 18-ingredient meal, whole
- * request. The budget stays as sized.
- *
- * The remaining 15s under `maxDuration` covers the session read, the
- * membership lookup and `assertUnderCap` before the call and the usage write
- * after it, which is what keeps the 504 below reachable instead of the
- * platform killing the function first. That is the same headroom the reference
- * route (`preparation-tips`) reserves, and less than `imagine/route.ts`'s 20s:
- * this route runs no ingredient matching and no nutrition reads, so its
- * non-AI work is the lightest of the AI routes.
- */
-const AI_BUDGET_MS = 45_000
 
 async function handlePOST(request: Request) {
   const session = await auth.api.getSession({
@@ -137,7 +113,7 @@ async function handlePOST(request: Request) {
       household.locale,
       (usage) =>
         recordAiUsage({ householdId: household.id, feature: 'meal_review_quantities', ...usage }),
-      AbortSignal.timeout(AI_BUDGET_MS),
+      AbortSignal.timeout(REVIEW_AI_BUDGET_MS),
     )
 
     // Filter out non-positive quantities the AI may return (schema can't enforce .positive())
@@ -177,7 +153,7 @@ async function handlePOST(request: Request) {
  *
  * The quantity review scales with ingredient count and measured 25-32s on
  * Sonnet 5 for a 24-ingredient meal (HON-693). Stated explicitly because
- * `AI_BUDGET_MS` is only meaningful if the platform lets the function run that
+ * `REVIEW_AI_BUDGET_MS` is only meaningful if the platform lets the function run that
  * long — otherwise the request is killed first and the 504 above never runs.
  * 60 is the value every Vercel plan allows, so this cannot fail to deploy.
  *
