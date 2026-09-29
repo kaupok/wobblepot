@@ -51,7 +51,7 @@ describe('SignInForm', () => {
     it('renders sign in form with heading', () => {
       render(<SignInForm />)
 
-      expect(screen.getByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 1, name: /sign in/i })).toBeInTheDocument()
     })
 
     it('renders email input with label', () => {

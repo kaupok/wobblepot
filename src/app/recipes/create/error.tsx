@@ -24,7 +24,9 @@ export default function CreateRecipeError({
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
       <div className="max-w-md text-center">
         <div className="flex flex-col gap-3">
-          <Heading variant="h2">{t('recipesCreate.title')}</Heading>
+          <Heading as="h1" variant="h2">
+            {t('recipesCreate.title')}
+          </Heading>
           <Body>{t('recipesCreate.body')}</Body>
           {error.digest && (
             <Body variant="muted">

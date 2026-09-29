@@ -96,7 +96,9 @@ export function ResetPasswordForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <Heading variant="h4">{t('title')}</Heading>
+        <Heading as="h1" variant="h4">
+          {t('title')}
+        </Heading>
         <Body variant="muted">{t('description')}</Body>
       </CardHeader>
       <form onSubmit={handleSubmit}>

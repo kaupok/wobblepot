@@ -144,3 +144,27 @@ describe('JoinHouseholdCard error localization', () => {
     expect(screen.queryByText(etMessages.auth.invite.errors.joinFailed)).not.toBeInTheDocument()
   })
 })
+
+// Each status renders its own card, and that card's title is the page's h1 (HON-826).
+describe('JoinHouseholdCard page heading', () => {
+  it.each([
+    { status: 'valid', memberName: null, title: 'Join household' },
+    { status: 'valid', memberName: 'Mari', title: 'Join as Mari' },
+    { status: 'already_member', memberName: null, title: 'Already a member' },
+    { status: 'invalid', memberName: null, title: 'Invite expired' },
+  ] as const)('renders the $status title as the only h1', ({ status, memberName, title }) => {
+    renderInLocale(
+      <JoinHouseholdCard
+        status={status}
+        householdName="Kõrv"
+        memberName={memberName}
+        code="ABC123"
+      />,
+      'en',
+    )
+
+    const headings = screen.getAllByRole('heading')
+    expect(headings).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 1, name: title })).toBe(headings[0])
+  })
+})

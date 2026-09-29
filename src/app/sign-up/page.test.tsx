@@ -76,7 +76,7 @@ describe('SignUpForm', () => {
     it('renders sign up form with heading', () => {
       renderForm()
 
-      expect(screen.getByRole('heading', { name: /sign up/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 1, name: /sign up/i })).toBeInTheDocument()
     })
 
     it('renders name input with label', () => {

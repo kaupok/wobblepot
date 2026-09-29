@@ -90,7 +90,9 @@ export function JoinHouseholdCard({
     return (
       <Card className="w-full max-w-md">
         <CardHeader>
-          <Heading variant="h4">{t('alreadyMember.title')}</Heading>
+          <Heading as="h1" variant="h4">
+            {t('alreadyMember.title')}
+          </Heading>
           <Body variant="muted">{t('alreadyMember.description', { householdName })}</Body>
         </CardHeader>
         <CardContent>
@@ -109,7 +111,9 @@ export function JoinHouseholdCard({
     return (
       <Card className="w-full max-w-md">
         <CardHeader>
-          <Heading variant="h4">{t('invalid.title')}</Heading>
+          <Heading as="h1" variant="h4">
+            {t('invalid.title')}
+          </Heading>
           <Body variant="muted">{t('invalid.description')}</Body>
         </CardHeader>
         <CardContent>
@@ -127,7 +131,7 @@ export function JoinHouseholdCard({
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <Heading variant="h4">
+        <Heading as="h1" variant="h4">
           {memberName ? t('valid.titleNamed', { memberName }) : t('valid.title')}
         </Heading>
         <Body variant="muted">

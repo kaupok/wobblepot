@@ -39,7 +39,9 @@ describe('CreateHouseholdForm', () => {
       renderForm()
 
       expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
-      expect(screen.getByText('Create your household')).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { level: 1, name: 'Create your household' }),
+      ).toBeInTheDocument()
       expect(screen.getByText('Give your household a name to get started')).toBeInTheDocument()
     })
 
@@ -96,7 +98,9 @@ describe('CreateHouseholdForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       expect(screen.getByText('Step 2 of 2')).toBeInTheDocument()
-      expect(screen.getByText('Household members')).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { level: 1, name: 'Household members' }),
+      ).toBeInTheDocument()
       expect(screen.getByText('Tell us about your household')).toBeInTheDocument()
     })
 

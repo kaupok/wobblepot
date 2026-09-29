@@ -317,7 +317,9 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
       <CardHeader>
         <div className="flex flex-col gap-2">
           <Body variant="muted">{t('step', { current: currentStep, total: TOTAL_STEPS })}</Body>
-          <Heading variant="h4">{getStepTitle()}</Heading>
+          <Heading as="h1" variant="h4">
+            {getStepTitle()}
+          </Heading>
           <Body variant="muted">{getStepDescription()}</Body>
         </div>
       </CardHeader>

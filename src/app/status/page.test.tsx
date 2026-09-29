@@ -38,6 +38,23 @@ describe('StatusPage', () => {
     expect(screen.getByText(/All systems operational/i)).toBeInTheDocument()
   })
 
+  it('renders its title as the only heading, at level 1', async () => {
+    mockGetSnapshot.mockResolvedValue({
+      db: { status: 'ok', ...baseProbe },
+      auth: { status: 'ok', ...baseProbe },
+      ai: { status: 'ok', ...baseProbe },
+      rateLimit: { status: 'ok', ...baseProbe },
+      timestamp: '2026-04-20T12:00:00.000Z',
+    })
+    mockComputeOverall.mockReturnValue('ok')
+
+    render(await StatusPage())
+
+    const headings = screen.getAllByRole('heading')
+    expect(headings).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 1, name: 'Status' })).toBe(headings[0])
+  })
+
   it('renders the incident banner when a message is set', async () => {
     mockGetSnapshot.mockResolvedValue({
       db: { status: 'ok', ...baseProbe },
