@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest'
 import { ProteinType, IngredientCategory } from '@/generated/prisma/enums'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
@@ -44,7 +44,7 @@ vi.mock('ai', async (importOriginal) => ({
 }))
 
 vi.mock('@ai-sdk/anthropic', () => ({
-  createAnthropic: vi.fn(() => vi.fn()),
+  createAnthropic: vi.fn(() => vi.fn((modelId: string) => ({ modelId }))),
 }))
 
 vi.mock('@/lib/meal-planning/candidates', () => ({
@@ -79,6 +79,8 @@ import { repairPlan } from './repair-plan'
 import { generateMealPlan, createEmptyPlan } from './generate-plan'
 import { logAiSample } from './sampling'
 import { PLANNING_MODEL } from './models'
+import { loadCandidatePools } from './plan-candidates'
+import { buildMealPlanRequest } from './prompts'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 
 // Type assertions for mocks
@@ -973,6 +975,59 @@ describe('generateMealPlan', () => {
       expect(input.hasPantry).toBe(false)
       expect(input.candidatePoolSizes).toBeDefined()
       expect(args.output).toEqual({ entries: aiEntries })
+    })
+  })
+
+  describe('request builder (HON-796)', () => {
+    it('sends exactly the request buildMealPlanRequest builds, plus model and signal', async () => {
+      const fish = [createCandidate({ id: 'fish-1', primaryProteinType: ProteinType.fish })]
+      const legume = [createCandidate({ id: 'legume-1', primaryProteinType: ProteinType.legume })]
+      const dinner = [...fish, ...legume, ...createMockMeals(8)]
+      // `clearAllMocks` keeps implementations, so drop this one once the test ends.
+      onTestFinished(() => {
+        mockGetCandidates.mockReset()
+      })
+      mockGetCandidates.mockImplementation(async ({ primaryProteinType }) =>
+        primaryProteinType === 'fish' ? fish : primaryProteinType === 'legume' ? legume : dinner,
+      )
+      mockGenerateObject.mockRejectedValue(new Error('stop after the call'))
+
+      const options = { ...defaultOptions, restrictions: ['low salt'], locale: 'et' }
+      await expect(generateMealPlan({ ...options, aiBudgetMs: 40_000 })).rejects.toThrow(
+        'stop after the call',
+      )
+
+      // The pools the builder is handed are the ones production loads.
+      const { candidatePools, candidatesByMealType } = await loadCandidatePools({
+        slots: createDefaultMealSlots(),
+        householdId: options.householdId,
+        allergensToAvoid: [],
+        excludedIngredientIds: [],
+        recentMealIds: [],
+        dietaryType: null,
+        favoriteMealIds: [],
+      })
+
+      // The model benchmark (HON-795) sends the builder's output. If production
+      // adds an argument, or builds any of these inline, the two drift apart.
+      expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
+        ...buildMealPlanRequest({
+          startDate: options.startDate,
+          endDate: options.endDate,
+          slots: createDefaultMealSlots(),
+          requiredSlots: [
+            { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },
+            { date: date('2026-01-17'), mealType: 'dinner', proteinType: 'legume' },
+          ],
+          candidatePools,
+          candidatesByMealType,
+          restrictions: ['low salt'],
+          pantryIngredients: [],
+          locale: 'et',
+        }),
+        model: { modelId: PLANNING_MODEL },
+        abortSignal: expect.any(AbortSignal),
+      })
     })
   })
 

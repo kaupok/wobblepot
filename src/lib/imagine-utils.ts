@@ -215,7 +215,7 @@ function report(error: unknown, extra: Record<string, unknown> = {}): Promise<vo
  * nothing else: its 401/404/429/400 answers skip it (they are client-caused and
  * not worth an exception), and — the case that matters — the platform's own
  * `maxDuration` kill never reaches the handler at all, so nothing server-side
- * runs. That kill is reachable precisely because `AI_BUDGET_MS` bounds only the
+ * runs. That kill is reachable precisely because `REVIEW_AI_BUDGET_MS` bounds only the
  * AI call while the session, membership, cap and usage work sit outside it, and
  * it is the exact overrun the 65s wait above exists to observe.
  *

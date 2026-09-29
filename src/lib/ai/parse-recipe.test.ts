@@ -30,6 +30,7 @@ import { APICallError, generateObject, RetryError } from 'ai'
 import { parseRecipeText, parseAndMatchRecipe } from './parse-recipe'
 import type { RecipeExtraction } from './recipe-schema'
 import { RecipeParseError } from './recipe-errors'
+import { buildRecipeRequest } from './recipe-prompt'
 import { RECIPE_MODEL } from './models'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
 
@@ -127,6 +128,24 @@ describe('parseRecipeText', () => {
     // The route owns the budget; if it stops arriving here the AI call is
     // unbounded again and the platform kills the function before the 504.
     expect(mockGenerateObject).toHaveBeenCalledWith(expect.objectContaining({ abortSignal }))
+  })
+
+  it('sends exactly the request buildRecipeRequest builds, plus model and signal (HON-796)', async () => {
+    mockGenerateObject.mockRejectedValue(new Error('stop after the call'))
+    const recipeText = 'Chicken stir fry: 500g chicken breast, 1 onion, 2 tbsp soy sauce.'
+    const abortSignal = AbortSignal.timeout(35_000)
+
+    await expect(
+      parseRecipeText(`  ${recipeText}\n`, 'et', undefined, abortSignal),
+    ).rejects.toThrow('stop after the call')
+
+    // The model benchmark (HON-795) sends the builder's output. If production
+    // adds an argument, or builds any of these inline, the two drift apart.
+    expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
+      ...buildRecipeRequest(recipeText, 'et'),
+      model: 'mock-model',
+      abortSignal,
+    })
   })
 
   it('rethrows a TimeoutError instead of wrapping it in RecipeParseError (HON-694)', async () => {

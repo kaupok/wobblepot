@@ -8,7 +8,7 @@ import type {
 } from '@/generated/prisma/enums'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
-import type { AiUsageStats } from './usage'
+import type { AiUsageStats } from './usage-mapping'
 
 /**
  * Zod schema for AI structured output.
@@ -82,9 +82,10 @@ export interface GeneratePlanOptions {
    * Passed as a duration rather than a ready-made `AbortSignal` so the clock
    * starts immediately before the AI call rather than when the route builds
    * these options: the slot/candidate-pool queries below run first and would
-   * otherwise eat the budget the number is sized for. The route still owns the
-   * number, so it stays in the same file as the `maxDuration` it has to fit
-   * under. See `src/app/api/meal-plans/generate/route.ts`.
+   * otherwise eat the budget the number is sized for. The number itself lives
+   * in `./budgets` (`PLAN_AI_BUDGET_MS`), sized against the route's
+   * `maxDuration`, so the model benchmark can compare measured latency against
+   * it (HON-796).
    */
   aiBudgetMs?: number
 }
@@ -127,9 +128,10 @@ export interface FillEmptySlotsOptions {
    * Passed as a duration rather than a ready-made `AbortSignal` so the clock
    * starts immediately before the AI call rather than when the route builds
    * these options: the slot/candidate-pool queries below run first and would
-   * otherwise eat the budget the number is sized for. The route still owns the
-   * number, so it stays in the same file as the `maxDuration` it has to fit
-   * under. See `src/app/api/meal-plans/generate/route.ts`.
+   * otherwise eat the budget the number is sized for. The number itself lives
+   * in `./budgets` (`PLAN_AI_BUDGET_MS`), sized against the route's
+   * `maxDuration`, so the model benchmark can compare measured latency against
+   * it (HON-796).
    */
   aiBudgetMs?: number
 }

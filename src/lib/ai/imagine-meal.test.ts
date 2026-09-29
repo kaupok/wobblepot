@@ -22,6 +22,7 @@ vi.mock('./sampling', () => ({
 import { generateObject } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { imagineMeals, ImaginedMealsSchema, type ImaginedMeal } from './imagine-meal'
+import { buildImagineRequest } from './imagine-request'
 import { logAiSample } from './sampling'
 import { IMAGINE_MODEL } from './models'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from './usage-fixture'
@@ -120,6 +121,29 @@ describe('imagineMeals', () => {
     // The route owns the budget; if it stops arriving here the AI call is
     // unbounded again and the platform kills the function before the 504.
     expect(mockGenerateObject).toHaveBeenCalledWith(expect.objectContaining({ abortSignal }))
+  })
+
+  it('sends exactly the request buildImagineRequest builds, plus model and signal (HON-796)', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
+    const household = {
+      allergens: ['peanuts'],
+      dietaryType: 'vegetarian',
+      excludedIngredients: ['mushroom'],
+      restrictions: ['low salt'],
+      householdSize: 4,
+    }
+    const images = [{ base64: Buffer.from('fake-image').toString('base64'), mimeType: 'image/png' }]
+    const abortSignal = AbortSignal.timeout(40_000)
+
+    await imagineMeals('a creamy pasta', household, 'et', images, undefined, abortSignal)
+
+    // The model benchmark (HON-795) sends the builder's output. If production
+    // adds an argument, or builds any of these inline, the two drift apart.
+    expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
+      ...buildImagineRequest({ prompt: 'a creamy pasta', household, locale: 'et', images }),
+      model: 'mock-model',
+      abortSignal,
+    })
   })
 
   it('initializes Anthropic with the server API key', async () => {

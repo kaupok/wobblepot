@@ -1,5 +1,6 @@
 import { VAGUE_PHRASES } from '@/lib/vague-quantities'
 import { localeInstruction, estonianVoiceForRecipeParse } from './prompts'
+import { RecipeExtractionSchema } from './recipe-schema'
 
 /**
  * Build the prompt for recipe extraction.
@@ -118,4 +119,17 @@ Rate your confidence (0-100) that this text contains a real recipe:
 Be honest — if the text is not a recipe, give a low score even if you can extract something.
 
 Extract the structured recipe data.${localeInstruction(locale)}${estonianVoiceForRecipeParse(locale)}`
+}
+
+/**
+ * Every `generateObject` argument recipe parsing sends except `model` and
+ * `abortSignal`. Pure, so the model benchmark (HON-795) sends the request
+ * production sends (HON-796). `recipeText` is already trimmed; the length
+ * check and every post-call check stay in `parseRecipeText`.
+ */
+export function buildRecipeRequest(recipeText: string, locale?: string) {
+  return {
+    schema: RecipeExtractionSchema,
+    prompt: buildRecipeExtractionPrompt(recipeText, locale),
+  }
 }

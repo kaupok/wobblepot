@@ -89,3 +89,89 @@ ${metricReminder}
 
 Keep it brief and practical.${localeInstruction(locale)}${estonianVoiceForPrepTips(locale)}`
 }
+
+export interface TipsComponent {
+  name: string
+  quantityPerServing: number
+  defaultUnit: string
+}
+
+export interface TipsRequestInput {
+  mealName: string
+  /** The entry's effective servings; scales the ingredient quantities and the prompt's "Servings" line. */
+  servings: number
+  timeMinutes: number | null
+  components: TipsComponent[]
+  /** Household locale; threaded into the AI prompt so output fields come back in the household's language. */
+  locale: string
+}
+
+export interface SupplementaryTipsRequestInput extends TipsRequestInput {
+  preparationNotes: string
+}
+
+/** One line per component: total quantity for `servings`, rounded, with `piece` shown as `pcs`. */
+function formatIngredientsList(components: TipsComponent[], servings: number): string {
+  return components
+    .map((comp) => {
+      const quantity = comp.quantityPerServing * servings
+      const unit = comp.defaultUnit === 'piece' ? 'pcs' : comp.defaultUnit
+      return `- ${comp.name}: ${Math.round(quantity)}${unit}`
+    })
+    .join('\n')
+}
+
+/**
+ * Every `generateObject` argument the full preparation-tips call sends except
+ * `model` and `abortSignal`. Pure, so the model benchmark (HON-795) sends the
+ * request production sends, token ceiling included (HON-796).
+ */
+export function buildFullTipsRequest(input: TipsRequestInput) {
+  const { mealName, servings, timeMinutes, components, locale } = input
+
+  return {
+    schema: fullTipsSchema,
+    prompt: buildFullTipsPrompt({
+      mealName,
+      householdSize: servings,
+      timeMinutes,
+      ingredientsList: formatIngredientsList(components, servings),
+      locale,
+    }),
+    // Same adaptive-thinking headroom as the supplementary call below
+    // (HON-693). The full schema is larger, and on the same hard meal this
+    // reached 892 output tokens (330 reasoning) — 89% of the old 1000, close
+    // enough to truncation to move.
+    maxOutputTokens: 2000,
+    maxRetries: 3,
+  }
+}
+
+/**
+ * Every `generateObject` argument the supplementary preparation-tips call
+ * (the meal has the user's own notes) sends except `model` and `abortSignal`.
+ */
+export function buildSupplementaryTipsRequest(input: SupplementaryTipsRequestInput) {
+  const { mealName, servings, timeMinutes, components, preparationNotes, locale } = input
+
+  return {
+    schema: supplementaryTipsSchema,
+    prompt: buildSupplementaryTipsPrompt({
+      mealName,
+      householdSize: servings,
+      timeMinutes,
+      ingredientsList: formatIngredientsList(components, servings),
+      preparationNotes,
+      locale,
+    }),
+    // Sized for Sonnet 5's adaptive thinking (HON-693): reasoning tokens are
+    // billed as output and count against this cap, so the old 400 was not a
+    // tips-sized budget any more. Measured against a deliberately hard meal,
+    // this call reached 593 output tokens (335 of them reasoning) and
+    // truncated outright at 400 — `finish: 'length'`, then
+    // NoObjectGeneratedError and no tips for the user. This is a ceiling, not
+    // a target: a typical call still returns in ~195 tokens.
+    maxOutputTokens: 1200,
+    maxRetries: 3,
+  }
+}
