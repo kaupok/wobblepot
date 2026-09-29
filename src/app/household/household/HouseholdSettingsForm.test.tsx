@@ -544,7 +544,10 @@ describe('HouseholdSettingsForm', () => {
 
     it('shows loading state during submission', async () => {
       mockFetch.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 500)),
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ ok: true, json: () => Promise.resolve({}) }), 500),
+          ),
       )
 
       renderForm()

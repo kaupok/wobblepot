@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
 import { formatFullDate } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
+import { apiFetch } from '@/lib/api'
 import {
   Dialog,
   DialogContent,
@@ -45,23 +46,19 @@ export function MemberInviteDialog({
   const [copied, setCopied] = useState(false)
 
   const createInvite = useMutation({
-    mutationFn: async () => {
-      const response = await fetch('/api/households/me/invites', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          memberId,
-          expiresInDays: 7,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || t('errors.createFailed'))
-      }
-
-      return response.json()
-    },
+    mutationFn: () =>
+      apiFetch<{ url: string; expiresAt: string }>(
+        '/api/households/me/invites',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            memberId,
+            expiresInDays: 7,
+          }),
+        },
+        t('errors.createFailed'),
+      ),
     onSuccess: (invite) => {
       const newInvite: MemberInvite = {
         url: invite.url,

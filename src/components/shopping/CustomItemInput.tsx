@@ -6,6 +6,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import { ApiError, apiFetch } from '@/lib/api'
 
 export interface CustomItemData {
   id: string
@@ -14,6 +15,18 @@ export interface CustomItemData {
   ingredientId: string | null
   ingredientCategory: string | null
   createdAt: string
+}
+
+/** `POST /api/shopping-list/custom`'s success body. */
+interface CustomShoppingItemResponse {
+  item: {
+    id: string
+    name: string
+    checked: boolean
+    ingredientId: string | null
+    ingredient?: { category: string } | null
+    createdAt: string
+  }
 }
 
 interface CustomItemInputProps {
@@ -28,21 +41,25 @@ export function CustomItemInput({ onItemAdded, disabled }: CustomItemInputProps)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const addItem = useMutation({
-    mutationFn: async (name: string) => {
-      const response = await fetch('/api/shopping-list/custom', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        if (response.status === 409) {
+    mutationFn: async (name: string): Promise<CustomItemData | null> => {
+      let data: CustomShoppingItemResponse
+      try {
+        data = await apiFetch<CustomShoppingItemResponse>(
+          '/api/shopping-list/custom',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+          },
+          tErrors('addFailed'),
+        )
+      } catch (err) {
+        // Already on the list is not a failure — say so and keep the input.
+        if (err instanceof ApiError && err.status === 409) {
           toast.error(tErrors('alreadyOnList'))
           return null
         }
-        throw new Error(data.error || tErrors('addFailed'))
+        throw err
       }
 
       return {
@@ -52,7 +69,7 @@ export function CustomItemInput({ onItemAdded, disabled }: CustomItemInputProps)
         ingredientId: data.item.ingredientId,
         ingredientCategory: data.item.ingredient?.category ?? null,
         createdAt: data.item.createdAt,
-      } as CustomItemData
+      }
     },
     onSuccess: (item) => {
       if (item) {

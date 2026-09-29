@@ -20,6 +20,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import type { Member } from '@/types/member'
+import { apiFetch } from '@/lib/api'
 import { FieldError } from '@/components/FieldError'
 
 const PORTION_PRESETS: Array<{ key: 'small' | 'regular' | 'large' | 'extraLarge'; value: number }> =
@@ -45,27 +46,22 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
   const [error, setError] = useState('')
 
   const addMember = useMutation({
-    mutationFn: async () => {
-      const trimmedName = name.trim()
-      const response = await fetch('/api/households/me/members', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: trimmedName,
-          preferences: {
-            displayName: displayName.trim() || null,
-            portionMultiplier,
-          },
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || t('errors.addFailed'))
-      }
-
-      return response.json()
-    },
+    mutationFn: () =>
+      apiFetch<Member>(
+        '/api/households/me/members',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name.trim(),
+            preferences: {
+              displayName: displayName.trim() || null,
+              portionMultiplier,
+            },
+          }),
+        },
+        t('errors.addFailed'),
+      ),
     onSuccess: (newMember) => {
       onMemberAdded(newMember)
       handleOpenChange(false)

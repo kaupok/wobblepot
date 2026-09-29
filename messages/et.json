@@ -1053,7 +1053,6 @@
     "errors": {
       "nameRequired": "Leibkonna nimi on kohustuslik",
       "network": "Ühendus ebaõnnestus. Palun kontrolli internetiühendust.",
-      "generic": "Tekkis viga",
       "createFailed": "Leibkonna loomine ebaõnnestus"
     }
   },

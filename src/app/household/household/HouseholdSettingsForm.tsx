@@ -24,6 +24,7 @@ import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { PUBLIC_LOCALES, type Locale } from '@/lib/i18n/locales'
 import { MEAL_TYPE_VALUES } from '@/components/household/meal-form-types'
 import { FieldError } from '@/components/FieldError'
+import { apiFetch } from '@/lib/api'
 
 // Types matching Prisma enums
 type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
@@ -185,24 +186,31 @@ export function HouseholdSettingsForm({
         weekendMealTypes,
       }
 
-      const responses = await Promise.all([
-        fetch('/api/households/me', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, timezone, locale }),
-        }),
-        fetch('/api/households/me/preferences', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(preferencesPayload),
-        }),
+      // `allSettled`, not `all`: both saves finish before the form unlocks, and
+      // when both fail the household error wins, as it is the first request.
+      const results = await Promise.allSettled([
+        apiFetch(
+          '/api/households/me',
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, timezone, locale }),
+          },
+          tSettings('saveFailed'),
+        ),
+        apiFetch(
+          '/api/households/me/preferences',
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(preferencesPayload),
+          },
+          tSettings('saveFailed'),
+        ),
       ])
 
-      for (const response of responses) {
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || tSettings('saveFailed'))
-        }
+      for (const result of results) {
+        if (result.status === 'rejected') throw result.reason
       }
     },
     onSuccess: () => {
