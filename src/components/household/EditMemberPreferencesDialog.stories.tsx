@@ -48,7 +48,7 @@ export const Adult: Story = {
   play: async () => {
     const body = within(document.body)
     await body.findByRole('dialog')
-    await expect(body.getByLabelText('Display name (optional)')).toBeInTheDocument()
+    await expect(body.getByLabelText('Display name (optional)')).not.toBeRequired()
     // The presets are a named radiogroup with the matching preset checked (HON-828).
     const presets = await body.findByRole('radiogroup', { name: /portion size/i })
     const checked = within(presets)
@@ -98,7 +98,7 @@ export const Child: Story = {
   play: async () => {
     const body = within(document.body)
     await body.findByRole('dialog')
-    await expect(body.getByLabelText('Display name')).toBeInTheDocument()
+    await expect(body.getByLabelText('Display name')).toBeRequired()
   },
 }
 
