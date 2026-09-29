@@ -62,6 +62,19 @@ describe('ResetPasswordForm', () => {
       expect(input).toHaveAttribute('placeholder', 'Re-enter your password')
     })
 
+    // `new-password` is what makes a password manager offer to generate and save one.
+    it('declares both password fields as new passwords', () => {
+      render(<ResetPasswordForm />)
+
+      const newPassword = screen.getByLabelText(/new password/i)
+      expect(newPassword).toHaveAttribute('name', 'newPassword')
+      expect(newPassword).toHaveAttribute('autocomplete', 'new-password')
+
+      const confirmPassword = screen.getByLabelText(/confirm password/i)
+      expect(confirmPassword).toHaveAttribute('name', 'confirmPassword')
+      expect(confirmPassword).toHaveAttribute('autocomplete', 'new-password')
+    })
+
     it('renders reset password button', () => {
       render(<ResetPasswordForm />)
 

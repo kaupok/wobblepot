@@ -126,7 +126,9 @@ export function SignUpForm({
               <Label htmlFor="name">{t('nameLabel')}</Label>
               <Input
                 id="name"
+                name="name"
                 type="text"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -139,7 +141,9 @@ export function SignUpForm({
               <Label htmlFor="email">{t('emailLabel')}</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -152,7 +156,9 @@ export function SignUpForm({
               <Label htmlFor="password">{t('passwordLabel')}</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

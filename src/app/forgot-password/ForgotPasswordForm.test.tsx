@@ -38,6 +38,15 @@ describe('ForgotPasswordForm', () => {
       expect(screen.getByLabelText(/email/i)).toHaveAttribute('placeholder', 'you@example.com')
     })
 
+    // WCAG 1.3.5: the field's purpose must be programmatically determinable.
+    it('declares the autofill purpose of the email field', () => {
+      render(<ForgotPasswordForm />)
+
+      const email = screen.getByLabelText(/email/i)
+      expect(email).toHaveAttribute('name', 'email')
+      expect(email).toHaveAttribute('autocomplete', 'email')
+    })
+
     it('renders send reset link button', () => {
       render(<ForgotPasswordForm />)
 

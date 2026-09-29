@@ -103,6 +103,23 @@ describe('SignUpForm', () => {
       expect(input).toHaveAttribute('type', 'password')
     })
 
+    // `new-password` is what makes a password manager offer to generate and save one; WCAG 1.3.5.
+    it('declares the autofill purpose of each field', () => {
+      renderForm()
+
+      const name = screen.getByLabelText(/name/i)
+      expect(name).toHaveAttribute('name', 'name')
+      expect(name).toHaveAttribute('autocomplete', 'name')
+
+      const email = screen.getByLabelText(/email/i)
+      expect(email).toHaveAttribute('name', 'email')
+      expect(email).toHaveAttribute('autocomplete', 'email')
+
+      const password = screen.getByLabelText('Password')
+      expect(password).toHaveAttribute('name', 'password')
+      expect(password).toHaveAttribute('autocomplete', 'new-password')
+    })
+
     it('renders sign up button', () => {
       renderForm()
 
@@ -143,6 +160,8 @@ describe('SignUpForm', () => {
       expect(input).toBeInTheDocument()
       expect(input).toHaveAttribute('type', 'text')
       expect(input).toBeRequired()
+      expect(input).toHaveAttribute('name', 'inviteCode')
+      expect(input).toHaveAttribute('autocomplete', 'off')
     })
   })
 

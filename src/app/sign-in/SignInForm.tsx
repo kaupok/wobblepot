@@ -111,7 +111,9 @@ export function SignInForm() {
               <Label htmlFor="email">{t('emailLabel')}</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
@@ -136,7 +138,9 @@ export function SignInForm() {
               </div>
               <Input
                 id="password"
+                name="password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value)
