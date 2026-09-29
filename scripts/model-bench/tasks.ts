@@ -224,7 +224,7 @@ const review: TaskSpec<'review'> = {
   inapplicableMetrics(input) {
     const expectations = Object.values(input.expected)
     return [
-      ...(expectations.some((e) => 'quantityPerServing' in e) ? [] : ['seededCorrected']),
+      ...(expectations.some((e) => !('unchanged' in e)) ? [] : ['seededCorrected']),
       ...(expectations.some((e) => 'unchanged' in e) ? [] : ['unchangedKept']),
     ]
   },

@@ -256,9 +256,17 @@ describe('scoreReview', () => {
     expect(scores.unchangedKept).toBeCloseTo(2 / 3)
   })
 
-  it('detects a seeded error left outside the 25% tolerance', () => {
-    const scores = scoreReview(input, reviewed({ 'ing-soy': 15, 'ing-rice': 40 }))
-    expect(scores.seededCorrected).toBe(0.5)
+  it('accepts either end of a range the prompt gives, and nothing outside it', () => {
+    // Soy is seeded as 10–20 g: the review prompt's condiment range.
+    expect(scoreReview(input, reviewed({ 'ing-soy': 10, 'ing-rice': 80 })).seededCorrected).toBe(1)
+    expect(scoreReview(input, reviewed({ 'ing-soy': 20, 'ing-rice': 65 })).seededCorrected).toBe(1)
+    expect(scoreReview(input, reviewed({ 'ing-soy': 9, 'ing-rice': 70 })).seededCorrected).toBe(0.5)
+  })
+
+  it('accepts a single expected value within ±25%, and detects one outside it', () => {
+    const single = { ...input, expected: { 'ing-rice': { quantityPerServing: 75 } } }
+    expect(scoreReview(single, reviewed({ 'ing-rice': 90 })).seededCorrected).toBe(1)
+    expect(scoreReview(single, reviewed({ 'ing-rice': 40 })).seededCorrected).toBe(0)
   })
 
   it('detects a missing and a duplicated ingredient ID', () => {

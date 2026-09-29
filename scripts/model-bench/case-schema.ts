@@ -96,6 +96,10 @@ export const ImagineCaseSchema = z.object({
 
 const reviewExpectation = z.union([
   z.object({ quantityPerServing: z.number().positive() }).strict(),
+  z
+    .object({ min: z.number().positive(), max: z.number().positive() })
+    .strict()
+    .refine((r) => r.min <= r.max, 'min must not exceed max'),
   z.object({ unchanged: z.literal(true) }).strict(),
 ])
 
@@ -116,8 +120,11 @@ export const ReviewCaseSchema = z
       .min(1),
     locale,
     /**
-     * Keyed by `ingredientId`: either the corrected per-serving quantity for a
-     * seeded error, or `{ "unchanged": true }` for a quantity that must be kept.
+     * Keyed by `ingredientId`. A seeded error takes either the corrected
+     * per-serving quantity (accepted within ±25%) or a `{ "min", "max" }`
+     * range. Use the range whenever the review prompt's own reference table
+     * gives one for that ingredient, so an answer at either end of it passes.
+     * `{ "unchanged": true }` marks a quantity that must be kept exactly.
      */
     expected: z.record(z.string(), reviewExpectation),
   })

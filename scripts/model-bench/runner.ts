@@ -74,12 +74,14 @@ export async function runBenchmark(options: RunOptions): Promise<RunResult> {
 
   const calls: CallRecord[] = []
   let spendUsd = 0
-  let pair = 0
 
   for (let run = 1; run <= runs; run++) {
-    for (const { c, p } of prepared) {
+    for (const [caseIndex, { c, p }] of prepared.entries()) {
+      // Flips per case *and* per run: a single counter across both would give
+      // every case the same first model in every run whenever the case count
+      // is even, and a task with an odd count would lean one way every run.
       const order: [Role, string][] =
-        pair % 2 === 0
+        (run - 1 + caseIndex) % 2 === 0
           ? [
               ['baseline', baseline],
               ['candidate', candidate],
@@ -88,7 +90,6 @@ export async function runBenchmark(options: RunOptions): Promise<RunResult> {
               ['candidate', candidate],
               ['baseline', baseline],
             ]
-      pair++
 
       for (const [i, [role, model]] of order.entries()) {
         const record = await callOnce({

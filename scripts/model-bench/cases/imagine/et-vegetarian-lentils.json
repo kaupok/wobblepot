@@ -11,11 +11,20 @@
   "forbiddenKeywords": [
     "kana",
     "sealiha",
+    "seahakkliha",
     "veiseliha",
-    "hakkliha",
+    "veisehakkliha",
     "kala",
     "lõhe",
     "peekon",
+    "sink",
+    "vorst",
+    "krevet",
+    "lamba",
+    "kalkun",
+    "luupuljong",
+    "kanapuljong",
+    "veisepuljong",
     "koriander"
   ]
 }

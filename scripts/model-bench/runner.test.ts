@@ -18,7 +18,7 @@ function steppingClock() {
 }
 
 describe('runBenchmark', () => {
-  it('alternates which model goes first, pair by pair', async () => {
+  it('alternates which model goes first across cases and across runs', async () => {
     const { factory, calls } = mockModelFactory(() => ({ object: { ingredients: [] } }))
     const result = await runBenchmark({
       cases: reviewCases,
@@ -34,23 +34,44 @@ describe('runBenchmark', () => {
       CANDIDATE,
       CANDIDATE,
       BASELINE,
-      BASELINE,
-      CANDIDATE,
       CANDIDATE,
       BASELINE,
+      BASELINE,
+      CANDIDATE,
     ])
-    expect(result.calls.map((c) => [c.run, c.role, c.position])).toEqual([
-      [1, 'baseline', 1],
-      [1, 'candidate', 2],
-      [1, 'candidate', 1],
-      [1, 'baseline', 2],
-      [2, 'baseline', 1],
-      [2, 'candidate', 2],
-      [2, 'candidate', 1],
-      [2, 'baseline', 2],
+    expect(result.calls.map((c) => [c.caseId, c.run, c.role, c.position])).toEqual([
+      ['review/en-chicken-stir-fry', 1, 'baseline', 1],
+      ['review/en-chicken-stir-fry', 1, 'candidate', 2],
+      ['review/et-kartulisalat', 1, 'candidate', 1],
+      ['review/et-kartulisalat', 1, 'baseline', 2],
+      ['review/en-chicken-stir-fry', 2, 'candidate', 1],
+      ['review/en-chicken-stir-fry', 2, 'baseline', 2],
+      ['review/et-kartulisalat', 2, 'baseline', 1],
+      ['review/et-kartulisalat', 2, 'candidate', 2],
     ])
     expect(result.partial).toBe(false)
     expect(result.plannedCalls).toBe(8)
+  })
+
+  it('gives every case each model first equally often, even with an odd case count', async () => {
+    const { factory } = mockModelFactory(() => ({ object: { ingredients: [] } }))
+    const cases = [...reviewCases, { ...reviewCases[0]!, id: 'review/third' }]
+    const result = await runBenchmark({
+      cases,
+      baseline: BASELINE,
+      candidate: CANDIDATE,
+      runs: 2,
+      maxUsd: 10,
+      modelFactory: factory,
+    })
+
+    for (const c of cases) {
+      const firsts = result.calls
+        .filter((r) => r.caseId === c.id && r.position === 1)
+        .map((r) => r.role)
+        .sort()
+      expect(firsts, c.id).toEqual(['baseline', 'candidate'])
+    }
   })
 
   it('sends the production request with no abort signal', async () => {

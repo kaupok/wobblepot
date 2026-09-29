@@ -13,7 +13,7 @@
  * candidate's max against the route budget, not against the baseline.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { TASKS, type Task } from './case-schema'
 import { TASK_SPECS, type MetricDef } from './tasks'
@@ -384,6 +384,10 @@ export function localDateString(date: Date): string {
 /**
  * Write `<date>-<baseline>-vs-<candidate>.md` (committed) and the matching
  * `.json` with every raw output (gitignored). Returns both paths.
+ *
+ * A second run of the same pair on the same day gets a `-2`, `-3`, … suffix
+ * rather than overwriting the first: each run cost money, and the earlier
+ * report may already be committed or attached to a PR.
  */
 export function writeReport(
   outDir: string,
@@ -391,7 +395,15 @@ export function writeReport(
   result: RunResult,
 ): { markdownPath: string; jsonPath: string } {
   mkdirSync(outDir, { recursive: true })
-  const stem = `${report.date}-${report.baseline}-vs-${report.candidate}`
+  const base = `${report.date}-${report.baseline}-vs-${report.candidate}`
+  let stem = base
+  for (
+    let n = 2;
+    existsSync(join(outDir, `${stem}.md`)) || existsSync(join(outDir, `${stem}.json`));
+    n++
+  ) {
+    stem = `${base}-${n}`
+  }
   const markdownPath = join(outDir, `${stem}.md`)
   const jsonPath = join(outDir, `${stem}.json`)
 

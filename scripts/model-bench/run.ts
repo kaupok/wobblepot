@@ -15,7 +15,9 @@
  *
  * Runs under plain `tsx`, without `scripts/register-server-only.cjs`: every
  * import below loads with an empty environment. Never import
- * `src/lib/ai/usage.ts`, `@/lib/env` or a route file from here.
+ * `src/lib/ai/usage.ts`, `@/lib/env` or a route file from here. `@/lib/prisma`
+ * is reached through `plan-helpers` (see `scorers.ts`): it builds a client
+ * without connecting, and nothing here queries it.
  */
 
 import 'dotenv/config'

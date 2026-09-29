@@ -48,13 +48,15 @@
       "unchanged": true
     },
     "ing-soy": {
-      "quantityPerServing": 15
+      "min": 10,
+      "max": 20
     },
     "ing-garlic": {
       "unchanged": true
     },
     "ing-rice": {
-      "quantityPerServing": 75
+      "min": 65,
+      "max": 80
     }
   }
 }

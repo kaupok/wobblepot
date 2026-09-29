@@ -18,6 +18,10 @@ import type { MealSlot, SlotRequirement } from '../../src/lib/meal-planning/slot
 import type { CandidateMeal } from '../../src/lib/meal-planning/candidates'
 import type { MealType } from '../../src/generated/prisma/enums'
 import type { CandidatePools, HydratedPlanEntry, MealPlanResponse } from '../../src/lib/ai/types'
+// `plan-helpers` also holds `hydratePlan`, so it imports `@/lib/prisma`, which
+// builds a client at import time without connecting (it loads with an empty
+// environment). Only the two pure validators below are called; never
+// `hydratePlan` — plans are hydrated in memory from the case's pools.
 import { validateAIResponseStructure, validateAndRepairPlan } from '../../src/lib/ai/plan-helpers'
 import { validatePlan } from '../../src/lib/ai/validate-plan'
 import { evaluateRecipeConfidence } from '../../src/lib/ai/recipe-confidence'
@@ -265,7 +269,7 @@ export function scoreImagine(
 // review
 // ---------------------------------------------------------------------------
 
-/** A seeded error counts as corrected within this fraction of the expected value. */
+/** A seeded error with a single expected value counts as corrected within this fraction of it. */
 export const REVIEW_CORRECTION_TOLERANCE = 0.25
 
 export function scoreReview(input: ReviewCase, output: ReviewedIngredients): Scores {
@@ -293,9 +297,13 @@ export function scoreReview(input: ReviewCase, output: ReviewedIngredients): Sco
       if (got === ing.quantityPerServing) kept++
     } else {
       seeded++
-      const want = expectation.quantityPerServing
-      if (got !== undefined && Math.abs(got - want) <= REVIEW_CORRECTION_TOLERANCE * want)
-        corrected++
+      if (got === undefined) continue
+      const ok =
+        'min' in expectation
+          ? got >= expectation.min && got <= expectation.max
+          : Math.abs(got - expectation.quantityPerServing) <=
+            REVIEW_CORRECTION_TOLERANCE * expectation.quantityPerServing
+      if (ok) corrected++
     }
   }
 

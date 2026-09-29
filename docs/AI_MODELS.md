@@ -48,14 +48,14 @@ Every check is deterministic, with no model judging another:
 - **plan:** structure valid; **first-try valid** (`validatePlan` before any repair, the number that matters); valid after `repairPlan`; out-of-pool meal IDs; distinct dinner proteins.
 - **recipe:** ingredient recall and precision against the expected list; exact quantity and unit on matched ingredients; whether the confidence tier agrees with the case; the step-count difference (reported, never pass or fail).
 - **imagine:** exactly 3 meals, servings equal the household size, at least 2 ingredients each, no forbidden ingredient.
-- **review:** every ingredient ID exactly once; each seeded error corrected to within 25%; each correct quantity left alone.
+- **review:** every ingredient ID exactly once; each seeded error corrected into the case's range (the review prompt's own reference range where it gives one, otherwise ±25% of the expected value); each correct quantity left alone.
 - **tips:** item counts within the ranges the prompt asks for.
 
 Output that fails the schema is an error, not a score: `generateObject` throws on it. For each task and model the report also gives latency (p50 and max) against the route budget, calls over budget, errors by name, truncations (`finishReason: length`), and mean tokens and cost per call.
 
 ### Reading the report
 
-The markdown report is written to `scripts/model-bench/results/<date>-<baseline>-vs-<candidate>.md`. Commit it, so the comparison history stays in the repo. A `.json` beside it holds every raw output and is gitignored.
+The markdown report is written to `scripts/model-bench/results/<date>-<baseline>-vs-<candidate>.md`. Commit it, so the comparison history stays in the repo. A second run of the same pair on the same day gets a `-2` suffix rather than overwriting the first. A `.json` beside it holds every raw output and is gitignored.
 
 Neither model accepts `temperature`, so the same case gives different output on each run. Each metric is shown as the mean across runs, with the min–max range in brackets.
 

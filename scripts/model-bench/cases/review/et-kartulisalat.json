@@ -48,7 +48,8 @@
       "unchanged": true
     },
     "ing-onion": {
-      "quantityPerServing": 30
+      "min": 20,
+      "max": 40
     }
   }
 }

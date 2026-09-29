@@ -94,6 +94,17 @@ describe('main', () => {
     expect(json.partial).toBe(false)
   })
 
+  it('never overwrites an earlier report from the same day', async () => {
+    const { factory } = mockModelFactory(respond)
+    const argv = [...BASE_ARGS, '--runs', '1', '--task', 'tips']
+    await main(argv, { ...deps, modelFactory: factory })
+    await main(argv, { ...deps, modelFactory: factory })
+
+    expect(existsSync(join(outDir, `${STEM}.md`))).toBe(true)
+    expect(existsSync(join(outDir, `${STEM}-2.md`))).toBe(true)
+    expect(existsSync(join(outDir, `${STEM}-2.json`))).toBe(true)
+  })
+
   it('stops at --max-usd on mocked usage and marks the written report partial', async () => {
     // 200k output tokens at $10 / MTok: $2 a call, so a $3 cap stops after two.
     const { factory, calls } = mockModelFactory((call) => ({
