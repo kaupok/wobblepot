@@ -128,14 +128,14 @@ There is no `(public)` route group in this project — the only group is `(legal
 - `src/app/(legal)/**` (`/privacy`, `/privacy/subprocessors`, `/terms`)
 - `src/app/bot`, `src/app/status`
 
-Also skip redirect-only pages whose body is just `redirect()` — `src/app/meal-plan` (→ `/`), `src/app/pantry` (→ `/shopping`), `src/app/household/invites` (→ `/household`) — they never render content.
+Also skip redirect-only pages whose body is just `redirect()` — `src/app/meal-plan` (→ `/`), `src/app/household/invites` (→ `/household`) — they never render content. `src/app/pantry` is not one of them: since HON-776 it renders the pantry and must be checked.
 
-For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, or an import from `@/lib/session` — `src/lib/session.ts` exports the React-`cache`d `getSession` wrapper plus `getHasHousehold` / `getHouseholdIdForUser`:
+For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a session check. Match any of `getSession`, `auth.api.getSession`, an import from `@/lib/session` — `src/lib/session.ts` exports the React-`cache`d `getSession` wrapper plus `getHasHousehold` / `getHouseholdIdForUser` — or `load-inventory`, the shared loader in `src/app/shopping/load-inventory.ts` that runs the session check for `/shopping` and `/pantry`:
 
 ```bash
 find src/app -name 'page.tsx' \
-  | grep -vE '/(sign-in|sign-up|forgot-password|reset-password|invite|\(legal\)|bot|status|meal-plan|pantry|household/invites)/' \
-  | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session'
+  | grep -vE '/(sign-in|sign-up|forgot-password|reset-password|invite|\(legal\)|bot|status|meal-plan|household/invites)/' \
+  | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session|load-inventory'
 ```
 
 Every file listed is a candidate unprotected route. Read it before flagging — the root `src/app/page.tsx` may branch on session state rather than redirect, and a page can inherit protection from a parent layout.
