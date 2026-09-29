@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
+import { ApiError, apiFetch } from '@/lib/api'
 
 interface UseIngredientAvailabilityOptions {
   onRefresh: () => void
@@ -13,29 +14,29 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
 
   const toggleMutation = useMutation({
     mutationFn: async ({ ingredientId, hasIt }: { ingredientId: string; hasIt: boolean }) => {
-      if (hasIt) {
-        const response = await fetch('/api/pantry', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ingredientId }),
-        })
-
-        if (!response.ok) {
-          const data = await response.json()
-          if (response.status !== 409) {
-            throw new Error(data.error || 'Failed to add to pantry')
-          }
-        }
-      } else {
-        const response = await fetch(`/api/pantry/by-ingredient/${ingredientId}`, {
-          method: 'DELETE',
-        })
-
-        if (!response.ok && response.status !== 404) {
-          const data = await response.json()
-          throw new Error(data.error || 'Failed to remove from pantry')
-        }
-      }
+      // Each direction tolerates the status that means "already that way": a
+      // 409 when the item is already in the pantry, a 404 when it is already
+      // gone. Either way the pantry now matches what the user asked for.
+      const toleratedStatus = hasIt ? 409 : 404
+      const request = hasIt
+        ? apiFetch<unknown>(
+            '/api/pantry',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ingredientId }),
+            },
+            'Failed to add to pantry',
+          )
+        : apiFetch<void>(
+            `/api/pantry/by-ingredient/${ingredientId}`,
+            { method: 'DELETE' },
+            'Failed to remove from pantry',
+          )
+      await request.catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === toleratedStatus) return
+        throw err
+      })
     },
     onMutate: async ({ ingredientId, hasIt }) => {
       // Snapshot previous override for this ingredient

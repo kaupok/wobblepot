@@ -101,7 +101,7 @@ describe('useIngredientAvailability', () => {
 
   describe('removing from pantry (hasIt=false)', () => {
     it('sends DELETE to /api/pantry/by-ingredient/:id and calls onRefresh', async () => {
-      mockFetch.mockResolvedValue({ ok: true })
+      mockFetch.mockResolvedValue({ ok: true, status: 204 })
 
       const { wrapper } = createQueryWrapper()
       const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }), {
@@ -121,7 +121,11 @@ describe('useIngredientAvailability', () => {
     })
 
     it('handles 404 silently and still calls onRefresh', async () => {
-      mockFetch.mockResolvedValue({ ok: false, status: 404 })
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({ error: 'Pantry item not found' }),
+      })
 
       const { wrapper } = createQueryWrapper()
       const { result } = renderHook(() => useIngredientAvailability({ onRefresh: mockOnRefresh }), {

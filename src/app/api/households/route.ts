@@ -180,10 +180,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // Answer in JSON rather than rethrowing. `CreateHouseholdForm` calls
-    // `response.json()` outside the `try` that catches network failures, so a
-    // rethrow — which Next renders as an HTML error page — surfaces to the user
-    // as a raw `SyntaxError` on the onboarding screen, and nothing is reported.
+    // Answer in JSON rather than rethrowing. A rethrow is rendered by Next as
+    // an HTML error page, which reaches `CreateHouseholdForm` with no `error`
+    // or `message` to branch on, and nothing is reported.
     // `runHouseholdClaim` makes this reachable for a persistent `P2034`, but
     // any unexpected database error lands here the same way.
     captureApiError(error, { route: '/api/households', userId: session.user.id })

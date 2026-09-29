@@ -54,9 +54,9 @@ const AI_BUDGET_MS = 40_000
  * whole — it carries its own `ai_cap_exceeded` code.
  *
  * `success: false` mirrors `/api/recipes/parse` and the `success: true` this
- * route already sends on the happy path. Both clients test
- * `!response.ok || !data.success`, so they read it — and the shape the two AI
- * routes hand those clients should not differ by route.
+ * route already sends on the happy path. Neither client reads it: both call
+ * `apiFetch`, which fails on the status alone. It stays in the body so the
+ * shape the two AI routes answer with does not differ by route.
  */
 function errorBody(error: string, code: ImagineErrorCode) {
   return { success: false as const, error, code }

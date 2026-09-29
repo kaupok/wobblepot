@@ -16,6 +16,7 @@ import {
   reviewImaginedMeal,
   type ImaginedMealResponse,
 } from '@/lib/imagine-utils'
+import { ApiError, apiFetch } from '@/lib/api'
 import { MealCardBase } from '../MealCardBase'
 import { AlternativeSkeleton } from './AlternativesList'
 import { FieldError } from '@/components/FieldError'
@@ -29,13 +30,6 @@ export interface ImaginePanelProps {
    */
   onMealSaved: (mealId: string) => void | Promise<void>
 }
-
-/**
- * Thrown so `useMutation` treats a failed imagine response as an error. Its
- * `message` is the already-translated string the panel renders — the route's
- * English prose never reaches it (HON-700).
- */
-class ImagineRequestError extends Error {}
 
 /**
  * AI "imagine a meal" flow: a prompt plus optional photos in, up to three
@@ -86,7 +80,7 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
       imageFiles: File[]
       controller: AbortController
     }): Promise<ImaginedMealResponse[]> => {
-      let response: Response
+      let init: RequestInit
       if (imageFiles.length > 0) {
         const formData = new FormData()
         if (prompt.trim()) {
@@ -95,49 +89,48 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
         for (const image of imageFiles) {
           formData.append('image', image)
         }
-        response = await fetch('/api/meals/imagine', {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal,
-        })
+        init = { method: 'POST', body: formData, signal: controller.signal }
       } else {
-        response = await fetch('/api/meals/imagine', {
+        init = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: prompt.trim() }),
           signal: controller.signal,
-        })
+        }
       }
 
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        // Deliberately not falling back to `data.error` / `data.message`:
-        // both carry untranslated English, which would render verbatim to an
-        // Estonian household. The route's machine-readable `code` is what
-        // picks the copy; the prose is kept as a console breadcrumb only.
-        console.error('[imagine] request failed', {
-          code: data.code,
-          // `message` carries the detail on the 429 branches — the hourly
-          // limit, and the household-local date the AI cap resets on.
-          // `error` is a bare label there.
-          message: data.message,
-          error: data.error,
-        })
-        throw new ImagineRequestError(
-          tRouteErrors(translateErrorCode(data.code, IMAGINE_ERROR_KEYS, 'imagineFailed'), {
-            max: MAX_ATTACHED_IMAGES,
-          }),
-        )
-      }
-
+      // Every failure branch of the route answers non-2xx, so a resolved call
+      // is always `success: true`.
+      const data = await apiFetch<{ meals: ImaginedMealResponse[] }>('/api/meals/imagine', init)
       return data.meals
     },
     onSuccess: (meals) => setImaginedMeals(meals),
     onError: (err) => {
       // A user-initiated cancel is not a failure — leave the panel untouched.
       if (err instanceof Error && err.name === 'AbortError') return
-      setError(err instanceof ImagineRequestError ? err.message : t('imagineFailed'))
+      if (!(err instanceof ApiError)) {
+        setError(t('imagineFailed'))
+        return
+      }
+      // Deliberately not falling back to the route's `error` / `message`: both
+      // carry untranslated English, which would render verbatim to an
+      // Estonian household. The route's machine-readable `code` is what
+      // picks the copy; the prose is kept as a console breadcrumb only
+      // (HON-700).
+      const body = err.body as { error?: unknown; message?: unknown }
+      console.error('[imagine] request failed', {
+        code: err.code,
+        // `message` carries the detail on the 429 branches — the hourly
+        // limit, and the household-local date the AI cap resets on. `error`
+        // is a bare label there.
+        message: body.message,
+        error: body.error,
+      })
+      setError(
+        tRouteErrors(translateErrorCode(err.code, IMAGINE_ERROR_KEYS, 'imagineFailed'), {
+          max: MAX_ATTACHED_IMAGES,
+        }),
+      )
     },
     onSettled: (_data, _err, { controller }) => {
       if (abortControllerRef.current === controller) abortControllerRef.current = null
