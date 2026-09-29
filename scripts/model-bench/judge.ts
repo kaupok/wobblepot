@@ -233,9 +233,9 @@ export interface JudgeOptions {
 /**
  * Judge every imagine and tips pair the benchmark produced, in the order it
  * ran them. Spend continues from the benchmark's: judge calls count toward
- * the same `--max-usd`. The limit is checked after each pair, not each call,
+ * the same `--max-usd`. The limit is checked before each pair, not each call,
  * so a pair is always judged in both orders; the overshoot is at most one
- * judge call.
+ * pair, two judge calls.
  */
 export async function runJudge(options: JudgeOptions): Promise<JudgeResult> {
   const { result, cases, maxUsd, modelFactory, onPair } = options

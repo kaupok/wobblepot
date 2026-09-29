@@ -285,6 +285,16 @@ describe('buildReport', () => {
       expect(md).toMatch(/Total cost:\*\* \$0\.51 .*judge claude-opus-5-5 \$0\.50 over 0 calls/)
     })
 
+    it('says the judge never ran when the benchmark had already passed --max-usd', () => {
+      const md = renderMarkdown(
+        judgeReport({ pairs: [], plannedPairs: 4, spendUsd: 0, partial: true }),
+      )
+      expect(md).toContain(
+        '**Not judged:** spend had already passed `--max-usd` before the first of 4 pairs',
+      )
+      expect(md).not.toContain('too few decided pairs')
+    })
+
     it('marks a run the judge stopped as partial', () => {
       const r = judgeReport(judged(['win'], true))
       expect(r.partial).toBe(false)

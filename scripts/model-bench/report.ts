@@ -472,6 +472,13 @@ function renderJudge(judge: JudgeReport, candidate: string): string[] {
     `Counts are for ${candidate}. ${judge.model} compared the two models' output for each case and run without knowing which wrote which, once in each order. A **win** or **loss** needs both orders to agree; a disagreement, or a \`tie\` from either, is a **tie**. Win rate is wins ÷ (wins + losses): ties are left out and shown beside it. A win rate under ${JUDGE_MIN_WIN_RATE * 100}% over at least ${JUDGE_MIN_DECIDED} decided pairs is a regression. A pair is skipped when either model's call errored.`,
     '',
   )
+  if (judge.partial && judge.judgedPairs === 0) {
+    lines.push(
+      `**Not judged:** spend had already passed \`--max-usd\` before the first of ${judge.plannedPairs} pairs, so no judge call was made.`,
+      '',
+    )
+    return lines
+  }
   if (judge.tasks.length === 0) {
     lines.push(`No judged task in this run: the judge covers ${JUDGED_TASKS.join(' and ')}.`, '')
     return lines
