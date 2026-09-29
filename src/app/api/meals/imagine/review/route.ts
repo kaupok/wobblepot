@@ -55,6 +55,9 @@ const reviewRequestSchema = z.object({
  * route *is* the quantity review, so 45s is ~1.4x its own measured upper bound
  * — no extrapolation from a neighbouring call site is involved.
  *
+ * Re-measured on Sonnet 5.5 (HON-794): 6s for an 18-ingredient meal, whole
+ * request. The budget stays as sized.
+ *
  * The remaining 15s under `maxDuration` covers the session read, the
  * membership lookup and `assertUnderCap` before the call and the usage write
  * after it, which is what keeps the 504 below reachable instead of the

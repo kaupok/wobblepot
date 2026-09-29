@@ -155,6 +155,11 @@ async function handlePOST(
     // leaves 15s under the 60s `maxDuration` for the DB reads before this
     // point and the writes after it, so the 504 branch below stays reachable
     // rather than the platform killing the function first.
+    //
+    // Re-measured on Sonnet 5.5 (HON-794): 7-9s per generation, whole request,
+    // including an 18-ingredient meal on both prompt paths. The budget and
+    // both token ceilings below stay as sized: the supplementary call used 398
+    // of its 1200 output tokens and the full call at most 791 of its 2000.
     const timeout = AbortSignal.timeout(45_000)
 
     let tips: StructuredTips

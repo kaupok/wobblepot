@@ -38,7 +38,14 @@ const imagineRequestSchema = z.object({
  * tips 15-21s, quantity review 25-32s, both on deliberately hard inputs.
  * Imagine is the quantity-review shape, but it also accepts photos, which add
  * input tokens and latency — so it is sized above that anchor rather than at
- * it. The remaining 20s under `maxDuration` covers base64-decoding up to
+ * it.
+ *
+ * Re-measured on Sonnet 5.5 (HON-794), whole request: 11s for a simple prompt,
+ * 28s for two deliberately hard ones (16-18 ingredients), 29s with three
+ * photos attached. At 73% of the budget this is the AI call with the least
+ * headroom, and the first to revisit if 504s appear.
+ *
+ * The remaining 20s under `maxDuration` covers base64-decoding up to
  * `MAX_ATTACHED_IMAGES` before the call and the three parallel
  * `matchIngredients` passes plus nutrition reads after it, which is what keeps
  * the 504 below reachable instead of the platform killing the function first.

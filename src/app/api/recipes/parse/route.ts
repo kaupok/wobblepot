@@ -64,6 +64,10 @@ const parseRecipeSchema = z.object({
  * tips route uses — and on pasted text it gets it, leaving 15s under
  * `maxDuration` for ingredient matching and the response.
  *
+ * Re-measured on Sonnet 5.5 (HON-794), whole request: 19s for a long pasted
+ * recipe (about 25 ingredients), 13s for a URL import including the page
+ * fetch. Both sit under half of their budget, so both stay as sized.
+ *
  * A URL import cannot afford that. `fetchRecipeFromUrl` runs two sequential
  * network calls before returning any text: `checkRobotsAllowed`, up to 5s on a
  * cache miss (`ROBOTS_FETCH_TIMEOUT_MS`, `src/lib/robots.ts`), and then the

@@ -52,6 +52,10 @@ const MAX_DAYS = 14
  * anchor; 40s covers a worst-case attempt with room for the fast failures
  * above.
  *
+ * Re-measured on Sonnet 5.5 (HON-794), whole request: 10s for a 7-day plan,
+ * 13s for the 14-day maximum, 8s to fill six empty days. That is a third of
+ * the budget at worst, so it stays as sized.
+ *
  * Passed as a duration, not a ready-made signal: this route's DB prelude runs
  * *inside* `generateMealPlan` / `fillEmptySlots` (the kept-slot read, the
  * parallel history/favourite/pantry fetch, `loadCandidatePools`, and for
