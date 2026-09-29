@@ -24,7 +24,7 @@ test.describe('Authentication flows', () => {
     await expect(page.getByRole('heading', { name: 'Create your household' })).toBeVisible()
 
     // Complete the 2-step onboarding flow (name → members → submit)
-    const householdName = `${name}'s Household`
+    const householdName = `${name}'s household`
     await createHousehold(page, householdName)
 
     // Should redirect to home with the first-time setup card
