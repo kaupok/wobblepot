@@ -14,7 +14,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Fixed bottom tab bar for mobile: Today, Shopping, Pantry, Recipes. Hidden on `md:` and up. Opaque `bg-background` with no backdrop blur, matching the header pills (HON-809).Active tab is derived from the current pathname — root path (`/`) matches exactly; other tabs also match their sub-routes (via the shared `isNavItemActive` helper) so nested routes (e.g. `/recipes/123`) still highlight the correct tab.',
+          'Fixed bottom tab bar for mobile: Today, Shopping, Pantry, Recipes. Hidden on `md:` and up. Opaque `bg-background` with no backdrop blur, matching the header pills (HON-809). Active tab is derived from the current pathname — root path (`/`) matches exactly; other tabs also match their sub-routes (via the shared `isNavItemActive` helper) so nested routes (e.g. `/recipes/123`) still highlight the correct tab.',
       },
     },
   },
