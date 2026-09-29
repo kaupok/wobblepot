@@ -114,6 +114,7 @@
     "neededInWindow": "Järgmise {days} päeva jooksul on vaja {quantity}",
     "neededInWindowVague": "Järgmise {days} päeva jooksul on vaja",
     "addPlaceholder": "Lisa koostisosa sahvrisse…",
+    "addAria": "Lisa koostisosa sahvrisse",
     "inPantry": "Sahvris",
     "noResults": "Koostisosi ei leitud",
     "removeDialog": {
@@ -231,6 +232,7 @@
       "swapDescriptionGeneric": "Vali üks neist alternatiividest, mis sobivad sinu eelistustega",
       "addDescription": "Vali sellele kohale toit",
       "searchPlaceholder": "Otsi retseptide hulgast…",
+      "searchAria": "Otsi retseptide hulgast",
       "myRecipesOnly": "Ainult minu retseptid",
       "suggestions": "Soovitused",
       "searchResults": "Otsingutulemused ({count})",
@@ -249,6 +251,7 @@
       "imagine": {
         "back": "Tagasi raamatukokku",
         "promptPlaceholder": "Midagi tervislikku kanaga ja värske salatiga…",
+        "promptAria": "Kirjelda, millist toitu sooviksid",
         "attachAria": "Lisa fotosid",
         "removeImageAria": "Eemalda „{filename}\"",
         "generate": "Mõtle toidud välja",
@@ -358,6 +361,7 @@
       "description": "Kirjelda, mida sooviksid süüa, või tee foto, ja pakume välja 3 toiduideed.",
       "backAria": "Tagasi retseptide juurde",
       "promptPlaceholder": "Midagi tervislikku kanaga ja värske salatiga…",
+      "promptAria": "Kirjelda, millist toitu sooviksid",
       "attachAria": "Lisa fotosid",
       "removeImageAria": "Eemalda „{filename}\"",
       "generate": "Mõtle toidud välja",
@@ -388,6 +392,7 @@
       "description": "Kleebi retsept või URL ja eraldame koostisosad sinu eest. Märgi ka portsjonite arv, muidu eeldame 4.",
       "backAria": "Tagasi retseptide juurde",
       "placeholder": "Kleebi retsept või URL siia…\n\nNäited:\nhttps://example.com/kanapraad\n\nVõi kleebi retsepti tekst otse:\nKanapraad (4 portsjonit)\n- 500g kanafilee\n- 2 sl sojakastet\n- 1 punane paprika",
+      "textAria": "Retsepti tekst või URL",
       "submit": "Impordi retsept",
       "submitting": "Impordin retsepti…",
       "cancel": "Tühista",
@@ -500,6 +505,7 @@
       },
       "ingredientSearch": {
         "placeholder": "Otsi rohkem koostisosi…",
+        "aria": "Otsi lisatavaid koostisosi",
         "noResults": "Koostisosi ei leitud",
         "added": "Lisatud"
       }
@@ -511,6 +517,7 @@
       "duplicateRow": "{count, plural, one {Kasutusel ka real {rows}} other {Kasutusel ka ridadel {rows}}}",
       "originalLabel": "Algne: {text}",
       "searchPlaceholder": "Otsi koostisosi…",
+      "searchAria": "Leia vaste koostisosale „{name}\"",
       "noResults": "Koostisosi ei leitud",
       "drop": "Jäta välja",
       "verifyMatch": "Kontrolli sobitust:",

@@ -366,6 +366,7 @@ export function RecipeImportClient() {
               setWarning(null)
             }}
             placeholder={t('placeholder')}
+            aria-label={t('textAria')}
             rows={12}
             className="resize-none"
             disabled={isParsing}

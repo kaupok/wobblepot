@@ -161,3 +161,17 @@ describe('ImagineClient error localization', () => {
     )
   })
 })
+
+describe('ImagineClient prompt field name', () => {
+  // getByLabelText matches aria-label but not a placeholder, so this fails if
+  // the field is named only by its placeholder (HON-808).
+  it.each(['en', 'et'] as const)('names the prompt textarea in %s', (locale) => {
+    const messages = locale === 'en' ? enMessages : etMessages
+    renderInLocale(<ImagineClient />, locale)
+
+    expect(screen.getByLabelText(messages.recipes.imagine.promptAria)).toHaveAttribute(
+      'placeholder',
+      messages.recipes.imagine.promptPlaceholder,
+    )
+  })
+})

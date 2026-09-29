@@ -137,6 +137,7 @@ export function UnmatchedIngredientRow({
             onFocus={() => setIsDropdownDismissed(false)}
             onKeyDown={handleSearchKeyDown}
             placeholder={t('searchPlaceholder')}
+            aria-label={t('searchAria', { name: data.extractedName })}
             className="pr-9 pl-9"
             disabled={disabled}
           />

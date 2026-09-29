@@ -267,6 +267,7 @@ export function ImagineClient() {
                 setError('')
               }}
               placeholder={t('promptPlaceholder')}
+              aria-label={t('promptAria')}
               rows={3}
               className="min-w-0 flex-1 resize-none"
               disabled={isGenerating}

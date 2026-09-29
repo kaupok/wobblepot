@@ -158,3 +158,26 @@ describe('MealSelectorModal suggestions rate limit', () => {
     expect(screen.getByText(etMessages['meal-plan'].selector.noSuggestions)).toBeInTheDocument()
   })
 })
+
+describe('MealSelectorModal accessible names', () => {
+  const selector = etMessages['meal-plan'].selector
+
+  // getByLabelText matches aria-label but not a placeholder or a title, so
+  // both assertions fail against a field or button named only by those (HON-808).
+  it('names the library search independently of its placeholder', () => {
+    renderModal()
+
+    expect(screen.getByLabelText(selector.searchAria)).toHaveAttribute(
+      'placeholder',
+      selector.searchPlaceholder,
+    )
+  })
+
+  it('names the imagine button with aria-label rather than title', () => {
+    renderModal()
+
+    const button = screen.getByLabelText(selector.imagineButton)
+    expect(button.tagName).toBe('BUTTON')
+    expect(button).not.toHaveAttribute('title')
+  })
+})

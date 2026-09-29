@@ -131,6 +131,7 @@ export function InlineAddItem({
           onFocus={() => setIsDropdownDismissed(false)}
           onKeyDown={handleKeyDown}
           placeholder={tPantry('addPlaceholder')}
+          aria-label={tPantry('addAria')}
           className="pr-9 pl-9"
           disabled={isAdding}
         />

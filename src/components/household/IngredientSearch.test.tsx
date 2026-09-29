@@ -182,3 +182,15 @@ describe('IngredientSearch after a selection', () => {
     expect(onAddIngredient).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('IngredientSearch field name', () => {
+  // getByLabelText matches aria-label but not a placeholder (HON-808). The
+  // global next-intl mock answers from the English catalog.
+  it('names the combobox independently of its placeholder', () => {
+    renderSearch()
+
+    const input = screen.getByLabelText('Search ingredients to add')
+    expect(input).toHaveAttribute('role', 'combobox')
+    expect(input).toHaveAttribute('placeholder', 'Search to add more ingredients…')
+  })
+})

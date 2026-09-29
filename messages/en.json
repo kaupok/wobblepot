@@ -114,6 +114,7 @@
     "neededInWindow": "{quantity} needed in next {days} days",
     "neededInWindowVague": "Needed in next {days} days",
     "addPlaceholder": "Add ingredient to pantry…",
+    "addAria": "Add ingredient to pantry",
     "inPantry": "In pantry",
     "noResults": "No ingredients found",
     "removeDialog": {
@@ -231,6 +232,7 @@
       "swapDescriptionGeneric": "Select one of these alternatives that match your preferences",
       "addDescription": "Select a meal for this slot",
       "searchPlaceholder": "Search meal library…",
+      "searchAria": "Search meal library",
       "myRecipesOnly": "My recipes only",
       "suggestions": "Suggestions",
       "searchResults": "Search results ({count})",
@@ -249,6 +251,7 @@
       "imagine": {
         "back": "Back to library",
         "promptPlaceholder": "Something healthy with chicken and a fresh salad…",
+        "promptAria": "Describe the meal you're in the mood for",
         "attachAria": "Attach photos",
         "removeImageAria": "Remove {filename}",
         "generate": "Imagine meals",
@@ -358,6 +361,7 @@
       "description": "Describe what you're in the mood for or snap a photo, and we'll suggest 3 meal ideas.",
       "backAria": "Back to recipes",
       "promptPlaceholder": "Something healthy with chicken and a fresh salad…",
+      "promptAria": "Describe the meal you're in the mood for",
       "attachAria": "Attach photos",
       "removeImageAria": "Remove {filename}",
       "generate": "Imagine meals",
@@ -388,6 +392,7 @@
       "description": "Paste a recipe or drop a URL and we'll extract the ingredients for you. Include how many servings it makes, otherwise we'll assume 4.",
       "backAria": "Back to recipes",
       "placeholder": "Paste a recipe or URL here…\n\nExamples:\nhttps://example.com/chicken-stir-fry\n\nOr paste recipe text directly:\nChicken Stir Fry (serves 4)\n- 500g chicken breast\n- 2 tbsp soy sauce\n- 1 red bell pepper",
+      "textAria": "Recipe text or URL",
       "submit": "Import recipe",
       "submitting": "Importing recipe…",
       "cancel": "Cancel",
@@ -500,6 +505,7 @@
       },
       "ingredientSearch": {
         "placeholder": "Search to add more ingredients…",
+        "aria": "Search ingredients to add",
         "noResults": "No ingredients found",
         "added": "Added"
       }
@@ -511,6 +517,7 @@
       "duplicateRow": "{count, plural, one {Also used in row {rows}} other {Also used in rows {rows}}}",
       "originalLabel": "Original: {text}",
       "searchPlaceholder": "Search ingredients…",
+      "searchAria": "Find a match for {name}",
       "noResults": "No ingredients found",
       "drop": "Drop",
       "verifyMatch": "Verify match:",
