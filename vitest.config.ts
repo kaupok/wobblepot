@@ -34,6 +34,13 @@ export default defineConfig({
         '**/*.config.{ts,js,mjs}',
         '**/types/**',
         '**/*.d.ts',
+        // Storybook code (stories, scenarios, story helpers) and generated
+        // Prisma output are not app source. Left in, they sit in the
+        // denominator at ~0% and dragged reported line coverage from ~82% to
+        // ~61% (HON-791).
+        '**/*.stories.{ts,tsx}',
+        'src/stories/**',
+        'src/generated/**',
       ],
       thresholds: {
         lines: 0,
