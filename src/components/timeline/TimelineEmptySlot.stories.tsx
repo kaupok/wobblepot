@@ -50,9 +50,15 @@ export const Adding: Story = {
     docs: {
       description: {
         story:
-          "The create-entry POST never resolves, so clicking 'Pick a meal' leaves the button in the 'Adding...' disabled state.",
+          "The create-entry POST never resolves, so clicking 'Pick a meal' leaves the button in the 'Adding...' pending state: aria-disabled, so it keeps focus (HON-803).",
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'Pick a meal' }))
+    const adding = await canvas.findByRole('button', { name: 'Adding…' })
+    await expect(adding).toHaveAttribute('aria-disabled', 'true')
   },
 }
 
@@ -62,7 +68,7 @@ export const Discarding: Story = {
     docs: {
       description: {
         story:
-          "The selector is closed without a pick and the placeholder DELETE never resolves: the selector closes at once, and 'Pick a meal' stays disabled until the discard settles (HON-799).",
+          "The selector is closed without a pick and the placeholder DELETE never resolves: the selector closes at once, and 'Pick a meal' stays aria-disabled until the discard settles (HON-799). It is aria-disabled rather than disabled so it can take focus back from the selector (HON-803).",
       },
     },
   },
@@ -72,6 +78,11 @@ export const Discarding: Story = {
     await within(document.body).findByRole('dialog')
     await pressEscape()
     await awaitDialogClosed()
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Pick a meal' })).toBeDisabled())
+    await waitFor(() =>
+      expect(canvas.getByRole('button', { name: 'Pick a meal' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      ),
+    )
   },
 }

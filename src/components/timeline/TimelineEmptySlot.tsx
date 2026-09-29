@@ -35,6 +35,7 @@ export function TimelineEmptySlot({
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
   const hasSelectedRef = useRef(false)
+  const pickButtonRef = useRef<HTMLButtonElement>(null)
 
   const createEntryMutation = useMutation({
     mutationFn: () =>
@@ -70,8 +71,12 @@ export function TimelineEmptySlot({
     onSettled: (_data, _error, id) => setEntryId((current) => (current === id ? null : current)),
   })
   const isDiscarding = discardEntryMutation.isPending
+  // No second placeholder while the last one is still being created or deleted.
+  const isPending = isCreating || isDiscarding
 
   function handlePickMeal() {
+    // `aria-disabled` stops only the pointer; Enter and Space still land here.
+    if (isPending) return
     hasSelectedRef.current = false
     createEntryMutation.mutate()
   }
@@ -96,6 +101,15 @@ export function TimelineEmptySlot({
     }
   }
 
+  // Radix hands focus back to a `DialogTrigger`, and the selector has none, so
+  // return it to "Pick a meal" ourselves (HON-803). The button is still pending
+  // here — the discard is in flight — which is why it is `aria-disabled` rather
+  // than `disabled`: a disabled button cannot take focus.
+  function handleCloseAutoFocus(event: Event) {
+    event.preventDefault()
+    pickButtonRef.current?.focus()
+  }
+
   return (
     <>
       <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed px-3 py-2">
@@ -104,11 +118,13 @@ export function TimelineEmptySlot({
           <Body variant="caption">{tCard('noMealPlanned')}</Body>
         </div>
         <Button
+          ref={pickButtonRef}
           variant="outline"
           size="sm"
           onClick={handlePickMeal}
-          // No second placeholder while the last one is still being deleted.
-          disabled={isCreating || isDiscarding}
+          // Not `disabled`: a disabled button drops focus and cannot take it
+          // back when the selector closes (HON-803).
+          aria-disabled={isPending || undefined}
         >
           {isCreating ? tCard('adding') : tCard('pickMeal')}
         </Button>
@@ -124,6 +140,7 @@ export function TimelineEmptySlot({
           onSwapComplete={handleSwapComplete}
           mode="add"
           pantryIngredients={pantryIngredients}
+          onCloseAutoFocus={handleCloseAutoFocus}
         />
       )}
     </>
