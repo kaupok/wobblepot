@@ -119,8 +119,8 @@ test.describe('Authentication flows', () => {
     await page.getByLabel('Name').fill(TEST_NAME)
     await page.getByLabel('Email').fill(generateUniqueEmail())
     await page.getByLabel('Password').fill('short') // Only 5 chars; auth.ts sets minPasswordLength to 12
-    // Tick the terms-consent checkbox (HON-457) so the submit button enables —
-    // this test asserts the HTML5 password validation, not the consent gate.
+    // Tick the terms-consent checkbox (HON-457) — this test asserts the HTML5
+    // password validation, not the consent check.
     await page.locator('#acceptTerms').click()
 
     await page.getByRole('button', { name: 'Sign up' }).click()
@@ -173,33 +173,46 @@ test.describe('Authentication flows', () => {
     await page.getByLabel('Name').fill(TEST_NAME)
     await page.getByLabel('Email').fill(generateUniqueEmail())
     await page.getByLabel('Password').fill(TEST_PASSWORD)
+    // Fill the invite code when the gate renders it (the CI default), so the
+    // browser's `required` check passes and the click reaches handleSubmit.
+    // Any value will do: the consent check stops the request before it is sent.
+    const inviteField = page.locator('input[name="inviteCode"]')
+    if (await inviteField.count()) await inviteField.fill('unused-by-this-test')
 
-    // Client layer: submit is disabled while the checkbox is unchecked.
+    // Client layer (HON-848): submit stays enabled; pressing it with the box
+    // unticked shows the consent error, focuses the checkbox, and sends no
+    // sign-up request.
+    const signUpRequests: string[] = []
+    page.on('request', (req) => {
+      if (req.url().includes('/api/auth/sign-up/email')) signUpRequests.push(req.url())
+    })
     const submit = page.locator('form button[type="submit"]')
-    await expect(submit).toBeDisabled()
-
-    // Server layer: force past the client gate (re-enable the button, drop
-    // the `required` validators) and assert the backend still rejects the
-    // sign-up without `acceptedTerms: true`.
-    await submit.evaluate((el) => el.removeAttribute('disabled'))
-    // Strip every HTML5 `required` in the form — including the hidden native
-    // input Radix renders behind the #acceptTerms checkbox button (removing
-    // the attribute from the visible button alone leaves that input's
-    // validator active and the submit silently never fires).
-    await page
-      .locator('form')
-      .first()
-      .evaluate((form) =>
-        form.querySelectorAll('[required]').forEach((el) => el.removeAttribute('required')),
-      )
+    await expect(submit).toBeEnabled()
     await submit.click()
 
-    // Stay on /sign-up and surface the friendly terms-consent error.
-    await expect(page).toHaveURL('/sign-up')
     const termsAlert = page
       .locator('[role="alert"]')
       .filter({ hasText: /terms of service and privacy policy/i })
     await expect(termsAlert).toBeVisible()
+    await expect(page.locator('#acceptTerms')).toBeFocused()
+    await expect(page).toHaveURL('/sign-up')
+    expect(signUpRequests).toEqual([])
+
+    // Server layer: the client can no longer be forced past its own check, so
+    // call the endpoint directly and assert the backend still refuses a
+    // sign-up without `acceptedTerms: true`. `origin` satisfies Better Auth's
+    // trustedOrigins check, as in forgot-password.spec.ts.
+    const response = await page.request.post('/api/auth/sign-up/email', {
+      data: {
+        name: TEST_NAME,
+        email: generateUniqueEmail(),
+        password: TEST_PASSWORD,
+        acceptedTerms: false,
+      },
+      headers: { origin: baseURL },
+    })
+    expect(response.status()).toBe(400)
+    expect(await response.json()).toMatchObject({ code: 'TERMS_NOT_ACCEPTED' })
   })
 
   test('returnUrl redirects to specified page after sign in', async ({ page }) => {

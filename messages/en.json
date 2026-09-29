@@ -824,7 +824,7 @@
     },
     "auth": {
       "unexpected": "An unexpected error occurred. Please try again.",
-      "termsNotAccepted": "Please accept the Terms of Service and Privacy Policy to create an account.",
+      "termsNotAccepted": "To create an account, accept the terms of service and privacy policy.",
       "inviteCodeRequired": "An invite code is required to sign up while we are in private beta.",
       "inviteCodeInvalid": "That invite code is invalid, expired, or has already been used.",
       "invalidCredentials": "The email or password you entered is incorrect. Please try again.",

@@ -85,9 +85,10 @@ export async function signUp(
     }
   }
 
-  // Terms-consent checkbox (HON-457): required on every sign-up; submit stays
-  // disabled until ticked. Locale-stable id selector — the label copy is
-  // localized. Radix renders a button with role="checkbox", so click, not check.
+  // Terms-consent checkbox (HON-457): required on every sign-up; submitting
+  // unticked shows an error instead (HON-848). Locale-stable id selector — the
+  // label copy is localized. Radix renders a button with role="checkbox", so
+  // click, not check.
   await page.locator('#acceptTerms').click()
 
   // Submit button — use `type="submit"` rather than `name: 'Sign up'`, which
