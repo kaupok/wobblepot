@@ -10,6 +10,7 @@ import { getValidReturnUrl } from '@/lib/utils'
 import { track } from '@/lib/analytics'
 import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support'
 import { Button } from '@/components/ui/button'
+import { Callout } from '@/components/ui/callout'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -111,23 +112,17 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
         <CardContent>
           <div className="flex flex-col gap-4">
             {inviteRequired && (
-              <div
-                className="border-primary/30 bg-primary/5 rounded-md border px-3 py-2"
-                role="note"
-                aria-label={t('privateBetaNoticeLabel')}
-              >
-                <Body variant="paragraph">
-                  {t('privateBetaBanner')}{' '}
-                  {t.rich('requestInvite', {
-                    email: SUPPORT_EMAIL,
-                    link: (chunks) => (
-                      <a href={supportMailtoHref(t('requestInviteSubject'))} className="underline">
-                        {chunks}
-                      </a>
-                    ),
-                  })}
-                </Body>
-              </div>
+              <Callout role="note" aria-label={t('privateBetaNoticeLabel')}>
+                {t('privateBetaBanner')}{' '}
+                {t.rich('requestInvite', {
+                  email: SUPPORT_EMAIL,
+                  link: (chunks) => (
+                    <a href={supportMailtoHref(t('requestInviteSubject'))} className="underline">
+                      {chunks}
+                    </a>
+                  ),
+                })}
+              </Callout>
             )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">{t('nameLabel')}</Label>

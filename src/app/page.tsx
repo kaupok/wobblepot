@@ -5,6 +5,7 @@ import { getTranslations } from 'next-intl/server'
 import { CheckCircle2 } from 'lucide-react'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
+import { Callout } from '@/components/ui/callout'
 import { auth } from '@/lib/auth'
 import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership } from '@/lib/household'
@@ -43,26 +44,24 @@ export default async function Home() {
           </div>
 
           {inviteRequired && (
-            <div
-              className="border-primary/30 bg-primary/5 max-w-md rounded-md border px-4 py-2"
+            <Callout
+              className="max-w-md"
               role="note"
               aria-label={tSignUp('privateBetaNoticeLabel')}
             >
-              <Body variant="paragraph">
-                {t('privateBeta')}{' '}
-                {tSignUp.rich('requestInvite', {
-                  email: SUPPORT_EMAIL,
-                  link: (chunks) => (
-                    <a
-                      href={supportMailtoHref(tSignUp('requestInviteSubject'))}
-                      className="underline"
-                    >
-                      {chunks}
-                    </a>
-                  ),
-                })}
-              </Body>
-            </div>
+              {t('privateBeta')}{' '}
+              {tSignUp.rich('requestInvite', {
+                email: SUPPORT_EMAIL,
+                link: (chunks) => (
+                  <a
+                    href={supportMailtoHref(tSignUp('requestInviteSubject'))}
+                    className="underline"
+                  >
+                    {chunks}
+                  </a>
+                ),
+              })}
+            </Callout>
           )}
 
           <Button asChild size="lg">
