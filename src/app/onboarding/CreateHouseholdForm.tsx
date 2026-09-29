@@ -356,7 +356,10 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
           <Body variant="muted">{getStepDescription()}</Body>
         </div>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      {/* noValidate: Enter on step 1 submits, and the browser would block that
+          with its own untranslated bubble for the `required` name instead of
+          letting `handleNext` show the app's error, as Continue does (HON-836). */}
+      <form onSubmit={handleSubmit} noValidate>
         <CardContent>
           {renderStepContent()}
           {error && (

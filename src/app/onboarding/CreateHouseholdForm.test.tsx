@@ -627,6 +627,11 @@ describe('CreateHouseholdForm', () => {
         renderForm()
 
         const nameInput = screen.getByLabelText('Household name')
+        // The input is `required`. user-event submits without running the
+        // browser's constraint validation, which would otherwise block the
+        // submit with its own bubble, so pin the opt-out that keeps a browser
+        // on this path too.
+        expect(nameInput.closest('form')).toHaveAttribute('novalidate')
         await userEvent.clear(nameInput)
         await userEvent.type(nameInput, '{Enter}')
 
