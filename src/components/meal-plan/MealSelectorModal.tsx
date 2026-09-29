@@ -20,6 +20,7 @@ import { ImaginePanel } from './meal-selector/ImaginePanel'
 import { useMealAlternatives } from './meal-selector/use-meal-alternatives'
 import { ApiError, apiFetch } from '@/lib/api'
 import { track } from '@/lib/analytics'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { toast } from 'sonner'
 import type { PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
@@ -45,6 +46,11 @@ interface MealSelectorModalProps {
   planId: string
   entryId: string
   mealType: MealType
+  /**
+   * The slot's day, e.g. "Saturday Oct 3". In add mode the description then
+   * names the slot, since the dialog covers the row that was tapped (HON-807).
+   */
+  dayLabel?: string
   householdSize: number
   currentMealName?: string
   /** Current meal id when `mode === 'swap'`. Used as `from_meal_id` on `meal_plan:meal_swapped`. */
@@ -77,6 +83,7 @@ export function MealSelectorModal({
   planId,
   entryId,
   mealType,
+  dayLabel,
   householdSize,
   currentMealName,
   currentMealId,
@@ -86,6 +93,7 @@ export function MealSelectorModal({
   onCloseAutoFocus,
 }: MealSelectorModalProps) {
   const tSelector = useTranslations('meal-plan.selector')
+  const mealTypeLabel = useEnumLabel('MealType', mealType)
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -209,7 +217,9 @@ export function MealSelectorModal({
       ? currentMealName
         ? tSelector('swapDescription', { name: currentMealName })
         : tSelector('swapDescriptionGeneric')
-      : tSelector('addDescription')
+      : dayLabel
+        ? tSelector('addSlotDescription', { day: dayLabel, mealType: mealTypeLabel })
+        : tSelector('addDescription')
 
   const header = isMyRecipesBrowseMode
     ? total > 0

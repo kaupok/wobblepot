@@ -357,7 +357,11 @@ export function MealCard({
                     its width for the meal name. */}
                 <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon-sm" aria-label={tCard('moreActions')}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={tCard('moreActions', { name: meal.name })}
+                    >
                       <MoreHorizontal aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
