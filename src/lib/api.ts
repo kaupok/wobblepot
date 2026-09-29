@@ -13,11 +13,21 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
+/**
+ * Fetches JSON and throws `ApiError` on a non-OK response. The error message is
+ * the route's `error` field when it sends one, else `fallbackMessage` — pass the
+ * localized "…failed" copy a mutation toasts, so a bodiless 500 never surfaces
+ * as "Request failed: 500".
+ */
+export async function apiFetch<T>(
+  url: string,
+  init?: RequestInit,
+  fallbackMessage?: string,
+): Promise<T> {
   const res = await fetch(url, init)
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new ApiError(body.error || `Request failed: ${res.status}`, res.status)
+    throw new ApiError(body.error || fallbackMessage || `Request failed: ${res.status}`, res.status)
   }
   return res.json()
 }
