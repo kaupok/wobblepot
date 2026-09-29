@@ -1,0 +1,50 @@
+{
+  "text": "Kõrvitsasupp\n\n4 portsjonit, 40 minutit.\n\nKoostisosad:\n800 g kõrvitsat\n1 sibul\n2 küüslauguküünt\n30 ml oliiviõli\n1 l köögiviljapuljongit\n200 ml vahukoort\nsoola ja pipart maitse järgi\n\nValmistamine:\n1. Koori kõrvits ja lõika kuubikuteks. Haki sibul ja küüslauk.\n2. Kuumuta potis õli ja prae sibulat ja küüslauku 3 minutit.\n3. Lisa kõrvits ja puljong ning keeda kaane all 20 minutit, kuni kõrvits on pehme.\n4. Püreesta supp saumikseriga, sega juurde koor ja maitsesta soola ning pipraga.",
+  "locale": "et",
+  "expected": {
+    "ingredients": [
+      {
+        "names": ["kõrvits"],
+        "quantity": 800,
+        "unit": "g"
+      },
+      {
+        "names": ["sibul"],
+        "quantity": 1,
+        "unit": "piece"
+      },
+      {
+        "names": ["küüslauk", "küüslauguküüs"],
+        "quantity": 2,
+        "unit": "piece"
+      },
+      {
+        "names": ["oliiviõli"],
+        "quantity": 30,
+        "unit": "ml"
+      },
+      {
+        "names": ["köögiviljapuljong", "puljong"],
+        "quantity": 1000,
+        "unit": "ml"
+      },
+      {
+        "names": ["vahukoor", "koor"],
+        "quantity": 200,
+        "unit": "ml"
+      },
+      {
+        "names": ["sool"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["must pipar", "pipar"],
+        "quantity": null,
+        "unit": null
+      }
+    ],
+    "lowConfidence": false,
+    "stepCount": 4
+  }
+}

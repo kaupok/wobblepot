@@ -1,0 +1,40 @@
+{
+  "text": "Easy pancakes\n\nMakes 12 thin pancakes, serves 4. 25 minutes.\n\n250 g plain flour\n500 ml milk\n2 eggs\n20 g sugar\na pinch of salt\n30 g butter, melted\n\n1. Whisk the flour, sugar and salt with half of the milk until smooth.\n2. Beat in the eggs, then the rest of the milk and the melted butter.\n3. Rest the batter for 10 minutes.\n4. Fry thin pancakes in a hot, lightly greased pan, about 1 minute per side.",
+  "locale": "et",
+  "expected": {
+    "ingredients": [
+      {
+        "names": ["nisujahu", "jahu"],
+        "quantity": 250,
+        "unit": "g"
+      },
+      {
+        "names": ["piim"],
+        "quantity": 500,
+        "unit": "ml"
+      },
+      {
+        "names": ["muna"],
+        "quantity": 2,
+        "unit": "piece"
+      },
+      {
+        "names": ["suhkur"],
+        "quantity": 20,
+        "unit": "g"
+      },
+      {
+        "names": ["sool"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["või"],
+        "quantity": 30,
+        "unit": "g"
+      }
+    ],
+    "lowConfidence": false,
+    "stepCount": 4
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "prompt": "a Thai-style noodle stir-fry with a rich satay sauce",
+  "household": {
+    "allergens": ["nuts", "peanuts"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": ["mild spice for the kids"],
+    "householdSize": 5
+  },
+  "locale": "en",
+  "forbiddenKeywords": [
+    "peanut",
+    "almond",
+    "walnut",
+    "hazelnut",
+    "cashew",
+    "pecan",
+    "pistachio",
+    "macadamia",
+    "brazil nut",
+    "pine nut",
+    "praline",
+    "marzipan",
+    "nutella"
+  ]
+}

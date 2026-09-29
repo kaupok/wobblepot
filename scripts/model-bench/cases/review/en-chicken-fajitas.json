@@ -1,0 +1,74 @@
+{
+  "mealName": "Chicken fajitas",
+  "servings": 4,
+  "ingredients": [
+    {
+      "ingredientId": "ing-chicken",
+      "name": "chicken breast",
+      "quantityPerServing": 5,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-pepper",
+      "name": "red bell pepper",
+      "quantityPerServing": 100,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-onion",
+      "name": "onion",
+      "quantityPerServing": 30,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-tortilla",
+      "name": "tortilla",
+      "quantityPerServing": 2,
+      "unit": "piece"
+    },
+    {
+      "ingredientId": "ing-cheddar",
+      "name": "cheddar",
+      "quantityPerServing": 250,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-paprika",
+      "name": "smoked paprika",
+      "quantityPerServing": 1.5,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-oil",
+      "name": "vegetable oil",
+      "quantityPerServing": 8,
+      "unit": "g"
+    }
+  ],
+  "locale": "en",
+  "expected": {
+    "ing-chicken": {
+      "min": 100,
+      "max": 200
+    },
+    "ing-pepper": {
+      "unchanged": true
+    },
+    "ing-onion": {
+      "unchanged": true
+    },
+    "ing-tortilla": {
+      "unchanged": true
+    },
+    "ing-cheddar": {
+      "min": 20,
+      "max": 40
+    },
+    "ing-paprika": {
+      "unchanged": true
+    },
+    "ing-oil": {
+      "unchanged": true
+    }
+  }
+}

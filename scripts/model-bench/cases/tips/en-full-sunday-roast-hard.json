@@ -1,0 +1,89 @@
+{
+  "kind": "full",
+  "mealName": "Roast beef with Yorkshire puddings, roast potatoes, gravy and three vegetables",
+  "servings": 6,
+  "timeMinutes": 240,
+  "components": [
+    {
+      "name": "beef topside",
+      "quantityPerServing": 250,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "potato",
+      "quantityPerServing": 250,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "carrot",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "parsnip",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "broccoli",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "flour",
+      "quantityPerServing": 30,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "egg",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "milk",
+      "quantityPerServing": 50,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "beef stock",
+      "quantityPerServing": 80,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "red wine",
+      "quantityPerServing": 30,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "vegetable oil",
+      "quantityPerServing": 15,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "butter",
+      "quantityPerServing": 10,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "garlic",
+      "quantityPerServing": 1,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "rosemary",
+      "quantityPerServing": 1,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "thyme",
+      "quantityPerServing": 1,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "horseradish sauce",
+      "quantityPerServing": 15,
+      "defaultUnit": "g"
+    }
+  ],
+  "locale": "en"
+}

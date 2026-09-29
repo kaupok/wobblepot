@@ -1,0 +1,62 @@
+{
+  "text": "Grandma's weeknight chili (the one everyone asks for!)\n\nOkay, before we get to the good stuff: this chili has been in our family since the 90s and it has saved more Tuesday nights than I can count. Don't skip the resting step, trust me. Scroll down for the printable card!\n\nServes 6 | Prep 15 min | Cook 1 hr\n\n1 lb ground beef\n1 large onion, chopped\n3 cloves garlic, minced\n2 cans kidney beans, drained\n1 can diced tomatoes\n250 ml beef stock\n100g red bell pepper, diced\na pinch of cayenne pepper\nsalt to taste\n\nBrown the beef in a big pot, breaking it up as it cooks. Add the onion, garlic and pepper and cook until soft, about 5 minutes. Stir in the tomatoes, beans and stock, then simmer uncovered for 45 minutes. Season with the cayenne and salt and let it rest for 10 minutes before serving.\n\nDid you make this? Leave a comment and tag us!",
+  "locale": "en",
+  "expected": {
+    "ingredients": [
+      {
+        "names": ["ground beef", "beef mince", "minced beef"],
+        "quantity": 454,
+        "unit": "g"
+      },
+      {
+        "names": ["onion"],
+        "quantity": 1,
+        "unit": "piece"
+      },
+      {
+        "names": ["garlic", "garlic clove"],
+        "quantity": 3,
+        "unit": "piece"
+      },
+      {
+        "names": [
+          "canned kidney beans",
+          "canned kidney bean",
+          "kidney beans",
+          "kidney bean",
+          "red kidney bean",
+          "red kidney beans"
+        ],
+        "quantity": 800,
+        "unit": "g"
+      },
+      {
+        "names": ["canned diced tomatoes", "canned diced tomato"],
+        "quantity": 400,
+        "unit": "g"
+      },
+      {
+        "names": ["beef stock", "beef broth"],
+        "quantity": 250,
+        "unit": "ml"
+      },
+      {
+        "names": ["red bell pepper"],
+        "quantity": 100,
+        "unit": "g"
+      },
+      {
+        "names": ["cayenne pepper", "cayenne"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["salt"],
+        "quantity": null,
+        "unit": null
+      }
+    ],
+    "lowConfidence": false,
+    "stepCount": 4
+  }
+}

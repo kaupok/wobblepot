@@ -1,0 +1,36 @@
+{
+  "prompt": "pidulik pühapäevalõuna kogu perele, midagi ahjus valmivat",
+  "household": {
+    "allergens": [],
+    "dietaryType": "pescatarian",
+    "excludedIngredients": [],
+    "restrictions": [],
+    "householdSize": 6
+  },
+  "locale": "et",
+  "forbiddenKeywords": [
+    "kanaliha",
+    "kanafilee",
+    "kanarind",
+    "kanakoib",
+    "kanatiib",
+    "kanahakkliha",
+    "broiler",
+    "sealiha",
+    "seahakkliha",
+    "veiseliha",
+    "veisehakkliha",
+    "lambaliha",
+    "kalkun",
+    "pardi",
+    "peekon",
+    "sink",
+    "vorst",
+    "viiner",
+    "karbonaad",
+    "luupuljong",
+    "kanapuljong",
+    "veisepuljong",
+    "želatiin"
+  ]
+}

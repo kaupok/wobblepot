@@ -1,0 +1,54 @@
+{
+  "text": "Oa-tomatihautis\n\n2 portsjonit, umbes 25 minutit.\n\n1 purk punaseid ube, nõrutatud\n1 purk hakitud tomateid\n1 sibul\n2 küüslauguküünt\nnäputäis suitsupaprikat\nsoola maitse järgi\nvärsket peterselli serveerimiseks\n\n1. Haki sibul ja küüslauk ning prae neid pannil pehmeks.\n2. Lisa oad, tomatid ja suitsupaprika ning hauta 15 minutit.\n3. Maitsesta soolaga ja puista peale hakitud petersell.",
+  "locale": "et",
+  "expected": {
+    "ingredients": [
+      {
+        "names": ["punane uba", "konserveeritud punane uba", "uba", "punased oad"],
+        "quantity": 400,
+        "unit": "g"
+      },
+      {
+        "names": [
+          "hakitud tomat",
+          "konserveeritud hakitud tomat",
+          "konserveeritud tomat",
+          "tomatikonserv",
+          "konservtomat",
+          "purustatud tomat",
+          "tükeldatud tomat",
+          "tomat"
+        ],
+        "quantity": 400,
+        "unit": "g"
+      },
+      {
+        "names": ["sibul"],
+        "quantity": 1,
+        "unit": "piece"
+      },
+      {
+        "names": ["küüslauk", "küüslauguküüs"],
+        "quantity": 2,
+        "unit": "piece"
+      },
+      {
+        "names": ["suitsupaprika", "paprika", "paprikapulber"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["sool"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["petersell"],
+        "quantity": null,
+        "unit": null
+      }
+    ],
+    "lowConfidence": false,
+    "stepCount": 3
+  }
+}

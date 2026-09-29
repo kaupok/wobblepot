@@ -1,0 +1,55 @@
+{
+  "text": "Greek salad\n\nServes 2, ready in 15 minutes.\n\n- 3 ripe tomatoes, cut into wedges\n- 1 cucumber, sliced\n- 1/2 red onion, thinly sliced\n- 200 g feta\n- a handful of kalamata olives\n- extra virgin olive oil, a drizzle\n- a pinch of dried oregano\n- salt to taste\n- black pepper to taste\n\n1. Arrange the tomatoes, cucumber and onion in a shallow bowl.\n2. Lay the feta on top and scatter over the olives.\n3. Drizzle with oil, sprinkle with oregano and season to taste.",
+  "locale": "en",
+  "expected": {
+    "ingredients": [
+      {
+        "names": ["tomato"],
+        "quantity": 3,
+        "unit": "piece"
+      },
+      {
+        "names": ["cucumber"],
+        "quantity": 1,
+        "unit": "piece"
+      },
+      {
+        "names": ["red onion"],
+        "quantity": 0.5,
+        "unit": "piece"
+      },
+      {
+        "names": ["feta", "feta cheese"],
+        "quantity": 200,
+        "unit": "g"
+      },
+      {
+        "names": ["kalamata olive", "kalamata olives", "olive", "olives", "black olive"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["olive oil"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["oregano", "dried oregano"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["salt"],
+        "quantity": null,
+        "unit": null
+      },
+      {
+        "names": ["black pepper"],
+        "quantity": null,
+        "unit": null
+      }
+    ],
+    "lowConfidence": false,
+    "stepCount": 3
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "kind": "full",
+  "mealName": "Shakshuka with crusty bread",
+  "servings": 2,
+  "timeMinutes": 30,
+  "components": [
+    {
+      "name": "egg",
+      "quantityPerServing": 2,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "canned diced tomatoes",
+      "quantityPerServing": 200,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "red bell pepper",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "ground cumin",
+      "quantityPerServing": 1,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "olive oil",
+      "quantityPerServing": 10,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "bread",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    }
+  ],
+  "locale": "en"
+}

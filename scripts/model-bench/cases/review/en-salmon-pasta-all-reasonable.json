@@ -1,0 +1,63 @@
+{
+  "mealName": "Creamy salmon and spinach pasta",
+  "servings": 4,
+  "ingredients": [
+    {
+      "ingredientId": "ing-salmon",
+      "name": "salmon",
+      "quantityPerServing": 150,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-pasta",
+      "name": "pasta",
+      "quantityPerServing": 90,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-spinach",
+      "name": "spinach",
+      "quantityPerServing": 80,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-parmesan",
+      "name": "parmesan",
+      "quantityPerServing": 30,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-garlic",
+      "name": "garlic",
+      "quantityPerServing": 4,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-oil",
+      "name": "olive oil",
+      "quantityPerServing": 8,
+      "unit": "g"
+    }
+  ],
+  "locale": "en",
+  "expected": {
+    "ing-salmon": {
+      "unchanged": true
+    },
+    "ing-pasta": {
+      "unchanged": true
+    },
+    "ing-spinach": {
+      "unchanged": true
+    },
+    "ing-parmesan": {
+      "unchanged": true
+    },
+    "ing-garlic": {
+      "unchanged": true
+    },
+    "ing-oil": {
+      "unchanged": true
+    }
+  }
+}

@@ -1,15 +1,14 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { loadCases } from './load-cases'
 import { runBenchmark } from './runner'
 import { errorScores } from './tasks'
-import { mockModelFactory } from './test-utils'
+import { loadStarterCases, mockModelFactory } from './test-utils'
 
 const BASELINE = 'claude-sonnet-5'
 const CANDIDATE = 'claude-sonnet-5-5'
 
-const reviewCases = loadCases(['review'])
-const tipsCases = loadCases(['tips'])
+const reviewCases = loadStarterCases(['review'])
+const tipsCases = loadStarterCases(['tips'])
 
 /** A clock that advances 1000 ms per reading, so every call measures 1000 ms. */
 function steppingClock() {

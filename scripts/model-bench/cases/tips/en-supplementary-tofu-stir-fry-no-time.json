@@ -1,0 +1,40 @@
+{
+  "kind": "supplementary",
+  "mealName": "Crispy tofu stir-fry",
+  "servings": 2,
+  "timeMinutes": null,
+  "components": [
+    {
+      "name": "tofu",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "broccoli",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "red bell pepper",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "soy sauce",
+      "quantityPerServing": 15,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "cornstarch",
+      "quantityPerServing": 10,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "rice noodles",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": "Press the tofu, cut it into cubes and toss in cornstarch. Fry until crisp, then take it out. Stir-fry the vegetables, add the noodles and soy sauce, and put the tofu back in at the end.",
+  "locale": "en"
+}

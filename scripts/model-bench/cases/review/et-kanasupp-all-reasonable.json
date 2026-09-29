@@ -1,0 +1,63 @@
+{
+  "mealName": "Kanasupp",
+  "servings": 6,
+  "ingredients": [
+    {
+      "ingredientId": "ing-chicken",
+      "name": "chicken thigh",
+      "quantityPerServing": 150,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-potato",
+      "name": "potato",
+      "quantityPerServing": 120,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-carrot",
+      "name": "carrot",
+      "quantityPerServing": 80,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-onion",
+      "name": "onion",
+      "quantityPerServing": 30,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-dill",
+      "name": "dill",
+      "quantityPerServing": 3,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-bay",
+      "name": "bay leaf",
+      "quantityPerServing": 1,
+      "unit": "g"
+    }
+  ],
+  "locale": "et",
+  "expected": {
+    "ing-chicken": {
+      "unchanged": true
+    },
+    "ing-potato": {
+      "unchanged": true
+    },
+    "ing-carrot": {
+      "unchanged": true
+    },
+    "ing-onion": {
+      "unchanged": true
+    },
+    "ing-dill": {
+      "unchanged": true
+    },
+    "ing-bay": {
+      "unchanged": true
+    }
+  }
+}

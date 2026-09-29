@@ -1,0 +1,71 @@
+{
+  "mealName": "Red lentil soup",
+  "servings": 4,
+  "ingredients": [
+    {
+      "ingredientId": "ing-lentil",
+      "name": "red lentil",
+      "quantityPerServing": 70,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-carrot",
+      "name": "carrot",
+      "quantityPerServing": 100,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-onion",
+      "name": "onion",
+      "quantityPerServing": 30,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-garlic",
+      "name": "garlic",
+      "quantityPerServing": 0.2,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-cumin",
+      "name": "ground cumin",
+      "quantityPerServing": 1,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-salt",
+      "name": "salt",
+      "quantityPerServing": 500,
+      "unit": "g"
+    },
+    {
+      "ingredientId": "ing-oil",
+      "name": "olive oil",
+      "quantityPerServing": 8,
+      "unit": "g"
+    }
+  ],
+  "locale": "en",
+  "expected": {
+    "ing-carrot": {
+      "unchanged": true
+    },
+    "ing-onion": {
+      "unchanged": true
+    },
+    "ing-garlic": {
+      "min": 3,
+      "max": 5
+    },
+    "ing-cumin": {
+      "unchanged": true
+    },
+    "ing-salt": {
+      "min": 0.5,
+      "max": 2
+    },
+    "ing-oil": {
+      "unchanged": true
+    }
+  }
+}

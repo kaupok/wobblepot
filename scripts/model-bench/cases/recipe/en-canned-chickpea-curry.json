@@ -1,0 +1,55 @@
+{
+  "text": "Chickpea and spinach curry\n\nServes 4. Takes 30 minutes.\n\nIngredients\n- 15 ml vegetable oil\n- 1 onion, finely chopped\n- 2 cloves garlic, crushed\n- 30 g mild curry paste\n- 2 cans chickpeas, drained and rinsed\n- 1 can chopped tomatoes\n- 1 can coconut milk\n- 200 g baby spinach\n- 300 g basmati rice\n\nMethod\n1. Heat the oil in a large pan and soften the onion and garlic for 5 minutes.\n2. Stir in the curry paste for 1 minute, then add the chickpeas, tomatoes and coconut milk.\n3. Simmer for 15 minutes while you cook the rice.\n4. Stir the spinach through until it wilts and serve with the rice.",
+  "locale": "en",
+  "expected": {
+    "ingredients": [
+      {
+        "names": ["vegetable oil"],
+        "quantity": 15,
+        "unit": "ml"
+      },
+      {
+        "names": ["onion"],
+        "quantity": 1,
+        "unit": "piece"
+      },
+      {
+        "names": ["garlic", "garlic clove"],
+        "quantity": 2,
+        "unit": "piece"
+      },
+      {
+        "names": ["curry paste", "mild curry paste"],
+        "quantity": 30,
+        "unit": "g"
+      },
+      {
+        "names": ["canned chickpeas", "canned chickpea", "chickpeas", "chickpea"],
+        "quantity": 800,
+        "unit": "g"
+      },
+      {
+        "names": ["canned diced tomatoes", "canned diced tomato"],
+        "quantity": 400,
+        "unit": "g"
+      },
+      {
+        "names": ["coconut milk"],
+        "quantity": 400,
+        "unit": "g"
+      },
+      {
+        "names": ["baby spinach", "spinach"],
+        "quantity": 200,
+        "unit": "g"
+      },
+      {
+        "names": ["basmati rice", "white rice"],
+        "quantity": 300,
+        "unit": "g"
+      }
+    ],
+    "lowConfidence": false,
+    "stepCount": 4
+  }
+}
