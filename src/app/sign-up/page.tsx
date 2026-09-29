@@ -36,7 +36,6 @@ export default async function SignUpPage() {
       <Suspense fallback={<LoadingFallback message={tCommon('loading')} />}>
         <SignUpForm
           inviteRequired={inviteRequired}
-          privateBetaBanner={t('privateBetaBanner')}
           inviteCodeLabel={t('inviteCodeLabel')}
           inviteCodeHint={t('inviteCodeHint')}
         />

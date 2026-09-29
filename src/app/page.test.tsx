@@ -1,20 +1,31 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Home from './page'
 import enMessages from '../../messages/en.json'
+import etMessages from '../../messages/et.json'
+import { getServerFlag } from '@/lib/feature-flags'
 import type { MealType } from '@/generated/prisma/enums'
 
-// Resolve `getTranslations('landing')` → (key) → en.json.landing[key] so the
-// Server Component renders as if the i18n pipeline had configured a request.
-vi.mock('next-intl/server', () => ({
-  getTranslations: vi.fn(async (namespace: string) => {
-    const segments = namespace.split('.')
-    let cursor: unknown = enMessages
-    for (const segment of segments) {
-      cursor = (cursor as Record<string, unknown>)?.[segment]
-    }
-    return (key: string) => (cursor as Record<string, string>)?.[key] ?? key
-  }),
+// Resolve `getTranslations(namespace)` through the real `createTranslator`, so
+// the Server Component renders as if the i18n pipeline had configured a
+// request — including `t.rich`, which the private-beta notice's link uses.
+// `translationLocale` lets a test switch catalogs.
+let translationLocale: 'en' | 'et' = 'en'
+vi.mock('next-intl/server', async () => {
+  const { createTranslator } = await vi.importActual<typeof import('next-intl')>('next-intl')
+  return {
+    getTranslations: vi.fn(async (namespace: string) =>
+      createTranslator({
+        locale: translationLocale,
+        messages: (translationLocale === 'et' ? etMessages : enMessages) as never,
+        namespace: namespace as never,
+      }),
+    ),
+  }
+})
+
+vi.mock('@/lib/feature-flags', () => ({
+  getServerFlag: vi.fn(async () => true),
 }))
 
 // Mock the auth module to prevent database initialization
@@ -170,6 +181,59 @@ function mockLoadersWithPlannedEntry() {
 describe('Home page component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    translationLocale = 'en'
+    vi.mocked(getServerFlag).mockResolvedValue(true)
+  })
+
+  describe('private-beta notice (HON-847)', () => {
+    beforeEach(async () => {
+      const { auth } = await import('@/lib/auth')
+      vi.mocked(auth.api.getSession).mockResolvedValue(null)
+    })
+
+    it('renders the notice with a link to ask support for an invite when invites are required', async () => {
+      render(await Home())
+
+      expect(getServerFlag).toHaveBeenCalledWith('invite_code_required', 'anonymous')
+      const notice = screen.getByRole('note', { name: 'Private beta notice' })
+      expect(notice).toHaveTextContent(
+        "We're in private beta. You'll need an invite code to sign up. Don't have one? Ask for an invite at support@wobblepot.com.",
+      )
+      const link = within(notice).getByRole('link', { name: 'Ask for an invite' })
+      expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com?subject=Invite%20request')
+    })
+
+    it('renders no notice when invites are not required', async () => {
+      vi.mocked(getServerFlag).mockResolvedValue(false)
+
+      render(await Home())
+
+      expect(screen.queryByRole('note')).not.toBeInTheDocument()
+      expect(screen.queryByText(/private beta/i)).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Ask for an invite' })).not.toBeInTheDocument()
+    })
+
+    it('translates the notice label and the mail subject', async () => {
+      translationLocale = 'et'
+
+      render(await Home())
+
+      const notice = screen.getByRole('note', { name: 'Suletud beeta märguanne' })
+      expect(screen.queryByRole('note', { name: 'Private beta notice' })).not.toBeInTheDocument()
+      expect(within(notice).getByRole('link', { name: 'Küsi kutset' })).toHaveAttribute(
+        'href',
+        'mailto:support@wobblepot.com?subject=Soovin%20kutset',
+      )
+    })
+  })
+
+  it('does not read the invite flag for a signed-in user', async () => {
+    await mockAuthedHouseholdSession(null)
+    await mockLoadersWithPlannedEntry()
+
+    await Home()
+
+    expect(getServerFlag).not.toHaveBeenCalled()
   })
 
   it('renders landing page heading when not authenticated', async () => {

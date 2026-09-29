@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // vitest next-intl mock (a plain string-resolver) cannot handle. Use the real
 // provider so the `<terms>`/`<privacy>` markup actually renders anchors.
 vi.unmock('next-intl')
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
@@ -43,7 +43,6 @@ vi.mock('@/lib/auth-errors-client', () => ({
 
 const FORM_PROPS = {
   inviteRequired: false,
-  privateBetaBanner: 'Private beta — sign-up is by invite code only.',
   inviteCodeLabel: 'Invite code',
   inviteCodeHint: 'Paste the code from your invitation.',
 } as const
@@ -144,6 +143,7 @@ describe('SignUpForm', () => {
 
       expect(screen.queryByLabelText(/invite code/i)).not.toBeInTheDocument()
       expect(screen.queryByText(/private beta/i)).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Ask for an invite' })).not.toBeInTheDocument()
     })
   })
 
@@ -151,6 +151,19 @@ describe('SignUpForm', () => {
     it('renders the private-beta banner when inviteRequired is true', () => {
       renderForm({ inviteRequired: true })
       expect(screen.getByText(/private beta — sign-up is by invite code only/i)).toBeInTheDocument()
+    })
+
+    it('ends the banner with a link to ask support for an invite (HON-847)', () => {
+      renderForm({ inviteRequired: true })
+
+      const notice = screen.getByRole('note', { name: 'Private beta notice' })
+      expect(notice).toHaveTextContent(
+        "Private beta — sign-up is by invite code only. Don't have one? Ask for an invite at support@wobblepot.com.",
+      )
+      expect(within(notice).getByRole('link', { name: 'Ask for an invite' })).toHaveAttribute(
+        'href',
+        'mailto:support@wobblepot.com?subject=Invite%20request',
+      )
     })
 
     it('renders the invite-code input when inviteRequired is true', () => {

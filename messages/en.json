@@ -653,6 +653,8 @@
       "signInLink": "Sign in",
       "privateBetaBanner": "Private beta — sign-up is by invite code only.",
       "privateBetaNoticeLabel": "Private beta notice",
+      "requestInvite": "Don't have one? <link>Ask for an invite</link> at {email}.",
+      "requestInviteSubject": "Invite request",
       "inviteCodeLabel": "Invite code",
       "inviteCodeHint": "Paste the code from your invitation.",
       "slowRequest": "This is taking longer than expected. Please wait…",

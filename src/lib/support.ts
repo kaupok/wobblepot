@@ -1,6 +1,11 @@
 export const SUPPORT_EMAIL = 'support@wobblepot.com'
 export const SUPPORT_EMAIL_HREF = `mailto:${SUPPORT_EMAIL}` as const
 
+/** A mailto link to support with a pre-filled subject, e.g. an invite request (HON-847). */
+export function supportMailtoHref(subject: string): string {
+  return `${SUPPORT_EMAIL_HREF}?subject=${encodeURIComponent(subject)}`
+}
+
 /**
  * Data-subject / privacy contact. Distinct from SUPPORT_EMAIL: this is the
  * address users email to exercise GDPR rights (e.g. cancel a pending account
