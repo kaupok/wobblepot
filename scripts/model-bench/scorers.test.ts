@@ -136,6 +136,14 @@ describe('scoreRecipe', () => {
     })
   })
 
+  it('accepts a plural English name the prompt never asked to singularise', () => {
+    const scores = scoreRecipe(input, {
+      ...perfect,
+      ingredients: perfect.ingredients.map((i) => (i.name === 'Egg ' ? { ...i, name: 'eggs' } : i)),
+    })
+    expect(scores).toMatchObject({ recall: 1, precision: 1 })
+  })
+
   it('detects a missing ingredient', () => {
     const scores = scoreRecipe(input, {
       ...perfect,
@@ -252,16 +260,24 @@ describe('the Estonian vegetarian imagine case', () => {
       })),
     }))
 
-  it.each(['kanamuna', 'sojahakkliha', 'köögiviljapuljong'])('allows %s', (name) => {
-    expect(scoreImagine(input, { meals: meals(name) }).noForbiddenIngredients).toBe(1)
-  })
-
-  it.each(['kanafilee', 'sink', 'verivorst', 'kuningkrevett', 'seahakkliha', 'luupuljong'])(
-    'flags %s',
+  it.each(['kanamuna', 'sojahakkliha', 'köögiviljapuljong', 'kalamata oliiv'])(
+    'allows %s',
     (name) => {
-      expect(scoreImagine(input, { meals: meals(name) }).noForbiddenIngredients).toBe(0)
+      expect(scoreImagine(input, { meals: meals(name) }).noForbiddenIngredients).toBe(1)
     },
   )
+
+  it.each([
+    'kanafilee',
+    'sink',
+    'verivorst',
+    'kuningkrevett',
+    'seahakkliha',
+    'luupuljong',
+    'tursk',
+  ])('flags %s', (name) => {
+    expect(scoreImagine(input, { meals: meals(name) }).noForbiddenIngredients).toBe(0)
+  })
 })
 
 describe('scoreReview', () => {

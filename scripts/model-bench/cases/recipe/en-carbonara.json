@@ -14,7 +14,7 @@
         "unit": "g"
       },
       {
-        "names": ["egg"],
+        "names": ["egg", "eggs"],
         "quantity": 3,
         "unit": "piece"
       },
@@ -24,7 +24,7 @@
         "unit": "g"
       },
       {
-        "names": ["garlic"],
+        "names": ["garlic", "garlic clove", "garlic cloves"],
         "quantity": 2,
         "unit": "piece"
       },
