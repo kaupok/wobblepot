@@ -230,15 +230,9 @@ describe('GET /api/shopping-list', () => {
 
   // HON-762: `dueToday` drives the warning colour on the due label, so it must
   // agree with `neededByRelative` in the household's timezone — here 21:00 on
-  // Feb 1 in New York, already Feb 2 on a UTC server.
-  //
-  // Pinned to a UTC runtime, as on Vercel: the route builds its reference day
-  // with the runtime-local `parseLocalDate` and then compares in the household
-  // zone, so west of UTC both dates shift by a day and the fixed expectations
-  // below no longer hold. That mix predates HON-762.
+  // Feb 1 in New York, already Feb 2 on a UTC server. Relies on the unit
+  // project's UTC runtime (`vitest.config.ts`, HON-772).
   it('computes dueToday against the household day, in step with neededByRelative', async () => {
-    const originalTZ = process.env.TZ
-    process.env.TZ = 'UTC'
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-02-02T02:00:00Z'))
     try {
@@ -293,7 +287,6 @@ describe('GET /api/shopping-list', () => {
       })
     } finally {
       vi.useRealTimers()
-      process.env.TZ = originalTZ
     }
   })
 
