@@ -94,6 +94,39 @@ describe('ImaginePanel error localization', () => {
     await screen.findByText(etMessages.recipes.imagine.errors.imagineFailed)
   })
 
+  it('renders the copy for a coded 429, not the server prose', async () => {
+    respondWith(
+      {
+        success: false,
+        error: 'Rate limit exceeded',
+        code: 'rate_limited',
+        message: 'You can imagine up to 10 meals per hour.',
+      },
+      429,
+    )
+
+    generate('et')
+
+    await screen.findByText(etMessages.recipes.imagine.errors.rateLimited)
+    expect(screen.queryByText('Rate limit exceeded')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the imagineFailed copy when the error body is not JSON', async () => {
+    // What a platform-level 502 or an HTML error page looks like to the client.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        json: () => Promise.reject(new SyntaxError('Unexpected token <')),
+      }),
+    )
+
+    generate('et')
+
+    await screen.findByText(etMessages.recipes.imagine.errors.imagineFailed)
+  })
+
   it('keeps the server prose reachable as a console breadcrumb', async () => {
     respondWith({ success: false, error: SERVER_PROSE, code: 'imagine_timeout' }, 504)
 
