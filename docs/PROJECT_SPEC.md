@@ -99,11 +99,12 @@ AI-powered meal planning that generates personalized weekly ingredient-based mea
 
 ### New User Setup
 
-1. Sign up with email/password
-2. Land on onboarding → create household
-3. Configure preferences (dietary type, allergens, meal types)
-4. Optionally add manual members (kids)
-5. Generate first plan
+1. `/sign-up`: name, email, password, an invite code while `invite_code_required` is on, and the terms consent
+2. `/onboarding` step 1: household name
+3. `/onboarding` step 2: how many people, a name for each, adult or child
+4. `/`: the first-plan screen asks for a start date and a number of days, then generates
+
+Preferences (dietary type, allergens, meal types) are set on `/household` after onboarding, not during it. See "Onboarding" under Key Decisions.
 
 ### Weekly Planning
 
@@ -256,9 +257,21 @@ Key steps:
 
 ### Onboarding
 
+**Decision:** Onboarding asks for the household's name and its members, and nothing else.
+
+**Why:** It has to be quick. Decided 2026-09-29.
+
+**Consequence:** The first plan is generated with default preferences, because nothing has asked for any yet:
+
+- Meal types: dinner only, on weekdays and on weekends. Household creation writes the preferences row with just these two set (`src/app/api/households/route.ts`).
+- Dietary type: none, so no protein type is excluded. A plan with five or more dinners reserves one for fish and one for legumes, for variety (`src/lib/meal-planning/candidates.ts`, `src/lib/meal-planning/slots.ts`).
+- Allergens, restrictions and excluded ingredients: none, so no meal is filtered out for them.
+
+**Implementation:**
+
 - Prompt to create household after sign-up
-- User configures household preferences
-- Shareable invite links for family members
+- Preferences are changed afterwards on `/household`
+- Invite links are per member: the owner adds a member by name, then shares that member's link, and whoever signs in and opens it claims that member (`src/app/api/households/me/invites/route.ts`, `src/app/api/invites/[code]/join/route.ts`)
 
 ### Meal Scheduling
 
