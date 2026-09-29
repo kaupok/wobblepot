@@ -10,6 +10,6 @@ type FieldErrorProps = Omit<React.HTMLAttributes<HTMLParagraphElement>, 'role'>
  * at it through `aria-describedby`.
  */
 export const FieldError = React.forwardRef<HTMLParagraphElement, FieldErrorProps>((props, ref) => (
-  <Body ref={ref} variant="small" tone="destructive" role="alert" {...props} />
+  <Body ref={ref} variant="paragraph" tone="destructive" role="alert" {...props} />
 ))
 FieldError.displayName = 'FieldError'

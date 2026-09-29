@@ -100,7 +100,7 @@ export function LowConfidenceIngredientRow({
               {isDuplicate && (
                 <div className="mt-1 flex items-center gap-1.5">
                   <Info className="text-warning size-3.5 shrink-0" />
-                  <Body variant="small" tone="warning">
+                  <Body variant="paragraph" tone="warning">
                     {t('duplicateRow', {
                       count: duplicateIndices.length,
                       rows: duplicateIndices.map((i) => i + 1).join(', '),
@@ -135,7 +135,7 @@ export function LowConfidenceIngredientRow({
 
           {/* Disambiguation dropdown */}
           <div className="flex items-center gap-2">
-            <Body variant="small" tone="info">
+            <Body variant="paragraph" tone="info">
               {t('verifyMatch')}
             </Body>
             <Select

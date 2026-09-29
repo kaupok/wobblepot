@@ -119,7 +119,7 @@ export function SignUpForm({
                 role="note"
                 aria-label={t('privateBetaNoticeLabel')}
               >
-                <Body variant="small">{privateBetaBanner}</Body>
+                <Body variant="paragraph">{privateBetaBanner}</Body>
               </div>
             )}
             <div className="flex flex-col gap-2">

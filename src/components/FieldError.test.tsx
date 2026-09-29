@@ -8,9 +8,11 @@ describe('FieldError', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Something went wrong')
   })
 
-  it('renders the small destructive level', () => {
+  it('renders the paragraph level so a wrapped message keeps its line height', () => {
     render(<FieldError>Required</FieldError>)
-    expect(screen.getByRole('alert')).toHaveClass('text-sm', 'text-destructive')
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveClass('text-sm', 'leading-normal', 'text-destructive')
+    expect(alert).not.toHaveClass('leading-none')
   })
 
   it('forwards id so an input can reference it', () => {

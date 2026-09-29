@@ -129,7 +129,7 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="bg-muted/30 mt-2 max-h-64 overflow-y-auto rounded-md border p-3">
-                <Body variant="small" className="whitespace-pre-wrap">
+                <Body variant="paragraph" className="whitespace-pre-wrap">
                   {originalRecipeText}
                 </Body>
               </div>
