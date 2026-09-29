@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CreateHouseholdForm } from './CreateHouseholdForm'
@@ -565,30 +565,6 @@ describe('CreateHouseholdForm', () => {
       )
     })
 
-    // Enter in the step 1 name input submits the form. What that does is out of
-    // scope for HON-833; only where focus lands after it fails is covered here.
-    it('returns focus to the household name input after a failed create from step 1', async () => {
-      let rejectRequest!: (reason: Error) => void
-      mockFetch.mockReturnValue(
-        new Promise((_, reject) => {
-          rejectRequest = reject
-        }),
-      )
-
-      renderForm()
-
-      await userEvent.type(screen.getByLabelText('Household name'), '{Enter}')
-      expect(mockFetch).toHaveBeenCalledTimes(1)
-      dropFocusToBody()
-
-      await act(async () => rejectRequest(new Error('Network error')))
-
-      await waitFor(() => {
-        expect(screen.getByLabelText('Household name')).toHaveFocus()
-      })
-      expect(screen.getByRole('alert')).toBeInTheDocument()
-    })
-
     it('shows the translated fallback when the failure carries no message', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
@@ -631,6 +607,76 @@ describe('CreateHouseholdForm', () => {
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/')
         expect(mockRefresh).toHaveBeenCalled()
+      })
+    })
+
+    // Step 1 has no submit button, so Enter in the name input submits the form
+    // implicitly. It must mean Continue, not create (HON-836).
+    describe('Enter key', () => {
+      it('moves from step 1 to step 2 without creating the household', async () => {
+        renderForm()
+
+        await userEvent.type(screen.getByLabelText('Household name'), '{Enter}')
+
+        expect(mockFetch).not.toHaveBeenCalled()
+        expect(screen.getByText('Step 2 of 2')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: 'Household members' })).toHaveFocus()
+      })
+
+      it('shows the name-required error and stays on step 1 when the name is empty', async () => {
+        renderForm()
+
+        const nameInput = screen.getByLabelText('Household name')
+        // The input is `required`. user-event submits without running the
+        // browser's constraint validation, which would otherwise block the
+        // submit with its own bubble, so pin the opt-out that keeps a browser
+        // on this path too.
+        expect(nameInput.closest('form')).toHaveAttribute('novalidate')
+        await userEvent.clear(nameInput)
+        await userEvent.type(nameInput, '{Enter}')
+
+        expect(mockFetch).not.toHaveBeenCalled()
+        expect(screen.getByRole('alert')).toHaveTextContent('Household name is required')
+        expect(screen.getByText('Step 1 of 2')).toBeInTheDocument()
+      })
+
+      it('ignores a submit inside the transition window after Enter advances', async () => {
+        renderForm()
+
+        await userEvent.type(screen.getByLabelText('Household name'), '{Enter}')
+        fireEvent.submit(screen.getByRole('button', { name: 'Create household' }).closest('form')!)
+        // The mutation calls fetch asynchronously, so let it run before asserting.
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+
+        expect(mockFetch).not.toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: 'Create household' })).toBeEnabled()
+      })
+
+      it('still submits from a member name input on step 2', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ id: 'household-123' }),
+        })
+
+        renderForm()
+
+        await navigateToFinalStep()
+        await userEvent.click(screen.getByRole('button', { name: 'Increase household size' }))
+        await userEvent.type(screen.getByLabelText('Member 2 name'), 'Emma{Enter}')
+
+        await waitFor(() => {
+          expect(mockFetch).toHaveBeenCalledTimes(1)
+        })
+        expect(mockFetch).toHaveBeenCalledWith('/api/households', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: "John's household",
+            members: [{ name: 'Emma', portionType: 'adult' }],
+          }),
+        })
       })
     })
 
