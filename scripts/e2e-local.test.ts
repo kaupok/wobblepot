@@ -64,7 +64,6 @@ beforeEach(() => {
     [
       'DATABASE_URL=postgres://env-db',
       'DATABASE_URL_UNPOOLED=postgres://env-db-unpooled',
-      'NEXT_PUBLIC_APP_ENV=production',
       'NEON_API_KEY=neon-key',
       'NEON_PROJECT_ID=neon-project',
       '',
@@ -132,6 +131,14 @@ describe('e2e-local.sh', () => {
       expect(calls()).toContain('pnpm exec next dev --port 3200')
     })
 
+    // The test-only routes are on and rate limiting is off, so the server must
+    // not be reachable from the rest of the network.
+    it('binds the dev server to loopback only', () => {
+      run(['serve', '--db', 'env'])
+
+      expect(calls()).toContain('next dev --port 3200 --hostname 127.0.0.1')
+    })
+
     it('serves on REVIEW_LOCAL_PORT when it is set', () => {
       const { status, stdout } = run(['serve', '--db', 'env'], { REVIEW_LOCAL_PORT: '3300' })
 
@@ -151,16 +158,31 @@ describe('e2e-local.sh', () => {
       expect(calls()).not.toContain('db:seed')
     })
 
-    it('keeps the .env database and switches an unsafe app env to dev', () => {
+    it('keeps the .env database and defaults an unset app env to dev', () => {
       run(['serve', '--db=env'])
       const env = serverEnv()
 
       expect(env.get('DATABASE_URL')).toBe('postgres://env-db')
-      // `production` would keep /api/e2e-seed at 404 and the rate limiter on.
+      // Unset would keep /api/e2e-seed at 404 and the rate limiter on.
       expect(env.get('NEXT_PUBLIC_APP_ENV')).toBe('dev')
       expect(env.get('E2E_DISABLE_RATE_LIMIT')).toBe('1')
       expect(env.has('SIGNUP_TIMING_LOG')).toBe(false)
     })
+
+    // A deployed-environment value is the likeliest sign .env points at a
+    // deployed database; overriding it to `dev` would defeat rate-limit.ts's
+    // own guard and let the documented purge-cron cleanup run against it.
+    it.each(['production', 'staging', 'preview'])(
+      'refuses NEXT_PUBLIC_APP_ENV=%s rather than overriding it',
+      (appEnv) => {
+        fs.appendFileSync(path.join(root, '.env'), `NEXT_PUBLIC_APP_ENV=${appEnv}\n`)
+        const { status, stderr } = run(['serve', '--db', 'env'])
+
+        expect(status).not.toBe(0)
+        expect(stderr).toContain(`NEXT_PUBLIC_APP_ENV='${appEnv}'`)
+        expect(calls()).not.toContain('next dev')
+      },
+    )
 
     it('refuses to start on a database with pending migrations, naming the fix', () => {
       const { status, stderr } = run(['serve', '--db', 'env'], {

@@ -405,10 +405,14 @@ cmd_serve() {
     if [ "$seed" = "1" ]; then run_seed; fi
   else
     [ -n "${DATABASE_URL:-}" ] || fail "--db env needs DATABASE_URL in .env."
+    # The test-only routes need a safe env, so an unset value becomes `dev`. A
+    # deployed-environment value is refused rather than overridden: it is the
+    # likeliest sign that .env points at a deployed database, and the cleanup
+    # this mode's docs prescribe runs the purge cron against it.
     case "${NEXT_PUBLIC_APP_ENV:-}" in
       ci|test|dev) ;;
-      # Any other value keeps /api/e2e-seed at 404 and the rate limiter on.
-      *) export NEXT_PUBLIC_APP_ENV="dev" ;;
+      '') export NEXT_PUBLIC_APP_ENV="dev" ;;
+      *) fail "--db env refuses NEXT_PUBLIC_APP_ENV='$NEXT_PUBLIC_APP_ENV' in .env — that names a deployed environment, and this mode writes review accounts to its database. Point .env at your dev database with NEXT_PUBLIC_APP_ENV=dev, or use branch mode." ;;
     esac
     export_isolated_env "$REVIEW_PORT"
 
@@ -425,14 +429,18 @@ cmd_serve() {
   # Backgrounded and waited on, not run in the foreground: bash defers a trap
   # until a foreground child exits, so `kill <this script>` would leave the
   # server running and the branch undeleted. `wait` is interrupted by the trap.
-  pnpm exec next dev --port "$REVIEW_PORT" &
+  # Loopback only: the test-only routes are on and rate limiting is off, so on
+  # every interface anyone on the network could, e.g., read a reset token.
+  pnpm exec next dev --port "$REVIEW_PORT" --hostname 127.0.0.1 &
   SERVER_PID=$!
 
-  local waited=0
+  # Wall-clock deadline via bash's $SECONDS: each probe can itself take up to
+  # http_status's --max-time, so counting loop passes would not bound the wait.
+  local deadline=$((SECONDS + REVIEW_READY_TIMEOUT_SECS))
   until [ "$(http_status "$url/sign-up")" != "000" ]; do
     kill -0 "$SERVER_PID" 2>/dev/null || fail "the dev server exited before it answered on $url."
-    [ "$waited" -lt "$REVIEW_READY_TIMEOUT_SECS" ] || fail "the dev server did not answer on $url within ${REVIEW_READY_TIMEOUT_SECS}s."
-    sleep 1; waited=$((waited + 1))
+    [ "$SECONDS" -lt "$deadline" ] || fail "the dev server did not answer on $url within ${REVIEW_READY_TIMEOUT_SECS}s."
+    sleep 1
   done
 
   # The one line an agent that backgrounded this command waits on. stdout, so it
