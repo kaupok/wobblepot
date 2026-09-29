@@ -315,17 +315,23 @@ bash_timeout() {
   # floor under the six-step circuit-breaker test and timed it out whenever the
   # machine was busy (HON-802).
   #
+  # The bound is a deadline on SECONDS rather than a count of polls: each poll
+  # also pays for forking `sleep`, so counting ten per second ran a 30 s bound
+  # to ~34 s. SECONDS is whole seconds, so the +1 keeps the bound from ever
+  # firing early at the cost of up to a second late.
+  #
   # A bound that is not a whole number of seconds (`1.5`, `90s` — both valid
-  # for GNU timeout) gets a limit of 0 ticks, so the command is stopped at once.
-  # `$((secs * 10))` would be an arithmetic syntax error that exits the watchdog
+  # for GNU timeout) gets a deadline of now, so the command is stopped at once.
+  # Doing arithmetic on it would be a syntax error that exits the watchdog
   # before it signals anything, leaving the command unbounded: fail closed.
+  # `10#` because a leading zero would otherwise read as octal (`08` is an
+  # error, `010` is eight).
   (
-    ticks=0 limit=0
-    case "$secs" in "" | *[!0-9]*) ;; *) limit=$((secs * 10)) ;; esac
-    while [ "$ticks" -lt "$limit" ]; do
+    deadline=$SECONDS
+    case "$secs" in "" | *[!0-9]*) ;; *) deadline=$((SECONDS + 10#$secs + 1)) ;; esac
+    while [ "$SECONDS" -lt "$deadline" ]; do
       kill -0 "$cmd_pid" 2>/dev/null || exit 0
       sleep 0.1
-      ticks=$((ticks + 1))
     done
     kill -TERM "$cmd_pid" 2>/dev/null || exit 0
     sleep 2

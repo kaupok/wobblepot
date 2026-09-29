@@ -1493,6 +1493,14 @@ describe('orchestrator.sh', () => {
       expect(out).not.toContain('piped-stdin')
     })
 
+    it('reads a leading-zero bound as decimal', () => {
+      // Bash arithmetic reads `08` as bad octal and `010` as eight. The first
+      // bound it mangles is 8 s, too slow to drive here, so pin the base.
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'bash_timeout')
+
+      expect(body).toContain('10#$secs')
+    })
+
     it('passes stdin through and returns the real status inside the bound', () => {
       const out = drive('5', '0')
 
