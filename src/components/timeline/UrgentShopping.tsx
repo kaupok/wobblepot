@@ -114,9 +114,10 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
 
   // One group per day, labelled by a Caption ("Today", "Tomorrow"), so the day
   // is said once above its items rather than repeated as a tag on every row.
-  // The label is not a heading: the card's title is a div, and the meal days
-  // beside it are `h5`, so an `h3` here would outrank them in the outline
-  // under no heading of its own. The list is named by the label instead.
+  // The label is not a heading: the card's title is a div, so a heading here
+  // would have no heading of its own above it, and would read in the outline as
+  // part of the meal day (`h2`) beside it. The list is named by the label
+  // instead.
   const groups = URGENT_DAYS.map((urgency) => ({
     urgency,
     items: unpurchasedItems.filter((item) => item.urgency === urgency),

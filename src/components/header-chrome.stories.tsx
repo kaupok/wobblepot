@@ -68,7 +68,17 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const LoggedOut: Story = {}
+export const LoggedOut: Story = {
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    await expect(within(banner).getByRole('link', { name: 'Wobblepot' })).toHaveAttribute(
+      'href',
+      '/',
+    )
+    // Signed out as signed in: the wordmark is not a heading (HON-806).
+    await expect(within(banner).queryByRole('heading')).not.toBeInTheDocument()
+  },
+}
 
 export const LoggedIn: Story = {
   args: { session: authedSession, hasHousehold: true },
@@ -79,6 +89,9 @@ export const LoggedIn: Story = {
     await expect(banner).toHaveStyle({ pointerEvents: 'none' })
     const logo = within(banner).getByRole('link', { name: 'Wobblepot' })
     await expect(logo.closest('div')).toHaveStyle({ pointerEvents: 'auto' })
+    // The wordmark is a link, not a heading: each page's own `h1` opens its
+    // outline (HON-806).
+    await expect(within(banner).queryByRole('heading')).not.toBeInTheDocument()
   },
 }
 

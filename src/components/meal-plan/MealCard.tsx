@@ -398,7 +398,7 @@ export function MealCard({
             )}
           </div>
           {/* The name at Section, as on the recipe library card, one level
-              under the day's `h5`. A native button rather than `Button`: the
+              under the day's `h2`. A native button rather than `Button`: the
               name wraps, and every `Button` size is a fixed height a second
               line would overflow. `min-h-8` holds it to the same 32px floor as
               the menu above it (docs/DESIGN.md → Spacing, radius, elevation).
@@ -406,7 +406,7 @@ export function MealCard({
               the plate; it is hidden below `md`, where that column is a third
               of a phone card and prose in it would run a dozen lines. */}
           <div className={cn('flex min-w-0 flex-col', mealImageTitleWidth(hasTrailingActions))}>
-            <Heading variant="section" as="h6">
+            <Heading variant="section" as="h3">
               <button
                 type="button"
                 className="min-h-8 cursor-pointer text-left leading-snug underline-offset-2 hover:underline"

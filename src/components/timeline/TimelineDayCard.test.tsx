@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({
   })),
 }))
 
-// The heading-hierarchy test below renders the real `Header`, so this file
+// The heading-hierarchy tests below render the real `Header`, so this file
 // carries its dependencies too. `next-intl/server` resolves against the real
 // English catalog, matching `header.test.tsx`; the header's three child
 // components are stubbed because none of them renders a heading, and pulling
@@ -215,73 +215,54 @@ describe('TimelineDayCard', () => {
 })
 
 /**
- * The day label's enclosing title lives in neither this component nor
- * `TimelineView`: the timeline route (`/`) renders no page title of its own, so
- * the heading that anchors the day labels is the header brand
- * (`src/components/header.tsx`, `variant="h4"`, no `as`, so `<h4>`). That holds
- * identically at both mount points — `TimelineView.tsx:197` (`renderDay`, for
- * planned and empty days) and `TimelinePastSection.tsx:42`, which mount only
- * under `src/app/page.tsx` — which is why the tag is fixed in the component
- * instead of being passed per consumer. See HON-619.
+ * The timeline route (`/`) renders no page title of its own, and the header
+ * wordmark is not a heading (HON-806), so the day labels open the page's
+ * outline. They are `h2` — the level they keep if the route later gains an
+ * `h1` — and the tag is fixed in the component rather than passed per consumer
+ * because both mount points (`TimelineView`'s `renderDay` and
+ * `TimelinePastSection`) sit under `src/app/page.tsx` alone.
  *
- * The brand is not the only heading that can *precede* a day label, though:
+ * Until HON-806 the wordmark was an `<h4>` and these labels were `h5`, one
+ * below it (HON-619). The real `Header` is still rendered here so that a
+ * heading reappearing in the app shell fails this file rather than silently
+ * re-parenting the day labels.
+ *
+ * The day labels are not the only headings in that stretch of the page:
  * `FillDaysAction` renders `GeneratingOverlay` inline between the planned and
- * empty day cards while a fill-days generation runs, so that heading is a
- * sibling of the day labels rather than a title enclosing them. It does not
- * vary per consumer, so it does not argue for a `dayHeadingTag` prop — but it
- * does have to stay within one level of the day label, which the second test
- * below pins (PR #700 review).
- *
- * The real `Header` is rendered here because the app shell is the only place
- * that relationship exists; asserting the level anywhere else would just
- * restate `h5` as a second constant. What it guards is invisible to axe's
- * `heading-order`, which only flags increases greater than one: dropping `as`
- * renders the `section` variant's default `<h2>`, putting the day label *above*
- * the brand, and axe reads that as a legal decrease.
+ * empty day cards while a fill-days generation runs, so the overlay's heading
+ * is a sibling of the day labels. The second test pins it within one level of
+ * the day label before it (PR #700 review).
  */
 describe('TimelineDayCard - heading hierarchy', () => {
-  it('renders the day label one level below the header brand', async () => {
+  it('opens the outline with the day label at h2, with no heading from the header', async () => {
     const { getSession } = await import('@/lib/session')
     vi.mocked(getSession).mockResolvedValue(null)
 
     render(await Header())
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
 
-    const brand = screen.getByRole('heading', { name: 'Wobblepot' })
-    const brandLevel = Number(brand.tagName.slice(1))
-
-    expect(
-      screen.getByRole('heading', { name: 'Today', level: brandLevel + 1 }),
-    ).toBeInTheDocument()
+    const [first] = screen.getAllByRole('heading')
+    expect(first).toBe(screen.getByRole('heading', { name: 'Today', level: 2 }))
   })
 
-  it('brackets the generating overlay it can render beside, on both sides', async () => {
-    // `FillDaysAction.tsx:103` emits `<GeneratingOverlay />` between the
-    // planned and empty `TimelineDayCard`s, so this is the real document order
-    // for up to the 45s client timeout of every fill-days generation. With no
-    // planned days the heading before the overlay is the brand itself, which is
-    // the tighter of the two cases — hence rendering the header here.
-    //
-    // axe's `heading-order` is `currLevel - prevLevel <= 1` applied to each
-    // adjacent pair, so the overlay has to clear *two* bounds and a test that
-    // checks one of them is not a guard. Too shallow (`h2`) skips into the day
-    // label; too deep (`h6`) skips down from the brand. Together these pin the
-    // overlay to `h4`-`h5`. No story composes the three, so the axe gate cannot
-    // see either side (PR #700 review).
+  it('keeps the generating overlay within one level of the day label before it', async () => {
+    // `FillDaysAction` emits `<GeneratingOverlay />` between the planned and
+    // empty `TimelineDayCard`s, so this is the real document order for up to
+    // the 45s client timeout of every fill-days generation. axe's
+    // `heading-order` is `currLevel - prevLevel <= 1` on each adjacent pair,
+    // so an overlay deeper than `h3` skips a level after the planned day's
+    // `h2`. The pair after it (overlay, then the empty day's `h2`) is a
+    // decrease or a step of one for any overlay tag, so only this side can
+    // fail. No story composes the two, so the axe gate cannot see it.
     const { getSession } = await import('@/lib/session')
     vi.mocked(getSession).mockResolvedValue(null)
 
     render(await Header())
-    render(<GeneratingOverlay />)
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
+    render(<GeneratingOverlay />)
 
-    const level = (name: string | RegExp) =>
-      Number(screen.getByRole('heading', { name }).tagName.slice(1))
-    const brandLevel = level('Wobblepot')
-    const overlayLevel = level('Generating your meal plan…')
-    const dayLevel = level('Today')
+    const level = (name: string) => Number(screen.getByRole('heading', { name }).tagName.slice(1))
 
-    expect(overlayLevel - brandLevel).toBeLessThanOrEqual(1)
-    expect(dayLevel - overlayLevel).toBeLessThanOrEqual(1)
+    expect(level('Generating your meal plan…') - level('Today')).toBeLessThanOrEqual(1)
   })
 })

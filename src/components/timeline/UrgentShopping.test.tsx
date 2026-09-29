@@ -100,7 +100,7 @@ describe('UrgentShopping', () => {
     expect(rowsOf(screen.getByRole('list', { name: 'Tomorrow' }))).toEqual(['Apple1 pc'])
     expect(lists.indexOf(screen.getByRole('list', { name: 'Today' }))).toBe(0)
     // The day is said once, as the list's label: no per-row due tag, and no
-    // heading that would outrank the meal days' `h5`s in the page outline.
+    // heading that would land among the meal days' `h2`s in the page outline.
     expect(screen.getAllByText('Today')).toHaveLength(1)
     expect(screen.queryByRole('heading')).not.toBeInTheDocument()
   })

@@ -22,8 +22,8 @@ type Story = StoryObj<typeof meta>
 
 /**
  * The full panel says each day once, as a Caption label naming its list, and
- * never as a tag on the row. The label is not a heading (it would outrank the
- * meal days' `h5`s). Every quantity still ends at the same x.
+ * never as a tag on the row. The label is not a heading (it would land among
+ * the meal days' `h2`s). Every quantity still ends at the same x.
  */
 async function expectDayGroups(canvasElement: HTMLElement, days: string[]) {
   const canvas = within(canvasElement)

@@ -200,7 +200,7 @@ function TrailingActionsCard({ meal, ...args }: React.ComponentProps<typeof Meal
           </div>
         </div>
         <div className={cn('min-w-0', mealImageTitleWidth(true))}>
-          <Heading variant="section" as="h6">
+          <Heading variant="section" as="h3">
             <button type="button" className="min-h-8 text-left leading-snug">
               {meal.name}
             </button>
