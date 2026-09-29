@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
@@ -14,26 +14,63 @@ import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
 
 export function ResetPasswordForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
+  // Read during render, not in an effect, so a link without a token never
+  // shows the password fields before the message replaces them.
+  const token = searchParams.get('token')
+
+  return token ? <ResetPasswordFields token={token} /> : <MissingLinkCard />
+}
+
+// A truncated email link, a bookmark, or a URL copied without its query string
+// lands here. There is nothing to reset, so offer the one way forward.
+function MissingLinkCard() {
+  const t = useTranslations('auth.resetPassword')
+
+  return (
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <Heading as="h1" variant="h4">
+          {t('title')}
+        </Heading>
+      </CardHeader>
+      <CardContent>
+        <FieldError>{t('missingLink')}</FieldError>
+      </CardContent>
+      <CardFooter className="pt-6">
+        <div className="flex w-full flex-col gap-4">
+          <Button asChild className="w-full">
+            <Link href="/forgot-password">{t('requestNewLink')}</Link>
+          </Button>
+          <RememberPasswordLine />
+        </div>
+      </CardFooter>
+    </Card>
+  )
+}
+
+function RememberPasswordLine() {
+  const t = useTranslations('auth.resetPassword')
+
+  return (
+    <Body variant="muted" className="text-center">
+      {t('rememberPassword')}{' '}
+      <Link href="/sign-in" className="text-primary hover:underline">
+        {t('signInLink')}
+      </Link>
+    </Body>
+  )
+}
+
+function ResetPasswordFields({ token }: { token: string }) {
+  const router = useRouter()
   const t = useTranslations('auth.resetPassword')
   const tValidation = useTranslations('validation')
   const friendlyError = useAuthErrorMessage()
-  const [token, setToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-
-  useEffect(() => {
-    // Extract token from URL query params
-    const tokenParam = searchParams.get('token')
-    if (tokenParam) {
-      setToken(tokenParam)
-    } else {
-      setError(tValidation('noResetToken'))
-    }
-  }, [searchParams, tValidation])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,11 +85,6 @@ export function ResetPasswordForm() {
     // Validate password length
     if (newPassword.length < 12) {
       setError(tValidation('passwordTooShort'))
-      return
-    }
-
-    if (!token) {
-      setError(tValidation('noResetToken'))
       return
     }
 
@@ -114,9 +146,8 @@ export function ResetPasswordForm() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
-                disabled={isLoading || !token}
+                disabled={isLoading}
                 minLength={12}
-                placeholder={t('newPasswordPlaceholder')}
                 aria-describedby="password-hint"
               />
               <Body id="password-hint" variant="muted">
@@ -133,9 +164,8 @@ export function ResetPasswordForm() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                disabled={isLoading || !token}
+                disabled={isLoading}
                 minLength={12}
-                placeholder={t('confirmPasswordPlaceholder')}
               />
             </div>
             {error && <FieldError>{error}</FieldError>}
@@ -143,15 +173,10 @@ export function ResetPasswordForm() {
         </CardContent>
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isLoading || !token}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? t('submitting') : t('submit')}
             </Button>
-            <Body variant="muted" className="text-center">
-              {t('rememberPassword')}{' '}
-              <Link href="/sign-in" className="text-primary hover:underline">
-                {t('signInLink')}
-              </Link>
-            </Body>
+            <RememberPasswordLine />
           </div>
         </CardFooter>
       </form>

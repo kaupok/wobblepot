@@ -677,14 +677,14 @@
       "title": "Vaheta parool",
       "description": "Sisesta uus parool",
       "newPasswordLabel": "Uus parool",
-      "newPasswordPlaceholder": "Vähemalt 12 märki",
       "confirmPasswordLabel": "Kinnita parool",
-      "confirmPasswordPlaceholder": "Sisesta parool uuesti",
       "passwordHint": "Kasuta vähemalt 12 märki. Väldi paroole, mis on varasematest andmeleketest tuntud.",
       "submit": "Vaheta parool",
       "submitting": "Parooli vahetamine…",
       "rememberPassword": "Tuli parool meelde?",
-      "signInLink": "Logi sisse"
+      "signInLink": "Logi sisse",
+      "missingLink": "See parooli vahetamise link on puudulik. Küsi uus link ja ava see e-kirjast.",
+      "requestNewLink": "Küsi uus link"
     },
     "invite": {
       "metaTitle": "Liitu leibkonnaga",
@@ -848,8 +848,7 @@
   },
   "validation": {
     "passwordsDoNotMatch": "Paroolid ei kattu",
-    "passwordTooShort": "Parool peab olema vähemalt 12 märki pikk",
-    "noResetToken": "Parooli vahetamise tõendit ei leitud. Palun küsi uus parooli vahetamise link."
+    "passwordTooShort": "Parool peab olema vähemalt 12 märki pikk"
   },
   "consent": {
     "banner": {
