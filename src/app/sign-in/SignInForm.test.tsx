@@ -70,6 +70,19 @@ describe('SignInForm', () => {
       expect(input).toHaveAttribute('type', 'password')
     })
 
+    // Password managers match a saved login on `autocomplete` + `name`; WCAG 1.3.5.
+    it('declares the autofill purpose of each field', () => {
+      render(<SignInForm />)
+
+      const email = screen.getByLabelText(/email/i)
+      expect(email).toHaveAttribute('name', 'email')
+      expect(email).toHaveAttribute('autocomplete', 'username')
+
+      const password = screen.getByLabelText(/^password$/i)
+      expect(password).toHaveAttribute('name', 'password')
+      expect(password).toHaveAttribute('autocomplete', 'current-password')
+    })
+
     it('renders sign in button', () => {
       render(<SignInForm />)
 

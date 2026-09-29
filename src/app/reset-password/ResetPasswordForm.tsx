@@ -106,7 +106,9 @@ export function ResetPasswordForm() {
               <Label htmlFor="newPassword">{t('newPasswordLabel')}</Label>
               <Input
                 id="newPassword"
+                name="newPassword"
                 type="password"
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
@@ -123,7 +125,9 @@ export function ResetPasswordForm() {
               <Label htmlFor="confirmPassword">{t('confirmPasswordLabel')}</Label>
               <Input
                 id="confirmPassword"
+                name="confirmPassword"
                 type="password"
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required

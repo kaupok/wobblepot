@@ -50,6 +50,15 @@ describe('CreateHouseholdForm', () => {
       expect(nameInput).toHaveValue("John's Household")
     })
 
+    // The input's id is `name`, so without this a browser offers the person's own name.
+    it('turns off autofill on the household name input', () => {
+      renderForm()
+
+      const nameInput = screen.getByLabelText('Household name')
+      expect(nameInput).toHaveAttribute('name', 'householdName')
+      expect(nameInput).toHaveAttribute('autocomplete', 'off')
+    })
+
     it('renders Continue button on first step', () => {
       renderForm()
 

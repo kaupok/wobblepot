@@ -87,7 +87,9 @@ export function ForgotPasswordForm() {
                   <Label htmlFor="email">{t('emailLabel')}</Label>
                   <Input
                     id="email"
+                    name="email"
                     type="email"
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required

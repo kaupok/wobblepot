@@ -193,7 +193,9 @@ export function CreateHouseholdForm({ userName }: CreateHouseholdFormProps) {
               <Label htmlFor="name">{t('nameLabel')}</Label>
               <Input
                 id="name"
+                name="householdName"
                 type="text"
+                autoComplete="off"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
