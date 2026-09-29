@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useTranslations } from 'next-intl'
+import { Pencil } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 
@@ -100,8 +102,10 @@ export function ServingControl({
   }
 
   if (isEditing) {
+    // `min-h-8 px-3` matches the resting `Button size="sm"`, so the row neither
+    // shrinks nor shifts sideways when the field opens.
     return (
-      <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      <span className="inline-flex min-h-8 items-center gap-1 px-3 whitespace-nowrap">
         <span className="text-muted-foreground">{t('label')}</span>
         <input
           ref={inputRef}
@@ -123,22 +127,30 @@ export function ServingControl({
     )
   }
 
+  const isInactive = disabled || isUpdating
+
+  // `Button` owns the 32px height (HON-811); colour and weight live on the inner
+  // span because `shadcn/no-restyle` keeps them off `Button`, and `Body` renders
+  // a `<p>`, which a `<button>` cannot contain. The pencil sits inside the span
+  // so it takes the text's colour, and only shows while the control can be used.
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={handleClick}
-      disabled={disabled || isUpdating}
-      className={cn(
-        'inline-flex items-center gap-1 rounded px-1 py-0.5 text-sm whitespace-nowrap transition-colors',
-        'hover:bg-muted focus:ring-primary focus:ring-1 focus:outline-none',
-        isOverridden && 'text-info font-medium',
-        !isOverridden && 'text-muted-foreground',
-        (disabled || isUpdating) && 'cursor-not-allowed opacity-50',
-      )}
+      disabled={isInactive}
       aria-label={t('ariaButton', { count: servings })}
     >
-      {t('labelWithCount', { count: servings })}
-      {isOverridden && <span className="text-xs">{t('custom')}</span>}
-    </button>
+      <span
+        className={cn(
+          'inline-flex items-center gap-1',
+          isOverridden ? 'text-info' : 'text-muted-foreground font-normal',
+        )}
+      >
+        {t('labelWithCount', { count: servings })}
+        {isOverridden && <span className="text-xs">{t('custom')}</span>}
+        {!isInactive && <Pencil className="size-3.5" aria-hidden="true" />}
+      </span>
+    </Button>
   )
 }
