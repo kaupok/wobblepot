@@ -121,13 +121,19 @@ export default async function RootLayout({
   ])
   const hasHousehold = householdId !== null
 
+  // `meta.admin` is read only by the admin pages' server-side `generateMetadata`.
+  // Left in the client catalog, the admin page title would ship in every page's
+  // HTML — 404s included — and name the hidden admin route (HON-830).
+  const { admin: _adminMeta, ...clientMeta } = messages.meta ?? {}
+  const clientMessages = { ...messages, meta: clientMeta }
+
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
         <meta name="x-server-base-url" content={baseURL} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <NextIntlClientProvider locale={locale} messages={messages}>
+        <NextIntlClientProvider locale={locale} messages={clientMessages}>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"

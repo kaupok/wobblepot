@@ -54,7 +54,7 @@ export const PUBLIC_ROUTES = [
   {
     path: '/admin',
     reason:
-      'Must 404 for anonymous users, not advertise itself via a sign-in redirect — served by src/app/admin/layout.tsx (HON-593)',
+      'Must 404 for anonymous users, not advertise itself via a sign-in redirect — rewritten to a real 404 below, and gated for signed-in non-admins by src/app/admin/layout.tsx (HON-593, HON-830)',
   },
   {
     path: '/api',
@@ -85,6 +85,26 @@ function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   )
+}
+
+/**
+ * The admin segment must be indistinguishable from a path that does not exist.
+ * `src/app/admin/layout.tsx` already renders the not-found UI for non-admins,
+ * but the root `src/app/loading.tsx` streams a 200 before that layout runs, and
+ * a streamed status cannot change. So a cookie-less request is rewritten here,
+ * before anything streams, to a path no route can ever match — `_`-prefixed
+ * folders are private in the App Router — and Next serves its ordinary 404
+ * with a 404 status. A rewrite keeps the URL; a redirect would advertise the
+ * route (HON-830).
+ *
+ * A signed-in non-admin still passes through, since the proxy cannot see who
+ * is an admin: they get the 404 UI and title, but with a 200.
+ */
+const ADMIN_PREFIX = '/admin'
+export const NOT_FOUND_REWRITE_PATH = '/_not-a-route'
+
+function isAdminPath(pathname: string): boolean {
+  return pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)
 }
 
 /**
@@ -156,9 +176,16 @@ export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-nonce', nonce)
 
-  const response = NextResponse.next({
-    request: { headers: requestHeaders },
-  })
+  // Both branches carry the nonce and CSP, so the admin 404 renders exactly as
+  // it does for any other unknown path.
+  const response =
+    isAdminPath(pathname) && getSessionCookie(request) === null
+      ? NextResponse.rewrite(new URL(NOT_FOUND_REWRITE_PATH, request.url), {
+          request: { headers: requestHeaders },
+        })
+      : NextResponse.next({
+          request: { headers: requestHeaders },
+        })
 
   response.headers.set('Content-Security-Policy', cspHeader)
 

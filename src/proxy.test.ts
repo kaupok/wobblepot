@@ -6,6 +6,7 @@ const nextMock = {
   responseHeaders: new Map<string, string>(),
   requestHeaders: new Map<string, string>(),
   redirect: null as { status: number; location: string } | null,
+  rewrite: null as string | null,
 }
 
 vi.mock('next/server', () => {
@@ -51,6 +52,22 @@ vi.mock('next/server', () => {
           },
         }
       },
+      rewrite: (
+        url: URL | string,
+        { request }: { request?: { headers?: Map<string, string> } } = {},
+      ) => {
+        nextMock.rewrite = url.toString()
+        if (request?.headers) {
+          request.headers.forEach((v, k) => nextMock.requestHeaders.set(k, v))
+        }
+        return {
+          rewrite: url.toString(),
+          headers: {
+            set: (k: string, v: string) => nextMock.responseHeaders.set(k, v),
+            get: (k: string) => nextMock.responseHeaders.get(k),
+          },
+        }
+      },
       next: ({ request }: { request?: { headers?: Map<string, string> } } = {}) => {
         if (request?.headers) {
           request.headers.forEach((v, k) => nextMock.requestHeaders.set(k, v))
@@ -71,6 +88,7 @@ describe('proxy', () => {
     nextMock.responseHeaders.clear()
     nextMock.requestHeaders.clear()
     nextMock.redirect = null
+    nextMock.rewrite = null
   })
 
   it('sets Content-Security-Policy header with nonce', async () => {
@@ -218,6 +236,7 @@ describe('proxy — protected-route redirect (HON-599)', () => {
     nextMock.responseHeaders.clear()
     nextMock.requestHeaders.clear()
     nextMock.redirect = null
+    nextMock.rewrite = null
   })
 
   // Returns the proxy's own return value. Asserting on it (rather than only on
@@ -323,13 +342,42 @@ describe('proxy — protected-route redirect (HON-599)', () => {
     ['/sign-up', 'public'],
     ['/status', 'public'],
     ['/api/meals', 'API routes return their own 401 JSON'],
-    ['/admin/signup-codes', 'admin must 404, not advertise itself via a sign-in redirect'],
     ['/profilex', 'prefix boundary — not under /profile'],
     ['/recipes-public', 'prefix boundary — not under /recipes'],
+    ['/administrator', 'prefix boundary — not under /admin'],
   ])('does not redirect anonymous %s (%s)', async (pathname) => {
     await run(`https://wobblepot.dev${pathname}`)
 
     expect(nextMock.redirect).toBeNull()
+    expect(nextMock.rewrite).toBeNull()
+    expect(nextMock.responseHeaders.get('Content-Security-Policy')).toBeDefined()
+  })
+
+  // /admin must look like a path that does not exist: a real 404 rather than a
+  // streamed 200, and no sign-in redirect that would advertise it (HON-830).
+  it.each(['/admin', '/admin/signup-codes', '/admin/signup-codes?x=1'])(
+    'rewrites anonymous %s to the not-found path, without redirecting',
+    async (path) => {
+      const { NOT_FOUND_REWRITE_PATH } = await import('./proxy')
+
+      const response = await run(`https://wobblepot.dev${path}`)
+
+      expect(nextMock.redirect).toBeNull()
+      expect(response).toMatchObject({
+        rewrite: `https://wobblepot.dev${NOT_FOUND_REWRITE_PATH}`,
+      })
+      expect(nextMock.requestHeaders.get('x-nonce')).toBeTruthy()
+      expect(nextMock.responseHeaders.get('Content-Security-Policy')).toBeDefined()
+    },
+  )
+
+  // The proxy cannot tell an admin from a non-admin, so a present cookie always
+  // reaches the page, whose own gate decides.
+  it('passes /admin through when the session cookie is present', async () => {
+    await run('https://wobblepot.dev/admin/signup-codes', 'better-auth.session_token=abc.def')
+
+    expect(nextMock.redirect).toBeNull()
+    expect(nextMock.rewrite).toBeNull()
     expect(nextMock.responseHeaders.get('Content-Security-Policy')).toBeDefined()
   })
 })
