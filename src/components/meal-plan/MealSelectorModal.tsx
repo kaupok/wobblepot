@@ -62,6 +62,13 @@ interface MealSelectorModalProps {
   mode: 'swap' | 'add'
   /** When provided, ingredient lists on cards are color-coded by pantry availability */
   pantryIngredients?: PantryIngredient[]
+  /**
+   * Passed to `DialogContent`. The selector opens without a `DialogTrigger`,
+   * and a modal Radix dialog returns focus only to its trigger, so without
+   * this it lands on the page body on close (HON-803). Call
+   * `event.preventDefault()` and focus the element that opened the selector.
+   */
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 export function MealSelectorModal({
@@ -76,6 +83,7 @@ export function MealSelectorModal({
   onSwapComplete,
   mode,
   pantryIngredients,
+  onCloseAutoFocus,
 }: MealSelectorModalProps) {
   const tSelector = useTranslations('meal-plan.selector')
 
@@ -246,7 +254,10 @@ export function MealSelectorModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-dialog overflow-y-auto sm:max-w-4xl">
+      <DialogContent
+        className="max-h-dialog overflow-y-auto sm:max-w-4xl"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

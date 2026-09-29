@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
 
@@ -46,10 +47,12 @@ function json(body: unknown, status = 200) {
 }
 
 let requests: { method: string; url: string }[]
+let createResponse: Deferred | null
 let deleteResponse: Deferred
 
 beforeEach(() => {
   requests = []
+  createResponse = null
   deleteResponse = deferred()
   refresh.mockClear()
   vi.stubGlobal(
@@ -58,7 +61,7 @@ beforeEach(() => {
       const method = init?.method ?? 'GET'
       requests.push({ method, url })
       if (method === 'POST' && url === `/api/meal-plans/${PLAN_ID}/entries`) {
-        return Promise.resolve(json({ id: ENTRY_ID }))
+        return createResponse ? createResponse.promise : Promise.resolve(json({ id: ENTRY_ID }))
       }
       if (method === 'POST' && url === `${ENTRY_URL}/suggestions`) {
         return Promise.resolve(json({ suggestions: [] }))
@@ -97,6 +100,20 @@ function closeSelector() {
   fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
 }
 
+// "Pick a meal" is `aria-disabled`, not `disabled`, while a create or discard
+// is pending (HON-803), so `toBeDisabled()` cannot see it.
+function expectPending(button: HTMLElement) {
+  expect(button).toHaveAttribute('aria-disabled', 'true')
+  expect(button).toBeEnabled()
+}
+
+function expectIdle(button: HTMLElement) {
+  expect(button).not.toHaveAttribute('aria-disabled')
+}
+
+const pickButton = () => screen.getByRole('button', { name: 'Pick a meal' })
+const createRequests = () =>
+  requests.filter((r) => r.method === 'POST' && r.url === `/api/meal-plans/${PLAN_ID}/entries`)
 const suggestionRequests = () => requests.filter((r) => r.url === `${ENTRY_URL}/suggestions`)
 const deleteRequests = () => requests.filter((r) => r.method === 'DELETE')
 
@@ -110,7 +127,7 @@ describe('TimelineEmptySlot', () => {
     expect(deleteRequests()[0]?.url).toBe(ENTRY_URL)
 
     deleteResponse.resolve(json({ success: true }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Pick a meal' })).toBeEnabled())
+    await waitFor(() => expectIdle(pickButton()))
 
     expect(suggestionRequests()).toHaveLength(1)
     const deleteIndex = requests.findIndex((r) => r.method === 'DELETE')
@@ -132,10 +149,75 @@ describe('TimelineEmptySlot', () => {
 
     closeSelector()
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
-    expect(screen.getByRole('button', { name: 'Pick a meal' })).toBeDisabled()
+    expectPending(pickButton())
 
     deleteResponse.resolve(json({ success: true }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Pick a meal' })).toBeEnabled())
+    await waitFor(() => expectIdle(pickButton()))
+  })
+
+  it('ignores a second activation while the placeholder is being created', async () => {
+    const user = userEvent.setup()
+    createResponse = deferred()
+    renderSlot()
+
+    fireEvent.click(pickButton())
+    const adding = await screen.findByRole('button', { name: 'Adding…' })
+    expectPending(adding)
+
+    // `pointer-events-none` is CSS, which jsdom does not apply, so a click here
+    // reaches the handler the way Enter and Space do in a browser.
+    fireEvent.click(adding)
+    adding.focus()
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    expect(createRequests()).toHaveLength(1)
+
+    createResponse.resolve(json({ id: ENTRY_ID }))
+    await screen.findByRole('dialog')
+    expect(createRequests()).toHaveLength(1)
+  })
+
+  it('ignores a second activation while the placeholder is being discarded', async () => {
+    const user = userEvent.setup()
+    renderSlot()
+    await openSelector()
+
+    closeSelector()
+    await waitFor(() => expect(deleteRequests()).toHaveLength(1))
+    const button = pickButton()
+    expectPending(button)
+
+    fireEvent.click(button)
+    button.focus()
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    expect(createRequests()).toHaveLength(1)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    deleteResponse.resolve(json({ success: true }))
+    await waitFor(() => expectIdle(pickButton()))
+  })
+
+  it('returns focus to "Pick a meal" when the selector closes without a pick', async () => {
+    renderSlot()
+    await openSelector()
+
+    closeSelector()
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    // Still pending: the discard has not settled, and focus lands anyway.
+    expectPending(pickButton())
+    await waitFor(() => expect(pickButton()).toHaveFocus())
+  })
+
+  it('keeps "Pick a meal" focusable while it is pending', async () => {
+    renderSlot()
+    await openSelector()
+
+    closeSelector()
+    await waitFor(() => expect(deleteRequests()).toHaveLength(1))
+    const button = pickButton()
+    button.focus()
+    expect(button).toHaveFocus()
   })
 
   it('keeps the entry when a meal was picked', async () => {
@@ -157,7 +239,7 @@ describe('TimelineEmptySlot', () => {
     await waitFor(() => expect(deleteRequests()).toHaveLength(1))
     deleteResponse.resolve(json({ error: 'boom' }, 500))
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Pick a meal' })).toBeEnabled())
+    await waitFor(() => expectIdle(pickButton()))
     expect(refresh).not.toHaveBeenCalled()
   })
 
