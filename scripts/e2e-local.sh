@@ -23,9 +23,25 @@
 # as an explicit target (so @ai is NOT excluded). Anything after a literal `--`,
 # and any unrecognised arg, is forwarded to `playwright test` verbatim.
 #
+# Review server (`serve`) — the same isolated environment, but instead of
+# running Playwright it leaves `next dev` up for a browser review of sign-up
+# and onboarding (HON-851). See docs/CHROME_TESTING.md → "Reviewing sign-up
+# and onboarding".
+#   pnpm review:local                            # ephemeral Neon branch, migrations, no seed
+#   pnpm review:local --seed                     # also run `pnpm db:seed` on the branch
+#   pnpm review:local --db env                   # no branch: use DATABASE_URL from .env
+#                                                # (for when the Neon branch cap is full)
+#
+# serve listens on REVIEW_LOCAL_PORT (default 3200) and prints one line
+# containing `REVIEW-READY http://localhost:<port>` once the server answers.
+# Stop it with Ctrl-C or `kill`; branch mode deletes its branch on the way out.
+# `--db env` never creates a branch and never migrates: it checks
+# `prisma migrate status` and refuses to start on a database that is behind.
+# Accounts created in `--db env` mode persist — clean them up afterwards.
+#
 # Requires NEON_API_KEY + NEON_PROJECT_ID in .env (already set for the worktree
-# workflow — see docs/PARALLEL_WORKFLOW.md). @ai specs additionally need
-# ANTHROPIC_API_KEY (also in .env).
+# workflow — see docs/PARALLEL_WORKFLOW.md), except `serve --db env`. @ai specs
+# additionally need ANTHROPIC_API_KEY (also in .env).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,6 +56,9 @@ BRANCH_PREFIX="e2e-local"
 # not only a shell-exported one (mirrors how NEON_* / SMOKE_* are read). The
 # values here are the fallback defaults.
 PORT="3100"
+# `serve` gets its own port: a queue worker may be running `pnpm test:e2e:local`
+# on 3100 at the same time, and `pnpm dev` holds 3000.
+REVIEW_PORT="3200"
 # Age gate for `gc` so a concurrent run's fresh branch is never reaped.
 GC_MIN_AGE_HOURS="2"
 
@@ -141,6 +160,7 @@ load_env() {
 # top-level defaults. Must be called once at the start of each command.
 resolve_config() {
   PORT="${E2E_LOCAL_PORT:-$PORT}"
+  REVIEW_PORT="${REVIEW_LOCAL_PORT:-$REVIEW_PORT}"
   GC_MIN_AGE_HOURS="${E2E_GC_MIN_AGE_HOURS:-$GC_MIN_AGE_HOURS}"
 }
 
@@ -149,8 +169,10 @@ require_neon() {
     "NEON_API_KEY and NEON_PROJECT_ID must be set in .env (this runner isolates each run on its own Neon branch). See docs/PARALLEL_WORKFLOW.md § Neon Database Branching."
 }
 
-# State shared with the EXIT trap.
-POOLED=""; UNPOOLED=""; BRANCH=""; KEEP=0
+# State shared with the EXIT trap. SERVER_PID is the `serve` dev server.
+POOLED=""; UNPOOLED=""; BRANCH=""; KEEP=0; SERVER_PID=""
+# Appended to the branch-cap error, so `serve` can name its way around the cap.
+CAP_HINT=""
 
 # Delete e2e-local-* branches older than GC_MIN_AGE_HOURS. Used both as
 # crash-recovery (`gc` subcommand) and to reclaim space on a branch-cap error.
@@ -188,9 +210,22 @@ delete_branch() {
   fi
 }
 
+# Signal a process and all of its descendants, children first. `pnpm exec next
+# dev` is a chain (pnpm → next → the dev-server worker); signalling only the top
+# pid can orphan the worker still holding the port.
+kill_tree() {
+  local pid="$1" child
+  for child in $(pgrep -P "$pid" 2>/dev/null); do kill_tree "$child"; done
+  kill -TERM "$pid" 2>/dev/null || true
+}
+
 on_exit() {
   local rc=$?
   trap - EXIT INT TERM
+  if [ -n "$SERVER_PID" ]; then
+    kill_tree "$SERVER_PID"
+    wait "$SERVER_PID" 2>/dev/null || true
+  fi
   if [ -z "$BRANCH" ]; then
     :
   elif [ "$KEEP" = "1" ]; then
@@ -218,7 +253,7 @@ create_branch() {
       warn "Neon branch cap hit — GC'ing orphaned ${BRANCH_PREFIX}-* branches and retrying…"
       gc_orphans
       out="$(neon branches create --project-id "$NEON_PROJECT_ID" --name "$BRANCH" --parent "$parent" --output json 2>&1)" \
-        || { log "$out"; fail "Neon branch create failed after GC (cap still exceeded?)."; }
+        || { log "$out"; fail "Neon branch create failed after GC (cap still exceeded?).${CAP_HINT}"; }
     else
       log "$out"; fail "Neon branch create failed."
     fi
@@ -237,6 +272,50 @@ cmd_gc() {
   info "Sweeping orphaned ${BRANCH_PREFIX}-* Neon branches older than ${GC_MIN_AGE_HOURS}h…"
   gc_orphans
   info "GC complete."
+}
+
+# The environment both `run` and `serve` start the app in. $1 is the port the
+# dev server listens on. Branch mode points every consumer at the ephemeral
+# branch; `serve --db env` has no branch and keeps the DATABASE_URL (and
+# NEXT_PUBLIC_APP_ENV, which cmd_serve checks) that .env loaded.
+export_isolated_env() {
+  local port="$1"
+  if [ -n "$BRANCH" ]; then
+    # The app runtime AND the seed script (prisma/seed.ts) read DATABASE_URL
+    # (pooled); `prisma migrate` reads DATABASE_URL_UNPOOLED (see prisma.config.ts).
+    # Both point at the same branch, so exporting both covers every consumer.
+    export DATABASE_URL="$POOLED"
+    export DATABASE_URL_UNPOOLED="$UNPOOLED"
+    export NEXT_PUBLIC_APP_ENV="test"
+  fi
+  # Bypass the IP rate limiter AND enable /api/e2e-seed (the invite-code minter
+  # sign-up needs). Permitted because NEXT_PUBLIC_APP_ENV is a SAFE_ENV.
+  export E2E_DISABLE_RATE_LIMIT="1"
+  # Better Auth derives baseURL + trustedOrigins from NEXT_PUBLIC_APP_URL
+  # (fallback localhost:3000). Pin it to the test port so CSRF origin checks
+  # don't reject sign-up on :$port. See src/lib/env.ts getServerBaseURL().
+  export NEXT_PUBLIC_APP_URL="http://localhost:$port"
+  # Both sides of the purge-cron bearer check live in this process tree, so a
+  # fixed literal is fine — the account-deletion spec (HON-479) calls the real
+  # /api/cron/purge-deleted-users with it rather than the route growing a
+  # test-only branch. Mirrors the value in .github/workflows/ci.yml. 32+ chars
+  # to satisfy the env schema.
+  export CRON_SECRET="${CRON_SECRET:-local-e2e-cron-secret-not-a-real-credential}"
+}
+
+run_seed() {
+  # Seed the smoke fixtures only when their credentials are present (they live
+  # in CI secrets, not local .env). The base meal/translation seed always runs.
+  if [ -n "${SMOKE_TEST_EMAIL:-}" ]; then export SEED_TEST_USERS="1"; fi
+
+  info "Seeding the ephemeral branch…"
+  pnpm db:seed
+}
+
+# HTTP status from the local server, or 000 when nothing answers. `--max-time`
+# is generous because the first request to a dev-server route compiles it.
+http_status() {
+  curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$1" 2>/dev/null || true
 }
 
 cmd_run() {
@@ -259,40 +338,18 @@ cmd_run() {
   trap on_exit EXIT INT TERM
   create_branch
 
-  # The app runtime AND the seed script (prisma/seed.ts) read DATABASE_URL
-  # (pooled); `prisma migrate` reads DATABASE_URL_UNPOOLED (see prisma.config.ts).
-  # Both point at the same branch, so exporting both covers every consumer.
-  export DATABASE_URL="$POOLED"
-  export DATABASE_URL_UNPOOLED="$UNPOOLED"
-  export NEXT_PUBLIC_APP_ENV="test"
-  # Bypass the IP rate limiter AND enable /api/e2e-seed (the invite-code minter
-  # sign-up needs). Permitted because NEXT_PUBLIC_APP_ENV is a SAFE_ENV.
-  export E2E_DISABLE_RATE_LIMIT="1"
+  export_isolated_env "$PORT"
   # Log per-step sign-up timings (hibp / scrypt / invite-code / total) so the
   # latency that intermittently blows the 30s budget is measurable (HON-569).
   export SIGNUP_TIMING_LOG="1"
   # Tells playwright.config.ts to start its own dev server on this port (never
   # reusing a stale :3000 server that would point at your real DB).
   export E2E_LOCAL_PORT="$PORT"
-  # Better Auth derives baseURL + trustedOrigins from NEXT_PUBLIC_APP_URL
-  # (fallback localhost:3000). Pin it to the test port so CSRF origin checks
-  # don't reject sign-up on :$PORT. See src/lib/env.ts getServerBaseURL().
-  export NEXT_PUBLIC_APP_URL="http://localhost:$PORT"
-  # Both sides of the purge-cron bearer check live in this process tree, so a
-  # fixed literal is fine — the account-deletion spec (HON-479) calls the real
-  # /api/cron/purge-deleted-users with it rather than the route growing a
-  # test-only branch. Mirrors the value in .github/workflows/ci.yml. 32+ chars
-  # to satisfy the env schema.
-  export CRON_SECRET="${CRON_SECRET:-local-e2e-cron-secret-not-a-real-credential}"
-  # Seed the smoke fixtures only when their credentials are present (they live
-  # in CI secrets, not local .env). The base meal/translation seed always runs.
-  [ -n "${SMOKE_TEST_EMAIL:-}" ] && export SEED_TEST_USERS="1"
 
   info "Applying migrations to the ephemeral branch…"
   pnpm prisma migrate deploy
 
-  info "Seeding the ephemeral branch…"
-  pnpm db:seed
+  run_seed
 
   local grep_args=()
   if [ "$include_ai" = "0" ] && [ "$has_target" = "0" ]; then
@@ -306,6 +363,88 @@ cmd_run() {
   pnpm exec playwright test "${grep_args[@]+"${grep_args[@]}"}" "${passthrough[@]+"${passthrough[@]}"}"
 }
 
+# Seconds `serve` waits for the dev server to answer before giving up.
+REVIEW_READY_TIMEOUT_SECS=180
+
+cmd_serve() {
+  load_env; resolve_config
+
+  local db_mode="branch" seed=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --seed)   seed=1 ;;
+      --db)     [ $# -ge 2 ] || fail "--db needs a value: branch or env"; db_mode="$2"; shift ;;
+      --db=*)   db_mode="${1#--db=}" ;;
+      *)        fail "serve: unknown argument '$1' (see: bash scripts/e2e-local.sh --help)" ;;
+    esac
+    shift
+  done
+  case "$db_mode" in
+    branch|env) ;;
+    *) fail "--db must be 'branch' or 'env', got '$db_mode'" ;;
+  esac
+  # Seeding and migrating a shared database is the person's call, not this
+  # script's — the same reason env mode only checks migration status.
+  [ "$db_mode" = "env" ] && [ "$seed" = "1" ] && fail "--seed only applies to branch mode; seed the .env database yourself with: pnpm db:seed"
+
+  local url="http://localhost:$REVIEW_PORT"
+  # Checked before a branch is created, so a doomed run never spends one.
+  [ "$(http_status "$url/")" = "000" ] \
+    || fail "something is already listening on $url. Stop it, or pick another port with REVIEW_LOCAL_PORT=<port>."
+
+  trap on_exit EXIT INT TERM
+
+  if [ "$db_mode" = "branch" ]; then
+    require_neon
+    CAP_HINT=" No branch slot is free — review against the database in .env instead: pnpm review:local --db env"
+    create_branch
+    export_isolated_env "$REVIEW_PORT"
+
+    info "Applying migrations to the ephemeral branch…"
+    pnpm prisma migrate deploy
+    if [ "$seed" = "1" ]; then run_seed; fi
+  else
+    [ -n "${DATABASE_URL:-}" ] || fail "--db env needs DATABASE_URL in .env."
+    case "${NEXT_PUBLIC_APP_ENV:-}" in
+      ci|test|dev) ;;
+      # Any other value keeps /api/e2e-seed at 404 and the rate limiter on.
+      *) export NEXT_PUBLIC_APP_ENV="dev" ;;
+    esac
+    export_isolated_env "$REVIEW_PORT"
+
+    info "Checking migration status of the .env database (not applying anything)…"
+    local status
+    if ! status="$(pnpm prisma migrate status 2>&1)" || ! printf '%s\n' "$status" | grep -q "Database schema is up to date"; then
+      log "$status"
+      fail "the .env database is not up to date with prisma/migrations. Apply them yourself, then retry: pnpm db:migrate:deploy"
+    fi
+    warn "--db env: accounts you create are written to the database in .env and persist after this server stops. Clean them up: docs/CHROME_TESTING.md → \"Reviewing sign-up and onboarding\" → Cleanup."
+  fi
+
+  info "Starting the review server on ${url}…"
+  # Backgrounded and waited on, not run in the foreground: bash defers a trap
+  # until a foreground child exits, so `kill <this script>` would leave the
+  # server running and the branch undeleted. `wait` is interrupted by the trap.
+  pnpm exec next dev --port "$REVIEW_PORT" &
+  SERVER_PID=$!
+
+  local waited=0
+  until [ "$(http_status "$url/sign-up")" != "000" ]; do
+    kill -0 "$SERVER_PID" 2>/dev/null || fail "the dev server exited before it answered on $url."
+    [ "$waited" -lt "$REVIEW_READY_TIMEOUT_SECS" ] || fail "the dev server did not answer on $url within ${REVIEW_READY_TIMEOUT_SECS}s."
+    sleep 1; waited=$((waited + 1))
+  done
+
+  # The one line an agent that backgrounded this command waits on. stdout, so it
+  # is not interleaved with the coloured progress on stderr.
+  printf 'REVIEW-READY %s db=%s\n' "$url" "${BRANCH:-env}"
+
+  local rc=0
+  wait "$SERVER_PID" || rc=$?
+  SERVER_PID=""
+  return "$rc"
+}
+
 # Print the header comment block (everything between the shebang and the first
 # non-comment line), stripped of the leading "# ".
 usage() { awk 'NR==1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"; }
@@ -313,6 +452,7 @@ usage() { awk 'NR==1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$
 main() {
   case "${1:-run}" in
     gc)               shift; cmd_gc "$@" ;;
+    serve)            shift; cmd_serve "$@" ;;
     -h|--help|help)   usage ;;
     # `${1:-run}` also matches an empty argv, where a bare `shift` returns 1
     # and `set -e` aborts before anything runs — so only shift a real "run".

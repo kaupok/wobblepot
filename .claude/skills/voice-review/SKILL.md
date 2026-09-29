@@ -67,6 +67,8 @@ Keep the backlog and recent completions in mind throughout the session to avoid 
 
 Navigate to `https://wobblepot.dev/`. If the user is already logged in, proceed. If not, **speak** to ask about credentials and handle the auth flow before continuing.
 
+Do not sign up on staging. Sign-up and onboarding are reviewed on the local review server instead: start `pnpm review:local` in the background, wait for the line containing `REVIEW-READY http://localhost:3200`, and walk the flow there with a minted invite code and test credentials — see `docs/CHROME_TESTING.md` → "Reviewing sign-up and onboarding". If the Neon branch cap is full, the error names `pnpm review:local --db env`; that mode writes to the `.env` database, so run the cleanup in that section afterwards.
+
 ## Orientation
 
 ### Step 5: Greet and discuss scope
@@ -90,7 +92,7 @@ Default itinerary for a broad sweep — start here, then branch out using the fu
 2. `/recipes` — Meal library, plus `/recipes/create`, `/recipes/imagine`, `/recipes/import`
 3. `/shopping` — Shopping list and pantry
 4. `/household` — Household settings, members, invites
-5. `/onboarding` — Create-household flow (needs an account without a household)
+5. `/sign-up` → `/onboarding` → `/` — Sign-up, create-household and first-plan flow. **Review it on the local review server, not on staging:** staging 404s the invite-code minter and a review must not create accounts on a deployed host. Start `pnpm review:local` in the background, wait for the `REVIEW-READY http://localhost:3200` line, then follow `docs/CHROME_TESTING.md` → "Reviewing sign-up and onboarding" for the invite code, test credentials and cleanup
 
 ## Exploration Loop
 
