@@ -1,6 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { MealFormData } from '@/components/household/MealForm'
 import { CreateRecipeClient } from './CreateRecipeClient'
 
 const push = vi.fn()
@@ -12,10 +14,25 @@ vi.mock('next/navigation', () => ({
 
 // The form itself is covered by `MealForm`'s own tests and stories; this suite
 // is about which route Cancel/Save lands on and what they clear, so the form is
-// reduced to the two callbacks that drive those decisions.
+// reduced to the two callbacks that drive those decisions, plus the prefilled
+// name and ingredient rows so the StrictMode cases can see what reached it.
 vi.mock('@/components/household/MealForm', () => ({
-  MealForm: ({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) => (
+  MealForm: ({
+    meal,
+    onSuccess,
+    onCancel,
+  }: {
+    meal?: MealFormData
+    onSuccess: () => void
+    onCancel: () => void
+  }) => (
     <div>
+      {meal && <h1>{meal.name}</h1>}
+      <ul aria-label="Ingredients">
+        {meal?.prefilledIngredients?.map((row, i) => (
+          <li key={i}>{row.ingredient?.name ?? row.originalText}</li>
+        ))}
+      </ul>
       <button onClick={onCancel}>Cancel</button>
       <button onClick={onSuccess}>Save</button>
     </div>
@@ -123,5 +140,55 @@ describe('CreateRecipeClient routing', () => {
 
     await waitFor(() => expect(push).toHaveBeenCalledWith('/recipes'))
     expect(sessionStorage.getItem('imagined-meals')).not.toBeNull()
+  })
+})
+
+// `next dev` runs with `reactStrictMode: true`, which mounts, unmounts and
+// re-mounts, so the load effect runs twice. The first run consumes the
+// single-use stash; the second must not overwrite it with an empty form
+// (HON-801).
+describe('CreateRecipeClient under StrictMode', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    push.mockClear()
+  })
+
+  function seedWithIngredients() {
+    seedPrefilled({
+      originalRecipeText: 'Lentil stew\n- 200g lentils\n- 1 onion',
+      prefilledIngredients: [
+        {
+          type: 'matched',
+          ingredient: { id: 'ing-1', name: 'Red lentils', category: 'GRAINS', defaultUnit: 'G' },
+          convertedQuantity: 200,
+        },
+        { type: 'unmatched', originalText: '1 onion' },
+      ],
+    })
+  }
+
+  function renderStrict() {
+    render(
+      <StrictMode>
+        <CreateRecipeClient defaultServings={4} />
+      </StrictMode>,
+    )
+  }
+
+  it('shows the stashed name and ingredient rows', async () => {
+    seedWithIngredients()
+    renderStrict()
+
+    expect(await screen.findByRole('heading', { name: 'Lentil stew' })).toBeInTheDocument()
+    const rows = within(screen.getByRole('list', { name: 'Ingredients' })).getAllByRole('listitem')
+    expect(rows.map((row) => row.textContent)).toEqual(['Red lentils', '1 onion'])
+  })
+
+  it('consumes the stash, so a reload starts from an empty form', async () => {
+    seedWithIngredients()
+    renderStrict()
+
+    await screen.findByRole('heading', { name: 'Lentil stew' })
+    expect(sessionStorage.getItem('prefilled-meal')).toBeNull()
   })
 })
