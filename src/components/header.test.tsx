@@ -74,17 +74,19 @@ describe('Header component', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the app name heading', async () => {
+  it('renders the wordmark without a heading, so each page opens its own outline', async () => {
     const { getSession } = await import('@/lib/session')
     vi.mocked(getSession).mockResolvedValue(null)
 
     const component = await Header()
     render(component)
 
-    expect(screen.getByRole('heading', { name: 'Wobblepot' })).toBeInTheDocument()
+    // HON-806: an `h4` here led every page's outline, ahead of its `h1`.
+    expect(screen.getByText('Wobblepot')).toBeInTheDocument()
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
   })
 
-  it('renders heading as link to homepage', async () => {
+  it('renders the wordmark as a link to the homepage', async () => {
     const { getSession } = await import('@/lib/session')
     vi.mocked(getSession).mockResolvedValue(null)
 

@@ -44,7 +44,7 @@ test.describe('Smoke', { tag: '@smoke' }, () => {
     await expect(
       page.getByRole('main').getByRole('heading', { name: 'Meal planning for busy families' }),
     ).toBeVisible()
-    await expect(page.getByRole('banner').getByRole('heading', { name: 'Wobblepot' })).toBeVisible()
+    await expect(page.getByRole('banner').getByRole('link', { name: 'Wobblepot' })).toBeVisible()
   })
 
   test('seeded smoke user signs in and views profile', async ({ page }) => {

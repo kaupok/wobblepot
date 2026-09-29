@@ -87,7 +87,13 @@ export function HeaderChrome({ session, hasHousehold, skipToContentLabel }: Head
                 href="/"
                 className="focus-visible:outline-ring block rounded-sm transition-opacity hover:opacity-70 focus-visible:outline-2 focus-visible:-outline-offset-2"
               >
-                <Heading variant="h4">Wobblepot</Heading>
+                {/* Title-sized, but not a heading: the wordmark is a link home,
+                    not a section of the page, and a heading here would open
+                    every page's outline ahead of its own `h1` (HON-806). A
+                    `div` rather than a `span` so the box stays a block. */}
+                <Heading variant="h4" as="div">
+                  Wobblepot
+                </Heading>
               </Link>
             </div>
             <NavigationLeft isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />

@@ -57,7 +57,7 @@ export function TimelineDayCard({
   return (
     <div className={containerClass}>
       <div className="flex items-center justify-between gap-2">
-        <Heading variant="section" as="h5" className={day.isToday ? 'text-primary' : undefined}>
+        <Heading variant="section" as="h2" className={day.isToday ? 'text-primary' : undefined}>
           {day.label}
           {day.dateLabel && (
             <>
