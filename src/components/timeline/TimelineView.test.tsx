@@ -432,4 +432,16 @@ describe('TimelineView', () => {
       expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' })
     })
   })
+
+  // One h1 per page, first in the outline, visually hidden. Named "Meal plan"
+  // rather than "Today", which is the first day card's heading (HON-815).
+  it('opens the page with one hidden h1', () => {
+    const { container } = renderInLocale(<TimelineView {...defaultProps} />)
+
+    const h1s = container.querySelectorAll('h1')
+    expect(h1s).toHaveLength(1)
+    expect(h1s[0]).toHaveTextContent('Meal plan')
+    expect(container.querySelector('h1, h2, h3, h4, h5, h6')).toBe(h1s[0])
+    expect(h1s[0]?.parentElement).toHaveClass('sr-only')
+  })
 })

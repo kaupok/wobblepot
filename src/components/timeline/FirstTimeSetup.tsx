@@ -47,6 +47,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
   const tDates = useTranslations('dates') as DatesTranslator
   const tFirst = useTranslations('meal-plan.firstTime')
   const tErrors = useTranslations('meal-plan.errors')
+  const tToday = useTranslations('today')
   const startDateOptions = getStartDateOptions({ locale, t: tDates })
   const daysCountOptions = getDaysCountOptions()
 
@@ -114,6 +115,13 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
 
   return (
     <>
+      {/* Today's page title, as in `TimelineView` (HON-815). Ahead of the
+          overlay, whose own heading is an h2. */}
+      <div className="sr-only">
+        <Heading variant="h4" as="h1">
+          {tToday('pageTitle')}
+        </Heading>
+      </div>
       {isGenerating && <GeneratingOverlay />}
       <div className="min-h-screen-below-header-gutters container mx-auto flex items-center justify-center px-4 py-8">
         <Card className="w-full max-w-md">

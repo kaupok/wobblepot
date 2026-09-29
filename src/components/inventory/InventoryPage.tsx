@@ -2,12 +2,14 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { PantrySection } from './PantrySection'
 import { ShoppingSection } from './ShoppingSection'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { useWindowReconcile } from './use-shopping-window'
 import { cn } from '@/lib/utils'
+import { Heading } from '@/components/ui/typography'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
@@ -60,6 +62,7 @@ export function InventoryPage({
   windowDaysFromUrl = false,
 }: InventoryPageProps) {
   const router = useRouter()
+  const tNav = useTranslations('nav.primary')
 
   // Applies a saved 7/14-day preference to the URL. Here rather than in
   // `ShoppingListHeader` because this component renders on every `/shopping`
@@ -109,6 +112,15 @@ export function InventoryPage({
   // than one grid.
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* The page's one h1, for the outline only: the columns carry the visible
+          titles (HON-815). Both routes share the desktop nav label, since from
+          `md` up both show both columns; on a phone the hidden column is
+          `display: none`, so the visible column's h2 follows this. */}
+      <div className="sr-only">
+        <Heading variant="h4" as="h1">
+          {tNav('pantryAndShopping')}
+        </Heading>
+      </div>
       <div className="grid gap-8 md:grid-cols-2">
         {/* Pantry left, list right from `md`; a phone sees only `view`'s half. */}
         <div className={cn(view !== 'pantry' && 'hidden md:block')} data-testid="pantry-column">

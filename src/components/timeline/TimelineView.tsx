@@ -8,6 +8,7 @@ import { TimelinePastSection, countPastCatchUp } from './TimelinePastSection'
 import { TimelinePastMenu } from './TimelinePastMenu'
 import { FillDaysAction } from './FillDaysAction'
 import { UrgentShopping } from './UrgentShopping'
+import { Heading } from '@/components/ui/typography'
 import { parseLocalDate, toDateString, isWeekday } from '@/lib/meal-planning/dates'
 import { prefersReducedMotion } from '@/lib/utils'
 import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
@@ -82,6 +83,7 @@ export function TimelineView({
   const router = useRouter()
   const locale = useLocale() as Locale
   const tDates = useTranslations('dates')
+  const tToday = useTranslations('today')
   const [isPastExpanded, setIsPastExpanded] = useState(false)
   const pastSectionRef = useRef<HTMLDivElement>(null)
 
@@ -216,6 +218,14 @@ export function TimelineView({
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* A workspace page titles its sections, not the page, so the page's one
+          h1 is for the outline only (docs/DESIGN.md → Composition rules). Not
+          "Today": the first day card is already headed that (HON-815). */}
+      <div className="sr-only">
+        <Heading variant="h4" as="h1">
+          {tToday('pageTitle')}
+        </Heading>
+      </div>
       <div className="lg:grid-cols-timeline grid gap-8">
         {/* Left column: Timeline. `gap-8` between days, wider than the `gap-2`
             between one day's cards, so the days read as groups. */}

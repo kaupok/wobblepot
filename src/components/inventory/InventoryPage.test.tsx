@@ -142,6 +142,21 @@ describe('InventoryPage view', () => {
     },
   )
 
+  // One h1 per page, ahead of the column h2s, visually hidden (HON-815).
+  it.each(['shopping', 'pantry'] as const)(
+    'view="%s" opens its outline with one hidden h1',
+    (view) => {
+      const { container } = renderPage({ view, emptyStateVariant: 'nothing-needed', windowDays: 7 })
+
+      const h1s = container.querySelectorAll('h1')
+      expect(h1s).toHaveLength(1)
+      expect(h1s[0]).toHaveTextContent('Pantry & shopping')
+      expect(container.querySelector('h1, h2, h3, h4, h5, h6')).toBe(h1s[0])
+      expect(container.querySelectorAll('h2').length).toBeGreaterThan(0)
+      expect(h1s[0]?.parentElement).toHaveClass('sr-only')
+    },
+  )
+
   it('renders the pantry as a plain section, with no collapse trigger', () => {
     renderPage({ view: 'pantry', emptyStateVariant: 'nothing-needed', windowDays: 7 })
 

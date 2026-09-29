@@ -129,3 +129,28 @@ describe('FirstTimeSetup error localization', () => {
     expect(screen.queryByText(etErrors.generic)).not.toBeInTheDocument()
   })
 })
+
+// The first-run state is still Today, so it carries Today's page title
+// (HON-815): one h1, hidden, ahead of the welcome h2 and the h3 groups.
+describe('FirstTimeSetup outline', () => {
+  it.each([
+    ['en', enMessages],
+    ['et', etMessages],
+  ] as const)('opens with one hidden h1 in %s', (locale, messages) => {
+    const { wrapper: Wrapper } = createQueryWrapper()
+    const { container } = render(
+      <Wrapper>
+        <NextIntlClientProvider locale={locale} messages={messages} timeZone="Europe/Tallinn">
+          <FirstTimeSetup userName="Kaupo" />
+        </NextIntlClientProvider>
+      </Wrapper>,
+    )
+
+    const h1s = container.querySelectorAll('h1')
+    expect(h1s).toHaveLength(1)
+    expect(h1s[0]).toHaveTextContent(messages.today.pageTitle)
+    expect(container.querySelector('h1, h2, h3, h4, h5, h6')).toBe(h1s[0])
+    expect(container.querySelector('h2')).toBeInTheDocument()
+    expect(h1s[0]?.parentElement).toHaveClass('sr-only')
+  })
+})

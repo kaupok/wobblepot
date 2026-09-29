@@ -133,6 +133,7 @@
     "alreadyInPantry": "{name} is already in your pantry"
   },
   "today": {
+    "pageTitle": "Meal plan",
     "shoppingTitle": "Shopping list",
     "viewFullList": "View full list",
     "allSet": "You're all set for the next 2 days",
