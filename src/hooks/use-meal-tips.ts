@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { ApiError, apiFetch } from '@/lib/api'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
 interface UseMealTipsOptions {
@@ -9,63 +11,79 @@ interface UseMealTipsOptions {
   initialTips?: StructuredTips | null
 }
 
+/**
+ * Auto-retry once after 2s for retryable server errors.
+ *
+ * 504 is deliberately excluded: it means the route already spent its full 45s
+ * AI budget and gave up, so a retry buys another 45s of spinner — ~92s before
+ * the user sees anything — for a request that just demonstrated it does not
+ * fit. The other 5xx codes fail fast, so retrying those still costs ~2s
+ * (HON-693).
+ */
+function isRetryable(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status !== 504 &&
+    (error.status >= 500 || error.status === 429)
+  )
+}
+
+function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const id = setTimeout(resolve, ms)
+    signal.addEventListener('abort', () => {
+      clearTimeout(id)
+      reject(new DOMException('Aborted', 'AbortError'))
+    })
+  })
+}
+
 export function useMealTips({ planId, entryId, initialTips = null }: UseMealTipsOptions) {
   const [tips, setTips] = useState<StructuredTips | null>(initialTips)
-  const [isLoadingTips, setIsLoadingTips] = useState(false)
   const [tipsError, setTipsError] = useState<string | null>(null)
   const [isTipsExpanded, setIsTipsExpanded] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+
+  // A mutation, not a query: the POST runs a billed AI generation on demand,
+  // and the result lives in local state that callers can reset (`cancelTips`).
+  const { mutateAsync, isPending: isLoadingTips } = useMutation({
+    mutationFn: ({ signal }: AbortController) => {
+      const request = () =>
+        apiFetch<{ tips: StructuredTips }>(
+          `/api/meal-plans/${planId}/entries/${entryId}/preparation-tips`,
+          { method: 'POST', signal },
+          "Couldn't generate tips",
+        )
+      return request().catch(async (error: unknown) => {
+        if (!isRetryable(error)) throw error
+        await abortableDelay(2000, signal)
+        return request()
+      })
+    },
+    // An aborted request — superseded by a newer `fetchTips`, or dropped by
+    // `cancelTips` — must not write its result or its error into the state.
+    onSuccess: (data, controller) => {
+      if (controller.signal.aborted) return
+      setTips(data.tips)
+    },
+    onError: (error, controller) => {
+      if (controller.signal.aborted) return
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setTipsError(error instanceof Error ? error.message : "Couldn't generate tips. Try again.")
+    },
+  })
 
   const fetchTips = useCallback(async () => {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
 
-    setIsLoadingTips(true)
     setTipsError(null)
     setIsTipsExpanded(true)
 
-    const url = `/api/meal-plans/${planId}/entries/${entryId}/preparation-tips`
-
-    try {
-      let response = await fetch(url, { method: 'POST', signal: controller.signal })
-
-      // Auto-retry once after 2s for retryable server errors.
-      //
-      // 504 is deliberately excluded: it means the route already spent its
-      // full 45s AI budget and gave up, so a retry buys another 45s of
-      // spinner — ~92s before the user sees anything — for a request that
-      // just demonstrated it does not fit. The other 5xx codes fail fast, so
-      // retrying those still costs ~2s (HON-693).
-      if (
-        !response.ok &&
-        response.status !== 504 &&
-        (response.status >= 500 || response.status === 429)
-      ) {
-        await new Promise<void>((resolve, reject) => {
-          const id = setTimeout(resolve, 2000)
-          controller.signal.addEventListener('abort', () => {
-            clearTimeout(id)
-            reject(new DOMException('Aborted', 'AbortError'))
-          })
-        })
-        response = await fetch(url, { method: 'POST', signal: controller.signal })
-      }
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Couldn't generate tips")
-      }
-
-      const data = await response.json()
-      setTips(data.tips)
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      setTipsError(error instanceof Error ? error.message : "Couldn't generate tips. Try again.")
-    } finally {
-      setIsLoadingTips(false)
-    }
-  }, [planId, entryId])
+    // Failures are handled in `onError`; the rejection only needs swallowing.
+    await mutateAsync(controller).catch(() => {})
+  }, [mutateAsync])
 
   const handleHowToPrepare = useCallback(() => {
     if (tips) {
@@ -89,7 +107,7 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
    * the request in flight would resolve afterwards and `setTips` the stale
    * object right back — after which `handleHowToPrepare` short-circuits on it
    * and never re-fetches, while the stored row is correctly null. Aborting
-   * first makes `fetchTips` return on its `AbortError` branch instead.
+   * first makes the mutation's `onSuccess` / `onError` skip it instead.
    */
   const cancelTips = useCallback(() => {
     abortRef.current?.abort()

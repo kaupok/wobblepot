@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
+import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const MAX_NOTE_LENGTH = 200
@@ -46,15 +48,37 @@ export function NoteEditor({
     }
   }
   const [editValue, setEditValue] = useState(note ?? '')
-  const [isSaving, setIsSaving] = useState(false)
+
+  const saveMutation = useMutation({
+    mutationFn: (newNote: string | null) =>
+      apiFetch(
+        `/api/meal-plans/${planId}/entries/${entryId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note: newNote }),
+        },
+        t('saveFailed'),
+      ),
+    onSuccess: (_data, newNote) => {
+      onNoteChange?.(newNote)
+      setIsEditing(false)
+    },
+    // The server's error prose is English; the localized copy is always shown.
+    onError: () => toast.error(t('saveFailed')),
+  })
+  const isSaving = saveMutation.isPending
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Sync editValue when entering edit mode (handles external trigger via controlled state)
-  useEffect(() => {
+  // Sync editValue when entering edit mode (handles external trigger via controlled state).
+  // Adjusted during render rather than in an effect (`react-hooks/set-state-in-effect`).
+  const [syncedFrom, setSyncedFrom] = useState({ isEditing, note })
+  if (syncedFrom.isEditing !== isEditing || syncedFrom.note !== note) {
+    setSyncedFrom({ isEditing, note })
     if (isEditing) {
       setEditValue(note ?? '')
     }
-  }, [isEditing, note])
+  }
 
   // Focus input when entering edit mode
   useEffect(() => {
@@ -65,7 +89,7 @@ export function NoteEditor({
     }
   }, [isEditing, editValue.length])
 
-  async function handleSave() {
+  function handleSave() {
     const trimmedValue = editValue.trim()
     const newNote = trimmedValue || null
 
@@ -75,26 +99,7 @@ export function NoteEditor({
       return
     }
 
-    setIsSaving(true)
-    try {
-      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note: newNote }),
-      })
-
-      if (!response.ok) {
-        toast.error(t('saveFailed'))
-        return
-      }
-
-      onNoteChange?.(newNote)
-      setIsEditing(false)
-    } catch {
-      toast.error(t('saveFailed'))
-    } finally {
-      setIsSaving(false)
-    }
+    saveMutation.mutate(newNote)
   }
 
   function handleCancel() {

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import { useMealTips } from './use-meal-tips'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
@@ -24,7 +25,10 @@ const mockSupplementaryTips: StructuredTips = {
 }
 
 describe('useMealTips', () => {
+  let wrapper: ReturnType<typeof createQueryWrapper>['wrapper']
+
   beforeEach(() => {
+    wrapper = createQueryWrapper().wrapper
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.clearAllMocks()
     mockFetch.mockReset()
@@ -37,7 +41,7 @@ describe('useMealTips', () => {
 
   describe('initial state', () => {
     it('returns correct defaults with no initialTips', () => {
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       expect(result.current.tips).toBeNull()
       expect(result.current.isLoadingTips).toBe(false)
@@ -46,7 +50,10 @@ describe('useMealTips', () => {
     })
 
     it('uses initialTips when provided', () => {
-      const { result } = renderHook(() => useMealTips({ ...defaultOptions, initialTips: mockTips }))
+      const { result } = renderHook(
+        () => useMealTips({ ...defaultOptions, initialTips: mockTips }),
+        { wrapper },
+      )
 
       expect(result.current.tips).toEqual(mockTips)
     })
@@ -59,7 +66,7 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ tips: mockTips }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         await result.current.fetchTips()
@@ -81,7 +88,7 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ error: 'Rate limit exceeded' }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         await result.current.fetchTips()
@@ -95,7 +102,7 @@ describe('useMealTips', () => {
     it('sets generic error message on network error', async () => {
       mockFetch.mockRejectedValue(new Error('Failed to fetch'))
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         await result.current.fetchTips()
@@ -108,7 +115,7 @@ describe('useMealTips', () => {
     it('sets generic fallback when error is not an Error instance', async () => {
       mockFetch.mockRejectedValue('something went wrong')
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         await result.current.fetchTips()
@@ -125,7 +132,7 @@ describe('useMealTips', () => {
         }),
       )
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       let fetchPromise: Promise<void>
       act(() => {
@@ -158,7 +165,7 @@ describe('useMealTips', () => {
           json: () => Promise.resolve({ tips: mockTips }),
         })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         const promise = result.current.fetchTips()
@@ -184,7 +191,7 @@ describe('useMealTips', () => {
           json: () => Promise.resolve({ error: 'AI service is busy' }),
         })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         const promise = result.current.fetchTips()
@@ -208,7 +215,7 @@ describe('useMealTips', () => {
           json: () => Promise.resolve({ tips: mockTips }),
         })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         const promise = result.current.fetchTips()
@@ -228,7 +235,7 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ error: 'Entry not found' }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         await result.current.fetchTips()
@@ -249,7 +256,7 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ error: 'Request timed out. Please try again.' }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         await result.current.fetchTips()
@@ -266,7 +273,7 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ error: 'Failed' }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         await result.current.fetchTips()
@@ -296,7 +303,7 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ tips: mockTips }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       await act(async () => {
         await result.current.handleHowToPrepare()
@@ -308,7 +315,10 @@ describe('useMealTips', () => {
     })
 
     it('toggles expanded state when tips are already cached', async () => {
-      const { result } = renderHook(() => useMealTips({ ...defaultOptions, initialTips: mockTips }))
+      const { result } = renderHook(
+        () => useMealTips({ ...defaultOptions, initialTips: mockTips }),
+        { wrapper },
+      )
 
       // First call: expand
       act(() => {
@@ -329,8 +339,9 @@ describe('useMealTips', () => {
 
   describe('hideTips', () => {
     it('sets expanded to false', () => {
-      const { result } = renderHook(() =>
-        useMealTips({ ...defaultOptions, initialTips: mockSupplementaryTips }),
+      const { result } = renderHook(
+        () => useMealTips({ ...defaultOptions, initialTips: mockSupplementaryTips }),
+        { wrapper },
       )
 
       // Expand first
@@ -354,7 +365,10 @@ describe('useMealTips', () => {
   // cached copy (HON-681). Clearing the state is only half of it.
   describe('cancelTips', () => {
     it('clears tips, error and expansion', () => {
-      const { result } = renderHook(() => useMealTips({ ...defaultOptions, initialTips: mockTips }))
+      const { result } = renderHook(
+        () => useMealTips({ ...defaultOptions, initialTips: mockTips }),
+        { wrapper },
+      )
 
       act(() => {
         result.current.handleHowToPrepare()
@@ -386,13 +400,16 @@ describe('useMealTips', () => {
           }),
       )
 
-      const { result } = renderHook(() => useMealTips(defaultOptions))
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
 
       let fetchPromise: Promise<void>
       act(() => {
         fetchPromise = result.current.fetchTips()
       })
       expect(result.current.isLoadingTips).toBe(true)
+      // The mutation hands the request to `fetch` a few microtasks later; the
+      // cancel must land while it is genuinely in flight.
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledOnce())
 
       act(() => {
         result.current.cancelTips()

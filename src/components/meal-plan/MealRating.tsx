@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { ThumbsUp, ThumbsDown, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Toggle } from '@/components/ui/toggle'
 import { Body } from '@/components/ui/typography'
+import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { EntryRating } from './types'
 
@@ -19,28 +20,26 @@ interface MealRatingPromptProps {
 
 export function MealRatingPrompt({ planId, entryId, onRated, onDismiss }: MealRatingPromptProps) {
   const t = useTranslations('meal-plan.rating')
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  async function handleRate(rating: EntryRating) {
-    setIsSubmitting(true)
-    try {
-      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating }),
-      })
+  const rateMutation = useMutation({
+    mutationFn: (rating: EntryRating) =>
+      apiFetch(
+        `/api/meal-plans/${planId}/entries/${entryId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating }),
+        },
+        t('saveFailed'),
+      ),
+    onSuccess: (_data, rating) => onRated?.(rating),
+    // The server's error prose is English; the localized copy is always shown.
+    onError: () => toast.error(t('saveFailed')),
+  })
+  const isSubmitting = rateMutation.isPending
 
-      if (!response.ok) {
-        toast.error(t('saveFailed'))
-        return
-      }
-
-      onRated?.(rating)
-    } catch {
-      toast.error(t('saveFailed'))
-    } finally {
-      setIsSubmitting(false)
-    }
+  function handleRate(rating: EntryRating) {
+    rateMutation.mutate(rating)
   }
 
   return (
@@ -136,35 +135,35 @@ export function MealRatingInline({
   onRatingChange,
 }: MealRatingInlineProps) {
   const t = useTranslations('meal-plan.rating')
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  async function handleRate(newRating: EntryRating) {
-    // Toggle off if same rating clicked
-    const targetRating = newRating === rating ? null : newRating
-    const previousRating = rating
-
+  const rateMutation = useMutation({
+    mutationFn: (targetRating: EntryRating | null) =>
+      apiFetch(
+        `/api/meal-plans/${planId}/entries/${entryId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating: targetRating }),
+        },
+        t('saveFailed'),
+      ),
     // Optimistic update
-    onRatingChange?.(targetRating)
-    setIsSubmitting(true)
-
-    try {
-      const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating: targetRating }),
-      })
-
-      if (!response.ok) {
-        // Revert on error
-        onRatingChange?.(previousRating)
-        toast.error(t('saveFailed'))
-      }
-    } catch {
-      onRatingChange?.(previousRating)
+    onMutate: (targetRating) => {
+      const previousRating = rating
+      onRatingChange?.(targetRating)
+      return { previousRating }
+    },
+    onError: (_error, _targetRating, context) => {
+      // Revert on error
+      if (context) onRatingChange?.(context.previousRating)
       toast.error(t('saveFailed'))
-    } finally {
-      setIsSubmitting(false)
-    }
+    },
+  })
+  const isSubmitting = rateMutation.isPending
+
+  function handleRate(newRating: EntryRating) {
+    // Toggle off if same rating clicked
+    rateMutation.mutate(newRating === rating ? null : newRating)
   }
 
   return (
