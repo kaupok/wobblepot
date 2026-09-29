@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, waitFor, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import {
   assertFocusInDialog,
   assertTabStaysInDialog,
@@ -8,6 +8,7 @@ import {
   openViaTrigger,
   pressEscape,
 } from '@/stories/a11y-helpers'
+import { assertCloseTarget } from '@/stories/close-target'
 import { Button } from './button'
 import {
   Sheet,
@@ -131,6 +132,68 @@ export const Motion: Story = {
     await waitFor(() => expect(sheet).toHaveAttribute('data-state', 'closed'))
     expect(window.getComputedStyle(sheet).animationDuration).toBe('0.2s')
 
+    await awaitDialogClosed()
+  },
+}
+
+// The close button is a 32px target, not its 16px icon (HON-810), with the icon
+// still centred 24px from the content's top and right edges. `SheetHeader`
+// reserves room for it, so a title long enough to wrap ends left of it. Runs at
+// the default 390px viewport, measured after the slide-in finishes.
+const LONG_TITLE = 'Weeknight dinners the whole household will actually eat'
+
+export const CloseButton: Story = {
+  args: { open: false, onOpenChange: fn() },
+  render: (args) => {
+    const [open, setOpen] = useState(args.open ?? false)
+    return (
+      <div className="p-6">
+        <Button variant="outline" onClick={() => setOpen(true)}>
+          Open sheet
+        </Button>
+        <Sheet
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next)
+            args.onOpenChange?.(next)
+          }}
+        >
+          <SheetContent side="right">
+            <SheetHeader>
+              <SheetTitle>{LONG_TITLE}</SheetTitle>
+              <SheetDescription>Pick the meals for this week.</SheetDescription>
+            </SheetHeader>
+          </SheetContent>
+        </Sheet>
+      </div>
+    )
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await openViaTrigger(canvas.getByRole('button', { name: 'Open sheet' }))
+
+    const sheet = await within(document.body).findByRole('dialog')
+    await assertFocusInDialog()
+    await assertTabStaysInDialog()
+    await Promise.all(sheet.getAnimations({ subtree: true }).map((a) => a.finished))
+
+    const close = within(sheet).getByRole('button', { name: 'Close' })
+    assertCloseTarget(sheet, close)
+
+    // A single line would pass trivially, so prove the title wraps, then check
+    // every line box ends left of the close button.
+    const title = within(sheet).getByRole('heading', { name: LONG_TITLE })
+    const lineHeight = Number.parseFloat(window.getComputedStyle(title).lineHeight)
+    expect(title.getBoundingClientRect().height).toBeGreaterThan(lineHeight * 1.5)
+    const range = document.createRange()
+    range.selectNodeContents(title)
+    const closeLeft = close.getBoundingClientRect().left
+    for (const rect of Array.from(range.getClientRects())) {
+      expect(rect.right).toBeLessThanOrEqual(closeLeft)
+    }
+
+    await userEvent.click(close)
+    await expect(args.onOpenChange).toHaveBeenCalledWith(false)
     await awaitDialogClosed()
   },
 }

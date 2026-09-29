@@ -71,15 +71,10 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
           <span className="sr-only">{t('userMenu')}</span>
         </Button>
       </SheetTrigger>
-      {/* The registry `SheetContent` renders its own close button as its last
-          child, with no `data-slot` and no prop to swap it out, and `sheet.tsx`
-          stays as `shadcn add` wrote it. Size it from here to the 44px touch
-          floor, moved up and in so the icon keeps its place beside the title
-          (HON-783). */}
-      <SheetContent
-        side="right"
-        className="[&>button:last-child]:size-touch [&>button:last-child]:top-2 [&>button:last-child]:right-2 [&>button:last-child]:flex [&>button:last-child]:items-center [&>button:last-child]:justify-center"
-      >
+      {/* `SheetContent`'s close button is a 32px `icon-sm` target at
+          `top-2 right-2` (HON-810). This sheet is the phone's account menu,
+          so raise it to the 44px touch floor like every row below (HON-783). */}
+      <SheetContent side="right" className="[&>[data-slot=sheet-close]]:size-touch">
         <SheetHeader>
           <SheetTitle>{t('account')}</SheetTitle>
         </SheetHeader>

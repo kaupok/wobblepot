@@ -5,6 +5,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -62,12 +63,14 @@ function DialogContent({
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
+          // A 32px target (`icon-sm`, docs/DESIGN.md → Spacing) rather than the
+          // bare 16px icon. `top-2 right-2` keeps the icon's centre 24px from
+          // the corner, where it sat as a bare icon at `top-4 right-4` (HON-810).
+          <DialogPrimitive.Close data-slot="dialog-close" asChild>
+            <Button variant="quiet" size="icon-sm" className="absolute top-2 right-2">
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </Button>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
@@ -80,8 +83,9 @@ function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="dialog-header"
       className={cn(
-        // Keeps a long title clear of the close button, which sits at `right-4`
-        // over the content's `p-6`; dialogs without one keep full width. Below
+        // Keeps a long title clear of the close button, a 32px target at
+        // `right-2` that reaches 16px into the content's `p-6`, so `px-8` leaves
+        // a 16px gap; dialogs without one keep full width. Below
         // `sm` the header is centred, so it pads both sides to stay centred.
         'flex flex-col gap-2 text-center group-data-close-button/dialog:px-8 sm:text-left sm:group-data-close-button/dialog:pl-0',
         className,

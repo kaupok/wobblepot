@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, userEvent, waitFor, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import {
   assertFocusInDialog,
+  assertTabStaysInDialog,
   awaitDialogClosed,
   openViaTrigger,
   pressEscape,
 } from '@/stories/a11y-helpers'
+import { assertCloseTarget } from '@/stories/close-target'
 import { Button } from './button'
 import {
   Dialog,
@@ -149,6 +151,55 @@ export const LongTitleDark: Story = {
   ...LongTitle,
   globals: {
     theme: 'dark',
+  },
+}
+
+// The close button is a 32px target, not its 16px icon (HON-810), and the icon
+// is still drawn where it was: centred 24px from the content's top and right
+// padding edges, as `top-4 right-4` placed it. Measured after the enter
+// animation, since the content opens from 95% scale.
+export const CloseButton: Story = {
+  args: { open: false, onOpenChange: fn() },
+  render: (args) => {
+    const [open, setOpen] = useState(args.open ?? false)
+    return (
+      <div>
+        <button type="button" onClick={() => setOpen(true)}>
+          Open dialog
+        </button>
+        <Dialog
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next)
+            args.onOpenChange?.(next)
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit meal</DialogTitle>
+              <DialogDescription>Update the name for this meal.</DialogDescription>
+            </DialogHeader>
+            <Input aria-label="Name" defaultValue="Lemon-garlic chicken" />
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await openViaTrigger(canvas.getByRole('button', { name: 'Open dialog' }))
+
+    const dialog = await within(document.body).findByRole('dialog')
+    await assertFocusInDialog()
+    await assertTabStaysInDialog()
+    await Promise.all(dialog.getAnimations({ subtree: true }).map((a) => a.finished))
+
+    const close = within(dialog).getByRole('button', { name: 'Close' })
+    assertCloseTarget(dialog, close)
+
+    await userEvent.click(close)
+    await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+    await awaitDialogClosed()
   },
 }
 
