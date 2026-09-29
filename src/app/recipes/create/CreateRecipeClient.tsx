@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   MealForm,
@@ -56,23 +56,29 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
   const prefilled = searchParams.get('prefilled')
 
   const [prefilledData, setPrefilledData] = useState<PrefilledState>(undefined)
+  // The stash is single-use, but StrictMode runs this effect twice on mount:
+  // the first run consumes it, so the second has to reuse what that run read
+  // rather than find nothing and blank the form (HON-801).
+  const stashRef = useRef<EnhancedPrefilledData | null>(null)
 
   useEffect(() => {
     async function loadPrefilled() {
       await Promise.resolve()
-      let data: EnhancedPrefilledData | null = null
-      if (prefilled === 'true') {
-        const stored = sessionStorage.getItem('prefilled-meal')
-        if (stored) {
-          try {
-            data = JSON.parse(stored) as EnhancedPrefilledData
-          } catch {
-            // Invalid data
-          }
-          sessionStorage.removeItem('prefilled-meal')
-        }
+      if (prefilled !== 'true') {
+        setPrefilledData(null)
+        return
       }
-      setPrefilledData(data)
+      const stored = sessionStorage.getItem('prefilled-meal')
+      if (stored) {
+        try {
+          stashRef.current = JSON.parse(stored) as EnhancedPrefilledData
+        } catch {
+          // Invalid data
+          stashRef.current = null
+        }
+        sessionStorage.removeItem('prefilled-meal')
+      }
+      setPrefilledData(stashRef.current)
     }
     loadPrefilled()
   }, [prefilled])
