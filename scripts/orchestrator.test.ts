@@ -1483,6 +1483,24 @@ describe('orchestrator.sh', () => {
       expect(out).not.toContain('piped-stdin')
     })
 
+    it('stops the command at once when the bound is not a whole number of seconds', () => {
+      // GNU timeout accepts `1.5`, so ORCHESTRATOR_TRIAGE_TIMEOUT can carry one.
+      // The watchdog cannot count it in ticks and must fail closed, not exit
+      // on an arithmetic error and leave the triage call unbounded (HON-802).
+      const out = drive('1.5', '2')
+
+      expect(out).toContain('EXIT:124')
+      expect(out).not.toContain('piped-stdin')
+    })
+
+    it('reads a leading-zero bound as decimal', () => {
+      // Bash arithmetic reads `08` as bad octal and `010` as eight. The first
+      // bound it mangles is 8 s, too slow to drive here, so pin the base.
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'bash_timeout')
+
+      expect(body).toContain('10#$secs')
+    })
+
     it('passes stdin through and returns the real status inside the bound', () => {
       const out = drive('5', '0')
 
@@ -1491,6 +1509,18 @@ describe('orchestrator.sh', () => {
       // off; without the explicit re-attach the triage CLI would be handed an
       // empty log and asked to diagnose it.
       expect(out).toContain('OUT:piped-stdin')
+    })
+
+    it('returns promptly when the command finishes well inside the bound', () => {
+      // Every handle_failure test goes through this watchdog on a Mac, so its
+      // poll interval is a floor under each one. At the old whole-second poll
+      // ten 50 ms calls measured 10 s; at tenths they take about one.
+      // The bound leaves room for a loaded machine without letting the old
+      // floor back in (HON-802).
+      const out = runHarness('bash-timeout-return', '10')
+      const elapsed = Number(out.match(/^ELAPSED:(\d+)$/m)?.[1])
+
+      expect(elapsed).toBeLessThan(5)
     })
   })
 

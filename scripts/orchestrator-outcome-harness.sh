@@ -65,7 +65,8 @@
 #     The worker log fed in carries real secret shapes, and the `claude` stub
 #     records everything it receives (stdin + prompt args); the run emits a
 #     TRIAGE_INPUT line so a test can assert the triage input is redacted by the
-#     sanitize-at-capture pass (HON-577).
+#     sanitize-at-capture pass (HON-577). REPO_ROOT points at an empty dir, so
+#     the developer's real .env never takes part (HON-802).
 #     `log-flavour` picks the worker log the run is given (HON-616):
 #     `plain` (default, the secret-carrying log above), `cap` (a worktree-setup
 #     death at the Neon branch cap, with no Claude session at all),
@@ -99,6 +100,11 @@
 #     coreutils `timeout`, which is every stock macOS, the orchestrator included.
 #     Prints OUT (the command's stdout, proving stdin survived backgrounding)
 #     and EXIT (124 when the bound was hit).
+#
+#   bash-timeout-return <calls>                                     (HON-802)
+#     Runs the REAL bash_timeout <calls> times over a 50 ms command, and prints
+#     ELAPSED in whole seconds. The watchdog's poll interval is paid on every
+#     call, so this is what shows it stays small.
 #
 #   failure-seq <triage:retried:shutting_down,...>        (HON-572, finding 2)
 #     Same stubs, but replays a SEQUENCE of different failures in one process.
@@ -571,6 +577,14 @@ printf '%s' "\$ORCHESTRATOR_RETRY_CONTEXT" > "$SPAWN_DIR/calls/\$n.ctx"
 mv "$SPAWN_DIR/calls/\$n.ctx.tmp" "$SPAWN_DIR/calls/\$n.args"
 EOF
       chmod +x "$SCRIPT_DIR/worktree-claude.sh"
+    else
+      # Keep sanitize_log off the developer's real .env, as failure-spawn does
+      # with its fixture one. It forks one awk per .env line, three times per
+      # handle_failure, so a 40-line .env doubled the six-step sequence's run
+      # time on a dev machine; CI, which has no .env, never paid it (HON-802).
+      # The redaction these modes assert on is the pattern pass, not .env.
+      mkdir "$STUB_BIN/repo"
+      REPO_ROOT="$STUB_BIN/repo"
     fi
 
     # Keep write_status_file off the real ~/.worktrees status file.
@@ -753,6 +767,10 @@ EOF
     # at it and run the REAL rotate_logs; the caps come from the environment
     # (ORCHESTRATOR_LOG_MAX_BYTES / ORCHESTRATOR_WORKER_LOG_MAX_AGE_DAYS), which
     # orchestrator.sh already read at source time.
+    #
+    # Drop the harness's own mktemp log first: MAIN_LOG is about to point into
+    # the fixture dir, so no trap would ever name it again.
+    rm -f "$MAIN_LOG"
     LOG_DIR="$A1"
     MAIN_LOG="$LOG_DIR/orchestrator.log"
     trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
@@ -780,6 +798,26 @@ EOF
       sh -c 'read -r line; sleep "$0"; printf "%s\n" "$line"' "$A2") || status=$?
     echo "OUT:$out"
     echo "EXIT:$status"
+    exit 0
+    ;;
+
+  bash-timeout-return)
+    # A1 = how many calls. Each runs a 50 ms command under a bound it never
+    # approaches, and ELAPSED is the whole loop in wall-clock seconds. Not
+    # `true`: that exits before the watchdog's first liveness check, so the
+    # watchdog never sleeps and even a whole-second poll would look fast. The
+    # triage stub is still running at that check, and so is this.
+    #
+    # Timed here rather than from vitest so bash startup and sourcing
+    # orchestrator.sh stay out of the number. SECONDS, because the host bash is
+    # 3.2 and has no EPOCHREALTIME (HON-802).
+    start=$SECONDS
+    n=0
+    while [ "$n" -lt "$A1" ]; do
+      bash_timeout 5 sleep 0.05
+      n=$((n + 1))
+    done
+    echo "ELAPSED:$((SECONDS - start))"
     exit 0
     ;;
 

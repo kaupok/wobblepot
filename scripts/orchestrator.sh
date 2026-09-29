@@ -307,12 +307,31 @@ bash_timeout() {
   # as soon as the command finishes and never has to be killed: killing a
   # background job can make bash write a job-status line to stderr, which the
   # triage call captures with 2>&1 and would then parse as a verdict.
+  #
+  # Poll in tenths, not whole seconds. The caller waits on the watchdog below,
+  # so its poll interval is added to every call still running at the first
+  # check, not just ones that hit the bound: at `sleep 1` a triage that
+  # answered in milliseconds still took a full second, which put a six-second
+  # floor under the six-step circuit-breaker test and timed it out whenever the
+  # machine was busy (HON-802).
+  #
+  # The bound is a deadline on SECONDS rather than a count of polls: each poll
+  # also pays for forking `sleep`, so counting ten per second ran a 30 s bound
+  # to ~34 s. SECONDS is whole seconds, so the +1 keeps the bound from ever
+  # firing early at the cost of up to a second late.
+  #
+  # A bound that is not a whole number of seconds (`1.5`, `90s` — both valid
+  # for GNU timeout) gets a deadline of now, so the command is stopped at once.
+  # Doing arithmetic on it would be a syntax error that exits the watchdog
+  # before it signals anything, leaving the command unbounded: fail closed.
+  # `10#` because a leading zero would otherwise read as octal (`08` is an
+  # error, `010` is eight).
   (
-    waited=0
-    while [ "$waited" -lt "$secs" ]; do
+    deadline=$SECONDS
+    case "$secs" in "" | *[!0-9]*) ;; *) deadline=$((SECONDS + 10#$secs + 1)) ;; esac
+    while [ "$SECONDS" -lt "$deadline" ]; do
       kill -0 "$cmd_pid" 2>/dev/null || exit 0
-      sleep 1
-      waited=$((waited + 1))
+      sleep 0.1
     done
     kill -TERM "$cmd_pid" 2>/dev/null || exit 0
     sleep 2
