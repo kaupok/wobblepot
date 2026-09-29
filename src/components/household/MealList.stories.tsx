@@ -59,8 +59,8 @@ export const Populated: Story = {
 
     // The title row still holds every card's actions.
     expect(canvas.getAllByRole('button', { name: /favorites/i })).toHaveLength(names.length)
-    expect(canvas.getAllByRole('link', { name: /edit meal/i })).toHaveLength(names.length)
-    expect(canvas.getAllByRole('button', { name: /delete meal/i })).toHaveLength(names.length)
+    expect(canvas.getAllByRole('link', { name: /edit recipe/i })).toHaveLength(names.length)
+    expect(canvas.getAllByRole('button', { name: /delete recipe/i })).toHaveLength(names.length)
   },
 }
 
