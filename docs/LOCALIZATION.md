@@ -26,13 +26,13 @@ These are settled. Don't re-open without cause.
 
 - **English is canonical.** Translations are overlays. Fallback to English when a translation is missing.
 - **Household-scoped locale.** `Household.locale` is a sibling to `Household.timezone`. Anonymous / pre-household users resolve from `Accept-Language`. User-scoped override within a household is a future concern.
-- **Global ingredient pool stays curated.** User- and AI-created ingredients are household-scoped and stored in the _creator's_ locale. Promotion to the global pool happens via an admin flow, not silently.
+- **Global ingredient pool stays curated.** User- and AI-created ingredients are household-scoped and stored in the _creator's_ locale. There is no promotion path to the global pool today (decided 2026-09-30, HON-873): such a row stays in its household, in the creator's locale, with no translation row, so two households that both create "lovage" get two rows. That is accepted during the invite-only beta. Revisit when public sign-up opens (the `invite_code_required` flag turned off), which is when duplicates would start to accumulate. If a path is built, the stated preference is a mechanism the operator runs through Claude Code (a script or skill in the repo, like `/audit-ingredients` and `scripts/audit-ingredients/`), not an admin page. That is a preference, not a design.
 - **Per-household content retains creator-time locale.** Switching a household's locale does not re-translate user-created meals, imported recipes, or AI-generated notes. Seeded content and enum labels switch; user-created content stays in the locale it was created in. Mixed-locale library state is accepted by design.
 - **1:1 mapping, no cultural adaptation.** Same ingredient row, different display name. No locale-only meals, no dropping culturally-English meals (e.g. "Tuna melt"). Accept minor semantic drift.
 - **Content is data, not code.** Translations should edit without deploys. "Done" means _ship a baseline, iterate on real signal_, not _achieve perfection before merge_.
 - **Quality is asymmetric.** Tier 1 needs judgment + iteration; Tier 2 needs review; Tier 3 needs volume.
 - **Platform over localization.** Architecture supports N locales. Adding Finnish or Russian later is content work, not engineering.
-- **Partner is both target user and quality gate.** Acceptance is real-world use, not synthetic checks.
+- **Partner is both target user and quality gate.** Acceptance is real-world use, not synthetic checks. Estonian went public without its partner test; see [Adding a new locale](#adding-a-new-locale) step 7.
 - **Rollback lever exists.** Removing a locale from `KNOWN_LOCALES` reverts every household on that locale to English chrome without data loss. Translation rows stay in the DB for re-enable later.
 
 ## How it's wired today
@@ -138,7 +138,7 @@ Each line is a single JSON record after the prefix. Retention is bounded by Verc
 4. Translate seeded content via the `IngredientTranslation` and `MealTranslation` tables. AI-assisted first pass + native-speaker review.
 5. Seed step 4 **before** exposing the new locale. `resolveParserLocale` in `src/app/api/recipes/parse/route.ts` threads the household locale straight through (the `FEATURE_RECIPE_PARSER_ET` gate was retired in HON-506), so a new-locale household reaches the recipe parser immediately — and without seeded `IngredientTranslation` rows the matcher can't resolve names, recreating the duplicate household-scoped ingredient problem (HON-514) the old gate guarded against. The **selector** reads `PUBLIC_LOCALES` directly today (HON-549 retired the staging-only env-flag override), so the new locale is not offered in household settings until it lands there. **Onboarding is not clamped**, though: `POST /api/households` persists `resolveLocale`'s result as-is (`src/app/api/households/route.ts:63-67`), and `resolveLocale` / `matchAcceptLanguage` gate on `isKnownLocale`, not `isPublicLocale` — whose only non-test caller is the email-locale lookup (`src/lib/emails/locale.ts`). A browser sending the new locale in `Accept-Language` will therefore be onboarded into it the moment it joins `KNOWN_LOCALES`. Keep it out of `KNOWN_LOCALES` until it is ready, or add the clamp.
 6. **RTL languages only:** add a `direction` field to a parallel map, set `<html dir>` from it in `src/app/layout.tsx`, and audit Tailwind direction-sensitive utilities (`mr-`, `ml-`, `pl-`, `pr-` → `me-`, `ms-`, `pe-`, `ps-`). Tracked as deferred — the codebase currently assumes LTR.
-7. Pilot-test with a target user before adding to `PUBLIC_LOCALES`.
+7. Pilot-test with a target user before adding to `PUBLIC_LOCALES`. **Estonian did not pass this step.** It joined `PUBLIC_LOCALES` in HON-549 without a pilot test, and its partner test (HON-512) was cancelled on 2026-09-30. That was accepted (HON-873) because sign-up is invite-only (`invite_code_required`), so the people who see unreviewed Estonian are few and known. The native-speaker copy review (HON-536) is scheduled and is the only language-quality check on Estonian. Do not take Estonian as precedent: the step stays the rule for the next locale.
 8. Add to `PUBLIC_LOCALES` to expose in the locale selector. Before flipping public, add the locale's copy to the `emails` namespace in `messages/<locale>.json`. `emailTranslator` overlays the locale's `emails` namespace on English, so a key the new catalog is missing degrades to an English sentence rather than to next-intl's default fallback (the literal key path — `emails.resetPassword.cta` in a CTA button). That overlay is a floor, not a safety net: a key that is _present_ but whose ICU syntax is malformed still renders the key path, and `catalogue-parity.test.ts` compares `en.json` against `et.json` by name, so extend it to the new catalog rather than assuming it is covered. See [Transactional email](#transactional-email).
 
 ## Adding a new AI call site
@@ -187,9 +187,11 @@ Architectural decisions that the platform supports but we deliberately don't shi
 - HON-504 — AI output sampling (this doc's review tooling).
 - HON-505 / 506 / 507 — Tier 2 content translations.
 - HON-508 / 509 / 510 / 511 — Tier 3 chrome.
-- HON-512 — partner test.
+- HON-512 — partner test (cancelled 2026-09-30; see [Adding a new locale](#adding-a-new-locale) step 7).
 - HON-513 — transactional email localization (password reset, account deletion).
-- HON-514 — admin promotion of household-scoped ingredients to the global pool (cancelled 2026-09-15; no replacement yet).
+- HON-514 — admin promotion of household-scoped ingredients to the global pool (cancelled 2026-09-15). No promotion path replaces it, and none is planned before public sign-up opens (see [Decided principles](#decided-principles)).
 - HON-515 — input-side decimal-separator parsing.
 - HON-516 — PostHog locale tagging (cancelled 2026-09-15).
 - HON-517 — post-launch translation maintenance workflow.
+- HON-536 — native-speaker copy review of the whole app, scheduled; split into HON-883 (screens and emails), HON-884 (AI-generated text) and HON-885 (ingredient names). It absorbed HON-548, the ingredient native-variant review.
+- HON-873 — the 2026-09-30 decisions on the Estonian pilot test and the global ingredient pool.

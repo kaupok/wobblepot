@@ -172,4 +172,4 @@ Real outputs land in `.ai-samples/<date>.jsonl` (see [LOCALIZATION.md → Review
 - [LOCALIZATION.md](./LOCALIZATION.md), the three-tier model and the sampling tool.
 - HON-503, the issue that introduced this document and the prompt helpers.
 - HON-507, the seeded meal translations this voice is calibrated to.
-- HON-536, the pre-partner-test copy review that walks every surface against this reference.
+- HON-536, the native-speaker copy review that walks every surface against this reference.
