@@ -22,7 +22,7 @@ Direct, scoped `UPDATE` statements against staging and then production, logged i
 
 From [`CLAUDE.md`](../../CLAUDE.md) → Database Patterns:
 
-> **Never run destructive database commands (`migrate reset`, `db push --force-reset`, `DROP`, etc.) on staging or production.** These destroy real data. Always ask the user before taking any destructive action on shared environments — even to fix migration issues.
+> **Destructive commands:** do not run `migrate reset`, `db push --force-reset`, `DROP` or similar against staging or production. They destroy real data. Ask the user before any destructive action on a shared environment, even to fix a migration problem, and prefer `migrate resolve` or a manual SQL fix.
 
 Carried over here with one addition, because this runbook is the first that asks for a hand-written `UPDATE` against production as its normal path:
 
