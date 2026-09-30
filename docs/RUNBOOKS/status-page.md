@@ -49,17 +49,33 @@ Do **not** set it for:
 
 ### Setting the banner via Vercel
 
-```bash
-# Set, update, or remove the banner on production. Prefers the Vercel CLI so
-# the env change goes through audit logs; the web UI works too.
-vercel env add STATUS_INCIDENT_MESSAGE production
-# Paste the message when prompted. Then redeploy — env changes do not hot-reload.
-vercel --prod
+Two steps: change the variable, then redeploy the live Production deployment so it reads the new value. Env changes do not hot-reload.
 
-# To clear the banner:
+**1. Change the variable.** The CLI is preferred so the change goes through the audit log; the dashboard's Settings → Environment Variables works too. These commands change the environment only and do not deploy.
+
+```bash
+# Set the banner. Paste the message when prompted.
+vercel env add STATUS_INCIDENT_MESSAGE production
+
+# Update the message: `env add` refuses a variable that already exists, so remove it first.
 vercel env rm STATUS_INCIDENT_MESSAGE production
-vercel --prod
+vercel env add STATUS_INCIDENT_MESSAGE production
+
+# Clear the banner.
+vercel env rm STATUS_INCIDENT_MESSAGE production
 ```
+
+**2. Redeploy the current Production deployment.** Set, update and clear all end here:
+
+1. Vercel dashboard → the project → Deployments.
+2. Open the deployment marked **Current** in the Production environment.
+3. "⋯" → **Redeploy**. In the dialog, **uncheck "Use project's Ignore Build Step"**. The project's Ignored Build Step cancels every build with `VERCEL_ENV=production` ([`DEPLOYMENT.md` → Vercel Configuration](../DEPLOYMENT.md#vercel-configuration)), so a redeploy with the box checked ends `CANCELED` and the banner never appears.
+
+A redeploy rebuilds the commit that is already live with the new environment, so the code does not change. Do **not** deploy from a checkout with the CLI (`vercel deploy --prod`): it builds and ships whatever files are on that laptop, feature branch and uncommitted work included. Do not run the `Deploy code [production]` workflow for this either: it ships `main` HEAD, which can be ahead of what is live and of its migrations.
+
+The redeploy writes no GitHub deployment record, and none is needed: the commit is unchanged, so the existing record is still correct. A rollback is different. Its dashboard promote does change the commit, and the record has to be corrected by hand (see [`DEPLOYMENT.md` → Rollback Procedure](../DEPLOYMENT.md#rollback-procedure)).
+
+This path has not yet been exercised on this project. The status-banner drill in HON-871 runs it once; if the redeploy still ends `CANCELED` there, correct this section.
 
 The redeploy takes 1–3 minutes. The banner appears on `/status` as soon as the new deployment is live; no cache invalidation needed because the page is `force-dynamic`.
 
@@ -79,9 +95,9 @@ Example:
 ## During an incident
 
 1. Confirm the issue. `/status` and `/api/health` are authoritative for DB; Vercel logs and the Anthropic console confirm AI.
-2. If probes do not yet reflect reality or extra context is needed, set `STATUS_INCIDENT_MESSAGE` (see above). This is a deploy, so the clock includes the deploy time.
-3. Update the message as the situation evolves (each update is another deploy).
-4. Clear the message when resolved.
+2. If probes do not yet reflect reality or extra context is needed, set `STATUS_INCIDENT_MESSAGE` (see above). It takes a redeploy, so the clock includes the redeploy time.
+3. Update the message as the situation evolves (each update is another redeploy).
+4. Clear the message when resolved, and redeploy.
 5. Write the incident summary in the Linear incident log. Cross-link the breach runbook (`docs/RUNBOOKS/breach-notification.md`, HON-482) if any personal data was exposed — the thresholds are different and stricter than a generic outage.
 
 ## Cross-references
