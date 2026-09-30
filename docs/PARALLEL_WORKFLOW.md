@@ -1,159 +1,12 @@
 # Parallel Claude Code Workflow
 
-Run multiple Claude Code instances in parallel using git worktrees for increased throughput.
+Run several Claude Code sessions at once, each in its own git worktree with its own Neon database branch. The usual way is the orchestrator: move issues to `Queued` in Linear, run `wt start`, and it spawns one `wt auto` worker per issue. Running a single worktree by hand is covered [further down](#running-one-worktree-by-hand).
 
-## Quick Start
+## Orchestrator
 
-```bash
-# Interactive: Create worktree and start Claude Code
-wt new feat/my-feature
+The orchestrator (`scripts/orchestrator.sh`, started with `wt start`) is a long-running dispatcher. It polls Linear for issues in the `Queued` state, claims each by moving it to In Progress, spawns a `wt auto` worker for it, and handles the rest of the lifecycle, including failure triage via Claude.
 
-# Autonomous: Create worktree and run /auto-implement
-wt auto kaupokorv/hon-51-feature-name   # Branch name from Linear
-wt auto HON-51                           # Issue ID
-wt auto                                  # Find next available issue
-
-# Management
-wt list                                  # List all active worktrees
-wt status                                # Show orchestrator and worker status
-wt resume feat/my-feature                # Resume existing session
-wt cleanup feat/my-feature               # Remove worktree
-wt cleanup-all                           # Remove all merged worktrees
-```
-
-## Workflow Patterns
-
-**Parallel autonomous implementation (recommended):**
-
-```
-Terminal 1: /next-issue
-→ Shows 3 candidates with copy-paste commands
-
-Terminal 2: wt auto kaupokorv/hon-51-feature-x
-Terminal 3: wt auto kaupokorv/hon-52-feature-y
-Terminal 4: wt auto kaupokorv/hon-53-feature-z
-```
-
-Each worktree runs `/auto-implement` autonomously. The branch name from Linear ensures proper issue linking.
-
-**Interactive parallel development:**
-
-```
-Terminal 1 (main): Planning, code review, coordination
-Terminal 2: wt new feat/api-caching     → Long-running implementation
-Terminal 3: wt new fix/auth-bug         → Quick bug fix
-```
-
-**Research + implementation split:**
-
-```
-Terminal 1: Main conversation for planning (no edits, plan mode)
-Terminal 2: wt new feat/actual-impl     → Execute the plan
-```
-
-## Shell Alias (Optional)
-
-Add to `~/.zshrc` or `~/.bashrc`:
-
-```bash
-alias wt='~/Projects/wobblepot/scripts/worktree-claude.sh'
-```
-
-Then use `wt new feat/my-feature` from anywhere.
-
-## Best Practices
-
-1. **Use `/next-issue` first** - Get 3 candidates with ready-to-copy commands before spawning worktrees
-2. **Use branch names from Linear** - `wt auto kaupokorv/hon-51-...` creates properly named worktrees
-3. **Clean up regularly** - Run `wt cleanup-all` to remove merged worktrees
-4. **Check status** - Run `wt watch` for the live dashboard (health, run tally, PR/CI, activity), `wt status` for a one-shot summary, `wt list` for worktree listing
-
-## Worktree Location
-
-All parallel worktrees are created in `~/.worktrees/wobblepot/<branch-name>` to keep the project directory clean. A `/` in the branch name becomes `--` in the directory name (`feat/x` → `feat--x`).
-
-## Untracked Files
-
-When creating a worktree, the script automatically copies these gitignored files from the main repo:
-
-| File                          | Purpose                                              |
-| ----------------------------- | ---------------------------------------------------- |
-| `.env`                        | Environment variables (DATABASE_URL, API keys, etc.) |
-| `.claude/settings.local.json` | Claude Code permissions and settings                 |
-
-Both files are copied verbatim. When Neon branching is enabled, `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in the worktree's copy of `.env` are then patched to point at the fresh Neon branch (see the Neon section below).
-
-**To add more files:** Edit the `UNTRACKED_FILES` array in `scripts/worktree-claude.sh`.
-
-**How `.env` reaches a `wt` subcommand:** the dispatcher _parses_ it (`load_env_file`), it does not `source` it. Lines are split on the first `=`, one matched pair of surrounding quotes is stripped, and only keys matching `^[A-Za-z_][A-Za-z0-9_]*$` are exported; comments, blanks and malformed lines are skipped without failing the command. Values are never evaluated, so a line like `FOO=$(rm -rf ~)` exports a literal string instead of running — under the old `set -a` + `source` it was a working command (HON-580). Everything else matches what `source` did with a well-formed line, including precedence: `.env` still wins over what the calling shell exported, which is what lets `wt auto` patch `DATABASE_URL` into a worktree's own copy. Trailing whitespace and a whitespace-preceded `#` comment are dropped from an unquoted value; a quoted one keeps both, and a quote left open continues onto the next line. A missing `.env` stays a silent no-op; commands that need a specific var validate it themselves.
-
-## Per-Worktree Database Isolation
-
-When `NEON_API_KEY` and `NEON_PROJECT_ID` are set in `.env`, each worktree gets its own Neon branch — an isolated copy-on-write database forked from `staging` (or `NEON_PARENT_BRANCH`). This prevents the schema stomping that happens when multiple worktrees share the same dev DB and one runs `pnpm db:migrate`.
-
-**Lifecycle:**
-
-- `wt new <branch>` / `wt auto <branch-or-issue>` creates a Neon branch named `<branch>` (slashes replaced with double-dashes so `feat/foo-bar` and `feat-foo/bar` don't collide, e.g. `auto/hon-339-foo` → `auto--hon-339-foo`) and patches `DATABASE_URL` + `DATABASE_URL_UNPOOLED` in the worktree's `.env` to point at it.
-- `wt cleanup <branch>` / `wt cleanup-all` deletes the paired Neon branch after removing the worktree.
-- Protected names — `staging`, `main`, `production`, `preview` — are hard-refused by the delete guardrail regardless of how they're passed in.
-
-**Flags:**
-
-- `--fresh-db` — force delete-and-recreate the Neon branch. Useful when reusing a branch name after a previous worktree crashed without cleanup. Works with both `wt new` and `wt auto`.
-
-**Branch cap handling:**
-
-When the Neon project hits its branch cap (10 on the free tier), `wt` automatically runs an orphan GC (deletes Neon branches whose git worktree no longer exists, and orphaned `preview/*` branches — see the reaper table below) and retries once. If still over cap, it fails loud — no silent fallback to the shared DB.
-
-A create failure only reaches that path if it looks like exhaustion and _nothing else_. `neon_classify_create_error` strips the branch name out of the error text, then tests `already exists` / `duplicate` first, and reaches a `cap` verdict only when the word `branch` and one of `limit` / `quota` / `cap` / `exceed` / `maximum` appear on the **same line**. All three parts matter, because the keyword test is bare substring matching:
-
-- Without the strip, a branch whose slug carries one of those words — `kaupo--hon-580-…-silent-queue-cap-dead-code-stale`, say — reads as a capacity problem. That cost HON-580 the reuse path its RETRY depended on, and reported a full project that held 6 branches out of 10 (HON-581).
-- Without the ordering, the same name shadows the unambiguous `already exists` signal underneath it.
-- Without the same-line requirement, `Rate limit exceeded`, `insufficient capacity`, even `invalid escape sequence` (es-**cap**-e) call the GC. That is not a harmless sweep: it deletes every Neon branch with no live worktree, project-wide, and a RETRY parks exactly that shape — `cleanup_worker_worktree "$branch" true` removes the worktree and keeps the branch for the respawn. One worker's rate limit must not be able to destroy another worker's retry database.
-
-An `already exists` error is not a failure when the git branch is being resumed: `wt auto`'s retry path passes `reuse_existing=1`, and the deliberately-preserved Neon branch is reused as-is. Outside that path it is still a hard stop — use `--fresh-db` to recreate. `--fresh-db` never falls back to reuse: its pre-delete silences errors, so a branch that still exists afterwards means the delete did not take, and reusing it would hand back the exact database you asked to destroy.
-
-GC is scoped so it can't touch hand-managed branches. Eligible:
-
-- **`<prefix>--hon-<N>[-slug]`** — anything carrying a HON id, whatever the prefix. This is what the orchestrator actually creates: `spawn_worker` prefers Linear's `branchName`, so a normal run's branch is `kaupokorv/hon-51-slug` → Neon `kaupokorv--hon-51-slug`, not `auto--hon-51`. Until HON-572 no reaper recognised that shape, so a crashed or SIGKILLed orchestrator leaked its Neon branches until the project hit its cap.
-- **`auto-*`** — the no-`branchName` fallback (`wt auto HON-XX` → `auto/hon-XX` → `auto--hon-XX`).
-- **`${NEON_USER_PREFIX}-*`** — when you've set `NEON_USER_PREFIX` in `.env` (use this if you run `wt new <you>/branch-name` for interactive work).
-
-Everything else (`feat-`, `fix-`, test scaffolds) must be reclaimed manually via `wt cleanup`.
-
-Each of the three reapers gates differently — the shared name filter is not itself a safety gate:
-
-| Reaper                              | Runs when                                                   | Gates on                                                                                                                        |
-| ----------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `neon_gc_orphans` (`wt`)            | The Neon branch cap is hit, as a self-heal before one retry | Name shape, no live git worktree, and `is_protected_neon_branch` (`main` / `staging` / `production` / `preview`) — nothing else |
-| `neon-cleanup.sh delete-for-branch` | A PR is merged                                              | Name shape, `default`/`protected` flags, `ALLOWLIST_NAMES`. **No** Linear-status or age gate — the merge is the signal          |
-| `neon-cleanup.sh sweep`             | Daily cron / manual dispatch                                | All of the above **plus** the linked Linear issue being Done/Canceled and age > 24h                                             |
-
-`preview/<ref>` branches — the Vercel–Neon integration's, not ours — go through a separate gate in `neon_gc_orphans` and `sweep` (never `delete-for-branch`): `<ref>` is gone from `origin`, no open PR has it as its head, the branch is not `default`/`protected`/allowlisted, and (sweep only) it is older than 24h. Any `git` or `gh` failure keeps the branch. The integration re-creates these after a PR has merged (HON-852); see [`docs/RUNBOOKS/neon-branch-gc.md`](./RUNBOOKS/neon-branch-gc.md) → "`preview/*` is not ours".
-
-The `wt` GC is the loosest, and widening its name filter widened it further: a hand-made `<you>/hon-51-slug` branch whose worktree you have already removed is now reclaimable at cap time even if its PR is still open. That is the intended trade — the alternative is the orchestrator failing to provision every worker — but if you want an interactive branch held, keep its worktree, or name it without a HON id.
-
-**Opt-out:**
-
-Leave `NEON_API_KEY` / `NEON_PROJECT_ID` blank. `wt` prints a one-line warning and proceeds with the shared `DATABASE_URL`. Tests (Vitest, Playwright) read `DATABASE_URL`, so they automatically use the per-worktree branch when the feature is enabled.
-
-**Inspecting Neon state:**
-
-```bash
-# List all Neon branches (filter your worktree branches by prefix)
-pnpm dlx neonctl@2.22.0 branches list --project-id "$NEON_PROJECT_ID"
-
-# Manually GC orphans (also runs automatically on cap errors)
-# Or just run any `wt new` to trigger the same GC path on cap.
-```
-
-Full setup guide: [ENVIRONMENT_SETUP.md § Neon Database Branching](./ENVIRONMENT_SETUP.md#neon-database-branching-optional).
-
-## Orchestrator (Autonomous Batch Processing)
-
-The orchestrator (`scripts/orchestrator.sh`) is a long-running dispatcher that polls Linear for Queued issues, claims them by moving each to In Progress, spawns `wt auto` workers, and handles the full lifecycle — including failure triage via Claude.
-
-**Queued is the queue; Todo belongs to humans (HON-854).** The orchestrator reads only the Linear state `Queued` (`STATE_QUEUED` in the script), and every path that hands an issue back — gated, Neon-cap requeue, pre-claim restore, force-shutdown drain — returns it to Queued. Todo and Backlog are never picked up unattended. Move an issue to Queued only when an agent can finish it without a human; an issue with a human-only step goes to Todo, and any unattended part is split into its own Queued issue. Before this, the queue was "Todo and unassigned", and HON-852 — which needed a Vercel dashboard check — was claimed sixteen seconds after it was moved to Todo. Failures still go to Backlog (`handle_failure`), unchanged.
+**It reads only `Queued`** (`STATE_QUEUED` in the script). Todo and Backlog are never picked up, and every path that hands an issue back — gated, Neon-cap requeue, pre-claim restore, force-shutdown drain — returns it to Queued. Failures go to Backlog (`handle_failure`). What belongs in Queued, and what goes to Todo instead, is in [CLAUDE.md](../CLAUDE.md) → "Queued is the queue".
 
 ### Quick Start
 
@@ -215,17 +68,21 @@ wt stop
 
 ### Configuration
 
-| Flag                 | Env Var                             | Default | Description                                           |
-| -------------------- | ----------------------------------- | ------- | ----------------------------------------------------- |
-| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`          | 3       | Max concurrent workers                                |
-| `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`        | 60      | Seconds between polls                                 |
-| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT`       | 10800   | Seconds before killing a worker                       |
-| `--dry-run`          | —                                   | false   | Log actions without executing                         |
-| `--once`             | —                                   | false   | Single poll cycle, then exit                          |
-| —                    | `NEON_BRANCH_CAP`                   | 10      | Neon branches the plan allows                         |
-| —                    | `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` | 1800    | Seconds before a cap-requeued issue is pickable again |
+| Flag                 | Env Var                             | Default           | Description                                                                                   |
+| -------------------- | ----------------------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
+| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`          | 3                 | Max concurrent workers                                                                        |
+| `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`        | 60                | Seconds between polls                                                                         |
+| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT`       | 10800             | Seconds before killing a worker                                                               |
+| `--dry-run`          | —                                   | false             | Log actions without executing                                                                 |
+| `--once`             | —                                   | false             | Single poll cycle, then exit                                                                  |
+| —                    | `NEON_BRANCH_CAP`                   | 10                | Neon branches the plan allows                                                                 |
+| —                    | `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` | 1800              | Seconds before a cap-requeued issue is pickable again                                         |
+| —                    | `ORCHESTRATOR_TRIAGE_TIMEOUT`       | 120               | Seconds the failure-triage `claude -p` call may run before the issue falls back to Backlog    |
+| —                    | `CLAUDE_AUTO_MODEL`                 | `claude-opus-5-5` | Model every `wt auto` worker runs; read by `scripts/worktree-claude.sh`, not the orchestrator |
 
-Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
+Requires `LINEAR_API_KEY` env var (format: `lin_api_...`). All of these can live in `.env`: `wt` loads it for every subcommand, and the workers the orchestrator spawns inherit it.
+
+#### Branch budget
 
 **`--max-workers` is bounded by the Neon branch cap, not by local CPU.** Each in-flight issue consumes **two** Neon branches: the worktree's `<prefix>--hon-<N>` (created by `neon_branch_name` in `worktree-claude.sh`) and the Vercel–Neon integration's `preview/<git-branch>`, created when the PR opens and held until it merges.
 
@@ -357,3 +214,131 @@ The poll loop sleeps via `interruptible_sleep` (a backgrounded `sleep` plus `wai
 ### Design: Dumb Dispatcher, Smart Workers
 
 The orchestrator is deliberately simple — a bash loop with curl + jq. All intelligence lives in the workers (`/auto-implement`). This means zero API cost for the dispatch loop, predictable behavior, and the ability to run for days.
+
+## wt commands
+
+`wt` is `scripts/worktree-claude.sh`. Add an alias to `~/.zshrc` or `~/.bashrc`:
+
+```bash
+alias wt='~/Projects/wobblepot/scripts/worktree-claude.sh'
+```
+
+Every subcommand loads `.env` first (see [Untracked Files](#untracked-files)).
+
+| Command                                | What it does                                                                                                                                                                                                      |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wt start [flags]`                     | Starts the orchestrator in the background. Flags pass through unchanged ([Configuration](#configuration)). Refuses if one is already running                                                                      |
+| `wt stop`                              | Stops the orchestrator and waits for the drain ([Graceful Shutdown](#graceful-shutdown))                                                                                                                          |
+| `wt watch [interval]`                  | Full-screen dashboard, redrawn every `interval` seconds (default 5) ([Monitoring](#monitoring))                                                                                                                   |
+| `wt status [-v]`                       | One-shot orchestrator and worker summary. `-v` (or `--verbose`) adds, per worker, the changed files, the uncommitted diff stat, the last five commits and the PR URL                                              |
+| `wt logs <issue\|branch> [lines]`      | Prints a worker's recent Claude activity from its session transcript. Takes `HON-373`, `373` or a branch name; `lines` is a message count (default 20)                                                            |
+| `wt new <branch> [--fresh-db]`         | Creates a worktree and its Neon branch, then opens interactive Claude Code in it. `--fresh-db` recreates the Neon branch ([Per-Worktree Database Isolation](#per-worktree-database-isolation))                    |
+| `wt auto [issue\|branch] [--fresh-db]` | Creates a worktree and runs `/auto-implement` headless. Takes a Linear branch name, `HON-51` or `51` (branch `auto/hon-51`), or nothing (the skill picks from `Queued`). This is what the orchestrator spawns     |
+| `wt resume <branch>`                   | Reopens the last Claude Code session (`claude --resume`) in an existing worktree                                                                                                                                  |
+| `wt list`                              | Lists the worktrees under `~/.worktrees/wobblepot/`                                                                                                                                                               |
+| `wt sync <branch>`                     | Copies the permissions a worktree's sessions approved (`permissions.allow` in `.claude/settings.local.json`) into the main checkout's copy of that file                                                           |
+| `wt sync-all`                          | `wt sync` for every worktree                                                                                                                                                                                      |
+| `wt cleanup <branch>`                  | Asks, with a warning when the branch has unmerged work, then syncs permissions, removes the worktree and its Neon branch, and offers to delete the git branch. Refuses to remove the worktree you are standing in |
+| `wt cleanup-all`                       | Lists every worktree as merged or not, then removes the merged ones, or all of them after a typed `yes`. Run it from the main checkout                                                                            |
+| `wt neon-delete <branch>`              | Deletes the Neon branch paired with a git branch, without prompting. For scripts (the orchestrator calls it); refuses protected names and does nothing when Neon is not configured                                |
+| `wt help`                              | Prints the usage summary (also `-h`, `--help`)                                                                                                                                                                    |
+
+## Running one worktree by hand
+
+Outside the orchestrator you can run a worktree yourself: to work interactively on a branch, to watch one issue run unattended, or to pick up a stranded run.
+
+```bash
+wt new feat/my-feature                  # interactive Claude Code in a new worktree
+wt auto kaupokorv/hon-51-feature-name   # /auto-implement on the issue's Linear branch name
+wt auto HON-51                          # same, by issue ID (branch auto/hon-51)
+wt resume feat/my-feature               # reopen the session in an existing worktree
+wt cleanup feat/my-feature              # remove the worktree and its Neon branch
+```
+
+**`wt auto` with an issue skips the queue's filters.** An explicit issue ID or branch reaches `/auto-implement` as an argument, and that path skips its no-human-input filters (step 1.5): passing the issue is your call that it can run unattended. The status, assignee and blocker gate (step 2.1) still applies. With no argument, `wt auto` picks from `Queued`, as the orchestrator does.
+
+- **Use the Linear branch name.** `wt auto kaupokorv/hon-51-…` names the branch so Linear links the PR to the issue. `/next-issue` prints a ready-to-paste `wt auto <branch>` line per candidate.
+- **A hand-run worktree holds a Neon branch** from the same cap as the orchestrator's workers ([Branch budget](#branch-budget)). Running one beside a full orchestrator can push the next worker over it.
+- **A common split** is planning and review in the main checkout while a `wt new` worktree carries out the plan.
+- **Clean up** with `wt cleanup <branch>` or `wt cleanup-all` once the PR has merged.
+
+## Worktree Location
+
+All parallel worktrees are created in `~/.worktrees/wobblepot/<branch-name>` to keep the project directory clean. A `/` in the branch name becomes `--` in the directory name (`feat/x` → `feat--x`).
+
+## Untracked Files
+
+When creating a worktree, the script automatically copies these gitignored files from the main repo:
+
+| File                          | Purpose                                              |
+| ----------------------------- | ---------------------------------------------------- |
+| `.env`                        | Environment variables (DATABASE_URL, API keys, etc.) |
+| `.claude/settings.local.json` | Claude Code permissions and settings                 |
+
+Both files are copied verbatim. When Neon branching is enabled, `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in the worktree's copy of `.env` are then patched to point at the fresh Neon branch (see the Neon section below).
+
+**To add more files:** Edit the `UNTRACKED_FILES` array in `scripts/worktree-claude.sh`.
+
+**How `.env` reaches a `wt` subcommand:** the dispatcher _parses_ it (`load_env_file`), it does not `source` it. Lines are split on the first `=`, one matched pair of surrounding quotes is stripped, and only keys matching `^[A-Za-z_][A-Za-z0-9_]*$` are exported; comments, blanks and malformed lines are skipped without failing the command. Values are never evaluated, so a line like `FOO=$(rm -rf ~)` exports a literal string instead of running — under the old `set -a` + `source` it was a working command (HON-580). Everything else matches what `source` did with a well-formed line, including precedence: `.env` still wins over what the calling shell exported, which is what lets `wt auto` patch `DATABASE_URL` into a worktree's own copy. Trailing whitespace and a whitespace-preceded `#` comment are dropped from an unquoted value; a quoted one keeps both, and a quote left open continues onto the next line. A missing `.env` stays a silent no-op; commands that need a specific var validate it themselves.
+
+## Per-Worktree Database Isolation
+
+When `NEON_API_KEY` and `NEON_PROJECT_ID` are set in `.env`, each worktree gets its own Neon branch — an isolated copy-on-write database forked from `staging` (or `NEON_PARENT_BRANCH`). This prevents the schema stomping that happens when multiple worktrees share the same dev DB and one runs `pnpm db:migrate`.
+
+**Lifecycle:**
+
+- `wt new <branch>` / `wt auto <branch-or-issue>` creates a Neon branch named `<branch>` (slashes replaced with double-dashes so `feat/foo-bar` and `feat-foo/bar` don't collide, e.g. `auto/hon-339-foo` → `auto--hon-339-foo`) and patches `DATABASE_URL` + `DATABASE_URL_UNPOOLED` in the worktree's `.env` to point at it.
+- `wt cleanup <branch>` / `wt cleanup-all` deletes the paired Neon branch after removing the worktree.
+- Protected names — `staging`, `main`, `production`, `preview` — are hard-refused by the delete guardrail regardless of how they're passed in.
+
+**Flags:**
+
+- `--fresh-db` — force delete-and-recreate the Neon branch. Useful when reusing a branch name after a previous worktree crashed without cleanup. Works with both `wt new` and `wt auto`.
+
+**Branch cap handling:**
+
+When the Neon project hits its branch cap (10 on the free tier), `wt` automatically runs an orphan GC (deletes Neon branches whose git worktree no longer exists, and orphaned `preview/*` branches — see the reaper table below) and retries once. If still over cap, it fails loud — no silent fallback to the shared DB.
+
+A create failure only reaches that path if it looks like exhaustion and _nothing else_. `neon_classify_create_error` strips the branch name out of the error text, then tests `already exists` / `duplicate` first, and reaches a `cap` verdict only when the word `branch` and one of `limit` / `quota` / `cap` / `exceed` / `maximum` appear on the **same line**. All three parts matter, because the keyword test is bare substring matching:
+
+- Without the strip, a branch whose slug carries one of those words — `kaupo--hon-580-…-silent-queue-cap-dead-code-stale`, say — reads as a capacity problem. That cost HON-580 the reuse path its RETRY depended on, and reported a full project that held 6 branches out of 10 (HON-581).
+- Without the ordering, the same name shadows the unambiguous `already exists` signal underneath it.
+- Without the same-line requirement, `Rate limit exceeded`, `insufficient capacity`, even `invalid escape sequence` (es-**cap**-e) call the GC. That is not a harmless sweep: it deletes every Neon branch with no live worktree, project-wide, and a RETRY parks exactly that shape — `cleanup_worker_worktree "$branch" true` removes the worktree and keeps the branch for the respawn. One worker's rate limit must not be able to destroy another worker's retry database.
+
+An `already exists` error is not a failure when the git branch is being resumed: `wt auto`'s retry path passes `reuse_existing=1`, and the deliberately-preserved Neon branch is reused as-is. Outside that path it is still a hard stop — use `--fresh-db` to recreate. `--fresh-db` never falls back to reuse: its pre-delete silences errors, so a branch that still exists afterwards means the delete did not take, and reusing it would hand back the exact database you asked to destroy.
+
+GC is scoped so it can't touch hand-managed branches. Eligible:
+
+- **`<prefix>--hon-<N>[-slug]`** — anything carrying a HON id, whatever the prefix. This is what the orchestrator actually creates: `spawn_worker` prefers Linear's `branchName`, so a normal run's branch is `kaupokorv/hon-51-slug` → Neon `kaupokorv--hon-51-slug`, not `auto--hon-51`. Until HON-572 no reaper recognised that shape, so a crashed or SIGKILLed orchestrator leaked its Neon branches until the project hit its cap.
+- **`auto-*`** — the no-`branchName` fallback (`wt auto HON-XX` → `auto/hon-XX` → `auto--hon-XX`).
+- **`${NEON_USER_PREFIX}-*`** — when you've set `NEON_USER_PREFIX` in `.env` (use this if you run `wt new <you>/branch-name` for interactive work).
+
+Everything else (`feat-`, `fix-`, test scaffolds) must be reclaimed manually via `wt cleanup`.
+
+Each of the three reapers gates differently — the shared name filter is not itself a safety gate:
+
+| Reaper                              | Runs when                                                   | Gates on                                                                                                                        |
+| ----------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `neon_gc_orphans` (`wt`)            | The Neon branch cap is hit, as a self-heal before one retry | Name shape, no live git worktree, and `is_protected_neon_branch` (`main` / `staging` / `production` / `preview`) — nothing else |
+| `neon-cleanup.sh delete-for-branch` | A PR is merged                                              | Name shape, `default`/`protected` flags, `ALLOWLIST_NAMES`. **No** Linear-status or age gate — the merge is the signal          |
+| `neon-cleanup.sh sweep`             | Daily cron / manual dispatch                                | All of the above **plus** the linked Linear issue being Done/Canceled and age > 24h                                             |
+
+`preview/<ref>` branches — the Vercel–Neon integration's, not ours — go through a separate gate in `neon_gc_orphans` and `sweep` (never `delete-for-branch`): `<ref>` is gone from `origin`, no open PR has it as its head, the branch is not `default`/`protected`/allowlisted, and (sweep only) it is older than 24h. Any `git` or `gh` failure keeps the branch. The integration re-creates these after a PR has merged (HON-852); see [`docs/RUNBOOKS/neon-branch-gc.md`](./RUNBOOKS/neon-branch-gc.md) → "`preview/*` is not ours".
+
+The `wt` GC is the loosest, and widening its name filter widened it further: a hand-made `<you>/hon-51-slug` branch whose worktree you have already removed is now reclaimable at cap time even if its PR is still open. That is the intended trade — the alternative is the orchestrator failing to provision every worker — but if you want an interactive branch held, keep its worktree, or name it without a HON id.
+
+**Opt-out:**
+
+Leave `NEON_API_KEY` / `NEON_PROJECT_ID` blank. `wt` prints a one-line warning and proceeds with the shared `DATABASE_URL`. Tests (Vitest, Playwright) read `DATABASE_URL`, so they automatically use the per-worktree branch when the feature is enabled.
+
+**Inspecting Neon state:**
+
+```bash
+# List all Neon branches (filter your worktree branches by prefix)
+pnpm dlx neonctl@2.22.0 branches list --project-id "$NEON_PROJECT_ID"
+
+# Manually GC orphans (also runs automatically on cap errors)
+# Or just run any `wt new` to trigger the same GC path on cap.
+```
+
+Full setup guide: [ENVIRONMENT_SETUP.md § Neon Database Branching](./ENVIRONMENT_SETUP.md#neon-database-branching-optional).
