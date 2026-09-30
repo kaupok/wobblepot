@@ -247,10 +247,11 @@ Write the plan directly in your response (not to a file). Use this structure:
 
 ## Verification
 
-- [ ] [How to test the implementation]
-- [ ] [What to verify works correctly]
-- [ ] [Edge cases to check]
+- [One line per acceptance criterion: the command, test, story or spec the implementer will run to show it holds]
+- [Edge cases, and the test that covers each]
 ```
+
+`## Verification` is a plain list, not checkboxes, of what the implementing agent will run. It becomes the PR's "Verified" list (`/create-pr` step 6), so a step only a human could perform does not belong here; if a criterion cannot be checked by the agent, say so, and it goes under "Not verified".
 
 ### 9. Get approval (or skip if --auto)
 

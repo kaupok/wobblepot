@@ -433,6 +433,24 @@ If this diff changes a size, height, padding or radius default on a primitive un
 GEOMETRY_PROMPT
 fi
 
+# ─── PR body: Verified / Not verified, no checkboxes ─────────────────────────
+#
+# The PR templates in /create-pr and /auto-implement replaced the `- [ ]` test plan
+# with "Verified" and "Not verified" lists (HON-860): unticked boxes merged on 26 of
+# 53 PRs, mostly restating what a test already proved, and hid the few real gaps.
+# Nothing else reads the body, so this is the only check on it. Every PR has a body,
+# so unlike the items above it is appended unconditionally.
+cat >> "$PROMPT_FILE" <<'PR_BODY_PROMPT'
+
+## Also check the PR body's Verified / Not verified lists
+
+Read the body from step 1. Report each of these as a finding in the summary comment's `**Issues found:**` list (the body is not in the diff, so there is no line to anchor an inline comment to):
+
+- **Any `- [ ]` checkbox in the body.** PR bodies carry no checkboxes; a box is a step for a human nobody will perform. Say whether it belongs under "Verified" (cite the test that proves it) or "Not verified" (with the reason).
+- **A "Verified" line that names no command, test, story or spec.** "Checked the layout" is intent, not verification.
+- **A "Not verified" item whose failure would break the change's stated purpose.** Remaining risk of that size is a gap in the change, not a footnote.
+PR_BODY_PROMPT
+
 REVIEW_PROMPT=$(cat "$PROMPT_FILE")
 
 # ─── Run the reviewer ─────────────────────────────────────────────────────────

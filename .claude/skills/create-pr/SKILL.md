@@ -112,14 +112,25 @@ This goes in the Summary section of the description (step 6). The goal: a review
 - **E2E impact:** [From step 5b — either `E2E specs updated: tests/e2e/foo.spec.ts, tests/e2e/bar.spec.ts` or `No E2E impact`. Omit the line entirely only if the diff is pure-backend with no UI / route / modal surface.]
 - **Coupled callsites:** [If the diff changes a primitive's geometry default, a `@theme` token, or a shared layout wrapper — either `Mirrors updated: src/app/foo/loading.tsx, …` or `none — no callsite hardcodes the changed <property>`. Omit the line entirely if none of those changed. Without it the scan's result lives only in the Linear plan and a GitHub reviewer cannot see that it ran (CLAUDE.md shared-primitive geometry rule).]
 
-## Test plan
+## Verified
 
-- [ ] [How to verify the changes work]
+- [What was run or asserted, and the result. Name the command, test, story or spec: "`pnpm test` — 4745 passed", "`CookieBanner.stories.tsx` › PhoneWithTabBar asserts the 80px offset", "Tier 1 E2E green on the PR".]
+
+## Not verified
+
+- [What could not be checked from here, and why: needs credentials, needs a real device, needs a paid API call, only observable after merge. Write `Nothing` if there is nothing.]
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
 If Linear issue is linked, include `Closes HON-XX` at the end of the Context section.
+
+**No checkboxes anywhere in a PR body.** Nobody ticks them: in the unattended cycle a `- [ ]` is a step addressed to a human who will not do it, and the PR merges with it open (HON-860). Write the two lists by these rules:
+
+1. A line goes under "Verified" only if you ran it and saw the result. Intent is not verification.
+2. Do not write a step for a human to perform. If a fact can be asserted, assert it in a test or a story play function and cite that under "Verified". If it cannot be checked at all, it goes under "Not verified" with the reason.
+3. "Not verified" is not a to-do list and creates no follow-up by itself. It is a statement of remaining risk.
+4. A step that must happen after merge (restart a process, run a workflow) is not a PR line at all: the merge step performs it, or it is a Todo issue assigned to a human, per CLAUDE.md → "Queued is the queue".
 
 ### 7. Push and create PR
 
@@ -136,8 +147,11 @@ gh pr create --title "type(scope): Subject" --body "$(cat <<'EOF'
 - ...
 - E2E impact: [specs updated | No E2E impact]
 
-## Test plan
-- [ ] ...
+## Verified
+- [command, test, story or spec — result]
+
+## Not verified
+- [what, and why it could not be checked here — or Nothing]
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
