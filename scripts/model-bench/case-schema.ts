@@ -104,6 +104,13 @@ export const ImagineCaseSchema = z.object({
   locale,
   /** No ingredient name may contain one of these, case-insensitive. */
   forbiddenKeywords: z.array(z.string().min(1)),
+  /**
+   * An ingredient name that contains one of these, case-insensitive, is a swap
+   * and never matches `forbiddenKeywords`: "vegan parmesan", "taimne hapukoor".
+   * Judged per ingredient, so it cannot excuse a plain "parmesan" elsewhere in
+   * the meal (HON-841).
+   */
+  allowedQualifiers: z.array(z.string().min(1)).optional(),
 })
 
 const reviewExpectation = z.union([

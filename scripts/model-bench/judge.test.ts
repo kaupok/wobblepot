@@ -121,6 +121,9 @@ describe('buildJudgePrompt via runJudge', () => {
       expect(call.promptText).not.toContain(MODEL.baseline)
       expect(call.promptText).not.toContain(MODEL.candidate)
       expect(call.promptText).not.toMatch(/baseline|candidate/i)
+      // The scorer's keyword lists are not what the app sent.
+      expect(call.promptText).not.toContain('forbiddenKeywords')
+      expect(call.promptText).not.toContain('allowedQualifiers')
     }
   })
 

@@ -253,13 +253,20 @@ export function scoreImagine(
 ): Scores {
   const { meals } = output
   const forbidden = input.forbiddenKeywords.map(normalize)
+  const qualifiers = (input.allowedQualifiers ?? []).map(normalize)
+  // Per ingredient name: "tofu bacon" is a swap, and does not excuse a plain
+  // "bacon" in the same meal.
+  const isForbidden = (ingredientName: string) => {
+    const name = normalize(ingredientName)
+    return forbidden.some((kw) => name.includes(kw)) && !qualifiers.some((q) => name.includes(q))
+  }
 
   const exactlyThreeMeals = meals.length === 3
   const servingsMatch =
     meals.length > 0 && meals.every((m) => m.servings === input.household.householdSize)
   const minTwoIngredients = meals.length > 0 && meals.every((m) => m.ingredients.length >= 2)
   const noForbiddenIngredients = meals.every((m) =>
-    m.ingredients.every((ing) => !forbidden.some((kw) => normalize(ing.name).includes(kw))),
+    m.ingredients.every((ing) => !isForbidden(ing.name)),
   )
 
   return {
