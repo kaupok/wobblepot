@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
+import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
 export default function AuthForm() {
   const router = useRouter()
@@ -14,6 +15,7 @@ export default function AuthForm() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const { ref: submitRef, requestRefocus } = useRefocusAfterPending(isLoading)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,6 +46,8 @@ export default function AuthForm() {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
       if (!isNavigating) {
+        // Disabling the form blurred the focused control; give it back.
+        requestRefocus()
         setIsLoading(false)
       }
     }
@@ -81,7 +85,7 @@ export default function AuthForm() {
           </Body>
         )}
       </div>
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <Button ref={submitRef} type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? 'Submitting...' : 'Submit'}
       </Button>
     </form>
