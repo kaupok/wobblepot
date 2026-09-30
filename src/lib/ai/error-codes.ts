@@ -18,6 +18,7 @@ export type ImagineErrorCode =
   | 'unauthorized'
   | 'no_household'
   | 'rate_limited'
+  | 'generation_disabled'
   | 'ai_cap_exceeded'
   | 'prompt_too_long'
   | 'too_many_images'
@@ -90,12 +91,13 @@ export type RecipeParseErrorCode = Extract<
  *
  * `ImaginePanel` keeps its own copy in `meal-plan.selector.imagine` but reads
  * these strings from `recipes.imagine.errors` too, rather than duplicating
- * thirteen error messages into a second namespace.
+ * fourteen error messages into a second namespace.
  */
 export const IMAGINE_ERROR_KEYS = {
   unauthorized: 'unauthorized',
   no_household: 'noHousehold',
   rate_limited: 'rateLimited',
+  generation_disabled: 'generationDisabled',
   ai_cap_exceeded: 'aiCapExceeded',
   prompt_too_long: 'promptTooLong',
   too_many_images: 'tooManyImages',

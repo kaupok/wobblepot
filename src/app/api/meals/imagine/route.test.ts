@@ -39,6 +39,10 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+vi.mock('@/lib/feature-flags', () => ({
+  getServerFlag: vi.fn(),
+}))
+
 vi.mock('@/lib/ai/usage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
   return {
@@ -55,6 +59,7 @@ import { imagineMeals } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { prisma } from '@/lib/prisma'
 import { assertUnderCap } from '@/lib/ai/usage'
+import { getServerFlag } from '@/lib/feature-flags'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -63,6 +68,7 @@ const mockImagineMeals = vi.mocked(imagineMeals)
 const mockMatchIngredients = vi.mocked(matchIngredients)
 const mockIngredientFindMany = vi.mocked(prisma.ingredient.findMany)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
+const mockGetServerFlag = vi.mocked(getServerFlag)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -179,6 +185,7 @@ describe('POST /api/meals/imagine', () => {
     })
     mockIngredientFindMany.mockResolvedValue([])
     mockAssertUnderCap.mockResolvedValue(undefined)
+    mockGetServerFlag.mockResolvedValue(true)
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -228,6 +235,22 @@ describe('POST /api/meals/imagine', () => {
     // The detail lives in `message`, not `error`, on this branch.
     expect(data.message).toContain('per hour')
     expect(data.resetAt).toBe('2026-02-01T12:00:00.000Z')
+  })
+
+  it('returns 503 generation_disabled without calling the model when ai_generation_enabled is off (HON-868)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockGetServerFlag.mockResolvedValue(false)
+
+    const response = await POST(jsonRequest({ prompt: 'something' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(data.code).toBe('generation_disabled')
+    expect(data.success).toBe(false)
+    expect(mockGetServerFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user-123')
+    expect(mockAssertUnderCap).not.toHaveBeenCalled()
+    expect(mockImagineMeals).not.toHaveBeenCalled()
   })
 
   it('returns 400 for invalid JSON body', async () => {

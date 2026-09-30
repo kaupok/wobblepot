@@ -385,7 +385,8 @@
         "promptTooLong": "Your description can be up to 500 characters.",
         "promptRequired": "Please describe what kind of meal you want.",
         "invalidRequest": "Something went wrong with that request. Please try again.",
-        "imagineTimeout": "Generating meal ideas took too long. Please try again."
+        "imagineTimeout": "Generating meal ideas took too long. Please try again.",
+        "generationDisabled": "Imagining meals is turned off right now. Please try again later."
       }
     },
     "import": {

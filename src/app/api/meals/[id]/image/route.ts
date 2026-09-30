@@ -6,6 +6,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { getServerFlag } from '@/lib/feature-flags'
 import {
   AiCostCapExceededError,
   assertUnderCap,
@@ -40,7 +41,8 @@ import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
  * - 200 `failed` — generation has failed `MAX_ATTEMPTS` times; never retried.
  * - 429 `none` — the image provider's rate limit outlasted one short wait;
  *   the claim is released without counting an attempt (HON-742).
- * - 503 `failed` — no OpenAI key, or its quota is exhausted; not counted.
+ * - 503 `failed` — no OpenAI key, its quota is exhausted, or the
+ *   `ai_generation_enabled` kill-switch is off; not counted.
  * - A `ready` image at an older prompt version is treated as absent and
  *   redrawn, with its attempts reset (HON-753); the old blob is deleted once
  *   the new one is attached.
@@ -228,6 +230,14 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
         headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
       },
     )
+  }
+
+  // Kill-switch, placed as in `/api/meal-plans/generate`. Only a request that
+  // would generate gets here: a ready image, a global meal and an in-flight
+  // claim have all been answered above, so existing images are still served.
+  const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
+  if (!aiEnabled) {
+    return respond({ status: 'failed', error: 'AI generation is temporarily disabled' }, 503)
   }
 
   try {

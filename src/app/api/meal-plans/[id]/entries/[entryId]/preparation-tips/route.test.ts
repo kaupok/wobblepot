@@ -55,6 +55,10 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => {
   }
 })
 
+vi.mock('@/lib/feature-flags', () => ({
+  getServerFlag: vi.fn(),
+}))
+
 vi.mock('@/lib/ai/sampling', () => ({
   logAiSample: vi.fn(),
 }))
@@ -66,6 +70,7 @@ import { generateObject } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { logAiSample } from '@/lib/ai/sampling'
+import { getServerFlag } from '@/lib/feature-flags'
 import { TIPS_MODEL } from '@/lib/ai/models'
 import { buildFullTipsRequest, buildSupplementaryTipsRequest } from '@/lib/ai/preparation-tips'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from '@/lib/ai/usage-fixture'
@@ -95,6 +100,7 @@ const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
 const mockRecordAiUsage = vi.mocked(recordAiUsage)
 const mockLogAiSample = vi.mocked(logAiSample)
+const mockGetServerFlag = vi.mocked(getServerFlag)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -176,6 +182,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     // Unchanged membership is the default: the re-read agrees with the
     // `_count.members` the prompt was priced from, so the cache write proceeds.
     mockMemberCount.mockResolvedValue(4 as never)
+    mockGetServerFlag.mockResolvedValue(true)
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -286,6 +293,40 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(data.tips).toEqual(cached)
     expect(mockGenerateObject).not.toHaveBeenCalled()
     expect(mockEntryCacheWrite).not.toHaveBeenCalled()
+  })
+
+  describe('ai_generation_enabled off (HON-868)', () => {
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(mockMembership as never)
+      mockGetServerFlag.mockResolvedValue(false)
+    })
+
+    it('returns 503 without calling the model on a cache miss', async () => {
+      mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+
+      const response = await callPost()
+
+      expect(response.status).toBe(503)
+      expect(mockGetServerFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user-123')
+      expect(mockAssertUnderCap).not.toHaveBeenCalled()
+      expect(mockGenerateObject).not.toHaveBeenCalled()
+      expect(mockEntryCacheWrite).not.toHaveBeenCalled()
+    })
+
+    it('still returns stored tips', async () => {
+      const cached = { equipment: ['Pan'], steps: ['Heat'], pitfalls: ['Burn it'], tip: 'Go slow' }
+      mockEntryFindFirst.mockResolvedValue(
+        sampleEntry({ preparationTips: JSON.stringify(cached) }) as never,
+      )
+
+      const response = await callPost()
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.tips).toEqual(cached)
+      expect(mockGenerateObject).not.toHaveBeenCalled()
+    })
   })
 
   it('regenerates when cached tips are in legacy format and persists new cache', async () => {

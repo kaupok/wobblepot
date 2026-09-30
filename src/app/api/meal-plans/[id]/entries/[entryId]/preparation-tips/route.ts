@@ -13,6 +13,7 @@ import { TIPS_AI_BUDGET_MS } from '@/lib/ai/budgets'
 import { buildFullTipsRequest, buildSupplementaryTipsRequest } from '@/lib/ai/preparation-tips'
 import { parseStoredTips } from '@/lib/tips'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { getServerFlag } from '@/lib/feature-flags'
 import { logAiSample } from '@/lib/ai/sampling'
 import {
   AiCostCapExceededError,
@@ -107,6 +108,14 @@ async function handlePOST(
           headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
         },
       )
+    }
+
+    // Kill-switch, placed as in `/api/meal-plans/generate`, and after the cache
+    // hit above so stored tips are still served while it is off. `useMealTips`
+    // handles the 503 like any other failed generation.
+    const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
+    if (!aiEnabled) {
+      return NextResponse.json({ error: 'AI generation is temporarily disabled' }, { status: 503 })
     }
 
     try {
