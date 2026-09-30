@@ -1125,7 +1125,7 @@ For each item in "Address Now":
 - Read the file at that location
 - Apply the suggested fix using Edit tool
 
-A **PR-body finding** (a checkbox, a "Verified" line that cites nothing, a "Not verified" gap) has no file to edit. Rewrite the body under the 5.4 rules with `gh pr edit <PR_NUMBER> --body-file <file>`. For a "Not verified" gap, close it with a test instead where you can, and move the line to "Verified" once it passes.
+A **PR-body finding** (a checkbox, a "Verified" line that cites nothing, a "Not verified" gap) has no file to edit. Rewrite the body under the 5.4 rules with `gh pr edit <PR_NUMBER> --body-file <file>`. For a "Not verified" gap, close it with a test instead where you can, and move the line to "Verified" once it passes. If nothing in this session can check it, keep the line with its reason (never delete it to clear the finding) and post a `not actioned: cannot be verified from this session — <reason>` note in the summary-only form below. That settles the finding; it is not an unresolved correctness finding for 6.6.
 
 **The `not actioned:` convention — required for every finding the 6.4 materiality bar drops.** A skipped finding must read as a decision, not an oversight, or the next reviewer (or the human picking up a 6.7 hand-off) re-raises it and the loop restarts by hand.
 

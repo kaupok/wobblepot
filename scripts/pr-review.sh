@@ -448,7 +448,7 @@ Read the body from step 1. Report each of these as a finding in the summary comm
 
 - **Any `- [ ]` checkbox in the body.** PR bodies carry no checkboxes; a box is a step for a human nobody will perform. Say whether it belongs under "Verified" (cite the test that proves it) or "Not verified" (with the reason).
 - **A "Verified" line that names no command, test, story or spec.** "Checked the layout" is intent, not verification.
-- **A "Not verified" item whose failure would break the change's stated purpose.** Remaining risk of that size is a gap in the change, not a footnote.
+- **A "Not verified" item whose failure would break the change's stated purpose, and that a test, story or spec in this repo could have checked.** That is a gap in the change, not a footnote. An item that genuinely cannot be checked from a session (credentials, a real device, a paid API call, only observable after merge) is what the list is for; do not report it.
 PR_BODY_PROMPT
 
 REVIEW_PROMPT=$(cat "$PROMPT_FILE")

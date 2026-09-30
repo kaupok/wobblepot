@@ -101,7 +101,7 @@ All three endpoints expose the author as `.user.login` — keep it in the projec
 
 - Empty comments (blank `body` — e.g. a bare Approve submitted with no text)
 - Bot status comments: `author` ends in `[bot]` (e.g. `vercel[bot]`, `github-actions[bot]`, `linear[bot]`). Deployment previews, CI status, and issue-link stubs are never actionable.
-- The Claude review's own summary comment (`body` starts with `<!-- claude-review -->`) — but only _after_ it has been parsed below. Its confidence score and "No issues found" verdict feed the severity mapping; the summary itself is not a triage item.
+- The Claude review's own summary comment (`body` starts with `<!-- claude-review -->`) — but only _after_ it has been parsed below. Its confidence score and "No issues found" verdict feed the severity mapping. The summary itself is not a triage item, but each entry in its `**Issues found:**` list that has no matching inline comment is: `scripts/pr-review.sh` puts PR-body findings (checkboxes, uncited "Verified" lines, HON-860), out-of-diff findings and anything past its 5-comment inline cap in the summary alone.
 
 **Keep every human comment**, regardless of format. Do not require the `<!-- claude-review -->` marker or a bold issue title — human reviewers write free-form, and this skill exists to surface all external feedback. Human comments go through the same Step 5 rubric as Claude findings. If a human comment carries no obvious severity signal, default it to 🟡 Suggestion and let effort decide. Note the Claude reviewer posts via `gh` under the user's own account, not a `[bot]` login, so the `[bot]` rule never touches its inline findings.
 
@@ -112,6 +112,7 @@ The Claude reviewer only posts substantive issues (no nitpicks by design). Map t
 | Signal                                         | Maps To       |
 | ---------------------------------------------- | ------------- |
 | Inline review comment (bold title format)      | 🟡 Suggestion |
+| Summary-only `**Issues found:**` entry         | 🟡 Suggestion |
 | Summary says "No issues found"                 | Clean review  |
 | Summary confidence 1-2/5 → upgrade all issues  | 🔴 Critical   |
 | Summary confidence 3-5/5 → keep default        | 🟡 Suggestion |
