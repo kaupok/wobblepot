@@ -24,9 +24,11 @@ import { captureApiError } from '@/lib/errors'
  * ingredients in full, with translations, under `ingredients`. Global
  * ingredients referenced by an exported meal component, pantry item or
  * custom shopping item go under `referencedGlobalIngredients` with only
- * `id`, `name` and `defaultUnit`, so every `ingredientId` in the file
- * resolves. Their nutrition and allergen columns are Wobblepot's catalogue,
- * not the user's data, and stay out.
+ * `id`, `name` and `defaultUnit`, so the `ingredientId`s in the file
+ * resolve. Their nutrition and allergen columns are Wobblepot's catalogue,
+ * not the user's data, and stay out. A reference to another household's
+ * ingredient is deliberately left unresolved: exporting it would leak that
+ * household's row. The `householdId: null` filter below is what enforces it.
  *
  * Never exposed: password hashes, session tokens, Better Auth internals.
  *
