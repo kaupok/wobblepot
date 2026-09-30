@@ -69,13 +69,13 @@ vercel env rm STATUS_INCIDENT_MESSAGE production
 
 1. Vercel dashboard → the project → Deployments.
 2. Open the deployment marked **Current** in the Production environment.
-3. "⋯" → **Redeploy**.
+3. "⋯" → **Redeploy**. In the dialog, **uncheck "Use project's Ignore Build Step"**. The project's Ignored Build Step cancels every build with `VERCEL_ENV=production` ([`DEPLOYMENT.md` → Vercel Configuration](../DEPLOYMENT.md#vercel-configuration)), so a redeploy with the box checked ends `CANCELED` and the banner never appears.
 
 A redeploy rebuilds the commit that is already live with the new environment, so the code does not change. Do **not** deploy from a checkout with the CLI (`vercel deploy --prod`): it builds and ships whatever files are on that laptop, feature branch and uncommitted work included. Do not run the `Deploy code [production]` workflow for this either: it ships `main` HEAD, which can be ahead of what is live and of its migrations.
 
 The redeploy writes no GitHub deployment record, and none is needed: the commit is unchanged, so the existing record is still correct. A rollback is different. Its dashboard promote does change the commit, and the record has to be corrected by hand (see [`DEPLOYMENT.md` → Rollback Procedure](../DEPLOYMENT.md#rollback-procedure)).
 
-This path has not yet been exercised on this project. The status-banner drill in HON-871 runs it once; if the redeploy is blocked there, correct this section.
+This path has not yet been exercised on this project. The status-banner drill in HON-871 runs it once; if the redeploy still ends `CANCELED` there, correct this section.
 
 The redeploy takes 1–3 minutes. The banner appears on `/status` as soon as the new deployment is live; no cache invalidation needed because the page is `force-dynamic`.
 
