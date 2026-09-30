@@ -195,9 +195,13 @@ export function countNumberedLines(text: string | null): number {
  * one: an output name matches when, lowercased and trimmed, it equals any alias
  * of an expected ingredient not already matched — so a duplicated ingredient
  * costs precision instead of matching twice.
+ *
+ * A not-a-recipe case expects no ingredients, so the three ingredient metrics
+ * are `null` for it and only the confidence tier is scored.
  */
 export function scoreRecipe(input: RecipeCase, output: RecipeExtraction): Scores {
   const expected = input.expected.ingredients
+  const nothingExpected = expected.length === 0
   const unmatched = new Set(expected.map((_, i) => i))
   const pairs: { expectedIndex: number; outputIndex: number }[] = []
 
@@ -223,8 +227,12 @@ export function scoreRecipe(input: RecipeCase, output: RecipeExtraction): Scores
   const stepCount = input.expected.stepCount
 
   return {
-    recall: matched / expected.length,
-    precision: output.ingredients.length === 0 ? 0 : matched / output.ingredients.length,
+    recall: nothingExpected ? null : matched / expected.length,
+    precision: nothingExpected
+      ? null
+      : output.ingredients.length === 0
+        ? 0
+        : matched / output.ingredients.length,
     quantityUnitMatch: matched === 0 ? null : exactQuantities / matched,
     // `parseRecipeText` rejects only the `low` tier, so that is what
     // `expected.lowConfidence` predicts.

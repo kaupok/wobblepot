@@ -165,6 +165,12 @@ const recipe: TaskSpec<'recipe'> = {
     { key: 'confidenceAgrees', label: 'Confidence tier agrees', format: 'percent', onError: 0 },
     { key: 'stepCountDelta', label: 'Step count delta', format: 'number', onError: null },
   ],
+  inapplicableMetrics(input) {
+    // A not-a-recipe case expects no ingredients (HON-840).
+    return input.expected.ingredients.length === 0
+      ? ['recall', 'precision', 'quantityUnitMatch']
+      : []
+  },
   prepare({ input }) {
     // Trimmed, as `parseRecipeText` does before it builds the request.
     const request = buildRecipeRequest(input.text.trim(), input.locale)
