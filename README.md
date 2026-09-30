@@ -102,10 +102,8 @@ pnpm db:studio                              # Prisma Studio
 | [docs/RUNBOOKS/](docs/RUNBOOKS/)                       | Operational runbooks, GDPR procedures                        |
 | [docs/DESIGN.md](docs/DESIGN.md)                       | Design guide: type scale, tokens, composition, reject list   |
 | [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Typography component guide                                   |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization                                          |
 | [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration for the agent                       |
 | [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with the Chrome extension                    |
-| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice-driven staging review                                  |
 
 ## Security
 

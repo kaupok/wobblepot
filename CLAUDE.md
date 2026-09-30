@@ -328,7 +328,7 @@ If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, 
 
 **PR review is automatic; don't invoke `/review-pr` by hand in the sequence above.** `/commit --pr` chains to `/create-pr`, whose final step invokes `/review-pr` → `scripts/pr-review.sh`, which posts findings as a PR comment marked `<!-- claude-review -->`. That marker is what `/triage-pr-comments` consumes; `/auto-implement` calls the same script directly. A PR opened with a raw `gh pr create` skips that first trigger, but the review is not lost: `/triage-pr-comments` step 2 runs the reviewer when the marker count is 0, and `/merge` step 2.5 does the same before merging (bypass with `/merge --force`). Invoke `/review-pr` directly only to re-review after a force-push, or to review a PR you didn't open.
 
-**Other project skills:** `/chrome-review` and `/voice-review` (staging review on `wobblepot.dev`; both need `claude --chrome` or `/chrome`), `/tech-audit` (codebase audit, `--focus <area>` for one area), `/ideate` and `/refine-backlog` (issue writing), `/audit-ingredients`. Each skill's own description says when to use it.
+**Other project skills:** `/chrome-review` (staging review on `wobblepot.dev`; needs `claude --chrome` or `/chrome`), `/tech-audit` (codebase audit, `--focus <area>` for one area), `/ideate` and `/refine-backlog` (issue writing), `/audit-ingredients`. Each skill's own description says when to use it.
 
 **Vendor skills:** `better-auth-best-practices`, `create-auth-skill`, `next-best-practices`, `next-cache-components`, and `next-upgrade` are symlinks to `.agents/skills/*` — upstream references (Next.js / Better Auth) installed from skills.sh, not project rules. Where they conflict with this file, this file wins: Prisma adapter (not Drizzle), email/password only (no OAuth yet), pnpm with exact pins (no `@latest`, no `npm install`), TanStack Query for client reads (never `useEffect` + `fetch`), and the Next 16 upgrade guide (not v14/v15). Only `next-upgrade` is user-invocable; the rest are reference-only.
 
@@ -387,10 +387,8 @@ The documents in the Documentation Structure table at the top, plus:
 | [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)             | Transactional email pipeline (Resend, DNS)                                                                                   |
 | [docs/RUNBOOKS/](docs/RUNBOOKS/)                       | Breach notification, database recovery, DSR intake, GDPR deletion, Neon branch cleanup, status page, translation maintenance |
 | [compliance/README.md](compliance/README.md)           | DPAs, the DPIA, subprocessors                                                                                                |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization guide                                                                                                    |
 | [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting                                                                                 |
 | [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                                                                                        |
-| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                                                                                                 |
 
 <!-- BEGIN:nextjs-agent-rules -->
 

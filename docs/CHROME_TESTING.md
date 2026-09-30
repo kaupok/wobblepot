@@ -48,7 +48,7 @@ Regenerated from `find src/app -name page.tsx` on 2026-09-29. Route groups such 
 - **Auth** — calls `auth.api.getSession()` and redirects to `/sign-in` when signed out. Most Auth pages also require a household: without one they redirect to `/onboarding` (and `/onboarding` itself redirects to `/` once you have one).
 - **Admin** — requires `isAdmin(session)`, and never redirects to `/sign-in`, so the route does not advertise itself. Signed out, the proxy serves a 404; signed in as a non-admin, you get the not-found page with a 200 status, because the proxy cannot see who is an admin.
 
-To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough to classify it, and update the tables below. The review skills (`/chrome-review`, `/voice-review`, `/ideate`) point here instead of carrying their own copy.
+To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough to classify it, and update the tables below. The review skills (`/chrome-review`, `/ideate`) point here instead of carrying their own copy.
 
 | Route                    | Access        | Purpose                                                                                            |
 | ------------------------ | ------------- | -------------------------------------------------------------------------------------------------- |
