@@ -105,11 +105,10 @@ export const ImagineCaseSchema = z.object({
   /** No ingredient name may contain one of these, case-insensitive. */
   forbiddenKeywords: z.array(z.string().min(1)),
   /**
-   * A keyword match is a swap, not a violation, when the same ingredient name
-   * has one of these (case-insensitive) starting at or before the keyword:
-   * "vegan parmesan", "taimne hapukoor", "eggplant" for "egg". Judged per
-   * ingredient, so it cannot excuse a plain "parmesan" elsewhere in the meal,
-   * and a trailing qualifier ("honey soy sauce") excuses nothing (HON-841).
+   * A keyword match is a swap, not a violation, when one of these
+   * (case-insensitive, starting a word) contains the keyword or sits directly
+   * before it: "vegan parmesan", "kaerahapukoor", "eggplant" for "egg". The
+   * rule is in `hasUnexcusedKeyword` in `scorers.ts` (HON-841).
    */
   allowedQualifiers: z.array(z.string().min(1)).optional(),
 })

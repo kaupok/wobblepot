@@ -341,6 +341,8 @@ describe('allowedQualifiers in the vegan imagine cases', () => {
       'tempeh bacon',
       'plant-based cream cheese',
       'cashew ricotta',
+      'vegan cheddar cheese',
+      'non-dairy milk',
       'oat milk',
       'peanut butter',
       'flax egg',
@@ -372,6 +374,15 @@ describe('allowedQualifiers in the vegan imagine cases', () => {
       expect(score('honey soy sauce')).toBe(0)
       expect(score('honey-roasted cashews')).toBe(0)
       expect(score('parmesan (vegan)')).toBe(0)
+    })
+
+    it('does not let a qualifier excuse a keyword further along the name', () => {
+      expect(score('coconut milk and butter')).toBe(0)
+      expect(score('soy-honey glaze')).toBe(0)
+    })
+
+    it('does not match a qualifier inside another word', () => {
+      expect(score('goat milk')).toBe(0)
     })
 
     it('does not let one qualified swap excuse an unrelated violation', () => {
@@ -408,6 +419,8 @@ describe('allowedQualifiers in the vegan imagine cases', () => {
 
     it('does not let one qualified swap excuse an unrelated violation', () => {
       expect(score('taimne hapukoor', 'hapukoor')).toBe(0)
+      expect(score('kookospiim ja kanamuna')).toBe(0)
+      expect(score('kalamata oliivid ja parmesan')).toBe(0)
     })
   })
 
