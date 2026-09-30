@@ -166,7 +166,7 @@ resolve_config() {
 
 require_neon() {
   { [ -n "${NEON_API_KEY:-}" ] && [ -n "${NEON_PROJECT_ID:-}" ]; } || fail \
-    "NEON_API_KEY and NEON_PROJECT_ID must be set in .env (this runner isolates each run on its own Neon branch). See docs/PARALLEL_WORKFLOW.md § Neon Database Branching."
+    "NEON_API_KEY and NEON_PROJECT_ID must be set in .env (this runner isolates each run on its own Neon branch). See docs/ENVIRONMENT_SETUP.md § Neon Database Branching."
 }
 
 # State shared with the EXIT trap. SERVER_PID is the `serve` dev server.
