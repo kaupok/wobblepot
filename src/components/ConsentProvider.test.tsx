@@ -54,6 +54,30 @@ describe('ConsentProvider', () => {
     expect(screen.getByRole('region', { name: /cookie consent/i })).toBeInTheDocument()
   })
 
+  it('passes hasTabBar through so the banner clears the tab bar', () => {
+    render(
+      withIntl(
+        <ConsentProvider initialDecision={null} hasTabBar>
+          <Probe />
+        </ConsentProvider>,
+      ),
+    )
+    const region = screen.getByRole('region', { name: /cookie consent/i })
+    expect(region.parentElement).toHaveClass('bottom-20')
+  })
+
+  it('keeps the banner at the 16px inset when there is no tab bar', () => {
+    render(
+      withIntl(
+        <ConsentProvider initialDecision={null}>
+          <Probe />
+        </ConsentProvider>,
+      ),
+    )
+    const region = screen.getByRole('region', { name: /cookie consent/i })
+    expect(region.parentElement).not.toHaveClass('bottom-20')
+  })
+
   it('starts granted when the SSR cookie was "all" and hides the banner', () => {
     document.cookie = 'consent-v1=all; Path=/'
     render(

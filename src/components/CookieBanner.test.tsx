@@ -10,11 +10,11 @@ import enMessages from '../../messages/en.json'
 import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
 import { CookieBanner } from '@/components/CookieBanner'
 
-function renderWithConsent(value: AnalyticsConsent) {
+function renderWithConsent(value: AnalyticsConsent, { hasTabBar }: { hasTabBar?: boolean } = {}) {
   return render(
     <NextIntlClientProvider locale="en" messages={enMessages}>
       <ConsentContext.Provider value={value}>
-        <CookieBanner />
+        <CookieBanner hasTabBar={hasTabBar} />
       </ConsentContext.Provider>
     </NextIntlClientProvider>,
   )
@@ -48,7 +48,7 @@ describe('CookieBanner', () => {
 
   it('mentions that the choice can be revisited from the footer', () => {
     renderWithConsent({ granted: null, grant: vi.fn(), withdraw: vi.fn() })
-    expect(screen.getByText(/you can change this any time from the footer/i)).toBeInTheDocument()
+    expect(screen.getByText(/change your choice in the footer/i)).toBeInTheDocument()
   })
 
   it('links the cookies section of the privacy policy (informed consent, HON-457)', () => {
@@ -56,5 +56,19 @@ describe('CookieBanner', () => {
 
     const link = screen.getByRole('link', { name: /privacy policy/i })
     expect(link).toHaveAttribute('href', '/privacy#cookies')
+  })
+  // The fixed wrapper around the card carries the offset. Below `md` it clears
+  // the bottom tab bar only when that bar renders (HON-845).
+  it('keeps a 16px inset when there is no tab bar', () => {
+    renderWithConsent({ granted: null, grant: vi.fn(), withdraw: vi.fn() })
+    const wrapper = screen.getByRole('region', { name: /cookie consent/i }).parentElement
+    expect(wrapper).toHaveClass('bottom-4')
+    expect(wrapper).not.toHaveClass('bottom-20')
+  })
+
+  it('lifts above the tab bar below md when the tab bar renders', () => {
+    renderWithConsent({ granted: null, grant: vi.fn(), withdraw: vi.fn() }, { hasTabBar: true })
+    const wrapper = screen.getByRole('region', { name: /cookie consent/i }).parentElement
+    expect(wrapper).toHaveClass('bottom-20', 'md:bottom-4')
   })
 })

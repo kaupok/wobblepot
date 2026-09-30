@@ -854,8 +854,8 @@
     "banner": {
       "ariaLabel": "Küpsiste nõusolek",
       "header": "Kasutame küpsiseid",
-      "body": "Olulised küpsised hoiavad sind sisse logituna. Analüütika küpsised aitavad mõista, kuidas rakendust kasutatakse, et seda parendada. Saad oma valikut alati jaluse kaudu muuta.",
-      "policyLink": "Loe lähemalt meie <link>privaatsuspoliitikast</link>.",
+      "body": "Olulised küpsised hoiavad sind sisse logituna. Analüütikaküpsised on vabatahtlikud ja aitavad rakendust paremaks teha. Valikut saad muuta jaluses.",
+      "policyLink": "<link>Privaatsuspoliitika</link>",
       "acceptAll": "Nõustu kõigega",
       "essentialOnly": "Ainult olulised"
     },

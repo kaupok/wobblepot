@@ -27,9 +27,15 @@ interface ConsentProviderProps {
   children: ReactNode
   /** Consent value read server-side from the cookie, so first render matches. */
   initialDecision: ConsentDecision | null
+  /** Whether the mobile bottom tab bar renders, so the banner can clear it. */
+  hasTabBar?: boolean
 }
 
-export function ConsentProvider({ children, initialDecision }: ConsentProviderProps) {
+export function ConsentProvider({
+  children,
+  initialDecision,
+  hasTabBar = false,
+}: ConsentProviderProps) {
   const [granted, setGranted] = useState<boolean | null>(() => decisionToGranted(initialDecision))
 
   useEffect(() => {
@@ -61,7 +67,7 @@ export function ConsentProvider({ children, initialDecision }: ConsentProviderPr
   return (
     <ConsentContext.Provider value={value}>
       {children}
-      {granted === null ? <CookieBanner /> : null}
+      {granted === null ? <CookieBanner hasTabBar={hasTabBar} /> : null}
     </ConsentContext.Provider>
   )
 }
