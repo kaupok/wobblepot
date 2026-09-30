@@ -97,6 +97,11 @@ describe('main', () => {
     // Identical mocks on both sides: nothing regresses or differs.
     expect(md).toMatch(/## Regressions\n\nNone\./)
     expect(md).toContain('**Total cost:**')
+    // The console echo carries all three lists and stops before the tables.
+    const echoed = out.join('\n')
+    expect(echoed).toContain('## Other changes outside noise')
+    expect(echoed).toContain('## Within noise')
+    expect(echoed).not.toContain('## plan')
 
     const json = JSON.parse(readFileSync(join(outDir, `${STEM}.json`), 'utf8'))
     expect(json.calls).toHaveLength(20)

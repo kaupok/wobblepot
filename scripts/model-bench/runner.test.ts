@@ -184,6 +184,11 @@ describe('runBenchmark', () => {
     expect(errorScores(carbonara!)).toMatchObject({ recall: 0, precision: 0 })
   })
 
+  it('does not score an errored imagine call as a forbidden ingredient', () => {
+    const [c] = loadCases(['imagine'])
+    expect(errorScores(c!)).toMatchObject({ allChecksPass: 0, noForbiddenIngredients: null })
+  })
+
   it('counts the usage a NoObjectGeneratedError carries toward spend', async () => {
     const { factory } = mockModelFactory(() => ({
       object: { notTheSchema: true },
