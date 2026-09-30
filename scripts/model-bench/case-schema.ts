@@ -59,24 +59,36 @@ export const PlanCaseSchema = z.object({
 export const RecipeCaseSchema = z.object({
   text: z.string().min(1),
   locale,
-  expected: z.object({
-    /**
-     * Names are in the **output** language: the parser answers in the
-     * household locale, so an Estonian case expects Estonian names.
-     */
-    ingredients: z
-      .array(
+  expected: z
+    .object({
+      /**
+       * Names are in the **output** language: the parser answers in the
+       * household locale, so an Estonian case expects Estonian names.
+       *
+       * Empty only for a not-a-recipe case (`lowConfidence: true`): the parse
+       * is rejected, so there is nothing to recall, and recall, precision and
+       * quantity match are not scored for it (HON-840).
+       */
+      ingredients: z.array(
         z.object({
           /** Accepted aliases, matched lowercased and trimmed. */
           names: z.array(z.string().min(1)).min(1),
           quantity: z.number().nullable(),
           unit: z.string().nullable(),
         }),
-      )
-      .min(1),
-    lowConfidence: z.boolean(),
-    stepCount: z.number().int().positive().optional(),
-  }),
+      ),
+      lowConfidence: z.boolean(),
+      stepCount: z.number().int().positive().optional(),
+    })
+    .superRefine((e, ctx) => {
+      if (e.ingredients.length === 0 && !e.lowConfidence) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ingredients'],
+          message: 'Only a lowConfidence case may expect no ingredients',
+        })
+      }
+    }),
 })
 
 export const ImagineCaseSchema = z.object({

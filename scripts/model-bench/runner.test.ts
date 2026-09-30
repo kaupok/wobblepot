@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
+import { loadCases } from './load-cases'
 import { runBenchmark } from './runner'
 import { errorScores } from './tasks'
 import { loadStarterCases, mockModelFactory } from './test-utils'
@@ -167,6 +168,20 @@ describe('runBenchmark', () => {
       seededCorrected: null,
       unchangedKept: 0,
     })
+  })
+
+  it('scores an error on a not-a-recipe case against the confidence tier only', () => {
+    const recipeCases = loadCases(['recipe'])
+    const notARecipe = recipeCases.find((c) => c.id === 'recipe/en-not-a-recipe-restaurant-review')
+    expect(errorScores(notARecipe!)).toEqual({
+      recall: null,
+      precision: null,
+      quantityUnitMatch: null,
+      confidenceAgrees: 0,
+      stepCountDelta: null,
+    })
+    const carbonara = recipeCases.find((c) => c.id === 'recipe/en-carbonara')
+    expect(errorScores(carbonara!)).toMatchObject({ recall: 0, precision: 0 })
   })
 
   it('counts the usage a NoObjectGeneratedError carries toward spend', async () => {

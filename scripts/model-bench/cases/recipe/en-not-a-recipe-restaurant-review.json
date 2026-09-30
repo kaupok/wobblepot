@@ -2,18 +2,7 @@
   "text": "Review: Harbour Kitchen, Old Town\n\nWe visited on a rainy Thursday and the dining room was nearly full by seven. Service was warm if a little slow.\n\nThe beetroot soup arrived first and was the highlight of the evening: earthy, bright and generously portioned. The braised lamb that followed was tender but under-seasoned, and the mash on the side was cold at the edges. Desserts were forgettable.\n\nPrices are fair for the area and the wine list is short but well chosen. Three stars. We would go back for the soup alone.\n\nPosted by a local diner · 14 comments",
   "locale": "en",
   "expected": {
-    "ingredients": [
-      {
-        "names": ["beetroot", "beet"],
-        "quantity": null,
-        "unit": null
-      },
-      {
-        "names": ["lamb", "lamb shoulder", "lamb shank"],
-        "quantity": null,
-        "unit": null
-      }
-    ],
+    "ingredients": [],
     "lowConfidence": true
   }
 }

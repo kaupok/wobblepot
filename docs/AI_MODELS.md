@@ -47,7 +47,7 @@ The two models run back to back on each case, and which one goes first alternate
 Every check is deterministic. The optional judge, below, is the only place one model rates another.
 
 - **plan:** structure valid; **first-try valid** (`validatePlan` before any repair, the number that matters); valid after `repairPlan`; out-of-pool meal IDs; distinct dinner proteins.
-- **recipe:** ingredient recall and precision against the expected list; exact quantity and unit on matched ingredients; whether the confidence tier agrees with the case; the step-count difference (reported, never pass or fail).
+- **recipe:** ingredient recall and precision against the expected list; exact quantity and unit on matched ingredients; whether the confidence tier agrees with the case; the step-count difference (reported, never pass or fail). A not-a-recipe case sets `lowConfidence: true` and leaves `expected.ingredients` empty, since the app rejects the parse and there is nothing to recall. Only its confidence tier is scored: recall, precision and quantity match skip it, on an errored call too.
 - **imagine:** exactly 3 meals, servings equal the household size, at least 2 ingredients each, no forbidden ingredient.
 - **review:** every ingredient ID exactly once; each seeded error corrected into the case's range (the review prompt's own reference range where it gives one, otherwise ±25% of the expected value); each correct quantity left alone.
 - **tips:** item counts within the ranges the prompt asks for.

@@ -181,6 +181,37 @@ describe('scoreRecipe', () => {
     expect(scores.confidenceAgrees).toBe(0)
     expect(scores.stepCountDelta).toBe(-4)
   })
+
+  describe('on a not-a-recipe case', () => {
+    const notARecipe = starter('recipe', 'en-not-a-recipe-restaurant-review')
+    const rejected: RecipeExtraction = {
+      ...perfect,
+      name: 'Harbour Kitchen',
+      preparationNotes: null,
+      recipeConfidence: 10,
+      ingredients: [],
+    }
+
+    it('scores only the confidence tier', () => {
+      expect(notARecipe.expected.ingredients).toEqual([])
+      expect(scoreRecipe(notARecipe, rejected)).toEqual({
+        recall: null,
+        precision: null,
+        quantityUnitMatch: null,
+        confidenceAgrees: 1,
+        stepCountDelta: null,
+      })
+    })
+
+    it('still fails a parse the app would accept', () => {
+      const scores = scoreRecipe(notARecipe, {
+        ...rejected,
+        recipeConfidence: 95,
+        ingredients: [ing('beetroot', null, null)],
+      })
+      expect(scores).toMatchObject({ recall: null, precision: null, confidenceAgrees: 0 })
+    })
+  })
 })
 
 describe('countNumberedLines', () => {
