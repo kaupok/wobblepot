@@ -172,6 +172,12 @@ describe('PR body item', () => {
     expect(body).toContain('"Not verified" item whose failure would break')
   })
 
+  // Body findings are summary-only by construction, so a "No issues found" beside one
+  // passes /auto-implement 6.4's clean-review test and merges with the box open.
+  it('forbids "No issues found" alongside a PR-body finding', () => {
+    expect(heredoc('PR_BODY_PROMPT')).toContain('Do NOT write "No issues found"')
+  })
+
   it('matches the headings the PR templates emit', () => {
     for (const skill of ['create-pr', 'auto-implement']) {
       const text = read(path.join(repoRoot, `.claude/skills/${skill}/SKILL.md`))
