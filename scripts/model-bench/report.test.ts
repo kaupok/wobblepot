@@ -303,6 +303,19 @@ describe('buildReport', () => {
     ])
   })
 
+  it('counts a gap equal to the range as noise, despite float residue', () => {
+    // Exactly, both the drop and the baseline's range are 1/7; in floating
+    // point the drop comes out a hair larger.
+    const r = report(
+      series('imagine', 'noForbiddenIngredients', [6 / 7, 1, 1], [5 / 7, 6 / 7, 6 / 7]),
+      ['imagine'],
+    )
+    expect(r.regressions).toEqual([])
+    expect(r.withinNoise.map((f) => f.text)).toEqual([
+      expect.stringMatching(/imagine · No forbidden ingredient/),
+    ])
+  })
+
   it('flags candidate max latency above 80% of the route budget, whatever the baseline did', () => {
     const budget = TASK_SPECS.review.budgetMs
     const calls = [

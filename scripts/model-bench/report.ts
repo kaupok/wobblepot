@@ -179,13 +179,14 @@ export function compareMetric(
 
   // Float residue is not a change: the mean of the same per-run value over 2
   // and over 3 runs can differ in the last bit, and 0.85 − 0.9 is a hair past
-  // −0.05. Snap the one to zero and let the other sit on its threshold.
+  // −0.05. Snap the one to zero, and let the other sit on its threshold (and
+  // a gap equal to the range count as noise).
   const rawDelta = candidate.mean - baseline.mean
   const delta = Math.abs(rawDelta) < FLOAT_TOLERANCE ? 0 : rawDelta
   const widerRange = Math.max(baseline.max - baseline.min, candidate.max - candidate.min)
   // One per-run value measures no range, so it cannot show a difference lies
   // outside one.
-  const noise = !rangeMeasured || Math.abs(delta) <= widerRange
+  const noise = !rangeMeasured || Math.abs(delta) <= widerRange + FLOAT_TOLERANCE
   const thresholdBreached =
     metric.regressionDrop !== undefined && delta < -metric.regressionDrop - FLOAT_TOLERANCE
 
