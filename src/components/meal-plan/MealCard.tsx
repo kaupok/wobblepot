@@ -267,6 +267,23 @@ export function MealCard({
 
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
 
+  // Both selectors open from state, with no `DialogTrigger`, and a modal Radix
+  // dialog hands focus back only to its trigger, so it would land on the page
+  // body. Return it to the control that opened the selector: "Add meal", or,
+  // for Swap, the menu trigger, since the menu item is gone by then (HON-804).
+  const addMealButtonRef = useRef<HTMLButtonElement>(null)
+  const moreActionsTriggerRef = useRef<HTMLButtonElement>(null)
+
+  function focusAddMealOnClose(event: Event) {
+    event.preventDefault()
+    addMealButtonRef.current?.focus()
+  }
+
+  function focusMoreActionsOnClose(event: Event) {
+    event.preventDefault()
+    moreActionsTriggerRef.current?.focus()
+  }
+
   const isUpdating = statusMutation.isPending
   const isClearing = clearMutation.isPending
 
@@ -302,6 +319,7 @@ export function MealCard({
           {canEdit && (
             <CardFooter className="px-4 pt-0">
               <Button
+                ref={addMealButtonRef}
                 variant="outline"
                 size="sm"
                 className="w-full"
@@ -321,6 +339,7 @@ export function MealCard({
             mealType={mealType}
             householdSize={householdSize}
             onSwapComplete={handleSwapComplete}
+            onCloseAutoFocus={focusAddMealOnClose}
             mode="add"
             pantryIngredients={pantryIngredients}
           />
@@ -358,6 +377,7 @@ export function MealCard({
                 <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                     <Button
+                      ref={moreActionsTriggerRef}
                       variant="ghost"
                       size="icon-sm"
                       aria-label={tCard('moreActions', { name: meal.name })}
@@ -510,6 +530,7 @@ export function MealCard({
         currentMealName={meal?.name}
         currentMealId={meal?.id}
         onSwapComplete={handleSwapComplete}
+        onCloseAutoFocus={focusMoreActionsOnClose}
         mode="swap"
         pantryIngredients={pantryIngredients}
       />
