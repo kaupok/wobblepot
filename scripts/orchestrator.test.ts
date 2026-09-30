@@ -4435,7 +4435,6 @@ describe('orchestrator.sh', () => {
     })
 
     it.each([
-      ['worker', 'a worker is running — its bookkeeping exists only in memory'],
       ['once', 'the run is --once'],
       ['shutdown', 'the orchestrator is shutting down'],
     ])('does not reload while %s (%s)', (scenario) => {
@@ -4443,8 +4442,50 @@ describe('orchestrator.sh', () => {
 
       expect(out).toContain('NO_EXEC')
       expect(out).toContain('SKIPS_FILE:present')
+      expect(out).toContain('PENDING:3:false')
       expect(out).not.toContain('reloading')
       expect(out).not.toContain('WARN')
+    })
+
+    it('holds the reload while a worker runs, and stops claiming so the workers can drain', () => {
+      const out = reload('worker')
+
+      // Its bookkeeping exists only in memory; a new image would lose it.
+      expect(out).toContain('NO_EXEC')
+      expect(out).toContain('SKIPS_FILE:present')
+      // RELOAD_PENDING is what the spawn gate reads. Without it the loop refills
+      // a freed slot in the same poll and a busy queue never reaches 0 workers.
+      expect(out).toContain('PENDING:1:true')
+      expect(out).toContain('PENDING:3:true')
+      expect(
+        out.match(/claiming nothing new until 1 running worker\(s\) finish, then reloading/g),
+      ).toHaveLength(1)
+    })
+
+    it('reloads on the first poll after the last worker finishes', () => {
+      const out = reload('worker-drains')
+
+      expect(out).toContain('PENDING:2:true')
+      expect(out).toMatch(
+        /^EXEC:\S*bash \S*\/scripts\/orchestrator\.sh --max-workers 2 --poll-interval 30$/m,
+      )
+    })
+
+    it.each([
+      ['uncommitted', 'an edit that is not committed'],
+      ['branch', 'a commit on a branch other than main'],
+    ])('does not load %s code (%s) from the working checkout', (scenario) => {
+      const out = reload(scenario)
+
+      expect(out).toContain('NO_EXEC')
+      // Not a drain: claims carry on as normal.
+      expect(out).toContain('PENDING:3:false')
+      expect(
+        out.match(
+          /INFO +Orchestrator code changed on disk but is not committed on main; not reloading it/g,
+        ),
+      ).toHaveLength(1)
+      expect(out).not.toContain('reloading in place')
     })
 
     it('keeps the running code, with one WARN, when the change fails bash -n', () => {
@@ -4543,17 +4584,18 @@ describe('orchestrator.sh', () => {
         for (const file of sourced) expect(files).toContain(file)
       })
 
-      it('reloads from the idle branch of the poll loop only', () => {
+      it('decides on a reload before the spawn gate, which claims nothing while one is pending', () => {
         const body = shellFunctionBody(source(), 'main')
 
         expect(body.match(/reload_if_code_changed/g)).toHaveLength(1)
-        expect(body).toContain(
-          'if [ ${#WORKER_PIDS[@]} -eq 0 ]; then\n      reload_if_code_changed\n      check_checkout_behind',
-        )
         // Before the spawn gate, so a poll that claims an issue cannot reload
         // after spawning it.
         expect(body.indexOf('reload_if_code_changed')).toBeLessThan(
           body.indexOf('local active=${#WORKER_PIDS[@]}'),
+        )
+        expect(body).toContain('elif [ "$RELOAD_PENDING" = true ]; then')
+        expect(body.indexOf('elif [ "$RELOAD_PENDING" = true ]; then')).toBeLessThan(
+          body.indexOf('response=$(fetch_queued_issues'),
         )
       })
 
@@ -4612,8 +4654,10 @@ describe('orchestrator.sh', () => {
     /**
      * A non-bare origin (commits land in it directly, no push) and a clone of
      * it standing in for the main checkout the orchestrator runs from.
+     * `between` is shell run before every poll after the first, with the poll
+     * number in $1 and ORIGIN / CLONE set.
      */
-    function makeFixture(ahead: { scripts?: number; other?: number } = {}) {
+    function makeFixture(ahead: { scripts?: number; other?: number } = {}, between: string[] = []) {
       const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hon861-checkout-'))
       roots.push(root)
       const origin = path.join(root, 'origin')
@@ -4623,19 +4667,21 @@ describe('orchestrator.sh', () => {
       git(root, 'clone', '-q', origin, clone)
       for (let i = 0; i < (ahead.scripts ?? 0); i++) commit(origin, 'scripts/orchestrator.sh')
       for (let i = 0; i < (ahead.other ?? 0); i++) commit(origin, 'docs/README.md')
-      // Run before every poll after the first; poll 2 lands one more scripts/ commit.
-      const between = path.join(root, 'between.sh')
+      const script = path.join(root, 'between.sh')
       fs.writeFileSync(
-        between,
-        [
-          `[ "$1" = 2 ] || exit 0`,
-          `cd '${origin}'`,
-          `date +%s%N >> scripts/orchestrator.sh`,
-          `git add scripts/orchestrator.sh && git commit -qm 'poll 2'`,
-        ].join('\n'),
+        script,
+        [`ORIGIN='${origin}'`, `CLONE='${clone}'`, ...between, 'exit 0'].join('\n'),
       )
-      return { origin, clone, between }
+      return { origin, clone, between: between.length > 0 ? script : '' }
     }
+
+    // Poll 2 lands one more scripts/ commit on origin.
+    const ORIGIN_MOVES_AT_POLL_2 = [
+      `if [ "$1" = 2 ]; then`,
+      `  cd "$ORIGIN" && echo "poll 2 $RANDOM" >> scripts/orchestrator.sh`,
+      `  git add scripts/orchestrator.sh && git commit -qm 'poll 2'`,
+      `fi`,
+    ]
 
     const check = (clone: string, polls: number, env: Record<string, string> = {}, between = '') =>
       stripTimestamps(
@@ -4663,16 +4709,17 @@ describe('orchestrator.sh', () => {
     })
 
     it('warns again when origin/main moves to a new SHA', () => {
-      const { clone, between } = makeFixture({ scripts: 1 })
+      const { clone, between } = makeFixture({ scripts: 1 }, ORIGIN_MOVES_AT_POLL_2)
       const out = check(clone, 3, {}, between)
 
       expect(polls(out).map((p) => p?.behind_scripts)).toEqual([1, 2, 2])
       expect(warns(out)).toHaveLength(2)
     })
 
-    it('never pulls: the checkout HEAD and working tree are untouched', () => {
+    it('never pulls, and leaves the refs workers fetch untouched', () => {
       const { clone } = makeFixture({ scripts: 2 })
       const head = git(clone, 'rev-parse', 'HEAD')
+      const originMain = git(clone, 'rev-parse', 'refs/remotes/origin/main')
       const file = fs.readFileSync(path.join(clone, 'scripts/orchestrator.sh'), 'utf8')
 
       check(clone, 2)
@@ -4680,6 +4727,19 @@ describe('orchestrator.sh', () => {
       expect(git(clone, 'rev-parse', 'HEAD')).toBe(head)
       expect(fs.readFileSync(path.join(clone, 'scripts/orchestrator.sh'), 'utf8')).toBe(file)
       expect(git(clone, 'status', '--porcelain')).toBe('')
+      // Workers fetch refs/remotes/origin/main into the same .git; a second
+      // writer of that ref is a lock fight. The check writes its own ref.
+      expect(git(clone, 'rev-parse', 'refs/remotes/origin/main')).toBe(originMain)
+      expect(git(clone, 'rev-parse', 'refs/orchestrator/origin-main')).not.toBe(originMain)
+      expect(fs.existsSync(path.join(clone, '.git', 'FETCH_HEAD'))).toBe(false)
+    })
+
+    it('checks while workers run, so a busy queue cannot hide it', () => {
+      const { clone } = makeFixture({ scripts: 1 })
+      const out = check(clone, 1, { HARNESS_CHECKOUT_WORKER: '1' })
+
+      expect(polls(out)).toEqual([expect.objectContaining({ behind_scripts: 1 })])
+      expect(warns(out)).toHaveLength(1)
     })
 
     it.each([
@@ -4693,25 +4753,30 @@ describe('orchestrator.sh', () => {
       expect(warns(out)).toHaveLength(0)
     })
 
-    it.each([
-      ['a worker is running', { HARNESS_CHECKOUT_WORKER: '1' }],
-      ['the run is --once', { HARNESS_CHECKOUT_ONCE: '1' }],
-    ])('does not fetch while %s', (_label, env) => {
+    it('does not fetch in a --once run', () => {
       const { clone } = makeFixture({ scripts: 1 })
-      const before = git(clone, 'rev-parse', 'refs/remotes/origin/main')
-      const out = check(clone, 1, env)
+      const out = check(clone, 1, { HARNESS_CHECKOUT_ONCE: '1' })
 
       expect(polls(out)).toEqual([null])
-      expect(git(clone, 'rev-parse', 'refs/remotes/origin/main')).toBe(before)
+      expect(() => git(clone, 'rev-parse', '--verify', 'refs/orchestrator/origin-main')).toThrow()
     })
 
-    it('checks at most once per interval', () => {
-      const { clone, between } = makeFixture({ scripts: 1 })
+    it('fetches at most once per interval', () => {
+      const { clone, between } = makeFixture({ scripts: 1 }, ORIGIN_MOVES_AT_POLL_2)
       const out = check(clone, 3, { HARNESS_CHECKOUT_INTERVAL: '600' }, between)
 
       // Poll 2's new commit is not seen: polls 2 and 3 fall inside the interval.
       expect(polls(out).map((p) => p?.behind_scripts)).toEqual([1, 1, 1])
       expect(warns(out)).toHaveLength(1)
+    })
+
+    it('clears on the next poll after a pull, without waiting for a fetch', () => {
+      const { clone, between } = makeFixture({ scripts: 1 }, [
+        `if [ "$1" = 2 ]; then git -C "$CLONE" pull -q --ff-only origin main; fi`,
+      ])
+      const out = check(clone, 2, { HARNESS_CHECKOUT_INTERVAL: '600' }, between)
+
+      expect(polls(out)).toEqual([expect.objectContaining({ behind_scripts: 1 }), null])
     })
 
     describe('checkout_behind_notice', () => {
@@ -4724,7 +4789,7 @@ describe('orchestrator.sh', () => {
             checkout: { behind: 3, behind_scripts: 2, origin_main: 'abcd1234', checked_at: 'x' },
           }),
         ).toBe(
-          'Checkout is 3 commit(s) behind origin/main (abcd1234), 2 touching scripts/: pull it, and the orchestrator reloads itself when next idle',
+          'Checkout is 3 commit(s) behind origin/main (abcd1234), 2 touching scripts/: pull it, and the orchestrator reloads itself once its running workers finish',
         )
       })
 

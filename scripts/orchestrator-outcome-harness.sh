@@ -280,11 +280,16 @@
 #     Runs the REAL reload_if_code_changed over three polls, with
 #     ORCHESTRATOR_CODE_FILES pointed at a temp stand-in script and reload_exec
 #     stubbed to print EXEC:<argv>, SKIPS_FILE and the ORCHESTRATOR_RELOAD_*
-#     hand-over, then exit. Scenarios: changed, unchanged, worker (a tracked
-#     PID), once (--once), shutdown, syntax (the change fails bash -n),
-#     exec-fails (reload_exec returns 126) and round-trip, which performs a REAL
-#     exec into `reload-restored` with [state-dir] as its scratch dir. A run that
-#     never exec'd prints NO_EXEC, SKIPS_FILE and LEFT_IN_ENV, then the log.
+#     hand-over, then exit. The stand-in is committed on `main` in a fixture
+#     repo, and each change is committed unless the scenario says otherwise.
+#     Scenarios: changed, unchanged, worker (a tracked PID throughout),
+#     worker-drains (the worker finishes before poll 3), once (--once),
+#     shutdown, syntax (the change fails bash -n), uncommitted (edited, not
+#     committed), branch (committed on a branch other than main), exec-fails
+#     (reload_exec returns 126) and round-trip, which performs a REAL exec into
+#     `reload-restored` with [state-dir] as its scratch dir. Every poll prints
+#     PENDING:<n>:<RELOAD_PENDING>; a run that never exec'd then prints NO_EXEC,
+#     SKIPS_FILE and LEFT_IN_ENV, then the log.
 #
 #   reload-restored <old-pid> <state-dir>                           (HON-861)
 #     The exec'd image: prints both PIDs, runs the REAL acquire_lock against a
@@ -300,7 +305,8 @@
 #     POLL:<n>:<status-file .checkout JSON> per poll, then the log. The interval
 #     is 0 unless HARNESS_CHECKOUT_INTERVAL is set; HARNESS_CHECKOUT_WORKER=1
 #     tracks a worker PID and HARNESS_CHECKOUT_ONCE=1 sets --once. The optional
-#     script runs before every poll after the first, given the poll number.
+#     script runs before every poll after the first, given the poll number, so
+#     it can move origin or pull the clone between polls of one process.
 #
 #   checkout-notice <status-json>                                   (HON-861)
 #     Sources worktree-claude.sh and prints the REAL checkout_behind_notice,
@@ -1231,9 +1237,18 @@ EOF
     SCENARIO="$A1"
     CODE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-reload.XXXXXXXX")
     trap 'rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$CODE_DIR"' EXIT
-    # A stand-in for orchestrator.sh: the fingerprint and the bash -n gate are
-    # what is under test, and editing the real script from a test is not an option.
+    # A stand-in for orchestrator.sh, committed on `main` in a repo of its own:
+    # the fingerprint, the committed-main gate and the bash -n gate are what is
+    # under test, and editing the real script from a test is not an option.
+    # Config is pinned per call so a developer's hooks or signing never run.
+    fixture_git() {
+      git -C "$CODE_DIR" -c user.name=harness -c user.email=harness@example.test \
+        -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@" >/dev/null 2>&1
+    }
+    git init -q -b main "$CODE_DIR" >/dev/null 2>&1
     printf '#!/bin/bash\necho v1\n' > "$CODE_DIR/code.sh"
+    fixture_git add code.sh
+    fixture_git commit -qm v1
     ORCHESTRATOR_CODE_FILES=("$CODE_DIR/code.sh")
     CODE_FINGERPRINT=$(code_fingerprint)
     ORCHESTRATOR_ARGS=(--max-workers 2 --poll-interval 30)
@@ -1260,22 +1275,34 @@ EOF
       exit 0
     }
 
+    # A pulled change: new content, committed on main.
+    commit_change() {
+      printf '%s\n' "$1" >> "$CODE_DIR/code.sh"
+      fixture_git commit -qam change
+    }
     case "$SCENARIO" in
-      changed|round-trip) printf 'echo v2\n' >> "$CODE_DIR/code.sh" ;;
-      worker)   WORKER_PIDS=(12345); printf 'echo v2\n' >> "$CODE_DIR/code.sh" ;;
-      once)     RUN_ONCE=true; printf 'echo v2\n' >> "$CODE_DIR/code.sh" ;;
-      shutdown) SHUTTING_DOWN=true; printf 'echo v2\n' >> "$CODE_DIR/code.sh" ;;
-      syntax)   printf 'if then fi (\n' >> "$CODE_DIR/code.sh" ;;
+      changed|round-trip) commit_change 'echo v2' ;;
+      worker|worker-drains) WORKER_PIDS=(12345); commit_change 'echo v2' ;;
+      once)        RUN_ONCE=true; commit_change 'echo v2' ;;
+      shutdown)    SHUTTING_DOWN=true; commit_change 'echo v2' ;;
+      syntax)      commit_change 'if then fi (' ;;
+      uncommitted) printf 'echo v2\n' >> "$CODE_DIR/code.sh" ;;
+      branch)      fixture_git checkout -qb feature; commit_change 'echo v2' ;;
       unchanged) ;;
       exec-fails)
-        printf 'echo v2\n' >> "$CODE_DIR/code.sh"
+        commit_change 'echo v2'
         reload_exec() { return 126; }
         ;;
       *) echo "Unknown reload scenario: $SCENARIO" >&2; exit 64 ;;
     esac
 
     # Three polls: a WARN or a reload attempt must happen once, not per poll.
-    for _poll in 1 2 3; do reload_if_code_changed; done
+    # worker-drains finishes its worker before the third.
+    for _poll in 1 2 3; do
+      if [ "$SCENARIO" = "worker-drains" ] && [ "$_poll" = 3 ]; then WORKER_PIDS=(); fi
+      reload_if_code_changed
+      echo "PENDING:$_poll:$RELOAD_PENDING"
+    done
     echo "NO_EXEC"
     printf 'SKIPS_FILE:%s\n' "$([ -e "$SEEN_SKIPS_FILE" ] && echo present || echo gone)"
     echo "LEFT_IN_ENV:$(env | grep -c '^ORCHESTRATOR_RELOAD_' || true)"

@@ -186,15 +186,23 @@ CAP_REQUEUE_COOLDOWN="${ORCHESTRATOR_CAP_REQUEUE_COOLDOWN:-1800}"
 # used to do nothing until someone ran `wt stop` and `wt start`. CODE_FINGERPRINT
 # is what this process loaded; RELOAD_REJECTED_FINGERPRINT is the last on-disk
 # version that failed `bash -n`, so its WARN is logged once rather than every
-# poll. RELOADED is true in an image started by reload_if_code_changed.
+# poll, and RELOAD_HELD_FINGERPRINT the last one held back for not being
+# committed on main (logged once the same way). RELOAD_PENDING is true while a
+# loadable change waits for running workers to finish; the spawn gate claims
+# nothing meanwhile, or a busy queue would never let the count reach 0.
+# RELOADED is true in an image started by reload_if_code_changed.
 RELOADED=false
 CODE_FINGERPRINT=""
 RELOAD_REJECTED_FINGERPRINT=""
+RELOAD_HELD_FINGERPRINT=""
+RELOAD_PENDING=false
 # Checkout freshness (HON-861). Pulling the main checkout is what makes the
-# reload above fire, and nothing else pulls it, so an idle poll checks whether
-# origin/main has orchestrator code the checkout lacks. CHECKOUT_WARNED_SHA is
-# the origin/main the WARN last named: one WARN per SHA, not one per poll.
+# reload above fire, and nothing else pulls it, so each poll checks whether
+# origin/main has orchestrator code the checkout lacks, fetching at most every
+# CHECKOUT_CHECK_INTERVAL seconds into CHECKOUT_ORIGIN_REF. CHECKOUT_WARNED_SHA
+# is the origin/main the WARN last named: one WARN per SHA, not one per poll.
 CHECKOUT_CHECK_INTERVAL=600
+CHECKOUT_ORIGIN_REF="refs/orchestrator/origin-main"
 CHECKOUT_LAST_CHECK=0
 CHECKOUT_BEHIND=0
 CHECKOUT_BEHIND_SCRIPTS=0
@@ -2635,10 +2643,33 @@ reload_exec() {
   exec "$@"
 }
 
+# True when every code file is tracked, unmodified, and checked out on `main`.
+# The main checkout is also the operator's working copy, so what is on disk
+# there may be a half-finished edit or another branch; only committed main is
+# code this process should pick up unattended. Each file is asked from its own
+# directory, so an absolute path never has to match git's view of the toplevel
+# (macOS /var vs /private/var).
+code_is_committed_main() {
+  local f dir name
+  for f in "${ORCHESTRATOR_CODE_FILES[@]}"; do
+    dir=$(dirname "$f"); name=$(basename "$f")
+    [ "$(git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null)" = main ] || return 1
+    git -C "$dir" ls-files --error-unmatch -- "$name" >/dev/null 2>&1 || return 1
+    git -C "$dir" diff --quiet HEAD -- "$name" >/dev/null 2>&1 || return 1
+  done
+  return 0
+}
+
 # Re-exec this script in place when its code on disk differs from what this
-# process loaded. Called on every poll; does nothing unless the orchestrator is
-# idle, because WORKER_PIDS and the per-worker arrays exist only in memory and a
-# new image would lose track of running workers. `--once` never reloads.
+# process loaded. Called on every poll. It execs only when idle, because
+# WORKER_PIDS and the per-worker arrays exist only in memory and a new image
+# would lose track of running workers. With workers running it sets
+# RELOAD_PENDING instead, and the spawn gate stops claiming so the count can
+# actually reach 0: the loop refills a freed slot in the same poll, so under a
+# busy queue "wait for idle" alone would wait forever. `--once` never reloads.
+#
+# Only code committed on main is loaded (code_is_committed_main), and only code
+# that passes `bash -n`. Neither refusal blocks claims.
 #
 # exec keeps the PID, so orchestrator.pid, `wt stop` and the nohup redirections
 # from cmd_start stay valid; acquire_lock accepts its own PID. Bash does not run
@@ -2656,14 +2687,26 @@ reload_exec() {
 reload_if_code_changed() {
   [ "$RUN_ONCE" = true ] && return 0
   [ "$SHUTTING_DOWN" = true ] && return 0
-  [ ${#WORKER_PIDS[@]} -eq 0 ] || return 0
   [ -n "$CODE_FINGERPRINT" ] || return 0
 
   local new_fp=""
   new_fp=$(code_fingerprint) || new_fp=""
-  [ -n "$new_fp" ] || return 0
-  [ "$new_fp" = "$CODE_FINGERPRINT" ] && return 0
-  [ "$new_fp" = "$RELOAD_REJECTED_FINGERPRINT" ] && return 0
+  if [ -z "$new_fp" ] || [ "$new_fp" = "$CODE_FINGERPRINT" ] \
+     || [ "$new_fp" = "$RELOAD_REJECTED_FINGERPRINT" ]; then
+    RELOAD_PENDING=false
+    return 0
+  fi
+
+  # Not held for good: committing the same content later must still reload,
+  # so this only rate-limits the log line.
+  if ! code_is_committed_main; then
+    RELOAD_PENDING=false
+    if [ "$new_fp" != "$RELOAD_HELD_FINGERPRINT" ]; then
+      RELOAD_HELD_FINGERPRINT="$new_fp"
+      log INFO "Orchestrator code changed on disk but is not committed on main; not reloading it (loaded $CODE_FINGERPRINT, on disk $new_fp)"
+    fi
+    return 0
+  fi
 
   # A reload that cannot start must not replace code that runs. One WARN per
   # rejected version; the next edit gets its own check.
@@ -2672,8 +2715,17 @@ reload_if_code_changed() {
     "$BASH" -n "$f" 2>/dev/null || bad+="${bad:+, }$(basename "$f")"
   done
   if [ -n "$bad" ]; then
+    RELOAD_PENDING=false
     RELOAD_REJECTED_FINGERPRINT="$new_fp"
     log WARN "Orchestrator code changed on disk but fails bash -n ($bad); keeping the running code (loaded $CODE_FINGERPRINT, on disk $new_fp)"
+    return 0
+  fi
+
+  if [ ${#WORKER_PIDS[@]} -gt 0 ]; then
+    if [ "$RELOAD_PENDING" != true ]; then
+      log INFO "Orchestrator code changed on disk ($CODE_FINGERPRINT -> $new_fp); claiming nothing new until ${#WORKER_PIDS[@]} running worker(s) finish, then reloading"
+    fi
+    RELOAD_PENDING=true
     return 0
   fi
 
@@ -2707,6 +2759,7 @@ reload_if_code_changed() {
     ORCHESTRATOR_RELOAD_CHECKOUT_WARNED
   SEEN_SKIPS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-skips.XXXXXXXX") || SEEN_SKIPS_FILE=/dev/null
   RELOAD_REJECTED_FINGERPRINT="$new_fp"
+  RELOAD_PENDING=false
   log ERROR "Reload failed (exec exit $rc); keeping the running code until the next change on disk"
   return 0
 }
@@ -2753,35 +2806,44 @@ wait_for_environment() {
 # orchestrator nor the workers it spawns. It never pulls: this checkout is also
 # a human's working directory.
 #
-# Idle polls only, at most every CHECKOUT_CHECK_INTERVAL seconds: workers fetch
-# into the same .git, and two fetches updating origin/main at once fight over
-# the ref lock. One WARN per origin/main SHA; the state goes into the status
-# file for `wt status` and `wt watch`, which a log line alone would not reach —
-# `wt watch` hides a WARN once anything has been claimed since.
+# The fetch goes into a ref of its own, CHECKOUT_ORIGIN_REF, with --refmap= so
+# git does not also update refs/remotes/origin/main: workers fetch that ref into
+# the same .git, and two fetches updating it at once fight over its lock. That
+# makes the check safe with workers running, which is when it matters — a busy
+# queue may not go idle for hours. The fetch runs at most every
+# CHECKOUT_CHECK_INTERVAL seconds; the counts are recomputed from the local ref
+# on every poll, so a pull clears the notice on the next one.
+#
+# One WARN per origin/main SHA; the state goes into the status file for
+# `wt status` and `wt watch`, which a log line alone would not reach — `wt
+# watch` hides a WARN once anything has been claimed since.
 check_checkout_behind() {
   [ "$RUN_ONCE" = true ] && return 0
   [ "$SHUTTING_DOWN" = true ] && return 0
-  [ ${#WORKER_PIDS[@]} -eq 0 ] || return 0
 
   local now
   now=$(date +%s)
-  [ $(( now - CHECKOUT_LAST_CHECK )) -lt "$CHECKOUT_CHECK_INTERVAL" ] && return 0
-  CHECKOUT_LAST_CHECK=$now
-
-  # GIT_TERMINAL_PROMPT=0: a credential prompt has nobody to answer it here, and
-  # would otherwise hold the poll loop for the full timeout.
-  if ! run_with_timeout 30 env GIT_TERMINAL_PROMPT=0 git -C "$REPO_ROOT" fetch --quiet origin main >/dev/null 2>&1; then
-    log DEBUG "Checkout freshness: git fetch origin main failed; next try in ${CHECKOUT_CHECK_INTERVAL}s"
-    return 0
+  if [ $(( now - CHECKOUT_LAST_CHECK )) -ge "$CHECKOUT_CHECK_INTERVAL" ]; then
+    CHECKOUT_LAST_CHECK=$now
+    # GIT_TERMINAL_PROMPT=0: a credential prompt has nobody to answer it here,
+    # and would hold the poll loop for the full timeout. gc and maintenance off:
+    # an auto-gc started from here would run beside the workers' git commands.
+    if run_with_timeout 30 env GIT_TERMINAL_PROMPT=0 git -C "$REPO_ROOT" \
+        -c gc.auto=0 -c maintenance.auto=false \
+        fetch --quiet --no-tags --no-write-fetch-head --refmap= \
+        origin "+refs/heads/main:$CHECKOUT_ORIGIN_REF" >/dev/null 2>&1; then
+      CHECKOUT_CHECKED_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+    else
+      log DEBUG "Checkout freshness: git fetch origin main failed; next try in ${CHECKOUT_CHECK_INTERVAL}s"
+    fi
   fi
 
   local origin_sha="" behind="" behind_scripts=""
-  origin_sha=$(git -C "$REPO_ROOT" rev-parse --verify --quiet origin/main 2>/dev/null) || return 0
-  behind=$(git -C "$REPO_ROOT" rev-list --count HEAD..origin/main 2>/dev/null) || return 0
-  behind_scripts=$(git -C "$REPO_ROOT" rev-list --count HEAD..origin/main -- scripts/ 2>/dev/null) || return 0
+  origin_sha=$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$CHECKOUT_ORIGIN_REF" 2>/dev/null) || return 0
+  behind=$(git -C "$REPO_ROOT" rev-list --count "HEAD..$CHECKOUT_ORIGIN_REF" 2>/dev/null) || return 0
+  behind_scripts=$(git -C "$REPO_ROOT" rev-list --count "HEAD..$CHECKOUT_ORIGIN_REF" -- scripts/ 2>/dev/null) || return 0
   [[ "$behind" =~ ^[0-9]+$ ]] && [[ "$behind_scripts" =~ ^[0-9]+$ ]] || return 0
 
-  CHECKOUT_CHECKED_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
   if [ "$behind_scripts" -eq 0 ]; then
     CHECKOUT_BEHIND=0
     CHECKOUT_BEHIND_SCRIPTS=0
@@ -2794,7 +2856,7 @@ check_checkout_behind() {
   CHECKOUT_ORIGIN_SHA="${origin_sha:0:8}"
   if [ "$origin_sha" != "$CHECKOUT_WARNED_SHA" ]; then
     CHECKOUT_WARNED_SHA="$origin_sha"
-    log WARN "Checkout is behind origin/main (${origin_sha:0:8}) by $behind commit(s), $behind_scripts touching scripts/: the orchestrator and its workers run the older code. Pull $REPO_ROOT; the orchestrator reloads itself on its next idle poll"
+    log WARN "Checkout is behind origin/main (${origin_sha:0:8}) by $behind commit(s), $behind_scripts touching scripts/: the orchestrator and its workers run the older code. Pull $REPO_ROOT; the orchestrator reloads itself once its running workers finish"
   fi
   return 0
 }
@@ -2858,13 +2920,12 @@ main() {
       report_worker_status
     fi
 
-    # Idle — no worker state in memory to lose — so this is the one point where
-    # the process may replace itself with the code on disk. Both functions also
-    # check the idle, --once and shutdown conditions themselves (HON-861).
-    if [ ${#WORKER_PIDS[@]} -eq 0 ]; then
-      reload_if_code_changed
-      check_checkout_behind
-    fi
+    # Before the spawn gate: an idle poll is the one point where the process
+    # may replace itself with the code on disk, and with workers running this
+    # sets RELOAD_PENDING so the gate below stops refilling their slots. Both
+    # check the --once and shutdown conditions themselves (HON-861).
+    reload_if_code_changed
+    check_checkout_behind
 
     write_status_file
 
@@ -2899,6 +2960,8 @@ main() {
       # In --once mode, only spawn once
       if [ "$PAUSED_UNTIL" -gt 0 ]; then
         : # Circuit breaker still active
+      elif [ "$RELOAD_PENDING" = true ]; then
+        log DEBUG "Code changed on disk; draining $active worker(s) before reloading"
       elif [ "$RUN_ONCE" = true ] && [ "$ONCE_SPAWNED" = true ]; then
         : # Already spawned in --once mode
       elif [ "$disk_ok" = true ]; then

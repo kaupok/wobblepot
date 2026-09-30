@@ -1039,7 +1039,7 @@ checkout_behind_notice() {
   printf '%s' "$1" | jq -r '
     .checkout // empty
     | select((.behind_scripts // 0) > 0)
-    | "Checkout is \(.behind) commit(s) behind origin/main (\(.origin_main)), \(.behind_scripts) touching scripts/: pull it, and the orchestrator reloads itself when next idle"
+    | "Checkout is \(.behind) commit(s) behind origin/main (\(.origin_main)), \(.behind_scripts) touching scripts/: pull it, and the orchestrator reloads itself once its running workers finish"
   ' 2>/dev/null || true
 }
 

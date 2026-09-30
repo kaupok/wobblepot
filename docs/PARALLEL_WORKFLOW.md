@@ -41,9 +41,10 @@ wt stop
 │  5. Spawn wt auto worker               │
 │  6. Sleep, repeat                       │
 │                                         │
-│  When idle (no workers): reload if the  │
-│  scripts changed on disk; every 10 min, │
-│  warn if the checkout is behind main    │
+│  If committed main changed on disk:     │
+│  stop claiming, reload once idle        │
+│  Every 10 min: warn if the checkout is  │
+│  behind origin/main under scripts/      │
 └─────────────────────────────────────────┘
 ```
 
@@ -217,12 +218,17 @@ The poll loop sleeps via `interruptible_sleep` (a backgrounded `sleep` plus `wai
 
 ### Updating the orchestrator
 
-A merged orchestrator change takes effect once the main checkout the orchestrator runs from has been pulled and the orchestrator is next idle. It does not need a restart (HON-861).
+A merged orchestrator change takes effect once the main checkout the orchestrator runs from has been pulled and its running workers have finished. It does not need a restart (HON-861).
 
-- **Reload.** On every poll with no worker running, the orchestrator compares a checksum of `scripts/orchestrator.sh` (and of any file it sources, listed in `ORCHESTRATOR_CODE_FILES`) with the one it started on. When they differ it logs `INFO Orchestrator code changed on disk (… -> …); reloading in place` and `exec`s the script with its original flags. The PID stays the same, so `orchestrator.pid`, `wt status`, `wt stop` and the console log are unaffected. The circuit breaker (failure count and pause), the gated and cap-cooldown suppressions, the run's start time and the last behind-`origin/main` WARN are handed to the new image, so a reload changes code, not state. It never happens while a worker runs, because per-worker bookkeeping lives only in memory, and `--once` runs never reload. A change that fails `bash -n` is not loaded: the orchestrator logs one `WARN … fails bash -n` for that version and keeps running the old code. After a reload, an environment check that fails (typically a Linear blip) is retried every poll interval rather than ending the process.
-- **Behind `origin/main`.** Nothing pulls the checkout for you: it is also your working directory. At most every 10 minutes, again only while idle, the orchestrator runs `git fetch origin main` in the main checkout and counts the `origin/main` commits under `scripts/` that the checkout lacks. When there are any, it logs one `WARN Checkout is behind origin/main …` per new `origin/main` SHA. It also records the counts in `orchestrator-status.json`, which `wt status` prints and `wt watch` shows on its `⚠` line whenever no operational alert needs that line. `worktree-claude.sh` runs from the same checkout, so until you pull, the workers the orchestrator spawns also run the old code.
+- **Reload.** Every poll, the orchestrator compares a checksum of `scripts/orchestrator.sh` (and of any file it sources, listed in `ORCHESTRATOR_CODE_FILES`) with the one it started on. It only acts on a change that is committed on `main`: tracked, unmodified and checked out on `main`. The main checkout is also your working copy, so a half-finished edit or another branch checked out there never goes live unattended. It logs one `INFO … is not committed on main; not reloading it` instead, and keeps claiming.
+- **Drain, then exec.** A committed change that passes `bash -n` is loaded in two steps:
+  1. While workers are running, it logs `INFO … claiming nothing new until N running worker(s) finish, then reloading` and stops claiming. Per-worker bookkeeping lives only in memory, and the loop refills a freed slot in the same poll, so without the pause a busy queue would never let it go idle.
+  2. On the first poll with no worker, it logs `INFO Orchestrator code changed on disk (… -> …); reloading in place` and `exec`s the script with its original flags. The PID stays the same, so `orchestrator.pid`, `wt status`, `wt stop` and the console log are unaffected.
+- **State carries over.** The circuit breaker (failure count and pause), the gated and cap-cooldown suppressions, the run's start time and the last behind-`origin/main` WARN are handed to the new image, so a reload changes code, not state. After a reload, an environment check that fails (typically a Linear blip) is retried every poll interval rather than ending the process.
+- **What never reloads.** A change that fails `bash -n` is not loaded: the orchestrator logs one `WARN … fails bash -n` for that version and keeps running (and claiming) on the old code. `--once` runs never reload.
+- **Behind `origin/main`.** Nothing pulls the checkout for you, because it is also your working directory. At most every 10 minutes, whether or not workers are running, the orchestrator fetches `origin/main` into a ref of its own, `refs/orchestrator/origin-main`. It never updates `origin/main` itself, which the workers fetch into the same `.git`. Every poll it counts the commits under `scripts/` that the checkout lacks. When there are any, it logs one `WARN Checkout is behind origin/main …` per new `origin/main` SHA and records the counts in `orchestrator-status.json`. `wt status` prints them, and `wt watch` shows them on its `⚠` line whenever no operational alert needs that line. Because the counts are recomputed every poll, the notice clears on the next poll after you pull. `worktree-claude.sh` runs from the same checkout, so until you pull, the workers the orchestrator spawns also run the old code.
 
-So after an orchestrator PR merges, `git pull` in the main checkout is the whole procedure.
+So after an orchestrator PR merges, `git pull` on `main` in the main checkout is the whole procedure.
 
 ### Design: Dumb Dispatcher, Smart Workers
 
