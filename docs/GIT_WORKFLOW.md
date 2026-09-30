@@ -1,13 +1,13 @@
 # Git Workflow Guide
 
-Detailed git workflow procedures and troubleshooting for the Wobblepot project.
+The branch model, recovery procedures, and what enforces the rules. The steps for committing, opening and merging a PR live in the skills, not here.
 
 ## Table of Contents
 
 - [Branch Naming Convention](#branch-naming-convention)
-- [Complete Workflow Steps](#complete-workflow-steps)
+- [Committing, Opening and Merging a PR](#committing-opening-and-merging-a-pr)
 - [Recovery Procedures](#recovery-procedures)
-- [Automated Branch Protection](#automated-branch-protection)
+- [What Enforces What](#what-enforces-what)
 
 ## Branch Naming Convention
 
@@ -34,120 +34,33 @@ For the manual `<type>/<slug>` scheme, use these prefixes:
 
 **Never use the `auto-` or `auto/` prefix for a git branch.** It's reserved for the ephemeral Neon
 database branches created by the parallel workflow, which are garbage-collected by prefix match —
-see [PARALLEL_WORKFLOW.md](PARALLEL_WORKFLOW.md).
+see [PARALLEL_WORKFLOW.md](PARALLEL_WORKFLOW.md). The collectors also reclaim any Neon branch named
+`<prefix>--hon-<N>[-slug]` (`NEON_ISSUE_BRANCH_REGEX` in `scripts/worktree-claude.sh`,
+`SAFE_BRANCH_REGEX` in `scripts/neon-cleanup.sh`) and orphaned `preview/*` branches, so a hand-made
+Neon branch in either shape can be deleted from under you.
 
-## Complete Workflow Steps
+## Committing, Opening and Merging a PR
 
-### BEFORE making any code changes
+Use the skills: `/commit` to commit, `/create-pr` (or `/commit --pr`) to push and open the PR, and `/merge` to squash-merge it. Their steps are in [`.claude/skills/commit/SKILL.md`](../.claude/skills/commit/SKILL.md), [`.claude/skills/create-pr/SKILL.md`](../.claude/skills/create-pr/SKILL.md) and [`.claude/skills/merge/SKILL.md`](../.claude/skills/merge/SKILL.md). `/create-pr` also triggers the automatic PR review; the full sequence is in CLAUDE.md → Skill Workflow.
 
-1. **Check current branch:**
+What the skills do not say:
 
-   ```bash
-   git branch --show-current
-   ```
+- **Keep the PR description current.** When later commits add a feature or fix, change the approach, expand the scope, or rename files, update the body with `gh pr edit --body …`. The squash-merge makes the PR title and body the lasting record on `main`. Addressing review comments within the original scope, or minor refactors, need no update.
 
-   - If on `main`: CREATE A FEATURE BRANCH FIRST (step 2)
-   - If on a feature branch: You're good to proceed
+### Pre-Commit Checklist
 
-2. **Create and switch to feature branch:**
+`/commit` runs the lint, type and test checks for you; it does not run the migration check.
 
-   ```bash
-   git checkout -b feat/your-feature-name
-   ```
-
-3. **Verify you're on the correct branch:**
-   ```bash
-   git branch --show-current  # Should show your feature branch, NOT main
-   ```
-
-### AFTER making code changes
-
-4. **Stage changes:**
-
-   ```bash
-   git add -A
-   git status  # Review what will be committed
-   ```
-
-5. **Run tests to ensure nothing is broken:**
-
-   ```bash
-   pnpm lint          # Check for linting errors
-   pnpm type-check    # Verify TypeScript types
-   pnpm test          # Run unit tests
-   ```
-
-   - Fix any failures before proceeding
-   - If tests fail, fix the issues and re-stage changes
-   - **Note:** These same checks run in CI when you create a PR. Running them locally first helps you catch issues early and speeds up the review process.
-   - **Migrations are immutable once they are on `main`.** CI fails any PR that edits, deletes, or renames a `prisma/migrations/**/migration.sql` that already exists on `main` — fix forward with a new migration instead. Every push to `main` also checks the whole tree against the bytes each migration was first merged with, so an edit that gets merged past a red or cancelled PR check turns `main` red and keeps it red until it is reverted (recover by reverting; a post-merge edit is only kept through a pin in `scripts/migration-immutability-allowlist.txt` — see CLAUDE.md). Run the same check locally with `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main` — it reads your working tree, so it catches the edit at this step, and the fetch keeps a stale `origin/main` from hiding a migration that landed since (see CLAUDE.md → Database Patterns).
-
-6. **Verify branch AGAIN before committing:**
-
-   ```bash
-   git branch --show-current  # MUST NOT be 'main'
-   ```
-
-7. **Create commit:**
-
-   ```bash
-   git commit -m "$(cat <<'EOF'
-   type(scope): Brief description
-
-   Detailed description of changes...
-
-   Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
-   Claude-Session: <session URL from the harness instructions, if provided>
-   EOF
-   )"
-   ```
-
-   Use the trailers given in the harness/system instructions when they differ from the above.
-
-8. **Push to remote:**
-
-   ```bash
-   git push -u origin feat/your-feature-name
-   ```
-
-9. **Create pull request:**
-
-   **IMPORTANT:** PR title must follow Conventional Commits format (same as commit messages). Since we use squash-merge, the PR title becomes the final commit message in `main`.
-
-   **Format:** `<type>(<scope>): <subject>`
-
-   **Example titles:**
-   - `feat(auth): Add password reset functionality`
-   - `fix(ui): Resolve mobile header alignment`
-   - `docs(git): Add branch workflow guardrails`
-
-   ```bash
-   gh pr create --title "feat(auth): Add password reset functionality" --body "$(cat <<'EOF'
-   ## Context
-   [2-3 sentences explaining why these changes were made]
-
-   ## Summary
-   - [What changed]
-
-   ## Test plan
-   - [ ] [How to verify]
-
-   🤖 Generated with [Claude Code](https://claude.com/claude-code)
-   EOF
-   )"
-   ```
-
-   **Context section guidance:**
-   - Primary source: Linear issue description (the "why" behind the request)
-   - Supplement with: Design decisions, key tradeoffs, or implementation rationale
-   - Keep it brief: 2-3 sentences max
-   - If no Linear issue, explain the motivation from the task/conversation
+- [ ] On a feature branch, not `main`
+- [ ] `pnpm lint && pnpm type-check && pnpm test` pass
+- [ ] If you touched `prisma/migrations/`, run the immutability check after staging and before `git commit`: `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. It reads the working tree, so it catches a staged edit to an applied migration; the fetch keeps a stale `origin/main` from hiding one that landed since. Rules and recovery are in CLAUDE.md → Database Patterns.
+- [ ] Commit message and planned PR title follow Conventional Commits
 
 ## Recovery Procedures
 
 ### If You Accidentally Commit to Main
 
-**DO NOT PANIC.** Fix it with these steps:
+The Husky pre-commit hook normally refuses this (see [What Enforces What](#what-enforces-what)), so it only happens when the hook did not run. Move the commit to a branch:
 
 1. **Create feature branch from current state:**
 
@@ -173,11 +86,7 @@ see [PARALLEL_WORKFLOW.md](PARALLEL_WORKFLOW.md).
    git log -1 --oneline  # Should show your commit
    ```
 
-5. **Push feature branch and create PR:**
-   ```bash
-   git push -u origin feat/your-feature-name
-   gh pr create ...
-   ```
+5. **Open the PR with `/create-pr`.** It pushes the branch. (`/commit --pr` stops when there is nothing left to commit.)
 
 ### If Your Clone Still Points at `kaupok/honkadori`
 
@@ -190,84 +99,32 @@ git remote -v  # Should show kaupok/wobblepot for both fetch and push
 
 Worktrees share the main checkout's remote configuration, so running this once there covers every worktree, new or existing. Only separate clones need it individually.
 
-### Pre-Commit Checklist
+## What Enforces What
 
-Before running `git commit`, verify:
+Three layers, from the commit outwards. If one of them blocks you, fix the cause; do not look for a way around it.
 
-- [ ] Currently on a feature branch (NOT `main`)
-- [ ] Changes are staged (`git status`)
-- [ ] All tests pass (`pnpm lint && pnpm type-check && pnpm test`)
-- [ ] Commit message follows Conventional Commits format
-- [ ] PR title planned (must also follow Conventional Commits format)
-- [ ] Ready to push and create PR
+**1. Husky pre-commit hook** (`.husky/pre-commit`, installed by `pnpm install`). On every `git commit` it:
 
-## Automated Branch Protection
+- refuses a commit on `main`;
+- runs `pnpm type-check`;
+- runs lint-staged: ESLint `--fix` and Prettier on staged `*.{ts,tsx,js,jsx}`, Prettier on staged `*.{css,md,mdx,json,mjs,cjs,mts}`.
 
-We use a git pre-commit hook to automatically prevent commits to `main`. This hook is **already installed** in this project.
+Tests are left to CI. If the hook does not run, run `pnpm install` and check that `git config core.hooksPath` prints `.husky/_`.
 
-**What it does:**
+**2. Claude Code `PreToolUse` hook** (`.claude/hooks/block-destructive.sh`, registered in `.claude/settings.json`, logic in `block-destructive.mts`, tests in `scripts/block-destructive-hook.test.ts`). It inspects every Bash command an agent runs, including headless workers started with `--dangerously-skip-permissions`, and blocks:
 
-- Blocks any commits to the main branch
-- Displays helpful error message with instructions
-- Reminds you to create a feature branch
+- destructive database commands (`migrate reset`, `db push --force-reset`, `DROP`, `TRUNCATE`, …);
+- any `git push` to `main`, and any force push;
+- `gh pr merge` without the inline `WOBBLEPOT_ALLOW_MERGE=1` prefix, which `/merge` and `/auto-implement` add.
 
-**For new team members or after fresh clone:**
+It matches what would execute, so a `grep` or a commit message that mentions one of these commands passes. It applies to agents only; a human at a terminal is not checked.
 
-Git hooks install automatically when you run `pnpm install` (via Husky).
+**3. GitHub branch protection on `main`**, as `gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/branches/main/protection"` reports it (checked 2026-10-01):
 
-The pre-commit hook:
+- A pull request is required, with 0 approving reviews, so a solo or unattended merge works.
+- **No status checks are required.** A red CI check marks the PR unstable but does not stop `gh pr merge`; the merging human or agent is what reads the checks. HON-584 will add required checks, and this section should then name them.
+- Force pushes and deletion of `main` are blocked.
+- `enforce_admins` is off, so a repository admin can bypass these rules.
+- Linear history, signed commits and conversation resolution are not required.
 
-- Prevents commits to main branch
-- Runs type-check on all TypeScript files
-- Runs ESLint + Prettier on staged files (via lint-staged)
-
-If hooks aren't working, run `pnpm install` and check that `git config core.hooksPath` prints `.husky/_`. The hook itself is the tracked file `.husky/pre-commit`.
-
-**Bypassing the hook** (not recommended):
-
-If you absolutely must commit to main:
-
-```bash
-git commit --no-verify
-```
-
-## Pull Request Workflow
-
-### Updating PR Descriptions
-
-When pushing additional commits to an existing PR, always check if the PR description needs updating:
-
-```bash
-# Check current PR description
-gh pr view --json title,body
-
-# Review what changed in new commits
-git log origin/main..HEAD --oneline
-```
-
-**Update the description if:**
-
-- New features or fixes were added
-- Implementation approach changed significantly
-- Test plan needs updating
-- Breaking changes were introduced
-- File renames or structural changes occurred
-- Scope of the PR expanded or changed
-
-**Update using:**
-
-```bash
-gh pr edit --body "$(cat <<'EOF'
-Updated description here...
-EOF
-)"
-```
-
-**When NOT to update:**
-
-- Minor refactoring with same outcome
-- Fixing typos or formatting
-- Addressing review comments without changing scope
-- Small bug fixes within the original scope
-
-Keeping PR descriptions current helps reviewers understand the full context and ensures accurate documentation in git history (especially important for squash-merge).
+Re-run the command above before relying on this list; it changes in the repository settings, not in this file.
