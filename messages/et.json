@@ -467,12 +467,12 @@
         "createFailed": "Retsepti loomine ebaõnnestus",
         "updateFailed": "Retsepti uuendamine ebaõnnestus",
         "duplicateIngredients": "Iga koostisosa saab kasutada ainult üks kord. Eemalda või ühenda korduvad read",
+        "ingredientsMissing": "Üks selle retsepti koostisosa ei ole enam olemas. Eemalda see ja lisa uuesti",
         "tooManyIngredients": "Retseptil saab olla kuni {max} koostisosa",
         "noIngredients": "Lisa vähemalt üks koostisosa",
         "invalidQuantity": "Kogus peab olema suurem kui 0: {names}{more, plural, =0 {} other { +# veel}}",
         "unmatchedIngredients": "Sobita või eemalda sobitamata koostisosad: {names}{more, plural, =0 {} other { +# veel}}",
-        "unverifiedIngredients": "Kontrolli sobitusi enne salvestamist: {names}{more, plural, =0 {} other { +# veel}}",
-        "generic": "Tekkis viga"
+        "unverifiedIngredients": "Kontrolli sobitusi enne salvestamist: {names}{more, plural, =0 {} other { +# veel}}"
       },
       "discardDialog": {
         "title": "Loobu imporditud retseptist?",

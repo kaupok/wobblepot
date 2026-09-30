@@ -224,37 +224,89 @@ describe('useMealForm', () => {
       expect(onSuccess).toHaveBeenCalled()
     })
 
-    it("surfaces the server's error message and does not call onSuccess", async () => {
-      fetchMock.mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ error: 'Name already taken' }),
+    describe('save failures', () => {
+      // The routes' `error` prose is English; the form must render catalog
+      // copy and only log the server string (HON-844). Every mocked `error`
+      // here differs from the catalog so a pass-through would fail the test.
+      const SERVER_PROSE = 'server prose that must not render'
+      let consoleError: ReturnType<typeof vi.spyOn>
+
+      beforeEach(() => {
+        consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
       })
-      const { result, onSuccess } = renderForm(validMeal)
 
-      await submit(result)
+      afterEach(() => {
+        consoleError.mockRestore()
+      })
 
-      expect(result.current.error).toBe('Name already taken')
-      expect(onSuccess).not.toHaveBeenCalled()
-      expect(result.current.isSubmitting).toBe(false)
-    })
+      function failWith(status: number, body: Record<string, unknown> = {}) {
+        fetchMock.mockResolvedValueOnce({
+          ok: false,
+          status,
+          json: async () => ({ error: SERVER_PROSE, ...body }),
+        })
+      }
 
-    it('falls back to a generic message when the response carries no error', async () => {
-      fetchMock.mockResolvedValueOnce({ ok: false, json: async () => ({}) })
-      const { result } = renderForm(validMeal)
+      it.each([
+        ['a 500 on create', 500, {}, validMeal, 'Failed to create recipe'],
+        ['a 500 on update', 500, {}, { ...validMeal, id: 'meal-42' }, 'Failed to update recipe'],
+        ['a 404 on update', 404, {}, { ...validMeal, id: 'meal-42' }, 'Recipe not found'],
+        ['a 404 on create', 404, {}, validMeal, 'Failed to create recipe'],
+        [
+          'a 400 with duplicateIds',
+          400,
+          { duplicateIds: ['tomato'] },
+          validMeal,
+          'Each ingredient can only be used once. Remove or merge the repeated rows',
+        ],
+        [
+          'a 400 with missingIds',
+          400,
+          { missingIds: ['tomato'] },
+          { ...validMeal, id: 'meal-42' },
+          'An ingredient in this recipe no longer exists. Remove it and add it again',
+        ],
+        ['any other 400', 400, { details: [] }, validMeal, 'Failed to create recipe'],
+        ['a 401', 401, {}, { ...validMeal, id: 'meal-42' }, 'Failed to update recipe'],
+      ] as const)('renders catalog copy for %s', async (_label, status, body, meal, expected) => {
+        failWith(status, body)
+        const { result, onSuccess } = renderForm(meal)
 
-      await submit(result)
+        await submit(result)
 
-      expect(result.current.error).toBe('Failed to create recipe')
-    })
+        expect(result.current.error).toBe(expected)
+        expect(result.current.error).not.toContain(SERVER_PROSE)
+        expect(onSuccess).not.toHaveBeenCalled()
+        expect(consoleError).toHaveBeenCalledWith('[meal-form] save failed', {
+          status,
+          error: SERVER_PROSE,
+        })
+      })
 
-    it('clears the submitting flag when fetch itself rejects', async () => {
-      fetchMock.mockRejectedValueOnce(new Error('Network down'))
-      const { result } = renderForm(validMeal)
+      it('renders the failed copy when the response carries no error', async () => {
+        fetchMock.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) })
+        const { result, onSuccess } = renderForm(validMeal)
 
-      await submit(result)
+        await submit(result)
 
-      expect(result.current.error).toBe('Network down')
-      expect(result.current.isSubmitting).toBe(false)
+        expect(result.current.error).toBe('Failed to create recipe')
+        expect(onSuccess).not.toHaveBeenCalled()
+      })
+
+      it('renders the failed copy, not the browser message, when fetch itself rejects', async () => {
+        const networkError = new Error('Network down')
+        fetchMock.mockRejectedValueOnce(networkError)
+        const { result, onSuccess } = renderForm(validMeal)
+
+        await submit(result)
+
+        expect(result.current.error).toBe('Failed to create recipe')
+        expect(result.current.isSubmitting).toBe(false)
+        expect(onSuccess).not.toHaveBeenCalled()
+        expect(consoleError).toHaveBeenCalledWith('[meal-form] save failed', {
+          error: networkError,
+        })
+      })
     })
   })
 
