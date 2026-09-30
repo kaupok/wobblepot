@@ -20,6 +20,8 @@ Every procedure below respects that rule. Specifically, on staging and productio
 - `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, or any `DELETE` without a `WHERE` clause
 - Any migration whose net effect destroys data that is not already backed up on a recovery branch
 
+The one exception is [playbook 5](#5-migration-failed-to-apply-or-applied-halfway), step 6: dropping an object that a failed migration itself created and that holds nothing except what that migration put there. The re-run cannot succeed while the object exists. Ask the user first, as for any destructive command.
+
 If a recovery step seems to require one of the above, stop and re-read this runbook — there is always a non-destructive path.
 
 ## Plan baseline: Neon Free (24-hour PITR)
