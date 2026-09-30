@@ -111,7 +111,7 @@ export function EditMemberPreferencesDialog({
 
     const payload: Record<string, unknown> = {
       preferences: {
-        displayName: displayName || null,
+        displayName: displayName.trim() || null,
         portionMultiplier,
       },
     }
@@ -169,17 +169,10 @@ export function EditMemberPreferencesDialog({
 
             {/* Display name */}
             <div className="flex flex-col gap-2">
-              {/* Optional only for linked members: the PATCH route rejects an
-                  empty display name for a manual member, who has no user name
-                  to fall back on. `required` lets the browser say so before the
-                  request does. */}
-              <Label htmlFor="displayName">
-                {isManualMember ? t('displayNameLabel') : t('displayNameOptionalLabel')}
-              </Label>
+              <Label htmlFor="displayName">{t('displayNameOptionalLabel')}</Label>
               <Input
                 id="displayName"
                 type="text"
-                required={isManualMember}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={50}

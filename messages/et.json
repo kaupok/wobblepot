@@ -965,7 +965,6 @@
       "description": "Uuenda selle liikme portsjoni suurust.",
       "nameLabel": "Nimi",
       "namePlaceholder": "Sisesta nimi",
-      "displayNameLabel": "Hüüdnimi",
       "displayNameOptionalLabel": "Hüüdnimi (vabatahtlik)",
       "displayNamePlaceholder": "nt Ema, Isa, Aleks",
       "displayNameHelper": "Kuidas seda liiget leibkonnas kuvada",

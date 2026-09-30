@@ -442,7 +442,7 @@ describe('PATCH /api/households/me/members/[id]', () => {
     expect(data.preferences.allergens).toEqual(['dairy'])
   })
 
-  it('returns 400 when manual member tries to clear display name', async () => {
+  it('lets a manual member clear their display name, falling back to name', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
@@ -465,10 +465,37 @@ describe('PATCH /api/households/me/members/[id]', () => {
       role: 'member',
     } as never)
 
+    const upsert = vi.fn().mockResolvedValue({})
+    mockTransaction.mockImplementation(async (fn) => {
+      const tx = {
+        householdMember: {
+          update: vi.fn().mockResolvedValue({}),
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'member-manual',
+            householdId: 'household-123',
+            userId: null,
+            name: 'Child Name',
+            role: 'member',
+            joinedAt: new Date(),
+            user: null,
+            preferences: {
+              displayName: null,
+              portionMultiplier: 0.5,
+              dietaryType: null,
+              allergens: [],
+              restrictions: [],
+            },
+          }),
+        },
+        memberPreferences: { upsert },
+      }
+      return fn(tx as never)
+    })
+
     const request = new Request('http://localhost', {
       method: 'PATCH',
       body: JSON.stringify({
-        preferences: { displayName: '' }, // Empty string converts to null
+        preferences: { displayName: '   ', portionMultiplier: 0.5 }, // Blank converts to null
       }),
     })
 
@@ -477,8 +504,15 @@ describe('PATCH /api/households/me/members/[id]', () => {
     })
     const data = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Display name is required for manual members')
+    expect(response.status).toBe(200)
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ displayName: null, portionMultiplier: 0.5 }),
+        update: expect.objectContaining({ displayName: null, portionMultiplier: 0.5 }),
+      }),
+    )
+    expect(data.name).toBe('Child Name')
+    expect(data.preferences.displayName).toBeNull()
   })
 
   it('returns 500 with the { error } JSON shape when the transaction throws', async () => {
