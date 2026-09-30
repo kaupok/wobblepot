@@ -12,8 +12,8 @@ import { captureApiError } from '@/lib/errors'
  * is what actually keeps one user out of two households (HON-696); this
  * check is what turns the common case into a clean 400 before any write, and
  * a loser the index rejects instead (`P2002`) is mapped to the same 400 in the
- * catch below. See `runHouseholdClaim` for why the check still runs at
- * `Serializable`.
+ * catch below. See `runHouseholdClaim` for the per-user lock that makes the
+ * check race-free.
  *
  * Thrown rather than returned because the check runs inside the same
  * transaction that claims the member row — throwing is the only way to roll
@@ -131,10 +131,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
 
     // Claim the existing member profile instead of creating a new one. The
     // "already in a household" check runs on `tx`, and `runHouseholdClaim`
-    // runs that transaction at `Serializable`, so two concurrent joins with
-    // different valid codes cannot both observe "no membership" and both
-    // commit (HON-679). The unique index on `"userId"` backs that up
-    // unconditionally (HON-696).
+    // holds this user's row lock for the whole transaction, so two concurrent
+    // joins with different valid codes cannot both observe "no membership" and
+    // both commit (HON-679, HON-838). The unique index on `"userId"` backs that
+    // up unconditionally (HON-696).
     const claimMembership = async (tx: Prisma.TransactionClient) => {
       const existingMembership = await tx.householdMember.findFirst({
         where: { userId },
@@ -173,7 +173,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       }
     }
 
-    await runHouseholdClaim(claimMembership)
+    await runHouseholdClaim(userId, claimMembership)
 
     return NextResponse.json({
       success: true,

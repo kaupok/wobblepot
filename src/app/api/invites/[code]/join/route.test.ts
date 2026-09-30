@@ -35,8 +35,8 @@ vi.mock('@/lib/errors', () => ({
 }))
 
 // Not mocked away: the route must be seen to delegate its transaction to the
-// helper, because that is what pins the isolation level. `household-claim`'s
-// own test owns the Serializable / retry assertions. `isMembershipConflict`
+// helper, because that is what takes the per-user lock. `household-claim`'s
+// own test owns the lock / retry assertions. `isMembershipConflict`
 // stays real, so the P2002 test below exercises the actual classification.
 vi.mock('@/lib/household-claim', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/household-claim')>()),
@@ -95,7 +95,7 @@ describe('POST /api/invites/[code]/join', () => {
     tx.householdInvite.deleteMany.mockResolvedValue({ count: 1 })
     // The route uses the interactive form, so the mock has to run the callback
     // rather than resolve an array.
-    mockRunHouseholdClaim.mockImplementation((callback: unknown) =>
+    mockRunHouseholdClaim.mockImplementation((_userId: unknown, callback: unknown) =>
       (callback as (client: typeof tx) => Promise<unknown>)(tx),
     )
   })
@@ -175,12 +175,13 @@ describe('POST /api/invites/[code]/join', () => {
 
     await POST(createRequest(), { params: createParams('abc123') })
 
-    // The isolation level is the whole fix, and it lives in the helper — a
-    // route that opened its own `$transaction` would silently run at read
-    // committed, where this check takes no lock and the race is wide open
-    // (HON-679). See household-claim.test.ts for the Serializable/retry
-    // assertions themselves.
+    // The per-user lock is the whole fix, and it lives in the helper — a
+    // route that opened its own `$transaction` would run the check with no
+    // lock, where the race is wide open (HON-679). The lock must be the
+    // joining user's, the one this claim writes a membership for (HON-838).
+    // See household-claim.test.ts for the lock/retry assertions themselves.
     expect(mockRunHouseholdClaim).toHaveBeenCalledTimes(1)
+    expect(mockRunHouseholdClaim).toHaveBeenCalledWith(SESSION.user.id, expect.any(Function))
     expect(mockPrismaTransaction).not.toHaveBeenCalled()
   })
 
