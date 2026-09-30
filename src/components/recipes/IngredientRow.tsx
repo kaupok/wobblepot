@@ -156,52 +156,55 @@ export function IngredientRow({
   const isDuplicate = duplicateIndices && duplicateIndices.length > 0
 
   return (
-    <div className="border-success/30 flex items-center gap-3 rounded-md border p-3">
-      <Check className="text-success h-4 w-4 shrink-0" />
-      <div className="flex-1">
-        <Body>{data.ingredient.name}</Body>
-        <Body variant="muted">
-          {data.isVague && data.originalPhrase ? (
-            <span className="italic">{data.originalPhrase}</span>
-          ) : isInvalidQuantity ? (
-            <span className="text-destructive">{t('invalidQuantity')}</span>
-          ) : (
-            t('perServing', { quantity: perServing, unit: unitLabel })
+    <div className="border-success/30 flex items-start gap-3 rounded-md border p-3 sm:items-center">
+      <Check className="text-success mt-0.5 h-4 w-4 shrink-0 sm:mt-0" />
+      {/* Below `sm` the controls stack under the text so the name keeps the row's width */}
+      <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="sm:flex-1">
+          <Body>{data.ingredient.name}</Body>
+          <Body variant="muted">
+            {data.isVague && data.originalPhrase ? (
+              <span className="italic">{data.originalPhrase}</span>
+            ) : isInvalidQuantity ? (
+              <span className="text-destructive">{t('invalidQuantity')}</span>
+            ) : (
+              t('perServing', { quantity: perServing, unit: unitLabel })
+            )}
+          </Body>
+          {isDuplicate && (
+            <div className="mt-1 flex items-center gap-1.5">
+              <Info className="text-warning size-3.5 shrink-0" />
+              <Body variant="paragraph" tone="warning">
+                {t('duplicateRow', {
+                  count: duplicateIndices.length,
+                  rows: duplicateIndices.map((i) => i + 1).join(', '),
+                })}
+              </Body>
+            </div>
           )}
-        </Body>
-        {isDuplicate && (
-          <div className="mt-1 flex items-center gap-1.5">
-            <Info className="text-warning size-3.5 shrink-0" />
-            <Body variant="paragraph" tone="warning">
-              {t('duplicateRow', {
-                count: duplicateIndices.length,
-                rows: duplicateIndices.map((i) => i + 1).join(', '),
-              })}
-            </Body>
-          </div>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <QuantityControls
-          totalQuantity={data.totalQuantity}
-          unitLabel={unitLabel}
-          isVague={!!data.isVague}
-          isInvalidQuantity={isInvalidQuantity}
-          disabled={disabled}
-          onQuantityChange={handleQuantityChange}
-          onSetQuantity={handleSetQuantity}
-          onMarkAsVague={handleMarkAsVague}
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onRemove}
-          disabled={disabled}
-          aria-label={t('removeAria')}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <QuantityControls
+            totalQuantity={data.totalQuantity}
+            unitLabel={unitLabel}
+            isVague={!!data.isVague}
+            isInvalidQuantity={isInvalidQuantity}
+            disabled={disabled}
+            onQuantityChange={handleQuantityChange}
+            onSetQuantity={handleSetQuantity}
+            onMarkAsVague={handleMarkAsVague}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            disabled={disabled}
+            aria-label={t('removeAria')}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   )

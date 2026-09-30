@@ -46,8 +46,12 @@ export function ComponentList({
         const isDuplicate = duplicateIndices && duplicateIndices.length > 1
         const otherIndices = isDuplicate ? duplicateIndices.filter((i) => i !== index) : []
         return (
-          <div key={index} className="flex items-center gap-3 rounded-md border p-3">
-            <div className="flex-1">
+          // Below `sm` the controls stack under the text so the name keeps the row's width
+          <div
+            key={index}
+            className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center"
+          >
+            <div className="sm:flex-1">
               <Body>{comp.ingredient.name}</Body>
               <Body variant="muted">
                 {comp.isVague && comp.originalPhrase ? (
