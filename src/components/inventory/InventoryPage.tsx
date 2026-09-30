@@ -111,7 +111,7 @@ export function InventoryPage({
   // their own titles, `gap-8` apart so the seam reads as two sections rather
   // than one grid.
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       {/* The page's one h1, for the outline only: the columns carry the visible
           titles (HON-815). Both routes share the desktop nav label, since from
           `md` up both show both columns; on a phone the hidden column is

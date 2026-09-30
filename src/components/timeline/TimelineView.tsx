@@ -217,7 +217,7 @@ export function TimelineView({
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       {/* A workspace page titles its sections, not the page, so the page's one
           h1 is for the outline only (docs/DESIGN.md → Composition rules). Not
           "Today": the first day card is already headed that (HON-815). */}

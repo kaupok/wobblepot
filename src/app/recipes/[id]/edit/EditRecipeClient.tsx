@@ -71,7 +71,7 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
   if (error || !meal) {
     const isNotFound = error instanceof ApiError && error.status === 404
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="w-full px-4 py-8">
         <div className="flex max-w-2xl flex-col items-start gap-4">
           <Body variant="muted">{isNotFound ? t('mealNotFound') : t('loadFailed')}</Body>
           <Button asChild variant="outline">
@@ -83,7 +83,7 @@ export function EditRecipeClient({ mealId }: EditRecipeClientProps) {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       {/* A form page: a narrow column, top-aligned, no page-level Card (HON-779). */}
       <div className="max-w-2xl">
         <MealForm meal={meal} onSuccess={handleSuccess} onCancel={handleCancel} />

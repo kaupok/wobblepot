@@ -5,7 +5,7 @@ import { BackToRecipesLinkSkeleton } from '@/components/recipes/BackToRecipesLin
 // grid needs the width), top-aligned, no bordered wrapper (HON-779).
 export default function ImagineRecipeLoading() {
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       <div className="flex max-w-4xl flex-col gap-6">
         {/* Back arrow and title, then description */}
         <div className="flex flex-col gap-1">

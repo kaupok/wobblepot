@@ -6,7 +6,7 @@ import { ShoppingItemSkeleton } from '@/components/shopping/ShoppingItemSkeleton
 
 export default function ShoppingLoading() {
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       <div className="grid gap-8 md:grid-cols-2">
         {/* Pantry section — the left column from `md`; a phone on `/shopping`
             sees only the list, as `InventoryPage` renders it (HON-776). */}

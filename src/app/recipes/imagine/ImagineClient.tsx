@@ -233,7 +233,7 @@ export function ImagineClient() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       {/* Top-aligned, no page-level Card (HON-779). The column is `max-w-4xl`
           rather than a form's `max-w-2xl` because the results grid needs the
           width; the result cards stay cards, each is the item itself. */}

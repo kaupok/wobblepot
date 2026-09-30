@@ -125,7 +125,7 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
   if (prefilledData === undefined) return <MealFormSkeleton />
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       {/* A form page: a narrow column, top-aligned, no page-level Card (HON-779). */}
       <div className="max-w-2xl">
         <MealForm

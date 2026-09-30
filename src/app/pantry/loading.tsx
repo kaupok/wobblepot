@@ -5,7 +5,7 @@ import { PantryColumnSkeleton, ShoppingColumnSkeleton } from '../shopping/loadin
 
 export default function PantryLoading() {
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       <div className="grid gap-8 md:grid-cols-2">
         {/* Pantry section — all a phone sees on `/pantry` (HON-776). */}
         <div>

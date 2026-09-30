@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 // bordered wrapper (HON-767). Bar heights match each rendered line box.
 export default function ProfileLoading() {
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       <div className="flex max-w-2xl flex-col gap-6">
         {/* Title (h-7, as /household) and description */}
         <div className="flex flex-col gap-1">
