@@ -1,7 +1,17 @@
 // @vitest-environment node
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Task } from './case-schema'
-import { buildReport, compareMetric, perRunValues, renderMarkdown } from './report'
+import {
+  buildReport,
+  compareMetric,
+  perRunValues,
+  renderMarkdown,
+  renderSummary,
+  writeReport,
+} from './report'
 import type { CallRecord, Role, RunResult } from './runner'
 import { TASK_SPECS } from './tasks'
 import type { JudgedPair, JudgeResult } from './judge'
@@ -64,6 +74,11 @@ const report = (calls: CallRecord[], tasks: Task[], partial = false) =>
   })
 
 const recall = TASK_SPECS.recipe.metrics.find((m) => m.key === 'recall')!
+
+// Seeded-error correction drops 30 points with no run-to-run variation, and the
+// metric has no threshold.
+const seededDrop = () =>
+  report(series('review', 'seededCorrected', [0.9, 0.9, 0.9], [0.6, 0.6, 0.6]), ['review'])
 
 describe('perRunValues', () => {
   it('averages each run over its cases and skips null scores', () => {
@@ -174,6 +189,109 @@ describe('buildReport', () => {
   it('does not flag a drop inside the threshold even outside the range', () => {
     const r = report(series('plan', 'firstTryValid', [1, 1, 1], [0.95, 0.95, 0.95]), ['plan'])
     expect(r.regressions).toEqual([])
+  })
+
+  describe('other changes outside noise', () => {
+    it('lists a drop on a metric without a threshold, in the markdown, the JSON and the summary', () => {
+      const r = seededDrop()
+      expect(r.regressions).toEqual([])
+      expect(r.withinNoise).toEqual([])
+      expect(r.otherChanges.map((f) => f.text)).toEqual([
+        '**review · Seeded errors corrected (±25%):** 90.0% → 60.0% (−30.0 pp)',
+      ])
+
+      const md = renderMarkdown(r)
+      const regressions = md.indexOf('## Regressions')
+      const other = md.indexOf('## Other changes outside noise')
+      const noise = md.indexOf('## Within noise')
+      expect(regressions).toBeLessThan(other)
+      expect(other).toBeLessThan(noise)
+      expect(md.slice(other, noise)).toContain('Seeded errors corrected')
+      expect(md.slice(regressions, other)).toContain('None.')
+
+      expect(renderSummary(r)).toContain(
+        '- **review · Seeded errors corrected (±25%):** 90.0% → 60.0% (−30.0 pp)',
+      )
+
+      const outDir = mkdtempSync(join(tmpdir(), 'model-bench-report-'))
+      try {
+        const { jsonPath } = writeReport(outDir, r, result([]))
+        const json = JSON.parse(readFileSync(jsonPath, 'utf8'))
+        expect(json.otherChanges).toEqual([
+          {
+            task: 'review',
+            text: '**review · Seeded errors corrected (±25%):** 90.0% → 60.0% (−30.0 pp)',
+          },
+        ])
+        expect(json).toMatchObject({ regressions: [], withinNoise: [] })
+      } finally {
+        rmSync(outDir, { recursive: true, force: true })
+      }
+    })
+
+    it('lists an improvement too', () => {
+      const r = report(series('tips', 'countsInRange', [0.5, 0.5, 0.5], [1, 1, 1]), ['tips'])
+      expect(r.otherChanges.map((f) => f.text)).toEqual([
+        expect.stringMatching(/tips · Item counts in range.*\(\+50\.0 pp\)/),
+      ])
+      expect(r.regressions).toEqual([])
+    })
+
+    it('lists a noise-flagged difference only under "Within noise"', () => {
+      const r = report(series('review', 'seededCorrected', [0.6, 0.9, 1], [0.7, 0.75, 0.8]), [
+        'review',
+      ])
+      expect(r.withinNoise.map((f) => f.text)).toEqual([
+        expect.stringMatching(/review · Seeded errors corrected/),
+      ])
+      expect(r.otherChanges).toEqual([])
+      expect(renderMarkdown(r)).toMatch(/## Other changes outside noise\n\n.*\n\nNone\./)
+    })
+  })
+
+  it('flags any drop outside noise on the forbidden-ingredient check as a regression', () => {
+    const r = report(series('imagine', 'noForbiddenIngredients', [1, 1, 1], [0.95, 0.95, 0.95]), [
+      'imagine',
+    ])
+    expect(r.regressions.map((f) => f.text)).toEqual([
+      expect.stringMatching(/imagine · No forbidden ingredient.*100\.0% → 95\.0% \(−5\.0 pp\)/),
+    ])
+    expect(r.otherChanges).toEqual([])
+  })
+
+  it('treats float residue between equal constant runs as no change', () => {
+    // A `--max-usd` stop left the candidate with two runs: 0.7 averaged over
+    // three runs and over two differs in the last bit.
+    const r = report(series('imagine', 'noForbiddenIngredients', [0.7, 0.7, 0.7], [0.7, 0.7]), [
+      'imagine',
+    ])
+    expect(r.tasks[0]!.metrics.find((m) => m.metric.key === 'noForbiddenIngredients')!.delta).toBe(
+      0,
+    )
+    expect([...r.regressions, ...r.otherChanges, ...r.withinNoise]).toEqual([])
+  })
+
+  it('echoes everything above the first per-task table, the Judge section included', () => {
+    const r = seededDrop()
+    const summary = renderSummary(r)
+    expect(summary).toMatch(/^# Model benchmark/)
+    expect(summary).toContain('## Within noise')
+    expect(summary).not.toContain('## review')
+    expect(summary).not.toContain('**Total cost:**')
+
+    const withJudge = renderSummary({
+      ...r,
+      judge: {
+        model: 'claude-opus-5-5',
+        tasks: [],
+        partial: false,
+        judgedPairs: 0,
+        plannedPairs: 0,
+        calls: 0,
+      },
+    })
+    expect(withJudge).toContain('## Judge')
+    expect(withJudge).not.toContain('## review')
   })
 
   it('flags candidate max latency above 80% of the route budget, whatever the baseline did', () => {

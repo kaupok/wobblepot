@@ -10,7 +10,10 @@
  * no larger than the wider of the two models' ranges. Noise beats thresholds:
  * a noise-flagged difference is listed under "Within noise", never under
  * "Regressions". The latency rule is the exception — it compares the
- * candidate's max against the route budget, not against the baseline.
+ * candidate's max against the route budget, not against the baseline. A
+ * difference outside noise that crosses no threshold, in either direction, is
+ * listed under "Other changes outside noise" (HON-858): most metrics have no
+ * threshold, and a real move on one must still reach the summary.
  *
  * A side with a single per-run value (`--runs 1`, or a task a `--max-usd` stop
  * reached only once) has measured no range at all, so nothing it shows can be
@@ -103,6 +106,8 @@ export interface BenchReport {
   runs: number
   tasks: TaskReport[]
   regressions: Finding[]
+  /** Outside noise but past no threshold, improvements included. */
+  otherChanges: Finding[]
   withinNoise: Finding[]
   /** `--max-usd` stopped the benchmark. A judge stop is `judge.partial`. */
   partial: boolean
@@ -169,7 +174,11 @@ export function compareMetric(
     }
   }
 
-  const delta = candidate.mean - baseline.mean
+  // Snap float residue to zero: the mean of the same per-run value over 2 and
+  // over 3 runs can differ in the last bit, and with a zero range that residue
+  // would read as a real change (and, at `regressionDrop: 0`, a regression).
+  const rawDelta = candidate.mean - baseline.mean
+  const delta = Math.abs(rawDelta) < 1e-9 ? 0 : rawDelta
   const widerRange = Math.max(baseline.max - baseline.min, candidate.max - candidate.min)
   // One per-run value measures no range, so it cannot show a difference lies
   // outside one.
@@ -225,6 +234,7 @@ export function buildReport(args: {
 }): BenchReport {
   const { result, baseline, candidate, runs, maxUsd, date } = args
   const regressions: Finding[] = []
+  const otherChanges: Finding[] = []
   const withinNoise: Finding[] = []
 
   const tasks: TaskReport[] = TASKS.filter((t) => args.tasks.includes(t)).map((task) => {
@@ -253,6 +263,8 @@ export function buildReport(args: {
         })
       } else if (cmp.thresholdBreached) {
         regressions.push({ task, text: `${line}, outside the run-to-run range` })
+      } else {
+        otherChanges.push({ task, text: line })
       }
     }
 
@@ -294,6 +306,7 @@ export function buildReport(args: {
     runs,
     tasks,
     regressions,
+    otherChanges,
     withinNoise,
     partial: result.partial,
     plannedCalls: result.plannedCalls,
@@ -401,6 +414,15 @@ export function renderMarkdown(report: BenchReport): string {
   for (const f of report.regressions) lines.push(`- ${f.text}`)
   lines.push('')
 
+  lines.push('## Other changes outside noise', '')
+  lines.push(
+    'The gap between the means is larger than both models’ run-to-run ranges, but crosses no regression threshold: the metric has none, the drop is smaller than its threshold, or the change is an improvement. These moved for real, so read each drop as a possible regression.',
+    '',
+  )
+  if (report.otherChanges.length === 0) lines.push('None.')
+  for (const f of report.otherChanges) lines.push(`- ${f.text}`)
+  lines.push('')
+
   lines.push('## Within noise', '')
   lines.push(
     'The gap between the means is no larger than the wider of the two models’ run-to-run ranges, so these differences are not evidence either way.',
@@ -464,6 +486,19 @@ export function renderMarkdown(report: BenchReport): string {
   )
 
   return lines.join('\n')
+}
+
+/**
+ * The markdown up to the first per-task table: the header, the three lists and
+ * any Judge section. `run.ts` echoes it to the console.
+ */
+export function renderSummary(report: BenchReport): string {
+  const sections = renderMarkdown(report).split('\n## ')
+  const firstTask = sections.findIndex((s) => report.tasks.some((t) => s.startsWith(`${t.task}\n`)))
+  return sections
+    .slice(0, firstTask === -1 ? undefined : firstTask)
+    .join('\n## ')
+    .trim()
 }
 
 function renderJudge(judge: JudgeReport, candidate: string): string[] {
@@ -549,6 +584,9 @@ export function writeReport(
         plannedCalls: report.plannedCalls,
         spendUsd: result.spendUsd + (judge?.spendUsd ?? 0),
         maxUsd: report.maxUsd,
+        regressions: report.regressions,
+        otherChanges: report.otherChanges,
+        withinNoise: report.withinNoise,
         calls: result.calls,
         // Both verdicts and both reasons for every pair.
         ...(judge && {

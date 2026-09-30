@@ -62,12 +62,13 @@ Neither model accepts `temperature`, so the same case gives different output on 
 
 **The noise flag.** A difference is **noise** when the gap between the two means is no larger than the wider of the two models' ranges. Such a difference says nothing either way, however large it looks. If an important metric is flagged noise, run again with more `--runs` rather than reading the delta. With `--runs 1`, or for a task a `--max-usd` stop reached only once, no range is measured at all, so every difference is listed as noise (marked `noise (1 run)`).
 
-The report opens with two lists:
+The report opens with three lists, and the run echoes them to the console:
 
-- **Regressions:** a difference outside the noise range that crosses a threshold. Those are a first-try plan validity drop of more than 10 points, or a recipe recall or precision drop of more than 5 points. Also listed is any task where the candidate's max latency is above 80% of the route budget. That rule compares against the budget, not the baseline, so noise does not apply.
+- **Regressions:** a difference outside the noise range that crosses a threshold. Those are a first-try plan validity drop of more than 10 points, a recipe recall or precision drop of more than 5 points, or **any** drop in imagine's no-forbidden-ingredient rate. That last one is the dietary and allergen check, so it has no tolerance. Also listed is any task where the candidate's max latency is above 80% of the route budget. That rule compares against the budget, not the baseline, so noise does not apply.
+- **Other changes outside noise:** every other difference outside the noise range, in either direction. Most metrics have no threshold yet, since sizing one needs a live run's ranges, so a consistent drop on, say, review's seeded-error correction lands here rather than under Regressions. This list is what moved for real: read each drop in it as a possible regression before calling a candidate safe.
 - **Within noise:** every difference flagged noise, including any that crossed a threshold. Noise beats thresholds, so these never count as regressions.
 
-With `--judge`, a **Judge** section follows the two lists. Then comes one table per task, and the total cost. A **partial** report was stopped by `--max-usd` and is missing later runs and cases, or, if the judge was stopped, later judged pairs.
+The `.json` beside the report carries the same three lists. With `--judge`, a **Judge** section follows them. Then comes one table per task, and the total cost. A **partial** report was stopped by `--max-usd` and is missing later runs and cases, or, if the judge was stopped, later judged pairs.
 
 ## The judge (`--judge`)
 

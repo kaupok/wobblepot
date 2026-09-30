@@ -34,7 +34,7 @@ import { CASES_DIR, loadCases } from './load-cases'
 import { estimateRun } from './dry-run'
 import { runBenchmark, type ModelFactory } from './runner'
 import { JUDGE_MODEL, runJudge, type JudgeResult } from './judge'
-import { buildReport, localDateString, renderMarkdown, writeReport } from './report'
+import { buildReport, localDateString, renderSummary, writeReport } from './report'
 
 export const RESULTS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'results')
 
@@ -234,16 +234,9 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
       `Stopped early${result.partial ? '' : ' while judging'}: spend $${spend.toFixed(2)} passed --max-usd ${args.maxUsd}. The report is marked partial.`,
     )
   }
-  // Echo the header, "Regressions", "Within noise" and any "Judge"; the
-  // per-task tables stay in the file.
+  // The per-task tables stay in the file.
   log('')
-  log(
-    renderMarkdown(report)
-      .split('\n## ')
-      .slice(0, report.judge ? 4 : 3)
-      .join('\n## ')
-      .trim(),
-  )
+  log(renderSummary(report))
   log('')
   log(`Report: ${relative(process.cwd(), markdownPath)} (commit it and attach it to the PR)`)
   log(`Raw outputs: ${relative(process.cwd(), jsonPath)} (gitignored)`)

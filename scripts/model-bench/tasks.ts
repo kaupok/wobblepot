@@ -196,6 +196,12 @@ const imagine: TaskSpec<'imagine'> = {
       label: 'No forbidden ingredient',
       format: 'percent',
       onError: 0,
+      // Stricter than every other metric: this is the dietary and allergen
+      // check, so a consistent drop means meat in a vegetarian meal, not a dip
+      // in quality. 0 is the smallest value `compareMetric` supports (it
+      // breaches on `delta < -regressionDrop`): any drop outside noise is a
+      // regression, and a baseline at 100% on every run measures no range.
+      regressionDrop: 0,
     },
   ],
   prepare({ input }) {
