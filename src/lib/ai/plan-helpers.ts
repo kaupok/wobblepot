@@ -98,7 +98,7 @@ export function validateAndRepairPlan(
   }
 
   // Attempt repair
-  const repaired = repairPlan(hydratedPlan, validation.errors, candidatePools)
+  const repaired = repairPlan(hydratedPlan, validation.errors, candidatePools, requiredSlots)
 
   if (!repaired) {
     const errorSummary = validation.errors.map((e) => e.message).join('; ')

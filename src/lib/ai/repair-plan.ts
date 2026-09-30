@@ -1,6 +1,7 @@
 import { toDateString } from '@/lib/meal-planning/dates'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
-import type { MealType } from '@/generated/prisma/enums'
+import type { SlotRequirement } from '@/lib/meal-planning/slots'
+import type { MealType, ProteinType } from '@/generated/prisma/enums'
 import type { CandidatePools, HydratedPlanEntry, ValidationError } from './types'
 
 /**
@@ -14,11 +15,16 @@ function getPoolForMealType(candidatePools: CandidatePools, mealType: MealType):
 /**
  * Attempt to repair a meal plan by swapping entries to fix validation errors.
  * Returns the repaired plan or null if repair is not possible.
+ *
+ * `requiredSlots` lets an `invalid_meal` repair fill a required fish/legume slot
+ * from the matching pool: `validatePlan` skips the protein check on a null meal,
+ * so without it the swap would only surface as `wrong_protein` on re-validation.
  */
 export function repairPlan(
   hydratedPlan: HydratedPlanEntry[],
   errors: ValidationError[],
   candidatePools: CandidatePools,
+  requiredSlots: SlotRequirement[] = [],
 ): HydratedPlanEntry[] | null {
   // Clone the plan to avoid mutation
   const plan = hydratedPlan.map((e) => ({ ...e }))
@@ -42,7 +48,11 @@ export function repairPlan(
     indices.sort((a, b) => plan[a]!.date.getTime() - plan[b]!.date.getTime())
   }
 
-  // Track indices that were fixed by required protein repairs (wrong_protein).
+  const requiredProteinBySlot = new Map(
+    requiredSlots.map((s) => [`${toDateString(s.date)}:${s.mealType}`, s.proteinType]),
+  )
+
+  // Track indices that were fixed by required protein repairs (wrong_protein, invalid_meal).
   // These slots must NOT be modified by subsequent repairs (e.g., consecutive_protein).
   const protectedIndices = new Set<number>()
 
@@ -161,14 +171,62 @@ export function repairPlan(
       }
 
       case 'invalid_meal': {
-        // Can't fix invalid meals without knowing what the original intent was
-        // Return null to trigger AI retry
-        return null
+        // The model returned an ID that doesn't exist (mangled, invented, or since
+        // deleted). Fill the slot from its pool, as the other cases do.
+        const requiredProtein = requiredProteinBySlot.get(slotKey)
+        const pool =
+          requiredProtein === 'fish'
+            ? candidatePools.fish
+            : requiredProtein === 'legume'
+              ? candidatePools.legume
+              : getPoolForMealType(candidatePools, error.mealType)
+
+        // validatePlan skips the consecutive check beside a null meal, so a swap
+        // can create a consecutive_protein this single pass would never see.
+        // Prefer a protein that differs from the neighbouring dinners.
+        const neighbourProteins =
+          error.mealType === 'dinner' && !requiredProtein
+            ? adjacentDayProteins(plan, sortedIndicesByMealType.get(error.mealType) ?? [], index)
+            : new Set<ProteinType>()
+        const replacement =
+          pool.find(
+            (c) => !usedMealIds.has(c.id) && !neighbourProteins.has(c.primaryProteinType),
+          ) ?? findReplacement(pool, usedMealIds)
+        if (!replacement) return null
+        swapEntry(plan, index, replacement, usedMealIds)
+        if (requiredProtein && replacement.primaryProteinType === requiredProtein) {
+          protectedIndices.add(index)
+        }
+        break
       }
     }
   }
 
   return plan
+}
+
+/**
+ * Proteins of the entries one day either side of `index` within the same meal
+ * type, excluding 'none' (the consecutive check ignores it).
+ */
+function adjacentDayProteins(
+  plan: HydratedPlanEntry[],
+  sortedIndices: number[],
+  index: number,
+): Set<ProteinType> {
+  const proteins = new Set<ProteinType>()
+  const pos = sortedIndices.indexOf(index)
+  if (pos === -1) return proteins
+  const dayMs = 1000 * 60 * 60 * 24
+  for (const neighbourPos of [pos - 1, pos + 1]) {
+    const neighbourIndex = sortedIndices[neighbourPos]
+    if (neighbourIndex === undefined) continue
+    const neighbour = plan[neighbourIndex]!
+    const dayDiff = Math.abs(neighbour.date.getTime() - plan[index]!.date.getTime()) / dayMs
+    const protein = neighbour.meal?.primaryProteinType
+    if (dayDiff === 1 && protein && protein !== 'none') proteins.add(protein)
+  }
+  return proteins
 }
 
 /**
