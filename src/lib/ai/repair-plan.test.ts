@@ -687,16 +687,18 @@ describe('repairPlan', () => {
       expect(entry13.meal?.primaryProteinType).toBe('fish')
     })
 
-    it('protects a required slot it filled from a later consecutive_protein repair', () => {
+    it('does not swap away a slot that already holds its required protein', () => {
+      // Tue is required fish and already fish. Mon has an unknown ID and is filled
+      // with fish (the pool offers nothing else), so the consecutive repair on Tue
+      // must move Mon, not Tue.
       const plan: HydratedPlanEntry[] = [
-        unknownEntry('2026-01-12'),
-        createEntry('2026-01-13', 'meal-2', 'fish'),
+        createEntry('2026-01-12', 'any-fish-1', 'fish'),
+        createEntry('2026-01-13', 'fish-2', 'fish'),
       ]
       const requiredSlots: SlotRequirement[] = [
-        { date: date('2026-01-12'), mealType: 'dinner', proteinType: 'fish' },
+        { date: date('2026-01-13'), mealType: 'dinner', proteinType: 'fish' },
       ]
       const errors: ValidationError[] = [
-        invalidMealError('2026-01-12'),
         {
           type: 'consecutive_protein',
           date: '2026-01-13',
@@ -708,8 +710,8 @@ describe('repairPlan', () => {
 
       const result = repairPlan(plan, errors, createPools(), requiredSlots)
 
-      expect(result![0]!.mealId).toBe('fish-1')
-      expect(result![1]!.meal?.primaryProteinType).not.toBe('fish')
+      expect(result![1]!.mealId).toBe('fish-2')
+      expect(result![0]!.meal?.primaryProteinType).not.toBe('fish')
     })
 
     it('prefers a protein that differs from the neighbouring dinners', () => {

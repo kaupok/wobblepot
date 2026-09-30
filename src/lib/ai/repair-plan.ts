@@ -52,9 +52,14 @@ export function repairPlan(
     requiredSlots.map((s) => [`${toDateString(s.date)}:${s.mealType}`, s.proteinType]),
   )
 
-  // Track indices that were fixed by required protein repairs (wrong_protein, invalid_meal).
-  // These slots must NOT be modified by subsequent repairs (e.g., consecutive_protein).
+  // Track indices that satisfy a required protein slot, whether the plan already
+  // held it or a repair (wrong_protein, invalid_meal) put it there. These slots
+  // must NOT be modified by subsequent repairs (e.g., consecutive_protein).
   const protectedIndices = new Set<number>()
+  for (const [key, protein] of requiredProteinBySlot) {
+    const i = indexBySlot.get(key)
+    if (i !== undefined && plan[i]!.meal?.primaryProteinType === protein) protectedIndices.add(i)
+  }
 
   // Process errors
   for (const error of errors) {

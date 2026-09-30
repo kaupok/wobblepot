@@ -75,6 +75,44 @@ describe('validateAndRepairPlan', () => {
     expect(result[1]!.mealId).toBe('legume-1')
   })
 
+  it('moves the neighbour when a required fill lands next to the same protein', () => {
+    // validatePlan never checks consecutive proteins beside a null meal, so the
+    // fish-fish pair only appears after Mon is filled; the second pass fixes it.
+    const plan = [unknownEntry('2026-10-05'), entry('2026-10-06', 'meal-2', 'fish')]
+    const requiredSlots: SlotRequirement[] = [
+      { date: parseLocalDate('2026-10-05'), mealType: 'dinner', proteinType: 'fish' },
+    ]
+
+    const result = validateAndRepairPlan(plan, requiredSlots, pools)
+
+    expect(result[0]!.mealId).toBe('fish-1')
+    expect(result[1]!.meal?.primaryProteinType).not.toBe('fish')
+  })
+
+  it('keeps a later required slot when an earlier unknown ID was filled with its protein', () => {
+    // Tue (unknown, unrequired) is listed first and repaired while Mon is still
+    // null, so it can take a fish. Mon then gets its required fish.
+    const plan = [
+      unknownEntry('2026-10-06'),
+      { ...unknownEntry('2026-10-05'), mealId: 'also-missing' },
+    ]
+    const requiredSlots: SlotRequirement[] = [
+      { date: parseLocalDate('2026-10-05'), mealType: 'dinner', proteinType: 'fish' },
+    ]
+    const fishFirst: CandidatePools = {
+      ...pools,
+      fish: [candidate('fish-1', 'fish')],
+      any: [candidate('any-fish-1', 'fish'), candidate('any-beef-1', 'beef')],
+    }
+
+    const result = validateAndRepairPlan(plan, requiredSlots, fishFirst)
+
+    const monday = result.find((e) => toDateString(e.date) === '2026-10-05')!
+    const tuesday = result.find((e) => toDateString(e.date) === '2026-10-06')!
+    expect(monday.mealId).toBe('fish-1')
+    expect(tuesday.meal?.primaryProteinType).toBe('beef')
+  })
+
   it('throws MealPlanValidationError when the slot pool is empty', () => {
     const plan = [unknownEntry('2026-10-05')]
 
