@@ -218,10 +218,9 @@ fi
 #
 # No second revision, so the comparison runs against the **working tree**
 # rather than HEAD. In CI that is the same thing (the checkout is clean), but
-# locally the pre-commit checklist in docs/GIT_WORKFLOW.md puts this run after
-# staging and before `git commit`, where a staged edit is not in HEAD yet and
-# naming HEAD would report a confident pass on exactly the change CI is about
-# to reject.
+# locally the pre-commit checklist in docs/GIT_WORKFLOW.md puts this run
+# before committing, where an edit is not in HEAD yet and naming HEAD would
+# report a confident pass on exactly the change CI is about to reject.
 # An untracked new migration then goes unlisted, which costs nothing: `A` is
 # the allowed status anyway.
 DIFF=$(git -c core.quotePath=false diff --name-status "$DIFF_BASE" -- ':/prisma/migrations/')

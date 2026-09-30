@@ -233,9 +233,9 @@ describe('check-migrations-immutable.sh', () => {
       expect(result.stderr).toContain(INIT_MIGRATION)
     })
 
-    // The pre-commit checklist in docs/GIT_WORKFLOW.md puts the local run after
-    // staging and before `git commit`, so a guard that compares two commits is
-    // blind at exactly the moment a developer is told to run it.
+    // The pre-commit checklist in docs/GIT_WORKFLOW.md puts the local run
+    // before committing, so a guard that compares two commits is blind at
+    // exactly the moment a developer is told to run it.
     it('fails on a staged but uncommitted edit', () => {
       const { dir, base } = repoWithAppliedMigration()
       write(dir, INIT_MIGRATION, `${INIT_SQL}ALTER TABLE "ingredient" ADD COLUMN "note" TEXT;\n`)

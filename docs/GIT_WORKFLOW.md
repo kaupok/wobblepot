@@ -53,7 +53,7 @@ What the skills do not say:
 
 - [ ] On a feature branch, not `main`
 - [ ] `pnpm lint && pnpm type-check && pnpm test` pass
-- [ ] If you touched `prisma/migrations/`, run the immutability check after staging and before `git commit`: `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. It reads the working tree, so it catches a staged edit to an applied migration; the fetch keeps a stale `origin/main` from hiding one that landed since. Rules and recovery are in CLAUDE.md → Database Patterns.
+- [ ] If you touched `prisma/migrations/`, run the immutability check before `/commit` (or `git commit`): `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. It reads the working tree, so it catches a staged or unstaged edit to an applied migration before it lands in HEAD; the fetch keeps a stale `origin/main` from hiding one that landed since. Rules and recovery are in CLAUDE.md → Database Patterns.
 - [ ] Commit message and planned PR title follow Conventional Commits
 
 ## Recovery Procedures
