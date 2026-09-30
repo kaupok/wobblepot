@@ -10,7 +10,7 @@ import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
-import { computeMealAvailability } from './AvailabilityIndicator'
+import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
 import { PreparationTips } from './PreparationTips'
 import { ServingControl } from './ServingControl'
 import type { MealStatus } from './StatusSelect'
@@ -54,6 +54,28 @@ interface MealDetailProps {
   onHideTips?: () => void
 }
 
+/**
+ * The pantry as the checkboxes show it: the server's rows with in-flight
+ * toggles applied, so ticking the first ingredient turns the badge on at once
+ * rather than after the refresh lands.
+ */
+function withOverrides(
+  pantryIngredients: PantryIngredient[],
+  overrides: Map<string, boolean> | undefined,
+): PantryIngredient[] {
+  if (!overrides?.size) return pantryIngredients
+  // Staple rows have no checkbox, so no toggle can remove one.
+  const rows = pantryIngredients.filter(
+    (p) => p.isStaple || overrides.get(p.ingredientId) !== false,
+  )
+  for (const [ingredientId, hasIt] of overrides) {
+    if (hasIt && !rows.some((p) => p.ingredientId === ingredientId)) {
+      rows.push({ ingredientId, isStaple: false })
+    }
+  }
+  return rows
+}
+
 export function MealDetail({
   meal,
   image,
@@ -79,9 +101,17 @@ export function MealDetail({
   // Effective servings: use explicit prop if provided, otherwise householdSize
   const effectiveServings = servings ?? householdSize
 
-  const availability = useMemo(() => {
-    return computeMealAvailability(meal, pantryIngredients)
-  }, [meal, pantryIngredients])
+  const effectivePantry = useMemo(
+    () => withOverrides(pantryIngredients, optimisticOverrides),
+    [pantryIngredients, optimisticOverrides],
+  )
+  // A pantry holding only staples says nothing yet: keep the checkboxes, which
+  // are how the user starts filling it, but claim nothing is missing (HON-824).
+  const pantryHasData = hasPantryData(effectivePantry)
+  const availability = useMemo(
+    () => (pantryHasData ? computeMealAvailability(meal, effectivePantry) : null),
+    [meal, effectivePantry, pantryHasData],
+  )
 
   const showPreparationSection = !!onHowToPrepare
   const showTips = showPreparationSection && isTipsExpanded
@@ -128,6 +158,7 @@ export function MealDetail({
             optimisticOverrides={optimisticOverrides}
             availability={hideAvailabilityBadge ? null : availability}
             hideAvailability={hideAvailability}
+            showMissingStyle={pantryHasData}
             headerElement={
               showServingControl ? (
                 // The control sits beside the title rather than inside

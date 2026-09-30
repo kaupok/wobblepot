@@ -27,6 +27,11 @@ interface IngredientListProps {
   availability?: MealAvailability | null
   /** If true, hides checkboxes and missing ingredient styling (for completed/skipped meals) */
   hideAvailability?: boolean
+  /**
+   * If false, rows the pantry lacks are not styled as missing, while the
+   * checkboxes stay: a pantry holding only staples says nothing yet (HON-824).
+   */
+  showMissingStyle?: boolean
   /** If true, uses smaller typography for compact layouts */
   compact?: boolean
   /** Custom header element (e.g., ServingControl) - overrides default "Ingredients (serves X)" */
@@ -78,6 +83,7 @@ export function IngredientList({
   optimisticOverrides,
   availability,
   hideAvailability = false,
+  showMissingStyle = true,
   compact = false,
   headerElement,
 }: IngredientListProps) {
@@ -156,13 +162,13 @@ export function IngredientList({
           const isToggling = togglingIds?.has(comp.ingredientId) ?? false
 
           // When hideAvailability is true, don't show checkboxes or missing styling
-          const showMissingStyle = isMissing && !hideAvailability
+          const markMissing = isMissing && !hideAvailability && showMissingStyle
           const showCheckbox = onToggleAvailability && !hideAvailability
 
           return (
             <Li
               key={comp.ingredient.name}
-              tone={showMissingStyle ? 'warning' : 'default'}
+              tone={markMissing ? 'warning' : 'default'}
               className={cn('flex items-center gap-2', isToggling && 'opacity-60')}
             >
               {showCheckbox && (
@@ -181,7 +187,7 @@ export function IngredientList({
               <span
                 className={cn(
                   'whitespace-nowrap',
-                  showMissingStyle ? 'text-warning' : 'text-muted-foreground',
+                  markMissing ? 'text-warning' : 'text-muted-foreground',
                   comp.isVague && 'italic',
                 )}
               >

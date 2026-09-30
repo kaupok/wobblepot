@@ -613,7 +613,12 @@ export const LowAvailability: Story = {
   args: {
     meal: mealFixture,
     status: 'planned',
-    pantryIngredients: [{ ingredientId: 'garlic', isStaple: true }],
+    // The olive oil is what gives the pantry data: a staples-only pantry shows
+    // no badge (see `StaplesOnlyPantry`).
+    pantryIngredients: [
+      { ingredientId: 'garlic', isStaple: true },
+      { ingredientId: 'olive-oil', isStaple: false },
+    ],
   },
   parameters: {
     docs: {
@@ -621,6 +626,33 @@ export const LowAvailability: Story = {
         story: 'Most ingredients missing from pantry — shows amber availability indicator.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('3 ingredients missing')).toBeInTheDocument()
+  },
+}
+
+export const StaplesOnlyPantry: Story = {
+  args: {
+    meal: mealFixture,
+    status: 'planned',
+    pantryIngredients: [
+      { ingredientId: 'garlic', isStaple: true },
+      { ingredientId: 'salt', isStaple: true },
+    ],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Every household starts with salt, black pepper and water as staples (HON-769). A pantry holding only staples says nothing yet, so the card shows no availability badge, as the meal picker does (HON-824).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('button', { name: mealFixture.name })).toBeInTheDocument()
+    await expect(canvas.queryByText(/ingredients? missing|have all ingredients/i)).toBeNull()
   },
 }
 
