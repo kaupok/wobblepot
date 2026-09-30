@@ -852,7 +852,7 @@
     "banner": {
       "ariaLabel": "Cookie consent",
       "header": "We use cookies",
-      "body": "Essential cookies keep you signed in. Analytics cookies are optional and help us improve the app. Change your choice any time in the footer.",
+      "body": "Essential cookies keep you signed in. Optional analytics cookies help us improve the app. Change your choice in the footer.",
       "policyLink": "<link>Privacy policy</link>",
       "acceptAll": "Accept all",
       "essentialOnly": "Essential only"

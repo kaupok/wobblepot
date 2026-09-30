@@ -48,7 +48,7 @@ describe('CookieBanner', () => {
 
   it('mentions that the choice can be revisited from the footer', () => {
     renderWithConsent({ granted: null, grant: vi.fn(), withdraw: vi.fn() })
-    expect(screen.getByText(/change your choice any time in the footer/i)).toBeInTheDocument()
+    expect(screen.getByText(/change your choice in the footer/i)).toBeInTheDocument()
   })
 
   it('links the cookies section of the privacy policy (informed consent, HON-457)', () => {
