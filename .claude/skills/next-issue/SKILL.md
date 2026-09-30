@@ -21,7 +21,9 @@ Find the next unblocked issue and return a concise implementation summary.
 ## Modes
 
 - **Default:** find any unblocked, unclaimed issue ready to implement.
-- **No-human-input mode (`--auto`):** only surface issues that `/auto-implement` can complete end-to-end without a human in the loop — no open decisions, no missing configuration, no provisioning, no design/legal review. Applies **extra** filters in step 5 — everything else identical.
+- **No-human-input mode (`--auto`):** only surface issues that `/auto-implement` can complete end-to-end without a human in the loop — no open decisions, no missing configuration, no provisioning, no design/legal review. Applies **extra** filters in step 5 and a different state order in steps 2 and 6 — everything else identical.
+
+**This skill proposes; it never queues.** Its output is a list of candidates. In `--auto` mode a candidate is something a human may move to `Queued` (the orchestrator's queue) or pass to `/auto-implement HON-XX` — this skill never writes a state itself. That is why both modes still list Backlog and Todo while `/auto-implement` auto-discovery (its step 1.2) lists Queued only: finding ready work in the backlog is this skill's purpose, and putting it in the unattended queue stays a human act (HON-854).
 
 ## Arguments
 
@@ -49,11 +51,24 @@ Find the next unblocked issue and return a concise implementation summary.
 
    Review for current phase and relevant context.
 
-2. **List unassigned Backlog and Todo issues**
+2. **List unassigned Todo, Queued and Backlog issues**
 
    Always pass `assignee: "null"` — never list all issues and filter client-side. Never list issues with any other state (In Progress / In Review / Done / Canceled issues are already claimed or complete).
 
+   The three states mean different things: **Todo** is work a human intends to do, **Queued** is the orchestrator's unattended queue (a human can still take a queued issue — the orchestrator skips it once it is assigned), and **Backlog** is everything not yet promoted. The listing order depends on the mode, and step 6 ranks in the same order.
+
+   **`autoMode` false** — Todo, then Queued, then Backlog:
+
    ```
+   mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 20 })
+   mcp__linear-server__list_issues({ state: "Queued",  assignee: "null", limit: 20 })
+   mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 20 })
+   ```
+
+   **`autoMode` true** — Queued, then Todo, then Backlog:
+
+   ```
+   mcp__linear-server__list_issues({ state: "Queued",  assignee: "null", limit: 20 })
    mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 20 })
    mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 20 })
    ```
@@ -70,9 +85,9 @@ Find the next unblocked issue and return a concise implementation summary.
 
 4. **Hard filters — reject the candidate if ANY of these fail**
 
-   - `status` must be one of: `Backlog`, `Todo`. Reject `In Progress`, `In Review`, `Done`, `Canceled`, `Triage`.
+   - `status` must be one of: `Todo`, `Queued`, `Backlog`. Reject `In Progress`, `In Review`, `Done`, `Canceled`, `Triage`.
    - `assignee` must be `null`. Reject any issue with an assignee, even "me" — it's already claimed.
-   - Every id in `relations.blockedBy` must resolve to a `status` of `Done` or `Canceled`. An empty `blockedBy` array passes. An open blocker (Backlog / Todo / In Progress / In Review) fails.
+   - Every id in `relations.blockedBy` must resolve to a `status` of `Done` or `Canceled`. An empty `blockedBy` array passes. An open blocker (Backlog / Todo / Queued / In Progress / In Review) fails.
    - `statusType` must not be `triage` or `canceled`.
 
    If any filter rejects the candidate, discard it and pick another — **do not downgrade the candidate to a "caveat" or include it anyway**. Silent failures here are the primary failure mode this skill exists to prevent.
@@ -95,7 +110,7 @@ Find the next unblocked issue and return a concise implementation summary.
    Reject `[DRAFT]` and `[AUTO DRAFT]` titles outright in no-human-input mode — a draft spec is not ready for unattended implementation, and an `[AUTO DRAFT]` is a review finding an agent filed for itself (`/auto-implement` 6.8), which no unattended cycle should pick up unreviewed. `/auto-implement` 1.5 rejects both. Keeping these symmetric is non-negotiable: the `wt auto [branchName]` chain passes the issue ID through to `/auto-implement` as an explicit arg, which skips the filter, so either prefix surfaced here would still trigger unattended work.
 
 6. **Prioritize surviving candidates**
-   - Todo before Backlog
+   - State, in the step 2 order for the active mode: Todo → Queued → Backlog by default, Queued → Todo → Backlog with `--auto`
    - Issues that unblock others (large `blocks` array) before leaf issues
    - Higher priority (lower `priority.value`) before lower
 

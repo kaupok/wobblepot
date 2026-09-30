@@ -2125,7 +2125,7 @@ watch_scan_log() {
       # "cap cooldown".
       else if (msg ~ /^Circuit breaker/ || msg ~ /Linear/ ||
                msg ~ /failed on the Neon branch cap/ ||
-               msg ~ /^Todo queue is deeper/) {
+               msg ~ /^Queue is deeper/) {
         alert_slot = msg
         alert_slot_at = substr($0, 12, 5)
         alert_slot_ts = ts($0)
@@ -3176,7 +3176,7 @@ cmd_stop() {
     echo -e "${YELLOW}Still running (workers active). Sending second SIGTERM to force kill workers...${NC}"
     kill -TERM "$pid" 2>/dev/null || true
 
-    # The force path runs drain_workers_to_todo, which per worker does
+    # The force path runs drain_workers_to_queue, which per worker does
     # kill_process_tree -> wait_for_exit (up to 10s) -> SIGKILL ->
     # cleanup_worker_worktree -> a Linear round-trip. With 3-5 workers that is
     # 30-50s. The old flat `sleep 3` killed the orchestrator mid-drain, orphaning
