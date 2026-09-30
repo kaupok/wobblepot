@@ -21,7 +21,11 @@ import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealSelectorModal } from './MealSelectorModal'
 import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
-import { AvailabilityIndicator, computeMealAvailability } from './AvailabilityIndicator'
+import {
+  AvailabilityIndicator,
+  computeMealAvailability,
+  hasPantryData,
+} from './AvailabilityIndicator'
 import { NoteEditor } from './NoteEditor'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
@@ -136,8 +140,10 @@ export function MealCard({
     [router, dropSuggestionCache, meal?.id],
   )
 
+  // A pantry holding only staples says nothing yet, so the card claims nothing
+  // is missing, as the meal picker does (HON-824).
   const availability = useMemo(() => {
-    if (!meal) return null
+    if (!meal || !hasPantryData(pantryIngredients)) return null
     return computeMealAvailability(meal, pantryIngredients)
   }, [meal, pantryIngredients])
 

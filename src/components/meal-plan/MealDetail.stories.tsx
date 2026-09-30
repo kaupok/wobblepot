@@ -1,3 +1,4 @@
+import { useState, type ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
 import {
@@ -9,7 +10,7 @@ import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-hel
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
-import type { StructuredTips } from './types'
+import type { PantryIngredient, StructuredTips } from './types'
 
 const mealFixture = createMeal({ components: lemonGarlicChickenComponentsFull })
 
@@ -117,6 +118,89 @@ export const LocalizedContent: Story = {
 
 export const WithPantry: Story = {
   args: { pantryIngredients: lemonGarlicChickenPantryWithOil },
+}
+
+const staplesOnlyPantry: PantryIngredient[] = [
+  { ingredientId: 'garlic', isStaple: true },
+  { ingredientId: 'olive-oil', isStaple: true },
+  { ingredientId: 'salt', isStaple: true },
+]
+
+/** Ingredient rows styled as missing (`Li` with the warning tone). */
+function missingRows(canvasElement: HTMLElement): HTMLElement[] {
+  return within(canvasElement)
+    .getAllByRole('listitem')
+    .filter((row) => row.classList.contains('text-warning'))
+}
+
+export const StaplesOnlyPantry: Story = {
+  args: {
+    pantryIngredients: staplesOnlyPantry,
+    onToggleAvailability: fn(),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Every household starts with salt, black pepper and water as staples (HON-769). A pantry holding only staples says nothing yet: the checkboxes stay, because they are how the user starts filling the pantry, but there is no badge and no row is marked missing (HON-824).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getAllByRole('checkbox')).toHaveLength(3)
+    await expect(canvas.queryByText(/ingredients? missing|have all ingredients/i)).toBeNull()
+    await expect(missingRows(canvasElement)).toHaveLength(0)
+  },
+}
+
+/**
+ * Holds the pantry in state so a tick adds the ingredient, as the refresh after
+ * `MealDetailModal`'s toggle does.
+ */
+function StaplesOnlyPantryTickRender(args: ComponentProps<typeof MealDetail>) {
+  const [pantry, setPantry] = useState(staplesOnlyPantry)
+  return (
+    <MealDetail
+      {...args}
+      pantryIngredients={pantry}
+      onToggleAvailability={(ingredientId, hasIt) => {
+        args.onToggleAvailability?.(ingredientId, hasIt)
+        setPantry((prev) =>
+          hasIt
+            ? [...prev, { ingredientId, isStaple: false }]
+            : prev.filter((p) => p.ingredientId !== ingredientId),
+        )
+      }}
+    />
+  )
+}
+
+export const StaplesOnlyPantryTick: Story = {
+  name: 'Staples-only pantry, first tick',
+  args: { onToggleAvailability: fn() },
+  render: StaplesOnlyPantryTickRender,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Ticking the first ingredient gives the pantry data, so the badge and the missing styling appear for the rest (HON-824).',
+      },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByText(/ingredients? missing/i)).toBeNull()
+
+    await userEvent.click(canvas.getByRole('checkbox', { name: 'Mark Chicken thigh as available' }))
+
+    await expect(args.onToggleAvailability).toHaveBeenCalledWith('chicken-thigh', true)
+    await expect(await canvas.findByText('2 ingredients missing')).toBeInTheDocument()
+    await expect(missingRows(canvasElement).map((row) => row.textContent)).toEqual([
+      expect.stringContaining('Potato'),
+      expect.stringContaining('Lemon'),
+    ])
+  },
 }
 
 export const WithServingControl: Story = {

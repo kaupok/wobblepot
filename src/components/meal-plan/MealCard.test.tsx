@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { createMeal } from '@/stories/fixtures'
 import { MealCard } from './MealCard'
+import type { PantryIngredient } from './types'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -36,7 +37,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function renderCard(props: { meal: typeof meal | null }) {
+function renderCard(props: { meal: typeof meal | null; pantryIngredients?: PantryIngredient[] }) {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
     <Wrapper>
@@ -82,5 +83,28 @@ describe('MealCard selector focus', () => {
 
     await dismissSelector()
     await waitFor(() => expect(addMeal).toHaveFocus())
+  })
+})
+
+// Every household starts with salt, pepper and water as staples (HON-769), so a
+// staples-only pantry is one the household has never filled in (HON-824).
+describe('MealCard availability badge', () => {
+  const garlicStaple = { ingredientId: 'garlic', isStaple: true }
+
+  it('shows no badge when the pantry holds only staples', () => {
+    renderCard({ meal, pantryIngredients: [garlicStaple] })
+
+    expect(screen.queryByText(/ingredients? missing/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Have all ingredients')).not.toBeInTheDocument()
+  })
+
+  it('counts the missing ingredients once the pantry holds a non-staple', () => {
+    renderCard({
+      meal,
+      pantryIngredients: [garlicStaple, { ingredientId: 'chicken-thigh', isStaple: false }],
+    })
+
+    // Potato and lemon: garlic is a staple, chicken is on hand.
+    expect(screen.getByText('2 ingredients missing')).toBeInTheDocument()
   })
 })

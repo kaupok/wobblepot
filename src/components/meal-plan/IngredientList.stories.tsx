@@ -103,6 +103,26 @@ export const WithAvailabilityBadge: Story = {
   },
 }
 
+export const WithoutMissingStyle: Story = {
+  args: {
+    pantryIngredients: [
+      { ingredientId: 'garlic', isStaple: true },
+      { ingredientId: 'olive-oil', isStaple: true },
+      { ingredientId: 'salt', isStaple: true },
+    ] satisfies PantryIngredient[],
+    onToggleAvailability: fn(),
+    showMissingStyle: false,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A pantry holding only staples says nothing yet (HON-824): `MealDetail` passes `showMissingStyle={false}`, so the checkboxes stay and no row is marked missing.',
+      },
+    },
+  },
+}
+
 export const HideAvailability: Story = {
   args: {
     pantryIngredients: [
