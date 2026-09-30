@@ -294,6 +294,15 @@ describe('buildReport', () => {
     expect(withJudge).not.toContain('## review')
   })
 
+  it('holds a drop of exactly the threshold to "more than", despite float residue', () => {
+    // 0.85 − 0.9 is −0.050000000000000044 in floating point.
+    const r = report(series('recipe', 'recall', [0.9, 0.9, 0.9], [0.85, 0.85, 0.85]), ['recipe'])
+    expect(r.regressions).toEqual([])
+    expect(r.otherChanges.map((f) => f.text)).toEqual([
+      expect.stringMatching(/recipe · Ingredient recall.*\(−5\.0 pp\)/),
+    ])
+  })
+
   it('flags candidate max latency above 80% of the route budget, whatever the baseline did', () => {
     const budget = TASK_SPECS.review.budgetMs
     const calls = [

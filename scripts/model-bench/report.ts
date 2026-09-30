@@ -35,6 +35,9 @@ import {
   type JudgeTaskSummary,
 } from './judge'
 
+/** A delta, or its distance past a threshold, smaller than this is float residue. */
+const FLOAT_TOLERANCE = 1e-9
+
 /** The candidate's max latency may use at most this share of the route budget. */
 export const LATENCY_BUDGET_SHARE = 0.8
 
@@ -174,16 +177,17 @@ export function compareMetric(
     }
   }
 
-  // Snap float residue to zero: the mean of the same per-run value over 2 and
-  // over 3 runs can differ in the last bit, and with a zero range that residue
-  // would read as a real change (and, at `regressionDrop: 0`, a regression).
+  // Float residue is not a change: the mean of the same per-run value over 2
+  // and over 3 runs can differ in the last bit, and 0.85 − 0.9 is a hair past
+  // −0.05. Snap the one to zero and let the other sit on its threshold.
   const rawDelta = candidate.mean - baseline.mean
-  const delta = Math.abs(rawDelta) < 1e-9 ? 0 : rawDelta
+  const delta = Math.abs(rawDelta) < FLOAT_TOLERANCE ? 0 : rawDelta
   const widerRange = Math.max(baseline.max - baseline.min, candidate.max - candidate.min)
   // One per-run value measures no range, so it cannot show a difference lies
   // outside one.
   const noise = !rangeMeasured || Math.abs(delta) <= widerRange
-  const thresholdBreached = metric.regressionDrop !== undefined && delta < -metric.regressionDrop
+  const thresholdBreached =
+    metric.regressionDrop !== undefined && delta < -metric.regressionDrop - FLOAT_TOLERANCE
 
   return { metric, baseline, candidate, delta, noise, rangeMeasured, thresholdBreached }
 }

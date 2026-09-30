@@ -195,11 +195,15 @@ const imagine: TaskSpec<'imagine'> = {
       key: 'noForbiddenIngredients',
       label: 'No forbidden ingredient',
       format: 'percent',
-      onError: 0,
+      // A failed call served no food, so it is "not measured" here rather than
+      // a violation: with the zero tolerance below, a candidate that errored on
+      // one case every run would otherwise read as an allergen regression. The
+      // failure still counts in "All checks pass" and the Errors row.
+      onError: null,
       // Stricter than every other metric: this is the dietary and allergen
       // check, so a consistent drop means meat in a vegetarian meal, not a dip
       // in quality. 0 is the smallest value `compareMetric` supports (it
-      // breaches on `delta < -regressionDrop`): any drop outside noise is a
+      // breaches on a drop past `regressionDrop`): any drop outside noise is a
       // regression, and a baseline at 100% on every run measures no range.
       regressionDrop: 0,
     },
