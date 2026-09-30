@@ -1125,6 +1125,8 @@ For each item in "Address Now":
 - Read the file at that location
 - Apply the suggested fix using Edit tool
 
+A **PR-body finding** (a checkbox, a "Verified" line that cites nothing, a "Not verified" gap) has no file to edit. Rewrite the body under the 5.4 rules with `gh pr edit <PR_NUMBER> --body-file <file>`. For a "Not verified" gap, close it with a test instead where you can, and move the line to "Verified" once it passes.
+
 **The `not actioned:` convention — required for every finding the 6.4 materiality bar drops.** A skipped finding must read as a decision, not an oversight, or the next reviewer (or the human picking up a 6.7 hand-off) re-raises it and the loop restarts by hand.
 
 For a finding that came in as an **inline comment**, reply on that comment so the note sits next to the code it declines to change:
@@ -1185,7 +1187,7 @@ The commit above is conditional on 6.5 having changed something. **The decision 
 [auto-implement] ✓ Round ${ROUND}/3 addressed and pushed → re-reviewing
 ```
 
-**B. `ROUND` < 3 and nothing changed** — every finding was deferred as genuinely out of scope. A re-review would return the identical findings against the identical diff, so never loop back to 6.3 here. Proceed to **6.8** — this is the branch with the most to file, since it fires precisely when every finding was deferred — and then to Phase 7 and merge: the defer was deliberate, and the diff the reviewer saw is the diff being merged.
+**B. `ROUND` < 3 and nothing changed** — every finding was deferred as genuinely out of scope. A re-review would return the identical findings against the identical diff, so never loop back to 6.3 here. Proceed to **6.8** — this is the branch with the most to file, since it fires precisely when every finding was deferred — and then to Phase 7 and merge: the defer was deliberate, and the diff the reviewer saw is the diff being merged. A round whose only fix was a PR-body edit (6.5) also lands here: the diff is unchanged, so a re-review has nothing new to judge.
 
 > **An unresolved correctness or safety finding routes to 6.7 at any round, not just at the cap.** 6.4's "significant work → defer if genuinely out of scope" covers scope, not defects, and the rule must not depend on which round the defect surfaced in: handing one to a human on round 3 while merging the identical one on round 1 would make "defer everything immediately" the cheapest and least supervised way out of Phase 6. Deferring is for work that belongs in another issue. If a correctness or safety finding is real and simply unfixed, go to **6.7** and say so under "Still open".
 
