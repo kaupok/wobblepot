@@ -495,7 +495,7 @@ describe('PATCH /api/households/me/members/[id]', () => {
     const request = new Request('http://localhost', {
       method: 'PATCH',
       body: JSON.stringify({
-        preferences: { displayName: '', portionMultiplier: 0.5 }, // Empty string converts to null
+        preferences: { displayName: '   ', portionMultiplier: 0.5 }, // Blank converts to null
       }),
     })
 

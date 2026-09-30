@@ -13,6 +13,7 @@ const updateMemberSchema = z.object({
     .object({
       displayName: z
         .string()
+        .trim()
         .max(50)
         .transform((v) => (v === '' ? null : v))
         .nullable()

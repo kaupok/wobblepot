@@ -111,7 +111,7 @@ export function EditMemberPreferencesDialog({
 
     const payload: Record<string, unknown> = {
       preferences: {
-        displayName: displayName || null,
+        displayName: displayName.trim() || null,
         portionMultiplier,
       },
     }
