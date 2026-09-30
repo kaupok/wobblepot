@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { getSession } from '@/lib/session'
-import { getHouseholdMembership } from '@/lib/household'
+import { countAccountHoldingMembers, getHouseholdMembership } from '@/lib/household'
 import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -32,10 +32,15 @@ export default async function ProfilePage() {
     redirect('/onboarding')
   }
 
-  // Rides along on the membership query's `_count` — `/profile` used to issue a
-  // second `household_member` count for this (HON-596).
-  const memberCount = membership.household._count.members
   const isOwner = membership.role === 'owner'
+  // Only an owner's dialog reads this: members with an account are the ones
+  // that block deletion, and members without one are deleted with the
+  // household (HON-881). Not `household._count.members`, which counts every
+  // member row — the household size — and would block an owner whose other
+  // members are all children added by name. Skipped for non-owners.
+  const accountMemberCount = isOwner
+    ? await countAccountHoldingMembers(membership.householdId)
+    : undefined
 
   return (
     <div className="w-full px-4 py-8">
@@ -91,7 +96,7 @@ export default async function ProfilePage() {
               userEmail={session.user.email}
               householdName={membership.household.name}
               isOwner={isOwner}
-              memberCount={memberCount}
+              accountMemberCount={accountMemberCount}
             />
           </div>
         </div>

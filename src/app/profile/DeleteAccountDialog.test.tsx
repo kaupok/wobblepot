@@ -118,6 +118,68 @@ describe('DeleteAccountDialog error localization', () => {
   })
 })
 
+// An owner whose other members have no account is not blocked, and the
+// purge deletes those members with the household — so the dialog lists the
+// whole household, members without an account included, in both catalogs
+// (HON-881).
+describe('DeleteAccountDialog owner household line', () => {
+  async function openAsOwner(locale: 'en' | 'et', accountMemberCount: number) {
+    const user = userEvent.setup()
+    const messages = locale === 'et' ? etMessages : enMessages
+    const { wrapper: QueryWrapper } = createQueryWrapper()
+    render(
+      <QueryWrapper>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <DeleteAccountDialog
+            userEmail="kaupo@example.com"
+            householdName="Kõrvid"
+            isOwner
+            accountMemberCount={accountMemberCount}
+          />
+        </NextIntlClientProvider>
+      </QueryWrapper>,
+    )
+    await user.click(screen.getByRole('button', { name: messages.profile.delete.trigger }))
+    return screen.findByRole('alertdialog')
+  }
+
+  it.each([
+    [
+      'en' as const,
+      'Your household "Kõrvid" and all its data (meal plans, pantry items, members without their own account, etc.)',
+    ],
+    [
+      'et' as const,
+      'Sinu leibkond „Kõrvid" ja kõik selle andmed (söögiplaanid, sahvri tooted, oma kontota liikmed jms)',
+    ],
+  ])(
+    'lists the household for an owner who is the only account holder (%s)',
+    async (locale, line) => {
+      const messages = locale === 'et' ? etMessages : enMessages
+      const dialog = await openAsOwner(locale, 1)
+
+      expect(within(dialog).getByText(line)).toBeInTheDocument()
+      expect(
+        within(dialog).getByRole('button', { name: messages.profile.delete.confirm }),
+      ).toBeEnabled()
+    },
+  )
+
+  it('blocks an owner with another account holder and omits the household line', async () => {
+    const dialog = await openAsOwner('en', 2)
+
+    expect(
+      within(dialog).getByText(
+        'Warning: You cannot delete your account because you are the owner of "Kõrvid" with 1 other member. Please remove the other members first.',
+      ),
+    ).toBeInTheDocument()
+    expect(within(dialog).queryByText(/and all its data/)).not.toBeInTheDocument()
+    expect(
+      within(dialog).getByRole('button', { name: enMessages.profile.delete.confirm }),
+    ).toBeDisabled()
+  })
+})
+
 describe('DeleteAccountDialog pending state', () => {
   afterEach(() => {
     vi.unstubAllGlobals()

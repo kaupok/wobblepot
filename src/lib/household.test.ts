@@ -19,6 +19,7 @@ import { prisma } from '@/lib/prisma'
 import {
   getHouseholdMembership,
   isUserSoleOwnerWithOtherMembers,
+  countAccountHoldingMembers,
   listHouseholdMembers,
 } from './household'
 
@@ -142,8 +143,77 @@ describe('isUserSoleOwnerWithOtherMembers', () => {
     await isUserSoleOwnerWithOtherMembers('user-123')
 
     expect(mockCount).toHaveBeenCalledWith({
-      where: { householdId: 'household-456' },
+      where: { householdId: 'household-456', userId: { not: null } },
     })
+  })
+
+  // Manual members (no `userId`, typically children) are data the owner
+  // entered; `purgeUser` deletes them with the household, so they must not
+  // block the owner's erasure request (HON-881).
+  it('does not block an owner whose other members all lack an account', async () => {
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      role: 'owner',
+      household: { id: 'household-123', name: 'Doe Family' },
+    } as never)
+    // The filtered count sees only the owner; two manual rows are not counted.
+    mockCount.mockResolvedValue(1)
+
+    const result = await isUserSoleOwnerWithOtherMembers('user-123')
+
+    expect(result).toEqual({ isSoleOwner: false })
+    expect(mockCount).toHaveBeenCalledWith({
+      where: { householdId: 'household-123', userId: { not: null } },
+    })
+  })
+
+  it('blocks an owner with another account holder, counting only account holders', async () => {
+    mockFindFirst.mockResolvedValue({
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      role: 'owner',
+      household: { id: 'household-123', name: 'Doe Family' },
+    } as never)
+    // Owner + one account-holding member; the manual member is filtered out.
+    mockCount.mockResolvedValue(2)
+
+    const result = await isUserSoleOwnerWithOtherMembers('user-123')
+
+    expect(result).toEqual({
+      isSoleOwner: true,
+      householdId: 'household-123',
+      householdName: 'Doe Family',
+      memberCount: 2,
+    })
+  })
+})
+
+describe('countAccountHoldingMembers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('counts only members with a userId', async () => {
+    mockCount.mockResolvedValue(2)
+
+    await expect(countAccountHoldingMembers('household-123')).resolves.toBe(2)
+    expect(mockCount).toHaveBeenCalledWith({
+      where: { householdId: 'household-123', userId: { not: null } },
+    })
+  })
+
+  it('runs on the client it is given', async () => {
+    const txCount = vi.fn().mockResolvedValue(1)
+
+    await countAccountHoldingMembers('household-123', {
+      householdMember: { count: txCount },
+    } as never)
+
+    expect(txCount).toHaveBeenCalledOnce()
+    expect(mockCount).not.toHaveBeenCalled()
   })
 })
 

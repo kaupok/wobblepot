@@ -75,8 +75,16 @@ const VALID_INVITE = {
   memberId: 'member-456',
   code: 'abc123',
   expiresAt: new Date('2030-01-01'),
-  household: { id: 'household-123', name: 'Smith Family' },
+  // `members` is the owner-pending-deletion probe: empty while the owner's
+  // account is live (HON-881).
+  household: { id: 'household-123', name: 'Smith Family', members: [] },
   member: { id: 'member-456', name: 'Baby' },
+}
+
+/** The same invite while the household's owner has `deletedAt` set. */
+const OWNER_PENDING_DELETION_INVITE = {
+  ...VALID_INVITE,
+  household: { ...VALID_INVITE.household, members: [{ id: 'owner-member-1' }] },
 }
 
 const SESSION = {
@@ -327,6 +335,72 @@ describe('POST /api/invites/[code]/join', () => {
     expect(data.error).toBe('invite_invalid')
     expect(data.message).toBe('This invite is no longer valid.')
     expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
+  })
+
+  // Members without an account no longer block the owner's deletion, and the
+  // purge deletes them with the household. Claiming one during the grace
+  // window would add an account holder the purge then leaves in an ownerless
+  // household, so the claim is refused — with the exact body an invalid invite
+  // gets, so the invitee is not told the owner is leaving (HON-881).
+  describe('while the household owner is pending account deletion', () => {
+    it('refuses the claim with the same response as an invalid invite', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      mockGetSession.mockResolvedValue(SESSION as never)
+
+      mockInviteFindUnique.mockResolvedValue({
+        ...VALID_INVITE,
+        memberId: null,
+        member: null,
+      } as never)
+      const invalid = await POST(createRequest(), { params: createParams('abc123') })
+
+      mockInviteFindUnique.mockResolvedValue(OWNER_PENDING_DELETION_INVITE as never)
+      const refused = await POST(createRequest(), { params: createParams('abc123') })
+
+      expect(refused.status).toBe(invalid.status)
+      expect(await refused.json()).toEqual(await invalid.json())
+      expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
+      expect(mockCaptureApiError).not.toHaveBeenCalled()
+      // The reason is logged server-side only.
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('pending account deletion'))
+    })
+
+    it('reads the owner deletion state with the invite', async () => {
+      mockGetSession.mockResolvedValue(SESSION as never)
+      mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+
+      await POST(createRequest(), { params: createParams('abc123') })
+
+      expect(mockInviteFindUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            household: {
+              select: expect.objectContaining({
+                members: expect.objectContaining({
+                  where: { role: 'owner', user: { deletedAt: { not: null } } },
+                }),
+              }),
+            },
+          }),
+        }),
+      )
+    })
+
+    it('lets the same claim through once the deletion is cancelled', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      mockGetSession.mockResolvedValue(SESSION as never)
+
+      mockInviteFindUnique.mockResolvedValue(OWNER_PENDING_DELETION_INVITE as never)
+      const refused = await POST(createRequest(), { params: createParams('abc123') })
+      expect(refused.status).toBe(400)
+
+      // Recovery clears `deletedAt`, so the probe comes back empty.
+      mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+      const claimed = await POST(createRequest(), { params: createParams('abc123') })
+
+      expect(claimed.status).toBe(200)
+      expect(mockRunHouseholdClaim).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('successfully claims member profile with valid invite', async () => {

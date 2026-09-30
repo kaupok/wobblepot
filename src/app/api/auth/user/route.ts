@@ -97,13 +97,15 @@ async function sendDeletionConfirmationEmail(
  * (`/api/cron/purge-deleted-users`). Recovery during the window is a manual
  * operator step — see `docs/RUNBOOKS/gdpr-deletion.md`.
  *
- * Returns 400 if the user is the sole owner of a household with other members
- * (they must remove the other members first — unchanged behavior).
+ * Returns 400 if the user is the sole owner of a household that another member
+ * with an account belongs to (they must remove the other members first).
+ * Members without an account do not block: `purgeUser` deletes them with the
+ * household (HON-881).
  *
  * Every error body carries a `code` from `AccountDeletionErrorCode` (HON-725);
  * `DeleteAccountDialog` translates that, never the English `message`. The
- * sole-owner branch also sends `otherMemberCount` so the client can interpolate
- * it rather than parse it out of prose.
+ * sole-owner branch also sends `otherMemberCount` — the other members with an
+ * account — so the client can interpolate it rather than parse it out of prose.
  */
 export async function DELETE() {
   const session = await auth.api.getSession({
@@ -119,7 +121,7 @@ export async function DELETE() {
   const userEmail = session.user.email
 
   try {
-    // Check if user is sole owner with other members (unchanged guard)
+    // Check if user is sole owner with other account-holding members
     const ownershipCheck = await isUserSoleOwnerWithOtherMembers(userId)
 
     if (ownershipCheck.isSoleOwner) {

@@ -78,7 +78,17 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       where: { code },
       include: {
         household: {
-          select: { id: true, name: true },
+          select: {
+            id: true,
+            name: true,
+            // Non-empty while the owner's account is pending deletion — see
+            // the check below. `take: 1`: only its presence matters.
+            members: {
+              where: { role: 'owner', user: { deletedAt: { not: null } } },
+              select: { id: true },
+              take: 1,
+            },
+          },
         },
         member: {
           select: { id: true, name: true },
@@ -116,6 +126,26 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
 
     // Member-specific invites must have a memberId
     if (!invite.memberId || !invite.member) {
+      return NextResponse.json(
+        {
+          error: 'invite_invalid',
+          message: 'This invite is no longer valid.',
+        },
+        { status: 400 },
+      )
+    }
+
+    // The owner has asked to delete their account. Members without an account
+    // do not block that request, and the purge deletes them with the household
+    // (HON-881) — so claiming one now would add an account holder the purge
+    // then leaves in a household with no owner. Refuse with the same body an
+    // expired invite gets: the invitee is not told the owner is leaving. If the
+    // owner cancels, recovery clears `deletedAt` and this link works again.
+    if (invite.household.members.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[invites/join] refused invite ${invite.id}: household ${invite.household.id} owner is pending account deletion`,
+      )
       return NextResponse.json(
         {
           error: 'invite_invalid',
