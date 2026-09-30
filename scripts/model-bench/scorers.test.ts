@@ -336,15 +336,42 @@ describe('allowedQualifiers in the vegan imagine cases', () => {
     const score = (...names: string[]) =>
       scoreImagine(input, { meals: meals(2, ...names) }).noForbiddenIngredients
 
-    it.each(['Vegan parmesan', 'tempeh bacon', 'plant-based cream cheese', 'cashew ricotta'])(
-      'allows the swap %s',
-      (name) => {
-        expect(score(name)).toBe(1)
-      },
-    )
+    it.each([
+      'Vegan parmesan',
+      'tempeh bacon',
+      'plant-based cream cheese',
+      'cashew ricotta',
+      'oat milk',
+      'peanut butter',
+      'flax egg',
+      // Not swaps, but a plain keyword would catch them.
+      'eggplant',
+      'veggie stock',
+      'butternut squash',
+      'collard greens',
+      'honeydew melon',
+    ])('allows %s', (name) => {
+      expect(score(name)).toBe(1)
+    })
 
-    it.each(['parmesan', 'bacon', 'Sour cream', 'egg yolk'])('flags a plain %s', (name) => {
+    it.each([
+      'parmesan',
+      'Parmigiano-Reggiano',
+      'bacon',
+      'Sour cream',
+      'egg yolk',
+      '2 large eggs',
+      'butter',
+      'milk',
+      'cheese',
+    ])('flags a plain %s', (name) => {
       expect(score(name)).toBe(0)
+    })
+
+    it('does not let a qualifier after the keyword excuse it', () => {
+      expect(score('honey soy sauce')).toBe(0)
+      expect(score('honey-roasted cashews')).toBe(0)
+      expect(score('parmesan (vegan)')).toBe(0)
     })
 
     it('does not let one qualified swap excuse an unrelated violation', () => {
@@ -365,11 +392,14 @@ describe('allowedQualifiers in the vegan imagine cases', () => {
       'munavaba majonees',
       'sojavorst',
       'kalamata oliivid',
-    ])('allows the swap %s', (name) => {
+      'kaerapiim',
+      'riisipiim',
+      'kašujuust',
+    ])('allows %s', (name) => {
       expect(score(name)).toBe(1)
     })
 
-    it.each(['hapukoor', 'muna', 'kanamuna', 'suitsukala', 'lõhe', 'viiner'])(
+    it.each(['hapukoor', 'muna', 'kanamuna', 'suitsukala', 'lõhe', 'viiner', 'juust', 'piim'])(
       'flags a plain %s',
       (name) => {
         expect(score(name)).toBe(0)

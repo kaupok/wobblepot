@@ -255,10 +255,18 @@ export function scoreImagine(
   const forbidden = input.forbiddenKeywords.map(normalize)
   const qualifiers = (input.allowedQualifiers ?? []).map(normalize)
   // Per ingredient name: "tofu bacon" is a swap, and does not excuse a plain
-  // "bacon" in the same meal.
+  // "bacon" in the same meal. A qualifier counts only when it starts at or
+  // before the keyword, so "soy" excuses "soy bacon" (and "eggplant" excuses
+  // "egg") but not "honey soy sauce".
   const isForbidden = (ingredientName: string) => {
     const name = normalize(ingredientName)
-    return forbidden.some((kw) => name.includes(kw)) && !qualifiers.some((q) => name.includes(q))
+    const firstQualifier = Math.min(
+      ...qualifiers.map((q) => name.indexOf(q)).filter((i) => i !== -1),
+    )
+    return forbidden.some((kw) => {
+      const at = name.indexOf(kw)
+      return at !== -1 && at < firstQualifier
+    })
   }
 
   const exactlyThreeMeals = meals.length === 3
