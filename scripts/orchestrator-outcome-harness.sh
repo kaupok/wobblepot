@@ -275,6 +275,36 @@
 #     merged output, then the ordered call log (CREATE / GC_RAN / DELETE), then
 #     EXIT:<status> — so a test can assert which path ran, how many creates were
 #     attempted, and whether GC landed between them.
+#
+#   reload <scenario> [state-dir]                                   (HON-861)
+#     Runs the REAL reload_if_code_changed over three polls, with
+#     ORCHESTRATOR_CODE_FILES pointed at a temp stand-in script and reload_exec
+#     stubbed to print EXEC:<argv>, SKIPS_FILE and the ORCHESTRATOR_RELOAD_*
+#     hand-over, then exit. Scenarios: changed, unchanged, worker (a tracked
+#     PID), once (--once), shutdown, syntax (the change fails bash -n),
+#     exec-fails (reload_exec returns 126) and round-trip, which performs a REAL
+#     exec into `reload-restored` with [state-dir] as its scratch dir. A run that
+#     never exec'd prints NO_EXEC, SKIPS_FILE and LEFT_IN_ENV, then the log.
+#
+#   reload-restored <old-pid> <state-dir>                           (HON-861)
+#     The exec'd image: prints both PIDs, runs the REAL acquire_lock against a
+#     pid file naming <old-pid>, then restore_reload_state, and prints the
+#     restored state and the write_status_file JSON.
+#
+#   reload-lock <pid|self>                                          (HON-861)
+#     The REAL acquire_lock against a pid file naming <pid>. Prints LOCK_OK, or
+#     exits 1 with acquire_lock's own error when another live process holds it.
+#
+#   checkout-behind <repo> <polls> [between-script]                 (HON-861)
+#     The REAL check_checkout_behind with REPO_ROOT at a fixture clone, printing
+#     POLL:<n>:<status-file .checkout JSON> per poll, then the log. The interval
+#     is 0 unless HARNESS_CHECKOUT_INTERVAL is set; HARNESS_CHECKOUT_WORKER=1
+#     tracks a worker PID and HARNESS_CHECKOUT_ONCE=1 sets --once. The optional
+#     script runs before every poll after the first, given the poll number.
+#
+#   checkout-notice <status-json>                                   (HON-861)
+#     Sources worktree-claude.sh and prints the REAL checkout_behind_notice,
+#     bracketed so an empty notice is visible.
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -1193,6 +1223,134 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     printf '[%s]\n' "$(watch_pane_head "$A1" "$A2")"
+    exit 0
+    ;;
+
+  # ─── Code reload (HON-861) ─────────────────────────────────────────────────
+  reload)
+    SCENARIO="$A1"
+    CODE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-reload.XXXXXXXX")
+    trap 'rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$CODE_DIR"' EXIT
+    # A stand-in for orchestrator.sh: the fingerprint and the bash -n gate are
+    # what is under test, and editing the real script from a test is not an option.
+    printf '#!/bin/bash\necho v1\n' > "$CODE_DIR/code.sh"
+    ORCHESTRATOR_CODE_FILES=("$CODE_DIR/code.sh")
+    CODE_FINGERPRINT=$(code_fingerprint)
+    ORCHESTRATOR_ARGS=(--max-workers 2 --poll-interval 30)
+    ORCHESTRATOR_START_TIME="2026-09-30T10:00:00Z"
+    CONSECUTIVE_FAILURES=3
+    PAUSED_UNTIL=$(( $(date +%s) + 600 ))
+    GATED_ISSUES="HON-1,HON-2"
+    CAP_REQUEUED_ISSUES="HON-3:1790000000"
+    CHECKOUT_WARNED_SHA="0123456789abcdef"
+
+    # The exec, observed instead of performed — except in round-trip, which
+    # performs a REAL exec into this harness's reload-restored mode, so the PID,
+    # the lock and the state hand-over are asserted on a genuinely new image.
+    reload_exec() {
+      printf 'EXEC:%s\n' "$*"
+      printf 'SKIPS_FILE:%s\n' "$([ -e "$SEEN_SKIPS_FILE" ] && echo present || echo gone)"
+      env | grep '^ORCHESTRATOR_RELOAD_' | sort | sed 's/^/ENV:/' || true
+      cat "$MAIN_LOG"
+      if [ "$SCENARIO" = "round-trip" ]; then
+        # exec skips the EXIT trap, so clean up what this image owns first.
+        rm -rf "$MAIN_LOG" "$CODE_DIR"
+        exec "$BASH" "$HARNESS_DIR/orchestrator-outcome-harness.sh" reload-restored "$$" "$A2"
+      fi
+      exit 0
+    }
+
+    case "$SCENARIO" in
+      changed|round-trip) printf 'echo v2\n' >> "$CODE_DIR/code.sh" ;;
+      worker)   WORKER_PIDS=(12345); printf 'echo v2\n' >> "$CODE_DIR/code.sh" ;;
+      once)     RUN_ONCE=true; printf 'echo v2\n' >> "$CODE_DIR/code.sh" ;;
+      shutdown) SHUTTING_DOWN=true; printf 'echo v2\n' >> "$CODE_DIR/code.sh" ;;
+      syntax)   printf 'if then fi (\n' >> "$CODE_DIR/code.sh" ;;
+      unchanged) ;;
+      exec-fails)
+        printf 'echo v2\n' >> "$CODE_DIR/code.sh"
+        reload_exec() { return 126; }
+        ;;
+      *) echo "Unknown reload scenario: $SCENARIO" >&2; exit 64 ;;
+    esac
+
+    # Three polls: a WARN or a reload attempt must happen once, not per poll.
+    for _poll in 1 2 3; do reload_if_code_changed; done
+    echo "NO_EXEC"
+    printf 'SKIPS_FILE:%s\n' "$([ -e "$SEEN_SKIPS_FILE" ] && echo present || echo gone)"
+    echo "LEFT_IN_ENV:$(env | grep -c '^ORCHESTRATOR_RELOAD_' || true)"
+    cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  reload-restored)
+    # The image reload_if_code_changed exec'd, reached from `reload round-trip`.
+    # <A1> is the PID of the image that exec'd; <A2> a scratch dir for the lock
+    # and status file, owned from here on.
+    STATE_DIR="$A2"
+    trap 'rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$STATE_DIR"' EXIT
+    echo "PID_BEFORE:$A1"
+    echo "PID_AFTER:$$"
+    PID_FILE="$STATE_DIR/orchestrator.pid"
+    STATUS_FILE="$STATE_DIR/orchestrator-status.json"
+    # The pid file the running orchestrator holds, which now names this process.
+    echo "$A1" > "$PID_FILE"
+    acquire_lock
+    echo "LOCK_OK:$(cat "$PID_FILE")"
+    restore_reload_state
+    echo "RELOADED:$RELOADED"
+    echo "FAILURES:$CONSECUTIVE_FAILURES"
+    echo "PAUSED_UNTIL:$PAUSED_UNTIL"
+    echo "START:$ORCHESTRATOR_START_TIME"
+    echo "GATED:$GATED_ISSUES"
+    echo "CAP:$CAP_REQUEUED_ISSUES"
+    echo "WARNED:$CHECKOUT_WARNED_SHA"
+    echo "LEFT_IN_ENV:$(env | grep -c '^ORCHESTRATOR_RELOAD_' || true)"
+    write_status_file
+    echo "STATUS:$(jq -c '{started_at, failures: .circuit_breaker.consecutive_failures}' "$STATUS_FILE")"
+    cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  reload-lock)
+    # acquire_lock against a pid file naming <A1>: `self` for this process.
+    LOCK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-lock.XXXXXXXX")
+    trap 'rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$LOCK_DIR"' EXIT
+    PID_FILE="$LOCK_DIR/orchestrator.pid"
+    if [ "$A1" = "self" ]; then echo "$$" > "$PID_FILE"; else echo "$A1" > "$PID_FILE"; fi
+    acquire_lock
+    echo "LOCK_OK"
+    exit 0
+    ;;
+
+  checkout-behind)
+    # The REAL check_checkout_behind against a fixture clone at <A1>, <A2> polls.
+    # <A3>, when set, is a script run before every poll after the first, with the
+    # poll number as its argument — how a test lands a new origin/main commit
+    # between polls of ONE process, which is where the once-per-SHA state lives.
+    REPO_ROOT="$A1"
+    POLLS="${A2:-1}"
+    CHECKOUT_CHECK_INTERVAL="${HARNESS_CHECKOUT_INTERVAL:-0}"
+    STATUS_DIR=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-checkout.XXXXXXXX")
+    trap 'rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$STATUS_DIR"' EXIT
+    STATUS_FILE="$STATUS_DIR/orchestrator-status.json"
+    WORKER_PIDS=()
+    [ "${HARNESS_CHECKOUT_WORKER:-}" = "1" ] && WORKER_PIDS=(12345)
+    [ "${HARNESS_CHECKOUT_ONCE:-}" = "1" ] && RUN_ONCE=true
+    for ((poll = 1; poll <= POLLS; poll++)); do
+      if [ "$poll" -gt 1 ] && [ -n "$A3" ]; then bash "$A3" "$poll"; fi
+      check_checkout_behind
+      write_status_file
+      echo "POLL:$poll:$(jq -c '.checkout' "$STATUS_FILE")"
+    done
+    cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  checkout-notice)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    printf '[%s]\n' "$(checkout_behind_notice "$A1")"
     exit 0
     ;;
 

@@ -40,6 +40,10 @@ wt stop
 │  4. Claim (move to In Progress)         │
 │  5. Spawn wt auto worker               │
 │  6. Sleep, repeat                       │
+│                                         │
+│  When idle (no workers): reload if the  │
+│  scripts changed on disk; every 10 min, │
+│  warn if the checkout is behind main    │
 └─────────────────────────────────────────┘
 ```
 
@@ -110,7 +114,7 @@ The cap message itself names the budget, the ceiling in force and the branch cou
 
 ### Monitoring
 
-**Live status:** Run `wt status` from any terminal to see orchestrator state, worker phases, elapsed times, and git progress.
+**Live status:** Run `wt status` from any terminal to see orchestrator state, worker phases, elapsed times, and git progress, plus a line when the main checkout is behind `origin/main` for orchestrator code ([Updating the orchestrator](#updating-the-orchestrator)).
 
 **Live dashboard:** `wt watch [interval]` (default 5s) is the full-screen version, and shows four things `wt status` does not:
 
@@ -210,6 +214,15 @@ The machine-readable status that `wt status` reads, `orchestrator-status.json`, 
 The poll loop sleeps via `interruptible_sleep` (a backgrounded `sleep` plus `wait`) so the first signal is acted on within a second. A plain foreground `sleep "$POLL_INTERVAL"` blocks trap delivery for up to 60s, which is longer than the 15s `wt stop` allows before escalating.
 
 > **Known gap (HON-575).** The _escalation_ still does not reach the force path. Bash will not re-enter a trap handler for a signal whose handler is already running, so the second `SIGTERM` sent while `shutdown()`'s graceful wait loop is executing is dropped: `FORCE_SHUTDOWN` is never set and `drain_workers_to_queue` never runs. Closing it means restructuring `shutdown()` to set flags only and letting the main loop perform the drain. Until then, after a `wt stop` that reports `Drain did not finish in time`, check `wt list` for orphaned worktrees and Linear for issues left `In Progress`.
+
+### Updating the orchestrator
+
+A merged orchestrator change takes effect once the main checkout the orchestrator runs from has been pulled and the orchestrator is next idle. It does not need a restart (HON-861).
+
+- **Reload.** On every poll with no worker running, the orchestrator compares a checksum of `scripts/orchestrator.sh` (and of any file it sources, listed in `ORCHESTRATOR_CODE_FILES`) with the one it started on. When they differ it logs `INFO Orchestrator code changed on disk (… -> …); reloading in place` and `exec`s the script with its original flags. The PID stays the same, so `orchestrator.pid`, `wt status`, `wt stop` and the console log are unaffected. The circuit breaker (failure count and pause), the gated and cap-cooldown suppressions, the run's start time and the last behind-`origin/main` WARN are handed to the new image, so a reload changes code, not state. It never happens while a worker runs, because per-worker bookkeeping lives only in memory, and `--once` runs never reload. A change that fails `bash -n` is not loaded: the orchestrator logs one `WARN … fails bash -n` for that version and keeps running the old code. After a reload, an environment check that fails (typically a Linear blip) is retried every poll interval rather than ending the process.
+- **Behind `origin/main`.** Nothing pulls the checkout for you: it is also your working directory. At most every 10 minutes, again only while idle, the orchestrator runs `git fetch origin main` in the main checkout and counts the `origin/main` commits under `scripts/` that the checkout lacks. When there are any, it logs one `WARN Checkout is behind origin/main …` per new `origin/main` SHA. It also records the counts in `orchestrator-status.json`, which `wt status` prints and `wt watch` shows on its `⚠` line whenever no operational alert needs that line. `worktree-claude.sh` runs from the same checkout, so until you pull, the workers the orchestrator spawns also run the old code.
+
+So after an orchestrator PR merges, `git pull` in the main checkout is the whole procedure.
 
 ### Design: Dumb Dispatcher, Smart Workers
 

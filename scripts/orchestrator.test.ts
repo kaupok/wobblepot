@@ -4395,4 +4395,352 @@ describe('orchestrator.sh', () => {
       expect(clip('a title that cannot fit', w as number)).toBe('')
     })
   })
+
+  // ─── HON-861: the orchestrator reloads its own code ───────────────────────
+  // It ran a day of PR #931's pre-merge code (polling Todo, never Queued)
+  // because bash loads a script once and nobody ran `wt stop` / `wt start`.
+  describe('HON-861 reload when the code on disk changes', () => {
+    const reload = (scenario: string, ...rest: string[]) =>
+      stripTimestamps(runHarness('reload', scenario, ...rest))
+
+    it('re-execs itself with its original flags when idle and the code changed', () => {
+      const out = reload('changed')
+
+      expect(out).toMatch(
+        /^EXEC:\S*bash \S*\/scripts\/orchestrator\.sh --max-workers 2 --poll-interval 30$/m,
+      )
+      expect(out).toMatch(
+        /INFO +Orchestrator code changed on disk \(\S+ -> \S+\); reloading in place \(PID \d+\)/,
+      )
+      // The new image makes its own; exec skips the EXIT trap that would remove this one.
+      expect(out).toContain('SKIPS_FILE:gone')
+    })
+
+    it('hands the breaker and the retry bounds to the new image', () => {
+      const out = reload('changed')
+
+      expect(out).toContain('ENV:ORCHESTRATOR_RELOAD_FAILURES=3')
+      expect(out).toMatch(/^ENV:ORCHESTRATOR_RELOAD_PAUSED_UNTIL=\d+$/m)
+      expect(out).toContain('ENV:ORCHESTRATOR_RELOAD_GATED=HON-1,HON-2')
+      expect(out).toContain('ENV:ORCHESTRATOR_RELOAD_CAP_REQUEUED=HON-3:1790000000')
+      expect(out).toContain('ENV:ORCHESTRATOR_RELOAD_START_TIME=2026-09-30T10:00:00Z')
+      expect(out).toContain('ENV:ORCHESTRATOR_RELOAD_CHECKOUT_WARNED=0123456789abcdef')
+    })
+
+    it('does nothing while the code is unchanged', () => {
+      const out = reload('unchanged')
+
+      expect(out).toContain('NO_EXEC')
+      expect(out).not.toContain('reloading')
+    })
+
+    it.each([
+      ['worker', 'a worker is running — its bookkeeping exists only in memory'],
+      ['once', 'the run is --once'],
+      ['shutdown', 'the orchestrator is shutting down'],
+    ])('does not reload while %s (%s)', (scenario) => {
+      const out = reload(scenario)
+
+      expect(out).toContain('NO_EXEC')
+      expect(out).toContain('SKIPS_FILE:present')
+      expect(out).not.toContain('reloading')
+      expect(out).not.toContain('WARN')
+    })
+
+    it('keeps the running code, with one WARN, when the change fails bash -n', () => {
+      const out = reload('syntax')
+
+      expect(out).toContain('NO_EXEC')
+      // Three polls, one line: the WARN is once per rejected version.
+      expect(
+        out.match(/WARN +Orchestrator code changed on disk but fails bash -n \(code\.sh\)/g),
+      ).toHaveLength(1)
+      expect(out).not.toContain('reloading')
+    })
+
+    it('survives an exec that fails, and does not retry it every poll', () => {
+      const out = reload('exec-fails')
+
+      expect(out).toContain('NO_EXEC')
+      expect(out.match(/reloading in place/g)).toHaveLength(1)
+      expect(out).toMatch(/ERROR +Reload failed \(exec exit 126\); keeping the running code/)
+      // Nothing half-handed-over is left behind for a worker to inherit.
+      expect(out).toContain('LEFT_IN_ENV:0')
+      expect(out).toContain('SKIPS_FILE:present')
+    })
+
+    describe('a real exec', () => {
+      const run = () => {
+        const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hon861-reload-'))
+        const out = stripTimestamps(runHarness('reload', 'round-trip', stateDir))
+        // reload-restored owns the dir and removes it; this is only a backstop.
+        fs.rmSync(stateDir, { recursive: true, force: true })
+        return out
+      }
+      const field = (out: string, key: string) => out.match(new RegExp(`^${key}:(.*)$`, 'm'))?.[1]
+
+      it('keeps the PID, and the lock accepts it', () => {
+        const out = run()
+
+        expect(field(out, 'PID_AFTER')).toBe(field(out, 'PID_BEFORE'))
+        expect(field(out, 'LOCK_OK')).toBe(field(out, 'PID_BEFORE'))
+        expect(out).not.toContain('Another orchestrator is already running')
+      })
+
+      it('carries an engaged circuit breaker through', () => {
+        const out = run()
+        const handedOver = out.match(/^ENV:ORCHESTRATOR_RELOAD_PAUSED_UNTIL=(\d+)$/m)?.[1]
+
+        expect(field(out, 'RELOADED')).toBe('true')
+        expect(field(out, 'FAILURES')).toBe('3')
+        expect(handedOver).toBeDefined()
+        expect(field(out, 'PAUSED_UNTIL')).toBe(handedOver)
+        expect(field(out, 'STATUS')).toBe('{"started_at":"2026-09-30T10:00:00Z","failures":3}')
+      })
+
+      it('restores the retry bounds and the run start, then clears the hand-over', () => {
+        const out = run()
+
+        expect(field(out, 'GATED')).toBe('HON-1,HON-2')
+        expect(field(out, 'CAP')).toBe('HON-3:1790000000')
+        expect(field(out, 'WARNED')).toBe('0123456789abcdef')
+        expect(field(out, 'START')).toBe('2026-09-30T10:00:00Z')
+        expect(field(out, 'LEFT_IN_ENV')).toBe('0')
+        expect(out).toMatch(/INFO +Reloaded from \S+: circuit breaker failures=3/)
+      })
+    })
+
+    describe('acquire_lock', () => {
+      it('accepts a pid file naming its own PID', () => {
+        expect(runHarness('reload-lock', 'self')).toContain('LOCK_OK')
+      })
+
+      it('still refuses a pid file naming another live process', () => {
+        const res = spawnSync('bash', [harness, 'reload-lock', String(process.pid)], {
+          encoding: 'utf8',
+          timeout: 30_000,
+          env: harnessEnv(),
+        })
+
+        expect(res.status).toBe(1)
+        expect(res.stdout).not.toContain('LOCK_OK')
+        expect(res.stderr).toContain(`Another orchestrator is already running (PID ${process.pid})`)
+      })
+    })
+
+    describe('wiring', () => {
+      const source = () => fs.readFileSync(orchestrator, 'utf8')
+
+      it('fingerprints every file the script sources at load time', () => {
+        const src = source()
+        const files = src.match(/^ORCHESTRATOR_CODE_FILES=\((.*)\)$/m)?.[1] ?? ''
+        const sourced = src
+          .split('\n')
+          .filter((line) => /^\s*(source|\.)\s/.test(line))
+          .map((line) => path.basename((line.trim().split(/\s+/)[1] ?? '').replace(/["']/g, '')))
+
+        expect(files).toContain('"$SCRIPT_DIR/orchestrator.sh"')
+        for (const file of sourced) expect(files).toContain(file)
+      })
+
+      it('reloads from the idle branch of the poll loop only', () => {
+        const body = shellFunctionBody(source(), 'main')
+
+        expect(body.match(/reload_if_code_changed/g)).toHaveLength(1)
+        expect(body).toContain(
+          'if [ ${#WORKER_PIDS[@]} -eq 0 ]; then\n      reload_if_code_changed\n      check_checkout_behind',
+        )
+        // Before the spawn gate, so a poll that claims an issue cannot reload
+        // after spawning it.
+        expect(body.indexOf('reload_if_code_changed')).toBeLessThan(
+          body.indexOf('local active=${#WORKER_PIDS[@]}'),
+        )
+      })
+
+      it('does not let a transient validation failure after a reload kill the process', () => {
+        const src = source()
+        const validate = shellFunctionBody(src, 'validate_environment')
+
+        expect(shellFunctionBody(src, 'main')).toContain(
+          'validate_environment || wait_for_environment',
+        )
+        // A first start still refuses outright.
+        expect(validate.indexOf('[ "$RELOADED" = true ] && return 1')).toBeGreaterThan(-1)
+        expect(validate.indexOf('[ "$RELOADED" = true ] && return 1')).toBeLessThan(
+          validate.lastIndexOf('exit 1'),
+        )
+      })
+
+      it('keeps the run start time across a reload', () => {
+        expect(shellFunctionBody(source(), 'main')).toContain(
+          '[ -n "$ORCHESTRATOR_START_TIME" ] || ORCHESTRATOR_START_TIME=',
+        )
+      })
+    })
+  })
+
+  describe('HON-861 warn when the checkout is behind origin/main', () => {
+    const roots: string[] = []
+    afterAll(() => {
+      for (const root of roots) fs.rmSync(root, { recursive: true, force: true })
+    })
+
+    const gitEnv: Record<string, string> = {
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CONFIG_SYSTEM: '/dev/null',
+      GIT_AUTHOR_NAME: 'harness',
+      GIT_AUTHOR_EMAIL: 'harness@example.test',
+      GIT_COMMITTER_NAME: 'harness',
+      GIT_COMMITTER_EMAIL: 'harness@example.test',
+    }
+    const git = (cwd: string, ...args: string[]) =>
+      execFileSync('git', args, {
+        cwd,
+        encoding: 'utf8',
+        env: { ...process.env, ...gitEnv },
+        timeout: 30_000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim()
+
+    const commit = (repo: string, file: string) => {
+      fs.mkdirSync(path.dirname(path.join(repo, file)), { recursive: true })
+      fs.appendFileSync(path.join(repo, file), `${Date.now()}-${Math.random()}\n`)
+      git(repo, 'add', file)
+      git(repo, 'commit', '-qm', `touch ${file}`)
+    }
+
+    /**
+     * A non-bare origin (commits land in it directly, no push) and a clone of
+     * it standing in for the main checkout the orchestrator runs from.
+     */
+    function makeFixture(ahead: { scripts?: number; other?: number } = {}) {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hon861-checkout-'))
+      roots.push(root)
+      const origin = path.join(root, 'origin')
+      const clone = path.join(root, 'clone')
+      git(root, 'init', '-q', '-b', 'main', origin)
+      commit(origin, 'scripts/orchestrator.sh')
+      git(root, 'clone', '-q', origin, clone)
+      for (let i = 0; i < (ahead.scripts ?? 0); i++) commit(origin, 'scripts/orchestrator.sh')
+      for (let i = 0; i < (ahead.other ?? 0); i++) commit(origin, 'docs/README.md')
+      // Run before every poll after the first; poll 2 lands one more scripts/ commit.
+      const between = path.join(root, 'between.sh')
+      fs.writeFileSync(
+        between,
+        [
+          `[ "$1" = 2 ] || exit 0`,
+          `cd '${origin}'`,
+          `date +%s%N >> scripts/orchestrator.sh`,
+          `git add scripts/orchestrator.sh && git commit -qm 'poll 2'`,
+        ].join('\n'),
+      )
+      return { origin, clone, between }
+    }
+
+    const check = (clone: string, polls: number, env: Record<string, string> = {}, between = '') =>
+      stripTimestamps(
+        runHarnessEnv({ ...gitEnv, ...env }, 'checkout-behind', clone, String(polls), between),
+      )
+    const polls = (out: string) =>
+      [...out.matchAll(/^POLL:\d+:(.*)$/gm)].map(
+        (m) => JSON.parse(m[1] ?? 'null') as Record<string, unknown> | null,
+      )
+    const warns = (out: string) => out.match(/WARN +Checkout is behind origin\/main/g) ?? []
+
+    it('reports commits under scripts/ the checkout lacks, once per origin/main SHA', () => {
+      const { origin, clone } = makeFixture({ scripts: 1, other: 1 })
+      const out = check(clone, 3)
+      const [first, ...rest] = polls(out)
+
+      expect(first).toMatchObject({
+        behind: 2,
+        behind_scripts: 1,
+        origin_main: git(origin, 'rev-parse', 'HEAD').slice(0, 8),
+      })
+      for (const later of rest) expect(later).toMatchObject({ behind: 2, behind_scripts: 1 })
+      expect(warns(out)).toHaveLength(1)
+      expect(out).toContain('by 2 commit(s), 1 touching scripts/')
+    })
+
+    it('warns again when origin/main moves to a new SHA', () => {
+      const { clone, between } = makeFixture({ scripts: 1 })
+      const out = check(clone, 3, {}, between)
+
+      expect(polls(out).map((p) => p?.behind_scripts)).toEqual([1, 2, 2])
+      expect(warns(out)).toHaveLength(2)
+    })
+
+    it('never pulls: the checkout HEAD and working tree are untouched', () => {
+      const { clone } = makeFixture({ scripts: 2 })
+      const head = git(clone, 'rev-parse', 'HEAD')
+      const file = fs.readFileSync(path.join(clone, 'scripts/orchestrator.sh'), 'utf8')
+
+      check(clone, 2)
+
+      expect(git(clone, 'rev-parse', 'HEAD')).toBe(head)
+      expect(fs.readFileSync(path.join(clone, 'scripts/orchestrator.sh'), 'utf8')).toBe(file)
+      expect(git(clone, 'status', '--porcelain')).toBe('')
+    })
+
+    it.each([
+      ['up to date', {}],
+      ['behind only outside scripts/', { other: 2 }],
+    ])('stays silent when the checkout is %s', (_label, ahead) => {
+      const { clone } = makeFixture(ahead)
+      const out = check(clone, 2)
+
+      expect(polls(out)).toEqual([null, null])
+      expect(warns(out)).toHaveLength(0)
+    })
+
+    it.each([
+      ['a worker is running', { HARNESS_CHECKOUT_WORKER: '1' }],
+      ['the run is --once', { HARNESS_CHECKOUT_ONCE: '1' }],
+    ])('does not fetch while %s', (_label, env) => {
+      const { clone } = makeFixture({ scripts: 1 })
+      const before = git(clone, 'rev-parse', 'refs/remotes/origin/main')
+      const out = check(clone, 1, env)
+
+      expect(polls(out)).toEqual([null])
+      expect(git(clone, 'rev-parse', 'refs/remotes/origin/main')).toBe(before)
+    })
+
+    it('checks at most once per interval', () => {
+      const { clone, between } = makeFixture({ scripts: 1 })
+      const out = check(clone, 3, { HARNESS_CHECKOUT_INTERVAL: '600' }, between)
+
+      // Poll 2's new commit is not seen: polls 2 and 3 fall inside the interval.
+      expect(polls(out).map((p) => p?.behind_scripts)).toEqual([1, 1, 1])
+      expect(warns(out)).toHaveLength(1)
+    })
+
+    describe('checkout_behind_notice', () => {
+      const notice = (status: unknown) =>
+        runHarness('checkout-notice', JSON.stringify(status)).trim().slice(1, -1)
+
+      it('says how far behind, and what to do', () => {
+        expect(
+          notice({
+            checkout: { behind: 3, behind_scripts: 2, origin_main: 'abcd1234', checked_at: 'x' },
+          }),
+        ).toBe(
+          'Checkout is 3 commit(s) behind origin/main (abcd1234), 2 touching scripts/: pull it, and the orchestrator reloads itself when next idle',
+        )
+      })
+
+      it.each([
+        ['a current checkout', { checkout: null }],
+        ['a status file from before HON-861', { pid: 1 }],
+        ['no scripts/ commits', { checkout: { behind: 4, behind_scripts: 0 } }],
+      ])('is empty for %s', (_label, status) => {
+        expect(notice(status)).toBe('')
+      })
+
+      it.each(['cmd_status', 'cmd_watch'])('is what %s renders', (fn) => {
+        expect(shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), fn)).toContain(
+          'checkout_behind_notice "$status"',
+        )
+      })
+    })
+  })
 })
