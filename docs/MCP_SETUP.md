@@ -8,10 +8,9 @@ Complete guide for setting up and troubleshooting Model Context Protocol (MCP) s
 - [Configured MCP Servers](#configured-mcp-servers)
 - [Verifying MCP Server Status](#verifying-mcp-server-status)
 - [Adding New MCP Servers](#adding-new-mcp-servers)
+- [Environment Variables](#environment-variables)
 - [Troubleshooting MCP Servers](#troubleshooting-mcp-servers)
 - [Best Practices](#best-practices)
-- [Database Operations (Without Postgres MCP)](#database-operations-without-postgres-mcp)
-- [Future MCP Enhancements](#future-mcp-enhancements)
 - [MCP Resources](#mcp-resources)
 
 ## What is MCP?
@@ -20,44 +19,36 @@ MCP (Model Context Protocol) is an open protocol that standardizes how AI assist
 
 **Key benefits:**
 
-- **Context-aware assistance**: Servers provide domain-specific knowledge (Better Auth docs, library documentation)
+- **Context-aware assistance**: Servers provide domain-specific knowledge (library documentation, Linear issues, PostHog data, Figma designs)
 - **Enhanced capabilities**: Browser automation, Next.js analysis, product analytics
 - **Reduced friction**: Pre-configured servers eliminate repetitive setup and explanation
 - **Team consistency**: Shared `.mcp.json` ensures everyone has the same tools
 
 ## Configured MCP Servers
 
-Our project uses the following MCP servers:
+`.mcp.json` configures six servers:
 
-**Configuration locations:**
-
-- **Stdio servers** (in `.mcp.json`): playwright, next-devtools
-- **HTTP servers** (in `.mcp.json`): context7, linear-server, posthog, figma
-- **HTTP servers** (configured globally): better-auth
-
-> **Note**: The `better-auth` server is configured globally via Claude Code and does not appear in the project's `.mcp.json` file. The `context7`, `linear-server`, `posthog`, and `figma` HTTP servers are in `.mcp.json`. HTTP servers connect to remote endpoints and authenticate with an API key or OAuth.
+- **Stdio servers**: `playwright`, `next-devtools`. Claude Code starts each with `npx`; neither needs authentication.
+- **HTTP servers**: `context7`, `linear-server`, `posthog`, `figma`. They connect to remote endpoints. `context7` authenticates with the `CONTEXT7_API_KEY` header; the other three use OAuth in the browser.
 
 ### 1. Playwright Server (Microsoft)
 
-- **Purpose**: Browser automation and E2E test generation/debugging
-- **Capabilities**:
-  - Generate tests from natural language requirements
-  - Debug test failures with AI analyzing screenshots
-  - Automate browser interactions for testing
-  - Web scraping and interaction
-- **When to use**: Writing new E2E tests, debugging test failures, automating browser tasks
-- **Note**: Works with your existing Playwright setup
+- **Purpose**: Drive a real browser from the agent
+- **Capabilities**: Navigate, click, type, fill forms, take accessibility snapshots and screenshots, read console messages and network requests
+- **Authentication**: None (stdio, `npx -y @playwright/mcp`)
+- **When to use**: Walking a flow by hand while writing or debugging an E2E spec, checking a change in the running app
+- **Note**: Separate from the project's Playwright test runner; specs still live in `tests/e2e`
 
 ### 2. Next.js DevTools Server (Vercel)
 
-- **Purpose**: Next.js-specific development assistance
+- **Purpose**: Query a running Next.js dev server and find the docs for the installed Next.js version
 - **Capabilities**:
-  - Analyze app structure and routes
-  - Get Next.js best practice recommendations
-  - Identify optimization opportunities
-  - Future: Automated Next.js upgrades
-- **When to use**: Working on Next.js-specific features, planning upgrades, optimizing performance
-- **Note**: Particularly useful for major Next.js version upgrades
+  - `nextjs_index`: discover running dev servers and the tools each exposes at `/_next/mcp`
+  - `nextjs_call`: call one of those tools (compilation and runtime errors, routes, build status)
+  - `nextjs_docs`: point at the version-matched docs in `node_modules/next/dist/docs/`
+  - `browser_eval`: set up the `agent-browser` CLI for browser automation
+- **Authentication**: None (stdio, `npx -y next-devtools-mcp`)
+- **When to use**: Diagnosing errors in a running `pnpm dev`, listing routes, reading the Next.js 16 docs before writing Next.js code
 
 ### 3. Context7 (HTTP server)
 
@@ -95,7 +86,7 @@ Our project uses the following MCP servers:
 
 > The automation scripts use a separate `LINEAR_API_KEY` for the Linear GraphQL API — it is for the scripts, not the MCP server. Put it in `.env` (see `.env.example`): `scripts/worktree-claude.sh` (`wt`) loads that file itself, and `wt start` passes it on to `scripts/orchestrator.sh`, which reads it from its environment. Create one at [Linear Settings → API](https://linear.app/settings/api).
 
-**Permission presets:** All Linear MCP tools (`mcp__linear-server__*`) are pre-approved in `.claude/settings.local.json`
+**Permission presets:** All Linear MCP tools (`mcp__linear-server__*`) are pre-approved in `.claude/settings.local.json.example`, so a `settings.local.json` copied from it (see [Environment Variables](#environment-variables)) allows them.
 
 ### 5. PostHog MCP (HTTP server)
 
@@ -112,13 +103,6 @@ Our project uses the following MCP servers:
 - **Authentication**: OAuth. Claude Code prompts for sign-in on first use (run `/mcp` → `figma` → Authenticate).
 - **When to use**: Building or changing UI from a Figma design — paste the frame's link into the prompt. Map what it returns onto our tokens and primitives per `docs/DESIGN.md`; don't copy its raw values.
 - **Note**: Defined in `.mcp.json` at `https://mcp.figma.com/mcp` (Figma's remote server; no Figma desktop app needed)
-
-### 7. Better Auth MCP (HTTP server)
-
-- **Purpose**: Better Auth documentation search and AI chat
-- **Capabilities**: Search Better Auth docs, get implementation examples
-- **When to use**: Implementing auth features, troubleshooting Better Auth issues
-- **Note**: Configured globally via Claude Code, so it does not appear in `.mcp.json`
 
 ## Verifying MCP Server Status
 
@@ -166,13 +150,19 @@ Use local scope with Claude Code CLI:
 claude mcp add --transport stdio your-server -- npx -y @modelcontextprotocol/server-name
 ```
 
+### Declined servers
+
+Serena and a Postgres MCP server were considered and declined on 2026-09-30 (HON-876); do not add either without reopening that decision.
+
+For database work, the commands are in `CLAUDE.md` → Database Patterns, a SQL prompt is in `docs/RUNBOOKS/translation-maintenance.md` → "Getting a SQL prompt", and `pnpm prisma migrate status` and recovery are in `docs/RUNBOOKS/database-recovery.md`.
+
 ## Environment Variables
 
 Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_API_KEY}` header on the `context7` server). Set it in `.claude/settings.local.json`. `linear-server`, `posthog`, and `figma` authenticate through OAuth and need no key.
 
 **Checking for drift:** `grep -o '\${[A-Z0-9_]*}' .mcp.json` lists every variable `.mcp.json` interpolates. This section should document exactly that set — if the two disagree, this doc is stale.
 
-`LINEAR_API_KEY` is also listed here, but the Linear MCP server does not use it — it is for the automation scripts (see the note under [Linear MCP](#4-linear-mcp-http-server)). Put it in `.env` as well, which is where `scripts/worktree-claude.sh` reads it.
+`LINEAR_API_KEY` is also listed here, but the Linear MCP server does not use it — it is for the automation scripts (see the note under [Linear MCP](#4-linear-mcp-http-server)). Put it in `.env` as well, which is where `scripts/worktree-claude.sh` reads it. Listing it under `env` puts it in the environment of the commands a Claude Code session runs, where `scripts/orchestrator.sh` and `scripts/neon-cleanup.sh` read it.
 
 ```json
 {
@@ -207,10 +197,11 @@ Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_
 
 ### Server shows "Failed to connect"
 
-1. Check server is properly installed: `npx -y @modelcontextprotocol/server-name --version`
-2. Verify environment variables are set in `.claude/settings.local.json`
-3. Restart Claude Code
-4. Check server logs: `claude mcp get server-name`
+1. Check the server's details: `claude mcp get <server-name>`
+2. For a stdio server, run its command by hand to see the error: `npx -y @playwright/mcp` or `npx -y next-devtools-mcp`
+3. For `context7`, verify `CONTEXT7_API_KEY` is set in `.claude/settings.local.json` (see [Context7 authentication fails](#context7-authentication-fails))
+4. For `linear-server`, `posthog` or `figma`, sign in again: run `/mcp`, pick the server, and choose Authenticate
+5. Restart Claude Code
 
 ### Environment variables not working
 
@@ -233,80 +224,9 @@ Only `CONTEXT7_API_KEY` is interpolated by `.mcp.json` (through the `${CONTEXT7_
 ## Best Practices
 
 1. **Check server status regularly**: Run `claude mcp list` to verify all servers are connected
-2. **Leverage Better Auth MCP**: Instead of web searches, ask Better Auth MCP directly
+2. **Prefer Context7 to web search for library docs**, and `nextjs_docs` for Next.js, so answers match the installed versions
 3. **Keep environment variables secure**: Never commit `.env` file, use `.env.example` for documentation
 4. **Share improvements**: If you add a useful MCP server, commit `.mcp.json` and document it here
-
-## Database Operations (Without Postgres MCP)
-
-We intentionally exclude the Postgres MCP server because our existing tools provide better workflows:
-
-### For data inspection and editing
-
-```bash
-pnpm db:studio  # Opens Prisma Studio GUI
-```
-
-- Visual interface with relationships
-- Type-safe edits
-- No SQL required
-
-### For raw SQL queries
-
-- **Option 1**: Neon Dashboard → SQL Editor (https://console.neon.tech)
-- **Option 2**: Prisma raw queries in code:
-  ```typescript
-  await prisma.$queryRaw`SELECT ...`
-  await prisma.$executeRaw`UPDATE ...`
-  ```
-
-### For schema operations
-
-```bash
-pnpm db:migrate        # Create new migration
-pnpm prisma migrate status # Check migration status
-pnpm db:push          # Push schema without migration (dev only)
-pnpm db:generate      # Regenerate Prisma Client
-```
-
-### When to reconsider Postgres MCP
-
-- Complex analytical queries requiring EXPLAIN ANALYZE
-- Database grows to 20+ tables with complex relationships
-- Frequent database administration tasks
-- Performance optimization beyond Prisma's capabilities
-
-## Future MCP Enhancements
-
-Potential additions to consider:
-
-### When Codebase Grows Larger
-
-- **Serena MCP** ([github.com/oraios/serena](https://github.com/oraios/serena)): Semantic code analysis via Language Server Protocol
-  - **When to add**: Codebase grows to 100+ files or 10K+ lines
-  - **Current status**: 35 files, ~3K lines (too small to benefit)
-  - **Benefits**: Symbol-level code navigation, precise editing, reduced token usage
-  - **Tools provided**: `find_symbol`, `find_referencing_symbols`, `insert_after_symbol`
-  - **Requirements**: Install `uv` tool (`brew install uv` or `pip3 install uv`)
-  - **Installation**: `claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant --project "$(pwd)"`
-  - **Note**: Works best for large codebases with complex cross-file dependencies; minimal benefit for small projects
-
-**Monitor codebase growth:**
-
-```bash
-# Check current file count
-find src -type f \( -name "*.ts" -o -name "*.tsx" \) | wc -l
-# When this hits ~100+, consider adding Serena
-```
-
-### Other Tools
-
-- **Sentry MCP**: Error monitoring and log querying (if we add Sentry)
-- **Puppeteer MCP**: Automated browser testing and screenshots
-- **Slack MCP**: Deployment notifications (if we use Slack)
-- **Custom MCP server**: Project-specific tools (component generator, etc.)
-
-When adding new servers, update this documentation and commit `.mcp.json` to share with the team.
 
 ## MCP Resources
 

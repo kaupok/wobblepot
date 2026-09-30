@@ -1,10 +1,5 @@
 {
   "model": "claude-haiku-4-5-20251001",
-  "statusLine": {
-    "type": "command",
-    "command": "./.claude/statusline.sh",
-    "padding": 0
-  },
   "env": {
     "CONTEXT7_API_KEY": "your-key-here",
     "LINEAR_API_KEY": "lin_api_your-key-here"
@@ -35,10 +30,11 @@
       "Bash(pnpm why:*)",
       "Bash(pnpm build:*)",
       "Bash(pnpm playwright:*)",
-      "mcp__better-auth__search",
       "mcp__context7__resolve-library-id",
-      "mcp__context7__get-library-docs",
-      "mcp__next-devtools__nextjs_runtime",
+      "mcp__context7__query-docs",
+      "mcp__next-devtools__nextjs_index",
+      "mcp__next-devtools__nextjs_call",
+      "mcp__next-devtools__nextjs_docs",
       "mcp__next-devtools__browser_eval",
       "mcp__playwright__browser_navigate",
       "mcp__linear-server__*",
