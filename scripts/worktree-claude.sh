@@ -232,10 +232,49 @@ neon_gc_orphan_names() {
   done <<< "$all_neon_branches"
 }
 
+# The Vercel–Neon integration's `preview/<git-branch>` names, and the ref charset
+# a reaper may pass to git/gh. Kept in sync with PREVIEW_REF_REGEX in
+# scripts/neon-cleanup.sh (HON-852).
+PREVIEW_REF_REGEX='^[A-Za-z0-9._/-]+$'
+
+# Selection half of the preview/* GC (HON-852): given the `neonctl branches list`
+# JSON, print the `preview/<ref>` branches the integration re-created after its
+# PR was gone — <ref> absent from origin (`git ls-remote` exit 2) and heading no
+# open PR. Not pure like neon_gc_orphan_names: a preview branch never has a
+# worktree, so the ownership signal is git + GitHub instead. Every lookup
+# failure keeps the branch. No age gate, unlike the sweep: this runs only when
+# the cap is already hit, and a live PR's branch is protected by its ref and PR.
+neon_gc_preview_orphan_names() {
+  local list_out="$1" names
+  names=$(echo "$list_out" | jq -r '
+      if type == "array" then .[]
+      elif .branches then .branches[]
+      else empty end
+      | select(.name | startswith("preview/"))
+      | select((.default // .primary // false) != true and (.protected // false) != true)
+      | .name' 2>/dev/null) || return 0
+
+  local b ref rc prs
+  while IFS= read -r b; do
+    [ -z "$b" ] && continue
+    is_protected_neon_branch "$b" && continue
+    ref="${b#preview/}"
+    [[ "$ref" =~ $PREVIEW_REF_REGEX ]] || continue
+    case "$ref" in -*|/*|*/|*..*|*//*) continue ;; esac
+    rc=0
+    git -C "$REPO_ROOT" ls-remote --exit-code --heads origin "refs/heads/$ref" >/dev/null 2>&1 || rc=$?
+    [ "$rc" = 2 ] || continue
+    prs=$(cd "$REPO_ROOT" && gh pr list --state open --head "$ref" --json number --limit 100 2>/dev/null) || continue
+    [ "$(printf '%s' "$prs" | jq -r 'if type == "array" then length else "?" end' 2>/dev/null)" = 0 ] || continue
+    echo "$b"
+  done <<< "$names"
+}
+
 # Delete Neon branches whose live git worktree no longer exists. Filters to the
 # prefixes/shapes neon_gc_orphan_names recognises so the GC can't touch
-# hand-managed branches. Skips protected names. Safe to call repeatedly; errors
-# from individual deletes are ignored (best-effort sweep).
+# hand-managed branches, plus the orphaned preview/* branches
+# neon_gc_preview_orphan_names finds. Skips protected names. Safe to call
+# repeatedly; errors from individual deletes are ignored (best-effort sweep).
 neon_gc_orphans() {
   neon_enabled || return 0
   local live_worktrees
@@ -262,6 +301,14 @@ neon_gc_orphans() {
     pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$b" \
       --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
   done <<< "$(neon_gc_orphan_names "$list_out" "$live_worktrees")"
+
+  # preview/* orphans the Vercel–Neon integration re-created after their PR was
+  # gone (HON-852). Gated on git + GitHub, not on worktrees.
+  while IFS= read -r b; do
+    [ -z "$b" ] && continue
+    pnpm dlx "neonctl@$NEONCTL_VERSION" branches delete "$b" \
+      --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1 || true
+  done <<< "$(neon_gc_preview_orphan_names "$list_out")"
 }
 
 # How many Neon branches the project currently holds. Prints `?` when the API
@@ -427,8 +474,9 @@ neon_create_branch_for_worktree() {
           echo -e "${RED}Error: Neon branch cap still exceeded after orphan GC.${NC}" >&2
           echo "$(neon_cap_budget_note) Branches: $before_count before GC, $after_count after." >&2
           echo "Each in-flight issue holds TWO: its worktree branch, and the Vercel-Neon" >&2
-          echo "integration's preview/<git-branch> for as long as its PR is open. Neither" >&2
-          echo "reaper touches preview/*, and a stranded run holds both of its own until" >&2
+          echo "integration's preview/<git-branch> for as long as its PR is open. The GC" >&2
+          echo "reaps preview/* only once its git ref is gone and no PR is open, and a" >&2
+          echo "stranded run holds both of its own until" >&2
           echo "'wt cleanup <branch>' — check 'wt list' first, then lower --max-workers or" >&2
           echo "raise the Neon plan (and NEON_BRANCH_CAP, currently $(neon_cap_in_force))." >&2
           echo "$create_out" >&2
