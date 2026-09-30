@@ -229,7 +229,7 @@ export const PlannedAlreadyCharged: Story = {
   },
 }
 
-// For lookups that wait on an MSW response. The swap stories chain several
+// For waits that sit behind an MSW response. The swap stories chain several
 // dialogs and round-trips, and on a loaded CI runner a render can land after
 // `findBy`'s default 1 s even though the request succeeded (HON-857).
 const ROUND_TRIP = { timeout: 3000 }
@@ -344,7 +344,8 @@ export const SwapDropsCachedTips: Story = {
     const selector = await body.findByRole('dialog')
     await within(selector).findByText('Beef stir-fry', undefined, ROUND_TRIP)
     await userEvent.click(within(selector).getByRole('button', { name: /^select$/i }))
-    await awaitDialogClosed()
+    // Select closes the dialog only once its PATCH resolves.
+    await awaitDialogClosed(ROUND_TRIP.timeout)
 
     // The card is back to the household's own size, matching the
     // `servingOverride: null` the server wrote.
@@ -485,7 +486,8 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
     const result = await within(selector).findByText(mealFixture.name, undefined, ROUND_TRIP)
     await expect(result).toBeInTheDocument()
     await userEvent.click(within(selector).getByRole('button', { name: /^select$/i }))
-    await awaitDialogClosed()
+    // Select closes the dialog only once its PATCH resolves.
+    await awaitDialogClosed(ROUND_TRIP.timeout)
 
     // The override the household set is still on the card, matching the row
     // the server did not touch.
@@ -568,7 +570,8 @@ export const SwapDropsSuggestionsForSiblingEntries: Story = {
     const mondaySwap = await openSwap(monday)
     await within(mondaySwap).findByText('Beef stir-fry', undefined, ROUND_TRIP)
     await userEvent.click(within(mondaySwap).getByRole('button', { name: /^select$/i }))
-    await awaitDialogClosed()
+    // Select closes the dialog only once its PATCH resolves.
+    await awaitDialogClosed(ROUND_TRIP.timeout)
 
     // Tuesday must refetch rather than replay — the stir-fry is Monday's
     // dinner now, and offering it here would plan it twice in one week.
