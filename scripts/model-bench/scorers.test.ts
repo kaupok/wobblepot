@@ -311,6 +311,136 @@ describe('the Estonian vegetarian imagine case', () => {
   })
 })
 
+describe('allowedQualifiers in the vegan imagine cases', () => {
+  const meals = (servings: number, ...names: string[]) =>
+    Array.from({ length: 3 }, () => ({
+      name: 'Vegan dish',
+      description: null,
+      timeMinutes: 30,
+      servings,
+      mealTypes: ['dinner' as const],
+      kidFriendly: true,
+      ingredients: ['pasta', ...names].map((name) => ({
+        name,
+        quantity: 100,
+        unit: 'g' as const,
+        originalText: name,
+        isVague: false,
+        vaguePhrase: null,
+        isDried: null,
+      })),
+    }))
+
+  describe('en', () => {
+    const input = starter('imagine', 'en-vegan-creamy-pasta')
+    const score = (...names: string[]) =>
+      scoreImagine(input, { meals: meals(2, ...names) }).noForbiddenIngredients
+
+    it.each([
+      'Vegan parmesan',
+      'tempeh bacon',
+      'plant-based cream cheese',
+      'cashew ricotta',
+      'vegan cheddar cheese',
+      'non-dairy milk',
+      'oat milk',
+      'oatmilk',
+      'soya milk',
+      'hemp milk',
+      'nut butter',
+      'plant butter',
+      'peanut butter',
+      'flax egg',
+      // Not swaps, but a plain keyword would catch them.
+      'eggplant',
+      'veggie stock',
+      'butternut squash',
+      'collard greens',
+      'honeydew melon',
+    ])('allows %s', (name) => {
+      expect(score(name)).toBe(1)
+    })
+
+    it.each([
+      'parmesan',
+      'Parmigiano-Reggiano',
+      'bacon',
+      'Sour cream',
+      'egg yolk',
+      '2 large eggs',
+      'butter',
+      'milk',
+      'cheese',
+    ])('flags a plain %s', (name) => {
+      expect(score(name)).toBe(0)
+    })
+
+    it('does not let a qualifier after the keyword excuse it', () => {
+      expect(score('honey soy sauce')).toBe(0)
+      expect(score('honey-roasted cashews')).toBe(0)
+      expect(score('parmesan (vegan)')).toBe(0)
+    })
+
+    it('does not let a qualifier excuse a keyword further along the name', () => {
+      expect(score('coconut milk and butter')).toBe(0)
+      expect(score('soy-honey glaze')).toBe(0)
+    })
+
+    it('does not match a qualifier inside another word', () => {
+      expect(score('goat milk')).toBe(0)
+    })
+
+    it('does not let one qualified swap excuse an unrelated violation', () => {
+      expect(score('tofu bacon', 'bacon')).toBe(0)
+      expect(score('vegan parmesan', 'mozzarella')).toBe(0)
+    })
+  })
+
+  describe('et', () => {
+    const input = starter('imagine', 'et-vegan-sour-cream')
+    const score = (...names: string[]) =>
+      scoreImagine(input, { meals: meals(4, ...names) }).noForbiddenIngredients
+
+    it.each([
+      'taimne hapukoor',
+      'kaerahapukoor',
+      'porgandilõhe',
+      'munavaba majonees',
+      'sojavorst',
+      'kalamata oliivid',
+      'kaerapiim',
+      'riisipiim',
+      'kašujuust',
+      'taimsed viinerid',
+      'taimset juustu',
+    ])('allows %s', (name) => {
+      expect(score(name)).toBe(1)
+    })
+
+    it.each(['hapukoor', 'muna', 'kanamuna', 'suitsukala', 'lõhe', 'viiner', 'juust', 'piim'])(
+      'flags a plain %s',
+      (name) => {
+        expect(score(name)).toBe(0)
+      },
+    )
+
+    it('does not let one qualified swap excuse an unrelated violation', () => {
+      expect(score('taimne hapukoor', 'hapukoor')).toBe(0)
+      expect(score('kookospiim ja kanamuna')).toBe(0)
+      expect(score('kalamata oliivid ja parmesan')).toBe(0)
+    })
+  })
+
+  it('scores a case without allowedQualifiers as a plain substring match', () => {
+    const input = starter('imagine', 'en-vegan-creamy-pasta')
+    const { allowedQualifiers: _, ...unqualified } = input
+    expect(
+      scoreImagine(unqualified, { meals: meals(2, 'vegan parmesan') }).noForbiddenIngredients,
+    ).toBe(0)
+    expect(scoreImagine(unqualified, { meals: meals(2, 'penne') }).noForbiddenIngredients).toBe(1)
+  })
+})
+
 describe('scoreReview', () => {
   const input = starter('review', 'en-chicken-stir-fry')
   const reviewed = (overrides: Record<string, number>) => ({

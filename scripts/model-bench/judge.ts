@@ -126,10 +126,10 @@ function taskLabel(c: CaseOf<JudgedTask>): string {
   return c.task === 'tips' ? `tips (${c.input.kind})` : c.task
 }
 
-/** What the app sent. `forbiddenKeywords` is the scorer's, not the app's. */
+/** What the app sent. `forbiddenKeywords` and `allowedQualifiers` are the scorer's, not the app's. */
 function judgeInput(c: CaseOf<JudgedTask>): unknown {
   if (c.task === 'imagine') {
-    const { forbiddenKeywords: _scorerOnly, ...input } = c.input
+    const { forbiddenKeywords: _scorerOnly, allowedQualifiers: _alsoScorerOnly, ...input } = c.input
     return input
   }
   return c.input
