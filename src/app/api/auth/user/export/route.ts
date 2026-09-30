@@ -20,6 +20,14 @@ import { captureApiError } from '@/lib/errors'
  *    members' names, preferences, and the user link are redacted;
  *    invites and AI usage are not exposed.
  *
+ * Ingredients (HON-880), in every household: the household's own
+ * ingredients in full, with translations, under `ingredients`. Global
+ * ingredients referenced by an exported meal component, pantry item or
+ * custom shopping item go under `referencedGlobalIngredients` with only
+ * `id`, `name` and `defaultUnit`, so every `ingredientId` in the file
+ * resolves. Their nutrition and allergen columns are Wobblepot's catalogue,
+ * not the user's data, and stay out.
+ *
  * Never exposed: password hashes, session tokens, Better Auth internals.
  *
  * Soft-deleted meals (deletedAt != null) are intentionally included: under
@@ -144,7 +152,7 @@ export async function GET() {
               }
             })
 
-            const [meals, mealPlans, pantryItems, favoriteMeals, customShoppingItems] =
+            const [meals, mealPlans, pantryItems, favoriteMeals, customShoppingItems, ingredients] =
               await Promise.all([
                 tx.meal.findMany({
                   where: { householdId },
@@ -168,7 +176,34 @@ export async function GET() {
                   where: { householdId },
                   orderBy: { createdAt: 'asc' },
                 }),
+                tx.ingredient.findMany({
+                  where: { householdId },
+                  include: { translations: { orderBy: { locale: 'asc' } } },
+                  orderBy: { name: 'asc' },
+                }),
               ])
+
+            // Ids the exported rows point at that this household does not own:
+            // the global ingredients needed to make those references readable.
+            const ownIngredientIds = new Set(ingredients.map((i) => i.id))
+            const referencedIds = new Set<string>()
+            for (const meal of meals) {
+              for (const component of meal.components) referencedIds.add(component.ingredientId)
+            }
+            for (const item of pantryItems) referencedIds.add(item.ingredientId)
+            for (const item of customShoppingItems) {
+              if (item.ingredientId) referencedIds.add(item.ingredientId)
+            }
+            const globalIds = [...referencedIds].filter((id) => !ownIngredientIds.has(id))
+
+            const referencedGlobalIngredients =
+              globalIds.length === 0
+                ? []
+                : await tx.ingredient.findMany({
+                    where: { id: { in: globalIds }, householdId: null },
+                    select: { id: true, name: true, defaultUnit: true },
+                    orderBy: { name: 'asc' },
+                  })
 
             const base = {
               role,
@@ -179,6 +214,8 @@ export async function GET() {
               pantryItems,
               favoriteMeals,
               customShoppingItems,
+              ingredients,
+              referencedGlobalIngredients,
             }
 
             if (!isOwner) {

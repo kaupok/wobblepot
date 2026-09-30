@@ -62,6 +62,7 @@ type TxMocks = {
   customShoppingItem: { findMany: ReturnType<typeof vi.fn> }
   householdInvite: { findMany: ReturnType<typeof vi.fn> }
   aiUsage: { findMany: ReturnType<typeof vi.fn> }
+  ingredient: { findMany: ReturnType<typeof vi.fn> }
 }
 
 function makeTx(): TxMocks {
@@ -77,7 +78,41 @@ function makeTx(): TxMocks {
     customShoppingItem: { findMany: vi.fn().mockResolvedValue([]) },
     householdInvite: { findMany: vi.fn().mockResolvedValue([]) },
     aiUsage: { findMany: vi.fn().mockResolvedValue([]) },
+    ingredient: { findMany: vi.fn().mockResolvedValue([]) },
   }
+}
+
+type IngredientRow = {
+  id: string
+  name: string
+  householdId: string | null
+  defaultUnit: string
+  [column: string]: unknown
+}
+
+type IngredientFindManyArgs = {
+  where: { householdId?: string | null; id?: { in: string[] } }
+  select?: Record<string, boolean>
+}
+
+/**
+ * Backs `tx.ingredient.findMany` with an in-memory table that honours the
+ * `where` (householdId, id.in) and `select` the route passes, so a test
+ * sees what Postgres would return rather than a canned answer.
+ */
+function installIngredients(tx: TxMocks, rows: IngredientRow[]) {
+  tx.ingredient.findMany.mockImplementation(async (args: IngredientFindManyArgs) => {
+    const { where, select } = args
+    const matched = rows.filter(
+      (row) =>
+        (!('householdId' in where) || row.householdId === where.householdId) &&
+        (!where.id || where.id.in.includes(row.id)),
+    )
+    if (!select) return matched
+    return matched.map((row) =>
+      Object.fromEntries(Object.keys(select).map((key) => [key, row[key]])),
+    )
+  })
 }
 
 function installTx(tx: TxMocks) {
@@ -458,5 +493,235 @@ describe('GET /api/auth/user/export', () => {
       { select?: Record<string, unknown> } | undefined
     expect(sessionCall?.select).toBeDefined()
     expect('token' in (sessionCall?.select ?? {})).toBe(false)
+  })
+
+  describe('ingredients (HON-880)', () => {
+    const householdIngredient: IngredientRow = {
+      id: 'ing-hh',
+      name: 'Grandma sauce',
+      householdId: 'hh-A',
+      category: 'other',
+      defaultUnit: 'g',
+      allergens: ['milk'],
+      calories: 120,
+      protein: 3,
+      carbs: 10,
+      fat: 8,
+      translations: [{ id: 'tr-1', ingredientId: 'ing-hh', locale: 'et', name: 'Vanaema kaste' }],
+    }
+    const globalChicken: IngredientRow = {
+      id: 'ing-chicken',
+      name: 'Chicken breast',
+      householdId: null,
+      category: 'protein',
+      defaultUnit: 'g',
+      allergens: [],
+      calories: 165,
+      protein: 31,
+      carbs: 0,
+      fat: 3.6,
+    }
+    const globalRice: IngredientRow = {
+      id: 'ing-rice',
+      name: 'Rice',
+      householdId: null,
+      category: 'grain',
+      defaultUnit: 'g',
+      allergens: [],
+      calories: 130,
+      protein: 2.7,
+      carbs: 28,
+      fat: 0.3,
+    }
+    const globalEgg: IngredientRow = {
+      id: 'ing-egg',
+      name: 'Egg',
+      householdId: null,
+      category: 'protein',
+      defaultUnit: 'piece',
+      allergens: ['eggs'],
+      calories: 155,
+      protein: 13,
+      carbs: 1.1,
+      fat: 11,
+    }
+    const globalUnused: IngredientRow = {
+      id: 'ing-unused',
+      name: 'Saffron',
+      householdId: null,
+      category: 'spice',
+      defaultUnit: 'g',
+      allergens: [],
+      calories: 310,
+      protein: 11,
+      carbs: 65,
+      fat: 6,
+    }
+    const otherHouseholdIngredient: IngredientRow = {
+      id: 'ing-other-hh',
+      name: 'Neighbour relish',
+      householdId: 'hh-Z',
+      category: 'other',
+      defaultUnit: 'g',
+      allergens: [],
+      calories: 50,
+      protein: 1,
+      carbs: 10,
+      fat: 0,
+    }
+
+    function setUpHousehold(role: 'owner' | 'member') {
+      authedAs('user-ing')
+      const tx = makeTx()
+      tx.user.findUnique.mockResolvedValue({
+        id: 'user-ing',
+        name: 'Ing',
+        email: 'ing@example.com',
+        emailVerified: true,
+        image: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      tx.householdMember.findMany.mockImplementation(
+        async (args: { where: { userId?: string; householdId?: string } }) => {
+          if (args.where.userId === 'user-ing') return [{ householdId: 'hh-A', role }]
+          return []
+        },
+      )
+      tx.household.findUnique.mockResolvedValue({ id: 'hh-A', name: 'Alpha', preferences: null })
+      tx.meal.findMany.mockResolvedValue([
+        {
+          id: 'meal-1',
+          householdId: 'hh-A',
+          components: [
+            { id: 'c-1', mealId: 'meal-1', ingredientId: 'ing-chicken' },
+            { id: 'c-2', mealId: 'meal-1', ingredientId: 'ing-hh' },
+          ],
+        },
+      ])
+      tx.pantryItem.findMany.mockResolvedValue([
+        { id: 'p-1', householdId: 'hh-A', ingredientId: 'ing-rice' },
+        { id: 'p-2', householdId: 'hh-A', ingredientId: 'ing-chicken' },
+      ])
+      tx.customShoppingItem.findMany.mockResolvedValue([
+        { id: 'cs-1', householdId: 'hh-A', name: 'Eggs', ingredientId: 'ing-egg' },
+        { id: 'cs-2', householdId: 'hh-A', name: 'Candles', ingredientId: null },
+      ])
+      installIngredients(tx, [
+        householdIngredient,
+        globalChicken,
+        globalRice,
+        globalEgg,
+        globalUnused,
+        otherHouseholdIngredient,
+      ])
+      installTx(tx)
+      return tx
+    }
+
+    async function exportHousehold() {
+      const response = await GET()
+      expect(response.status).toBe(200)
+      const body = JSON.parse(await response.text())
+      return body.households[0]
+    }
+
+    it.each(['owner', 'member'] as const)(
+      'exports the household-scoped ingredients in full, with translations, for a %s',
+      async (role) => {
+        const tx = setUpHousehold(role)
+        const hh = await exportHousehold()
+
+        expect(hh.ingredients).toEqual([householdIngredient])
+        expect(hh.ingredients[0].translations).toEqual([
+          { id: 'tr-1', ingredientId: 'ing-hh', locale: 'et', name: 'Vanaema kaste' },
+        ])
+        expect(tx.ingredient.findMany).toHaveBeenCalledWith({
+          where: { householdId: 'hh-A' },
+          include: { translations: { orderBy: { locale: 'asc' } } },
+          orderBy: { name: 'asc' },
+        })
+      },
+    )
+
+    it('exports a referenced global ingredient with only id, name and defaultUnit', async () => {
+      setUpHousehold('owner')
+      const hh = await exportHousehold()
+
+      const chicken = hh.referencedGlobalIngredients.find(
+        (i: { id: string }) => i.id === 'ing-chicken',
+      )
+      expect(chicken).toEqual({ id: 'ing-chicken', name: 'Chicken breast', defaultUnit: 'g' })
+      for (const ingredient of hh.referencedGlobalIngredients) {
+        expect(Object.keys(ingredient).sort()).toEqual(['defaultUnit', 'id', 'name'])
+      }
+    })
+
+    it('does not export a global ingredient nothing in the household references', async () => {
+      const tx = setUpHousehold('owner')
+      const hh = await exportHousehold()
+
+      const ids = hh.referencedGlobalIngredients.map((i: { id: string }) => i.id)
+      expect(ids).not.toContain('ing-unused')
+      expect(ids).not.toContain('ing-other-hh')
+      expect(ids.sort()).toEqual(['ing-chicken', 'ing-egg', 'ing-rice'])
+
+      // One global lookup for the household, restricted to globals, never
+      // re-fetching the household's own ingredient.
+      const globalCalls = tx.ingredient.findMany.mock.calls
+        .map(([args]) => args as IngredientFindManyArgs)
+        .filter((args) => args.where.id !== undefined)
+      expect(globalCalls).toHaveLength(1)
+      expect(globalCalls[0]?.where.householdId).toBeNull()
+      expect(globalCalls[0]?.where.id?.in).not.toContain('ing-hh')
+    })
+
+    it('resolves every exported ingredientId within the export', async () => {
+      setUpHousehold('owner')
+      const hh = await exportHousehold()
+
+      const known = new Set<string>([
+        ...hh.ingredients.map((i: { id: string }) => i.id),
+        ...hh.referencedGlobalIngredients.map((i: { id: string }) => i.id),
+      ])
+      const referenced: string[] = [
+        ...hh.meals.flatMap((m: { components: { ingredientId: string }[] }) =>
+          m.components.map((c) => c.ingredientId),
+        ),
+        ...hh.pantryItems.map((p: { ingredientId: string }) => p.ingredientId),
+        ...hh.customShoppingItems
+          .map((c: { ingredientId: string | null }) => c.ingredientId)
+          .filter((id: string | null): id is string => id !== null),
+      ]
+
+      expect(referenced.length).toBeGreaterThan(0)
+      for (const id of referenced) expect(known).toContain(id)
+    })
+
+    it('skips the global lookup when the household references no ingredients', async () => {
+      authedAs('user-empty')
+      const tx = makeTx()
+      tx.user.findUnique.mockResolvedValue({
+        id: 'user-empty',
+        name: 'E',
+        email: 'e@example.com',
+        emailVerified: true,
+        image: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      tx.householdMember.findMany.mockImplementation(
+        async (args: { where: { userId?: string } }) =>
+          args.where.userId === 'user-empty' ? [{ householdId: 'hh-A', role: 'owner' }] : [],
+      )
+      tx.household.findUnique.mockResolvedValue({ id: 'hh-A', name: 'Alpha', preferences: null })
+      installTx(tx)
+
+      const hh = await exportHousehold()
+
+      expect(hh.ingredients).toEqual([])
+      expect(hh.referencedGlobalIngredients).toEqual([])
+      expect(tx.ingredient.findMany).toHaveBeenCalledTimes(1)
+    })
   })
 })
