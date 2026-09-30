@@ -215,7 +215,7 @@ describe('POST /api/households', () => {
     // Rethrowing would let Next render an HTML error page, and
     // CreateHouseholdForm calls `response.json()` outside its network-error
     // try — so the user would see a raw SyntaxError and nothing would be
-    // reported. Serializable retries make this reachable.
+    // reported. A `P2034` that outlasts the retry budget makes this reachable.
     expect(response.status).toBe(500)
     expect(data.error).toBe('Failed to create household')
     expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
