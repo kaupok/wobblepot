@@ -50,7 +50,7 @@ export default async function HouseholdPage() {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <div className="container mx-auto flex flex-col gap-6 px-4 py-8">
+      <div className="flex w-full flex-col gap-6 px-4 py-8">
         <Heading variant="h4" as="h1">
           {t('pageTitle')}
         </Heading>

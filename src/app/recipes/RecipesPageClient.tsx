@@ -93,7 +93,7 @@ export function RecipesPageClient() {
   return (
     // A list page: container shell, title on the background, top-aligned, no
     // page-level Card — the meal cards are the only cards (HON-767, HON-747).
-    <div className="container mx-auto flex flex-col gap-6 px-4 py-8">
+    <div className="flex w-full flex-col gap-6 px-4 py-8">
       <div className="flex flex-col gap-1">
         {/* The count sits on the title's baseline: it is a fact about the
             list, not a row of its own. */}

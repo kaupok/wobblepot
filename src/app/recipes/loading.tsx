@@ -5,7 +5,7 @@ import { RecipesGridSkeleton } from './RecipesGridSkeleton'
 // wrapper (HON-767, HON-747). Bar heights match each rendered line box.
 export default function RecipesLoading() {
   return (
-    <div className="container mx-auto flex flex-col gap-6 px-4 py-8">
+    <div className="flex w-full flex-col gap-6 px-4 py-8">
       {/* Title (h-7, as /household) with the recipe count beside it, and the description */}
       <div className="flex flex-col gap-1">
         <div className="flex items-baseline gap-3">

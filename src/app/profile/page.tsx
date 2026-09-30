@@ -38,7 +38,7 @@ export default async function ProfilePage() {
   const isOwner = membership.role === 'owner'
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       {/* A form page: a narrow column, top-aligned, no page-level Card (HON-767). */}
       <div className="flex max-w-2xl flex-col gap-6">
         <div className="flex flex-col gap-1">

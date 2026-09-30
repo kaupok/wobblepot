@@ -20,7 +20,7 @@ function PageBehind() {
     // The root layout's `main` padding, then the page container's `py-8`, so
     // the first title sits where it does on a real page.
     <main className="pt-[calc(4rem+env(safe-area-inset-top,0px))]">
-      <div className="container mx-auto flex flex-col gap-4 px-4 py-8">
+      <div className="flex w-full flex-col gap-4 px-4 py-8">
         <Heading variant="h4" as="h1">
           Today
         </Heading>

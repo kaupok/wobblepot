@@ -123,7 +123,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
         </Heading>
       </div>
       {isGenerating && <GeneratingOverlay />}
-      <div className="min-h-screen-below-header-gutters container mx-auto flex items-center justify-center px-4 py-8">
+      <div className="min-h-screen-below-header-gutters flex w-full items-center justify-center px-4 py-8">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center gap-6 pt-8 pb-8">
             <div className="flex flex-col gap-2 text-center">

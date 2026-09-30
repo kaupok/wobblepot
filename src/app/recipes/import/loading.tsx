@@ -5,7 +5,7 @@ import { BackToRecipesLinkSkeleton } from '@/components/recipes/BackToRecipesLin
 // top-aligned, no bordered wrapper (HON-779).
 export default function RecipeImportLoading() {
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       <div className="flex max-w-2xl flex-col gap-6">
         {/* Back arrow and title, then description */}
         <div className="flex flex-col gap-1">

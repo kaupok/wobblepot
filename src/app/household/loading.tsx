@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export default function HouseholdLoading() {
   return (
-    <div className="container mx-auto flex flex-col gap-6 px-4 py-8">
+    <div className="flex w-full flex-col gap-6 px-4 py-8">
       {/* Heading — h-7 matches the text-xl page title (HON-618) */}
       <Skeleton className="h-7 w-24" />
 
