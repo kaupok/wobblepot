@@ -570,6 +570,44 @@ describe('GET /api/auth/user/export', () => {
       fat: 0,
     }
 
+    // Referenced only from preference exclusion lists.
+    const globalMushroom: IngredientRow = {
+      id: 'ing-mushroom',
+      name: 'Mushroom',
+      householdId: null,
+      category: 'vegetable',
+      defaultUnit: 'g',
+      allergens: [],
+      calories: 22,
+      protein: 3,
+      carbs: 3,
+      fat: 0.3,
+    }
+    const globalCelery: IngredientRow = {
+      id: 'ing-celery',
+      name: 'Celery',
+      householdId: null,
+      category: 'vegetable',
+      defaultUnit: 'g',
+      allergens: ['celery'],
+      calories: 16,
+      protein: 0.7,
+      carbs: 3,
+      fat: 0.2,
+    }
+    const globalOlive: IngredientRow = {
+      id: 'ing-olive',
+      name: 'Olive',
+      householdId: null,
+      category: 'other',
+      defaultUnit: 'g',
+      allergens: [],
+      calories: 115,
+      protein: 0.8,
+      carbs: 6,
+      fat: 11,
+    }
+
     function setUpHousehold(role: 'owner' | 'member') {
       authedAs('user-ing')
       const tx = makeTx()
@@ -585,10 +623,34 @@ describe('GET /api/auth/user/export', () => {
       tx.householdMember.findMany.mockImplementation(
         async (args: { where: { userId?: string; householdId?: string } }) => {
           if (args.where.userId === 'user-ing') return [{ householdId: 'hh-A', role }]
+          if (args.where.householdId === 'hh-A') {
+            return [
+              {
+                id: 'member-me',
+                userId: 'user-ing',
+                name: 'Ing',
+                role,
+                joinedAt: new Date('2026-01-01T00:00:00.000Z'),
+                preferences: { id: 'mp-me', excludedIngredientIds: ['ing-celery'] },
+              },
+              {
+                id: 'member-other',
+                userId: 'user-other',
+                name: 'Other',
+                role: role === 'owner' ? 'member' : 'owner',
+                joinedAt: new Date('2026-01-02T00:00:00.000Z'),
+                preferences: { id: 'mp-other', excludedIngredientIds: ['ing-olive'] },
+              },
+            ]
+          }
           return []
         },
       )
-      tx.household.findUnique.mockResolvedValue({ id: 'hh-A', name: 'Alpha', preferences: null })
+      tx.household.findUnique.mockResolvedValue({
+        id: 'hh-A',
+        name: 'Alpha',
+        preferences: { id: 'hp-A', excludedIngredientIds: ['ing-mushroom'] },
+      })
       tx.meal.findMany.mockResolvedValue([
         {
           id: 'meal-1',
@@ -614,6 +676,9 @@ describe('GET /api/auth/user/export', () => {
         globalEgg,
         globalUnused,
         otherHouseholdIngredient,
+        globalMushroom,
+        globalCelery,
+        globalOlive,
       ])
       installTx(tx)
       return tx
@@ -664,7 +729,14 @@ describe('GET /api/auth/user/export', () => {
       const ids = hh.referencedGlobalIngredients.map((i: { id: string }) => i.id)
       expect(ids).not.toContain('ing-unused')
       expect(ids).not.toContain('ing-other-hh')
-      expect(ids.sort()).toEqual(['ing-chicken', 'ing-egg', 'ing-rice'])
+      expect(ids.sort()).toEqual([
+        'ing-celery',
+        'ing-chicken',
+        'ing-egg',
+        'ing-mushroom',
+        'ing-olive',
+        'ing-rice',
+      ])
 
       // One global lookup for the household, restricted to globals, never
       // re-fetching the household's own ingredient.
@@ -692,10 +764,27 @@ describe('GET /api/auth/user/export', () => {
         ...hh.customShoppingItems
           .map((c: { ingredientId: string | null }) => c.ingredientId)
           .filter((id: string | null): id is string => id !== null),
+        ...hh.household.preferences.excludedIngredientIds,
+        ...hh.members.flatMap(
+          (m: { preferences?: { excludedIngredientIds: string[] } }) =>
+            m.preferences?.excludedIngredientIds ?? [],
+        ),
       ]
 
       expect(referenced.length).toBeGreaterThan(0)
       for (const id of referenced) expect(known).toContain(id)
+    })
+
+    it("does not reveal a redacted member's exclusions through referencedGlobalIngredients", async () => {
+      setUpHousehold('member')
+      const hh = await exportHousehold()
+
+      const ids = hh.referencedGlobalIngredients.map((i: { id: string }) => i.id)
+      // Own and household-level exclusions resolve...
+      expect(ids).toContain('ing-celery')
+      expect(ids).toContain('ing-mushroom')
+      // ...but the other member's preferences are redacted, so theirs must not.
+      expect(ids).not.toContain('ing-olive')
     })
 
     it('skips the global lookup when the household references no ingredients', async () => {

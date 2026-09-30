@@ -22,8 +22,8 @@ import { captureApiError } from '@/lib/errors'
  *
  * Ingredients (HON-880), in every household: the household's own
  * ingredients in full, with translations, under `ingredients`. Global
- * ingredients referenced by an exported meal component, pantry item or
- * custom shopping item go under `referencedGlobalIngredients` with only
+ * ingredients referenced by an exported meal component, pantry item,
+ * custom shopping item or preference exclusion list go under `referencedGlobalIngredients` with only
  * `id`, `name` and `defaultUnit`, so the `ingredientId`s in the file
  * resolve. Their nutrition and allergen columns are Wobblepot's catalogue,
  * not the user's data, and stay out. A reference to another household's
@@ -196,6 +196,15 @@ export async function GET() {
             for (const item of customShoppingItems) {
               if (item.ingredientId) referencedIds.add(item.ingredientId)
             }
+            // Exclusion lists, read from the exported (possibly redacted) member
+            // rows so a redacted member's exclusions cannot surface here.
+            const exclusionLists = [
+              household.preferences?.excludedIngredientIds ?? [],
+              ...members.map(
+                (m) => ('preferences' in m && m.preferences?.excludedIngredientIds) || [],
+              ),
+            ]
+            for (const ids of exclusionLists) for (const id of ids) referencedIds.add(id)
             const globalIds = [...referencedIds].filter((id) => !ownIngredientIds.has(id))
 
             const referencedGlobalIngredients =
