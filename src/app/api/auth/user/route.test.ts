@@ -116,8 +116,11 @@ describe('DELETE /api/auth/user', () => {
     expect(data.code).toBe('unauthorized')
   })
 
-  it('returns 400 when user is sole owner with other members (unchanged)', async () => {
+  it('returns 400 when user is sole owner with other account-holding members', async () => {
     mockGetSession.mockResolvedValue(signedInUser)
+    // `memberCount` is the guard's count of members with an account, owner
+    // included; members without an account are never in it (HON-881, asserted
+    // against the query in `household.test.ts`).
     mockIsUserSoleOwner.mockResolvedValue({
       isSoleOwner: true,
       householdId: 'household-123',

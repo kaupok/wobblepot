@@ -34,7 +34,16 @@ export default async function InvitePage({ params }: InvitePageProps) {
     where: { code },
     include: {
       household: {
-        select: { name: true },
+        select: {
+          name: true,
+          // Non-empty while the owner's account is pending deletion; the join
+          // route refuses such a claim, so the card shows it as invalid (HON-881).
+          members: {
+            where: { role: 'owner', user: { deletedAt: { not: null } } },
+            select: { id: true },
+            take: 1,
+          },
+        },
       },
       member: {
         select: { name: true },
@@ -66,13 +75,16 @@ export default async function InvitePage({ params }: InvitePageProps) {
     notFound()
   }
 
-  // Check if invite is still valid. Expiry is the only condition: a claimed
-  // invite is deleted rather than counted, so a used code resolves to no
-  // invite at all and `notFound()` above has already handled it (HON-680).
+  // Check if invite is still valid. A claimed invite is deleted rather than
+  // counted, so a used code resolves to no invite at all and `notFound()` above
+  // has already handled it (HON-680). That leaves expiry, and an owner whose
+  // account is pending deletion — rendered exactly like an expired invite, so
+  // the invitee is not told why (HON-881).
   const now = new Date()
   const isExpired = invite.expiresAt < now
+  const ownerPendingDeletion = invite.household.members.length > 0
 
-  if (isExpired) {
+  if (isExpired || ownerPendingDeletion) {
     return (
       <div className="min-h-screen-below-header grid place-items-center p-4">
         <JoinHouseholdCard

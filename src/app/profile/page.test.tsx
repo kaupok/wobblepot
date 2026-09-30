@@ -22,6 +22,7 @@ vi.mock('@/lib/session', () => ({
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
+  countAccountHoldingMembers: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -31,26 +32,26 @@ vi.mock('next/navigation', () => ({
 }))
 
 // The dialog is a client component with Radix internals. Surface the props the
-// page hands it as data attributes — `memberCount` is the value HON-596 moved
-// from a second DB round-trip onto the membership query's `_count`.
+// page hands it as data attributes — `accountMemberCount` counts only members
+// with an account, not the household size on `_count.members` (HON-881).
 vi.mock('./DeleteAccountDialog', () => ({
   DeleteAccountDialog: ({
     userEmail,
     householdName,
     isOwner,
-    memberCount,
+    accountMemberCount,
   }: {
     userEmail: string
     householdName?: string
     isOwner?: boolean
-    memberCount?: number
+    accountMemberCount?: number
   }) => (
     <div
       data-testid="delete-account-dialog"
       data-user-email={userEmail}
       data-household-name={householdName}
       data-is-owner={String(isOwner)}
-      data-member-count={String(memberCount)}
+      data-account-member-count={String(accountMemberCount)}
     />
   ),
 }))
@@ -100,29 +101,31 @@ function membershipWithMemberCount(members: number) {
 }
 
 describe('ProfilePage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    const { countAccountHoldingMembers } = await import('@/lib/household')
+    vi.mocked(countAccountHoldingMembers).mockResolvedValue(1)
   })
 
-  it('passes the member count from the membership query to the delete dialog', async () => {
+  // An owner whose household has four member rows, only two of them with an
+  // account: the other two are children added by name. The dialog must get
+  // the account-holding count, the one the route's guard uses, or it would
+  // block a deletion the route allows (HON-881).
+  it("passes the account-holding member count to an owner's delete dialog", async () => {
     const { getSession } = await import('@/lib/session')
-    const { getHouseholdMembership } = await import('@/lib/household')
+    const { getHouseholdMembership, countAccountHoldingMembers } = await import('@/lib/household')
     vi.mocked(getSession).mockResolvedValue(session as never)
     vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(4) as never)
+    vi.mocked(countAccountHoldingMembers).mockResolvedValue(2)
 
     render(await ProfilePage())
 
     const dialog = screen.getByTestId('delete-account-dialog')
-    expect(dialog).toHaveAttribute('data-member-count', '4')
+    expect(dialog).toHaveAttribute('data-account-member-count', '2')
     expect(dialog).toHaveAttribute('data-household-name', 'Doe Family')
     expect(dialog).toHaveAttribute('data-is-owner', 'true')
     expect(dialog).toHaveAttribute('data-user-email', 'test@example.com')
-
-    // The whole point of HON-596: the count rides along on the membership
-    // query, so the page resolves it with a single `getHouseholdMembership`
-    // call rather than following up with a separate count. (The request still
-    // touches `household_member` once more via `getCachedMembership`, which
-    // `getTranslations` reaches through `getLocale()` — a different query.)
+    expect(countAccountHoldingMembers).toHaveBeenCalledWith('household-123')
     expect(getHouseholdMembership).toHaveBeenCalledTimes(1)
   })
 
@@ -149,7 +152,7 @@ describe('ProfilePage', () => {
 
     resolveMembership(membershipWithMemberCount(3))
     render(await pending)
-    expect(screen.getByTestId('delete-account-dialog')).toHaveAttribute('data-member-count', '3')
+    expect(screen.getByTestId('delete-account-dialog')).toBeInTheDocument()
   })
 
   it('marks a non-owner membership as such', async () => {
@@ -165,7 +168,10 @@ describe('ProfilePage', () => {
 
     const dialog = screen.getByTestId('delete-account-dialog')
     expect(dialog).toHaveAttribute('data-is-owner', 'false')
-    expect(dialog).toHaveAttribute('data-member-count', '1')
+    // Only an owner's deletion turns on the count, so a member's page skips it.
+    expect(dialog).toHaveAttribute('data-account-member-count', 'undefined')
+    const { countAccountHoldingMembers } = await import('@/lib/household')
+    expect(countAccountHoldingMembers).not.toHaveBeenCalled()
   })
 
   it('renders the signed-in user name and email', async () => {

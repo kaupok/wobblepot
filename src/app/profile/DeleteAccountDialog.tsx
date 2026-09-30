@@ -30,14 +30,19 @@ interface DeleteAccountDialogProps {
   userEmail: string
   householdName?: string
   isOwner?: boolean
-  memberCount?: number
+  /**
+   * Members of the household with their own account, the user included. Only
+   * these block an owner's deletion; members without an account are deleted
+   * with the household (HON-881). Same count as the route's sole-owner guard.
+   */
+  accountMemberCount?: number
 }
 
 export function DeleteAccountDialog({
   userEmail,
   householdName,
   isOwner,
-  memberCount,
+  accountMemberCount,
 }: DeleteAccountDialogProps) {
   const t = useTranslations('profile.delete')
   const locale = useLocale() as Locale
@@ -116,7 +121,7 @@ export function DeleteAccountDialog({
     deleteAccount.mutate()
   }
 
-  const hasOtherMembers = Boolean(isOwner && memberCount && memberCount > 1)
+  const hasOtherMembers = Boolean(isOwner && accountMemberCount && accountMemberCount > 1)
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -146,7 +151,7 @@ export function DeleteAccountDialog({
                 <Body variant="paragraph" tone="destructive">
                   {t('cannotDeleteOwner', {
                     householdName: householdName ?? '',
-                    count: (memberCount ?? 1) - 1,
+                    count: (accountMemberCount ?? 1) - 1,
                   })}
                 </Body>
               )}

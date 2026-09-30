@@ -38,6 +38,9 @@ function mockTx(opts: {
   const accountDeleteMany = vi.fn()
   const userDelete = vi.fn()
   const entryUpdateMany = vi.fn()
+  // `memberCount` is the number of members with an account, owner included —
+  // what the filtered count in `countAccountHoldingMembers` returns (HON-881).
+  const memberCount = vi.fn().mockResolvedValue(opts.memberCount ?? 1)
   const mealFindMany = vi
     .fn()
     .mockResolvedValue((opts.imageUrls ?? []).map((imageUrl) => ({ imageUrl })))
@@ -51,7 +54,7 @@ function mockTx(opts: {
             ...m,
           })),
         ),
-        count: vi.fn().mockResolvedValue(opts.memberCount ?? 1),
+        count: memberCount,
         delete: memberDelete,
       },
       household: { delete: householdDelete },
@@ -72,6 +75,7 @@ function mockTx(opts: {
     userDelete,
     entryUpdateMany,
     mealFindMany,
+    memberCount,
   }
 }
 
@@ -147,6 +151,25 @@ describe('purgeUser', () => {
     expect(m.memberDelete).not.toHaveBeenCalled()
   })
 
+  // Manual members (no account) do not keep the household alive: nobody could
+  // reach their data once the owner is gone. The count is filtered to members
+  // with a `userId`, so it sees only the owner, and the household delete
+  // cascades to the manual member rows (HON-881).
+  it('deletes the household with its members without an account', async () => {
+    const m = mockTx({
+      memberships: [{ id: 'member-1', householdId: 'hh-1', role: 'owner' }],
+      memberCount: 1,
+    })
+
+    await purgeUser('user-123')
+
+    expect(m.memberCount).toHaveBeenCalledWith({
+      where: { householdId: 'hh-1', userId: { not: null } },
+    })
+    expect(m.householdDelete).toHaveBeenCalledWith({ where: { id: 'hh-1' } })
+    expect(m.memberDelete).not.toHaveBeenCalled()
+  })
+
   it('only removes membership for a non-owner member, leaving the household', async () => {
     const m = mockTx({
       memberships: [{ id: 'member-2', householdId: 'hh-1', role: 'member' }],
@@ -158,7 +181,7 @@ describe('purgeUser', () => {
     expect(m.householdDelete).not.toHaveBeenCalled()
   })
 
-  it('drops only the membership when an owner still has co-members (defensive branch)', async () => {
+  it('drops only the membership when another account holder remains (defensive branch)', async () => {
     const m = mockTx({
       memberships: [{ id: 'member-3', householdId: 'hh-1', role: 'owner' }],
       memberCount: 2,

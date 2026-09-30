@@ -1019,7 +1019,7 @@
       "list": {
         "profile": "Sinu profiil ja konto andmed",
         "preferences": "Sinu eelistused ja sätted",
-        "householdAll": "Sinu leibkond „{householdName}\" ja kõik selle andmed (söögiplaanid, sahvri tooted jms)",
+        "householdAll": "Sinu leibkond „{householdName}\" ja kõik selle andmed (söögiplaanid, sahvri tooted, oma kontota liikmed jms)",
         "membership": "Sinu liikmesus „{householdName}\""
       },
       "graceNote": "Saadame sulle e-kirja täpse kustutamiskuupäeva ja tühistamise juhistega. Sind logitakse nüüd kõikidest seadmetest välja.",

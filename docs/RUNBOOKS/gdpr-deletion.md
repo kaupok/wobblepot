@@ -9,7 +9,9 @@ User clicks "Delete account" (/profile → DeleteAccountDialog)
         │
         ▼
 DELETE /api/auth/user
-  • sole-owner-with-other-members guard (rejects; the owner must remove the other members first)
+  • sole-owner guard: rejects only when another member has an account (the
+    owner must remove the other members first); members without an account
+    do not block (HON-881)
   • set user.deletedAt = now, user.purgeScheduledFor = first 03:00 UTC run
     at/after (now + 30 days)  ← the real deletion instant (see note below)
   • delete all sessions  → signed out everywhere
@@ -20,6 +22,9 @@ DELETE /api/auth/user
   • sign-in blocked: databaseHooks.session.create.before throws a generic
     "Invalid email or password" (src/lib/auth/soft-delete-guard.ts)
   • household data + the user row remain intact
+  • invites to the owner's household cannot be claimed (the join route
+    answers as for an expired invite), so no account holder joins a
+    household the purge is about to delete
   • recovery = operator clears the two timestamps (see below)
         │
         ▼
@@ -47,8 +52,8 @@ The hard cascade lives in `src/lib/auth/purge-user.ts` (`purgeUser`), shared by 
 What happens to each model when a user account is purged. Classification:
 
 - **personal** — belongs to the user alone; always deleted.
-- **user-owned-household** — a household where the user is the owner **and** only member; the whole household is deleted.
-- **household-shared** — data owned by a household; deleted **only** when its household is deleted (i.e. the user was the sole member). In a household with other members, the user leaves and this data is retained for them.
+- **user-owned-household** — a household where the user is the owner **and** the only member with an account; the whole household is deleted, including its members without an account (the rows the owner added by name, typically children). Those members never block the deletion (HON-881).
+- **household-shared** — data owned by a household; deleted **only** when its household is deleted (i.e. no other member had an account). In a household with another account-holding member, the user leaves and this data is retained for them.
 - **global-reference** — not owned by any single user; never deleted on account purge.
 
 | Model (`table`)                     | Classification                           | Fate on account purge                                                                                                                                                                                                                                                 |
@@ -58,11 +63,11 @@ What happens to each model when a user account is purged. Classification:
 | `account` (Better Auth credentials) | personal                                 | **Deleted** — `deleteMany` in the cascade + `onDelete: Cascade`. Password hashes go with it.                                                                                                                                                                          |
 | `verification`                      | global-reference                         | **Not touched** — keyed by email/identifier, no FK to `user`. Pending rows self-expire (short TTL).                                                                                                                                                                   |
 | `signup_code`                       | global-reference (audit)                 | **Retained, unlinked** — `createdById` / `usedById` set to `NULL` (`onDelete: SetNull`). The code's usage history survives without pointing at a deleted user.                                                                                                        |
-| `household`                         | user-owned-household                     | **Deleted** when the user is owner-and-only-member; **retained** otherwise.                                                                                                                                                                                           |
-| `household_member`                  | personal (the membership)                | **Deleted** — the user's own membership (`onDelete: Cascade` from `user`). Other members' rows are retained in retained households.                                                                                                                                   |
+| `household`                         | user-owned-household                     | **Deleted** when the user is the owner and the only member with an account, members without an account included; **retained** otherwise.                                                                                                                              |
+| `household_member`                  | personal (the membership)                | **Deleted** — the user's own membership (`onDelete: Cascade` from `user`). In a deleted household, the manual members' rows (no account) go with it (`onDelete: Cascade` from `household`). Other members' rows are retained in retained households.                  |
 | `household_preferences`             | household-shared                         | Deleted with the owned household (cascade); retained otherwise.                                                                                                                                                                                                       |
 | `household_invite`                  | household-shared                         | Deleted with the owned household (cascade); retained otherwise.                                                                                                                                                                                                       |
-| `member_preferences`                | personal (member-scoped)                 | **Deleted** with the user's membership (`onDelete: Cascade` from `household_member`).                                                                                                                                                                                 |
+| `member_preferences`                | personal (member-scoped)                 | **Deleted** with the user's membership (`onDelete: Cascade` from `household_member`), and with each manual member of a deleted household.                                                                                                                             |
 | `ingredient`                        | household-shared **or** global-reference | Household-scoped (`householdId` set) → deleted with the owned household. Global catalog rows (`householdId` null) → **retained**.                                                                                                                                     |
 | `ingredient_translation`            | follows `ingredient`                     | Deleted with its ingredient (cascade); global ones retained.                                                                                                                                                                                                          |
 | `meal`                              | household-shared **or** global-reference | Household-scoped → deleted with the owned household; their generated image blobs (Vercel Blob, `meal.imageUrl`) are deleted by `purgeUser` after commit. Global meals (`householdId` null) → **retained**. (`meal.deletedAt` is an unrelated meal-level soft-delete.) |

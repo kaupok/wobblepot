@@ -1019,7 +1019,7 @@
       "list": {
         "profile": "Your profile and account data",
         "preferences": "Your preferences and settings",
-        "householdAll": "Your household \"{householdName}\" and all its data (meal plans, pantry items, etc.)",
+        "householdAll": "Your household \"{householdName}\" and all its data (meal plans, pantry items, members without their own account, etc.)",
         "membership": "Your membership in \"{householdName}\""
       },
       "graceNote": "We'll email you the exact deletion date and how to cancel. You'll be signed out on all devices now.",

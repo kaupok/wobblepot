@@ -1,6 +1,7 @@
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
 import { discardMealImage } from '@/lib/meal-images/storage'
+import { countAccountHoldingMembers } from '@/lib/household'
 
 /**
  * Hard-deletes a user and every record that should not outlive their account.
@@ -12,11 +13,14 @@ import { discardMealImage } from '@/lib/meal-images/storage'
  * window has elapsed.
  *
  * Cascade summary (full per-model map: `docs/RUNBOOKS/gdpr-deletion.md`):
- * - Household where the user is owner-and-only-member → deleted; Prisma
- *   `onDelete: Cascade` removes its preferences, invites, meals, plans, pantry,
- *   favorites, custom shopping items, household-scoped ingredients, and AI usage.
- *   Its meals' generated images live in Vercel Blob, outside the database, so
- *   they are deleted after the transaction commits (HON-734).
+ * - Household where the user is the owner and the only member with an
+ *   account → deleted; Prisma `onDelete: Cascade` removes its manual members
+ *   (the owner-entered rows with no account, typically children, and their
+ *   preferences), invites, meals, plans, pantry, favorites, custom shopping
+ *   items, household-scoped ingredients, and AI usage. Manual members do not
+ *   keep the household alive: nobody could reach their data once the owner is
+ *   gone (HON-881). Its meals' generated images live in Vercel Blob, outside
+ *   the database, so they are deleted after the transaction commits (HON-734).
  * - Household where the user is a non-owner member → only the membership is
  *   removed; shared household data is left intact for the remaining members,
  *   except that the cached prep tips on its forward-looking entries are
@@ -53,14 +57,13 @@ export async function purgeUser(userId: string, db: PrismaClientType = prisma): 
     })
 
     for (const membership of memberships) {
-      // If user is owner and only member, delete the entire household
-      // (cascade will handle household preferences, invites, pantry items, meal plans)
+      // If the user is the owner and the only member with an account, delete
+      // the entire household. The cascade takes its manual members with it, as
+      // well as preferences, invites, pantry items and meal plans (HON-881).
       if (membership.role === 'owner') {
-        const memberCount = await tx.householdMember.count({
-          where: { householdId: membership.householdId },
-        })
+        const accountMemberCount = await countAccountHoldingMembers(membership.householdId, tx)
 
-        if (memberCount === 1) {
+        if (accountMemberCount === 1) {
           // The cascade drops these rows and, with them, the only reference
           // to each image blob — collect the URLs first so the files do not
           // outlive the erasure at a public URL nothing can find again.
@@ -75,8 +78,10 @@ export async function purgeUser(userId: string, db: PrismaClientType = prisma): 
             where: { id: membership.householdId },
           })
         } else {
-          // This shouldn't happen due to the sole-owner guard at request time,
-          // but handle gracefully: drop the membership, leave the household.
+          // Another account holder remains. The sole-owner guard at request
+          // time and the join route's pending-deletion check should prevent
+          // this, but handle gracefully: drop the membership, leave the
+          // household.
           await tx.householdMember.delete({
             where: { id: membership.id },
           })
