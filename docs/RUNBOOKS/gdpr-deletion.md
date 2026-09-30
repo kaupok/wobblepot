@@ -13,7 +13,7 @@ DELETE /api/auth/user
     owner must remove the other members first); members without an account
     do not block (HON-881)
   • set user.deletedAt = now, user.purgeScheduledFor = first 03:00 UTC run
-    at/after (now + 30 days)  ← the real deletion instant (see note below)
+    strictly after (now + 30 days)  ← the real deletion instant (see note below)
   • delete all sessions  → signed out everywhere
   • send confirmation email (states purge date + how to cancel)
         │
@@ -41,7 +41,7 @@ The hard cascade lives in `src/lib/auth/purge-user.ts` (`purgeUser`), shared by 
 
 ### Why `purgeScheduledFor` is aligned to the cron run
 
-`purgeScheduledFor` is not a bare `now + 30 days`; it is the **first 03:00 UTC cron run at or after** that mark (`computePurgeInstant` in `route.ts`, keyed off `PURGE_CRON_UTC_HOUR`, which must match `vercel.json`). Two consequences:
+`purgeScheduledFor` is not a bare `now + 30 days`; it is the **first 03:00 UTC cron run strictly after** that mark (`computePurgeInstant` in `route.ts`, keyed off `PURGE_CRON_UTC_HOUR`, which must match `vercel.json`). Two consequences:
 
 - **The confirmation email's date is the real deletion date**, not an estimate that the once-daily cron then misses by a day.
 - **The user always gets at least the full 30 days** to recover — we never purge early, because deletion is irreversible and erring toward keeping data is the safer failure. The one exception is a user who waives the grace window in writing: see [Immediate erasure](#immediate-erasure-on-written-request).
