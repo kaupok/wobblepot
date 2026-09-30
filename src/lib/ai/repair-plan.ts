@@ -196,7 +196,11 @@ export function repairPlan(
         const replacement =
           pool.find(
             (c) => !usedMealIds.has(c.id) && !neighbourProteins.has(c.primaryProteinType),
-          ) ?? findReplacement(pool, usedMealIds)
+          ) ??
+          findReplacement(pool, usedMealIds) ??
+          // Breakfast and lunch may repeat (validatePlan checks dinner duplicates
+          // only), so a pool the plan has already used up still has a meal to offer.
+          (error.mealType !== 'dinner' ? (pool[0] ?? null) : null)
         if (!replacement) return null
         swapEntry(plan, index, replacement, usedMealIds)
         if (requiredProtein && replacement.primaryProteinType === requiredProtein) {

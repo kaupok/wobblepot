@@ -782,6 +782,41 @@ describe('repairPlan', () => {
       expect(result![0]!.mealId).toBe('breakfast-1')
     })
 
+    it('repeats a breakfast when every breakfast candidate is already in the plan', () => {
+      const breakfast = (dateStr: string, mealId: string): HydratedPlanEntry => ({
+        ...createEntry(dateStr, mealId, 'none'),
+        mealType: 'breakfast',
+      })
+      const plan: HydratedPlanEntry[] = [
+        breakfast('2026-01-12', 'breakfast-1'),
+        breakfast('2026-01-13', 'breakfast-2'),
+        unknownEntry('2026-01-14', 'breakfast'),
+      ]
+      const pools: CandidatePools = {
+        ...createPools(),
+        byMealType: new Map([
+          [
+            'breakfast',
+            [createCandidate('breakfast-1', 'none'), createCandidate('breakfast-2', 'none')],
+          ],
+        ]),
+      }
+
+      const result = repairPlan(plan, [invalidMealError('2026-01-14', 'breakfast')], pools)
+
+      expect(result![2]!.mealId).toBe('breakfast-1')
+    })
+
+    it('does not repeat a dinner when every dinner candidate is already in the plan', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'any-chicken-1', 'poultry'),
+        unknownEntry('2026-01-14'),
+      ]
+      const pools = createPools({ any: [createCandidate('any-chicken-1', 'poultry')] })
+
+      expect(repairPlan(plan, [invalidMealError('2026-01-14')], pools)).toBeNull()
+    })
+
     it('returns null when the pool is empty', () => {
       const plan: HydratedPlanEntry[] = [unknownEntry('2026-01-13')]
 
