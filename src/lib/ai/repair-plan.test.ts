@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { repairPlan } from './repair-plan'
 import { toDateString, parseLocalDate } from '@/lib/meal-planning/dates'
-import type { ProteinType } from '@/generated/prisma/enums'
+import type { MealType, ProteinType } from '@/generated/prisma/enums'
+import type { SlotRequirement } from '@/lib/meal-planning/slots'
 import type { CandidatePools, HydratedPlanEntry, ValidationError } from './types'
 import type { CandidateMeal } from '@/lib/meal-planning/candidates'
 
@@ -221,37 +222,6 @@ describe('repairPlan', () => {
       ]
 
       const pools = createPools({ fish: [] })
-      const result = repairPlan(plan, errors, pools)
-
-      expect(result).toBeNull()
-    })
-
-    it('returns null for invalid_meal errors (cannot fix without original intent)', () => {
-      const plan: HydratedPlanEntry[] = [
-        createEntry('2026-01-12', 'meal-1', 'poultry'),
-        createEntry('2026-01-13', 'meal-2', 'beef'),
-        {
-          date: date('2026-01-14'),
-          mealType: 'dinner',
-          mealId: 'invalid-meal',
-          meal: null,
-        },
-        createEntry('2026-01-15', 'meal-4', 'legume'),
-        createEntry('2026-01-16', 'meal-5', 'pork'),
-        createEntry('2026-01-17', 'meal-6', 'beef'),
-        createEntry('2026-01-18', 'meal-7', 'poultry'),
-      ]
-
-      const errors: ValidationError[] = [
-        {
-          type: 'invalid_meal',
-          date: '2026-01-14',
-          mealType: 'dinner',
-          message: 'Invalid meal ID invalid-meal on 2026-01-14',
-        },
-      ]
-
-      const pools = createPools()
       const result = repairPlan(plan, errors, pools)
 
       expect(result).toBeNull()
@@ -659,6 +629,256 @@ describe('repairPlan', () => {
       expect(result).not.toBeNull()
       const entry13 = result!.find((e) => toDateString(e.date) === '2026-01-13')
       expect(entry13?.mealId).not.toBe('lunch-1')
+    })
+  })
+
+  describe('repairs unknown meal IDs (invalid_meal)', () => {
+    function unknownEntry(dateStr: string, mealType: MealType = 'dinner'): HydratedPlanEntry {
+      return { date: date(dateStr), mealType, mealId: 'no-such-meal', meal: null }
+    }
+
+    function invalidMealError(dateStr: string, mealType: MealType = 'dinner'): ValidationError {
+      return {
+        type: 'invalid_meal',
+        date: dateStr,
+        mealType,
+        message: `Invalid meal ID no-such-meal on ${dateStr} ${mealType}`,
+      }
+    }
+
+    it('fills the slot from the meal-type pool', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'meal-1', 'beef'),
+        unknownEntry('2026-01-13'),
+        createEntry('2026-01-14', 'meal-3', 'pork'),
+      ]
+
+      const result = repairPlan(plan, [invalidMealError('2026-01-13')], createPools())
+
+      const entry13 = result!.find((e) => toDateString(e.date) === '2026-01-13')!
+      expect(entry13.mealId).toBe('any-chicken-1')
+      expect(entry13.meal).toEqual({
+        id: 'any-chicken-1',
+        name: 'Candidate any-chicken-1',
+        primaryProteinType: 'poultry',
+        kidFriendly: true,
+      })
+    })
+
+    it('fills a required fish slot from the fish pool', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'meal-1', 'beef'),
+        unknownEntry('2026-01-13'),
+        createEntry('2026-01-14', 'meal-3', 'pork'),
+      ]
+      const requiredSlots: SlotRequirement[] = [
+        { date: date('2026-01-13'), mealType: 'dinner', proteinType: 'fish' },
+      ]
+
+      const result = repairPlan(
+        plan,
+        [invalidMealError('2026-01-13')],
+        createPools(),
+        requiredSlots,
+      )
+
+      const entry13 = result!.find((e) => toDateString(e.date) === '2026-01-13')!
+      expect(entry13.mealId).toBe('fish-1')
+      expect(entry13.meal?.primaryProteinType).toBe('fish')
+    })
+
+    it('does not swap away a slot that already holds its required protein', () => {
+      // Tue is required fish and already fish. Mon has an unknown ID and is filled
+      // with fish (the pool offers nothing else), so the consecutive repair on Tue
+      // must move Mon, not Tue.
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'any-fish-1', 'fish'),
+        createEntry('2026-01-13', 'fish-2', 'fish'),
+      ]
+      const requiredSlots: SlotRequirement[] = [
+        { date: date('2026-01-13'), mealType: 'dinner', proteinType: 'fish' },
+      ]
+      const errors: ValidationError[] = [
+        {
+          type: 'consecutive_protein',
+          date: '2026-01-13',
+          mealType: 'dinner',
+          actual: 'fish',
+          message: 'Consecutive fish',
+        },
+      ]
+
+      const result = repairPlan(plan, errors, createPools(), requiredSlots)
+
+      expect(result![1]!.mealId).toBe('fish-2')
+      expect(result![0]!.meal?.primaryProteinType).not.toBe('fish')
+    })
+
+    it('prefers a protein that differs from the neighbouring dinners', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'meal-1', 'poultry'),
+        unknownEntry('2026-01-13'),
+        createEntry('2026-01-14', 'meal-3', 'beef'),
+      ]
+
+      const result = repairPlan(plan, [invalidMealError('2026-01-13')], createPools())
+
+      // any-chicken-1 and any-beef-1 come first in the pool but would sit next to
+      // a poultry and a beef dinner; any-fish-1 is the first that does not.
+      expect(result![1]!.mealId).toBe('any-fish-1')
+    })
+
+    it('falls back to a same-protein candidate when nothing else is left', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'meal-1', 'poultry'),
+        unknownEntry('2026-01-13'),
+      ]
+      const pools = createPools({ any: [createCandidate('any-chicken-1', 'poultry')] })
+
+      const result = repairPlan(plan, [invalidMealError('2026-01-13')], pools)
+
+      expect(result![1]!.mealId).toBe('any-chicken-1')
+    })
+
+    it('does not reuse a meal ID already in the plan', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'any-chicken-1', 'poultry'),
+        createEntry('2026-01-14', 'any-beef-1', 'beef'),
+        unknownEntry('2026-01-16'),
+      ]
+
+      const result = repairPlan(plan, [invalidMealError('2026-01-16')], createPools())
+
+      expect(result![2]!.mealId).toBe('any-fish-1')
+      const mealIds = result!.map((e) => e.mealId)
+      expect(new Set(mealIds).size).toBe(mealIds.length)
+    })
+
+    it('repairs several unknown IDs with distinct meals', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'meal-1', 'beef'),
+        unknownEntry('2026-01-13'),
+        unknownEntry('2026-01-14'),
+      ]
+      const errors = [invalidMealError('2026-01-13'), invalidMealError('2026-01-14')]
+
+      const result = repairPlan(plan, errors, createPools())
+
+      expect(result!.every((e) => e.meal !== null)).toBe(true)
+      expect(result![1]!.mealId).not.toBe(result![2]!.mealId)
+      // The second repair sees the first one's protein as its neighbour.
+      expect(result![1]!.meal?.primaryProteinType).not.toBe(result![2]!.meal?.primaryProteinType)
+    })
+
+    it('uses the meal-type pool for a non-dinner slot', () => {
+      const plan: HydratedPlanEntry[] = [unknownEntry('2026-01-13', 'breakfast')]
+      const pools: CandidatePools = {
+        ...createPools(),
+        byMealType: new Map([['breakfast', [createCandidate('breakfast-1', 'none')]]]),
+      }
+
+      const result = repairPlan(plan, [invalidMealError('2026-01-13', 'breakfast')], pools)
+
+      expect(result![0]!.mealId).toBe('breakfast-1')
+    })
+
+    it('repeats a breakfast when every breakfast candidate is already in the plan', () => {
+      const breakfast = (dateStr: string, mealId: string): HydratedPlanEntry => ({
+        ...createEntry(dateStr, mealId, 'none'),
+        mealType: 'breakfast',
+      })
+      const plan: HydratedPlanEntry[] = [
+        breakfast('2026-01-12', 'breakfast-1'),
+        breakfast('2026-01-13', 'breakfast-2'),
+        unknownEntry('2026-01-14', 'breakfast'),
+      ]
+      const pools: CandidatePools = {
+        ...createPools(),
+        byMealType: new Map([
+          [
+            'breakfast',
+            [createCandidate('breakfast-1', 'none'), createCandidate('breakfast-2', 'none')],
+          ],
+        ]),
+      }
+
+      const result = repairPlan(plan, [invalidMealError('2026-01-14', 'breakfast')], pools)
+
+      expect(result![2]!.mealId).toBe('breakfast-1')
+    })
+
+    it('does not repeat a dinner when every dinner candidate is already in the plan', () => {
+      const plan: HydratedPlanEntry[] = [
+        createEntry('2026-01-12', 'any-chicken-1', 'poultry'),
+        unknownEntry('2026-01-14'),
+      ]
+      const pools = createPools({ any: [createCandidate('any-chicken-1', 'poultry')] })
+
+      expect(repairPlan(plan, [invalidMealError('2026-01-14')], pools)).toBeNull()
+    })
+
+    it('leaves the reserved fish meal for a later required slot', () => {
+      // Mon (unrequired) is repaired first. Taking fish-1 from the dinner pool
+      // would leave Wed, which requires fish, with nothing to fill it.
+      const plan: HydratedPlanEntry[] = [unknownEntry('2026-01-12'), unknownEntry('2026-01-14')]
+      const requiredSlots: SlotRequirement[] = [
+        { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },
+      ]
+      const pools: CandidatePools = {
+        ...createPools({
+          fish: [createCandidate('fish-1', 'fish')],
+          any: [createCandidate('any-chicken-1', 'poultry')],
+        }),
+        byMealType: new Map([
+          [
+            'dinner',
+            [createCandidate('fish-1', 'fish'), createCandidate('any-chicken-1', 'poultry')],
+          ],
+        ]),
+      }
+
+      const result = repairPlan(
+        plan,
+        [invalidMealError('2026-01-12'), invalidMealError('2026-01-14')],
+        pools,
+        requiredSlots,
+      )
+
+      expect(result![0]!.mealId).toBe('any-chicken-1')
+      expect(result![1]!.mealId).toBe('fish-1')
+    })
+
+    it('returns null when the pool is empty', () => {
+      const plan: HydratedPlanEntry[] = [unknownEntry('2026-01-13')]
+
+      const result = repairPlan(plan, [invalidMealError('2026-01-13')], createPools({ any: [] }))
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null when a required slot has no candidate left in its protein pool', () => {
+      const plan: HydratedPlanEntry[] = [unknownEntry('2026-01-13')]
+      const requiredSlots: SlotRequirement[] = [
+        { date: date('2026-01-13'), mealType: 'dinner', proteinType: 'legume' },
+      ]
+
+      const result = repairPlan(
+        plan,
+        [invalidMealError('2026-01-13')],
+        createPools({ legume: [] }),
+        requiredSlots,
+      )
+
+      expect(result).toBeNull()
+    })
+
+    it('does not mutate the input plan', () => {
+      const plan: HydratedPlanEntry[] = [unknownEntry('2026-01-13')]
+
+      repairPlan(plan, [invalidMealError('2026-01-13')], createPools())
+
+      expect(plan[0]!.mealId).toBe('no-such-meal')
+      expect(plan[0]!.meal).toBeNull()
     })
   })
 })

@@ -98,7 +98,7 @@ export function validateAndRepairPlan(
   }
 
   // Attempt repair
-  const repaired = repairPlan(hydratedPlan, validation.errors, candidatePools)
+  const repaired = repairPlan(hydratedPlan, validation.errors, candidatePools, requiredSlots)
 
   if (!repaired) {
     const errorSummary = validation.errors.map((e) => e.message).join('; ')
@@ -108,7 +108,19 @@ export function validateAndRepairPlan(
   }
 
   // Re-validate repaired plan
-  const revalidation = validatePlan(repaired, requiredSlots)
+  let revalidation = validatePlan(repaired, requiredSlots)
+
+  // validatePlan skips the consecutive check beside a null meal, so a filled
+  // invalid_meal slot can surface a consecutive_protein the first pass never saw.
+  // One more pass repairs it; the bound keeps a non-converging plan from looping.
+  if (!revalidation.valid) {
+    const secondRepair = repairPlan(repaired, revalidation.errors, candidatePools, requiredSlots)
+    if (secondRepair) {
+      const secondValidation = validatePlan(secondRepair, requiredSlots)
+      if (secondValidation.valid) return secondRepair
+      revalidation = secondValidation
+    }
+  }
 
   if (!revalidation.valid) {
     const errorSummary = revalidation.errors.map((e) => e.message).join('; ')
