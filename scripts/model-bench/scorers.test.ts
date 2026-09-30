@@ -344,6 +344,11 @@ describe('allowedQualifiers in the vegan imagine cases', () => {
       'vegan cheddar cheese',
       'non-dairy milk',
       'oat milk',
+      'oatmilk',
+      'soya milk',
+      'hemp milk',
+      'nut butter',
+      'plant butter',
       'peanut butter',
       'flax egg',
       // Not swaps, but a plain keyword would catch them.
@@ -406,6 +411,8 @@ describe('allowedQualifiers in the vegan imagine cases', () => {
       'kaerapiim',
       'riisipiim',
       'kašujuust',
+      'taimsed viinerid',
+      'taimset juustu',
     ])('allows %s', (name) => {
       expect(score(name)).toBe(1)
     })
