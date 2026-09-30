@@ -4,7 +4,7 @@ Operator reference for fixing seeded translations after launch (HON-517). [HON-4
 
 ## Why this exists
 
-Estonian shipped machine-quality by design. Awkward phrasings and outright typos will surface for months — from real use, from the native-variant review (HON-548), from the partner test (HON-512). Without a defined path, each one resolves badly:
+Estonian shipped machine-quality by design. Awkward phrasings and outright typos will surface for months — from real use and from the native-speaker copy review (HON-536, which absorbed the ingredient native-variant review, HON-548). Without a defined path, each one resolves badly:
 
 1. **It rots.** The user sees it, nobody owns the fix.
 2. **It becomes a deploy.** A one-word typo turns into a seed-script PR, CI, and a production release — which is precisely what "edit without deploys" rules out.
@@ -16,7 +16,7 @@ Direct, scoped `UPDATE` statements against staging and then production, logged i
 
 **SQL first, seed data after.** Implementing this runbook surfaced a constraint the decision was made without: the production deploy re-seeds, so a SQL edit alone is reverted at the next release. The `UPDATE` is what makes the fix visible today without a deploy; a follow-up PR is what makes it survive. [The seed re-asserts translations](#the-seed-re-asserts-translations) is the section to read before using this runbook.
 
-**Re-evaluate when fix volume outgrows it.** The escalation is the admin page, sharing its authoring surface with the ingredient-promotion flow in [HON-514](https://linear.app/honkadori/issue/HON-514) if that lands first. The signal to watch: if the change log below starts collecting more than a handful of entries a month, or if a session routinely edits ten-plus rows at a time, the discipline this runbook depends on is being asked for more than it can give.
+**Re-evaluate when fix volume outgrows it.** The escalation would be tooling for bulk edits, and its form is not chosen. For the related job of promoting household-scoped ingredients into the global pool, the stated preference is a mechanism the operator runs through Claude Code (a script or skill in the repo) rather than an admin page; see [`LOCALIZATION.md`](../LOCALIZATION.md#decided-principles). The signal to watch: if the change log below starts collecting more than a handful of entries a month, or if a session routinely edits ten-plus rows at a time, the discipline this runbook depends on is being asked for more than it can give.
 
 ## Policy: this is a human at a terminal
 
@@ -66,7 +66,7 @@ Unique on `("mealId", locale)`.
 
 English is canonical and lives on the base row — `ingredient.name`, `meal.name` / `.description` / `.preparationNotes`. A typo in the **English** text is not a translation fix: it is a change to seeded content, which means a seed-script edit and a normal PR. This runbook covers overlays only.
 
-The same boundary applies to household-scoped rows. AI- and user-created ingredients carry a non-null `ingredient."householdId"` and are stored in the creator's locale with no translation row at all. Do not hand-edit another household's content; promotion of a household row into the curated global pool is [HON-514](https://linear.app/honkadori/issue/HON-514)'s job.
+The same boundary applies to household-scoped rows. AI- and user-created ingredients carry a non-null `ingredient."householdId"` and are stored in the creator's locale with no translation row at all. Do not hand-edit another household's content. There is no path that promotes a household row into the curated global pool (see [`LOCALIZATION.md`](../LOCALIZATION.md#decided-principles)).
 
 ## Getting a SQL prompt
 
@@ -276,7 +276,7 @@ Neither is a reason to avoid the edit. It is a reason to prefer the word a user 
 
 ## Adjacent work
 
-[HON-514](https://linear.app/honkadori/issue/HON-514) — promoting household-scoped ingredients into the global pool — backfills `ingredient_translation` rows for the ingredients it promotes, and it is **the same person's job**: whoever curates the pool also fixes its translations.
+Nothing promotes household-scoped ingredients into the global pool today: [HON-514](https://linear.app/honkadori/issue/HON-514), the admin flow that would have, was cancelled on 2026-09-15, and [`LOCALIZATION.md`](../LOCALIZATION.md#decided-principles) records when that is revisited. Whatever promotes an ingredient in future must backfill its `ingredient_translation` rows in the same step, and it is **the same person's job**: whoever curates the pool also fixes its translations.
 
 ## Reference
 
