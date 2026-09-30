@@ -817,6 +817,37 @@ describe('repairPlan', () => {
       expect(repairPlan(plan, [invalidMealError('2026-01-14')], pools)).toBeNull()
     })
 
+    it('leaves the reserved fish meal for a later required slot', () => {
+      // Mon (unrequired) is repaired first. Taking fish-1 from the dinner pool
+      // would leave Wed, which requires fish, with nothing to fill it.
+      const plan: HydratedPlanEntry[] = [unknownEntry('2026-01-12'), unknownEntry('2026-01-14')]
+      const requiredSlots: SlotRequirement[] = [
+        { date: date('2026-01-14'), mealType: 'dinner', proteinType: 'fish' },
+      ]
+      const pools: CandidatePools = {
+        ...createPools({
+          fish: [createCandidate('fish-1', 'fish')],
+          any: [createCandidate('any-chicken-1', 'poultry')],
+        }),
+        byMealType: new Map([
+          [
+            'dinner',
+            [createCandidate('fish-1', 'fish'), createCandidate('any-chicken-1', 'poultry')],
+          ],
+        ]),
+      }
+
+      const result = repairPlan(
+        plan,
+        [invalidMealError('2026-01-12'), invalidMealError('2026-01-14')],
+        pools,
+        requiredSlots,
+      )
+
+      expect(result![0]!.mealId).toBe('any-chicken-1')
+      expect(result![1]!.mealId).toBe('fish-1')
+    })
+
     it('returns null when the pool is empty', () => {
       const plan: HydratedPlanEntry[] = [unknownEntry('2026-01-13')]
 

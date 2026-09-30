@@ -178,13 +178,17 @@ export function repairPlan(
       case 'invalid_meal': {
         // The model returned an ID that doesn't exist (mangled, invented, or since
         // deleted). Fill the slot from its pool, as the other cases do.
+        // An unrequired dinner tries `any` first: it excludes the fish/legume meals
+        // reserved for required slots, which a later invalid_meal may still need.
         const requiredProtein = requiredProteinBySlot.get(slotKey)
         const pool =
           requiredProtein === 'fish'
             ? candidatePools.fish
             : requiredProtein === 'legume'
               ? candidatePools.legume
-              : getPoolForMealType(candidatePools, error.mealType)
+              : error.mealType === 'dinner'
+                ? [...candidatePools.any, ...getPoolForMealType(candidatePools, error.mealType)]
+                : getPoolForMealType(candidatePools, error.mealType)
 
         // validatePlan skips the consecutive check beside a null meal, so a swap
         // can create a consecutive_protein this single pass would never see.
