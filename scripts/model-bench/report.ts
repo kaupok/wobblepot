@@ -416,7 +416,7 @@ export function renderMarkdown(report: BenchReport): string {
 
   lines.push('## Other changes outside noise', '')
   lines.push(
-    'The gap between the means is larger than both models’ run-to-run ranges, but crosses no regression threshold: the metric has none, the drop is smaller than its threshold, or the change is an improvement. These moved for real, so read each drop as a possible regression.',
+    'The gap between the means is larger than both models’ run-to-run ranges, but crosses no regression threshold: the metric has none, the change is smaller than its threshold, or it goes the better way. These moved for real, so read each change for the worse — a lower rate, or more out-of-pool meal IDs — as a possible regression.',
     '',
   )
   if (report.otherChanges.length === 0) lines.push('None.')
