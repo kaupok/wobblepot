@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /onboarding, /, /shopping, /recipes/imagine · COMPONENTS: SignUpForm, FirstTimeSetup, TimelineView, MealCard, MealDetailModal, IngredientList, ShoppingSection, CategoryGroup, PantrySection, ImagineClient
+// ROUTES: /sign-up, /onboarding, /, /shopping, /recipes/imagine, /api/meal-plans/[id]/entries · COMPONENTS: SignUpForm, FirstTimeSetup, TimelineView, MealCard, MealDetailModal, IngredientList, ShoppingSection, CategoryGroup, PantrySection, ImagineClient
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
 import { mealTranslationsEt } from '../../prisma/seed-meal-translations-et'
@@ -23,6 +23,11 @@ import { ingredientTranslationsEt } from '../../prisma/seed-ingredient-translati
  * Assertions cross-reference the rendered UI against the seeded `et` translation
  * tables (imported as plain data) so they stay deterministic despite random AI
  * meal selection. Minor untranslated chrome is tolerated (quality, not coverage).
+ *
+ * The comma-decimal step does not search the generated plan: the model rarely
+ * picks a meal with a fractional piece quantity, so the step failed on most
+ * runs for reasons unrelated to the release (HON-887). It adds its own entry
+ * with a seeded system meal instead, on the generated plan's page.
  */
 
 // Estonian-specific letters — a robust "is this Estonian?" signal for the
@@ -48,9 +53,22 @@ interface EntryComponent {
   ingredient: { name: string; category: string; defaultUnit: 'g' | 'piece' }
 }
 interface Entry {
-  servingOverride: number | null
+  date: string
+  mealType: string
   meal: { name: string; description: string | null; components: EntryComponent[] } | null
 }
+interface SystemMeal {
+  id: string
+  name: string
+  components: {
+    quantityPerServing: number
+    // `/api/meals` omits it today; seeded system meals are never vague.
+    isVague?: boolean
+    ingredient: { defaultUnit: 'g' | 'piece' }
+  }[]
+}
+
+const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'] as const
 
 // Mirror IngredientList's piece-quantity formatting (locale `et`, max 1 fraction
 // digit) so the predicted decimal string matches what the component renders.
@@ -106,7 +124,10 @@ test.describe(
         `/api/entries?startDate=${fmtDate(windowStart)}&endDate=${fmtDate(windowEnd)}`,
       )
       expect(entriesResponse.ok()).toBe(true)
-      const { entries } = (await entriesResponse.json()) as { entries: Entry[] }
+      const { entries, planId } = (await entriesResponse.json()) as {
+        entries: Entry[]
+        planId: string | null
+      }
       const mealEntries = entries.filter((e): e is Entry & { meal: NonNullable<Entry['meal']> } =>
         Boolean(e.meal),
       )
@@ -166,45 +187,99 @@ test.describe(
       await page.keyboard.press('Escape')
       await expect(detailDialog).toBeHidden()
 
-      // ── 7. Comma-decimal numbers: open a meal whose piece quantity is
-      //       fractional and assert it renders with an Estonian decimal comma. ──
+      // ── 7. Comma-decimal numbers: add an entry with a seeded meal whose piece
+      //       quantity is fractional, open it, and assert the quantity renders
+      //       with an Estonian decimal comma. The fixture is chosen from seed data
+      //       by predicate, so this step does not depend on what the AI planned. ──
+      expect(planId, 'plan generation should have created a meal plan').toBeTruthy()
       const membersResponse = await page.request.get('/api/households/me/members')
       expect(membersResponse.ok()).toBe(true)
       const { members } = (await membersResponse.json()) as { members: unknown[] }
       const householdSize = members.length
 
-      let commaTarget: { name: string; expected: string } | null = null
-      for (const e of mealEntries) {
-        if (!etMealNames.has(e.meal.name)) continue
-        const servings = e.servingOverride ?? householdSize
-        const comp = e.meal.components.find(
-          (c) =>
-            c.ingredient.defaultUnit === 'piece' &&
-            !c.isVague &&
-            !Number.isInteger(c.quantityPerServing * servings),
+      // A meal already in the plan would put two cards with the same name on the
+      // timeline, so the fixture is limited to meals the model did not pick.
+      const plannedMealNames = new Set(mealEntries.map((e) => e.meal.name))
+      let commaTarget: { mealId: string; name: string; expected: string } | null = null
+      for (let offset = 0; !commaTarget; offset += 50) {
+        const mealsResponse = await page.request.get(
+          `/api/meals?source=system&limit=50&offset=${offset}`,
         )
-        if (comp) {
-          commaTarget = {
-            name: e.meal.name,
-            expected: fmtEtQty(comp.quantityPerServing * servings),
-          }
-          break
+        expect(mealsResponse.ok()).toBe(true)
+        const { meals, hasMore } = (await mealsResponse.json()) as {
+          meals: SystemMeal[]
+          hasMore: boolean
         }
+        for (const meal of meals) {
+          if (!etMealNames.has(meal.name) || plannedMealNames.has(meal.name)) continue
+          const comp = meal.components.find(
+            (c) =>
+              c.ingredient.defaultUnit === 'piece' &&
+              !c.isVague &&
+              !Number.isInteger(c.quantityPerServing * householdSize) &&
+              fmtEtQty(c.quantityPerServing * householdSize).includes(','),
+          )
+          if (comp) {
+            commaTarget = {
+              mealId: meal.id,
+              name: meal.name,
+              expected: fmtEtQty(comp.quantityPerServing * householdSize),
+            }
+            break
+          }
+        }
+        if (!hasMore) break
       }
       expect(
         commaTarget,
-        'No generated meal had a fractional piece quantity to prove comma-decimal formatting; re-run (AI generations vary).',
+        `No seeded system meal has an Estonian name and a piece component whose quantity for ${householdSize} ` +
+          'member(s) renders with a decimal comma (e.g. avocado 0.5 in prisma/seed-expansion.ts). ' +
+          'Check the seed data and the et meal translations.',
       ).toBeTruthy()
-      expect(commaTarget!.expected).toContain(',') // sanity: Estonian decimal separator
 
-      await page.getByRole('button', { name: commaTarget!.name, exact: true }).first().click()
-      const commaDialog = page.getByRole('dialog')
-      await expect(commaDialog).toBeVisible()
-      await expect(
-        commaDialog.getByText(commaTarget!.expected, { exact: false }).first(),
-      ).toBeVisible()
-      await page.keyboard.press('Escape')
-      await expect(commaDialog).toBeHidden()
+      // The latest free slot inside the timeline's 14-day window. Generation fills
+      // the near days, so this leaves every generated entry (and the shopping list
+      // step 8 reads) untouched. Offsets stop at 13 so the UTC dates below cannot
+      // fall past the window's last day.
+      const occupied = new Set(entries.map((e) => `${e.date}|${e.mealType}`))
+      let slot: { date: string; mealType: (typeof MEAL_TYPES)[number] } | null = null
+      for (let dayOffset = 13; dayOffset >= 1 && !slot; dayOffset--) {
+        const day = new Date(today)
+        day.setDate(day.getDate() + dayOffset)
+        const mealType = MEAL_TYPES.find((mt) => !occupied.has(`${fmtDate(day)}|${mt}`))
+        if (mealType) slot = { date: fmtDate(day), mealType }
+      }
+      expect(
+        slot,
+        'no free meal slot in the next 13 days for the comma-decimal fixture',
+      ).toBeTruthy()
+
+      let fixtureEntryId: string | null = null
+      try {
+        const createResponse = await page.request.post(`/api/meal-plans/${planId}/entries`, {
+          data: { date: slot!.date, mealType: slot!.mealType, mealId: commaTarget!.mealId },
+        })
+        expect(
+          createResponse.ok(),
+          `Creating the comma-decimal fixture entry failed with ${createResponse.status()}`,
+        ).toBe(true)
+        fixtureEntryId = ((await createResponse.json()) as { id: string }).id
+
+        // The timeline's query cache predates the API-created entry.
+        await page.reload()
+        await page.getByRole('button', { name: commaTarget!.name, exact: true }).click()
+        const commaDialog = page.getByRole('dialog')
+        await expect(commaDialog).toBeVisible()
+        await expect(
+          commaDialog.getByText(commaTarget!.expected, { exact: false }).first(),
+        ).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(commaDialog).toBeHidden()
+      } finally {
+        if (fixtureEntryId) {
+          await page.request.delete(`/api/meal-plans/${planId}/entries/${fixtureEntryId}`)
+        }
+      }
 
       // ── 8. Shopping list: Estonian chrome, category headers, ingredient names. ──
       await page.goto('/shopping')
