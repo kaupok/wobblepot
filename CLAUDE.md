@@ -343,6 +343,8 @@ A Linear issue counts as "the source" when the task names a HON-NNN, when the or
 
 If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong — even when the issue is agent-written, well-specced, or related to existing `[AUTO DRAFT]` issues (HON-695 was mislabelled this way). Full rules live in `.claude/skills/refine-backlog/SKILL.md` and `.claude/skills/auto-implement/SKILL.md` → 6.8.
 
+**Queued is the queue.** The orchestrator (`scripts/orchestrator.sh`) and `/auto-implement` auto-discovery read only the Linear state `Queued`; Todo and Backlog are never picked up unattended, and Todo means a human intends to do the work. Move an issue to Queued only when an agent can finish it without a human; an issue with a human-only step goes to Todo, and any unattended part is split into its own Queued issue (HON-852 / HON-853 are the example). `/next-issue` still lists Todo, Queued and Backlog — it proposes; moving an issue to Queued stays a human act (HON-854).
+
 **Before committing:** Run `pnpm lint && pnpm type-check && pnpm test`
 
 **Pre-commit hook:** Husky + lint-staged runs type-check, ESLint, and Prettier on staged files.
@@ -371,7 +373,7 @@ If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong �
 4. `/triage-pr-comments` → fix → `/commit --push` (if review comments)
 5. `/merge` (after PR approval)
 
-**Fully autonomous:** `/auto-implement HON-XX` runs the entire cycle unattended.
+**Fully autonomous:** `/auto-implement HON-XX` runs the entire cycle unattended. With no argument it picks from the `Queued` state only, as the orchestrator (`wt start`) does — see "Queued is the queue" above.
 
 **PR review is automatic — don't invoke `/review-pr` by hand in the sequence above.** `/commit --pr` chains to `/create-pr`, whose final step invokes `/review-pr` → `scripts/pr-review.sh`, which posts findings as a PR comment marked `<!-- claude-review -->`. That marker is what `/triage-pr-comments` then consumes; `/auto-implement` calls the same script directly. Opening the PR with a raw `gh pr create` instead of `/commit --pr` skips that first trigger, but the review is **not** lost — two later steps self-heal: `/triage-pr-comments` step 2 runs the reviewer when the marker count is 0, and `/merge` step 2.5 does the same before merging (bypass with `/merge --force`). The cost is a review that lands a step late, not a missing one, so don't reach for `/review-pr` to "recover." Invoke it directly only to re-review after a force-push, or to review a PR you didn't open.
 

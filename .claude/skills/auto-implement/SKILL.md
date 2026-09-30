@@ -18,7 +18,7 @@ All logic is inlined to avoid nested skill context loss ([GitHub #17351](https:/
 /auto-implement 51           # Same as above (HON- prefix optional)
 ```
 
-Auto-discovery (no arg) only surfaces issues `/auto-implement` can finish end-to-end — no new env vars, DNS, legal/design review, provisioning, or subjective human review (voice/taste/native-judgment work). See Phase 1, step 1.5 for the full filter. When an issue ID is passed, the user's choice is respected without filtering.
+Auto-discovery (no arg) reads the `Queued` state only, the same queue the orchestrator reads; Todo and Backlog are never picked up unattended (HON-854). It only surfaces issues `/auto-implement` can finish end-to-end — no new env vars, DNS, legal/design review, provisioning, or subjective human review (voice/taste/native-judgment work). See Phase 1, steps 1.2 and 1.5. When an issue ID is passed, the user's choice is respected without filtering.
 
 ## Execution Model
 
@@ -200,13 +200,14 @@ Read docs/PROJECT_SPEC.md
 
 Review for current phase and relevant context.
 
-### 1.2 List unassigned Backlog / Todo issues
+### 1.2 List unassigned Queued issues
 
-Always pass `assignee: "null"` — In Progress / In Review / Done / Canceled issues are already claimed or complete and must never be picked up by an autonomous cycle.
+List **`Queued` only**. Queued is the unattended queue: an issue lands there only when a human has decided an agent can finish it alone. Todo means a human intends to do the work, and Backlog is unrefined or unprioritised, so neither is ever listed here — `/next-issue` is where Backlog and Todo candidates get surfaced to a human (HON-854).
+
+Always pass `assignee: "null"` — In Progress / In Review / Done / Canceled issues are already claimed or complete and must never be picked up by an autonomous cycle, and an assigned Queued issue has been taken by a human.
 
 ```
-mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 20 })
-mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 20 })
+mcp__linear-server__list_issues({ state: "Queued", assignee: "null", limit: 20 })
 ```
 
 ### 1.3 MANDATORY: Verify every candidate with `includeRelations: true`
@@ -219,9 +220,9 @@ mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
 
 ### 1.4 Hard filters — reject the candidate if ANY of these fail
 
-- `status` ∈ { `Backlog`, `Todo` } — reject `In Progress`, `In Review`, `Done`, `Canceled`, `Triage`.
+- `status` is `Queued` — reject `Backlog`, `Todo`, `In Progress`, `In Review`, `Done`, `Canceled`, `Triage`.
 - `assignee` is `null` — reject any assigned issue, including "me".
-- Every id in `relations.blockedBy` resolves to `status` ∈ { `Done`, `Canceled` }. Empty `blockedBy` passes. Any open blocker (Backlog / Todo / In Progress / In Review) fails.
+- Every id in `relations.blockedBy` resolves to `status` ∈ { `Done`, `Canceled` }. Empty `blockedBy` passes. Any open blocker (Backlog / Todo / Queued / In Progress / In Review) fails.
 - `statusType` is not `triage` or `canceled`.
 
 If a candidate fails any filter, discard and pick another. Do not soften or bypass a filter to keep a candidate. An autonomous cycle that picks a claimed or blocked issue will collide with other work or stall at implementation — both are worse than having no issue to pick.
@@ -230,7 +231,7 @@ If a candidate fails any filter, discard and pick another. Do not soften or bypa
 
 **Only applies when auto-discovering (no issue ID was passed as argument).** When the user passes an explicit `HON-XX`, skip this step — they've made the judgment call and Phase 1 is already short-circuited.
 
-`/auto-implement` runs end-to-end unattended, so an auto-discovered issue must be completable without human input. Reject the candidate if the description or acceptance criteria imply any of:
+`/auto-implement` runs end-to-end unattended, so an auto-discovered issue must be completable without human input. Moving an issue to Queued already asserts that, so these filters are a second line of defence against a mis-queued issue, not the primary gate — keep them. Reject the candidate if the description or acceptance criteria imply any of:
 
 - Third-party account provisioning (Upstash, PostHog, Sentry, Resend, Chromatic, Anthropic console, etc.)
 - New environment variables / secrets on Vercel or elsewhere
@@ -249,7 +250,6 @@ If all candidates fail, exit normally per step 1.7 ("No unblocked issues found")
 
 ### 1.6 Prioritize surviving candidates
 
-- Todo before Backlog
 - Issues that unblock others (larger `blocks` array) before leaf issues
 - Higher priority (lower `priority.value`) before lower
 
@@ -299,20 +299,20 @@ Extract and note:
 
 **The orchestrator pre-claims.** `scripts/orchestrator.sh` calls `claim_issue()` (state → `In Progress`, assignee left untouched) _before_ it spawns `wt auto HON-XX` → `/auto-implement HON-XX`. On that path the issue is already `In Progress` and unassigned by the time 2.1 runs — that is the normal case, not a conflict. The gate therefore rejects on closed states and on foreign assignees, never on `In Progress` alone.
 
-**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null`, it got there via `claim_issue()` — which writes only the state, never an assignee — and stopping would strand it: `fetch_todo_issues` only queries Todo, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Todo so the orchestrator / `/next-issue` can see it again:
+**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null`, it got there via `claim_issue()` — which writes only the state, never an assignee — and stopping would strand it: `fetch_queued_issues` only queries Queued, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Queued — where `claim_issue()` took it from — so the orchestrator / `/next-issue` can see it again:
 
 ```
-mcp__linear-server__save_issue({ id: "HON-XX", state: "Todo" })
+mcp__linear-server__save_issue({ id: "HON-XX", state: "Queued" })
 ```
 
-Never touch an assigned issue — `In Progress` + assignee me is an explicit claim (`/plan-issue` step 11, or a previous attempt's 2.2) that a stop must not erase, and anything assigned to someone else is theirs. Leave every other state (`Backlog`, `Todo`, `In Review`, closed states) exactly as found: the unassigned pre-claim is the only write this step reverses. If a gate stops on an issue that is `In Progress` and mine, say so in the stop message and leave it for the operator.
+Never touch an assigned issue — `In Progress` + assignee me is an explicit claim (`/plan-issue` step 11, or a previous attempt's 2.2) that a stop must not erase, and anything assigned to someone else is theirs. Leave every other state (`Backlog`, `Todo`, `Queued`, `In Review`, closed states) exactly as found: the unassigned pre-claim is the only write this step reverses. If a gate stops on an issue that is `In Progress` and mine, say so in the stop message and leave it for the operator.
 
 **Gate on `statusType`, not on the state's display name.** `get_issue` returns `statusType` ∈ { `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`, `triage` }; state names are workspace-configurable and `Triage` has no "closed" name to match. Keep the human-readable `status` in the stop message.
 
-1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo) pass outright. `started` covers both `In Progress` and `In Review`, so also read the state name. `In Progress` passes **only if** the assignee check below passes (unassigned = the orchestrator pre-claim; me = my own earlier claim). `In Review` stops, with one exception: a PR is already open, `claim_issue()` never writes that state so it is never a pre-claim, and a fresh run has no way to resume a PR it did not open. **The exception is an orchestrator retry** — retry context is present, and `gh pr list --head "$(git branch --show-current)" --state open` finds the open PR on this branch. `wt auto` checked the kept branch out as-is, so that PR is this cycle's own work: pass the gate (assignee check still applies), skip 2.2 so the state is left `In Review`, and resume at 6.1 per [Retry context](#retry-context). Nothing to undo on either stop — neither case was pre-claimed by this cycle.
+1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo, Queued) pass outright — an explicit `HON-XX` is a human's call, whatever the state. `started` covers both `In Progress` and `In Review`, so also read the state name. `In Progress` passes **only if** the assignee check below passes (unassigned = the orchestrator pre-claim; me = my own earlier claim). `In Review` stops, with one exception: a PR is already open, `claim_issue()` never writes that state so it is never a pre-claim, and a fresh run has no way to resume a PR it did not open. **The exception is an orchestrator retry** — retry context is present, and `gh pr list --head "$(git branch --show-current)" --state open` finds the open PR on this branch. `wt auto` checked the kept branch out as-is, so that PR is this cycle's own work: pass the gate (assignee check still applies), skip 2.2 so the state is left `In Review`, and resume at 6.1 per [Retry context](#retry-context). Nothing to undo on either stop — neither case was pre-claimed by this cycle.
 
    ```
-   [auto-implement] ✗ Error: HON-XX is In Review — a PR is already open. Resume is not supported; finish or close that PR by hand, then move the issue back to Todo.
+   [auto-implement] ✗ Error: HON-XX is In Review — a PR is already open. Resume is not supported; finish or close that PR by hand, then move the issue back to Queued (or Todo, if a human will take it).
    ```
 
    ```
@@ -1230,7 +1230,7 @@ Post the same summary as a Linear comment on the issue, then stop:
 mcp__linear-server__save_comment({ issueId: "HON-XX", body: "[the same hand-off summary]" })
 ```
 
-**Do not change the issue's Linear state.** Linear moved it to `In Review` when the PR opened, which is accurate — a PR is open and unmerged — and `strand_worker` deliberately leaves that state alone when a PR exists (`scripts/orchestrator.sh`, the comment above its `restore_todo_if_in_progress` call). The `Stranded` label is what flags the issue for pickup, and the orchestrator adds it on a clean worker exit as well as a timeout, so reaching 6.7 and stopping is enough to get it.
+**Do not change the issue's Linear state.** Linear moved it to `In Review` when the PR opened, which is accurate — a PR is open and unmerged — and `strand_worker` deliberately leaves that state alone when a PR exists (`scripts/orchestrator.sh`, the comment above its `restore_queue_if_in_progress` call). The `Stranded` label is what flags the issue for pickup, and the orchestrator adds it on a clean worker exit as well as a timeout, so reaching 6.7 and stopping is enough to get it.
 
 ```
 [auto-implement] ⚠ Review-round cap reached (3/3) — handing off
@@ -1266,7 +1266,7 @@ A deferral that exists only in a PR comment is gone the moment the PR merges. Th
 mcp__linear-server__list_issues({ query: "<distinctive phrase from the finding>", limit: 10 })
 ```
 
-`query` searches the whole workspace and returns closed issues too, so read each match's `status` before acting on it. A match in `Backlog` / `Todo` / `In Progress` / `In Review` is a live duplicate — skip filing and note the existing ID in the 7.6 report. A match in `Done` / `Canceled` / `Duplicate` is **not** a duplicate: the finding has resurfaced after that issue closed, which is worth its own ticket. File it, and reference the closed issue in `## Context`.
+`query` searches the whole workspace and returns closed issues too, so read each match's `status` before acting on it. A match in `Backlog` / `Todo` / `Queued` / `In Progress` / `In Review` is a live duplicate — skip filing and note the existing ID in the 7.6 report. A match in `Done` / `Canceled` / `Duplicate` is **not** a duplicate: the finding has resurfaced after that issue closed, which is worth its own ticket. File it, and reference the closed issue in `## Context`.
 
 **Create it:**
 
@@ -1283,7 +1283,7 @@ mcp__linear-server__save_issue({
 ```
 
 - **The `[AUTO DRAFT]` prefix is mandatory.** It is the only trace that an agent filed the issue rather than a human, and it is what the selection filters key on (1.5 here, step 5 in `/next-issue`). Never file without it, and never strip it yourself — `/refine-backlog --auto-drafts` removes it once a human has reviewed the issue.
-- **`state: "Backlog"`, never `Todo`.** Todo means a human decided the work should happen. This step has no such authority.
+- **`state: "Backlog"`, never `Queued` (or `Todo`).** Queued means a human decided the work should run unattended, and Todo that a human intends to do it. This step has no authority to make either call.
 - **Unassigned** — do not pass `assignee`.
 - **Never `priority: 1` (Urgent).** An autonomous cycle does not get to page anyone. If a finding genuinely looks urgent, file it at 2 and say so in the 7.6 report.
 - **`relatedTo` the issue this cycle was implementing**, so the finding's origin is traceable from both ends.

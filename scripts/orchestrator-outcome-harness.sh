@@ -13,7 +13,7 @@
 #     PR exists"; ERROR is "could not ask" (gh missing, unauthenticated, offline
 #     or rate limited), which pr_for_branch reports as a non-zero status.
 #     Prints the orchestrator's log lines, plus one synthetic line per side
-#     effect (CLEANUP / LABEL / RESTORE_TODO / COMMENT), so a test can assert
+#     effect (CLEANUP / LABEL / RESTORE_QUEUED / COMMENT), so a test can assert
 #     artifact retention, Linear bookkeeping and the operator-facing comment
 #     text as well as the outcome label.
 #
@@ -55,7 +55,7 @@
 #   failure <triage> <retried> <shutting_down> [repeat] [log-flavour]
 #                                                        (HON-572, finding 2)
 #     Drives the REAL handle_failure with spawn_worker / move_to_backlog /
-#     cleanup_worker_worktree / restore_todo_if_in_progress / try_add_label /
+#     cleanup_worker_worktree / restore_queue_if_in_progress / try_add_label /
 #     notify stubbed and linear_api recording comment bodies, emitting one
 #     synthetic line per side effect. Triage is forced by putting a
 #     `claude` stub first on PATH — the production call goes through
@@ -75,7 +75,7 @@
 #     makes a `sed | grep -q` pipeline return 141 under pipefail) and
 #     `cap-after-claude` (the terminal sentence QUOTED inside a Claude session,
 #     which is what a worker editing these scripts writes). The last two must
-#     NOT classify as CAP. requeue_to_todo runs for real on that path, so its
+#     NOT classify as CAP. requeue_to_queue runs for real on that path, so its
 #     comment lands as a COMMENT line.
 #     Ends with CONSECUTIVE_FAILURES / PAUSED / the write_status_file JSON.
 #
@@ -119,7 +119,7 @@
 #     fixture models a zero-exit call with empty stdout.
 #
 #   select-next <issues-json> [cap-requeued] [gated]                (HON-616)
-#     Runs the REAL select_next_issue over a fetch_todo_issues-shaped fixture,
+#     Runs the REAL select_next_issue over a fetch_queued_issues-shaped fixture,
 #     with no stubs — it takes the response as an argument. Prints the PICK line
 #     and the [SKIP] lines, so the jq skip chain and the in-memory suppression
 #     lists (CAP_REQUEUED_ISSUES, GATED_ISSUES) are under test.
@@ -230,11 +230,19 @@
 #   normalize-branch <branch>                                       (HON-579)
 #     Sources worktree-claude.sh and prints the REAL normalize_branch.
 #
-#   todo-cap <count>                                                (HON-580)
-#     Drives the REAL fetch_todo_issues with linear_api stubbed to return
+#   queue-cap <count>                                                (HON-580)
+#     Drives the REAL fetch_queued_issues with linear_api stubbed to return
 #     exactly <count> nodes, so the cap check on what comes back is under test
 #     without a Linear round trip. Prints NODES:<n> plus whatever landed in
 #     $MAIN_LOG, which is where the cap WARN goes.
+#
+#   queue-poll <nodes-json>                                         (HON-854)
+#     A dry poll: drives the REAL fetch_queued_issues into the REAL
+#     select_next_issue, with linear_api stubbed to honour the query's
+#     `state: { id: { eq: … } }` filter over a fixture array whose nodes carry a
+#     `_state` UUID. Selection never sees state — the queue is defined by that
+#     filter alone — so this is the only way to pin which state feeds the
+#     picker. Prints QUERIED_STATE:<uuid> and the PICK line.
 #
 #   load-env <env-file>                                             (HON-580)
 #     Sources worktree-claude.sh and runs the REAL load_env_file over a fixture
@@ -398,7 +406,7 @@ case "$MODE" in
     }
     notify() { :; }
     try_add_label() { echo "LABEL:$2" >> "$MAIN_LOG"; }
-    restore_todo_if_in_progress() { echo "RESTORE_TODO:$2" >> "$MAIN_LOG"; }
+    restore_queue_if_in_progress() { echo "RESTORE_QUEUED:$2" >> "$MAIN_LOG"; }
     cleanup_worker_worktree() { echo "CLEANUP:${1}:${2:-false}" >> "$MAIN_LOG"; }
 
     # Only the timeout path can reach handle_failure, and its whole triage
@@ -597,7 +605,7 @@ EOF
     count_commits() { echo 0; }
     detect_phase() { echo "implementing"; }
     notify() { :; }
-    # Records any comment body, as the `outcome` mode does: requeue_to_todo runs
+    # Records any comment body, as the `outcome` mode does: requeue_to_queue runs
     # for real on the cap path, and the text it posts is operator-facing.
     # Newlines are flattened so the log stays one line per side effect.
     linear_api() {
@@ -613,10 +621,10 @@ EOF
       spawn_worker() { echo "SPAWN_WORKER:${2}:retry=${5:-0}" >> "$MAIN_LOG"; }
     fi
     # Stubbed for the same reason the `outcome` mode stubs it: it is a Linear
-    # round trip. requeue_to_todo itself is NOT stubbed — its comment body and
+    # round trip. requeue_to_queue itself is NOT stubbed — its comment body and
     # its choice of this call over move_to_backlog are the things under test.
-    restore_todo_if_in_progress() { echo "RESTORE_TODO:$2" >> "$MAIN_LOG"; }
-    # requeue_to_todo reads the state itself before commenting, so the stub has
+    restore_queue_if_in_progress() { echo "RESTORE_QUEUED:$2" >> "$MAIN_LOG"; }
+    # requeue_to_queue reads the state itself before commenting, so the stub has
     # to answer. HARNESS_ISSUE_STATE (from the environment) drives the branch
     # where a human moved the issue on while the worker was dying; the default
     # is the orchestrator's own claim, which is the normal case.
@@ -642,7 +650,7 @@ EOF
       printf '%s\n' "$s_triage" > "$VERDICT_FILE"
       SHUTTING_DOWN="$s_shutdown"
       # A distinct issue id per step, so an assertion can tell the calls apart
-      # the way a systemic fault walking the Todo queue would.
+      # the way a systemic fault walking the queue would.
       handle_failure "HON-99$STEP" "uuid-99$STEP" "test-branch-$STEP" "$WORKER_LOG" \
         "$s_retried" failed "Fixture title" 2>/dev/null
     done
@@ -661,7 +669,7 @@ EOF
     # Flatten to one line: what the triage CLI actually received across all steps.
     echo "TRIAGE_INPUT:$(tr '\n' ' ' < "$TRIAGE_INPUT_FILE")" >> "$MAIN_LOG"
     echo "CONSECUTIVE_FAILURES:$CONSECUTIVE_FAILURES" >> "$MAIN_LOG"
-    # The suppression list requeue_to_todo wrote, so the bound on the cap
+    # The suppression list requeue_to_queue wrote, so the bound on the cap
     # requeue loop is asserted as state rather than as source text (HON-616).
     echo "CAP_REQUEUED:$CAP_REQUEUED_ISSUES" >> "$MAIN_LOG"
     if [ "$PAUSED_UNTIL" -gt "$(date +%s)" ]; then
@@ -859,8 +867,8 @@ EOF
     exit 0
     ;;
 
-  # ─── Todo queue cap warning (HON-580 finding 1) ────────────────────────────
-  todo-cap)
+  # ─── Queue cap warning (HON-580 finding 1) ────────────────────────────
+  queue-cap)
     # The GraphQL round trip is not what is under test — the cap check on the
     # response is. Stub linear_api with exactly A1 synthetic nodes.
     linear_api() {
@@ -870,8 +878,27 @@ EOF
     trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
     # Proves the WARN did not contaminate the JSON the caller parses: log()
     # writes stderr and $MAIN_LOG, never stdout.
-    echo "NODES:$(fetch_todo_issues | jq '.data.issues.nodes | length')"
+    echo "NODES:$(fetch_queued_issues | jq '.data.issues.nodes | length')"
     cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  # ─── Dry poll: which state feeds the picker (HON-854) ──────────────────────
+  queue-poll)
+    # The stub filters the fixture by the UUID the query asks for, the way
+    # Linear would, so a query pointed at the wrong state picks the wrong issue.
+    linear_api() {
+      local state
+      state=$(printf '%s' "$1" | sed -n 's/.*state: { id: { eq: "\([^"]*\)" } }.*/\1/p' | head -1)
+      echo "$state" > "$MAIN_LOG.state"
+      jq -nc --argjson nodes "$A1" --arg s "$state" \
+        '{data: {issues: {nodes: [$nodes[] | select(._state == $s)]}}}'
+    }
+    WORKER_ISSUES=()
+    trap 'rm -f "$MAIN_LOG" "$MAIN_LOG.state" "$SEEN_SKIPS_FILE"' EXIT
+    response=$(fetch_queued_issues)
+    echo "QUERIED_STATE:$(cat "$MAIN_LOG.state")"
+    echo "PICK:$(select_next_issue "$response" | head -1)"
     exit 0
     ;;
 
@@ -1002,7 +1029,7 @@ EOF
 
   # ─── Candidate selection (HON-616) ─────────────────────────────────────────
   #   select-next <issues-json> [cap-requeued] [gated]
-  # Runs the REAL select_next_issue over a fetch_todo_issues-shaped fixture. No
+  # Runs the REAL select_next_issue over a fetch_queued_issues-shaped fixture. No
   # stub is needed at all — the function takes the response as its argument — so
   # the jq skip chain and the in-memory suppression lists are the things under
   # test. Prints the PICK line, then the [SKIP] lines log() wrote.

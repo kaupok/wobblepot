@@ -32,9 +32,10 @@ The design guide is what makes a visual observation reportable: its **Reject lis
 Fetch open and recently completed issues in parallel (split by state to avoid payload limits):
 
 ```typescript
-// All open states — run these 4 calls in parallel
+// All open states — run these 5 calls in parallel
 mcp__linear-server__list_issues({ state: 'Backlog', limit: 50 })
 mcp__linear-server__list_issues({ state: 'Todo', limit: 50 })
+mcp__linear-server__list_issues({ state: 'Queued', limit: 50 })
 mcp__linear-server__list_issues({ state: 'In Progress', limit: 50 })
 mcp__linear-server__list_issues({ state: 'In Review', limit: 50 })
 // Recent completions for context

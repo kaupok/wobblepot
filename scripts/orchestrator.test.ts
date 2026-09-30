@@ -139,7 +139,7 @@ describe('orchestrator.sh', () => {
       expect(out).toContain('[OUTCOME] HON-999 GATED')
       expect(out).toContain('0-commits phase=planning')
       expect(out).not.toContain('SUCCESS')
-      expect(out).toContain('RESTORE_TODO:HON-999')
+      expect(out).toContain('RESTORE_QUEUED:HON-999')
       expect(out).toContain('LABEL:Gated')
     })
 
@@ -207,13 +207,13 @@ describe('orchestrator.sh', () => {
       // count_commits reads `refs/remotes/origin/main..HEAD` in the worktree;
       // once that is removed it returns 0. Resolving the PR before the 0-commit
       // gate is what keeps this from being labelled GATED and pushed back to
-      // Todo after it shipped.
+      // Queued after it shipped.
       const out = classify(0, 'planning', 'MERGED', 'green')
 
       expect(out).toContain('[OUTCOME] HON-999 SUCCESS')
       expect(out).not.toContain('GATED')
       expect(out).not.toContain('LABEL:Gated')
-      expect(out).not.toContain('RESTORE_TODO')
+      expect(out).not.toContain('RESTORE_QUEUED')
     })
   })
 
@@ -250,20 +250,20 @@ describe('orchestrator.sh', () => {
       expect(out).toContain('wt cleanup test-branch')
     })
 
-    it('returns a stranded run with no PR to Todo', () => {
+    it('returns a stranded run with no PR to Queued', () => {
       // With no PR, Linear never moved the issue out of In Progress and
       // /auto-implement left it assigned — select_next_issue would skip it
       // forever. The Stranded label keeps the picker off it in the meantime.
       const out = classify(3, 'pr-review', 'NONE', 'unknown')
 
-      expect(out).toContain('RESTORE_TODO:HON-999')
+      expect(out).toContain('RESTORE_QUEUED:HON-999')
       expect(out).toContain('LABEL:Stranded')
     })
 
     it('leaves the issue in In Review when a PR exists', () => {
       // Linear automation already moved it there, and that is the accurate
-      // state — overwriting it with Todo would misreport an open PR.
-      expect(classify(3, 'pr-review', 'OPEN', 'green')).not.toContain('RESTORE_TODO')
+      // state — overwriting it with Queued would misreport an open PR.
+      expect(classify(3, 'pr-review', 'OPEN', 'green')).not.toContain('RESTORE_QUEUED')
     })
   })
 
@@ -420,7 +420,7 @@ describe('orchestrator.sh', () => {
   // The counter used to be updated from the triage VERDICT, before the case
   // that acts on it. A second RETRY falls through to move_to_backlog — a
   // terminal failure — but the counter had already been zeroed, so a systemic
-  // fault that reads as transient swept the whole Todo queue into Backlog
+  // fault that reads as transient swept the whole queue into Backlog
   // without ever reaching MAX_CONSECUTIVE_FAILURES.
   //
   // handle_failure now holds no reset at all. Moving the reset onto the
@@ -864,7 +864,7 @@ describe('orchestrator.sh', () => {
 
   // ─── HON-572 finding 5: wt stop drain window ──────────────────────────────
   // cmd_stop sent a second SIGTERM, slept 3s, then SIGKILLed. The force path
-  // runs drain_workers_to_todo, which needs ~15s per worker; killing it partway
+  // runs drain_workers_to_queue, which needs ~15s per worker; killing it partway
   // orphans `claude` processes and leaves their issues In Progress + assigned,
   // the state select_next_issue skips forever.
   describe('stop_wait_bound', () => {
@@ -1259,7 +1259,7 @@ describe('orchestrator.sh', () => {
       })
 
       // count_commits is not just a display value: handle_success routes a
-      // 0-commit clean exit to GATED (issue back to Todo, artifacts cleaned)
+      // 0-commit clean exit to GATED (issue back to Queued, artifacts cleaned)
       // and anything else to STRANDED (Stranded label, worktree and Neon branch
       // preserved, a comment about a PR that never existed).
       it('counts only the worker’s own commits', () => {
@@ -1591,14 +1591,14 @@ describe('orchestrator.sh', () => {
 
   // ─── HON-578: workflow-state UUID validation ──────────────────────────────
   // The state IDs are hardcoded. A state recreated in the workspace gets a new
-  // UUID, and a stale STATE_TODO makes fetch_todo_issues match nothing forever
+  // UUID, and a stale STATE_QUEUED makes fetch_queued_issues match nothing forever
   // — the queue just looks empty. validate_environment now resolves each ID
   // against Linear and fails fast, naming the stale constant.
   describe('workflow-state UUID validation', () => {
     // Kept in sync with orchestrator.sh by the last test in this block.
     const LIVE_STATES = {
       STATE_BACKLOG: '035a5cef-88de-4334-98a0-b908f61d26a7',
-      STATE_TODO: 'bcd0f639-33dd-4da8-a081-4d409c0fe5b4',
+      STATE_QUEUED: 'a397387b-c863-4174-bfc7-57f146196a04',
       STATE_IN_PROGRESS: 'efa0cbda-898d-440d-a6a9-36e798d00881',
       STATE_DONE: '5b47cab2-e519-4532-8aa2-f4926e16bcd7',
       STATE_CANCELED: '20dedb1c-9cb4-4db4-8a3a-c2eb39fbd616',
@@ -1622,17 +1622,17 @@ describe('orchestrator.sh', () => {
     })
 
     it('names the stale constant when its UUID no longer exists', () => {
-      // Todo recreated: its old UUID is gone, a fresh one takes its place.
-      const others = Object.values(LIVE_STATES).filter((id) => id !== LIVE_STATES.STATE_TODO)
-      const out = validate([...others, 'a-freshly-minted-todo-uuid'])
+      // Queued recreated: its old UUID is gone, a fresh one takes its place.
+      const others = Object.values(LIVE_STATES).filter((id) => id !== LIVE_STATES.STATE_QUEUED)
+      const out = validate([...others, 'a-freshly-minted-queued-uuid'])
 
       expect(out).toContain('STALE_COUNT:1')
-      expect(out).toContain('Stale workflow-state UUID: STATE_TODO')
-      expect(out).toContain(LIVE_STATES.STATE_TODO)
+      expect(out).toContain('Stale workflow-state UUID: STATE_QUEUED')
+      expect(out).toContain(LIVE_STATES.STATE_QUEUED)
     })
 
     it('flags every stale constant, not just the first', () => {
-      const out = validate([LIVE_STATES.STATE_TODO])
+      const out = validate([LIVE_STATES.STATE_QUEUED])
 
       expect(out).toContain('STALE_COUNT:5')
     })
@@ -1772,14 +1772,14 @@ describe('orchestrator.sh', () => {
   // queue that truncated without saying so, a dead function, two hints naming
   // an entry point that cannot work, and a .env load that executed the file.
   describe('HON-580 orchestrator script cleanup', () => {
-    describe('Todo queue cap', () => {
-      const fetchTodo = (count: number) => stripTimestamps(runHarness('todo-cap', String(count)))
+    describe('Queue cap', () => {
+      const fetchQueue = (count: number) => stripTimestamps(runHarness('queue-cap', String(count)))
 
       it('warns when the queue is deeper than the cap, naming what it saw', () => {
-        const out = fetchTodo(51)
+        const out = fetchQueue(51)
 
         expect(out).toContain('WARN')
-        expect(out).toContain('Todo queue is deeper than the 50-issue query cap')
+        expect(out).toContain('Queue is deeper than the 50-issue query cap')
         // The count, not the cap: the extra row is a live candidate that
         // select_next_issue sorts across, so at exactly 51 nothing was missed.
         // A message asserting otherwise is a false alarm every poll interval.
@@ -1787,21 +1787,21 @@ describe('orchestrator.sh', () => {
       })
 
       it.each([0, 1, 50])('stays silent at %i issues', (count) => {
-        expect(fetchTodo(count)).not.toContain('Todo queue is deeper')
+        expect(fetchQueue(count)).not.toContain('Queue is deeper')
       })
 
       it('leaves the JSON the caller parses uncontaminated', () => {
         // log() writes stderr and $MAIN_LOG. A WARN on stdout would break
         // select_next_issue's jq parse on exactly the poll that needed it most.
-        expect(fetchTodo(51)).toContain('NODES:51')
+        expect(fetchQueue(51)).toContain('NODES:51')
       })
 
       it('asks for one row past the cap, from the named constant', () => {
         const source = fs.readFileSync(orchestrator, 'utf8')
-        const body = shellFunctionBody(source, 'fetch_todo_issues')
+        const body = shellFunctionBody(source, 'fetch_queued_issues')
 
-        expect(source).toContain('LINEAR_TODO_PAGE_SIZE=50')
-        expect(body).toContain('first: \'"$((LINEAR_TODO_PAGE_SIZE + 1))"\'')
+        expect(source).toContain('LINEAR_QUEUE_PAGE_SIZE=50')
+        expect(body).toContain('first: \'"$((LINEAR_QUEUE_PAGE_SIZE + 1))"\'')
         // The bare literal the query and the message used to drift apart on.
         expect(body).not.toContain('first: 50')
       })
@@ -2355,7 +2355,7 @@ describe('orchestrator.sh', () => {
       // left alone because Linear already moved it there.
       expect(out).not.toContain('CLEANUP:')
       expect(out).toContain('LABEL:Stranded')
-      expect(out).not.toContain('RESTORE_TODO')
+      expect(out).not.toContain('RESTORE_QUEUED')
       expect(out).toContain('resume with: wt resume test-branch')
       expect(out).toContain('release with: wt cleanup test-branch')
     })
@@ -2444,7 +2444,7 @@ describe('orchestrator.sh', () => {
       expect(out).not.toContain('CLEANUP:')
       // No PR means Linear never moved the issue, so hand it back — same as the
       // exit-0 no-PR stranding.
-      expect(out).toContain('RESTORE_TODO:HON-999')
+      expect(out).toContain('RESTORE_QUEUED:HON-999')
       expect(out).toContain('LABEL:Stranded')
     })
 
@@ -2742,10 +2742,10 @@ describe('orchestrator.sh', () => {
     })
 
     it.each(['30m', 'abc', '-1', '1.5'])('refuses the cooldown %j at startup', (value) => {
-      // Its use site is the middle of requeue_to_todo: `$(( now + COOLDOWN ))`
+      // Its use site is the middle of requeue_to_queue: `$(( now + COOLDOWN ))`
       // on "30m" is a fatal arithmetic error under `set -euo pipefail`, and it
       // unwinds main() AFTER the Linear comment has been posted and the issue
-      // moved to Todo — leaving a stale status file and no log() trace of why.
+      // moved to Queued — leaving a stale status file and no log() trace of why.
       const out = stripTimestamps(
         runHarnessEnv({ ORCHESTRATOR_CAP_REQUEUE_COOLDOWN: value }, 'branch-budget', '', ''),
       )
@@ -2867,16 +2867,16 @@ describe('orchestrator.sh', () => {
       expect(r.out).not.toContain('MOVE_TO_BACKLOG')
     })
 
-    it('returns the issue to Todo, unlabelled, when the retry also hits the cap', () => {
+    it('returns the issue to Queued, unlabelled, when the retry also hits the cap', () => {
       const r = drive('cap', '1')
 
-      expect(r.out).toContain('RESTORE_TODO:HON-991')
+      expect(r.out).toContain('RESTORE_QUEUED:HON-991')
       // Backlog plus a red label reads as "this issue is broken" and both are
       // sticky — a human has to clear them before the orchestrator will look at
       // it again. The issue was never examined; only the branch count was wrong.
       expect(r.out).not.toContain('MOVE_TO_BACKLOG')
       expect(r.out).not.toContain('LABEL:')
-      expect(r.out).toContain('COMMENT:## Returned to Todo — Neon branch cap')
+      expect(r.out).toContain('COMMENT:## Returned to Queued — Neon branch cap')
       // Full cleanup on the terminal path: nothing was committed, and releasing
       // the worktree is what lets the orphan GC reclaim anything it left behind.
       expect(r.out).toContain('CLEANUP:test-branch-1:false')
@@ -2885,7 +2885,7 @@ describe('orchestrator.sh', () => {
     it('requeues rather than respawning during shutdown', () => {
       const r = drive('cap', '0', 'true')
 
-      expect(r.out).toContain('RESTORE_TODO:HON-991')
+      expect(r.out).toContain('RESTORE_QUEUED:HON-991')
       expect(r.out).not.toContain('SPAWN_WORKER')
     })
 
@@ -2901,7 +2901,7 @@ describe('orchestrator.sh', () => {
     it.each(['0', '1'])('still counts toward the circuit breaker at retried=%s', (retried) => {
       // A cap failure ships nothing, so it feeds the breaker like every other
       // handle_failure path. That is what bounds the requeue loop: the issue
-      // goes back to Todo and is immediately pickable, so three cap failures in
+      // goes back to Queued and is immediately pickable, so three cap failures in
       // a row must pause spawning rather than walk the queue.
       expect(drive('cap', retried).consecutiveFailures).toBe(1)
     })
@@ -2928,7 +2928,7 @@ describe('orchestrator.sh', () => {
 
       expect(r.out).toContain('Triage for HON-991: BACKLOG')
       expect(r.out).toContain('MOVE_TO_BACKLOG:HON-991:Failed')
-      expect(r.out).not.toContain('RESTORE_TODO')
+      expect(r.out).not.toContain('RESTORE_QUEUED')
     })
 
     it('survives a log with megabytes of output after the marker', () => {
@@ -2946,7 +2946,7 @@ describe('orchestrator.sh', () => {
     })
 
     it('bounds the requeue by suppressing re-selection for the run', () => {
-      // Todo + unassigned + unlabelled is immediately re-selectable, and the
+      // Queued + unassigned + unlabelled is immediately re-selectable, and the
       // circuit breaker only rate-limits — it resets itself once the pause
       // expires. Without this list a genuinely full Neon project collects an
       // identical comment and a full worktree build per breaker window, all
@@ -2963,9 +2963,9 @@ describe('orchestrator.sh', () => {
     })
 
     it('says nothing and moves nothing when the issue was already moved on', () => {
-      // restore_todo_if_in_progress is deliberately a no-op when a human (or
+      // restore_queue_if_in_progress is deliberately a no-op when a human (or
       // Linear's PR automation) advanced the issue while the worker was dying.
-      // Commenting first would leave "back in Todo, unassigned and unlabelled"
+      // Commenting first would leave "back in Queued, unassigned and unlabelled"
       // on an issue that is assigned and elsewhere — false on the one artifact
       // an operator reads, and select_next_issue skips assigned issues forever.
       const r = drive('cap', '1', 'false', {
@@ -2973,23 +2973,23 @@ describe('orchestrator.sh', () => {
       })
 
       expect(r.out).toContain('HON-991 is no longer In Progress')
-      expect(r.out).not.toContain('COMMENT:## Returned to Todo')
-      expect(r.out).not.toContain('RESTORE_TODO')
+      expect(r.out).not.toContain('COMMENT:## Returned to Queued')
+      expect(r.out).not.toContain('RESTORE_QUEUED')
       // Nothing was requeued, so nothing may be suppressed either.
       expect(r.capRequeued).toBe('')
     })
 
     it('requeues anyway when the issue state cannot be read', () => {
       // issue_state_id returns empty on ANY failed read. Treating that as "a
-      // human moved it" would skip the comment, the Todo restore and the
+      // human moved it" would skip the comment, the Queued restore and the
       // cooldown entry over a transient API error — leaving the issue In
-      // Progress and assigned, which fetch_todo_issues (Todo only) can never
+      // Progress and assigned, which fetch_queued_issues (Queued only) can never
       // surface again, under a WARN asserting the opposite.
       const r = drive('cap', '1', 'false', { HARNESS_ISSUE_STATE: '' })
 
       expect(r.out).toContain('Could not read the state of HON-991 — requeueing anyway')
-      expect(r.out).toContain('COMMENT:## Returned to Todo — Neon branch cap')
-      expect(r.out).toContain('RESTORE_TODO:HON-991')
+      expect(r.out).toContain('COMMENT:## Returned to Queued — Neon branch cap')
+      expect(r.out).toContain('RESTORE_QUEUED:HON-991')
       expect(r.capRequeued).toMatch(/^HON-991:\d{10,}$/)
       // Specifically NOT the "a human moved it" branch.
       expect(r.out).not.toContain('is no longer In Progress')
@@ -3019,6 +3019,59 @@ describe('orchestrator.sh', () => {
 
       expect(read(orchestrator)).toBe('3')
       expect(read(worktreeClaude)).toBe(read(orchestrator))
+    })
+  })
+
+  // ─── HON-854: Queued is the queue, Todo belongs to humans ─────────────────
+  // HON-852 carried a human-only step, was moved to Todo, and was claimed
+  // sixteen seconds later: the queue used to be "Todo and unassigned". Only the
+  // Queued state feeds unattended work now, and select_next_issue never sees
+  // state at all — the GraphQL filter in fetch_queued_issues is the whole
+  // definition of the queue — so these drive the query, not just the picker.
+  describe('HON-854 the orchestrator reads Queued only', () => {
+    const QUEUED = 'a397387b-c863-4174-bfc7-57f146196a04'
+    const TODO = 'bcd0f639-33dd-4da8-a081-4d409c0fe5b4'
+
+    const node = (n: number, state: string, priority = 3) => ({
+      _state: state,
+      id: `u${n}`,
+      identifier: `HON-${n}`,
+      title: `Fixture ${n}`,
+      branchName: `kaupo/hon-${n}-fixture`,
+      priority,
+      assignee: null,
+      labels: { nodes: [] },
+      relations: { nodes: [] },
+      inverseRelations: { nodes: [] },
+    })
+
+    const poll = (nodes: object[]) =>
+      stripTimestamps(runHarness('queue-poll', JSON.stringify(nodes)))
+
+    it('selects the Queued issue and never the Todo one', () => {
+      // The Todo issue is listed first and outranks the Queued one on
+      // priority, so only the state filter can explain picking HON-2.
+      const out = poll([node(1, TODO, 1), node(2, QUEUED, 3)])
+
+      expect(out).toContain(`QUERIED_STATE:${QUEUED}`)
+      expect(out).toContain('PICK:u2\tHON-2')
+      expect(out).not.toContain('HON-1')
+    })
+
+    it('selects nothing when the only unassigned, unblocked issue is in Todo', () => {
+      expect(poll([node(1, TODO)])).toMatch(/^PICK:$/m)
+    })
+
+    it('no longer names the Todo state anywhere in the script', () => {
+      // Nothing reads or writes Todo after the cutover, so neither the constant
+      // nor its UUID has a reason to exist; a leftover is a path that still
+      // hands issues to humans' Todo instead of back to the queue.
+      const source = fs.readFileSync(orchestrator, 'utf8')
+
+      expect(source).not.toContain('STATE_TODO')
+      expect(source).not.toContain(TODO)
+      expect(source).toContain(`STATE_QUEUED="${QUEUED}"`)
+      expect(shellFunctionBody(source, 'fetch_queued_issues')).toContain('"\'"$STATE_QUEUED"\'"')
     })
   })
 
@@ -3081,7 +3134,7 @@ describe('orchestrator.sh', () => {
     it('releases the suppression once the cooldown lapses', () => {
       // The wedge this replaced: a run-scoped list can only be released by a
       // success, which needs a spawn, which needs a candidate the list has just
-      // suppressed. Once the Todo page was walked the orchestrator idled until
+      // suppressed. Once the Queued page was walked the orchestrator idled until
       // restarted, and `wt cleanup` recovered nothing.
       const out = select('HON-991:1') // epoch 1 — January 1970
 
@@ -3358,7 +3411,7 @@ describe('orchestrator.sh', () => {
       ['Low disk space: 0GB free (< 1GB threshold)'],
       ['Pausing: low disk space'],
       ['Failed to fetch issues from Linear'],
-      ['Todo queue is deeper than the 50-issue query cap — this poll considered 51 issue(s)'],
+      ['Queue is deeper than the 50-issue query cap — this poll considered 51 issue(s)'],
     ])('recognises %j as an operational alert', (message) => {
       const r = scan([`2026-09-20 10:06:00 WARN  ${message}`])
 
@@ -3457,7 +3510,7 @@ describe('orchestrator.sh', () => {
     it.each([
       ['Failed to fetch issues from Linear'],
       ['Circuit breaker: 3 consecutive failures, pausing new workers for 600s'],
-      ['Todo queue is deeper than the 50-issue query cap — this poll considered 51 issue(s)'],
+      ['Queue is deeper than the 50-issue query cap — this poll considered 51 issue(s)'],
     ])('keeps %j off the full-orchestrator channel', (message) => {
       // Each of these only answers "why is a slot unfilled". With no slot to
       // fill the question does not arise, so ALERT_FULL must stay empty.

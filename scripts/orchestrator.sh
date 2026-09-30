@@ -1,8 +1,9 @@
 #!/bin/bash
 # Autonomous Issue Orchestrator
 #
-# Polls Linear for Todo issues, claims them (moves each to In Progress), spawns worktree workers,
-# and handles the full lifecycle including failure triage.
+# Polls Linear for Queued issues, claims them (moves each to In Progress), spawns worktree workers,
+# and handles the full lifecycle including failure triage. Queued is the unattended queue: Todo
+# and Backlog are never read, and every path that hands an issue back returns it to Queued (HON-854).
 #
 # Entry point: `wt start [flags]`. The `wt` dispatcher (scripts/worktree-claude.sh)
 # is what loads .env, so running this script directly only works when
@@ -40,7 +41,7 @@ LINEAR_API_URL="https://api.linear.app/graphql"
 
 # Linear workflow state IDs (Honkadori workspace)
 STATE_BACKLOG="035a5cef-88de-4334-98a0-b908f61d26a7"
-STATE_TODO="bcd0f639-33dd-4da8-a081-4d409c0fe5b4"
+STATE_QUEUED="a397387b-c863-4174-bfc7-57f146196a04"  # the unattended queue (HON-854) — Todo is human-owned and never read here
 STATE_IN_PROGRESS="efa0cbda-898d-440d-a6a9-36e798d00881"
 STATE_DONE="5b47cab2-e519-4532-8aa2-f4926e16bcd7"
 STATE_CANCELED="20dedb1c-9cb4-4db4-8a3a-c2eb39fbd616"
@@ -109,13 +110,13 @@ TRIAGE_TIMEOUT="${ORCHESTRATOR_TRIAGE_TIMEOUT:-120}"
 # reads as an infrastructure fault (HON-578).
 MAIN_LOG_MAX_BYTES="${ORCHESTRATOR_LOG_MAX_BYTES:-52428800}"          # 50 MB
 WORKER_LOG_MAX_AGE_DAYS="${ORCHESTRATOR_WORKER_LOG_MAX_AGE_DAYS:-14}"
-# How many Todo issues one poll considers. Not paginated: the orchestrator
+# How many Queued issues one poll considers. Not paginated: the orchestrator
 # claims at most one issue per cycle, so a deeper page buys nothing. The cost of
-# the cap is that a longer queue is invisible — fetch_todo_issues asks for one
+# the cap is that a longer queue is invisible — fetch_queued_issues asks for one
 # row past it and logs a WARN naming what it saw when that row comes back, so
 # the truncation shows up in the log instead of being inferred from a queue that
 # never drains (HON-580). The extra row stays in play as a real candidate.
-LINEAR_TODO_PAGE_SIZE=50
+LINEAR_QUEUE_PAGE_SIZE=50
 DRY_RUN=false
 RUN_ONCE=false
 
@@ -143,25 +144,25 @@ SEEN_SKIPS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-skips.XXXXXXXX")
 # argument parsing and acquire_lock so the temp file never leaks.
 trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
 # Comma-separated identifiers of issues gated this run (worker exited 0 with
-# no commits). They go back to Todo unassigned, so without this list the
+# no commits). They go back to Queued unassigned, so without this list the
 # picker would re-select them on the very next poll and respawn the same
 # no-op worker in a loop whenever the durable Gated-label write failed. An
 # entry is dropped as soon as selection sees the issue without its Gated
 # label (operator removed it — the retry signal); a restart also clears it.
 GATED_ISSUES=""
-# Comma-separated "identifier:expiry-epoch" entries for issues requeued to Todo
+# Comma-separated "identifier:expiry-epoch" entries for issues returned to Queued
 # at the Neon branch cap. Unlike the gated path there is no durable label to
 # lean on — deliberately, the whole point is that nothing about the issue is
 # wrong — so this list is the only thing bounding the retry. Without it
-# requeue_to_todo is non-terminating: the issue returns to Todo unassigned and
+# requeue_to_queue is non-terminating: the issue returns to Queued unassigned and
 # unlabelled, which makes it immediately re-selectable, and the circuit breaker
 # only rate-limits (it resets itself unconditionally once the pause expires). A
-# genuinely full Neon project would collect an identical "Returned to Todo"
+# genuinely full Neon project would collect an identical "Returned to Queued"
 # comment and a full worktree build per breaker window, all night.
 #
 # The entries EXPIRE rather than lasting the run. A run-scoped list wedges: the
 # only other release is record_success, which needs a spawn, which needs a
-# candidate this list has just suppressed — so once the Todo page has been
+# candidate this list has just suppressed — so once the Queued page has been
 # walked the orchestrator idles until someone restarts it, and freeing branches
 # with `wt cleanup` recovers nothing. A cooldown keeps the bound (at most one
 # attempt per issue per window) while still making "pickable again once branches
@@ -196,6 +197,10 @@ while [[ $# -gt 0 ]]; do
     --once)           RUN_ONCE=true; shift ;;
     -h|--help)
       echo "Usage: $0 [options]"
+      echo ""
+      echo "Picks unassigned, unblocked issues from the Linear state Queued, and returns"
+      echo "gated, cap-requeued and drained issues there. Todo and Backlog are never read:"
+      echo "move an issue to Queued only when an agent can finish it without a human."
       echo ""
       echo "Options:"
       echo "  --max-workers N      Max concurrent workers (default: 3, capped by Neon branches)"
@@ -450,19 +455,19 @@ linear_api() {
   echo "$response"
 }
 
-# ─── Fetch Todo issues with relations ────────────────────────────────────────
+# ─── Fetch Queued issues with relations ────────────────────────────────────────
 
-fetch_todo_issues() {
+fetch_queued_issues() {
   local response
-  # One row past LINEAR_TODO_PAGE_SIZE: the extra node is what makes the cap
+  # One row past LINEAR_QUEUE_PAGE_SIZE: the extra node is what makes the cap
   # detectable without a second round trip.
   response=$(linear_api '{
     issues(
       filter: {
         team: { key: { eq: "HON" } }
-        state: { id: { eq: "'"$STATE_TODO"'" } }
+        state: { id: { eq: "'"$STATE_QUEUED"'" } }
       }
-      first: '"$((LINEAR_TODO_PAGE_SIZE + 1))"'
+      first: '"$((LINEAR_QUEUE_PAGE_SIZE + 1))"'
     ) {
       nodes {
         id
@@ -502,8 +507,8 @@ fetch_todo_issues() {
   # across every node it is handed, so nothing is hidden until the queue is
   # deeper than what this poll actually saw. Reporting the count keeps the line
   # true at every depth — at exactly cap+1 issues none were missed.
-  if [ "$count" -gt "$LINEAR_TODO_PAGE_SIZE" ]; then
-    log WARN "Todo queue is deeper than the $LINEAR_TODO_PAGE_SIZE-issue query cap — this poll considered $count issue(s); anything past them is invisible"
+  if [ "$count" -gt "$LINEAR_QUEUE_PAGE_SIZE" ]; then
+    log WARN "Queue is deeper than the $LINEAR_QUEUE_PAGE_SIZE-issue query cap — this poll considered $count issue(s); anything past them is invisible"
   fi
 
   # log() writes stderr and $MAIN_LOG, never stdout, so the WARN above cannot
@@ -622,11 +627,11 @@ select_next_issue() {
         # SKIP line can name the label the operator actually has to remove.
         _gate_label: ([.labels.nodes[]?.name] | map(select(. == "Gated" or . == "Stranded")) | .[0]),
         # Any assigned issue belongs to someone — including the operator, who
-        # may have self-assigned a Todo issue to work on by hand. Same rule as
+        # may have self-assigned a Queued issue to work on by hand. Same rule as
         # /next-issue step 4 and /auto-implement 1.4 (assignee must be null).
         # Issues a previous run assigned to "me" are not stranded by this:
         # move_to_backlog clears the assignee when it fails an issue back to
-        # Backlog, so a human re-triage to Todo makes it pickable again; RETRY
+        # Backlog, so a human re-triage to Queued makes it pickable again; RETRY
         # re-spawns the same worker without re-entering selection.
         _assigned: (.assignee != null),
         # Open blockers a worker is NOT already handling. Excluding in-worker
@@ -814,7 +819,7 @@ monitor_workers() {
         # tree re-create the directory after `git worktree remove` succeeded and
         # `git branch -D` ran — an orphan nothing reclaims, which then hard-exits
         # every future `wt auto` on the branch. Same bounded-wait contract as
-        # drain_workers_to_todo; the old `sleep 2` only held because
+        # drain_workers_to_queue; the old `sleep 2` only held because
         # handle_failure's triage call happened to sit in between.
         kill_process_tree "$pid"
         wait_for_exit "$pid" 20 || kill_process_tree "$pid" KILL
@@ -1332,16 +1337,16 @@ strand_worker() {
   # alone. With no PR — none opened, or gh missing/unauthenticated, which
   # validate_environment only WARNs about — Linear never moved the issue, so
   # it is still In Progress and assigned where claim_issue and /auto-implement
-  # Phase 2.2 left it. fetch_todo_issues queries Todo only and
+  # Phase 2.2 left it. fetch_queued_issues queries Queued only and
   # select_next_issue skips assigned issues, so it would never be seen again.
   # Hand it back the way gate_no_commit_success does; the Stranded label added
   # by record_stranded keeps the picker off it until an operator clears it.
   if [ -z "$WORKER_PR_NUMBER" ]; then
-    restore_todo_if_in_progress "$issue_uuid" "$issue_id"
+    restore_queue_if_in_progress "$issue_uuid" "$issue_id"
   fi
 
   # An incomplete cycle is a failure to ship, so it counts toward the
-  # circuit breaker: a systemic stranding must not walk the whole Todo
+  # circuit breaker: a systemic stranding must not walk the whole
   # queue one worker per poll.
   note_consecutive_failure
   [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
@@ -1406,7 +1411,7 @@ handle_success() {
   # A clean exit that produced no commits and did not reach a merge shipped
   # nothing. Logging it as SUCCESS would leave the issue In Progress and
   # assigned, which select_next_issue skips forever. Gate it instead: return the
-  # issue to Todo, unassigned, so it is pickable again, and emit a distinct
+  # issue to Queued, unassigned, so it is pickable again, and emit a distinct
   # GATED outcome operators can grep for. The phase guard matters because a
   # merged run can also show 0 commits once origin/main advances past its merge
   # — only for a non-squash merge, since squashed commits stay unreachable from
@@ -1414,12 +1419,12 @@ handle_success() {
   # automation moves its issue to Done.
   if [ "${commits:-0}" -eq 0 ] && [ "$phase" != "done" ] && [ "$WORKER_PR_MERGED" = false ]; then
     log WARN "[OUTCOME] $issue_id GATED ${duration_str} 0-commits phase=$phase"
-    notify "Honkadori" "$issue_id produced no commits — returned to Todo"
+    notify "Honkadori" "$issue_id produced no commits — returned to Queued"
     gate_no_commit_success "$issue_uuid" "$issue_id" "$log_file"
     GATED_ISSUES="${GATED_ISSUES:+$GATED_ISSUES,}$issue_id"
     # A gated exit is a failure to produce, so it counts toward the circuit
     # breaker: a systemic no-op (expired auth, broken skill) must not sweep
-    # the whole Todo queue one worker per poll.
+    # the whole queue one worker per poll.
     note_consecutive_failure
     [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
     cleanup_worker_worktree "$branch"
@@ -1509,7 +1514,7 @@ handle_timeout() {
 
 # ─── Gate a no-commit "success" ──────────────────────────────────────────────
 # A worker can exit 0 without producing anything. Comment on the issue, then
-# return it to Todo and clear the assignee (reusing move_issue_unassigned) so a
+# return it to Queued and clear the assignee (reusing move_issue_unassigned) so a
 # later run can pick it up instead of it being stranded In Progress.
 
 gate_no_commit_success() {
@@ -1519,7 +1524,7 @@ gate_no_commit_success() {
   [ -n "$log_file" ] && log_path_note=$(printf '\n\n**Full log:** `%s`' "$log_file")
 
   local body
-  body=$(printf '## Auto-implementation produced no commits\n\nThe worker exited cleanly but made no commits, so nothing shipped. Returned to Todo, unassigned, and labelled `Gated`. The orchestrator skips `Gated` issues; once the cause is fixed, remove the label (or re-triage) to make it pickable again.%s' \
+  body=$(printf '## Auto-implementation produced no commits\n\nThe worker exited cleanly but made no commits, so nothing shipped. Returned to Queued, unassigned, and labelled `Gated`. The orchestrator skips `Gated` issues; once the cause is fixed, remove the label (or re-triage) to make it pickable again.%s' \
     "$log_path_note")
 
   local vars
@@ -1530,8 +1535,8 @@ gate_no_commit_success() {
     }' "$vars" > /dev/null 2>&1 || log WARN "Failed to comment on $issue_id"
 
   try_add_label "$issue_uuid" "Gated"
-  restore_todo_if_in_progress "$issue_uuid" "$issue_id"
-  log INFO "Gated $issue_id → Todo (unassigned, labelled Gated, 0 commits)"
+  restore_queue_if_in_progress "$issue_uuid" "$issue_id"
+  log INFO "Gated $issue_id → Queued (unassigned, labelled Gated, 0 commits)"
 }
 
 # ─── Record a stranded (unmerged) run ────────────────────────────────────────
@@ -1907,7 +1912,7 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
   # fault whose logs read as transient (rate limit, network flake, the literal
   # word "timeout") produced fail -> RETRY -> fail -> Backlog per issue and
   # zeroed the counter every cycle, so MAX_CONSECUTIVE_FAILURES was never
-  # reached and the orchestrator swept the whole Todo queue into Backlog one
+  # reached and the orchestrator swept the whole queue into Backlog one
   # issue per poll. Moving the reset onto the spawn_worker branch is NOT enough
   # either: that branch runs on every issue's FIRST failure, so under the same
   # systemic fault the counter just oscillates 0 -> 1 -> 0 and still never
@@ -1945,7 +1950,7 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
       # Same one-retry shape as RETRY — the branches may have freed in the
       # meantime — but it never ends in Backlog. The issue was never examined,
       # so `Failed` / `Needs attention` would both be false, and either label
-      # needs a human to clear before the issue is pickable again. Todo,
+      # needs a human to clear before the issue is pickable again. Queued,
       # unassigned, no label: the orchestrator picks it up itself once there is
       # room. The loop that implies is bounded by the circuit breaker, which
       # note_consecutive_failure above still feeds on both of these paths —
@@ -1957,26 +1962,26 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
         spawn_worker "$issue_uuid" "$issue_id" "$branch" "$original_title" "1" \
           "$(build_retry_context "$phase" "$failure_type, Neon branch cap" "$duration_str" "$commits" "$retry_tail")"
       else
-        requeue_to_todo "$issue_uuid" "$issue_id" "$log_file"
+        requeue_to_queue "$issue_uuid" "$issue_id" "$log_file"
         cleanup_worker_worktree "$branch"
       fi ;;
   esac
 }
 
-# ─── Requeue to Todo (no label, no blame) ───────────────────────────────────
+# ─── Requeue to Queued (no label, no blame) ───────────────────────────────────
 # For failures that say nothing about the issue itself — today, only the Neon
 # branch cap. move_to_backlog is the wrong tool: Backlog plus a red label reads
 # as "this issue is broken", and both are sticky, so a human has to clear them
 # before the orchestrator will look at it again. Here the issue is fine and the
 # only thing that has to change is the branch count, so leave it queued.
 
-requeue_to_todo() {
+requeue_to_queue() {
   local issue_uuid="$1" issue_id="$2" log_file="${3:-}"
 
-  # Check the state BEFORE commenting, not after. restore_todo_if_in_progress
+  # Check the state BEFORE commenting, not after. restore_queue_if_in_progress
   # below is deliberately a no-op when the issue is no longer In Progress — a
   # human re-triaged it, or Linear's PR automation advanced it — and a comment
-  # posted first would then be asserting "back in Todo, unassigned and
+  # posted first would then be asserting "back in Queued, unassigned and
   # unlabelled" about an issue that is wherever the human put it and still
   # assigned, which select_next_issue skips forever. That comment is the only
   # artifact an operator sees. move_to_backlog has the same ordering and is safe
@@ -1984,11 +1989,11 @@ requeue_to_todo() {
   #
   # Only a state that was READ and is not In Progress declines the requeue.
   # issue_state_id returns empty on any failed read, and treating that as "a
-  # human moved it" would skip the comment, the Todo restore and the cooldown
+  # human moved it" would skip the comment, the Queued restore and the cooldown
   # entry over a transient API error — leaving the issue In Progress AND
-  # assigned, which fetch_todo_issues (Todo only) can never surface again, under
+  # assigned, which fetch_queued_issues (Queued only) can never surface again, under
   # a WARN asserting the opposite. On an unreadable state, fall through and let
-  # restore_todo_if_in_progress below make the call; it handles the empty case
+  # restore_queue_if_in_progress below make the call; it handles the empty case
   # explicitly and leaves the state alone, and the comment is then the operator's
   # only trace of what happened.
   local state_id
@@ -2009,7 +2014,7 @@ requeue_to_todo() {
   # is no Claude output to quote, and the setup log is the one part of a worker
   # log that sanitize_log exists for. A one-line explanation is the whole story.
   local body
-  body=$(printf '## Returned to Todo — Neon branch cap\n\nThe worker could not be given a database branch: the Neon project was at its branch cap, and the orphan GC had nothing to reclaim. This says nothing about the issue, so it is back in Todo, unassigned and unlabelled, and will be picked up again once branches free up.\n\nIf this repeats, check `wt list` for stranded worktrees (`wt cleanup <branch>` releases both of their branches) and the `2N + 2S + 3` budget in docs/PARALLEL_WORKFLOW.md.%s' \
+  body=$(printf '## Returned to Queued — Neon branch cap\n\nThe worker could not be given a database branch: the Neon project was at its branch cap, and the orphan GC had nothing to reclaim. This says nothing about the issue, so it is back in Queued, unassigned and unlabelled, and will be picked up again once branches free up.\n\nIf this repeats, check `wt list` for stranded worktrees (`wt cleanup <branch>` releases both of their branches) and the `2N + 2S + 3` budget in docs/PARALLEL_WORKFLOW.md.%s' \
     "$log_path_note")
 
   local vars
@@ -2021,16 +2026,16 @@ requeue_to_todo() {
 
   # Only undoes this orchestrator's own In Progress claim, and clears the
   # assignee with it — select_next_issue skips any assigned issue forever.
-  restore_todo_if_in_progress "$issue_uuid" "$issue_id"
+  restore_queue_if_in_progress "$issue_uuid" "$issue_id"
 
-  # Suppress re-selection until the cooldown lapses. The issue is back in Todo,
+  # Suppress re-selection until the cooldown lapses. The issue is back in Queued,
   # unassigned and unlabelled, so nothing else would stop the very next poll
   # picking it, failing it at the same still-full cap, and posting this same
   # comment again. Expiring rather than run-scoped so a project that frees
   # branches recovers on its own. See CAP_REQUEUED_ISSUES.
   CAP_REQUEUED_ISSUES="${CAP_REQUEUED_ISSUES:+$CAP_REQUEUED_ISSUES,}$issue_id:$(( $(date +%s) + CAP_REQUEUE_COOLDOWN ))"
 
-  log INFO "Returned $issue_id to Todo (unassigned) — Neon branch cap, not a failure of the issue"
+  log INFO "Returned $issue_id to Queued (unassigned) — Neon branch cap, not a failure of the issue"
 }
 
 # ─── Move issue to Backlog with comment + label ─────────────────────────────
@@ -2063,13 +2068,13 @@ move_to_backlog() {
 
   # Move to Backlog and clear the assignee. /auto-implement 2.2 assigns the
   # issue to the API user; leaving that in place would make select_next_issue
-  # skip the issue as "assigned" forever once a human re-triages it to Todo.
+  # skip the issue as "assigned" forever once a human re-triages it to Queued.
   move_issue_unassigned "$issue_uuid" "$issue_id" "$STATE_BACKLOG" "Backlog"
 
   log INFO "Moved $issue_id to Backlog (unassigned) with '$label_name' label"
 }
 
-# ─── Restore Todo only from In Progress ──────────────────────────────────────
+# ─── Restore Queued only from In Progress ──────────────────────────────────────
 # The gated path and the force-kill drain must not stomp a state the worker
 # (or Linear's PR automation) already advanced: a merged run whose worktree
 # is gone can detect_phase as "planning", and a killed worker may already
@@ -2082,12 +2087,12 @@ issue_state_id() {
     | jq -r '.data.issue.state.id // empty'
 }
 
-restore_todo_if_in_progress() {
+restore_queue_if_in_progress() {
   local issue_uuid="$1" issue_id="$2"
   local state_id
   state_id=$(issue_state_id "$issue_uuid") || true
   if [ "$state_id" = "$STATE_IN_PROGRESS" ]; then
-    move_issue_unassigned "$issue_uuid" "$issue_id" "$STATE_TODO" "Todo"
+    move_issue_unassigned "$issue_uuid" "$issue_id" "$STATE_QUEUED" "Queued"
   elif [ -z "$state_id" ]; then
     log WARN "Could not read the state of $issue_id — leaving it untouched"
   else
@@ -2250,10 +2255,10 @@ sync_permissions() {
 
 # ─── Shutdown ────────────────────────────────────────────────────────────────
 
-# Force shutdown kills workers mid-flight. Return each in-flight issue to Todo
+# Force shutdown kills workers mid-flight. Return each in-flight issue to Queued
 # and clear the assignee so a future run can pick it up — otherwise it stays In
 # Progress and assigned, which select_next_issue skips forever.
-drain_workers_to_todo() {
+drain_workers_to_queue() {
   local i=0
   while [ $i -lt ${#WORKER_PIDS[@]} ]; do
     kill_process_tree "${WORKER_PIDS[$i]}"
@@ -2267,7 +2272,7 @@ drain_workers_to_todo() {
     # resuming the branch.
     cleanup_worker_worktree "${WORKER_BRANCHES[$i]}" true
     if [ "$DRY_RUN" = false ]; then
-      restore_todo_if_in_progress "${WORKER_ISSUE_UUIDS[$i]}" "${WORKER_ISSUES[$i]}"
+      restore_queue_if_in_progress "${WORKER_ISSUE_UUIDS[$i]}" "${WORKER_ISSUES[$i]}"
     fi
     i=$((i + 1))
   done
@@ -2276,14 +2281,14 @@ drain_workers_to_todo() {
 shutdown() {
   if [ "$FORCE_SHUTDOWN" = true ]; then
     log WARN "Force shutdown — killing all workers"
-    drain_workers_to_todo
+    drain_workers_to_queue
     exit 1
   fi
 
   if [ "$SHUTTING_DOWN" = true ]; then
     FORCE_SHUTDOWN=true
     log WARN "Second signal — force killing workers"
-    drain_workers_to_todo
+    drain_workers_to_queue
     exit 1
   fi
 
@@ -2314,7 +2319,7 @@ trap shutdown SIGINT SIGTERM
 # refuses to re-enter a trap handler for a signal whose handler is already
 # running, so the second SIGTERM `cmd_stop` sends while shutdown()'s graceful
 # wait loop is executing is dropped. FORCE_SHUTDOWN is never set,
-# drain_workers_to_todo never runs, and cmd_stop eventually SIGKILLs. Fixing it
+# drain_workers_to_queue never runs, and cmd_stop eventually SIGKILLs. Fixing it
 # means restructuring shutdown() to only set flags and letting the main loop
 # perform the drain; that changes shutdown semantics for both Ctrl-C and
 # `wt stop`, so it is deliberately NOT done here — HON-572's execution
@@ -2342,7 +2347,7 @@ check_disk_space() {
 
 # ─── Validate workflow-state UUIDs ───────────────────────────────────────────
 # The state IDs at the top of this file are hardcoded. A state recreated in the
-# workspace gets a new UUID, and a stale STATE_TODO makes fetch_todo_issues
+# workspace gets a new UUID, and a stale STATE_QUEUED makes fetch_queued_issues
 # match nothing forever — the queue just looks empty, with no error anywhere.
 # Check each constant against the set Linear returns and emit one ERROR per
 # stale one, naming the constant to fix. Prints the count of stale IDs on
@@ -2361,7 +2366,7 @@ validate_state_ids() {
 
   for pair in \
     "STATE_BACKLOG:$STATE_BACKLOG" \
-    "STATE_TODO:$STATE_TODO" \
+    "STATE_QUEUED:$STATE_QUEUED" \
     "STATE_IN_PROGRESS:$STATE_IN_PROGRESS" \
     "STATE_DONE:$STATE_DONE" \
     "STATE_CANCELED:$STATE_CANCELED" \
@@ -2407,10 +2412,10 @@ check_branch_budget() {
   fi
 
   # Validated HERE and not at its use site, because its use site is the middle
-  # of requeue_to_todo: `$(( now + CAP_REQUEUE_COOLDOWN ))` on a value like
+  # of requeue_to_queue: `$(( now + CAP_REQUEUE_COOLDOWN ))` on a value like
   # "30m" is a fatal arithmetic error under `set -euo pipefail`, and it would
   # unwind main() AFTER the Linear comment had been posted and the issue moved
-  # to Todo — leaving a stale status file and no log() trace of why. Startup is
+  # to Queued — leaving a stale status file and no log() trace of why. Startup is
   # the only place that can refuse it before it costs anything.
   if ! [[ "$CAP_REQUEUE_COOLDOWN" =~ ^[0-9]+$ ]]; then
     log ERROR "ORCHESTRATOR_CAP_REQUEUE_COOLDOWN must be a whole number of seconds, got '$CAP_REQUEUE_COOLDOWN'"
@@ -2624,7 +2629,7 @@ main() {
         log DEBUG "Polling: $active/$MAX_WORKERS workers active"
 
         local response=""
-        response=$(fetch_todo_issues 2>/dev/null) || {
+        response=$(fetch_queued_issues 2>/dev/null) || {
           log WARN "Failed to fetch issues from Linear"
           response=""
         }
