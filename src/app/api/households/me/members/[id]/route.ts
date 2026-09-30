@@ -165,14 +165,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Cannot update name for linked members' }, { status: 400 })
     }
 
-    // Manual members (no linked user) require a display name since there's no fallback
-    if (preferences?.displayName === null && member.userId === null) {
-      return NextResponse.json(
-        { error: 'Display name is required for manual members' },
-        { status: 400 },
-      )
-    }
-
     const updatedMember = await prisma.$transaction(async (tx) => {
       // Update member name if provided and it's a manual member
       if (name !== undefined) {

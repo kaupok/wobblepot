@@ -91,14 +91,14 @@ export const Child: Story = {
     docs: {
       description: {
         story:
-          'Manual child member — Name field visible, "Small" portion preselected with the matching display name. The display name carries no "(optional)" mark: a manual member has no account name to fall back on, so the API requires it.',
+          'Manual child member — Name field visible, "Small" portion preselected with the matching display name. The display name is optional here too: the member\'s name stands in for it (HON-842).',
       },
     },
   },
   play: async () => {
     const body = within(document.body)
     await body.findByRole('dialog')
-    await expect(body.getByLabelText('Display name')).toBeRequired()
+    await expect(body.getByLabelText('Display name (optional)')).not.toBeRequired()
   },
 }
 

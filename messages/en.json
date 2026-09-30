@@ -965,7 +965,6 @@
       "description": "Update portion size for this member.",
       "nameLabel": "Name",
       "namePlaceholder": "Enter name",
-      "displayNameLabel": "Display name",
       "displayNameOptionalLabel": "Display name (optional)",
       "displayNamePlaceholder": "e.g., Mom, Dad, Alex",
       "displayNameHelper": "How this member appears in the household",
