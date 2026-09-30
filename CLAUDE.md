@@ -1,86 +1,66 @@
-# Honkadori - Code Guidelines
+# Wobblepot - Code Guidelines
 
 In conversational responses, prioritize brevity. Keep explanations concise and direct.
 
 ## Project Overview
 
-A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/ui components.
-
-**Product:** AI-powered family meal planning app for households. The user-facing brand is **Wobblepot** (pronounced "WOB-bul-pot"). _Honkadori OÜ_ is the parent legal entity — used for vendor accounts, DPAs, subprocessor listings, AKI registration. All user-facing copy and email lives on `wobblepot.com`; staging is on `wobblepot.dev`; legal-entity attribution appears in policy text only.
-
-**Product Spec:** The full product spec is in [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md). Read it before starting implementation work.
-
-**Design guide:** [docs/DESIGN.md](docs/DESIGN.md) holds the type scale, tokens, composition rules, and the reject list of generated-design patterns we do not ship. Read it before creating or changing any UI.
+**Product:** AI-powered family meal planning app for households. The user-facing brand is **Wobblepot** (pronounced "WOB-bul-pot"). _Honkadori OÜ_ is the parent legal entity — used for vendor accounts, DPAs, subprocessor listings, AKI registration — and the name the package and the Linear workspace still carry. All user-facing copy and email lives on `wobblepot.com`; staging is on `wobblepot.dev`; legal-entity attribution appears in policy text only.
 
 ## Documentation Structure
 
-| Document                                         | Contains                                                          | When to Read                |
-| ------------------------------------------------ | ----------------------------------------------------------------- | --------------------------- |
-| **This file**                                    | Coding patterns, universal standards                              | Every session (auto-loaded) |
-| **[docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)** | Product vision, decisions, phase goals, domain logic              | Before implementation work  |
-| **[docs/DESIGN.md](docs/DESIGN.md)**             | Visual system: type scale, tokens, composition rules, reject list | Before UI work              |
+| Document                                                   | Contains                                                          | When to Read                                        |
+| ---------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------- |
+| **This file**                                              | Coding patterns, workflow rules, each with its reason             | Every session (auto-loaded)                         |
+| **[docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)**           | Product vision, decisions, phase goals, domain logic              | Before implementation work                          |
+| **[docs/DESIGN.md](docs/DESIGN.md)**                       | Visual system: type scale, tokens, composition rules, reject list | Before creating or changing any UI                  |
+| **[docs/LOCALIZATION.md](docs/LOCALIZATION.md)**           | i18n model, locale plumbing, formatting helpers                   | Before adding or changing user-visible text         |
+| **[docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md)** | Worktrees, the orchestrator, its outcomes and labels              | Before queueing work or debugging an unattended run |
+| **[docs/AGENT_HISTORY.md](docs/AGENT_HISTORY.md)**         | The incident behind each rule here, by Linear issue               | Before changing or disputing a rule                 |
 
 **Rule:** CLAUDE.md tells you _how_ to code. The project spec tells you _what_ to build and _why_. The design guide tells you what it should _look like_.
 
 ## Agent memory
 
-**Do not use the Claude Code auto-memory system** (`~/.claude/projects/*/memory/`) — it's machine-local and creates cross-machine inconsistency. All agent guidance, project facts, behavioural rules, and cross-session context belong in this file (CLAUDE.md), `docs/`, or the relevant `.claude/skills/*/SKILL.md`. If you find yourself wanting to "save this for next session," write it to a portable in-repo file instead.
+Do not use the Claude Code auto-memory system (`~/.claude/projects/*/memory/`): it is machine-local and creates cross-machine inconsistency. Agent guidance, project facts, behavioural rules and cross-session context belong in this file, `docs/`, or the relevant `.claude/skills/*/SKILL.md`. If you want to "save this for next session", write it to one of those.
 
 ## Tech Stack
 
-- **Framework**: Next.js 16.3.4
-- **Language**: TypeScript 5.9
-- **Styling**: Tailwind CSS 4.3 with class-variance-authority
-- **Testing**: Vitest for unit tests, Playwright for E2E
-- **Linting**: ESLint 10 + Prettier
-- **Package Manager**: pnpm 10.9
-- **Data Fetching**: TanStack Query (React Query) v5 for client-side
-- **Database**: PostgreSQL (Neon) with Prisma ORM
-- **Authentication**: Better Auth
+Exact versions are pinned in `package.json`. The majors:
+
+- **Framework**: Next.js 16 (App Router), React 19, TypeScript 5.9
+- **Styling**: Tailwind CSS 4 with class-variance-authority, shadcn/ui
+- **i18n**: next-intl 4, catalogs in `messages/`
+- **Data**: PostgreSQL (Neon) with Prisma 7; TanStack Query v5 on the client
+- **Auth**: Better Auth (email/password)
+- **AI**: Vercel AI SDK with Claude — see [docs/AI_MODELS.md](docs/AI_MODELS.md)
+- **Services**: PostHog (analytics, feature flags, error capture), Upstash Redis (rate limits), Resend (email), Vercel (hosting)
+- **Testing**: Vitest, Playwright, Storybook 10
+- **Tooling**: ESLint 10 + Prettier, pnpm 10
 
 ## Architecture Overview
 
 ### Directory Structure
 
-- **/app**: Next.js App Router (routes, layouts, error boundaries)
-- **/components**: Reusable UI components
-  - `/ui`: shadcn/ui primitives (button, card, typography, input, label, etc.)
-  - Root level: Feature components (header, theme-toggle, etc.)
-- **/lib**: Shared utilities, configuration, and service clients
-  - `api.ts`: Shared fetch utility for TanStack Query (`apiFetch`)
-  - `auth.ts` / `auth-client.ts`: Better Auth (server / client)
-  - `env.ts`: Environment variable validation (Zod schemas)
-  - `get-query-client.ts`: TanStack Query client singleton
-  - `prisma.ts`: Prisma client singleton
-  - `utils.ts`: Utility functions (cn, etc.)
-- **/hooks**: Custom React hooks
-- **/e2e**: Playwright E2E tests
-- **/prisma**: Database schema and migrations
+- `src/app`: App Router routes, layouts, error boundaries; API routes in `src/app/api/**/route.ts`
+- `src/components/ui`: shadcn/ui primitives, plus the hand-written ones (`confirm-dialog`, `number-input`, `typography`)
+- `src/components/<feature>` (`meal-plan`, `timeline`, `recipes`, `household`, `inventory`, `pantry`, `shopping`): feature components. App chrome (header, footer, navigation) sits at the `src/components` root
+- `src/lib`: utilities, configuration, service clients — `api.ts` (`apiFetch`, `ApiError`), `auth.ts` / `auth-client.ts`, `env.ts`, `get-query-client.ts`, `prisma.ts`, `utils.ts` (`cn`), and the `i18n/`, `ai/` and `meal-planning/` modules
+- `src/hooks`: shared hooks. `src/stories`: scenario stories and a11y helpers. `src/test`: test utilities
+- `messages/`: next-intl catalogs (`en.json`, `et.json`)
+- `tests/e2e`: Playwright specs
+- `prisma/`: schema, migrations, seeds
+- `scripts/`: CI checks, the orchestrator and `wt`, the PR reviewer, the model benchmark
+- `compliance/`, `docs/RUNBOOKS/`: DPAs and the DPIA; operational runbooks
 
 ### Key Patterns
 
 - **Server Components by default** - "use client" only for interactivity, browser APIs, or hooks
 - **Colocated tests** - `.test.tsx` / `.test.ts` next to source files
 - **Colocated stories** - `.stories.tsx` next to components (see Storybook section)
+- **Route-specific components** - colocated in the route's folder under `src/app`
 - **Absolute imports** - `@/` prefix for all imports
-- **Type-safe env vars** - Validated with Zod at startup (see `lib/env.ts:3`)
-
-## File Organization
-
-### Naming Conventions
-
-- **Components**: PascalCase (`UserProfile.tsx`)
-- **Utilities/Hooks**: camelCase (`utils.ts`, `useAuth.ts`)
-- **Tests**: Source name + `.test.ts(x)` suffix
-
-### Where to Put New Code
-
-- **shadcn UI primitives** → `/components/ui`
-- **Feature components** → `/components` root level
-- **Route-specific components** → Colocate in `/app/[route]/`
-- **Shared hooks** → `/hooks`
-- **Utilities & config** → `/lib`
-- **API routes** → `/app/api/[route]/route.ts`
+- **Type-safe env vars** - validated with Zod at startup (see `src/lib/env.ts`)
+- **Naming** - components in PascalCase (`UserProfile.tsx`), utilities and hooks in camelCase (`useAuth.ts`)
 
 ## Authentication Patterns
 
@@ -90,13 +70,13 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 - Client: `@/lib/auth-client` (Client Components)
 - API: `/api/auth/[...all]` (handles all auth endpoints)
 
-**Protected routes:** Check session with `auth.api.getSession({ headers: await headers() })`, redirect if null. See `src/app/profile/page.tsx:8-15`. `src/proxy.ts` additionally performs an _optimistic_ session-cookie redirect (307 → `/sign-in?returnUrl=…`) for the prefixes in `PROTECTED_PREFIXES`, so anonymous requests never stream a 200 + skeleton first — it checks cookie presence only, so the page still owns the real session check. `src/proxy.test.ts` fails CI on any top-level route that isn't classified in `PROTECTED_PREFIXES` or `PUBLIC_ROUTES`.
+**Protected routes:** Check session with `auth.api.getSession({ headers: await headers() })`, redirect if null. See `src/app/profile/page.tsx:8-15`. `src/proxy.ts` additionally performs an _optimistic_ session-cookie redirect (307 → `/sign-in?returnUrl=…`) for the prefixes in `PROTECTED_PREFIXES`, so anonymous requests never stream a 200 + skeleton first. It checks cookie presence only, so the page still owns the real session check. `src/proxy.test.ts` fails CI on any top-level route that isn't classified in `PROTECTED_PREFIXES` or `PUBLIC_ROUTES`.
 
 **Client-side auth:** Use `authClient.signIn.email()` with callbacks. See `src/app/sign-in/SignInForm.tsx:60-78`
 
 **Sign out:** `authClient.signOut()` + `router.push()` + `router.refresh()`
 
-**Templates:** `.claude/templates/auth-protected-route.tsx` and `.claude/templates/auth-form.tsx`
+**Templates:** `.claude/templates/` has `auth-protected-route.tsx`, `auth-form.tsx`, `component.tsx` and `client-component.tsx`
 
 ## Data Fetching Patterns
 
@@ -104,58 +84,60 @@ A Next.js 16 project with React 19, using TypeScript, Tailwind CSS, and shadcn/u
 
 **Client Components:** TanStack Query (`@tanstack/react-query`) for all client-side data fetching.
 
-- **Reads:** `useQuery` — never `useEffect` + `fetch` + `useState`
-- **Mutations:** `useMutation` — never manual `try/catch/finally` with loading state
-- **Cache invalidation:** `invalidateQueries` — never `router.refresh()` for data revalidation
-- **Optimistic updates:** `useMutation` with `onMutate`/`onError`/`onSettled` — never manual state snapshots
+- **Reads:** `useQuery`, not `useEffect` + `fetch` + `useState`
+- **Mutations:** `useMutation`, not manual `try/catch/finally` with loading state
+- **Loading and error state:** the query or mutation result, not `useState`
+- **Cache invalidation:** `invalidateQueries`, not `router.refresh()`
+- **Optimistic updates:** `useMutation` with `onMutate`/`onError`/`onSettled`, not manual state snapshots
 
 **Key files:** `src/lib/api.ts` (`apiFetch` utility), `src/lib/get-query-client.ts` (client singleton), `src/app/providers.tsx` (QueryClientProvider)
 
-### Query Key Conventions
-
-- Entity lists: `['meals']`, `['recipes']`, `['shopping-list', planId]`
-- Single entities: `['meal', mealId]`, `['meal-plan', planId]`
-- Nested resources: `['meal-plan', planId, 'entries']`
-- Filtered queries: `['meals', { search: query }]`
-
-### Read Pattern
+**Query keys:** entity lists `['meals']`, `['shopping-list', planId]`; single entities `['meal', mealId]`; nested resources `['meal-plan', planId, 'entries']`; filtered queries `['meals', { search: query }]`.
 
 ```tsx
 const { data, isLoading, error } = useQuery({
   queryKey: ['entity', id],
   queryFn: () => apiFetch(`/api/entity/${id}`),
 })
-```
 
-### Mutation Pattern
-
-```tsx
 const queryClient = useQueryClient()
 const mutation = useMutation({
   mutationFn: (data) => apiFetch('/api/entity', { method: 'POST', body: JSON.stringify(data) }),
   onSuccess: () => queryClient.invalidateQueries({ queryKey: ['entity'] }),
-  onError: (error) => toast.error(error.message),
+  // Catalog copy, not `error.message` — see Localization.
+  onError: () => toast.error(t('errors.saveFailed')),
 })
 ```
 
-### Don'ts
+## Localization
 
-- **Never** use `useEffect` to fetch data — use `useQuery`
-- **Never** use `useState` for loading/error state of fetches — use query/mutation result
-- **Never** use `router.refresh()` for cache invalidation — use `invalidateQueries`
-- **Never** implement manual optimistic updates — use `useMutation` with `onMutate`
+The app ships in English and Estonian, and the locale is the household's. [docs/LOCALIZATION.md](docs/LOCALIZATION.md) has the model; these are the rules for everyday changes.
+
+- **UI strings come from the catalogs.** Read them with `useTranslations` (client) or `getTranslations` (server). No hardcoded user-visible English in components, including `aria-label`s, toasts and error alerts.
+- **A new or changed key goes into `messages/en.json` and `messages/et.json` in the same PR.** `src/lib/i18n/catalogue-parity.test.ts` fails when the two catalogs differ in keys or ICU arguments.
+- **Do not render server error text.** Route `error` strings are English and exist for logs. `apiFetch` puts the route's `error` into `ApiError.message` ahead of the translated fallback you pass it, so `setError(err.message)` or `toast.error(err.message)` shows English to an Estonian household. Branch on `ApiError.status`, `code` or `body`, render catalog copy, and log the server string. Pattern: `src/components/recipes/ImagineReviewDialog.tsx`.
+- **Numbers, dates and enums go through `src/lib/i18n`:** `formatQuantity` / `formatInteger`, `parse-number.ts` for input (Estonian users type `1,5`), `format-dates.ts` with the household's locale rather than `en-US`, and `useEnumLabel` for meal types, categories and other enums.
+- **Join interpolated names with separators, not prepositions** ("Pick a meal: Saturday, breakfast"), so Estonian needs no declension of the day or meal name.
+- Copy rules (sentence case, "(optional)" labels, recipe versus meal) are in [docs/DESIGN.md](docs/DESIGN.md) → Copy. Estonian text the AI produces follows [docs/AI_VOICE_ET.md](docs/AI_VOICE_ET.md).
 
 ## Error Handling Strategy
 
 **Route-level error boundaries** via `error.tsx`. Use Typography components for error UI. Show detailed errors only in dev mode. See `src/app/error.tsx`
 
-**User-friendly error messages:** Map technical errors to friendly messages. See `src/lib/auth-errors.ts:5-90`
+**User-friendly error messages:** Map technical errors to friendly, translated messages. See `src/lib/auth-errors.ts:5-90`. Errors say what happened and what to do next, not what went wrong technically.
 
 ## Form Handling Patterns
 
 **Native HTML forms** with controlled inputs (no form library). Use `useState` for form state, `onSubmit` with `e.preventDefault()`, disable inputs during submission. See `src/app/sign-in/SignInForm.tsx:22-92`
 
 **Validation:** HTML5 attributes + custom validation in submit handler + server-side via Better Auth
+
+### Focus management
+
+Keyboard focus that falls to `<body>` sends the user back to the top of the page. Two causes keep recurring, and axe cannot see either:
+
+- **A control that is `disabled` while a request is pending loses focus** (Chromium blurs it). After a failed submit, return focus to the submit button: the error path sets a ref flag, and an effect focuses the button once loading ends (`src/app/onboarding/CreateHouseholdForm.tsx`). Where the button must stay focusable during the request, use `aria-disabled` plus a guard in the handler (`src/components/timeline/TimelineEmptySlot.tsx`). jsdom does not blur disabled controls, so a test has to move focus to the body itself before asserting.
+- **A Radix `Dialog` opened from controlled state has no `DialogTrigger` to return focus to.** Pass `onCloseAutoFocus`, call `preventDefault()`, and focus the control that opened it (`MealSelectorModal` takes the prop).
 
 ## Code Standards
 
@@ -165,18 +147,19 @@ const mutation = useMutation({
 - ESLint rules enforced by CI; Prettier formatting (`pnpm format`)
 - Use exact dependency versions (no `^` or `~`)
 
-**Dependency advisory gates (HON-595): regenerating `pnpm-lock.yaml` is gated on every PR.** CI runs `pnpm audit --audit-level critical` (last step of the `ci` job, so a registry outage cannot mask other signals) and `pnpm lockfile:check`. The latter asserts the specific resolutions HON-588 cleared by hand. `defu` was fixed by _lockfile dedupe_ rather than a spec change — `better-auth` still declares the vulnerable range — so `pnpm update` or a regenerated lockfile can silently undo it; `uuid` and the vitest toolchain were cleared by dependency bumps that a downgrade would equally undo. Run it locally with `pnpm lockfile:check`; the pin list, each entry carrying its advisory range and a reason, is in `scripts/check-lockfile-pins.ts`. To clear a legitimate failure, re-dedupe or upgrade the dependency that pulls it — or edit the pin and say why in its `why`. Never add a `pnpm.overrides` entry: HON-588 rejected that deliberately, because an override hides the underlying spec instead of detecting drift.
+**Lockfile gates:** CI runs `pnpm audit --audit-level critical` and `pnpm lockfile:check` on every PR. The second asserts specific resolutions in `pnpm-lock.yaml` that were cleared by hand, because `pnpm update` or a regenerated lockfile can silently undo them. When it fails, re-dedupe or upgrade the dependency that pulls the bad version, or edit the pin in `scripts/check-lockfile-pins.ts` and say why in its `why`. Do not add a `pnpm.overrides` entry: an override hides the underlying spec instead of detecting drift.
 
 ### Styling
 
 - Tailwind CSS for styling; shadcn/ui for reusable components
 - Use `tailwind-merge` for dynamic class merging; avoid inline styles
 - A new `--spacing-*` token in `globals.css` must also be added to `CUSTOM_SPACING_VALUES` in `src/lib/utils.ts` — see `docs/DESIGN.md` → Spacing
-- **`pnpm lint` enforces all six `@shadcn/lint` rules as errors on `src/**/*.{ts,tsx}` (HON-673, HON-674):** `no-raw-colors`, `no-inline-styles`, `no-arbitrary-values`, `no-unknown-classes`, `require-static-classes`, `no-restyle`. Their messages name the offending class and the theme token, scale value, or variant to use instead, so read the error before reaching for an escape hatch. Tests and `.stories.tsx` are excluded through `ignores`. `no-arbitrary-values` alone is switched off for the shadcn primitives we pull from the registry — listed file by file, not by directory, so the hand-written primitives that also live in `src/components/ui/` (`confirm-dialog`, `number-input`, `typography`) stay covered and a new one is covered by default; add a file to that list only when `shadcn add` actually installed it. Every `allow` entry in `eslint.config.mjs` and every `eslint-disable` for a `shadcn/*` rule carries a one-line reason — add one if you add either. A value that genuinely has no token, and that more than one callsite needs, goes in `globals.css` as an `@utility` rather than an `allow`. `no-restyle` catches `className` overrides on a primitive: a page may place a component (width, margin, flex/grid participation), and anything it owns — padding, radius, colour, type, a control's height — comes from a variant or size prop, so add one rather than an override. The per-component `contracts` in `eslint.config.mjs` are the exceptions, each with its reason; the type primitives take colour through `tone` and size through `variant`, and their contracts allow only named text-state classes (HON-675). The rule is off inside `src/components/ui/**`, where primitives compose each other.
 
-### Components & Hooks
+`pnpm lint` enforces six `@shadcn/lint` rules as errors on `src/**/*.{ts,tsx}`: `no-raw-colors`, `no-inline-styles`, `no-arbitrary-values`, `no-unknown-classes`, `require-static-classes`, `no-restyle`. Tests and `.stories.tsx` are excluded. Each message names the offending class and the token, scale value or variant to use instead, so read the error before reaching for an escape hatch. What the messages do not say:
 
-- Functional components only; React hooks for state; TypeScript types for props
+- **`no-restyle`:** a page may _place_ a component (width, margin, flex/grid participation). What the component owns — padding, radius, colour, type, a control's height — comes from a variant or size prop, so add one rather than a `className` override. The exceptions are the per-component `contracts` in `eslint.config.mjs`, each with its reason. The rule is off inside `src/components/ui/**`, where primitives compose each other.
+- **`no-arbitrary-values`** is switched off only for primitives `shadcn add` installed, listed file by file in `eslint.config.mjs`. Hand-written primitives stay covered; add a file to that list only when the registry installed it.
+- **Escape hatches carry a reason.** Every `allow` entry in `eslint.config.mjs` and every `eslint-disable` for a `shadcn/*` rule has a one-line reason. A value that has no token and that more than one callsite needs goes in `globals.css` as an `@utility` rather than an `allow`.
 
 ### Text Casing Convention
 
@@ -186,7 +169,7 @@ Use **sentence case** for all UI text (buttons, headings, labels, links): "Sign 
 
 Variant-based components: `Heading` (h1-h4/section, plus an `as` prop that sets the HTML tag independently of the visual level), `Body` (default/lead/large/small/paragraph/muted/caption, plus a `tone` prop for colour), `Blockquote`, `Ul`/`Ol`/`Li` (`Li` takes `tone`), `Code`, `Pre`. Form errors render through `FieldError`.
 
-**Core rule:** Typography components own their text styling: size and weight come from `variant`, colour from `tone`. `shadcn/no-restyle` enforces this (HON-675) — a `text-*` or `font-*` override fails `pnpm lint`, and the few text-state classes still allowed (`italic`, `line-through`, …) are listed by name in `eslint.config.mjs`. Apply layout (margins, padding, positioning) via wrapper elements, not directly on the component. `shadcn/no-restyle` enforces the margin half of that too: every type primitive's contract denies `m*-*`, negatives included (HON-778). A list that must shed its prose margins takes `Ul`/`Ol` `variant="plain"`.
+**Core rule:** Typography components own their text styling: size and weight come from `variant`, colour from `tone`. Apply layout (margins, padding, positioning) via wrapper elements, not on the component. `shadcn/no-restyle` enforces both halves: a `text-*`, `font-*` or `m*-*` class on a type primitive fails `pnpm lint`, and the few text-state classes still allowed (`italic`, `line-through`, …) are listed by name in `eslint.config.mjs`. A list that must shed its prose margins takes `Ul`/`Ol` `variant="plain"`.
 
 **DO:** `<div className="mt-4"><Heading>Title</Heading></div>`
 
@@ -209,7 +192,7 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Client:** `import { prisma } from '@/lib/prisma'` (server-only). See `src/lib/prisma.ts`
 
-**Schema:** `prisma/schema.prisma` - Models include Better Auth (User, Session, Account, Verification) and meal planning (Household, HouseholdMember, Ingredient, Meal, MealComponent, MealPlan, MealPlanEntry, PantryItem, etc.)
+**Schema:** `prisma/schema.prisma` holds the Better Auth models and the meal-planning models. The domain glossary is in `docs/PROJECT_SPEC.md`.
 
 **Commands:**
 
@@ -221,35 +204,33 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Adding models:** Edit schema → `pnpm db:migrate` → Commit schema + migration files
 
-**Migration SQL:** Always use actual PostgreSQL table names (from `@@map`) in migration SQL, NOT Prisma model names. Example: `"household_preferences"` not `"HouseholdPreferences"`.
+**Migration SQL:** Use the actual PostgreSQL table names (from `@@map`) in migration SQL, not Prisma model names: `"household_preferences"`, not `"HouseholdPreferences"`.
 
-**Migration immutability: a migration file is frozen once it is on `main`.** By then it has been applied somewhere durable — `deploy-db-migrations-staging.yml` runs `prisma migrate deploy` on every merge, and production applies the same files — and Prisma stores a checksum of each `migration.sql` at apply time, so editing one only guarantees that `prisma migrate dev` will demand a full database reset (HON-558). Never edit, delete, or renumber an applied migration; add a new one that fixes forward. CI enforces this on every PR, and on every push to `main` checks the whole tree (`--tree`: each `migration.sql` against the bytes it was first merged with), so an edit merged past a red or cancelled PR check turns `main` red and keeps it red on every later push until it is reverted (HON-649, HON-671 — detection only until HON-584 makes checks required). If that happens, **revert** the offending commit rather than fixing forward: staging and production still hold the checksum of the original SQL, so only restoring it clears the drift; the revert's PR check fails once (expected — merge it deliberately) and its `main` push goes green. The only sanctioned way to keep a post-merge edit is a pin in `scripts/migration-immutability-allowlist.txt` — `<path> <blob-sha|deleted> <why>`, pinned to the exact blob, with a reason — which today holds just the two repairs to migrations that had failed to apply (#181, #356). Run it locally with `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main` — fetch first, because a stale `origin/main` omits migrations that landed since, and editing one of those then reads as an addition and passes.
+**Migration immutability:** a migration file is frozen once it is on `main`. By then staging and production have applied it, and Prisma stored a checksum of its `migration.sql`, so an edit only guarantees that `prisma migrate dev` demands a full database reset. Do not edit, delete or renumber an applied migration; add a new one that fixes forward. CI enforces this on every PR and again on every push to `main`.
 
-**CRITICAL: Never run destructive database commands (`migrate reset`, `db push --force-reset`, `DROP`, etc.) on staging or production.** These destroy real data. Always ask the user before taking any destructive action on shared environments — even to fix migration issues. Prefer `migrate resolve` or manual SQL fixes instead.
+- **If an edit lands on `main` anyway, revert the commit** rather than fixing forward. Staging and production still hold the checksum of the original SQL, so only restoring it clears the drift. The revert's PR check fails once (expected; merge it deliberately) and its `main` push goes green.
+- **The only way to keep a post-merge edit** is a pin in `scripts/migration-immutability-allowlist.txt`: `<path> <blob-sha|deleted> <why>`.
+- **Run it locally** with `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. Fetch first: a stale `origin/main` omits migrations that landed since, and editing one of those then reads as an addition and passes.
+
+**Destructive commands:** do not run `migrate reset`, `db push --force-reset`, `DROP` or similar against staging or production. They destroy real data. Ask the user before any destructive action on a shared environment, even to fix a migration problem, and prefer `migrate resolve` or a manual SQL fix. The PreToolUse hook blocks the common forms (see Git & Workflow Essentials → Hooks).
 
 ## Testing
 
 **Unit/Component Tests** (Vitest + Testing Library): Colocate with source files. Use `describe`/`it`, accessibility queries (`getByRole`), focus on user-facing behavior. See `src/components/ui/button.test.tsx`
 
-**Commands:** `pnpm test`, `pnpm test:coverage`, `pnpm test:e2e`, `pnpm test:all`
+**Commands:** `pnpm test`, `pnpm test:coverage`, `pnpm test:e2e`, `pnpm test:all`. `pnpm test:e2e:local` runs the E2E suite against a fresh, isolated Neon branch; `pnpm review:local` serves the app the same way for walking a flow by hand.
 
-**What to test:** Component rendering, variants/states, user interactions, error handling, utility functions, custom hooks
+**TanStack Query in tests:** Components using `useQuery`/`useMutation` need a `QueryClientProvider` wrapper. Use `createQueryWrapper()` from `src/test/query-wrapper.tsx`, which creates a fresh `QueryClient` per test with retries disabled.
 
-**TanStack Query in tests:** Components using `useQuery`/`useMutation` need a `QueryClientProvider` wrapper. Use `createQueryWrapper()` from `src/test/query-wrapper.tsx` — it creates a fresh `QueryClient` per test with retries disabled.
+**E2E Tests** (Playwright): Config: `playwright.config.ts`. Specs live in `tests/e2e/*.spec.ts`; see [`tests/e2e/README.md`](./tests/e2e/README.md) for tiers, selector conventions, and the spec-header convention.
 
-**E2E Tests** (Playwright): Run with `pnpm test:e2e`. Config: `playwright.config.ts`. Specs live in `tests/e2e/*.spec.ts`; see [`tests/e2e/README.md`](./tests/e2e/README.md) for tiers, selector conventions, and the spec-header convention.
-
-**CRITICAL: When modifying `src/app/**/page.tsx`, changing a route's URL, renaming a navigation/CTA copy string, or restructuring a modal/dialog, grep `tests/e2e`for references and update the affected specs in the same PR.** The tier 1 E2E check catches drift on`main`, but specs that reference removed routes or renamed copy are cheap to miss locally and expensive to fix in batch (see HON-518). Use the per-spec `// ROUTES: … · COMPONENTS: …` header comments to scope the grep. This is part of the definition of done — the same loud-rule treatment as colocated Storybook stories.
-
-No CI check can enforce this, so `scripts/pr-review.sh` carries it as a reviewer checklist item, appended when the diff touches a `.tsx` under `src/app` or `src/components`, a `messages/*.json` catalog, or `src/proxy.ts` (HON-729). The PR reviewer is a backstop, not a substitute — the rule is still yours to follow while writing the change.
+**E2E drift:** when you modify a `page.tsx` under `src/app`, change a route's URL, rename navigation or CTA copy, or restructure a modal or dialog, grep `tests/e2e` for references and update the affected specs in the same PR. Use the per-spec `// ROUTES: … · COMPONENTS: …` header comments to scope the grep. This is part of the definition of done: the tier 1 E2E check catches drift on `main`, but stale specs are cheap to miss locally and expensive to fix in batch. No CI check can enforce it, so `scripts/pr-review.sh` adds a reviewer checklist item when the diff touches a `.tsx` under `src/app` or `src/components`, a `messages/*.json` catalog, or `src/proxy.ts`. The reviewer is a backstop; the rule is yours to follow while writing the change.
 
 ## Shared-primitive geometry
 
-**CRITICAL: When changing a size, height, padding, or radius default on a primitive under `src/components/ui/*.tsx`, a `@theme` token in `globals.css`, or a shared layout wrapper, find the callsites that hardcode a copy of the old value before you change it.** Skeletons, sibling primitives sharing the old value, and `className` overrides all keep their own copy, and none of them is visible from the primitive's own file.
+Before changing a size, height, padding or radius default on a primitive under `src/components/ui/*.tsx`, a `@theme` token in `globals.css`, or a shared layout wrapper, find the callsites that hardcode a copy of the old value. Skeletons, sibling primitives sharing the old value, and `className` overrides all keep their own copy, and none of them is visible from the primitive's own file.
 
-`/plan-issue` step 7b has the greps and the Mirror / Override / Deliberate classification; run them against the **old** literal. This is part of the definition of done — the same loud-rule treatment as colocated Storybook stories and E2E specs. HON-612 raised the control height to 44px and desynced 12 route `loading.tsx` skeletons that PR review, not planning, had to catch.
-
-No CI check can enforce this either, so `scripts/pr-review.sh` carries it as a reviewer checklist item that runs the step 7b greps, appended when the diff touches `src/components/ui/*.tsx` or `src/app/globals.css` (HON-729). Shared layout wrappers have no single path to gate on and are not covered.
+`/plan-issue` step 7b has the greps and the Mirror / Override / Deliberate classification; run them against the **old** literal. This is part of the definition of done. No CI check can enforce it, so `scripts/pr-review.sh` adds a reviewer checklist item that runs the step 7b greps when the diff touches `src/components/ui/*.tsx` or `src/app/globals.css`. Shared layout wrappers have no single path to gate on and are not covered.
 
 ## Storybook
 
@@ -257,20 +238,11 @@ No CI check can enforce this either, so `scripts/pr-review.sh` carries it as a r
 
 **Commands:** `pnpm storybook` (dev server on port 6006), `pnpm build-storybook` (static build), `pnpm test-storybook` (watch mode), `pnpm test-storybook:ci` (run every story once through `@storybook/addon-vitest` in Chromium — a11y gate + play functions)
 
-**Published build:** <https://kaupok.github.io/wobblepot/>, deployed to GitHub Pages from `main` by `.github/workflows/deploy-storybook.yml`. It is served from a sub-path, so the MSW worker URL in `.storybook/preview.tsx` is built from `import.meta.env.BASE_URL` — keep it that way (see `.storybook/README.md` → "Published build"). Since `msw-storybook-addon` 3 that URL lives in the `setupMswWorker` setup function passed to `mswLoader()`, not in an `initialize()` call; dropping the setup function silently reverts the worker to an origin-absolute URL.
+**Published build:** <https://kaupok.github.io/wobblepot/>, deployed to GitHub Pages from `main` by `.github/workflows/deploy-storybook.yml`. It is served from a sub-path, so the MSW worker URL in `.storybook/preview.tsx` is built from `import.meta.env.BASE_URL`, inside the `setupMswWorker` setup function passed to `mswLoader()`. Keep it that way: dropping the setup function silently reverts the worker to an origin-absolute URL (see `.storybook/README.md` → "Published build").
 
-**Config:** `.storybook/main.ts` and `.storybook/preview.tsx`. Preview wires up Geist fonts, `globals.css`, `QueryClientProvider`, Next.js app-router mocking (`nextjs.appDirectory: true`), and a light/dark theme toggle via a custom `withTailwindTheme` decorator that toggles the `dark` class on `document.documentElement` so Radix portal content (Dialog, Select, DropdownMenu) inherits the theme.
+**Colocated stories:** when you create or modify a component under `src/components`, create or update its colocated `.stories.tsx` (`Button.tsx` + `button.stories.tsx`). This is part of the definition of done: Storybook is maintained by the agentic workflow so it stays current. `pnpm stories:check` fails CI when the story file is missing; keeping it current is the part the check cannot see. Deliberate exceptions live in the allowlist in `scripts/check-colocated-stories.ts`, each with a reason.
 
-**CRITICAL: When creating or modifying a component in `/src/components/**`, create or update a colocated `.stories.tsx`file covering all variants and states.** Stories live next to the component (e.g.`Button.tsx`+`button.stories.tsx`). This is part of the definition of done — Storybook is maintained by the agentic workflow so it stays current.
-
-`pnpm stories:check` enforces that the story file exists, in CI (HON-757); the rule above still covers keeping it current, which the check cannot see. Deliberate exceptions live in the allowlist in `scripts/check-colocated-stories.ts`, each with a reason.
-
-**What a story should cover:**
-
-- Every variant/size exposed by the component's props (e.g. all CVA variants)
-- Key states: default, disabled, loading, empty, error
-- With and without optional props that change rendering (e.g. description present vs. absent)
-- An `AllVariants` render story showing variants side-by-side when useful for visual review
+**What a story covers:** every variant and size the props expose; the key states (default, disabled, loading, empty, error); optional props that change rendering, with and without; and an `AllVariants` render story when side-by-side review is useful.
 
 **Conventions:**
 
@@ -279,11 +251,10 @@ No CI check can enforce this either, so `scripts/pr-review.sh` carries it as a r
 - Use `satisfies Meta<typeof Component>` for type-safe args
 - Mock data for feature components: inline in the story file — don't reach into fixtures unless already shared
 
-**Scope:**
+**Play functions:**
 
-- Stories cover rendering and variants (every CVA variant, empty/loading/error states).
 - Add a `play` function when the component has a behavioural contract worth regression-testing in CI — modals (open/close/escape), search-and-select flows, form submission, keyboard handling, callback wiring. Assert on `fn()` spies, not just DOM presence. Radix portal content requires `within(document.body)`. Example: `src/components/meal-plan/MealDetailModal.stories.tsx`.
-- **Modal play functions must assert interaction a11y** — focus trap on open, Escape closes and fires `onOpenChange(false)`, tab order stays within the dialog, and the close sequence completes (dialog unmounts). Use the shared helpers in `src/stories/a11y-helpers.ts` (`assertFocusInDialog`, `assertTabStaysInDialog`, `awaitDialogClosed`, `openViaTrigger`, `pressEscape`). Axe cannot see these — they are the whole point of having a play function on a modal. Focus-restore on close is intentionally not asserted in Storybook: it's a Radix contract tied to the real trigger at the real callsite, and E2E owns that assertion (see HON-446). See `.storybook/README.md` → "Modal a11y play-function conventions" for the pattern.
+- **Modal play functions assert interaction a11y:** focus trap on open, Escape closes and fires `onOpenChange(false)`, tab order stays within the dialog, and the close sequence completes (dialog unmounts). Use the shared helpers in `src/stories/a11y-helpers.ts` (`assertFocusInDialog`, `assertTabStaysInDialog`, `awaitDialogClosed`, `openViaTrigger`, `pressEscape`). Axe cannot see these, which is the point of having a play function on a modal. Focus restore on close is not asserted in Storybook: it depends on the real trigger at the real callsite, so E2E owns that assertion. See `.storybook/README.md` → "Modal a11y play-function conventions".
 - `.test.tsx` files remain the home for logic-heavy, non-DOM unit tests (pure functions, hooks, reducers).
 
 See [`.storybook/README.md`](./.storybook/README.md) for the play-function pattern (imports, `waitFor`, spies, MSW integration).
@@ -304,90 +275,64 @@ See [`.storybook/README.md`](./.storybook/README.md) for the play-function patte
 
 ## Commit Message Conventions
 
-[Conventional Commits](https://www.conventionalcommits.org/) format:
-
-```
-<type>(<scope>): <subject>
-```
+[Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <subject>`, for example `fix(ui): Resolve alignment issue in mobile header`.
 
 **Type:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`
 
 **Subject:** Capitalize first word, imperative present tense ("Add" not "add" or "added")
 
-**Examples:**
-
-- `feat(auth): Add OAuth login support`
-- `fix(ui): Resolve alignment issue in mobile header`
-- `docs: Update installation instructions`
-- `test(hooks): Add tests for useAuth hook`
-
 ## Git & Workflow Essentials
 
-**CRITICAL: Never commit directly to `main`.** Always use feature branches.
+**Branches:** work on a feature branch; do not commit directly to `main`.
 
-**Linear integration:** Use the `gitBranchName` field from Linear issues for branch names (auto-links branch to issue). Once a PR is created, don't update Linear status manually - automation handles it.
+**Linear integration:** Issues live in the `Wobblebot` team (prefix `HON`). Use the `gitBranchName` field from the Linear issue as the branch name, which auto-links the branch to the issue. Once a PR is created, don't update Linear status manually; automation handles it.
 
-**Agent-created branches must carry the Linear issue ID.** When the PostHog Desktop / self-driving agent creates a branch and a Linear issue is the source of the work, name it `posthog/<linear-branch-name>` — take the issue's `gitBranchName` and replace the leading username segment with `posthog`. Example: `gitBranchName` `kaupokorv/hon-123-add-pantry-sync` → branch `posthog/hon-123-add-pantry-sync`. The ID is what makes Linear auto-link the branch, move the issue to In Review on PR open, and attach the PR to the issue; a slug-only branch like `posthog/add-pantry-sync` silently breaks all three and leaves the issue to be linked by hand. **This rule overrides the generic `posthog/fix-login-redirect` branch-naming example in the harness prompt** — that example is source-blind, and this file outranks default behaviour.
+**Agent-created branches carry the Linear issue ID.** When the PostHog Desktop / self-driving agent creates a branch for work that has a Linear issue, name it `posthog/<linear-branch-name>`: the issue's `gitBranchName` with the leading username segment replaced by `posthog` (`kaupokorv/hon-123-add-pantry-sync` → `posthog/hon-123-add-pantry-sync`). The ID is what makes Linear link the branch, move the issue to In Review on PR open, and attach the PR; a slug-only branch silently breaks all three. This overrides the `posthog/fix-login-redirect` naming example in the harness prompt. An issue is the source when the task names a HON-NNN, the originating report or thread references one, or the work was picked via `/next-issue`. With no issue, keep `posthog/<descriptive-slug>`; don't create one just to name a branch.
 
-A Linear issue counts as "the source" when the task names a HON-NNN, when the originating inbox report or thread references one, or when the work was picked via `/next-issue`. If an issue is identifiable, use it. If there genuinely isn't one (ad-hoc request, Slack thread with no issue), keep `posthog/<descriptive-slug>` as-is — don't create a Linear issue just to name a branch.
+**Linear issue reads: pass `includeRelations: true` on every `get_issue` call,** inside skills or not. `list_issues` does not return relations, and the default `get_issue` response strips `blocks` / `blockedBy` / `relatedTo`. Before discussing, recommending or acting on an issue, re-fetch it with relations and check `status`, `assignee` and `relations.blockedBy`. When delegating issue selection to a subagent, put the same requirement in the prompt: subagents read titles and descriptions and miss structured fields unless told.
 
-**Linear issue reads — always pass `includeRelations: true`.** This rule applies to every `get_issue` call, not just inside skills. `list_issues` never returns relations, and the default `get_issue` response strips `blocks` / `blockedBy` / `relatedTo`. Before discussing, recommending, surfacing, or acting on an issue, re-fetch it with `includeRelations: true` and check the `status`, `assignee`, and `relations.blockedBy` fields. When delegating issue selection to a subagent, include the same requirement in the prompt — subagents default to reading titles and descriptions and miss structured fields unless told.
+**Linear issue references: write plain text (`HON-455`),** not hand-copied `<issue id="uuid">` tags. Linear auto-resolves plain text on save. In a copied tag the UUID controls where the link goes, not the HON text beside it, so a reference can look correct and click through to the wrong issue.
 
-**Linear issue references — use plain text (`HON-455`), never hand-copied `<issue id="uuid">` tags.** Linear auto-resolves plain text on save. Hand-copying a `<issue id="uuid">` tag from one description into another risks silent mis-linking — the UUID controls where the link goes, not the HON text beside it, so a reference can look correct in plain-text review but click through to the wrong issue.
-
-**Linear title prefixes — `[DRAFT]` and `[AUTO DRAFT]` mean different things; pick by _who filed it and how_, never by copying a neighbouring title.** Both keep an issue out of unattended selection (`/auto-implement` 1.5, `/next-issue --auto` step 5), but they are cleared by different passes:
+**Linear title prefixes:** `[DRAFT]` and `[AUTO DRAFT]` mean different things. Pick by _who filed it and how_, not by copying a neighbouring title. Both keep an issue out of unattended selection (`/auto-implement` 1.5, `/next-issue --auto` step 5), but they are cleared by different passes:
 
 - **`[DRAFT]`** — filed by a human, or by an agent in a session a human is driving (conversation, research, `/ideate`, `/refine-backlog`, `/chrome-review`), whose spec is not yet ready to implement. It means "unrefined", not "unreviewed". Cleared by `/refine-backlog` (no args) once the spec is written up.
 - **`[AUTO DRAFT]`** — filed **only** by `/auto-implement` 6.8, for a review finding the unattended cycle deferred. No human saw it at birth; the prefix is the gate that stops the cycle implementing work it generated for itself. Cleared only by `/refine-backlog --auto-drafts` after a human judges the finding real and current.
 - **No prefix** — ready for pickup. An issue a human reviewed as it was created (e.g. a `/branch-review` proposal the user approved) needs no prefix.
 
-If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong — even when the issue is agent-written, well-specced, or related to existing `[AUTO DRAFT]` issues (HON-695 was mislabelled this way). Full rules live in `.claude/skills/refine-backlog/SKILL.md` and `.claude/skills/auto-implement/SKILL.md` → 6.8.
+If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, even when the issue is agent-written, well-specced, or related to existing `[AUTO DRAFT]` issues. Full rules live in `.claude/skills/refine-backlog/SKILL.md` and `.claude/skills/auto-implement/SKILL.md` → 6.8.
 
-**Queued is the queue.** The orchestrator (`scripts/orchestrator.sh`) and `/auto-implement` auto-discovery read only the Linear state `Queued`; Todo and Backlog are never picked up unattended, and Todo means a human intends to do the work. Move an issue to Queued only when an agent can finish it without a human; an issue with a human-only step goes to Todo, and any unattended part is split into its own Queued issue (HON-852 / HON-853 are the example). `/next-issue` still lists Todo, Queued and Backlog — it proposes; moving an issue to Queued stays a human act (HON-854).
+**Queued is the queue.** The orchestrator (`scripts/orchestrator.sh`, started with `wt start`) and `/auto-implement` auto-discovery read only the Linear state `Queued`; Todo and Backlog are not picked up unattended, and Todo means a human intends to do the work. Move an issue to Queued only when an agent can finish it without a human; an issue with a human-only step goes to Todo, and any unattended part is split into its own Queued issue. `/next-issue` still lists Todo, Queued and Backlog: it proposes, and moving an issue to Queued stays a human act.
+
+- **What the orchestrator skips.** It runs up to three workers at once by default, each in its own git worktree with its own Neon branch. It skips a Queued issue that has an open `blockedBy`, and one labelled `Gated` (a worker exited without commits) or `Stranded` (a worker ended with an open, unmerged PR). Neither label clears itself: fix the cause or finish the PR, then remove the label. See [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) → Orchestrator.
+- **Queueing issues that touch the same files.** Workers branch from the same `origin/main` and run in parallel, so two Queued issues that edit the same file produce conflicting PRs. Before queueing a batch, compare the files each issue names. Where two overlap, add a `blockedBy` between them and say in the blocked issue that the relation is for sequencing only.
 
 **Before committing:** Run `pnpm lint && pnpm type-check && pnpm test`
 
 **Pre-commit hook:** Husky + lint-staged runs type-check, ESLint, and Prettier on staged files.
 
-**Merging:** Never merge a PR without explicit user request. When the user runs `/merge`, execute without unnecessary confirmation.
+**Merging:** Do not merge a PR without an explicit user request. When the user runs `/merge`, execute without unnecessary confirmation.
 
-**Hooks (HON-727): the destructive-database, push-to-`main` and merge rules are enforced, not just written.** `.claude/settings.json` registers a `PreToolUse` Bash hook, `.claude/hooks/block-destructive.sh` → `block-destructive.mts`, that exits 2 with a reason on `prisma migrate reset`, a `*reset*` package script, `db push --force-reset` / `--accept-data-loss`, `DROP TABLE|DATABASE|SCHEMA` / `TRUNCATE` sent to `psql` or `prisma db execute`, any `git push` whose destination is `main`, any force push, and `gh pr merge` without an inline `WOBBLEPOT_ALLOW_MERGE=1` prefix (which `/merge` and `/auto-implement` add). Hooks fire under `--dangerously-skip-permissions`, so this covers headless workers too. It matches what would _execute_, so `grep "migrate reset"` or a commit message mentioning `gh pr merge` passes. When it blocks you, don't route around it — ask the user; a local-only reset they want can be run by hand. Tests: `scripts/block-destructive-hook.test.ts`.
+**Hooks:** `.claude/hooks/block-destructive.sh`, a `PreToolUse` Bash hook registered in `.claude/settings.json`, blocks destructive database commands, any `git push` to `main`, force pushes, and `gh pr merge` without the inline `WOBBLEPOT_ALLOW_MERGE=1` prefix that `/merge` and `/auto-implement` add. It fires for headless workers too, and it matches what would _execute_, so a `grep` or a commit message that mentions one of these commands passes. When it blocks you, don't route around it: ask the user. A local-only reset they want can be run by hand. Tests: `scripts/block-destructive-hook.test.ts`.
 
-**CI Pipeline:** All PRs must pass `pnpm lint`, `pnpm type-check`, `pnpm test`. Build verification via Vercel deployment.
+**CI Pipeline:** All PRs must pass `pnpm lint`, `pnpm type-check`, `pnpm test`, and the checks named in the sections above. Build verification via Vercel deployment.
 
 **Detailed guide:** See [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)
 
 ## Skill Workflow
 
-**`/branch-review` vs `/code-review`:** `/branch-review` is _our_ project skill — full current-branch review (committed + staged + unstaged + untracked) with Linear/PR context and triage into actionable categories. `/code-review` is the Claude Code **built-in** — a diff bug/cleanup reviewer with effort levels and `--fix` / `--comment` / `ultra` (cloud) flags. They were renamed apart to avoid a name collision (the built-in shipped `code-review` ~2026-05). Use `/branch-review` for the issue workflow below; reach for the built-in `/code-review --fix` or `ultra` when you want autofix or a deep cloud pass.
+**Recommended sequence:** `/next-issue` → `/plan-issue HON-XX` → `/implement-issue HON-XX` → `/branch-review` → `/commit --pr` → `/triage-pr-comments` → `/commit --push` → `/merge`. A small issue can start at `/branch-review`. Plans are stored as Linear comments by `/plan-issue`, so `/implement-issue` and `/branch-review` can fetch them in a new session.
 
-**Recommended sequence:** `/next-issue` → `/plan-issue HON-XX` → `/implement-issue HON-XX` → `/branch-review` → `/commit --pr` → `/triage-pr-comments` → `/commit --push` → `/merge`
+**`/branch-review` vs `/code-review`:** `/branch-review` is _our_ project skill: a full current-branch review (committed + staged + unstaged + untracked) with Linear/PR context and triage. `/code-review` is the Claude Code **built-in** diff reviewer. Use `/branch-review` in the sequence above; reach for `/code-review --fix` or `ultra` when you want autofix or a deep cloud pass.
 
-**Single session (small issues):** `/branch-review` → fix → `/commit --pr` → `/triage-pr-comments` → fix → `/commit --push` → `/merge`
+**Fully autonomous:** `/auto-implement HON-XX` runs the entire cycle unattended. With no argument it picks from the `Queued` state only, as the orchestrator does — see "Queued is the queue" above.
 
-**Multi-session (larger issues):**
+**PR review is automatic; don't invoke `/review-pr` by hand in the sequence above.** `/commit --pr` chains to `/create-pr`, whose final step invokes `/review-pr` → `scripts/pr-review.sh`, which posts findings as a PR comment marked `<!-- claude-review -->`. That marker is what `/triage-pr-comments` consumes; `/auto-implement` calls the same script directly. A PR opened with a raw `gh pr create` skips that first trigger, but the review is not lost: `/triage-pr-comments` step 2 runs the reviewer when the marker count is 0, and `/merge` step 2.5 does the same before merging (bypass with `/merge --force`). Invoke `/review-pr` directly only to re-review after a force-push, or to review a PR you didn't open.
 
-1. `/next-issue` → `/plan-issue` → approve plan
-2. `/implement-issue` → write code
-3. `/branch-review` → fix → `/commit --pr`
-4. `/triage-pr-comments` → fix → `/commit --push` (if review comments)
-5. `/merge` (after PR approval)
-
-**Fully autonomous:** `/auto-implement HON-XX` runs the entire cycle unattended. With no argument it picks from the `Queued` state only, as the orchestrator (`wt start`) does — see "Queued is the queue" above.
-
-**PR review is automatic — don't invoke `/review-pr` by hand in the sequence above.** `/commit --pr` chains to `/create-pr`, whose final step invokes `/review-pr` → `scripts/pr-review.sh`, which posts findings as a PR comment marked `<!-- claude-review -->`. That marker is what `/triage-pr-comments` then consumes; `/auto-implement` calls the same script directly. Opening the PR with a raw `gh pr create` instead of `/commit --pr` skips that first trigger, but the review is **not** lost — two later steps self-heal: `/triage-pr-comments` step 2 runs the reviewer when the marker count is 0, and `/merge` step 2.5 does the same before merging (bypass with `/merge --force`). The cost is a review that lands a step late, not a missing one, so don't reach for `/review-pr` to "recover." Invoke it directly only to re-review after a force-push, or to review a PR you didn't open.
-
-**Staging review:** `/chrome-review` — Interactive exploration of staging (`wobblepot.dev`) using Chrome. Discuss findings and create Linear issues collaboratively. Requires `claude --chrome` or `/chrome`.
-
-**Voice review:** `/voice-review` — Voice-powered staging review combining VoiceMode + Chrome. Talk through the app hands-free, discuss findings by speaking, and create Linear issues. Requires `claude --chrome` or `/chrome` and VoiceMode MCP server. See [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md).
-
-**Codebase audit:** `/tech-audit` — Scan for outdated deps, type issues, code quality, test coverage, security patterns, Prisma query efficiency, bundle concerns, and pattern adherence. Use `--focus <area>` to audit a single area.
-
-**Cross-session context:** Plans are stored as Linear comments by `/plan-issue`, so `/implement-issue` and `/branch-review` can fetch them in new sessions.
+**Other project skills:** `/chrome-review` and `/voice-review` (staging review on `wobblepot.dev`; both need `claude --chrome` or `/chrome`), `/tech-audit` (codebase audit, `--focus <area>` for one area), `/ideate` and `/refine-backlog` (issue writing), `/audit-ingredients`. Each skill's own description says when to use it.
 
 **Vendor skills:** `better-auth-best-practices`, `create-auth-skill`, `next-best-practices`, `next-cache-components`, and `next-upgrade` are symlinks to `.agents/skills/*` — upstream references (Next.js / Better Auth) installed from skills.sh, not project rules. Where they conflict with this file, this file wins: Prisma adapter (not Drizzle), email/password only (no OAuth yet), pnpm with exact pins (no `@latest`, no `npm install`), TanStack Query for client reads (never `useEffect` + `fetch`), and the Next 16 upgrade guide (not v14/v15). Only `next-upgrade` is user-invocable; the rest are reference-only.
 
-**Better Auth CLI:** the vendor skills tell you to run `npx @better-auth/cli@latest generate` — that package is deprecated ("Package no longer supported"); it was renamed to `auth`. Neither works here: the CLI loads `src/lib/auth.ts` through jiti, which cannot resolve the `server-only` import it pulls in transitively, so `generate` dies before reading the config. It is therefore not a dependency of this repo. To pick up a Better Auth schema change by hand, read the account/session/user/verification table definitions in `@better-auth/core/dist/db/get-tables.mjs` under `node_modules/.pnpm/` and diff them against `prisma/schema.prisma` (this is how HON-562 found the 1.7 `Account.issuer` field).
+**Better Auth CLI:** the vendor skills tell you to run `npx @better-auth/cli@latest generate`. It does not work here (nor does its successor, `auth`): the CLI cannot load `src/lib/auth.ts`, so it is not a dependency of this repo. To pick up a Better Auth schema change, read the account/session/user/verification table definitions in `@better-auth/core/dist/db/get-tables.mjs` under `node_modules/.pnpm/` and diff them against `prisma/schema.prisma` by hand.
 
 ### Writing for Agents
 
@@ -401,23 +346,21 @@ Specs, plans, and issues are consumed by agents — coding agents (`/auto-implem
 
 This applies to `/ideate`, `/refine-backlog`, `/plan-issue`, and any content that feeds into the agentic workflow.
 
-**Never nest a markdown table inside a list item when writing a Linear issue description.** Linear's description parser strips the list item's content indent — 3 characters for `1. `, 2 for `- ` — off the front of every table _body_ cell, silently and with no error. The header and delimiter rows survive untouched, so the table still looks right at a glance while `` `MealForm.tsx:153` `` has become `` alForm.tsx:153` ``. That is data loss, not a rendering glitch: the value an agent was told to use is simply gone. A table only nests if it is indented **at or past** the item's content indent; once it does, the strip width is that content indent no matter how far you actually indented — 4 spaces under `1.` still loses exactly 3. Put the table at top level before or after the list, or use a nested bullet list instead.
-
-Verified by round-trip on 2026-09-07, through both the MCP `save_issue` tool and the raw GraphQL API, so this is Linear's API rather than the MCP layer. Top-level tables and tables inside a blockquote survive; a table indented 2 spaces under `1. ` is silently lifted out of the list but keeps its cells. Comment bodies (`save_comment`, so `/plan-issue` plan comments) are not affected today — hold the same discipline there anyway, because plan content gets lifted into descriptions and the failure warns you about nothing. Shape-by-shape results are on HON-617.
+**Do not nest a markdown table inside a list item in a Linear issue description.** Linear's parser silently strips the list item's content indent (3 characters under `1. `, 2 under `- `) off the front of every table _body_ cell, so `` `MealForm.tsx:153` `` becomes `` alForm.tsx:153` `` while the header row still looks right. That is data loss: the value an agent was told to use is gone, and nothing reports it. Put the table at top level before or after the list, or use a nested bullet list. Top-level tables and tables inside a blockquote are safe. Comment bodies are not affected today; hold the same discipline there, because plan content gets lifted into descriptions. Shape-by-shape results are on HON-617.
 
 ## Working style
 
 **Verify from code + Linear before asking the user or asserting non-existence.** Before claiming "X doesn't exist" or asking the user about project setup (env, deploy, infra, existing features):
 
-1. Read the relevant docs — the Reference table below points to `docs/DEPLOYMENT.md`, `docs/GIT_WORKFLOW.md`, `docs/ENVIRONMENT_SETUP.md`, `docs/PARALLEL_WORKFLOW.md`, etc. Those are the authoritative map.
-2. Check all plausible homes for the feature. A CSP header can live in `middleware.ts`, `next.config.ts` `headers()`, an edge-config file, or a custom server — don't generalise from one file.
-3. Grep broadly for the feature name or a distinctive string (`grep -r "Content-Security-Policy"`). One wide grep beats multiple targeted reads.
-4. If an issue references another (even as `relatedTo`), fetch the referenced issue with `includeRelations: true` and check `status` / `completedAt` / `attachments`. A "Done" status with an attached PR means the feature has shipped — don't reason about it as an active dependency.
-5. If genuinely absent after all of the above, lead with "I checked X, Y, Z, grepped for Q, and looked up HON-NNN — no match" so the user can verify the coverage.
+1. Read the relevant docs. The Documentation Structure and Reference tables are the map: `docs/DEPLOYMENT.md`, `docs/GIT_WORKFLOW.md`, `docs/ENVIRONMENT_SETUP.md`, `docs/PARALLEL_WORKFLOW.md`, and so on.
+2. Check all plausible homes for the feature. A CSP header can live in `src/proxy.ts`, `next.config.ts` `headers()`, an edge-config file, or a custom server; don't generalise from one file.
+3. Grep broadly for the feature name or a distinctive string (`grep -r "Content-Security-Policy"`). One wide grep beats several targeted reads.
+4. If an issue references another (even as `relatedTo`), fetch the referenced issue with `includeRelations: true` and check `status` / `completedAt` / `attachments`. A "Done" status with an attached PR means the feature has shipped; don't reason about it as an active dependency.
+5. If it is absent after all of the above, lead with "I checked X, Y, Z, grepped for Q, and looked up HON-NNN — no match" so the user can verify the coverage.
 
-The failure mode this prevents: checking one file, finding nothing, and generalising to "the feature doesn't exist" — then taking bad actions like promoting a shipped issue to a blocker.
+The failure this prevents: checking one file, finding nothing, generalising to "the feature doesn't exist", and then acting on it, for example by promoting a shipped issue to a blocker.
 
-**Don't use `ScheduleWakeup` as a "fallback" inside skills with defined endpoints.** Skills like `/auto-implement`, `/implement-issue`, `/merge`, `/branch-review` complete naturally (success, failure, or user input). If you're waiting on a long-running thing (CI, build, deploy), poll it with **foreground wait-chunks**: a `Bash` call bounded under the 600 s cap that prints a terminal marker or a "still waiting" marker, re-issued until it goes terminal. Do not rely on a `run_in_background` completion notification — in the orchestrator's headless spawn (`wt auto` → `claude "$prompt"`, no TTY) the process exits when the turn ends, so the notification has no session to land in and the backgrounded work dies with it (HON-573: PRs #650 and #651 were left open and unmerged while the orchestrator logged SUCCESS). Backgrounding is still fine for a command that outruns the cap — but the same turn must then wait on its marker file in the foreground. See `.claude/skills/auto-implement/SKILL.md` → Execution Model. A wake-up scheduled "just in case" will fire after the work has already finished and re-trigger the skill on stale state (HON-529 cycle re-fired `/auto-implement 529` ~9 minutes after the PR had already merged). `ScheduleWakeup` is for true polling/iteration use cases (`/loop`, watching for an external state change like a Linear issue moving to "In Review"), not for defined-endpoint work.
+**Waiting inside a skill with a defined endpoint.** `/auto-implement`, `/implement-issue`, `/merge` and `/branch-review` end on their own (success, failure, or user input), so don't schedule a `ScheduleWakeup` as a fallback: it fires after the work has finished and re-runs the skill on stale state. To wait on CI, a build or a deploy, poll with **foreground wait-chunks**: a `Bash` call bounded under the 600 s cap that prints a terminal marker or a "still waiting" marker, re-issued until it goes terminal. Do not rely on a `run_in_background` completion notification. A headless worker (`wt auto`, no TTY) exits when its turn ends, so the notification has no session to land in and the backgrounded work dies with it. Backgrounding is fine for a command that outruns the cap, as long as the same turn then waits on its marker file in the foreground. See `.claude/skills/auto-implement/SKILL.md` → Execution Model. `ScheduleWakeup` is for real polling: `/loop`, or watching for an external state change such as a Linear issue moving to "In Review".
 
 ## Review Focus
 
@@ -429,22 +372,25 @@ The failure mode this prevents: checking one file, finding nothing, and generali
 
 ## Reference
 
-| Document                                               | Contents                                                         |
-| ------------------------------------------------------ | ---------------------------------------------------------------- |
-| [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)           | Product vision, decisions, domain logic                          |
-| [docs/LOCALIZATION.md](docs/LOCALIZATION.md)           | i18n philosophy, three-tier model, AI sample review tool         |
-| [docs/DESIGN.md](docs/DESIGN.md)                       | Design guide: type scale, tokens, composition rules, reject list |
-| [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Full typography component guide with examples                    |
-| [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)         | Feature flag pattern, kill-switches, fail-open semantics         |
-| [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branch workflow, recovery procedures                             |
-| [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) | Environment variable setup                                       |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Production deployment process                                    |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization guide                                        |
-| [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting                     |
-| [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                            |
-| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                                     |
-| [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees                          |
-| [docs/AI_MODELS.md](docs/AI_MODELS.md)                 | Model IDs, the model benchmark, changing a model                 |
+The documents in the Documentation Structure table at the top, plus:
+
+| Document                                               | Contents                                                          |
+| ------------------------------------------------------ | ----------------------------------------------------------------- |
+| [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Full typography component guide with examples                     |
+| [docs/AI_VOICE_ET.md](docs/AI_VOICE_ET.md)             | Voice reference for Estonian text the AI produces                 |
+| [docs/AI_MODELS.md](docs/AI_MODELS.md)                 | Model IDs, the model benchmark, changing a model                  |
+| [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)         | Feature flag pattern, kill-switches, fail-open semantics          |
+| [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branch workflow, recovery procedures                              |
+| [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) | Environment variable setup                                        |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Production deployment process                                     |
+| [docs/SECURITY.md](docs/SECURITY.md)                   | Security headers and the Content Security Policy                  |
+| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)             | Transactional email pipeline (Resend, DNS)                        |
+| [docs/RUNBOOKS/](docs/RUNBOOKS/)                       | Breach notification, database recovery, DSR intake, GDPR deletion |
+| [compliance/README.md](compliance/README.md)           | DPAs, the DPIA, subprocessors                                     |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization guide                                         |
+| [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting                      |
+| [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                             |
+| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                                      |
 
 <!-- BEGIN:nextjs-agent-rules -->
 

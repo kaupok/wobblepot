@@ -14,7 +14,7 @@ Most of this repository is an ordinary Next.js application. The parts that are l
 
 Nearly every change here was planned, implemented, reviewed, and merged by Claude Code working from Linear issues, with a human deciding what to build and reviewing what shipped.
 
-- [`CLAUDE.md`](CLAUDE.md) is the operating manual the agent reads every session: coding patterns, the definition of done, and rules learned from things that went wrong. Many of its "CRITICAL" lines are scar tissue from a specific incident, referenced by issue number.
+- [`CLAUDE.md`](CLAUDE.md) is the operating manual the agent reads every session: coding patterns, the definition of done, and rules learned from things that went wrong. Each rule carries its reason; the incident behind it, by issue number, is in [`docs/AGENT_HISTORY.md`](docs/AGENT_HISTORY.md).
 - [`.claude/skills/`](.claude/skills/) holds the sixteen project skills that make up the workflow: `next-issue` → `plan-issue` → `implement-issue` → `branch-review` → `commit --pr` → `triage-pr-comments` → `merge`. `auto-implement` runs the whole cycle unattended for one issue.
 - [`scripts/orchestrator.sh`](scripts/orchestrator.sh) polls Linear for ready issues and spawns one worker per issue, each in its own git worktree with its own Neon database branch. [`docs/PARALLEL_WORKFLOW.md`](docs/PARALLEL_WORKFLOW.md) explains the model; [`scripts/worktree-claude.sh`](scripts/worktree-claude.sh) is the `wt` entry point.
 - [`scripts/pr-review.sh`](scripts/pr-review.sh) posts a Claude review on every pull request opened through the workflow. The same skills then triage the comments and address the ones that matter, and the merge skill runs the review first if a PR was opened by hand, so nothing merges unreviewed.
