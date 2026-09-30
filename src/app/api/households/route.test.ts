@@ -230,6 +230,9 @@ describe('POST /api/households', () => {
         session: { id: 'session-123' },
       } as never)
       mockTransaction.mockRejectedValue(databaseDown)
+      // Hermetic against a developer who has the capture opt-in set in `.env`:
+      // it makes `shouldSkipLocalCapture()` false whatever the release.
+      vi.stubEnv('POSTHOG_CAPTURE_LOCAL', '')
     })
 
     afterEach(() => {
