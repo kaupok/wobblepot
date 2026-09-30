@@ -14,7 +14,7 @@ import {
   mealComponentErrorMessage,
 } from './meal-form-types'
 import { prefersReducedMotion } from '@/lib/utils'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import { componentGramsPerServing } from '@/lib/meal-planning/nutrition'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
@@ -98,6 +98,7 @@ function initIngredientRows(meal?: MealFormData): IngredientRowData[] {
  */
 export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOptions) {
   const t = useTranslations('recipes.form')
+  const tEdit = useTranslations('recipes.edit')
   const locale = useLocale()
   const isEditing = !!meal?.id
   const hasPrefilledIngredients = !!meal?.prefilledIngredients?.length
@@ -350,6 +351,21 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
     )
   }
 
+  const saveErrorMessage = (err: unknown): string => {
+    const failed = isEditing ? t('errors.updateFailed') : t('errors.createFailed')
+    if (!(err instanceof ApiError)) return failed
+    // A 404 on POST can only mean "No household found", which is not a
+    // missing recipe.
+    if (err.status === 404 && isEditing) return tEdit('mealNotFound')
+    if (err.status === 400 && typeof err.body === 'object' && err.body !== null) {
+      // The client checks for duplicates before submitting (HON-773), so these
+      // two are fallbacks; any other 400 is Zod detail no user can act on.
+      if ('duplicateIds' in err.body) return t('errors.duplicateIngredients')
+      if ('missingIds' in err.body) return t('errors.ingredientsMissing')
+    }
+    return failed
+  }
+
   const saveMeal = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
       apiFetch(
@@ -366,7 +382,15 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
       onSuccess()
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : t('errors.generic'))
+      // Both meal routes set an English `error` on every failure branch, and a
+      // network failure's `message` is browser English, so the server string is
+      // logged, never rendered — the pattern `ImagineReviewDialog` adopted in
+      // HON-724. The copy is picked from the status and body instead (HON-844).
+      console.error(
+        '[meal-form] save failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      setError(saveErrorMessage(err))
     },
   })
 
