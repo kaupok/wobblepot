@@ -111,11 +111,14 @@ async function handlePOST(
     }
 
     // Kill-switch, placed as in `/api/meal-plans/generate`, and after the cache
-    // hit above so stored tips are still served while it is off. `useMealTips`
-    // handles the 503 like any other failed generation.
+    // hit above so stored tips are still served while it is off. `code` is what
+    // `useMealTips` keys on to skip its retry and show catalog copy.
     const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
     if (!aiEnabled) {
-      return NextResponse.json({ error: 'AI generation is temporarily disabled' }, { status: 503 })
+      return NextResponse.json(
+        { error: 'AI generation is temporarily disabled', code: 'generation_disabled' },
+        { status: 503 },
+      )
     }
 
     try {

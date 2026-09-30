@@ -288,7 +288,8 @@
       "userNotes": "Sinu märkused",
       "additionalTips": "Lisanõuanded",
       "header": "Valmistusjuhised",
-      "retry": "Proovi uuesti"
+      "retry": "Proovi uuesti",
+      "generationDisabled": "Valmistusjuhised on praegu välja lülitatud. Palun proovi hiljem uuesti."
     },
     "nutrition": {
       "summaryHeader": "Toiteväärtus (portsjoni kohta)",

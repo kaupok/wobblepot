@@ -3,6 +3,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { useMealTips } from './use-meal-tips'
 import type { StructuredTips } from '@/components/meal-plan/types'
+import enMessages from '../../messages/en.json'
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
@@ -264,6 +265,27 @@ describe('useMealTips', () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(result.current.tipsError).toBe('Request timed out. Please try again.')
+    })
+
+    it('does not retry the kill-switch 503, and shows catalog copy rather than the server prose (HON-868)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: () =>
+          Promise.resolve({
+            error: 'AI generation is temporarily disabled',
+            code: 'generation_disabled',
+          }),
+      })
+
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+
+      await act(async () => {
+        await result.current.fetchTips()
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(result.current.tipsError).toBe(enMessages['meal-plan'].tips.generationDisabled)
     })
 
     it('clears previous error on new fetch', async () => {

@@ -308,6 +308,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
       const response = await callPost()
 
       expect(response.status).toBe(503)
+      expect((await response.json()).code).toBe('generation_disabled')
       expect(mockGetServerFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user-123')
       expect(mockAssertUnderCap).not.toHaveBeenCalled()
       expect(mockGenerateObject).not.toHaveBeenCalled()

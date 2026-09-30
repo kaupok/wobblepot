@@ -288,7 +288,8 @@
       "userNotes": "Your notes",
       "additionalTips": "Additional tips",
       "header": "Preparation tips",
-      "retry": "Retry"
+      "retry": "Retry",
+      "generationDisabled": "Preparation tips are turned off right now. Please try again later."
     },
     "nutrition": {
       "summaryHeader": "Nutrition (per serving)",
