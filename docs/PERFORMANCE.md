@@ -1,6 +1,6 @@
 # Performance & Optimization Guide
 
-Guide for analyzing and optimizing Next.js bundle size and performance in the Honkadori project.
+Guide for analyzing and optimizing Next.js bundle size and performance in the Wobblepot project.
 
 ## Table of Contents
 

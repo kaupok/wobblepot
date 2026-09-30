@@ -159,7 +159,7 @@ Three helpers in `src/lib/ai/prompts.ts` distil this document into a prompt suff
 
 | Helper                        | Call site                                                 | Fields covered                                               |
 | ----------------------------- | --------------------------------------------------------- | ------------------------------------------------------------ |
-| `estonianVoiceForImagineMeal` | `src/lib/ai/imagine-meal.ts`                              | `name`, `description`, ingredient `name` vs. `originalText`  |
+| `estonianVoiceForImagineMeal` | `src/lib/ai/imagine-request.ts`                           | `name`, `description`, ingredient `name` vs. `originalText`  |
 | `estonianVoiceForRecipeParse` | `src/lib/ai/recipe-prompt.ts`                             | `name`, `description`, `preparationNotes`, ingredient `name` |
 | `estonianVoiceForPrepTips`    | `src/lib/ai/preparation-tips.ts` (full and supplementary) | `equipment`, `steps`, `pitfalls`, `tip`                      |
 

@@ -1,6 +1,6 @@
 # Voice Review
 
-Voice-powered staging review sessions that combine [VoiceMode](https://github.com/nicobailon/voicemode) with the [Chrome extension](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn) for hands-free app exploration.
+Voice-powered staging review sessions that combine [VoiceMode](https://github.com/mbailey/voicemode) with the [Chrome extension](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn) for hands-free app exploration.
 
 Talk through the app naturally while Claude navigates, takes screenshots, and creates Linear issues from your spoken observations.
 
@@ -21,7 +21,7 @@ VoiceMode provides local speech-to-text (Whisper) and text-to-speech (Kokoro) se
 
 ### 1. Install VoiceMode
 
-Follow the official installation guide: [github.com/nicobailon/voicemode](https://github.com/nicobailon/voicemode)
+Follow the official installation guide: [github.com/mbailey/voicemode](https://github.com/mbailey/voicemode)
 
 This installs:
 

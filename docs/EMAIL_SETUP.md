@@ -5,26 +5,26 @@ Cloudflare DNS).
 
 ## Architecture summary
 
-| Concern                | Choice                                        | Why                                                                         |
-| ---------------------- | --------------------------------------------- | --------------------------------------------------------------------------- |
-| Provider               | Resend (free tier)                            | One domain on free tier; Pro ($20/mo) deferred until volume justifies       |
-| Sending domain         | `mail.wobblepot.com` (subdomain)              | Keeps apex reputation clean; industry standard (Stripe, Linear, Vercel)     |
-| Env split              | Single domain across all envs                 | Resend AUP forbids multi-account to dodge limits; Pro tier deferred         |
-| Env disambiguation     | `[Staging]` subject prefix outside production | Free, self-evident in inbox; see `envSubject` in `src/lib/resend.ts`        |
-| FROM addresses         | Code constants (`EMAIL_SENDERS`)              | Brand-stable, no per-env env vars to drift                                  |
-| Apex (`wobblepot.com`) | Reserved for `support@` (human reply)         | `noreply@` kills reply loops — avoid                                        |
-| `wobblepot.dev`        | Staging web only (HON-542)                    | No outbound email — staging shares `mail.wobblepot.com` until volume splits |
-| `honkadori.xyz`        | Parked under Honkadori OÜ                     | No outbound email; staging migrated to `wobblepot.dev` per HON-542          |
+| Concern                | Choice                                                                         | Why                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Provider               | Resend (free tier)                                                             | One domain on free tier; Pro ($20/mo) deferred until volume justifies       |
+| Sending domain         | `mail.wobblepot.com` (subdomain)                                               | Keeps apex reputation clean; industry standard (Stripe, Linear, Vercel)     |
+| Env split              | Single domain across all envs                                                  | Resend AUP forbids multi-account to dodge limits; Pro tier deferred         |
+| Env disambiguation     | `[Staging]` subject prefix outside production                                  | Free, self-evident in inbox; see `envSubject` in `src/lib/resend.ts`        |
+| FROM addresses         | Code constants (`EMAIL_SENDERS`)                                               | Brand-stable, no per-env env vars to drift                                  |
+| Apex (`wobblepot.com`) | Reserved for inbound: `support@`, `privacy@` (human reply), `dmarc@` (reports) | `noreply@` kills reply loops — avoid                                        |
+| `wobblepot.dev`        | Staging web only (HON-542)                                                     | No outbound email — staging shares `mail.wobblepot.com` until volume splits |
+| `honkadori.xyz`        | Parked under Honkadori OÜ                                                      | No outbound email; staging migrated to `wobblepot.dev` per HON-542          |
 
 ## FROM-address conventions
 
 Defined as code constants in [`src/lib/resend.ts`](../src/lib/resend.ts) →
 `EMAIL_SENDERS`. Apply at every send-site:
 
-| Key             | FROM                                           | Triggers                                                 |
-| --------------- | ---------------------------------------------- | -------------------------------------------------------- |
-| `auth`          | `Wobblepot <auth@mail.wobblepot.com>`          | Sign-up verification, password reset, magic links        |
-| `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Meal-plan ready, shopping reminders, future product mail |
+| Key             | FROM                                           | Triggers                                                                                             |
+| --------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `auth`          | `Wobblepot <auth@mail.wobblepot.com>`          | Password reset (`src/lib/auth.ts`), account-deletion confirmation (`src/app/api/auth/user/route.ts`) |
+| `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Reserved for future product mail; no send-site uses it yet                                           |
 
 **`support@wobblepot.com` outbound is deferred.** Architecturally it sends
 from the apex (not the subdomain) for human-driven reply threads, but:
@@ -45,8 +45,8 @@ links lives in [`src/lib/support.ts`](../src/lib/support.ts) (`SUPPORT_EMAIL`)
 
 Required, **production** environment:
 
-- `RESEND_API_KEY` — get from <https://resend.com/api-keys>. Validated at boot
-  via `src/lib/env.ts`; missing key short-circuits sends to a console warning
+- `RESEND_API_KEY` — get from <https://resend.com/api-keys>. Optional in
+  `src/lib/env.ts`, so nothing fails at boot; a missing key short-circuits sends to a console warning
   rather than throwing, so a forgotten key is silent in production. Verify
   with `vercel env ls production` after rotating.
 
@@ -135,7 +135,7 @@ No actual delivery happens. Sufficient for verifying the flow end-to-end
 without a Resend account.
 
 If you do want to test real delivery locally, set `RESEND_API_KEY` in
-`.env.local` and `NEXT_PUBLIC_APP_ENV=staging` so subjects get the
+`.env` (this repo uses a single `.env` locally) and `NEXT_PUBLIC_APP_ENV=staging` so subjects get the
 `[Staging]` prefix and don't look like prod mail.
 
 ## When to revisit this setup

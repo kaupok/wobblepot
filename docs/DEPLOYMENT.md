@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Complete guide for deploying Honkadori to staging and production environments.
+Complete guide for deploying Wobblepot to staging and production environments.
 
 ## Table of Contents
 
@@ -16,19 +16,27 @@ Complete guide for deploying Honkadori to staging and production environments.
 
 ## CI Pipeline
 
-All changes must pass the following checks in GitHub Actions:
+Every PR and every push to `main` runs the following checks in GitHub Actions (`.github/workflows/ci.yml`, in this order). Docs-only changes (`**/*.md`, `docs/**`) skip CI entirely:
 
+- `scripts/check-migrations-immutable.sh` - Applied migrations are unchanged (the PR diff, and the whole tree on `main`)
 - `pnpm lint` - ESLint rules
 - `pnpm format:check` - Prettier
 - `pnpm type-check` - TypeScript type checking
+- `pnpm lockfile:check` - Pinned dependency resolutions (HON-595)
+- `pnpm stories:check` - Every component has a colocated story
 - `pnpm test` - Unit tests
+- `pnpm db:validate` - Seed data
+- `scripts/check-smoke-specs.sh` - `@smoke` specs are staging-safe
 - `pnpm test-storybook:ci` - Storybook a11y gate
 - `pnpm build-storybook` - Static Storybook build (gate for the GitHub Pages deploy)
-- `pnpm test:e2e` - Playwright E2E tier 1 (Docker Postgres sidecar)
+- `pnpm test:e2e --grep-invert=@ai` - Playwright E2E tier 1 (Docker Postgres sidecar)
+- `pnpm audit --audit-level critical` - Dependency advisories
+- `pnpm env:audit --strict` - Vercel env-var drift, as a separate job (see [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) → "Drift audit")
 
 **Important notes:**
 
-- Build verification happens through Vercel deployment (not in CI)
+- **None of these is a required status check yet.** `main` has no required checks, so a red check shows on the PR but does not stop a merge; it is on whoever merges to read it. HON-584 tracks making them required.
+- CI builds the app as part of the E2E step (Playwright starts `pnpm build && pnpm start`). Vercel builds each deployment separately
 - The static Storybook publishes to GitHub Pages (<https://kaupok.github.io/wobblepot/>) from every `main` push that touches a build input — `.github/workflows/deploy-storybook.yml`. It is a docs surface only and sits outside the production release path below
 - Locally: `pnpm test:e2e` runs against `pnpm dev`; see [`tests/e2e/README.md`](../tests/e2e/README.md) for details
 
@@ -38,13 +46,16 @@ See [`tests/e2e/README.md`](../tests/e2e/README.md) for the authoritative tier
 definitions. Summary for deployment decisions:
 
 1. **CI E2E** — runs on every push/PR against a Docker Postgres sidecar. Every
-   spec **except `@ai`** (`ci.yml` runs `--grep-invert=@ai`). Blocks merge.
+   spec **except `@ai`** (`ci.yml` runs `--grep-invert=@ai`). A failure turns
+   the PR check red; it does not block the merge until HON-584 makes the check
+   required.
 2. **Preview-smoke** (`.github/workflows/preview-smoke.yml`) — runs on Vercel
    preview `deployment_status: success` against the real preview URL +
-   per-PR Neon branch. Executes `@smoke`-tagged specs. Status check appears
-   on the PR.
+   per-PR Neon branch, **only when the PR carries the `smoke` label**.
+   Executes `@smoke`-tagged specs. Status check appears on the PR.
 3. **Staging-smoke** (`.github/workflows/staging-smoke.yml`) — runs after the
-   staging DB-migration workflow succeeds on `main`. Executes `@smoke`-tagged
+   staging DB-migration workflow succeeds on `main`, every six hours on a
+   schedule, and on manual dispatch. Executes `@smoke`-tagged
    specs against `https://wobblepot.dev`. **Failure blocks production
    promotion** — do not run the production deploy workflows below until
    staging-smoke is green on the same commit.
@@ -81,6 +92,7 @@ Production deployments require manual coordination to ensure database migrations
    - Go to: [GitHub Actions](https://github.com/kaupok/wobblepot/actions/workflows/deploy-db-migrations-production.yml)
    - Click "Run workflow" button
    - Wait for completion and verify success
+   - The same run then executes `pnpm db:seed` against production, which re-asserts the seeded meals, ingredients and translations (see [`RUNBOOKS/translation-maintenance.md`](./RUNBOOKS/translation-maintenance.md) → "The seed re-asserts translations")
 
    **b. Deploy code**
    - Go to: [GitHub Actions](https://github.com/kaupok/wobblepot/actions/workflows/deploy-code-production.yml)
@@ -129,7 +141,10 @@ production without writing any GitHub record, so the card keeps asserting
 whatever the last workflow run said. Correct the record by hand when you roll
 back that way; the procedure below says how.
 
-The record steps carry no `continue-on-error` on purpose. A run whose **deploy**
+A failed record write never goes green. The step that creates the record does
+carry `continue-on-error`, so that a deployments-API failure cannot cancel a
+release whose migrations are already applied, and the job's final step turns
+that failure back into a red run; the status steps carry none. A run whose **deploy**
 step is green but whose **record** step is red means the release shipped and the
 record did not — the drift is meant to be visible rather than swallowed. Left
 unwritten, that page goes stale silently: between June and September 2026 its

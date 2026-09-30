@@ -1,6 +1,6 @@
 # MCP Server Setup and Configuration
 
-Complete guide for setting up and troubleshooting Model Context Protocol (MCP) servers in the Honkadori project.
+Complete guide for setting up and troubleshooting Model Context Protocol (MCP) servers in the Wobblepot project.
 
 ## Table of Contents
 
@@ -93,7 +93,7 @@ Our project uses the following MCP servers:
 - **When to use**: Creating issues, tracking work, updating task status, managing projects
 - **Note**: Defined in `.mcp.json` at `https://mcp.linear.app/mcp`
 
-> The automation scripts use a separate `LINEAR_API_KEY` for the Linear GraphQL API — it is for the scripts, not the MCP server. `scripts/worktree-claude.sh` sources it from `.env` (see `.env.example`); `scripts/orchestrator.sh` reads it from its environment, so export it in your shell or keep it in the `env` block of `.claude/settings.local.json` when launching from a Claude Code session. Create one at [Linear Settings → API](https://linear.app/settings/api).
+> The automation scripts use a separate `LINEAR_API_KEY` for the Linear GraphQL API — it is for the scripts, not the MCP server. Put it in `.env` (see `.env.example`): `scripts/worktree-claude.sh` (`wt`) loads that file itself, and `wt start` passes it on to `scripts/orchestrator.sh`, which reads it from its environment. Create one at [Linear Settings → API](https://linear.app/settings/api).
 
 **Permission presets:** All Linear MCP tools (`mcp__linear-server__*`) are pre-approved in `.claude/settings.local.json`
 
@@ -264,7 +264,7 @@ pnpm db:studio  # Opens Prisma Studio GUI
 
 ```bash
 pnpm db:migrate        # Create new migration
-pnpm db:migrate status # Check migration status
+pnpm prisma migrate status # Check migration status
 pnpm db:push          # Push schema without migration (dev only)
 pnpm db:generate      # Regenerate Prisma Client
 ```

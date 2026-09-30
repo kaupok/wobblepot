@@ -4,15 +4,15 @@ Migration rollback and point-in-time recovery (PITR) procedures.
 
 ## Why this exists
 
-`scripts/maybe-migrate.sh` handles forward migrations safely. When one lands bad data, there is no `down` migration to run and no team lead to page — there is one operator, at whatever time of day the bad migration went live. This runbook is what that operator executes, step by step, without interpretation.
+Forward migrations are applied by `deploy-db-migrations-staging.yml` and `deploy-db-migrations-production.yml` (`scripts/maybe-migrate.sh` covers preview deploys only). When one lands bad data, there is no `down` migration to run and no team lead to page — there is one operator, at whatever time of day the bad migration went live. This runbook is what that operator executes, step by step, without interpretation.
 
 The approach: **Neon branching + fix-forward migrations, always**. Never destructive SQL on staging or production. Branch from a point-in-time snapshot, validate the fix on the branch, then apply the fix forward on `main`.
 
 ## Policy: never destructive on staging or production
 
-From [`CLAUDE.md`](../../CLAUDE.md):
+From [`CLAUDE.md`](../../CLAUDE.md) → Database Patterns:
 
-> **Never run destructive database commands (`migrate reset`, `db push --force-reset`, `DROP`, etc.) on staging or production.** These destroy real data. Always ask the user before taking any destructive action on shared environments — even to fix migration issues. Prefer `migrate resolve` or manual SQL fixes instead.
+> **Destructive commands:** do not run `migrate reset`, `db push --force-reset`, `DROP` or similar against staging or production. They destroy real data. Ask the user before any destructive action on a shared environment, even to fix a migration problem, and prefer `migrate resolve` or a manual SQL fix.
 
 Every procedure below respects that rule. Specifically, on staging and production we do not run:
 
@@ -81,7 +81,7 @@ These steps are generic; the failure-mode playbooks below reference them.
      --project-id "$NEON_PROJECT_ID"
    ```
 
-   Export the pooled one as `DATABASE_URL` and the unpooled one as `DATABASE_URL_UNPOOLED` in a **scratch shell** — do not overwrite `.env`. `psql`, `pg_dump`, and `pnpm db:migrate:deploy` all read these by default, so every command below can run without further plumbing.
+   Export the pooled one as `DATABASE_URL` and the unpooled one as `DATABASE_URL_UNPOOLED` in a **scratch shell** — do not overwrite `.env`. `pnpm db:migrate:deploy` reads `DATABASE_URL_UNPOOLED` from the environment (`prisma.config.ts`). `psql` and `pg_dump` do not read either variable — pass `"$DATABASE_URL"` explicitly, as the commands below do.
 
 4. **Validate branch state.** Confirm the branch is actually pre-incident, not a silent fork of current `main`:
    - Row counts for critical tables:
@@ -110,9 +110,9 @@ These steps are generic; the failure-mode playbooks below reference them.
    **Pattern B — Targeted row re-insert.** Export the affected rows from the recovery branch, then apply a narrow `UPDATE` or `INSERT` to `main` scoped to those IDs. Always wrap in `BEGIN;` / `COMMIT;`. Example:
 
    ```sql
-   -- Run against recovery branch
+   -- Run against recovery branch: psql "$DATABASE_URL" (the scratch-shell value from step 3)
    COPY (SELECT * FROM meal_plan WHERE id IN ('...')) TO STDOUT WITH CSV HEADER;
-   -- Then on main, in a transaction:
+   -- Then on main (a separate psql session on the production connection string), in a transaction:
    BEGIN;
    INSERT INTO meal_plan (...) VALUES (...);
    COMMIT;
@@ -122,7 +122,7 @@ These steps are generic; the failure-mode playbooks below reference them.
 
 Promoting a branch swaps the entire database. Any valid user data written _after_ the incident timestamp on `main` would be lost. **We never promote.** The recovery branch is a read-only reference until it is deleted.
 
-The automated cleanup in [`neon-branch-gc.md`](neon-branch-gc.md) only reaps `auto--hon-*` branches, **not** `recovery-*` — so cleanup is manual:
+The automated cleanup in [`neon-branch-gc.md`](neon-branch-gc.md) only reaps issue branches (`<prefix>--hon-<N>[-slug]`) and orphaned `preview/*` branches, **not** `recovery-*` — so cleanup is manual:
 
 ```bash
 pnpm dlx neonctl@2.22.0 branches delete "$recovery_branch" \
@@ -207,7 +207,7 @@ One subsection per mode. Each starts with what it looks like, then the numbered 
 After any recovery, confirm the fix held and nothing new broke:
 
 1. **Vercel runtime logs.** Watch for 5xx errors tied to the recovered state for at least 30 minutes.
-2. **Row counts** for the critical tables — `User`, `Household`, `MealPlan`. Compare against pre-incident counts (pulled from the recovery branch) to spot unexpected drift.
+2. **Row counts** for the critical tables — `"user"`, `household`, `meal_plan` (the query in step 4; `user` must stay quoted, since unquoted it is a Postgres keyword). Compare against pre-incident counts (pulled from the recovery branch) to spot unexpected drift.
 3. **User-visible flows.** Manually sign in as a test user and walk through the flows that were affected. For meal-plan recoveries, confirm the affected household's current meal plan loads.
 4. **Linear post-mortem issue.** File within 24 hours describing the incident, timeline, recovery steps taken, and a follow-up task to prevent recurrence.
 
@@ -240,7 +240,7 @@ If a drill takes longer than 30 minutes, the runbook has a gap. Fix it.
 
 - [`docs/DEPLOYMENT.md`](../DEPLOYMENT.md) — standard forward deploys.
 - [`CLAUDE.md`](../../CLAUDE.md) — destructive-command policy (single source of truth).
-- [`docs/RUNBOOKS/neon-branch-gc.md`](neon-branch-gc.md) — automated cleanup of `auto--hon-*` branches (related safety system).
+- [`docs/RUNBOOKS/neon-branch-gc.md`](neon-branch-gc.md) — automated cleanup of issue (`<prefix>--hon-<N>`) and orphaned `preview/*` branches (related safety system).
 - [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) — escalation when personal data is corrupted or exposed ([HON-482](https://linear.app/honkadori/issue/HON-482)).
 - [`docs/ENVIRONMENT_SETUP.md`](../ENVIRONMENT_SETUP.md) — where `NEON_API_KEY` / `NEON_PROJECT_ID` come from.
 - [HON-481](https://linear.app/honkadori/issue/HON-481) — account deletion cascade (soft-delete path that reduces the risk of playbook #3).

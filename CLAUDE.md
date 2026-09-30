@@ -59,7 +59,7 @@ Exact versions are pinned in `package.json`. The majors:
 - **Colocated stories** - `.stories.tsx` next to components (see Storybook section)
 - **Route-specific components** - colocated in the route's folder under `src/app`
 - **Absolute imports** - `@/` prefix for all imports
-- **Type-safe env vars** - validated with Zod at startup (see `src/lib/env.ts`)
+- **Type-safe env vars** - validated with Zod: public vars when `src/lib/env.ts` loads, server-only vars on first access
 - **Naming** - components in PascalCase (`UserProfile.tsx`), utilities and hooks in camelCase (`useAuth.ts`)
 
 ## Authentication Patterns
@@ -167,7 +167,7 @@ Use **sentence case** for all UI text (buttons, headings, labels, links): "Sign 
 
 ## Typography Components
 
-Variant-based components: `Heading` (h1-h4/section, plus an `as` prop that sets the HTML tag independently of the visual level), `Body` (default/lead/large/small/paragraph/muted/caption, plus a `tone` prop for colour), `Blockquote`, `Ul`/`Ol`/`Li` (`Li` takes `tone`), `Code`, `Pre`. Form errors render through `FieldError`.
+Variant-based components: `Heading` (h1-h4/section/caption, plus an `as` prop that sets the HTML tag independently of the visual level), `Body` (default/lead/large/small/paragraph/muted/caption, plus a `tone` prop for colour), `Blockquote`, `Ul`/`Ol`/`Li` (`Li` takes `tone`), `Code`, `Pre`. Form errors render through `FieldError`.
 
 **Core rule:** Typography components own their text styling: size and weight come from `variant`, colour from `tone`. Apply layout (margins, padding, positioning) via wrapper elements, not on the component. `shadcn/no-restyle` enforces both halves: a `text-*`, `font-*` or `m*-*` class on a type primitive fails `pnpm lint`, and the few text-state classes still allowed (`italic`, `line-through`, …) are listed by name in `eslint.config.mjs`. A list that must shed its prose margins takes `Ul`/`Ol` `variant="plain"`.
 
@@ -314,7 +314,7 @@ If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, 
 
 **Hooks:** `.claude/hooks/block-destructive.sh`, a `PreToolUse` Bash hook registered in `.claude/settings.json`, blocks destructive database commands, any `git push` to `main`, force pushes, and `gh pr merge` without the inline `WOBBLEPOT_ALLOW_MERGE=1` prefix that `/merge` and `/auto-implement` add. It fires for headless workers too, and it matches what would _execute_, so a `grep` or a commit message that mentions one of these commands passes. When it blocks you, don't route around it: ask the user. A local-only reset they want can be run by hand. Tests: `scripts/block-destructive-hook.test.ts`.
 
-**CI Pipeline:** All PRs must pass `pnpm lint`, `pnpm type-check`, `pnpm test`, and the checks named in the sections above. Build verification via Vercel deployment.
+**CI Pipeline:** All PRs must pass `pnpm lint`, `pnpm type-check`, `pnpm test`, and the checks named in the sections above; the full list is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) → CI Pipeline. CI builds the app for the E2E tier, and Vercel builds each deployment separately.
 
 **Detailed guide:** See [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)
 
@@ -374,23 +374,23 @@ The failure this prevents: checking one file, finding nothing, generalising to "
 
 The documents in the Documentation Structure table at the top, plus:
 
-| Document                                               | Contents                                                          |
-| ------------------------------------------------------ | ----------------------------------------------------------------- |
-| [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Full typography component guide with examples                     |
-| [docs/AI_VOICE_ET.md](docs/AI_VOICE_ET.md)             | Voice reference for Estonian text the AI produces                 |
-| [docs/AI_MODELS.md](docs/AI_MODELS.md)                 | Model IDs, the model benchmark, changing a model                  |
-| [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)         | Feature flag pattern, kill-switches, fail-open semantics          |
-| [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branch workflow, recovery procedures                              |
-| [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) | Environment variable setup                                        |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Production deployment process                                     |
-| [docs/SECURITY.md](docs/SECURITY.md)                   | Security headers and the Content Security Policy                  |
-| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)             | Transactional email pipeline (Resend, DNS)                        |
-| [docs/RUNBOOKS/](docs/RUNBOOKS/)                       | Breach notification, database recovery, DSR intake, GDPR deletion |
-| [compliance/README.md](compliance/README.md)           | DPAs, the DPIA, subprocessors                                     |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization guide                                         |
-| [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting                      |
-| [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                             |
-| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                                      |
+| Document                                               | Contents                                                                                                                     |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| [docs/TYPOGRAPHY.md](docs/TYPOGRAPHY.md)               | Full typography component guide with examples                                                                                |
+| [docs/AI_VOICE_ET.md](docs/AI_VOICE_ET.md)             | Voice reference for Estonian text the AI produces                                                                            |
+| [docs/AI_MODELS.md](docs/AI_MODELS.md)                 | Model IDs, the model benchmark, changing a model                                                                             |
+| [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)         | Feature flag pattern, kill-switches, fail-open semantics                                                                     |
+| [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branch workflow, recovery procedures                                                                                         |
+| [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) | Environment variable setup                                                                                                   |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Production deployment process                                                                                                |
+| [docs/SECURITY.md](docs/SECURITY.md)                   | Security headers and the Content Security Policy                                                                             |
+| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)             | Transactional email pipeline (Resend, DNS)                                                                                   |
+| [docs/RUNBOOKS/](docs/RUNBOOKS/)                       | Breach notification, database recovery, DSR intake, GDPR deletion, Neon branch cleanup, status page, translation maintenance |
+| [compliance/README.md](compliance/README.md)           | DPAs, the DPIA, subprocessors                                                                                                |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)             | Bundle optimization guide                                                                                                    |
+| [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting                                                                                 |
+| [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                                                                                        |
+| [docs/VOICE_REVIEW.md](docs/VOICE_REVIEW.md)           | Voice review setup and usage                                                                                                 |
 
 <!-- BEGIN:nextjs-agent-rules -->
 

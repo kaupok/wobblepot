@@ -74,7 +74,7 @@ Renders paragraph text with different text sizes and styles:
 <Li tone="warning">Missing from pantry</Li>
 ```
 
-**Available tones:** `default` | `muted` | `destructive` | `success` | `warning` | `info`. `variant="muted"` is the same as `variant="paragraph" tone="muted"`; keep using `muted` for helper text. A tone never stands alone — the callsite still needs a non-colour cue (docs/DESIGN.md → Color). For form errors use `FieldError` (`@/components/FieldError`), which renders `small` + `destructive` with `role="alert"`.
+**Available tones:** `default` | `muted` | `destructive` | `success` | `warning` | `info`. `variant="muted"` is the same as `variant="paragraph" tone="muted"`; keep using `muted` for helper text. A tone never stands alone — the callsite still needs a non-colour cue (docs/DESIGN.md → Color). For form errors use `FieldError` (`@/components/FieldError`), which renders `paragraph` + `destructive` with `role="alert"`.
 
 ## Separation of Concerns
 
