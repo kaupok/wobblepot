@@ -44,20 +44,119 @@ describe('runHouseholdClaim', () => {
     vi.useRealTimers()
   })
 
-  it('runs the claim at Serializable isolation', async () => {
-    const claim = vi.fn().mockResolvedValue('claimed')
+  it("locks the claiming user's row before the claim, at read committed", async () => {
+    const calls: string[] = []
+    const tx = {
+      $queryRaw: vi.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        calls.push(`lock ${strings.join('?')} ${JSON.stringify(values)}`)
+        return []
+      }),
+    }
+    const claim = vi.fn(async () => {
+      calls.push('claim')
+      return 'claimed'
+    })
     mockTransaction.mockImplementation((callback: unknown) =>
-      (callback as (tx: unknown) => Promise<unknown>)({}),
+      (callback as (client: unknown) => Promise<unknown>)(tx),
     )
 
-    await expect(runHouseholdClaim(claim)).resolves.toBe('claimed')
+    await expect(runHouseholdClaim('user-1', claim)).resolves.toBe('claimed')
 
-    // The isolation level is the entire fix. At read committed the membership
-    // check is a SELECT matching zero rows, so it takes no lock and two
-    // concurrent claims write two different member rows without conflicting —
-    // write skew, which only SSI's predicate locks catch (HON-679).
-    expect(mockTransaction).toHaveBeenCalledWith(claim, {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    // The lock is the fix, and it has to come first: the membership check in
+    // `claim` is only race-free once the user's row is held. Read committed is
+    // what keeps unrelated claims apart — `Serializable` aborted one of any two
+    // concurrent claims, whoever made them (HON-838).
+    expect(calls).toEqual([
+      'lock SELECT 1 FROM "user" WHERE "id" = ? FOR NO KEY UPDATE ["user-1"]',
+      'claim',
+    ])
+    expect(claim).toHaveBeenCalledWith(tx)
+    expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+    })
+  })
+
+  describe('concurrent claims', () => {
+    /**
+     * `$transaction` backed by an in-memory model of PostgreSQL row locks: the
+     * `$queryRaw` lock waits while another open transaction holds the same
+     * user's row, and every lock is released when its transaction ends.
+     */
+    function withRowLocks() {
+      const held = new Map<unknown, Promise<void>>()
+      mockTransaction.mockImplementation(async (callback: unknown) => {
+        const releases: (() => void)[] = []
+        const tx = {
+          $queryRaw: async (_strings: TemplateStringsArray, userId: unknown) => {
+            while (held.has(userId)) await held.get(userId)
+            held.set(userId, new Promise<void>((resolve) => releases.push(resolve)))
+            releases.push(() => held.delete(userId))
+            return []
+          },
+        }
+        try {
+          return await (callback as (client: unknown) => Promise<unknown>)(tx)
+        } finally {
+          for (const release of releases.reverse()) release()
+        }
+      })
+    }
+
+    /** A claim that stays open until the test finishes it. */
+    function openClaim(result: string) {
+      let finish!: () => void
+      const done = new Promise<void>((resolve) => (finish = resolve))
+      const claim = vi.fn(async () => {
+        await done
+        return result
+      })
+      return { claim, finish }
+    }
+
+    it('lets two different users create a household at the same moment', async () => {
+      withRowLocks()
+      const first = openClaim('household-a')
+      const second = openClaim('household-b')
+
+      const results = Promise.all([
+        runHouseholdClaim('user-a', first.claim),
+        runHouseholdClaim('user-b', second.claim),
+      ])
+      await vi.advanceTimersByTimeAsync(0)
+
+      // Both claims are inside their transactions at once: neither user waits
+      // on the other's lock. Under `Serializable` one of these two failed on
+      // every run (HON-838).
+      expect(first.claim).toHaveBeenCalledTimes(1)
+      expect(second.claim).toHaveBeenCalledTimes(1)
+
+      second.finish()
+      first.finish()
+      await expect(results).resolves.toEqual(['household-a', 'household-b'])
+      expect(mockTransaction).toHaveBeenCalledTimes(2)
+    })
+
+    it('makes a second claim for the same user wait for the first to finish', async () => {
+      withRowLocks()
+      const first = openClaim('household-a')
+      const second = openClaim('already checked')
+
+      const firstResult = runHouseholdClaim('user-a', first.claim)
+      const secondResult = runHouseholdClaim('user-a', second.claim)
+      await vi.advanceTimersByTimeAsync(0)
+
+      // The second claim's membership check must not run until the first has
+      // committed, or both see "no membership" and both write one (HON-679).
+      expect(first.claim).toHaveBeenCalledTimes(1)
+      expect(second.claim).not.toHaveBeenCalled()
+
+      first.finish()
+      await expect(firstResult).resolves.toBe('household-a')
+      await vi.advanceTimersByTimeAsync(0)
+      expect(second.claim).toHaveBeenCalledTimes(1)
+
+      second.finish()
+      await expect(secondResult).resolves.toBe('already checked')
     })
   })
 
@@ -67,7 +166,7 @@ describe('runHouseholdClaim', () => {
       .mockRejectedValueOnce(serializationFailure())
       .mockResolvedValueOnce('claimed on retry' as never)
 
-    const result = runHouseholdClaim(claim)
+    const result = runHouseholdClaim('user-1', claim)
     await vi.runAllTimersAsync()
 
     await expect(result).resolves.toBe('claimed on retry')
@@ -78,7 +177,9 @@ describe('runHouseholdClaim', () => {
     const claim = vi.fn()
     mockTransaction.mockRejectedValue(serializationFailure())
 
-    const assertion = expect(runHouseholdClaim(claim)).rejects.toMatchObject({ code: 'P2034' })
+    const assertion = expect(runHouseholdClaim('user-1', claim)).rejects.toMatchObject({
+      code: 'P2034',
+    })
     await vi.runAllTimersAsync()
 
     await assertion
@@ -93,7 +194,7 @@ describe('runHouseholdClaim', () => {
       .mockRejectedValueOnce(serializationFailure())
       .mockResolvedValueOnce('claimed on retry' as never)
 
-    const result = runHouseholdClaim(claim)
+    const result = runHouseholdClaim('user-1', claim)
 
     // Flush the first attempt's rejection without advancing the clock: the
     // retry must still be pending on the timer, not already in flight.
@@ -120,7 +221,9 @@ describe('runHouseholdClaim', () => {
     vi.spyOn(Math, 'random').mockImplementation(() => jitterDraw(draw++))
     mockTransaction.mockRejectedValue(serializationFailure())
 
-    const assertion = expect(runHouseholdClaim(claim)).rejects.toMatchObject({ code: 'P2034' })
+    const assertion = expect(runHouseholdClaim('user-1', claim)).rejects.toMatchObject({
+      code: 'P2034',
+    })
     await vi.runAllTimersAsync()
     await assertion
 
@@ -162,7 +265,7 @@ describe('runHouseholdClaim', () => {
     const claim = vi.fn()
     mockTransaction.mockRejectedValue(sentinel)
 
-    await expect(runHouseholdClaim(claim)).rejects.toBe(sentinel)
+    await expect(runHouseholdClaim('user-1', claim)).rejects.toBe(sentinel)
     // Retrying a deliberate sentinel would turn a decided 400 into two more
     // round trips and, if the second attempt raced differently, a 500.
     expect(mockTransaction).toHaveBeenCalledTimes(1)
@@ -176,7 +279,7 @@ describe('runHouseholdClaim', () => {
     })
     mockTransaction.mockRejectedValue(notFound)
 
-    await expect(runHouseholdClaim(claim)).rejects.toBe(notFound)
+    await expect(runHouseholdClaim('user-1', claim)).rejects.toBe(notFound)
     expect(mockTransaction).toHaveBeenCalledTimes(1)
   })
 })
@@ -205,7 +308,7 @@ describe('isMembershipConflict', () => {
     const conflict = knownError('P2002')
     mockTransaction.mockRejectedValue(conflict)
 
-    await expect(runHouseholdClaim(vi.fn())).rejects.toBe(conflict)
+    await expect(runHouseholdClaim('user-1', vi.fn())).rejects.toBe(conflict)
     expect(mockTransaction).toHaveBeenCalledTimes(1)
   })
 })

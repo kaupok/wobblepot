@@ -15,29 +15,44 @@ import { prisma } from '@/lib/prisma'
  * ({@link isMembershipConflict}) so that the index firing produces the same
  * `already_in_household` 400 the check does, not a 500.
  *
- * **Why this still runs at `Serializable` (HON-696 kept it deliberately).**
- * Before the index existed, isolation *was* the enforcement (HON-679): at
- * `read committed` the check is a `SELECT` matching zero rows, so it takes no
- * lock, and two concurrent requests could each write a *different* member
- * row. That write skew is what SSI's predicate locks catch. The index now
- * makes it impossible regardless, so `Serializable` + retry is defence in
- * depth: the concurrent loser usually aborts with `P2034`, retries, and takes
- * the pre-check's branch instead of relying on the `P2002` mapping. Dropping
- * it would be safe, but it would change behaviour on the onboarding path for
- * no user-visible gain. A new membership-creating callsite should still go
- * through here, but it no longer reopens the hole if it does not — it only
- * has to map `P2002` itself.
+ * **Why a per-user row lock, and not `Serializable` (HON-838).** At read
+ * committed with no lock, the check is a `SELECT` matching zero rows, so two
+ * concurrent claims for one user could each write a *different* member row
+ * (HON-679). This used to be closed with `Serializable`, but SSI's predicate
+ * locks are page- or relation-level on tables this small, so it aborted one
+ * of *any* two concurrent claims — two strangers onboarding at the same moment
+ * conflicted every time. It also raised that abort at `COMMIT`, where
+ * `@prisma/adapter-pg` reports a raw `DriverAdapterError` rather than `P2034`,
+ * so the retry below never fired and the loser got a 500.
+ *
+ * {@link lockUserForClaim} serialises exactly the claims that can conflict —
+ * the same user's — and nothing else. The second claim waits on the row lock,
+ * and because read committed takes a fresh snapshot per statement, its check
+ * then sees the first claim's committed membership and takes the caller's
+ * "already in a household" branch. The unique index remains the backstop for a
+ * writer that skips this helper.
  */
 const CLAIM_TRANSACTION_OPTIONS = {
-  isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+  isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
 } as const
 
 /**
- * SSI aborts the loser of a conflict with `40001`, which `@prisma/adapter-pg`
- * surfaces as `P2034`. These are expected under `Serializable` and safe to
- * retry: the whole transaction rolled back, so the retry re-reads the
- * membership the winner just committed and resolves deterministically to the
- * caller's "already in a household" branch rather than to a 500.
+ * Locks the claiming user's row for the rest of the transaction, so two claims
+ * for one user run one after the other while claims for different users never
+ * wait on each other.
+ *
+ * `FOR NO KEY UPDATE`, not `FOR UPDATE`: it does not conflict with the
+ * `FOR KEY SHARE` a foreign-key check takes, so an unrelated insert that
+ * references this user (a new session) is not held up by an onboarding claim.
+ */
+async function lockUserForClaim(tx: Prisma.TransactionClient, userId: string): Promise<void> {
+  await tx.$queryRaw`SELECT 1 FROM "user" WHERE "id" = ${userId} FOR NO KEY UPDATE`
+}
+
+/**
+ * `P2034` covers a deadlock as well as a serialization failure. Neither is
+ * expected at read committed with a single per-user lock, but both roll the
+ * whole transaction back, so both are safe to retry.
  */
 const SERIALIZATION_FAILURE = 'P2034'
 
@@ -51,7 +66,7 @@ export const MAX_CLAIM_ATTEMPTS = 3
  *
  * 50 ms is sized against how long a `P2034` actually takes to clear: the
  * conflicting transaction is a single membership check plus a handful of
- * inserts, so it commits in single-digit milliseconds here, and tens of
+ * inserts, so it commits within a few round trips, and tens of
  * milliseconds is already several round-trips of headroom. It is deliberately
  * far below Prisma's 5 s interactive-transaction timeout — see
  * {@link backoffDelayMs} for why the two do not interact.
@@ -127,9 +142,13 @@ export function isMembershipConflict(error: unknown): boolean {
 }
 
 /**
- * Run a membership-creating transaction at `Serializable`, retrying
- * serialization failures up to {@link MAX_CLAIM_ATTEMPTS} times, with a
- * jittered wait between attempts ({@link backoffDelayMs}).
+ * Run a membership-creating transaction for `userId` at read committed, holding
+ * that user's row lock ({@link lockUserForClaim}) for the whole claim, and
+ * retry a `P2034` up to {@link MAX_CLAIM_ATTEMPTS} times, with a jittered wait
+ * between attempts ({@link backoffDelayMs}).
+ *
+ * `userId` must be the user the claim writes a membership for: the lock is what
+ * keeps that user in one household, so locking anyone else reopens HON-679.
  *
  * `claim` must be idempotent across attempts — it may run more than once, and
  * only the final attempt's writes are committed. Errors the callback throws
@@ -145,11 +164,15 @@ export function isMembershipConflict(error: unknown): boolean {
  * fourth adds at most 400 ms rather than doubling.
  */
 export async function runHouseholdClaim<T>(
+  userId: string,
   claim: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     try {
-      return await prisma.$transaction(claim, CLAIM_TRANSACTION_OPTIONS)
+      return await prisma.$transaction(async (tx) => {
+        await lockUserForClaim(tx, userId)
+        return claim(tx)
+      }, CLAIM_TRANSACTION_OPTIONS)
     } catch (error) {
       if (isSerializationFailure(error) && attempt < MAX_CLAIM_ATTEMPTS) {
         await sleep(backoffDelayMs(attempt))

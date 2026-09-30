@@ -81,6 +81,7 @@ describe('POST /api/households', () => {
     // Mock transaction where findFirst returns existing membership
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
         householdMember: {
           findFirst: vi.fn().mockResolvedValue({
             id: 'member-123',
@@ -106,14 +107,17 @@ describe('POST /api/households', () => {
     expect(data.message).toBe('You are already a member of a household.')
   })
 
-  it('creates the membership at Serializable isolation', async () => {
+  it("creates the membership under the session user's row lock, at read committed", async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
     } as never)
+    const queryRaw = vi.fn().mockResolvedValue([])
+    const memberFindFirst = vi.fn().mockResolvedValue(null)
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
-        householdMember: { findFirst: vi.fn().mockResolvedValue(null) },
+        $queryRaw: queryRaw,
+        householdMember: { findFirst: memberFindFirst, create: vi.fn() },
         household: {
           create: vi.fn().mockResolvedValue({ id: 'household-1' }),
           findUnique: vi.fn().mockResolvedValue({ id: 'household-1', name: 'My Household' }),
@@ -121,10 +125,6 @@ describe('POST /api/households', () => {
         ...stapleMocks(),
         householdPreferences: { create: vi.fn() },
       }
-      mockTx.householdMember = {
-        ...mockTx.householdMember,
-        create: vi.fn(),
-      } as never
       return callback(mockTx as never)
     })
 
@@ -135,15 +135,20 @@ describe('POST /api/households', () => {
 
     await POST(request)
 
-    // Without Serializable this check is a SELECT matching zero rows, so it
-    // takes no lock: two concurrent creates for the same user insert two
-    // *different* member rows and `@@unique([householdId, userId])` never
-    // fires. A double submit is enough. It also has to hold on *this* side —
-    // PostgreSQL only registers the conflict when the writing transaction is
-    // serializable too, so a read-committed create here would reopen the race
-    // for the invite-join route as well (HON-679).
+    // Without the lock this check is a SELECT matching zero rows, so it takes
+    // no lock: two concurrent creates for the same user insert two *different*
+    // member rows and `@@unique([householdId, userId])` never fires. A double
+    // submit is enough (HON-679). The lock must be the *session* user's — the
+    // one this create writes a membership for — and it must be taken before the
+    // check. Read committed, not `Serializable`, so creates by different users
+    // never conflict (HON-838).
+    expect(queryRaw).toHaveBeenCalledTimes(1)
+    expect(queryRaw.mock.calls[0]!.slice(1)).toEqual(['user-123'])
+    expect(queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      memberFindFirst.mock.invocationCallOrder[0]!,
+    )
     expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
     })
   })
 
@@ -210,10 +215,61 @@ describe('POST /api/households', () => {
     // Rethrowing would let Next render an HTML error page, and
     // CreateHouseholdForm calls `response.json()` outside its network-error
     // try — so the user would see a raw SyntaxError and nothing would be
-    // reported. Serializable retries make this reachable.
+    // reported. A `P2034` that outlasts the retry budget makes this reachable.
     expect(response.status).toBe(500)
     expect(data.error).toBe('Failed to create household')
     expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
+  })
+
+  describe('logging a failed create', () => {
+    const databaseDown = new Error('connection terminated unexpectedly')
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue({
+        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+        session: { id: 'session-123' },
+      } as never)
+      mockTransaction.mockRejectedValue(databaseDown)
+      // Hermetic against a developer who has the capture opt-in set in `.env`:
+      // it makes `shouldSkipLocalCapture()` false whatever the release.
+      vi.stubEnv('POSTHOG_CAPTURE_LOCAL', '')
+    })
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      vi.restoreAllMocks()
+    })
+
+    const createRequest = () =>
+      new Request('http://localhost/api/households', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'My Household' }),
+      })
+
+    it('logs the error on a local machine, where capture is skipped', async () => {
+      // No `VERCEL_GIT_COMMIT_SHA`: a dev server or a local E2E run. Capture
+      // returns early there, so without this log a failed onboarding create
+      // leaves no trace at all (HON-838).
+      vi.stubEnv('VERCEL_GIT_COMMIT_SHA', '')
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const response = await POST(createRequest())
+
+      expect(response.status).toBe(500)
+      expect(consoleError).toHaveBeenCalledWith(expect.any(String), databaseDown)
+      expect(mockCaptureApiError).toHaveBeenCalledWith(databaseDown, expect.anything())
+    })
+
+    it('does not log in a deployment, which reports to PostHog instead', async () => {
+      vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'abc123')
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const response = await POST(createRequest())
+
+      expect(response.status).toBe(500)
+      expect(consoleError).not.toHaveBeenCalled()
+      expect(mockCaptureApiError).toHaveBeenCalledWith(databaseDown, expect.anything())
+    })
   })
 
   it('returns 400 for invalid JSON', async () => {
@@ -325,6 +381,7 @@ describe('POST /api/households', () => {
 
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
         household: {
           create: vi.fn().mockResolvedValue({ id: 'household-123' }),
           findUnique: vi.fn().mockResolvedValue({
@@ -390,6 +447,7 @@ describe('POST /api/households', () => {
 
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
         household: {
           create: vi.fn().mockResolvedValue({ id: 'household-123' }),
           findUnique: vi.fn().mockResolvedValue(mockHousehold),
@@ -444,6 +502,7 @@ describe('POST /api/households', () => {
 
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
         household: {
           create: createSpy,
           findUnique: vi.fn().mockResolvedValue(mockHousehold),
@@ -494,6 +553,7 @@ describe('POST /api/households', () => {
 
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
         household: {
           create: createSpy,
           findUnique: vi.fn().mockResolvedValue(mockHousehold),
@@ -541,6 +601,7 @@ describe('POST /api/households', () => {
 
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
         household: {
           create: createSpy,
           findUnique: vi.fn().mockResolvedValue(mockHousehold),
@@ -595,6 +656,7 @@ describe('POST /api/households', () => {
 
     mockTransaction.mockImplementation(async (callback) => {
       const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
         household: {
           create: vi.fn().mockResolvedValue({ id: 'household-123' }),
           findUnique: vi.fn().mockResolvedValue(mockHousehold),
@@ -634,6 +696,7 @@ describe('POST /api/households', () => {
       } as never)
       mockTransaction.mockImplementation(async (callback) => {
         const mockTx = {
+          $queryRaw: vi.fn().mockResolvedValue([]),
           household: {
             create: vi.fn().mockResolvedValue({ id: 'household-123' }),
             findUnique: vi.fn().mockResolvedValue({ id: 'household-123', name: 'My Household' }),

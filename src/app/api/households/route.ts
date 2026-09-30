@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { MealType } from '@/generated/prisma/enums'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
 import { isMembershipConflict, runHouseholdClaim } from '@/lib/household-claim'
 import { captureApiError } from '@/lib/errors'
+import { shouldSkipLocalCapture } from '@/lib/release'
 import { seedDefaultStaples } from '@/lib/meal-planning/default-staples'
 
 /**
@@ -79,15 +79,16 @@ export async function POST(request: Request) {
     // matching zero rows, so it takes no lock, and two concurrent creates for
     // the same user insert two *different* member rows — `@@unique([householdId,
     // userId])` never fires because the household ids differ. A double submit
-    // is enough to trigger it. The helper runs this at `Serializable`, where
-    // SSI's predicate locks catch the write skew, and retries the loser's
-    // `P2034` so it resolves to the `already_in_household` 400 below (HON-679).
+    // is enough to trigger it (HON-679). The helper holds this user's row lock
+    // for the whole claim, so the second create waits, then sees the first's
+    // membership here and resolves to the `already_in_household` 400 below.
+    // Creates by different users take different locks and never wait on each
+    // other (HON-838).
     //
     // Since HON-696 a unique index on `household_member."userId"` enforces the
-    // invariant on its own; the isolation level is defence in depth, and a
-    // loser that the index rejects instead surfaces as `P2002` — mapped to the
-    // same 400 below.
-    const household = await runHouseholdClaim(async (tx) => {
+    // invariant on its own; a loser that the index rejects surfaces as `P2002`
+    // — mapped to the same 400 below.
+    const household = await runHouseholdClaim(session.user.id, async (tx) => {
       const existingMembership = await tx.householdMember.findFirst({
         where: { userId: session.user.id },
       })
@@ -186,6 +187,13 @@ export async function POST(request: Request) {
     // `runHouseholdClaim` makes this reachable for a persistent `P2034`, but
     // any unexpected database error lands here the same way.
     captureApiError(error, { route: '/api/households', userId: session.user.id })
+    // `captureApiError` drops everything on a local machine, which left a
+    // failed onboarding create with no trace at all on a dev server or a local
+    // E2E run (HON-838). Deployed environments still report only to PostHog.
+    if (shouldSkipLocalCapture()) {
+      // eslint-disable-next-line no-console
+      console.error('[api/households] Failed to create household:', error)
+    }
     return NextResponse.json({ error: 'Failed to create household' }, { status: 500 })
   }
 }
