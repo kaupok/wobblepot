@@ -136,7 +136,7 @@ The app ships in English and Estonian, and the locale is the household's. [docs/
 
 Keyboard focus that falls to `<body>` sends the user back to the top of the page. Two causes keep recurring, and axe cannot see either:
 
-- **A control that is `disabled` while a request is pending loses focus** (Chromium blurs it). After a failed submit, return focus to the submit button: the error path sets a ref flag, and an effect focuses the button once loading ends (`src/app/onboarding/CreateHouseholdForm.tsx`). Where the button must stay focusable during the request, use `aria-disabled` plus a guard in the handler (`src/components/timeline/TimelineEmptySlot.tsx`). jsdom does not blur disabled controls, so a test has to move focus to the body itself before asserting.
+- **A control that is `disabled` while a request is pending loses focus** (Chromium blurs it). After a failed submit, return focus to the submit button: the error path sets a ref flag, and an effect focuses the button once loading ends. `useRefocusAfterPending` (`src/hooks/use-refocus-after-pending.ts`) packages this; the auth forms use it (`src/app/sign-in/SignInForm.tsx`). Where the button must stay focusable during the request, use `aria-disabled` plus a guard in the handler (`src/components/timeline/TimelineEmptySlot.tsx`). jsdom does not blur disabled controls, so a test has to move focus to the body itself before asserting (`dropFocusToBody` in `src/test/focus.ts`).
 - **A Radix `Dialog` opened from controlled state has no `DialogTrigger` to return focus to.** Pass `onCloseAutoFocus`, call `preventDefault()`, and focus the control that opened it (`MealSelectorModal` takes the prop).
 
 ## Code Standards

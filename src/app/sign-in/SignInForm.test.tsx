@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { SignInForm } from './SignInForm'
+import { dropFocusToBody } from '@/test/focus'
 
 // Mock Next.js navigation
 const mockPush = vi.fn()
@@ -43,6 +44,9 @@ vi.mock('@/lib/auth-errors-client', () => ({
 describe('SignInForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // clearAllMocks keeps implementations, and 'handles navigation errors
+    // gracefully' makes push throw; later tests need it to navigate.
+    mockPush.mockReset()
     mockGet.mockReturnValue(null)
     mockSearchParamsToString.mockReturnValue('')
   })
@@ -570,4 +574,102 @@ describe('SignInForm', () => {
 
   // Note: Slow request handling with setTimeout is tested manually
   // The tests with fake timers conflict with userEvent's internal timers
+
+  // The form is disabled while the request is pending, and Chromium blurs the
+  // focused control when it is disabled. After a failure the submit button
+  // must take focus back, whether the submit came from it or from Enter in a
+  // field (HON-835). jsdom does not blur, so each test drops focus itself.
+  describe('focus after submit', () => {
+    type Outcome = 'error' | 'throw' | 'success'
+
+    async function deferSignIn() {
+      const { authClient } = await import('@/lib/auth-client')
+      let settle!: (outcome: Outcome) => void
+      vi.mocked(authClient.signIn.email).mockImplementation(
+        ((_creds: unknown, options: any) =>
+          new Promise<void>((resolve, reject) => {
+            settle = (outcome) => {
+              if (outcome === 'throw') return reject(new Error('Connection failed'))
+              if (outcome === 'error')
+                options?.onError?.({ error: { message: 'Invalid credentials' } })
+              else options?.onSuccess?.({})
+              resolve()
+            }
+          })) as any,
+      )
+      return (outcome: Outcome) => act(async () => settle(outcome))
+    }
+
+    async function fillIn(user: ReturnType<typeof userEvent.setup>) {
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+      await user.type(screen.getByLabelText(/^password$/i), 'wrong-password')
+    }
+
+    it('returns focus to the submit button after a failed submit from the button', async () => {
+      const settle = await deferSignIn()
+      const user = userEvent.setup({ delay: null })
+      render(<SignInForm />)
+
+      await fillIn(user)
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
+      expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled()
+      dropFocusToBody()
+
+      await settle('error')
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: /^sign in$/i })).toHaveFocus()
+      })
+      expect(screen.getByRole('alert')).toHaveTextContent(/invalid credentials/i)
+    })
+
+    it('returns focus to the submit button after a failed submit from Enter in a field', async () => {
+      const settle = await deferSignIn()
+      const user = userEvent.setup({ delay: null })
+      render(<SignInForm />)
+
+      await fillIn(user)
+      await user.type(screen.getByLabelText(/^password$/i), '{Enter}')
+      expect(screen.getByLabelText(/^password$/i)).toBeDisabled()
+      dropFocusToBody()
+
+      await settle('error')
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: /^sign in$/i })).toHaveFocus()
+      })
+    })
+
+    it('returns focus to the submit button when the request throws', async () => {
+      const settle = await deferSignIn()
+      const user = userEvent.setup({ delay: null })
+      render(<SignInForm />)
+
+      await fillIn(user)
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
+      dropFocusToBody()
+
+      await settle('throw')
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: /^sign in$/i })).toHaveFocus()
+      })
+    })
+
+    it('does not move focus to the submit button after a successful sign in', async () => {
+      const settle = await deferSignIn()
+      const user = userEvent.setup({ delay: null })
+      render(<SignInForm />)
+
+      await fillIn(user)
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
+      dropFocusToBody()
+
+      await settle('success')
+
+      expect(mockPush).toHaveBeenCalledWith('/')
+      expect(screen.getByRole('button', { name: /signing in/i })).not.toHaveFocus()
+      expect(document.body).toHaveFocus()
+    })
+  })
 })

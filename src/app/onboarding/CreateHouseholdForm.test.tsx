@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CreateHouseholdForm } from './CreateHouseholdForm'
 import { createQueryWrapper } from '@/test/query-wrapper'
+import { dropFocusToBody } from '@/test/focus'
 
 // Mock next/navigation
 const mockPush = vi.fn()
@@ -497,19 +498,6 @@ describe('CreateHouseholdForm', () => {
         expect(screen.getByRole('alert')).toHaveTextContent('Invalid data')
       })
     })
-
-    // Chromium blurs a focused button when it becomes disabled, so while the
-    // request is pending focus is on the body. jsdom keeps it on the button
-    // (and ignores `blur()` on a disabled element), so move it to the body the
-    // way the browser does before the request settles.
-    function dropFocusToBody() {
-      act(() => {
-        document.body.tabIndex = -1
-        document.body.focus()
-        document.body.removeAttribute('tabindex')
-      })
-      expect(document.body).toHaveFocus()
-    }
 
     it('returns focus to the submit button after a failed create', async () => {
       let rejectRequest!: (reason: Error) => void

@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { ResetPasswordForm } from './ResetPasswordForm'
+import { dropFocusToBody } from '@/test/focus'
 
 // Mock Next.js navigation
 const mockPush = vi.fn()
@@ -442,6 +443,86 @@ describe('ResetPasswordForm', () => {
       await vi.waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent(/connection failed/i)
       })
+    })
+  })
+
+  // The form is disabled while the request is pending, and Chromium blurs the
+  // focused control when it is disabled. After a failure the submit button
+  // must take focus back, whether the submit came from it or from Enter in a
+  // field (HON-835). jsdom does not blur, so each test drops focus itself.
+  describe('focus after submit', () => {
+    type Outcome = 'error' | 'success'
+
+    async function deferReset() {
+      const { authClient } = await import('@/lib/auth-client')
+      let settle!: (outcome: Outcome) => void
+      vi.mocked(authClient.resetPassword).mockImplementation(
+        ((_payload: unknown, options: any) =>
+          new Promise<void>((resolve) => {
+            settle = (outcome) => {
+              if (outcome === 'error') options?.onError?.({ error: { message: 'Token expired' } })
+              else options?.onSuccess?.({})
+              resolve()
+            }
+          })) as any,
+      )
+      return (outcome: Outcome) => act(async () => settle(outcome))
+    }
+
+    async function fillIn(user: ReturnType<typeof userEvent.setup>) {
+      await user.type(screen.getByLabelText(/new password/i), 'newpass123456')
+      await user.type(screen.getByLabelText(/confirm password/i), 'newpass123456')
+    }
+
+    it('returns focus to the submit button after a failed submit from the button', async () => {
+      const settle = await deferReset()
+      const user = userEvent.setup({ delay: null })
+      render(<ResetPasswordForm />)
+
+      await fillIn(user)
+      await user.click(screen.getByRole('button', { name: /reset password/i }))
+      expect(screen.getByRole('button', { name: /resetting password/i })).toBeDisabled()
+      dropFocusToBody()
+
+      await settle('error')
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: /^reset password$/i })).toHaveFocus()
+      })
+      expect(screen.getByRole('alert')).toHaveTextContent(/token expired/i)
+    })
+
+    it('returns focus to the submit button after a failed submit from Enter in a field', async () => {
+      const settle = await deferReset()
+      const user = userEvent.setup({ delay: null })
+      render(<ResetPasswordForm />)
+
+      await fillIn(user)
+      await user.type(screen.getByLabelText(/confirm password/i), '{Enter}')
+      expect(screen.getByLabelText(/confirm password/i)).toBeDisabled()
+      dropFocusToBody()
+
+      await settle('error')
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: /^reset password$/i })).toHaveFocus()
+      })
+    })
+
+    it('does not move focus to the submit button after a successful reset', async () => {
+      const settle = await deferReset()
+      const user = userEvent.setup({ delay: null })
+      render(<ResetPasswordForm />)
+
+      await fillIn(user)
+      await user.click(screen.getByRole('button', { name: /reset password/i }))
+      dropFocusToBody()
+
+      await settle('success')
+
+      expect(mockPush).toHaveBeenCalledWith('/sign-in?reset=success')
+      expect(screen.getByRole('button', { name: /resetting password/i })).not.toHaveFocus()
+      expect(document.body).toHaveFocus()
     })
   })
 })

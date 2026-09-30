@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { ForgotPasswordForm } from './ForgotPasswordForm'
+import { dropFocusToBody } from '@/test/focus'
 
 // Mock auth client
 vi.mock('@/lib/auth-client', () => ({
@@ -431,6 +432,64 @@ describe('ForgotPasswordForm', () => {
       await vi.waitFor(() => {
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
         expect(screen.getByRole('status')).toBeInTheDocument()
+      })
+    })
+  })
+
+  // The form is disabled while the request is pending, and Chromium blurs the
+  // focused control when it is disabled. After a failure the submit button
+  // must take focus back, whether the submit came from it or from Enter in the
+  // field (HON-835). jsdom does not blur, so each test drops focus itself.
+  describe('focus after submit', () => {
+    type Outcome = 'error' | 'throw'
+
+    async function deferRequest() {
+      const { authClient } = await import('@/lib/auth-client')
+      let settle!: (outcome: Outcome) => void
+      vi.mocked(authClient.requestPasswordReset).mockImplementation(
+        ((_payload: unknown, options: any) =>
+          new Promise<void>((resolve, reject) => {
+            settle = (outcome) => {
+              if (outcome === 'throw') return reject(new Error('Connection failed'))
+              options?.onError?.({ error: { message: 'Too many requests' } })
+              resolve()
+            }
+          })) as any,
+      )
+      return (outcome: Outcome) => act(async () => settle(outcome))
+    }
+
+    it('returns focus to the submit button after a failed submit from the button', async () => {
+      const settle = await deferRequest()
+      const user = userEvent.setup({ delay: null })
+      render(<ForgotPasswordForm />)
+
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+      await user.click(screen.getByRole('button', { name: /send reset link/i }))
+      expect(screen.getByRole('button', { name: /sending reset link/i })).toBeDisabled()
+      dropFocusToBody()
+
+      await settle('error')
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: /^send reset link$/i })).toHaveFocus()
+      })
+      expect(screen.getByRole('alert')).toHaveTextContent(/too many requests/i)
+    })
+
+    it('returns focus to the submit button after a failed submit from Enter in the field', async () => {
+      const settle = await deferRequest()
+      const user = userEvent.setup({ delay: null })
+      render(<ForgotPasswordForm />)
+
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com{Enter}')
+      expect(screen.getByLabelText(/email/i)).toBeDisabled()
+      dropFocusToBody()
+
+      await settle('throw')
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: /^send reset link$/i })).toHaveFocus()
       })
     })
   })

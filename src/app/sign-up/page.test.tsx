@@ -4,11 +4,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // vitest next-intl mock (a plain string-resolver) cannot handle. Use the real
 // provider so the `<terms>`/`<privacy>` markup actually renders anchors.
 vi.unmock('next-intl')
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
 import { SignUpForm } from './SignUpForm'
+import { dropFocusToBody } from '@/test/focus'
 
 // Mock Next.js navigation
 const mockPush = vi.fn()
@@ -436,6 +437,82 @@ describe('SignUpForm', () => {
       await vi.waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent(/email already exists/i)
       })
+    })
+  })
+
+  // The form is disabled while the request is pending, and Chromium blurs the
+  // focused control when it is disabled. After a failure the submit button
+  // must take focus back, whether the submit came from it or from Enter in a
+  // field (HON-835). jsdom does not blur, so each test drops focus itself.
+  describe('focus after submit', () => {
+    type Outcome = 'error' | 'success'
+
+    async function deferSignUp() {
+      const { authClient } = await import('@/lib/auth-client')
+      let settle!: (outcome: Outcome) => void
+      vi.mocked(authClient.signUp.email).mockImplementation(
+        ((_payload: unknown, options: any) =>
+          new Promise<void>((resolve) => {
+            settle = (outcome) => {
+              if (outcome === 'error')
+                options?.onError?.({ error: { message: 'Email already exists' } })
+              else options?.onSuccess?.({})
+              resolve()
+            }
+          })) as any,
+      )
+      return (outcome: Outcome) => act(async () => settle(outcome))
+    }
+
+    it('returns focus to the submit button after a failed submit from the button', async () => {
+      const settle = await deferSignUp()
+      const user = userEvent.setup({ delay: null })
+      renderForm()
+
+      await fillRequiredFields(user)
+      await user.click(screen.getByRole('button', { name: /sign up/i }))
+      expect(screen.getByRole('button', { name: /creating account/i })).toBeDisabled()
+      dropFocusToBody()
+
+      await settle('error')
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: /^sign up$/i })).toHaveFocus()
+      })
+      expect(screen.getByRole('alert')).toHaveTextContent(/email already exists/i)
+    })
+
+    it('returns focus to the submit button after a failed submit from Enter in a field', async () => {
+      const settle = await deferSignUp()
+      const user = userEvent.setup({ delay: null })
+      renderForm()
+
+      await fillRequiredFields(user)
+      await user.type(screen.getByLabelText('Password'), '{Enter}')
+      expect(screen.getByLabelText('Password')).toBeDisabled()
+      dropFocusToBody()
+
+      await settle('error')
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: /^sign up$/i })).toHaveFocus()
+      })
+    })
+
+    it('does not move focus to the submit button after a successful sign up', async () => {
+      const settle = await deferSignUp()
+      const user = userEvent.setup({ delay: null })
+      renderForm()
+
+      await fillRequiredFields(user)
+      await user.click(screen.getByRole('button', { name: /sign up/i }))
+      dropFocusToBody()
+
+      await settle('success')
+
+      expect(mockPush).toHaveBeenCalledWith('/')
+      expect(screen.getByRole('button', { name: /creating account/i })).not.toHaveFocus()
+      expect(document.body).toHaveFocus()
     })
   })
 })

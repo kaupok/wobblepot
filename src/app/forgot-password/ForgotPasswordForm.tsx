@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
+import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
 export function ForgotPasswordForm() {
   const t = useTranslations('auth.forgotPassword')
@@ -19,6 +20,8 @@ export function ForgotPasswordForm() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  // Only a real error refocuses: success replaces the form, button included.
+  const { ref: submitRef, requestRefocus } = useRefocusAfterPending(isLoading)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,6 +56,7 @@ export function ForgotPasswordForm() {
 
             // Only show actual errors (network, rate limiting, etc.)
             setError(friendlyError(errorMessage))
+            requestRefocus()
           },
         },
       )
@@ -61,6 +65,7 @@ export function ForgotPasswordForm() {
       // them via Error in normal flow). Map to the network friendly copy.
       const errorMessage = err instanceof Error ? err.message : 'network'
       setError(friendlyError(errorMessage))
+      requestRefocus()
     } finally {
       setIsLoading(false)
     }
@@ -107,7 +112,7 @@ export function ForgotPasswordForm() {
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
             {!success && (
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button ref={submitRef} type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? t('submitting') : t('submit')}
               </Button>
             )}

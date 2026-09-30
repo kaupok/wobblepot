@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
+import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
 export function ResetPasswordForm() {
   const searchParams = useSearchParams()
@@ -76,6 +77,7 @@ function ResetPasswordFields({ token }: { token: string }) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const { ref: submitRef, requestRefocus } = useRefocusAfterPending(isLoading)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,6 +127,9 @@ function ResetPasswordFields({ token }: { token: string }) {
       setError(friendlyError(errorMessage))
     } finally {
       if (!isNavigating) {
+        // Every exit that did not navigate is a failure: return focus to the
+        // submit button, which lost it when the form was disabled.
+        requestRefocus()
         setIsLoading(false)
       }
     }
@@ -178,7 +183,7 @@ function ResetPasswordFields({ token }: { token: string }) {
         </CardContent>
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button ref={submitRef} type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? t('submitting') : t('submit')}
             </Button>
             <RememberPasswordLine />

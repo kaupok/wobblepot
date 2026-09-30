@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
+import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
 export function SignInForm() {
   const router = useRouter()
@@ -26,6 +27,7 @@ export function SignInForm() {
   const [successMessage, setSuccessMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSlowRequest, setIsSlowRequest] = useState(false)
+  const { ref: submitRef, requestRefocus } = useRefocusAfterPending(isLoading)
 
   useEffect(() => {
     // Check for password reset success
@@ -87,6 +89,9 @@ export function SignInForm() {
     } finally {
       clearTimeout(timeoutId)
       if (!isNavigating) {
+        // Every exit that did not navigate is a failure: return focus to the
+        // submit button, which lost it when the form was disabled.
+        requestRefocus()
         setIsLoading(false)
         setIsSlowRequest(false)
       }
@@ -161,7 +166,7 @@ export function SignInForm() {
         </CardContent>
         <CardFooter className="pt-6">
           <div className="flex w-full flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button ref={submitRef} type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? t('submitting') : t('submit')}
             </Button>
             <Body variant="muted" className="text-center">
