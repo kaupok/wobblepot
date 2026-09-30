@@ -34,7 +34,7 @@ Carried over here with one addition, because this runbook is the first that asks
 
 Two tables, both pure overlays on a canonical English base row. `prisma/schema.prisma` declares them as `IngredientTranslation` and `MealTranslation`; in Postgres they are `ingredient_translation` and `meal_translation` via `@@map`. **Use the SQL names below** — Prisma model names do not exist at a `psql` prompt, and the column identifiers are camelCase, so they must be double-quoted.
 
-### `ingredient_translation` (`prisma/schema.prisma:344`)
+### `ingredient_translation` (`prisma/schema.prisma:355`)
 
 | Column         | Type   | Edit?                                                                     |
 | -------------- | ------ | ------------------------------------------------------------------------- |
@@ -45,7 +45,7 @@ Two tables, both pure overlays on a canonical English base row. `prisma/schema.p
 
 Unique on `("ingredientId", locale)`: one translation per ingredient per locale. There is also a plain btree on `(locale, name)` (`ingredient_translation_locale_name_idx`), which serves the `locale` equality filter only — the fuzzy matcher's `similarity()` predicate cannot use it, and no trigram index exists on this table. See [Matching side effects](#matching-side-effects).
 
-### `meal_translation` (`prisma/schema.prisma:384`)
+### `meal_translation` (`prisma/schema.prisma:407`)
 
 | Column             | Type   | Edit?                                             |
 | ------------------ | ------ | ------------------------------------------------- |
@@ -58,7 +58,7 @@ Unique on `("ingredientId", locale)`: one translation per ingredient per locale.
 
 Unique on `("mealId", locale)`.
 
-`preparationNotes` looks editable and is not. The seed writes `null` into it in **both** the `create` and `update` branches (`prisma/seed.ts:3889`, `:3894`), so anything you put there is erased on the next production seed run. That is deliberate: seeded meals carry no English prep notes either, the meal-detail prep section is driven by the AI preparation-tips feature, and the column is reserved for user-authored notes, which keep their creator-time locale per HON-499's content principle. There is nothing to translate here.
+`preparationNotes` looks editable and is not. The seed writes `null` into it in **both** the `create` and `update` branches (`prisma/seed.ts:3897`, `:3902`), so anything you put there is erased on the next production seed run. That is deliberate: seeded meals carry no English prep notes either, the meal-detail prep section is driven by the AI preparation-tips feature, and the column is reserved for user-authored notes, which keep their creator-time locale per HON-499's content principle. There is nothing to translate here.
 
 > **Never `UPDATE` the `locale` column.** It is half of the unique key, so changing it does not "move" a translation — it re-keys the row. The locale you left loses its overlay — that ingredient silently falls back to English for every household on it — and the destination either already has a translation, so the write is rejected on the unique key, or does not, so you have moved Estonian text under another language's label. To add a translation for a new locale, `INSERT` a new row; to remove one, that is a seed-data change.
 
@@ -184,8 +184,8 @@ Edit the matching entry in `prisma/seed-ingredient-translations-et.ts` or `prism
 
 `prisma/seed.ts` upserts every seeded translation from checked-in data files, and both upserts carry a live `update` branch — not `create`-only:
 
-- `prisma/seed.ts:3945` — `ingredientTranslation.upsert(... update: { name: et })`
-- `prisma/seed.ts:3876` — `mealTranslation.upsert(... update: { name, description, preparationNotes: null })`
+- `prisma/seed.ts:3953` — `ingredientTranslation.upsert(... update: { name: et })`
+- `prisma/seed.ts:3884` — `mealTranslation.upsert(... update: { name, description, preparationNotes: null })`
 
 `.github/workflows/deploy-db-migrations-production.yml:71` runs `pnpm db:seed` against production with no `if:` gate, and [`../DEPLOYMENT.md`](../DEPLOYMENT.md) § Production Deployment Process makes that workflow **step 4a of every production release**. So the sequence is:
 
@@ -239,14 +239,14 @@ Add a second change-log line for the revert. Do not edit or delete the original 
 
 If Estonian itself has to come off — a systemic quality problem, not a typo — there is **no runtime flag**. [HON-549](https://linear.app/honkadori/issue/HON-549) retired `FEATURE_PUBLIC_LOCALES_FULL`, so pulling a locale is a code change plus a deploy. Two levers, different blast radii:
 
-**Hide it from the selector** (`src/lib/i18n/locales.ts:23`). Households already set to `et` keep rendering Estonian — `KNOWN_LOCALES` still accepts it:
+**Hide it from the selector** (`src/lib/i18n/locales.ts:24`). Households already set to `et` keep rendering Estonian — `KNOWN_LOCALES` still accepts it:
 
 ```diff
 -export const PUBLIC_LOCALES = ['en', 'et'] as const
 +export const PUBLIC_LOCALES = ['en'] as const
 ```
 
-**This lever is weaker than it looks — it is not sufficient on its own, and it is not inert either.** It removes the locale from the settings selector; households already on `et` then render a **blank** locale control, because `HouseholdSettingsForm.tsx:300` binds `value={locale}` against items built from `PUBLIC_LOCALES` (`:308`) behind a bare `<SelectValue />` with no placeholder. Meanwhile onboarding still auto-resolves Estonian from `Accept-Language` and persists it: `resolveLocale` gates on `isKnownLocale`, and `POST /api/households` writes the result without clamping it to `PUBLIC_LOCALES` (`src/app/api/households/route.ts:50`, whose comment says a clamp is unneeded _because_ the two sets are equal today — which is exactly the assumption this edit breaks). `isPublicLocale` has no non-test callers. So an Estonian-preferring browser still lands in Estonian after this change. If the goal is "no new households get Estonian", you need `KNOWN_LOCALES` below, or a clamp added to that route first.
+**This lever is weaker than it looks — it is not sufficient on its own, and it is not inert either.** It removes the locale from the settings selector; households already on `et` still see their locale's label in the control, because `HouseholdSettingsForm.tsx:331` renders `localeOption.${locale}` explicitly, but the option list (`:334`) is built from `PUBLIC_LOCALES`, so a household that switches away cannot switch back. Meanwhile onboarding still auto-resolves Estonian from `Accept-Language` and persists it: `resolveLocale` gates on `isKnownLocale`, and `POST /api/households` writes the result without clamping it to `PUBLIC_LOCALES` (`src/app/api/households/route.ts:63-67`, whose comment says a clamp is unneeded _because_ the two sets are equal today — which is exactly the assumption this edit breaks). `isPublicLocale` has one non-test caller, `src/lib/emails/locale.ts:28`, and it is not on the onboarding path: it makes transactional email fall back to English for `et` households as soon as `et` leaves `PUBLIC_LOCALES`. So an Estonian-preferring browser still lands in Estonian after this change, with Estonian chrome and English email. If the goal is "no new households get Estonian", you need `KNOWN_LOCALES` below, or a clamp added to that route first.
 
 **Revert every household to English chrome** (`src/lib/i18n/locales.ts:15`) — the rollback lever named in HON-499's principles:
 
@@ -280,9 +280,9 @@ Neither is a reason to avoid the edit. It is a reason to prefer the word a user 
 
 ## Reference
 
-- Tables: `prisma/schema.prisma:344` (`IngredientTranslation`), `:384` (`MealTranslation`)
+- Tables: `prisma/schema.prisma:355` (`IngredientTranslation`), `:407` (`MealTranslation`)
 - Read path: `src/lib/i18n/content.ts` — `ingredientTranslationsInclude` / `mealTranslationsInclude`
-- Locale sets: `src/lib/i18n/locales.ts` — `KNOWN_LOCALES` (`:15`), `PUBLIC_LOCALES` (`:23`)
+- Locale sets: `src/lib/i18n/locales.ts` — `KNOWN_LOCALES` (`:15`), `PUBLIC_LOCALES` (`:24`)
 - Ingredient matching: `src/lib/ai/fuzzy-ingredient-match.ts`
 - Localization overview: [`../LOCALIZATION.md`](../LOCALIZATION.md)
 - Connections, PITR, failure-mode playbooks: [`database-recovery.md`](database-recovery.md)

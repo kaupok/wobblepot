@@ -97,11 +97,11 @@ Retire one in a single PR for the code side, and don't forget the deploy targets
 - [ ] `.env.example` — the documented placeholder.
 - [ ] Every read (`serverEnv.FEATURE_…`) and the tests that exercised the gate.
 - [ ] Docs that describe the gate — grep the flag name across `docs/`.
-- [ ] **Vercel → Settings → Environment Variables**, in _every_ environment (Production / Preview / Development). This is the step with no code-review trigger, so it falls on the PR author / merger — call it out explicitly in the PR description.
+- [ ] **Vercel → Settings → Environment Variables**, in _every_ environment (Production / Preview / Development, plus the custom `staging` environment). This is the step with no code-review trigger, so it falls on the PR author / merger — call it out explicitly in the PR description.
 - [ ] GitHub Actions secrets / variables, if any workflow injected it (grep `.github/`).
 - [ ] `pnpm env:audit` — confirms nothing is left behind in Vercel. It should report zero findings once the retirement is complete; the flag showing up as `ORPHAN` means the dashboard step above was missed. See docs/ENVIRONMENT_SETUP.md § "Drift audit".
 
-Removing it from `env.ts` is safe even while a stale value still sits in Vercel: `serverEnv` validates lazily, per accessed key, against an allowlist, so an unread var is inert and can't throw at boot. That's a convenience for ordering the cleanup — not a reason to skip the dashboard step. `pnpm env:audit` (HON-550) is the automated backstop: CI runs it warn-only on every PR and prints any Vercel-side orphan, so a missed dashboard step surfaces instead of rotting.
+Removing it from `env.ts` is safe even while a stale value still sits in Vercel: `serverEnv` validates lazily, per accessed key, against an allowlist, so an unread var is inert and can't throw at boot. That's a convenience for ordering the cleanup — not a reason to skip the dashboard step. `pnpm env:audit` (HON-550) is the automated backstop: CI runs it with `--strict` on every PR, so a Vercel-side orphan fails the `Vercel env-var drift audit` job and a missed dashboard step surfaces instead of rotting. (The check is not a required one until HON-584, so red does not block the merge.)
 
 ## Gotchas
 

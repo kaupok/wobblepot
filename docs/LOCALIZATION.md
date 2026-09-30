@@ -136,7 +136,7 @@ Each line is a single JSON record after the prefix. Retention is bounded by Verc
 2. Add a label for the locale in `LOCALE_LABELS` in `src/lib/ai/prompts.ts` so the AI gets a human-readable language name.
 3. Create `messages/<locale>.json` and translate every key. Run `pnpm dev` and exercise every chrome surface to surface gaps.
 4. Translate seeded content via the `IngredientTranslation` and `MealTranslation` tables. AI-assisted first pass + native-speaker review.
-5. Seed step 4 **before** exposing the new locale. `resolveParserLocale` in `src/app/api/recipes/parse/route.ts` threads the household locale straight through (the `FEATURE_RECIPE_PARSER_ET` gate was retired in HON-506), so a new-locale household reaches the recipe parser immediately — and without seeded `IngredientTranslation` rows the matcher can't resolve names, recreating the duplicate household-scoped ingredient problem (HON-514) the old gate guarded against. The **selector** reads `PUBLIC_LOCALES` directly today (HON-549 retired the staging-only env-flag override), so the new locale is not offered in household settings until it lands there. **Onboarding is not clamped**, though: `POST /api/households` persists `resolveLocale`'s result as-is (`src/app/api/households/route.ts:50`), and `resolveLocale` / `matchAcceptLanguage` gate on `isKnownLocale`, not `isPublicLocale` — which has no non-test callers. A browser sending the new locale in `Accept-Language` will therefore be onboarded into it the moment it joins `KNOWN_LOCALES`. Keep it out of `KNOWN_LOCALES` until it is ready, or add the clamp.
+5. Seed step 4 **before** exposing the new locale. `resolveParserLocale` in `src/app/api/recipes/parse/route.ts` threads the household locale straight through (the `FEATURE_RECIPE_PARSER_ET` gate was retired in HON-506), so a new-locale household reaches the recipe parser immediately — and without seeded `IngredientTranslation` rows the matcher can't resolve names, recreating the duplicate household-scoped ingredient problem (HON-514) the old gate guarded against. The **selector** reads `PUBLIC_LOCALES` directly today (HON-549 retired the staging-only env-flag override), so the new locale is not offered in household settings until it lands there. **Onboarding is not clamped**, though: `POST /api/households` persists `resolveLocale`'s result as-is (`src/app/api/households/route.ts:63-67`), and `resolveLocale` / `matchAcceptLanguage` gate on `isKnownLocale`, not `isPublicLocale` — whose only non-test caller is the email-locale lookup (`src/lib/emails/locale.ts`). A browser sending the new locale in `Accept-Language` will therefore be onboarded into it the moment it joins `KNOWN_LOCALES`. Keep it out of `KNOWN_LOCALES` until it is ready, or add the clamp.
 6. **RTL languages only:** add a `direction` field to a parallel map, set `<html dir>` from it in `src/app/layout.tsx`, and audit Tailwind direction-sensitive utilities (`mr-`, `ml-`, `pl-`, `pr-` → `me-`, `ms-`, `pe-`, `ps-`). Tracked as deferred — the codebase currently assumes LTR.
 7. Pilot-test with a target user before adding to `PUBLIC_LOCALES`.
 8. Add to `PUBLIC_LOCALES` to expose in the locale selector. Before flipping public, add the locale's copy to the `emails` namespace in `messages/<locale>.json`. `emailTranslator` overlays the locale's `emails` namespace on English, so a key the new catalog is missing degrades to an English sentence rather than to next-intl's default fallback (the literal key path — `emails.resetPassword.cta` in a CTA button). That overlay is a floor, not a safety net: a key that is _present_ but whose ICU syntax is malformed still renders the key path, and `catalogue-parity.test.ts` compares `en.json` against `et.json` by name, so extend it to the new catalog rather than assuming it is covered. See [Transactional email](#transactional-email).
@@ -161,7 +161,7 @@ Architectural decisions that the platform supports but we deliberately don't shi
 - **Automated AI quality scoring** (LLM-as-judge). Sampling exists for human review, not synthetic grading.
 - **Localized `breach-notification.ts`.** The GDPR Art. 33/34 breach email is sent by an operator following a runbook, to an audience that is not locale-resolvable at send time. Deliberately English-only (HON-513).
 - **Mid-lifetime locale-change UX** (visual markers, on-demand translation, switch-time prompts). Silent mixed state by design.
-- **Sentry / PostHog locale tagging** (HON-516). Not yet wired; useful for triage during partner-test windows but not blocking.
+- **PostHog locale tagging** (HON-516, cancelled 2026-09-15). Not wired and not planned; errors and analytics carry no locale. There is no Sentry — PostHog is the error tracker.
 - **Non-Estonian AI output sampling.** English is "known good" and excluded by design from `logAiSample`.
 
 ## Cross-references
@@ -189,7 +189,7 @@ Architectural decisions that the platform supports but we deliberately don't shi
 - HON-508 / 509 / 510 / 511 — Tier 3 chrome.
 - HON-512 — partner test.
 - HON-513 — transactional email localization (password reset, account deletion).
-- HON-514 — admin promotion of household-scoped ingredients to the global pool.
+- HON-514 — admin promotion of household-scoped ingredients to the global pool (cancelled 2026-09-15; no replacement yet).
 - HON-515 — input-side decimal-separator parsing.
-- HON-516 — Sentry / PostHog locale tagging (deferred observability).
+- HON-516 — PostHog locale tagging (cancelled 2026-09-15).
 - HON-517 — post-launch translation maintenance workflow.

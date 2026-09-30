@@ -1,6 +1,6 @@
 # Git Workflow Guide
 
-Detailed git workflow procedures and troubleshooting for the Honkadori project.
+Detailed git workflow procedures and troubleshooting for the Wobblepot project.
 
 ## Table of Contents
 
@@ -221,7 +221,7 @@ The pre-commit hook:
 - Runs type-check on all TypeScript files
 - Runs ESLint + Prettier on staged files (via lint-staged)
 
-If hooks aren't working, try: `rm -rf .git/hooks/pre-commit && pnpm install`
+If hooks aren't working, run `pnpm install` and check that `git config core.hooksPath` prints `.husky/_`. The hook itself is the tracked file `.husky/pre-commit`.
 
 **Bypassing the hook** (not recommended):
 
@@ -230,8 +230,6 @@ If you absolutely must commit to main:
 ```bash
 git commit --no-verify
 ```
-
-**Note:** Git hooks are local (`.git/hooks/` is not version controlled), so new team members need to run the setup script after cloning the repository.
 
 ## Pull Request Workflow
 

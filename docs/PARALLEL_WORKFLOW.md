@@ -70,7 +70,7 @@ Then use `wt new feat/my-feature` from anywhere.
 
 ## Worktree Location
 
-All parallel worktrees are created in `~/.worktrees/wobblepot/<branch-name>` to keep the project directory clean.
+All parallel worktrees are created in `~/.worktrees/wobblepot/<branch-name>` to keep the project directory clean. A `/` in the branch name becomes `--` in the directory name (`feat/x` → `feat--x`).
 
 ## Untracked Files
 
@@ -206,7 +206,7 @@ wt stop
 - On worker failure, a one-shot `claude -p` call analyzes the log
 - Returns: `RETRY` (respawn, max 1 retry), `BACKLOG` (needs refinement), or `NEEDS_HUMAN` (infra problem)
 - A `RETRY` (and the Neon-cap one-retry) respawns with a **retry note** — phase, failure type, duration, commit count and the last 40 log lines through `sanitize_log` — passed as `ORCHESTRATOR_RETRY_CONTEXT` to `wt auto`, which appends it to the `/auto-implement` prompt. The skill reads it first and resumes from the kept branch or open PR instead of starting over. Progress markers in the quoted tail are defanged (`[x:complete]` → `(x:complete)`) so attempt 1's markers can never be read as attempt 2's progress (HON-728)
-- Failed issues get a comment with log tail, a label (`failed`/`needs-attention`), and move to Backlog
+- Failed issues get a comment with log tail, a label (`Failed` or `Needs attention`), and move to Backlog
 - The log tail is run through `sanitize_log` before it reaches Linear. Redaction is a **literal** match of every `.env` value ≥ 8 chars, plus a `sed` backstop for common secret shapes. It used to be an `awk gsub()`, which reads its pattern as a regex — so a base64 `BETTER_AUTH_SECRET`, a `NEON_API_KEY`, anything with `+ ? . * [ ] ( ) \ ^ $ |` in it, silently failed to match itself and was posted in the clear (HON-572)
 
 **Circuit breaker.** `MAX_CONSECUTIVE_FAILURES` (default 3) pauses new spawns for 10 minutes. The counter means _consecutive runs that shipped nothing_: every non-shipping outcome increments it — failed, timed out, gated, stranded, and retried — and **`handle_success` holds the only reset in the script.**
@@ -235,7 +235,7 @@ Requires `LINEAR_API_KEY` env var (format: `lin_api_...`).
 2N + 2S + 3
 ```
 
-On Neon's free plan (10 branches): N=3 fits at 9, N=4 does not at 11. The one spare branch at N=3 is what absorbs a **single** stranded run; a second one hits the cap. Treat a stranded worktree as something to clear (`wt list`, then `wt cleanup <branch>`), not as headroom.
+On Neon's free plan (10 branches): N=3 fits at 9, N=4 does not at 11. A stranded run holds two branches, so the one spare branch at N=3 does not absorb even a **single** stranded run at full load (2·3 + 2·1 + 3 = 11); the next worker to start hits the cap. Treat a stranded worktree as something to clear (`wt list`, then `wt cleanup <branch>`), not as headroom.
 
 **A local review server takes that same spare.** `pnpm review:local` in its default branch mode holds one `e2e-local-*` branch for as long as it runs (it is deleted when the server stops), so at N=3 it uses the single spare: run it while a run is stranded, or while a fourth consumer holds a branch, and one of them hits the cap. When no slot is free, `pnpm review:local --db env` reviews against the database in `.env` and takes no branch (`docs/CHROME_TESTING.md` → "Reviewing sign-up and onboarding"). `pnpm test:e2e:local` costs the same one branch for the length of the suite.
 
@@ -266,7 +266,7 @@ The cap message itself names the budget, the ceiling in force and the branch cou
 
 Below those, each worker keeps a tail of its Claude activity, with a `●` on any worker whose session advanced since the last redraw. Every worker keeps its slot whether or not it moved — hiding the quiet ones empties the screen exactly when several workers are sitting in a CI wait, which is when you are most likely to be watching.
 
-Four things about that display are worth knowing before you trust it:
+Five things about that display are worth knowing before you trust it:
 
 - **The `THIS RUN` tallies are scoped to the current orchestrator process**, by windowing `orchestrator.log` at the status file's `started_at`. If the run predates a 50 MB log rotation, the counts are a floor and are labelled `(floor: log rotated)` rather than passed off as totals.
 - **PR and CI state come from a background cache, not from the redraw.** A `gh` call costs about a second, so probing three workers on every 5s tick would stall the interval it promises; instead a probe runs at most every 30s per worker (120s for the landed pane), the redraw renders whatever the cache holds, and a failed probe keeps the last known value rather than blanking the column. A freshly pushed branch therefore shows `…` in the `PR` column for one tick.
@@ -276,7 +276,7 @@ Four things about that display are worth knowing before you trust it:
 
 Use `watch -n 5 wt status` if you want the terse one-screen version in a pane instead.
 
-Commit counts and the git-heuristic phases derived from them — in `wt status`, `wt watch`, the `[OUTCOME]` lines and the Linear comments — are measured against `origin/main` as last fetched, which is the ref autonomous worktrees are cut from. Your local `main` never affects them, so you do not need to `git pull` in the primary checkout to keep those honest (HON-601). `wt list` and `wt cleanup` are the exception: they still measure against local `main`, so on a checkout you have not pulled they can report `unpushed commits` for a worktree `wt status` shows as empty.
+Commit counts and the git-heuristic phases derived from them — in `wt status`, `wt watch`, the `[OUTCOME]` lines and the Linear comments — are measured against `origin/main` as last fetched, which is the ref autonomous worktrees are cut from. Your local `main` never affects them, so you do not need to `git pull` in the primary checkout to keep those honest (HON-601). `wt cleanup` and `wt cleanup-all` are the exception: they still measure against local `main`, so on a checkout you have not pulled they can report `unpushed commits` for a worktree `wt status` shows as empty.
 
 **macOS notifications:** Desktop notifications fire automatically when a worker succeeds or fails, showing the issue ID, outcome, duration, and phase.
 
@@ -337,8 +337,9 @@ All logs are written to `~/.worktrees/wobblepot/logs/`:
 | ----------------------------- | ------------------------------------------------------ |
 | `orchestrator.log`            | Main loop activity, claims, triage, outcomes           |
 | `orchestrator-console.log`    | The orchestrator's raw stdout/stderr (crashes, aborts) |
-| `orchestrator-status.json`    | Machine-readable status for `wt status`                |
 | `worker-HON-XX-TIMESTAMP.log` | Full output from each `wt auto` worker                 |
+
+The machine-readable status that `wt status` reads, `orchestrator-status.json`, sits one level up, in `~/.worktrees/wobblepot/`.
 
 `orchestrator.log` has exactly one writer — the script's own `log()` — so each line appears once, clean, with no ANSI escapes. `wt start` sends the process's stdout/stderr to `orchestrator-console.log` instead of folding them back into the same file, which used to store every line twice, once escape-wrapped (HON-572). A start-up abort never reaches `log()`, so the console log is where to look when `wt start` reports a failure.
 

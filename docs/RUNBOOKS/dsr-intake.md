@@ -18,16 +18,16 @@ This is not a customer-service playbook for general feature questions; it is the
 - **Surfaces that publish this address:**
   - `src/app/(legal)/privacy/page.tsx` — all four contact spots in the privacy policy
   - `src/app/api/auth/user/route.ts` — the recovery contact in the account-deletion confirmation email
-  - `src/app/bot/page.tsx` — the `/bot` crawler-opt-out contact (hardcodes the literal; HON-645)
+  - `src/app/bot/page.tsx` — the `/bot` crawler-opt-out contact (HON-645)
   - `README.md` — the Security section, for privacy questions
   - `docs/RUNBOOKS/breach-notification.md` — the controller contact in the Art. 33 AKI notification
   - `docs/RUNBOOKS/gdpr-deletion.md` — the contact a user emails to cancel a pending deletion
   - This runbook — the **Address** line above
-- **Regenerate this list; do not trust it.** The authoritative pair is `git grep -n 'privacy@wobblepot.com' -- ':!pnpm-lock.yaml'` and `git grep -ln PRIVACY_EMAIL -- 'src/**'`. `src/lib/support.ts` exports `PRIVACY_EMAIL` and `PRIVACY_EMAIL_HREF`; the `privacy/page.test.tsx` and `account-deletion-requested.test.ts` fixtures assert the literal.
+- **Regenerate this list; do not trust it.** The authoritative pair is `git grep -n 'privacy@wobblepot.com' -- ':!pnpm-lock.yaml'` and `git grep -ln PRIVACY_EMAIL -- 'src/**'`. `src/lib/support.ts` exports `PRIVACY_EMAIL` and `PRIVACY_EMAIL_HREF`; every `src` entry above imports them. The `privacy/page.test.tsx`, `bot/page.test.tsx`, `account-deletion-requested.test.ts`, `emails/i18n.test.ts` and `tests/e2e/utils/mail-helpers.test.ts` fixtures carry the literal.
 
 ## Support inbox
 
-- **Address:** `support@wobblepot.com` — general support, outage reports, and security reports. Not a DSR intake; see "Routing" above for DSRs that arrive here.
+- **Address:** `support@wobblepot.com` — general support, invite requests, outage reports, and security reports. Not a DSR intake; see "Routing" above for DSRs that arrive here.
 - **Routing:** mail is delivered to the data-controller's monitored mailbox. Configuration lives outside the repository (DNS / mail provider). See "Re-creating the auto-reply" below if the provider is changed.
 - **Surfaces that publish this address:**
   - `src/components/footer.tsx` — every page (authed + public)
@@ -35,6 +35,8 @@ This is not a customer-service playbook for general feature questions; it is the
   - `src/app/global-error.tsx` — root error boundary (hardcoded English; renders outside the i18n provider)
   - `src/app/status/page.tsx` — public `/status`
   - `src/app/(legal)/terms/page.tsx` — the Terms contact
+  - `src/app/page.tsx` — the landing page's invite-request link (pre-filled subject via `supportMailtoHref`; HON-847)
+  - `src/app/sign-up/SignUpForm.tsx` — the same invite-request link on the sign-up form (HON-847)
   - `LICENSE` (HON-604) — the licensing-questions line in the root notice
   - `README.md` — twice: the intro paragraph, for general questions (HON-603), and the Security section, for vulnerability reports
   - `docs/RUNBOOKS/status-page.md` — canonical incident-banner copy, pasted verbatim into a user-facing banner
@@ -42,8 +44,8 @@ This is not a customer-service playbook for general feature questions; it is the
   - `docs/EMAIL_SETUP.md` — outbound-sender notes
   - This runbook — the **Address** line above
   - _Not_ the privacy policy: it publishes `privacy@wobblepot.com` and rotates with `PRIVACY_EMAIL` — see "DSR inbox" above.
-- **Regenerate this list; do not trust it.** It has been wrong twice. The authoritative pair is `git grep -n 'support@wobblepot.com' -- ':!pnpm-lock.yaml'` and `git grep -ln SUPPORT_EMAIL -- 'src/**'`; run both before a rotation and reconcile against the entries above.
-- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL` and `SUPPORT_EMAIL_HREF`. Every `.tsx` entry above imports them, so app code is one edit. The `LICENSE`, `README.md`, and `docs/**` entries hardcode the literal and need hand edits — static files and runbook copy have no import mechanism. `src/lib/resend.ts` names the constant in a comment only. Five tests and stories assert the literal (`src/app/error.test.tsx`, `src/app/global-error.test.tsx`, `src/app/status/page.test.tsx`, `src/components/footer.test.tsx`, `src/components/footer.stories.tsx`) — they fail loudly on a rotation, which is the backstop for anything this list still misses.
+- **Regenerate this list; do not trust it.** It has been wrong three times. The authoritative pair is `git grep -n 'support@wobblepot.com' -- ':!pnpm-lock.yaml'` and `git grep -ln SUPPORT_EMAIL -- 'src/**'`; run both before a rotation and reconcile against the entries above.
+- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL`, `SUPPORT_EMAIL_HREF` and `supportMailtoHref`. Every `.tsx` entry above imports them, so app code is one edit. The `LICENSE`, `README.md`, and `docs/**` entries hardcode the literal and need hand edits — static files and runbook copy have no import mechanism. `src/lib/resend.ts` names the constant in a comment only. Nine tests and stories carry the literal (`src/app/error.test.tsx`, `src/app/global-error.test.tsx`, `src/app/page.test.tsx`, `src/app/sign-up/page.test.tsx`, `src/app/status/page.test.tsx`, `src/components/footer.test.tsx`, `src/components/footer.stories.tsx`, `src/components/ui/callout.stories.tsx`, `src/lib/support.test.ts`) — the assertions among them fail loudly on a rotation, which is the backstop for anything this list still misses.
 
 ## SLAs
 
@@ -51,11 +53,11 @@ This is not a customer-service playbook for general feature questions; it is the
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Incoming messages reach a human                   | within 24 hours during working days                                                           | HON-487 acceptance criteria                                                    |
 | First substantive response                        | 3 working days                                                                                | auto-reply to incoming mail                                                    |
-| GDPR DSR acknowledgement                          | 72 hours from receipt                                                                         | GDPR Art. 12(3) — internal commitment, stricter than the statute               |
+| GDPR DSR acknowledgement                          | 72 hours from receipt                                                                         | Privacy policy commitment — stricter than GDPR Art. 12(3) requires             |
 | GDPR DSR fulfilment                               | 30 days from receipt; extendable to 90 days for complex requests with notice to the requester | GDPR Art. 12(3)                                                                |
 | Breach-related mail (subprocessor or user report) | escalate immediately to the breach runbook                                                    | see [`docs/RUNBOOKS/breach-notification.md`](breach-notification.md) (HON-482) |
 
-The 24-hour and 3-working-day commitments are softer than the GDPR clock and apply to all mail at either inbox, not just DSRs. The 72-hour and 30-day commitments only apply to GDPR DSRs and are statutory — do not silently miss them. "Receipt" is the first arrival at either inbox: a DSR forwarded from `support@` keeps its original receipt date.
+The 24-hour and 3-working-day commitments are softer than the GDPR clock and apply to all mail at either inbox, not just DSRs. The 72-hour and 30-day commitments only apply to GDPR DSRs. The 30-day one is statutory; the 72-hour acknowledgement is not, but the privacy policy publishes it, so it is a commitment to users — do not silently miss either. "Receipt" is the first arrival at either inbox: a DSR forwarded from `support@` keeps its original receipt date.
 
 ## DSR types
 
@@ -81,7 +83,7 @@ If a request is ambiguous ("delete my data"), default to the strictest interpret
 - The request asks us to send the export to a different email
 - The request is plausibly being made by a compromised account (sudden deletion request right after suspicious sign-in activity)
 
-In escalation cases ask for one additional signal — the most recent invoice email, the date of last sign-in, or a reply confirmation sent to the registered address. **Never** ask for a passport scan, ID document, or government-issued credential.
+In escalation cases ask for one additional signal — the date of last sign-in or a reply confirmation sent to the registered address. **Never** ask for a passport scan, ID document, or government-issued credential.
 
 ## Triage checklist
 
@@ -116,7 +118,7 @@ Constraints on the copy:
 
 - **Do not** claim 24/7 monitoring during beta.
 - **Do not** promise a specific representative or named individual.
-- **Do** mention the GDPR clocks if a DSR is suspected — sets expectations and counts as the statutory acknowledgement when the user's mail is unambiguously a DSR.
+- **Do** mention the GDPR clocks if a DSR is suspected — sets expectations and counts as the 72-hour acknowledgement when the user's mail is unambiguously a DSR.
 
 ## Re-creating the auto-reply
 

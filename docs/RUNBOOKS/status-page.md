@@ -6,19 +6,20 @@ Operator runbook for the `/status` page introduced in HON-489.
 
 - **URL:** `/status` — public, no sign-in required, allow-listed in `src/app/robots.ts`.
 - **Audience:** users self-diagnosing "is it me or them?" during an outage, plus on-call during incident response.
-- **What it shows:** up/down state for three components — AI pipeline, auth, database — plus an optional incident banner.
+- **What it shows:** up/down state for four components — AI pipeline, auth, database, rate limiting — plus an optional incident banner.
 
 The page is a thin view on top of live probes. It is **not** a historical incident archive; for that, see the Linear incident log.
 
 ## How the probes are wired
 
-| Component | Code                                              | Check                                                                                          |
-| --------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Database  | [`probeDatabase`](../../src/lib/status/probes.ts) | `prisma.$queryRaw'SELECT 1'`, 2s timeout. Mirrors `/api/health` (HON-454).                     |
-| Auth      | [`probeAuth`](../../src/lib/status/probes.ts)     | `prisma.session.count()`, 2s timeout. Exercises the table Better Auth reads.                   |
-| AI        | [`probeAi`](../../src/lib/status/probes.ts)       | `generateObject` against `claude-haiku-4-5` with a trivial `{ ok: true }` schema, 10s timeout. |
+| Component     | Code                                               | Check                                                                                                                                                     |
+| ------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database      | [`probeDatabase`](../../src/lib/status/probes.ts)  | `prisma.$queryRaw'SELECT 1'`, 2s timeout. Mirrors `/api/health` (HON-454).                                                                                |
+| Auth          | [`probeAuth`](../../src/lib/status/probes.ts)      | `prisma.session.count()`, 2s timeout. Exercises the table Better Auth reads.                                                                              |
+| Rate limiting | [`probeRateLimit`](../../src/lib/status/probes.ts) | Upstash Redis `PING`, 2s timeout. A failure means abuse protection is off, not that the product is down, so it surfaces as `degraded` rather than `down`. |
+| AI            | [`probeAi`](../../src/lib/status/probes.ts)        | `generateObject` against `claude-haiku-4-5` with a trivial `{ ok: true }` schema, 10s timeout.                                                            |
 
-All three probes are cached in-memory for **60 seconds** per serverless instance. That is the steady-state cost ceiling:
+All four probes are cached in-memory for **60 seconds** per serverless instance. That is the steady-state cost ceiling:
 
 - AI probe runs at most once/minute/instance regardless of page traffic.
 - At Haiku pricing with a tiny prompt and response, one probe costs well under $0.001. Even if every Vercel instance stays warm and probes once per minute for a full day, the daily probe cost is below a dollar.

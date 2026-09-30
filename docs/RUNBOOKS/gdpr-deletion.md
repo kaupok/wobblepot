@@ -82,7 +82,7 @@ What happens to each model when a user account is purged. Classification:
 A user who changes their mind emails the privacy contact (`privacy@wobblepot.com`) before their purge date. To restore the account, the operator clears the two timestamps directly:
 
 1. **Confirm the request is genuine.** Reply from the privacy inbox; verify the requester controls the account email. Do not restore on an unverified request.
-2. **Restore the account** — run on the production database (read [`database-recovery.md`](database-recovery.md) first if you are unsure how to reach a SQL prompt safely):
+2. **Restore the account** — run on the production database (read [`translation-maintenance.md`](translation-maintenance.md) § "Getting a SQL prompt" first if you are unsure how to reach a SQL prompt safely):
 
    ```sql
    -- Use the exact account email. Scoped to a soft-deleted row so a typo

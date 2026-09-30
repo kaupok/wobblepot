@@ -10,11 +10,6 @@ Foundation and core flows are complete (AI planning, shopping, pantry, auth, hou
 
 Sign-up is gated behind single-use invite codes (HON-488) controlled by the `invite_code_required` PostHog kill-switch (default `true`). Flipping the flag to `false` opens public sign-up without a deploy; flipping back re-locks. This shrinks blast radius for the first cohort while keeping us one toggle away from open beta.
 
-<!-- prettier-ignore -->
-```typescript
-mcp__linear-server__list_issues({})
-```
-
 ---
 
 ## Vision
@@ -165,7 +160,7 @@ Preferences (dietary type, allergens, meal types) are set on `/household` after 
 
 **Decision:** AI selects from a pre-filtered candidate list.
 
-**Why:** Database handles hard constraints (allergens, time), AI handles variety. Makes AI a "selector" not "constraint enforcer."
+**Why:** Database handles hard constraints (allergens), AI handles variety. Makes AI a "selector" not "constraint enforcer."
 
 **Implementation:**
 
@@ -210,7 +205,7 @@ enum ProteinType {
 }
 ```
 
-**Derivation logic:** See `src/lib/meal-planning/slots.ts`
+**Derivation logic:** See `deriveProteinType` in `src/lib/meal-planning/protein.ts`
 
 **Empty pool handling:** If a required slot's candidate pool is empty (due to allergens, exclusions, or recent history), skip that slot for the week and include a warning.
 
@@ -370,7 +365,7 @@ Key steps:
 
 ## Technical Reference
 
-_For tech stack and versions, see [CLAUDE.md](../CLAUDE.md). This section covers domain-specific technical details._
+_For the tech stack, see [CLAUDE.md](../CLAUDE.md); exact versions are pinned in `package.json`. This section covers domain-specific technical details._
 
 ### Environment Variables
 
@@ -534,11 +529,11 @@ _Ideas for later. Some may be pulled into MLP iteration if they feel essential._
 - ~~Urgency sorting for shopping~~ Done
 - ~~Rolling window shopping list~~ Done
 - Expiry tracking & "use soon" suggestions
-- Preparation guidance (AI cooking tips)
+- ~~Preparation guidance (AI cooking tips)~~ Done
 - Calorie-aware meal planning
 - Kid-friendly filtering in AI validation
 - Cooking time optimization
-- Meal ratings and favorites
+- ~~Meal ratings and favorites~~ Done
 - Full recipe instructions
 - PWA offline capabilities
 - Multi-household support
