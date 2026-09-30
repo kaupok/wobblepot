@@ -5,6 +5,7 @@ import {
   createMatchedIngredientRowData,
   createUnmatchedIngredientRowData,
 } from '@/stories/fixtures'
+import { expectAtMostLines, expectWithinHorizontally } from '@/stories/layout-helpers'
 import { IngredientRow } from './IngredientRow'
 
 // Drive a controlled React input the way React expects — see the note in
@@ -14,6 +15,21 @@ function setInputValue(input: HTMLInputElement, value: string): void {
   const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')
   descriptor?.set?.call(input, value)
   input.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+// HON-834: at 390px the text column sat beside the controls, shrank to one
+// word per line, and the controls ran past the row. Below `sm` the controls
+// now stack under the text; from `sm` up they sit beside it as before.
+function measureMatchedRow(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement)
+  const name = canvas.getByText(createMatchedIngredientRowData().ingredient.name)
+  const perServing = canvas.getByText(/per serving|portsjoni kohta/)
+  const row = name.closest<HTMLElement>('.rounded-md')!
+  const controls = [
+    canvas.getByRole('textbox', { name: /quantity|kogus/i }),
+    ...canvas.getAllByRole('button'),
+  ]
+  return { canvas, name, perServing, row, controls }
 }
 
 const meta = {
@@ -200,5 +216,67 @@ export const MatchedRemoveInvokesOnRemove: Story = {
     const removeButton = canvas.getByRole('button', { name: /remove ingredient/i })
     await userEvent.click(removeButton)
     await expect(args.onRemove).toHaveBeenCalledTimes(1)
+  },
+}
+
+async function expectStackedMatchedRow(canvasElement: HTMLElement) {
+  const { canvas, name, perServing, row, controls } = measureMatchedRow(canvasElement)
+  for (const control of controls) expectWithinHorizontally(control, row)
+  expectAtMostLines(name, 2)
+  expectAtMostLines(perServing, 2)
+  expectAtMostLines(canvas.getByText(/rows 1, 4|ridadel 1, 4/), 2)
+  // The controls sit on their own row under the text column.
+  await expect(controls[0]!.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+    perServing.getBoundingClientRect().bottom,
+  )
+}
+
+export const MobileLayout: Story = {
+  args: { duplicateIndices: [0, 3] },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'At 390px the quantity controls and remove button stack under the name, so the text keeps the full row width and no control runs past the tile (HON-834).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expectStackedMatchedRow(canvasElement)
+  },
+}
+
+export const MobileLayoutEstonian: Story = {
+  args: { duplicateIndices: [0, 3] },
+  globals: { locale: 'et' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The longer Estonian labels ("Kogus määramata", "portsjoni kohta") at 390px: same stacked layout, nothing clipped (HON-834).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expectStackedMatchedRow(canvasElement)
+  },
+}
+
+export const DesktopLayout: Story = {
+  args: { duplicateIndices: [0, 3] },
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  parameters: {
+    docs: {
+      description: {
+        story: 'From `sm` up the controls sit beside the text column on one row (HON-834).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const { perServing, row, controls } = measureMatchedRow(canvasElement)
+    for (const control of controls) expectWithinHorizontally(control, row)
+    await expect(controls[0]!.getBoundingClientRect().left).toBeGreaterThan(
+      perServing.getBoundingClientRect().right,
+    )
   },
 }

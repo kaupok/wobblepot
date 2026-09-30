@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import { createIngredientResult, createMealFormComponent } from '@/stories/fixtures'
+import { expectAtMostLines, expectWithinHorizontally } from '@/stories/layout-helpers'
 import { ComponentList } from './ComponentList'
 
 const standardComponents = [
@@ -174,5 +175,92 @@ export const EstonianLocale: Story = {
           'Estonian locale — per-serving quantity renders with a comma decimal (`1,5g per serving`) instead of a period.',
       },
     },
+  },
+}
+
+// HON-834: at 390px each row's text column sat beside the quantity controls and
+// shrank to one word per line. Below `sm` the controls stack under the text;
+// from `sm` up they sit beside it as before.
+function rowParts(row: HTMLElement) {
+  const scope = within(row)
+  return {
+    name: row.querySelector<HTMLElement>('p')!,
+    perServing: scope.getByText(/per serving|portsjoni kohta/),
+    controls: [scope.getByRole('textbox'), ...scope.getAllByRole('button')],
+  }
+}
+
+function rows(canvasElement: HTMLElement): HTMLElement[] {
+  return Array.from(canvasElement.querySelectorAll<HTMLElement>('.rounded-md.border.p-3'))
+}
+
+async function expectStackedRows(canvasElement: HTMLElement) {
+  const all = rows(canvasElement)
+  await expect(all.length).toBe(componentsWithDuplicates.length)
+  for (const row of all) {
+    const { name, perServing, controls } = rowParts(row)
+    for (const control of controls) expectWithinHorizontally(control, row)
+    expectAtMostLines(name, 2)
+    expectAtMostLines(perServing, 2)
+    await expect(controls[0]!.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      perServing.getBoundingClientRect().bottom,
+    )
+  }
+}
+
+const layoutArgs = {
+  components: componentsWithDuplicates,
+  duplicateMap: buildDuplicateMap(componentsWithDuplicates),
+}
+
+export const MobileLayout: Story = {
+  args: layoutArgs,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'At 390px the quantity controls stack under each ingredient, so the name and the "Also used in row N" warning keep the full row width (HON-834).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expectStackedRows(canvasElement)
+  },
+}
+
+export const MobileLayoutEstonian: Story = {
+  args: layoutArgs,
+  globals: { locale: 'et' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The longer Estonian labels ("Kogus määramata", "portsjoni kohta") at 390px: same stacked layout, nothing clipped (HON-834).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expectStackedRows(canvasElement)
+  },
+}
+
+export const DesktopLayout: Story = {
+  args: layoutArgs,
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  parameters: {
+    docs: {
+      description: {
+        story: 'From `sm` up the controls sit beside each ingredient on one row (HON-834).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    for (const row of rows(canvasElement)) {
+      const { perServing, controls } = rowParts(row)
+      for (const control of controls) expectWithinHorizontally(control, row)
+      await expect(controls[0]!.getBoundingClientRect().left).toBeGreaterThan(
+        perServing.getBoundingClientRect().right,
+      )
+    }
   },
 }

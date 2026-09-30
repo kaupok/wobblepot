@@ -81,8 +81,10 @@ export function LowConfidenceIngredientRow({
     <div className="border-info/30 flex flex-col gap-2 rounded-md border p-3">
       <div className="flex items-start gap-3">
         <HelpCircle className="text-info mt-0.5 h-4 w-4 shrink-0" />
-        <div className="flex flex-1 flex-col gap-2">
-          <div className="flex items-center justify-between gap-3">
+        {/* `min-w-0`: the select's unwrapped label would otherwise set this column's minimum width */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {/* Below `sm` the controls stack under the text so the name keeps the row's width */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-0.5">
               <Body tone="info">{data.extractedName}</Body>
               {data.originalText && (
@@ -133,35 +135,40 @@ export function LowConfidenceIngredientRow({
             </div>
           </div>
 
-          {/* Disambiguation dropdown */}
-          <div className="flex items-center gap-2">
+          {/* Disambiguation dropdown: below `sm` the label sits above and the select fills the row */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Body variant="paragraph" tone="info">
               {t('verifyMatch')}
             </Body>
-            <Select
-              value={data.ingredient.id}
-              onValueChange={handleAlternativeSelect}
-              disabled={disabled}
-            >
-              <SelectTrigger className="w-50" aria-label={t('verifyMatchAria')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={data.ingredient.id}>
-                  {t('bestMatchSuffix', { name: data.ingredient.name })}
-                </SelectItem>
-                {data.alternatives
-                  .filter((alt) => alt.id !== data.ingredient.id)
-                  .map((alt) => (
-                    <SelectItem key={alt.id} value={alt.id}>
-                      {alt.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <Button type="button" onClick={handleConfirmBestMatch} disabled={disabled}>
-              {t('confirm')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select
+                value={data.ingredient.id}
+                onValueChange={handleAlternativeSelect}
+                disabled={disabled}
+              >
+                <SelectTrigger
+                  className="min-w-0 flex-1 sm:w-50 sm:flex-none"
+                  aria-label={t('verifyMatchAria')}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={data.ingredient.id}>
+                    {t('bestMatchSuffix', { name: data.ingredient.name })}
+                  </SelectItem>
+                  {data.alternatives
+                    .filter((alt) => alt.id !== data.ingredient.id)
+                    .map((alt) => (
+                      <SelectItem key={alt.id} value={alt.id}>
+                        {alt.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <Button type="button" onClick={handleConfirmBestMatch} disabled={disabled}>
+                {t('confirm')}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

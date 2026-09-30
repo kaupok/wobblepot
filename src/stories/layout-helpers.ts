@@ -40,6 +40,13 @@ export function expectSingleLine(el: HTMLElement): void {
   expect(renderedLineCount(el), `"${el.textContent}" wraps`).toBe(1)
 }
 
+/** Asserts the element's text renders on at most `max` lines. */
+export function expectAtMostLines(el: HTMLElement, max: number): void {
+  expect(renderedLineCount(el), `"${el.textContent}" wraps past ${max} lines`).toBeLessThanOrEqual(
+    max,
+  )
+}
+
 /** Asserts the element sits horizontally within the container's box. */
 export function expectWithinHorizontally(el: HTMLElement, container: HTMLElement): void {
   const box = el.getBoundingClientRect()
