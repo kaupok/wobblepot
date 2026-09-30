@@ -72,6 +72,16 @@ describe('ImaginePanel error localization', () => {
     await screen.findByText(enMessages.recipes.imagine.errors.imagineTimeout)
   })
 
+  it('renders the kill-switch copy for a 503 generation_disabled (HON-868)', async () => {
+    const prose = 'AI generation is temporarily disabled'
+    respondWith({ success: false, error: prose, code: 'generation_disabled' }, 503)
+
+    generate('et')
+
+    await screen.findByText(etMessages.recipes.imagine.errors.generationDisabled)
+    expect(screen.queryByText(prose)).not.toBeInTheDocument()
+  })
+
   it('falls back to the panel’s own generic message for an unrecognised code', async () => {
     respondWith(
       { success: false, error: 'Some brand new failure', code: 'code_from_a_newer_deploy' },

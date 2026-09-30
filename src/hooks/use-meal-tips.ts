@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { ApiError, apiFetch } from '@/lib/api'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
@@ -19,13 +20,21 @@ interface UseMealTipsOptions {
  * the user sees anything — for a request that just demonstrated it does not
  * fit. The other 5xx codes fail fast, so retrying those still costs ~2s
  * (HON-693).
+ *
+ * The `ai_generation_enabled` kill-switch 503 is excluded too: it will still be
+ * off 2s later, and the retry would only spend another rate-limit token.
  */
 function isRetryable(error: unknown): boolean {
   return (
     error instanceof ApiError &&
     error.status !== 504 &&
+    !isGenerationDisabled(error) &&
     (error.status >= 500 || error.status === 429)
   )
+}
+
+function isGenerationDisabled(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 'generation_disabled'
 }
 
 function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
@@ -43,6 +52,7 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
   const [tipsError, setTipsError] = useState<string | null>(null)
   const [isTipsExpanded, setIsTipsExpanded] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  const t = useTranslations('meal-plan.tips')
 
   // A mutation, not a query: the POST runs a billed AI generation on demand,
   // and the result lives in local state that callers can reset (`cancelTips`).
@@ -69,6 +79,12 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
     onError: (error, controller) => {
       if (controller.signal.aborted) return
       if (error instanceof DOMException && error.name === 'AbortError') return
+      // Catalog copy for the kill-switch (HON-868). The other branches still
+      // show the route's English prose; tracked separately.
+      if (isGenerationDisabled(error)) {
+        setTipsError(t('generationDisabled'))
+        return
+      }
       setTipsError(error instanceof Error ? error.message : "Couldn't generate tips. Try again.")
     },
   })

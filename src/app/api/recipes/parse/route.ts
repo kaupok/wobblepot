@@ -117,9 +117,13 @@ async function handlePOST(request: Request) {
   // Kill-switch: short-circuit recipe import (the highest-risk external-input
   // surface — SSRF, parser crashes, non-recipe content) before the AI call.
   // Fail-open default (`true`) keeps the route working through PostHog
-  // outages — see docs/FEATURE_FLAGS.md.
-  const recipeImportEnabled = await getServerFlag('recipe_import_enabled', session.user.id)
-  if (!recipeImportEnabled) {
+  // outages — see docs/FEATURE_FLAGS.md. `ai_generation_enabled` stops every
+  // model call, this one included, so either flag being off disables import.
+  const [recipeImportEnabled, aiEnabled] = await Promise.all([
+    getServerFlag('recipe_import_enabled', session.user.id),
+    getServerFlag('ai_generation_enabled', session.user.id),
+  ])
+  if (!recipeImportEnabled || !aiEnabled) {
     return NextResponse.json(
       {
         ...errorBody('Recipe import is temporarily disabled', 'import_disabled'),

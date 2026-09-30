@@ -26,6 +26,10 @@ vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
+vi.mock('@/lib/feature-flags', () => ({
+  getServerFlag: vi.fn(),
+}))
+
 vi.mock('@/lib/ai/usage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
   return {
@@ -40,12 +44,14 @@ import { reviewMealQuantities } from '@/lib/ai/review-quantities'
 import { getHouseholdMembership } from '@/lib/household'
 import { AiCostCapExceededError, assertUnderCap } from '@/lib/ai/usage'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getServerFlag } from '@/lib/feature-flags'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockReview = vi.mocked(reviewMealQuantities)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
+const mockGetServerFlag = vi.mocked(getServerFlag)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -80,6 +86,7 @@ describe('POST /api/meals/imagine/review', () => {
       limit: 150,
       resetAt: new Date(Date.now() + 3600000),
     })
+    mockGetServerFlag.mockResolvedValue(true)
   })
 
   function ingredientList(count: number) {
@@ -147,6 +154,23 @@ describe('POST /api/meals/imagine/review', () => {
     expect(data.code).toBe('rate_limited')
     expect(data.resetAt).toBe('2026-05-01T01:00:00.000Z')
     // A rejected request does no cap read and no AI work.
+    expect(mockAssertUnderCap).not.toHaveBeenCalled()
+    expect(mockReview).not.toHaveBeenCalled()
+  })
+
+  it('returns 503 without calling the model when ai_generation_enabled is off (HON-868)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetServerFlag.mockResolvedValue(false)
+
+    const response = await POST(createRequest(validBody))
+    const data = await response.json()
+
+    expect(response.status).toBe(503)
+    // A string `error` is what `reviewImaginedMeal` reads as a route answer,
+    // so the client keeps the unreviewed meal without reporting it.
+    expect(typeof data.error).toBe('string')
+    expect(data.code).toBe('generation_disabled')
+    expect(mockGetServerFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user-123')
     expect(mockAssertUnderCap).not.toHaveBeenCalled()
     expect(mockReview).not.toHaveBeenCalled()
   })

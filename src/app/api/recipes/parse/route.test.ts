@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Stub the env module so the real Zod validation (and any transitively-imported
 // serverEnv reads, e.g. from @/lib/ai/usage) don't run in the node test env.
@@ -54,6 +54,11 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => {
   }
 })
 
+// Both kill-switches on unless a test says otherwise — the fail-open default.
+vi.mock('@/lib/feature-flags', () => ({
+  getServerFlag: vi.fn(async () => true),
+}))
+
 vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
@@ -66,6 +71,7 @@ import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
 import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
 import { RecipeParseError } from '@/lib/ai/recipe-errors'
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag, type FlagKey } from '@/lib/feature-flags'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -74,6 +80,7 @@ const mockAssertUnderCap = vi.mocked(assertUnderCap)
 const mockFetchRecipeFromUrl = vi.mocked(fetchRecipeFromUrl)
 const mockParseAndMatchRecipe = vi.mocked(parseAndMatchRecipe)
 const mockCaptureApiError = vi.mocked(captureApiError)
+const mockGetServerFlag = vi.mocked(getServerFlag)
 
 describe('extractUrlAndContext', () => {
   it('detects https:// URLs', () => {
@@ -187,6 +194,54 @@ describe('POST /api/recipes/parse rate limiting', () => {
     expect(data.code).toBe('rate_limited')
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-42', 'recipe-parse')
   })
+})
+
+describe('POST /api/recipes/parse kill-switches (HON-868)', () => {
+  const mockSession = { user: { id: 'user-1' }, session: { id: 's-1' } }
+  const mockMembership = { household: { id: 'household-42' } }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockAssertUnderCap.mockResolvedValue(undefined)
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 19,
+      limit: 20,
+      resetAt: new Date(Date.now() + 3_600_000),
+    })
+  })
+
+  afterEach(() => {
+    mockGetServerFlag.mockImplementation(async () => true)
+  })
+
+  function jsonRequest(body: unknown) {
+    return new Request('http://localhost/api/recipes/parse', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it.each<FlagKey>(['recipe_import_enabled', 'ai_generation_enabled'])(
+    'returns 503 import_disabled without calling the model when %s is off',
+    async (off) => {
+      mockGetServerFlag.mockImplementation(async (key) => key !== off)
+
+      const response = await POST(jsonRequest({ text: 'some recipe' }))
+      const data = await response.json()
+
+      expect(response.status).toBe(503)
+      expect(data.success).toBe(false)
+      expect(data.code).toBe('import_disabled')
+      expect(mockGetServerFlag).toHaveBeenCalledWith(off, 'user-1')
+      expect(mockAssertUnderCap).not.toHaveBeenCalled()
+      expect(mockFetchRecipeFromUrl).not.toHaveBeenCalled()
+      expect(mockParseAndMatchRecipe).not.toHaveBeenCalled()
+    },
+  )
 })
 
 describe('POST /api/recipes/parse RecipeParseError handling', () => {

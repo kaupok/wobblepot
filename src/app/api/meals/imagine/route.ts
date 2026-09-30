@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { imagineMeals } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { getServerFlag } from '@/lib/feature-flags'
 import {
   AiCostCapExceededError,
   assertUnderCap,
@@ -74,6 +75,16 @@ async function handlePOST(request: Request) {
         status: 429,
         headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
       },
+    )
+  }
+
+  // Kill-switch, placed as in `/api/meal-plans/generate`: before the cost-cap
+  // query and the AI call. Fail-open default (`true`) — see docs/FEATURE_FLAGS.md.
+  const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
+  if (!aiEnabled) {
+    return NextResponse.json(
+      errorBody('AI generation is temporarily disabled', 'generation_disabled'),
+      { status: 503 },
     )
   }
 

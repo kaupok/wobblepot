@@ -288,7 +288,8 @@
       "userNotes": "Sinu märkused",
       "additionalTips": "Lisanõuanded",
       "header": "Valmistusjuhised",
-      "retry": "Proovi uuesti"
+      "retry": "Proovi uuesti",
+      "generationDisabled": "Valmistusjuhised on praegu välja lülitatud. Palun proovi hiljem uuesti."
     },
     "nutrition": {
       "summaryHeader": "Toiteväärtus (portsjoni kohta)",
@@ -385,7 +386,8 @@
         "promptTooLong": "Kirjeldus tohib olla kuni 500 tähemärki.",
         "promptRequired": "Palun kirjelda, millist toitu soovid.",
         "invalidRequest": "Päringuga läks midagi valesti. Palun proovi uuesti.",
-        "imagineTimeout": "Toiduideede koostamine võttis liiga kaua aega. Palun proovi uuesti."
+        "imagineTimeout": "Toiduideede koostamine võttis liiga kaua aega. Palun proovi uuesti.",
+        "generationDisabled": "Toiduideede koostamine on praegu välja lülitatud. Palun proovi hiljem uuesti."
       }
     },
     "import": {

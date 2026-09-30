@@ -157,8 +157,9 @@ const REVIEW_TIMEOUT_MS = 65000
 /**
  * Did this body come from the route handler rather than from something upstream
  * of it? Every non-ok answer the route writes is `NextResponse.json` with a
- * **string** `error` — 401, 404, the cap-exceeded 429, both 400s, the 504 and
- * the 500 (`review/route.ts`, and `respondCapExceeded` in `ai/usage.ts`).
+ * **string** `error` — 401, 404, the cap-exceeded 429, the kill-switch 503,
+ * both 400s, the 504 and the 500 (`review/route.ts`, and `respondCapExceeded`
+ * in `ai/usage.ts`).
  *
  * Matching that shape rather than merely "parses as JSON" is what makes this
  * independent of the platform's body format. Vercel's own errors are

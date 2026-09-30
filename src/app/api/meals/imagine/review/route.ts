@@ -12,6 +12,7 @@ import {
 } from '@/lib/ai/usage'
 import { captureApiError } from '@/lib/errors'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
+import { getServerFlag } from '@/lib/feature-flags'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { withRequestId } from '@/lib/request-id'
 // This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
@@ -79,6 +80,17 @@ async function handlePOST(request: Request) {
         status: 429,
         headers: { 'Retry-After': String(retryAfterSeconds(rateLimitResult)) },
       },
+    )
+  }
+
+  // Kill-switch, placed as in `/api/meal-plans/generate`. Like the 429 above it
+  // degrades silently: `reviewImaginedMeal` reads a route JSON body as "the
+  // route answered" and keeps the unreviewed meal, as it does for a 500.
+  const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
+  if (!aiEnabled) {
+    return NextResponse.json(
+      { error: 'AI generation is temporarily disabled', code: 'generation_disabled' },
+      { status: 503 },
     )
   }
 

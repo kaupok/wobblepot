@@ -87,6 +87,10 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => ({
   recordAiUsage: vi.fn(),
 }))
 
+vi.mock('@/lib/feature-flags', () => ({
+  getServerFlag: vi.fn(),
+}))
+
 vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
@@ -125,6 +129,7 @@ import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/
 import { clearMealImage } from '@/lib/meal-images/invalidation'
 import { extractHue } from '@/lib/meal-images/colour'
 import { captureApiError } from '@/lib/errors'
+import { getServerFlag } from '@/lib/feature-flags'
 import type { Prisma } from '@/generated/prisma/client'
 import { GET, POST } from './route'
 
@@ -138,6 +143,7 @@ const mockGenerateObject = vi.mocked(generateObject)
 const mockPut = vi.mocked(put)
 const mockDel = vi.mocked(del)
 const mockExtractHue = vi.mocked(extractHue)
+const mockGetServerFlag = vi.mocked(getServerFlag)
 const hue = (value: number | null) => ({
   hue: value,
   chroma: 0.2,
@@ -235,6 +241,7 @@ describe('POST /api/meals/[id]/image', () => {
     mockPut.mockResolvedValue({ url: BLOB_URL } as never)
     mockDel.mockResolvedValue(undefined)
     mockExtractHue.mockResolvedValue(hue(264))
+    mockGetServerFlag.mockResolvedValue(true)
     vi.spyOn(console, 'info').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
@@ -658,6 +665,42 @@ describe('POST /api/meals/[id]/image', () => {
     expect(response.status).toBe(503)
     expect(mockGenerateImage).not.toHaveBeenCalled()
     expect(row().imageStatus).toBe('none')
+  })
+
+  describe('with ai_generation_enabled off (HON-868)', () => {
+    beforeEach(() => {
+      mockGetServerFlag.mockResolvedValue(false)
+    })
+
+    it('answers 503 without claiming or calling a model', async () => {
+      const response = await post()
+
+      expect(response.status).toBe(503)
+      expect(await response.json()).toMatchObject({ status: 'failed' })
+      expect(mockGetServerFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user-123')
+      expect(mockAssertUnderCap).not.toHaveBeenCalled()
+      expect(mockGenerateImage).not.toHaveBeenCalled()
+      expect(mockGenerateObject).not.toHaveBeenCalled()
+      // No claim was taken and no attempt counted, so the meal is drawn once
+      // the flag is back on.
+      expect(row().imageStatus).toBe('none')
+      expect(row().imageAttempts).toBe(0)
+    })
+
+    it('still serves an existing image', async () => {
+      seedMeal({
+        imageStatus: 'ready',
+        imageUrl: BLOB_URL,
+        imageHue: 120,
+        imagePromptVersion: 'v4',
+      })
+
+      const response = await post()
+
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 120 })
+      expect(mockGenerateImage).not.toHaveBeenCalled()
+    })
   })
 
   it('returns the shared cap error shape over the cap, and generates nothing', async () => {
