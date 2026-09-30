@@ -21,7 +21,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
 
 /** Verbatim shape of `DELETE /api/auth/user`'s `sole_owner` prose. */
 const SOLE_OWNER_PROSE =
-  'You are the sole owner of "Kõrvid" which has 2 other member(s). Please transfer ownership or remove other members first.'
+  'You are the sole owner of "Kõrvid" which has 2 other member(s). Please remove the other members first.'
 
 function respondWith(body: unknown, status: number) {
   vi.stubGlobal(
@@ -72,7 +72,7 @@ describe('DeleteAccountDialog error localization', () => {
     await openAndConfirm('et')
 
     await screen.findByText(
-      'Kontot ei saa veel kustutada: oled leibkonna „Kõrvid" ainus omanik ja seal on 2 muud liiget. Palun anna omandiõigus üle või eemalda enne teised liikmed.',
+      'Kontot ei saa veel kustutada: oled leibkonna „Kõrvid" ainus omanik ja seal on 2 muud liiget. Palun eemalda enne teised liikmed.',
     )
     expect(screen.queryByText(SOLE_OWNER_PROSE)).not.toBeInTheDocument()
     expect(console.error).toHaveBeenCalledWith(
@@ -113,7 +113,7 @@ describe('DeleteAccountDialog error localization', () => {
     await openAndConfirm('en')
 
     await screen.findByText(
-      'You can\'t delete your account yet: you are the only owner of "Kõrvid", which has 1 other member. Please transfer ownership or remove other members first.',
+      'You can\'t delete your account yet: you are the only owner of "Kõrvid", which has 1 other member. Please remove the other members first.',
     )
   })
 })

@@ -98,7 +98,7 @@ async function sendDeletionConfirmationEmail(
  * operator step — see `docs/RUNBOOKS/gdpr-deletion.md`.
  *
  * Returns 400 if the user is the sole owner of a household with other members
- * (they must transfer ownership first — unchanged behavior).
+ * (they must remove the other members first — unchanged behavior).
  *
  * Every error body carries a `code` from `AccountDeletionErrorCode` (HON-725);
  * `DeleteAccountDialog` translates that, never the English `message`. The
@@ -129,7 +129,7 @@ export async function DELETE() {
         {
           code,
           error: 'Cannot delete account',
-          message: `You are the sole owner of "${ownershipCheck.householdName}" which has ${otherMemberCount} other member(s). Please transfer ownership or remove other members first.`,
+          message: `You are the sole owner of "${ownershipCheck.householdName}" which has ${otherMemberCount} other member(s). Please remove the other members first.`,
           householdId: ownershipCheck.householdId,
           householdName: ownershipCheck.householdName,
           otherMemberCount,

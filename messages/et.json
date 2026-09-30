@@ -1024,7 +1024,7 @@
       },
       "graceNote": "Saadame sulle e-kirja täpse kustutamiskuupäeva ja tühistamise juhistega. Sind logitakse nüüd kõikidest seadmetest välja.",
       "scheduledToast": "Konto on planeeritud kustutamiseks {date}. Tühistamiseks vaata oma e-posti.",
-      "cannotDeleteOwner": "Hoiatus: kontot ei saa kustutada, sest oled „{householdName}\" omanik ja seal on {count, plural, one {# muu liige} other {# muud liiget}}. Palun anna omandiõigus üle või eemalda enne teised liikmed.",
+      "cannotDeleteOwner": "Hoiatus: kontot ei saa kustutada, sest oled „{householdName}\" omanik ja seal on {count, plural, one {# muu liige} other {# muud liiget}}. Palun eemalda enne teised liikmed.",
       "accountLine": "Konto: {email}",
       "cancel": "Tühista",
       "confirm": "Kustuta konto",
@@ -1032,7 +1032,7 @@
       "errors": {
         "deleteFailed": "Konto kustutamine ebaõnnestus",
         "unexpected": "Tekkis ootamatu viga",
-        "soleOwner": "Kontot ei saa veel kustutada: oled leibkonna „{householdName}\" ainus omanik ja seal on {count, plural, one {# muu liige} other {# muud liiget}}. Palun anna omandiõigus üle või eemalda enne teised liikmed.",
+        "soleOwner": "Kontot ei saa veel kustutada: oled leibkonna „{householdName}\" ainus omanik ja seal on {count, plural, one {# muu liige} other {# muud liiget}}. Palun eemalda enne teised liikmed.",
         "unauthorized": "Sinu seanss on aegunud. Palun logi uuesti sisse."
       }
     }

@@ -9,7 +9,7 @@ User clicks "Delete account" (/profile → DeleteAccountDialog)
         │
         ▼
 DELETE /api/auth/user
-  • sole-owner-with-other-members guard (rejects; must transfer ownership first)
+  • sole-owner-with-other-members guard (rejects; the owner must remove the other members first)
   • set user.deletedAt = now, user.purgeScheduledFor = first 03:00 UTC run
     at/after (now + 30 days)  ← the real deletion instant (see note below)
   • delete all sessions  → signed out everywhere

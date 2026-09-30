@@ -1024,7 +1024,7 @@
       },
       "graceNote": "We'll email you the exact deletion date and how to cancel. You'll be signed out on all devices now.",
       "scheduledToast": "Account scheduled for deletion on {date}. Check your email to cancel.",
-      "cannotDeleteOwner": "Warning: You cannot delete your account because you are the owner of \"{householdName}\" with {count, plural, one {# other member} other {# other members}}. Please transfer ownership or remove other members first.",
+      "cannotDeleteOwner": "Warning: You cannot delete your account because you are the owner of \"{householdName}\" with {count, plural, one {# other member} other {# other members}}. Please remove the other members first.",
       "accountLine": "Account: {email}",
       "cancel": "Cancel",
       "confirm": "Delete account",
@@ -1032,7 +1032,7 @@
       "errors": {
         "deleteFailed": "Failed to delete account",
         "unexpected": "An unexpected error occurred",
-        "soleOwner": "You can't delete your account yet: you are the only owner of \"{householdName}\", which has {count, plural, one {# other member} other {# other members}}. Please transfer ownership or remove other members first.",
+        "soleOwner": "You can't delete your account yet: you are the only owner of \"{householdName}\", which has {count, plural, one {# other member} other {# other members}}. Please remove the other members first.",
         "unauthorized": "Your session has expired. Please sign in again."
       }
     }
