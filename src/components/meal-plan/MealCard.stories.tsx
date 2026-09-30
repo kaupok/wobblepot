@@ -9,6 +9,7 @@ import {
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+import { awaitDialogClosed } from '@/stories/a11y-helpers'
 import type { AlternativeMeal } from './types'
 import { MealCard } from './MealCard'
 
@@ -228,6 +229,11 @@ export const PlannedAlreadyCharged: Story = {
   },
 }
 
+// For waits that sit behind an MSW response. The swap stories chain several
+// dialogs and round-trips, and on a loaded CI runner a render can land after
+// `findBy`'s default 1 s even though the request succeeded (HON-857).
+const ROUND_TRIP = { timeout: 3000 }
+
 // Counts the POSTs the story's handlers serve, so a second one can be proven to
 // be a real re-fetch rather than a replay of cached state.
 let swapTipsRequests = 0
@@ -326,19 +332,20 @@ export const SwapDropsCachedTips: Story = {
     await expect(canvas.getByText('6 servings')).toBeInTheDocument()
     await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
     await userEvent.click(await body.findByRole('button', { name: /how to prepare/i }))
-    await body.findByText(/roasting tin/i)
+    await body.findByText(/roasting tin/i, undefined, ROUND_TRIP)
 
     // Close the detail modal — the Swap control lives on the card behind it.
     await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+    await awaitDialogClosed()
 
     // Swap the entry to a different meal.
     await openMoreActions(canvasElement)
     await userEvent.click(await body.findByRole('menuitem', { name: /^swap$/i }))
     const selector = await body.findByRole('dialog')
-    await within(selector).findByText('Beef stir-fry')
+    await within(selector).findByText('Beef stir-fry', undefined, ROUND_TRIP)
     await userEvent.click(within(selector).getByRole('button', { name: /^select$/i }))
-    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+    // Select closes the dialog only once its PATCH resolves.
+    await awaitDialogClosed(ROUND_TRIP.timeout)
 
     // The card is back to the household's own size, matching the
     // `servingOverride: null` the server wrote.
@@ -359,7 +366,7 @@ export const SwapDropsCachedTips: Story = {
     // `isTipsExpanded` and never reads `tips` — but with the stale object
     // still in the hook, `handleHowToPrepare` just re-expands it.
     await userEvent.click(prompt)
-    await body.findByText(/wok for the stir-fry/i)
+    await body.findByText(/wok for the stir-fry/i, undefined, ROUND_TRIP)
     await expect(swapTipsRequests).toBe(2)
 
     // The suggestions list is stale for the same reason and at the same
@@ -368,11 +375,11 @@ export const SwapDropsCachedTips: Story = {
     // it would offer the meal just picked as an alternative to itself, and
     // picking it would re-PATCH the entry to the meal it already holds.
     await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+    await awaitDialogClosed()
     await openMoreActions(canvasElement)
     await userEvent.click(await body.findByRole('menuitem', { name: /^swap$/i }))
     const reopenedSelector = await body.findByRole('dialog')
-    await within(reopenedSelector).findByText('Mushroom risotto')
+    await within(reopenedSelector).findByText('Mushroom risotto', undefined, ROUND_TRIP)
     await expect(within(reopenedSelector).queryByText('Beef stir-fry')).not.toBeInTheDocument()
     await expect(swapSuggestionRequests).toBe(2)
   },
@@ -464,11 +471,11 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
     await expect(canvas.getByText('6 servings')).toBeInTheDocument()
     await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
     await userEvent.click(await body.findByRole('button', { name: /how to prepare/i }))
-    await body.findByText(/roasting tin/i)
+    await body.findByText(/roasting tin/i, undefined, ROUND_TRIP)
     await expect(reselectTipsRequests).toBe(1)
 
     await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+    await awaitDialogClosed()
 
     // Search for the meal already planned and select it again.
     await openMoreActions(canvasElement)
@@ -476,10 +483,11 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
     const selector = await body.findByRole('dialog')
     await userEvent.type(within(selector).getByRole('searchbox'), 'lemon')
     // The search list offers the planned dish back — `/regenerate` would not.
-    const result = await within(selector).findByText(mealFixture.name)
+    const result = await within(selector).findByText(mealFixture.name, undefined, ROUND_TRIP)
     await expect(result).toBeInTheDocument()
     await userEvent.click(within(selector).getByRole('button', { name: /^select$/i }))
-    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+    // Select closes the dialog only once its PATCH resolves.
+    await awaitDialogClosed(ROUND_TRIP.timeout)
 
     // The override the household set is still on the card, matching the row
     // the server did not touch.
@@ -550,24 +558,25 @@ export const SwapDropsSuggestionsForSiblingEntries: Story = {
     }
     const closeSwap = async () => {
       await userEvent.keyboard('{Escape}')
-      await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+      await awaitDialogClosed()
     }
 
     // Tuesday caches a list that still offers the stir-fry.
     const tuesdayFirst = await openSwap(tuesday)
-    await within(tuesdayFirst).findByText('Beef stir-fry')
+    await within(tuesdayFirst).findByText('Beef stir-fry', undefined, ROUND_TRIP)
     await closeSwap()
 
     // Monday takes the stir-fry.
     const mondaySwap = await openSwap(monday)
-    await within(mondaySwap).findByText('Beef stir-fry')
+    await within(mondaySwap).findByText('Beef stir-fry', undefined, ROUND_TRIP)
     await userEvent.click(within(mondaySwap).getByRole('button', { name: /^select$/i }))
-    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
+    // Select closes the dialog only once its PATCH resolves.
+    await awaitDialogClosed(ROUND_TRIP.timeout)
 
     // Tuesday must refetch rather than replay — the stir-fry is Monday's
     // dinner now, and offering it here would plan it twice in one week.
     const tuesdaySecond = await openSwap(tuesday)
-    await within(tuesdaySecond).findByText('Mushroom risotto')
+    await within(tuesdaySecond).findByText('Mushroom risotto', undefined, ROUND_TRIP)
     await expect(within(tuesdaySecond).queryByText('Beef stir-fry')).not.toBeInTheDocument()
     await expect(planSuggestionRequests['entry-tuesday']).toBe(2)
   },
