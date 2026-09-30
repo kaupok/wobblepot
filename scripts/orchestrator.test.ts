@@ -1487,9 +1487,23 @@ describe('orchestrator.sh', () => {
       // GNU timeout accepts `1.5`, so ORCHESTRATOR_TRIAGE_TIMEOUT can carry one.
       // The watchdog cannot count it in ticks and must fail closed, not exit
       // on an arithmetic error and leave the triage call unbounded (HON-802).
-      const out = drive('1.5', '2')
+      // The command sleeps well past the 2 s TERM-to-KILL grace, so the result
+      // cannot hinge on the KILL racing the command's own exit (HON-856).
+      const out = drive('1.5', '5')
 
       expect(out).toContain('EXIT:124')
+      expect(out).not.toContain('piped-stdin')
+    })
+
+    it('re-sends TERM when the first one is lost', () => {
+      // A TERM that lands before the forked child sheds orchestrator.sh's
+      // inherited TERM trap is dropped. The command here swallows its first
+      // TERM to stand in for that; a watchdog that signals once can only KILL
+      // it, and it never prints RESENT (HON-856).
+      const out = runHarness('bash-timeout-term-once', '1')
+
+      expect(out).toContain('EXIT:124')
+      expect(out).toContain('OUT:RESENT')
       expect(out).not.toContain('piped-stdin')
     })
 

@@ -299,6 +299,14 @@ bash_timeout() {
   local secs="$1"; shift
   local status=0 cmd_pid watchdog_pid
 
+  # A bound that is not a whole number of seconds (`1.5`, `90s` — both valid
+  # for GNU timeout) cannot be counted on SECONDS, and arithmetic on it would be
+  # a syntax error that exits the watchdog before it signals anything, leaving
+  # the command unbounded. Fail closed by not starting the command at all: an
+  # immediate TERM is not enough, because it can land before the child has shed
+  # the TERM trap it inherits from this shell and be dropped (HON-856).
+  case "$secs" in "" | *[!0-9]*) return 124 ;; esac
+
   # Re-attach stdin explicitly. Bash hands an asynchronous command /dev/null for
   # stdin whenever job control is off — every non-interactive run, including this
   # one — which would starve a piped consumer like the triage CLI of the log tail
@@ -323,23 +331,27 @@ bash_timeout() {
   # The bound is a deadline on SECONDS rather than a count of polls: each poll
   # also pays for forking `sleep`, so counting ten per second ran a 30 s bound
   # to ~34 s. SECONDS is whole seconds, so the +1 keeps the bound from ever
-  # firing early at the cost of up to a second late.
+  # firing early at the cost of up to a second late. `10#` because a leading
+  # zero would otherwise read as octal (`08` is an error, `010` is eight).
   #
-  # A bound that is not a whole number of seconds (`1.5`, `90s` — both valid
-  # for GNU timeout) gets a deadline of now, so the command is stopped at once.
-  # Doing arithmetic on it would be a syntax error that exits the watchdog
-  # before it signals anything, leaving the command unbounded: fail closed.
-  # `10#` because a leading zero would otherwise read as octal (`08` is an
-  # error, `010` is eight).
+  # TERM is re-sent on every poll of the grace, not once. orchestrator.sh traps
+  # TERM at top level, and a forked child keeps that handler until it resets its
+  # signals and execs: a TERM landing in that window is recorded as a pending
+  # trap and then discarded. Under load, 9 of 300 immediate TERMs were lost that
+  # way, and only the KILL at the end of the grace stopped the command (HON-856).
+  # The grace is counted in polls so it never runs shorter than 2 s, and the
+  # watchdog leaves as soon as the command is gone rather than sleeping it out.
   (
-    deadline=$SECONDS
-    case "$secs" in "" | *[!0-9]*) ;; *) deadline=$((SECONDS + 10#$secs + 1)) ;; esac
+    deadline=$((SECONDS + 10#$secs + 1))
     while [ "$SECONDS" -lt "$deadline" ]; do
       kill -0 "$cmd_pid" 2>/dev/null || exit 0
       sleep 0.1
     done
     kill -TERM "$cmd_pid" 2>/dev/null || exit 0
-    sleep 2
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+      sleep 0.1
+      kill -TERM "$cmd_pid" 2>/dev/null || exit 0
+    done
     kill -KILL "$cmd_pid" 2>/dev/null || true
   ) &
   watchdog_pid=$!

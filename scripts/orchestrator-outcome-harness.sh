@@ -101,6 +101,12 @@
 #     Prints OUT (the command's stdout, proving stdin survived backgrounding)
 #     and EXIT (124 when the bound was hit).
 #
+#   bash-timeout-term-once <bound-secs>                             (HON-856)
+#     Same watchdog, over a command that swallows its first TERM — standing in
+#     for a TERM lost in the fork-to-exec window — and prints RESENT when a
+#     second one arrives. A watchdog that signals once can only KILL it, so
+#     RESENT on OUT is what shows the TERM is re-sent.
+#
 #   bash-timeout-return <calls>                                     (HON-802)
 #     Runs the REAL bash_timeout <calls> times over a 50 ms command, and prints
 #     ELAPSED in whole seconds. The watchdog's poll interval is paid on every
@@ -804,6 +810,21 @@ EOF
     status=0
     out=$(echo "piped-stdin" | bash_timeout "$A1" \
       sh -c 'read -r line; sleep "$0"; printf "%s\n" "$line"' "$A2") || status=$?
+    echo "OUT:$out"
+    echo "EXIT:$status"
+    exit 0
+    ;;
+
+  bash-timeout-term-once)
+    # The command outlives the TERM-to-KILL grace (50 × 0.1 s), so without a
+    # second TERM it is KILLed and never gets to print RESENT.
+    status=0
+    out=$(echo "piped-stdin" | bash_timeout "$A1" sh -c '
+      trap "trap \"echo RESENT; exit 143\" TERM" TERM
+      read -r line
+      i=0
+      while [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+      printf "%s\n" "$line"') || status=$?
     echo "OUT:$out"
     echo "EXIT:$status"
     exit 0
