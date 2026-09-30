@@ -343,6 +343,8 @@ A Linear issue counts as "the source" when the task names a HON-NNN, when the or
 
 If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong — even when the issue is agent-written, well-specced, or related to existing `[AUTO DRAFT]` issues (HON-695 was mislabelled this way). Full rules live in `.claude/skills/refine-backlog/SKILL.md` and `.claude/skills/auto-implement/SKILL.md` → 6.8.
 
+**Todo + unassigned = the queue. Nothing else keeps an issue out of it.** `select_next_issue` in `scripts/orchestrator.sh` takes any Todo issue that is unassigned, unblocked and not labelled `Gated` / `Stranded`, and hands the ID to `/auto-implement HON-XX` — the explicit-argument path, which skips the no-human-input filters in 1.5. A description that says "Vercel dashboard" or "ask Kaupo" does not stop it; only the assignee does (the orchestrator skips assigned issues so the operator can self-assign a Todo issue to work by hand). So an issue with a step only a human can do — a dashboard setting, a decision, a judgement of taste — goes to Todo only if it is assigned to that human; otherwise it stays in Backlog. When part of it can run unattended, split that part into its own unassigned issue (HON-852, the sweep, and HON-853, the settings check, are the worked example — HON-852 was first filed as one issue and the orchestrator claimed it within sixteen seconds).
+
 **Before committing:** Run `pnpm lint && pnpm type-check && pnpm test`
 
 **Pre-commit hook:** Husky + lint-staged runs type-check, ESLint, and Prettier on staged files.
