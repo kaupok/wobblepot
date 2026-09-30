@@ -3210,7 +3210,7 @@ describe('orchestrator.sh', () => {
     })
   })
 
-  describe('HON-616 preview/* is documented as out of scope for both reapers', () => {
+  describe('HON-616 preview/* ownership is documented in the runbook', () => {
     const runbook = () =>
       fs.readFileSync(path.join(scriptsDir, '..', 'docs', 'RUNBOOKS', 'neon-branch-gc.md'), 'utf8')
 
@@ -3221,7 +3221,7 @@ describe('orchestrator.sh', () => {
       expect(text).toMatch(/Vercel[–-]Neon integration/)
     })
 
-    it('says why neither reaper can touch it', () => {
+    it('names the name filters that keep the HON-shape reapers off it', () => {
       const text = runbook()
 
       // Both exclusions, by the name of the thing that enforces them — so a

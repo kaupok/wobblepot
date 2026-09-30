@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # Garbage-collect stale `<prefix>--hon-<N>` Neon branches created by
-# `/auto-implement` worktrees (`auto--hon-51`, `kaupokorv--hon-51-slug`, …).
+# `/auto-implement` worktrees (`auto--hon-51`, `kaupokorv--hon-51-slug`, …),
+# and orphaned `preview/<git-branch>` branches the Vercel–Neon integration
+# re-creates after a PR is gone (HON-852).
 # See docs/RUNBOOKS/neon-branch-gc.md for the full runbook.
 #
 # Subcommands:
 #   sweep                              List all <prefix>--hon-<N> branches,
 #                                      delete those whose linked Linear issue is
 #                                      Done or Canceled and that are > 24h old.
+#                                      Also list all preview/<ref> branches and
+#                                      delete those > 24h old whose <ref> is gone
+#                                      from origin and heads no open PR.
 #   delete-for-branch <git-branch>     Delete the Neon branch paired with a
 #                                      merged PR's head ref (`/` -> `--`), or,
 #                                      when the branch carries no HON id, the
@@ -17,6 +22,8 @@
 #
 # Required env:
 #   NEON_API_KEY, NEON_PROJECT_ID, LINEAR_API_KEY
+#   (sweep, preview path) `git` with a reachable remote and `gh` authenticated
+#   for this repo — GH_TOKEN in the workflow.
 #
 # Optional env:
 #   NEON_CLEANUP_DRY_RUN        "1" to log without DELETE (default). "0" to delete.
@@ -24,6 +31,8 @@
 #                               for the one-time cleanup to bypass the gate.
 #   PR_BODY                     Piped PR body, used by `delete-for-branch` as
 #                               the fallback for HON-ID extraction.
+#   NEON_CLEANUP_GIT_REMOTE     Remote the preview path checks refs on
+#                               (default origin).
 #
 # Safety invariants (MUST all hold for a branch to be deleted):
 #   - Name matches SAFE_BRANCH_REGEX (<prefix>--hon-<N>[-slug])
@@ -32,6 +41,16 @@
 #   - (sweep only) updated_at is older than NEON_CLEANUP_MIN_AGE_HOURS
 #   - (sweep only) linked Linear issue is Done or Canceled — Linear lookup
 #     failure defaults to DO NOT DELETE
+#
+# The preview/* path has its own gate (preview_skip_reason), and ALL of these
+# must hold instead:
+#   - Name is `preview/<ref>` and <ref> matches PREVIEW_REF_REGEX, has no `..`
+#     or `//`, and does not start with `-` or `/` or end with `/`
+#   - default != true and protected != true, and not in ALLOWLIST_NAMES
+#   - updated_at is older than NEON_CLEANUP_MIN_AGE_HOURS
+#   - refs/heads/<ref> does not exist on the remote (`git ls-remote` exit 2);
+#     any other lookup failure defaults to DO NOT DELETE
+#   - no open PR has <ref> as its head; `gh` failure defaults to DO NOT DELETE
 set -euo pipefail
 
 NEON_API_BASE="https://console.neon.tech/api/v2"
@@ -49,6 +68,13 @@ LINEAR_API_URL="https://api.linear.app/graphql"
 # Kept in sync with NEON_ISSUE_BRANCH_REGEX in scripts/worktree-claude.sh.
 SAFE_BRANCH_REGEX='^[A-Za-z0-9._-]+--hon-([0-9]+)(-[A-Za-z0-9._-]+)?$'
 ALLOWLIST_NAMES=(main staging dev/kaupo vercel-dev)
+# The Vercel–Neon integration names its branch `preview/<git-branch>`. The ref
+# charset is deliberately narrower than git's: anything outside it is left for a
+# human rather than passed to `git ls-remote` / `gh`. Kept in sync with
+# PREVIEW_REF_REGEX in scripts/worktree-claude.sh.
+PREVIEW_PREFIX='preview/'
+PREVIEW_REF_REGEX='^[A-Za-z0-9._/-]+$'
+GIT_REMOTE="${NEON_CLEANUP_GIT_REMOTE:-origin}"
 DRY_RUN="${NEON_CLEANUP_DRY_RUN:-1}"
 MIN_AGE_HOURS="${NEON_CLEANUP_MIN_AGE_HOURS:-24}"
 
@@ -160,20 +186,32 @@ is_safe_to_delete() {
     fi
   done
 
-  if [ "$mode" = "sweep" ] && [ "$MIN_AGE_HOURS" -gt 0 ]; then
-    local updated_at age_sec now min_age_sec
-    updated_at=$(printf '%s' "$branch_json" | jq -r '.updated_at // ""')
-    if [ -z "$updated_at" ]; then
-      warn "skip $name: missing updated_at"
-      return 1
-    fi
-    now=$(date -u +%s)
-    age_sec=$(( now - $(parse_iso8601 "$updated_at") ))
-    min_age_sec=$(( MIN_AGE_HOURS * 3600 ))
-    if [ "$age_sec" -lt "$min_age_sec" ]; then
-      warn "skip $name: younger than ${MIN_AGE_HOURS}h (age ${age_sec}s)"
-      return 1
-    fi
+  if [ "$mode" = "sweep" ]; then
+    printf '%s' "$branch_json" | older_than_min_age || return 1
+  fi
+  return 0
+}
+
+# Reads one branch JSON object on stdin, returns 0 if its updated_at is older
+# than MIN_AGE_HOURS (always 0 when the gate is off). Shared by both sweep paths.
+older_than_min_age() {
+  local branch_json name
+  branch_json=$(cat)
+  [ "$MIN_AGE_HOURS" -gt 0 ] || return 0
+  name=$(printf '%s' "$branch_json" | jq -r '.name // ""')
+
+  local updated_at age_sec now min_age_sec
+  updated_at=$(printf '%s' "$branch_json" | jq -r '.updated_at // ""')
+  if [ -z "$updated_at" ]; then
+    warn "skip $name: missing updated_at"
+    return 1
+  fi
+  now=$(date -u +%s)
+  age_sec=$(( now - $(parse_iso8601 "$updated_at") ))
+  min_age_sec=$(( MIN_AGE_HOURS * 3600 ))
+  if [ "$age_sec" -lt "$min_age_sec" ]; then
+    warn "skip $name: younger than ${MIN_AGE_HOURS}h (age ${age_sec}s)"
+    return 1
   fi
   return 0
 }
@@ -204,6 +242,88 @@ issue_done_or_canceled() {
   esac
 }
 
+# ─── preview/* ownership checks (HON-852) ────────────────────────────────────
+
+# 0 if <ref> is a plausible git branch name this script may pass to git/gh.
+# A leading `-` would be read as an option; `..` and `//` are not valid refs.
+preview_ref_plausible() {
+  local ref="$1"
+  [ -n "$ref" ] || return 1
+  [[ "$ref" =~ $PREVIEW_REF_REGEX ]] || return 1
+  case "$ref" in
+    -*|/*|*/|*..*|*//*) return 1 ;;
+  esac
+  return 0
+}
+
+# Prints `present`, `absent` or `error`. Asks for the full refs/heads/ path so
+# ls-remote's tail matching cannot report `x/hon-1` for `hon-1`. `--exit-code`
+# makes "no such ref" exit 2, which is the ONLY answer read as absent — auth,
+# network or a missing remote exit otherwise and must never read as an orphan.
+preview_ref_state() {
+  local ref="$1" rc=0
+  git ls-remote --exit-code --heads "$GIT_REMOTE" "refs/heads/$ref" >/dev/null 2>&1 || rc=$?
+  case "$rc" in
+    0) echo present ;;
+    2) echo absent ;;
+    *) echo error ;;
+  esac
+}
+
+# Prints the number of open PRs whose head is <ref>, or nothing on failure.
+preview_open_pr_count() {
+  local ref="$1" prs
+  prs=$(gh pr list --state open --head "$ref" --json number --limit 100 2>/dev/null) || return 1
+  printf '%s' "$prs" | jq -e 'if type == "array" then length else error("not an array") end' 2>/dev/null
+}
+
+# Reads one preview/* branch JSON object on stdin. Prints `ok` when the branch
+# is an orphan that may be deleted, or a one-word skip reason otherwise. The
+# verdict is positive on purpose: a helper that dies partway (a jq or date
+# failure under `set -e`) prints nothing, and nothing must never mean delete.
+# Separate from is_safe_to_delete on purpose: SAFE_BRANCH_REGEX excludes `/`,
+# and the ownership signal here is git + GitHub, not Linear. Cheap checks run
+# before the network ones.
+preview_skip_reason() {
+  local branch_json name ref is_default is_protected
+  branch_json=$(cat)
+  name=$(printf '%s' "$branch_json" | jq -r '.name // ""')
+  ref="${name#"$PREVIEW_PREFIX"}"
+
+  if [ "$ref" = "$name" ] || ! preview_ref_plausible "$ref"; then
+    echo invalid-ref; return 0
+  fi
+  is_default=$(printf '%s' "$branch_json" | jq -r '.default // .primary // false')
+  is_protected=$(printf '%s' "$branch_json" | jq -r '.protected // false')
+  if [ "$is_default" = "true" ] || [ "$is_protected" = "true" ]; then
+    echo protected; return 0
+  fi
+  local allowed
+  for allowed in "${ALLOWLIST_NAMES[@]}"; do
+    if [ "$name" = "$allowed" ]; then
+      echo allowlisted; return 0
+    fi
+  done
+  if ! printf '%s' "$branch_json" | older_than_min_age; then
+    echo too-young; return 0
+  fi
+
+  case "$(preview_ref_state "$ref")" in
+    absent) ;;
+    present) echo ref-on-remote; return 0 ;;
+    *) echo ref-lookup-failed; return 0 ;;
+  esac
+
+  local open_prs
+  if ! open_prs=$(preview_open_pr_count "$ref"); then
+    echo pr-lookup-failed; return 0
+  fi
+  if [ "$open_prs" != "0" ]; then
+    echo open-pr; return 0
+  fi
+  echo ok
+}
+
 # ─── Deletion ────────────────────────────────────────────────────────────────
 
 delete_branch() {
@@ -231,9 +351,44 @@ cmd_sweep() {
   branches_json=$(printf '%s' "$response" | jq -c '.branches[]')
 
   local considered=0 deleted=0 skipped_safe=0 skipped_status=0
+  # preview/* path (HON-852). Reasons are newline-accumulated rather than kept
+  # in an associative array: macOS ships bash 3.2, and the tests run there.
+  local preview_considered=0 preview_candidates=0 preview_deleted=0
+  local preview_with_usage=0 preview_skip_reasons=""
   while IFS= read -r branch; do
+    [ -n "$branch" ] || continue
     local name hon_num
     name=$(printf '%s' "$branch" | jq -r '.name')
+
+    if [[ "$name" == "$PREVIEW_PREFIX"* ]]; then
+      preview_considered=$((preview_considered + 1))
+      local reason
+      reason=$(printf '%s' "$branch" | preview_skip_reason) || true
+      [ -n "$reason" ] || reason=gate-error
+      if [ "$reason" != "ok" ]; then
+        log "skip $name: preview $reason"
+        preview_skip_reasons+="${reason}"$'\n'
+        continue
+      fi
+      preview_candidates=$((preview_candidates + 1))
+      # A branch with usage but no git ref is still an orphan (the ref and PR
+      # checks are the ownership signal); say so, so it shows in the summary.
+      local compute written usage=""
+      compute=$(printf '%s' "$branch" | jq -r '.compute_time_seconds // 0')
+      written=$(printf '%s' "$branch" | jq -r '.written_data_bytes // 0')
+      if [ "$compute" != "0" ] || [ "$written" != "0" ]; then
+        usage=" (usage: compute_time_seconds=$compute written_data_bytes=$written)"
+        preview_with_usage=$((preview_with_usage + 1))
+      fi
+      log "preview candidate: $name$usage"
+      local preview_id
+      preview_id=$(printf '%s' "$branch" | jq -r '.id')
+      if delete_branch "$preview_id" "$name"; then
+        preview_deleted=$((preview_deleted + 1))
+      fi
+      continue
+    fi
+
     [[ "$name" =~ $SAFE_BRANCH_REGEX ]] || continue
     # Capture the number NOW: is_safe_to_delete runs in a pipeline subshell, but
     # any later [[ =~ ]] in this shell would clobber BASH_REMATCH.
@@ -268,10 +423,17 @@ cmd_sweep() {
     verb_lower="deleted"
     verb_title="Deleted"
   fi
+  # `reason=count` pairs, sorted by reason, e.g. `open-pr=1 ref-on-remote=2`.
+  local preview_skipped
+  preview_skipped=$(printf '%s' "$preview_skip_reasons" | grep -v '^$' | sort | uniq -c \
+    | awk '{printf "%s%s=%s", (NR > 1 ? " " : ""), $2, $1}' || true)
   local summary
   summary=$(printf 'neon-cleanup sweep: considered=%d %s=%d skipped_safety=%d skipped_status=%d dry_run=%s' \
     "$considered" "$verb_lower" "$deleted" "$skipped_safe" "$skipped_status" "$DRY_RUN")
   log "$summary"
+  log "$(printf 'neon-cleanup sweep: preview considered=%d candidates=%d %s=%d with_usage=%d skipped: %s' \
+    "$preview_considered" "$preview_candidates" "$verb_lower" "$preview_deleted" \
+    "$preview_with_usage" "${preview_skipped:-none}")"
   if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     {
       echo "## Neon cleanup sweep"
@@ -280,6 +442,11 @@ cmd_sweep() {
       echo "- $verb_title: $deleted"
       echo "- Skipped (safety): $skipped_safe"
       echo "- Skipped (status): $skipped_status"
+      echo "- Preview considered: $preview_considered"
+      echo "- Preview candidates: $preview_candidates"
+      echo "- Preview $verb_lower: $preview_deleted"
+      echo "- Preview with usage: $preview_with_usage"
+      echo "- Preview skipped: ${preview_skipped:-none}"
       echo "- Dry run: $DRY_RUN"
     } >> "$GITHUB_STEP_SUMMARY"
   fi
@@ -384,7 +551,9 @@ Usage: $(basename "$0") <command> [args]
 
 Commands:
   sweep                          GC stale <prefix>--hon-<N> branches (respects
-                                 Linear status and 24h age gate).
+                                 Linear status and 24h age gate), and
+                                 preview/<ref> branches whose <ref> is gone from
+                                 origin and heads no open PR.
   delete-for-branch <git-branch> Delete the Neon branch paired with a
                                  just-merged PR's head ref (reads PR_BODY for
                                  the \`Closes HON-N\` fallback).
