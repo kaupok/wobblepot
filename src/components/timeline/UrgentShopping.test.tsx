@@ -132,6 +132,27 @@ describe('UrgentShopping', () => {
     )
   })
 
+  // HON-923: the branch is reached by an empty plan as often as by a stocked
+  // pantry, so it states a fact rather than claiming the household is ready.
+  describe('nothing to buy for today or tomorrow', () => {
+    it.each([
+      ['no items at all', []],
+      ['every urgent item purchased', [{ ...item('Onion'), purchased: true }]],
+      ['items only for later days', [item('Rice', 'this-week')]],
+    ])('shows the neutral empty line and no icon: %s', (_, input) => {
+      const { container } = render(
+        <NextIntlClientProvider locale="en" messages={enMessages}>
+          <UrgentShopping items={input} />
+        </NextIntlClientProvider>,
+      )
+
+      expect(screen.getByText('Shopping list')).toBeInTheDocument()
+      expect(screen.getByText('Nothing on the list for today or tomorrow')).toBeInTheDocument()
+      expect(screen.queryByText(/all set/i)).not.toBeInTheDocument()
+      expect(container.querySelector('svg')).toBeNull()
+    })
+  })
+
   describe('compact (HON-766)', () => {
     const fixture = [
       item('Apple', 'tomorrow'),

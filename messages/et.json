@@ -137,7 +137,7 @@
     "pageTitle": "Söögiplaan",
     "shoppingTitle": "Poenimekiri",
     "viewFullList": "Vaata tervet nimekirja",
-    "allSet": "Järgmiseks 2 päevaks on sul kõik vajalik olemas",
+    "listEmpty": "Tänaseks ja homseks pole nimekirjas midagi",
     "summaryToday": "{count} tänaseks",
     "summaryTomorrow": "{count} homseks",
     "summaryNeed": "Vaja: {parts}",
