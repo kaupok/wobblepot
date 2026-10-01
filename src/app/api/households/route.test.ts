@@ -422,6 +422,67 @@ describe('POST /api/households', () => {
     expect(response.status).toBe(201)
   })
 
+  it('writes a member row and a portion multiplier for each additional member', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+
+    // A distinct id per row, so each preferences write can be traced back to
+    // the member it belongs to. The owner's row is `member-1`.
+    let memberCount = 0
+    const memberCreate = vi.fn(async () => ({ id: `member-${++memberCount}` }))
+    const memberPreferencesCreate = vi.fn().mockResolvedValue({ id: 'member-prefs' })
+    mockTransaction.mockImplementation(async (callback) => {
+      const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        household: {
+          create: vi.fn().mockResolvedValue({ id: 'household-123' }),
+          findUnique: vi.fn().mockResolvedValue({ id: 'household-123', name: 'My Household' }),
+        },
+        householdMember: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: memberCreate,
+        },
+        ...stapleMocks(),
+        householdPreferences: { create: vi.fn() },
+        memberPreferences: { create: memberPreferencesCreate },
+      }
+      return callback(mockTx as never)
+    })
+
+    const request = new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'My Household',
+        members: [
+          { name: 'Anna', portionType: 'adult' },
+          { name: 'Mia', portionType: 'child' },
+          // No portionType: the schema defaults it to adult.
+          { name: 'Karl' },
+        ],
+      }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(201)
+    // The owner's row, then one per additional member.
+    expect(memberCreate).toHaveBeenCalledTimes(4)
+    expect(memberCreate.mock.calls.slice(1)).toEqual(
+      ['Anna', 'Mia', 'Karl'].map((name) => [
+        { data: { householdId: 'household-123', name, role: 'member' } },
+      ]),
+    )
+    // The multiplier feeds portion scaling and so shopping-list quantities:
+    // a child gets half an adult's portion.
+    expect(memberPreferencesCreate.mock.calls).toEqual([
+      [{ data: { memberId: 'member-2', portionMultiplier: 1.0 } }],
+      [{ data: { memberId: 'member-3', portionMultiplier: 0.5 } }],
+      [{ data: { memberId: 'member-4', portionMultiplier: 1.0 } }],
+    ])
+  })
+
   it('creates household with owner role and returns 201', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
