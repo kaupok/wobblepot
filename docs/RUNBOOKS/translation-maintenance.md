@@ -22,7 +22,7 @@ Direct, scoped `UPDATE` statements against staging and then production, logged i
 
 From [`CLAUDE.md`](../../CLAUDE.md) → Database Patterns:
 
-> **Destructive commands:** do not run `migrate reset`, `db push --force-reset`, `DROP` or similar against staging or production. They destroy real data. Ask the user before any destructive action on a shared environment, even to fix a migration problem, and prefer `migrate resolve` or a manual SQL fix.
+> **Destructive commands:** do not run `migrate reset`, `db push --force-reset`, `DROP` or similar against staging or production. They destroy real data. Ask the user before any destructive action on a shared environment, even to fix a migration problem, and prefer `migrate resolve` or a manual SQL fix. The PreToolUse hook blocks the common forms (see Git & Workflow Essentials → Hooks).
 
 Carried over here with one addition, because this runbook is the first that asks for a hand-written `UPDATE` against production as its normal path:
 
@@ -58,15 +58,15 @@ Unique on `("ingredientId", locale)`: one translation per ingredient per locale.
 
 Unique on `("mealId", locale)`.
 
-`preparationNotes` looks editable and is not. The seed writes `null` into it in **both** the `create` and `update` branches (`prisma/seed.ts:3897`, `:3902`), so anything you put there is erased on the next production seed run. That is deliberate: seeded meals carry no English prep notes either, the meal-detail prep section is driven by the AI preparation-tips feature, and the column is reserved for user-authored notes, which keep their creator-time locale per HON-499's content principle. There is nothing to translate here.
+`preparationNotes` looks editable and is not. The seed writes `null` into it in **both** the `create` and `update` branches (`prisma/seed.ts:3898`, `:3903`), so anything you put there is erased on the next production seed run. That is deliberate: seeded meals carry no English prep notes either, the meal-detail prep section is driven by the AI preparation-tips feature, and the column is reserved for user-authored notes, which keep their creator-time locale per HON-499's content principle. There is nothing to translate here.
 
 > **Never `UPDATE` the `locale` column.** It is half of the unique key, so changing it does not "move" a translation — it re-keys the row. The locale you left loses its overlay — that ingredient silently falls back to English for every household on it — and the destination either already has a translation, so the write is rejected on the unique key, or does not, so you have moved Estonian text under another language's label. To add a translation for a new locale, `INSERT` a new row; to remove one, that is a seed-data change.
 
 ### English is not in these tables
 
-English is canonical and lives on the base row — `ingredient.name`, `meal.name` / `.description` / `.preparationNotes`. A typo in the **English** text is not a translation fix: it is a change to seeded content, which means a seed-script edit and a normal PR. This runbook covers overlays only.
+English is canonical and lives on the base row — `ingredient.name`, `meal.name` / `.description` / `.preparationNotes`. A typo in the **English** text is not a translation fix: it is a change to seeded content, which means a seed-script edit and a normal PR. A typo in an English **name** is a rename, and needs a migration as well; see [Renaming a seeded ingredient or meal](#renaming-a-seeded-ingredient-or-meal). This runbook covers overlays only.
 
-The same boundary applies to household-scoped rows. AI- and user-created ingredients carry a non-null `ingredient."householdId"` and are stored in the creator's locale with no translation row at all. Do not hand-edit another household's content. There is no path that promotes a household row into the curated global pool (see [`LOCALIZATION.md`](../LOCALIZATION.md#decided-principles)).
+The same boundary applies to household-scoped rows. The schema allows an ingredient with a non-null `ingredient."householdId"`, and the matcher and display handle one, but nothing creates them today: no code path writes an `ingredient` row at runtime, the recipe parser's unmatched rows must be resolved to an existing ingredient, and `POST /api/households/me/meals` rejects unknown ingredient ids. Household meals do exist; do not hand-edit another household's content. There is no path that promotes a household row into the curated global pool (see [`LOCALIZATION.md`](../LOCALIZATION.md#decided-principles)).
 
 ## Getting a SQL prompt
 
@@ -88,7 +88,7 @@ DATABASE_URL_UNPOOLED="<the unpooled URL>" pnpm db:studio
 
 `prisma.config.ts` points the CLI at `DATABASE_URL_UNPOOLED`, so Studio follows whatever you set there.
 
-**Delete the pulled env file when you are done.** `.env.staging` and `.env.production` hold live database credentials. `.gitignore` covers them (`.env*`, `.gitignore:36`) so they cannot be committed by accident, but they should not sit on disk either:
+**Delete the pulled env file when you are done.** `.env.staging` and `.env.production` hold live database credentials. `.gitignore` covers them (`.env*`, `.gitignore:38`) so they cannot be committed by accident, but they should not sit on disk either:
 
 ```bash
 rm -f .env.staging .env.production
@@ -184,10 +184,10 @@ Edit the matching entry in `prisma/seed-ingredient-translations-et.ts` or `prism
 
 `prisma/seed.ts` upserts every seeded translation from checked-in data files, and both upserts carry a live `update` branch — not `create`-only:
 
-- `prisma/seed.ts:3953` — `ingredientTranslation.upsert(... update: { name: et })`
-- `prisma/seed.ts:3884` — `mealTranslation.upsert(... update: { name, description, preparationNotes: null })`
+- `prisma/seed.ts:3954` — `ingredientTranslation.upsert(... update: { name: et })`
+- `prisma/seed.ts:3885` — `mealTranslation.upsert(... update: { name, description, preparationNotes: null })`
 
-`.github/workflows/deploy-db-migrations-production.yml:71` runs `pnpm db:seed` against production with no `if:` gate, and [`../DEPLOYMENT.md`](../DEPLOYMENT.md) § Production Deployment Process makes that workflow **step 4a of every production release**. So the sequence is:
+`.github/workflows/deploy-db-migrations-production.yml:71` runs `pnpm db:seed` against production with no `if:` gate, and [`../DEPLOYMENT.md`](../DEPLOYMENT.md) § Production Deployment Process makes that workflow **step 4a of every production release**. The workflow is manual, though: it runs only when the operator starts it, and `deploy-code-production.yml` does not depend on it, so a release that skips step 4a ships code without re-seeding. "Every release" holds only as long as step 4a is followed. So the sequence is:
 
 1. You fix `kikerhernes` → `kikerherned` with a scoped `UPDATE`. Users see the correct word immediately.
 2. Someone ships an unrelated feature three weeks later.
@@ -206,6 +206,42 @@ The data files are the durable source of truth:
 Edit the matching entry to the value you just wrote in SQL, and ship it as a normal docs-sized PR. It needs no coordination with the SQL edit and no deploy of its own — it just has to land **before** the next production seed run, and the seed is idempotent, so the two agreeing is a no-op.
 
 Until that PR merges, the fix is live but provisional. That is the trade this workflow makes deliberately: the user stops seeing the typo today, and the durability lands on the normal review cadence instead of blocking on it.
+
+### What the seed does not re-assert
+
+Translations are re-asserted in full. The base rows are not:
+
+- **An existing ingredient** gets only `gramsPerPiece` refreshed (`seedIngredients` in `prisma/seed.ts`). Its category, nutrition and allergens keep whatever the row first got.
+- **An existing meal** gets its description, time, `kidFriendly`, `suitableFor` and protein type refreshed (`seedMeals`). Its name and components are never touched.
+- **Both are looked up by exact English name** among the global rows. A row whose name is no longer in the seed data is left alone, not deleted.
+
+## Renaming a seeded ingredient or meal
+
+Changing a seeded English name in the seed data alone breaks the next production seed. The seed looks the new name up, finds nothing, and creates a second global row; the old row stays. The translation step then reconciles every live global row against the translation file, finds no key for one of the two names, and throws `Missing et translation`. That failure lands in the production migration workflow, after the migrations have applied. Keeping both keys would avoid the throw, but `pnpm db:validate` fails on the orphaned old key, and the old row would keep its own references and show up twice in search.
+
+So rename the row in place, in **one PR**:
+
+1. **Seed data.** Change the name in its `prisma/seed*.ts` file, and in every meal component that references it (for an ingredient).
+2. **Translation key.** Change the `en` (ingredient) or `enName` (meal) key in `prisma/seed-ingredient-translations-et.ts` or `prisma/seed-meal-translations-et.ts`. Leave the Estonian value alone unless that is also the point of the PR. Do not keep the old key.
+3. **Forward migration.** Add a migration (`pnpm db:migrate --create-only`, then write the SQL) that renames the global row:
+
+   ```sql
+   -- Rename a seeded global ingredient in place (HON-NNN). Same id, so meal
+   -- components, pantry rows, shopping items and translations follow it.
+   UPDATE "ingredient"
+   SET "name" = 'new name'
+   WHERE "name" = 'old name'
+     AND "householdId" IS NULL;
+   ```
+
+   For a meal, the same statement on `"meal"`. A database that never had the old row (a fresh CI or Neon branch) updates nothing, and the seed then creates the row under its new name.
+
+4. **Other references.** Grep `src/`, `scripts/`, `tests/` and `prisma/seed*.ts` for the old name. `src/lib/ingredient-aliases.ts` is the usual hit; an alias from the old name to the new one keeps the matcher resolving text that still uses it. Leave the old name in applied migrations: they are immutable, and the rename migration runs after them.
+5. **Check.** `pnpm db:validate` passes. To rehearse the deploy order, run `pnpm test:e2e:local`: it branches from staging, which still has the old row, then migrates and seeds.
+
+This works because every environment applies migrations before it seeds. `prisma migrate deploy` runs ahead of `pnpm db:seed` in `deploy-db-migrations-production.yml` and `deploy-db-migrations-staging.yml`, and in CI's E2E job, so by the time the seed looks for the new name the row already carries it. Staging re-seeds only when `prisma/seed*.ts` or the schema changed, which a rename PR always does.
+
+**If the new name already exists as a global row**, this is a merge, not a rename. For an ingredient the `UPDATE` fails on `ingredient_global_name_key`; for a meal nothing stops it, because meal names carry no unique index, and you get two global meals with one name. Check before writing the migration. A merge repoints every foreign key to the surviving id (for an ingredient: `meal_component`, `pantry_item` and `custom_shopping_item`, the first two with a unique key to collide on) and deletes the old row. Plan it as its own issue.
 
 ## Never run an unscoped UPDATE
 
@@ -269,8 +305,8 @@ Translation names are not display-only. `fuzzySearchIngredient` (`src/lib/ai/fuz
 
 So an edit shifts matching as well as rendering, in both directions:
 
-- **Fixing a wrong translation improves matching.** A parsed Estonian recipe starts resolving the right word to the right global ingredient instead of minting a household-scoped duplicate.
-- **Moving a name far from what users type can lose matches.** Trigram similarity is forgiving about inflection but not about a different word — replacing a common term with a precise-but-unused one drops it below the threshold, and recipes using the common term create household-scoped rows instead.
+- **Fixing a wrong translation improves matching.** A parsed Estonian recipe starts resolving the right word to the right global ingredient instead of coming back unmatched for the user to resolve by hand.
+- **Moving a name far from what users type can lose matches.** Trigram similarity is forgiving about inflection but not about a different word — replacing a common term with a precise-but-unused one drops it below the threshold, and recipes using the common term come back unmatched instead.
 
 Neither is a reason to avoid the edit. It is a reason to prefer the word a user would actually type over the most technically correct one, and to say so in the change-log `why` when you knowingly trade recall for accuracy.
 
@@ -291,7 +327,7 @@ Nothing promotes household-scoped ingredients into the global pool today: [HON-5
 
 ## Change log
 
-One line per **production** translation edit. Append at the bottom, newest last. Include the entity's English name alongside its id — the id alone is unreadable a month later.
+One line per **production** translation edit. Append at the bottom, newest last. No production edit has been made yet (checked 2026-10-02), so the table holds only the example row; that is the log being current, not unmaintained. Include the entity's English name alongside its id — the id alone is unreadable a month later.
 
 The **Seed PR** column is the audit for [step 6](#6-mirror-the-edit-into-the-seed-data). Write `pending` when you log the SQL edit, and fill in the PR number when the mirror lands. A row still reading `pending` is a fix that the next production deploy will silently revert — that column is the only place anyone would notice.
 
