@@ -15,6 +15,17 @@ describe('imaginedIngredientText', () => {
     expect(imaginedIngredientText(ing, 'en')).toBe('500 g chicken breast')
   })
 
+  it('keeps a quantity the model wrote beside a vague phrase', () => {
+    const ing = {
+      ...base,
+      name: 'cream',
+      quantity: 200,
+      unit: 'ml' as const,
+      vaguePhrase: 'optional',
+    }
+    expect(imaginedIngredientText(ing, 'en')).toBe('200 ml cream')
+  })
+
   it('writes quantity, unit and name', () => {
     expect(imaginedIngredientText({ ...base, quantity: 500, unit: 'g' }, 'en')).toBe(
       '500 g chicken breast',

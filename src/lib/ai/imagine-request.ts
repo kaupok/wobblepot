@@ -84,18 +84,20 @@ const UNIT_LABELS: Partial<Record<Locale, Partial<Record<ImaginedUnit, string>>>
  * under "Original:" in the review rows and given to the benchmark judge.
  *
  * In the household's locale: the quantity takes its decimal separator and the
- * unit its local abbreviation. `vaguePhrase` is an English matcher key even
- * for Estonian households, so outside English a vague ingredient's line is
- * its name alone; the rows show the phrase separately.
+ * unit its local abbreviation. A quantity wins over a vague phrase the model
+ * wrote beside it. `vaguePhrase` is an English matcher key even for Estonian
+ * households, so outside English a vague ingredient's line is its name alone;
+ * the rows show the phrase separately.
  */
 export function imaginedIngredientText(
   ing: Pick<ImaginedIngredient, 'name' | 'quantity' | 'unit' | 'vaguePhrase'>,
   locale: string,
 ): string {
   const loc: Locale = isKnownLocale(locale) ? locale : DEFAULT_LOCALE
-  const vaguePhrase = ing.vaguePhrase?.trim()
-  if (vaguePhrase) return loc === DEFAULT_LOCALE ? `${vaguePhrase} ${ing.name}` : ing.name
-  if (ing.quantity === null) return ing.name
+  if (ing.quantity === null) {
+    const vaguePhrase = ing.vaguePhrase?.trim()
+    return vaguePhrase && loc === DEFAULT_LOCALE ? `${vaguePhrase} ${ing.name}` : ing.name
+  }
   const quantity = formatQuantity(ing.quantity, loc, { maximumFractionDigits: 2 })
   const unit = ing.unit === null ? '' : (UNIT_LABELS[loc]?.[ing.unit] ?? ing.unit)
   return [quantity, unit, ing.name].filter(Boolean).join(' ')

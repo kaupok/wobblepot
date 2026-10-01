@@ -524,6 +524,8 @@ describe('POST /api/meals/imagine', () => {
           { name: 'Chicken breast', quantity: 500, unit: 'g', vaguePhrase: null, isDried: null },
           { name: 'Egg', quantity: 2, unit: null, vaguePhrase: '', isDried: null },
           { name: 'Salt', quantity: null, unit: null, vaguePhrase: 'to taste', isDried: null },
+          // A phrase beside a real amount (PR #987 review): the amount wins.
+          { name: 'Cream', quantity: 200, unit: 'ml', vaguePhrase: 'optional', isDried: null },
         ],
       }) as never,
     ])
@@ -540,6 +542,12 @@ describe('POST /api/meals/imagine', () => {
         isVague: true,
         vaguePhrase: 'to taste',
         quantity: null,
+      }),
+      expect.objectContaining({
+        originalText: '200 ml Cream',
+        isVague: false,
+        vaguePhrase: null,
+        quantity: 200,
       }),
     ])
   })

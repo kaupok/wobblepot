@@ -234,14 +234,17 @@ async function handlePOST(request: Request) {
       generatedMeals.map(async (meal, index) => {
         const extractedIngredients: ExtractedIngredient[] = meal.ingredients.map((ing) => {
           // The model no longer writes originalText or isVague (HON-897), so
-          // both are rebuilt here. A blank phrase is not a vague quantity.
-          const vaguePhrase = ing.vaguePhrase?.trim() || null
+          // both are rebuilt here. A blank phrase is not a vague quantity, and
+          // neither is a phrase beside a real quantity ("200 ml, optional"):
+          // the amount wins, so matching and nutrition keep it.
+          const isVague = ing.quantity === null && Boolean(ing.vaguePhrase?.trim())
+          const vaguePhrase = isVague ? ing.vaguePhrase!.trim() : null
           return {
             name: ing.name,
             quantity: ing.quantity,
             unit: ing.unit,
-            originalText: imaginedIngredientText(ing, household.locale),
-            isVague: vaguePhrase !== null,
+            originalText: imaginedIngredientText({ ...ing, vaguePhrase }, household.locale),
+            isVague,
             vaguePhrase,
             isDried: ing.isDried,
           }
