@@ -7,10 +7,12 @@ import { Prisma } from '@/generated/prisma/client'
 import type { Allergen, MealType, ProteinType } from '@/generated/prisma/enums'
 import {
   ingredientTranslationsInclude,
+  isDefaultLocale,
   mealTranslationsInclude,
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
+import { resolveLocale } from '@/lib/i18n/resolve-locale'
 import { captureApiError } from '@/lib/errors'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
@@ -45,6 +47,10 @@ export async function GET(request: NextRequest) {
   }
 
   const { household } = membership
+  // The household's locale, never Accept-Language: it decides which translated
+  // names the search matches and the order of the alphabetical list (HON-911).
+  const locale = resolveLocale({ householdLocale: household.locale })
+  const translate = !isDefaultLocale(locale)
 
   // Parse query params
   const searchParams = request.nextUrl.searchParams
@@ -90,37 +96,57 @@ export async function GET(request: NextRequest) {
               { OR: [{ householdId: null }, { householdId: household.id }] }
 
     // When search is provided, use fuzzy matching to get meal IDs
-    // Searches both meal name AND ingredient names
+    // Searches both meal name AND ingredient names, in English and, for a
+    // non-default locale, in the household's language too (HON-911)
     // Limited to FUZZY_SEARCH_CAP results to prevent loading too many into memory
     let fuzzyMealMatches: FuzzyMealMatch[] | null = null
     if (search) {
+      const mealNames = translate ? [Prisma.sql`m.name`, Prisma.sql`mt.name`] : [Prisma.sql`m.name`]
+      const ingredientNames = translate
+        ? [Prisma.sql`i.name`, Prisma.sql`it.name`]
+        : [Prisma.sql`i.name`]
+      const mealTranslationJoin = translate
+        ? Prisma.sql`LEFT JOIN "meal_translation" mt ON mt."mealId" = m.id AND mt.locale = ${locale}`
+        : Prisma.empty
+      const ingredientTranslationJoin = translate
+        ? Prisma.sql`LEFT JOIN "ingredient_translation" it ON it."ingredientId" = i.id AND it.locale = ${locale}`
+        : Prisma.empty
+      // similarity() and word_similarity() of the search against each name.
+      // A missing translation scores NULL, which GREATEST skips and OR treats
+      // as no match, so the English name still decides for that row.
+      const scores = (names: Prisma.Sql[]) =>
+        names.flatMap((n) => [
+          Prisma.sql`similarity(${n}, ${search})`,
+          Prisma.sql`word_similarity(${search}, ${n})`,
+        ])
+      const matches = (names: Prisma.Sql[]) =>
+        Prisma.join(
+          scores(names).map((score) => Prisma.sql`${score} >= ${SIMILARITY_THRESHOLD}`),
+          ' OR ',
+        )
+
       fuzzyMealMatches = await prisma.$queryRaw<FuzzyMealMatch[]>`
         SELECT DISTINCT m.id,
           GREATEST(
-            similarity(m.name, ${search}),
-            word_similarity(${search}, m.name),
+            ${Prisma.join(scores(mealNames))},
             COALESCE((
-              SELECT MAX(GREATEST(
-                similarity(i.name, ${search}),
-                word_similarity(${search}, i.name)
-              ))
+              SELECT MAX(GREATEST(${Prisma.join(scores(ingredientNames))}))
               FROM "meal_component" mc
               JOIN "ingredient" i ON i.id = mc."ingredientId"
+              ${ingredientTranslationJoin}
               WHERE mc."mealId" = m.id
             ), 0)
           ) as similarity
         FROM "meal" m
+        ${mealTranslationJoin}
         WHERE (
-          similarity(m.name, ${search}) >= ${SIMILARITY_THRESHOLD}
-          OR word_similarity(${search}, m.name) >= ${SIMILARITY_THRESHOLD}
+          ${matches(mealNames)}
           OR EXISTS (
             SELECT 1 FROM "meal_component" mc
             JOIN "ingredient" i ON i.id = mc."ingredientId"
+            ${ingredientTranslationJoin}
             WHERE mc."mealId" = m.id
-            AND (
-              similarity(i.name, ${search}) >= ${SIMILARITY_THRESHOLD}
-              OR word_similarity(${search}, i.name) >= ${SIMILARITY_THRESHOLD}
-            )
+            AND (${matches(ingredientNames)})
           )
         )
         ORDER BY similarity DESC
@@ -182,9 +208,28 @@ export async function GET(request: NextRequest) {
       ? new Map(fuzzyMealMatches.map((m) => [m.id, m.similarity]))
       : null
 
+    // Prisma can only order by the English `name`. For a translated locale,
+    // sort the matching meals' display names with the locale's collation
+    // (Estonian puts š, z, ž after s and õ, ä, ö, ü after w) and fetch just
+    // that page (HON-911).
+    let translatedPageIds: string[] | null = null
+    if (!fuzzyOrderMap && translate) {
+      const collator = new Intl.Collator(locale)
+      const names = await prisma.meal.findMany({
+        where,
+        select: { id: true, name: true, ...mealTranslationsInclude(locale) },
+      })
+      translatedPageIds = names
+        .map((meal) => translateMeal(meal, locale))
+        // The id tie-break keeps pages stable when two meals share a name
+        .sort((a, b) => collator.compare(a.name, b.name) || a.id.localeCompare(b.id))
+        .slice(offset, offset + limit)
+        .map((meal) => meal.id)
+    }
+
     // Fetch meals with pagination
     const mealsRaw = await prisma.meal.findMany({
-      where,
+      where: translatedPageIds ? { AND: [where, { id: { in: translatedPageIds } }] } : where,
       select: {
         id: true,
         name: true,
@@ -215,7 +260,7 @@ export async function GET(request: NextRequest) {
                 protein: true,
                 carbs: true,
                 fat: true,
-                ...ingredientTranslationsInclude(household.locale),
+                ...ingredientTranslationsInclude(locale),
               },
             },
           },
@@ -224,18 +269,24 @@ export async function GET(request: NextRequest) {
           where: { householdId: household.id },
           select: { id: true },
         },
-        ...mealTranslationsInclude(household.locale),
+        ...mealTranslationsInclude(locale),
       },
       // When searching, we need to fetch all matching meals and sort in memory
-      // because Prisma doesn't support ordering by a computed value from raw SQL
-      ...(fuzzyOrderMap ? {} : { orderBy: { name: 'asc' } }),
-      skip: fuzzyOrderMap ? 0 : offset,
-      take: fuzzyOrderMap ? undefined : limit,
+      // because Prisma doesn't support ordering by a computed value from raw SQL.
+      // A translated page is already chosen and ordered by `translatedPageIds`.
+      ...(fuzzyOrderMap || translatedPageIds ? {} : { orderBy: { name: 'asc' } }),
+      skip: fuzzyOrderMap || translatedPageIds ? 0 : offset,
+      take: fuzzyOrderMap || translatedPageIds ? undefined : limit,
     })
 
     // Sort by similarity if searching, then apply pagination
     let sortedMeals = mealsRaw
-    if (fuzzyOrderMap) {
+    if (translatedPageIds) {
+      const position = new Map(translatedPageIds.map((id, index) => [id, index]))
+      sortedMeals = [...mealsRaw].sort(
+        (a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
+      )
+    } else if (fuzzyOrderMap) {
       sortedMeals = [...mealsRaw].sort((a, b) => {
         const simA = fuzzyOrderMap.get(a.id) ?? 0
         const simB = fuzzyOrderMap.get(b.id) ?? 0
@@ -248,11 +299,11 @@ export async function GET(request: NextRequest) {
     const meals = sortedMeals.map((meal) => {
       const nutrition = computeMealNutrition(meal.components)
 
-      const translatedMeal = translateMeal(meal, household.locale)
+      const translatedMeal = translateMeal(meal, locale)
 
       // Format components for AlternativeCard compatibility
       const components = meal.components.map((comp) => {
-        const translatedIngredient = translateIngredient(comp.ingredient, household.locale)
+        const translatedIngredient = translateIngredient(comp.ingredient, locale)
         return {
           ingredientId: comp.ingredientId,
           quantityPerServing: comp.quantityPerServing,

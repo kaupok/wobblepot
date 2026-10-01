@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
+import { Prisma } from '@/generated/prisma/client'
 import { GET } from './route'
 
 function createMockRequest(url: string = 'http://localhost/api/ingredients') {
@@ -36,13 +37,21 @@ const mockGetSession = vi.mocked(auth.api.getSession)
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 
-/** The SQL text and interpolated values of the search's tagged-template call. */
+/**
+ * The SQL text and interpolated values of the search's tagged-template call,
+ * with nested `Prisma.sql` fragments flattened in.
+ */
 function lastQuery() {
   const [strings, ...values] = mockQueryRaw.mock.lastCall as unknown as [
     TemplateStringsArray,
     ...unknown[],
   ]
-  return { sql: strings.join('?'), values }
+  const query = Prisma.sql(strings, ...values)
+  return { sql: query.strings.join('?'), values: query.values }
+}
+
+function membershipWithLocale(locale: string) {
+  return { householdId: 'household-123', household: { locale } } as never
 }
 
 const mockSession = {
@@ -53,7 +62,7 @@ const mockSession = {
 describe('GET /api/ingredients', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetMembership.mockResolvedValue({ householdId: 'household-123' } as never)
+    mockGetMembership.mockResolvedValue(membershipWithLocale('en'))
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -124,7 +133,7 @@ describe('GET /api/ingredients', () => {
     await GET(createMockRequest('http://localhost/api/ingredients?search=chicken'))
 
     const { sql, values } = lastQuery()
-    expect(sql).toMatch(/\("householdId" IS NULL OR "householdId" = \?::text\)/)
+    expect(sql).toMatch(/\(i\."householdId" IS NULL OR i\."householdId" = \?::text\)/)
     expect(values).toContain('household-123')
   })
 
@@ -137,9 +146,73 @@ describe('GET /api/ingredients', () => {
 
     expect(response.status).toBe(200)
     const { sql, values } = lastQuery()
-    expect(sql).toMatch(/\("householdId" IS NULL OR "householdId" = \?::text\)/)
+    expect(sql).toMatch(/\(i\."householdId" IS NULL OR i\."householdId" = \?::text\)/)
     // `= NULL` matches no row, which leaves the `IS NULL` half: globals only.
     expect(values).toContain(null)
+  })
+
+  // HON-911: an Estonian household types the names it sees on screen.
+  describe('for a household on a non-default locale', () => {
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(membershipWithLocale('et'))
+    })
+
+    it("matches the household's translated name as well as the English one", async () => {
+      mockQueryRaw.mockResolvedValue([] as never)
+
+      await GET(createMockRequest('http://localhost/api/ingredients?search=kartul'))
+
+      const { sql, values } = lastQuery()
+      expect(sql).toContain(
+        'LEFT JOIN "ingredient_translation" t ON t."ingredientId" = i.id AND t.locale = ?',
+      )
+      expect(sql).toContain(
+        'WHERE GREATEST(similarity(i.name, ?), COALESCE(similarity(t.name, ?), 0)) >= ?',
+      )
+      expect(values).toContain('et')
+      expect(values).toContain('kartul')
+      // HON-889 scoping still applies
+      expect(sql).toMatch(/\(i\."householdId" IS NULL OR i\."householdId" = \?::text\)/)
+      expect(values).toContain('household-123')
+    })
+
+    it('returns the translated name for display, falling back to English', async () => {
+      mockQueryRaw.mockResolvedValue([
+        { id: 'ing-potato', name: 'Kartul', category: 'produce', defaultUnit: 'g', similarity: 1 },
+      ] as never)
+
+      const response = await GET(
+        createMockRequest('http://localhost/api/ingredients?search=kartul'),
+      )
+      const data = await response.json()
+
+      expect(lastQuery().sql).toMatch(/COALESCE\(t\.name, i\.name\) as name/)
+      expect(data.ingredients).toEqual([
+        expect.objectContaining({ id: 'ing-potato', name: 'Kartul' }),
+      ])
+    })
+
+    it('ignores an unknown household locale and searches English names only', async () => {
+      mockGetMembership.mockResolvedValue(membershipWithLocale('xx'))
+      mockQueryRaw.mockResolvedValue([] as never)
+
+      await GET(createMockRequest('http://localhost/api/ingredients?search=potato'))
+
+      expect(lastQuery().sql).not.toContain('ingredient_translation')
+    })
+  })
+
+  it('searches English names without a translation join for an English household', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockQueryRaw.mockResolvedValue([] as never)
+
+    await GET(createMockRequest('http://localhost/api/ingredients?search=potato'))
+
+    const { sql } = lastQuery()
+    expect(sql).not.toContain('ingredient_translation')
+    expect(sql).toContain('WHERE similarity(i.name, ?) >= ?')
+    expect(sql).toMatch(/i\.name as name/)
   })
 
   it('returns 500 when query fails', async () => {
