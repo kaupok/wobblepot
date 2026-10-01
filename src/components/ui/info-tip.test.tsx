@@ -21,6 +21,23 @@ describe('InfoTip', () => {
     await waitFor(() => expect(screen.queryByText(TEXT)).not.toBeInTheDocument())
   })
 
+  // user-event dispatches a mouse pointerenter before the click, as a real
+  // mouse does, so this is the desktop click path.
+  it('stays open after a mouse click, and once pinned survives the mouse leaving', async () => {
+    const user = userEvent.setup()
+    const trigger = renderTip()
+
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(await screen.findByText(TEXT)).toBeInTheDocument()
+
+    await user.unhover(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
   // A tap fires pointerenter too; if it opened the popover, the click that
   // follows would toggle it straight back shut.
   it('ignores pointerenter from touch, and a tap toggles it', async () => {

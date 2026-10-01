@@ -47,12 +47,16 @@ export const Default: Story = {
     await expect(after.top).toBe('-4px')
     await expect(after.left).toBe('-4px')
 
+    // `aria-expanded`, not just the text: Presence keeps closing content
+    // mounted through its exit animation, so the text alone can't prove open.
     await userEvent.click(trigger)
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
     await expect(await body.findByText(TEXT)).toBeInTheDocument()
     await expect(trigger).toHaveFocus()
 
     await pressEscape()
     await waitFor(() => expect(body.queryByText(TEXT)).not.toBeInTheDocument())
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
     await expect(trigger).toHaveFocus()
   },
 }
