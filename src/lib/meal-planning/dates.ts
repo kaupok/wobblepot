@@ -25,19 +25,6 @@ export function getNextMonday(): Date {
 }
 
 /**
- * Get an array of 7 consecutive dates starting from the given date.
- */
-export function getWeekDates(startDate: Date): Date[] {
-  const dates: Date[] = []
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(startDate)
-    date.setDate(startDate.getDate() + i)
-    dates.push(date)
-  }
-  return dates
-}
-
-/**
  * Format a date as YYYY-MM-DD string in local time.
  * Avoids UTC timezone shift issues.
  */
@@ -197,19 +184,6 @@ export function getRemainingWeekDates(startDate: Date): Date[] {
 export function getStartOfTodayInTimezone(timezone: string): Date {
   const todayString = getTodayInTimezone(timezone)
   return parseLocalDate(todayString)
-}
-
-/**
- * Get the Monday of the week that contains the given date.
- * Mon-Sun week: Monday = start, Sunday = end.
- */
-export function getMondayOfWeek(date: Date): Date {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  const dayOfWeek = d.getDay()
-  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-  d.setDate(d.getDate() - daysSinceMonday)
-  return d
 }
 
 /**

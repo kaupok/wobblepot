@@ -37,23 +37,6 @@ vi.mock('@/lib/meal-planning/candidates', () => ({
   NO_REPEAT_DAYS: 14,
 }))
 
-vi.mock('@/lib/meal-planning/slots', () => ({
-  computeRequiredSlots: vi.fn(() => []),
-}))
-
-vi.mock('@/lib/meal-planning/dates', () => ({
-  getWeekDates: vi.fn(() => []),
-  toDateString: vi.fn((d: Date) => d.toISOString().split('T')[0]),
-  getMondayOfWeek: vi.fn((d: Date) => {
-    const date = new Date(d)
-    date.setHours(0, 0, 0, 0)
-    const dayOfWeek = date.getDay()
-    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    date.setDate(date.getDate() - daysSinceMonday)
-    return date
-  }),
-}))
-
 vi.mock('@/lib/meal-planning/pantry', () => ({
   getPantryIngredientNames: vi.fn(() => Promise.resolve([])),
 }))
@@ -476,5 +459,112 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('No alternative meals available matching your preferences')
+  })
+
+  // Generation places the required fish dinner by position in its own range (`pickDay`): a
+  // seven-day range starting Wednesday reserves Friday. The Monday-to-Sunday recompute the swap
+  // routes used to run reserved Wednesday instead, so the routes must not restrict by protein
+  // at all (HON-892). `slots` and `dates` are not mocked in this file, so a reintroduced
+  // recompute would reach `getCandidates` here.
+  describe('protein slots (HON-892)', () => {
+    const wednesday = new Date(2026, 9, 7) // Wed 7 Oct 2026, first day of the generated range
+
+    function mealRow(id: string, primaryProteinType: string) {
+      return {
+        id,
+        name: id,
+        description: null,
+        timeMinutes: 30,
+        kidFriendly: false,
+        primaryProteinType,
+        suitableFor: ['dinner'],
+        components: [],
+      }
+    }
+
+    function arrange({
+      candidates,
+      preferences = null,
+      entry = {},
+    }: {
+      candidates: { id: string; primaryProteinType: string }[]
+      preferences?: Record<string, unknown> | null
+      entry?: Record<string, unknown>
+    }) {
+      mockGetSession.mockResolvedValue(mockSession)
+      mockGetMembership.mockResolvedValue({
+        ...(mockMembership as object),
+        household: { ...(mockMembership as { household: object }).household, preferences },
+      } as never)
+      mockFindFirstEntry.mockResolvedValue({ ...mockEntry, date: wednesday, ...entry } as never)
+      mockFindManyEntries.mockResolvedValue([])
+      mockFindManyFavorites.mockResolvedValue([])
+      mockGetCandidates.mockResolvedValue(
+        candidates.map(({ id, primaryProteinType }) => ({
+          id,
+          name: id,
+          kidFriendly: false,
+          primaryProteinType,
+          topIngredients: [],
+          isFavorite: false,
+          isCustom: false,
+        })) as never,
+      )
+      const byId = new Map(candidates.map((c) => [c.id, c.primaryProteinType]))
+      mockFindManyMeals.mockImplementation((({ where }: { where: { id: { in: string[] } } }) =>
+        Promise.resolve(where.id.in.map((id) => mealRow(id, byId.get(id)!)))) as never)
+    }
+
+    async function post() {
+      const response = await POST(createRequest(), { params: createParams() })
+      expect(response.status).toBe(200)
+      const data = await response.json()
+      return data.alternatives as { id: string; primaryProteinType: string }[]
+    }
+
+    function candidateFilters() {
+      expect(mockGetCandidates).toHaveBeenCalledTimes(1)
+      return mockGetCandidates.mock.calls[0]![0]
+    }
+
+    it('offers non-fish meals for a Wednesday dinner the Monday-based week reserved for fish', async () => {
+      arrange({
+        candidates: [
+          { id: 'meal-salmon', primaryProteinType: 'fish' },
+          { id: 'meal-beef', primaryProteinType: 'beef' },
+        ],
+      })
+
+      const alternatives = await post()
+
+      expect(candidateFilters()).not.toHaveProperty('primaryProteinType')
+      expect(alternatives.map((a) => a.primaryProteinType)).toContain('beef')
+    })
+
+    it("ranks a candidate sharing the replaced meal's protein above an otherwise-equal one", async () => {
+      arrange({
+        entry: { meal: { id: 'meal-current', timeMinutes: 30, primaryProteinType: 'fish' } },
+        // Beef is listed first, so only the protein-type similarity can lift the fish meal.
+        candidates: [
+          { id: 'meal-beef', primaryProteinType: 'beef' },
+          { id: 'meal-salmon', primaryProteinType: 'fish' },
+        ],
+      })
+
+      const alternatives = await post()
+
+      expect(alternatives.map((a) => a.id)).toEqual(['meal-salmon', 'meal-beef'])
+    })
+
+    it("passes the household's dietary type to the candidate query as a hard filter", async () => {
+      arrange({
+        preferences: { dietaryType: 'vegetarian', allergensToAvoid: [], excludedIngredientIds: [] },
+        candidates: [{ id: 'meal-lentils', primaryProteinType: 'legume' }],
+      })
+
+      await post()
+
+      expect(candidateFilters()).toMatchObject({ dietaryType: 'vegetarian' })
+    })
   })
 })

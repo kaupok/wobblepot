@@ -8,8 +8,7 @@ import {
   NO_REPEAT_DAYS,
   type CandidateFilters,
 } from '@/lib/meal-planning/candidates'
-import { computeRequiredSlots } from '@/lib/meal-planning/slots'
-import { getWeekDates, toDateString, getMondayOfWeek } from '@/lib/meal-planning/dates'
+import { toDateString } from '@/lib/meal-planning/dates'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
 import {
@@ -112,24 +111,6 @@ async function handlePOST(
     const allergensToAvoid = (preferences?.allergensToAvoid ?? []) as Allergen[]
     const excludedIngredientIds = preferences?.excludedIngredientIds ?? []
 
-    // Compute required slots to check if this entry needs a specific protein type
-    const weekMonday = getMondayOfWeek(entry.date)
-    const weekDates = getWeekDates(weekMonday)
-    const weekdayMealTypes = (preferences?.weekdayMealTypes ?? ['dinner']) as MealType[]
-    const weekendMealTypes = (preferences?.weekendMealTypes ?? ['dinner']) as MealType[]
-    const requiredSlots = computeRequiredSlots({
-      dietaryType,
-      dates: weekDates,
-      weekdayMealTypes,
-      weekendMealTypes,
-    })
-
-    // Check if this entry's date and mealType is a required slot
-    const entryDateString = toDateString(entry.date)
-    const requiredSlot = requiredSlots.find(
-      (slot) => toDateString(slot.date) === entryDateString && slot.mealType === entry.mealType,
-    )
-
     // Get recent meal IDs (entries from plans within NO_REPEAT_DAYS window)
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - NO_REPEAT_DAYS)
@@ -156,13 +137,15 @@ async function handlePOST(
     const favoriteMealIds = favorites.map((f) => f.mealId)
     const pantryIngredientNames = new Set(pantryIngredients)
 
-    // Build candidate filters
+    // Build candidate filters. No protein-type filter: generation places its fish and legume
+    // dinners by position in a range that is not stored, so an empty slot cannot know whether
+    // it was reserved for one (HON-892).
     const filters: CandidateFilters = {
       mealType: entry.mealType as MealType,
       allergensToAvoid,
       excludedIngredientIds,
       recentMealIds,
-      primaryProteinType: requiredSlot?.proteinType,
+      dietaryType,
       householdId: household.id,
       favoriteMealIds,
       includeNetRating: true,

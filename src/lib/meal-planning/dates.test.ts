@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   getNextMonday,
-  getWeekDates,
   toDateString,
   parseLocalDate,
   isMonday,
@@ -12,7 +11,6 @@ import {
   getTodayInTimezone,
   getStartOfTodayInTimezone,
   getUrgencyBucket,
-  getMondayOfWeek,
 } from './dates'
 
 describe('dates utilities', () => {
@@ -72,49 +70,6 @@ describe('dates utilities', () => {
       expect(nextMonday.getMinutes()).toBe(0)
       expect(nextMonday.getSeconds()).toBe(0)
       expect(nextMonday.getMilliseconds()).toBe(0)
-    })
-  })
-
-  describe('getWeekDates', () => {
-    it('returns 7 consecutive dates starting from the given date', () => {
-      const startDate = new Date(2025, 0, 13) // Monday, January 13, 2025
-      const dates = getWeekDates(startDate)
-
-      expect(dates).toHaveLength(7)
-      expect(toDateString(dates[0]!)).toBe('2025-01-13')
-      expect(toDateString(dates[1]!)).toBe('2025-01-14')
-      expect(toDateString(dates[2]!)).toBe('2025-01-15')
-      expect(toDateString(dates[3]!)).toBe('2025-01-16')
-      expect(toDateString(dates[4]!)).toBe('2025-01-17')
-      expect(toDateString(dates[5]!)).toBe('2025-01-18')
-      expect(toDateString(dates[6]!)).toBe('2025-01-19')
-    })
-
-    it('handles month boundaries correctly', () => {
-      const startDate = new Date(2025, 0, 29) // Wednesday, January 29, 2025
-      const dates = getWeekDates(startDate)
-
-      expect(dates).toHaveLength(7)
-      expect(toDateString(dates[0]!)).toBe('2025-01-29')
-      expect(toDateString(dates[3]!)).toBe('2025-02-01')
-      expect(toDateString(dates[6]!)).toBe('2025-02-04')
-    })
-
-    it('handles year boundaries correctly', () => {
-      const startDate = new Date(2024, 11, 30) // Monday, December 30, 2024
-      const dates = getWeekDates(startDate)
-
-      expect(dates).toHaveLength(7)
-      expect(toDateString(dates[0]!)).toBe('2024-12-30')
-      expect(toDateString(dates[2]!)).toBe('2025-01-01')
-      expect(toDateString(dates[6]!)).toBe('2025-01-05')
-    })
-
-    it('does not mutate the original date', () => {
-      const startDate = new Date(2025, 0, 13)
-      const originalTime = startDate.getTime()
-      getWeekDates(startDate)
-      expect(startDate.getTime()).toBe(originalTime)
     })
   })
 
@@ -537,63 +492,6 @@ describe('dates utilities', () => {
       expect(getUrgencyBucket('2026-01-31', friday)).toBe('tomorrow') // Saturday
       expect(getUrgencyBucket('2026-02-01', friday)).toBe('this-week') // Sunday
       expect(getUrgencyBucket('2026-02-02', friday)).toBe('later') // Next Monday
-    })
-  })
-
-  describe('getMondayOfWeek', () => {
-    it('returns same date for Monday', () => {
-      const monday = new Date(2026, 1, 16) // Mon 16 Feb 2026
-      expect(toDateString(getMondayOfWeek(monday))).toBe('2026-02-16')
-    })
-
-    it('returns previous Monday for Tuesday', () => {
-      const tuesday = new Date(2026, 1, 17)
-      expect(toDateString(getMondayOfWeek(tuesday))).toBe('2026-02-16')
-    })
-
-    it('returns previous Monday for Wednesday', () => {
-      const wednesday = new Date(2026, 1, 18)
-      expect(toDateString(getMondayOfWeek(wednesday))).toBe('2026-02-16')
-    })
-
-    it('returns previous Monday for Thursday', () => {
-      const thursday = new Date(2026, 1, 19)
-      expect(toDateString(getMondayOfWeek(thursday))).toBe('2026-02-16')
-    })
-
-    it('returns previous Monday for Friday', () => {
-      const friday = new Date(2026, 1, 20)
-      expect(toDateString(getMondayOfWeek(friday))).toBe('2026-02-16')
-    })
-
-    it('returns previous Monday for Saturday', () => {
-      const saturday = new Date(2026, 1, 21)
-      expect(toDateString(getMondayOfWeek(saturday))).toBe('2026-02-16')
-    })
-
-    it('returns previous Monday for Sunday', () => {
-      const sunday = new Date(2026, 1, 22)
-      expect(toDateString(getMondayOfWeek(sunday))).toBe('2026-02-16')
-    })
-
-    it('handles month boundary', () => {
-      const sunday = new Date(2026, 1, 1) // Sun 1 Feb 2026
-      expect(toDateString(getMondayOfWeek(sunday))).toBe('2026-01-26')
-    })
-
-    it('returns date at midnight', () => {
-      const date = new Date(2026, 1, 19, 14, 30, 45)
-      const result = getMondayOfWeek(date)
-      expect(result.getHours()).toBe(0)
-      expect(result.getMinutes()).toBe(0)
-      expect(result.getSeconds()).toBe(0)
-    })
-
-    it('does not mutate the original date', () => {
-      const date = new Date(2026, 1, 19)
-      const originalTime = date.getTime()
-      getMondayOfWeek(date)
-      expect(date.getTime()).toBe(originalTime)
     })
   })
 })
