@@ -47,7 +47,7 @@ A gate holds the metric's mean over all runs, with the run-to-run range shown be
 
 Distinct dinner proteins and the step-count delta have no gate. The gates live on the metric definitions (`gate` in `scripts/model-bench/tasks.ts`).
 
-The first real run (HON-905, 2026-10-01, `results/2026-10-01-check-production.md`) passed all 22 gates on Sonnet 5.5, imagine max latency 25.8s. A first attempt had failed the tips count gate on a single 4-pitfall answer, which is what a 100% gate on a soft "2-3 items" instruction does (HON-929); nothing was forced, the re-run passed. When a gate fails on one call, re-run that task once before filing: one miss is a flake, two is a finding.
+The first real run (HON-905, 2026-10-01, `results/2026-10-01-check-production.md`) passed all 22 gates on Sonnet 5.5, imagine max latency 25.8s. A first attempt had failed the tips count gate on a single 4-pitfall answer, which is what a 100% gate on a soft "2-3 items" instruction does (HON-929); nothing was forced, the re-run passed. When a gate fails on one call, re-run the whole `--record` once before filing (a failed record writes no golden for any task, so a `--task` re-run would leave the others unrecorded): one miss is a flake, two is a finding.
 
 A metric that no case in the set measures, such as recipe recall when only the not-a-recipe case ran, passes as _not measured_. An errored call scores as a failure on the pass/fail checks, as in a comparison. A run that `--max-usd` stops early fails whatever its gates say, because the cases it never reached were not checked.
 
@@ -108,9 +108,9 @@ Commit the report and cite it in the PR. The baseline side is replayed from the 
 
 The report header says where the golden came from (`golden — <model> recorded <date> at <commit>`) and, per task, how many cases' prompt has changed since it was recorded (`imagine: prompt changed for 8 of 8 cases; plan: unchanged`). That line shows which tasks a prompt change reached. A task reading `unchanged` that the PR meant to change means the change never got into the request.
 
-Worked example: `results/2026-10-01-golden-vs-claude-sonnet-5-5.md` (HON-906) measured the HON-896 imagine wording change, 11 wins / 10 ties / 3 losses for the new prompt, with the judge's reasons for the losses in the `.json` beside it.
+Worked example: `results/2026-10-01-golden-vs-claude-sonnet-5-5.md` (HON-906) measured the HON-896 imagine wording change, 11 wins / 10 ties / 3 losses for the new prompt. The judge's reasons live in the gitignored `.json` beside it, so the ones that mattered are quoted on HON-896 and HON-935.
 
-**Comparing against a prompt that was never recorded.** The golden holds whatever shipped when it was last recorded. To measure a prompt change that already merged before any golden existed, record a scratch golden from the old prompt first: `git revert --no-commit <the prompt commit>`, `pnpm ai-eval --record --task <task>`, then restore the tree with `git reset HEAD -- src/ && git checkout -- src/` (both steps: `--no-commit` stages the revert, and `checkout` alone restores from that staged index). Run the comparison, then re-record the real golden from `main`. The scratch golden's `commit` field is HEAD at the time, not a commit that holds the old prompt, so say how it was made in the report.
+**Comparing against a prompt that was never recorded.** The golden holds whatever shipped when it was last recorded. To measure a prompt change that already merged before any golden existed, record a scratch golden from the old prompt first: `git revert --no-commit <the prompt commit>`, `pnpm ai-eval --record --task <task>`, then `git revert --abort`, which restores every tracked file the revert touched, a case the commit added included, and leaves the untracked golden and report in place. (`git checkout -- src/` is not enough: `--no-commit` stages the revert, and `checkout` restores from that staged index.) Run the comparison, then re-record the real golden from `main`. The scratch golden's `commit` field is HEAD at the time, not a commit that holds the old prompt, so say how it was made in the report.
 
 ### Flags
 
