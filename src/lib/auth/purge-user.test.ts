@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     $transaction: vi.fn(),
+    // The pre-transaction read that picks the PostHog ids (HON-907).
+    householdMember: { findMany: vi.fn(), count: vi.fn() },
   },
 }))
 
@@ -10,12 +12,18 @@ vi.mock('@/lib/meal-images/storage', () => ({
   discardMealImage: vi.fn(),
 }))
 
+vi.mock('@/lib/posthog-purge', () => ({
+  deletePosthogPersons: vi.fn(),
+}))
+
 import { purgeUser } from './purge-user'
 import { prisma } from '@/lib/prisma'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import { discardMealImage } from '@/lib/meal-images/storage'
+import { deletePosthogPersons } from '@/lib/posthog-purge'
 
 const mockTransaction = vi.mocked(prisma.$transaction)
+const mockDeletePosthogPersons = vi.mocked(deletePosthogPersons)
 
 /**
  * Builds a fake transaction client and wires `prisma.$transaction` to invoke
@@ -44,6 +52,15 @@ function mockTx(opts: {
   const mealFindMany = vi
     .fn()
     .mockResolvedValue((opts.imageUrls ?? []).map((imageUrl) => ({ imageUrl })))
+
+  // The pre-read outside the transaction asks for owner memberships only and
+  // runs the same account-holder count.
+  vi.mocked(prisma.householdMember.findMany).mockResolvedValue(
+    opts.memberships
+      .filter((m) => m.role === 'owner')
+      .map((m) => ({ householdId: m.householdId })) as never,
+  )
+  vi.mocked(prisma.householdMember.count).mockImplementation(memberCount)
 
   mockTransaction.mockImplementation(async (fn) => {
     const tx = {
@@ -82,6 +99,77 @@ function mockTx(opts: {
 describe('purgeUser', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockDeletePosthogPersons.mockResolvedValue('deleted')
+    // Tests that skip `mockTx` still pass through the pre-read.
+    vi.mocked(prisma.householdMember.findMany).mockResolvedValue([])
+  })
+
+  describe('PostHog persons (HON-907)', () => {
+    it('deletes the PostHog person for the user id before the transaction', async () => {
+      mockTx({ memberships: [{ id: 'member-2', householdId: 'hh-1', role: 'member' }] })
+
+      await purgeUser('user-456')
+
+      expect(mockDeletePosthogPersons).toHaveBeenCalledWith(['user-456'], { userId: 'user-456' })
+      expect(mockDeletePosthogPersons.mock.invocationCallOrder[0]).toBeLessThan(
+        mockTransaction.mock.invocationCallOrder[0]!,
+      )
+    })
+
+    it('also deletes the household person when the purge deletes the household', async () => {
+      mockTx({
+        memberships: [{ id: 'member-1', householdId: 'hh-1', role: 'owner' }],
+        memberCount: 1,
+      })
+
+      await purgeUser('user-123')
+
+      expect(prisma.householdMember.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-123', role: 'owner' },
+        select: { householdId: true },
+      })
+      expect(mockDeletePosthogPersons).toHaveBeenCalledWith(['user-123', 'hh-1'], {
+        userId: 'user-123',
+      })
+    })
+
+    it('keeps the household person when another account holder remains', async () => {
+      mockTx({
+        memberships: [{ id: 'member-3', householdId: 'hh-1', role: 'owner' }],
+        memberCount: 2,
+      })
+
+      await purgeUser('user-789')
+
+      expect(mockDeletePosthogPersons).toHaveBeenCalledWith(['user-789'], { userId: 'user-789' })
+    })
+
+    it('leaves the user row in place and rethrows when the PostHog delete fails', async () => {
+      const m = mockTx({
+        memberships: [{ id: 'member-1', householdId: 'hh-1', role: 'owner' }],
+        memberCount: 1,
+      })
+      mockDeletePosthogPersons.mockRejectedValue(new Error('PostHog down'))
+
+      await expect(purgeUser('user-123')).rejects.toThrow('PostHog down')
+
+      expect(mockTransaction).not.toHaveBeenCalled()
+      expect(m.userDelete).not.toHaveBeenCalled()
+      expect(m.householdDelete).not.toHaveBeenCalled()
+    })
+
+    it('purges as before when the PostHog delete is skipped', async () => {
+      const m = mockTx({
+        memberships: [{ id: 'member-1', householdId: 'hh-1', role: 'owner' }],
+        memberCount: 1,
+      })
+      mockDeletePosthogPersons.mockResolvedValue('skipped')
+
+      await purgeUser('user-123')
+
+      expect(m.householdDelete).toHaveBeenCalledWith({ where: { id: 'hh-1' } })
+      expect(m.userDelete).toHaveBeenCalledWith({ where: { id: 'user-123' } })
+    })
   })
 
   describe('meal image blobs', () => {

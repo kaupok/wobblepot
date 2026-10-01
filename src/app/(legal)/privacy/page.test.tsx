@@ -44,7 +44,9 @@ describe('PrivacyPage', () => {
 
   it('states all retention numbers from the issue scope', () => {
     const text = renderedText()
-    expect(text).toContain('purged within 30 days')
+    expect(text).toContain(
+      'purged after a 30-day grace period; the purge runs nightly, so deletion happens within a day of that period ending',
+    )
     expect(text).toContain('24-hour point-in-time-recovery window')
     expect(text).toContain('runtime logs are kept for 1 day, build logs for 7 days')
     expect(text).toContain('roughly 30 days')

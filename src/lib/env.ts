@@ -125,7 +125,7 @@ const serverOnlyEnvSchema = z.object({
     .url('POSTHOG_CLI_HOST must be a valid URL')
     .optional()
     .describe(
-      'PostHog admin host for posthog-cli (e.g. https://eu.posthog.com). Identical across all environments. Distinct from the ingest host — swapping them produces misleading "invalid project ID" errors. Build-time only.',
+      'PostHog admin host (e.g. https://eu.posthog.com), not the ingest host. Identical across all environments. Read at build time by posthog-cli and at runtime by the account purge (src/lib/posthog-purge.ts). Swapping it with the ingest host produces misleading "invalid project ID" errors.',
     ),
 
   POSTHOG_CLI_PROJECT_ID: z
@@ -133,7 +133,7 @@ const serverOnlyEnvSchema = z.object({
     .regex(/^\d+$/, 'POSTHOG_CLI_PROJECT_ID must be a numeric project ID')
     .optional()
     .describe(
-      'Numeric PostHog project ID for posthog-cli sourcemap upload. Per-Vercel-env scoping: 3 distinct values, one per PostHog project. Build-time only.',
+      'Numeric PostHog project ID. Per-Vercel-env scoping: 3 distinct values, one per PostHog project. Read at build time by posthog-cli (sourcemap upload) and at runtime by the account purge (src/lib/posthog-purge.ts).',
     ),
 
   POSTHOG_CLI_API_KEY: z
@@ -142,6 +142,14 @@ const serverOnlyEnvSchema = z.object({
     .optional()
     .describe(
       'PostHog personal API key with sourcemap:write scope for posthog-cli. Identical across all environments (one key works for all three projects). Build-time only. Distinct from NEXT_PUBLIC_POSTHOG_KEY (project token used for event capture).',
+    ),
+
+  POSTHOG_PURGE_API_KEY: z
+    .string()
+    .min(1, 'POSTHOG_PURGE_API_KEY must not be empty when set')
+    .optional()
+    .describe(
+      "PostHog personal API key with the person-delete scope (person:write), used at runtime by the account purge to delete the purged user's PostHog person and events (src/lib/posthog-purge.ts). Identical across all environments (one key works for all three projects), like POSTHOG_CLI_API_KEY. Unset while PostHog is enabled: the purge still runs and captures one error per user (HON-907).",
     ),
 
   ADMIN_EMAIL: z
@@ -263,6 +271,7 @@ export const serverEnv = new Proxy(
     POSTHOG_CLI_HOST: process.env.POSTHOG_CLI_HOST,
     POSTHOG_CLI_PROJECT_ID: process.env.POSTHOG_CLI_PROJECT_ID,
     POSTHOG_CLI_API_KEY: process.env.POSTHOG_CLI_API_KEY,
+    POSTHOG_PURGE_API_KEY: process.env.POSTHOG_PURGE_API_KEY,
     ADMIN_EMAIL: process.env.ADMIN_EMAIL,
     CRON_SECRET: process.env.CRON_SECRET,
     BLOB_STORE_ID: process.env.BLOB_STORE_ID,

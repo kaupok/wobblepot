@@ -1,6 +1,6 @@
 # Account deletion runbook (GDPR Art. 17)
 
-Operator reference for the 30-day grace-window account deletion flow (HON-481). GDPR Art. 17 (right to erasure) plus the privacy policy's published retention promise ("account data purged within 30 days of a deletion request") require that a user can request deletion, recover during a grace window, and be provably purged afterward. This runbook documents what gets deleted, the recovery procedure, and the backup residual window.
+Operator reference for the 30-day grace-window account deletion flow (HON-481). GDPR Art. 17 (right to erasure) plus the privacy policy's published retention promise (account data is "purged after a 30-day grace period; the purge runs nightly, so deletion happens within a day of that period ending") require that a user can request deletion, recover during a grace window, and be provably purged afterward. This runbook documents what gets deleted, the recovery procedure, and the backup residual window.
 
 ## Flow
 
@@ -31,13 +31,19 @@ DELETE /api/auth/user
 Daily cron — 03:00 UTC (vercel.json → /api/cron/purge-deleted-users)
   • auth: Authorization: Bearer ${CRON_SECRET}
   • find users where deletedAt IS NOT NULL AND purgeScheduledFor < now
-  • purgeUser(id) per user, each in its own transaction
+  • purgeUser(id) per user:
+      1. delete the PostHog person + events for the user id, and for each
+         household the purge will delete (before the transaction; a failure
+         leaves the user in place for the next run; an unset
+         POSTHOG_PURGE_API_KEY skips with a captured error) (HON-907)
+      2. database cascade, in its own transaction
+      3. Vercel Blob meal images of deleted households (best effort)
         │
         ▼
 Hard cascade complete → row gone → backup copies clear within ~24h (Neon PITR)
 ```
 
-The hard cascade lives in `src/lib/auth/purge-user.ts` (`purgeUser`), shared by the cron. The soft-delete and the cron never run destructive SQL by hand — they use Prisma + the schema's `onDelete: Cascade` rules.
+The hard cascade lives in `src/lib/auth/purge-user.ts` (`purgeUser`), shared by the cron. The PostHog call is `deletePosthogPersons` in `src/lib/posthog-purge.ts`. The soft-delete and the cron never run destructive SQL by hand — they use Prisma + the schema's `onDelete: Cascade` rules.
 
 ### Why `purgeScheduledFor` is aligned to the cron run
 
@@ -45,7 +51,7 @@ The hard cascade lives in `src/lib/auth/purge-user.ts` (`purgeUser`), shared by 
 
 - **The confirmation email's date is the real deletion date**, not an estimate that the once-daily cron then misses by a day.
 - **The user always gets at least the full 30 days** to recover — we never purge early, because deletion is irreversible and erring toward keeping data is the safer failure. The one exception is a user who waives the grace window in writing: see [Immediate erasure](#immediate-erasure-on-written-request).
-- **Trade-off:** retention is therefore 30 days **plus up to one cron interval (≤24h)**. "Purged within 30 days" in the privacy policy (HON-457) should be read with that batch granularity in mind; tighten by running the cron more than once daily if a stricter bound is ever required. This is the deliberate product call from the HON-481 review — favour the recovery guarantee over a to-the-minute retention bound.
+- **Trade-off:** retention is therefore 30 days **plus up to one cron interval (≤24h)**. The privacy policy and terms state exactly that: "purged after a 30-day grace period; the purge runs nightly, so deletion happens within a day of that period ending" (HON-907, correcting the earlier "within 30 days" from HON-457). Tighten by running the cron more than once daily if a stricter bound is ever required, and update that wording with it. This is the deliberate product call from the HON-481 review — favour the recovery guarantee over a to-the-minute retention bound.
 
 ## Per-model cascade table
 
@@ -80,7 +86,16 @@ What happens to each model when a user account is purged. Classification:
 | `custom_shopping_item`              | household-shared                         | Deleted with the owned household (cascade).                                                                                                                                                                                                                           |
 | `ai_usage`                          | household-shared                         | Deleted with the owned household (`onDelete: Cascade` from `household`).                                                                                                                                                                                              |
 
-> **Loud rule — keep this table true.** When a new model stores user-owned or user-linked data, add it to `src/lib/auth/purge-user.ts` (if it isn't covered by an existing household cascade) **and** to this table in the same PR. Same definition-of-done treatment as the privacy-policy processors table. (e.g. HON-453's per-user AI records, if not household-scoped.)
+### Data held outside the database
+
+| Store                    | What is keyed to the account                                                                                                                    | Fate on account purge                                                                                                                                                                                                                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostHog persons + events | The person identified by the user id (client `identify`, server errors), and the person for the household id (AI usage events attribute to it). | **Deleted** before the database transaction: the user id always, the household id when the purge deletes the household. Bulk delete with `delete_events: true`. A failed call throws, so the user row stays and the next run retries. An unset `POSTHOG_PURGE_API_KEY` skips with a captured error (see below). |
+| Vercel Blob meal images  | The generated image of each meal in a deleted household (`meal.imageUrl`).                                                                      | **Deleted** after the transaction commits. Best effort with no retry: a failed delete is captured and swallowed, and leaves an image at a public URL nothing references any more.                                                                                                                               |
+
+**PostHog persons purged while `POSTHOG_PURGE_API_KEY` was unset.** With PostHog enabled and the key (or `POSTHOG_CLI_HOST` / `POSTHOG_CLI_PROJECT_ID`) missing, the purge still deletes the database data and captures one `POSTHOG_PURGE_API_KEY is not configured; PostHog person not purged` error per user, with the `userId` property and a `distinctIds` property listing every id that should have been deleted (the user id, plus the household ids the purge deleted, which are no longer in the database). Those errors are the list to sweep by hand: delete each person from the PostHog Persons page (with its events), or call `POST {POSTHOG_CLI_HOST}/api/projects/{POSTHOG_CLI_PROJECT_ID}/persons/bulk_delete/` with `{ "distinct_ids": [...], "delete_events": true }` and a personal API key with the `person:write` scope. Each environment has its own PostHog project, so sweep the project the errors were captured in. HON-869 owns doing the sweep once, after the key is provisioned.
+
+> **Loud rule — keep these tables true.** When a new model stores user-owned or user-linked data, add it to `src/lib/auth/purge-user.ts` (if it isn't covered by an existing household cascade) **and** to the cascade table in the same PR. The same applies to a new store outside the database that keeps data keyed by the user or household id (a vendor, a bucket, a cache): delete it in `purgeUser` and add a row to "Data held outside the database". Same definition-of-done treatment as the privacy-policy processors table. (e.g. HON-453's per-user AI records, if not household-scoped.)
 
 ## Recovery procedure (within the grace window)
 
@@ -262,7 +277,7 @@ Running it twice is safe: a second run finds nothing due and returns `{"purged":
 
 ### What reports a failure, and what does not
 
-- **Reported:** each account that fails to purge is sent to PostHog error tracking through `captureApiError`, with `route: '/api/cron/purge-deleted-users'` and the `userId`. So is a failed query for due accounts, and a production deploy with no `CRON_SECRET`.
+- **Reported:** each account that fails to purge is sent to PostHog error tracking through `captureApiError`, with `route: '/api/cron/purge-deleted-users'` and the `userId`. That includes a failed PostHog person delete, which leaves the account for the next run. So is a failed query for due accounts, a production deploy with no `CRON_SECRET`, and each account purged while `POSTHOG_PURGE_API_KEY` is unset ([above](#data-held-outside-the-database)).
 - **Not reported (known gap):** a run that never starts. Vercel's cron delivery is best effort and does not retry. A missed invocation leaves no runtime log, and the route never executes, so nothing reaches PostHog. The same applies if the cron is disabled in the dashboard, or if a rollback to a deployment without it removes it. The overdue query above is the only way to notice. Run it when you handle a deletion request, and after any change to `vercel.json` or the Vercel project.
 
 ## Backup residuals (Neon PITR)
@@ -277,6 +292,7 @@ The hard cascade removes data from the live database, but backup copies linger:
 
 - Soft-delete route: `src/app/api/auth/user/route.ts`
 - Hard cascade: `src/lib/auth/purge-user.ts`
+- PostHog person delete: `src/lib/posthog-purge.ts` (`POSTHOG_PURGE_API_KEY`: [`../ENVIRONMENT_SETUP.md`](../ENVIRONMENT_SETUP.md) § "PostHog")
 - Sign-in block: `src/lib/auth/soft-delete-guard.ts` (wired in `src/lib/auth.ts` → `databaseHooks.session.create.before`)
 - Purge cron: `src/app/api/cron/purge-deleted-users/route.ts` + `vercel.json`
 - Confirmation email: `src/lib/emails/account-deletion-requested.ts`

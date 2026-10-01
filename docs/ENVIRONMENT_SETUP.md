@@ -67,7 +67,8 @@ Environment variables are validated at runtime using Zod. Public (`NEXT_PUBLIC_*
 | `STATUS_INCIDENT_MESSAGE`                                           | No                   | Operator banner on `/status` during an incident. See [Diagnostics and test-only switches](#diagnostics-and-test-only-switches).                                  |
 | `E2E_DISABLE_RATE_LIMIT`                                            | No, test-only        | Bypasses the abuse rate limiter for E2E runs. Only honoured when `NEXT_PUBLIC_APP_ENV` is `ci`, `test`, or `dev`; throws at boot anywhere else.                  |
 | `SIGNUP_TIMING_LOG`                                                 | No, diagnostics      | Logs per-step sign-up timings to stderr. Set by the local E2E runner.                                                                                            |
-| `POSTHOG_CLI_HOST`, `POSTHOG_CLI_PROJECT_ID`, `POSTHOG_CLI_API_KEY` | No, build-time       | Source-map upload from the Vercel build. Unset locally. See [PostHog](#posthog-analytics-errors-source-maps).                                                    |
+| `POSTHOG_CLI_HOST`, `POSTHOG_CLI_PROJECT_ID`, `POSTHOG_CLI_API_KEY` | No, build + runtime  | Source-map upload at build time; the host and project id are also read at runtime by the account purge. See [PostHog](#posthog-analytics-errors-source-maps).    |
+| `POSTHOG_PURGE_API_KEY`                                             | No                   | Account purge: deletes the user's PostHog person (`person:write` scope). Unset with PostHog on: the purge runs and captures an error per user.                   |
 
 Variables read by scripts rather than the app, so not in the schema. They are documented in `.env.example`:
 
@@ -290,27 +291,30 @@ All three projects live in the `Honkadori` PostHog organisation on EU Cloud.
 
 ### Env vars
 
-Five variables total — three are per-env (distinct values), two are identical across envs.
+Six variables total — two are per-env (distinct values), four are identical across envs.
 
-| Variable                   | Scope      | Purpose                                                                                           |
-| -------------------------- | ---------- | ------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_POSTHOG_KEY`  | runtime    | Project token for `posthog-js` + `posthog-node`. **Per-Vercel-env.** Unset = PostHog disabled.    |
-| `NEXT_PUBLIC_POSTHOG_HOST` | runtime    | Ingest host — `https://eu.i.posthog.com`. Identical across all envs.                              |
-| `POSTHOG_CLI_HOST`         | build-time | Admin host for `posthog-cli` — `https://eu.posthog.com`. Identical across all envs.               |
-| `POSTHOG_CLI_PROJECT_ID`   | build-time | Numeric project id for sourcemap upload. **Per-Vercel-env.**                                      |
-| `POSTHOG_CLI_API_KEY`      | build-time | Personal API key with `sourcemap:write` scope. Identical across all envs (one key for all three). |
+| Variable                   | Scope                | Purpose                                                                                                                                                                |
+| -------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_POSTHOG_KEY`  | runtime              | Project token for `posthog-js` + `posthog-node`. **Per-Vercel-env.** Unset = PostHog disabled.                                                                         |
+| `NEXT_PUBLIC_POSTHOG_HOST` | runtime              | Ingest host — `https://eu.i.posthog.com`. Identical across all envs.                                                                                                   |
+| `POSTHOG_CLI_HOST`         | build-time + runtime | Admin host — `https://eu.posthog.com`, not the ingest host. Read by `posthog-cli` at build time and by the account purge at runtime. Identical across all envs.        |
+| `POSTHOG_CLI_PROJECT_ID`   | build-time + runtime | Numeric project id. Read by the sourcemap upload at build time and by the account purge at runtime. **Per-Vercel-env.**                                                |
+| `POSTHOG_CLI_API_KEY`      | build-time           | Personal API key with `sourcemap:write` scope. Identical across all envs (one key for all three).                                                                      |
+| `POSTHOG_PURGE_API_KEY`    | runtime              | Personal API key with the `person:write` scope, for the account purge's person delete (`src/lib/posthog-purge.ts`). Identical across all envs (one key for all three). |
 
 **Admin host ≠ ingest host.** `POSTHOG_CLI_HOST` is `https://eu.posthog.com` (app surface). Event ingestion uses `https://eu.i.posthog.com`. Swapping produces auth errors that read like "invalid project ID".
 
-**Project token ≠ personal API key.** `posthog-node` and `posthog-js` both use the **project token** (`NEXT_PUBLIC_POSTHOG_KEY`). The personal API key (`POSTHOG_CLI_API_KEY`) is for the CLI only. They are different values with different scopes.
+**Project token ≠ personal API key.** `posthog-node` and `posthog-js` both use the **project token** (`NEXT_PUBLIC_POSTHOG_KEY`). The personal API keys (`POSTHOG_CLI_API_KEY` for the CLI, `POSTHOG_PURGE_API_KEY` for the purge) are different values with different scopes.
+
+**Account purge.** The nightly purge (`/api/cron/purge-deleted-users`) deletes the purged user's PostHog person and events, and the household's when the household is deleted, with `POST {POSTHOG_CLI_HOST}/api/projects/{POSTHOG_CLI_PROJECT_ID}/persons/bulk_delete/` (HON-907). So `POSTHOG_CLI_HOST` and `POSTHOG_CLI_PROJECT_ID` must be available at runtime too, not only to the build. With PostHog enabled and `POSTHOG_PURGE_API_KEY` (or either of those two) unset, the purge still deletes the database data and captures one error per user; see [`RUNBOOKS/gdpr-deletion.md`](RUNBOOKS/gdpr-deletion.md) § "Data held outside the database" for the hand sweep.
 
 ### Local dev
 
-In `.env`, set `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` to the `mealplan-development` project values (or leave both unset to disable PostHog locally — tests and dev still work without it). Leave the `POSTHOG_CLI_*` vars unset; local `pnpm build` skips the sourcemap upload because the postbuild script gates on `VERCEL_GIT_COMMIT_SHA`.
+In `.env`, set `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` to the `mealplan-development` project values (or leave both unset to disable PostHog locally — tests and dev still work without it). Leave the `POSTHOG_CLI_*` vars and `POSTHOG_PURGE_API_KEY` unset; local `pnpm build` skips the sourcemap upload because the postbuild script gates on `VERCEL_GIT_COMMIT_SHA`.
 
 ### Vercel
 
-In **Project Settings → Environment Variables**, set the five variables per the scope column above. The `mealplan-development` token covers both **Preview** and **Development** targets in Vercel; `mealplan-staging` targets the custom `staging` environment; `mealplan-production` targets **Production**.
+In **Project Settings → Environment Variables**, set the six variables per the scope column above. Vercel exposes a variable to both the build and the functions unless you restrict it, so do not mark `POSTHOG_CLI_HOST` or `POSTHOG_CLI_PROJECT_ID` build-only: the account purge reads them at runtime. The `mealplan-development` token covers both **Preview** and **Development** targets in Vercel; `mealplan-staging` targets the custom `staging` environment; `mealplan-production` targets **Production**.
 
 ### Verify after provisioning
 
