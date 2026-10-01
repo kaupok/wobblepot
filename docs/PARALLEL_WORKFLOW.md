@@ -312,14 +312,14 @@ Run it when a new model ships, before changing a default. It answers one questio
 
 3. **Compare each PR against comparable merged PRs from the same area on the current model**, on these numbers:
 
-   | Measure              | Where to read it                                                                             |
-   | -------------------- | -------------------------------------------------------------------------------------------- |
-   | CI passed first time | The first push's checks on the PR; a `fix: Address CI failures` commit means it did not      |
-   | Review findings      | Inline review comments plus the findings in each `<!-- claude-review -->` summary, per round |
-   | Fix-up commits       | Commits after the first push (`fix: Address CI failures`, `fix: Address review feedback`)    |
-   | Time to merge        | The `[OUTCOME]` line's duration in `orchestrator.log`, or PR open to merge for a hand run    |
-   | Outcome              | The `[OUTCOME]` result: `SUCCESS`, or `STRANDED`, `FAILED` or `TIMEOUT`                      |
-   | Token cost           | `pnpm agent-cost` (`scripts/agent-cost-per-pr.ts`), per PR                                   |
+   | Measure              | Where to read it                                                                                                                                                    |
+   | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | CI passed first time | The first push's checks on the PR; a `fix: Address CI failures` commit means it did not                                                                             |
+   | Review findings      | Inline review comments plus the findings in each `<!-- claude-review -->` summary, per round                                                                        |
+   | Fix-up commits       | Commits after the first push (`fix: Address CI failures`, `fix: Address review feedback`)                                                                           |
+   | Time to merge        | The `[OUTCOME]` line's duration in `orchestrator.log`, or PR open to merge for a hand run                                                                           |
+   | Outcome              | The `[OUTCOME]` result: `SUCCESS`, or `STRANDED`, `GATED`, `FAILED` or `TIMEOUT`. A `GATED` run also labels the issue `Gated`; remove the label before the next run |
+   | Token cost           | `pnpm agent-cost` (`scripts/agent-cost-per-pr.ts`), per PR                                                                                                          |
 
 4. **Record the results before changing the default**: a table in a comment on the Linear issue that makes the change, with the PR numbers, so the decision can be checked later.
 
