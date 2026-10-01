@@ -128,7 +128,7 @@ Generation takes any start date, and `endDate` is exclusive. There is no week bo
 2. See three ranked alternatives, or search the library and My recipes
 3. Select replacement → entry updated
 
-The alternatives make no model call. `/regenerate` (an entry with a meal) and `/suggestions` (an empty slot), under `src/app/api/meal-plans/[id]/entries/[entryId]/`, query candidates from the database with the household's filters and rank them with `scoreCandidate` (`src/lib/meal-planning/candidate-score.ts`) on favourites, the household's own recipes, kid-friendliness, pantry overlap and the household's net rating of the meal. `/regenerate` also rewards a protein type and prep time close to the meal being replaced (`SIMILARITY_WEIGHTS`); `/suggestions` has no meal to compare against (`SLOT_FIT_WEIGHTS`). They import only the cost-cap helpers from `@/lib/ai/usage`.
+The alternatives make no model call. `/regenerate` (an entry with a meal) and `/suggestions` (an empty slot), under `src/app/api/meal-plans/[id]/entries/[entryId]/`, query candidates from the database with the household's filters and rank them with `scoreCandidate` (`src/lib/meal-planning/candidate-score.ts`) on favourites, the household's own recipes, kid-friendliness, pantry overlap and the household's net rating of the meal. `/regenerate` also rewards a protein type and prep time close to the meal being replaced (`SIMILARITY_WEIGHTS`); `/suggestions` has no meal to compare against (`SLOT_FIT_WEIGHTS`). They import only the cost-cap helpers from `@/lib/ai/usage`. One leftover from the weekly model: for a dinner, both routes recompute the required protein slots over the entry's Monday-to-Sunday week (`getMondayOfWeek`) and restrict candidates to that protein type, so they can disagree with the slots generation placed by position in its range.
 
 ---
 
@@ -413,7 +413,7 @@ The main areas:
 
 **Source of truth:** `src/app/api/**/route.ts`. Each route's doc comment describes its contract.
 
-The main areas: `auth` (Better Auth, plus account deletion and export under `auth/user`), `households` (the current household under `households/me`: members, invites, preferences, own meals, AI usage), `invites` (joining), `meals` and `ingredients` (library, favourites, imagine, meal images), `recipes` (parse a recipe), `meal-plans` (generate; entries, swaps, preparation tips, per-plan shopping list), `entries` (entries by date range), `shopping-list` and `pantry`. Operational routes: `health`, `status`, `cron`, `admin`, and the E2E-only `e2e-seed` / `e2e-support`.
+The main areas: `auth` (Better Auth, plus account deletion and export under `auth/user`), `households` (the current household under `households/me`: members, invites, preferences, own meals, AI usage), `invites` (joining), `meals` and `ingredients` (library, favourites, imagine, meal images), `recipes` (parse a recipe), `meal-plans` (generate; entries, swaps, preparation tips, per-plan shopping list), `entries` (entries by date range), `shopping-list`, `pantry`, and `members` (the signed-in member's own preferences). Operational routes: `health`, `status`, `cron`, `admin`, and the E2E-only `e2e-seed` / `e2e-support`.
 
 ### Frontend Pages
 
