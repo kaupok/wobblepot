@@ -582,11 +582,19 @@ export const SwapDropsSuggestionsForSiblingEntries: Story = {
   },
 }
 
+/** The note is a taped sticky-note slip, and the slip is the button that opens the editor (HON-926). */
 export const PlannedWithNote: Story = {
   args: {
     meal: mealFixture,
     status: 'planned',
     note: 'Double the garlic — kids approved.',
+  },
+  play: async ({ canvasElement }) => {
+    const slip = within(canvasElement).getByRole('button', {
+      name: 'Double the garlic — kids approved.',
+    })
+    await expect(slip).toHaveAttribute('data-surface', 'sticky')
+    await expect(slip).toHaveAttribute('data-variant', 'interactive')
   },
 }
 
@@ -747,6 +755,29 @@ export const PastReadonly: Story = {
   },
 }
 
+/** A past card's note is the same slip, read-only: tilted, not a button. */
+export const PastWithNote: Story = {
+  args: {
+    meal: mealFixture,
+    status: 'completed',
+    rating: 'up',
+    isPast: true,
+    note: PAST_NOTE,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const slip = canvas.getByText(PAST_NOTE).closest('[data-surface="sticky"]')
+    await expect(slip).toHaveAttribute('data-variant', 'static')
+    await expect(canvas.queryByRole('button', { name: PAST_NOTE })).toBeNull()
+  },
+}
+
+export const PastWithNoteDark: Story = {
+  ...PastWithNote,
+  name: 'Past with note (dark)',
+  globals: { theme: 'dark' },
+}
+
 export const EmptyPlanned: Story = {
   args: {
     meal: null,
@@ -754,11 +785,38 @@ export const EmptyPlanned: Story = {
   },
 }
 
+/** The empty slot's note renders once, as the editor's slip (HON-926: it used to show twice). */
 export const EmptyWithNote: Story = {
   args: {
     meal: null,
     status: 'planned',
     note: 'Maybe leftovers tonight.',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getAllByText('Maybe leftovers tonight.')).toHaveLength(1)
+    await expect(canvas.getByRole('button', { name: 'Maybe leftovers tonight.' })).toHaveAttribute(
+      'data-surface',
+      'sticky',
+    )
+  },
+}
+
+/** A read-only empty slot shows its note as a plain slip, once, with nothing to click. */
+export const EmptyReadonlyWithNote: Story = {
+  args: {
+    meal: null,
+    status: 'planned',
+    isReadOnly: true,
+    note: 'Maybe leftovers tonight.',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const [note, ...rest] = canvas.getAllByText('Maybe leftovers tonight.')
+    await expect(rest).toHaveLength(0)
+    const slip = note!.closest('[data-surface="sticky"]')
+    await expect(slip).toHaveAttribute('data-variant', 'static')
+    await expect(canvas.queryByRole('button', { name: 'Maybe leftovers tonight.' })).toBeNull()
   },
 }
 
