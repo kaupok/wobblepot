@@ -63,6 +63,32 @@ export interface ImaginedMealResponse {
   allMatched: boolean
 }
 
+const MAX_PREP_MINUTES = 480
+
+/**
+ * An imagined prep time as `POST /api/households/me/meals` will accept it, or `null`.
+ *
+ * `ImaginedMealSchema` states "integer, 1-480" only in its description, so the
+ * model can return `12.5` or `600`; the create route rejects both
+ * (`.int().positive().max(480)`), and the review dialog has no field to fix
+ * them, so every save retry failed (HON-891). Round, then treat anything
+ * outside 1–480 as unknown — which also covers `0` (HON-711).
+ */
+export function savableTimeMinutes(timeMinutes: number | null): number | null {
+  if (timeMinutes == null) return null
+  const rounded = Math.round(timeMinutes)
+  return rounded >= 1 && rounded <= MAX_PREP_MINUTES ? rounded : null
+}
+
+/**
+ * Applies `savableTimeMinutes` to meals as they arrive from `/api/meals/imagine`
+ * (or a restored session), so the result card, the review dialog and "Edit
+ * details" all show the prep time that will be saved.
+ */
+export function withSavableTimeMinutes(meals: ImaginedMealResponse[]): ImaginedMealResponse[] {
+  return meals.map((meal) => ({ ...meal, timeMinutes: savableTimeMinutes(meal.timeMinutes) }))
+}
+
 export function convertToPrefilledData(meal: ImaginedMealResponse): {
   name: string
   description: string | null
@@ -135,7 +161,7 @@ export function convertToPrefilledData(meal: ImaginedMealResponse): {
     description: meal.description,
     preparationNotes: null,
     sourceUrl: null,
-    timeMinutes: meal.timeMinutes,
+    timeMinutes: savableTimeMinutes(meal.timeMinutes),
     servings: meal.servings,
     mealTypes: meal.suitableFor,
     kidFriendly: meal.kidFriendly,

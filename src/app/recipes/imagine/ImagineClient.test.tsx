@@ -185,3 +185,47 @@ describe('ImagineClient prompt field name', () => {
     )
   })
 })
+
+describe('ImagineClient prep time (HON-891)', () => {
+  const imaginedMeal = (id: string, name: string, timeMinutes: number) => ({
+    id,
+    name,
+    description: null,
+    timeMinutes,
+    servings: 4,
+    suitableFor: ['dinner'],
+    kidFriendly: false,
+    primaryProteinType: 'legume',
+    components: [],
+    nutrition: { calories: 480, protein: 24, carbs: 62, fat: 12 },
+    ingredients: [],
+    allMatched: true,
+  })
+
+  beforeEach(() => {
+    sessionStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('shows each card with the prep time that will be saved, not the raw AI value', async () => {
+    respondWith(
+      {
+        success: true,
+        meals: [
+          imaginedMeal('im-1', 'Lentil soup', 12.5),
+          imaginedMeal('im-2', 'Slow-braised beans', 600),
+        ],
+      },
+      200,
+    )
+    await generate('en')
+
+    expect(await screen.findByText('Lentil soup')).toBeInTheDocument()
+    expect(screen.getByText('13 min')).toBeInTheDocument()
+    expect(screen.queryByText('12.5 min')).not.toBeInTheDocument()
+    expect(screen.queryByText('600 min')).not.toBeInTheDocument()
+  })
+})

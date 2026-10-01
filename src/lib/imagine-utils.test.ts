@@ -9,6 +9,8 @@ import { captureClientError } from '@/lib/errors-client'
 import {
   convertToPrefilledData,
   reviewImaginedMeal,
+  savableTimeMinutes,
+  withSavableTimeMinutes,
   type ImaginedMealResponse,
 } from './imagine-utils'
 
@@ -85,7 +87,41 @@ function unmatchedIngredient() {
   }
 }
 
+describe('savableTimeMinutes (HON-891)', () => {
+  it.each([
+    [null, null],
+    [25, 25],
+    [12.5, 13],
+    [600, null],
+    [480.4, 480],
+    [480.5, null],
+    [0.6, 1],
+    [0.4, null],
+    [0, null],
+    [-5, null],
+  ])('maps %s to %s, the integer 1–480 the create route accepts', (raw, saved) => {
+    expect(savableTimeMinutes(raw)).toBe(saved)
+  })
+})
+
+describe('withSavableTimeMinutes (HON-891)', () => {
+  it("sanitises every meal's prep time and leaves the rest of the meal alone", () => {
+    const fractional = { ...baseMeal(), timeMinutes: 12.5 }
+    const over = { ...baseMeal(), id: 'imagined-2', timeMinutes: 600 }
+
+    expect(withSavableTimeMinutes([fractional, over])).toEqual([
+      { ...fractional, timeMinutes: 13 },
+      { ...over, timeMinutes: null },
+    ])
+  })
+})
+
 describe('convertToPrefilledData', () => {
+  it('sanitises the prep time the review dialog and "Edit details" receive (HON-891)', () => {
+    expect(convertToPrefilledData({ ...baseMeal(), timeMinutes: 12.5 }).timeMinutes).toBe(13)
+    expect(convertToPrefilledData({ ...baseMeal(), timeMinutes: 600 }).timeMinutes).toBeNull()
+  })
+
   it('converts a matched ingredient to a matched PrefilledIngredient', () => {
     const meal = baseMeal()
     meal.ingredients = [matchedIngredient()]

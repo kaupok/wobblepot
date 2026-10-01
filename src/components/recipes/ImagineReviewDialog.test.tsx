@@ -127,6 +127,38 @@ describe('ImagineReviewDialog prep time', () => {
     expect(zeroText).toBe(screen.getByRole('dialog').textContent)
   })
 
+  it('shows a fractional prep time rounded, as it will be saved (HON-891)', () => {
+    renderInLocale(
+      <ImagineReviewDialog
+        open
+        meal={buildMeal({ timeMinutes: 12.5 })}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+      'en',
+    )
+    expect(screen.getByText('13 min')).toBeInTheDocument()
+  })
+
+  it('renders an over-480 prep time exactly like an unknown one (HON-891)', () => {
+    const renderWith = (timeMinutes: number | null) =>
+      renderInLocale(
+        <ImagineReviewDialog
+          open
+          meal={buildMeal({ timeMinutes })}
+          onOpenChange={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+        'en',
+      )
+    const over = renderWith(600)
+    const overText = screen.getByRole('dialog').textContent
+    over.unmount()
+    renderWith(null)
+
+    expect(overText).toBe(screen.getByRole('dialog').textContent)
+  })
+
   describe('save payload', () => {
     afterEach(() => {
       vi.unstubAllGlobals()
@@ -159,6 +191,23 @@ describe('ImagineReviewDialog prep time', () => {
 
     it('sends a known prep time unchanged', async () => {
       expect(await savedTimeMinutes(25)).toBe(25)
+    })
+
+    it('rounds a fractional prep time to the integer the create route accepts (HON-891)', async () => {
+      expect(await savedTimeMinutes(12.5)).toBe(13)
+    })
+
+    it('sends a prep time over 480 minutes as unknown (HON-891)', async () => {
+      expect(await savedTimeMinutes(600)).toBeNull()
+    })
+
+    it.each([
+      [480.4, 480],
+      [480.5, null],
+      [0.6, 1],
+      [0.4, null],
+    ])('applies the 1–480 range after rounding: %s is sent as %s (HON-891)', async (raw, sent) => {
+      expect(await savedTimeMinutes(raw)).toBe(sent)
     })
   })
 })

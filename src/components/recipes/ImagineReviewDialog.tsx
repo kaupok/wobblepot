@@ -25,6 +25,7 @@ import {
 } from '@/components/household/meal-form-types'
 import type { FinalComponent, PrefilledIngredient } from '@/components/household/meal-form-types'
 import { ApiError, apiFetch } from '@/lib/api'
+import { savableTimeMinutes } from '@/lib/imagine-utils'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { formatInteger, formatQuantity } from '@/lib/i18n/format-number'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
@@ -202,6 +203,9 @@ export function ImagineReviewDialog({
   const [isMatchedOpen, setIsMatchedOpen] = useState(false)
   const locale = useLocale() as Locale
   const saveBlockedId = useId()
+  // Callers already pass a sanitised value; re-applying it keeps the save valid
+  // and the badge equal to what is saved whatever the caller (HON-891).
+  const timeMinutes = savableTimeMinutes(meal.timeMinutes)
 
   const unresolvedCount = ingredientRows.filter((row) => row.type === 'unmatched').length
   const lowConfidenceCount = ingredientRows.filter((row) => row.type === 'low-confidence').length
@@ -264,9 +268,7 @@ export function ImagineReviewDialog({
           description: meal.description,
           preparationNotes: meal.preparationNotes ?? null,
           sourceUrl: meal.sourceUrl ?? null,
-          // A zero-minute imagined meal shows no badge, and the create route rejects 0
-          // (`.positive()`): send it as unknown so the save matches the render (HON-711).
-          timeMinutes: meal.timeMinutes != null && meal.timeMinutes > 0 ? meal.timeMinutes : null,
+          timeMinutes,
           kidFriendly: meal.kidFriendly,
           suitableFor: meal.mealTypes,
           servings: meal.servings,
@@ -349,11 +351,11 @@ export function ImagineReviewDialog({
 
           {/* Meta badges */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711). */}
-            {meal.timeMinutes != null && meal.timeMinutes > 0 && (
+            {/* The sanitised value, never `null` or `0`, so no stray "0" (HON-711). */}
+            {timeMinutes != null && (
               <Badge variant="outline">
                 <Clock className="size-3.5" />
-                {tDetail('timeMinutes', { count: meal.timeMinutes })}
+                {tDetail('timeMinutes', { count: timeMinutes })}
               </Badge>
             )}
             {meal.kidFriendly && <KidFriendlyBadge />}
