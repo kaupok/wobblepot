@@ -336,8 +336,8 @@ enum ProteinType {
 
 **AI Failures:** the numbers live in code; read them there rather than copying them here.
 
-- **Timeouts:** each AI route has a wall-clock budget in `src/lib/ai/budgets.ts`, sized under the route's `maxDuration`, and shared by the first attempt and the AI SDK's retries. Running out returns a 504 the client renders as catalog copy
-- **Retries:** the AI SDK's own retries, bounded by that budget. No route makes a second model call to repair a bad plan; repair is deterministic (see AI Generation Flow)
+- **Timeouts:** each AI route has a wall-clock budget in `src/lib/ai/budgets.ts`, sized under the route's `maxDuration`, and shared by the first attempt and the AI SDK's retries. Running out returns a 504 the client renders as catalog copy. The exception is the meal-image route, whose `AI_BUDGET_MS` is in `src/app/api/meals/[id]/image/route.ts`
+- **Retries:** the AI SDK's own retries, bounded by that budget. Meal images are the exception: `src/lib/meal-images/generate.ts` runs its own retry loop. No route makes a second model call to repair a bad plan; repair is deterministic (see AI Generation Flow)
 - **Rate limits:** per household or per user, per feature, in `src/lib/rate-limit.ts` (Upstash Redis). A limited request gets 429 with `Retry-After`. The limiter fails open when Redis is unreachable (see `checkRateLimit`)
 - **Cost cap:** every AI route, and the two swap routes, calls `assertUnderCap` (`src/lib/ai/usage.ts`) against the household's `aiCapUsd`
 - **Kill-switch:** `ai_generation_enabled` returns 503 from plan generation (see [`docs/FEATURE_FLAGS.md`](./FEATURE_FLAGS.md))
