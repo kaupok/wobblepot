@@ -98,17 +98,24 @@ export function MealDetailModal({
   const showHero = hasImage || imageStatus === 'generating'
 
   // The phone's sticky bar: once the title has scrolled up under the bar, the
-  // bar takes the tint and shows the meal's name. Observed against the
-  // viewport, which below `lg` is the panel; the bar is hidden from `lg`,
-  // where the title sits in a column that never scrolls under it. The -60px
-  // top margin is the bar's `h-15`.
+  // bar takes the tint and shows the meal's name. The bar is hidden from
+  // `lg`, where the title sits in a column that never scrolls under it.
+  //
+  // Observed against the scroll region, not the viewport: the region starts
+  // under the panel's safe-area padding, as the bar does, so the -60px top
+  // margin (the bar's `h-15`) is the bar's bottom edge on a notched phone too.
+  // Against the viewport it would sit a whole inset (59px on an iPhone 14
+  // Pro) above the bar, and the bar would tint only once the title was gone.
   const [titleEl, setTitleEl] = useState<HTMLElement | null>(null)
   const [titleHidden, setTitleHidden] = useState(false)
   useEffect(() => {
     if (!titleEl || typeof IntersectionObserver === 'undefined') return
     const observer = new IntersectionObserver(
       ([entry]) => setTitleHidden(!!entry && !entry.isIntersecting),
-      { rootMargin: '-60px 0px 0px 0px' },
+      {
+        root: titleEl.closest('[data-slot="cook-view-scroll"]'),
+        rootMargin: '-60px 0px 0px 0px',
+      },
     )
     observer.observe(titleEl)
     return () => {

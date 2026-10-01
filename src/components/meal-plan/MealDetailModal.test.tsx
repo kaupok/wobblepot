@@ -53,10 +53,10 @@ vi.mock('./MealDetail', () => ({
   }) => {
     onServingsChange = props.onServingsChange
     return (
-      <>
+      <div data-slot="cook-view-scroll">
         {props.title}
         <output aria-label="servings">{props.servings}</output>
-      </>
+      </div>
     )
   },
 }))
@@ -205,5 +205,53 @@ describe('MealDetailModal cook view shell (HON-932)', () => {
     imageState = { status, imageUrl: null, imageHue: null }
     renderModal()
     expect(screen.getByRole('dialog')).not.toHaveAttribute('data-meal-surface')
+  })
+})
+
+describe('MealDetailModal sticky title bar (HON-932)', () => {
+  let observers: { options?: IntersectionObserverInit; callback: IntersectionObserverCallback }[]
+
+  beforeEach(() => {
+    observers = []
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+          observers.push({ callback, options })
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('measures the title against the scroll region, which starts under the safe-area inset', () => {
+    renderModal()
+    const scroller = screen.getByRole('heading', { name: 'Lentil soup' }).parentElement
+    expect(scroller).toHaveAttribute('data-slot', 'cook-view-scroll')
+    expect(observers.at(-1)?.options).toEqual({
+      root: scroller,
+      rootMargin: '-60px 0px 0px 0px',
+    })
+  })
+
+  it('shows the name in the bar once the title has scrolled under it', () => {
+    renderModal()
+    const bar = screen.getByTestId('cook-view-bar')
+    expect(bar).not.toHaveAttribute('data-title-hidden')
+
+    act(() =>
+      observers
+        .at(-1)!
+        .callback(
+          [{ isIntersecting: false } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        ),
+    )
+    expect(bar).toHaveAttribute('data-title-hidden')
   })
 })
