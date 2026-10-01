@@ -171,7 +171,7 @@ mcp__linear-server__save_issue({
 })
 ```
 
-**A Queued issue is created with its `blockedBy` in the same `save_issue` call, never in a follow-up.** The orchestrator polls every 60 s and judges an issue by the relations it carries at that poll: an issue that is Queued for even a minute without its relation gets picked up, fails the blocker check, and comes back labelled `Gated`, which no poll clears (HON-902, 2026-10-01). When the blocker does not exist yet — a chain being created in order — create the blocked issue first in `Backlog`, then move it to `Queued` in the call that adds the relation; or create the chain from the last link backwards so each `blockedBy` target already exists.
+**A Queued issue is created with its `blockedBy` in the same `save_issue` call, never in a follow-up.** The orchestrator polls every 60 s and judges an issue by the relations it carries at that poll: an issue that is Queued for even a minute without its relation gets picked up, fails the blocker check, and comes back labelled `Gated`, which no poll clears (HON-902, 2026-10-01). When the blocker does not exist yet — a chain being created in order — create the blocked issue first in `Backlog`, then move it to `Queued` in the call that adds the relation; or create the chain blocker-first, so each `blockedBy` target already exists when the issue that names it is created.
 
 Use `parentId` (sub-issue), not `blockedBy: [parent]` — a child is part of its parent, not blocked by it; marking it blocked would hide it from `/next-issue` and `/auto-implement` until the parent closes, which is backwards. Add `blockedBy` only between siblings that genuinely depend on each other.
 
