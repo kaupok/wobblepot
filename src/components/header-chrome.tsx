@@ -72,19 +72,22 @@ export function HeaderChrome({ session, hasHousehold, skipToContentLabel }: Head
         <div className="bg-background shadow-float pointer-events-auto ml-auto flex h-12 w-full max-w-full items-center justify-between rounded-full border pr-0.5 pl-4 transition-[max-width,padding,margin,opacity,visibility] duration-300 ease-out group-data-scrolled:max-w-12 group-data-scrolled:pl-0.5 motion-reduce:transition-none md:contents">
           <div
             className={cn(
-              'md:bg-background md:shadow-float flex items-center gap-6 md:h-12 md:rounded-full md:border md:px-5',
+              'md:bg-background md:shadow-float flex items-center md:h-12 md:rounded-full md:border md:px-2',
               !showsNav &&
                 'transition-opacity duration-300 ease-out group-data-scrolled:pointer-events-none group-data-scrolled:opacity-0 motion-reduce:transition-none',
             )}
           >
             {/* The fold. `max-w-32` clears the wordmark at rest; scrolled, the
                 box narrows to nothing behind `overflow-hidden` while the text
-                fades, and the negative margin eats the pill's gap so the nav
-                closes up against the padding. `invisible` at the end takes the
-                hidden link out of the tab order; visibility only flips once
-                the transition ends, so it is not seen. The link's own focus
+                fades, and its margin closes with it so the nav meets the
+                pill's padding. The pill's padding is 8px because the nav
+                links carry 12px of their own (`NavLink`); the logo's 12px
+                margin is the same top-up, putting it 20px in from the edge
+                and 24px from Today. `invisible` at the end takes the hidden
+                link out of the tab order; visibility only flips once the
+                transition ends, so it is not seen. The link's own focus
                 outline is inset for the same clipping reason. */}
-            <div className="max-w-32 overflow-hidden transition-[max-width,padding,margin,opacity,visibility] duration-300 ease-out group-data-scrolled:invisible group-data-scrolled:-mr-6 group-data-scrolled:max-w-0 group-data-scrolled:opacity-0 motion-reduce:transition-none">
+            <div className="max-w-32 overflow-hidden transition-[max-width,padding,margin,opacity,visibility] duration-300 ease-out group-data-scrolled:invisible group-data-scrolled:mx-0 group-data-scrolled:max-w-0 group-data-scrolled:opacity-0 motion-reduce:transition-none md:mx-3">
               <Link
                 href="/"
                 className="focus-visible:outline-ring block rounded-sm transition-opacity hover:opacity-70 focus-visible:outline-2 focus-visible:-outline-offset-2"
@@ -100,7 +103,16 @@ export function HeaderChrome({ session, hasHousehold, skipToContentLabel }: Head
             </div>
             <NavigationLeft isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
           </div>
-          <div className="md:bg-background md:shadow-float flex items-center gap-6 md:h-12 md:rounded-full md:border md:pr-1 md:pl-5">
+          {/* No gap: the last nav link meets the account button, and with
+              the nav present the pill's left padding gives way to the
+              links' own (`NavLink`). Without it (signed out, onboarding)
+              the buttons keep the full 20px. */}
+          <div
+            className={cn(
+              'md:bg-background md:shadow-float flex items-center md:h-12 md:rounded-full md:border md:pr-1',
+              showsNav ? 'md:pl-2' : 'md:pl-5',
+            )}
+          >
             <NavigationRight isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
             <HeaderActions session={session} hasHousehold={hasHousehold} />
             <MobileNav session={session} hasHousehold={hasHousehold} />

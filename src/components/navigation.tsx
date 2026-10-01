@@ -19,7 +19,11 @@ interface NavigationProps {
  * edge under the curve. Active-route matching is shared with `BottomTabBar`.
  *
  * The link is the pill's full height, so the hover zone is the whole band
- * rather than the line of text.
+ * rather than the line of text. The space between links is the links' own
+ * padding, not a flex gap, so neighbours share an edge: a pointer sweeping
+ * across the group is always over exactly one link, and a folded label never
+ * closes in a gap only to reopen on the next link (HON-922). The pill's own
+ * padding is cut by the same amount, so the outer inset is unchanged.
  *
  * With an `icon`, the link folds with the header (`HeaderChrome` sets
  * `data-scrolled` on its `group`): scrolled, the icon opens in as the label's
@@ -51,6 +55,10 @@ function NavLink({
       aria-current={isActive ? 'page' : undefined}
       className={cn(
         'group/link flex h-12 items-center text-base font-medium transition-colors',
+        // 12px a side keeps labels 24px apart. A folding link is 10px a side,
+        // so folded it is the account button's 40px box (`size-10`) and the
+        // three icons sit evenly; the label carries the other 2px at rest.
+        Icon ? 'px-2.5' : 'px-3',
         isActive ? 'text-foreground' : 'text-muted-foreground hover:text-primary',
       )}
     >
@@ -61,8 +69,12 @@ function NavLink({
           </span>
           <span className="max-w-40 overflow-hidden whitespace-nowrap transition-[max-width,padding,margin,opacity,visibility] duration-300 ease-out group-data-scrolled:not-group-hover/link:not-group-focus-visible/link:max-w-0 group-data-scrolled:not-group-hover/link:not-group-focus-visible/link:opacity-0 motion-reduce:transition-none">
             {/* The gap lives inside the clipped box, so it closes with the
-                label instead of leaving 8px beside a lone icon. */}
-            <span className="group-data-scrolled:pl-2">{children}</span>
+                label instead of leaving 8px beside a lone icon. At rest the
+                2px a side tops the link's 10px up to the 12px the left
+                group's links have. */}
+            <span className="px-0.5 group-data-scrolled:pr-0 group-data-scrolled:pl-2">
+              {children}
+            </span>
           </span>
         </>
       ) : (
@@ -82,7 +94,7 @@ export function NavigationLeft({ isAuthenticated, hasHousehold }: NavigationProp
   if (!isAuthenticated || !hasHousehold) return null
 
   return (
-    <nav aria-label={t('ariaLabel')} className="hidden items-center gap-6 md:flex">
+    <nav aria-label={t('ariaLabel')} className="hidden items-center md:flex">
       <NavLink href="/">{t('today')}</NavLink>
       {/* From `md` up `/pantry` is the same two-column page as `/shopping`;
           they only differ on a phone, where each is its own tab (HON-776). */}
@@ -103,7 +115,7 @@ export function NavigationRight({ isAuthenticated, hasHousehold }: NavigationPro
   if (!isAuthenticated || !hasHousehold) return null
 
   return (
-    <nav aria-label={t('ariaLabel')} className="hidden items-center gap-6 md:flex">
+    <nav aria-label={t('ariaLabel')} className="hidden items-center md:flex">
       {/* Recipes shares the tab bar's icon; Household is people, not the
           house the phone's Today tab already uses. */}
       <NavLink href="/recipes" icon={BookOpen}>
