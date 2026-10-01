@@ -299,7 +299,7 @@ See [`.storybook/README.md`](./.storybook/README.md) for the play-function patte
 - **`[AUTO DRAFT]`** — filed **only** by `/auto-implement` 6.8, for a review finding the unattended cycle deferred. No human saw it at birth; the prefix is the gate that stops the cycle implementing work it generated for itself. Cleared only by `/refine-backlog --auto-drafts` after a human judges the finding real and current.
 - **No prefix** — ready for pickup. An issue a human reviewed as it was created (e.g. a `/branch-review` proposal the user approved) needs no prefix.
 
-If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, even when the issue is agent-written, well-specced, or related to existing `[AUTO DRAFT]` issues. Full rules live in `.claude/skills/refine-backlog/SKILL.md` and `.claude/skills/auto-implement/SKILL.md` → 6.8.
+If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, even when the issue is agent-written, well-specced, or related to existing `[AUTO DRAFT]` issues. Full rules live in `.claude/skills/refine-backlog/SKILL.md` and `.claude/skills/auto-implement/deferral.md` (`/auto-implement` 6.8).
 
 **Queued is the queue.** The orchestrator (`scripts/orchestrator.sh`, started with `wt start`) and `/auto-implement` auto-discovery read only the Linear state `Queued`; Todo and Backlog are not picked up unattended, and Todo means a human intends to do the work. Move an issue to Queued only when an agent can finish it without a human; an issue with a human-only step goes to Todo, and any unattended part is split into its own Queued issue. `/next-issue` still lists Todo, Queued and Backlog: it proposes, and moving an issue to Queued stays a human act.
 

@@ -152,7 +152,7 @@ gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
 - No output → all checks passed. Proceed.
 - Any line printed → **On failure:** report which checks failed and stop. Do not proceed to merge.
 
-**Known residual risk of the exemption (accepted in HON-600).** `gh pr checks` carries no signal separating "stuck after Ready" from "still deploying", so a Vercel build merely queued past the ~13 min `Lint, Type Check & Test` job is dropped along with a stuck one. The durable fix is HON-584 (required status checks on `main`). See `/auto-implement` Phase 7.2 for the full note.
+**Known residual risk of the exemption (accepted in HON-600).** `gh pr checks` carries no signal separating "stuck after Ready" from "still deploying", so a Vercel build merely queued past the ~13 min `Lint, Type Check & Test` job is dropped along with a stuck one. The durable fix is HON-584 (required status checks on `main`). See `.claude/skills/auto-implement/history.md` → The pending-Vercel exemption for the full note.
 - `no checks reported on the '<branch>' branch` on stderr (exit 1) → acceptable **only** when every changed file is excluded by `ci.yml` `paths-ignore` (`**/*.md`, `docs/**`, `.github/ISSUE_TEMPLATE/**`), i.e. no workflow was ever going to run. Otherwise checks simply have not been reported for a code change — stop. In practice this branch is unreachable here (docs-only PRs still receive Vercel and skipped smoke checks, so `gh pr checks` always reports something); it is kept as a defensive branch — do not rely on it:
 
 ```bash
