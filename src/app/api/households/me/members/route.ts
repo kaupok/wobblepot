@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership, listHouseholdMembers } from '@/lib/household'
+import {
+  MAX_HOUSEHOLD_MEMBERS,
+  getHouseholdMembership,
+  listHouseholdMembers,
+} from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
 import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
@@ -39,6 +43,19 @@ const createManualMemberSchema = z.object({
     })
     .optional(),
 })
+
+/**
+ * Thrown inside the add transaction when the household already holds
+ * `MAX_HOUSEHOLD_MEMBERS`. A sentinel class rather than a string-matched
+ * `Error` message, so the catch below cannot misread it and turn the 400 the
+ * client branches on into a 500 (HON-679).
+ */
+class HouseholdFullError extends Error {
+  constructor() {
+    super('household_full')
+    this.name = 'HouseholdFullError'
+  }
+}
 
 export async function GET() {
   const session = await auth.api.getSession({
@@ -108,6 +125,23 @@ export async function POST(request: Request) {
 
     // Create the manual member with preferences in a transaction
     const member = await prisma.$transaction(async (tx) => {
+      // Lock the household row before counting (HON-720). At read committed a
+      // plain count takes no lock, so two concurrent adds at 29 members would
+      // both read 29 and both insert. The lock queues every add to this
+      // household behind the last one, and because read committed takes a
+      // fresh snapshot per statement, the second add's count then sees the
+      // first add's committed row. `FOR NO KEY UPDATE`, not `FOR UPDATE`: it
+      // does not conflict with the `FOR KEY SHARE` the member insert's foreign
+      // key check takes on this row — the same choice as `lockUserForClaim`.
+      await tx.$queryRaw`SELECT 1 FROM "household" WHERE "id" = ${householdMembership.householdId} FOR NO KEY UPDATE`
+
+      const memberCount = await tx.householdMember.count({
+        where: { householdId: householdMembership.householdId },
+      })
+      if (memberCount >= MAX_HOUSEHOLD_MEMBERS) {
+        throw new HouseholdFullError()
+      }
+
       const newMember = await tx.householdMember.create({
         data: {
           householdId: householdMembership.householdId,
@@ -183,6 +217,21 @@ export async function POST(request: Request) {
       { status: 201 },
     )
   } catch (error) {
+    // Checked before `captureApiError`: a full household is an expected client
+    // error, not a server fault. The throw rolled the transaction back, so
+    // nothing was written. `code` is what `AddMemberDialog` localizes from.
+    if (error instanceof HouseholdFullError) {
+      return NextResponse.json(
+        {
+          error: 'household_full',
+          code: 'household_full',
+          message: `This household has reached the limit of ${MAX_HOUSEHOLD_MEMBERS} members.`,
+          limit: MAX_HOUSEHOLD_MEMBERS,
+        },
+        { status: 400 },
+      )
+    }
+
     captureApiError(error, { route: '/api/households/me/members', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to add member' }, { status: 500 })
   }

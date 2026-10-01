@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import type { Member } from '@/types/member'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import { FieldError } from '@/components/FieldError'
 
 const PORTION_PRESETS: Array<{ key: 'small' | 'regular' | 'large' | 'extraLarge'; value: number }> =
@@ -69,7 +69,24 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
       toast.success(t('addedToast'))
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : t('errors.addFailed'))
+      // The route's `error` strings are English, so the server text is logged,
+      // never rendered. A full household is the one failure with its own copy:
+      // retrying cannot fix it, so the generic "failed" line would mislead
+      // (HON-720).
+      console.error(
+        '[add-member] add failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      if (err instanceof ApiError && err.code === 'household_full') {
+        const { limit } = err.body as { limit?: unknown }
+        setError(
+          typeof limit === 'number'
+            ? t('errors.householdFull', { limit })
+            : t('errors.householdFullNoLimit'),
+        )
+        return
+      }
+      setError(t('errors.addFailed'))
     },
   })
 

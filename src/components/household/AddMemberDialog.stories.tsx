@@ -6,7 +6,11 @@ import {
   awaitDialogClosed,
   pressEscape,
 } from '@/stories/a11y-helpers'
-import { errorAddMemberHandlers, submittingAddMemberHandlers } from '@/stories/msw-handlers'
+import {
+  errorAddMemberHandlers,
+  householdFullAddMemberHandlers,
+  submittingAddMemberHandlers,
+} from '@/stories/msw-handlers'
 import { AddMemberDialog } from './AddMemberDialog'
 
 const meta = {
@@ -77,7 +81,8 @@ export const Error: Story = {
     msw: { handlers: errorAddMemberHandlers },
     docs: {
       description: {
-        story: 'POST returns 400 with a server message — error renders inline in the form.',
+        story:
+          'POST returns 400 with an English server message. The dialog renders the translated fallback inline, never the server text.',
       },
     },
   },
@@ -89,7 +94,32 @@ export const Error: Story = {
     await userEvent.type(nameInput, 'Kiddo')
     const submitButton = await body.findByRole('button', { name: /^add member$/i })
     await userEvent.click(submitButton)
-    await body.findByText(/a member with that name already exists/i)
+    await body.findByText('Failed to add member')
+    await expect(body.queryByText(/a member with that name already exists/i)).toBeNull()
+  },
+}
+
+export const HouseholdFull: Story = {
+  parameters: {
+    msw: { handlers: householdFullAddMemberHandlers },
+    docs: {
+      description: {
+        story:
+          'POST returns the `household_full` cap rejection (HON-720). The dialog explains the limit instead of the generic failure copy.',
+      },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: /add member/i }))
+    const body = within(document.body)
+    const nameInput = await body.findByLabelText('Name')
+    await userEvent.type(nameInput, 'Kiddo')
+    const submitButton = await body.findByRole('button', { name: /^add member$/i })
+    await userEvent.click(submitButton)
+    await body.findByText(/already has 30 members/i)
+    await expect(body.queryByText('Failed to add member')).toBeNull()
+    await expect(args.onMemberAdded).not.toHaveBeenCalled()
   },
 }
 

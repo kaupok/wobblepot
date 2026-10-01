@@ -959,7 +959,9 @@
       "addedToast": "Member added",
       "errors": {
         "nameRequired": "Name is required",
-        "addFailed": "Failed to add member"
+        "addFailed": "Failed to add member",
+        "householdFull": "This household already has {limit} members, the most it can hold. Remove a member before adding another.",
+        "householdFullNoLimit": "This household has reached its member limit. Remove a member before adding another."
       }
     },
     "editMember": {
