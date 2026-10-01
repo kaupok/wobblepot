@@ -458,6 +458,12 @@ describe('scoreReview', () => {
     })
   })
 
+  it('fails every-ID-once on an ID the input never had', () => {
+    const output = reviewed({})
+    output.ingredients.push({ ingredientId: 'ing-invented', quantityPerServing: 5 })
+    expect(scoreReview(input, output).allIdsOnce).toBe(0)
+  })
+
   it('detects a change to an ingredient marked unchanged', () => {
     const scores = scoreReview(
       input,

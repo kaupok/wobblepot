@@ -330,7 +330,12 @@ export function scoreReview(input: ReviewCase, output: ReviewedIngredients): Sco
       firstQuantity.set(ing.ingredientId, ing.quantityPerServing)
   }
 
-  const allIdsOnce = input.ingredients.every((ing) => counts.get(ing.ingredientId) === 1)
+  // Both ways: every input ID once, and no ID the input never had (HON-899),
+  // which the review route would drop.
+  const inputIds = new Set(input.ingredients.map((ing) => ing.ingredientId))
+  const allIdsOnce =
+    input.ingredients.every((ing) => counts.get(ing.ingredientId) === 1) &&
+    [...counts.keys()].every((id) => inputIds.has(id))
 
   let seeded = 0
   let corrected = 0

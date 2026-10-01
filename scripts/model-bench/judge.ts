@@ -48,6 +48,9 @@ export const JUDGE_MIN_DECIDED = 5
  */
 const JUDGE_MAX_OUTPUT_TOKENS = 8_000
 
+/** Marks the judge's system prompt for Anthropic's prompt cache. */
+export const JUDGE_SYSTEM_CACHE = { anthropic: { cacheControl: { type: 'ephemeral' } } } as const
+
 /** Output tokens per judge call, reasoning included, for the dry-run estimate only. */
 export const JUDGE_DRY_RUN_OUTPUT_TOKENS = 1_500
 
@@ -365,7 +368,10 @@ async function judgeOnce(args: {
     const result = await generateObject({
       model,
       schema: JudgeVerdictSchema,
-      system,
+      // The rubric is the same for every pair and order of a locale, ~600
+      // tokens in English and ~5,400 with the Estonian voice reference, so
+      // cache it (HON-899). Opus 5.5 caches a prefix from 512 tokens.
+      system: { role: 'system', content: system, providerOptions: JUDGE_SYSTEM_CACHE },
       prompt,
       maxOutputTokens: JUDGE_MAX_OUTPUT_TOKENS,
     })

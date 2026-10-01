@@ -5,11 +5,14 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Task } from './case-schema'
 import {
+  buildCheckReport,
   buildReport,
   compareMetric,
   perRunValues,
+  renderCheckMarkdown,
   renderMarkdown,
   renderSummary,
+  writeCheckReport,
   writeReport,
 } from './report'
 import type { CallRecord, Role, RunResult } from './runner'
@@ -316,17 +319,122 @@ describe('buildReport', () => {
     ])
   })
 
-  it('flags candidate max latency above 80% of the route budget, whatever the baseline did', () => {
+  describe('max latency (HON-898)', () => {
     const budget = TASK_SPECS.review.budgetMs
-    const calls = [
-      call('review', 'baseline', 1, {}, { latencyMs: 0.9 * budget }),
-      call('review', 'candidate', 1, {}, { latencyMs: 0.85 * budget }),
-      call('review', 'candidate', 2, {}, { latencyMs: 1_000 }),
+    /** One review call per run for each role, at these shares of the budget. */
+    const latencies = (baseline: number[], candidate: number[]) => [
+      ...baseline.map((share, i) =>
+        call('review', 'baseline', i + 1, {}, { latencyMs: share * budget }),
+      ),
+      ...candidate.map((share, i) =>
+        call('review', 'candidate', i + 1, {}, { latencyMs: share * budget }),
+      ),
     ]
-    const r = report(calls, ['review'])
-    expect(r.regressions.map((f) => f.text)).toEqual([
-      expect.stringMatching(/review · Max latency.*38\.3s is above 80% of the 45\.0s route budget/),
-    ])
+
+    it('flags a candidate over 80% of the budget, with the baseline under it and outside the range, as a regression', () => {
+      const r = report(latencies([0.5, 0.52], [0.85, 0.84]), ['review'])
+      expect(r.regressions.map((f) => f.text)).toEqual([
+        expect.stringMatching(
+          /review · Max latency.*candidate's 38\.3s is above 80% of the 45\.0s route budget.*baseline's 23\.4s is not/,
+        ),
+      ])
+    })
+
+    it('lists both models over the line under "Other changes", naming both values', () => {
+      const r = report(latencies([0.9, 0.5], [0.85, 0.5]), ['review'])
+      expect(r.regressions).toEqual([])
+      expect(r.otherChanges.map((f) => f.text)).toEqual([
+        expect.stringMatching(
+          /review · Max latency:\*\* both models are above 80% .*\(baseline 40\.5s, candidate 38\.3s\): the budget, not the model change/,
+        ),
+      ])
+    })
+
+    it("lists a candidate just over the line as noise when the gap is inside the baseline's range of per-run maxes", () => {
+      // Baseline per-run maxes 0.6–0.78, candidate 0.65–0.81: gap 0.03, range 0.18.
+      const r = report(latencies([0.78, 0.6], [0.81, 0.65]), ['review'])
+      expect(r.regressions).toEqual([])
+      expect(r.withinNoise.map((f) => f.text)).toEqual([
+        expect.stringMatching(
+          /review · Max latency.*36\.5s is above 80%.*baseline's 35\.1s is not, but the gap is inside the baseline's run-to-run range/,
+        ),
+      ])
+    })
+
+    it("does not let the candidate's own outlier widen the range it is judged against", () => {
+      // Candidate per-run maxes 15s and 50s (over the 45s budget), baseline 22s and 20s.
+      const r = report(latencies([0.49, 0.45], [0.33, 1.11]), ['review'])
+      expect(r.withinNoise).toEqual([])
+      expect(r.regressions.map((f) => f.text)).toEqual([
+        expect.stringMatching(/Max latency.*50\.0s/),
+      ])
+    })
+
+    it('never calls a candidate over the full route budget noise', () => {
+      // The baseline's spread (0.4–0.79) covers the 0.22 gap, but 1.01 is past the budget itself.
+      const r = report(latencies([0.79, 0.4], [1.01, 0.5]), ['review'])
+      expect(r.regressions.map((f) => f.text)).toEqual([expect.stringMatching(/Max latency/)])
+    })
+
+    it('flags a candidate past the full budget as a regression even when the baseline is over the line', () => {
+      // Baseline 36.5s (just over the 36.0s line), candidate 67.5s against the 45.0s budget.
+      const r = report(latencies([0.81, 0.7], [1.5, 0.7]), ['review'])
+      expect(r.otherChanges).toEqual([])
+      expect(r.regressions.map((f) => f.text)).toEqual([
+        expect.stringMatching(
+          /candidate's 67\.5s is over the full 45\.0s route budget.*baseline's 36\.5s is not/,
+        ),
+      ])
+    })
+
+    it('keeps the crossing a regression when one run measured no range', () => {
+      const r = report(latencies([0.78], [0.81]), ['review'])
+      expect(r.regressions.map((f) => f.text)).toEqual([expect.stringMatching(/Max latency/)])
+    })
+
+    it('notes retried calls on the finding, since latency includes the retries', () => {
+      const calls = latencies([0.5, 0.52], [0.85, 0.84]).map((c, i) => ({
+        ...c,
+        attempts: i === 2 ? 2 : 1,
+      }))
+      const r = report(calls, ['review'])
+      expect(r.regressions[0]!.text).toContain(
+        '1 call(s) retried, and latency includes the retries',
+      )
+      expect(renderMarkdown(r)).toContain('| Calls retried (latency includes retries) | 0 | 1 |')
+    })
+
+    it('says retries were not recorded for a run file that predates the count', () => {
+      expect(renderMarkdown(report(latencies([0.5], [0.5]), ['review']))).toContain(
+        '| Calls retried (latency includes retries) | not recorded | not recorded |',
+      )
+    })
+  })
+
+  describe('reasoning asymmetry (HON-899)', () => {
+    it('lists a task where only one model reports reasoning tokens', () => {
+      const calls = [
+        call('plan', 'baseline', 1, {}, { reasoningTokens: 0 }),
+        call('plan', 'candidate', 1, {}, { reasoningTokens: 476 }),
+        call('tips', 'baseline', 1, {}, { reasoningTokens: null }),
+        call('tips', 'candidate', 1, {}, { reasoningTokens: 120 }),
+      ]
+      const r = report(calls, ['plan', 'tips'])
+      expect(r.otherChanges.map((f) => f.text)).toEqual([
+        '**plan · Reasoning:** the candidate reasons (476 tokens/call), the baseline does not; latency and cost deltas on this task include that',
+        '**tips · Reasoning:** the candidate reasons (120 tokens/call), the baseline does not; latency and cost deltas on this task include that',
+      ])
+    })
+
+    it('says nothing when both or neither reason', () => {
+      const calls = [
+        call('plan', 'baseline', 1, {}, { reasoningTokens: 100 }),
+        call('plan', 'candidate', 1, {}, { reasoningTokens: 476 }),
+        call('tips', 'baseline', 1, {}, { reasoningTokens: 0 }),
+        call('tips', 'candidate', 1, {}, { reasoningTokens: 0 }),
+      ]
+      expect(report(calls, ['plan', 'tips']).otherChanges).toEqual([])
+    })
   })
 
   it('reports errors by name, truncations, over-budget calls and cost', () => {
@@ -467,5 +575,126 @@ describe('buildReport', () => {
       expect(md).toContain('while judging, after 1 of 4 pairs')
       expect(md).toMatch(/Total cost:.*partial run/)
     })
+  })
+})
+
+describe('buildCheckReport', () => {
+  /** Candidate-only calls, one per run, as `runCheck` records them. */
+  const checked = (task: Task, runs: CallRecord['scores'][], extra: Partial<CallRecord> = {}) =>
+    runs.map((scores, i) => call(task, 'candidate', i + 1, scores, extra))
+
+  const check = (calls: CallRecord[], tasks: Task[], partial = false) =>
+    buildCheckReport({
+      result: result(calls, partial),
+      model: null,
+      modelFor: (t) => TASK_SPECS[t].productionModel,
+      runs: 3,
+      maxUsd: 10,
+      tasks,
+      date: '2026-10-01',
+    })
+
+  const gate = (r: ReturnType<typeof check>, label: string) =>
+    r.gates.find((g) => g.label === label)
+
+  it('passes when every gated mean meets its threshold', () => {
+    const r = check(
+      checked('review', [
+        { allIdsOnce: 1, seededCorrected: 0.8, unchangedKept: 0.9 },
+        { allIdsOnce: 1, seededCorrected: 0.7, unchangedKept: 0.95 },
+      ]),
+      ['review'],
+    )
+    expect(r.gates.map((g) => [g.label, g.status])).toEqual([
+      ['Every ID exactly once', 'pass'],
+      ['Seeded errors corrected (±25%)', 'pass'],
+      ['Correct quantities kept', 'pass'],
+      ['Max latency', 'pass'],
+    ])
+    expect(r.passed).toBe(true)
+  })
+
+  it('fails a min gate on the mean over all runs, and names the value and threshold', () => {
+    const r = check(
+      checked('review', [
+        { allIdsOnce: 1, seededCorrected: 0.8, unchangedKept: 0.9 },
+        { allIdsOnce: 0.5, seededCorrected: 0.8, unchangedKept: 0.9 },
+      ]),
+      ['review'],
+    )
+    expect(gate(r, 'Every ID exactly once')).toMatchObject({
+      status: 'fail',
+      observed: '75.0% (50.0%–100.0%)',
+      threshold: '≥ 100.0%',
+    })
+    expect(r.passed).toBe(false)
+    const md = renderCheckMarkdown(r)
+    expect(md).toContain('**Fail.** 1 of 4 gates failed:')
+    expect(md).toContain(
+      '| review | Every ID exactly once | 75.0% (50.0%–100.0%) | ≥ 100.0% | **fail** |',
+    )
+  })
+
+  it('fails a max gate above its threshold', () => {
+    const r = check(
+      checked('plan', [
+        { firstTryValid: 1, validAfterRepair: 1, structureValid: 1, outOfPoolIds: 0.5 },
+      ]),
+      ['plan'],
+    )
+    expect(gate(r, 'Out-of-pool meal IDs')).toMatchObject({ status: 'fail', threshold: '≤ 0.00' })
+  })
+
+  it('passes a metric no call measured as "not measured"', () => {
+    const r = check(
+      checked('recipe', [
+        { recall: null, precision: null, quantityUnitMatch: null, confidenceAgrees: 1 },
+      ]),
+      ['recipe'],
+    )
+    expect(gate(r, 'Ingredient recall')).toMatchObject({ status: 'not measured', observed: '—' })
+    expect(r.passed).toBe(true)
+    expect(renderCheckMarkdown(r)).toContain(
+      '| recipe | Ingredient recall | — | ≥ 95.0% | not measured |',
+    )
+  })
+
+  it('fails the latency gate when the slowest call is over 80% of the route budget', () => {
+    const budget = TASK_SPECS.tips.budgetMs
+    const r = check(checked('tips', [{ countsInRange: 1 }], { latencyMs: 0.85 * budget }), ['tips'])
+    expect(gate(r, 'Max latency')).toMatchObject({ status: 'fail', observed: '38.3s' })
+    expect(gate(r, 'Max latency')!.threshold).toContain('≤ 36.0s (80% of `TIPS_AI_BUDGET_MS`)')
+  })
+
+  it('fails a partial run even when every measured gate holds', () => {
+    const r = check(checked('tips', [{ countsInRange: 1 }]), ['tips'], true)
+    expect(r.gates.every((g) => g.status === 'pass')).toBe(true)
+    expect(r.passed).toBe(false)
+    expect(renderCheckMarkdown(r)).toContain('**Partial run.**')
+  })
+
+  it('echoes the result and the Gates table, but no per-task table', () => {
+    const summary = renderSummary(check(checked('tips', [{ countsInRange: 1 }]), ['tips']))
+    expect(summary).toContain('# AI eval check: production configuration')
+    expect(summary).toContain('**Pass.** All 2 gates hold.')
+    expect(summary).toContain('## Gates')
+    expect(summary).not.toContain('## tips')
+  })
+
+  it('writes <date>-check-production, then a -2 rather than overwriting it', () => {
+    const outDir = mkdtempSync(join(tmpdir(), 'model-bench-check-'))
+    try {
+      const calls = checked('tips', [{ countsInRange: 1 }])
+      const r = check(calls, ['tips'])
+      const first = writeCheckReport(outDir, r, result(calls))
+      const second = writeCheckReport(outDir, r, result(calls))
+      expect(first.markdownPath).toBe(join(outDir, '2026-10-01-check-production.md'))
+      expect(second.jsonPath).toBe(join(outDir, '2026-10-01-check-production-2.json'))
+      const json = JSON.parse(readFileSync(first.jsonPath, 'utf8'))
+      expect(json).toMatchObject({ mode: 'check', model: null, passed: true })
+      expect(json.models).toEqual({ tips: TASK_SPECS.tips.productionModel })
+    } finally {
+      rmSync(outDir, { recursive: true, force: true })
+    }
   })
 })

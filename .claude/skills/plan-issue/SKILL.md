@@ -120,7 +120,7 @@ Focus on files directly relevant to the issue (2-5 files max).
 
 Two mechanical scans over the file set from step 6, for the two ways a change breaks code the plan never names: **7a** — specs that assert on a route or copy you are changing; **7b** — callsites that hardcode a copy of a shared primitive's geometry. They are independent: run each one whose trigger list matches, skip the ones that don't, and go to step 8 when both are settled. Both are cheap greps, and both are cheaper here than in review.
 
-**Model changes:** a plan that changes a constant in `src/lib/ai/models.ts` must include running `pnpm bench:models` (current model as `--baseline`, new one as `--candidate`) and attaching the report to the PR — see `docs/AI_MODELS.md`.
+**Model changes:** a plan that changes a constant in `src/lib/ai/models.ts` must include running `pnpm bench:models` (current model as `--baseline`, new one as `--candidate`) and attaching the report to the PR — see `docs/AI_MODELS.md`. When only one side is in question — whether the configuration already in `models.ts` passes, or whether one model clears the gates at all — `pnpm bench:models --check [--model <id>]` is the cheaper option: one model, absolute gates, exit 1 on a failure. It does not replace the comparison for a model change, which is what shows the new model is better rather than only passing.
 
 #### 7a. E2E impact
 

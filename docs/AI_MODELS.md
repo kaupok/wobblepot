@@ -13,6 +13,41 @@ Every model ID lives in `src/lib/ai/models.ts`, and every price in `MODEL_PRICES
 
 `/plan-issue` adds steps 2 and 3 to any plan that changes a constant in `models.ts`.
 
+## Checking the current configuration
+
+The comparison below says which of two models is better. `--check` asks the absolute question: does the configuration we ship pass? It runs one model per task against the same cases and scorers, holds each metric to a fixed gate, and exits 1 when any gate fails.
+
+```bash
+pnpm bench:models --check --dry-run                        # what a bare check calls, and its cost
+pnpm bench:models --check                                  # each task on its constant in models.ts
+pnpm bench:models --check --model claude-sonnet-5-5        # every task on one model
+```
+
+Without `--model`, each task runs on its production constant: plan `PLANNING_MODEL`, recipe `RECIPE_MODEL`, imagine `IMAGINE_MODEL`, review `REVIEW_MODEL`, tips `TIPS_MODEL`. `--task`, `--runs`, `--max-usd` and `--dry-run` work as in a comparison. `--check` cannot be combined with `--baseline`, `--candidate`, `--judge` or `--judge-api`, and `--model` only goes with `--check`. Every model it would call needs a `MODEL_PRICES` entry, as in a comparison. A check costs about half a comparison: one model, one call per case and run.
+
+A gate holds the metric's mean over all runs, with the run-to-run range shown beside it, to a threshold. The metric thresholds were set from the first live run (HON-859), with margin. The latency gate has no margin: it is the same 80% line the comparison uses.
+
+| Task       | Metric                                                                                                     | Gate                        |
+| ---------- | ---------------------------------------------------------------------------------------------------------- | --------------------------- |
+| plan       | First-try valid, valid after repair, structure valid                                                       | 100%                        |
+| plan       | Out-of-pool meal IDs                                                                                       | 0                           |
+| recipe     | Ingredient recall, ingredient precision                                                                    | ≥ 95% (measured 98.8–99.4%) |
+| recipe     | Quantity + unit exact, confidence tier agrees                                                              | 100%                        |
+| imagine    | All checks pass, exactly 3 meals, servings = household size, ≥ 2 ingredients each, no forbidden ingredient | 100%                        |
+| review     | Every ID exactly once                                                                                      | 100%                        |
+| review     | Seeded errors corrected                                                                                    | ≥ 70% (measured 80%)        |
+| review     | Correct quantities kept                                                                                    | ≥ 85% (measured 91.7–93.6%) |
+| tips       | Item counts in range                                                                                       | 100%                        |
+| every task | Max latency                                                                                                | ≤ 80% of the route budget   |
+
+Distinct dinner proteins and the step-count delta have no gate. The gates live on the metric definitions (`gate` in `scripts/model-bench/tasks.ts`).
+
+Gated offline on the HON-859 run's Sonnet 5.5 calls, today's production configuration passes every metric gate and fails one: imagine's max latency, 32.1s against the 32.0s line. Imagine sits close to its budget on both Sonnet 4.6 and 5.5 (HON-897), so expect a real `--check` to fail there until that is settled. That is the gate doing its job, not noise to tune away.
+
+A metric that no case in the set measures, such as recipe recall when only the not-a-recipe case ran, passes as _not measured_. An errored call scores as a failure on the pass/fail checks, as in a comparison. A run that `--max-usd` stops early fails whatever its gates say, because the cases it never reached were not checked.
+
+The report is `scripts/model-bench/results/<date>-check-<model, or "production">.md`, with the same `-2` rule and a gitignored `.json`. It opens with the result and a **Gates** table (task, gate, observed mean and range, threshold, pass or fail), which the run also echoes, followed by one metric table and one operational table per task. `--import-verdicts` refuses a check's files: a check has one model and nothing to judge.
+
 ## The benchmark
 
 ```bash
@@ -58,7 +93,7 @@ Every check is deterministic. The optional judge, below, is the only place one m
 - **review:** every ingredient ID exactly once; each seeded error corrected into the case's range (the review prompt's own reference range where it gives one, otherwise ±25% of the expected value); each correct quantity left alone.
 - **tips:** item counts within the ranges the prompt asks for.
 
-Output that fails the schema is an error, not a score: `generateObject` throws on it. For each task and model the report also gives latency (p50 and max) against the route budget, calls over budget, errors by name, truncations (`finishReason: length`), and mean tokens and cost per call.
+Output that fails the schema is an error, not a score: `generateObject` throws on it. For each task and model the report also gives latency (p50 and max) against the route budget, calls over budget, calls the SDK retried, errors by name, truncations (`finishReason: length`), and mean tokens and cost per call. Latency is timed around `generateObject`, so it includes the SDK's retries (`maxRetries` is 2). A latency finding says when any call retried. Run files from before the count say "not recorded".
 
 ### Reading the report
 
@@ -70,8 +105,8 @@ Neither model accepts `temperature`, so the same case gives different output on 
 
 The report opens with three lists, and the run echoes them to the console:
 
-- **Regressions:** a difference outside the noise range that crosses a threshold. Those are a first-try plan validity drop of more than 10 points, a recipe recall or precision drop of more than 5 points, or **any** drop in imagine's no-forbidden-ingredient rate. That last one is the dietary and allergen check, so it has no tolerance. Also listed is any task where the candidate's max latency is above 80% of the route budget. That rule compares against the budget, not the baseline, so noise does not apply.
-- **Other changes outside noise:** every other difference outside the noise range, in either direction. Most metrics have no threshold yet, since sizing one needs a live run's ranges, so a consistent drop on, say, review's seeded-error correction lands here rather than under Regressions. This list is what moved for real: read each change for the worse in it as a possible regression before calling a candidate safe. For most metrics that is a drop, but for plan's out-of-pool meal IDs it is a rise.
+- **Regressions:** a difference outside the noise range that crosses a threshold. Those are a first-try plan validity drop of more than 10 points, a recipe recall or precision drop of more than 5 points, or **any** drop in imagine's no-forbidden-ingredient rate. That last one is the dietary and allergen check, so it has no tolerance. Also listed is a task where the candidate's max latency is above 80% of the route budget while the baseline's is not, and the gap between the two maxes is larger than the spread of the baseline's per-run maxes. The candidate's own spread is not used, because it contains the slow call being judged. When the baseline is over the line too, the finding goes under "Other changes outside noise" with both values: the budget is the problem, not the model change. When the gap is inside the baseline's spread, it goes under "Within noise". It stays a regression with a single run on either side, since no range is measured. A candidate max over the full route budget, where the route would time out, is a regression whenever the baseline's is not, even if the baseline is over the 80% line.
+- **Other changes outside noise:** every other difference outside the noise range, in either direction. A task where one model reports reasoning tokens and the other none is listed here too, with the per-call count: the benchmark sends no thinking configuration, so that is each model's default, and the task's latency and cost deltas include it. Most metrics have no threshold yet, since sizing one needs a live run's ranges, so a consistent drop on, say, review's seeded-error correction lands here rather than under Regressions. This list is what moved for real: read each change for the worse in it as a possible regression before calling a candidate safe. For most metrics that is a drop, but for plan's out-of-pool meal IDs it is a rise.
 - **Within noise:** every difference flagged noise, including any that crossed a threshold. Noise beats thresholds, so these never count as regressions.
 
 The `.json` beside the report carries the same three lists. With `--judge` or `--judge-api`, a **Judge** section follows them. Then comes one table per task, and the total cost. A **partial** report was stopped by `--max-usd` and is missing later runs and cases, or, if the API judge was stopped, later judged pairs.
@@ -107,4 +142,4 @@ Each pair is judged **twice**, once with each model as A, to cancel any preferen
 
 The **win rate** is wins ÷ (wins + losses). Ties are left out of it and shown beside it, so many ties and a 50% win rate mean "no visible difference", not "worse". A win rate **under 40%** over **at least 5** decided pairs is listed under Regressions. With fewer than 5 decided pairs the table says "too few decided pairs" and nothing is flagged: run more `--runs` if the task matters. The noise rule doesn't apply to the judge. The `.json` report keeps both verdicts and both one-sentence reasons for every pair; read them before trusting a regression. Under `--judge`, a pair whose verdict is missing from the verdicts file counts as a judge error.
 
-**`--judge-api` costs extra.** Two Opus calls per imagine and tips case per run, each sending the case, both answers, the rubric and, for Estonian cases, the voice reference. `--dry-run --judge-api` shows the judge calls as their own line and adds them to the total, and says when the estimate is above `--max-usd`. Judge calls count toward `--max-usd`, and with the full case set and 3 runs the estimate comes out above the default $10 cap, so raise the cap (`--max-usd 15`) when you pass `--judge-api`. The estimate errs high, since it sizes each answer by the benchmarked model's reasoning tokens, which the judge never sees. The limit is checked after each pair, so a stop never leaves a pair judged in only one order. `--dry-run --judge` shows the pair count instead, with no cost.
+**`--judge-api` costs extra.** Two Opus calls per imagine and tips case per run, each sending the case, both answers, the rubric and, for Estonian cases, the voice reference. `--dry-run --judge-api` shows the judge calls as their own line and adds them to the total, and says when the estimate is above `--max-usd`. Judge calls count toward `--max-usd`, and with the full case set and 3 runs the estimate comes out above the default $10 cap, so raise the cap (`--max-usd 15`) when you pass `--judge-api`. The rubric, and for Estonian cases the voice reference, is sent as a cached system prompt, so each is billed in full once and as a cache read on every later call. The estimate counts it that way. It still errs high, since it sizes each answer by the benchmarked model's reasoning tokens, which the judge never sees. The limit is checked after each pair, so a stop never leaves a pair judged in only one order. `--dry-run --judge` shows the pair count instead, with no cost.
