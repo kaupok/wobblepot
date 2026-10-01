@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { expect, fn, mocked, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
+import { track } from '@/lib/analytics'
 import {
   assertFocusInDialog,
   assertTabStaysInDialog,
@@ -176,6 +177,70 @@ export const SearchAndSelectInvokesCallbacks: Story = {
     // handleSelect awaits the PATCH before firing parent callbacks
     await waitFor(() => expect(args.onSwapComplete).toHaveBeenCalled())
     await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+  },
+}
+
+/** Picks the first library meal ("Lemon-garlic roast chicken", `meal-chicken`) from a search. */
+async function selectChickenFromSearch() {
+  const body = within(document.body)
+  await body.findByRole('dialog')
+  await userEvent.type(await body.findByPlaceholderText('Search meal library…'), 'chicken')
+  await body.findByText('Lemon-garlic roast chicken', undefined, { timeout: 3000 })
+  const selectButtons = await body.findAllByRole('button', { name: /^select$/i })
+  await userEvent.click(selectButtons[0]!)
+}
+
+/** A real swap fires `meal_plan:meal_swapped` with `is_reselect: false` (HON-708). */
+export const SwapFiresSwappedEvent: Story = {
+  args: {
+    mode: 'swap',
+    currentMealName: 'Miso-glazed salmon with rice',
+    currentMealId: 'meal-salmon',
+  },
+  beforeEach: () => {
+    mocked(track).mockClear()
+  },
+  play: async ({ args }) => {
+    await selectChickenFromSearch()
+
+    await waitFor(() => expect(args.onSwapComplete).toHaveBeenCalledWith('meal-chicken'))
+    await expect(track).toHaveBeenCalledTimes(1)
+    await expect(track).toHaveBeenCalledWith('meal_plan:meal_swapped', {
+      plan_id: 'plan-1',
+      from_meal_id: 'meal-salmon',
+      to_meal_id: 'meal-chicken',
+      source: 'meal_selector',
+      is_reselect: false,
+    })
+  },
+}
+
+/**
+ * Search lists the meal already on the entry. Picking it still fires
+ * `meal_plan:meal_swapped`, marked `is_reselect: true` so the swap funnel can
+ * exclude it (HON-708).
+ */
+export const ReselectMarksSwappedEvent: Story = {
+  args: {
+    mode: 'swap',
+    currentMealName: 'Lemon-garlic roast chicken',
+    currentMealId: 'meal-chicken',
+  },
+  beforeEach: () => {
+    mocked(track).mockClear()
+  },
+  play: async ({ args }) => {
+    await selectChickenFromSearch()
+
+    await waitFor(() => expect(args.onSwapComplete).toHaveBeenCalledWith('meal-chicken'))
+    await expect(track).toHaveBeenCalledTimes(1)
+    await expect(track).toHaveBeenCalledWith('meal_plan:meal_swapped', {
+      plan_id: 'plan-1',
+      from_meal_id: 'meal-chicken',
+      to_meal_id: 'meal-chicken',
+      source: 'meal_selector',
+      is_reselect: true,
+    })
   },
 }
 

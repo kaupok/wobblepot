@@ -167,13 +167,15 @@ export function MealSelectorModal({
       })
 
       // Only fire the swap event when actually replacing an existing meal —
-      // the 'add' mode is filling an empty slot, not a swap.
+      // the 'add' mode is filling an empty slot, not a swap. Re-selecting the
+      // planned meal still fires, marked `is_reselect` (HON-708).
       if (mode === 'swap' && currentMealId) {
         void track('meal_plan:meal_swapped', {
           plan_id: planId,
           from_meal_id: currentMealId,
           to_meal_id: mealId,
           source: 'meal_selector',
+          is_reselect: mealId === currentMealId,
         })
       }
 
