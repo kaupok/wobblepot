@@ -27,6 +27,11 @@ export interface MealDetailModalHandle {
    * at a different meal. Called by `MealCard`'s `onSwapComplete` (HON-682).
    */
   resetForSwap: () => void
+  /**
+   * Drop the tips the server just nulled when this entry left `completed`
+   * (the entry PATCH route). Called by `MealCard` on that status change.
+   */
+  dropTips: () => void
 }
 
 interface MealDetailModalProps {
@@ -266,6 +271,12 @@ export function MealDetailModal({
         // is open, since the server reverted the entry to the household size.
         setLocalServings(householdSize)
       },
+      // Leaving `completed` nulls the entry's cached tips server-side: they
+      // may be priced for a member count the household no longer has, since
+      // membership changes skip completed entries. The copy seeded from
+      // `initialTips` would otherwise survive here, and generate-on-open
+      // would never ask again.
+      dropTips: cancelTips,
     }),
     [cancelTips, cancelImage, householdSize],
   )

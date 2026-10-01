@@ -197,7 +197,13 @@ export function MealCard({
       setStatus(newStatus)
       return { previousStatus }
     },
-    onSuccess: ({ newStatus }, { source = 'meal_card' }) => {
+    onSuccess: ({ newStatus }, { source = 'meal_card' }, context) => {
+      // The server dropped the entry's cached tips on the way out of
+      // `completed`; the cook view's copy has to go with them.
+      if (context?.previousStatus === 'completed' && newStatus !== 'completed') {
+        detailModalRef.current?.dropTips()
+      }
+
       // Fire status-transition analytics from `onSuccess` so we don't track
       // optimistic updates that the server later rejected (the optimistic
       // state is reverted in `onError`). `meal` is non-null on this code

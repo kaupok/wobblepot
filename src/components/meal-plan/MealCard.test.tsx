@@ -176,6 +176,20 @@ describe('MealCard Done cooking', () => {
   })
 
   it('can be undone from the card menu on a day that is not past', async () => {
+    const tipsUrl = '/api/meal-plans/plan-1/entries/entry-1/preparation-tips'
+    const fresh: StructuredTips = {
+      equipment: [],
+      steps: ['Roast the chicken again'],
+      pitfalls: [],
+    }
+    vi.mocked(fetch).mockImplementation((input) =>
+      Promise.resolve(
+        new Response(JSON.stringify(input === tipsUrl ? { tips: fresh } : { ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
     const user = userEvent.setup()
     renderCard({ meal, preparationTips: tips, pantryDeducted: true })
 
@@ -193,9 +207,14 @@ describe('MealCard Done cooking', () => {
         body: JSON.stringify({ status: 'planned', deductPantry: false }),
       }),
     )
-    // Planned again: the cook view offers Done cooking once more.
+    // Planned again: the cook view offers Done cooking once more. Leaving
+    // `completed` nulled the cached tips server-side, so the view drops its
+    // seeded copy and writes fresh steps rather than showing the old ones.
     await user.click(screen.getByRole('button', { name: meal.name }))
     expect(await screen.findByRole('button', { name: 'Done cooking' })).toBeInTheDocument()
+    expect(await screen.findByText('Roast the chicken again')).toBeInTheDocument()
+    expect(screen.queryByText('Roast the chicken')).not.toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => url === tipsUrl)).toHaveLength(1)
   })
 
   it('completes directly when the pantry was already charged', async () => {
