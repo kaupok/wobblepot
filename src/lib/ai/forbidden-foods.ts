@@ -39,6 +39,12 @@ export interface FoodGroup {
    */
   falseFriends?: readonly string[]
   /**
+   * Estonian swap prefixes that excuse only a keyword glued to them:
+   * "sojahakkliha", "porgandilõhe". Unlike a qualifier they never reach
+   * across a space, because "soja kanafilee" is soy sauce and chicken.
+   */
+  prefixes?: readonly string[]
+  /**
    * Sauces and dishes whose ready-made form hides the food ("satay sauce",
    * "pesto", "tzatziki"), matched in ingredient names only. A safe adaptation
    * keeps the dish name ("Nut-free chicken satay" made with sunflower seed
@@ -101,10 +107,12 @@ const MEAT: FoodGroup = {
     'küülik',
     'peekon',
     'sink',
+    'singi',
     'vorst',
     'viiner',
     'karbonaad',
     'pekk',
+    'peki',
     'salaami',
     'hakkliha',
     'liha',
@@ -123,13 +131,11 @@ const MEAT: FoodGroup = {
     'tofu',
     'tempeh',
     'seitan',
-    'soja',
-    'seene',
     'lihata',
     'lihavaba',
     'taimetoit',
-    'porgandi',
   ],
+  prefixes: ['soja', 'seene', 'porgandi', 'tofu'],
   falseFriends: [
     'champignon',
     'champagne',
@@ -170,6 +176,9 @@ const FISH: FoodGroup = {
     'plaice',
     'snapper',
     'caviar',
+    'gravlax',
+    'lox',
+    'sprat',
     'surimi',
     'bonito',
     'dashi',
@@ -184,23 +193,27 @@ const FISH: FoodGroup = {
     'kilu',
     'tursk',
     'tursa',
-    'angerjas',
+    'angerja',
     'anšoovis',
     'anšovis',
     'ansoovis',
     'sardiin',
     'kaaviar',
+    'gravlaks',
+    'sprot',
     'ahven',
     'haug',
     'säga',
     'tilaapia',
   ],
-  qualifiers: [...PLANT_SWAP, 'fish-free', 'kalavaba', 'porgandi'],
+  qualifiers: [...PLANT_SWAP, 'fish-free', 'kalavaba'],
+  prefixes: ['porgandi'],
   falseFriends: ['kalamata', 'lõhestatud'],
 }
 
 const SHELLFISH: FoodGroup = {
   keywords: [
+    'shellfish',
     'shrimp',
     'prawn',
     'langoustine',
@@ -227,16 +240,19 @@ const SHELLFISH: FoodGroup = {
     'vähk',
     'vähi',
     'rannakarp',
+    'rannakarb',
     'kammkarp',
+    'kammkarb',
     'auster',
+    'austri',
     'kalmaar',
-    'kaheksajalg',
+    'kaheksajal',
     'seepia',
     'mereand',
     'mereanni',
   ],
   qualifiers: PLANT_SWAP,
-  falseFriends: ['oyster mushroom', 'crab apple', 'austerseen'],
+  falseFriends: ['oyster mushroom', 'crab apple', 'austerseen', 'austriseen', 'austria'],
 }
 
 const DAIRY: FoodGroup = {
@@ -325,8 +341,6 @@ const DAIRY: FoodGroup = {
     'peanut',
     'sunflower seed',
     'seed butter',
-    'cocoa',
-    'shea',
     'piimavaba',
     'kaera',
     'soja',
@@ -336,13 +350,15 @@ const DAIRY: FoodGroup = {
     'riisi',
     'maapähkli',
     'seesami',
-    'kakao',
   ],
   falseFriends: [
     'butternut',
     'butter bean',
     'butter lettuce',
     'cream of tartar',
+    'cocoa butter',
+    'shea butter',
+    'kakaovõi',
     'sidrunikoor',
     'apelsinikoor',
     'laimikoor',
@@ -468,6 +484,10 @@ const GLUTEN: FoodGroup = {
     'tagliatelle',
     'lasagn',
     'orzo',
+    'farfalle',
+    'ravioli',
+    'tortellin',
+    'gnocchi',
     'noodle',
     'udon',
     'ramen',
@@ -502,6 +522,7 @@ const GLUTEN: FoodGroup = {
     'nisu',
     'jahu',
     'leib',
+    'leiva',
     'sai',
     'spagett',
     'makaron',
@@ -514,12 +535,16 @@ const GLUTEN: FoodGroup = {
     'manna',
     'speltt',
     'lasanje',
+    'raviool',
     'pelmeen',
     'õlu',
+    'õlle',
     'linnas',
     'küpsis',
     'tainas',
+    'taina',
     'kook',
+    'koogi',
     'sojakaste',
     'kaer',
     'kruup',
@@ -659,6 +684,11 @@ function spansOf(name: string, needle: string): Span[] {
   return spans
 }
 
+/** A span that excuses keywords: a qualifier, a prefix, or an already-excused keyword. */
+interface Covering extends Span {
+  reachesAcrossSpace: boolean
+}
+
 const startsWord = (name: string, i: number) => i === 0 || !/\p{L}/u.test(name[i - 1]!)
 
 /**
@@ -669,6 +699,7 @@ const startsWord = (name: string, i: number) => i === 0 || !/\p{L}/u.test(name[i
  * and nothing else. A qualifier counts only where it starts a word ("oat
  * milk" is not in "goat milk"), and excuses a keyword it overlaps or that
  * follows it after nothing but spaces ("vegan parmesan", "kaerahapukoor").
+ * A prefix does the same with no space allowed ("sojahakkliha").
  * An excused keyword excuses the next one the same way, so "plant-based
  * cream cheese" passes, while "honey soy sauce", "coconut milk and butter"
  * and "kalamata oliivid ja parmesan" fail (HON-841).
@@ -678,16 +709,22 @@ export function findUnexcusedKeyword(
   keywords: readonly string[],
   qualifiers: readonly string[],
   falseFriends: readonly string[] = [],
+  prefixes: readonly string[] = [],
 ): string | null {
   const friends = falseFriends.flatMap((f) => spansOf(name, f))
-  const covered = qualifiers.flatMap((q) =>
-    spansOf(name, q).filter((s) => startsWord(name, s.start)),
-  )
+  const atWordStart = (words: readonly string[]) =>
+    words.flatMap((w) => spansOf(name, w).filter((s) => startsWord(name, s.start)))
+  const covered: Covering[] = [
+    ...atWordStart(qualifiers).map((s) => ({ ...s, reachesAcrossSpace: true })),
+    ...atWordStart(prefixes).map((s) => ({ ...s, reachesAcrossSpace: false })),
+  ]
   let pending = keywords
     .flatMap((kw) => spansOf(name, kw).map((s) => ({ ...s, kw })))
     .filter((hit) => !friends.some((f) => f.start <= hit.start && hit.end <= f.end))
-  const excuses = (c: Span, hit: Span) =>
-    c.start <= hit.start && (hit.start < c.end || /^\s*$/.test(name.slice(c.end, hit.start)))
+  const excuses = (c: Covering, hit: Span) =>
+    c.start <= hit.start &&
+    (hit.start < c.end ||
+      (c.reachesAcrossSpace ? /^\s*$/ : /^$/).test(name.slice(c.end, hit.start)))
 
   for (;;) {
     const excused = pending.filter((hit) => covered.some((c) => excuses(c, hit)))
@@ -695,7 +732,7 @@ export function findUnexcusedKeyword(
       if (pending.length === 0) return null
       return pending.reduce((first, hit) => (hit.start < first.start ? hit : first)).kw
     }
-    covered.push(...excused)
+    covered.push(...excused.map((hit) => ({ ...hit, reachesAcrossSpace: true })))
     pending = pending.filter((hit) => !excused.includes(hit))
   }
 }
@@ -714,27 +751,25 @@ export interface FoodViolation {
 /** The parts of a meal the check reads. */
 type CheckedMeal = { name: string; ingredients: readonly { name: string }[] }
 
-/**
- * Estonian "või" is both butter and "or": "riis või kinoa" is rice or
- * quinoa. Each alternative is checked on its own, so the conjunction never
- * reads as butter while a lone "või" still does.
- */
-const ESTONIAN_OR = /\s+või\s+/u
-
 function firstHit(
   text: string,
   field: FoodViolation['field'],
   rule: ForbiddenFoodRule,
 ): string | null {
-  for (const part of normalizeFoodName(text).split(ESTONIAN_OR)) {
-    for (const group of rule.groups) {
-      const keywords =
-        field === 'ingredient' && group.ingredientKeywords
-          ? [...group.keywords, ...group.ingredientKeywords]
-          : group.keywords
-      const keyword = findUnexcusedKeyword(part, keywords, group.qualifiers, group.falseFriends)
-      if (keyword) return keyword
-    }
+  const name = normalizeFoodName(text)
+  for (const group of rule.groups) {
+    const keywords =
+      field === 'ingredient' && group.ingredientKeywords
+        ? [...group.keywords, ...group.ingredientKeywords]
+        : group.keywords
+    const keyword = findUnexcusedKeyword(
+      name,
+      keywords,
+      group.qualifiers,
+      group.falseFriends,
+      group.prefixes,
+    )
+    if (keyword) return keyword
   }
   return null
 }

@@ -190,10 +190,13 @@ describe('a false friend excuses only the word it is (PR #981 review)', () => {
     expect(findViolations(meal('Veggie shrimp fried rice', 'rice'), rules)).toHaveLength(1)
   })
 
-  it('reads Estonian "või" between two foods as "or", not butter', () => {
-    expect(violates({ allergens: ['dairy'] }, 'riis või kinoa')).toBe(false)
-    expect(violates({ dietaryType: 'vegan' }, 'riis või kinoa')).toBe(false)
-    expect(violates({ allergens: ['dairy'] }, 'riis või')).toBe(true)
+  // "või" is also Estonian for "or". Splitting on it hid the butter in
+  // "sulatatud või praadimiseks" (review round 3), so every "või" reads as
+  // butter: dropping "riis või kinoa" is the safe failure.
+  it('reads every Estonian "või" as butter, accepting "riis või kinoa" as a false positive', () => {
+    expect(violates({ allergens: ['dairy'] }, 'sulatatud või praadimiseks')).toBe(true)
+    expect(violates({ dietaryType: 'vegan' }, 'sulatatud või praadimiseks')).toBe(true)
+    expect(violates({ allergens: ['dairy'] }, 'riis või kinoa')).toBe(true)
   })
 
   it.each(['bechamel', 'béchamel sauce', 'beefsteak tomato', 'champagne vinegar'])(
@@ -245,6 +248,43 @@ describe('review round 2 gaps (PR #981)', () => {
     expect(findViolations(meal('Chicken satay', 'chicken', 'satay sauce'), rules)).toEqual([
       expect.objectContaining({ constraint: 'peanuts', keyword: 'satay', field: 'ingredient' }),
     ])
+  })
+})
+
+describe('review round 3 gaps (PR #981)', () => {
+  it.each([
+    [{ allergens: ['shellfish'] }, 'rannakarbid'],
+    [{ allergens: ['shellfish'] }, 'kammkarbid'],
+    [{ allergens: ['shellfish'] }, 'austrid'],
+    [{ allergens: ['shellfish'] }, 'kaheksajalad'],
+    [{ allergens: ['shellfish'] }, 'shellfish stock'],
+    [{ allergens: ['fish'] }, 'suitsuangerja tükid'],
+    [{ allergens: ['fish'] }, 'gravlax'],
+    [{ allergens: ['fish'] }, 'lox'],
+    [{ allergens: ['fish'] }, 'sprats'],
+    [{ allergens: ['fish'] }, 'sprotid'],
+    [{ allergens: ['gluten'] }, 'dried farfalle'],
+    [{ allergens: ['gluten'] }, 'gnocchi'],
+    [{ allergens: ['gluten'] }, 'ravioolid'],
+    [{ allergens: ['gluten'] }, 'tortellini'],
+    [{ allergens: ['gluten'] }, 'leivapuru'],
+    [{ dietaryType: 'vegetarian' }, 'singitükid'],
+    [{ dietaryType: 'vegetarian' }, 'porgandi kanapada'],
+    [{ dietaryType: 'vegan' }, 'soja kanafilee'],
+    [{ allergens: ['dairy'] }, 'kakaopiim'],
+    [{ allergens: ['dairy'] }, 'cocoa milk'],
+  ])('%o flags %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(true)
+  })
+
+  it.each([
+    [{ allergens: ['shellfish'] }, 'austriseened'],
+    [{ allergens: ['dairy'] }, 'cocoa butter'],
+    [{ allergens: ['dairy'] }, 'kakaovõi'],
+    [{ dietaryType: 'vegetarian' }, 'sojahakkliha'],
+    [{ dietaryType: 'vegan' }, 'porgandilõhe'],
+  ])('%o allows %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(false)
   })
 })
 
