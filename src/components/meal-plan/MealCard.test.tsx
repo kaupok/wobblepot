@@ -175,6 +175,29 @@ describe('MealCard Done cooking', () => {
     await waitFor(() => expect(name).toHaveFocus())
   })
 
+  it('can be undone from the card menu on a day that is not past', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal, preparationTips: tips, pantryDeducted: true })
+
+    await doneCooking(user)
+    expect(await screen.findByText('How was it?')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: `More actions: ${meal.name}` }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Not cooked yet' }))
+
+    await waitFor(() => expect(screen.queryByText('How was it?')).not.toBeInTheDocument())
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/meal-plans/plan-1/entries/entry-1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'planned', deductPantry: false }),
+      }),
+    )
+    // Planned again: the cook view offers Done cooking once more.
+    await user.click(screen.getByRole('button', { name: meal.name }))
+    expect(await screen.findByRole('button', { name: 'Done cooking' })).toBeInTheDocument()
+  })
+
   it('completes directly when the pantry was already charged', async () => {
     const user = userEvent.setup()
     renderCard({ meal, preparationTips: tips, pantryDeducted: true })

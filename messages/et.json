@@ -193,6 +193,7 @@
       "note": "Märkus",
       "swap": "Vaheta",
       "clear": "Eemalda",
+      "notCookedYet": "Pole veel valmis",
       "moreActions": "Rohkem toiminguid: {name}",
       "rate": "Hinda",
       "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",

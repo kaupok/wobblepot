@@ -353,6 +353,11 @@ export const DoneCookingFromCookView: Story = {
 
     await expect(await canvas.findByText('How was it?')).toBeInTheDocument()
     await waitFor(() => expect(name).toHaveFocus())
+
+    // Today's card has no status select, so the menu carries the way back.
+    await openMoreActions(canvasElement)
+    await userEvent.click(await body.findByRole('menuitem', { name: 'Not cooked yet' }))
+    await waitFor(() => expect(canvas.queryByText('How was it?')).not.toBeInTheDocument())
   },
 }
 

@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { apiFetch } from '@/lib/api'
-import { MoreHorizontal, NotebookPen, Repeat, X } from 'lucide-react'
+import { MoreHorizontal, NotebookPen, Repeat, Undo2, X } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -440,6 +440,18 @@ export function MealCard({
                         <NotebookPen aria-hidden="true" />
                         {tCard('note')}
                       </DropdownMenuItem>
+                      {/* "Done cooking" can complete today's or a future
+                          day's meal, and the status select is only on past
+                          cards, so a completion here needs its own way back. */}
+                      {status === 'completed' && (
+                        <DropdownMenuItem
+                          onSelect={() => handleStatusChange('planned')}
+                          disabled={isUpdating}
+                        >
+                          <Undo2 aria-hidden="true" />
+                          {tCard('notCookedYet')}
+                        </DropdownMenuItem>
+                      )}
                       {canSwapMeal && (
                         <DropdownMenuItem onSelect={() => setIsRegenerateModalOpen(true)}>
                           <Repeat aria-hidden="true" />

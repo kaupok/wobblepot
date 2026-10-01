@@ -193,6 +193,7 @@
       "note": "Note",
       "swap": "Swap",
       "clear": "Clear",
+      "notCookedYet": "Not cooked yet",
       "moreActions": "More actions: {name}",
       "rate": "Rate",
       "servings": "{count, plural, one {# serving} other {# servings}}",
