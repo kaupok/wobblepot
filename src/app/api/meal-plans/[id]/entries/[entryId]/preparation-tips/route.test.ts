@@ -822,6 +822,100 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(call.prompt).not.toContain('LOCALE:')
   })
 
+  // A seeded meal in an `et` household: the prompt reads the Estonian names and
+  // notes the modal shows, not the English ones for the model to translate
+  // differently itself (HON-913).
+  function seededEstonianEntry(mealTranslation: Record<string, unknown> = {}) {
+    const base = sampleEntry()
+    return sampleEntry({
+      meal: {
+        ...base.meal,
+        preparationNotes: 'Sear the chicken first.',
+        translations: [
+          {
+            locale: 'et',
+            name: 'Kana wokipannil',
+            description: null,
+            preparationNotes: 'Pruunista kana kõigepealt.',
+            ...mealTranslation,
+          },
+        ],
+        components: [
+          {
+            quantityPerServing: 150,
+            ingredient: {
+              name: 'Chicken breast',
+              defaultUnit: 'g',
+              translations: [{ locale: 'et', name: 'Kanarind' }],
+            },
+          },
+        ],
+      },
+    })
+  }
+
+  it('builds the et prompt from the Estonian meal name, notes and ingredient names (HON-913)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(buildMembership('et') as never)
+    mockEntryFindFirst.mockResolvedValue(seededEstonianEntry() as never)
+    mockGenerateObject.mockResolvedValue({
+      object: { equipment: ['Pann'], steps: ['Samm 1'], pitfalls: ['P'] },
+    } as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    const { include } = mockEntryFindFirst.mock.calls[0]![0] as {
+      include: { meal: { include: Record<string, unknown> } }
+    }
+    expect(include.meal.include).toMatchObject({
+      translations: { where: { locale: 'et' } },
+      components: {
+        include: { ingredient: { select: { translations: { where: { locale: 'et' } } } } },
+      },
+    })
+    const { prompt } = mockGenerateObject.mock.calls[0]![0] as { prompt: string }
+    expect(prompt).toContain('Kana wokipannil')
+    expect(prompt).toContain('- Kanarind: 600g')
+    expect(prompt).toContain('Pruunista kana kõigepealt.')
+    expect(prompt).not.toContain('Chicken stir fry')
+    expect(prompt).not.toContain('Chicken breast')
+    expect(prompt).not.toContain('Sear the chicken first.')
+  })
+
+  it('falls back to the English notes when the translation has none', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(buildMembership('et') as never)
+    mockEntryFindFirst.mockResolvedValue(seededEstonianEntry({ preparationNotes: null }) as never)
+    mockGenerateObject.mockResolvedValue({
+      object: { equipment: ['Pann'], steps: ['Samm 1'], pitfalls: ['P'] },
+    } as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    const { prompt } = mockGenerateObject.mock.calls[0]![0] as { prompt: string }
+    expect(prompt).toContain('Kana wokipannil')
+    expect(prompt).toContain('Sear the chicken first.')
+  })
+
+  it('reads no translation rows for an English household', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockGenerateObject.mockResolvedValue({
+      object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
+    } as never)
+
+    await callPost()
+
+    const { include } = mockEntryFindFirst.mock.calls[0]![0] as {
+      include: { meal: { include: Record<string, unknown> } }
+    }
+    expect(include.meal.include).not.toHaveProperty('translations')
+    expect(JSON.stringify(include)).not.toContain('translations')
+  })
+
   it('builds the prompt from the entry servingOverride, not the raw member count', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

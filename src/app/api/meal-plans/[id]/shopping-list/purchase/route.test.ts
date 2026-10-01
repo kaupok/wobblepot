@@ -70,6 +70,11 @@ const createRequest = (body: Record<string, unknown>) =>
 
 const createParams = () => Promise.resolve({ id: 'plan-123' })
 
+const mockSession = {
+  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+  session: { id: 'session-123' },
+}
+
 describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -213,6 +218,48 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(data.details.ingredientIds).toBeDefined()
     expect(mockFindManyIngredient).not.toHaveBeenCalled()
     expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('returns the Estonian ingredient name for an et household, so the pantry row is not English (HON-913)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'et' },
+    } as never)
+    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
+    mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
+    const upsert = vi.fn().mockResolvedValue({
+      id: 'pantry-new',
+      quantity: null,
+      isStaple: false,
+      updatedAt: new Date('2026-01-31'),
+      ingredient: {
+        id: 'ing-1',
+        name: 'Chicken',
+        category: 'protein',
+        defaultUnit: 'g',
+        translations: [{ locale: 'et', name: 'Kana' }],
+      },
+    })
+    mockTransaction.mockImplementation(async (fn) =>
+      (fn as (tx: unknown) => unknown)({ pantryItem: { upsert } }),
+    )
+
+    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.results[0].pantryItem.ingredient).toEqual({
+      id: 'ing-1',
+      name: 'Kana',
+      category: 'protein',
+      defaultUnit: 'g',
+    })
+    expect(upsert.mock.calls[0]![0].select.ingredient).toMatchObject({
+      select: { translations: { where: { locale: 'et' } } },
+    })
   })
 
   it('returns 400 when ingredient does not exist', async () => {

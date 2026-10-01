@@ -10,6 +10,8 @@ import {
   type ImagineConstraintViolation,
 } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
+import { translateMatchResults } from '@/lib/ai/translate-match-results'
+import { resolveLocale } from '@/lib/i18n/resolve-locale'
 import { imaginedIngredientText } from '@/lib/ai/imagine-request'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
@@ -250,10 +252,16 @@ async function handlePOST(request: Request) {
           }
         })
 
-        const matchResults = await matchIngredients(extractedIngredients, meal.servings, {
-          householdId: household.id,
-          locale: household.locale,
-        })
+        // Translated before `components` is built from it, so the review rows
+        // and the components both carry the household's ingredient names rather
+        // than the matcher's English ones (HON-913).
+        const matchResults = await translateMatchResults(
+          await matchIngredients(extractedIngredients, meal.servings, {
+            householdId: household.id,
+            locale: household.locale,
+          }),
+          resolveLocale({ householdLocale: household.locale }),
+        )
 
         // Collect matched ingredient IDs to fetch nutrition data
         const matchedIds = matchResults

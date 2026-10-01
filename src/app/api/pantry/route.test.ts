@@ -760,6 +760,47 @@ describe('POST /api/pantry', () => {
     })
   })
 
+  it('returns the Estonian name in an et household, so the inserted row is not English (HON-913)', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'et' },
+    } as never)
+    mockFindFirstIngredient.mockResolvedValue(mockIngredient as never)
+    mockFindUniquePantry.mockResolvedValue(null)
+    mockCreatePantry.mockResolvedValue({
+      id: 'pantry-new',
+      householdId: 'household-123',
+      ingredientId: 'ing-456',
+      quantity: null,
+      isStaple: false,
+      updatedAt: new Date('2024-01-10'),
+      ingredient: { ...mockIngredient, translations: [{ locale: 'et', name: 'Oliiviõli' }] },
+    } as never)
+
+    const response = await POST(
+      new Request('http://localhost/api/pantry', {
+        method: 'POST',
+        body: JSON.stringify({ ingredientId: 'ing-456' }),
+      }),
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(201)
+    expect(data.ingredient).toEqual({
+      id: 'ing-456',
+      name: 'Oliiviõli',
+      category: 'fat',
+      defaultUnit: 'g',
+    })
+    expect(mockCreatePantry.mock.calls[0]![0].include!.ingredient).toMatchObject({
+      select: { translations: { where: { locale: 'et' } } },
+    })
+  })
+
   it('creates pantry item with quantity and isStaple', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },

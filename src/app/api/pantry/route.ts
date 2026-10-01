@@ -6,6 +6,8 @@ import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { captureApiError } from '@/lib/errors'
+import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
+import { resolveLocale } from '@/lib/i18n/resolve-locale'
 
 // `quantity` floors at 0: `0` is a valid tracked state ("none left, still
 // tracked"), `null` means "have some, amount unknown" (the deduction path
@@ -112,6 +114,11 @@ export async function POST(request: Request) {
       )
     }
 
+    // `InlineAddItem` inserts this response straight into the pantry list, so
+    // it carries the household's name for the ingredient, as `loadPantry` does
+    // (HON-913).
+    const locale = resolveLocale({ householdLocale: membership.household.locale })
+
     const pantryItem = await prisma.pantryItem.create({
       data: {
         householdId: membership.householdId,
@@ -126,16 +133,23 @@ export async function POST(request: Request) {
             name: true,
             category: true,
             defaultUnit: true,
+            ...ingredientTranslationsInclude(locale),
           },
         },
       },
     })
+    const ingredientShown = translateIngredient(pantryItem.ingredient, locale)
 
     return NextResponse.json(
       {
         id: pantryItem.id,
         ingredientId: pantryItem.ingredientId,
-        ingredient: pantryItem.ingredient,
+        ingredient: {
+          id: ingredientShown.id,
+          name: ingredientShown.name,
+          category: ingredientShown.category,
+          defaultUnit: ingredientShown.defaultUnit,
+        },
         quantity: pantryItem.quantity,
         isStaple: pantryItem.isStaple,
         updatedAt: pantryItem.updatedAt,
