@@ -166,8 +166,12 @@ mcp__linear-server__save_issue({
   team: 'Wobblebot',
   description: 'Description',
   parentId: 'HON-XX', // the issue being split — makes this a sub-issue
+  state: 'Queued', // or 'Backlog' / 'Todo' — see Relationship Guidelines
+  blockedBy: ['HON-YY'], // a sibling it depends on, if any — set here, never in a follow-up call
 })
 ```
+
+**A Queued issue is created with its `blockedBy` in the same `save_issue` call, never in a follow-up.** The orchestrator polls every 60 s and judges an issue by the relations it carries at that poll: an issue that is Queued for even a minute without its relation gets picked up, fails the blocker check, and comes back labelled `Gated`, which no poll clears (HON-902, 2026-10-01). When the blocker does not exist yet — a chain being created in order — create the blocked issue first in `Backlog`, then move it to `Queued` in the call that adds the relation; or create the chain blocker-first, so each `blockedBy` target already exists when the issue that names it is created.
 
 Use `parentId` (sub-issue), not `blockedBy: [parent]` — a child is part of its parent, not blocked by it; marking it blocked would hide it from `/next-issue` and `/auto-implement` until the parent closes, which is backwards. Add `blockedBy` only between siblings that genuinely depend on each other.
 
@@ -242,7 +246,7 @@ Refined issues feed into the agentic workflow (`/plan-issue` → `/auto-implemen
 - **duplicateOf**: This issue is a duplicate of X (mark as Duplicate state)
 - **parentId**: This is a sub-issue of a larger epic
 
-**A blocked issue still goes to Queued when its blocker is expected to clear it — if an agent can finish it alone.** The orchestrator queries Queued only (`scripts/orchestrator.sh` → `fetch_queued_issues`, then `select_next_issue`), skips a candidate with open blockers (logged once as `[SKIP] HON-XX blocked by …`), and picks it up on the first poll after the blocker is Done. Backlog and Todo are invisible to it, so a blocked-but-ready issue parked in Backlog needs a human to promote it later, and that step gets forgotten (HON-747 sat in Backlog behind HON-767 on 2026-09-23). So when the spec is implementation-ready, needs no human step, and the `blockedBy` relation names the one thing standing in its way — a rule that must land first, a component the issue reuses — set the relation and put the issue in Queued. Hold it in Backlog instead when the blocker's outcome is uncertain: it might change the issue's scope, it is a spike or a decision rather than a delivery, or it is a human task with no date. Queued says "runs unattended the moment X merges"; if that sentence is not true, the issue is not ready for Queued. An issue that carries a human-only step goes to Todo, not Queued, with any unattended part split into its own Queued issue (HON-852 / HON-853, HON-854).
+**A blocked issue still goes to Queued when its blocker is expected to clear it — if an agent can finish it alone.** The orchestrator queries Queued only (`scripts/orchestrator.sh` → `fetch_queued_issues`, then `select_next_issue`), skips a candidate with open blockers (logged once as `[SKIP] HON-XX blocked by …`), and picks it up on the first poll after the blocker is Done. Backlog and Todo are invisible to it, so a blocked-but-ready issue parked in Backlog needs a human to promote it later, and that step gets forgotten (HON-747 sat in Backlog behind HON-767 on 2026-09-23). So when the spec is implementation-ready, needs no human step, and the `blockedBy` relation names the one thing standing in its way — a rule that must land first, a component the issue reuses — set the relation and put the issue in Queued. Hold it in Backlog instead when the blocker's outcome is uncertain: it might change the issue's scope, it is a spike or a decision rather than a delivery, or it is a human task with no date. Queued says "runs unattended the moment X merges"; if that sentence is not true, the issue is not ready for Queued. An issue that carries a human-only step goes to Todo, not Queued, with any unattended part split into its own Queued issue (HON-852 / HON-853, HON-854). Set the relation before, or together with, the move to Queued — see Step 8.
 
 ## Notes
 

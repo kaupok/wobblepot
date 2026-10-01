@@ -305,6 +305,7 @@ If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, 
 
 - **What the orchestrator skips.** It runs up to three workers at once by default, each in its own git worktree with its own Neon branch. It skips a Queued issue that has an open `blockedBy`, and one labelled `Gated` (a worker exited without commits) or `Stranded` (a worker ended with an open, unmerged PR). Neither label clears itself: fix the cause or finish the PR, then remove the label. See [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) → Orchestrator.
 - **Queueing issues that touch the same files.** Workers branch from the same `origin/main` and run in parallel, so two Queued issues that edit the same file produce conflicting PRs. Before queueing a batch, compare the files each issue names. Where two overlap, add a `blockedBy` between them and say in the blocked issue that the relation is for sequencing only.
+- **Set `blockedBy` in the call that queues the issue.** The orchestrator sees a Queued issue within a minute, so a `blockedBy` added after the move to Queued can arrive too late: the issue is picked up, fails the blocker check and comes back `Gated`. Create or move the issue with its relation in one `save_issue` call (HON-902).
 
 **Before committing:** Run `pnpm lint && pnpm type-check && pnpm test`
 
