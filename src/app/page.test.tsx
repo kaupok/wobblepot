@@ -425,6 +425,36 @@ describe('Home page component', () => {
     })
   })
 
+  // Custom items carry no date, so they reach the panel only as a count that
+  // keeps its link to the list (HON-928).
+  it('passes the count of unchecked custom items to the timeline view', async () => {
+    const { TimelineView } = await import('@/components/timeline')
+    await mockAuthedHouseholdSession(null)
+    const customItem = (id: string, checked: boolean) => ({
+      id,
+      name: id,
+      checked,
+      ingredientId: null,
+      ingredientCategory: null,
+      createdAt: '2026-04-01T00:00:00.000Z',
+    })
+    await mockLoaders({
+      entries: { entries: [PLANNED_ENTRY], planId: 'plan-1' },
+      shoppingList: {
+        ...EMPTY_SHOPPING_LIST,
+        customItems: [
+          customItem('foil', false),
+          customItem('soap', true),
+          customItem('tea', false),
+        ],
+      },
+    })
+
+    render(await Home())
+
+    expect(vi.mocked(TimelineView).mock.calls[0]?.[0].openCustomItemCount).toBe(2)
+  })
+
   // The preferences are already on the membership row (HON-676), and plan,
   // pantry and shopping data come from the loaders directly (HON-789): the
   // dashboard pays no server-to-self hop at all.

@@ -251,6 +251,20 @@ export const AllDone: Story = {
 }
 
 /**
+ * Nothing dated in the window, but custom items the household added by hand
+ * are still open: the panel keeps its link to the list.
+ */
+export const CustomItemsOnly: Story = {
+  args: { items: [], openCustomItemCount: 2 },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText('Nothing on the list for today or tomorrow'),
+    ).toBeVisible()
+    await expectContinuationRow(canvasElement, 'View full list')
+  },
+}
+
+/**
  * Nothing in the window at all, which is also what an empty plan looks like: a
  * neutral muted line under the title row, with no icon (HON-923), and no row or
  * link (HON-928). The header's "Pantry & shopping" still leads to the list.

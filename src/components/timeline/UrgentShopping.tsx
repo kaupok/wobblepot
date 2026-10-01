@@ -24,6 +24,11 @@ interface UrgentShoppingProps {
   /** The household's today, `YYYY-MM-DD`: the day the later-items row counts from. */
   todayDate: string
   /**
+   * Unchecked custom items. They have no date, so they are not in `items` and
+   * not in the counts, but they are on the list: the panel still links to it.
+   */
+  openCustomItemCount?: number
+  /**
    * The phone form above the timeline (HON-766): the title row, the summary
    * and the link, without the item list. Renders nothing when there is nothing
    * to buy for today or tomorrow.
@@ -67,7 +72,12 @@ export function getLaterItemsSummary(
   return { count, days: Math.min(span, WINDOW_DAYS) }
 }
 
-export function UrgentShopping({ items, todayDate, compact = false }: UrgentShoppingProps) {
+export function UrgentShopping({
+  items,
+  todayDate,
+  openCustomItemCount = 0,
+  compact = false,
+}: UrgentShoppingProps) {
   const tToday = useTranslations('today')
   const tUrgency = useTranslations('dates.urgency')
   const locale = useLocale()
@@ -113,13 +123,14 @@ export function UrgentShopping({ items, todayDate, compact = false }: UrgentShop
   // "Plus 8 more for the next 5 days" under the listed items, "8 items to buy
   // over the next 5 days" under the empty line, and "View full list" when
   // nothing is due past tomorrow: the full list is the only place to check
-  // items off, so the panel links there while anything is on it.
+  // items off, so the panel links there while anything is on it, custom items
+  // included.
   const later = getLaterItemsSummary(items, todayDate)
   const hasUrgent = unpurchasedItems.length > 0
   const continuationLabel =
     later.count > 0
       ? tToday(hasUrgent ? 'moreForDays' : 'toBuyForDays', later)
-      : hasUrgent
+      : hasUrgent || openCustomItemCount > 0
         ? tToday('viewFullList')
         : null
   const continuationRow = continuationLabel && (

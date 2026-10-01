@@ -268,6 +268,17 @@ describe('UrgentShopping', () => {
       expect(screen.getByRole('link')).toHaveAccessibleName('View full list')
     })
 
+    it('still links to the list when only custom items are open', () => {
+      render(
+        <NextIntlClientProvider locale="en" messages={enMessages}>
+          <UrgentShopping items={[]} todayDate={TODAY} openCustomItemCount={2} />
+        </NextIntlClientProvider>,
+      )
+
+      expect(screen.getByText('Nothing on the list for today or tomorrow')).toBeInTheDocument()
+      expect(screen.getByRole('link')).toHaveAccessibleName('View full list')
+    })
+
     it('has no row and no link when nothing is on the list', () => {
       renderPanel([])
 
