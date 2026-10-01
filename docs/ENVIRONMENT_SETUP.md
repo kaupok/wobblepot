@@ -174,21 +174,12 @@ the env-var side.
 
 ### Local development
 
-Leave `RESEND_API_KEY` unset — `isEmailConfigured()` returns false and the
-password-reset send-site logs the reset URL to console instead of trying to
-deliver (under `next dev` only; any other `NODE_ENV` logs a warning without the
-URL). No Resend account needed for local work.
+| Variable              | Local value                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `RESEND_API_KEY`      | Unset: nothing is sent; under `next dev` the reset URL is logged. Set: real delivery. |
+| `NEXT_PUBLIC_APP_ENV` | `staging` when sending for real, so subjects get the `[Staging]` prefix.              |
 
-To exercise the real send path locally, set in `.env`:
-
-```bash
-RESEND_API_KEY=re_xxx
-NEXT_PUBLIC_APP_ENV=staging   # so subjects get the [Staging] prefix
-```
-
-Get a key from [resend.com/api-keys](https://resend.com/api-keys). Sends are
-billed against the shared account; staging-tier delivery only — never test
-with `NEXT_PUBLIC_APP_ENV=production` from a dev machine.
+Details, and what not to do from a dev machine: [EMAIL_SETUP.md § Local development](./EMAIL_SETUP.md#local-development).
 
 ### `RESEND_TEST_API_KEY` — the E2E runner's read key
 

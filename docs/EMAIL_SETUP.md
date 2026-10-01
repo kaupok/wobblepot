@@ -130,13 +130,30 @@ record TTL is short enough to roll back quickly if reports show breakage.
 ## Local development
 
 `RESEND_API_KEY` unset → `isEmailConfigured()` returns `false` → send-sites
-log the reset URL to console (in `NODE_ENV=development`) and short-circuit.
-No actual delivery happens. Sufficient for verifying the flow end-to-end
-without a Resend account.
+short-circuit and no delivery happens. Under `next dev` the password-reset
+send-site logs the reset URL to the console; any other `NODE_ENV` logs a warning
+without the URL. Sufficient for verifying the flow end-to-end without a Resend
+account.
 
-If you do want to test real delivery locally, set `RESEND_API_KEY` in
-`.env` (this repo uses a single `.env` locally) and `NEXT_PUBLIC_APP_ENV=staging` so subjects get the
-`[Staging]` prefix and don't look like prod mail.
+To exercise the real send path locally, set in `.env` (this repo uses a single
+`.env` locally):
+
+```bash
+RESEND_API_KEY=re_xxx
+NEXT_PUBLIC_APP_ENV=staging   # so subjects get the [Staging] prefix
+```
+
+Get a key from [resend.com/api-keys](https://resend.com/api-keys). Sends are
+billed against the shared account; staging-tier delivery only — never test
+with `NEXT_PUBLIC_APP_ENV=production` from a dev machine.
+
+## Localised emails
+
+Templates live in [`src/lib/emails/`](../src/lib/emails/) and render in the
+recipient's household locale, with their copy in the `emails` namespace of
+`messages/{en,et}.json`. `breach-notification.ts` is English-only by design. How
+the locale is resolved and how a missing key degrades:
+[LOCALIZATION.md → Transactional email](./LOCALIZATION.md#transactional-email).
 
 ## When to revisit this setup
 

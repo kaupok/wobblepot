@@ -301,9 +301,9 @@ export async function PATCH(
     if (parsed.data.mealId) {
       // Verify the meal exists *and* that this household may see it. Without
       // the visibility filter a caller could attach another household's custom
-      // meal to their entry, which `/api/meal-plans/current` then serialises
-      // back to them in full — and whose components the deduction below would
-      // charge their pantry for. Same rule as `/api/meals/[id]/favorite`.
+      // meal to their entry, which the plan read then serialises back to them
+      // in full — and whose components the deduction below would charge their
+      // pantry for. Same rule as `/api/meals/[id]/favorite`.
       const meal = await prisma.meal.findFirst({
         where: {
           id: parsed.data.mealId,

@@ -54,7 +54,6 @@ export interface CandidateFilters {
   recentMealIds: string[]
   dietaryType?: DietaryType | null
   primaryProteinType?: ProteinType
-  maxTimeMinutes?: number
   householdId?: string
   favoriteMealIds?: string[]
   /**

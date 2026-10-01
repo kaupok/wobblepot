@@ -257,16 +257,6 @@ describe('getCandidates', () => {
       // Should not contain time filter
       expect(calledWith?.where?.OR).toBeUndefined()
     })
-
-    it('ignores maxTimeMinutes parameter (backward compatibility)', async () => {
-      mockFindMany.mockResolvedValue([])
-
-      await getCandidates({ ...baseFilters, maxTimeMinutes: 30 })
-
-      const calledWith = mockFindMany.mock.calls[0]?.[0]
-      // Should not contain time filter even when maxTimeMinutes is provided
-      expect(calledWith?.where?.OR).toBeUndefined()
-    })
   })
 
   describe('recent meals filter', () => {
@@ -449,7 +439,6 @@ describe('getCandidates', () => {
         excludedIngredientIds: ['ing-1'],
         recentMealIds: ['meal-old'],
         primaryProteinType: 'poultry',
-        maxTimeMinutes: 45,
       })
 
       expect(mockFindMany).toHaveBeenCalledWith(

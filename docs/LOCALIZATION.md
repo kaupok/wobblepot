@@ -151,6 +151,8 @@ Any new `generateObject` (or equivalent) call must:
 4. If the call site lives outside `src/lib/ai/`, add the same locale-threading test (English vs Estonian prompt assertion) plus a sampling-helper-was-invoked test.
 5. If the call site creates `Ingredient` rows from AI output, scope them to `householdId = <current>` in the creator's locale — never insert into the global pool.
 
+Two existing calls are exempt from steps 1–4 because neither produces text a household reads: the meal-image judge in `src/lib/meal-images/generate.ts` returns structured checks the code uses to accept or retry an image, and `probeAi` in `src/lib/status/probes.ts` asks for a fixed `{ "ok": true }` to prove the pipeline is reachable.
+
 ## Out of scope
 
 Architectural decisions that the platform supports but we deliberately don't ship:
