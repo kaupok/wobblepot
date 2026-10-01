@@ -376,6 +376,17 @@ describe('buildReport', () => {
       expect(r.regressions.map((f) => f.text)).toEqual([expect.stringMatching(/Max latency/)])
     })
 
+    it('flags a candidate past the full budget as a regression even when the baseline is over the line', () => {
+      // Baseline 36.5s (just over the 36.0s line), candidate 67.5s against the 45.0s budget.
+      const r = report(latencies([0.81, 0.7], [1.5, 0.7]), ['review'])
+      expect(r.otherChanges).toEqual([])
+      expect(r.regressions.map((f) => f.text)).toEqual([
+        expect.stringMatching(
+          /candidate's 67\.5s is over the full 45\.0s route budget.*baseline's 36\.5s is not/,
+        ),
+      ])
+    })
+
     it('keeps the crossing a regression when one run measured no range', () => {
       const r = report(latencies([0.78], [0.81]), ['review'])
       expect(r.regressions.map((f) => f.text)).toEqual([expect.stringMatching(/Max latency/)])

@@ -361,14 +361,15 @@ function retriedNote(...ops: Operational[]): string {
 /**
  * The candidate's max over `LATENCY_BUDGET_SHARE` of the budget (HON-898):
  *
- * - baseline over too → "Other changes": the budget is the problem;
+ * - candidate over the full budget and the baseline not → a regression,
+ *   checked first: the route would time out on it;
+ * - baseline over the line too → "Other changes": the budget is the problem;
  * - baseline under, the candidate inside the full budget, and the gap between
  *   the maxes inside the range of the baseline's per-run maxes → "Within
  *   noise". Only the baseline's range: the candidate's own range contains the
  *   outlier being judged, so measuring against it would excuse any spike;
  * - otherwise → a regression. With a single run on either side no range is
- *   measured, and nothing can show the crossing is noise. A call over the
- *   full budget is never noise: the route would have timed out on it.
+ *   measured, and nothing can show the crossing is noise.
  */
 function latencyFinding(
   task: Task,
@@ -386,6 +387,14 @@ function latencyFinding(
     return {
       list: 'regression',
       text: `${head} the candidate's ${seconds(candidateMax)} is above ${budgetText(spec)}${note}`,
+    }
+  }
+  // Past the full budget the route times out. A candidate that newly gets
+  // there is a regression whatever else the baseline did.
+  if (candidateMax > spec.budgetMs && baselineMax <= spec.budgetMs) {
+    return {
+      list: 'regression',
+      text: `${head} the candidate's ${seconds(candidateMax)} is over the full ${seconds(spec.budgetMs)} route budget (${spec.budgetLabel}), and the baseline's ${seconds(baselineMax)} is not${note}`,
     }
   }
   if (baselineMax > line) {
