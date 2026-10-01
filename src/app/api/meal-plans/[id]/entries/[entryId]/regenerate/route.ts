@@ -30,6 +30,7 @@ import {
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 interface ScoredCandidate {
   candidate: {
@@ -66,6 +67,9 @@ async function handlePOST(
   }
 
   const { household } = membership
+  // Resolved once: a locale rolled back out of KNOWN_LOCALES reads as English
+  // for content and the AI prompt alike (HON-921).
+  const locale = resolveHouseholdLocale(household)
 
   // Extract params
   const { id: planId, entryId } = await params
@@ -229,11 +233,11 @@ async function handlePOST(
         components: {
           include: {
             ingredient: {
-              include: ingredientTranslationsInclude(household.locale),
+              include: ingredientTranslationsInclude(locale),
             },
           },
         },
-        ...mealTranslationsInclude(household.locale),
+        ...mealTranslationsInclude(locale),
       },
     })
 
@@ -243,7 +247,7 @@ async function handlePOST(
     const alternatives: AlternativeMeal[] = selected.map((scoredItem) => {
       const { candidate } = scoredItem
       const mealDetail = mealDetailsMap.get(candidate.id)
-      const translatedMeal = mealDetail ? translateMeal(mealDetail, household.locale) : null
+      const translatedMeal = mealDetail ? translateMeal(mealDetail, locale) : null
       const components = mealDetail?.components ?? []
 
       return {
@@ -255,7 +259,7 @@ async function handlePOST(
         primaryProteinType: candidate.primaryProteinType,
         suitableFor: mealDetail?.suitableFor as MealType[] | undefined,
         components: components.map((comp) => {
-          const translatedIngredient = translateIngredient(comp.ingredient, household.locale)
+          const translatedIngredient = translateIngredient(comp.ingredient, locale)
           return {
             ingredientId: comp.ingredientId,
             quantityPerServing: comp.quantityPerServing,

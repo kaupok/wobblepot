@@ -11,12 +11,33 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MODEL_PRICES } from '../../src/lib/ai/pricing'
 import { IMAGINE_MODEL, TIPS_MODEL } from '../../src/lib/ai/models'
 import { CASES_DIR } from './load-cases'
 import { main, type MainDeps } from './run'
 import { mockModelFactory, starterCasesDir, type MockCall, type MockResponse } from './test-utils'
+
+/**
+ * When on, the full-tips request carries an edited `pitfalls` `.describe()` and
+ * nothing else changes: the shape of a schema-only prompt PR (HON-931).
+ */
+const tipsSchemaEdit = vi.hoisted(() => ({ on: false }))
+vi.mock('../../src/lib/ai/preparation-tips', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../src/lib/ai/preparation-tips')>()
+  return {
+    ...mod,
+    buildFullTipsRequest: (input: Parameters<typeof mod.buildFullTipsRequest>[0]) => {
+      const request = mod.buildFullTipsRequest(input)
+      if (!tipsSchemaEdit.on) return request
+      const { pitfalls } = request.schema.shape
+      return {
+        ...request,
+        schema: request.schema.extend({ pitfalls: pitfalls.describe('3-4 common mistakes') }),
+      }
+    },
+  }
+})
 
 const BASE_ARGS = ['--baseline', 'claude-sonnet-5', '--candidate', 'claude-sonnet-5-5']
 const STEM = '2026-10-01-claude-sonnet-5-vs-claude-sonnet-5-5'
@@ -479,7 +500,7 @@ describe('main', () => {
       edit: (file: {
         commit?: string
         runs?: number
-        cases: Record<string, { promptHash: string }>
+        cases: Record<string, { promptHash: string; requestHash?: string }>
       }) => void,
     ) => {
       const file = goldenFile(task)
@@ -617,9 +638,9 @@ describe('main', () => {
 
     it('--baseline golden calls only the candidate, states the golden and the prompt changes, and judges blind', async () => {
       await recordImagineAndTips()
-      // One tips case's prompt "changed" since recording.
+      // One tips case's request "changed" since recording.
       editGolden('tips', (g) => {
-        g.cases['tips/en-full-bolognese']!.promptHash = '0'.repeat(64)
+        g.cases['tips/en-full-bolognese']!.requestHash = '0'.repeat(64)
       })
 
       const { factory, calls } = mockModelFactory(respond)
@@ -679,6 +700,39 @@ describe('main', () => {
       // The re-rendered report keeps the golden header.
       expect(md).toContain('**Prompts since the golden:** imagine: unchanged; tips: prompt changed')
       expect(md).toContain('· 4 calls')
+    })
+
+    it('reads a schema-only change as a prompt change, once the golden carries requestHash (HON-931)', async () => {
+      await recordImagineAndTips()
+      // Each comparison writes the next report: `<stem>.md`, `<stem>-2.md`, …
+      const header = async (stem: string) => {
+        const { factory } = mockModelFactory(respond)
+        const code = await main([...COMPARE, '--task', 'tips', '--runs', '1'], {
+          ...deps,
+          modelFactory: factory,
+        })
+        expect(code).toBe(0)
+        const md = readFileSync(join(outDir, `${stem}.md`), 'utf8')
+        return md.split('\n').find((line) => line.startsWith('**Prompts since the golden:**'))
+      }
+
+      expect(await header(GOLDEN_STEM)).toBe('**Prompts since the golden:** tips: unchanged.')
+      tipsSchemaEdit.on = true
+      try {
+        expect(await header(`${GOLDEN_STEM}-2`)).toBe(
+          '**Prompts since the golden:** tips: prompt changed for 1 of 2 cases.',
+        )
+        // A golden recorded before requestHash existed compares prompt text
+        // only, so it cannot see the edit (docs/AI_MODELS.md says so).
+        editGolden('tips', (g) => {
+          for (const entry of Object.values(g.cases)) delete entry.requestHash
+        })
+        expect(await header(`${GOLDEN_STEM}-3`)).toBe(
+          '**Prompts since the golden:** tips: unchanged.',
+        )
+      } finally {
+        tipsSchemaEdit.on = false
+      }
     })
 
     it('lists a case missing from the golden under "Not in golden" and does not run it', async () => {

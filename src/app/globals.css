@@ -142,6 +142,22 @@
   max-height: 85vh;
 }
 
+/* Pads an edge-to-edge overlay by the device's safe-area insets, so its content
+   clears a notch, a rounded corner and the home indicator. Zero wherever the
+   insets are (every desktop browser). The cook view's fullscreen dialog
+   (src/components/ui/dialog.tsx, HON-932). */
+@utility p-safe {
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+/* The cook view's hero: 3:2 across the column, but never more than 45% of the
+   viewport, so a phone in landscape still shows the title under it (HON-932).
+   `dvh` so the cap follows the browser's collapsing toolbar. */
+@utility max-h-hero {
+  max-height: 45dvh;
+}
+
 /* The timeline's two-column desktop layout: content plus a fixed 320px sidebar.
    Used by both the page and its loading skeleton, which must not drift apart. */
 @utility grid-cols-timeline {

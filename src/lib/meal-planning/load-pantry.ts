@@ -5,7 +5,7 @@ import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import { getEffectiveServings } from '@/lib/meal-planning/servings'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
-import type { Locale } from '@/lib/i18n/locales'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
 import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
@@ -33,7 +33,7 @@ interface NeededInfo {
  * the needed quantity for that window; `null` skips the plan read entirely.
  */
 export async function loadPantry(household: PantryHousehold, { days }: { days: 7 | 14 | null }) {
-  const locale = household.locale as Locale
+  const locale = resolveHouseholdLocale(household)
   const [pantryItems, tVague] = await Promise.all([
     prisma.pantryItem.findMany({
       where: { householdId: household.id },
@@ -45,7 +45,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
             category: true,
             defaultUnit: true,
             gramsPerPiece: true,
-            ...ingredientTranslationsInclude(household.locale),
+            ...ingredientTranslationsInclude(locale),
           },
         },
       },
@@ -141,7 +141,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
 
   const items = pantryItems.map((item) => {
     const neededInfo = neededQuantities.get(item.ingredientId)
-    const translatedIngredient = translateIngredient(item.ingredient, household.locale)
+    const translatedIngredient = translateIngredient(item.ingredient, locale)
     return {
       id: item.id,
       ingredientId: item.ingredientId,

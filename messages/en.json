@@ -282,17 +282,14 @@
       "staplesPrefix": "Staples: {list}",
       "viewSource": "View original recipe",
       "howToPrepare": "How to prepare",
-      "hideTips": "Hide tips",
       "ariaDetailsFor": "Details for {mealName}"
     },
     "tips": {
-      "equipment": "Equipment needed",
+      "equipment": "You'll need: {list}",
       "steps": "Steps",
-      "pitfalls": "Watch out for",
+      "pitfalls": "Watch out",
       "tip": "Tip",
       "userNotes": "Your notes",
-      "additionalTips": "Additional tips",
-      "header": "Preparation tips",
       "retry": "Retry",
       "errors": {
         "unauthorized": "Please sign in to see preparation tips.",

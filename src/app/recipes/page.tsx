@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { listHouseholdMeals } from '@/lib/household-meals'
 import { getQueryClient } from '@/lib/get-query-client'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { RecipesPageClient } from './RecipesPageClient'
 import {
   getNextMealsPageParam,
@@ -40,7 +41,7 @@ export default async function RecipesPage() {
     queryFn: async () => {
       const page = await listHouseholdMeals({
         householdId: membership.household.id,
-        locale: membership.household.locale,
+        locale: resolveHouseholdLocale(membership.household),
       })
       // Round-trip through JSON so the cached page has the wire shape the
       // client's `apiFetch` produces (dates as ISO strings, not `Date`).

@@ -215,3 +215,25 @@ describe('translateMeals', () => {
     expect(out.map((m) => m.name)).toEqual(['Pasta-et', 'Salad'])
   })
 })
+
+describe('unknown locales (a locale rolled back out of KNOWN_LOCALES, HON-921)', () => {
+  it('requests no translation rows', () => {
+    expect(ingredientTranslationsInclude('xx')).toEqual({})
+    expect(mealTranslationsInclude('xx')).toEqual({})
+  })
+
+  it('leaves names English even when rows for that locale are present', () => {
+    const ing = { id: '1', name: 'onion', translations: [{ locale: 'xx', name: 'xonion' }] }
+    expect(translateIngredient(ing, 'xx').name).toBe('onion')
+    expect(translateIngredients([ing], 'xx')[0]!.name).toBe('onion')
+
+    const meal = {
+      name: 'Soup',
+      description: 'Warm',
+      preparationNotes: null,
+      translations: [{ locale: 'xx', name: 'Xsoup', description: 'Xwarm', preparationNotes: null }],
+    }
+    expect(translateMeal(meal, 'xx').name).toBe('Soup')
+    expect(translateMeals([meal], 'xx')[0]!.description).toBe('Warm')
+  })
+})

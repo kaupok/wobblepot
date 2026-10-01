@@ -3,10 +3,11 @@ import { cn } from '@/lib/utils'
 import React from 'react'
 
 // Variant type exports for type reusability
-export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'section' | 'caption'
+export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'display' | 'section' | 'caption'
 export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div'
-export type BodyVariant = 'default' | 'lead' | 'large' | 'small' | 'paragraph' | 'muted' | 'caption'
-export type ListVariant = 'default' | 'plain'
+export type BodyVariant =
+  'default' | 'lead' | 'large' | 'small' | 'paragraph' | 'muted' | 'caption' | 'step'
+export type ListVariant = 'default' | 'plain' | 'steps'
 export type BodyTone = 'default' | 'muted' | 'destructive' | 'success' | 'warning' | 'info'
 
 // Text colour, shared by `Body` and `Li` so the two cannot drift. The primitive
@@ -32,6 +33,10 @@ const headingVariants = cva('scroll-m-20 tracking-tight', {
       h2: 'text-3xl font-semibold border-b pb-2',
       h3: 'text-2xl font-semibold',
       h4: 'text-xl font-semibold',
+      // The cook view's meal name, read from a counter 50–70cm away
+      // (docs/DESIGN.md → Type scale, "Cook view", HON-932). The one in-app
+      // level above Title, scoped to that view.
+      display: 'text-2xl lg:text-3xl font-semibold',
       section: 'text-base font-semibold',
       // Caption level as a heading: `Body variant="caption"` plus the tracked
       // uppercase a Today meal-type label wears, for a group heading that must
@@ -62,6 +67,7 @@ const tagMap = {
   h2: 'h2',
   h3: 'h3',
   h4: 'h4',
+  display: 'h2',
   section: 'h2',
   caption: 'h3',
 } as const satisfies Record<HeadingVariant, HeadingTag>
@@ -72,6 +78,9 @@ export const Heading = React.forwardRef<HTMLElement, HeadingProps>(
     const Tag = as ?? tagMap[effectiveVariant]
     return React.createElement(Tag, {
       ref,
+      // Lets a check tell the levels apart without parsing classes: the
+      // `title-scale` design rule exempts `display` (src/stories/design-rules.ts).
+      'data-variant': effectiveVariant,
       className: cn(headingVariants({ variant: effectiveVariant }), className),
       ...props,
     })
@@ -90,6 +99,9 @@ const bodyVariants = cva('', {
       paragraph: 'text-sm leading-normal',
       muted: 'text-sm text-muted-foreground',
       caption: 'text-xs font-medium text-muted-foreground',
+      // The cook view's steps, pitfalls and tip: Paragraph two sizes up, in
+      // the foreground colour, for reading at arm's length (HON-932).
+      step: 'text-lg lg:text-xl leading-relaxed',
     },
     tone: toneVariants,
   },
@@ -141,6 +153,9 @@ const listVariants = cva('', {
     variant: {
       default: 'my-6 ml-6 [&>li]:mt-2',
       plain: 'flex list-none flex-col gap-2',
+      // `plain` with room between items for multi-line text read at arm's
+      // length: the cook view's numbered steps (HON-932), 16px apart.
+      steps: 'flex list-none flex-col gap-4',
     },
     // Internal: `Ul` and `Ol` differ only in the marker a prose list shows.
     ordered: {
@@ -163,7 +178,7 @@ type ListProps = VariantProps<typeof listVariants>
 // WHY: WebKit drops list semantics from a `list-style: none` list, so
 // VoiceOver stops announcing "list, N items". An explicit role restores it;
 // a caller's own `role` still wins through `props`.
-const plainListRole = (variant: ListVariant) => (variant === 'plain' ? 'list' : undefined)
+const plainListRole = (variant: ListVariant) => (variant === 'default' ? undefined : 'list')
 
 // List - Unordered list
 interface UlProps extends React.HTMLAttributes<HTMLUListElement>, Omit<ListProps, 'ordered'> {}

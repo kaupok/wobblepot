@@ -11,6 +11,7 @@ import {
 } from '@/lib/i18n/content'
 import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import { presentMealImage } from '@/lib/meal-images/present'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 export interface PlanEntriesHousehold {
   id: string
@@ -35,7 +36,8 @@ export interface PlanEntriesQuery {
 export async function loadPlanEntries(household: PlanEntriesHousehold, query: PlanEntriesQuery) {
   // Translate seeded meal name/description into the household's locale so the
   // timeline renders Estonian (en is a no-op via isDefaultLocale). HON-547.
-  const locale = household.locale
+  // Resolved, so a locale rolled back out of KNOWN_LOCALES reads English (HON-921).
+  const locale = resolveHouseholdLocale(household)
 
   // Find the household's single plan
   const plan = await prisma.mealPlan.findUnique({

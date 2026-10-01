@@ -3,13 +3,16 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { TASKS } from './case-schema'
 import {
   buildGoldenFiles,
   compareGolden,
+  GOLDEN_DIR,
   goldenBaselineCalls,
   goldenPath,
   promptHash,
   readGolden,
+  requestHash,
   writeGolden,
   type GoldenFile,
 } from './golden'
@@ -51,6 +54,29 @@ describe('promptHash', () => {
   })
 })
 
+describe('requestHash', () => {
+  it('changes with the schema alone, which promptHash cannot see (HON-931)', () => {
+    const before = { promptText: 'p', schemaText: '{"description":"2-3 mistakes"}' }
+    const after = { promptText: 'p', schemaText: '{"description":"3-4 mistakes"}' }
+    expect(requestHash(after)).not.toBe(requestHash(before))
+    expect(requestHash({ ...before })).toBe(requestHash(before))
+  })
+
+  it('does not collide when text moves across the prompt/schema boundary', () => {
+    expect(requestHash({ promptText: 'ab', schemaText: 'c' })).not.toBe(
+      requestHash({ promptText: 'a', schemaText: 'bc' }),
+    )
+  })
+
+  it('covers the JSON Schema the AI SDK sends, .describe() strings included', () => {
+    const [first] = tipsCases
+    expect(JSON.parse(prepareCase(first!).schemaText)).toMatchObject({
+      type: 'object',
+      properties: { pitfalls: { description: expect.stringContaining('common mistakes') } },
+    })
+  })
+})
+
 describe('golden files', () => {
   let dir: string
   beforeEach(() => {
@@ -58,11 +84,12 @@ describe('golden files', () => {
   })
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
-  it('holds each case with the hash of its current prompt and every run of its calls', async () => {
+  it('holds each case with the hashes of its current request and every run of its calls', async () => {
     const { golden } = await recordedTips()
     expect(Object.keys(golden.cases)).toEqual(tipsCases.map((c) => c.id))
     const [first] = tipsCases
     expect(golden.cases[first!.id]!.promptHash).toBe(promptHash(prepareCase(first!).promptText))
+    expect(golden.cases[first!.id]!.requestHash).toBe(requestHash(prepareCase(first!)))
     expect(golden.cases[first!.id]!.calls.map((c) => [c.caseId, c.run])).toEqual([
       [first!.id, 1],
       [first!.id, 2],
@@ -75,6 +102,10 @@ describe('golden files', () => {
       goldenPath(join(dir, 'nested'), 'tips'),
     ])
     expect(readGolden(join(dir, 'nested'), 'tips')).toEqual(golden)
+  })
+
+  it('parses the committed goldens, including ones recorded before requestHash existed', () => {
+    for (const task of TASKS) expect(readGolden(GOLDEN_DIR, task), task).not.toBeNull()
   })
 
   it('reads a task with no file as null', () => {
@@ -104,7 +135,7 @@ describe('compareGolden', () => {
     const edited: GoldenFile = {
       ...golden,
       cases: {
-        [first.id]: { ...golden.cases[first.id]!, promptHash: '0'.repeat(64) },
+        [first.id]: { ...golden.cases[first.id]!, requestHash: '0'.repeat(64) },
         'tips/retired': golden.cases[first.id]!,
       },
     }
@@ -120,6 +151,46 @@ describe('compareGolden', () => {
       promptChanged: 1,
       notInGolden: [second.id],
     })
+  })
+
+  it('compares requestHash when the golden has one, so a schema-only change counts', async () => {
+    const { golden } = await recordedTips()
+    const [first] = tipsCases
+    // As a golden recorded before a `.describe()` edit: same prompt, other schema.
+    const schemaEdited: GoldenFile = {
+      ...golden,
+      cases: {
+        ...golden.cases,
+        [first!.id]: {
+          ...golden.cases[first!.id]!,
+          requestHash: requestHash({ ...prepareCase(first!), schemaText: '{}' }),
+        },
+      },
+    }
+    expect(schemaEdited.cases[first!.id]!.promptHash).toBe(
+      promptHash(prepareCase(first!).promptText),
+    )
+    expect(compareGolden(schemaEdited, tipsCases)).toMatchObject({ cases: 2, promptChanged: 1 })
+  })
+
+  it('falls back to promptHash for a golden recorded before requestHash existed', async () => {
+    const { golden } = await recordedTips()
+    const [first] = tipsCases
+    const committedStyle: GoldenFile = {
+      ...golden,
+      cases: Object.fromEntries(
+        Object.entries(golden.cases).map(([id, { requestHash: _, ...entry }]) => [id, entry]),
+      ),
+    }
+    expect(Object.values(committedStyle.cases).map((e) => e.requestHash)).toEqual([
+      undefined,
+      undefined,
+    ])
+    // An identical request still reads unchanged...
+    expect(compareGolden(committedStyle, tipsCases)).toMatchObject({ cases: 2, promptChanged: 0 })
+    // ...and a prompt text change still counts.
+    committedStyle.cases[first!.id]!.promptHash = '0'.repeat(64)
+    expect(compareGolden(committedStyle, tipsCases)).toMatchObject({ cases: 2, promptChanged: 1 })
   })
 })
 

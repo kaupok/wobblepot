@@ -9,7 +9,6 @@ import { Callout } from '@/components/ui/callout'
 import { auth } from '@/lib/auth'
 import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership } from '@/lib/household'
-import { getLocale } from '@/lib/i18n/get-locale'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
@@ -113,11 +112,10 @@ export default async function Home() {
   // reaches `src/app/error.tsx` rather than rendering Today as if the plan,
   // pantry or shopping list were empty, and a failed entries load can never be
   // mistaken for a first-time household.
-  const locale = await getLocale()
   const [{ entries, planId }, pantry, shoppingList] = await Promise.all([
     loadPlanEntries(household, { startDate: sevenDaysAgo, endDate: fourteenDaysAhead }),
     loadPantry(household, { days: null }),
-    loadShoppingList(household, { days: 7, locale }),
+    loadShoppingList(household, { days: 7 }),
   ])
 
   // First-time user: no entries and no plan

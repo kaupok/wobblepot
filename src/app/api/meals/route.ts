@@ -12,7 +12,7 @@ import {
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
-import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { captureApiError } from '@/lib/errors'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   const { household } = membership
   // The household's locale, never Accept-Language: it decides which translated
   // names the search matches and the order of the alphabetical list (HON-911).
-  const locale = resolveLocale({ householdLocale: household.locale })
+  const locale = resolveHouseholdLocale(household)
   const translate = !isDefaultLocale(locale)
 
   // Parse query params

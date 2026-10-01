@@ -24,6 +24,7 @@ export const Headings: Story = {
       <Heading variant="h2">Heading level 2</Heading>
       <Heading variant="h3">Heading level 3</Heading>
       <Heading variant="h4">Heading level 4</Heading>
+      <Heading variant="display">Display — the cook view’s meal name</Heading>
       <Heading variant="section">Section — day names, form sections</Heading>
       <Heading variant="caption">Caption — form-group headings under a section</Heading>
     </div>
@@ -32,7 +33,7 @@ export const Headings: Story = {
     docs: {
       description: {
         story:
-          'Each variant rendered at its natural tag. `section` is the Section level of the type scale and defaults to an `h2`; `caption` is the Caption level as a heading and defaults to an `h3`.',
+          'Each variant rendered at its natural tag. `display` is the cook view’s meal name (24px, 30px from `lg`; HON-932), the one in-app level above Title, and defaults to an `h2`. `section` is the Section level of the type scale and defaults to an `h2`; `caption` is the Caption level as a heading and defaults to an `h3`.',
       },
     },
   },
@@ -83,6 +84,10 @@ export const BodyVariants: Story = {
       </Body>
       <Body variant="muted">Muted — de-emphasised supporting text.</Body>
       <Body variant="caption">Caption — compact labels and metadata.</Body>
+      <Body variant="step">
+        Step — the cook view’s steps, Watch out and Tip: 20px, 22px from `lg`, relaxed leading, in
+        the foreground colour (HON-932).
+      </Body>
     </div>
   ),
 }
@@ -158,13 +163,24 @@ export const Lists: Story = {
           <Li>Roast for 35 minutes</Li>
         </Ol>
       </div>
+      <div className="flex flex-col gap-3">
+        <Heading variant="h4">Ordered, steps</Heading>
+        <Ol variant="steps">
+          <Li>
+            <Body variant="step">Heat the oven to 220°C with a rack in the upper third.</Body>
+          </Li>
+          <Li>
+            <Body variant="step">Pat the chicken dry and season it well.</Body>
+          </Li>
+        </Ol>
+      </div>
     </div>
   ),
   parameters: {
     docs: {
       description: {
         story:
-          '`default` is a prose list with margins, indent and markers. `plain` is a list inside a layout: no margin, indent or markers, rows stacked by a gap. The parent places it with its own gap, as the plain columns do here.',
+          '`default` is a prose list with margins, indent and markers. `plain` is a list inside a layout: no margin, indent or markers, rows stacked by a gap. `steps` is `plain` with 16px between items, for the cook view’s multi-line steps (HON-932). The parent places it with its own gap, as the plain columns do here.',
       },
     },
   },

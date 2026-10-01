@@ -32,7 +32,7 @@ import {
   translateIngredient,
   translateMeal,
 } from '@/lib/i18n/content'
-import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import type { StructuredTips } from '@/components/meal-plan/types'
 import type { PreparationTipsErrorCode } from '@/lib/ai/error-codes'
 
@@ -64,9 +64,11 @@ async function handlePOST(
 
   const { household } = membership
   const { id: planId, entryId } = await params
-  // Which translation rows feed the prompt. The prompt's own language still
-  // follows `household.locale`, as the cache guard below does.
-  const contentLocale = resolveLocale({ householdLocale: household.locale })
+  // Which translation rows feed the prompt, and the prompt's own language.
+  // Resolved, so a locale rolled back out of KNOWN_LOCALES gets English names
+  // and an English prompt (HON-921). The cache guard below still compares the
+  // stored `household.locale`, which is what a locale PATCH moves.
+  const locale = resolveHouseholdLocale(household)
 
   try {
     const entry = await prisma.mealPlanEntry.findFirst({
@@ -80,14 +82,14 @@ async function handlePOST(
       include: {
         meal: {
           include: {
-            ...mealTranslationsInclude(contentLocale),
+            ...mealTranslationsInclude(locale),
             components: {
               include: {
                 ingredient: {
                   select: {
                     name: true,
                     defaultUnit: true,
-                    ...ingredientTranslationsInclude(contentLocale),
+                    ...ingredientTranslationsInclude(locale),
                   },
                 },
               },
@@ -167,13 +169,13 @@ async function handlePOST(
     // A translation row is not covered by the `meal.updatedAt` cache guard
     // below: editing one does not bump the meal, so tips cached from the old
     // translation stay. Accepted, because translations are seed-managed.
-    const shownMeal = translateMeal(entry.meal, contentLocale)
+    const shownMeal = translateMeal(entry.meal, locale)
     const mealName = shownMeal.name
     const timeMinutes = entry.meal.timeMinutes
     const preparationNotes = shownMeal.preparationNotes
 
     const components = entry.meal.components.map((comp) => ({
-      name: translateIngredient(comp.ingredient, contentLocale).name,
+      name: translateIngredient(comp.ingredient, locale).name,
       quantityPerServing: comp.quantityPerServing,
       defaultUnit: comp.ingredient.defaultUnit,
     }))
@@ -192,7 +194,7 @@ async function handlePOST(
         timeMinutes,
         components,
         preparationNotes,
-        locale: household.locale,
+        locale,
       })
 
       const result = await withUsageOnFailure(
@@ -219,7 +221,7 @@ async function handlePOST(
 
       await logAiSample({
         callSite: 'preparation-tips-supplementary',
-        locale: household.locale,
+        locale,
         input: {
           mealName,
           householdSize: effectiveServings,
@@ -237,7 +239,7 @@ async function handlePOST(
         servings: effectiveServings,
         timeMinutes,
         components,
-        locale: household.locale,
+        locale,
       })
 
       const result = await withUsageOnFailure(
@@ -264,7 +266,7 @@ async function handlePOST(
 
       await logAiSample({
         callSite: 'preparation-tips-full',
-        locale: household.locale,
+        locale,
         input: {
           mealName,
           householdSize: effectiveServings,
@@ -318,6 +320,16 @@ async function handlePOST(
         : await prisma.householdMember.count({ where: { householdId: household.id } })
 
     if (membersNow !== membersWhenPriced) {
+      return NextResponse.json({ tips }, { status: 200 })
+    }
+
+    // During a locale rollback the household still stores a locale that is no
+    // longer in KNOWN_LOCALES, and this prompt ran in English. The cache guard
+    // below compares the stored value, which a rollback does not move, so
+    // caching here would leave English tips on the entry after the locale is
+    // re-enabled, with nothing to clear them. Serve them uncached instead; the
+    // next open regenerates through the rate-limited path (HON-921).
+    if (locale !== household.locale) {
       return NextResponse.json({ tips }, { status: 200 })
     }
 

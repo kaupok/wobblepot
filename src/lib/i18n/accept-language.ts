@@ -23,6 +23,10 @@ export function parseAcceptLanguage(header: string | null | undefined): ParsedAc
       }
     }
 
+    // `q=0` means "not acceptable" (RFC 9110 §12.4.2): a refusal, not a
+    // low-priority preference, so `fr, et;q=0` must not resolve to `et`.
+    if (q <= 0) continue
+
     entries.push({ locale, q })
   }
 

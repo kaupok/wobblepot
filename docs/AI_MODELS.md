@@ -109,7 +109,9 @@ pnpm ai-eval --baseline golden --candidate <current-id> --judge
 
 Commit the report and cite it in the PR. The baseline side is replayed from the golden, so only the candidate is called: half the cost of a comparison. The judge compares the new prompt's output with the recorded output blind, as it compares two models: nothing in the pairs file says which answers are the golden's. Every other part of the report reads as in a model comparison, with `golden` in the baseline column.
 
-The report header says where the golden came from (`golden — <model> recorded <date> at <commit>`) and, per task, how many cases' prompt has changed since it was recorded (`imagine: prompt changed for 8 of 8 cases; plan: unchanged`). That line shows which tasks a prompt change reached. A task reading `unchanged` that the PR meant to change means the change never got into the request.
+The report header says where the golden came from (`golden — <model> recorded <date> at <commit>`) and, per task, how many cases' prompt has changed since it was recorded (`imagine: prompt changed for 8 of 8 cases; plan: unchanged`). That line shows which tasks a prompt change reached. "Prompt" here means the whole request the model is instructed by: the prompt text and the output schema, whose `.describe()` strings are instructions too. A task reading `unchanged` that the PR meant to change means the change never got into the request.
+
+**Schema changes need a golden with `requestHash`.** Each golden case stores `requestHash` (prompt text plus the JSON Schema the AI SDK sends) and `promptHash` (prompt text alone). A golden recorded before HON-931 has only `promptHash`, and the comparison then falls back to it, so a schema-only change, such as an edited `.describe()` in `recipe-schema.ts` or `types.ts`, reads `unchanged` until the golden is next recorded. Because the hash covers the generated JSON Schema, an `ai` or `zod` upgrade that changes how the schema is serialised also reads as a prompt change, on every case: the model does receive a different request.
 
 Worked example: `results/2026-10-01-golden-vs-claude-sonnet-5-5.md` (HON-906) measured the HON-896 imagine wording change, 11 wins / 10 ties / 3 losses for the new prompt. The judge's reasons live in the gitignored `.json` beside it, so the ones that mattered are quoted on HON-896 and HON-935.
 
@@ -158,7 +160,7 @@ pnpm ai-eval --record                  # then commit scripts/model-bench/golden/
 pnpm ai-eval --record --task imagine   # re-record imagine.json only
 ```
 
-`--record` is a `--check` (same flags, same report) that also writes one golden file per task it ran: the model, the date, the short commit, the run count, and for each case the sha256 of its prompt text and every call record, output included. A run that fails a gate writes nothing and exits 1, since the golden is what later changes are measured against; `--force` records it anyway, and the exit code still reports the failed gates. A run `--max-usd` stopped never records, with or without `--force`.
+`--record` is a `--check` (same flags, same report) that also writes one golden file per task it ran: the model, the date, the short commit, the run count, and for each case two sha256 hashes, `requestHash` (prompt text and output schema) and `promptHash` (prompt text alone), and every call record, output included. A run that fails a gate writes nothing and exits 1, since the golden is what later changes are measured against; `--force` records it anyway, and the exit code still reports the failed gates. A run `--max-usd` stopped never records, with or without `--force`.
 
 The committed golden is Sonnet 5.5 on every task, recorded 2026-10-01 from `main` at `ef94fbf1` (HON-905); each file's header says its own model, date and commit.
 

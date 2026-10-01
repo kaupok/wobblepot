@@ -7,7 +7,7 @@ import { Prisma } from '@/generated/prisma/client'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { ingredientNameMatchSql } from '@/lib/i18n/ingredient-search-sql'
-import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 const AUTO_MATCH_THRESHOLD = 0.4
 
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   // household's own, never another household's (HON-889). The household types
   // names in its own language, so translated names match too (HON-911).
   let matchedIngredientId: string | null = null
-  const match = ingredientNameMatchSql(name, resolveLocale({ householdLocale: household.locale }))
+  const match = ingredientNameMatchSql(name, resolveHouseholdLocale(household))
 
   try {
     const matches = await prisma.$queryRaw<{ id: string; similarity: number }[]>`

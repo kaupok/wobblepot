@@ -15,9 +15,10 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-// The 32px floor for controls below 44px (docs/DESIGN.md → Spacing, HON-811).
-// Layout reports fractional pixels, so round to 0.01px before comparing.
-const FLOOR_PX = 32
+// The 44px touch floor: the control lives in the cook view (docs/DESIGN.md →
+// "Cook view", HON-932). Layout reports fractional pixels, so round to 0.01px
+// before comparing.
+const FLOOR_PX = 44
 const px = (value: number) => Math.round(value * 100) / 100
 
 const pencil = (root: HTMLElement) => root.querySelector('svg.lucide-pencil')

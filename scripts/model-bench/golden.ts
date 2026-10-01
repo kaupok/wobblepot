@@ -7,9 +7,12 @@
  * prompt change can be compared with the prompt that produced the golden, and
  * only the candidate is called.
  *
- * Each case carries the sha256 of the `promptText` it was recorded with. A
- * comparison counts the cases whose current prompt hashes differently: that is
- * how a prompt-change report shows which tasks the change reached.
+ * Each case carries the sha256 of the request it was recorded with. A
+ * comparison counts the cases whose current request hashes differently: that
+ * is how a prompt-change report shows which tasks the change reached.
+ * `requestHash` covers the prompt text and the output schema (HON-931);
+ * `promptHash`, the prompt text alone, is kept so a golden recorded before
+ * `requestHash` existed still compares, without seeing schema changes.
  *
  * The files hold synthetic case inputs and model output only, and are meant to
  * be committed (`.prettierignore` keeps lint-staged from reformatting them).
@@ -33,6 +36,13 @@ export const GOLDEN = 'golden'
 export function promptHash(promptText: string): string {
   return createHash('sha256').update(promptText).digest('hex')
 }
+
+/** The sha256 of everything the model is instructed by: the prompt text and the output schema. */
+export function requestHash(p: Pick<PreparedCase, 'promptText' | 'schemaText'>): string {
+  return createHash('sha256').update(p.promptText).update('\0').update(p.schemaText).digest('hex')
+}
+
+const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/)
 
 const UsageSchema = z.object({
   model: z.string(),
@@ -77,7 +87,9 @@ export const GoldenFileSchema = z.object({
   cases: z.record(
     z.string(),
     z.object({
-      promptHash: z.string().regex(/^[0-9a-f]{64}$/),
+      promptHash: Sha256Schema,
+      /** Absent from goldens recorded before HON-931; compare then falls back to `promptHash`. */
+      requestHash: Sha256Schema.optional(),
       calls: z.array(CallRecordSchema),
     }),
   ),
@@ -93,7 +105,7 @@ export const GoldenTaskInfoSchema = z.object({
   runs: z.number().int(),
   /** Cases in both the case set and the golden: the ones compared. */
   cases: z.number().int(),
-  /** Of those, the cases whose prompt now hashes differently. */
+  /** Of those, the cases whose request (prompt, and schema where recorded) now hashes differently. */
   promptChanged: z.number().int(),
   /** Cases in the case set the golden has no record of. */
   notInGolden: z.array(z.string()),
@@ -122,13 +134,17 @@ export function buildGoldenFiles(args: {
     cases: Object.fromEntries(
       cases
         .filter((c) => c.task === task)
-        .map((c) => [
-          c.id,
-          {
-            promptHash: promptHash(prepareCase(c).promptText),
-            calls: result.calls.filter((r) => r.caseId === c.id),
-          },
-        ]),
+        .map((c) => {
+          const p = prepareCase(c)
+          return [
+            c.id,
+            {
+              promptHash: promptHash(p.promptText),
+              requestHash: requestHash(p),
+              calls: result.calls.filter((r) => r.caseId === c.id),
+            },
+          ]
+        }),
     ),
   }))
 }
@@ -168,7 +184,7 @@ export function readGolden(dir: string, task: Task): GoldenFile | null {
 
 /**
  * How the golden lines up with the current case set: which cases it covers,
- * how many of those have a changed prompt, and which current cases it lacks.
+ * how many of those have a changed request, and which current cases it lacks.
  * A golden case that no longer exists is ignored.
  */
 export function compareGolden(golden: GoldenFile, cases: BenchCase[]): GoldenTaskInfo {
@@ -181,9 +197,13 @@ export function compareGolden(golden: GoldenFile, cases: BenchCase[]): GoldenTas
     commit: golden.commit,
     runs: golden.runs,
     cases: covered.length,
-    promptChanged: covered.filter(
-      (c) => golden.cases[c.id]!.promptHash !== promptHash(prepareCase(c).promptText),
-    ).length,
+    promptChanged: covered.filter((c) => {
+      const recorded = golden.cases[c.id]!
+      const p = prepareCase(c)
+      return recorded.requestHash !== undefined
+        ? recorded.requestHash !== requestHash(p)
+        : recorded.promptHash !== promptHash(p.promptText)
+    }).length,
     notInGolden: current.filter((c) => !golden.cases[c.id]).map((c) => c.id),
   }
 }

@@ -291,11 +291,23 @@ If Estonian itself has to come off — a systemic quality problem, not a typo �
 +export const KNOWN_LOCALES = ['en'] as const
 ```
 
-This works because `resolveLocale` gates the stored household locale through `isKnownLocale` (`src/lib/i18n/resolve-locale.ts:18`). With `et` no longer known, a household still holding `locale = 'et'` falls through to `Accept-Language` — itself filtered by the same guard — and then to `DEFAULT_LOCALE`. Every surface renders English. Nothing throws; the revert is silent by construction.
+This works because every server read of the household's locale goes through `resolveHouseholdLocale` (`src/lib/i18n/resolve-locale.ts`), which gates the stored value on `isKnownLocale` and returns `DEFAULT_LOCALE` when it fails (HON-921). With `et` no longer known, a household still holding `locale = 'et'` resolves to English on every path:
 
-Either way: **no data is lost.** `Household.locale` keeps its `'et'` value and every `ingredient_translation` / `meal_translation` row stays in the database, so re-enabling is the reverse one-line diff — nothing to re-seed.
+- **Chrome.** `resolveLocale` applies the same rule, so the household gets English even when its browser sends `Accept-Language: et`. The header is read only for a user with no household.
+- **Content.** The timeline, pantry, shopping list, recipe library and meal detail request no translation rows and render the English names. `translateIngredient` / `translateMeal` and the `*TranslationsInclude` helpers in `src/lib/i18n/content.ts` also treat an unknown locale as the default, as a backstop.
+- **AI.** Plan generation, imagine, quantity review, recipe parsing and preparation tips get English prompts: `localeInstruction` returns an empty string for an unknown locale, and the `estonianVoiceFor*` helpers return one once `et` is not known.
+- **Email** already falls back to English, since `resolveEmailLocale` checks `PUBLIC_LOCALES`.
 
-One asymmetry worth knowing before you pull `KNOWN_LOCALES`: reads fall back silently, but **writes reject**. `PATCH /api/households/me` validates `locale` against `z.enum(KNOWN_LOCALES)` (`src/app/api/households/me/route.ts:18`), so any client still sending `'et'` gets a 400 rather than a fallback. Exercise this lever on staging first.
+Nothing throws; the revert is silent by construction. `src/lib/i18n/locale-rollback.test.ts` simulates it with a household on an unknown locale.
+
+What the lever does not revert:
+
+- **Stored AI output.** Preparation tips already cached on an entry (`MealPlanEntry.preparationTips`) stay in Estonian until that entry's cache is cleared (a meal swap, a serving change, a meal edit, a membership change or a locale PATCH). Tips generated _during_ the rollback are English and are deliberately not cached, because the cache guard compares the stored `'et'`, which the rollback does not move; caching them would leave English tips behind after the re-enable. Each open of an uncached entry therefore regenerates, within the `meal-prep-tips` rate limit. Imagined meals and imported recipes were saved in Estonian and stay that way, like any user-created content.
+- **A browser tab already open.** It keeps its TanStack Query cache until a reload or the 60-second `staleTime`.
+
+Either way: **no data is lost.** `Household.locale` keeps its `'et'` value (unless an owner saves settings meanwhile; see below) and every `ingredient_translation` / `meal_translation` row stays in the database, so re-enabling is the reverse one-line diff — nothing to re-seed.
+
+One asymmetry worth knowing before you pull `KNOWN_LOCALES`: reads fall back silently, but **writes reject**. `PATCH /api/households/me` validates `locale` against `LocaleSchema` (`src/app/api/households/me/route.ts:18`), so any client still sending `'et'` gets a 400 rather than a fallback. The settings form itself never sends it: `src/app/household/page.tsx` hands the form the resolved locale, so it shows English. The flip side is that **an owner who saves settings during a rollback rewrites the stored locale to `en`**: the form always sends its locale, and the route writes it because `'en'` differs from the stored `'et'`. That household stays English after the lever is reversed and has to pick Estonian again. Exercise this lever on staging first.
 
 Ship either through the normal production path in [`../DEPLOYMENT.md`](../DEPLOYMENT.md) § Production Deployment Process — this is a code change, so it is a deploy, not a SQL edit.
 

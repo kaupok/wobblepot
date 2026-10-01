@@ -12,10 +12,7 @@ describe('MealImage', () => {
 
     const img = screen.getByRole('img', { name: 'Lemon garlic chicken' })
     expect(img).toHaveAttribute('alt', 'Lemon garlic chicken')
-    expect(img).toHaveAttribute(
-      'sizes',
-      '(min-width: 768px) 670px, (min-width: 640px) 446px, calc(100vw - 2rem)',
-    )
+    expect(img).toHaveAttribute('sizes', '(min-width: 1024px) 40vw, 100vw')
   })
 
   it('puts the image on the meal tint, multiplied in and fading bottom-up', () => {
@@ -29,19 +26,39 @@ describe('MealImage', () => {
     expect(hero).toBe(img.parentElement)
     expect(hero.style.getPropertyValue('--meal-hue')).toBe('264')
     expect(hero).toHaveAttribute('data-meal-surface')
-    expect(hero).toHaveClass('isolate', 'overflow-hidden', 'mask-b-from-60%', 'mask-t-from-85%')
+    expect(hero).toHaveClass('isolate', 'overflow-hidden', 'mask-b-from-60%')
+    // First in its column of the cook view: nothing above it to fade into.
+    expect(hero.className).not.toMatch(/\bmask-t-/)
     // No neutral box behind the image any more: the tint is the surface.
     expect(hero).not.toHaveClass('bg-muted')
   })
 
-  it('bleeds the hero through the dialog padding at 2:1 with no radius of its own', () => {
+  it('spans its column at 3:2, capped in height, with no radius of its own', () => {
     render(
       <MealImage mealName="Lemon garlic chicken" status="ready" imageUrl={URL} imageHue={264} />,
     )
 
     const hero = screen.getByTestId('meal-image-hero')
-    expect(hero).toHaveClass('-mx-6', 'aspect-2/1')
+    expect(hero).toHaveClass('w-full', 'aspect-3/2', 'max-h-hero')
     expect(hero.className).not.toMatch(/\brounded-/)
+    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 1024px) 40vw, 100vw')
+  })
+
+  it('reports a URL that fails to load, and renders nothing', () => {
+    const onError = vi.fn()
+    const { container } = render(
+      <MealImage
+        mealName="Lemon garlic chicken"
+        status="ready"
+        imageUrl={URL}
+        imageHue={264}
+        onError={onError}
+      />,
+    )
+
+    fireEvent.error(screen.getByRole('img'))
+    expect(onError).toHaveBeenCalledExactlyOnceWith(URL)
+    expect(container).toBeEmptyDOMElement()
   })
 
   // HON-754: the image stays, on the dialog's own surface, untinted.
@@ -152,7 +169,7 @@ describe('MealImage', () => {
     const box = screen.getByTestId('meal-image-placeholder')
     expect(container.childNodes).toHaveLength(1)
     expect(box).toBeEmptyDOMElement()
-    expect(box).toHaveClass('bg-muted', '-mx-6', 'aspect-2/1')
+    expect(box).toHaveClass('bg-muted', 'w-full', 'aspect-3/2', 'max-h-hero')
     expect(box.className).not.toMatch(/\brounded-/)
     expect(box.className).not.toMatch(/animate-/)
   })

@@ -12,15 +12,14 @@ const meta = {
     docs: {
       description: {
         component:
-          "The hero illustration at the top of the meal detail modal (HON-737, HON-746). 2:1 and full-bleed: it cancels the dialog's `p-6` so it runs edge to edge with no radius of its own (HON-752). On the meal's tinted surface (`imageHue`), the image multiplied in so its white surface takes the tint, and the whole hero fading bottom-up into the dialog. Without a hue the image sits on an untinted surface at the tint's lightness (HON-754); without an image it renders nothing, and a plain box while it is generating (`docs/DESIGN.md` → Imagery).",
+          "The hero illustration at the top of the cook view (HON-737, HON-746, HON-932). 3:2 across its column, edge to edge with no radius of its own, and never taller than 45% of the viewport. On the meal's tinted surface (`imageHue`), the image multiplied in so its white surface takes the tint, and the whole hero fading bottom-up into the panel. Without a hue the image sits on an untinted surface at the tint's lightness (HON-754); without an image it renders nothing, and a plain box while it is generating (`docs/DESIGN.md` → Imagery).",
       },
     },
   },
   decorators: [
-    // Stands in for `DialogContent` (bordered, `p-6`, clipping) so the bleed
-    // through its padding is visible.
+    // Stands in for the cook view's column: no padding, clipping.
     (Story) => (
-      <div className="bg-background w-96 overflow-hidden rounded-lg border p-6">
+      <div className="bg-background w-96 overflow-hidden">
         <Story />
       </div>
     ),
@@ -42,6 +41,9 @@ export const Ready: Story = {
     await expect(img).toHaveAttribute('alt', 'Lemon garlic chicken')
     const hero = within(canvasElement).getByTestId('meal-image-hero')
     await expect(hero.style.getPropertyValue('--meal-hue')).toBe('52')
+    // 3:2 across the full column (HON-932).
+    await expect(hero.offsetWidth).toBe(384)
+    await expect(Math.abs(hero.offsetWidth / hero.offsetHeight - 1.5)).toBeLessThanOrEqual(0.02)
   },
 }
 

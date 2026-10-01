@@ -1,5 +1,5 @@
 import { toDateString } from '@/lib/meal-planning/dates'
-import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
+import { DEFAULT_LOCALE, isKnownLocale } from '@/lib/i18n/locales'
 import { MealPlanResponseSchema, type PromptInput, type CandidatePools } from './types'
 import { slotKey } from './slot-key'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
@@ -24,16 +24,24 @@ function formatDateForPrompt(date: Date): string {
 /**
  * Minimal localized-output instruction block appended to AI prompts. Returns
  * an empty string for the default locale so English flows are byte-identical
- * to pre-i18n behaviour. This is the locale-generic plumbing; the
- * Estonian-specific voice lives in the `estonianVoiceFor*` helpers below.
+ * to pre-i18n behaviour, and for a locale outside `KNOWN_LOCALES`, so a locale
+ * rolled back out of that list gets English output (HON-921). This is the
+ * locale-generic plumbing; the Estonian-specific voice lives in the
+ * `estonianVoiceFor*` helpers below.
  */
 export function localeInstruction(locale: string | null | undefined): string {
-  if (!locale || locale === DEFAULT_LOCALE) return ''
+  if (!locale || locale === DEFAULT_LOCALE || !isKnownLocale(locale)) return ''
   const label = LOCALE_LABELS[locale] ?? locale
   return `\n\nLOCALE: Produce all user-visible output (names, descriptions, free-text fields) in ${label}. Ingredient names stay lowercase singular base form.`
 }
 
 const ESTONIAN = 'et'
+
+// `isKnownLocale` too, so removing `et` from `KNOWN_LOCALES` switches the voice
+// blocks off even for a caller that passed the raw household locale (HON-921).
+function isEstonian(locale: string | null | undefined): boolean {
+  return locale === ESTONIAN && isKnownLocale(locale)
+}
 
 /**
  * Register and formatting rules shared by every Estonian voice block. Distilled
@@ -53,7 +61,7 @@ const ESTONIAN_VOICE_RULES = `ESTONIAN VOICE:
  * English prompt stays byte-identical.
  */
 export function estonianVoiceForImagineMeal(locale: string | null | undefined): string {
-  if (locale !== ESTONIAN) return ''
+  if (!isEstonian(locale)) return ''
   return `
 
 ${ESTONIAN_VOICE_RULES}
@@ -80,7 +88,7 @@ ESTONIAN EXAMPLES (English-shaped draft → what to output):
  * inflects them. Empty for every other locale.
  */
 export function estonianVoiceForRecipeParse(locale: string | null | undefined): string {
-  if (locale !== ESTONIAN) return ''
+  if (!isEstonian(locale)) return ''
   return `
 
 ${ESTONIAN_VOICE_RULES}
@@ -107,7 +115,7 @@ ESTONIAN EXAMPLES (source text → what to output):
  * every other locale.
  */
 export function estonianVoiceForPrepTips(locale: string | null | undefined): string {
-  if (locale !== ESTONIAN) return ''
+  if (!isEstonian(locale)) return ''
   return `
 
 ${ESTONIAN_VOICE_RULES}

@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
-import { KNOWN_LOCALES } from '@/lib/i18n/locales'
+import { LocaleSchema } from '@/lib/i18n/locales'
 import { captureApiError } from '@/lib/errors'
 
 const updateHouseholdSchema = z.object({
@@ -15,7 +15,7 @@ const updateHouseholdSchema = z.object({
       message: 'Invalid timezone',
     })
     .optional(),
-  locale: z.enum(KNOWN_LOCALES).optional(),
+  locale: LocaleSchema.optional(),
 })
 
 export async function GET() {
