@@ -52,6 +52,8 @@ const KIND: Partial<Record<TYPE, ArgumentKind>> = {
   [TYPE.select]: 'select',
 }
 
+const BRANCHING: ReadonlySet<ArgumentKind> = new Set(['plural', 'select', 'selectordinal'])
+
 /**
  * Every ICU argument in a parsed message, nested ones included, mapped to its
  * kind. An argument used twice with different kinds keeps the branching one
@@ -69,7 +71,9 @@ function argumentKinds(
     }
     if (kind && 'value' in element && typeof element.value === 'string') {
       const previous = out.get(element.value)
-      if (!previous || previous === 'argument') out.set(element.value, kind)
+      if (!previous || (BRANCHING.has(kind) && !BRANCHING.has(previous))) {
+        out.set(element.value, kind)
+      }
     }
     if (element.type === TYPE.plural || element.type === TYPE.select) {
       for (const option of Object.values(element.options)) argumentKinds(option.value, out)
@@ -90,8 +94,6 @@ function cardinalPlurals(elements: MessageFormatElement[], out: PluralElement[] 
   }
   return out
 }
-
-const BRANCHING: ReadonlySet<ArgumentKind> = new Set(['plural', 'select', 'selectordinal'])
 
 /** Estonian's CLDR cardinal categories; `other` alone would render "1 portsjonit". */
 const ET_PLURAL_CATEGORIES = ['one', 'other'] as const
@@ -206,6 +208,12 @@ describe('message catalogue parity', () => {
       1,
     ],
     ['dropped select', '{kind, select, a {A} other {B}}', '{kind}', 1],
+    [
+      'dropped plural after a number use',
+      '{n, number} {n, plural, one {item} other {items}}',
+      '{n, number} asja',
+      1,
+    ],
     ['et plural without one', '{n, plural, other {# items}}', '{n, plural, other {# asja}}', 1],
     [
       'nested plural without one',
