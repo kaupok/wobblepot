@@ -1,6 +1,10 @@
 # Browser Testing with Chrome Extension
 
-The [Claude in Chrome extension](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn) enables Claude Code to interact with the browser for dev-time manual testing. This complements Playwright E2E tests by allowing interactive, exploratory testing during development.
+The reference for reviewing the app in a real browser, by hand or with the [Claude in Chrome extension](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn). It complements the Playwright E2E suite with interactive, exploratory testing, and `/chrome-review` reads it. It contains:
+
+- **Extension setup:** [Prerequisites](#prerequisites), [enabling it for a session](#enable-for-a-session), [use cases](#use-cases), and [how it differs from Playwright](#chrome-vs-playwright).
+- **[Page map](#page-map):** every page route, who can reach it, and the redirect stubs that are not bugs.
+- **[Reviewing sign-up and onboarding](#reviewing-sign-up-and-onboarding):** why that flow is walked on a local review server (`pnpm review:local`) rather than staging, how to walk it, and how to clean up.
 
 ## Prerequisites
 

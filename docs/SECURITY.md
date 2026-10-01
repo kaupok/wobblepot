@@ -1,5 +1,15 @@
 # Security Headers
 
+This file covers the response headers: the Content Security Policy and the static headers.
+
+## Security controls documented elsewhere
+
+- **Rate limiting:** `src/lib/rate-limit.ts`; the Upstash setup is in [ENVIRONMENT_SETUP.md § Upstash Redis](./ENVIRONMENT_SETUP.md#upstash-redis-rate-limiting).
+- **Session redirect for protected routes:** `src/proxy.ts` (`PROTECTED_PREFIXES`); see CLAUDE.md → Authentication Patterns. It checks the session cookie only; each page still checks the session itself.
+- **Cron secret:** [ENVIRONMENT_SETUP.md § Cron secret](./ENVIRONMENT_SETUP.md#cron-secret-account-deletion-purge).
+- **Destructive-command hook** for agents (`.claude/hooks/block-destructive.mts`): CLAUDE.md → Git & Workflow Essentials → Hooks.
+- **Breach response:** [RUNBOOKS/breach-notification.md](./RUNBOOKS/breach-notification.md).
+
 ## Content Security Policy (CSP)
 
 The CSP is delivered via Next.js proxy (`src/proxy.ts`) with a per-request nonce for script execution.

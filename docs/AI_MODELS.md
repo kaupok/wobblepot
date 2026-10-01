@@ -16,7 +16,10 @@ Every model ID lives in `src/lib/ai/models.ts`, and every price in `MODEL_PRICES
 ## The benchmark
 
 ```bash
-pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5 --dry-run
+pnpm bench:models --baseline <current-id> --candidate <new-id> --dry-run
+pnpm bench:models --baseline <current-id> --candidate <new-id>
+
+# Past example: the Sonnet 5 → Sonnet 5.5 upgrade, now in `models.ts`
 pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5
 ```
 
@@ -75,7 +78,7 @@ The `.json` beside the report carries the same three lists. With `--judge`, a **
 The deterministic checks for imagine and tips mostly count items. They can't tell whether a meal sounds appetising, whether a tip is useful, or whether Estonian reads naturally. `--judge` adds a blind comparison for those two tasks:
 
 ```bash
-pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5 --judge --dry-run
+pnpm bench:models --baseline <current-id> --candidate <new-id> --judge --dry-run
 ```
 
 After the normal run, `claude-opus-5-5` (`JUDGE_MODEL` in `scripts/model-bench/judge.ts`) compares the two models' output for every imagine and tips case, run by run. It sees the case input and the two answers labelled A and B, never a model name. The rubric is `scripts/model-bench/judge-prompt.md`: fit to the household, then accuracy, then usefulness, then writing. For Estonian cases the judge also gets all of [AI_VOICE_ET.md](./AI_VOICE_ET.md). Plan, recipe and review are not judged: their deterministic scores already measure what matters.
