@@ -6,10 +6,14 @@ import { CASE_SCHEMAS, type BenchCase, type Task } from './case-schema'
 /** `scripts/model-bench/cases`, resolved from this file so the cwd does not matter. */
 export const CASES_DIR = join(dirname(fileURLToPath(import.meta.url)), 'cases')
 
+/** A case `--import-sample` wrote and nobody has finished yet (HON-903). */
+export const DRAFT_SUFFIX = '.draft.json'
+
 /**
  * Load and validate every `cases/<task>/*.json` for the given tasks, sorted by
  * file name so a run is reproducible. Throws on the first invalid file, naming
- * it — a bad case is a broken benchmark, not a skipped one.
+ * it — a bad case is a broken benchmark, not a skipped one. A `*.draft.json`
+ * is skipped: it has no expectation yet, and holds a production sample's text.
  */
 export function loadCases(tasks: readonly Task[], casesDir: string = CASES_DIR): BenchCase[] {
   const cases: BenchCase[] = []
@@ -21,7 +25,7 @@ export function loadCases(tasks: readonly Task[], casesDir: string = CASES_DIR):
     }
 
     const files = readdirSync(dir)
-      .filter((f) => f.endsWith('.json'))
+      .filter((f) => f.endsWith('.json') && !f.endsWith(DRAFT_SUFFIX))
       .sort()
 
     for (const file of files) {

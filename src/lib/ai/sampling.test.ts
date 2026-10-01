@@ -16,7 +16,12 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   }
 })
 
-import { logAiSample, type AiSampleInput } from './sampling'
+import {
+  DEFAULT_LOCALE_SAMPLE_RATE,
+  logAiSample,
+  SAMPLE_PREFIX,
+  type AiSampleInput,
+} from './sampling'
 
 const baseSample: AiSampleInput = {
   callSite: 'imagine-meal',
@@ -37,29 +42,72 @@ describe('logAiSample', () => {
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
+  function loggedPayload(): Record<string, unknown> {
+    const line = consoleInfoSpy.mock.calls[0]![0] as string
+    return JSON.parse(line.slice(`${SAMPLE_PREFIX} `.length))
+  }
+
   afterEach(() => {
     consoleInfoSpy.mockRestore()
     consoleErrorSpy.mockRestore()
     vi.unstubAllEnvs()
   })
 
-  describe('locale gating', () => {
-    it('returns silently and emits no log when locale is the default (en)', async () => {
-      await logAiSample({ ...baseSample, locale: 'en' })
-      expect(consoleInfoSpy).not.toHaveBeenCalled()
-      expect(mockAppendFile).not.toHaveBeenCalled()
+  describe('sample rate', () => {
+    it('logs an English call when the random draw is below the rate', async () => {
+      await logAiSample({ ...baseSample, locale: 'en', random: () => 0.04 })
+      expect(consoleInfoSpy).toHaveBeenCalledTimes(1)
+      const payload = loggedPayload()
+      expect(payload.locale).toBe('en')
+      expect(payload.sampleRate).toBe(DEFAULT_LOCALE_SAMPLE_RATE)
     })
 
-    it('returns silently when locale is null', async () => {
-      await logAiSample({ ...baseSample, locale: null })
+    it.each([DEFAULT_LOCALE_SAMPLE_RATE, 0.5, 0.999])(
+      'skips an English call when the random draw is %s',
+      async (draw) => {
+        await logAiSample({ ...baseSample, locale: 'en', random: () => draw })
+        expect(consoleInfoSpy).not.toHaveBeenCalled()
+        expect(mockAppendFile).not.toHaveBeenCalled()
+      },
+    )
+
+    it.each([null, undefined])('treats a %s locale as English', async (locale) => {
+      await logAiSample({ ...baseSample, locale, random: () => 0.5 })
       expect(consoleInfoSpy).not.toHaveBeenCalled()
-      expect(mockAppendFile).not.toHaveBeenCalled()
+
+      await logAiSample({ ...baseSample, locale, random: () => 0 })
+      expect(consoleInfoSpy).toHaveBeenCalledTimes(1)
     })
 
-    it('returns silently when locale is undefined', async () => {
-      await logAiSample({ ...baseSample, locale: undefined })
-      expect(consoleInfoSpy).not.toHaveBeenCalled()
-      expect(mockAppendFile).not.toHaveBeenCalled()
+    it.each([0, 0.5, 0.999])('logs every Estonian call, at a draw of %s', async (draw) => {
+      await logAiSample({ ...baseSample, locale: 'et', random: () => draw })
+      expect(consoleInfoSpy).toHaveBeenCalledTimes(1)
+      const payload = loggedPayload()
+      expect(payload.sampleRate).toBe(1)
+    })
+
+    it('draws from Math.random when no random is passed', async () => {
+      const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01)
+      try {
+        await logAiSample({ ...baseSample, locale: 'en' })
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(consoleInfoSpy).toHaveBeenCalledTimes(1)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('does not write the random function into the payload', async () => {
+      await logAiSample({ ...baseSample, random: () => 0 })
+      expect(Object.keys(loggedPayload())).toEqual([
+        'type',
+        'timestamp',
+        'callSite',
+        'locale',
+        'sampleRate',
+        'input',
+        'output',
+      ])
     })
   })
 
@@ -77,6 +125,7 @@ describe('logAiSample', () => {
       expect(payload.type).toBe('ai_sample')
       expect(payload.callSite).toBe('imagine-meal')
       expect(payload.locale).toBe('et')
+      expect(payload.sampleRate).toBe(1)
       expect(payload.input).toEqual({ prompt: 'midagi kanaga' })
       expect(payload.output).toEqual({ meals: [{ name: 'Kana riisiga' }] })
       expect(typeof payload.timestamp).toBe('string')

@@ -13,6 +13,7 @@
  *   pnpm bench:models --record [--force] [--model <id>] [--task …] [--runs 3] [--dry-run] [--max-usd 10]
  *   pnpm bench:models --baseline golden --candidate <id> [--task …] [--runs 3] [--judge | --judge-api] …
  *   pnpm bench:models --import-verdicts results/<stem>.judge-verdicts.json
+ *   pnpm bench:models --import-sample <sample file> --id <task>/<slug>
  *
  * `--check` (HON-901) runs one configuration — each task's production model
  * from `src/lib/ai/models.ts`, or `--model` for all — against absolute gates
@@ -30,6 +31,10 @@
  * answer (`/bench-judge`), and `--import-verdicts` folds the answers into the
  * report; `--judge-api` has `JUDGE_MODEL` answer them through the API key
  * instead. See `judge.ts` and `judge-files.ts`.
+ *
+ * `--import-sample` (HON-903) turns one production `[ai-sample]` line into
+ * `cases/<task>/<slug>.draft.json` for a human to finish. It calls no model.
+ * See `import-sample.ts`.
  *
  * Output: scripts/model-bench/results/<YYYY-MM-DD>-<baseline>-vs-<candidate>.md
  * (commit it, attach it to the upgrade PR) and a gitignored `.json` beside it.
@@ -73,6 +78,7 @@ import {
   type GoldenFile,
 } from './golden'
 import { TASK_SPECS } from './tasks'
+import { describeDraft, importSample, ImportSampleError } from './import-sample'
 import { isJudgedTask, JUDGE_MODEL, runJudge, type JudgeResult } from './judge'
 import {
   exportJudgePairs,
@@ -100,7 +106,8 @@ const USAGE = `Usage: pnpm bench:models --baseline <model> --candidate <model> [
        pnpm bench:models --check [--model <model>] [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]
        pnpm bench:models --record [--force] [--model <model>] [--task …] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]
        pnpm bench:models --baseline ${GOLDEN} --candidate <model> [--task …] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge | --judge-api]
-       pnpm bench:models --import-verdicts <results/stem.judge-verdicts.json>`
+       pnpm bench:models --import-verdicts <results/stem.judge-verdicts.json>
+       pnpm bench:models --import-sample <sample file> --id <task>/<slug>`
 
 const VERDICTS_SUFFIX = '.judge-verdicts.json'
 
@@ -142,12 +149,36 @@ function parseCli(argv: string[]) {
         model: { type: 'string' },
         record: { type: 'boolean', default: false },
         force: { type: 'boolean', default: false },
+        'import-sample': { type: 'string' },
+        id: { type: 'string' },
       },
       strict: true,
       allowPositionals: false,
     }))
   } catch (err) {
     throw new UsageError((err as Error).message)
+  }
+
+  if (values['import-sample'] !== undefined || values.id !== undefined) {
+    if (values['import-sample'] === undefined) {
+      throw new UsageError('--id goes with --import-sample.')
+    }
+    const others = Object.entries(values)
+      .filter(
+        ([flag, v]) => flag !== 'import-sample' && flag !== 'id' && v !== undefined && v !== false,
+      )
+      .map(([flag]) => `--${flag}`)
+    if (others.length > 0) {
+      throw new UsageError(
+        `--import-sample writes a draft case and runs nothing; it cannot be combined with ${others.join(', ')}.`,
+      )
+    }
+    if (!values.id) {
+      throw new UsageError(
+        '--import-sample needs --id <task>/<slug>, e.g. --id imagine/en-pasta-for-two.',
+      )
+    }
+    return { mode: 'import-sample' as const, samplePath: values['import-sample'], id: values.id }
   }
 
   if (values['import-verdicts'] !== undefined) {
@@ -534,6 +565,24 @@ function loadGoldens(
   return goldens
 }
 
+/** Write the draft and say what is left to fill in; 1 when the sample cannot be imported. */
+function importSampleFile(
+  samplePath: string,
+  id: string,
+  casesDir: string,
+  io: { log: (line: string) => void; error: (line: string) => void },
+): number {
+  try {
+    const draft = importSample({ samplePath, id, casesDir })
+    for (const line of describeDraft(draft, relative(process.cwd(), draft.path))) io.log(line)
+    return 0
+  } catch (err) {
+    if (!(err instanceof ImportSampleError)) throw err
+    io.error(err.message)
+    return 1
+  }
+}
+
 /** Returns the process exit code. */
 export async function main(argv: string[], deps: MainDeps = {}): Promise<number> {
   const log = deps.log ?? ((line: string) => console.log(line))
@@ -544,6 +593,9 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   try {
     args = parseCli(argv)
     if (args.mode === 'import') return importVerdicts(args.verdictsPath, log)
+    if (args.mode === 'import-sample') {
+      return importSampleFile(args.samplePath, args.id, deps.casesDir ?? CASES_DIR, { log, error })
+    }
   } catch (err) {
     if (!(err instanceof UsageError)) throw err
     error(err.message)

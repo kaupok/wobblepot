@@ -63,6 +63,10 @@ next-env.d.ts
 # Model benchmark raw outputs (HON-795); the markdown report beside each is committed
 /scripts/model-bench/results/*.json
 
+# Benchmark case drafts from production samples (HON-903): they hold a real
+# household's text, which is rewritten before the draft becomes a case
+/scripts/model-bench/cases/**/*.draft.json
+
 # Claude Code local settings (may contain secrets)
 .claude/settings.local.json
 

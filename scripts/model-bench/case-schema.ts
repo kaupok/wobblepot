@@ -1,8 +1,14 @@
 /**
  * Case shapes for the model benchmark (HON-795), one Zod schema per task.
  *
- * Every case is synthetic. Never copy one from `.ai-samples/`: those files hold
- * real users' free text and are gitignored for that reason.
+ * Every committed case is synthetic. `pnpm bench:models --import-sample` turns
+ * a production `[ai-sample]` line into `cases/<task>/<slug>.draft.json`, which
+ * holds a real household's text: it is gitignored and never loaded, and its
+ * text is rewritten before it becomes a case (`cases/README.md`, HON-903).
+ *
+ * Each case schema is strict at the top level, so a renamed draft that still
+ * carries its `sampleInput` or `sampleOutput` fails to load rather than
+ * committing them.
  *
  * Dates are `YYYY-MM-DD` strings, parsed with `parseLocalDate` when the request
  * is built, so a case means the same local dates on every machine.
@@ -24,6 +30,14 @@ const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected a YYYY-MM-D
 const locale = z.enum(KNOWN_LOCALES)
 const mealType = z.enum(MealType)
 
+/**
+ * Where the case came from: the issue whose AI output bug it reproduces
+ * (`"HON-895"`), or `"ai-sample"` for one imported from production. Omitted on
+ * a synthetic coverage case. Bookkeeping only: no scorer reads it and the
+ * judge never sees it.
+ */
+const source = z.string().min(1).optional()
+
 /** `CandidateMeal` from `src/lib/meal-planning/candidates.ts`. */
 const candidateMeal = z.object({
   id: z.string().min(1),
@@ -36,7 +50,7 @@ const candidateMeal = z.object({
   netRating: z.number().optional(),
 })
 
-export const PlanCaseSchema = z.object({
+export const PlanCaseSchema = z.strictObject({
   /** Inclusive. */
   startDate: dateString,
   /** Exclusive, as in `GeneratePlanOptions`. */
@@ -54,9 +68,10 @@ export const PlanCaseSchema = z.object({
   }),
   /** Keyed by meal type; becomes the `Map` the builder takes. */
   candidatesByMealType: z.partialRecord(mealType, z.array(candidateMeal)),
+  source,
 })
 
-export const RecipeCaseSchema = z.object({
+export const RecipeCaseSchema = z.strictObject({
   text: z.string().min(1),
   locale,
   expected: z
@@ -89,9 +104,10 @@ export const RecipeCaseSchema = z.object({
         })
       }
     }),
+  source,
 })
 
-export const ImagineCaseSchema = z.object({
+export const ImagineCaseSchema = z.strictObject({
   prompt: z.string().min(1),
   /** `HouseholdContext` from `src/lib/ai/imagine-request.ts`. */
   household: z.object({
@@ -119,6 +135,7 @@ export const ImagineCaseSchema = z.object({
    * is `findUnexcusedKeyword` in `src/lib/ai/forbidden-foods.ts` (HON-841).
    */
   allowedQualifiers: z.array(z.string().min(1)).optional(),
+  source,
 })
 
 const reviewExpectation = z.union([
@@ -131,7 +148,7 @@ const reviewExpectation = z.union([
 ])
 
 export const ReviewCaseSchema = z
-  .object({
+  .strictObject({
     mealName: z.string().min(1),
     servings: z.number().int().positive(),
     /** `ReviewIngredient` from `src/lib/ai/review-request.ts`. */
@@ -154,8 +171,19 @@ export const ReviewCaseSchema = z
      * `{ "unchanged": true }` marks a quantity that must be kept exactly.
      */
     expected: z.record(z.string(), reviewExpectation),
+    source,
   })
   .superRefine((c, ctx) => {
+    // An empty expectation would make both review metrics inapplicable: the
+    // case would cost a call and measure nothing. An imported draft starts
+    // with `{}`, so this is what stops one loading unwritten (HON-903).
+    if (Object.keys(c.expected).length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['expected'],
+        message: 'A review case expects at least one ingredient (a seeded error or unchanged)',
+      })
+    }
     const ids = new Set(c.ingredients.map((i) => i.ingredientId))
     for (const key of Object.keys(c.expected)) {
       if (!ids.has(key)) {
@@ -180,11 +208,16 @@ const tipsBase = {
   timeMinutes: z.number().int().positive().nullable(),
   components: z.array(tipsComponent).min(1),
   locale,
+  source,
 }
 
 export const TipsCaseSchema = z.discriminatedUnion('kind', [
-  z.object({ ...tipsBase, kind: z.literal('full') }),
-  z.object({ ...tipsBase, kind: z.literal('supplementary'), preparationNotes: z.string().min(1) }),
+  z.strictObject({ ...tipsBase, kind: z.literal('full') }),
+  z.strictObject({
+    ...tipsBase,
+    kind: z.literal('supplementary'),
+    preparationNotes: z.string().min(1),
+  }),
 ])
 
 export const CASE_SCHEMAS = {

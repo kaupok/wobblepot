@@ -138,13 +138,23 @@ function taskLabel(c: CaseOf<JudgedTask>): string {
   return c.task === 'tips' ? `tips (${c.input.kind})` : c.task
 }
 
-/** What the app sent. `forbiddenKeywords` and `allowedQualifiers` are the scorer's, not the app's. */
+/**
+ * What the app sent. `forbiddenKeywords` and `allowedQualifiers` are the
+ * scorer's, not the app's, and `source` names the incident a case reproduces,
+ * which would tell the judge a model is known to fail it (HON-903).
+ */
 function judgeInput(c: CaseOf<JudgedTask>): unknown {
   if (c.task === 'imagine') {
-    const { forbiddenKeywords: _scorerOnly, allowedQualifiers: _alsoScorerOnly, ...input } = c.input
+    const {
+      forbiddenKeywords: _scorerOnly,
+      allowedQualifiers: _alsoScorerOnly,
+      source: _bookkeeping,
+      ...input
+    } = c.input
     return input
   }
-  return c.input
+  const { source: _bookkeeping, ...input } = c.input
+  return input
 }
 
 interface ImagineOutput {

@@ -121,6 +121,12 @@ describe('loadCases', () => {
     expect(() => loadCases(['plan'], dir)).toThrow(/plan\/date\.json.*startDate/)
   })
 
+  it('skips a .draft.json, even one that would not validate', () => {
+    dir = mkdtempSync(join(tmpdir(), 'model-bench-'))
+    write('imagine', 'en-imported.draft.json', JSON.stringify({ prompt: '', sampleOutput: {} }))
+    expect(loadCases(['imagine'], dir)).toEqual([])
+  })
+
   it('fails when a task has no case directory', () => {
     dir = mkdtempSync(join(tmpdir(), 'model-bench-'))
     expect(() => loadCases(['recipe'], dir)).toThrow(/No case directory for task "recipe"/)

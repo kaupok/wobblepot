@@ -70,7 +70,7 @@ These are settled. Don't re-open without cause.
 - The three surfaces that emit user-visible free text (imagine-meal, recipe parsing, preparation tips) append an Estonian voice block after that: `estonianVoiceForImagineMeal`, `estonianVoiceForRecipeParse`, and `estonianVoiceForPrepTips`, also in `prompts.ts`. Each carries register rules plus few-shot pairs and returns an empty string for every locale but `et`. The rules and pairs are distilled from [`AI_VOICE_ET.md`](./AI_VOICE_ET.md), the canonical voice reference; change the doc first, then the helper. Plan generation and quantity review produce no free text and carry only `localeInstruction`.
 - AI-created ingredients are stored with `householdId = <current household>` in the creator's locale. No "English canonical" enforcement on AI creations — the global-pool rule is preserved because household-scoped rows don't pollute global.
 - AI response caches must include `locale` in the key to avoid cross-locale contamination. The one stored cache — `MealPlanEntry.preparationTips` — honours that by invalidation rather than by keying: `PATCH /api/households/me` nulls every entry's tips inside the household-update transaction when the locale changes, and `PATCH /api/meal-plans/[id]/entries/[entryId]` nulls that entry's when its `servingOverride` changes, since the prompt also scales by the effective serving count (HON-681). `PATCH /api/households/me/meals/[id]` does the same for every entry of a meal when an edit _changes_ a field the prompt consumes — `name`, `timeMinutes`, `preparationNotes`, or the component list scaled by `servings` — and deliberately not when it changes only something the prompt never sees, such as `sourceUrl`. It compares against the stored meal rather than testing which fields were sent, because the meal form PATCHes its whole payload on every save (HON-683). A household's **member count** is a further input, because the effective serving count falls back to it whenever an entry carries no `servingOverride` — the default state — so every membership write clears the cache too, via `invalidateFutureEntryTips` in `src/lib/meal-planning/preparation-tips-cache.ts`: the manual-member add (`POST /api/households/me/members`), the removal (`DELETE /api/households/me/members/[id]`), and the account purge that drops a membership from a household that survives it (`src/lib/auth/purge-user.ts`). That one is bounded to entries dated **today or later** that are not already `completed`, and to entries without an override: tips for a meal already cooked are never read again, so regenerating them would be pure AI spend, and an entry with an override was priced from the override rather than from the member count (HON-684). The `status` clause is what makes the date bound honest — a dinner cooked at 18:00 is still dated today at 20:00 — and it is `not: 'completed'` rather than `'planned'` so a later un-skipped entry does not come back holding tips priced at the old count; leaving `completed` nulls them at the entry PATCH, so skipping defers the invalidation to the revert rather than dropping it. The invite-accept path claims a pre-existing member row instead of creating one, so it leaves the count — and the cache — alone. The count is also re-read in `preparation-tips/route.ts` just before the cache write, alongside the `mealId` / `servingOverride` / `locale` / `meal.updatedAt` filters pinned there: an entry that is mid-generation holds `preparationTips: null`, so no invalidation can reach it, and an unguarded write would put the old household size's tips back permanently.
-- After every successful `generateObject` call, `logAiSample` (see [Reviewing AI output quality](#reviewing-ai-output-quality)) emits a structured JSON line if the locale is non-default.
+- After every successful `generateObject` call, `logAiSample` (see [Reviewing AI output quality](#reviewing-ai-output-quality)) emits a structured JSON line for every non-default-locale call and for 5% of English calls (`DEFAULT_LOCALE_SAMPLE_RATE`).
 
 The Estonian recipe-parser surface was gated behind `FEATURE_RECIPE_PARSER_ET` until ingredient translations landed — Estonian input without translation data created duplicate household-scoped ingredient rows that needed admin cleanup later (HON-514). HON-506 seeded an Estonian translation for every global ingredient and **retired that gate**: `resolveParserLocale` in `src/app/api/recipes/parse/route.ts` now threads the household locale straight through, and the matcher resolves Estonian ingredient names directly. The env flag no longer exists.
 
@@ -92,7 +92,7 @@ Two templates are localized (HON-513): `src/lib/emails/reset-password.ts` and `s
 
 ## Reviewing AI output quality
 
-Every non-default-locale AI call emits a structured `[ai-sample]` JSON line containing the AI input and output (no household / user IDs). This closes the iteration loop for ongoing voice tuning without requiring an admin page or DB table. Implementation: `src/lib/ai/sampling.ts`.
+Every non-default-locale AI call, and 5% of English ones (`DEFAULT_LOCALE_SAMPLE_RATE`), emits a structured `[ai-sample]` JSON line containing the AI input and output (no household / user IDs) and the `sampleRate` it was logged at. This closes the iteration loop for ongoing voice tuning without requiring an admin page or DB table. The English share exists so production inputs can become model-benchmark cases (`--import-sample`, see [AI_MODELS.md → Where cases come from](./AI_MODELS.md#where-cases-come-from)). Implementation: `src/lib/ai/sampling.ts`.
 
 ### Locally (`pnpm dev`)
 
@@ -103,7 +103,7 @@ Each sample is appended to `.ai-samples/<YYYY-MM-DD>.jsonl` (gitignored).
 tail -f .ai-samples/$(date +%Y-%m-%d).jsonl | jq '.'
 
 # Last 20 Estonian meal names produced by imagine-meal
-jq -r 'select(.callSite == "imagine-meal") | .output.meals[].name' \
+jq -r 'select(.callSite == "imagine-meal" and .locale == "et") | .output.meals[].name' \
   .ai-samples/*.jsonl | tail -20
 
 # Last 20 parsed recipe names
@@ -164,7 +164,7 @@ Architectural decisions that the platform supports but we deliberately don't shi
 - **Localized `breach-notification.ts`.** The GDPR Art. 33/34 breach email is sent by an operator following a runbook, to an audience that is not locale-resolvable at send time. Deliberately English-only (HON-513).
 - **Mid-lifetime locale-change UX** (visual markers, on-demand translation, switch-time prompts). Silent mixed state by design.
 - **PostHog locale tagging** (HON-516, cancelled 2026-09-15). Not wired and not planned; errors and analytics carry no locale. There is no Sentry — PostHog is the error tracker.
-- **Non-Estonian AI output sampling.** English is "known good" and excluded by design from `logAiSample`.
+- **Full English AI output sampling.** English output is not voice-reviewed; `logAiSample` keeps 5% of English calls, for benchmark cases only (HON-903).
 
 ## Cross-references
 
