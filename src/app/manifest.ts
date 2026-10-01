@@ -1,10 +1,16 @@
 import type { MetadataRoute } from 'next'
+import { getTranslations } from 'next-intl/server'
 
-export default function manifest(): MetadataRoute.Manifest {
+/**
+ * The PWA install description follows the request locale (household, then
+ * Accept-Language) through next-intl's request config, like every page title.
+ */
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const t = await getTranslations('meta.manifest')
   return {
     name: 'Wobblepot',
     short_name: 'Wobblepot',
-    description: 'AI-powered weekly meal planning for families',
+    description: t('description'),
     start_url: '/',
     scope: '/',
     display: 'standalone',

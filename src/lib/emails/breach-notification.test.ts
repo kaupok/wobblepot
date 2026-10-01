@@ -98,4 +98,30 @@ describe('generateBreachNotificationEmail', () => {
     expect(result.text).toContain('https://example.com/status?a=1&b=2')
     expect(result.text).not.toContain('&lt;')
   })
+
+  it('defaults to English with <html lang="en">', () => {
+    const result = generateBreachNotificationEmail(options)
+
+    expect(result.html).toContain('<html lang="en">')
+    expect(result.html).toContain('Get help')
+    expect(result.text).toContain(`Get help: ${options.supportUrl}`)
+  })
+
+  it('renders the fixed copy in Estonian for an et recipient', () => {
+    const result = generateBreachNotificationEmail({ ...options, locale: 'et' })
+
+    expect(result.subject).toBe('Oluline turvateade sinu TestApp konto kohta')
+    expect(result.html).toContain('<html lang="et">')
+    expect(result.html).toContain('Mida see puudutas')
+    expect(result.html).toContain('Mida sa peaksid tegema')
+    expect(result.html).toContain('Küsi abi')
+    expect(result.text).toContain(`Küsi abi: ${options.supportUrl}`)
+    expect(result.text).toContain('Meil on kahju, et see juhtus.')
+    // The operator-written fields pass through untouched.
+    expect(result.text).toContain(options.summary)
+    for (const english of ['Important security notice', 'What was affected', 'Get help']) {
+      expect(result.html).not.toContain(english)
+      expect(result.text).not.toContain(english)
+    }
+  })
 })

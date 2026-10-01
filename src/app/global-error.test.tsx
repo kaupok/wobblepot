@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConsentDecision } from '@/lib/consent'
 import { MealPlanValidationError } from '@/lib/ai/types'
 import GlobalError from './global-error'
@@ -27,10 +27,19 @@ vi.mock('@/lib/consent.client', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // `<html>` is a React singleton, so each render writes to the real
+  // document root; start every test from a bare one.
+  document.documentElement.removeAttribute('lang')
+  document.documentElement.removeAttribute('data-global-error')
+  vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['en-US'])
   posthogMock.__loaded = false
   envMock.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
   envMock.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
   consentMock.read.mockReset()
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 const reset = vi.fn()
@@ -138,5 +147,41 @@ describe('GlobalError', () => {
 
     const link = screen.getByRole('link', { name: /support@wobblepot\.com/i })
     expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com')
+  })
+
+  describe('locale (HON-919)', () => {
+    it('renders English with lang="en" by default', () => {
+      consentMock.read.mockReturnValue(null)
+      render(<GlobalError error={makeError()} reset={reset} />)
+
+      expect(screen.getByRole('heading', { name: 'Something went wrong!' })).toBeInTheDocument()
+      expect(screen.getByText('Error ID: abc-123')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+      expect(document.documentElement).toHaveAttribute('lang', 'en')
+    })
+
+    it("follows the root layout's <html lang> on a client-side error", () => {
+      consentMock.read.mockReturnValue(null)
+      document.documentElement.lang = 'et'
+      render(<GlobalError error={makeError()} reset={reset} />)
+
+      expect(screen.getByRole('heading', { name: 'Midagi läks valesti!' })).toBeInTheDocument()
+      expect(screen.getByText('Vea ID: abc-123')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Proovi uuesti' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'support@wobblepot.com' })).toBeInTheDocument()
+      expect(document.documentElement).toHaveAttribute('lang', 'et')
+      expect(document.documentElement).toHaveAttribute('data-global-error', 'client')
+    })
+
+    it('falls back to the browser languages when the page was server-rendered', () => {
+      consentMock.read.mockReturnValue(null)
+      document.documentElement.lang = 'en'
+      document.documentElement.setAttribute('data-global-error', 'server')
+      vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['et-EE', 'en'])
+      render(<GlobalError error={makeError()} reset={reset} />)
+
+      expect(screen.getByRole('heading', { name: 'Midagi läks valesti!' })).toBeInTheDocument()
+      expect(document.documentElement).toHaveAttribute('lang', 'et')
+    })
   })
 })

@@ -33,6 +33,9 @@
         "title": "Terms of service",
         "description": "The terms that govern your use of Wobblepot."
       }
+    },
+    "manifest": {
+      "description": "AI-powered weekly meal planning for families"
     }
   },
   "dates": {
@@ -764,6 +767,14 @@
       "cta": "Cancel deletion",
       "cancelMailtoSubject": "Cancel account deletion",
       "lastWarning": "If you didn't request this, email <link>{email}</link> right away to keep your account."
+    },
+    "breachNotification": {
+      "subject": "Important security notice about your {appName} account",
+      "heading": "Important security notice",
+      "affectedHeading": "What was affected",
+      "actionHeading": "What you should do",
+      "cta": "Get help",
+      "apology": "We are sorry this happened. We take the security of your data seriously and have taken steps to address the issue. If you have any questions, reach us at the link above."
     }
   },
   "errors": {
@@ -865,6 +876,10 @@
       "timeout": "Request timed out. Please check your connection and try again.",
       "internalServer": "Server is experiencing issues. Please try again in a moment.",
       "serviceUnavailable": "Service is temporarily unavailable. Please try again later."
+    },
+    "global": {
+      "title": "Something went wrong!",
+      "body": "An unexpected error occurred. We apologize for the inconvenience."
     }
   },
   "validation": {
@@ -1160,6 +1175,80 @@
       "asNeeded": "as needed",
       "bit": "a bit",
       "little": "a little"
+    }
+  },
+  "status": {
+    "heading": "Status",
+    "intro": "Live health of Wobblepot's core services.",
+    "incidentTitle": "Incident in progress",
+    "support": "Something looks wrong? Email us at <mailLink>{email}</mailLink> or return to the <homeLink>home page</homeLink>.",
+    "checkedAt": "Checked at {time} UTC",
+    "latency": "Latency: {ms} ms",
+    "overall": {
+      "ok": {
+        "label": "All systems operational",
+        "description": "Every component is responding normally."
+      },
+      "degraded": {
+        "label": "Partial outage",
+        "description": "One or more components are reporting issues. Details below."
+      },
+      "down": {
+        "label": "Major outage",
+        "description": "All probed components are currently failing."
+      }
+    },
+    "probe": {
+      "ok": "Operational",
+      "down": "Down"
+    },
+    "components": {
+      "ai": {
+        "label": "AI pipeline",
+        "description": "Meal plan generation via Claude"
+      },
+      "auth": {
+        "label": "Auth",
+        "description": "Sign-in and session management"
+      },
+      "db": {
+        "label": "Database",
+        "description": "Primary PostgreSQL store"
+      },
+      "rateLimit": {
+        "label": "Rate limiting",
+        "description": "Abuse protection for auth and AI endpoints"
+      }
+    }
+  },
+  "bot": {
+    "heading": "About Wobblepot-Bot",
+    "lead": "Wobblepot-Bot fetches recipe pages that users explicitly submit through the recipe import feature. It is not a crawler.",
+    "userAgent": {
+      "heading": "User-agent",
+      "body": "The bot identifies itself with the following User-Agent string:",
+      "robotsToken": "For <code>robots.txt</code> matching, the token is <code>{token}</code>."
+    },
+    "does": {
+      "heading": "What it does",
+      "fetch": "Fetches recipe pages that a signed-in user has pasted into the recipe import field.",
+      "extract": "Extracts recipe data (ingredients, instructions, prep/cook time) for that user."
+    },
+    "doesNot": {
+      "heading": "What it does not do",
+      "crawl": "No crawling. It never follows links off the submitted page.",
+      "index": "No indexing. It does not build a search index of your content.",
+      "schedule": "No scheduled fetches. It only fetches when a user initiates an import and never re-fetches the same URL on a schedule."
+    },
+    "respect": {
+      "heading": "Respecting your site",
+      "robots": "Wobblepot-Bot honours <code>robots.txt</code>. If your rules disallow <code>{token}</code> (or <code>*</code>) for a URL, we will not fetch it.",
+      "cache": "We cache <code>robots.txt</code> decisions per origin for 24 hours to avoid repeated requests.",
+      "disallow": "Users who hit a disallow see a message explaining they can paste the recipe text directly instead."
+    },
+    "contact": {
+      "heading": "Contact",
+      "body": "If you want us to stop (or start) fetching your site, or you have questions about how Wobblepot handles content, email <link>{email}</link>. The quickest way to deny us is to add a <code>Disallow</code> rule for <code>{token}</code> in your <code>robots.txt</code>."
     }
   }
 }

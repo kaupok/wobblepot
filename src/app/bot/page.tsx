@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { Body, Code, Heading, Li, Ul } from '@/components/ui/typography'
@@ -12,97 +13,85 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default function BotPage() {
+// `<code>` in the `bot` catalog strings: file names, robots tokens and rules.
+const code = (chunks: ReactNode) => <Code>{chunks}</Code>
+
+export default async function BotPage() {
+  const t = await getTranslations('bot')
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
       <div className="flex flex-col gap-4">
-        <Heading>About Wobblepot-Bot</Heading>
-        <Body variant="lead">
-          Wobblepot-Bot fetches recipe pages that users explicitly submit through the recipe import
-          feature. It is not a crawler.
-        </Body>
+        <Heading>{t('heading')}</Heading>
+        <Body variant="lead">{t('lead')}</Body>
       </div>
 
       <div className="mt-10 flex flex-col gap-3">
-        <Heading variant="h2">User-agent</Heading>
-        <Body>The bot identifies itself with the following User-Agent string:</Body>
+        <Heading variant="h2">{t('userAgent.heading')}</Heading>
+        <Body>{t('userAgent.body')}</Body>
         <Body>
           <Code>{WOBBLEPOT_BOT_USER_AGENT}</Code>
         </Body>
         <Body variant="muted">
-          For <Code>robots.txt</Code> matching, the token is <Code>{WOBBLEPOT_BOT_TOKEN}</Code>.
+          {t.rich('userAgent.robotsToken', { token: WOBBLEPOT_BOT_TOKEN, code })}
         </Body>
       </div>
 
       <div className="mt-10 flex flex-col gap-3">
-        <Heading variant="h2">What it does</Heading>
+        <Heading variant="h2">{t('does.heading')}</Heading>
         <Ul>
           <Li>
-            <Body>
-              Fetches recipe pages that a signed-in user has pasted into the recipe import field.
-            </Body>
+            <Body>{t('does.fetch')}</Body>
           </Li>
           <Li>
-            <Body>
-              Extracts recipe data (ingredients, instructions, prep/cook time) for that user.
-            </Body>
+            <Body>{t('does.extract')}</Body>
           </Li>
         </Ul>
       </div>
 
       <div className="mt-10 flex flex-col gap-3">
-        <Heading variant="h2">What it does not do</Heading>
+        <Heading variant="h2">{t('doesNot.heading')}</Heading>
         <Ul>
           <Li>
-            <Body>No crawling. It never follows links off the submitted page.</Body>
+            <Body>{t('doesNot.crawl')}</Body>
           </Li>
           <Li>
-            <Body>No indexing. It does not build a search index of your content.</Body>
+            <Body>{t('doesNot.index')}</Body>
           </Li>
           <Li>
-            <Body>
-              No scheduled fetches. It only fetches when a user initiates an import and never
-              re-fetches the same URL on a schedule.
-            </Body>
+            <Body>{t('doesNot.schedule')}</Body>
           </Li>
         </Ul>
       </div>
 
       <div className="mt-10 flex flex-col gap-3">
-        <Heading variant="h2">Respecting your site</Heading>
+        <Heading variant="h2">{t('respect.heading')}</Heading>
         <Ul>
           <Li>
-            <Body>
-              Wobblepot-Bot honours <Code>robots.txt</Code>. If your rules disallow{' '}
-              <Code>{WOBBLEPOT_BOT_TOKEN}</Code> (or <Code>*</Code>) for a URL, we will not fetch
-              it.
-            </Body>
+            <Body>{t.rich('respect.robots', { token: WOBBLEPOT_BOT_TOKEN, code })}</Body>
           </Li>
           <Li>
-            <Body>
-              We cache <Code>robots.txt</Code> decisions per origin for 24 hours to avoid repeated
-              requests.
-            </Body>
+            <Body>{t.rich('respect.cache', { code })}</Body>
           </Li>
           <Li>
-            <Body>
-              Users who hit a disallow see a message explaining they can paste the recipe text
-              directly instead.
-            </Body>
+            <Body>{t('respect.disallow')}</Body>
           </Li>
         </Ul>
       </div>
 
       <div className="mt-10 flex flex-col gap-3">
-        <Heading variant="h2">Contact</Heading>
+        <Heading variant="h2">{t('contact.heading')}</Heading>
         <Body>
-          If you want us to stop (or start) fetching your site, or you have questions about how
-          Wobblepot handles content, email{' '}
-          <a className="underline" href={PRIVACY_EMAIL_HREF}>
-            {PRIVACY_EMAIL}
-          </a>
-          . The quickest way to deny us is to add a <Code>Disallow</Code> rule for{' '}
-          <Code>{WOBBLEPOT_BOT_TOKEN}</Code> in your <Code>robots.txt</Code>.
+          {t.rich('contact.body', {
+            email: PRIVACY_EMAIL,
+            token: WOBBLEPOT_BOT_TOKEN,
+            code,
+            link: (chunks) => (
+              <a className="underline" href={PRIVACY_EMAIL_HREF}>
+                {chunks}
+              </a>
+            ),
+          })}
         </Body>
       </div>
     </div>

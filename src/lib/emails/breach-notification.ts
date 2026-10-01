@@ -1,4 +1,6 @@
 import { serverEnv } from '@/lib/env'
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
+import { emailTranslator } from './i18n'
 
 /**
  * Data Breach Notification Email Template (GDPR Art. 34)
@@ -9,6 +11,11 @@ import { serverEnv } from '@/lib/env'
  * This template is filled in and sent by an operator via an ad-hoc script at
  * breach time — there is no automated send trigger. The operator supplies the
  * plain-language content; see `docs/RUNBOOKS/breach-notification.md`.
+ *
+ * The fixed copy lives in `messages/{en,et}.json` under
+ * `emails.breachNotification`. The operator resolves each recipient's locale
+ * with `resolveEmailLocale(userId)` and writes `summary`, `impact` and
+ * `remediation` in that same language, so one send is one language.
  *
  * Includes HTML with inline styles (email-safe) and a plain text fallback,
  * mirroring `reset-password.ts`.
@@ -23,6 +30,8 @@ interface BreachNotificationEmailOptions {
   remediation: string
   /** Where the user can get help or read more (support page / status page URL). */
   supportUrl: string
+  /** Recipient locale. Defaults to English for callers that cannot resolve one. */
+  locale?: Locale
 }
 
 interface EmailContent {
@@ -55,10 +64,11 @@ function escapeHtml(value: string): string {
 export function generateBreachNotificationEmail(
   options: BreachNotificationEmailOptions,
 ): EmailContent {
-  const { summary, impact, remediation, supportUrl } = options
+  const { summary, impact, remediation, supportUrl, locale = DEFAULT_LOCALE } = options
   const appName = serverEnv.NEXT_PUBLIC_APP_NAME
+  const t = emailTranslator(locale, 'breachNotification')
 
-  const subject = `Important security notice about your ${appName} account`
+  const subject = t('subject', { appName })
 
   // Escape operator-typed fields for the HTML branch only; plain text is raw.
   const safeSummary = escapeHtml(summary)
@@ -68,7 +78,7 @@ export function generateBreachNotificationEmail(
 
   const html = `
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${locale}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -82,19 +92,19 @@ export function generateBreachNotificationEmail(
           <tr>
             <td style="padding: 40px;">
               <h1 style="margin: 0 0 24px; font-size: 24px; font-weight: 600; color: #18181b;">
-                Important security notice
+                ${t('heading')}
               </h1>
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #3f3f46;">
                 ${safeSummary}
               </p>
               <h2 style="margin: 0 0 12px; font-size: 18px; font-weight: 600; color: #18181b;">
-                What was affected
+                ${t('affectedHeading')}
               </h2>
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #3f3f46;">
                 ${safeImpact}
               </p>
               <h2 style="margin: 0 0 12px; font-size: 18px; font-weight: 600; color: #18181b;">
-                What you should do
+                ${t('actionHeading')}
               </h2>
               <p style="margin: 0 0 32px; font-size: 16px; line-height: 24px; color: #3f3f46;">
                 ${safeRemediation}
@@ -103,13 +113,13 @@ export function generateBreachNotificationEmail(
                 <tr>
                   <td style="background-color: #18181b; border-radius: 6px;">
                     <a href="${safeSupportUrl}" style="display: inline-block; padding: 12px 24px; font-size: 16px; font-weight: 500; color: #ffffff; text-decoration: none;">
-                      Get help
+                      ${t('cta')}
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="margin: 0; font-size: 14px; line-height: 20px; color: #71717a;">
-                We are sorry this happened. We take the security of your data seriously and have taken steps to address the issue. If you have any questions, reach us at the link above.
+                ${t('apology')}
               </p>
             </td>
           </tr>
@@ -129,19 +139,19 @@ export function generateBreachNotificationEmail(
 `.trim()
 
   const text = `
-Important security notice about your ${appName} account
+${subject}
 
 ${summary}
 
-What was affected
+${t('affectedHeading')}
 ${impact}
 
-What you should do
+${t('actionHeading')}
 ${remediation}
 
-Get help: ${supportUrl}
+${t('cta')}: ${supportUrl}
 
-We are sorry this happened. We take the security of your data seriously and have taken steps to address the issue. If you have any questions, reach us at the link above.
+${t('apology')}
 
 ---
 ${appName}

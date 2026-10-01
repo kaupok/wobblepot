@@ -2,13 +2,24 @@
 
 import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
-import { useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { clientEnv } from '@/lib/env'
 import { decisionToGranted } from '@/lib/consent'
 import { readConsentCookieClient } from '@/lib/consent.client'
 import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
 import { postHogBeforeSend } from '@/lib/posthog-before-send'
 import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
+import { detectClientLocale, globalErrorTranslator } from '@/lib/i18n/global-error-messages'
+
+// Nothing to subscribe to: the locale is read once per render from the DOM and
+// `navigator`. `useSyncExternalStore` is used for its server snapshot, so a
+// prerendered page hydrates as English and then re-renders in the detected
+// locale instead of failing hydration.
+const subscribe = () => () => {}
+const serverLocale = () => DEFAULT_LOCALE
+const isBrowser = () => true
+const isServer = () => false
 
 export default function GlobalError({
   error,
@@ -17,6 +28,10 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const locale = useSyncExternalStore(subscribe, detectClientLocale, serverLocale)
+  const rendered = useSyncExternalStore(subscribe, isBrowser, isServer) ? 'client' : 'server'
+  const t = globalErrorTranslator(locale)
+
   useEffect(() => {
     void (async () => {
       try {
@@ -53,25 +68,34 @@ export default function GlobalError({
   }, [error])
 
   return (
-    <html lang="en">
+    // `data-global-error` tells `detectClientLocale` whether this `lang` was detected
+    // in the browser or is only the server default.
+    <html lang={locale} data-global-error={rendered}>
       <body>
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
           <div className="max-w-md text-center">
             <div className="flex flex-col gap-3">
-              <Heading>Something went wrong!</Heading>
-              <Body>An unexpected error occurred. We apologize for the inconvenience.</Body>
-              {error.digest && <Body variant="muted">Error ID: {error.digest}</Body>}
+              <Heading>{t('global.title')}</Heading>
+              <Body>{t('global.body')}</Body>
+              {error.digest && (
+                <Body variant="muted">
+                  {t('boundary.errorIdLabel')} {error.digest}
+                </Body>
+              )}
             </div>
             <div className="mt-4">
               <Body variant="muted">
-                Need help? Email{' '}
-                <a className="underline" href={SUPPORT_EMAIL_HREF}>
-                  {SUPPORT_EMAIL}
-                </a>
-                .
+                {t.rich('boundary.supportPrompt', {
+                  email: SUPPORT_EMAIL,
+                  link: (chunks) => (
+                    <a className="underline" href={SUPPORT_EMAIL_HREF}>
+                      {chunks}
+                    </a>
+                  ),
+                })}
               </Body>
             </div>
-            <Button onClick={reset}>Try again</Button>
+            <Button onClick={reset}>{t('boundary.tryAgain')}</Button>
           </div>
         </div>
       </body>
