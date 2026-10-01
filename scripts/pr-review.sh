@@ -415,11 +415,13 @@ E2E_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/(app|components)/.*\.tsx|
 # Geometry: the primitives themselves, and the stylesheet holding the @theme tokens.
 GEOMETRY_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/components/ui/[^/]*\.tsx|src/app/globals\.css)$' | grep -vE '\.(stories|test)\.tsx$' || true)
 # AI eval: what `scripts/model-bench/tasks.ts` imports from src/lib/ai/ — the model
-# constants, the route budgets, and the request builders — plus the committed cases.
+# constants, the route budgets, and the request builders — plus the two schema files
+# the builders send (recipe-schema.ts, types.ts), whose `.describe()` strings are
+# instructions to the model, and the committed cases.
 # The eval spends money, so CI cannot run it, and HON-794 changed `models.ts` with no
 # run at all (HON-859 ran it after the fact). Drafts are gitignored and never loaded,
 # and the README is prose, so neither changes what the eval measures.
-AI_EVAL_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/lib/ai/(models|budgets|prompts|recipe-prompt|imagine-request|review-request|preparation-tips)\.ts|scripts/model-bench/cases/.*\.json)$' | grep -vE '\.(test\.ts|draft\.json)$' || true)
+AI_EVAL_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/lib/ai/(models|budgets|prompts|recipe-prompt|recipe-schema|types|imagine-request|review-request|preparation-tips)\.ts|scripts/model-bench/cases/.*\.json)$' | grep -vE '\.(test\.ts|draft\.json)$' || true)
 
 if [ -n "$E2E_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
   echo -e "${GREEN}Pages, components or copy changed — adding the E2E-drift check.${NC}"

@@ -6,13 +6,13 @@ Every model ID lives in `src/lib/ai/models.ts`, and every price in `MODEL_PRICES
 
 ## Which run a change needs
 
-The eval has three runs. Each writes a report to `scripts/model-bench/results/`, and the PR that makes the change commits it and cites it in its body. `scripts/pr-review.sh` asks for that report when the diff touches `models.ts`, `budgets.ts`, a request builder the eval imports, or a committed case (HON-904).
+The eval has three runs. Each writes a report to `scripts/model-bench/results/`, and the PR that makes the change commits it and cites it in its body. `scripts/pr-review.sh` asks for that report when the diff touches `models.ts`, `budgets.ts`, a request builder the eval imports or a schema it sends, or a committed case (HON-904).
 
-| The PR changes                                                                                                                         | Run                                                               | Section                         |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------- |
-| A model constant in `src/lib/ai/models.ts`                                                                                             | A comparison, current model as baseline, new as candidate, judged | Compare → Two models            |
-| A request builder (`prompts.ts`, `recipe-prompt.ts`, `imagine-request.ts`, `review-request.ts`, `preparation-tips.ts` in `src/lib/ai`) | `--baseline golden`, judged                                       | Compare → A prompt change       |
-| A case under `scripts/model-bench/cases/`, or a budget in `budgets.ts`                                                                 | `--check`                                                         | Check the current configuration |
+| The PR changes                                                                                                                                                                                         | Run                                                               | Section                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------- |
+| A model constant in `src/lib/ai/models.ts`                                                                                                                                                             | A comparison, current model as baseline, new as candidate, judged | Compare → Two models            |
+| A request builder (`prompts.ts`, `recipe-prompt.ts`, `imagine-request.ts`, `review-request.ts`, `preparation-tips.ts` in `src/lib/ai`), or an output schema they send (`recipe-schema.ts`, `types.ts`) | `--baseline golden`, judged                                       | Compare → A prompt change       |
+| A case under `scripts/model-bench/cases/`, or a budget in `budgets.ts`                                                                                                                                 | `--check`                                                         | Check the current configuration |
 
 After a model promotion or an accepted prompt change merges, re-record the golden (Record the golden).
 
