@@ -86,6 +86,11 @@ export const PlannedWithImage: Story = {
     await expect(menu.getBoundingClientRect().left).toBeGreaterThanOrEqual(box.right)
     await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
     await expect(description.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
+    // Nothing runs across the width below the head, so the plate runs the
+    // card's full height, inside its border, unfaded (HON-927).
+    const cardBox = card.getBoundingClientRect()
+    await expect(box.top).toBeCloseTo(cardBox.top + card.clientTop, 0)
+    await expect(box.bottom).toBeCloseTo(cardBox.bottom - card.clientTop, 0)
     // The pantry's verdict is a surface badge: the page background, no ring.
     const availability = canvas.getByText(/ingredients to buy|have all/i)
     await expect(availability).toHaveAttribute('data-variant', expect.stringMatching(/^surface-/))
@@ -93,21 +98,91 @@ export const PlannedWithImage: Story = {
   },
 }
 
-/** A planned card with a note keeps the title band: the note row runs the width, so it sits below the image, on the tint (HON-755). */
+const NOTE = 'Double the garlic — kids approved.'
+
+/**
+ * Asserts the image runs from the card's top edge (inside its border) past the
+ * bottom of the head to the first row below it, and returns its box (HON-927).
+ */
+async function assertImageBoundedByHead(card: HTMLElement) {
+  const box = within(card).getByTestId('meal-card-image').getBoundingClientRect()
+  const head = card.querySelector('[data-slot="meal-image-head"]')!
+  const firstRow = head.nextElementSibling!.getBoundingClientRect()
+  await expect(box.top).toBeCloseTo(card.getBoundingClientRect().top + card.clientTop, 0)
+  await expect(box.bottom).toBeGreaterThanOrEqual(head.getBoundingClientRect().bottom)
+  await expect(box.bottom).toBeCloseTo(firstRow.top, 0)
+  return box
+}
+
+/**
+ * The note's row starts at or below the image, and so does the note's text.
+ * Not the slip's own box: its `-rotate-1` tilt lifts one corner ~2px, into the
+ * last few pixels of the image's bottom fade, where the image is all but
+ * transparent.
+ */
+async function assertNoteRowBelow(slip: HTMLElement, box: DOMRect) {
+  const row = slip.closest('[data-slot="card-content"]')!.getBoundingClientRect()
+  const text = slip.querySelector('p')!.getBoundingClientRect()
+  await expect(row.top).toBeGreaterThanOrEqual(box.bottom - 0.5)
+  await expect(text.top).toBeGreaterThanOrEqual(box.bottom)
+}
+
+/** A planned card with a note: the note runs the width, so it sits below the image, on the tint (HON-755). */
 export const PlannedWithImageAndNote: Story = {
   args: {
     meal: { ...mealFixture, imageStatus: 'ready', imageUrl: mealIllustration.src, imageHue: 52 },
     status: 'planned',
-    note: 'Double the garlic — kids approved.',
+    note: NOTE,
   },
   parameters: { cardWidth: 'phone' },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: mealFixture.name })
-    const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
-    const note = canvas.getByText('Double the garlic — kids approved.').getBoundingClientRect()
-    await expect(box.height).toBeGreaterThan(0)
-    await expect(note.top).toBeGreaterThanOrEqual(box.bottom)
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const box = await assertImageBoundedByHead(card)
+    await assertNoteRowBelow(canvas.getByRole('button', { name: NOTE }), box)
+  },
+}
+
+/**
+ * The same meal with and without a note, in the desktop planner column. The
+ * note adds a row below the head and leaves the plate alone: both images are
+ * the same height (HON-927), where a fixed band once cut the noted one to 80px.
+ */
+export const NoteKeepsThePlate: Story = {
+  name: 'Note keeps the plate (desktop)',
+  args: {
+    meal: {
+      ...mealFixture,
+      description: DESCRIPTION,
+      imageStatus: 'ready',
+      imageUrl: mealIllustration.src,
+      imageHue: 52,
+    },
+    status: 'planned',
+  },
+  parameters: { cardWidth: 'desktop' },
+  render: (args) => (
+    <div className="flex flex-col gap-4">
+      <div data-testid="without-note">
+        <MealCard {...args} />
+      </div>
+      <div data-testid="with-note">
+        <MealCard {...args} entryId="entry-2" note={NOTE} />
+      </div>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await waitFor(() => expect(canvas.getAllByTestId('meal-card-image')).toHaveLength(2))
+    const cardIn = (id: string) =>
+      canvas.getByTestId(id).querySelector<HTMLElement>('[data-slot="card"]')!
+    const plain = cardIn('without-note')
+    const noted = cardIn('with-note')
+    const plainBox = within(plain).getByTestId('meal-card-image').getBoundingClientRect()
+    const notedBox = await assertImageBoundedByHead(noted)
+    await expect(Math.abs(notedBox.height - plainBox.height)).toBeLessThanOrEqual(2)
+    await assertNoteRowBelow(within(noted).getByRole('button', { name: NOTE }), notedBox)
   },
 }
 
@@ -115,8 +190,9 @@ const PAST_NOTE = 'Swapped the rice for couscous — do that again.'
 
 /**
  * A past day with everything below the title: the note, the status control and
- * the rating prompt (opened from the rating badge). Every one of them starts
- * at or below the image band's bottom edge, so none sits on the dish (HON-755).
+ * the rating prompt (opened from the rating badge). The image runs the head's
+ * height (HON-927), and every one of them starts at or below its bottom edge,
+ * so none sits on the dish (HON-755).
  */
 async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
@@ -129,8 +205,8 @@ async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
     canvas.getByRole('button', { name: /^thumbs up$/i }),
     canvas.getByRole('button', { name: /^thumbs down$/i }),
   ]
-  const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
-  await expect(box.height).toBeGreaterThan(0)
+  const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+  const box = await assertImageBoundedByHead(card)
   for (const row of rows) {
     await expect(row.getBoundingClientRect().top).toBeGreaterThanOrEqual(box.bottom)
   }

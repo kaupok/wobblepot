@@ -30,7 +30,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The card every `MealCardBase` callsite (and the planner's `MealCard`) wraps its content in (HON-746, `docs/DESIGN.md` → Imagery). With a `ready` image and an `imageHue`, the card takes the meal's tint and the illustration blends into its right 5/8 (45% on a phone) — multiplied, so the white surface takes the tint, and fading in from the left. Without an image it is the plain `Card`: no tint, no image, nothing reserved while generating. With an image but no hue, the image stays on an untinted surface at the tint's lightness (HON-754). With `trailingActions` (the planner card's Note and menu) the image ends before the action column, so nothing the user taps sits on it (HON-749). With `layout=\"bottom\"` (cards taller than wide, like the add-meal dialog's alternatives) the image is a full-width 3:2 block below the content, fading upward, with `footer` below it (HON-750).",
+          "The card every `MealCardBase` callsite (and the planner's `MealCard`) wraps its content in (HON-746, `docs/DESIGN.md` → Imagery). With a `ready` image and an `imageHue`, the card takes the meal's tint and the illustration blends into its right 5/8 (45% on a phone) — multiplied, so the white surface takes the tint, and fading in from the left. Without an image it is the plain `Card`: no tint, no image, nothing reserved while generating. With an image but no hue, the image stays on an untinted surface at the tint's lightness (HON-754). With `trailingActions` (the planner card's Note and menu) the image ends before the action column, so nothing the user taps sits on it (HON-749). With `head` (the planner card) the image runs from the card's top edge to the bottom of the head, and the children are the full-width rows below it, on the plain tint (HON-927). With `layout=\"bottom\"` (cards taller than wide, like the add-meal dialog's alternatives) the image is a full-width 3:2 block below the content, fading upward, with `footer` below it (HON-750).",
       },
     },
   },
@@ -187,28 +187,36 @@ const LONG_TITLE = 'Baked Salmon with Asparagus'
 function TrailingActionsCard({ meal, ...args }: React.ComponentProps<typeof MealImageCard>) {
   return (
     <MealImageCard {...args} meal={meal} trailingActions size="sm">
-      <CardHeader className="px-4 pt-1 pb-1">
-        <div className="flex min-h-8 items-center justify-between gap-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <MealTypeBadge mealType={MealType.dinner} />
-            <ProteinBadge proteinType={ProteinType.fish} />
-          </div>
-          <div data-testid="card-actions" className="flex shrink-0 items-center gap-1">
-            <Button variant="ghost" size="icon-sm" aria-label="More actions">
-              <MoreHorizontal aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-        <div className={cn('min-w-0', mealImageTitleWidth(true))}>
-          <Heading variant="section" as="h3">
-            <button type="button" className="min-h-8 text-left leading-snug">
-              {meal.name}
-            </button>
-          </Heading>
-        </div>
+      <TrailingActionsHeader name={meal.name}>
         <Body variant="caption">All ingredients in pantry</Body>
-      </CardHeader>
+      </TrailingActionsHeader>
     </MealImageCard>
+  )
+}
+
+function TrailingActionsHeader({ name, children }: { name: string; children?: React.ReactNode }) {
+  return (
+    <CardHeader className="px-4 pt-1 pb-1">
+      <div className="flex min-h-8 items-center justify-between gap-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <MealTypeBadge mealType={MealType.dinner} />
+          <ProteinBadge proteinType={ProteinType.fish} />
+        </div>
+        <div data-testid="card-actions" className="flex shrink-0 items-center gap-1">
+          <Button variant="ghost" size="icon-sm" aria-label="More actions">
+            <MoreHorizontal aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
+      <div className={cn('min-w-0', mealImageTitleWidth(true))}>
+        <Heading variant="section" as="h3">
+          <button type="button" className="min-h-8 text-left leading-snug">
+            {name}
+          </button>
+        </Heading>
+      </div>
+      {children}
+    </CardHeader>
   )
 }
 
@@ -250,19 +258,37 @@ export const TrailingActionsDesktop: Story = {
 }
 
 /**
- * `titleBand` (HON-755): the image stays in the title row's band, so the row
- * below the title starts at or below its bottom edge and sits on the tint.
+ * `head` (HON-927): the image runs from the card's top edge to the first row
+ * below the head, so that row sits on the tint, and the plate keeps the
+ * head's height rather than a fixed band.
  */
-export const TitleBand: Story = {
-  name: 'Title band',
-  args: { meal: withImage(28, { name: LONG_TITLE }), className: undefined, titleBand: true },
+export const HeadWithRowBelow: Story = {
+  name: 'Head with a row below',
+  args: { meal: withImage(28, { name: LONG_TITLE }), className: undefined },
   globals: { viewport: { value: 'mobileIphone', isRotated: false } },
-  render: (args) => <TrailingActionsCard {...args} />,
+  render: ({ meal, ...args }) => (
+    <MealImageCard
+      {...args}
+      meal={meal}
+      trailingActions
+      size="sm"
+      head={<TrailingActionsHeader name={meal.name} />}
+    >
+      <CardContent className="px-4 pb-2">
+        <Body variant="caption">All ingredients in pantry</Body>
+      </CardContent>
+    </MealImageCard>
+  ),
   play: async ({ canvasElement }) => {
     await assertOnTint(canvasElement)
     const canvas = within(canvasElement)
     const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
+    const card = canvasElement.querySelector('[data-slot="card"]')!
+    const row = canvasElement.querySelector('[data-slot="card-content"]')!.getBoundingClientRect()
     const caption = canvas.getByText('All ingredients in pantry').getBoundingClientRect()
+    // From the card's top edge (inside its 1px border) to the row below the head.
+    await expect(box.top).toBeCloseTo(card.getBoundingClientRect().top + card.clientTop, 0)
+    await expect(box.bottom).toBeCloseTo(row.top, 0)
     await expect(caption.top).toBeGreaterThanOrEqual(box.bottom)
   },
 }
