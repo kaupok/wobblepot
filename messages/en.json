@@ -137,7 +137,7 @@
     "pageTitle": "Meal plan",
     "shoppingTitle": "Shopping list",
     "viewFullList": "View full list",
-    "allSet": "You're all set for the next 2 days",
+    "listEmpty": "Nothing on the list for today or tomorrow",
     "summaryToday": "{count} for today",
     "summaryTomorrow": "{count} for tomorrow",
     "summaryNeed": "Need {parts}",

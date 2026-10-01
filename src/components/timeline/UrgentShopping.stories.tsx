@@ -136,10 +136,25 @@ export const AllDone: Story = {
       }),
     ],
   },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText('Nothing on the list for today or tomorrow'),
+    ).toBeVisible()
+  },
 }
 
+/**
+ * Nothing to buy for today or tomorrow, which is also what an empty plan looks
+ * like: a neutral muted line under the title row, with no icon (HON-923).
+ */
 export const Empty: Story = {
   args: { items: [] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Nothing on the list for today or tomorrow')).toBeVisible()
+    await expect(canvas.getByRole('link', { name: 'View full list' })).toBeVisible()
+    await expect(canvasElement.querySelector('svg')).toBeNull()
+  },
 }
 
 /**

@@ -76,11 +76,11 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
       <Card>
         <CardHeader>{titleRow}</CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center gap-2 py-6 text-center">
-            <span className="bg-success-muted flex h-10 w-10 items-center justify-center rounded-full">
-              <Check className="text-success h-5 w-5" />
-            </span>
-            <Body variant="muted">{tToday('allSet')}</Body>
+          {/* A statement of fact, with no icon: it is reached as often by an
+              empty plan as by a stocked pantry, so it claims nothing about
+              being ready (DESIGN.md → empty states, HON-923). */}
+          <div className="py-6 text-center">
+            <Body variant="muted">{tToday('listEmpty')}</Body>
           </div>
         </CardContent>
       </Card>
