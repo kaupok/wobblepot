@@ -174,6 +174,16 @@ export const ReviewCaseSchema = z
     source,
   })
   .superRefine((c, ctx) => {
+    // An empty expectation would make both review metrics inapplicable: the
+    // case would cost a call and measure nothing. An imported draft starts
+    // with `{}`, so this is what stops one loading unwritten (HON-903).
+    if (Object.keys(c.expected).length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['expected'],
+        message: 'A review case expects at least one ingredient (a seeded error or unchanged)',
+      })
+    }
     const ids = new Set(c.ingredients.map((i) => i.ingredientId))
     for (const key of Object.keys(c.expected)) {
       if (!ids.has(key)) {

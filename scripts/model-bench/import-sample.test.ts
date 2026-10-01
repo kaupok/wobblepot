@@ -319,6 +319,22 @@ describe('draftFromSample', () => {
     expect(CASE_SCHEMAS.review.safeParse(written).success).toBe(true)
   })
 
+  it('makes a review draft that does not validate until its expectation is written', () => {
+    const {
+      sampleInput: _i,
+      sampleOutput: _o,
+      ...unwritten
+    } = draftFromSample(sample('review-quantities')).draft
+    const result = CASE_SCHEMAS.review.safeParse(unwritten)
+    expect(result.success).toBe(false)
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ['expected'],
+        message: expect.stringMatching(/at least one/),
+      }),
+    ])
+  })
+
   it('makes a draft that does not validate while the sample keys are still in it', () => {
     const { draft } = draftFromSample(sample('imagine-meal'))
     const result = CASE_SCHEMAS.imagine.safeParse(draft)
