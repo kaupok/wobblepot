@@ -314,9 +314,10 @@ test.describe(
         await selectorDialog
           .getByRole('searchbox', { name: 'Otsi retseptide hulgast' }) // search meal library
           .fill(searchTarget!.name)
-        // The header switches to "search results" only once the search response
-        // is in, so the name below cannot come from the suggestion list.
-        await expect(selectorDialog.getByText(/^Otsingutulemused/)).toBeVisible()
+        // The header gains its count ("Otsingutulemused (N)") only once the
+        // search response is in — while loading it reads "Otsingutulemused" —
+        // so the name below cannot come from the suggestion list.
+        await expect(selectorDialog.getByText(/^Otsingutulemused \(\d+\)/)).toBeVisible()
         await expect(
           selectorDialog.getByText(searchTarget!.name, { exact: true }).first(),
         ).toBeVisible()
