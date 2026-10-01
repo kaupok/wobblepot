@@ -9,8 +9,9 @@ import { DEFAULT_LOCALE, isKnownLocale, type Locale } from '@/lib/i18n/locales'
  *
  * A subset of ExtractedIngredientSchema from recipe-schema.ts: `originalText`
  * and `isVague` are left out because the route rebuilds both
- * (`imaginedIngredientText`, `vaguePhrase !== null`). Imagine latency tracks
- * output tokens, and `originalText` alone was 11% of every response (HON-897).
+ * (`imaginedIngredientText`; vague when `quantity` is null and `vaguePhrase`
+ * is non-blank). Imagine latency tracks output tokens, and `originalText`
+ * alone was 11% of every response (HON-897).
  *
  * NOTE: Anthropic's structured output API has limited JSON Schema support.
  * Avoid .positive(), .min(), .max(), .int() on numbers.
