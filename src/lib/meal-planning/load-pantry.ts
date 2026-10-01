@@ -8,6 +8,7 @@ import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
+import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
 
 export interface PantryHousehold {
   id: string
@@ -48,7 +49,8 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
           },
         },
       },
-      orderBy: [{ isStaple: 'desc' }, { ingredient: { name: 'asc' } }],
+      // No `orderBy`: the order is by the translated name, so it is applied
+      // after translating, below (HON-920).
     }),
     getTranslations({ locale, namespace: 'enums.VaguePhrase' }),
   ])
@@ -174,6 +176,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
         : {}),
     }
   })
+  items.sort(comparePantryItems(locale))
 
   return { items, windowDays: days }
 }

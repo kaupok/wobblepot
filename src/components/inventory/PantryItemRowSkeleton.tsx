@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
  * always fetches `/api/pantry?days=7|14`, but the caption is per row: it needs
  * a `planned` entry in the window whose meal uses that ingredient. The bet is
  * on the state this screen is normally reached in — a planned week — where the
- * query's `isStaple desc` ordering puts the ingredients a week of meals reuses
+ * pantry's staples-first ordering puts the ingredients a week of meals reuses
  * under exactly these four skeletons. With no plan in the window no row gets a
  * caption and all four are 16px too tall, which is the cost of the bet. The
  * story pins that 16px rather than leaving it to prose.
