@@ -187,7 +187,7 @@ The alternatives make no model call. `/regenerate` (an entry with a meal) and `/
 
 **Decision:** Ensure variety via protein type slots (dinner only).
 
-**Why:** Solves "no chicken 4 days in a row" and "fish at least once a week" without complex macro calculations.
+**Why:** Solves "no chicken 4 days in a row" and "fish or legumes in every plan of five or more dinners" without complex macro calculations.
 
 **Implementation:**
 
@@ -216,7 +216,7 @@ enum ProteinType {
 **Why this works:**
 
 - **80% of "balance" from one derived field** - no calorie math needed
-- **DB-enforced slots** - fish Wednesday is a WHERE clause, not AI hope
+- **DB-enforced slots** - a required fish dinner is a WHERE clause, not AI hope
 - **Deterministic repair** - validation failures fixed without re-calling AI
 - **Composable** - works with existing pre-filter architecture
 
