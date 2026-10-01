@@ -9,7 +9,14 @@
  * budget must still finish, so its real duration is recorded.
  */
 
-import { generateObject, type FinishReason, type LanguageModel, type LanguageModelUsage } from 'ai'
+import {
+  asSchema,
+  generateObject,
+  type FinishReason,
+  type FlexibleSchema,
+  type LanguageModel,
+  type LanguageModelUsage,
+} from 'ai'
 import { buildMealPlanRequest } from '../../src/lib/ai/prompts'
 import { buildRecipeRequest } from '../../src/lib/ai/recipe-prompt'
 import { buildImagineRequest } from '../../src/lib/ai/imagine-request'
@@ -70,6 +77,11 @@ export interface MetricDef {
 export interface PreparedCase {
   /** Every text part of the request, for the dry-run input estimate. */
   promptText: string
+  /**
+   * The output schema as the JSON Schema the AI SDK sends. Its `.describe()`
+   * strings are model instructions too, so the golden's `requestHash` covers it.
+   */
+  schemaText: string
   generate(
     model: LanguageModel,
   ): Promise<{ object: unknown; usage: LanguageModelUsage; finishReason: FinishReason }>
@@ -112,6 +124,27 @@ function textOf(request: { system?: string; prompt?: string; messages?: unknown[
     }
   }
   return parts.join('\n')
+}
+
+/**
+ * Not key-sorted: property order is part of what the model receives. Throws
+ * rather than hash `{}` if the SDK ever builds the JSON Schema asynchronously.
+ */
+function schemaTextOf(schema: FlexibleSchema<unknown>): string {
+  const json = asSchema(schema).jsonSchema
+  if ('then' in json && typeof json.then === 'function') {
+    throw new Error(
+      'The AI SDK built this JSON Schema asynchronously; schemaTextOf cannot hash it.',
+    )
+  }
+  return JSON.stringify(json)
+}
+
+/** The parts of a request that reach the model as instructions. */
+function requestTexts(
+  request: Parameters<typeof textOf>[0] & { schema: FlexibleSchema<unknown> },
+): Pick<PreparedCase, 'promptText' | 'schemaText'> {
+  return { promptText: textOf(request), schemaText: schemaTextOf(request.schema) }
 }
 
 const plan: TaskSpec<'plan'> = {
@@ -170,7 +203,7 @@ const plan: TaskSpec<'plan'> = {
       locale: input.locale,
     })
     return {
-      promptText: textOf(request),
+      ...requestTexts(request),
       generate: (model) => generateObject({ ...request, model }),
       score: (object) => scorePlan(ctx, object as Parameters<typeof scorePlan>[1]),
     }
@@ -226,7 +259,7 @@ const recipe: TaskSpec<'recipe'> = {
     // Trimmed, as `parseRecipeText` does before it builds the request.
     const request = buildRecipeRequest(input.text.trim(), input.locale)
     return {
-      promptText: textOf(request),
+      ...requestTexts(request),
       generate: (model) => generateObject({ ...request, model }),
       score: (object) => scoreRecipe(input, object as Parameters<typeof scoreRecipe>[1]),
     }
@@ -293,7 +326,7 @@ const imagine: TaskSpec<'imagine'> = {
       locale: input.locale,
     })
     return {
-      promptText: textOf(request),
+      ...requestTexts(request),
       generate: (model) => generateObject({ ...request, model }),
       score: (object) => scoreImagine(input, object as Parameters<typeof scoreImagine>[1]),
     }
@@ -345,7 +378,7 @@ const review: TaskSpec<'review'> = {
       locale: input.locale,
     })
     return {
-      promptText: textOf(request),
+      ...requestTexts(request),
       generate: (model) => generateObject({ ...request, model }),
       score: (object) => scoreReview(input, object as Parameters<typeof scoreReview>[1]),
     }
@@ -393,7 +426,7 @@ const tips: TaskSpec<'tips'> = {
     if (input.kind === 'full') {
       const request = buildFullTipsRequest(base)
       return {
-        promptText: textOf(request),
+        ...requestTexts(request),
         generate: (model) => generateObject({ ...request, model }),
         score,
       }
@@ -403,7 +436,7 @@ const tips: TaskSpec<'tips'> = {
       preparationNotes: input.preparationNotes,
     })
     return {
-      promptText: textOf(request),
+      ...requestTexts(request),
       generate: (model) => generateObject({ ...request, model }),
       score,
     }
