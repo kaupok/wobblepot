@@ -40,6 +40,7 @@
     "lockfile:check": "npx tsx scripts/check-lockfile-pins.ts",
     "agent-cost": "npx tsx scripts/agent-cost-per-pr.ts",
     "stories:check": "npx tsx scripts/check-colocated-stories.ts",
+    "i18n:prose-check": "npx tsx scripts/check-server-prose.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test-storybook": "vitest --project=storybook",
@@ -95,6 +96,7 @@
     "zod": "4.5.4"
   },
   "devDependencies": {
+    "@formatjs/icu-messageformat-parser": "3.5.4",
     "@playwright/test": "1.62.1",
     "@shadcn/lint": "0.1.0",
     "@storybook/addon-a11y": "10.6.1",

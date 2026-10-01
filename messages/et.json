@@ -486,9 +486,9 @@
         "ingredientsMissing": "Üks selle retsepti koostisosa ei ole enam olemas. Eemalda see ja lisa uuesti",
         "tooManyIngredients": "Retseptil saab olla kuni {max} koostisosa",
         "noIngredients": "Lisa vähemalt üks koostisosa",
-        "invalidQuantity": "Kogus peab olema suurem kui 0: {names}{more, plural, =0 {} other { +# veel}}",
-        "unmatchedIngredients": "Sobita või eemalda sobitamata koostisosad: {names}{more, plural, =0 {} other { +# veel}}",
-        "unverifiedIngredients": "Kontrolli sobitusi enne salvestamist: {names}{more, plural, =0 {} other { +# veel}}"
+        "invalidQuantity": "Kogus peab olema suurem kui 0: {names}{more, plural, =0 {} one { +# veel} other { +# veel}}",
+        "unmatchedIngredients": "Sobita või eemalda sobitamata koostisosad: {names}{more, plural, =0 {} one { +# veel} other { +# veel}}",
+        "unverifiedIngredients": "Kontrolli sobitusi enne salvestamist: {names}{more, plural, =0 {} one { +# veel} other { +# veel}}"
       },
       "discardDialog": {
         "title": "Loobu imporditud retseptist?",
