@@ -1,10 +1,13 @@
 import 'server-only'
+import { getTranslations } from 'next-intl/server'
 import { prisma } from '@/lib/prisma'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import { getEffectiveServings } from '@/lib/meal-planning/servings'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
+import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
+import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
 
 export interface PantryHousehold {
   id: string
@@ -29,22 +32,26 @@ interface NeededInfo {
  * the needed quantity for that window; `null` skips the plan read entirely.
  */
 export async function loadPantry(household: PantryHousehold, { days }: { days: 7 | 14 | null }) {
-  const pantryItems = await prisma.pantryItem.findMany({
-    where: { householdId: household.id },
-    include: {
-      ingredient: {
-        select: {
-          id: true,
-          name: true,
-          category: true,
-          defaultUnit: true,
-          gramsPerPiece: true,
-          ...ingredientTranslationsInclude(household.locale),
+  const locale = household.locale as Locale
+  const [pantryItems, tVague] = await Promise.all([
+    prisma.pantryItem.findMany({
+      where: { householdId: household.id },
+      include: {
+        ingredient: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            defaultUnit: true,
+            gramsPerPiece: true,
+            ...ingredientTranslationsInclude(household.locale),
+          },
         },
       },
-    },
-    orderBy: [{ isStaple: 'desc' }, { ingredient: { name: 'asc' } }],
-  })
+      orderBy: [{ isStaple: 'desc' }, { ingredient: { name: 'asc' } }],
+    }),
+    getTranslations({ locale, namespace: 'enums.VaguePhrase' }),
+  ])
 
   // If days is provided, compute needed quantities from meal plans
   // Track quantity and vague status per ingredient
@@ -112,11 +119,11 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
               existing.isVague = true
               existing.originalPhrase = component.originalPhrase
             } else if (
-              existing.originalPhrase !== 'some' &&
-              component.originalPhrase?.toLowerCase() !== existing.originalPhrase?.toLowerCase()
+              existing.originalPhrase !== MIXED_VAGUE_PHRASE &&
+              !sameVaguePhrase(component.originalPhrase, existing.originalPhrase)
             ) {
               // Different vague phrase encountered - use "some" instead
-              existing.originalPhrase = 'some'
+              existing.originalPhrase = MIXED_VAGUE_PHRASE
             }
           }
         } else {
@@ -153,9 +160,10 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
             neededDisplayQuantity: formatShoppingQuantity(
               neededInfo.quantity,
               item.ingredient.defaultUnit,
-              household.locale as Locale,
+              locale,
               neededInfo.isVague,
               neededInfo.originalPhrase,
+              tVague,
             ),
             windowDays: days,
             // The formatter swaps in the phrase only when there is one, so a

@@ -128,6 +128,28 @@ export const WithVague: Story = {
   },
 }
 
+const componentsWithKnownVague = [
+  componentsWithVague[0]!,
+  { ...componentsWithVague[1]!, originalPhrase: 'to taste' },
+]
+
+export const WithVagueEstonian: Story = {
+  name: 'With vague (Estonian)',
+  globals: { locale: 'et' },
+  args: { components: componentsWithKnownVague },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A phrase from the vocabulary renders through `enums.VaguePhrase` ("maitse järgi"); `WithVague` shows a phrase outside it ("a generous drizzle") passing through unchanged (HON-917).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('maitse järgi')).toBeVisible()
+  },
+}
+
 export const WithDuplicates: Story = {
   args: {
     components: componentsWithDuplicates,

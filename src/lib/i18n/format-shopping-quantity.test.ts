@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { formatShoppingQuantity } from './format-shopping-quantity'
+import type { Unit } from '@/generated/prisma/enums'
+import enMessages from '../../../messages/en.json'
+import etMessages from '../../../messages/et.json'
+import { formatShoppingQuantity as format } from './format-shopping-quantity'
+import type { Locale } from './locales'
+import type { VaguePhraseKey } from './vague-phrase'
+
+const vagueLabels = { en: enMessages.enums.VaguePhrase, et: etMessages.enums.VaguePhrase }
+
+/** Formats with the locale's own `enums.VaguePhrase` labels, as the server callers do. */
+function formatShoppingQuantity(
+  quantity: number,
+  unit: Unit,
+  locale: Locale,
+  isVague = false,
+  originalPhrase: string | null = null,
+) {
+  const tVague = (key: VaguePhraseKey) => vagueLabels[locale][key]
+  return format(quantity, unit, locale, isVague, originalPhrase, tVague)
+}
 
 describe('formatShoppingQuantity', () => {
   describe('grams', () => {
@@ -74,9 +93,15 @@ describe('formatShoppingQuantity', () => {
   })
 
   describe('vague quantities', () => {
-    it('returns the original phrase unchanged when vague', () => {
+    it('renders a known phrase in the locale (HON-917)', () => {
       expect(formatShoppingQuantity(5, 'g', 'en', true, 'to taste')).toBe('to taste')
+      expect(formatShoppingQuantity(5, 'g', 'et', true, 'to taste')).toBe('maitse järgi')
+      expect(formatShoppingQuantity(5, 'g', 'et', true, 'some')).toBe('veidi')
+    })
+
+    it('renders a phrase outside the vocabulary verbatim', () => {
       expect(formatShoppingQuantity(5, 'g', 'et', true, 'maitse järgi')).toBe('maitse järgi')
+      expect(formatShoppingQuantity(5, 'g', 'en', true, 'a smidgen')).toBe('a smidgen')
     })
 
     it('formats normally when isVague is true but originalPhrase is missing', () => {

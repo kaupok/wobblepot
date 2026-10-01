@@ -51,9 +51,23 @@ vi.mock('@/lib/i18n/get-locale', () => ({
 import { getLocale } from '@/lib/i18n/get-locale'
 const mockGetLocale = vi.mocked(getLocale)
 
-vi.mock('next-intl/server', () => ({
-  getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
-}))
+// Vague phrases resolve against the real English catalog so the test sees the
+// rendered label; every other namespace returns the key.
+vi.mock('next-intl/server', async () => {
+  const { createTranslator } = await vi.importActual<typeof import('next-intl')>('next-intl')
+  const enMessages = (await import('../../../../../../messages/en.json')).default
+  return {
+    getTranslations: vi.fn(async (namespace: string) =>
+      namespace === 'enums.VaguePhrase'
+        ? createTranslator({
+            locale: 'en',
+            messages: enMessages as never,
+            namespace: namespace as never,
+          })
+        : (key: string) => key,
+    ),
+  }
+})
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'

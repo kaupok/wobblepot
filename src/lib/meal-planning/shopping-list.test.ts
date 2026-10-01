@@ -1081,9 +1081,16 @@ describe('computeRollingWindowShoppingList', () => {
     const item = result.groups[0]!.items[0]!
 
     expect(item.shoppingQuantity).toBe(8)
-    expect(formatShoppingQuantity(item.shoppingQuantity, item.ingredient.defaultUnit, 'en')).toBe(
-      '8',
-    )
+    expect(
+      formatShoppingQuantity(
+        item.shoppingQuantity,
+        item.ingredient.defaultUnit,
+        'en',
+        item.isVague,
+        item.originalPhrase,
+        (key) => key,
+      ),
+    ).toBe('8')
   })
 
   it('falls back to default household size when no members exist', async () => {
@@ -1322,5 +1329,57 @@ describe('computeRollingWindowShoppingList', () => {
     expect(item.isVague).toBe(true)
     // Two different vague phrases → collapse to "some"
     expect(item.originalPhrase).toBe('some')
+  })
+
+  it('keeps the phrase when the meals spell it with and without an article (HON-917)', async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({
+        mealId: 'meal-a',
+        date: new Date('2026-01-20'),
+        components: [
+          {
+            ingredientId: 'ing-spice',
+            quantityPerServing: 2,
+            isVague: true,
+            originalPhrase: 'a pinch',
+            ingredient: {
+              id: 'ing-spice',
+              name: 'Paprika',
+              category: 'spice' as IngredientCategory,
+              defaultUnit: 'g' as Unit,
+              gramsPerPiece: null,
+            },
+          },
+        ],
+      }),
+      rollingEntry({
+        mealId: 'meal-b',
+        date: new Date('2026-01-21'),
+        components: [
+          {
+            ingredientId: 'ing-spice',
+            quantityPerServing: 2,
+            isVague: true,
+            originalPhrase: 'pinch',
+            ingredient: {
+              id: 'ing-spice',
+              name: 'Paprika',
+              category: 'spice' as IngredientCategory,
+              defaultUnit: 'g' as Unit,
+              gramsPerPiece: null,
+            },
+          },
+        ],
+      }),
+    ] as never)
+    mockCountMembers.mockResolvedValue(2)
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    const item = result.groups[0]!.items[0]!
+    expect(item.isVague).toBe(true)
+    // "a pinch" and "pinch" render the same label, so they do not collapse to "some"
+    expect(item.originalPhrase).toBe('a pinch')
   })
 })

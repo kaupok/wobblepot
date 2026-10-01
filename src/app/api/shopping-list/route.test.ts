@@ -43,9 +43,24 @@ vi.mock('@/lib/i18n/get-locale', () => ({
 import { getLocale } from '@/lib/i18n/get-locale'
 const mockGetLocale = vi.mocked(getLocale)
 
-vi.mock('next-intl/server', () => ({
-  getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
-}))
+// Vague phrases resolve against the real catalog of the requested locale so the
+// test sees the rendered label; every other namespace returns the key.
+vi.mock('next-intl/server', async () => {
+  const { createTranslator } = await vi.importActual<typeof import('next-intl')>('next-intl')
+  const enMessages = (await import('../../../../messages/en.json')).default
+  const etMessages = (await import('../../../../messages/et.json')).default
+  return {
+    getTranslations: vi.fn(async ({ locale, namespace }: { locale: string; namespace: string }) =>
+      namespace === 'enums.VaguePhrase'
+        ? createTranslator({
+            locale,
+            messages: (locale === 'et' ? etMessages : enMessages) as never,
+            namespace: namespace as never,
+          })
+        : (key: string) => key,
+    ),
+  }
+})
 
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -467,6 +482,51 @@ describe('GET /api/shopping-list', () => {
     const etResponse = await GET(createMockRequest())
     const etData = await etResponse.json()
     expect(etData.groups[0].items[0].displayQuantity).toBe('1,5kg')
+  })
+
+  it('renders a vague phrase in the request locale (HON-917)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockPantryFindMany.mockResolvedValue([])
+    mockGetLocale.mockResolvedValue('et')
+    mockComputeShoppingList.mockResolvedValue({
+      groups: [
+        {
+          category: 'spice' as const,
+          categoryLabel: 'Spices',
+          items: [
+            {
+              ingredientId: 'ing-salt',
+              ingredient: {
+                id: 'ing-salt',
+                name: 'Sool',
+                category: 'spice' as const,
+                defaultUnit: 'g' as const,
+                gramsPerPiece: null,
+              },
+              neededQuantity: 4,
+              pantryQuantity: null,
+              shoppingQuantity: 4,
+              mealCount: 2,
+              earliestNeededDate: new Date('2026-02-01'),
+              isVague: true,
+              originalPhrase: 'to taste',
+            },
+          ],
+        },
+      ],
+      startDate: '2026-01-31',
+      endDate: '2026-02-06',
+      windowDays: 7 as const,
+      earliestPlanCreatedAt: null,
+      hasAnyPlan: true,
+    })
+
+    const response = await GET(createMockRequest())
+    const data = await response.json()
+
+    expect(data.groups[0].items[0].displayQuantity).toBe('maitse järgi')
+    expect(data.groups[0].items[0].isVague).toBe(true)
   })
 
   it('returns 500 when computation fails', async () => {

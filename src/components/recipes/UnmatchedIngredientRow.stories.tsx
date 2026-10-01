@@ -54,6 +54,25 @@ export const Vague: Story = {
   },
 }
 
+export const VagueEstonian: Story = {
+  name: 'Vague (Estonian)',
+  globals: { locale: 'et' },
+  args: {
+    data: createUnmatchedIngredientRowData({ isVague: true, originalPhrase: 'to taste' }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The stored English phrase renders through `enums.VaguePhrase`, so an Estonian household reads "maitse järgi" (HON-917).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('maitse järgi')).toBeVisible()
+  },
+}
+
 export const Disabled: Story = {
   args: { disabled: true },
 }

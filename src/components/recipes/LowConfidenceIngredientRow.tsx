@@ -14,6 +14,7 @@ import {
 import { formatUnit } from '@/components/household/meal-form-types'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
+import { useVaguePhrase } from '@/lib/i18n/enum-label'
 import { QuantityControls } from './QuantityControls'
 import type { LowConfidenceIngredientData, IngredientRowData } from './IngredientRow'
 
@@ -42,6 +43,7 @@ export function LowConfidenceIngredientRow({
 }: LowConfidenceIngredientRowProps) {
   const locale = useLocale() as Locale
   const t = useTranslations('recipes.ingredientRow')
+  const vaguePhrase = useVaguePhrase()
   const perServing = formatQuantity(data.totalQuantity / servings, locale, {
     maximumFractionDigits: 1,
   })
@@ -92,7 +94,7 @@ export function LowConfidenceIngredientRow({
               )}
               <Body variant="muted">
                 {data.isVague && data.originalPhrase ? (
-                  <span className="italic">{data.originalPhrase}</span>
+                  <span className="italic">{vaguePhrase(data.originalPhrase)}</span>
                 ) : isInvalidQuantity ? (
                   <span className="text-destructive">{t('invalidQuantity')}</span>
                 ) : (

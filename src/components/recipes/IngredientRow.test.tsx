@@ -63,4 +63,17 @@ describe('IngredientRow per-serving formatting', () => {
     )
     expect(screen.getByText(/1\.5g per serving/)).toBeInTheDocument()
   })
+
+  it('renders a vague phrase in the household language (HON-917)', () => {
+    renderInLocale(
+      <IngredientRow
+        data={{ ...matched, isVague: true, originalPhrase: 'a pinch' }}
+        servings={4}
+        onUpdate={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+      'et',
+    )
+    expect(screen.getByText('näputäis')).toBeInTheDocument()
+  })
 })

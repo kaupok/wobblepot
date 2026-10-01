@@ -533,6 +533,7 @@
       "originalLabel": "Original: {text}",
       "searchPlaceholder": "Search ingredients…",
       "searchAria": "Find a match for {name}",
+      "unknownName": "Unknown ingredient",
       "noResults": "No ingredients found",
       "drop": "Drop",
       "verifyMatch": "Verify match:",
@@ -1145,6 +1146,20 @@
       "planned": "Planned",
       "completed": "Completed",
       "skipped": "Skipped"
+    },
+    "VaguePhrase": {
+      "toTaste": "to taste",
+      "pinch": "a pinch",
+      "dash": "a dash",
+      "splash": "a splash",
+      "drizzle": "a drizzle",
+      "handful": "a handful",
+      "some": "some",
+      "forGarnish": "for garnish",
+      "optional": "optional",
+      "asNeeded": "as needed",
+      "bit": "a bit",
+      "little": "a little"
     }
   }
 }

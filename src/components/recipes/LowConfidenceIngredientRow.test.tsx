@@ -68,4 +68,21 @@ describe('LowConfidenceIngredientRow per-serving formatting', () => {
     )
     expect(screen.getByText(/1,5g portsjoni kohta/)).toBeInTheDocument()
   })
+
+  it('renders a vague phrase in the household language (HON-917)', () => {
+    renderInLocale(
+      <LowConfidenceIngredientRow
+        data={{ ...lowConfidence, isVague: true, originalPhrase: 'to taste' }}
+        servings={4}
+        disabled={false}
+        onUpdate={vi.fn()}
+        onRemove={vi.fn()}
+        onQuantityChange={vi.fn()}
+        onSetQuantity={vi.fn()}
+        onMarkAsVague={vi.fn()}
+      />,
+      'et',
+    )
+    expect(screen.getByText('maitse järgi')).toBeInTheDocument()
+  })
 })

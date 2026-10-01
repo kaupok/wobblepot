@@ -1,5 +1,10 @@
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
-import { getVagueDefault, checkGuardrail, type VagueQuantityResult } from '@/lib/vague-quantities'
+import {
+  getVagueDefault,
+  checkGuardrail,
+  MIXED_VAGUE_PHRASE,
+  type VagueQuantityResult,
+} from '@/lib/vague-quantities'
 import { applyIngredientAlias } from '@/lib/ingredient-aliases'
 import { normalizeIngredientName, extractLastWord } from '@/lib/normalize-ingredient'
 import type { ExtractedIngredient } from './recipe-schema'
@@ -252,7 +257,7 @@ export async function matchIngredients(
         // Shouldn't happen, but fallback
         convertedQuantity = 10 * servings
         isVague = true
-        originalPhrase = 'some'
+        originalPhrase = MIXED_VAGUE_PHRASE
       }
 
       results.push({
