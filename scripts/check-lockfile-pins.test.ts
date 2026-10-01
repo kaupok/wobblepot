@@ -266,6 +266,15 @@ describe('findViolations', () => {
     expect(details('  vitest@5.0.3:\n')).toBe('')
   })
 
+  it('fires on a @vitest/mocker GHSA-82fw-gwwq-j7x9 affects, outside the 4.x ban', () => {
+    // The advisory names @vitest/mocker with the same ranges as vitest and
+    // publishes no 3.x fix, so a 3.x mocker is affected.
+    expect(details("  '@vitest/mocker@3.2.4':\n")).toContain('@vitest/mocker@3.2.4')
+    expect(details("  '@vitest/mocker@5.0.0-rc.1':\n")).toContain('@vitest/mocker@5.0.0-rc.1')
+    expect(details("  '@vitest/mocker@5.0.0-rc.2':\n")).toBe('')
+    expect(details("  '@vitest/mocker@5.0.3':\n")).toBe('')
+  })
+
   it('fires on a @vitest/browser inside 4.1.x but below the patched floor', () => {
     // GHSA-p63j-vcc4-9vmv is patched at 4.1.10, so 4.1.5 is affected despite
     // not being on the 4.0.x line the release-line ban covers.

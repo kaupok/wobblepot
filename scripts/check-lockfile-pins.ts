@@ -118,6 +118,12 @@ export const PINS: Pin[] = [
     why: 'The highest patched floor per branch across the three Browser Mode criticals: GHSA-2h32-95rg-cppp (otelCarrier query param served as inline script, < 4.1.6), GHSA-g8mr-85jm-7xhm (exposed Browser Mode API can proxy CDP and overwrite files, <= 4.1.7 and <= 3.2.4) and GHSA-p63j-vcc4-9vmv (provider commands bypass file-access restrictions, < 4.1.10 and < 3.2.7). On the 5.x branch the three patch the betas at 5.0.0-beta.3, 5.0.0-beta.4 and 5.0.0-beta.6, so the floor is beta.6 (added by HON-640, which moved the toolchain to 5.0.3). Named explicitly rather than via the @vitest/* glob, because a glob floor would fire on @vitest/expect@3.2.4, which legitimately resolves from a separate transitive line. @vitest/browser is transitive (via @vitest/browser-playwright), so nothing in package.json pins it.',
   },
   {
+    kind: 'minimum',
+    package: '@vitest/mocker',
+    floors: ['4.1.11', '5.0.0-rc.2'],
+    why: 'GHSA-82fw-gwwq-j7x9 (medium) is filed against @vitest/mocker as well as vitest, with the same ranges: >= 2.1.0 < 4.1.11 and >= 5.0.0-beta.1 < 5.0.0-rc.2. It publishes no 3.x fix, so a 3.x mocker predates every floor and reads as affected — unlike @vitest/expect@3.2.4, which no advisory names. Named explicitly because the @vitest/* ban below covers only the 4.x line, so a 3.x mocker or an affected 5.0.0 prerelease would otherwise pass. Added by HON-640.',
+  },
+  {
     kind: 'banned',
     package: '@vitest/*',
     version: '4.',
