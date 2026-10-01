@@ -698,9 +698,22 @@ describe('main', () => {
       expect(code).toBe(0)
       const text = out.join('\n')
       expect(text).toContain('Baseline: golden, read from file — no calls.')
-      // 4 cases × 3 runs, one model.
-      expect(text).toContain('Total calls: 12')
-      expect(text).toMatch(/ {2}claude-sonnet-5: 12 calls/)
+      // 4 cases × the golden's 2 runs, one model.
+      expect(text).toContain('runs: 2')
+      expect(text).toContain('Total calls: 8')
+      expect(text).toMatch(/ {2}claude-sonnet-5: 8 calls/)
+    })
+
+    it('refuses more candidate runs than the golden has, which the judge could never pair', async () => {
+      await recordImagineAndTips()
+      const code = await main(
+        [...COMPARE, '--task', 'imagine,tips', '--runs', '3', '--dry-run'],
+        deps,
+      )
+      expect(code).toBe(1)
+      expect(err.join('\n')).toContain(
+        '--runs 3 is more than the golden has for imagine (2), tips (2)',
+      )
     })
   })
 

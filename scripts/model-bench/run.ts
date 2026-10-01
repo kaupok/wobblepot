@@ -226,6 +226,8 @@ function parseCli(argv: string[]) {
   const judge: Judge = values['judge-api'] ? 'api' : values.judge ? 'claude-code' : false
   return {
     mode: 'bench' as const,
+    /** Under `--baseline golden`, an omitted `--runs` takes the golden's count. */
+    runsGiven: values.runs !== undefined,
     baseline: values.baseline!,
     candidate: values.candidate!,
     judge,
@@ -588,10 +590,25 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   }
   const golden = goldens?.map((g) => compareGolden(g, allCases))
 
+  // A candidate run past the golden's count has no baseline run to pair with:
+  // the judge would drop it after it was paid for.
+  let runs = args.runs
+  if (goldens) {
+    const goldenRuns = Math.min(...goldens.map((g) => g.runs))
+    if (!args.runsGiven) runs = goldenRuns
+    else if (runs > goldenRuns) {
+      const short = goldens.filter((g) => g.runs < runs).map((g) => `${g.task} (${g.runs})`)
+      error(
+        `--runs ${runs} is more than the golden has for ${short.join(', ')}: the extra candidate runs would have no baseline to compare or judge against. Pass --runs ${goldenRuns} or fewer, or leave --runs out to match the golden.`,
+      )
+      return 1
+    }
+  }
+
   if (args.dryRun) {
     const estimate = estimateRun({
       cases,
-      runs: args.runs,
+      runs: runs,
       models: fromGolden ? [args.candidate] : [args.baseline, args.candidate],
       judge: args.judge === 'api',
     })
@@ -601,7 +618,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
       const missing = golden.flatMap((g) => g.notInGolden)
       if (missing.length > 0) log(`Not in golden, skipped: ${missing.join(', ')}`)
     }
-    log(`Cases: ${estimate.caseCount} (${args.tasks.join(', ')}), runs: ${args.runs}`)
+    log(`Cases: ${estimate.caseCount} (${args.tasks.join(', ')}), runs: ${runs}`)
     log(`Total calls: ${estimate.totalCalls}`)
     const models = [
       ...estimate.perModel.map((m) => ({ ...m, label: m.model })),
@@ -609,7 +626,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     ]
     for (const m of models) log(`  ${m.label}: ${describeEstimate(m)}`)
     if (args.judge === 'claude-code') {
-      const pairs = cases.filter((c) => isJudgedTask(c.task)).length * args.runs
+      const pairs = cases.filter((c) => isJudgedTask(c.task)).length * runs
       log(
         `  judge: ${pairs} pairs, ${pairs * 2} prompts, exported for Claude Code (/bench-judge) — no API cost`,
       )
@@ -630,12 +647,12 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     log(
       `[${p.done}/${p.planned}] ${r.caseId} run ${r.run} ${r.model}: ${(r.latencyMs / 1000).toFixed(1)}s ${r.errorName ?? r.finishReason ?? ''} $${r.costUsd.toFixed(4)} (total $${p.spendUsd.toFixed(2)})`,
     )
-  const common = { cases, runs: args.runs, maxUsd: args.maxUsd, modelFactory, onCall }
+  const common = { cases, runs: runs, maxUsd: args.maxUsd, modelFactory, onCall }
 
   let result
   if (goldens) {
     log(
-      `Benchmarking golden vs ${args.candidate}: ${cases.length} cases × ${args.runs} runs, candidate only, cap $${args.maxUsd}`,
+      `Benchmarking golden vs ${args.candidate}: ${cases.length} cases × ${runs} runs, candidate only, cap $${args.maxUsd}`,
     )
     result = await runAgainstGolden({
       ...common,
@@ -644,7 +661,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     })
   } else {
     log(
-      `Benchmarking ${args.baseline} vs ${args.candidate}: ${cases.length} cases × ${args.runs} runs × 2 models, cap $${args.maxUsd}`,
+      `Benchmarking ${args.baseline} vs ${args.candidate}: ${cases.length} cases × ${runs} runs × 2 models, cap $${args.maxUsd}`,
     )
     result = await runBenchmark({ ...common, baseline: args.baseline, candidate: args.candidate })
   }
@@ -676,7 +693,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     golden,
     baseline: args.baseline,
     candidate: args.candidate,
-    runs: args.runs,
+    runs: runs,
     maxUsd: args.maxUsd,
     tasks: args.tasks,
     date: localDateString((deps.today ?? (() => new Date()))()),
