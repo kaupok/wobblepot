@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
 import { translateMatchResults } from '@/lib/ai/translate-match-results'
-import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
 import { RecipeParseError } from '@/lib/ai/recipe-errors'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
@@ -25,18 +25,6 @@ import {
   RECIPE_PARSE_AFTER_URL_FETCH_AI_BUDGET_MS,
   RECIPE_PARSE_AI_BUDGET_MS,
 } from '@/lib/ai/budgets'
-
-/**
- * Resolve the locale the recipe parser runs in. The `FEATURE_RECIPE_PARSER_ET`
- * gate (HON-502) held Estonian parsing back until HON-506 seeded Estonian
- * ingredient translations; with that data landed the gate is retired and the
- * household locale threads straight through. Every `KNOWN_LOCALES` value now
- * has translation coverage, so the matcher resolves Estonian ingredient names
- * directly instead of creating household-scoped duplicates.
- */
-function resolveParserLocale(householdLocale: string): string {
-  return householdLocale
-}
 
 /**
  * Failure body for this route: English prose for logs and Sentry breadcrumbs,
@@ -176,7 +164,12 @@ async function handlePOST(request: Request) {
         : fetchedContent
     }
 
-    const parserLocale = resolveParserLocale(membership.household.locale)
+    // The parser runs in the household's resolved locale. The
+    // `FEATURE_RECIPE_PARSER_ET` gate (HON-502) is retired since HON-506 seeded
+    // Estonian ingredient translations: every `KNOWN_LOCALES` value has
+    // translation coverage. Resolving rather than threading the raw value means
+    // a locale rolled back out of `KNOWN_LOCALES` parses in English (HON-921).
+    const parserLocale = resolveHouseholdLocale(membership.household)
 
     const result = await parseAndMatchRecipe(
       recipeText,
@@ -198,10 +191,7 @@ async function handlePOST(request: Request) {
 
     // The review rows render `ingredient.name` and the alternatives' names, and
     // the matcher returns the English ones (HON-913).
-    const ingredients = await translateMatchResults(
-      result.ingredients,
-      resolveLocale({ householdLocale: membership.household.locale }),
-    )
+    const ingredients = await translateMatchResults(result.ingredients, parserLocale)
 
     return NextResponse.json({
       success: true,

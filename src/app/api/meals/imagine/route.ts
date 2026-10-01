@@ -11,7 +11,7 @@ import {
 } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { translateMatchResults } from '@/lib/ai/translate-match-results'
-import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { imaginedIngredientText } from '@/lib/ai/imagine-request'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
@@ -97,6 +97,9 @@ async function handlePOST(request: Request) {
   }
 
   const { household } = membership
+  // Resolved once: a locale rolled back out of KNOWN_LOCALES reads as English
+  // for content and the AI prompt alike (HON-921).
+  const locale = resolveHouseholdLocale(household)
 
   const rateLimitResult = await checkRateLimit(household.id, 'meal-imagination')
   if (!rateLimitResult.allowed) {
@@ -224,7 +227,7 @@ async function handlePOST(request: Request) {
         restrictions: (preferences?.restrictions ?? []) as string[],
         householdSize,
       },
-      household.locale,
+      locale,
       images.length > 0 ? images : undefined,
       (usage) => recordAiUsage({ householdId: household.id, feature: 'meal_imagine', ...usage }),
       AbortSignal.timeout(IMAGINE_AI_BUDGET_MS),
@@ -245,7 +248,7 @@ async function handlePOST(request: Request) {
             name: ing.name,
             quantity: ing.quantity,
             unit: ing.unit,
-            originalText: imaginedIngredientText({ ...ing, vaguePhrase }, household.locale),
+            originalText: imaginedIngredientText({ ...ing, vaguePhrase }, locale),
             isVague,
             vaguePhrase,
             isDried: ing.isDried,
@@ -258,9 +261,9 @@ async function handlePOST(request: Request) {
         const matchResults = await translateMatchResults(
           await matchIngredients(extractedIngredients, meal.servings, {
             householdId: household.id,
-            locale: household.locale,
+            locale,
           }),
-          resolveLocale({ householdLocale: household.locale }),
+          locale,
         )
 
         // Collect matched ingredient IDs to fetch nutrition data

@@ -68,7 +68,6 @@ vi.mock('@/components/timeline', () => ({
 vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn() }))
 vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
-vi.mock('@/lib/i18n/get-locale', () => ({ getLocale: vi.fn(async () => 'en') }))
 
 // Nothing on this page may call back into our own API over HTTP (HON-789).
 const mockFetch = vi.fn()
@@ -446,7 +445,7 @@ describe('Home page component', () => {
     await Home()
 
     expect(vi.mocked(loadPantry).mock.calls[0]?.[0]).toMatchObject({ id: 'household-123' })
-    expect(vi.mocked(loadShoppingList).mock.calls[0]?.[1]).toEqual({ days: 7, locale: 'en' })
+    expect(vi.mocked(loadShoppingList).mock.calls[0]?.[1]).toEqual({ days: 7 })
   })
 
   it('maps pantry items and shopping items onto the timeline props', async () => {

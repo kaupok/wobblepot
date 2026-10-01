@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -138,6 +138,7 @@ export function HouseholdSettingsForm({
   const t = useTranslations('household')
   const tSettings = useTranslations('household.settings')
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   // Basic info state
   const [name, setName] = useState(household.name)
@@ -215,10 +216,17 @@ export function HouseholdSettingsForm({
     },
     onSuccess: () => {
       toast.success(tSettings('savedToast'))
+      // A locale change reaches every entity's names (recipes, the meal
+      // selector, `/api/meals`, tips), and query results already in the browser
+      // would keep the old language until `staleTime` expires. The locale
+      // touches the whole cache, so invalidate all of it (HON-921).
+      if (locale !== household.locale) {
+        void queryClient.invalidateQueries()
+      }
       // Re-render the server tree so NextIntlClientProvider / `<html lang>` /
       // server-rendered header pick up a changed household.locale without a
-      // manual reload. (Not TanStack cache invalidation — this is SSR content
-      // tied to the DB row.)
+      // manual reload. That is SSR content tied to the DB row, which the
+      // invalidation above does not reach.
       router.refresh()
     },
     onError: (err) => {

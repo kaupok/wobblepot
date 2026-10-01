@@ -9,7 +9,7 @@ import { Heading } from '@/components/ui/typography'
 import { HouseholdSettingsForm } from './household/HouseholdSettingsForm'
 import { MemberList } from '@/components/household/MemberList'
 import { MEMBERS_QUERY_KEY, type MembersResponse } from '@/components/household/members-query'
-import { DEFAULT_LOCALE, isKnownLocale } from '@/lib/i18n/locales'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 export default async function HouseholdPage() {
   const session = await auth.api.getSession({
@@ -63,7 +63,7 @@ export default async function HouseholdPage() {
                 id: household.id,
                 name: household.name,
                 timezone: household.timezone,
-                locale: isKnownLocale(household.locale) ? household.locale : DEFAULT_LOCALE,
+                locale: resolveHouseholdLocale(household),
               }}
               preferences={
                 household.preferences

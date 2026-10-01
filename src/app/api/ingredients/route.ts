@@ -7,7 +7,7 @@ import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
 import { ingredientNameMatchSql } from '@/lib/i18n/ingredient-search-sql'
-import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 50
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     // Match and return the name the household sees on screen, not only the
     // English one (HON-911). The household's locale, never Accept-Language.
-    const locale = resolveLocale({ householdLocale: membership?.household.locale })
+    const locale = resolveHouseholdLocale(membership?.household)
     const match = ingredientNameMatchSql(search, locale)
 
     const ingredients = await prisma.$queryRaw<IngredientSearchResult[]>`

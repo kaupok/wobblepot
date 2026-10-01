@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { HOUSEHOLD_MEALS_DEFAULT_LIMIT, listHouseholdMeals } from '@/lib/household-meals'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { captureApiError } from '@/lib/errors'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     const page = await listHouseholdMeals({
       householdId: membership.household.id,
-      locale: membership.household.locale,
+      locale: resolveHouseholdLocale(membership.household),
       search,
       cursor,
       limit,

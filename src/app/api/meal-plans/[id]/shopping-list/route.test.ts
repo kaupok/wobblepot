@@ -44,6 +44,8 @@ vi.mock('@/lib/i18n/format-dates', () => ({
   calendarDaysBetween: vi.fn(() => 1),
 }))
 
+// Mocked only to prove the route never calls it: the locale comes from the
+// household already in hand (HON-921).
 vi.mock('@/lib/i18n/get-locale', () => ({
   getLocale: vi.fn(() => Promise.resolve('en')),
 }))
@@ -51,17 +53,18 @@ vi.mock('@/lib/i18n/get-locale', () => ({
 import { getLocale } from '@/lib/i18n/get-locale'
 const mockGetLocale = vi.mocked(getLocale)
 
-// Vague phrases resolve against the real English catalog so the test sees the
-// rendered label; every other namespace returns the key.
+// Vague phrases resolve against the real catalog of the requested locale so the
+// test sees the rendered label; every other namespace returns the key.
 vi.mock('next-intl/server', async () => {
   const { createTranslator } = await vi.importActual<typeof import('next-intl')>('next-intl')
   const enMessages = (await import('../../../../../../messages/en.json')).default
+  const etMessages = (await import('../../../../../../messages/et.json')).default
   return {
-    getTranslations: vi.fn(async (namespace: string) =>
+    getTranslations: vi.fn(async ({ locale, namespace }: { locale: string; namespace: string }) =>
       namespace === 'enums.VaguePhrase'
         ? createTranslator({
-            locale: 'en',
-            messages: enMessages as never,
+            locale,
+            messages: (locale === 'et' ? etMessages : enMessages) as never,
             namespace: namespace as never,
           })
         : (key: string) => key,
@@ -73,6 +76,7 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { computeShoppingList } from '@/lib/meal-planning/shopping-list'
+import { getTranslations } from 'next-intl/server'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -109,8 +113,6 @@ const mockPlan = {
 describe('GET /api/meal-plans/[id]/shopping-list', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Default locale (per-test overrides allowed)
-    mockGetLocale.mockResolvedValue('en')
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -445,43 +447,70 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
     expect(data.groups[0].items[0].displayQuantity).toBe('2kg')
   })
 
-  it('uses comma decimal separator in et locale for fractional kg', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindUnique.mockResolvedValue(mockPlan as never)
-    mockGetLocale.mockResolvedValue('et')
+  it.each([
+    // An et household → comma decimal and Estonian names
+    { householdLocale: 'et', locale: 'et', expected: '1,5kg' },
+    // A locale rolled back out of KNOWN_LOCALES → English throughout
+    { householdLocale: 'xx', locale: 'en', expected: '1.5kg' },
+  ])(
+    'resolves the $householdLocale household to $locale once for names, quantities and dates',
+    async ({ householdLocale, locale, expected }) => {
+      mockGetSession.mockResolvedValue(mockSession)
+      mockGetMembership.mockResolvedValue({
+        ...(mockMembership as object),
+        household: {
+          id: 'household-123',
+          name: 'Test',
+          timezone: 'Europe/Tallinn',
+          locale: householdLocale,
+          preferences: null,
+        },
+      } as never)
+      mockFindUnique.mockResolvedValue(mockPlan as never)
+      mockComputeShoppingList.mockResolvedValue(fractionalKgList() as never)
+      mockFindManyPantry.mockResolvedValue([])
 
-    mockComputeShoppingList.mockResolvedValue([
-      {
-        category: 'carb',
-        categoryLabel: 'Carbs & grains',
-        items: [
-          {
-            ingredientId: 'ing-rice',
-            ingredient: {
-              id: 'ing-rice',
-              name: 'Rice',
-              category: 'carb',
-              defaultUnit: 'g',
-              gramsPerPiece: null,
-            },
-            neededQuantity: 1500,
-            pantryQuantity: null,
-            shoppingQuantity: 1500,
-            mealCount: 3,
-            earliestNeededDate: new Date('2099-01-27T00:00:00.000Z'),
-            isVague: false,
-            originalPhrase: null,
-          },
-        ],
-      },
-    ] as never)
-    mockFindManyPantry.mockResolvedValue([])
+      const response = await GET(createRequest(), { params: createParams() })
+      const data = await response.json()
 
-    const response = await GET(createRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.groups[0].items[0].displayQuantity).toBe('1,5kg')
-  })
+      expect(response.status).toBe(200)
+      expect(data.groups[0].items[0].displayQuantity).toBe(expected)
+      expect(mockComputeShoppingList).toHaveBeenCalledWith(
+        'plan-123',
+        'household-123',
+        'Europe/Tallinn',
+        locale,
+      )
+      expect(vi.mocked(getTranslations)).toHaveBeenCalledWith({ locale, namespace: 'dates' })
+      expect(mockGetLocale).not.toHaveBeenCalled()
+    },
+  )
 })
+
+function fractionalKgList() {
+  return [
+    {
+      category: 'carb',
+      categoryLabel: 'Carbs & grains',
+      items: [
+        {
+          ingredientId: 'ing-rice',
+          ingredient: {
+            id: 'ing-rice',
+            name: 'Rice',
+            category: 'carb',
+            defaultUnit: 'g',
+            gramsPerPiece: null,
+          },
+          neededQuantity: 1500,
+          pantryQuantity: null,
+          shoppingQuantity: 1500,
+          mealCount: 3,
+          earliestNeededDate: new Date('2099-01-27T00:00:00.000Z'),
+          isVague: false,
+          originalPhrase: null,
+        },
+      ],
+    },
+  ]
+}
