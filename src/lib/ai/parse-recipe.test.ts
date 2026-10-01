@@ -611,6 +611,7 @@ describe('parseAndMatchRecipe', () => {
           defaultUnit: 'g',
           gramsPerPiece: null,
           similarity: 0.95,
+          matchedName: 'spaghetti',
         },
       ])
       .mockResolvedValueOnce([
@@ -622,6 +623,7 @@ describe('parseAndMatchRecipe', () => {
           defaultUnit: 'g',
           gramsPerPiece: null,
           similarity: 0.98,
+          matchedName: 'olive oil',
         },
       ])
 
@@ -685,6 +687,7 @@ describe('parseAndMatchRecipe', () => {
           defaultUnit: 'g',
           gramsPerPiece: null,
           similarity: 0.95,
+          matchedName: 'chicken breast',
         },
       ])
       .mockResolvedValueOnce([]) // "breast" (last word fallback)
@@ -732,6 +735,7 @@ describe('parseAndMatchRecipe', () => {
         defaultUnit: 'g',
         gramsPerPiece: null,
         similarity: 0.85,
+        matchedName: 'kana',
         source: 'translation',
       },
     ])
@@ -797,6 +801,7 @@ describe('parseAndMatchRecipe', () => {
         defaultUnit: 'g',
         gramsPerPiece: null,
         similarity: 0.82,
+        matchedName: 'kartul',
         source: 'translation',
       },
     ])
@@ -858,6 +863,7 @@ describe('parseAndMatchRecipe source URL prepending', () => {
         defaultUnit: 'g',
         gramsPerPiece: null,
         similarity: 1.0,
+        matchedName: 'chicken breast',
       },
     ])
   })

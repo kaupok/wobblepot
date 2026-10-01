@@ -36,6 +36,11 @@ export interface MatchedIngredient {
   isVague: boolean
   /** The original vague phrase if isVague is true */
   originalPhrase?: string
+  /**
+   * The name the match was made on: the translation's name when the match came
+   * through `ingredient_translation`, otherwise `ingredient.name`.
+   */
+  matchedName?: string
   /** Similarity score from trigram matching (0-1) */
   similarityScore: number
   /** True if match confidence is low and needs user disambiguation */
@@ -124,8 +129,9 @@ export async function matchIngredients(
         if (fallbackMatches[0] && fallbackMatches[0].similarity > (matches[0]?.similarity ?? 0)) {
           // Safety: only accept fallback if the last word appears as a complete word
           // in the matched name. Prevents "sausage" → "sage" (substring trigram match)
-          // while allowing "sauce" → "soy sauce" and "bread" → "bread".
-          const matchedWords = new Set(fallbackMatches[0].name.toLowerCase().split(/\s+/))
+          // while allowing "sauce" → "soy sauce" and "bread" → "bread". Compared against
+          // the name the match was made on, so a translation match can pass (HON-912).
+          const matchedWords = new Set(fallbackMatches[0].matchedName.toLowerCase().split(/\s+/))
           if (matchedWords.has(lastWord)) {
             matches = fallbackMatches
           }
@@ -155,7 +161,9 @@ export async function matchIngredients(
 
       // Safety check: if primary nouns differ between extracted and matched name,
       // force low-confidence regardless of trigram score.
-      // e.g., "trout fillet" → "cod fillet": trout ≠ cod → flag for review
+      // e.g., "trout fillet" → "cod fillet": trout ≠ cod → flag for review.
+      // Compares against the name the match was made on, so "must pipar" matched
+      // through its translation is not judged against "black pepper" (HON-912).
       if (!lowConfidence && directName.includes(' ')) {
         const COMMON_SUFFIXES = new Set([
           'fillet',
@@ -169,7 +177,7 @@ export async function matchIngredients(
           'rib',
         ])
         const extractedWords = new Set(directName.split(/\s+/))
-        const matchedWords = new Set(match.name.toLowerCase().split(/\s+/))
+        const matchedWords = new Set(match.matchedName.toLowerCase().split(/\s+/))
 
         const extractedUnique = [...extractedWords].filter(
           (w) => !matchedWords.has(w) && !COMMON_SUFFIXES.has(w),
@@ -269,6 +277,7 @@ export async function matchIngredients(
         quantityWarning,
         isVague,
         originalPhrase,
+        matchedName: match.matchedName,
         similarityScore,
         lowConfidence,
         alternatives,
