@@ -94,6 +94,11 @@ export type EventPayload = {
   'onboarding:household_created': { household_id: string }
   'meal_plan:plan_generated': { plan_id: string }
   'meal_plan:meal_completed': { plan_id: string; meal_id: string; source: Source }
+  /**
+   * The household replaced the meal on a planned entry. Fires from both ways
+   * the selector can do that, told apart by `via` rather than by a new
+   * `Source` value (HON-890).
+   */
   'meal_plan:meal_swapped': {
     plan_id: string
     from_meal_id: string
@@ -107,6 +112,12 @@ export type EventPayload = {
      * funnel with `is_reselect = false` (HON-708).
      */
     is_reselect: boolean
+    /**
+     * How the new meal was chosen. `library`: picked from the alternatives,
+     * search or My recipes list. `imagine`: a meal the AI wrote in the
+     * selector, which also fires `meal:imagined` (HON-890).
+     */
+    via: 'library' | 'imagine'
   }
   'meal_plan:meal_skipped': { plan_id: string; meal_id: string; source: Source }
   'meal:imagined': { meal_id: string; source: Source }

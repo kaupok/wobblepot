@@ -116,6 +116,7 @@ describe('track()', () => {
       to_meal_id: 'm2',
       source: 'meal_selector',
       is_reselect: false,
+      via: 'library',
     })
 
     const props = posthogMock.capture.mock.calls[0]?.[1] as Record<string, unknown>

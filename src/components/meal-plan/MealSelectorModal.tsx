@@ -176,6 +176,7 @@ export function MealSelectorModal({
           to_meal_id: mealId,
           source: 'meal_selector',
           is_reselect: mealId === currentMealId,
+          via: 'library',
         })
       }
 
@@ -203,6 +204,19 @@ export function MealSelectorModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mealId }),
       })
+
+      // Replacing a planned meal with an imagined one is a swap too (HON-890).
+      // The meal was just created, so it can never be the one already planned.
+      if (mode === 'swap' && currentMealId) {
+        void track('meal_plan:meal_swapped', {
+          plan_id: planId,
+          from_meal_id: currentMealId,
+          to_meal_id: mealId,
+          source: 'meal_selector',
+          is_reselect: false,
+          via: 'imagine',
+        })
+      }
 
       setIsImagineMode(false)
       onSwapComplete(mealId)

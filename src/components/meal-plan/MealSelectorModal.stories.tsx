@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { http, HttpResponse } from 'msw'
 import { expect, fn, mocked, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import { track } from '@/lib/analytics'
+import type { ImaginedMealResponse } from '@/lib/imagine-utils'
 import {
   assertFocusInDialog,
   assertTabStaysInDialog,
@@ -211,6 +213,7 @@ export const SwapFiresSwappedEvent: Story = {
       to_meal_id: 'meal-chicken',
       source: 'meal_selector',
       is_reselect: false,
+      via: 'library',
     })
   },
 }
@@ -240,6 +243,131 @@ export const ReselectMarksSwappedEvent: Story = {
       to_meal_id: 'meal-chicken',
       source: 'meal_selector',
       is_reselect: true,
+      via: 'library',
+    })
+  },
+}
+
+const imaginedStew: ImaginedMealResponse = {
+  id: 'im-1',
+  name: 'Smoky red lentil stew',
+  description: 'Generated from your prompt.',
+  timeMinutes: 30,
+  servings: 4,
+  suitableFor: ['dinner'],
+  kidFriendly: true,
+  primaryProteinType: 'legume',
+  components: [
+    {
+      ingredientId: 'ing-lentil',
+      quantityPerServing: 90,
+      ingredient: { id: 'ing-lentil', name: 'Red lentils', category: 'protein', defaultUnit: 'g' },
+    },
+  ],
+  nutrition: { calories: 480, protein: 24, carbs: 62, fat: 12 },
+  // One matched row, so the review dialog has a component to save.
+  ingredients: [
+    {
+      type: 'matched',
+      extractedName: 'red lentils',
+      extractedQuantity: 360,
+      extractedUnit: 'g',
+      originalText: '360 g red lentils',
+      ingredient: {
+        id: 'ing-lentil',
+        name: 'Red lentils',
+        category: 'protein',
+        defaultUnit: 'g',
+        gramsPerPiece: null,
+      },
+      convertedQuantity: 360,
+      isVague: false,
+    },
+  ],
+  allMatched: true,
+}
+
+/**
+ * Imagine answers one meal and the quantity review passes it through. Keyed so
+ * the defaults still serve the save (`POST /api/households/me/meals` →
+ * `new-meal-123`) and the entry PATCH.
+ */
+const imagineHandlers = [
+  http.post('/api/meals/imagine', () =>
+    HttpResponse.json({ success: true, meals: [imaginedStew] }),
+  ),
+  http.post('/api/meals/imagine/review', () =>
+    HttpResponse.json({ success: true, ingredients: [] }),
+  ),
+]
+
+/** Imagines a meal in the selector and saves it, which assigns it to the entry. */
+async function imagineAndSaveMeal() {
+  const body = within(document.body)
+  await body.findByRole('dialog')
+  await userEvent.click(await body.findByRole('button', { name: /imagine a meal/i }))
+  await userEvent.type(await body.findByRole('textbox'), 'something with lentils')
+  await userEvent.click(body.getByRole('button', { name: /imagine meals/i }))
+  await body.findByText('Smoky red lentil stew')
+  await userEvent.click(body.getByRole('button', { name: /^select$/i }))
+  await userEvent.click(await body.findByRole('button', { name: /^save recipe$/i }))
+}
+
+/**
+ * Replacing a planned meal with an imagined one is a swap: it fires
+ * `meal_plan:meal_swapped` with `via: 'imagine'`, alongside `meal:imagined`
+ * (HON-890).
+ */
+export const ImagineSwapFiresSwappedEvent: Story = {
+  args: {
+    mode: 'swap',
+    currentMealName: 'Miso-glazed salmon with rice',
+    currentMealId: 'meal-salmon',
+  },
+  parameters: { msw: { handlers: { imagine: imagineHandlers } } },
+  beforeEach: () => {
+    mocked(track).mockClear()
+  },
+  play: async ({ args }) => {
+    await imagineAndSaveMeal()
+
+    await waitFor(() => expect(args.onSwapComplete).toHaveBeenCalledWith('new-meal-123'))
+    await expect(track).toHaveBeenCalledWith('meal:imagined', {
+      meal_id: 'new-meal-123',
+      source: 'meal_selector',
+    })
+    const swapCalls = mocked(track).mock.calls.filter(([name]) => name === 'meal_plan:meal_swapped')
+    await expect(swapCalls).toEqual([
+      [
+        'meal_plan:meal_swapped',
+        {
+          plan_id: 'plan-1',
+          from_meal_id: 'meal-salmon',
+          to_meal_id: 'new-meal-123',
+          source: 'meal_selector',
+          is_reselect: false,
+          via: 'imagine',
+        },
+      ],
+    ])
+  },
+}
+
+/** Filling an empty slot with an imagined meal is not a swap (HON-890). */
+export const ImagineAddFiresNoSwappedEvent: Story = {
+  args: { mode: 'add' },
+  parameters: { msw: { handlers: { imagine: imagineHandlers } } },
+  beforeEach: () => {
+    mocked(track).mockClear()
+  },
+  play: async ({ args }) => {
+    await imagineAndSaveMeal()
+
+    await waitFor(() => expect(args.onSwapComplete).toHaveBeenCalledWith('new-meal-123'))
+    await expect(track).toHaveBeenCalledTimes(1)
+    await expect(track).toHaveBeenCalledWith('meal:imagined', {
+      meal_id: 'new-meal-123',
+      source: 'meal_selector',
     })
   },
 }
