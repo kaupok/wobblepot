@@ -264,7 +264,9 @@ export function ImagineReviewDialog({
           description: meal.description,
           preparationNotes: meal.preparationNotes ?? null,
           sourceUrl: meal.sourceUrl ?? null,
-          timeMinutes: meal.timeMinutes,
+          // A zero-minute imagined meal shows no badge, and the create route rejects 0
+          // (`.positive()`): send it as unknown so the save matches the render (HON-711).
+          timeMinutes: meal.timeMinutes != null && meal.timeMinutes > 0 ? meal.timeMinutes : null,
           kidFriendly: meal.kidFriendly,
           suitableFor: meal.mealTypes,
           servings: meal.servings,
@@ -347,7 +349,8 @@ export function ImagineReviewDialog({
 
           {/* Meta badges */}
           <div className="flex flex-wrap items-center gap-2">
-            {meal.timeMinutes && (
+            {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711). */}
+            {meal.timeMinutes != null && meal.timeMinutes > 0 && (
               <Badge variant="outline">
                 <Clock className="size-3.5" />
                 {tDetail('timeMinutes', { count: meal.timeMinutes })}

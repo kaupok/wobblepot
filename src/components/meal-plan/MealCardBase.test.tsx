@@ -63,6 +63,23 @@ const mockMeal: MealCardBaseData = {
 }
 
 describe('MealCardBase', () => {
+  describe('prep time', () => {
+    it('shows the badge for a known prep time', () => {
+      render(<MealCardBase meal={{ ...mockMeal, timeMinutes: 25 }} />)
+
+      expect(screen.getByText(/25/)).toBeInTheDocument()
+    })
+
+    it('renders a zero-minute meal exactly like one with no prep time, with no stray "0" (HON-711)', () => {
+      const zero = render(<MealCardBase meal={{ ...mockMeal, timeMinutes: 0 }} />)
+      const zeroHtml = zero.container.innerHTML
+      zero.unmount()
+      const unknown = render(<MealCardBase meal={{ ...mockMeal, timeMinutes: null }} />)
+
+      expect(zeroHtml).toBe(unknown.container.innerHTML)
+    })
+  })
+
   describe('meal name', () => {
     it('renders at the Section size, never the Title size (HON-784)', () => {
       render(<MealCardBase meal={mockMeal} />)

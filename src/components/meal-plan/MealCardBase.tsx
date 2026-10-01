@@ -134,7 +134,9 @@ export function MealCardBase({
 
       {/* 4. Prep time — a `surface` badge, the page background on the tint:
           the time is a fact about cooking, not the meal's own colour. */}
-      {meal.timeMinutes && (
+      {/* `> 0`, not truthiness: `0 && …` renders a stray "0", and a zero-minute meal
+          has no prep time worth a badge (HON-711). */}
+      {meal.timeMinutes != null && meal.timeMinutes > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="surface">
             <Clock aria-hidden="true" />

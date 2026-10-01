@@ -140,6 +140,26 @@ describe('scoreCandidate', () => {
       expect(outside).toBe(0)
     })
 
+    it('treats a zero-minute prep time as a real value, not an unknown one (HON-711)', () => {
+      const prepScore = (timeMinutes: number | null, currentTimeMinutes: number | null) =>
+        scoreCandidate(meal('m'), SIMILARITY_WEIGHTS, { timeMinutes, currentTimeMinutes })
+
+      expect(prepScore(0, 0)).toBe(SIMILARITY_WEIGHTS.similarPrepTime)
+      expect(prepScore(0, 10)).toBe(SIMILARITY_WEIGHTS.similarPrepTime)
+      expect(prepScore(10, 0)).toBe(SIMILARITY_WEIGHTS.similarPrepTime)
+      expect(prepScore(0, SIMILAR_PREP_TIME_MINUTES + 1)).toBe(0)
+    })
+
+    it('scores an unknown prep time on either side as no signal', () => {
+      const prepScore = (timeMinutes: number | null, currentTimeMinutes: number | null) =>
+        scoreCandidate(meal('m'), SIMILARITY_WEIGHTS, { timeMinutes, currentTimeMinutes })
+
+      expect(prepScore(null, 0)).toBe(0)
+      expect(prepScore(0, null)).toBe(0)
+      expect(prepScore(null, null)).toBe(0)
+      expect(scoreCandidate(meal('m'), SIMILARITY_WEIGHTS, { timeMinutes: 0 })).toBe(0)
+    })
+
     it('awards the protein bonus only on a match', () => {
       const match = scoreCandidate(
         meal('m', { primaryProteinType: 'fish' as ProteinType }),
