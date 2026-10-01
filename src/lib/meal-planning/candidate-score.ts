@@ -53,9 +53,9 @@ export const SIMILAR_PREP_TIME_MINUTES = 15
  * one big tie.
  *
  * `sameProteinType` and `similarPrepTime` are 0 because an empty slot holds no meal to resemble.
- * Where the slot does require a protein type, that constraint is already applied upstream as a
- * candidate filter, so every candidate would score it identically — which is equally why the
- * similarity profile's +3 is a no-op on a required-protein slot rather than a thumb on the scale.
+ * Neither swap route filters by protein type, since a swap cannot tell which slots generation
+ * reserved for fish or legumes (HON-892). An empty slot therefore has no protein preference,
+ * and the similarity profile's `sameProteinType` is the only protein signal in a swap.
  */
 export const SLOT_FIT_WEIGHTS: CandidateScoreWeights = {
   isFavorite: 3,
