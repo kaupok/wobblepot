@@ -382,6 +382,7 @@ export function scoreTips(
     const full = output as z.infer<typeof fullTipsSchema>
     const r = TIPS_RANGES.full
     return {
+      answered: 1,
       countsInRange: pass(
         inRange(full.equipment.length, r.equipment) &&
           inRange(full.steps.length, r.steps) &&
@@ -392,6 +393,7 @@ export function scoreTips(
 
   const supplementary = output as z.infer<typeof supplementaryTipsSchema>
   return {
+    answered: 1,
     countsInRange: pass(
       inRange(supplementary.pitfalls.length, TIPS_RANGES.supplementary.pitfalls) &&
         supplementary.tip.trim().length > 0,

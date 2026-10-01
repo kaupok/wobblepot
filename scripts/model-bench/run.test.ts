@@ -363,8 +363,8 @@ describe('main', () => {
       const md = readFileSync(join(outDir, `${CHECK_STEM}.md`), 'utf8')
       expect(md).toContain('# AI eval check: production configuration')
       expect(md).toContain(`Models: tips \`${TIPS_MODEL}\``)
-      expect(md).toContain('| tips | Item counts in range | 100.0% | ≥ 100.0% | pass |')
-      expect(out.join('\n')).toContain('**Pass.** All 2 gates hold.')
+      expect(md).toContain('| tips | Item counts in range | 100.0% | ≥ 90.0% | pass |')
+      expect(out.join('\n')).toContain('**Pass.** All 3 gates hold.')
       const json = JSON.parse(readFileSync(join(outDir, `${CHECK_STEM}.json`), 'utf8'))
       expect(json).toMatchObject({ mode: 'check', model: null, passed: true, plannedCalls: 4 })
       expect(json.calls).toHaveLength(4)
@@ -548,6 +548,52 @@ describe('main', () => {
       expect(await main([...argv, '--force'], { ...deps, modelFactory: factory })).toBe(1)
       expect(readdirSync(goldenDir).sort()).toEqual(['imagine.json', 'tips.json'])
       expect(out.join('\n')).toContain('Recording over failed gates (--force).')
+    })
+
+    it('--record still passes when one tips call returns an item count out of range (HON-929)', async () => {
+      // A fourth pitfall on one supplementary call, as in the first HON-905 record.
+      let supplementaryCalls = 0
+      const { factory, calls } = mockModelFactory((call) => {
+        if (call.promptText.includes('supplementary tips') && ++supplementaryCalls === 3) {
+          return { object: { pitfalls: ['a', 'b', 'c', 'd'], tip: 't' } }
+        }
+        return respond(call)
+      })
+      const code = await main(['--record', '--task', 'tips', '--runs', '6'], {
+        ...deps,
+        modelFactory: factory,
+      })
+
+      expect(code).toBe(0)
+      // 2 tips starter cases × 6 runs; 11 of 12 in range.
+      expect(calls).toHaveLength(12)
+      const md = readFileSync(join(outDir, '2026-10-01-check-production.md'), 'utf8')
+      expect(md).toMatch(
+        /\| tips \| Item counts in range \| 91\.7% \(50\.0%–100\.0%\) \| ≥ 90\.0% \| pass \|/,
+      )
+      expect(readdirSync(goldenDir)).toEqual(['tips.json'])
+    })
+
+    it('--record fails when one tips call errors, though the count gate tolerates a miss (HON-929)', async () => {
+      let supplementaryCalls = 0
+      const { factory } = mockModelFactory((call) => {
+        if (call.promptText.includes('supplementary tips') && ++supplementaryCalls === 3) {
+          throw new TypeError('socket hang up')
+        }
+        return respond(call)
+      })
+      const code = await main(['--record', '--task', 'tips', '--runs', '6'], {
+        ...deps,
+        modelFactory: factory,
+      })
+
+      expect(code).toBe(1)
+      const md = readFileSync(join(outDir, '2026-10-01-check-production.md'), 'utf8')
+      expect(md).toMatch(
+        /\| tips \| Answered without error \| 91\.7% .*\| ≥ 100\.0% \| \*\*fail\*\* \|/,
+      )
+      expect(md).toMatch(/\| tips \| Item counts in range \| 91\.7% .*\| ≥ 90\.0% \| pass \|/)
+      expect(existsSync(goldenDir)).toBe(false)
     })
 
     it('--record never writes a golden from a run --max-usd stopped, even with --force', async () => {

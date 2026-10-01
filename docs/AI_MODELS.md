@@ -42,12 +42,15 @@ A gate holds the metric's mean over all runs, with the run-to-run range shown be
 | review     | Every ID exactly once                                                                                      | 100%                        |
 | review     | Seeded errors corrected                                                                                    | ≥ 70% (measured 80%)        |
 | review     | Correct quantities kept                                                                                    | ≥ 85% (measured 91.7–93.6%) |
-| tips       | Item counts in range                                                                                       | 100%                        |
+| tips       | Answered without error                                                                                     | 100%                        |
+| tips       | Item counts in range                                                                                       | ≥ 90%                       |
 | every task | Max latency                                                                                                | ≤ 80% of the route budget   |
+
+The tips count gate is below 100% because the counts ("2-3 pitfalls", "3-5 pieces of equipment") are a prompt instruction that production does not enforce: the tips schema has no length bound, so a fourth pitfall renders as a fourth item. Over the 24 tips calls (8 cases × 3 runs) it allows 2 answers out of range; a 100% gate failed the first record on one (HON-929). An errored call also scores as a miss on it, so tips errors are gated separately, at 100%, by _answered without error_. Open product question: should the schema reject a fourth pitfall (the route's fallback then applies) or show it? If it rejects, the gate goes back to 100%.
 
 Distinct dinner proteins and the step-count delta have no gate. The gates live on the metric definitions (`gate` in `scripts/model-bench/tasks.ts`).
 
-The first real run (HON-905, 2026-10-01, `results/2026-10-01-check-production.md`) passed all 22 gates on Sonnet 5.5, imagine max latency 25.8s. A first attempt had failed the tips count gate on a single 4-pitfall answer, which is what a 100% gate on a soft "2-3 items" instruction does (HON-929); nothing was forced, the re-run passed. When a gate fails on one call, re-run the whole `--record` once before filing (a failed record writes no golden for any task, so a `--task` re-run would leave the others unrecorded): one miss is a flake, two is a finding.
+The first real run (HON-905, 2026-10-01, `results/2026-10-01-check-production.md`) passed all 22 gates on Sonnet 5.5, imagine max latency 25.8s. A first attempt failed the tips count gate (then 100%) on a single 4-pitfall answer; nothing was forced, the re-run passed, and HON-929 lowered the gate to 90%. When a gate fails on one call, re-run the whole `--record` once before filing (a failed record writes no golden for any task, so a `--task` re-run would leave the others unrecorded): one miss is a flake, two is a finding.
 
 A metric that no case in the set measures, such as recipe recall when only the not-a-recipe case ran, passes as _not measured_. An errored call scores as a failure on the pass/fail checks, as in a comparison. A run that `--max-usd` stops early fails whatever its gates say, because the cases it never reached were not checked.
 

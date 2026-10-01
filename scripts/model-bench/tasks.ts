@@ -361,11 +361,23 @@ const tips: TaskSpec<'tips'> = {
   dryRunOutputTokens: 1_500,
   metrics: [
     {
+      // Always 1 from the scorer and 0 on an errored call, so a tips error
+      // still fails the check now that `countsInRange` tolerates misses.
+      key: 'answered',
+      label: 'Answered without error',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
+    {
       key: 'countsInRange',
       label: 'Item counts in range',
       format: 'percent',
       onError: 0,
-      gate: { min: 1 },
+      // The counts are a soft "2-3 items" prompt instruction that production
+      // does not enforce, so 100% failed a record on one 4-pitfall answer
+      // (HON-929). Over 8 cases × 3 runs this allows 2 misses in 24.
+      gate: { min: 0.9 },
     },
   ],
   prepare({ input }) {
