@@ -14,9 +14,11 @@ const meta = {
   // The fixtures' today; the later-items row counts its days from it.
   args: { todayDate: timelineTodayDate },
   parameters: { layout: 'padded' },
+  // The sidebar's real width (`grid-cols-timeline`'s 320px track), so a label
+  // that would overflow the column overflows here too.
   decorators: [
     (Story) => (
-      <div className="max-w-sm">
+      <div className="w-80">
         <Story />
       </div>
     ),
@@ -51,14 +53,22 @@ async function expectDayGroups(canvasElement: HTMLElement, days: string[]) {
  * The full panel's only link is the row that closes it, named for what is past
  * the cut and leading to the list; the title row is just the name (HON-928).
  */
-async function expectContinuationRow(canvasElement: HTMLElement, name: string) {
+async function expectContinuationRow(
+  canvasElement: HTMLElement,
+  name: string,
+  title = 'Shopping list',
+) {
   const canvas = within(canvasElement)
   const links = canvas.getAllByRole('link')
   await expect(links).toHaveLength(1)
   await expect(links[0]).toHaveAccessibleName(name)
   await expect(links[0]).toHaveAttribute('href', '/shopping')
-  await expect(links[0]?.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
-  await expect(canvas.getByText('Shopping list').parentElement?.querySelector('a')).toBeNull()
+  const box = links[0]?.getBoundingClientRect()
+  await expect(box?.height).toBeGreaterThanOrEqual(44)
+  // The label wraps rather than pushing the chevron out of the link's box.
+  const chevron = links[0]?.querySelector('svg')?.getBoundingClientRect()
+  await expect(chevron?.right).toBeLessThanOrEqual(box?.right ?? Number.NaN)
+  await expect(canvas.getByText(title).parentElement?.querySelector('a')).toBeNull()
 }
 
 // Eight items after tomorrow, the last one needed on day 5 (Sunday the 19th).
@@ -116,9 +126,7 @@ export const PlusMoreEstonian: Story = {
   globals: { locale: 'et' },
   args: PlusMore.args,
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByRole('link')).toHaveAccessibleName('Ja veel 8 järgmise 5 päeva jaoks')
-    await expect(canvas.getByText('Poenimekiri').parentElement?.querySelector('a')).toBeNull()
+    await expectContinuationRow(canvasElement, 'Ja veel 8 järgmise 5 päeva jaoks', 'Poenimekiri')
   },
 }
 
@@ -133,6 +141,19 @@ export const LaterOnly: Story = {
       within(canvasElement).getByText('Nothing on the list for today or tomorrow'),
     ).toBeVisible()
     await expectContinuationRow(canvasElement, '8 items to buy over the next 5 days')
+  },
+}
+
+// The longest label: the Estonian to-buy row wraps inside the 320px column.
+export const LaterOnlyEstonian: Story = {
+  globals: { locale: 'et' },
+  args: LaterOnly.args,
+  play: async ({ canvasElement }) => {
+    await expectContinuationRow(
+      canvasElement,
+      '8 asja osta järgmise 5 päeva jooksul',
+      'Poenimekiri',
+    )
   },
 }
 

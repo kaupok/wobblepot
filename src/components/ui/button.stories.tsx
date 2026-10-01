@@ -202,7 +202,7 @@ export const AllSizes: Story = {
  */
 export const Row: Story = {
   render: () => (
-    <div className="max-w-sm">
+    <div className="w-80">
       <Button variant="quiet" size="row">
         Plus 8 more for the next 5 days
         <ChevronRight aria-hidden />
