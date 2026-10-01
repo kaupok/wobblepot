@@ -183,7 +183,7 @@ Guidelines:
 - Include a mix of proteins, vegetables, and carbs where appropriate
 - Estimate realistic prep + cook times
 - Each meal should have at least 3-4 ingredients for a complete dish
-- When the dietary type, an allergen or an excluded ingredient removes something the dish depends on, substitute it to keep the dish's character (texture, richness, cuisine) rather than leaving it out. The substitute must satisfy every constraint too. A dairy-free gratin still needs a creamy sauce.
+- When the dietary type, an allergen, an excluded ingredient or a household restriction removes something the dish depends on, substitute it to keep the dish's character (texture, richness, cuisine) rather than leaving it out. The substitute must satisfy every constraint too. A dairy-free gratin still needs a creamy sauce.
 
 Ingredient naming rules (IMPORTANT — names are matched against a database):
 - Use singular form: "egg" not "eggs", "tomato" not "tomatoes", "carrot" not "carrots"
