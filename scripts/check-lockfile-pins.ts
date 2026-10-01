@@ -58,7 +58,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
  * matches a whole release line by prefix (`4.0.` covers 4.0.0 through 4.0.18).
  *
  * Ranges below are from `gh api '/advisories?ecosystem=npm&affects=<pkg>'`,
- * checked 2026-09-07 — not from memory. Re-check them when editing an entry.
+ * checked 2026-09-07 (the vitest entries re-checked 2026-10-01, HON-640) — not
+ * from memory. Re-check them when editing an entry.
  */
 export type Pin =
   | {
@@ -107,20 +108,26 @@ export const PINS: Pin[] = [
   {
     kind: 'minimum',
     package: 'vitest',
-    floors: ['3.2.6', '4.1.0'],
-    why: "GHSA-5xrq-8626-4rwp (critical — Vitest UI server allows arbitrary file read and execute). Filed against the `vitest` package itself, which the @vitest/* glob below does NOT match, so this entry is what actually asserts HON-588's 4.0.18 -> 4.1.11 move. Two affected branches, two floors: < 3.2.6 and >= 4.0.0 < 4.1.0. The 3.x floor matters because a patched vitest@3.2.6 could arrive transitively (storybook already bundles @vitest/expect@3.2.4), and judging it against the 4.x floor would red the build over a version the advisory calls fixed.",
+    floors: ['4.1.11', '5.0.0-rc.2'],
+    why: "GHSA-5xrq-8626-4rwp (critical — Vitest UI server allows arbitrary file read and execute; < 3.2.6 and >= 4.0.0 < 4.1.0) and GHSA-82fw-gwwq-j7x9 (medium; >= 2.1.0 < 4.1.11 and >= 5.0.0-beta.1 < 5.0.0-rc.2). Filed against the `vitest` package itself, which the @vitest/* glob below does NOT match, so this entry is what actually asserts the toolchain version: HON-588's 4.0.18 -> 4.1.11 move, then HON-640's 4.1.11 -> 5.0.3. One floor per branch, the highest either advisory publishes. There is no 3.x floor: GHSA-82fw publishes no 3.x fix, so every 3.x vitest predates every floor and reads as affected, the same as the @vitest/mocker entry below (HON-640 dropped the 3.2.6 floor that GHSA-5xrq alone would justify). The 5.x floor is a prerelease, so it rejects the affected betas and rcs and passes every 5.x release.",
   },
   {
     kind: 'minimum',
     package: '@vitest/browser',
-    floors: ['3.2.7', '4.1.10'],
-    why: 'The highest patched floor per branch across the three Browser Mode criticals: GHSA-2h32-95rg-cppp (otelCarrier query param served as inline script, < 4.1.6), GHSA-g8mr-85jm-7xhm (exposed Browser Mode API can proxy CDP and overwrite files, <= 4.1.7 and <= 3.2.4) and GHSA-p63j-vcc4-9vmv (provider commands bypass file-access restrictions, < 4.1.10 and < 3.2.7). Named explicitly rather than via the @vitest/* glob, because a glob floor would fire on @vitest/expect@3.2.4, which legitimately resolves from a separate transitive line. @vitest/browser is transitive (via @vitest/browser-playwright), so nothing in package.json pins it. GHSA-p63j also patches the 5.x betas at 5.0.0-beta.6 — add that floor with HON-640 if a beta is ever resolved.',
+    floors: ['3.2.7', '4.1.10', '5.0.0-beta.6'],
+    why: 'The highest patched floor per branch across the three Browser Mode criticals: GHSA-2h32-95rg-cppp (otelCarrier query param served as inline script, < 4.1.6), GHSA-g8mr-85jm-7xhm (exposed Browser Mode API can proxy CDP and overwrite files, <= 4.1.7 and <= 3.2.4) and GHSA-p63j-vcc4-9vmv (provider commands bypass file-access restrictions, < 4.1.10 and < 3.2.7). On the 5.x branch the three patch the betas at 5.0.0-beta.3, 5.0.0-beta.4 and 5.0.0-beta.6, so the floor is beta.6 (added by HON-640, which moved the toolchain to 5.0.3). Named explicitly rather than via the @vitest/* glob, because a glob floor would fire on @vitest/expect@3.2.4, which legitimately resolves from a separate transitive line. @vitest/browser is transitive (via @vitest/browser-playwright), so nothing in package.json pins it.',
+  },
+  {
+    kind: 'minimum',
+    package: '@vitest/mocker',
+    floors: ['4.1.11', '5.0.0-rc.2'],
+    why: 'GHSA-82fw-gwwq-j7x9 (medium) is filed against @vitest/mocker as well as vitest, with the same ranges: >= 2.1.0 < 4.1.11 and >= 5.0.0-beta.1 < 5.0.0-rc.2. It publishes no 3.x fix, so a 3.x mocker predates every floor and reads as affected — unlike @vitest/expect@3.2.4, which no advisory names. Named explicitly because the @vitest/* ban below covers only the 4.x line, so a 3.x mocker or an affected 5.0.0 prerelease would otherwise pass. Added by HON-640.',
   },
   {
     kind: 'banned',
     package: '@vitest/*',
-    version: '4.0.',
-    why: 'Backstop for the rest of the scoped toolchain: HON-588 moved the whole vitest 4.0.x line to 4.1.11, so any scoped @vitest package back on 4.0.x means the toolchain was downgraded even where no advisory names that package. Only the 4.0.x line is banned — @vitest/expect@3.2.4 and friends legitimately resolve from a separate transitive line. HON-640 raises the vitest and @vitest/browser floors above when vitest 5 lands; update those entries, do not delete them.',
+    version: '4.',
+    why: 'Backstop for the rest of the scoped toolchain. HON-588 moved it off 4.0.x and HON-640 moved it to 5.0.3, so any scoped @vitest package on the 4.x line means the toolchain was downgraded, even where no advisory names that package. The ban covers the whole 4.x line and nothing below it, because @vitest/expect@3.2.4 and friends legitimately resolve from a separate transitive line. @vitest/runner is the one to watch: it is deprecated in vitest 5, so its newest stable release is 4.1.11. vitest 5 no longer depends on it, but @storybook/addon-vitest still declares it as an optional peer, and an old lockfile kept resolving it to 4.1.11 until HON-640 re-resolved the addon. If it comes back, re-resolve the addon (remove it, install, re-add it). Do not narrow this ban. Raise the vitest and @vitest/browser floors above with the next major; update those entries, do not delete them.',
   },
 ]
 
@@ -257,11 +264,11 @@ export function compareVersions(a: string, b: string): number {
  * at or below the resolved major.
  *
  * Advisories publish a floor *per affected release branch*, not one number —
- * GHSA-5xrq-8626-4rwp patches vitest's 3.x line at 3.2.6 and its 4.x line at
- * 4.1.0. Judging a 3.x resolution against the 4.x floor reports the patched
- * `vitest@3.2.6` as vulnerable, and a gate that reds a PR over a patched
- * version in a transitive dependency nobody can move is a gate that gets
- * switched off.
+ * GHSA-p63j-vcc4-9vmv patches @vitest/browser's 3.x line at 3.2.7 and its 4.x
+ * line at 4.1.10. Judging a 3.x resolution against the 4.x floor reports the
+ * patched `@vitest/browser@3.2.7` as vulnerable, and a gate that reds a PR
+ * over a patched version in a transitive dependency nobody can move is a gate
+ * that gets switched off.
  *
  * `null` means the version predates every branch the advisory lists a fix for.
  * That is a violation, not a pass: it is older than anything we have a floor

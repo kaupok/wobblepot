@@ -20,15 +20,16 @@ export default defineConfig({
   },
 
   test: {
-    // Coverage is a root-level option in Vitest 4; it applies when tests are
-    // run with --coverage regardless of which project is selected.
+    // Coverage is a root-level option (since Vitest 4); it applies when tests
+    // are run with --coverage regardless of which project is selected.
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
       reporter: ['text', 'json', 'html', 'lcov'],
+      // Vitest 5 matches these as globs relative to the project root, not as
+      // substrings, so a bare `tests/` or `node_modules/` would match nothing.
+      // `include` already limits coverage to `src/`.
       exclude: [
-        'node_modules/',
-        'tests/',
         '**/*.test.{ts,tsx}',
         '**/*.spec.{ts,tsx}',
         '**/*.config.{ts,js,mjs}',

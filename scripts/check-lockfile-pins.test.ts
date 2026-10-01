@@ -257,6 +257,22 @@ describe('findViolations', () => {
     // GHSA-5xrq-8626-4rwp (critical, vitest >= 4.0.0 < 4.1.0) is filed against
     // the bare `vitest` package — the exact resolution HON-588 moved off.
     expect(details('  vitest@4.0.18:\n')).toContain('vitest@4.0.18')
+    // GHSA-82fw-gwwq-j7x9 raises the 4.x floor to 4.1.11...
+    expect(details('  vitest@4.1.10:\n')).toContain('vitest@4.1.10')
+    // ...and patches the 5.x prereleases at 5.0.0-rc.2.
+    expect(details('  vitest@5.0.0-beta.4:\n')).toContain('vitest@5.0.0-beta.4')
+    expect(details('  vitest@5.0.0-rc.1:\n')).toContain('vitest@5.0.0-rc.1')
+    expect(details('  vitest@5.0.0-rc.2:\n')).toBe('')
+    expect(details('  vitest@5.0.3:\n')).toBe('')
+  })
+
+  it('fires on a @vitest/mocker GHSA-82fw-gwwq-j7x9 affects, outside the 4.x ban', () => {
+    // The advisory names @vitest/mocker with the same ranges as vitest and
+    // publishes no 3.x fix, so a 3.x mocker is affected.
+    expect(details("  '@vitest/mocker@3.2.4':\n")).toContain('@vitest/mocker@3.2.4')
+    expect(details("  '@vitest/mocker@5.0.0-rc.1':\n")).toContain('@vitest/mocker@5.0.0-rc.1')
+    expect(details("  '@vitest/mocker@5.0.0-rc.2':\n")).toBe('')
+    expect(details("  '@vitest/mocker@5.0.3':\n")).toBe('')
   })
 
   it('fires on a @vitest/browser inside 4.1.x but below the patched floor', () => {
@@ -266,16 +282,30 @@ describe('findViolations', () => {
     expect(details("  '@vitest/browser@4.1.9':\n")).toContain('@vitest/browser@4.1.9')
   })
 
+  it('fires on a @vitest/browser 5.x beta below the patched floor', () => {
+    // GHSA-p63j-vcc4-9vmv patches the 5.x betas at 5.0.0-beta.6, the highest
+    // of the three Browser Mode advisories' 5.x floors.
+    expect(details("  '@vitest/browser@5.0.0-beta.5':\n")).toContain('@vitest/browser@5.0.0-beta.5')
+    expect(details("  '@vitest/browser@5.0.0-beta.6':\n")).toBe('')
+    expect(details("  '@vitest/browser@5.0.3':\n")).toBe('')
+  })
+
   it('stays silent on a version an advisory patched on an older branch', () => {
-    // GHSA-5xrq-8626-4rwp patches vitest 3.x at 3.2.6, so vitest@3.2.6 is
+    // GHSA-p63j-vcc4-9vmv patches @vitest/browser 3.x at 3.2.7, so 3.2.7 is
     // fixed. Judging it against the 4.x floor would red the build over a
     // version the advisory calls patched — in a transitive dependency that
     // neither the package.json pin nor `pnpm update` can move.
-    expect(details('  vitest@3.2.6:\n')).toBe('')
     expect(details("  '@vitest/browser@3.2.7':\n")).toBe('')
-    // ...but the versions below those branch floors still fire.
-    expect(details('  vitest@3.2.5:\n')).toContain('vitest@3.2.5')
+    // ...but the versions below that branch floor still fire.
     expect(details("  '@vitest/browser@3.2.4':\n")).toContain('@vitest/browser@3.2.4')
+  })
+
+  it('fires on every vitest 3.x, which GHSA-82fw-gwwq-j7x9 never patched', () => {
+    // GHSA-5xrq-8626-4rwp patches 3.x at 3.2.6, but GHSA-82fw affects
+    // >= 2.1.0 < 4.1.11 with no 3.x fix, so 3.2.6 is still affected — the same
+    // reading the @vitest/mocker entry gives a 3.x mocker.
+    expect(details('  vitest@3.2.6:\n')).toContain('vitest@3.2.6')
+    expect(details('  vitest@3.2.5:\n')).toContain('vitest@3.2.5')
   })
 
   it('fires on a version older than every patched branch', () => {
@@ -283,10 +313,15 @@ describe('findViolations', () => {
     expect(details('  uuid@8.3.2:\n')).toContain('predates every patched branch')
   })
 
-  it('fires on any @vitest package still on the 4.0.x line', () => {
+  it('fires on any @vitest package still on the 4.x line', () => {
     const found = violate("  '@vitest/runner@4.0.18':\n")
     expect(found).toHaveLength(1)
     expect(found[0]?.detail).toContain('@vitest/runner@4.0.18')
+    // HON-640 raised the ban from 4.0.x to the whole 4.x line. @vitest/runner
+    // stops at 4.1.11 (deprecated in vitest 5), so this is the stale optional
+    // peer of @storybook/addon-vitest the old lockfile kept resolving.
+    expect(details("  '@vitest/runner@4.1.11':\n")).toContain('@vitest/runner@4.1.11')
+    expect(details("  '@vitest/utils@4.1.11':\n")).toContain('@vitest/utils@4.1.11')
   })
 
   it('stays silent on the versions that are actually on main today', () => {
@@ -294,7 +329,7 @@ describe('findViolations', () => {
     // present on main — a glob floor would turn the branch red.
     expect(
       violate(
-        "  defu@6.1.7:\n  vitest@4.1.11:\n  '@vitest/expect@3.2.4':\n  '@vitest/browser@4.1.11':\n",
+        "  defu@6.1.7:\n  vitest@5.0.3:\n  '@vitest/expect@3.2.4':\n  '@vitest/browser@5.0.3':\n  '@vitest/mocker@5.0.3':\n",
       ),
     ).toEqual([])
   })
