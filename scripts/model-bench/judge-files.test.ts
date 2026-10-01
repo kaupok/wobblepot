@@ -34,7 +34,14 @@ function record(c: BenchCase, role: Role, run = 1, extra: Partial<CallRecord> = 
     errorMessage: null,
     output:
       c.task === 'imagine'
-        ? { meals: [{ name: MARK[role], ingredients: [{ originalText: 'rice' }] }] }
+        ? {
+            meals: [
+              {
+                name: MARK[role],
+                ingredients: [{ name: 'rice', quantity: null, unit: null, vaguePhrase: null }],
+              },
+            ],
+          }
         : { pitfalls: [MARK[role]], tip: 't' },
     scores: {},
     ...extra,

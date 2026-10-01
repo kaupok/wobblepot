@@ -131,8 +131,6 @@ function imaginedMeal(overrides: Record<string, unknown> = {}) {
         name: 'Chicken breast',
         quantity: 500,
         unit: 'g',
-        originalText: '500g chicken breast',
-        isVague: false,
         vaguePhrase: null,
         isDried: null,
       },
@@ -515,6 +513,66 @@ describe('POST /api/meals/imagine', () => {
     expect(data.meals[0].allMatched).toBe(false)
     // components only reflect matched ingredients
     expect(data.meals[0].components).toHaveLength(1)
+  })
+
+  it('rebuilds originalText and isVague, which the model no longer writes (HON-897)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockImagineMeals.mockResolvedValue([
+      imaginedMeal({
+        ingredients: [
+          { name: 'Chicken breast', quantity: 500, unit: 'g', vaguePhrase: null, isDried: null },
+          { name: 'Egg', quantity: 2, unit: null, vaguePhrase: '', isDried: null },
+          { name: 'Salt', quantity: null, unit: null, vaguePhrase: 'to taste', isDried: null },
+          // A phrase beside a real amount (PR #987 review): the amount wins.
+          { name: 'Cream', quantity: 200, unit: 'ml', vaguePhrase: 'optional', isDried: null },
+        ],
+      }) as never,
+    ])
+    mockMatchIngredients.mockResolvedValue([matchedResult() as never])
+
+    const response = await POST(jsonRequest({ prompt: 'chicken dinner' }))
+
+    expect(response.status).toBe(200)
+    expect(mockMatchIngredients.mock.calls[0]![0]).toEqual([
+      expect.objectContaining({ originalText: '500 g Chicken breast', isVague: false }),
+      expect.objectContaining({ originalText: '2 Egg', isVague: false, vaguePhrase: null }),
+      expect.objectContaining({
+        originalText: 'to taste Salt',
+        isVague: true,
+        vaguePhrase: 'to taste',
+        quantity: null,
+      }),
+      expect.objectContaining({
+        originalText: '200 ml Cream',
+        isVague: false,
+        vaguePhrase: null,
+        quantity: 200,
+      }),
+    ])
+  })
+
+  it('rebuilds originalText in the household locale', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockMembership.household, locale: 'et' },
+    } as never)
+    mockImagineMeals.mockResolvedValue([
+      imaginedMeal({
+        ingredients: [
+          { name: 'hapukoor', quantity: 1.5, unit: 'tbsp', vaguePhrase: null, isDried: null },
+        ],
+      }) as never,
+    ])
+    mockMatchIngredients.mockResolvedValue([matchedResult() as never])
+
+    const response = await POST(jsonRequest({ prompt: 'kartulisalat' }))
+
+    expect(response.status).toBe(200)
+    expect(mockMatchIngredients.mock.calls[0]![0]).toEqual([
+      expect.objectContaining({ originalText: '1,5 spl hapukoor' }),
+    ])
   })
 
   it('returns 500 when imagineMeals throws', async () => {

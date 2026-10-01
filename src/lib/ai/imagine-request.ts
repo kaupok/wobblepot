@@ -1,10 +1,17 @@
 import { z } from 'zod'
 import { localeInstruction, estonianVoiceForImagineMeal } from './prompts'
 import type { FoodViolation } from './forbidden-foods'
+import { formatQuantity } from '@/lib/i18n/format-number'
+import { DEFAULT_LOCALE, isKnownLocale, type Locale } from '@/lib/i18n/locales'
 
 /**
  * Schema for a single ingredient in an imagined meal.
- * Matches ExtractedIngredientSchema from recipe-schema.ts.
+ *
+ * A subset of ExtractedIngredientSchema from recipe-schema.ts: `originalText`
+ * and `isVague` are left out because the route rebuilds both
+ * (`imaginedIngredientText`; vague when `quantity` is null and `vaguePhrase`
+ * is non-blank). Imagine latency tracks output tokens, and `originalText`
+ * alone was 11% of every response (HON-897).
  *
  * NOTE: Anthropic's structured output API has limited JSON Schema support.
  * Avoid .positive(), .min(), .max(), .int() on numbers.
@@ -15,17 +22,17 @@ const ImaginedIngredientSchema = z.object({
   quantity: z
     .number()
     .nullable()
-    .describe('The numeric quantity (must be > 0), or null if vague (e.g., "to taste")'),
+    .describe('The numeric quantity (must be > 0), or null when vaguePhrase is set'),
   unit: z
     .enum(['g', 'piece', 'ml', 'tbsp', 'tsp', 'cup', 'oz', 'lb'])
     .nullable()
     .describe('The unit of measurement, or null if vague'),
-  originalText: z.string().describe('A human-readable description like "500g chicken breast"'),
-  isVague: z.boolean().describe('True if quantity is vague (e.g., "to taste", "a pinch")'),
   vaguePhrase: z
     .string()
     .nullable()
-    .describe('The vague phrase if isVague is true (e.g., "to taste", "a pinch")'),
+    .describe(
+      'The vague phrase when the quantity is vague (e.g., "to taste", "a pinch"), otherwise null. When set, quantity and unit must be null',
+    ),
   isDried: z
     .boolean()
     .nullable()
@@ -58,6 +65,44 @@ export const ImaginedMealsSchema = z.object({
 
 export type ImaginedMeal = z.infer<typeof ImaginedMealSchema>
 export type ImaginedIngredient = z.infer<typeof ImaginedIngredientSchema>
+type ImaginedUnit = NonNullable<ImaginedIngredient['unit']>
+
+/**
+ * Unit abbreviations for the rebuilt ingredient line, by locale. Estonian uses
+ * the ones docs/AI_VOICE_ET.md prescribes (spl, tl, tk); any unit not listed
+ * keeps its schema value. English drops "piece" ("2 egg"). This is data
+ * stored with the meal, like the model-written text it replaces, not UI copy,
+ * and the benchmark judge needs it without next-intl.
+ */
+const UNIT_LABELS: Partial<Record<Locale, Partial<Record<ImaginedUnit, string>>>> = {
+  en: { piece: '' },
+  et: { piece: 'tk', tbsp: 'spl', tsp: 'tl' },
+}
+
+/**
+ * The human-readable line the model no longer writes (HON-897): what
+ * `ExtractedIngredient.originalText` carries for an imagined ingredient, shown
+ * under "Original:" in the review rows and given to the benchmark judge.
+ *
+ * In the household's locale: the quantity takes its decimal separator and the
+ * unit its local abbreviation. A quantity wins over a vague phrase the model
+ * wrote beside it. `vaguePhrase` is an English matcher key even for Estonian
+ * households, so outside English a vague ingredient's line is its name alone;
+ * the rows show the phrase separately.
+ */
+export function imaginedIngredientText(
+  ing: Pick<ImaginedIngredient, 'name' | 'quantity' | 'unit' | 'vaguePhrase'>,
+  locale: string,
+): string {
+  const loc: Locale = isKnownLocale(locale) ? locale : DEFAULT_LOCALE
+  if (ing.quantity === null) {
+    const vaguePhrase = ing.vaguePhrase?.trim()
+    return vaguePhrase && loc === DEFAULT_LOCALE ? `${vaguePhrase} ${ing.name}` : ing.name
+  }
+  const quantity = formatQuantity(ing.quantity, loc, { maximumFractionDigits: 2 })
+  const unit = ing.unit === null ? '' : (UNIT_LABELS[loc]?.[ing.unit] ?? ing.unit)
+  return [quantity, unit, ing.name].filter(Boolean).join(' ')
+}
 
 export interface HouseholdContext {
   allergens: string[]

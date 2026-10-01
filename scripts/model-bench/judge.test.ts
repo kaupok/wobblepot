@@ -36,7 +36,9 @@ function outputFor(c: BenchCase, role: Role): unknown {
           servings: 4,
           mealTypes: ['dinner'],
           kidFriendly: true,
-          ingredients: [{ name: 'rice', originalText: '300 g rice' }],
+          ingredients: [
+            { name: 'rice', quantity: 300, unit: 'g', vaguePhrase: null, isDried: null },
+          ],
         },
       ],
     }
