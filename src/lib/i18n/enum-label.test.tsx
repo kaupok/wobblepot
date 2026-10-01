@@ -7,6 +7,16 @@ import { NextIntlClientProvider } from 'next-intl'
 import type { PropsWithChildren } from 'react'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
+import {
+  Allergen,
+  DietaryType,
+  HouseholdRole,
+  IngredientCategory,
+  MealPlanEntryStatus,
+  MealType,
+  ProteinType,
+  Unit,
+} from '@/generated/prisma/enums'
 import { useEnumLabel, useVaguePhrase, type EnumName } from './enum-label'
 
 function makeWrapper(locale: 'en' | 'et') {
@@ -20,25 +30,16 @@ function makeWrapper(locale: 'en' | 'et') {
   }
 }
 
+// Read from the schema, so a new enum value without a catalog key fails here.
 const ENUM_VALUES: Record<EnumName, readonly string[]> = {
-  MealType: ['breakfast', 'lunch', 'dinner'],
-  IngredientCategory: [
-    'protein',
-    'carb',
-    'vegetable',
-    'fruit',
-    'dairy',
-    'fat',
-    'legume',
-    'condiment',
-    'spice',
-  ],
-  ProteinType: ['poultry', 'beef', 'pork', 'lamb', 'fish', 'eggs', 'legume', 'dairy', 'none'],
-  Unit: ['g', 'piece'],
-  Allergen: ['gluten', 'dairy', 'eggs', 'nuts', 'peanuts', 'soy', 'fish', 'shellfish', 'sesame'],
-  DietaryType: ['vegetarian', 'vegan', 'pescatarian'],
-  HouseholdRole: ['owner', 'member'],
-  MealPlanEntryStatus: ['planned', 'completed', 'skipped'],
+  MealType: Object.values(MealType),
+  IngredientCategory: Object.values(IngredientCategory),
+  ProteinType: Object.values(ProteinType),
+  Unit: Object.values(Unit),
+  Allergen: Object.values(Allergen),
+  DietaryType: Object.values(DietaryType),
+  HouseholdRole: Object.values(HouseholdRole),
+  MealPlanEntryStatus: Object.values(MealPlanEntryStatus),
 }
 
 const ENUM_NAMES = Object.keys(ENUM_VALUES) as EnumName[]

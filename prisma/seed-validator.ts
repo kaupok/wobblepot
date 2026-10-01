@@ -2,8 +2,9 @@
  * Seed Data Validation Script
  *
  * Validates seed data before database seeding to catch:
- * - Hard errors: duplicates, invalid references, unit mismatches, missing fields
- * - Warnings: nutritional outliers, fiber > carbs
+ * - Hard errors: duplicates, invalid references, unit mismatches, missing fields,
+ *   missing or orphaned et translations
+ * - Warnings: nutritional outliers, fiber > carbs, shared et ingredient names
  * - Naming conventions: lowercase, trimmed, no punctuation
  * - Nutritional plausibility: Atwater formula cross-check
  * - Near-duplicates: Levenshtein distance for similar names
@@ -569,9 +570,12 @@ function validateMealTranslationCoverage(
     }
   }
 
+  // An orphan is always a leftover from a rename. Rename the row in place with a
+  // migration and move the key (docs/RUNBOOKS/translation-maintenance.md →
+  // "Renaming a seeded ingredient or meal"), so no old key has to linger.
   for (const t of translations) {
     if (!mealNames.has(t.enName)) {
-      warnings.push(`Orphaned et translation for '${t.enName}' — no matching meal in seed data`)
+      errors.push(`Orphaned et translation for '${t.enName}' — no matching meal in seed data`)
     }
   }
 
@@ -628,9 +632,10 @@ function validateIngredientTranslationCoverage(
     }
   }
 
+  // Orphans are errors for the same reason as in validateMealTranslationCoverage.
   for (const t of translations) {
     if (!ingredientKeys.has(normalizeIngredientKey(t.en))) {
-      warnings.push(`Orphaned et translation for '${t.en}' — no matching ingredient in seed data`)
+      errors.push(`Orphaned et translation for '${t.en}' — no matching ingredient in seed data`)
     }
   }
 

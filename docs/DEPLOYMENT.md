@@ -92,7 +92,8 @@ Production deployments require manual coordination to ensure database migrations
    - Go to: [GitHub Actions](https://github.com/kaupok/wobblepot/actions/workflows/deploy-db-migrations-production.yml)
    - Click "Run workflow" button
    - Wait for completion and verify success
-   - The same run then executes `pnpm db:seed` against production, which re-asserts the seeded meals, ingredients and translations (see [`RUNBOOKS/translation-maintenance.md`](./RUNBOOKS/translation-maintenance.md) → "The seed re-asserts translations")
+   - The same run then executes `pnpm db:seed` against production. It creates any seeded ingredient or meal that is missing and re-asserts every seeded translation, but it does not rewrite existing rows: an existing ingredient only has `gramsPerPiece` refreshed, and an existing meal's name and components are never updated. Renaming a seeded row therefore needs a migration (see [`RUNBOOKS/translation-maintenance.md`](./RUNBOOKS/translation-maintenance.md) → "The seed re-asserts translations" and "Renaming a seeded ingredient or meal")
+   - Nothing runs this step for you: step 4b does not depend on it, so skipping it ships code against an unmigrated, unseeded database
 
    **b. Deploy code**
    - Go to: [GitHub Actions](https://github.com/kaupok/wobblepot/actions/workflows/deploy-code-production.yml)

@@ -3765,8 +3765,9 @@ const meals = [...baseMeals, ...(newMeals as unknown as MealInput[])]
 async function seedMeals() {
   console.log('Seeding meals...')
 
-  // First, get all ingredients from the database to map names to IDs
-  const dbIngredients = await prisma.ingredient.findMany()
+  // Map names to IDs from the global pool only, so a household row that shares a
+  // global name can never be linked into a global meal.
+  const dbIngredients = await prisma.ingredient.findMany({ where: { householdId: null } })
   const ingredientMap = new Map(dbIngredients.map((i) => [i.name, i.id]))
 
   let seededCount = 0
