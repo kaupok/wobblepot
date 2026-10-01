@@ -1,7 +1,7 @@
 // @vitest-environment node
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MODEL_PRICES } from '../../src/lib/ai/pricing'
 import { main, type MainDeps } from './run'
@@ -156,8 +156,8 @@ describe('main', () => {
     expect(existsSync(join(outDir, `${STEM}.md`))).toBe(false)
   })
 
-  it('adds two judge calls per imagine and tips case and run under --dry-run --judge', async () => {
-    const code = await main([...BASE_ARGS, '--dry-run', '--judge'], deps)
+  it('adds two judge calls per imagine and tips case and run under --dry-run --judge-api', async () => {
+    const code = await main([...BASE_ARGS, '--dry-run', '--judge-api'], deps)
 
     expect(code).toBe(0)
     const text = out.join('\n')
@@ -166,15 +166,112 @@ describe('main', () => {
     expect(text).toMatch(/claude-opus-5-5 \(judge\): 24 calls, .*~\$\d+\.\d\d/)
   })
 
+  it('adds no API call under --dry-run --judge, and says how many prompts go to Claude Code', async () => {
+    const code = await main([...BASE_ARGS, '--dry-run', '--judge'], deps)
+
+    expect(code).toBe(0)
+    const text = out.join('\n')
+    expect(text).toContain('Total calls: 60')
+    expect(text).toContain('judge: 12 pairs, 24 prompts, exported for Claude Code')
+    expect(text).not.toContain('claude-opus-5-5')
+  })
+
   it('warns under --dry-run when the estimate is above --max-usd', async () => {
-    await main([...BASE_ARGS, '--dry-run', '--judge', '--max-usd', '0.01'], deps)
+    await main([...BASE_ARGS, '--dry-run', '--judge-api', '--max-usd', '0.01'], deps)
     expect(out.join('\n')).toContain('The estimate is above --max-usd 0.01')
   })
 
-  it('judges imagine and tips pairs with --judge and reports them', async () => {
+  it('exports blind judge pairs with --judge, and folds the verdicts back in with --import-verdicts', async () => {
+    const { factory, calls } = mockModelFactory(respond)
+    const argv = [...BASE_ARGS, '--runs', '1', '--task', 'imagine,tips', '--judge']
+    expect(await main(argv, { ...deps, modelFactory: factory })).toBe(0)
+    // 4 cases × 2 models, and not one judge call.
+    expect(calls).toHaveLength(8)
+
+    const pairsPath = join(outDir, `${STEM}.judge-pairs.json`)
+    expect(out.join('\n')).toContain(`Judge pairs: ${relative(process.cwd(), pairsPath)}`)
+    const pairs = JSON.parse(readFileSync(pairsPath, 'utf8'))
+    expect(pairs.verdictsFile).toBe(`${STEM}.judge-verdicts.json`)
+    // The file is named after the run, but the prompts name no model or role.
+    for (const secret of ['claude-sonnet', 'baseline', 'candidate']) {
+      expect(JSON.stringify(pairs.items)).not.toContain(secret)
+    }
+    // 4 pairs × 2 orders.
+    expect(pairs.items).toHaveLength(8)
+    expect(pairs.items[0]).toMatchObject({
+      id: expect.stringMatching(/^imagine\/en-chicken-rice-weeknight#1#[ab]$/),
+      task: 'imagine',
+    })
+    expect(pairs.items[0].system).toContain('You are judging two answers')
+    expect(pairs.items[0].prompt).toContain('<answer_a>')
+
+    let md = readFileSync(join(outDir, `${STEM}.md`), 'utf8')
+    expect(md).toContain('**Pending.** 4 pair(s), 8 prompt(s)')
+    const key = JSON.parse(readFileSync(join(outDir, `${STEM}.json`), 'utf8')).judgeKey
+    expect(key.pairs).toHaveLength(4)
+    expect(key.pairs[0].items.map((i: { roleAsA: string }) => i.roleAsA)).toEqual([
+      'baseline',
+      'candidate',
+    ])
+
+    // Pick the candidate in both orders of the imagine pairs, leave one tips
+    // pair unjudged and tie the other.
+    const verdicts = key.pairs.flatMap(
+      (p: { task: string; items: { id: string; roleAsA: string }[] }) =>
+        p.items.map((i) => ({
+          id: i.id,
+          winner: p.task === 'imagine' ? (i.roleAsA === 'candidate' ? 'A' : 'B') : 'tie',
+          reason: 'Because.',
+        })),
+    )
+    const verdictsPath = join(outDir, pairs.verdictsFile)
+    writeFileSync(
+      verdictsPath,
+      JSON.stringify({ judge: 'claude-code/opus', verdicts: verdicts.slice(0, -2) }),
+    )
+    out = []
+    expect(await main(['--import-verdicts', verdictsPath], deps)).toBe(0)
+
+    md = readFileSync(join(outDir, `${STEM}.md`), 'utf8')
+    expect(md).not.toContain('**Pending.**')
+    expect(md).toContain('claude-code/opus compared the two models')
+    expect(md).toContain('| imagine | 2 | 0 | 0 | 0 | 0 | too few decided pairs (2 of 5) |')
+    expect(md).toContain('| tips | 0 | 1 | 0 | 0 | 1 | too few decided pairs (0 of 5) |')
+    expect(out.join('\n')).toContain('1 pair(s) had a verdict missing')
+    expect(out.join('\n')).toContain('## Judge')
+
+    const json = JSON.parse(readFileSync(join(outDir, `${STEM}.json`), 'utf8'))
+    expect(json.judge.model).toBe('claude-code/opus')
+    expect(json.judge.pairs).toHaveLength(4)
+    expect(json.calls).toHaveLength(8)
+    // The key survives, so the run can be judged again.
+    expect(json.judgeKey.pairs).toHaveLength(4)
+    expect(existsSync(pairsPath)).toBe(true)
+  })
+
+  it('refuses verdicts for ids the run never exported', async () => {
+    const { factory } = mockModelFactory(respond)
+    await main([...BASE_ARGS, '--runs', '1', '--task', 'tips', '--judge'], {
+      ...deps,
+      modelFactory: factory,
+    })
+    const verdictsPath = join(outDir, `${STEM}.judge-verdicts.json`)
+    writeFileSync(
+      verdictsPath,
+      JSON.stringify({
+        judge: 'claude-code/opus',
+        verdicts: [{ id: 'imagine/other#1#a', winner: 'A', reason: 'r' }],
+      }),
+    )
+    await expect(main(['--import-verdicts', verdictsPath], deps)).rejects.toThrow(
+      /ids this run never exported: imagine\/other#1#a/,
+    )
+  })
+
+  it('judges imagine and tips pairs with --judge-api and reports them', async () => {
     const { factory, calls } = mockModelFactory(respond)
     const code = await main(
-      [...BASE_ARGS, '--runs', '1', '--task', 'imagine,tips,recipe', '--judge'],
+      [...BASE_ARGS, '--runs', '1', '--task', 'imagine,tips,recipe', '--judge-api'],
       {
         ...deps,
         modelFactory: factory,
@@ -214,13 +311,15 @@ describe('main', () => {
     expect(out).toEqual([])
   })
 
-  it('with --judge, exits non-zero if the judge model has no MODEL_PRICES entry', async () => {
+  it('with --judge-api, exits non-zero if the judge model has no MODEL_PRICES entry', async () => {
     const saved = MODEL_PRICES['claude-opus-5-5']
     delete MODEL_PRICES['claude-opus-5-5']
     try {
-      const code = await main([...BASE_ARGS, '--dry-run', '--judge'], deps)
+      const code = await main([...BASE_ARGS, '--dry-run', '--judge-api'], deps)
       expect(code).toBe(1)
       expect(err.join('\n')).toMatch(/No MODEL_PRICES entry for "claude-opus-5-5"/)
+      // The Claude Code judge needs no price.
+      expect(await main([...BASE_ARGS, '--dry-run', '--judge'], deps)).toBe(0)
     } finally {
       MODEL_PRICES['claude-opus-5-5'] = saved!
     }
@@ -238,6 +337,9 @@ describe('main', () => {
     [[...BASE_ARGS, '--runs', '0'], /--runs must be a positive integer/],
     [[...BASE_ARGS, '--max-usd', 'lots'], /--max-usd must be a positive number/],
     [[...BASE_ARGS, '--verbose'], /Unknown option '--verbose'/],
+    [[...BASE_ARGS, '--judge', '--judge-api'], /--judge and --judge-api are alternatives/],
+    [['--import-verdicts', 'results/run.json'], /takes a `\*\.judge-verdicts\.json` file/],
+    [['--import-verdicts', 'nowhere/x.judge-verdicts.json'], /No verdicts file at/],
   ])('rejects bad arguments: %j', async (argv, message) => {
     const code = await main(argv, deps)
     expect(code).toBe(2)
