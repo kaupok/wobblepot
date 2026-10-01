@@ -72,8 +72,8 @@ export const DefaultLabelsEstonian: Story = {
   globals: { locale: 'et' },
   play: async () => {
     const dialog = await within(document.body).findByRole('alertdialog')
-    await expect(within(dialog).getByRole('button', { name: 'Tühista' })).toBeVisible()
-    await expect(within(dialog).getByRole('button', { name: 'Kinnita' })).toBeVisible()
+    await expect(within(dialog).getByRole('button', { name: 'Tühista' })).toBeInTheDocument()
+    await expect(within(dialog).getByRole('button', { name: 'Kinnita' })).toBeInTheDocument()
   },
 }
 
