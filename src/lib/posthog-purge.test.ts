@@ -126,7 +126,31 @@ describe('deletePosthogPersons', () => {
     },
   )
 
-  it('throws on a non-2xx response', async () => {
+  it.each([401, 403, 404])(
+    'skips and captures one error with the ids when PostHog rejects the key or project (%i)',
+    async (status) => {
+      configure()
+      fetchMock.mockResolvedValue(jsonResponse({ detail: 'nope' }, status))
+
+      await expect(
+        deletePosthogPersons(['user-1', 'household-1'], { userId: 'user-1' }),
+      ).resolves.toBe('skipped')
+
+      expect(mockCapture).toHaveBeenCalledTimes(1)
+      const [error, context] = mockCapture.mock.calls[0]!
+      expect((error as Error).message).toBe(
+        `PostHog purge request rejected (status ${status}); PostHog person not purged`,
+      )
+      expect(context).toEqual({
+        route: '/api/cron/purge-deleted-users',
+        userId: 'user-1',
+        distinctIds: ['user-1', 'household-1'],
+        statusCode: status,
+      })
+    },
+  )
+
+  it('throws on a server error so the next run retries', async () => {
     configure()
     fetchMock.mockResolvedValue(jsonResponse({ detail: 'boom' }, 500))
 

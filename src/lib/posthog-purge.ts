@@ -5,6 +5,9 @@ import { captureApiError } from '@/lib/errors'
 const PURGE_ROUTE = '/api/cron/purge-deleted-users'
 const TIMEOUT_MS = 10_000
 
+/** Statuses that mean the key or project id is wrong, not that PostHog is down. */
+const CONFIG_ERROR_STATUSES = new Set([401, 403, 404])
+
 /** PostHog's per-call cap on `distinct_ids` (`posthog/api/person.py`). */
 const MAX_DISTINCT_IDS = 1000
 
@@ -25,12 +28,12 @@ interface BulkDeleteResponse {
  * Returns `'skipped'` without calling PostHog when PostHog is disabled (no
  * project token: nothing was ever sent) or under Vitest, mirroring
  * `getPosthogServer`. When PostHog is enabled but the purge key, admin host or
- * project id is unset, it captures one error carrying the user id and the
- * distinct ids, and returns `'skipped'`, so the database purge is never
- * blocked on the key; those persons are swept by hand later
- * (`docs/RUNBOOKS/gdpr-deletion.md`).
+ * project id is unset, or PostHog rejects them (401, 403, 404), it captures
+ * one error carrying the user id and the distinct ids, and returns
+ * `'skipped'`, so the database purge is never blocked on the key; those
+ * persons are swept by hand later (`docs/RUNBOOKS/gdpr-deletion.md`).
  *
- * Throws on a network error, a timeout, a non-2xx response, or a 2xx response
+ * Throws on a network error, a timeout, any other non-2xx response, or a 2xx response
  * whose `deletion_errors` is non-empty — PostHog reports per-person failures
  * there rather than with a status code. `purgeUser` lets the throw propagate,
  * so the user row stays and the next nightly run retries.
@@ -71,6 +74,20 @@ export async function deletePosthogPersons(
     body: JSON.stringify({ distinct_ids: distinctIds, delete_events: true }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
+
+  // A rejected key (revoked, rotated, or missing `person:write`) or a wrong
+  // project id is a configuration problem like an unset key: retrying cannot
+  // clear it, so capture it and let the database purge go ahead rather than
+  // hold every due account until someone fixes the key.
+  if (CONFIG_ERROR_STATUSES.has(response.status)) {
+    captureApiError(
+      new Error(
+        `PostHog purge request rejected (status ${response.status}); PostHog person not purged`,
+      ),
+      { route: PURGE_ROUTE, userId: context.userId, distinctIds, statusCode: response.status },
+    )
+    return 'skipped'
+  }
 
   if (!response.ok) {
     throw new Error(`PostHog person bulk delete failed with status ${response.status}`)
