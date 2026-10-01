@@ -380,6 +380,25 @@ describe('PATCH /api/shopping-list/custom/[id]', () => {
     expect(mockTransaction).not.toHaveBeenCalled()
   })
 
+  it('rejects an empty-string ingredientId as not found rather than writing it', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue({
+      id: 'custom-1',
+      householdId: 'household-123',
+      name: 'Salt',
+      checked: false,
+      ingredientId: null,
+    } as never)
+    mockIngredientFindFirst.mockResolvedValue(null)
+
+    const response = await patchRequest('custom-1', { ingredientId: '' })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Ingredient not found' })
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
   it('unlinks with ingredientId null without an ingredient lookup', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

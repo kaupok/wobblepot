@@ -22,6 +22,9 @@ vi.mock('@/lib/prisma', () => ({
     householdPreferences: {
       upsert: vi.fn(),
     },
+    ingredient: {
+      findMany: vi.fn(),
+    },
   },
 }))
 
@@ -31,6 +34,7 @@ import { prisma } from '@/lib/prisma'
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockUpsert = vi.mocked(prisma.householdPreferences.upsert)
+const mockIngredientFindMany = vi.mocked(prisma.ingredient.findMany)
 
 const mockPreferences = {
   id: 'prefs-123',
@@ -271,6 +275,34 @@ describe('PATCH /api/households/me/preferences', () => {
       update: { dietaryType: 'vegetarian' },
       create: { householdId: 'household-123', dietaryType: 'vegetarian' },
     })
+  })
+
+  // HON-889: the resolved ids are returned in the response, so another
+  // household's ingredient must never match an excluded name.
+  it("resolves excluded ingredient names against global and this household's ingredients", async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockIngredientFindMany.mockResolvedValue([{ id: 'ing-cilantro' }] as never)
+    mockUpsert.mockResolvedValue(mockPreferences as never)
+
+    const response = await PATCH(createRequest({ excludedIngredients: ['Cilantro'] }))
+
+    expect(response.status).toBe(200)
+    expect(mockIngredientFindMany).toHaveBeenCalledWith({
+      where: {
+        name: { in: ['Cilantro'], mode: 'insensitive' },
+        OR: [{ householdId: null }, { householdId: 'household-123' }],
+      },
+      select: { id: true },
+    })
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { excludedIngredients: ['Cilantro'], excludedIngredientIds: ['ing-cilantro'] },
+      }),
+    )
   })
 
   it('updates multiple fields successfully', async () => {

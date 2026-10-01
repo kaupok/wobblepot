@@ -65,7 +65,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     // A new link must point at a global ingredient or this household's own.
     // Another household's reads as not found, so its id is not revealed (HON-889).
-    if (ingredientId) {
+    // `null` unlinks; anything else, an empty string included, is looked up.
+    if (ingredientId != null) {
       const ingredient = await prisma.ingredient.findFirst({
         where: {
           id: ingredientId,
