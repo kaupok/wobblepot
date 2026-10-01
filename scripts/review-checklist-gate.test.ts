@@ -1,7 +1,8 @@
 /**
- * The E2E-drift and shared-geometry checklist items in scripts/pr-review.sh (HON-729).
+ * The E2E-drift and shared-geometry checklist items in scripts/pr-review.sh (HON-729),
+ * and the AI eval report item (HON-904).
  *
- * Both CLAUDE.md rules are prose with no mechanical check, so the reviewer prompt is
+ * All three rules are prose with no mechanical check, so the reviewer prompt is
  * their only enforcement — and it is appended conditionally, by a shell grep over the
  * PR's file list. A regex that stopped matching `src/app/**` or `globals.css` would
  * silently switch the check off; one that matched everything would make every PR pay
@@ -40,7 +41,10 @@ function heredoc(name: string): string {
 }
 
 /** Run one extracted gate assignment over a file list and return what it selected. */
-function classify(variable: 'E2E_FILES' | 'GEOMETRY_FILES', files: string[]): string[] {
+function classify(
+  variable: 'E2E_FILES' | 'GEOMETRY_FILES' | 'AI_EVAL_FILES',
+  files: string[],
+): string[] {
   const script = [
     // The real script's flags, so `set -e` aborts on grep's exit 1 if `|| true` goes.
     'set -euo pipefail',
@@ -121,12 +125,66 @@ describe('shared-geometry gate', () => {
   })
 })
 
+describe('AI eval gate', () => {
+  it('selects models, budgets, request builders, the text they send, and committed cases', () => {
+    const hits = [
+      'src/lib/ai/models.ts',
+      'src/lib/ai/budgets.ts',
+      'src/lib/ai/prompts.ts',
+      'src/lib/ai/recipe-prompt.ts',
+      'src/lib/ai/recipe-schema.ts',
+      'src/lib/ai/types.ts',
+      'src/lib/ai/imagine-request.ts',
+      'src/lib/ai/review-request.ts',
+      'src/lib/ai/preparation-tips.ts',
+      'src/lib/vague-quantities.ts',
+      'scripts/model-bench/cases/imagine/en-pasta-for-two.json',
+    ]
+    expect(classify('AI_EVAL_FILES', hits)).toEqual(hits)
+  })
+
+  // Drafts are gitignored and never loaded, and the README is prose, so neither
+  // changes what the eval measures.
+  it('skips tests, drafts, the cases README and the rest of src/lib/ai', () => {
+    expect(
+      classify('AI_EVAL_FILES', [
+        'src/lib/ai/models.test.ts',
+        'src/lib/ai/recipe-schema.test.ts',
+        'src/lib/vague-quantities.test.ts',
+        'scripts/model-bench/cases/imagine/x.draft.json',
+        'scripts/model-bench/cases/README.md',
+        'src/lib/ai/pricing.ts',
+        'src/lib/ai/imagine-meal.ts',
+        'src/components/meal-plan/MealCard.tsx',
+        ...UNRELATED,
+      ]),
+    ).toEqual([])
+  })
+
+  it('survives a no-match without failing the script', () => {
+    expect(() => classify('AI_EVAL_FILES', ['docs/DESIGN.md'])).not.toThrow()
+  })
+
+  // The gate fires on these files, so the item must name them, or its "nothing to
+  // do" clause lets a schema-only or phrase-list-only change through.
+  it('names every kind of file the gate fires on, and the run each needs', () => {
+    const body = heredoc('AI_EVAL_PROMPT')
+    for (const file of ['recipe-schema.ts', 'types.ts', 'vague-quantities.ts', 'models.ts']) {
+      expect(body).toContain(file)
+    }
+    expect(body).toContain('scripts/model-bench/results/')
+    expect(body).toContain('`--check` report')
+    expect(body).toContain('`--baseline golden` comparison')
+  })
+})
+
 describe('prompt items', () => {
   // Fail closed like the design gate: an unreadable or truncated list must not
   // silently drop the only enforcement these rules have.
   it.each([
     ['E2E_FILES', 'E2E_PROMPT'],
     ['GEOMETRY_FILES', 'GEOMETRY_PROMPT'],
+    ['AI_EVAL_FILES', 'AI_EVAL_PROMPT'],
   ])('appends %s item on a match or an untrustworthy file list', (variable, name) => {
     expect(read(prReview)).toContain(
       `if [ -n "$${variable}" ] || [ "$PR_FILES_COMPLETE" = false ]; then`,

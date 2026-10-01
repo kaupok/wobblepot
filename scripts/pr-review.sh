@@ -417,11 +417,12 @@ GEOMETRY_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/components/ui/[^/]*\
 # AI eval: what `scripts/model-bench/tasks.ts` imports from src/lib/ai/ — the model
 # constants, the route budgets, and the request builders — plus the two schema files
 # the builders send (recipe-schema.ts, types.ts), whose `.describe()` strings are
-# instructions to the model, and the committed cases.
+# instructions to the model, the vague-phrase list recipe-prompt.ts joins into its
+# instructions (src/lib/vague-quantities.ts), and the committed cases.
 # The eval spends money, so CI cannot run it, and HON-794 changed `models.ts` with no
 # run at all (HON-859 ran it after the fact). Drafts are gitignored and never loaded,
 # and the README is prose, so neither changes what the eval measures.
-AI_EVAL_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/lib/ai/(models|budgets|prompts|recipe-prompt|recipe-schema|types|imagine-request|review-request|preparation-tips)\.ts|scripts/model-bench/cases/.*\.json)$' | grep -vE '\.(test\.ts|draft\.json)$' || true)
+AI_EVAL_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/lib/ai/(models|budgets|prompts|recipe-prompt|recipe-schema|types|imagine-request|review-request|preparation-tips)\.ts|src/lib/vague-quantities\.ts|scripts/model-bench/cases/.*\.json)$' | grep -vE '\.(test\.ts|draft\.json)$' || true)
 
 if [ -n "$E2E_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
   echo -e "${GREEN}Pages, components or copy changed — adding the E2E-drift check.${NC}"
@@ -449,7 +450,7 @@ if [ -n "$AI_EVAL_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
 
 ## Also check for an AI eval report
 
-If this diff changes a prompt builder, a model constant, an AI budget or a benchmark case, the PR body must cite a report under `scripts/model-bench/results/` committed in this PR and dated after the change: a `--check` report for a case or budget change, a `--baseline golden` comparison with judge verdicts for a prompt change, a model comparison for a `models.ts` change (`docs/AI_MODELS.md`). A missing or older report is a finding. If none of those files changed, this check has nothing to do.
+If this diff changes a prompt builder or text it sends to the model (an output schema in `src/lib/ai/recipe-schema.ts` or `src/lib/ai/types.ts`, the phrase list in `src/lib/vague-quantities.ts`), a model constant, an AI budget or a benchmark case, the PR body must cite a report under `scripts/model-bench/results/` committed in this PR and dated after the change: a `--check` report for a case or budget change, a `--baseline golden` comparison with judge verdicts for a prompt, schema or phrase-list change, a model comparison for a `models.ts` change (`docs/AI_MODELS.md`). A missing or older report is a finding. If none of those files changed, this check has nothing to do.
 AI_EVAL_PROMPT
 fi
 
