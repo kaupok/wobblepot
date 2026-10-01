@@ -696,8 +696,13 @@ function flag(args: string[], name: string): string | undefined {
   return value
 }
 
-/** Well above a year of merges at ~300 a month; `fetchMergedPrs` throws if it is ever filled. */
-export const PR_FETCH_LIMIT = 5000
+/**
+ * GitHub search returns at most 1,000 results whatever `--limit` says, and
+ * `--search` makes `gh pr list` a search. So PRs are fetched one calendar
+ * month at a time (~300 merges a month today), and a month that fills the cap
+ * throws.
+ */
+export const PR_FETCH_LIMIT = 1000
 
 /**
  * Work on a branch can outlive its merge (a cleanup session the next day), so
@@ -724,30 +729,57 @@ export function prWindowStart(requests: RequestRecord[]): string {
 export function assertUnderLimit(prs: MergedPr[], limit: number): MergedPr[] {
   if (prs.length >= limit) {
     throw new Error(
-      `gh returned ${prs.length} merged PRs, the --limit; some would be missing and their cost misattributed. Raise PR_FETCH_LIMIT.`,
+      `gh returned ${prs.length} merged PRs, the search cap; some would be missing and their cost misattributed. Fetch in smaller windows than a month.`,
     )
   }
   return prs
 }
 
+/**
+ * Inclusive `[from, to]` date ranges, one per calendar month, covering `start`
+ * through `end` (both `YYYY-MM-DD`). The first and last are partial months.
+ */
+export function monthWindows(start: string, end: string): Array<[string, string]> {
+  const windows: Array<[string, string]> = []
+  let from = start
+  while (from <= end) {
+    const lastOfMonth = new Date(`${from.slice(0, 7)}-01T00:00:00Z`)
+    lastOfMonth.setUTCMonth(lastOfMonth.getUTCMonth() + 1, 0)
+    const monthEnd = lastOfMonth.toISOString().slice(0, 10)
+    const to = monthEnd < end ? monthEnd : end
+    windows.push([from, to])
+    lastOfMonth.setUTCDate(lastOfMonth.getUTCDate() + 1)
+    from = lastOfMonth.toISOString().slice(0, 10)
+  }
+  return windows
+}
+
 function fetchMergedPrs(mergedSince: string): MergedPr[] {
-  const json = execFileSync(
-    'gh',
-    [
+  const today = new Date().toISOString().slice(0, 10)
+  return monthWindows(mergedSince, today).flatMap(([from, to]) => {
+    const args = [
       'pr',
       'list',
       '--state',
       'merged',
       '--search',
-      `merged:>=${mergedSince}`,
+      `merged:${from}..${to}`,
       '--limit',
       String(PR_FETCH_LIMIT),
       '--json',
       'number,headRefName,mergedAt,additions,deletions',
-    ],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-  )
-  return assertUnderLimit(JSON.parse(json) as MergedPr[], PR_FETCH_LIMIT)
+    ]
+    const run = () => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+    let json: string
+    try {
+      json = run()
+    } catch {
+      // One call per month makes a transient GitHub 502 likely enough over a
+      // long window to be worth one retry; a second failure is real.
+      json = run()
+    }
+    return assertUnderLimit(JSON.parse(json) as MergedPr[], PR_FETCH_LIMIT)
+  })
 }
 
 function main(): void {

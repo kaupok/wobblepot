@@ -10,6 +10,7 @@ import {
   costTotal,
   dedupeRequests,
   isoInstant,
+  monthWindows,
   parseTranscript,
   PRICING,
   PRICING_READ_ON,
@@ -445,8 +446,21 @@ describe('merged-PR fetch', () => {
     expect(prWindowStart(readTranscripts(fixtureRoot).requests)).toBe('2026-08-11')
   })
 
+  it('splits the window into calendar months, so no single search nears the cap', () => {
+    expect(monthWindows('2026-08-11', '2026-10-01')).toEqual([
+      ['2026-08-11', '2026-08-31'],
+      ['2026-09-01', '2026-09-30'],
+      ['2026-10-01', '2026-10-01'],
+    ])
+    expect(monthWindows('2026-12-15', '2027-01-03')).toEqual([
+      ['2026-12-15', '2026-12-31'],
+      ['2027-01-01', '2027-01-03'],
+    ])
+    expect(monthWindows('2026-10-02', '2026-10-01')).toEqual([])
+  })
+
   it('throws when gh fills its --limit, since the missing PRs would move cost elsewhere', () => {
-    expect(() => assertUnderLimit(PRS, PRS.length)).toThrow(/Raise PR_FETCH_LIMIT/)
+    expect(() => assertUnderLimit(PRS, PRS.length)).toThrow(/the search cap/)
     expect(assertUnderLimit(PRS, PRS.length + 1)).toBe(PRS)
   })
 })
