@@ -288,7 +288,9 @@ ${pantryIngredients.join(', ')}
   }
 
   if (restrictions.length > 0) {
-    prompt += `\n- Dietary preferences (best effort): ${restrictions.join(', ')}`
+    // A section of its own, so the line is not read as one more bullet of the
+    // PANTRY or PERSONALIZATION soft preferences above it (HON-896).
+    prompt += `\n\nHOUSEHOLD RESTRICTIONS (best effort):\n- ${restrictions.join(', ')}`
   }
 
   prompt += `

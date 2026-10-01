@@ -232,20 +232,20 @@ describe('buildMealPlanPrompt', () => {
   })
 
   describe('restrictions', () => {
-    it('does not include dietary preferences line when restrictions are empty', () => {
+    it('does not include household restrictions line when restrictions are empty', () => {
       const input = createInput({ restrictions: [] })
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).not.toContain('Dietary preferences')
+      expect(result).not.toContain('HOUSEHOLD RESTRICTIONS')
     })
 
-    it('includes dietary preferences when restrictions are provided', () => {
+    it('includes household restrictions when restrictions are provided', () => {
       const input = createInput({ restrictions: ['low FODMAP', 'no spicy food'] })
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('Dietary preferences (best effort): low FODMAP, no spicy food')
+      expect(result).toContain('HOUSEHOLD RESTRICTIONS (best effort):\n- low FODMAP, no spicy food')
     })
 
     it('includes single restriction', () => {
@@ -253,7 +253,17 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('Dietary preferences (best effort): keto-friendly')
+      expect(result).toContain('HOUSEHOLD RESTRICTIONS (best effort):\n- keto-friendly')
+    })
+
+    it('puts restrictions in their own section, not under a soft-preference section', () => {
+      const withPantry = buildMealPlanPrompt(
+        createInput({ pantryIngredients: ['Rice'], restrictions: ['peanut allergy'] }),
+      )
+      const withoutPantry = buildMealPlanPrompt(createInput({ restrictions: ['peanut allergy'] }))
+
+      expect(withPantry).toContain('still come first\n\nHOUSEHOLD RESTRICTIONS')
+      expect(withoutPantry).toContain('only pick favorites\n\nHOUSEHOLD RESTRICTIONS')
     })
   })
 
@@ -389,7 +399,7 @@ describe('buildMealPlanPrompt', () => {
 
       const personalizationIndex = result.indexOf('PERSONALIZATION')
       const pantryIndex = result.indexOf('PANTRY')
-      const restrictionsIndex = result.indexOf('Dietary preferences')
+      const restrictionsIndex = result.indexOf('HOUSEHOLD RESTRICTIONS')
 
       expect(personalizationIndex).toBeLessThan(pantryIndex)
       expect(pantryIndex).toBeLessThan(restrictionsIndex)
