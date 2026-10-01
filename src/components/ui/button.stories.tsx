@@ -24,7 +24,7 @@ const meta = {
     },
     size: {
       control: 'select',
-      options: ['default', 'sm', 'lg', 'icon', 'icon-sm', 'icon-lg', 'inline'],
+      options: ['default', 'sm', 'lg', 'icon', 'icon-xs', 'icon-sm', 'icon-lg', 'inline'],
     },
     shape: { control: 'select', options: ['default', 'pill'] },
     disabled: { control: 'boolean' },
@@ -180,6 +180,9 @@ export const AllSizes: Story = {
       <Button size="sm">Small</Button>
       <Button size="default">Default</Button>
       <Button size="lg">Large</Button>
+      <Button size="icon-xs" aria-label="Add">
+        <Plus />
+      </Button>
       <Button size="icon-sm" aria-label="Add">
         <Plus />
       </Button>

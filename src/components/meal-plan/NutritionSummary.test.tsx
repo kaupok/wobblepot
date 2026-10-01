@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 // Need the real next-intl provider here so we can verify locale-aware
 // integer formatting (HON-556) against the actual catalogs.
 vi.unmock('next-intl')
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../messages/en.json'
@@ -61,40 +61,59 @@ describe('NutritionSummary', () => {
     expect(screen.getByText('28g')).toBeInTheDocument()
   })
 
-  describe('vague-quantity footnote (HON-764)', () => {
-    const footnote = '*includes estimates for vague quantities'
+  describe('vague-quantity info (HON-764, HON-930)', () => {
     const nutrition = { calories: 520, protein: 42, carbs: 30, fat: 12 }
 
     it.each([
       ['compact', true],
       ['full', false],
-    ])('renders the asterisk with its footnote in %s mode', (_mode, compact) => {
-      renderInLocale(
+    ])('renders an (i) button that opens the explanation in %s mode', async (_mode, compact) => {
+      const { container } = renderInLocale(
         <NutritionSummary
           nutrition={nutrition}
           compact={compact}
           components={[{ isVague: true }]}
         />,
       )
-      expect(screen.getByText(footnote)).toBeInTheDocument()
+      // The asterisk and the caption line are gone. The sentence's only
+      // home outside the popover is the button's screen-reader description.
+      const sentence = 'Includes estimates for vague quantities like “to taste”.'
+      expect(container.textContent).not.toContain('*')
+      expect(screen.getByText(sentence)).toHaveClass('sr-only')
+
+      const button = screen.getByRole('button', { name: 'About these numbers' })
+      expect(button).toHaveAccessibleDescription(sentence)
+      fireEvent.click(button)
+      const popover = await screen.findByRole('dialog', { name: 'About these numbers' })
+      expect(within(popover).getByText(sentence)).toBeInTheDocument()
+    })
+
+    it('labels the button and explains in Estonian', async () => {
+      renderInLocale(
+        <NutritionSummary nutrition={nutrition} compact components={[{ isVague: true }]} />,
+        'et',
+      )
+      const sentence = 'Sisaldab hinnanguid umbmääraste koguste kohta, nagu „maitse järgi”.'
+      const button = screen.getByRole('button', { name: 'Nende numbrite kohta' })
+      expect(button).toHaveAccessibleDescription(sentence)
+      fireEvent.click(button)
+      const popover = await screen.findByRole('dialog', { name: 'Nende numbrite kohta' })
+      expect(within(popover).getByText(sentence)).toBeInTheDocument()
     })
 
     it.each([
       ['compact', true],
       ['full', false],
-    ])(
-      'renders neither asterisk nor footnote in %s mode without vague quantities',
-      (_mode, compact) => {
-        const { container } = renderInLocale(
-          <NutritionSummary
-            nutrition={nutrition}
-            compact={compact}
-            components={[{ isVague: false }]}
-          />,
-        )
-        expect(screen.queryByText(footnote)).not.toBeInTheDocument()
-        expect(container.textContent).not.toContain('*')
-      },
-    )
+    ])('renders no button in %s mode without vague quantities', (_mode, compact) => {
+      const { container } = renderInLocale(
+        <NutritionSummary
+          nutrition={nutrition}
+          compact={compact}
+          components={[{ isVague: false }]}
+        />,
+      )
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+      expect(container.textContent).not.toContain('*')
+    })
   })
 })

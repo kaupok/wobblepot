@@ -314,7 +314,8 @@
         "carbs": "carbs",
         "fat": "fat"
       },
-      "vagueDisclaimer": "*includes estimates for vague quantities"
+      "vagueInfo": "Includes estimates for vague quantities like “to taste”.",
+      "vagueInfoLabel": "About these numbers"
     },
     "serving": {
       "label": "Serves",

@@ -1,4 +1,5 @@
 import { useLocale, useTranslations } from 'next-intl'
+import { InfoTip } from '@/components/ui/info-tip'
 import { Body } from '@/components/ui/typography'
 import { formatInteger } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
@@ -19,29 +20,35 @@ export function NutritionSummary({ nutrition, compact, components }: NutritionSu
   const locale = useLocale() as Locale
   const hasVague = hasVagueIngredients(components)
 
-  // The asterisk and its footnote render together in both layouts, so no
-  // callsite can show one without the other (HON-764).
+  // A vague quantity ("to taste") makes the numbers an estimate. One (i) button
+  // says so in both layouts, after the macros (compact) or the header (full),
+  // and a meal without one shows nothing (HON-764, HON-930).
+  const vagueInfo = hasVague && (
+    <InfoTip label={t('vagueInfoLabel')} size={compact ? 'sm' : 'default'}>
+      {t('vagueInfo')}
+    </InfoTip>
+  )
+
   if (compact) {
     return (
-      <div className="flex flex-col gap-0.5">
-        <div className="text-muted-foreground text-xs">
+      <div className="text-muted-foreground flex items-center gap-1 text-xs">
+        <span>
           {formatInteger(nutrition.calories, locale)} kcal ·{' '}
           {formatInteger(nutrition.protein, locale)}g {t('compact.protein')} ·{' '}
           {formatInteger(nutrition.carbs, locale)}g {t('compact.carbs')} ·{' '}
           {formatInteger(nutrition.fat, locale)}g {t('compact.fat')}
-          {hasVague && '*'}
-        </div>
-        {hasVague && <Body variant="caption">{t('vagueDisclaimer')}</Body>}
+        </span>
+        {vagueInfo}
       </div>
     )
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <Body variant="small">
-        {t('summaryHeader')}
-        {hasVague && '*'}
-      </Body>
+      <div className="flex items-center gap-1">
+        <Body variant="small">{t('summaryHeader')}</Body>
+        {vagueInfo}
+      </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
         <span className="text-muted-foreground">{t('calories')}</span>
         <span>{formatInteger(nutrition.calories, locale)} kcal</span>
@@ -52,7 +59,6 @@ export function NutritionSummary({ nutrition, compact, components }: NutritionSu
         <span className="text-muted-foreground">{t('fat')}</span>
         <span>{formatInteger(nutrition.fat, locale)}g</span>
       </div>
-      {hasVague && <Body variant="caption">{t('vagueDisclaimer')}</Body>}
     </div>
   )
 }

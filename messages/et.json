@@ -314,7 +314,8 @@
         "carbs": "süsivesikuid",
         "fat": "rasva"
       },
-      "vagueDisclaimer": "*sisaldab hinnanguid umbmääraste koguste jaoks"
+      "vagueInfo": "Sisaldab hinnanguid umbmääraste koguste kohta, nagu „maitse järgi”.",
+      "vagueInfoLabel": "Nende numbrite kohta"
     },
     "serving": {
       "label": "Portsjoneid",

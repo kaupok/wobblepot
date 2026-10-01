@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { expect, userEvent, within } from 'storybook/test'
 import { NutritionSummary } from './NutritionSummary'
 
 const meta = {
@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Per-serving macro summary rendered on the meal detail view. Defaults to a two-column label/value grid; the `compact` variant renders a single interpunct-separated line. When any component has `isVague: true`, a `*` is appended to the heading (or the compact line) and the footnote explaining it is shown below, in both layouts (HON-764).',
+          'Per-serving macro summary rendered on the meal detail view. Defaults to a two-column label/value grid; the `compact` variant renders a single interpunct-separated line. When any component has `isVague: true`, an (i) button follows the heading (or the compact line); hover, tap or Enter opens a popover saying the numbers include estimates (HON-764, HON-930).',
       },
     },
   },
@@ -23,40 +23,46 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const FOOTNOTE = '*includes estimates for vague quantities'
+const LABEL = 'About these numbers'
+const EXPLANATION = 'Includes estimates for vague quantities like “to taste”.'
 
-const expectNoFootnote: Story['play'] = async ({ canvasElement }) => {
-  await expect(within(canvasElement).queryByText(FOOTNOTE)).not.toBeInTheDocument()
+const expectNoInfo: Story['play'] = async ({ canvasElement }) => {
+  await expect(within(canvasElement).queryByRole('button')).not.toBeInTheDocument()
   await expect(canvasElement.textContent).not.toContain('*')
 }
 
-const expectFootnote: Story['play'] = async ({ canvasElement }) => {
-  await expect(within(canvasElement).getByText(FOOTNOTE)).toBeInTheDocument()
+// The popover portals to the body, so it is found there. Its text is read from
+// the dialog: the button's sr-only description carries the same sentence.
+const expectInfo: Story['play'] = async ({ canvasElement }) => {
+  await expect(canvasElement.textContent).not.toContain('*')
+  await userEvent.click(within(canvasElement).getByRole('button', { name: LABEL }))
+  const popover = await within(document.body).findByRole('dialog', { name: LABEL })
+  await expect(within(popover).getByText(EXPLANATION)).toBeInTheDocument()
 }
 
 export const Default: Story = {
-  play: expectNoFootnote,
+  play: expectNoInfo,
 }
 
 export const Compact: Story = {
   args: { compact: true },
-  play: expectNoFootnote,
+  play: expectNoInfo,
 }
 
 export const WithVagueEstimates: Story = {
   args: {
     components: [{ isVague: true }, { isVague: false }],
   },
-  play: expectFootnote,
+  play: expectInfo,
 }
 
-/** The asterisk on the compact line (cards, meal detail) carries its own footnote (HON-764). */
+/** The compact line (cards, meal detail) carries the same (i) as the full layout (HON-930). */
 export const CompactWithVagueEstimates: Story = {
   args: {
     compact: true,
     components: [{ isVague: true }],
   },
-  play: expectFootnote,
+  play: expectInfo,
 }
 
 /**
