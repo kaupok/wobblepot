@@ -73,22 +73,22 @@ wt stop
 
 ### Configuration
 
-| Flag                 | Env Var                             | Default           | Description                                                                                   |
-| -------------------- | ----------------------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
-| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`          | 3                 | Max concurrent workers                                                                        |
-| `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`        | 60                | Seconds between polls                                                                         |
-| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT`       | 10800             | Seconds before killing a worker                                                               |
-| `--dry-run`          | —                                   | false             | Log actions without executing                                                                 |
-| `--once`             | —                                   | false             | Single poll cycle, then exit                                                                  |
-| —                    | `NEON_BRANCH_CAP`                   | 10                | Neon branches the plan allows                                                                 |
-| —                    | `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` | 1800              | Seconds before a cap-requeued issue is pickable again                                         |
-| —                    | `ORCHESTRATOR_TRIAGE_TIMEOUT`       | 120               | Seconds the failure-triage `claude -p` call may run before the issue falls back to Backlog    |
-| —                    | `CLAUDE_AUTO_MODEL`                 | `claude-opus-5-5` | Model every `wt auto` worker runs; read by `scripts/worktree-claude.sh`, not the orchestrator |
-| —                    | `CLAUDE_REVIEW_MODEL`               | `claude-opus-5-5` | Model the PR reviewer (`scripts/pr-review.sh`) runs                                           |
-| —                    | `CLAUDE_TRIAGE_MODEL`               | `claude-sonnet-5` | Model the orchestrator's failure-triage `claude -p` call runs                                 |
-| —                    | `cleanupPeriodDays`                 | 365               | Days Claude Code keeps transcripts; a setting in `~/.claude/settings.json`, not an env var    |
+| Flag                 | Env Var                             | Default           | Description                                                                                                                  |
+| -------------------- | ----------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`          | 3                 | Max concurrent workers                                                                                                       |
+| `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`        | 60                | Seconds between polls                                                                                                        |
+| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT`       | 10800             | Seconds before killing a worker                                                                                              |
+| `--dry-run`          | —                                   | false             | Log actions without executing                                                                                                |
+| `--once`             | —                                   | false             | Single poll cycle, then exit                                                                                                 |
+| —                    | `NEON_BRANCH_CAP`                   | 10                | Neon branches the plan allows                                                                                                |
+| —                    | `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` | 1800              | Seconds before a cap-requeued issue is pickable again                                                                        |
+| —                    | `ORCHESTRATOR_TRIAGE_TIMEOUT`       | 120               | Seconds the failure-triage `claude -p` call may run before the issue falls back to Backlog                                   |
+| —                    | `CLAUDE_AUTO_MODEL`                 | `claude-opus-5-5` | Model every `wt auto` worker runs; read by `scripts/worktree-claude.sh`, not the orchestrator                                |
+| —                    | `CLAUDE_REVIEW_MODEL`               | `claude-opus-5-5` | Model the PR reviewer (`scripts/pr-review.sh`) runs. Not read from `.env` outside a `wt auto` worker: export it in the shell |
+| —                    | `CLAUDE_TRIAGE_MODEL`               | `claude-sonnet-5` | Model the orchestrator's failure-triage `claude -p` call runs                                                                |
+| —                    | `cleanupPeriodDays`                 | 365               | Days Claude Code keeps transcripts; a setting in `~/.claude/settings.json`, not an env var                                   |
 
-Requires `LINEAR_API_KEY` env var (format: `lin_api_...`). Every env var above can live in `.env`: `wt` loads it for every subcommand, and the workers the orchestrator spawns inherit it.
+Requires `LINEAR_API_KEY` env var (format: `lin_api_...`). Every env var above except `CLAUDE_REVIEW_MODEL` can live in `.env`: `wt` loads it for every subcommand, and the workers the orchestrator spawns inherit it. `scripts/pr-review.sh` does not load `.env`, so a `.env` value reaches the reviewer only when a `wt auto` worker runs it; `/review-pr`, `/triage-pr-comments` and `/merge` in the main checkout need it exported in the shell that started the session.
 
 The three model defaults live in `scripts/models.sh`, the one file under `scripts/` that names a model ID; see [Swapping models](#swapping-models) before changing one.
 

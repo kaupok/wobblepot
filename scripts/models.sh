@@ -7,7 +7,9 @@
 #   pr-review.sh        REVIEW_MODEL  the PR reviewer
 #   orchestrator.sh     TRIAGE_MODEL  the failed-worker triage call
 #
-# Each one is overridable by its CLAUDE_*_MODEL env var, from the shell or .env.
+# Each one is overridable by its CLAUDE_*_MODEL env var. A .env line reaches
+# AUTO_MODEL and TRIAGE_MODEL through `wt`; pr-review.sh does not read .env, so
+# REVIEW_MODEL only sees it when run inside a `wt auto` worker.
 # Changing a default is a human decision taken with the swap test in
 # docs/PARALLEL_WORKFLOW.md → Swapping models.
 #
