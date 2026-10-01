@@ -4,6 +4,7 @@ import { getStartOfTodayInTimezone, toDateString } from './dates'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { getEffectiveServings } from './servings'
+import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 
 /**
  * Category configuration for shopping list grouping.
@@ -225,11 +226,11 @@ export async function computeShoppingList(
             existing.isVague = true
             existing.originalPhrase = component.originalPhrase
           } else if (
-            existing.originalPhrase !== 'some' &&
+            existing.originalPhrase !== MIXED_VAGUE_PHRASE &&
             component.originalPhrase?.toLowerCase() !== existing.originalPhrase?.toLowerCase()
           ) {
             // Different vague phrase encountered - use "some" instead
-            existing.originalPhrase = 'some'
+            existing.originalPhrase = MIXED_VAGUE_PHRASE
           }
         }
       } else {
@@ -436,11 +437,11 @@ export async function computeRollingWindowShoppingList(
             existing.isVague = true
             existing.originalPhrase = component.originalPhrase
           } else if (
-            existing.originalPhrase !== 'some' &&
+            existing.originalPhrase !== MIXED_VAGUE_PHRASE &&
             component.originalPhrase?.toLowerCase() !== existing.originalPhrase?.toLowerCase()
           ) {
             // Different vague phrase encountered - use "some" instead
-            existing.originalPhrase = 'some'
+            existing.originalPhrase = MIXED_VAGUE_PHRASE
           }
         }
       } else {

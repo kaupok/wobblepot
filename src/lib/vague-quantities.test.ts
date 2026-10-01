@@ -6,7 +6,6 @@ import {
   getVagueCategory,
   getVagueDefault,
   checkGuardrail,
-  formatVaguePhrase,
 } from './vague-quantities'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 
@@ -216,28 +215,5 @@ describe('checkGuardrail', () => {
   it('returns undefined for categories without thresholds', () => {
     expect(checkGuardrail(100, 'protein' as IngredientCategory, null)).toBeUndefined()
     expect(checkGuardrail(500, 'vegetable' as IngredientCategory, null)).toBeUndefined()
-  })
-})
-
-describe('formatVaguePhrase', () => {
-  it('formats to taste correctly', () => {
-    expect(formatVaguePhrase('to taste')).toBe('to taste')
-    expect(formatVaguePhrase('TO TASTE')).toBe('to taste')
-  })
-
-  it('formats for garnish correctly', () => {
-    expect(formatVaguePhrase('for garnish')).toBe('for garnish')
-    expect(formatVaguePhrase('garnish')).toBe('for garnish')
-    expect(formatVaguePhrase('GARNISH')).toBe('for garnish')
-  })
-
-  it('formats optional correctly', () => {
-    expect(formatVaguePhrase('optional')).toBe('optional')
-    expect(formatVaguePhrase('OPTIONAL')).toBe('optional')
-  })
-
-  it('normalizes other phrases to lowercase', () => {
-    expect(formatVaguePhrase('A PINCH')).toBe('a pinch')
-    expect(formatVaguePhrase('A Drizzle')).toBe('a drizzle')
   })
 })

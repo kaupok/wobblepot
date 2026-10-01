@@ -7,7 +7,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import type { PropsWithChildren } from 'react'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { useEnumLabel, type EnumName } from './enum-label'
+import { useEnumLabel, useVaguePhrase, type EnumName } from './enum-label'
 
 function makeWrapper(locale: 'en' | 'et') {
   const messages = locale === 'et' ? etMessages : enMessages
@@ -80,5 +80,23 @@ describe('useEnumLabel (catalog coverage)', () => {
       wrapper: makeWrapper('en'),
     })
     expect(result.current).toBe('Tree nuts')
+  })
+})
+
+describe('useVaguePhrase', () => {
+  it('renders a stored phrase in Estonian (HON-917)', () => {
+    const { result } = renderHook(() => useVaguePhrase(), { wrapper: makeWrapper('et') })
+    expect(result.current('to taste')).toBe('maitse järgi')
+    expect(result.current('a pinch')).toBe('näputäis')
+  })
+
+  it('renders the article form in English', () => {
+    const { result } = renderHook(() => useVaguePhrase(), { wrapper: makeWrapper('en') })
+    expect(result.current('pinch')).toBe('a pinch')
+  })
+
+  it('passes a phrase outside the vocabulary through unchanged', () => {
+    const { result } = renderHook(() => useVaguePhrase(), { wrapper: makeWrapper('et') })
+    expect(result.current('peotäie jagu')).toBe('peotäie jagu')
   })
 })

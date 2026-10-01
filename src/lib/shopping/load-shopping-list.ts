@@ -33,7 +33,7 @@ export async function loadShoppingList(
   { days, locale }: { days: 7 | 14; locale: Locale },
 ) {
   // Compute rolling window shopping list and fetch custom items in parallel
-  const [result, pantryItems, customItems, tDates] = await Promise.all([
+  const [result, pantryItems, customItems, tDates, tVague] = await Promise.all([
     computeRollingWindowShoppingList(household.id, days, household.timezone, household.locale),
     prisma.pantryItem.findMany({
       where: { householdId: household.id },
@@ -52,6 +52,7 @@ export async function loadShoppingList(
       orderBy: { createdAt: 'desc' },
     }),
     getTranslations({ locale, namespace: 'dates' }),
+    getTranslations({ locale, namespace: 'enums.VaguePhrase' }),
   ])
 
   const pantryMap = new Map(pantryItems.map((p) => [p.ingredientId, p]))
@@ -90,6 +91,7 @@ export async function loadShoppingList(
           locale,
           item.isVague,
           item.originalPhrase,
+          tVague,
         ),
         mealCount: item.mealCount,
         purchased,

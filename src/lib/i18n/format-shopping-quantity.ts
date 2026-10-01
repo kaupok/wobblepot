@@ -1,6 +1,7 @@
 import type { Unit } from '@/generated/prisma/enums'
 import { formatQuantity, formatInteger } from './format-number'
 import type { Locale } from './locales'
+import { formatVaguePhrase, type VaguePhraseLabel } from './vague-phrase'
 
 /**
  * Format a shopping-list quantity for display in the active locale.
@@ -8,7 +9,9 @@ import type { Locale } from './locales'
  * `quantity` is in the ingredient's `defaultUnit`, the unit
  * `MealComponent.quantityPerServing` is stored in (HON-713).
  *
- * - Vague: returns the original phrase (e.g. "to taste") unchanged.
+ * - Vague: returns the phrase in the household's language through `tVague`
+ *   (the `enums.VaguePhrase` translator); a phrase outside the vocabulary
+ *   passes through unchanged.
  * - Pieces: the quantity is already a piece count; rounded up so the shopper
  *   buys enough.
  * - Grams: renders `<n>g` for sub-kilogram amounts, `<n>kg` for >= 1000g, with
@@ -21,11 +24,12 @@ export function formatShoppingQuantity(
   quantity: number,
   unit: Unit,
   locale: Locale,
-  isVague?: boolean,
-  originalPhrase?: string | null,
+  isVague: boolean,
+  originalPhrase: string | null,
+  tVague: VaguePhraseLabel,
 ): string {
   if (isVague && originalPhrase) {
-    return originalPhrase
+    return formatVaguePhrase(originalPhrase, tVague)
   }
 
   if (unit === 'piece') {

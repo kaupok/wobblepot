@@ -73,6 +73,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // even when the server clock is in a different timezone.
     const locale = await getLocale()
     const tDates = await getTranslations('dates')
+    const tVague = await getTranslations('enums.VaguePhrase')
     const todayInTz = parseLocalDate(getTodayInTimezone(household.timezone))
 
     // Fetch pantry items for purchase tracking
@@ -110,6 +111,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             locale,
             item.isVague,
             item.originalPhrase,
+            tVague,
           ),
           mealCount: item.mealCount,
           purchased,

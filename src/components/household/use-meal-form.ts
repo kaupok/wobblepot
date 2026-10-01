@@ -18,6 +18,7 @@ import { ApiError, apiFetch } from '@/lib/api'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import { componentGramsPerServing } from '@/lib/meal-planning/nutrition'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
+import { DEFAULT_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import type { Unit } from '@/generated/prisma/enums'
 
 const MAX_SERVINGS = 50
@@ -34,15 +35,19 @@ export interface UseMealFormOptions {
 /**
  * Seed the enhanced ingredient rows used by the import flow, ordering them so
  * the rows needing attention (unmatched, then low-confidence) come first.
+ * `unknownName` labels an unmatched row the parser returned without a name.
  */
-function initIngredientRows(meal?: MealFormData): IngredientRowData[] {
+function initIngredientRows(
+  meal: MealFormData | undefined,
+  unknownName: string,
+): IngredientRowData[] {
   if (!meal?.prefilledIngredients) return []
 
   const rows = meal.prefilledIngredients.map((prefilled): IngredientRowData => {
     if (prefilled.type === 'unmatched') {
       return {
         type: 'unmatched',
-        extractedName: prefilled.extractedName ?? '',
+        extractedName: prefilled.extractedName ?? unknownName,
         originalText: prefilled.originalText ?? '',
         extractedQuantity: prefilled.extractedQuantity ?? 0,
         extractedUnit: prefilled.extractedUnit ?? '',
@@ -76,7 +81,7 @@ function initIngredientRows(meal?: MealFormData): IngredientRowData[] {
 
     return {
       type: 'unmatched',
-      extractedName: prefilled.extractedName ?? 'Unknown',
+      extractedName: prefilled.extractedName ?? unknownName,
       originalText: prefilled.originalText ?? '',
       extractedQuantity: 0,
       extractedUnit: '',
@@ -131,8 +136,9 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
   })
 
   // Enhanced ingredient rows (for import flow with match states)
+  const tRow = useTranslations('recipes.ingredientRow')
   const [ingredientRows, setIngredientRows] = useState<IngredientRowData[]>(() =>
-    initIngredientRows(meal),
+    initIngredientRows(meal, tRow('unknownName')),
   )
 
   const [error, setError] = useState('')
@@ -326,7 +332,9 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
   const markComponentAsVague = (ingredientId: string) => {
     setComponents(
       components.map((c) =>
-        c.ingredientId === ingredientId ? { ...c, isVague: true, originalPhrase: 'to taste' } : c,
+        c.ingredientId === ingredientId
+          ? { ...c, isVague: true, originalPhrase: DEFAULT_VAGUE_PHRASE }
+          : c,
       ),
     )
   }

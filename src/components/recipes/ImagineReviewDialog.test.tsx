@@ -107,6 +107,35 @@ describe('ImagineReviewDialog locale formatting', () => {
   // user interaction here would only re-test the same code path.
 })
 
+describe('ImagineReviewDialog vague phrases and unnamed rows (HON-917)', () => {
+  it('renders a matched vague phrase in Estonian', () => {
+    const [chicken] = buildMeal().prefilledIngredients as [PrefilledIngredient]
+    const meal = buildMeal({
+      prefilledIngredients: [{ ...chicken, isVague: true, originalPhrase: 'to taste' }],
+    })
+    renderInLocale(
+      <ImagineReviewDialog open meal={meal} onOpenChange={vi.fn()} onSaved={vi.fn()} />,
+      'et',
+    )
+    fireEvent.click(screen.getByText('1 sobitatud koostisosa'))
+    expect(screen.getByText('maitse järgi')).toBeInTheDocument()
+  })
+
+  it('labels an unmatched row the parser returned without a name in Estonian', () => {
+    const meal = buildMeal({
+      prefilledIngredients: [
+        { type: 'unmatched', originalText: '1 midagi', isVague: false, originalPhrase: null },
+      ],
+    })
+    renderInLocale(
+      <ImagineReviewDialog open meal={meal} onOpenChange={vi.fn()} onSaved={vi.fn()} />,
+      'et',
+    )
+    expect(screen.getByText('Tundmatu koostisosa')).toBeInTheDocument()
+    expect(screen.queryByText('Unknown')).not.toBeInTheDocument()
+  })
+})
+
 describe('ImagineReviewDialog prep time', () => {
   it('renders a zero-minute meal exactly like one with no prep time, with no stray "0" (HON-711)', () => {
     const renderWith = (timeMinutes: number | null) =>

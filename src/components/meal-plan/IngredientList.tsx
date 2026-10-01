@@ -7,6 +7,7 @@ import { Body, Heading, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { formatInteger, formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
+import { useVaguePhrase } from '@/lib/i18n/enum-label'
 import { AvailabilityIndicator, getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import type { MealAvailability, MealComponent, PantryIngredient } from './types'
 
@@ -44,19 +45,21 @@ interface IngredientListProps {
  * Quantities are stored in native units (pieces for piece-based ingredients,
  * grams for weight-based ingredients). No conversion needed.
  *
- * For vague quantities, returns the original phrase (e.g., "to taste").
+ * For vague quantities, returns the phrase in the household's language
+ * (e.g., "to taste" / "maitse järgi").
  */
 function formatQuantity(
   quantityPerServing: number,
   householdSize: number,
   unit: 'g' | 'piece',
   locale: Locale,
-  isVague?: boolean,
-  originalPhrase?: string | null,
+  isVague: boolean | undefined,
+  originalPhrase: string | null | undefined,
+  vaguePhrase: (phrase: string) => string,
 ): string {
   // For vague quantities, show the phrase instead of calculated amount
   if (isVague && originalPhrase) {
-    return originalPhrase
+    return vaguePhrase(originalPhrase)
   }
 
   const totalQuantity = quantityPerServing * householdSize
@@ -90,6 +93,7 @@ export function IngredientList({
   const tDetail = useTranslations('meal-plan.detail')
   const tAvailability = useTranslations('meal-plan.availability')
   const locale = useLocale() as Locale
+  const vaguePhrase = useVaguePhrase()
   // Build maps for availability and staple status
   const { availableIds, stapleIds } = useMemo(() => {
     if (!pantryIngredients) {
@@ -131,12 +135,13 @@ export function IngredientList({
         locale,
         comp.isVague,
         comp.originalPhrase,
+        vaguePhrase,
       )
       return `${comp.ingredient.name} (${qty})`
     })
 
     return tDetail('staplesPrefix', { list: items.join(', ') })
-  }, [stapleComponents, servings, tDetail, locale])
+  }, [stapleComponents, servings, tDetail, locale, vaguePhrase])
 
   // Default header label
   const defaultHeader = (
@@ -198,6 +203,7 @@ export function IngredientList({
                   locale,
                   comp.isVague,
                   comp.originalPhrase,
+                  vaguePhrase,
                 )}
               </span>
             </Li>

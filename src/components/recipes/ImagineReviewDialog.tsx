@@ -26,7 +26,7 @@ import {
 import type { FinalComponent, PrefilledIngredient } from '@/components/household/meal-form-types'
 import { ApiError, apiFetch } from '@/lib/api'
 import { savableTimeMinutes } from '@/lib/imagine-utils'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { formatInteger, formatQuantity } from '@/lib/i18n/format-number'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
@@ -95,12 +95,15 @@ export function computeReviewNutrition(
   return computeMealNutrition(components)
 }
 
-function initIngredientRows(prefilledIngredients: PrefilledIngredient[]): IngredientRowData[] {
+function initIngredientRows(
+  prefilledIngredients: PrefilledIngredient[],
+  unknownName: string,
+): IngredientRowData[] {
   const rows = prefilledIngredients.map((prefilled): IngredientRowData => {
     if (prefilled.type === 'unmatched') {
       return {
         type: 'unmatched',
-        extractedName: prefilled.extractedName ?? '',
+        extractedName: prefilled.extractedName ?? unknownName,
         originalText: prefilled.originalText ?? '',
         extractedQuantity: prefilled.extractedQuantity ?? 0,
         extractedUnit: prefilled.extractedUnit ?? '',
@@ -134,7 +137,7 @@ function initIngredientRows(prefilledIngredients: PrefilledIngredient[]): Ingred
 
     return {
       type: 'unmatched',
-      extractedName: prefilled.extractedName ?? 'Unknown',
+      extractedName: prefilled.extractedName ?? unknownName,
       originalText: prefilled.originalText ?? '',
       extractedQuantity: 0,
       extractedUnit: '',
@@ -196,8 +199,10 @@ export function ImagineReviewDialog({
   const t = useTranslations('recipes.review')
   const tForm = useTranslations('recipes.form')
   const tDetail = useTranslations('meal-plan.detail')
+  const tRow = useTranslations('recipes.ingredientRow')
+  const vaguePhrase = useVaguePhrase()
   const [ingredientRows, setIngredientRows] = useState<IngredientRowData[]>(() =>
-    initIngredientRows(meal.prefilledIngredients),
+    initIngredientRows(meal.prefilledIngredients, tRow('unknownName')),
   )
   const [error, setError] = useState<string | null>(null)
   const [isMatchedOpen, setIsMatchedOpen] = useState(false)
@@ -434,7 +439,7 @@ export function ImagineReviewDialog({
                         <Body variant="small">{row.ingredient.name}</Body>
                         <Body variant="caption">
                           {row.isVague && row.originalPhrase ? (
-                            <span className="italic">{row.originalPhrase}</span>
+                            <span className="italic">{vaguePhrase(row.originalPhrase)}</span>
                           ) : (
                             <>
                               {perServing}

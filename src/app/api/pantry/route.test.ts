@@ -1,6 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { GET, POST } from './route'
+import enMessages from '../../../../messages/en.json'
+import etMessages from '../../../../messages/et.json'
+
+// `loadPantry` translates vague phrases with the household's locale through
+// `getTranslations({ locale, namespace })`; resolve it against the real catalogs.
+vi.mock('next-intl/server', async () => {
+  const { createTranslator } = await vi.importActual<typeof import('next-intl')>('next-intl')
+  return {
+    getTranslations: vi.fn(async ({ locale, namespace }: { locale: string; namespace: string }) =>
+      createTranslator({
+        locale,
+        messages: (locale === 'et' ? etMessages : enMessages) as never,
+        namespace: namespace as never,
+      }),
+    ),
+  }
+})
 
 function createMockRequest(url: string = 'http://localhost/api/pantry') {
   return new NextRequest(url)
@@ -443,6 +460,51 @@ describe('GET /api/pantry', () => {
       expect(data.items[0].isVague).toBe(isVague)
     },
   )
+
+  it('renders a vague need in the household language for et households (HON-917)', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'Anna', email: 'anna@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'et' },
+    } as never)
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'pantry-1',
+        householdId: 'household-123',
+        ingredientId: 'ing-1',
+        quantity: null,
+        isStaple: true,
+        updatedAt: new Date('2024-01-01'),
+        ingredient: { id: 'ing-1', name: 'Sool', category: 'spice', defaultUnit: 'g' },
+      },
+    ] as never)
+    mockFindManyEntries.mockResolvedValue([
+      {
+        id: 'entry-1',
+        date: new Date(),
+        status: 'planned',
+        meal: {
+          components: [
+            {
+              ingredientId: 'ing-1',
+              quantityPerServing: 1,
+              isVague: true,
+              originalPhrase: 'to taste',
+            },
+          ],
+        },
+      },
+    ] as never)
+
+    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
+    const data = await response.json()
+
+    expect(data.items[0].neededDisplayQuantity).toBe('maitse järgi')
+    expect(data.items[0].isVague).toBe(true)
+  })
 
   it('formats kg needed quantities with a period decimal for en households', async () => {
     mockGetSession.mockResolvedValue({

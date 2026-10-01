@@ -533,6 +533,7 @@
       "originalLabel": "Algne: {text}",
       "searchPlaceholder": "Otsi koostisosi…",
       "searchAria": "Leia vaste koostisosale „{name}\"",
+      "unknownName": "Tundmatu koostisosa",
       "noResults": "Koostisosi ei leitud",
       "drop": "Jäta välja",
       "verifyMatch": "Kontrolli sobitust:",
@@ -1145,6 +1146,20 @@
       "planned": "Planeeritud",
       "completed": "Tehtud",
       "skipped": "Vahele jäetud"
+    },
+    "VaguePhrase": {
+      "toTaste": "maitse järgi",
+      "pinch": "näputäis",
+      "dash": "tilgake",
+      "splash": "sorts",
+      "drizzle": "niristamiseks",
+      "handful": "peotäis",
+      "some": "veidi",
+      "forGarnish": "kaunistuseks",
+      "optional": "soovi korral",
+      "asNeeded": "vajadusel",
+      "bit": "veidi",
+      "little": "natuke"
     }
   }
 }

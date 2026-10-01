@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { useIngredientSearch } from '@/hooks/use-ingredient-search'
 import type { UnmatchedIngredientData, IngredientResult } from './IngredientRow'
 import type { IngredientCategory } from '@/generated/prisma/enums'
@@ -31,6 +31,7 @@ export function UnmatchedIngredientRow({
   onResolve,
 }: UnmatchedIngredientRowProps) {
   const t = useTranslations('recipes.ingredientRow')
+  const vaguePhrase = useVaguePhrase()
   const [searchQuery, setSearchQuery] = useState('')
   // The dropdown opens as soon as results exist; this only tracks whether the
   // user dismissed it (Escape, click outside, or after picking a match).
@@ -113,7 +114,7 @@ export function UnmatchedIngredientRow({
             <Body tone="warning">{data.extractedName}</Body>
             <Body variant="muted">
               {data.isVague && data.originalPhrase ? (
-                <span className="italic">{data.originalPhrase}</span>
+                <span className="italic">{vaguePhrase(data.originalPhrase)}</span>
               ) : (
                 t('originalLabel', { text: data.originalText })
               )}

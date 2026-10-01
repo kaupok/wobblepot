@@ -8,6 +8,8 @@ import { Body } from '@/components/ui/typography'
 import { formatUnit } from '@/components/household/meal-form-types'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
+import { useVaguePhrase } from '@/lib/i18n/enum-label'
+import { DEFAULT_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { QuantityControls } from './QuantityControls'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 import { LowConfidenceIngredientRow } from './LowConfidenceIngredientRow'
@@ -84,6 +86,7 @@ export function IngredientRow({
   const lastQuantityRef = useRef<number | null>(null)
   const locale = useLocale() as Locale
   const t = useTranslations('recipes.ingredientRow')
+  const vaguePhrase = useVaguePhrase()
 
   const handleQuantityChange = (newQuantity: number) => {
     if (data.type === 'matched' || data.type === 'low-confidence') {
@@ -114,7 +117,7 @@ export function IngredientRow({
       onUpdate({
         ...data,
         isVague: true,
-        originalPhrase: 'to taste',
+        originalPhrase: DEFAULT_VAGUE_PHRASE,
       })
     }
   }
@@ -164,7 +167,7 @@ export function IngredientRow({
           <Body>{data.ingredient.name}</Body>
           <Body variant="muted">
             {data.isVague && data.originalPhrase ? (
-              <span className="italic">{data.originalPhrase}</span>
+              <span className="italic">{vaguePhrase(data.originalPhrase)}</span>
             ) : isInvalidQuantity ? (
               <span className="text-destructive">{t('invalidQuantity')}</span>
             ) : (

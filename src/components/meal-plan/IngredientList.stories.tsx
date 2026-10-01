@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn, within } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import { createMealComponent, lemonGarlicChickenComponentsFull } from '@/stories/fixtures'
 import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-helpers'
 import { IngredientList } from './IngredientList'
@@ -149,6 +149,10 @@ export const EstonianLocale: Story = {
   name: 'Estonian (comma decimals)',
   globals: { locale: 'et' },
   args: { servings: 3, householdSize: 3 },
+  // The salt's stored "to taste" renders through `enums.VaguePhrase` (HON-917).
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('maitse järgi')).toBeVisible()
+  },
 }
 
 const narrowArgs = {

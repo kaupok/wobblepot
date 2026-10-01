@@ -27,6 +27,15 @@ export const VAGUE_PHRASES = [
 
 export type VaguePhrase = (typeof VAGUE_PHRASES)[number]
 
+/** The phrase a component gets when the user marks its quantity as vague. */
+export const DEFAULT_VAGUE_PHRASE: VaguePhrase = 'to taste'
+
+/**
+ * The phrase an aggregated line falls back to when its components carry
+ * different vague phrases, or when a quantity could not be resolved at all.
+ */
+export const MIXED_VAGUE_PHRASE: VaguePhrase = 'some'
+
 /**
  * Extended category for vague quantity rules.
  * Maps ingredient categories and subcategories to rule categories.
@@ -334,21 +343,4 @@ export function checkGuardrail(
   }
 
   return undefined
-}
-
-/**
- * Format a vague phrase for display.
- * Capitalizes first letter and ensures consistent formatting.
- */
-export function formatVaguePhrase(phrase: string): string {
-  const normalized = phrase.toLowerCase().trim()
-
-  // Special cases for better display
-  if (normalized === 'to taste') return 'to taste'
-  if (normalized === 'for garnish' || normalized === 'garnish') return 'for garnish'
-  if (normalized === 'optional') return 'optional'
-  if (normalized === 'as needed') return 'as needed'
-
-  // For phrases like "a pinch", "a drizzle", etc.
-  return normalized
 }

@@ -61,3 +61,21 @@ describe('UnmatchedIngredientRow original line', () => {
     expect(screen.getByText('Original: 2 tsp yuzu kosho')).toBeInTheDocument()
   })
 })
+
+describe('UnmatchedIngredientRow vague phrase', () => {
+  // The global next-intl mock answers from the English catalog, so a bare
+  // "pinch" coming back as "a pinch" proves the row reads the catalog (HON-917).
+  it('renders the phrase through the enums.VaguePhrase catalog', () => {
+    const { wrapper } = createQueryWrapper()
+    render(
+      <UnmatchedIngredientRow
+        data={{ ...data('saffron'), isVague: true, originalPhrase: 'pinch' }}
+        disabled={false}
+        onRemove={vi.fn()}
+      />,
+      { wrapper },
+    )
+
+    expect(screen.getByText('a pinch')).toBeInTheDocument()
+  })
+})

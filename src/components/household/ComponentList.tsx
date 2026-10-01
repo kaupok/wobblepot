@@ -8,6 +8,7 @@ import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
+import { useVaguePhrase } from '@/lib/i18n/enum-label'
 import { type MealComponent, formatUnit } from './meal-form-types'
 import type { Unit } from '@/generated/prisma/enums'
 
@@ -34,6 +35,7 @@ export function ComponentList({
 }: ComponentListProps) {
   const locale = useLocale() as Locale
   const t = useTranslations('recipes.form.componentList')
+  const vaguePhrase = useVaguePhrase()
 
   if (components.length === 0) return null
 
@@ -55,7 +57,7 @@ export function ComponentList({
               <Body>{comp.ingredient.name}</Body>
               <Body variant="muted">
                 {comp.isVague && comp.originalPhrase ? (
-                  <span className="italic">{comp.originalPhrase}</span>
+                  <span className="italic">{vaguePhrase(comp.originalPhrase)}</span>
                 ) : isInvalidQuantity ? (
                   <span className="text-destructive">{t('invalidQuantity')}</span>
                 ) : (

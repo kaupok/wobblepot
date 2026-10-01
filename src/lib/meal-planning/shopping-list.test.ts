@@ -1081,9 +1081,16 @@ describe('computeRollingWindowShoppingList', () => {
     const item = result.groups[0]!.items[0]!
 
     expect(item.shoppingQuantity).toBe(8)
-    expect(formatShoppingQuantity(item.shoppingQuantity, item.ingredient.defaultUnit, 'en')).toBe(
-      '8',
-    )
+    expect(
+      formatShoppingQuantity(
+        item.shoppingQuantity,
+        item.ingredient.defaultUnit,
+        'en',
+        item.isVague,
+        item.originalPhrase,
+        (key) => key,
+      ),
+    ).toBe('8')
   })
 
   it('falls back to default household size when no members exist', async () => {
