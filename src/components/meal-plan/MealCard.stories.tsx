@@ -87,7 +87,7 @@ export const PlannedWithImage: Story = {
     await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
     await expect(description.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
     // The pantry's verdict is a surface badge: the page background, no ring.
-    const availability = canvas.getByText(/ingredients missing|have all/i)
+    const availability = canvas.getByText(/ingredients to buy|have all/i)
     await expect(availability).toHaveAttribute('data-variant', expect.stringMatching(/^surface-/))
     await expect(getComputedStyle(availability).borderTopColor).toBe('rgba(0, 0, 0, 0)')
   },
@@ -632,12 +632,13 @@ export const LowAvailability: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Most ingredients missing from pantry — shows amber availability indicator.',
+        story:
+          'Most ingredients not in the pantry — shows the amber "to buy" availability indicator.',
       },
     },
   },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByText('3 ingredients missing')).toBeInTheDocument()
+    await expect(within(canvasElement).getByText('3 ingredients to buy')).toBeInTheDocument()
   },
 }
 
@@ -661,7 +662,7 @@ export const StaplesOnlyPantry: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('button', { name: mealFixture.name })).toBeInTheDocument()
-    await expect(canvas.queryByText(/ingredients? missing|have all ingredients/i)).toBeNull()
+    await expect(canvas.queryByText(/ingredients? to buy|have all ingredients/i)).toBeNull()
   },
 }
 

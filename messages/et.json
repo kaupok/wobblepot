@@ -326,7 +326,7 @@
     },
     "availability": {
       "haveAll": "Kõik koostisosad olemas",
-      "missing": "{count, plural, one {# koostisosa puudu} other {# koostisosa puudu}}",
+      "toBuy": "{count, plural, one {Vaja osta # koostisosa} other {Vaja osta # koostisosa}}",
       "ariaToggle": "Märgi „{name}\" kui {state}",
       "stateAvailable": "olemas",
       "stateUnavailable": "puudu"
