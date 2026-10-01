@@ -8,5 +8,6 @@
     "householdSize": 3
   },
   "locale": "en",
-  "forbiddenKeywords": ["chorizo"]
+  "forbiddenKeywords": ["chorizo"],
+  "source": "HON-895"
 }

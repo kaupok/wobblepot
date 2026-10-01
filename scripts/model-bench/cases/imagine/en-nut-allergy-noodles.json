@@ -7,5 +7,6 @@
     "restrictions": ["mild spice for the kids"],
     "householdSize": 5
   },
-  "locale": "en"
+  "locale": "en",
+  "source": "HON-896"
 }

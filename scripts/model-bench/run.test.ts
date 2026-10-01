@@ -740,6 +740,68 @@ describe('main', () => {
     })
   })
 
+  describe('--import-sample', () => {
+    const imagineSample = {
+      type: 'ai_sample',
+      timestamp: '2026-10-01T12:00:00.000Z',
+      callSite: 'imagine-meal',
+      locale: 'et',
+      sampleRate: 1,
+      input: {
+        prompt: 'midagi kanaga',
+        hasImages: false,
+        dietaryType: null,
+        allergens: [],
+        excludedIngredients: [],
+        restrictions: [],
+        householdSize: 3,
+      },
+      output: { meals: [] },
+    }
+
+    function writeSample(body: unknown): string {
+      const path = join(outDir, 'sample.log')
+      writeFileSync(path, `[ai-sample] ${JSON.stringify(body)}\n`)
+      return path
+    }
+
+    it('writes a draft into the cases directory, calls no model, and the run still skips it', async () => {
+      const casesLine = async () => {
+        out = []
+        expect(await main([...BASE_ARGS, '--dry-run'], deps)).toBe(0)
+        return out.find((line) => line.startsWith('Cases:'))
+      }
+      const before = await casesLine()
+      expect(before).toMatch(/^Cases: \d+/)
+
+      out = []
+      const { factory, calls } = mockModelFactory(respond)
+      const code = await main(
+        ['--import-sample', writeSample(imagineSample), '--id', 'imagine/et-imported'],
+        { ...deps, modelFactory: factory },
+      )
+
+      expect(code).toBe(0)
+      expect(calls).toHaveLength(0)
+      expect(err).toEqual([])
+      const draftPath = join(casesDir, 'imagine', 'et-imported.draft.json')
+      expect(JSON.parse(readFileSync(draftPath, 'utf8')).prompt).toBe('midagi kanaga')
+      expect(out[0]).toMatch(/^Wrote .*imagine\/et-imported\.draft\.json\.$/)
+      expect(out.join('\n')).toContain('rename the file to et-imported.json')
+
+      // The draft is not a case: a dry run counts the same cases as before.
+      expect(await casesLine()).toBe(before)
+    })
+
+    it('refuses fill-empty-slots with exit 1 and writes nothing', async () => {
+      const path = writeSample({ ...imagineSample, callSite: 'fill-empty-slots' })
+      const code = await main(['--import-sample', path, '--id', 'plan/x'], deps)
+      expect(code).toBe(1)
+      expect(err).toEqual(["fillEmptySlots is out of the benchmark's scope"])
+      expect(existsSync(join(casesDir, 'plan', 'x.draft.json'))).toBe(false)
+    })
+  })
+
   it.each([
     [['--record', '--baseline', 'claude-sonnet-5'], /--record runs one configuration.*--baseline/],
     [['--check', '--force'], /--force goes with --record/],
@@ -757,6 +819,23 @@ describe('main', () => {
     [[...BASE_ARGS, '--judge', '--judge-api'], /--judge and --judge-api are alternatives/],
     [['--import-verdicts', 'results/run.json'], /takes a `\*\.judge-verdicts\.json` file/],
     [['--import-verdicts', 'nowhere/x.judge-verdicts.json'], /No verdicts file at/],
+    [['--id', 'imagine/x'], /--id goes with --import-sample/],
+    [['--import-sample', 's.json'], /--import-sample needs --id <task>\/<slug>/],
+    [
+      ['--import-sample', 's.json', '--id', 'imagine/x', '--check', '--dry-run'],
+      /--import-sample writes a draft case and runs nothing; it cannot be combined with (?=.*--check)(?=.*--dry-run)/,
+    ],
+    [
+      [
+        '--import-sample',
+        's.json',
+        '--id',
+        'imagine/x',
+        '--import-verdicts',
+        'a.judge-verdicts.json',
+      ],
+      /cannot be combined with --import-verdicts/,
+    ],
   ])('rejects bad arguments: %j', async (argv, message) => {
     const code = await main(argv, deps)
     expect(code).toBe(2)

@@ -92,7 +92,7 @@ Two templates are localized (HON-513): `src/lib/emails/reset-password.ts` and `s
 
 ## Reviewing AI output quality
 
-Every non-default-locale AI call emits a structured `[ai-sample]` JSON line containing the AI input and output (no household / user IDs). This closes the iteration loop for ongoing voice tuning without requiring an admin page or DB table. Implementation: `src/lib/ai/sampling.ts`.
+Every non-default-locale AI call, and 5% of English ones (`DEFAULT_LOCALE_SAMPLE_RATE`), emits a structured `[ai-sample]` JSON line containing the AI input and output (no household / user IDs) and the `sampleRate` it was logged at. This closes the iteration loop for ongoing voice tuning without requiring an admin page or DB table. The English share exists so production inputs can become model-benchmark cases (`--import-sample`, see [AI_MODELS.md → Where cases come from](./AI_MODELS.md#where-cases-come-from)). Implementation: `src/lib/ai/sampling.ts`.
 
 ### Locally (`pnpm dev`)
 
@@ -103,7 +103,7 @@ Each sample is appended to `.ai-samples/<YYYY-MM-DD>.jsonl` (gitignored).
 tail -f .ai-samples/$(date +%Y-%m-%d).jsonl | jq '.'
 
 # Last 20 Estonian meal names produced by imagine-meal
-jq -r 'select(.callSite == "imagine-meal") | .output.meals[].name' \
+jq -r 'select(.callSite == "imagine-meal" and .locale == "et") | .output.meals[].name' \
   .ai-samples/*.jsonl | tail -20
 
 # Last 20 parsed recipe names
@@ -164,7 +164,7 @@ Architectural decisions that the platform supports but we deliberately don't shi
 - **Localized `breach-notification.ts`.** The GDPR Art. 33/34 breach email is sent by an operator following a runbook, to an audience that is not locale-resolvable at send time. Deliberately English-only (HON-513).
 - **Mid-lifetime locale-change UX** (visual markers, on-demand translation, switch-time prompts). Silent mixed state by design.
 - **PostHog locale tagging** (HON-516, cancelled 2026-09-15). Not wired and not planned; errors and analytics carry no locale. There is no Sentry — PostHog is the error tracker.
-- **Non-Estonian AI output sampling.** English is "known good" and excluded by design from `logAiSample`.
+- **Full English AI output sampling.** English output is not voice-reviewed; `logAiSample` keeps 5% of English calls, for benchmark cases only (HON-903).
 
 ## Cross-references
 

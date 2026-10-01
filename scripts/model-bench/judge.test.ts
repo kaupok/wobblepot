@@ -126,6 +126,28 @@ describe('buildJudgePrompt via runJudge', () => {
       // The scorer's keyword lists are not what the app sent.
       expect(call.promptText).not.toContain('forbiddenKeywords')
       expect(call.promptText).not.toContain('allowedQualifiers')
+      // Nor which incident a case reproduces.
+      expect(between(call.promptText, 'input')).not.toMatch(/HON-\d+|"source"/)
+    }
+  })
+
+  it("keeps a case's source out of the judge prompt for imagine and tips alike", async () => {
+    const tipsCase = starter.find((c) => c.task === 'tips')!
+    const tagged = [imagineCase, tipsCase].map(
+      (c) => ({ ...c, input: { ...c.input, source: 'HON-12345' } }) as BenchCase,
+    )
+    const { factory, calls } = judge(() => 'tie')
+    await runJudge({
+      result: benchResult(tagged.flatMap((c) => pairOf(c))),
+      cases: tagged,
+      maxUsd: 10,
+      modelFactory: factory,
+    })
+
+    expect(calls).toHaveLength(4)
+    for (const call of calls) {
+      expect(between(call.promptText, 'input')).not.toContain('source')
+      expect(call.promptText).not.toContain('HON-12345')
     }
   })
 

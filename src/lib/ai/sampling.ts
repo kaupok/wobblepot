@@ -1,15 +1,19 @@
 /**
- * Lightweight AI output sampling for ongoing voice review (HON-504).
+ * Lightweight AI output sampling for ongoing voice review (HON-504) and for
+ * growing the model benchmark's case set from real inputs (HON-903).
  *
  * `logAiSample` is the single entry point. Call it after every successful
- * `generateObject` invocation against an AI call site that may produce
- * non-English output. Behaviour:
+ * `generateObject` invocation. Behaviour:
  *
- *   - English (default locale) calls are NEVER logged. English output is
- *     considered "known good" and out of scope per HON-504.
- *   - Non-default locale calls emit a single structured JSON line to stdout
- *     prefixed with `[ai-sample]`. Vercel captures stdout to log streams,
- *     so this is queryable in staging/prod without any new infrastructure.
+ *   - Non-default locale calls are always logged: Estonian output is what the
+ *     voice review reads.
+ *   - Default locale (English) calls are logged at `DEFAULT_LOCALE_SAMPLE_RATE`,
+ *     5%, so production inputs in English can become benchmark cases
+ *     (`pnpm bench:models --import-sample`) without logging every call. Each
+ *     line carries its `sampleRate`, so a count can be weighted back up.
+ *   - A logged call emits a single structured JSON line to stdout prefixed
+ *     with `[ai-sample]`. Vercel captures stdout to log streams, so this is
+ *     queryable in staging/prod without any new infrastructure.
  *   - In `NODE_ENV !== 'production'`, also append the same JSON line to
  *     `.ai-samples/<YYYY-MM-DD>.jsonl` so dev review can `tail -f`. The
  *     directory is gitignored.
@@ -45,19 +49,26 @@ export interface AiSampleInput {
   locale: string | null | undefined
   input: unknown
   output: unknown
+  /** Uniform in [0, 1). Defaults to `Math.random`; tests pass their own. */
+  random?: () => number
 }
 
-const SAMPLE_PREFIX = '[ai-sample]'
+export const SAMPLE_PREFIX = '[ai-sample]'
+
+/** Share of default-locale (English) calls that are logged (HON-903). */
+export const DEFAULT_LOCALE_SAMPLE_RATE = 0.05
 
 export async function logAiSample(sample: AiSampleInput): Promise<void> {
   try {
-    if (isDefaultLocale(sample.locale)) return
+    const sampleRate = isDefaultLocale(sample.locale) ? DEFAULT_LOCALE_SAMPLE_RATE : 1
+    if (sampleRate < 1 && (sample.random ?? Math.random)() >= sampleRate) return
 
     const payload = {
       type: 'ai_sample',
       timestamp: new Date().toISOString(),
       callSite: sample.callSite,
       locale: sample.locale,
+      sampleRate,
       input: sample.input,
       output: sample.output,
     }
