@@ -37,6 +37,7 @@ import {
   type JudgeTaskSummary,
 } from './judge'
 import type { JudgeItem, JudgeKey } from './judge-files'
+import type { GoldenTaskInfo } from './golden'
 
 /** A delta, or its distance past a threshold, smaller than this is float residue. */
 const FLOAT_TOLERANCE = 1e-9
@@ -129,6 +130,12 @@ export interface BenchReport {
   judge: JudgeReport | null
   /** Set under `--judge` until `--import-verdicts` fills `judge` in. */
   judgePending: { pairs: number; prompts: number } | null
+  /**
+   * Set under `--baseline golden` (HON-902), one entry per task. The baseline
+   * side was read from the golden, so `madeCalls` and the spend count the
+   * candidate alone, and `cost.baseline` is what the golden cost to record.
+   */
+  golden: GoldenTaskInfo[] | null
   cost: Record<Role | 'judge', number>
 }
 
@@ -248,6 +255,8 @@ export function buildReport(args: {
   judge?: JudgeResult
   /** Present under `--judge` while the pairs are still out for judging. */
   judgePending?: { pairs: number; prompts: number }
+  /** Present under `--baseline golden`. */
+  golden?: GoldenTaskInfo[]
   baseline: string
   candidate: string
   runs: number
@@ -334,10 +343,13 @@ export function buildReport(args: {
     withinNoise,
     partial: result.partial,
     plannedCalls: result.plannedCalls,
-    madeCalls: result.calls.length,
+    madeCalls: args.golden
+      ? result.calls.filter((c) => c.role === 'candidate').length
+      : result.calls.length,
     maxUsd,
     judge,
     judgePending: args.judgePending ?? null,
+    golden: args.golden ?? null,
     cost: {
       baseline: sumCost(result.calls, 'baseline'),
       candidate: sumCost(result.calls, 'candidate'),
@@ -519,6 +531,7 @@ export function renderMarkdown(report: BenchReport): string {
     `${report.date} · ${report.runs} run(s) · tasks: ${report.tasks.map((t) => t.task).join(', ')} · ${report.madeCalls} calls`,
     '',
   )
+  if (report.golden) lines.push(...renderGoldenHeader(report.golden))
 
   if (report.partial) {
     lines.push(
@@ -530,6 +543,17 @@ export function renderMarkdown(report: BenchReport): string {
       `> **Partial run.** Measured spend passed \`--max-usd ${report.maxUsd}\` while judging, after ${report.judge.judgedPairs} of ${report.judge.plannedPairs} pairs. Every benchmark call was made; the judge's counts are missing later pairs.`,
       '',
     )
+  }
+
+  const notInGolden = report.golden?.flatMap((g) => g.notInGolden) ?? []
+  if (notInGolden.length > 0) {
+    lines.push('## Not in golden', '')
+    lines.push(
+      'These cases are in the case set but not in the golden, so they have no baseline and were not run: re-record to include them (`pnpm bench:models --record`).',
+      '',
+    )
+    for (const id of notInGolden) lines.push(`- \`${id}\` — re-record to include it`)
+    lines.push('')
   }
 
   lines.push('## Regressions', '')
@@ -593,16 +617,49 @@ export function renderMarkdown(report: BenchReport): string {
     )
   }
 
-  const total = report.cost.baseline + report.cost.candidate + report.cost.judge
   const judgeCost = report.judge
     ? `, judge ${report.judge.model} ${usd(report.cost.judge)} over ${report.judge.calls} calls`
     : ''
-  lines.push(
-    `**Total cost:** ${usd(total)} (${baseline} ${usd(report.cost.baseline)}, ${candidate} ${usd(report.cost.candidate)} over ${report.madeCalls} calls${judgeCost})${report.partial || report.judge?.partial ? ' — partial run' : ''}.`,
-    '',
-  )
+  const partialNote = report.partial || report.judge?.partial ? ' — partial run' : ''
+  if (report.golden) {
+    // The golden's calls were paid for when it was recorded, not by this run.
+    const total = report.cost.candidate + report.cost.judge
+    lines.push(
+      `**Total cost:** ${usd(total)} (${candidate} ${usd(report.cost.candidate)} over ${report.madeCalls} calls${judgeCost})${partialNote}. The golden's ${usd(report.cost.baseline)} was spent when it was recorded.`,
+      '',
+    )
+  } else {
+    const total = report.cost.baseline + report.cost.candidate + report.cost.judge
+    lines.push(
+      `**Total cost:** ${usd(total)} (${baseline} ${usd(report.cost.baseline)}, ${candidate} ${usd(report.cost.candidate)} over ${report.madeCalls} calls${judgeCost})${partialNote}.`,
+      '',
+    )
+  }
 
   return lines.join('\n')
+}
+
+/**
+ * Where the golden came from, and which tasks' prompts have changed since:
+ * the line a prompt-change PR is read for (HON-902). One provenance line when
+ * every task was recorded together, one per task otherwise.
+ */
+function renderGoldenHeader(golden: GoldenTaskInfo[]): string[] {
+  const provenance = (g: GoldenTaskInfo) =>
+    `\`${g.model}\` recorded ${g.recordedAt} at \`${g.commit}\`, ${g.runs} run(s)`
+  const distinct = new Set(golden.map(provenance))
+  const source =
+    distinct.size === 1
+      ? `**Baseline:** golden — ${provenance(golden[0]!)}.`
+      : `**Baseline:** golden — ${golden.map((g) => `${g.task} ${provenance(g)}`).join('; ')}.`
+  const prompts = golden.map((g) =>
+    g.cases === 0
+      ? `${g.task}: no case in the golden`
+      : g.promptChanged === 0
+        ? `${g.task}: unchanged`
+        : `${g.task}: prompt changed for ${g.promptChanged} of ${g.cases} cases`,
+  )
+  return [source, '', `**Prompts since the golden:** ${prompts.join('; ')}.`, '']
 }
 
 /** The operational table for one task, one column per model. */
@@ -789,6 +846,7 @@ export function writeReportFiles(
         benchSpendUsd: result.spendUsd,
         spendUsd: result.spendUsd + (judge?.spendUsd ?? 0),
         maxUsd: report.maxUsd,
+        ...(report.golden && { golden: report.golden }),
         regressions: report.regressions,
         otherChanges: report.otherChanges,
         withinNoise: report.withinNoise,

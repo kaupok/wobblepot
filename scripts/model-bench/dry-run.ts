@@ -64,7 +64,8 @@ function estimateModel(model: string, cases: BenchCase[], runs: number): ModelEs
 export function estimateRun(args: {
   cases: BenchCase[]
   runs: number
-  models: [string, string]
+  /** One model under `--baseline golden`, whose baseline side is never called. */
+  models: [string] | [string, string]
   judge?: boolean
 }): DryRunEstimate {
   const { cases, runs, models } = args

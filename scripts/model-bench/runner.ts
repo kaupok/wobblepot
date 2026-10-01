@@ -1,6 +1,7 @@
 /**
- * Runs every case through both models (HON-795), or through one configuration
- * for `--check` (HON-901).
+ * Runs every case through both models (HON-795), through one configuration
+ * for `--check` (HON-901), or through the candidate alone against the recorded
+ * golden (HON-902).
  *
  * Calls are sequential. For each case and run the baseline and the candidate
  * are called back to back, and which goes first alternates, so rate limits and
@@ -120,6 +121,29 @@ export async function runCheck(options: CheckOptions): Promise<RunResult> {
   }
 
   return { calls, plannedCalls, spendUsd, partial: false }
+}
+
+export interface GoldenRunOptions extends Omit<CheckOptions, 'modelFor'> {
+  /** The golden's records for `cases`, already in the baseline role (`goldenBaselineCalls`). */
+  baselineCalls: CallRecord[]
+  candidate: string
+}
+
+/**
+ * `--baseline golden` (HON-902): the baseline side is the recorded calls, so
+ * only the candidate is called, once per case per run as under `--check`.
+ * `plannedCalls` and `spendUsd` count the candidate alone: the golden's calls
+ * were paid for when it was recorded. When `--max-usd` stops the candidate,
+ * the baseline keeps only the cases and runs the candidate reached, so both
+ * sides' means cover the same cases.
+ */
+export async function runAgainstGolden(options: GoldenRunOptions): Promise<RunResult> {
+  const { baselineCalls, candidate, ...rest } = options
+  const result = await runCheck({ ...rest, modelFor: () => candidate })
+  const key = (r: CallRecord) => `${r.caseId}\u0000${r.run}`
+  const reached = new Set(result.calls.map(key))
+  const baseline = result.partial ? baselineCalls.filter((r) => reached.has(key(r))) : baselineCalls
+  return { ...result, calls: [...baseline, ...result.calls] }
 }
 
 export async function runBenchmark(options: RunOptions): Promise<RunResult> {

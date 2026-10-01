@@ -10,12 +10,20 @@
  *     [--task plan,recipe,imagine,review,tips] [--runs 3] [--dry-run] [--max-usd 10] \
  *     [--judge | --judge-api]
  *   pnpm bench:models --check [--model <id>] [--task …] [--runs 3] [--dry-run] [--max-usd 10]
+ *   pnpm bench:models --record [--force] [--model <id>] [--task …] [--runs 3] [--dry-run] [--max-usd 10]
+ *   pnpm bench:models --baseline golden --candidate <id> [--task …] [--runs 3] [--judge | --judge-api] …
  *   pnpm bench:models --import-verdicts results/<stem>.judge-verdicts.json
  *
  * `--check` (HON-901) runs one configuration — each task's production model
  * from `src/lib/ai/models.ts`, or `--model` for all — against absolute gates
  * on the metrics, writes `results/<date>-check-<model or production>.md`, and
  * exits 1 when a gate fails.
+ *
+ * `--record` (HON-902) is a `--check` that also writes `golden/<task>.json`
+ * when every gate holds (or with `--force`). `--baseline golden` replays those
+ * records as the baseline side and calls only the candidate: the way to
+ * compare a prompt change with the prompt the golden was recorded on. See
+ * `golden.ts`.
  *
  * `--judge` (HON-798) adds a blind pairwise comparison of imagine and tips
  * output. By default the prompts are exported for a Claude Code session to
@@ -35,6 +43,7 @@
  */
 
 import 'dotenv/config'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -45,7 +54,24 @@ import { MODEL_PRICES } from '../../src/lib/ai/pricing'
 import { TASKS, type Task } from './case-schema'
 import { CASES_DIR, loadCases } from './load-cases'
 import { estimateCheck, estimateRun, type ModelEstimate } from './dry-run'
-import { runBenchmark, runCheck, type CallRecord, type ModelFactory } from './runner'
+import {
+  runAgainstGolden,
+  runBenchmark,
+  runCheck,
+  type CallRecord,
+  type ModelFactory,
+} from './runner'
+import {
+  buildGoldenFiles,
+  compareGolden,
+  GOLDEN,
+  GOLDEN_DIR,
+  goldenBaselineCalls,
+  GoldenTaskInfoSchema,
+  readGolden,
+  writeGolden,
+  type GoldenFile,
+} from './golden'
 import { TASK_SPECS } from './tasks'
 import { isJudgedTask, JUDGE_MODEL, runJudge, type JudgeResult } from './judge'
 import {
@@ -72,6 +98,8 @@ const DEFAULT_MAX_USD = 10
 
 const USAGE = `Usage: pnpm bench:models --baseline <model> --candidate <model> [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge | --judge-api]
        pnpm bench:models --check [--model <model>] [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]
+       pnpm bench:models --record [--force] [--model <model>] [--task …] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]
+       pnpm bench:models --baseline ${GOLDEN} --candidate <model> [--task …] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge | --judge-api]
        pnpm bench:models --import-verdicts <results/stem.judge-verdicts.json>`
 
 const VERDICTS_SUFFIX = '.judge-verdicts.json'
@@ -84,6 +112,10 @@ export interface MainDeps {
   error?: (line: string) => void
   casesDir?: string
   outDir?: string
+  /** Where `--record` writes and `--baseline golden` reads; defaults to `golden/`. */
+  goldenDir?: string
+  /** The short commit a golden is recorded at; defaults to `git rev-parse --short HEAD`. */
+  commit?: () => string
   today?: () => Date
 }
 
@@ -108,6 +140,8 @@ function parseCli(argv: string[]) {
         'import-verdicts': { type: 'string' },
         check: { type: 'boolean', default: false },
         model: { type: 'string' },
+        record: { type: 'boolean', default: false },
+        force: { type: 'boolean', default: false },
       },
       strict: true,
       allowPositionals: false,
@@ -123,13 +157,18 @@ function parseCli(argv: string[]) {
     return { mode: 'import' as const, verdictsPath: values['import-verdicts'] }
   }
 
-  if (values.check) {
+  // `--record` is a `--check` that also writes the golden.
+  const checkMode = values.check || values.record
+  if (values.force && !values.record) {
+    throw new UsageError('--force goes with --record: it records a golden whose gates failed.')
+  }
+  if (checkMode) {
     const mixed = (['baseline', 'candidate', 'judge', 'judge-api'] as const).filter(
       (flag) => values[flag] !== undefined && values[flag] !== false,
     )
     if (mixed.length > 0) {
       throw new UsageError(
-        `--check runs one configuration; it cannot be combined with ${mixed.map((f) => `--${f}`).join(', ')}.`,
+        `${values.record ? '--record' : '--check'} runs one configuration; it cannot be combined with ${mixed.map((f) => `--${f}`).join(', ')}.`,
       )
     }
     if (values.model === '') throw new UsageError('--model needs a model ID.')
@@ -144,6 +183,11 @@ function parseCli(argv: string[]) {
     }
     if (values.judge && values['judge-api']) {
       throw new UsageError('--judge and --judge-api are alternatives; pass one.')
+    }
+    if (values.candidate === GOLDEN) {
+      throw new UsageError(
+        `--candidate takes a model ID; "${GOLDEN}" is a recorded run and can only be the --baseline.`,
+      )
     }
   }
 
@@ -163,13 +207,27 @@ function parseCli(argv: string[]) {
     throw new UsageError(`--max-usd must be a positive number, got "${values['max-usd']}".`)
   }
 
+  if (values.record && runs < 2) {
+    throw new UsageError(
+      `--record needs --runs 2 or more: a golden with one run measures no run-to-run range, so every difference against it would read as noise.`,
+    )
+  }
+
   const common = { tasks: tasks as Task[], runs, maxUsd, dryRun: values['dry-run'] }
-  if (values.check) {
-    return { mode: 'check' as const, model: values.model ?? null, ...common }
+  if (checkMode) {
+    return {
+      mode: 'check' as const,
+      model: values.model ?? null,
+      record: values.record,
+      force: values.force,
+      ...common,
+    }
   }
   const judge: Judge = values['judge-api'] ? 'api' : values.judge ? 'claude-code' : false
   return {
     mode: 'bench' as const,
+    /** Under `--baseline golden`, an omitted `--runs` takes the golden's count. */
+    runsGiven: values.runs !== undefined,
     baseline: values.baseline!,
     candidate: values.candidate!,
     judge,
@@ -190,6 +248,8 @@ const RunFileSchema = z.object({
   maxUsd: z.number(),
   calls: z.array(z.custom<CallRecord>((v) => typeof v === 'object' && v !== null)),
   judgeKey: z.custom<JudgeKey>((v) => typeof v === 'object' && v !== null).optional(),
+  /** Under `--baseline golden`: the golden header, so the re-rendered report keeps it. */
+  golden: z.array(GoldenTaskInfoSchema).optional(),
 })
 
 function readJson(path: string, what: string): unknown {
@@ -248,6 +308,7 @@ function importVerdicts(verdictsPath: string, log: (line: string) => void): numb
   const report = buildReport({
     result,
     judge,
+    golden: run.golden,
     baseline: run.baseline,
     candidate: run.candidate,
     runs: run.runs,
@@ -307,9 +368,27 @@ function buildModelFactory(
   return (id) => anthropic(id)
 }
 
-/** `--check`: one configuration against the gates. Exit 1 when any gate fails. */
+function gitShortHead(): string {
+  return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim()
+}
+
+/**
+ * `--check`: one configuration against the gates. Exit 1 when any gate fails.
+ * `--record` also writes the golden, but only from a complete run whose gates
+ * all hold: a golden is the configuration later changes are measured against.
+ * `--force` records over failed gates, never over a partial run, which would
+ * leave cases out of the golden unnoticed. The exit code is the check's either way.
+ */
 async function check(
-  args: { model: string | null; tasks: Task[]; runs: number; maxUsd: number; dryRun: boolean },
+  args: {
+    model: string | null
+    record: boolean
+    force: boolean
+    tasks: Task[]
+    runs: number
+    maxUsd: number
+    dryRun: boolean
+  },
   deps: MainDeps,
   io: {
     log: (line: string) => void
@@ -343,6 +422,10 @@ async function check(
         `The estimate is above --max-usd ${args.maxUsd}: a real run would likely stop early, and a partial check fails. Raise --max-usd, or lower --runs.`,
       )
     }
+    if (args.record) {
+      const dir = relative(process.cwd(), deps.goldenDir ?? GOLDEN_DIR)
+      log(`Would record: ${args.tasks.map((t) => join(dir, `${t}.json`)).join(', ')}`)
+    }
     return 0
   }
 
@@ -362,6 +445,7 @@ async function check(
       ),
   })
 
+  const date = localDateString((deps.today ?? (() => new Date()))())
   const report = buildCheckReport({
     result,
     model: args.model,
@@ -369,7 +453,7 @@ async function check(
     runs: args.runs,
     maxUsd: args.maxUsd,
     tasks: args.tasks,
-    date: localDateString((deps.today ?? (() => new Date()))()),
+    date,
   })
   const { markdownPath, jsonPath } = writeCheckReport(deps.outDir ?? RESULTS_DIR, report, result)
 
@@ -383,7 +467,71 @@ async function check(
   log('')
   log(`Report: ${relative(process.cwd(), markdownPath)}`)
   log(`Raw outputs: ${relative(process.cwd(), jsonPath)} (gitignored)`)
+
+  if (args.record) {
+    if (result.partial) {
+      error('Golden not recorded: the run stopped early, and a golden must cover every case.')
+    } else if (!report.passed && !args.force) {
+      error(
+        'Golden not recorded: a gate failed, and a golden is what later changes are measured against. Fix the configuration, or pass --force to record it anyway.',
+      )
+    } else {
+      const paths = writeGolden(
+        deps.goldenDir ?? GOLDEN_DIR,
+        buildGoldenFiles({
+          result,
+          cases,
+          tasks: args.tasks,
+          modelFor,
+          runs: args.runs,
+          recordedAt: date,
+          commit: (deps.commit ?? gitShortHead)(),
+        }),
+      )
+      if (!report.passed) log('Recording over failed gates (--force).')
+      for (const path of paths) log(`Golden: ${relative(process.cwd(), path)} (commit it)`)
+    }
+  }
   return report.passed ? 0 : 1
+}
+
+/**
+ * The golden file of every task, or `null` after reporting the tasks that have
+ * none or whose file does not parse.
+ */
+function loadGoldens(
+  tasks: Task[],
+  dir: string,
+  error: (line: string) => void,
+): GoldenFile[] | null {
+  const goldens: GoldenFile[] = []
+  const missing: Task[] = []
+  // In the report's task order, whatever order `--task` gave.
+  for (const task of TASKS.filter((t) => tasks.includes(t))) {
+    let golden
+    try {
+      golden = readGolden(dir, task)
+    } catch (err) {
+      error((err as Error).message)
+      return null
+    }
+    if (golden) goldens.push(golden)
+    else missing.push(task)
+  }
+  const singleRun = goldens.filter((g) => g.runs < 2).map((g) => g.task)
+  if (singleRun.length > 0) {
+    error(
+      `The golden for ${singleRun.join(', ')} has one run, so it measures no run-to-run range and every difference against it would read as noise. Re-record with \`pnpm bench:models --record --task ${singleRun.join(',')}\` (at least 2 runs).`,
+    )
+    return null
+  }
+  if (missing.length > 0) {
+    error(
+      `No golden for ${missing.join(', ')} in ${relative(process.cwd(), dir) || '.'}. Record one with \`pnpm bench:models --record --task ${missing.join(',')}\`, or leave ${missing.length === 1 ? 'it' : 'them'} out of --task.`,
+    )
+    return null
+  }
+  return goldens
 }
 
 /** Returns the process exit code. */
@@ -405,26 +553,72 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
 
   if (args.mode === 'check') return check(args, deps, { log, error, env })
 
+  const fromGolden = args.baseline === GOLDEN
+
   // Before any call, and under --dry-run too: `estimateCostUsd` prices an
-  // unknown model at $0, which would silently disable --max-usd.
-  const priced = [args.baseline, args.candidate, ...(args.judge === 'api' ? [JUDGE_MODEL] : [])]
+  // unknown model at $0, which would silently disable --max-usd. The golden's
+  // calls are already priced in its file.
+  const priced = [
+    ...(fromGolden ? [] : [args.baseline]),
+    args.candidate,
+    ...(args.judge === 'api' ? [JUDGE_MODEL] : []),
+  ]
   if (unpricedModels(priced, error)) return 1
 
-  const cases = loadCases(args.tasks, deps.casesDir ?? CASES_DIR)
+  const allCases = loadCases(args.tasks, deps.casesDir ?? CASES_DIR)
+  let cases = allCases
   if (cases.length === 0) {
     error(`No cases found for ${args.tasks.join(', ')}.`)
     return 1
   }
 
+  let goldens: GoldenFile[] | undefined
+  if (fromGolden) {
+    const loaded = loadGoldens(args.tasks, deps.goldenDir ?? GOLDEN_DIR, error)
+    if (!loaded) return 1
+    goldens = loaded
+    // A case the golden lacks has no baseline. Calling the candidate on it
+    // would only shift the candidate's means over a different case set, so it
+    // is left out and listed under "Not in golden".
+    cases = cases.filter((c) => goldens!.some((g) => g.task === c.task && g.cases[c.id]))
+    if (cases.length === 0) {
+      error(
+        `The golden has none of the selected cases. Re-record it: pnpm bench:models --record --task ${args.tasks.join(',')}`,
+      )
+      return 1
+    }
+  }
+  const golden = goldens?.map((g) => compareGolden(g, allCases))
+
+  // A candidate run past the golden's count has no baseline run to pair with:
+  // the judge would drop it after it was paid for.
+  let runs = args.runs
+  if (goldens) {
+    const goldenRuns = Math.min(...goldens.map((g) => g.runs))
+    if (!args.runsGiven) runs = goldenRuns
+    else if (runs > goldenRuns) {
+      const short = goldens.filter((g) => g.runs < runs).map((g) => `${g.task} (${g.runs})`)
+      error(
+        `--runs ${runs} is more than the golden has for ${short.join(', ')}: the extra candidate runs would have no baseline to compare or judge against. Pass --runs ${goldenRuns} or fewer, or leave --runs out to match the golden.`,
+      )
+      return 1
+    }
+  }
+
   if (args.dryRun) {
     const estimate = estimateRun({
       cases,
-      runs: args.runs,
-      models: [args.baseline, args.candidate],
+      runs: runs,
+      models: fromGolden ? [args.candidate] : [args.baseline, args.candidate],
       judge: args.judge === 'api',
     })
     log(`Dry run — no API calls made.`)
-    log(`Cases: ${estimate.caseCount} (${args.tasks.join(', ')}), runs: ${args.runs}`)
+    if (golden) {
+      log(`Baseline: golden, read from file — no calls.`)
+      const missing = golden.flatMap((g) => g.notInGolden)
+      if (missing.length > 0) log(`Not in golden, skipped: ${missing.join(', ')}`)
+    }
+    log(`Cases: ${estimate.caseCount} (${args.tasks.join(', ')}), runs: ${runs}`)
     log(`Total calls: ${estimate.totalCalls}`)
     const models = [
       ...estimate.perModel.map((m) => ({ ...m, label: m.model })),
@@ -432,7 +626,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     ]
     for (const m of models) log(`  ${m.label}: ${describeEstimate(m)}`)
     if (args.judge === 'claude-code') {
-      const pairs = cases.filter((c) => isJudgedTask(c.task)).length * args.runs
+      const pairs = cases.filter((c) => isJudgedTask(c.task)).length * runs
       log(
         `  judge: ${pairs} pairs, ${pairs * 2} prompts, exported for Claude Code (/bench-judge) — no API cost`,
       )
@@ -449,22 +643,30 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   const modelFactory = buildModelFactory(deps, env, error)
   if (!modelFactory) return 1
 
-  log(
-    `Benchmarking ${args.baseline} vs ${args.candidate}: ${cases.length} cases × ${args.runs} runs × 2 models, cap $${args.maxUsd}`,
-  )
+  const onCall = (r: CallRecord, p: { done: number; planned: number; spendUsd: number }) =>
+    log(
+      `[${p.done}/${p.planned}] ${r.caseId} run ${r.run} ${r.model}: ${(r.latencyMs / 1000).toFixed(1)}s ${r.errorName ?? r.finishReason ?? ''} $${r.costUsd.toFixed(4)} (total $${p.spendUsd.toFixed(2)})`,
+    )
+  const common = { cases, runs: runs, maxUsd: args.maxUsd, modelFactory, onCall }
 
-  const result = await runBenchmark({
-    cases,
-    baseline: args.baseline,
-    candidate: args.candidate,
-    runs: args.runs,
-    maxUsd: args.maxUsd,
-    modelFactory,
-    onCall: (r, p) =>
-      log(
-        `[${p.done}/${p.planned}] ${r.caseId} run ${r.run} ${r.model}: ${(r.latencyMs / 1000).toFixed(1)}s ${r.errorName ?? r.finishReason ?? ''} $${r.costUsd.toFixed(4)} (total $${p.spendUsd.toFixed(2)})`,
-      ),
-  })
+  let result
+  if (goldens) {
+    log(
+      `Benchmarking golden vs ${args.candidate}: ${cases.length} cases × ${runs} runs, candidate only, cap $${args.maxUsd}`,
+    )
+    result = await runAgainstGolden({
+      ...common,
+      // Only the runs the candidate makes: a golden run with no candidate run
+      // beside it would widen the baseline's range and skew its counts.
+      baselineCalls: goldenBaselineCalls(goldens, cases).filter((r) => r.run <= runs),
+      candidate: args.candidate,
+    })
+  } else {
+    log(
+      `Benchmarking ${args.baseline} vs ${args.candidate}: ${cases.length} cases × ${runs} runs × 2 models, cap $${args.maxUsd}`,
+    )
+    result = await runBenchmark({ ...common, baseline: args.baseline, candidate: args.candidate })
+  }
 
   let judge: JudgeResult | undefined
   const judgeExport = args.judge === 'claude-code' ? exportJudgePairs(result, cases) : undefined
@@ -490,9 +692,10 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
       pairs: judgeExport.key.pairs.length,
       prompts: judgeExport.items.length,
     },
+    golden,
     baseline: args.baseline,
     candidate: args.candidate,
-    runs: args.runs,
+    runs: runs,
     maxUsd: args.maxUsd,
     tasks: args.tasks,
     date: localDateString((deps.today ?? (() => new Date()))()),
