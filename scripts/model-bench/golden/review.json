@@ -1,0 +1,1417 @@
+{
+  "task": "review",
+  "model": "claude-sonnet-5-5",
+  "recordedAt": "2026-10-01",
+  "commit": "ef94fbf1",
+  "runs": 3,
+  "cases": {
+    "review/en-chicken-fajitas": {
+      "promptHash": "22055d549c1b8dc6424c120bde99867070e74c1aa94e674ee5e7af2bb722e004",
+      "calls": [
+        {
+          "caseId": "review/en-chicken-fajitas",
+          "task": "review",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2410.360249999998,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1265,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 196,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.00449,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-chicken",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-pepper",
+                "quantityPerServing": 100
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-tortilla",
+                "quantityPerServing": 2
+              },
+              {
+                "ingredientId": "ing-cheddar",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-paprika",
+                "quantityPerServing": 1.5
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 1,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/en-chicken-fajitas",
+          "task": "review",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2618.7913339999504,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1265,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 196,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.00449,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-chicken",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-pepper",
+                "quantityPerServing": 100
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-tortilla",
+                "quantityPerServing": 2
+              },
+              {
+                "ingredientId": "ing-cheddar",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-paprika",
+                "quantityPerServing": 1.5
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 1,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/en-chicken-fajitas",
+          "task": "review",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2410.5008330000564,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1265,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 196,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.00449,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-chicken",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-pepper",
+                "quantityPerServing": 100
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-tortilla",
+                "quantityPerServing": 2
+              },
+              {
+                "ingredientId": "ing-cheddar",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-paprika",
+                "quantityPerServing": 1.5
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 1,
+            "unchangedKept": 1
+          }
+        }
+      ]
+    },
+    "review/en-chicken-stir-fry": {
+      "promptHash": "d41eddb54a93b9be5fe00e3379984ca261ffd889f3e4ad110cd9681ad70ffa99",
+      "calls": [
+        {
+          "caseId": "review/en-chicken-stir-fry",
+          "task": "review",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1577.006916000013,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1227,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 166,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004114,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-chicken",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-broccoli",
+                "quantityPerServing": 100
+              },
+              {
+                "ingredientId": "ing-soy",
+                "quantityPerServing": 15
+              },
+              {
+                "ingredientId": "ing-garlic",
+                "quantityPerServing": 4
+              },
+              {
+                "ingredientId": "ing-rice",
+                "quantityPerServing": 75
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 1,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/en-chicken-stir-fry",
+          "task": "review",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1571.780999999959,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1227,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 166,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004114,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-chicken",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-broccoli",
+                "quantityPerServing": 100
+              },
+              {
+                "ingredientId": "ing-soy",
+                "quantityPerServing": 15
+              },
+              {
+                "ingredientId": "ing-garlic",
+                "quantityPerServing": 4
+              },
+              {
+                "ingredientId": "ing-rice",
+                "quantityPerServing": 75
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 1,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/en-chicken-stir-fry",
+          "task": "review",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1717.5272080000723,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1227,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 166,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004114,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-chicken",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-broccoli",
+                "quantityPerServing": 100
+              },
+              {
+                "ingredientId": "ing-soy",
+                "quantityPerServing": 15
+              },
+              {
+                "ingredientId": "ing-garlic",
+                "quantityPerServing": 4
+              },
+              {
+                "ingredientId": "ing-rice",
+                "quantityPerServing": 75
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 1,
+            "unchangedKept": 1
+          }
+        }
+      ]
+    },
+    "review/en-lentil-soup-salt": {
+      "promptHash": "bedde8da9cd4a1e5c892c84c3032342f0ae75d3ca064d3dd66b41c2d87f40833",
+      "calls": [
+        {
+          "caseId": "review/en-lentil-soup-salt",
+          "task": "review",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1835.9650839999958,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1251,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 191,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004412,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-lentil",
+                "quantityPerServing": 70
+              },
+              {
+                "ingredientId": "ing-carrot",
+                "quantityPerServing": 100
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-garlic",
+                "quantityPerServing": 4
+              },
+              {
+                "ingredientId": "ing-cumin",
+                "quantityPerServing": 1
+              },
+              {
+                "ingredientId": "ing-salt",
+                "quantityPerServing": 2
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 1,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/en-lentil-soup-salt",
+          "task": "review",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2622.2050410000375,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1251,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 191,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004412,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-lentil",
+                "quantityPerServing": 70
+              },
+              {
+                "ingredientId": "ing-carrot",
+                "quantityPerServing": 60
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 40
+              },
+              {
+                "ingredientId": "ing-garlic",
+                "quantityPerServing": 4
+              },
+              {
+                "ingredientId": "ing-cumin",
+                "quantityPerServing": 1
+              },
+              {
+                "ingredientId": "ing-salt",
+                "quantityPerServing": 2
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 1,
+            "unchangedKept": 0.5
+          }
+        },
+        {
+          "caseId": "review/en-lentil-soup-salt",
+          "task": "review",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1944.7345000000205,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1251,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 191,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004412,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-lentil",
+                "quantityPerServing": 70
+              },
+              {
+                "ingredientId": "ing-carrot",
+                "quantityPerServing": 80
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-garlic",
+                "quantityPerServing": 4
+              },
+              {
+                "ingredientId": "ing-cumin",
+                "quantityPerServing": 1
+              },
+              {
+                "ingredientId": "ing-salt",
+                "quantityPerServing": 2
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 1,
+            "unchangedKept": 0.75
+          }
+        }
+      ]
+    },
+    "review/en-salmon-pasta-all-reasonable": {
+      "promptHash": "a52005a674ab892ea73d00c64a970c5f180f5633d2a5c5350d29f5af980097ba",
+      "calls": [
+        {
+          "caseId": "review/en-salmon-pasta-all-reasonable",
+          "task": "review",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2198.412249999994,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1223,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 168,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004126,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-salmon",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-pasta",
+                "quantityPerServing": 90
+              },
+              {
+                "ingredientId": "ing-spinach",
+                "quantityPerServing": 80
+              },
+              {
+                "ingredientId": "ing-parmesan",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-garlic",
+                "quantityPerServing": 4
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": null,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/en-salmon-pasta-all-reasonable",
+          "task": "review",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1702.767666000058,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1223,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 168,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004126,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-salmon",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-pasta",
+                "quantityPerServing": 90
+              },
+              {
+                "ingredientId": "ing-spinach",
+                "quantityPerServing": 80
+              },
+              {
+                "ingredientId": "ing-parmesan",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-garlic",
+                "quantityPerServing": 4
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": null,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/en-salmon-pasta-all-reasonable",
+          "task": "review",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1675.4843330000294,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1223,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 168,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004126,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-salmon",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-pasta",
+                "quantityPerServing": 90
+              },
+              {
+                "ingredientId": "ing-spinach",
+                "quantityPerServing": 80
+              },
+              {
+                "ingredientId": "ing-parmesan",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-garlic",
+                "quantityPerServing": 4
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 8
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": null,
+            "unchangedKept": 1
+          }
+        }
+      ]
+    },
+    "review/et-guljass": {
+      "promptHash": "ed91f3f58aaa788c8f2c80f05dbe4081f7fde92723e2da9f7836ebf5f5701ee5",
+      "calls": [
+        {
+          "caseId": "review/et-guljass",
+          "task": "review",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1562.5966659999976,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1276,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 167,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004222,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-beef",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 100
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-paprika",
+                "quantityPerServing": 40
+              },
+              {
+                "ingredientId": "ing-tomato-paste",
+                "quantityPerServing": 15
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 7
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 0.5,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/et-guljass",
+          "task": "review",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1628.453375000041,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1276,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 167,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004222,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-beef",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 100
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 50
+              },
+              {
+                "ingredientId": "ing-paprika",
+                "quantityPerServing": 40
+              },
+              {
+                "ingredientId": "ing-tomato-paste",
+                "quantityPerServing": 15
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 7
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 0.5,
+            "unchangedKept": 0.75
+          }
+        },
+        {
+          "caseId": "review/et-guljass",
+          "task": "review",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1511.3059580000117,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1276,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 167,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004222,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-beef",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 100
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-paprika",
+                "quantityPerServing": 40
+              },
+              {
+                "ingredientId": "ing-tomato-paste",
+                "quantityPerServing": 15
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 7
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 0.5,
+            "unchangedKept": 1
+          }
+        }
+      ]
+    },
+    "review/et-hakklihakaste-all-reasonable": {
+      "promptHash": "f3649348fd946a0ef117383ca2a992321f40d21e6d251f2f09be420d9ef855f8",
+      "calls": [
+        {
+          "caseId": "review/et-hakklihakaste-all-reasonable",
+          "task": "review",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1909.14512500001,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1308,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 192,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004536,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-pork",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-carrot",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-sour-cream",
+                "quantityPerServing": 15
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 7
+              },
+              {
+                "ingredientId": "ing-pepper",
+                "quantityPerServing": 1
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": null,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/et-hakklihakaste-all-reasonable",
+          "task": "review",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1753.170374999987,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1308,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 192,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004536,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-pork",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-carrot",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-sour-cream",
+                "quantityPerServing": 15
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 7
+              },
+              {
+                "ingredientId": "ing-pepper",
+                "quantityPerServing": 1
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": null,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/et-hakklihakaste-all-reasonable",
+          "task": "review",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1836.189167000004,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1308,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 192,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004536,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-pork",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-carrot",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-sour-cream",
+                "quantityPerServing": 15
+              },
+              {
+                "ingredientId": "ing-oil",
+                "quantityPerServing": 7
+              },
+              {
+                "ingredientId": "ing-pepper",
+                "quantityPerServing": 1
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": null,
+            "unchangedKept": 1
+          }
+        }
+      ]
+    },
+    "review/et-kanasupp-all-reasonable": {
+      "promptHash": "232272811da5da7702af2abfd93e7f33819474580454e95074c4ef311c188b81",
+      "calls": [
+        {
+          "caseId": "review/et-kanasupp-all-reasonable",
+          "task": "review",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1807.8062919999938,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1264,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 166,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004188,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-chicken",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 120
+              },
+              {
+                "ingredientId": "ing-carrot",
+                "quantityPerServing": 80
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-dill",
+                "quantityPerServing": 3
+              },
+              {
+                "ingredientId": "ing-bay",
+                "quantityPerServing": 0.2
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": null,
+            "unchangedKept": 0.8333333333333334
+          }
+        },
+        {
+          "caseId": "review/et-kanasupp-all-reasonable",
+          "task": "review",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1689.7234170000302,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1264,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 166,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004188,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-chicken",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 120
+              },
+              {
+                "ingredientId": "ing-carrot",
+                "quantityPerServing": 80
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-dill",
+                "quantityPerServing": 3
+              },
+              {
+                "ingredientId": "ing-bay",
+                "quantityPerServing": 0.3
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": null,
+            "unchangedKept": 0.8333333333333334
+          }
+        },
+        {
+          "caseId": "review/et-kanasupp-all-reasonable",
+          "task": "review",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 5774.654290999984,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1264,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 166,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004188,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-chicken",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 120
+              },
+              {
+                "ingredientId": "ing-carrot",
+                "quantityPerServing": 80
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-dill",
+                "quantityPerServing": 3
+              },
+              {
+                "ingredientId": "ing-bay",
+                "quantityPerServing": 0.3
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": null,
+            "unchangedKept": 0.8333333333333334
+          }
+        }
+      ]
+    },
+    "review/et-kartulisalat": {
+      "promptHash": "23caeead383f7f83e7a6975f1ffdc4a9dc51257a7291bd050e987b807ea793ea",
+      "calls": [
+        {
+          "caseId": "review/et-kartulisalat",
+          "task": "review",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1641.964708000014,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1238,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 141,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003886,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-sour-cream",
+                "quantityPerServing": 40
+              },
+              {
+                "ingredientId": "ing-egg",
+                "quantityPerServing": 1
+              },
+              {
+                "ingredientId": "ing-pickle",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 15
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 0.5,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/et-kartulisalat",
+          "task": "review",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2108.3486669999547,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1238,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 141,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003886,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-sour-cream",
+                "quantityPerServing": 40
+              },
+              {
+                "ingredientId": "ing-egg",
+                "quantityPerServing": 1
+              },
+              {
+                "ingredientId": "ing-pickle",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 15
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 0.5,
+            "unchangedKept": 1
+          }
+        },
+        {
+          "caseId": "review/et-kartulisalat",
+          "task": "review",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1587.9110419999342,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1238,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 141,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003886,
+          "errorName": null,
+          "errorMessage": null,
+          "output": {
+            "ingredients": [
+              {
+                "ingredientId": "ing-potato",
+                "quantityPerServing": 150
+              },
+              {
+                "ingredientId": "ing-sour-cream",
+                "quantityPerServing": 40
+              },
+              {
+                "ingredientId": "ing-egg",
+                "quantityPerServing": 1
+              },
+              {
+                "ingredientId": "ing-pickle",
+                "quantityPerServing": 30
+              },
+              {
+                "ingredientId": "ing-onion",
+                "quantityPerServing": 15
+              }
+            ]
+          },
+          "scores": {
+            "allIdsOnce": 1,
+            "seededCorrected": 0.5,
+            "unchangedKept": 1
+          }
+        }
+      ]
+    }
+  }
+}

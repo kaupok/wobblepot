@@ -7,6 +7,7 @@ import { renderToString } from 'react-dom/server'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../../messages/en.json'
+import etMessages from '../../../../messages/et.json'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
@@ -64,7 +65,10 @@ const defaultPreferences: {
   weekendMealTypes: ['dinner'],
 }
 
-function renderForm(overrides: Partial<Parameters<typeof HouseholdSettingsForm>[0]> = {}) {
+function renderForm(
+  overrides: Partial<Parameters<typeof HouseholdSettingsForm>[0]> = {},
+  locale: 'en' | 'et' = 'en',
+) {
   const { wrapper: QueryWrapper } = createQueryWrapper()
   const props = {
     household: defaultHousehold,
@@ -74,7 +78,7 @@ function renderForm(overrides: Partial<Parameters<typeof HouseholdSettingsForm>[
   }
   function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <NextIntlClientProvider locale="en" messages={enMessages}>
+      <NextIntlClientProvider locale={locale} messages={locale === 'en' ? enMessages : etMessages}>
         <QueryWrapper>{children}</QueryWrapper>
       </NextIntlClientProvider>
     )
@@ -527,10 +531,11 @@ describe('HouseholdSettingsForm', () => {
       })
     })
 
-    it('shows error message on failed save', async () => {
+    it('shows catalog copy, not the route error, on a failed save', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
-        json: () => Promise.resolve({ error: 'Failed to save' }),
+        status: 400,
+        json: () => Promise.resolve({ error: 'Validation failed' }),
       })
 
       renderForm()
@@ -538,7 +543,56 @@ describe('HouseholdSettingsForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
 
       await waitFor(() => {
-        expect(screen.getByText('Failed to save')).toBeInTheDocument()
+        expect(screen.getByText(enMessages.household.settings.saveFailed)).toBeInTheDocument()
+      })
+      expect(screen.queryByText('Validation failed')).not.toBeInTheDocument()
+    })
+
+    // An Estonian household must never read the route's English `error`
+    // (HON-914), so these render the real `et` catalog.
+    describe('in Estonian', () => {
+      it('shows the Estonian save failure for a validation error', async () => {
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 400,
+          json: () => Promise.resolve({ error: 'Validation failed' }),
+        })
+
+        renderForm({}, 'et')
+
+        await userEvent.click(
+          screen.getByRole('button', { name: etMessages.household.settings.saveButton }),
+        )
+
+        await waitFor(() => {
+          expect(screen.getByText(etMessages.household.settings.saveFailed)).toBeInTheDocument()
+        })
+        expect(screen.queryByText('Validation failed')).not.toBeInTheDocument()
+      })
+
+      it('shows the Estonian owner-only notice for a 403', async () => {
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 403,
+          json: () => Promise.resolve({ error: 'Only household owners can update preferences' }),
+        })
+
+        renderForm({}, 'et')
+
+        await userEvent.click(
+          screen.getByRole('button', { name: etMessages.household.settings.saveButton }),
+        )
+
+        await waitFor(() => {
+          expect(
+            screen.getByText(etMessages.household.settings.ownerOnlyNotice, {
+              selector: '#form-error',
+            }),
+          ).toBeInTheDocument()
+        })
+        expect(
+          screen.queryByText('Only household owners can update preferences'),
+        ).not.toBeInTheDocument()
       })
     })
 
@@ -565,8 +619,9 @@ describe('HouseholdSettingsForm', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
 
       await waitFor(() => {
-        expect(screen.getByText('Network error')).toBeInTheDocument()
+        expect(screen.getByText(enMessages.household.settings.saveFailed)).toBeInTheDocument()
       })
+      expect(screen.queryByText('Network error')).not.toBeInTheDocument()
     })
   })
 

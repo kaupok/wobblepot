@@ -93,7 +93,7 @@ describe('useIngredientAvailability', () => {
       })
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith('Server error')
+        expect(toast.error).toHaveBeenCalledWith('Failed to add item to pantry')
         expect(mockOnRefresh).not.toHaveBeenCalled()
       })
     })
@@ -160,7 +160,7 @@ describe('useIngredientAvailability', () => {
       })
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith('Delete failed')
+        expect(toast.error).toHaveBeenCalledWith('Failed to remove item')
         expect(mockOnRefresh).not.toHaveBeenCalled()
       })
     })
@@ -181,7 +181,7 @@ describe('useIngredientAvailability', () => {
     })
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Network error')
+      expect(toast.error).toHaveBeenCalledWith('Failed to add item to pantry')
       expect(mockOnRefresh).not.toHaveBeenCalled()
     })
   })

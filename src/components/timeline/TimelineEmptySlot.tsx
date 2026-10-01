@@ -10,7 +10,7 @@ import { Body } from '@/components/ui/typography'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import type { MealType } from '@/generated/prisma/enums'
 import type { PantryIngredient } from '@/components/meal-plan/types'
@@ -57,7 +57,20 @@ export function TimelineEmptySlot({
       setEntryId(data.id)
       setIsSelectorOpen(true)
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => {
+      // The route's `error` is English (HON-914): log it, render catalog copy.
+      // A 409 means another tab or member already filled this slot, which a
+      // refresh shows; nothing else the route sends gives the user a next step.
+      console.error(
+        '[timeline-empty-slot] create entry failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      toast.error(
+        err instanceof ApiError && err.status === 409
+          ? tCard('entryAlreadyExists')
+          : tCard('createEntryFailed'),
+      )
+    },
   })
   const isCreating = createEntryMutation.isPending
 

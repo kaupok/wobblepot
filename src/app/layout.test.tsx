@@ -192,6 +192,18 @@ describe('RootLayout', () => {
       meta: { root: { title: 'Wobblepot' } },
     })
   })
+
+  // Without these, Sonner announces its English defaults ("Notifications",
+  // "Close toast") to every household (HON-914).
+  it('labels the toaster from the catalog', async () => {
+    const element = await RootLayout({ children: null })
+
+    expect(mockGetTranslations).toHaveBeenCalledWith('common.toaster')
+    expect(findPropsWith(element, 'containerAriaLabel')).toMatchObject({
+      containerAriaLabel: 'label',
+      toastOptions: { closeButtonAriaLabel: 'close' },
+    })
+  })
 })
 
 describe('generateMetadata', () => {

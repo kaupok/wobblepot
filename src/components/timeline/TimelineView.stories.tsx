@@ -266,7 +266,7 @@ export const EmptyShoppingSidebar: Story = {
     docs: {
       description: {
         story:
-          'Timeline populated, but no upcoming shopping items — sidebar shows the "all set" state.',
+          'Timeline populated, but no upcoming shopping items — sidebar says there is nothing on the list for today or tomorrow.',
       },
     },
   },

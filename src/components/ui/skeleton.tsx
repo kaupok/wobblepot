@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from 'class-variance-authority'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 
@@ -31,13 +32,16 @@ function Skeleton({
   shape,
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof skeletonVariants>) {
+  // No 'use client': most callers are server `loading.tsx` files, where
+  // next-intl resolves this from the request config rather than the provider.
+  const t = useTranslations('common')
   return (
     <div
       data-slot="skeleton"
       data-shape={shape ?? 'default'}
       role="status"
       aria-busy="true"
-      aria-label="Loading"
+      aria-label={t('loading')}
       className={cn(skeletonVariants({ shape }), className)}
       {...props}
     />

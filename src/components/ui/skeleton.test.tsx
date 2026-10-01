@@ -8,7 +8,7 @@ describe('Skeleton', () => {
 
     const skeleton = screen.getByRole('status')
     expect(skeleton).toHaveAttribute('aria-busy', 'true')
-    expect(skeleton).toHaveAccessibleName('Loading')
+    expect(skeleton).toHaveAccessibleName('Loading…')
   })
 
   it('merges className with the base styles', () => {

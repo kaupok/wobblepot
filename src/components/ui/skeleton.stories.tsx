@@ -96,3 +96,13 @@ export const ListShape: Story = {
     </div>
   ),
 }
+
+// The status label comes from `common.loading`, so every loading screen
+// announces the household's language (HON-914).
+export const Estonian: Story = {
+  args: { className: 'h-4 w-48' },
+  globals: { locale: 'et' },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('status')).toHaveAccessibleName('Laen…')
+  },
+}

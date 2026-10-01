@@ -57,7 +57,7 @@ describe('EditRecipeClient', () => {
     // here by what it does *not* render.
     expect(screen.queryByTestId('meal-form')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Back to recipes' })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('status', { name: 'Loading' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('status', { name: 'Loading…' }).length).toBeGreaterThan(0)
   })
 
   it('requests the meal by id and renders the form with the mapped data', async () => {
