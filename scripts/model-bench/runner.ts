@@ -1,12 +1,18 @@
 /**
- * Runs every case through both models (HON-795).
+ * Runs every case through both models (HON-795), or through one configuration
+ * for `--check` (HON-901).
  *
  * Calls are sequential. For each case and run the baseline and the candidate
  * are called back to back, and which goes first alternates, so rate limits and
  * time-of-day drift do not favour either model.
  */
 
-import { NoObjectGeneratedError, type LanguageModel, type LanguageModelUsage } from 'ai'
+import {
+  NoObjectGeneratedError,
+  wrapLanguageModel,
+  type LanguageModel,
+  type LanguageModelUsage,
+} from 'ai'
 import { toAiUsageStats, type AiUsageStats } from '../../src/lib/ai/usage-mapping'
 import { estimateCostUsd } from '../../src/lib/ai/pricing'
 import type { BenchCase, Task } from './case-schema'
@@ -29,6 +35,11 @@ export interface CallRecord {
   position: 1 | 2
   /** Wall-clock time around `generateObject`, including the SDK's retries. */
   latencyMs: number
+  /**
+   * Requests the SDK sent for this call: 1, plus one per retry (`maxRetries`
+   * is 2). Absent from run files written before HON-898.
+   */
+  attempts?: number
   finishReason: string | null
   /** `null` only when the call failed before any billed response. */
   usage: AiUsageStats | null
@@ -62,6 +73,53 @@ export interface RunResult {
   spendUsd: number
   /** `true` when `--max-usd` stopped the run early. */
   partial: boolean
+}
+
+export interface CheckOptions {
+  cases: BenchCase[]
+  /** The model each task runs on: its production constant, or one `--model` for all. */
+  modelFor: (task: Task) => string
+  runs: number
+  maxUsd: number
+  modelFactory: ModelFactory
+  now?: () => number
+  onCall?: RunOptions['onCall']
+}
+
+/**
+ * One configuration, one call per case per run (HON-901). Records the same
+ * `CallRecord` as a comparison, as the candidate in first position, so the
+ * report and the run file need no second shape.
+ */
+export async function runCheck(options: CheckOptions): Promise<RunResult> {
+  const { cases, modelFor, runs, maxUsd, modelFactory, onCall } = options
+  const now = options.now ?? (() => performance.now())
+  const plannedCalls = cases.length * runs
+  const prepared = cases.map((c) => ({ c, p: prepareCase(c) }))
+
+  const calls: CallRecord[] = []
+  let spendUsd = 0
+
+  for (let run = 1; run <= runs; run++) {
+    for (const { c, p } of prepared) {
+      const record = await callOnce({
+        c,
+        p,
+        run,
+        role: 'candidate',
+        model: modelFor(c.task),
+        position: 1,
+        modelFactory,
+        now,
+      })
+      calls.push(record)
+      spendUsd += record.costUsd
+      onCall?.(record, { done: calls.length, planned: plannedCalls, spendUsd })
+      if (spendUsd > maxUsd) return { calls, plannedCalls, spendUsd, partial: true }
+    }
+  }
+
+  return { calls, plannedCalls, spendUsd, partial: false }
 }
 
 export async function runBenchmark(options: RunOptions): Promise<RunResult> {
@@ -139,7 +197,22 @@ async function callOnce(args: {
   let errorMessage: string | null = null
   let latencyMs: number
 
-  const languageModel = modelFactory(model)
+  // The SDK retries inside `generateObject`, and each attempt is one
+  // `doGenerate`, so counting those is the only way to see a retry (HON-898).
+  let attempts = 0
+  const factoryModel = modelFactory(model)
+  const languageModel =
+    typeof factoryModel === 'string'
+      ? factoryModel
+      : wrapLanguageModel({
+          model: factoryModel,
+          middleware: {
+            wrapGenerate: ({ doGenerate }) => {
+              attempts++
+              return doGenerate()
+            },
+          },
+        })
   const start = now()
   try {
     const result = await p.generate(languageModel)
@@ -167,6 +240,7 @@ async function callOnce(args: {
   return {
     ...base,
     latencyMs,
+    ...(typeof factoryModel !== 'string' && { attempts }),
     finishReason,
     usage: stats,
     reasoningTokens: usage?.outputTokenDetails?.reasoningTokens ?? null,

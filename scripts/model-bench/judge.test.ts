@@ -173,6 +173,19 @@ describe('runJudge', () => {
     expect(pair.calls.map((c) => c.roleAsA)).toEqual(['baseline', 'candidate'])
   })
 
+  it('marks the rubric system message for the prompt cache in both orders', async () => {
+    const { calls } = await judgeOne(() => 'tie')
+
+    for (const call of calls) {
+      const [system] = call.options.prompt
+      expect(system).toMatchObject({
+        role: 'system',
+        content: expect.stringContaining('You are judging two answers'),
+        providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+      })
+    }
+  })
+
   it('scores a win when both orders pick the candidate', async () => {
     const { pair } = await judgeOne(prefer('candidate'))
     expect(pair.outcome).toBe('win')

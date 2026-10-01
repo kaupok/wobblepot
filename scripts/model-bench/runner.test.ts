@@ -1,7 +1,8 @@
 // @vitest-environment node
+import { APICallError } from 'ai'
 import { describe, expect, it } from 'vitest'
 import { loadCases } from './load-cases'
-import { runBenchmark } from './runner'
+import { runBenchmark, runCheck } from './runner'
 import { errorScores } from './tasks'
 import { loadStarterCases, mockModelFactory } from './test-utils'
 
@@ -254,5 +255,82 @@ describe('runBenchmark', () => {
     expect(result.calls).toHaveLength(3)
     expect(result.plannedCalls).toBe(8)
     expect(result.spendUsd).toBeGreaterThan(2.5)
+  })
+})
+
+describe('runCheck', () => {
+  it("calls each case once per run on its task's model, as the candidate in first position", async () => {
+    const { factory, calls } = mockModelFactory(() => ({ object: { ingredients: [] } }))
+    const result = await runCheck({
+      cases: reviewCases,
+      modelFor: () => CANDIDATE,
+      runs: 2,
+      maxUsd: 10,
+      modelFactory: factory,
+    })
+
+    expect(result.plannedCalls).toBe(4)
+    expect(calls.map((c) => c.modelId)).toEqual(Array(4).fill(CANDIDATE))
+    expect(result.calls.map((c) => [c.caseId, c.run, c.role, c.position])).toEqual([
+      [reviewCases[0]!.id, 1, 'candidate', 1],
+      [reviewCases[1]!.id, 1, 'candidate', 1],
+      [reviewCases[0]!.id, 2, 'candidate', 1],
+      [reviewCases[1]!.id, 2, 'candidate', 1],
+    ])
+    expect(result.partial).toBe(false)
+  })
+
+  it('stops once measured spend passes --max-usd', async () => {
+    const { factory } = mockModelFactory(() => ({
+      object: { ingredients: [] },
+      outputTokens: 100_000,
+    }))
+    const result = await runCheck({
+      cases: reviewCases,
+      modelFor: () => CANDIDATE,
+      runs: 2,
+      maxUsd: 1.5,
+      modelFactory: factory,
+    })
+    expect(result.partial).toBe(true)
+    expect(result.calls).toHaveLength(2)
+  })
+})
+
+describe('attempts', () => {
+  it('records one attempt for a call that succeeded first time', async () => {
+    const { factory } = mockModelFactory(() => ({ object: { ingredients: [] } }))
+    const result = await runCheck({
+      cases: reviewCases.slice(0, 1),
+      modelFor: () => CANDIDATE,
+      runs: 1,
+      maxUsd: 10,
+      modelFactory: factory,
+    })
+    expect(result.calls[0]!.attempts).toBe(1)
+  })
+
+  it("counts the SDK's retries, which the latency includes", { timeout: 10_000 }, async () => {
+    let failures = 1
+    const { factory } = mockModelFactory(() => {
+      if (failures-- > 0) {
+        throw new APICallError({
+          message: 'Overloaded',
+          url: 'https://api.anthropic.com/v1/messages',
+          requestBodyValues: {},
+          statusCode: 529,
+          isRetryable: true,
+        })
+      }
+      return { object: { ingredients: [] } }
+    })
+    const result = await runCheck({
+      cases: reviewCases.slice(0, 1),
+      modelFor: () => CANDIDATE,
+      runs: 1,
+      maxUsd: 10,
+      modelFactory: factory,
+    })
+    expect(result.calls[0]).toMatchObject({ attempts: 2, errorName: null })
   })
 })

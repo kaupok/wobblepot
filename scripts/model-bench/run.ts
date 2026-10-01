@@ -9,7 +9,13 @@
  *   pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5 \
  *     [--task plan,recipe,imagine,review,tips] [--runs 3] [--dry-run] [--max-usd 10] \
  *     [--judge | --judge-api]
+ *   pnpm bench:models --check [--model <id>] [--task …] [--runs 3] [--dry-run] [--max-usd 10]
  *   pnpm bench:models --import-verdicts results/<stem>.judge-verdicts.json
+ *
+ * `--check` (HON-901) runs one configuration — each task's production model
+ * from `src/lib/ai/models.ts`, or `--model` for all — against absolute gates
+ * on the metrics, writes `results/<date>-check-<model or production>.md`, and
+ * exits 1 when a gate fails.
  *
  * `--judge` (HON-798) adds a blind pairwise comparison of imagine and tips
  * output. By default the prompts are exported for a Claude Code session to
@@ -38,8 +44,9 @@ import { z } from 'zod'
 import { MODEL_PRICES } from '../../src/lib/ai/pricing'
 import { TASKS, type Task } from './case-schema'
 import { CASES_DIR, loadCases } from './load-cases'
-import { estimateRun } from './dry-run'
-import { runBenchmark, type CallRecord, type ModelFactory } from './runner'
+import { estimateCheck, estimateRun, type ModelEstimate } from './dry-run'
+import { runBenchmark, runCheck, type CallRecord, type ModelFactory } from './runner'
+import { TASK_SPECS } from './tasks'
 import { isJudgedTask, JUDGE_MODEL, runJudge, type JudgeResult } from './judge'
 import {
   exportJudgePairs,
@@ -48,9 +55,12 @@ import {
   type JudgeKey,
 } from './judge-files'
 import {
+  buildCheckReport,
   buildReport,
+  checkSubject,
   localDateString,
   renderSummary,
+  writeCheckReport,
   writeReport,
   writeReportFiles,
 } from './report'
@@ -61,6 +71,7 @@ const DEFAULT_RUNS = 3
 const DEFAULT_MAX_USD = 10
 
 const USAGE = `Usage: pnpm bench:models --baseline <model> --candidate <model> [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge | --judge-api]
+       pnpm bench:models --check [--model <model>] [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]
        pnpm bench:models --import-verdicts <results/stem.judge-verdicts.json>`
 
 const VERDICTS_SUFFIX = '.judge-verdicts.json'
@@ -95,6 +106,8 @@ function parseCli(argv: string[]) {
         judge: { type: 'boolean', default: false },
         'judge-api': { type: 'boolean', default: false },
         'import-verdicts': { type: 'string' },
+        check: { type: 'boolean', default: false },
+        model: { type: 'string' },
       },
       strict: true,
       allowPositionals: false,
@@ -110,13 +123,29 @@ function parseCli(argv: string[]) {
     return { mode: 'import' as const, verdictsPath: values['import-verdicts'] }
   }
 
-  if (!values.baseline || !values.candidate) {
-    throw new UsageError('--baseline and --candidate are both required.')
+  if (values.check) {
+    const mixed = (['baseline', 'candidate', 'judge', 'judge-api'] as const).filter(
+      (flag) => values[flag] !== undefined && values[flag] !== false,
+    )
+    if (mixed.length > 0) {
+      throw new UsageError(
+        `--check runs one configuration; it cannot be combined with ${mixed.map((f) => `--${f}`).join(', ')}.`,
+      )
+    }
+    if (values.model === '') throw new UsageError('--model needs a model ID.')
+  } else {
+    if (values.model !== undefined) {
+      throw new UsageError(
+        '--model goes with --check; a comparison takes --baseline and --candidate.',
+      )
+    }
+    if (!values.baseline || !values.candidate) {
+      throw new UsageError('--baseline and --candidate are both required (or pass --check).')
+    }
+    if (values.judge && values['judge-api']) {
+      throw new UsageError('--judge and --judge-api are alternatives; pass one.')
+    }
   }
-  if (values.judge && values['judge-api']) {
-    throw new UsageError('--judge and --judge-api are alternatives; pass one.')
-  }
-  const judge: Judge = values['judge-api'] ? 'api' : values.judge ? 'claude-code' : false
 
   const tasks = values.task ? values.task.split(',').map((t) => t.trim()) : [...TASKS]
   const unknown = tasks.filter((t) => !(TASKS as readonly string[]).includes(t))
@@ -134,15 +163,17 @@ function parseCli(argv: string[]) {
     throw new UsageError(`--max-usd must be a positive number, got "${values['max-usd']}".`)
   }
 
+  const common = { tasks: tasks as Task[], runs, maxUsd, dryRun: values['dry-run'] }
+  if (values.check) {
+    return { mode: 'check' as const, model: values.model ?? null, ...common }
+  }
+  const judge: Judge = values['judge-api'] ? 'api' : values.judge ? 'claude-code' : false
   return {
     mode: 'bench' as const,
-    baseline: values.baseline,
-    candidate: values.candidate,
-    tasks: tasks as Task[],
-    runs,
-    maxUsd,
-    dryRun: values['dry-run'],
+    baseline: values.baseline!,
+    candidate: values.candidate!,
     judge,
+    ...common,
   }
 }
 
@@ -196,7 +227,13 @@ function importVerdicts(verdictsPath: string, log: (line: string) => void): numb
     readJson(verdictsPath, 'verdicts file'),
     verdictsPath,
   )
-  const run = parseJson(RunFileSchema, readJson(jsonPath, 'run file'), jsonPath)
+  const raw = readJson(jsonPath, 'run file')
+  if ((raw as { mode?: unknown } | null)?.mode === 'check') {
+    throw new UsageError(
+      `${basename(jsonPath)} is a --check run: it has one model and nothing to judge. --import-verdicts takes a comparison run.`,
+    )
+  }
+  const run = parseJson(RunFileSchema, raw, jsonPath)
   if (!run.judgeKey) {
     throw new UsageError(`${basename(jsonPath)} exported no judge pairs: was it run with --judge?`)
   }
@@ -237,6 +274,118 @@ function importVerdicts(verdictsPath: string, log: (line: string) => void): numb
   return 0
 }
 
+function describeEstimate(m: ModelEstimate): string {
+  const cached = m.cacheReadTokens
+    ? ` (+ ~${m.cacheWriteTokens} cache write, ~${m.cacheReadTokens} cache read)`
+    : ''
+  return `${m.calls} calls, ~${m.inputTokens} input${cached} + ~${m.outputTokens} output tokens, ~$${m.costUsd.toFixed(2)}`
+}
+
+/** Fails when any model lacks a price: an unpriced call costs $0 and `--max-usd` never trips. */
+function unpricedModels(ids: string[], error: (line: string) => void): boolean {
+  const unpriced = [...new Set(ids)].filter((id) => !MODEL_PRICES[id])
+  for (const id of unpriced) {
+    error(
+      `No MODEL_PRICES entry for "${id}" in src/lib/ai/pricing.ts. Add its prices before benchmarking it — without one every call costs $0 and --max-usd never trips.`,
+    )
+  }
+  return unpriced.length > 0
+}
+
+function buildModelFactory(
+  deps: MainDeps,
+  env: Record<string, string | undefined>,
+  error: (line: string) => void,
+): ModelFactory | null {
+  if (deps.modelFactory) return deps.modelFactory
+  const apiKey = env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    error('ANTHROPIC_API_KEY is not set. Put it in .env, or use --dry-run to estimate cost.')
+    return null
+  }
+  const anthropic = createAnthropic({ apiKey })
+  return (id) => anthropic(id)
+}
+
+/** `--check`: one configuration against the gates. Exit 1 when any gate fails. */
+async function check(
+  args: { model: string | null; tasks: Task[]; runs: number; maxUsd: number; dryRun: boolean },
+  deps: MainDeps,
+  io: {
+    log: (line: string) => void
+    error: (line: string) => void
+    env: Record<string, string | undefined>
+  },
+): Promise<number> {
+  const { log, error, env } = io
+  const modelFor = (task: Task) => args.model ?? TASK_SPECS[task].productionModel
+  const subject = checkSubject(args.model)
+
+  if (unpricedModels(args.tasks.map(modelFor), error)) return 1
+
+  const cases = loadCases(args.tasks, deps.casesDir ?? CASES_DIR)
+  if (cases.length === 0) {
+    error(`No cases found for ${args.tasks.join(', ')}.`)
+    return 1
+  }
+
+  if (args.dryRun) {
+    const estimate = estimateCheck({ cases, runs: args.runs, modelFor })
+    log(`Dry run — no API calls made.`)
+    log(`Checking ${subject}:`)
+    for (const task of args.tasks) log(`  ${task}: ${modelFor(task)}`)
+    log(`Cases: ${estimate.caseCount} (${args.tasks.join(', ')}), runs: ${args.runs}`)
+    log(`Total calls: ${estimate.totalCalls}`)
+    for (const m of estimate.perModel) log(`  ${m.model}: ${describeEstimate(m)}`)
+    log(`Estimated cost: ~$${estimate.totalCostUsd.toFixed(2)} (--max-usd ${args.maxUsd})`)
+    if (estimate.totalCostUsd > args.maxUsd) {
+      log(
+        `The estimate is above --max-usd ${args.maxUsd}: a real run would likely stop early, and a partial check fails. Raise --max-usd, or lower --runs.`,
+      )
+    }
+    return 0
+  }
+
+  const modelFactory = buildModelFactory(deps, env, error)
+  if (!modelFactory) return 1
+
+  log(`Checking ${subject}: ${cases.length} cases × ${args.runs} runs, cap $${args.maxUsd}`)
+  const result = await runCheck({
+    cases,
+    modelFor,
+    runs: args.runs,
+    maxUsd: args.maxUsd,
+    modelFactory,
+    onCall: (r, p) =>
+      log(
+        `[${p.done}/${p.planned}] ${r.caseId} run ${r.run} ${r.model}: ${(r.latencyMs / 1000).toFixed(1)}s ${r.errorName ?? r.finishReason ?? ''} $${r.costUsd.toFixed(4)} (total $${p.spendUsd.toFixed(2)})`,
+      ),
+  })
+
+  const report = buildCheckReport({
+    result,
+    model: args.model,
+    modelFor,
+    runs: args.runs,
+    maxUsd: args.maxUsd,
+    tasks: args.tasks,
+    date: localDateString((deps.today ?? (() => new Date()))()),
+  })
+  const { markdownPath, jsonPath } = writeCheckReport(deps.outDir ?? RESULTS_DIR, report, result)
+
+  if (result.partial) {
+    error(
+      `Stopped early: spend $${result.spendUsd.toFixed(2)} passed --max-usd ${args.maxUsd}. A partial check fails.`,
+    )
+  }
+  log('')
+  log(renderSummary(report))
+  log('')
+  log(`Report: ${relative(process.cwd(), markdownPath)}`)
+  log(`Raw outputs: ${relative(process.cwd(), jsonPath)} (gitignored)`)
+  return report.passed ? 0 : 1
+}
+
 /** Returns the process exit code. */
 export async function main(argv: string[], deps: MainDeps = {}): Promise<number> {
   const log = deps.log ?? ((line: string) => console.log(line))
@@ -254,18 +403,12 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     return 2
   }
 
+  if (args.mode === 'check') return check(args, deps, { log, error, env })
+
   // Before any call, and under --dry-run too: `estimateCostUsd` prices an
   // unknown model at $0, which would silently disable --max-usd.
   const priced = [args.baseline, args.candidate, ...(args.judge === 'api' ? [JUDGE_MODEL] : [])]
-  const unpriced = priced.filter((id) => !MODEL_PRICES[id])
-  if (unpriced.length > 0) {
-    for (const id of unpriced) {
-      error(
-        `No MODEL_PRICES entry for "${id}" in src/lib/ai/pricing.ts. Add its prices before benchmarking it — without one every call costs $0 and --max-usd never trips.`,
-      )
-    }
-    return 1
-  }
+  if (unpricedModels(priced, error)) return 1
 
   const cases = loadCases(args.tasks, deps.casesDir ?? CASES_DIR)
   if (cases.length === 0) {
@@ -287,11 +430,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
       ...estimate.perModel.map((m) => ({ ...m, label: m.model })),
       ...(estimate.judge ? [{ ...estimate.judge, label: `${estimate.judge.model} (judge)` }] : []),
     ]
-    for (const m of models) {
-      log(
-        `  ${m.label}: ${m.calls} calls, ~${m.inputTokens} input + ~${m.outputTokens} output tokens, ~$${m.costUsd.toFixed(2)}`,
-      )
-    }
+    for (const m of models) log(`  ${m.label}: ${describeEstimate(m)}`)
     if (args.judge === 'claude-code') {
       const pairs = cases.filter((c) => isJudgedTask(c.task)).length * args.runs
       log(
@@ -307,16 +446,8 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     return 0
   }
 
-  let modelFactory = deps.modelFactory
-  if (!modelFactory) {
-    const apiKey = env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      error('ANTHROPIC_API_KEY is not set. Put it in .env, or use --dry-run to estimate cost.')
-      return 1
-    }
-    const anthropic = createAnthropic({ apiKey })
-    modelFactory = (id) => anthropic(id)
-  }
+  const modelFactory = buildModelFactory(deps, env, error)
+  if (!modelFactory) return 1
 
   log(
     `Benchmarking ${args.baseline} vs ${args.candidate}: ${cases.length} cases × ${args.runs} runs × 2 models, cap $${args.maxUsd}`,

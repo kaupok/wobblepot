@@ -1,9 +1,19 @@
 // @vitest-environment node
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MODEL_PRICES } from '../../src/lib/ai/pricing'
+import { IMAGINE_MODEL, TIPS_MODEL } from '../../src/lib/ai/models'
+import { CASES_DIR } from './load-cases'
 import { main, type MainDeps } from './run'
 import { mockModelFactory, starterCasesDir, type MockCall, type MockResponse } from './test-utils'
 
@@ -164,6 +174,8 @@ describe('main', () => {
     // 60 benchmark calls, plus 4 judged starter cases × 3 runs × 2 orders.
     expect(text).toContain('Total calls: 84')
     expect(text).toMatch(/claude-opus-5-5 \(judge\): 24 calls, .*~\$\d+\.\d\d/)
+    // The rubric is cached: one write per locale, every later call reads it.
+    expect(text).toMatch(/claude-opus-5-5 \(judge\): .*\+ ~\d+ cache write, ~\d+ cache read/)
   })
 
   it('adds no API call under --dry-run --judge, and says how many prompts go to Claude Code', async () => {
@@ -331,7 +343,133 @@ describe('main', () => {
     expect(err.join('\n')).toContain('ANTHROPIC_API_KEY is not set')
   })
 
+  describe('--check', () => {
+    const CHECK_STEM = '2026-10-01-check-production'
+
+    it('runs each task on its production model once per case and run, and exits 0 when every gate holds', async () => {
+      const { factory, calls } = mockModelFactory(respond)
+      const code = await main(['--check', '--task', 'tips', '--runs', '2'], {
+        ...deps,
+        modelFactory: factory,
+      })
+
+      expect(code).toBe(0)
+      // 2 tips starter cases × 2 runs, one model.
+      expect(calls.map((c) => c.modelId)).toEqual(Array(4).fill(TIPS_MODEL))
+      const md = readFileSync(join(outDir, `${CHECK_STEM}.md`), 'utf8')
+      expect(md).toContain('# AI eval check: production configuration')
+      expect(md).toContain(`Models: tips \`${TIPS_MODEL}\``)
+      expect(md).toContain('| tips | Item counts in range | 100.0% | ≥ 100.0% | pass |')
+      expect(out.join('\n')).toContain('**Pass.** All 2 gates hold.')
+      const json = JSON.parse(readFileSync(join(outDir, `${CHECK_STEM}.json`), 'utf8'))
+      expect(json).toMatchObject({ mode: 'check', model: null, passed: true, plannedCalls: 4 })
+      expect(json.calls).toHaveLength(4)
+    })
+
+    it('runs every task on --model instead, and names the report after it', async () => {
+      const { factory, calls } = mockModelFactory(respond)
+      const code = await main(
+        ['--check', '--model', 'claude-sonnet-5', '--task', 'tips', '--runs', '1'],
+        { ...deps, modelFactory: factory },
+      )
+
+      expect(code).toBe(0)
+      expect(new Set(calls.map((c) => c.modelId))).toEqual(new Set(['claude-sonnet-5']))
+      const md = readFileSync(join(outDir, '2026-10-01-check-claude-sonnet-5.md'), 'utf8')
+      expect(md).toContain('# AI eval check: claude-sonnet-5')
+    })
+
+    it('exits 1 when a gate fails, and the Gates table names the metric, the value and the threshold', async () => {
+      // The mock imagines no meals at all.
+      const { factory } = mockModelFactory(respond)
+      const code = await main(['--check', '--task', 'imagine', '--runs', '1'], {
+        ...deps,
+        modelFactory: factory,
+      })
+
+      expect(code).toBe(1)
+      const md = readFileSync(join(outDir, `${CHECK_STEM}.md`), 'utf8')
+      expect(md).toContain('| imagine | Exactly 3 meals | 0.0% | ≥ 100.0% | **fail** |')
+      expect(md).toContain(`Models: imagine \`${IMAGINE_MODEL}\``)
+      expect(out.join('\n')).toMatch(/\*\*Fail\.\*\* \d+ of \d+ gates failed/)
+    })
+
+    it('passes a metric the case set never measures as "not measured"', async () => {
+      // Only the not-a-recipe case: recall and precision have nothing to measure.
+      const dir = mkdtempSync(join(tmpdir(), 'model-bench-cases-'))
+      try {
+        mkdirSync(join(dir, 'recipe'))
+        const name = 'en-not-a-recipe-restaurant-review.json'
+        copyFileSync(join(CASES_DIR, 'recipe', name), join(dir, 'recipe', name))
+        const { factory } = mockModelFactory(() => ({
+          object: {
+            name: 'Not a recipe',
+            description: null,
+            preparationNotes: null,
+            timeMinutes: null,
+            servings: 1,
+            mealTypes: [],
+            kidFriendly: false,
+            recipeConfidence: 5,
+            ingredients: [],
+          },
+        }))
+        const code = await main(['--check', '--task', 'recipe', '--runs', '1'], {
+          ...deps,
+          casesDir: dir,
+          modelFactory: factory,
+        })
+
+        const md = readFileSync(join(outDir, `${CHECK_STEM}.md`), 'utf8')
+        expect(md).toContain('| recipe | Ingredient recall | — | ≥ 95.0% | not measured |')
+        expect(md).toContain('| recipe | Confidence tier agrees | 100.0% | ≥ 100.0% | pass |')
+        expect(code).toBe(0)
+      } finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('prints the production model per task and the estimate under --dry-run, calling nothing', async () => {
+      const code = await main(['--check', '--dry-run'], {
+        ...deps,
+        modelFactory: () => {
+          throw new Error('--dry-run must not build a model')
+        },
+      })
+
+      expect(code).toBe(0)
+      const text = out.join('\n')
+      expect(text).toContain('Checking production configuration:')
+      expect(text).toContain(`  tips: ${TIPS_MODEL}`)
+      // 10 starter cases × 3 runs, one model.
+      expect(text).toContain('Total calls: 30')
+      expect(text).toMatch(/Estimated cost: ~\$\d+\.\d\d/)
+      expect(existsSync(join(outDir, `${CHECK_STEM}.md`))).toBe(false)
+    })
+
+    it('accepts --model under --dry-run and prices it', async () => {
+      expect(await main(['--check', '--model', 'claude-sonnet-5-5', '--dry-run'], deps)).toBe(0)
+      expect(await main(['--check', '--model', 'not-a-model', '--dry-run'], deps)).toBe(1)
+      expect(err.join('\n')).toMatch(/No MODEL_PRICES entry for "not-a-model"/)
+    })
+
+    it('is refused by --import-verdicts', async () => {
+      const { factory } = mockModelFactory(respond)
+      await main(['--check', '--task', 'tips', '--runs', '1'], { ...deps, modelFactory: factory })
+      const verdictsPath = join(outDir, `${CHECK_STEM}.judge-verdicts.json`)
+      writeFileSync(verdictsPath, JSON.stringify({ judge: 'claude-code/opus', verdicts: [] }))
+
+      const code = await main(['--import-verdicts', verdictsPath], deps)
+      expect(code).toBe(2)
+      expect(err.join('\n')).toContain(`${CHECK_STEM}.json is a --check run`)
+    })
+  })
+
   it.each([
+    [['--check', '--baseline', 'claude-sonnet-5'], /--check runs one configuration.*--baseline/],
+    [['--check', '--candidate', 'x', '--judge'], /cannot be combined with --candidate, --judge/],
+    [['--check', '--judge-api'], /cannot be combined with --judge-api/],
+    [[...BASE_ARGS, '--model', 'claude-sonnet-5'], /--model goes with --check/],
     [['--baseline', 'claude-sonnet-5'], /--candidate are both required/],
     [[...BASE_ARGS, '--task', 'plan,dessert'], /Unknown --task dessert/],
     [[...BASE_ARGS, '--runs', '0'], /--runs must be a positive integer/],

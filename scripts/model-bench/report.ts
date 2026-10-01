@@ -9,8 +9,11 @@
  * **Noise rule:** a difference is noise when the gap between the two means is
  * no larger than the wider of the two models' ranges. Noise beats thresholds:
  * a noise-flagged difference is listed under "Within noise", never under
- * "Regressions". The latency rule is the exception — it compares the
- * candidate's max against the route budget, not against the baseline. A
+ * "Regressions". The latency rule holds the candidate's max to a share of
+ * the route budget, and then asks what the baseline did (HON-898): both over
+ * the line is the budget's problem, not the model change's, and a candidate
+ * just over it while the baseline sits just under is noise when the gap is
+ * inside the run-to-run range of per-run maxes. A
  * difference outside noise that crosses no threshold, in either direction, is
  * listed under "Other changes outside noise" (HON-858): most metrics have no
  * threshold, and a real move on one must still reach the summary.
@@ -65,6 +68,10 @@ export interface Operational {
   calls: number
   latencyP50Ms: number | null
   latencyMaxMs: number | null
+  /** The max latency of each run, in run order. */
+  latencyRunMaxesMs: number[]
+  /** Calls the SDK retried. `null` for a run file that predates the count (HON-898). */
+  retried: number | null
   overBudget: number
   errorsByName: Record<string, number>
   truncated: number
@@ -206,10 +213,16 @@ function operational(calls: CallRecord[], budgetMs: number): Operational {
   const billed = calls.filter((c) => c.usage)
   const tokenMean = (pick: (c: CallRecord) => number) => mean(billed.map(pick)) ?? 0
 
+  const runMaxes = new Map<number, number>()
+  for (const c of calls) runMaxes.set(c.run, Math.max(runMaxes.get(c.run) ?? 0, c.latencyMs))
+  const counted = calls.filter((c) => c.attempts !== undefined)
+
   return {
     calls: calls.length,
     latencyP50Ms: p50(latencies),
     latencyMaxMs: latencies.length === 0 ? null : Math.max(...latencies),
+    latencyRunMaxesMs: [...runMaxes.keys()].sort((a, b) => a - b).map((run) => runMaxes.get(run)!),
+    retried: counted.length === 0 ? null : counted.filter((c) => c.attempts! > 1).length,
     overBudget: latencies.filter((ms) => ms > budgetMs).length,
     errorsByName,
     truncated: calls.filter((c) => c.finishReason === 'length').length,
@@ -283,13 +296,14 @@ export function buildReport(args: {
       candidate: operational(byRole('candidate'), spec.budgetMs),
     }
 
-    const candidateMax = ops.candidate.latencyMaxMs
-    if (candidateMax !== null && candidateMax > LATENCY_BUDGET_SHARE * spec.budgetMs) {
-      regressions.push({
-        task,
-        text: `**${task} · Max latency:** the candidate's ${seconds(candidateMax)} is above ${LATENCY_BUDGET_SHARE * 100}% of the ${seconds(spec.budgetMs)} route budget (${spec.budgetLabel})`,
-      })
+    const latency = latencyFinding(task, spec, ops)
+    if (latency) {
+      const list = { regression: regressions, other: otherChanges, noise: withinNoise }
+      list[latency.list].push({ task, text: latency.text })
     }
+
+    const reasoning = reasoningAsymmetry(task, ops)
+    if (reasoning) otherChanges.push({ task, text: reasoning })
 
     return {
       task,
@@ -330,6 +344,90 @@ export function buildReport(args: {
       judge: args.judge?.spendUsd ?? 0,
     },
   }
+}
+
+const budgetLine = (spec: { budgetMs: number }) => LATENCY_BUDGET_SHARE * spec.budgetMs
+
+function budgetText(spec: { budgetMs: number; budgetLabel: string }): string {
+  return `${LATENCY_BUDGET_SHARE * 100}% of the ${seconds(spec.budgetMs)} route budget (${spec.budgetLabel})`
+}
+
+/** `, N call(s) retried and latency includes the retries`, or nothing. */
+function retriedNote(...ops: Operational[]): string {
+  const retried = ops.reduce((n, op) => n + (op.retried ?? 0), 0)
+  return retried === 0 ? '' : `; ${retried} call(s) retried, and latency includes the retries`
+}
+
+/**
+ * The candidate's max over `LATENCY_BUDGET_SHARE` of the budget (HON-898):
+ *
+ * - baseline over too → "Other changes": the budget is the problem;
+ * - baseline under, but the gap between the maxes is inside the wider range
+ *   of the two sides' per-run maxes → "Within noise", as `compareMetric`
+ *   would call it;
+ * - otherwise → a regression. With a single run on either side no range is
+ *   measured, and nothing can show the crossing is noise.
+ */
+function latencyFinding(
+  task: Task,
+  spec: { budgetMs: number; budgetLabel: string },
+  ops: Record<Role, Operational>,
+): { list: 'regression' | 'other' | 'noise'; text: string } | null {
+  const line = budgetLine(spec)
+  const candidateMax = ops.candidate.latencyMaxMs
+  if (candidateMax === null || candidateMax <= line) return null
+
+  const head = `**${task} · Max latency:**`
+  const note = retriedNote(ops.baseline, ops.candidate)
+  const baselineMax = ops.baseline.latencyMaxMs
+  if (baselineMax === null) {
+    return {
+      list: 'regression',
+      text: `${head} the candidate's ${seconds(candidateMax)} is above ${budgetText(spec)}${note}`,
+    }
+  }
+  if (baselineMax > line) {
+    return {
+      list: 'other',
+      text: `${head} both models are above ${budgetText(spec)} (baseline ${seconds(baselineMax)}, candidate ${seconds(candidateMax)}): the budget, not the model change, is the problem${note}`,
+    }
+  }
+
+  const b = ops.baseline.latencyRunMaxesMs
+  const c = ops.candidate.latencyRunMaxesMs
+  const spread = (v: number[]) => Math.max(...v) - Math.min(...v)
+  const inRange =
+    b.length >= 2 && c.length >= 2 && candidateMax - baselineMax <= Math.max(spread(b), spread(c))
+  if (inRange) {
+    const runs = (v: number[]) => `${seconds(Math.min(...v))}–${seconds(Math.max(...v))}`
+    return {
+      list: 'noise',
+      text: `${head} the candidate's ${seconds(candidateMax)} is above ${budgetText(spec)} and the baseline's ${seconds(baselineMax)} is not, but the gap is inside the run-to-run range (per-run maxes ${runs(b)} and ${runs(c)}): both are close to the budget${note}`,
+    }
+  }
+  return {
+    list: 'regression',
+    text: `${head} the candidate's ${seconds(candidateMax)} is above ${budgetText(spec)}, and the baseline's ${seconds(baselineMax)} is not, outside the run-to-run range${note}`,
+  }
+}
+
+/**
+ * One model reasons on a task and the other reports no reasoning tokens
+ * (HON-899). The benchmark sends no thinking configuration, so this is each
+ * model's default, and the task's latency and cost deltas include it.
+ */
+function reasoningAsymmetry(task: Task, ops: Record<Role, Operational>): string | null {
+  const b = ops.baseline.mean?.reasoningTokens
+  const c = ops.candidate.mean?.reasoningTokens
+  if (b === undefined || c === undefined) return null
+  const [reasons, does, doesNot] =
+    c > 0 && b === 0
+      ? [c, 'candidate', 'baseline']
+      : b > 0 && c === 0
+        ? [b, 'baseline', 'candidate']
+        : [null, '', '']
+  if (reasons === null) return null
+  return `**${task} · Reasoning:** the ${does} reasons (${Math.round(reasons)} tokens/call), the ${doesNot} does not; latency and cost deltas on this task include that`
 }
 
 function judgeReport(judge: JudgeResult, tasks: readonly Task[]): JudgeReport {
@@ -473,27 +571,12 @@ export function renderMarkdown(report: BenchReport): string {
     }
     lines.push('')
 
-    const b = t.operational.baseline
-    const c = t.operational.candidate
-    const ms = (v: number | null) => (v === null ? '—' : seconds(v))
-    lines.push(`| Operational | ${baseline} | ${candidate} |`)
-    lines.push('| --- | --- | --- |')
-    lines.push(`| Calls | ${b.calls} | ${c.calls} |`)
-    lines.push(`| Latency p50 | ${ms(b.latencyP50Ms)} | ${ms(c.latencyP50Ms)} |`)
-    // Fewer than 30 samples per task: a p95 would be the maximum, so call it that.
     lines.push(
-      `| Latency max (budget ${seconds(t.budgetMs)}, \`${t.budgetLabel}\`) | ${ms(b.latencyMaxMs)} | ${ms(c.latencyMaxMs)} |`,
+      ...renderOperational(t, [
+        [baseline, t.operational.baseline],
+        [candidate, t.operational.candidate],
+      ]),
     )
-    lines.push(`| Calls over budget | ${b.overBudget} | ${c.overBudget} |`)
-    lines.push(`| Errors | ${formatErrors(b.errorsByName)} | ${formatErrors(c.errorsByName)} |`)
-    lines.push(`| Truncated (\`finishReason: length\`) | ${b.truncated} | ${c.truncated} |`)
-    lines.push(
-      `| Tokens / call (input · output · reasoning · cache read · cache write) | ${formatTokens(b)} | ${formatTokens(c)} |`,
-    )
-    lines.push(
-      `| Cost / call | ${b.mean ? usd(b.mean.costUsd) : '—'} | ${c.mean ? usd(c.mean.costUsd) : '—'} |`,
-    )
-    lines.push('')
   }
 
   const total = report.cost.baseline + report.cost.candidate + report.cost.judge
@@ -508,12 +591,42 @@ export function renderMarkdown(report: BenchReport): string {
   return lines.join('\n')
 }
 
+/** The operational table for one task, one column per model. */
+function renderOperational(
+  t: { budgetMs: number; budgetLabel: string },
+  columns: [string, Operational][],
+): string[] {
+  const ms = (v: number | null) => (v === null ? '—' : seconds(v))
+  const row = (label: string, cell: (op: Operational) => string | number) =>
+    `| ${label} | ${columns.map(([, op]) => cell(op)).join(' | ')} |`
+  return [
+    `| Operational | ${columns.map(([name]) => name).join(' | ')} |`,
+    `| --- | ${columns.map(() => '---').join(' | ')} |`,
+    row('Calls', (op) => op.calls),
+    row('Latency p50', (op) => ms(op.latencyP50Ms)),
+    // Fewer than 30 samples per task: a p95 would be the maximum, so call it that.
+    row(`Latency max (budget ${seconds(t.budgetMs)}, \`${t.budgetLabel}\`)`, (op) =>
+      ms(op.latencyMaxMs),
+    ),
+    row('Calls over budget', (op) => op.overBudget),
+    // Latency is timed around `generateObject`, so it includes the SDK's retries.
+    row('Calls retried (latency includes retries)', (op) => op.retried ?? 'not recorded'),
+    row('Errors', (op) => formatErrors(op.errorsByName)),
+    row('Truncated (`finishReason: length`)', (op) => op.truncated),
+    row('Tokens / call (input · output · reasoning · cache read · cache write)', formatTokens),
+    row('Cost / call', (op) => (op.mean ? usd(op.mean.costUsd) : '—')),
+    '',
+  ]
+}
+
 /**
  * The markdown up to the first per-task table: the header, the three lists and
- * any Judge section. `run.ts` echoes it to the console.
+ * any Judge section, or for `--check` the result and the Gates table. `run.ts`
+ * echoes it to the console.
  */
-export function renderSummary(report: BenchReport): string {
-  const sections = renderMarkdown(report).split('\n## ')
+export function renderSummary(report: BenchReport | CheckReport): string {
+  const markdown = 'gates' in report ? renderCheckMarkdown(report) : renderMarkdown(report)
+  const sections = markdown.split('\n## ')
   const firstTask = sections.findIndex((s) => report.tasks.some((t) => s.startsWith(`${t.task}\n`)))
   return sections
     .slice(0, firstTask === -1 ? undefined : firstTask)
@@ -580,22 +693,12 @@ export interface WriteReportExtras {
 }
 
 /**
- * Write `<date>-<baseline>-vs-<candidate>.md` (committed) and the matching
- * `.json` with every raw output (gitignored), plus `.judge-pairs.json` when
- * the run exported its judge prompts. Returns the paths.
- *
- * A second run of the same pair on the same day gets a `-2`, `-3`, … suffix
- * rather than overwriting the first: each run cost money, and the earlier
- * report may already be committed or attached to a PR.
+ * `base`, or `base-2`, `base-3`, … when a report by that name exists: each run
+ * cost money, and the earlier report may already be committed or attached to
+ * a PR. Creates `outDir`.
  */
-export function writeReport(
-  outDir: string,
-  report: BenchReport,
-  result: RunResult,
-  extras: WriteReportExtras = {},
-): ReportFiles {
+function uniqueStem(outDir: string, base: string): string {
   mkdirSync(outDir, { recursive: true })
-  const base = `${report.date}-${report.baseline}-vs-${report.candidate}`
   let stem = base
   for (
     let n = 2;
@@ -604,6 +707,24 @@ export function writeReport(
   ) {
     stem = `${base}-${n}`
   }
+  return stem
+}
+
+/**
+ * Write `<date>-<baseline>-vs-<candidate>.md` (committed) and the matching
+ * `.json` with every raw output (gitignored), plus `.judge-pairs.json` when
+ * the run exported its judge prompts. Returns the paths.
+ *
+ * A second run of the same pair on the same day gets a `-2`, `-3`, … suffix
+ * rather than overwriting the first (`uniqueStem`).
+ */
+export function writeReport(
+  outDir: string,
+  report: BenchReport,
+  result: RunResult,
+  extras: WriteReportExtras = {},
+): ReportFiles {
+  const stem = uniqueStem(outDir, `${report.date}-${report.baseline}-vs-${report.candidate}`)
   return writeReportFiles(join(outDir, `${stem}.md`), join(outDir, `${stem}.json`), {
     report,
     result,
@@ -678,4 +799,242 @@ export function writeReportFiles(
   )
 
   return { markdownPath, jsonPath, ...(pairsPath && { pairsPath }) }
+}
+
+// ---------------------------------------------------------------------------
+// --check (HON-901)
+// ---------------------------------------------------------------------------
+
+export type GateStatus = 'pass' | 'fail' | 'not measured'
+
+export interface GateResult {
+  task: Task
+  /** The metric's label, or `Max latency`. */
+  label: string
+  observed: string
+  threshold: string
+  status: GateStatus
+}
+
+export interface CheckTaskReport {
+  task: Task
+  model: string
+  budgetMs: number
+  budgetLabel: string
+  metrics: { metric: MetricDef; summary: Summary | null }[]
+  operational: Operational
+}
+
+export interface CheckReport {
+  /** The `--model` given, or `null` for the production configuration. */
+  model: string | null
+  date: string
+  runs: number
+  tasks: CheckTaskReport[]
+  gates: GateResult[]
+  /** Every gate holds and the run was not stopped early. */
+  passed: boolean
+  partial: boolean
+  plannedCalls: number
+  madeCalls: number
+  maxUsd: number
+  costUsd: number
+}
+
+function gateThreshold(metric: MetricDef): string {
+  const gate = metric.gate!
+  return 'min' in gate ? `≥ ${formatValue(metric, gate.min)}` : `≤ ${formatValue(metric, gate.max)}`
+}
+
+/**
+ * Hold the mean over all runs to the gate. A metric no call produced a value
+ * for — nothing in the case set to measure — passes as not measured.
+ */
+export function evaluateGate(metric: MetricDef, summary: Summary | null): GateStatus {
+  const gate = metric.gate
+  if (!gate || !summary) return gate ? 'not measured' : 'pass'
+  const ok =
+    'min' in gate
+      ? summary.mean >= gate.min - FLOAT_TOLERANCE
+      : summary.mean <= gate.max + FLOAT_TOLERANCE
+  return ok ? 'pass' : 'fail'
+}
+
+/**
+ * One configuration against the absolute gates: every gated metric's mean over
+ * all runs, and each task's max latency against `LATENCY_BUDGET_SHARE` of its
+ * route budget. A partial run fails: the tasks it never reached were not checked.
+ */
+export function buildCheckReport(args: {
+  result: RunResult
+  model: string | null
+  modelFor: (task: Task) => string
+  runs: number
+  maxUsd: number
+  tasks: readonly Task[]
+  date: string
+}): CheckReport {
+  const { result, model, modelFor, runs, maxUsd, date } = args
+  const gates: GateResult[] = []
+
+  const tasks = TASKS.filter((t) => args.tasks.includes(t)).map((task): CheckTaskReport => {
+    const spec = TASK_SPECS[task]
+    const calls = result.calls.filter((c) => c.task === task)
+    const metrics = spec.metrics.map((metric) => ({
+      metric,
+      summary: summarize(perRunValues(calls, metric.key)),
+    }))
+
+    for (const { metric, summary } of metrics) {
+      if (!metric.gate) continue
+      gates.push({
+        task,
+        label: metric.label,
+        observed: formatSummary(metric, summary),
+        threshold: gateThreshold(metric),
+        status: evaluateGate(metric, summary),
+      })
+    }
+
+    const ops = operational(calls, spec.budgetMs)
+    const line = budgetLine(spec)
+    gates.push({
+      task,
+      label: 'Max latency',
+      observed:
+        ops.latencyMaxMs === null
+          ? '—'
+          : `${seconds(ops.latencyMaxMs)}${ops.retried ? ` (${ops.retried} call(s) retried)` : ''}`,
+      threshold: `≤ ${seconds(line)} (${LATENCY_BUDGET_SHARE * 100}% of \`${spec.budgetLabel}\`)`,
+      status:
+        ops.latencyMaxMs === null ? 'not measured' : ops.latencyMaxMs <= line ? 'pass' : 'fail',
+    })
+
+    return {
+      task,
+      model: modelFor(task),
+      budgetMs: spec.budgetMs,
+      budgetLabel: spec.budgetLabel,
+      metrics,
+      operational: ops,
+    }
+  })
+
+  return {
+    model,
+    date,
+    runs,
+    tasks,
+    gates,
+    passed: !result.partial && gates.every((g) => g.status !== 'fail'),
+    partial: result.partial,
+    plannedCalls: result.plannedCalls,
+    madeCalls: result.calls.length,
+    maxUsd,
+    costUsd: result.spendUsd,
+  }
+}
+
+export const checkSubject = (model: string | null) => model ?? 'production configuration'
+
+export function renderCheckMarkdown(report: CheckReport): string {
+  const lines: string[] = []
+  lines.push(`# AI eval check: ${checkSubject(report.model)}`, '')
+  lines.push(
+    `${report.date} · ${report.runs} run(s) · tasks: ${report.tasks.map((t) => t.task).join(', ')} · ${report.madeCalls} calls`,
+    '',
+  )
+  lines.push(`Models: ${report.tasks.map((t) => `${t.task} \`${t.model}\``).join(' · ')}`, '')
+
+  if (report.partial) {
+    lines.push(
+      `> **Partial run.** Measured spend passed \`--max-usd ${report.maxUsd}\` after ${report.madeCalls} of ${report.plannedCalls} planned calls, so the run stopped. Later runs and cases were never checked, so the check fails whatever the gates below say.`,
+      '',
+    )
+  }
+
+  const failed = report.gates.filter((g) => g.status === 'fail')
+  lines.push('## Result', '')
+  if (report.passed) {
+    lines.push(`**Pass.** All ${report.gates.length} gates hold.`)
+  } else if (failed.length === 0) {
+    lines.push('**Fail.** The run stopped early; every gate it measured holds.')
+  } else {
+    lines.push(`**Fail.** ${failed.length} of ${report.gates.length} gates failed:`, '')
+    for (const g of failed) {
+      lines.push(`- **${g.task} · ${g.label}:** ${g.observed}, needs ${g.threshold}`)
+    }
+  }
+  lines.push('')
+
+  lines.push('## Gates', '')
+  lines.push(
+    `Each gate holds a metric's mean over all runs, with the run-to-run range in brackets, to an absolute threshold, and each task's slowest call to ${LATENCY_BUDGET_SHARE * 100}% of its route budget. A metric no case in this set measures passes as _not measured_.`,
+    '',
+  )
+  lines.push('| Task | Gate | Observed | Threshold | Result |')
+  lines.push('| --- | --- | --- | --- | --- |')
+  for (const g of report.gates) {
+    const result = g.status === 'fail' ? '**fail**' : g.status
+    lines.push(`| ${g.task} | ${g.label} | ${g.observed} | ${g.threshold} | ${result} |`)
+  }
+  lines.push('')
+
+  for (const t of report.tasks) {
+    lines.push(`## ${t.task}`, '')
+    lines.push(`| Metric | ${t.model} | Gate |`)
+    lines.push('| --- | --- | --- |')
+    for (const { metric, summary } of t.metrics) {
+      lines.push(
+        `| ${metric.label} | ${formatSummary(metric, summary)} | ${metric.gate ? gateThreshold(metric) : '—'} |`,
+      )
+    }
+    lines.push('')
+    lines.push(...renderOperational(t, [[t.model, t.operational]]))
+  }
+
+  lines.push(
+    `**Total cost:** ${usd(report.costUsd)} over ${report.madeCalls} calls${report.partial ? ' — partial run' : ''}.`,
+    '',
+  )
+  return lines.join('\n')
+}
+
+/**
+ * Write `<date>-check-<model or "production">.md` and the matching `.json`,
+ * with the same `-2` suffix rule as a comparison. The `.json` carries
+ * `mode: 'check'`, which `--import-verdicts` refuses.
+ */
+export function writeCheckReport(
+  outDir: string,
+  report: CheckReport,
+  result: RunResult,
+): ReportFiles {
+  const stem = uniqueStem(outDir, `${report.date}-check-${report.model ?? 'production'}`)
+  const markdownPath = join(outDir, `${stem}.md`)
+  const jsonPath = join(outDir, `${stem}.json`)
+  writeFileSync(markdownPath, renderCheckMarkdown(report))
+  writeFileSync(
+    jsonPath,
+    `${JSON.stringify(
+      {
+        mode: 'check',
+        model: report.model,
+        models: Object.fromEntries(report.tasks.map((t) => [t.task, t.model])),
+        date: report.date,
+        runs: report.runs,
+        tasks: report.tasks.map((t) => t.task),
+        passed: report.passed,
+        partial: report.partial,
+        plannedCalls: report.plannedCalls,
+        spendUsd: result.spendUsd,
+        maxUsd: report.maxUsd,
+        gates: report.gates,
+        calls: result.calls,
+      },
+      null,
+      2,
+    )}\n`,
+  )
+  return { markdownPath, jsonPath }
 }

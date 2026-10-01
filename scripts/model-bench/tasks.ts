@@ -25,6 +25,13 @@ import {
   REVIEW_AI_BUDGET_MS,
   TIPS_AI_BUDGET_MS,
 } from '../../src/lib/ai/budgets'
+import {
+  IMAGINE_MODEL,
+  PLANNING_MODEL,
+  RECIPE_MODEL,
+  REVIEW_MODEL,
+  TIPS_MODEL,
+} from '../../src/lib/ai/models'
 import type { BenchCase, CaseOf, Task } from './case-schema'
 import {
   derivePlanContext,
@@ -51,6 +58,12 @@ export interface MetricDef {
    * units) is a regression, unless the difference is within noise.
    */
   regressionDrop?: number
+  /**
+   * The absolute bar `--check` holds the metric's mean over all runs to
+   * (HON-901): at least `min`, or at most `max`. A metric without one is shown
+   * in the check report but never fails it.
+   */
+  gate?: { min: number } | { max: number }
 }
 
 /** What the runner needs from a case: the request, ready to send to any model. */
@@ -64,6 +77,8 @@ export interface PreparedCase {
 }
 
 export interface TaskSpec<T extends Task> {
+  /** The model the app calls for this task, from `src/lib/ai/models.ts`: what a bare `--check` runs. */
+  productionModel: string
   /** The route's AI budget from `src/lib/ai/budgets.ts`. */
   budgetMs: number
   budgetLabel: string
@@ -100,6 +115,7 @@ function textOf(request: { system?: string; prompt?: string; messages?: unknown[
 }
 
 const plan: TaskSpec<'plan'> = {
+  productionModel: PLANNING_MODEL,
   budgetMs: PLAN_AI_BUDGET_MS,
   budgetLabel: 'PLAN_AI_BUDGET_MS',
   dryRunOutputTokens: 2_000,
@@ -110,10 +126,29 @@ const plan: TaskSpec<'plan'> = {
       format: 'percent',
       onError: 0,
       regressionDrop: 0.1,
+      gate: { min: 1 },
     },
-    { key: 'validAfterRepair', label: 'Valid after repair', format: 'percent', onError: 0 },
-    { key: 'structureValid', label: 'Structure valid', format: 'percent', onError: 0 },
-    { key: 'outOfPoolIds', label: 'Out-of-pool meal IDs', format: 'number', onError: null },
+    {
+      key: 'validAfterRepair',
+      label: 'Valid after repair',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
+    {
+      key: 'structureValid',
+      label: 'Structure valid',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
+    {
+      key: 'outOfPoolIds',
+      label: 'Out-of-pool meal IDs',
+      format: 'number',
+      onError: null,
+      gate: { max: 0 },
+    },
     {
       key: 'dinnerProteinVariety',
       label: 'Distinct dinner proteins',
@@ -143,6 +178,7 @@ const plan: TaskSpec<'plan'> = {
 }
 
 const recipe: TaskSpec<'recipe'> = {
+  productionModel: RECIPE_MODEL,
   budgetMs: RECIPE_PARSE_AI_BUDGET_MS,
   budgetLabel: 'RECIPE_PARSE_AI_BUDGET_MS (pasted text)',
   dryRunOutputTokens: 3_000,
@@ -153,6 +189,8 @@ const recipe: TaskSpec<'recipe'> = {
       format: 'percent',
       onError: 0,
       regressionDrop: 0.05,
+      // HON-859 measured 98.8–99.4%.
+      gate: { min: 0.95 },
     },
     {
       key: 'precision',
@@ -160,9 +198,22 @@ const recipe: TaskSpec<'recipe'> = {
       format: 'percent',
       onError: 0,
       regressionDrop: 0.05,
+      gate: { min: 0.95 },
     },
-    { key: 'quantityUnitMatch', label: 'Quantity + unit exact', format: 'percent', onError: null },
-    { key: 'confidenceAgrees', label: 'Confidence tier agrees', format: 'percent', onError: 0 },
+    {
+      key: 'quantityUnitMatch',
+      label: 'Quantity + unit exact',
+      format: 'percent',
+      onError: null,
+      gate: { min: 1 },
+    },
+    {
+      key: 'confidenceAgrees',
+      label: 'Confidence tier agrees',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
     { key: 'stepCountDelta', label: 'Step count delta', format: 'number', onError: null },
   ],
   inapplicableMetrics(input) {
@@ -183,14 +234,39 @@ const recipe: TaskSpec<'recipe'> = {
 }
 
 const imagine: TaskSpec<'imagine'> = {
+  productionModel: IMAGINE_MODEL,
   budgetMs: IMAGINE_AI_BUDGET_MS,
   budgetLabel: 'IMAGINE_AI_BUDGET_MS',
   dryRunOutputTokens: 3_500,
   metrics: [
-    { key: 'allChecksPass', label: 'All checks pass', format: 'percent', onError: 0 },
-    { key: 'exactlyThreeMeals', label: 'Exactly 3 meals', format: 'percent', onError: 0 },
-    { key: 'servingsMatch', label: 'Servings = household size', format: 'percent', onError: 0 },
-    { key: 'minTwoIngredients', label: '≥ 2 ingredients each', format: 'percent', onError: 0 },
+    {
+      key: 'allChecksPass',
+      label: 'All checks pass',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
+    {
+      key: 'exactlyThreeMeals',
+      label: 'Exactly 3 meals',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
+    {
+      key: 'servingsMatch',
+      label: 'Servings = household size',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
+    {
+      key: 'minTwoIngredients',
+      label: '≥ 2 ingredients each',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
     {
       key: 'noForbiddenIngredients',
       label: 'No forbidden ingredient',
@@ -206,6 +282,7 @@ const imagine: TaskSpec<'imagine'> = {
       // breaches on a drop past `regressionDrop`): any drop outside noise is a
       // regression, and a baseline at 100% on every run measures no range.
       regressionDrop: 0,
+      gate: { min: 1 },
     },
   ],
   prepare({ input }) {
@@ -224,18 +301,34 @@ const imagine: TaskSpec<'imagine'> = {
 }
 
 const review: TaskSpec<'review'> = {
+  productionModel: REVIEW_MODEL,
   budgetMs: REVIEW_AI_BUDGET_MS,
   budgetLabel: 'REVIEW_AI_BUDGET_MS',
   dryRunOutputTokens: 1_500,
   metrics: [
-    { key: 'allIdsOnce', label: 'Every ID exactly once', format: 'percent', onError: 0 },
+    {
+      key: 'allIdsOnce',
+      label: 'Every ID exactly once',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
     {
       key: 'seededCorrected',
       label: 'Seeded errors corrected (±25%)',
       format: 'percent',
       onError: 0,
+      // HON-859 measured 80%.
+      gate: { min: 0.7 },
     },
-    { key: 'unchangedKept', label: 'Correct quantities kept', format: 'percent', onError: 0 },
+    {
+      key: 'unchangedKept',
+      label: 'Correct quantities kept',
+      format: 'percent',
+      onError: 0,
+      // HON-859 measured 91.7–93.6%.
+      gate: { min: 0.85 },
+    },
   ],
   inapplicableMetrics(input) {
     const expectations = Object.values(input.expected)
@@ -260,12 +353,21 @@ const review: TaskSpec<'review'> = {
 }
 
 const tips: TaskSpec<'tips'> = {
+  productionModel: TIPS_MODEL,
   budgetMs: TIPS_AI_BUDGET_MS,
   budgetLabel: 'TIPS_AI_BUDGET_MS',
   // Both ceilings in `preparation-tips.ts` (2000 full, 1200 supplementary)
   // are upper bounds; this sits between them.
   dryRunOutputTokens: 1_500,
-  metrics: [{ key: 'countsInRange', label: 'Item counts in range', format: 'percent', onError: 0 }],
+  metrics: [
+    {
+      key: 'countsInRange',
+      label: 'Item counts in range',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
+  ],
   prepare({ input }) {
     const base = {
       mealName: input.mealName,
