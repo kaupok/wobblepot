@@ -6,7 +6,15 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { setupWorker } from 'msw/browser'
 import { mswLoader } from 'msw-storybook-addon/csf3'
 import { MINIMAL_VIEWPORTS } from 'storybook/viewport'
+import { sb } from 'storybook/test'
 import '../src/app/globals.css'
+
+// Spy, not stub: the real `track` still runs (and no-ops, since PostHog is
+// never initialised here), but play functions can assert on it with
+// `expect(track).toHaveBeenCalledWith(...)` after importing it from
+// `@/lib/analytics`.
+sb.mock(import('../src/lib/analytics.ts'), { spy: true })
+
 // MSW handlers for data-fetching stories live in src/stories/msw-handlers.ts.
 // Per-story overrides go on `parameters.msw.handlers` in the story file.
 import { defaultHandlers } from '../src/stories/msw-handlers'

@@ -86,6 +86,13 @@ export const Confirms: Story = {
 }
 ```
 
+A module the component imports, rather than receives as a prop, is spied with
+`sb.mock` in `preview.tsx`. `@/lib/analytics` is registered there with
+`{ spy: true }`, so the real `track` runs (a no-op without PostHog) and a play
+function can import `track` and assert on it. Clear it in the story's
+`beforeEach` with `mocked(track).mockClear()` so earlier stories' calls do not
+count. Example: `MealSelectorModal.stories.tsx` › `ReselectMarksSwappedEvent`.
+
 ## Awaiting async flows
 
 `userEvent` returns after synchronous updates, not after `await fetch(...)` in

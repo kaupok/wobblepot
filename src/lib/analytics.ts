@@ -99,6 +99,14 @@ export type EventPayload = {
     from_meal_id: string
     to_meal_id: string
     source: Source
+    /**
+     * True when the household picked the meal already on the entry. Search and
+     * "my recipes" browse list it, so the PATCH is a no-op write rather than a
+     * swap. Kept as an event rather than dropped: it records that the
+     * alternatives were not better than the plan. Exclude it from the swap
+     * funnel with `is_reselect = false` (HON-708).
+     */
+    is_reselect: boolean
   }
   'meal_plan:meal_skipped': { plan_id: string; meal_id: string; source: Source }
   'meal:imagined': { meal_id: string; source: Source }
