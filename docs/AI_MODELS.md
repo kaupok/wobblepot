@@ -25,7 +25,7 @@ pnpm bench:models --check --model claude-sonnet-5-5        # every task on one m
 
 Without `--model`, each task runs on its production constant: plan `PLANNING_MODEL`, recipe `RECIPE_MODEL`, imagine `IMAGINE_MODEL`, review `REVIEW_MODEL`, tips `TIPS_MODEL`. `--task`, `--runs`, `--max-usd` and `--dry-run` work as in a comparison. `--check` cannot be combined with `--baseline`, `--candidate`, `--judge` or `--judge-api`, and `--model` only goes with `--check`. Every model it would call needs a `MODEL_PRICES` entry, as in a comparison. A check costs about half a comparison: one model, one call per case and run.
 
-A gate holds the metric's mean over all runs, with the run-to-run range shown beside it, to a threshold. The thresholds were set from the first live run (HON-859), with margin:
+A gate holds the metric's mean over all runs, with the run-to-run range shown beside it, to a threshold. The metric thresholds were set from the first live run (HON-859), with margin. The latency gate has no margin: it is the same 80% line the comparison uses.
 
 | Task       | Metric                                                                                                     | Gate                        |
 | ---------- | ---------------------------------------------------------------------------------------------------------- | --------------------------- |
@@ -41,6 +41,8 @@ A gate holds the metric's mean over all runs, with the run-to-run range shown be
 | every task | Max latency                                                                                                | ≤ 80% of the route budget   |
 
 Distinct dinner proteins and the step-count delta have no gate. The gates live on the metric definitions (`gate` in `scripts/model-bench/tasks.ts`).
+
+Gated offline on the HON-859 run's Sonnet 5.5 calls, today's production configuration passes every metric gate and fails one: imagine's max latency, 32.1s against the 32.0s line. Imagine sits close to its budget on both Sonnet 4.6 and 5.5 (HON-897), so expect a real `--check` to fail there until that is settled. That is the gate doing its job, not noise to tune away.
 
 A metric that no case in the set measures, such as recipe recall when only the not-a-recipe case ran, passes as _not measured_. An errored call scores as a failure on the pass/fail checks, as in a comparison. A run that `--max-usd` stops early fails whatever its gates say, because the cases it never reached were not checked.
 
