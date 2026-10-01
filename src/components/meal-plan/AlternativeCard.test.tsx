@@ -246,7 +246,7 @@ describe('AlternativeCard', () => {
     it('counts the rows marked missing', () => {
       renderCard([{ ingredientId: 'ingredient-1', isStaple: false }])
 
-      expect(screen.getByText('1 ingredient missing')).toBeInTheDocument()
+      expect(screen.getByText('1 ingredient to buy')).toBeInTheDocument()
       expect(screen.getAllByText(', not available')).toHaveLength(1)
     })
 
@@ -263,17 +263,13 @@ describe('AlternativeCard', () => {
     it('shows no badge without pantry data', () => {
       renderCard()
 
-      expect(
-        screen.queryByText(/ingredients? missing|Have all ingredients/),
-      ).not.toBeInTheDocument()
+      expect(screen.queryByText(/ingredients? to buy|Have all ingredients/)).not.toBeInTheDocument()
     })
 
     it('shows no badge when the pantry holds only staples (HON-769 defaults)', () => {
       renderCard([{ ingredientId: 'salt', isStaple: true }])
 
-      expect(
-        screen.queryByText(/ingredients? missing|Have all ingredients/),
-      ).not.toBeInTheDocument()
+      expect(screen.queryByText(/ingredients? to buy|Have all ingredients/)).not.toBeInTheDocument()
     })
   })
 })

@@ -72,7 +72,7 @@ export const SurfaceSuccess: Story = {
 }
 
 export const SurfaceWarning: Story = {
-  args: { variant: 'surface-warning', children: '3 ingredients missing' },
+  args: { variant: 'surface-warning', children: '3 ingredients to buy' },
 }
 
 /**
@@ -97,12 +97,12 @@ export const SurfaceOnTintedSurface: Story = {
         30 min
       </Badge>
       <Badge variant="surface-success">Have all ingredients</Badge>
-      <Badge variant="surface-warning">3 ingredients missing</Badge>
+      <Badge variant="surface-warning">3 ingredients to buy</Badge>
     </div>
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    for (const text of ['30 min', 'Have all ingredients', '3 ingredients missing']) {
+    for (const text of ['30 min', 'Have all ingredients', '3 ingredients to buy']) {
       const badge = canvas.getByText(text)
       await expect(badge).toHaveAttribute('data-variant', expect.stringMatching(/^surface/))
       await expect(getComputedStyle(badge).borderTopColor).toBe('rgba(0, 0, 0, 0)')

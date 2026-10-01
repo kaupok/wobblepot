@@ -74,7 +74,5 @@ export function AvailabilityIndicator({ availability }: AvailabilityIndicatorPro
     return <Badge variant="surface-success">{t('haveAll')}</Badge>
   }
 
-  return (
-    <Badge variant="surface-warning">{t('missing', { count: availability.missingCount })}</Badge>
-  )
+  return <Badge variant="surface-warning">{t('toBuy', { count: availability.missingCount })}</Badge>
 }

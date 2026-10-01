@@ -14,7 +14,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry\'s verdict on a meal card, as a `surface` `Badge`: the same pill as the slot and protein badges above it, on the page background rather than the meal\'s chip colour. Green "Have all ingredients" when the meal is ready to cook, otherwise amber "{n} ingredients missing". `missingIngredients` is accepted on the `MealAvailability` shape but not rendered by this component — the detailed list appears elsewhere.',
+          'The pantry\'s verdict on a meal card, as a `surface` `Badge`: the same pill as the slot and protein badges above it, on the page background rather than the meal\'s chip colour. Green "Have all ingredients" when the meal is ready to cook, otherwise amber "{n} ingredients to buy". `missingIngredients` is accepted on the `MealAvailability` shape but not rendered by this component — the detailed list appears elsewhere.',
       },
     },
   },
@@ -80,7 +80,7 @@ export const OnTintedSurface: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const badge = canvas.getByText('3 ingredients missing')
+    const badge = canvas.getByText('3 ingredients to buy')
     const slot = canvas.getByText('Dinner')
     await expect(badge.getBoundingClientRect().height).toBe(slot.getBoundingClientRect().height)
     await expect(getComputedStyle(badge).borderTopColor).toBe('rgba(0, 0, 0, 0)')

@@ -32,7 +32,7 @@ describe('MealDetail availability', () => {
     renderDetail({ pantryIngredients: staplesOnly })
 
     expect(screen.getAllByRole('checkbox')).toHaveLength(3)
-    expect(screen.queryByText(/ingredients? missing/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/ingredients? to buy/)).not.toBeInTheDocument()
     expect(missingRows()).toHaveLength(0)
   })
 
@@ -41,7 +41,7 @@ describe('MealDetail availability', () => {
       pantryIngredients: [...staplesOnly, { ingredientId: 'chicken-thigh', isStaple: false }],
     })
 
-    expect(screen.getByText('2 ingredients missing')).toBeInTheDocument()
+    expect(screen.getByText('2 ingredients to buy')).toBeInTheDocument()
     expect(missingRows().map((row) => row.textContent)).toEqual([
       expect.stringContaining('Potato'),
       expect.stringContaining('Lemon'),
@@ -50,7 +50,7 @@ describe('MealDetail availability', () => {
 
   it('turns the badge on as soon as an ingredient is ticked, before the refresh', () => {
     const { rerender } = renderDetail({ pantryIngredients: staplesOnly })
-    expect(screen.queryByText(/ingredients? missing/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/ingredients? to buy/)).not.toBeInTheDocument()
 
     rerender(
       <MealDetail
@@ -62,7 +62,7 @@ describe('MealDetail availability', () => {
       />,
     )
 
-    expect(screen.getByText('2 ingredients missing')).toBeInTheDocument()
+    expect(screen.getByText('2 ingredients to buy')).toBeInTheDocument()
     expect(missingRows()).toHaveLength(2)
   })
 
@@ -72,7 +72,7 @@ describe('MealDetail availability', () => {
       optimisticOverrides: new Map([['chicken-thigh', false]]),
     })
 
-    expect(screen.queryByText(/ingredients? missing/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/ingredients? to buy/)).not.toBeInTheDocument()
     expect(missingRows()).toHaveLength(0)
   })
 })

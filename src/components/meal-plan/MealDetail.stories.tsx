@@ -149,7 +149,7 @@ export const StaplesOnlyPantry: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getAllByRole('checkbox')).toHaveLength(3)
-    await expect(canvas.queryByText(/ingredients? missing|have all ingredients/i)).toBeNull()
+    await expect(canvas.queryByText(/ingredients? to buy|have all ingredients/i)).toBeNull()
     await expect(missingRows(canvasElement)).toHaveLength(0)
   },
 }
@@ -190,12 +190,12 @@ export const StaplesOnlyPantryTick: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.queryByText(/ingredients? missing/i)).toBeNull()
+    await expect(canvas.queryByText(/ingredients? to buy/i)).toBeNull()
 
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Mark Chicken thigh as available' }))
 
     await expect(args.onToggleAvailability).toHaveBeenCalledWith('chicken-thigh', true)
-    await expect(await canvas.findByText('2 ingredients missing')).toBeInTheDocument()
+    await expect(await canvas.findByText('2 ingredients to buy')).toBeInTheDocument()
     await expect(missingRows(canvasElement).map((row) => row.textContent)).toEqual([
       expect.stringContaining('Potato'),
       expect.stringContaining('Lemon'),
@@ -402,7 +402,7 @@ export const NarrowColumn: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const badge = canvas.getByText(/ingredients? missing|have all ingredients/i)
+    const badge = canvas.getByText(/ingredients? to buy|have all ingredients/i)
     const button = canvas.getByRole('button', { name: /serves 4/i })
     const header = button.parentElement!
     await expect(within(header).getByText('Ingredients')).toBeInTheDocument()
@@ -423,7 +423,7 @@ export const NarrowColumnEstonian: Story = {
   decorators: narrowColumnDecorator,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const badge = canvas.getByText(/puudu|olemas/)
+    const badge = canvas.getByText(/Vaja osta|olemas/)
     const header = canvas.getByRole('button', { name: /4 portsjonit/ }).parentElement!
     await expect(within(header).getByText('Koostisosad')).toBeInTheDocument()
     await expect(header).not.toHaveTextContent(/[()]/)

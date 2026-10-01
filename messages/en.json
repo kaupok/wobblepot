@@ -326,7 +326,7 @@
     },
     "availability": {
       "haveAll": "Have all ingredients",
-      "missing": "{count, plural, one {# ingredient missing} other {# ingredients missing}}",
+      "toBuy": "{count, plural, one {# ingredient to buy} other {# ingredients to buy}}",
       "ariaToggle": "Mark {name} as {state}",
       "stateAvailable": "available",
       "stateUnavailable": "not available"

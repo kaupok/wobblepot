@@ -94,7 +94,7 @@ describe('MealCard availability badge', () => {
   it('shows no badge when the pantry holds only staples', () => {
     renderCard({ meal, pantryIngredients: [garlicStaple] })
 
-    expect(screen.queryByText(/ingredients? missing/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/ingredients? to buy/)).not.toBeInTheDocument()
     expect(screen.queryByText('Have all ingredients')).not.toBeInTheDocument()
   })
 
@@ -105,6 +105,6 @@ describe('MealCard availability badge', () => {
     })
 
     // Potato and lemon: garlic is a staple, chicken is on hand.
-    expect(screen.getByText('2 ingredients missing')).toBeInTheDocument()
+    expect(screen.getByText('2 ingredients to buy')).toBeInTheDocument()
   })
 })

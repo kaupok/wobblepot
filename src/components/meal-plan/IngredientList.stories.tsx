@@ -195,7 +195,7 @@ export const NarrowWithBadge: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    await assertHeaderUnbroken(canvasElement, 'Ingredients (serves 4)', '2 ingredients missing')
+    await assertHeaderUnbroken(canvasElement, 'Ingredients (serves 4)', '2 ingredients to buy')
   },
 }
 
@@ -212,6 +212,10 @@ export const NarrowWithBadgeEstonian: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    await assertHeaderUnbroken(canvasElement, 'Koostisosad (4 portsjonit)', '2 koostisosa puudu')
+    await assertHeaderUnbroken(
+      canvasElement,
+      'Koostisosad (4 portsjonit)',
+      'Vaja osta 2 koostisosa',
+    )
   },
 }

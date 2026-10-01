@@ -111,7 +111,7 @@ export const WithPantryAvailability: Story = {
   args: { meal: tintedMeal, pantryIngredients: somePantry },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getByText('1 ingredient missing')).toBeVisible()
+    await expect(canvas.getByText('1 ingredient to buy')).toBeVisible()
     await expect(canvas.getAllByText(', not available')).toHaveLength(1)
     await expect(canvas.getByText('Short-grain rice').closest('li')).toHaveTextContent(
       'Short-grain rice, not available',
@@ -157,7 +157,7 @@ export const PantryOnlyStaples: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.queryByText(/ingredients? missing|Have all ingredients/)).toBeNull()
+    await expect(canvas.queryByText(/ingredients? to buy|Have all ingredients/)).toBeNull()
     await expect(canvas.getByRole('list')).toHaveClass('list-disc')
   },
 }
