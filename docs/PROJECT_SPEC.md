@@ -28,7 +28,7 @@ Target audience for public EU beta: families with young children across EU/EEA a
 
 ### Core Value Proposition
 
-AI-powered meal planning that generates personalized weekly ingredient-based meal plans with nutritional transparency.
+AI-powered meal planning that generates personalized ingredient-based meal plans with nutritional transparency.
 
 ### Differentiators
 
@@ -61,19 +61,20 @@ AI-powered meal planning that generates personalized weekly ingredient-based mea
 
 ## Domain Glossary
 
-| Term                | Definition                                                                            |
-| ------------------- | ------------------------------------------------------------------------------------- |
-| **Meal**            | Template: ingredient combination with per-serving quantities. Reusable across plans.  |
-| **Recipe**          | User-facing name for a household's own Meal in My recipes. Meal stays the model name. |
-| **Entry**           | Instance: meal assigned to a date + mealType with status (planned/completed/skipped). |
-| **Slot**            | A date + mealType position in a plan.                                                 |
-| **SlotRequirement** | Slot with required protein type (dinner-only, for balance).                           |
-| **Component**       | Meal-to-ingredient link with `quantityPerServing`, in the ingredient's `defaultUnit`. |
-| **Candidate**       | Meal that passed hard filters, eligible for AI selection.                             |
-| **Pool**            | Candidates filtered by protein type (fish, legume, any).                              |
-| **Staple**          | Pantry item always assumed in stock; never on shopping list.                          |
-| **Rolling window**  | Shopping aggregation: today through N days ahead.                                     |
-| **Urgency bucket**  | Shopping grouping: today / tomorrow / this-week / later.                              |
+| Term                | Definition                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Plan**            | The household's single `MealPlan`. It has no dates of its own; its entries cover any days.           |
+| **Meal**            | Template: ingredient combination with per-serving quantities. Reusable across days.                  |
+| **Recipe**          | User-facing name for a household's own Meal in My recipes. Meal stays the model name.                |
+| **Entry**           | Instance: meal assigned to a date + mealType with status (planned/completed/skipped).                |
+| **Slot**            | A date + mealType position.                                                                          |
+| **SlotRequirement** | Slot with required protein type (dinner-only, for balance).                                          |
+| **Component**       | Meal-to-ingredient link with `quantityPerServing`, in the ingredient's `defaultUnit`.                |
+| **Candidate**       | Meal that passed the hard filters: eligible for AI selection in generation, and for swap ranking.    |
+| **Pool**            | Candidates filtered by protein type (fish, legume, any).                                             |
+| **Staple**          | Pantry item always assumed in stock; never on shopping list.                                         |
+| **Rolling window**  | Shopping aggregation: today through 7 or 14 days ahead (`src/app/shopping/load-inventory.ts`).       |
+| **Urgency bucket**  | Shopping grouping: today / tomorrow / this-week / later (`getUrgencyBucket`, `meal-planning/dates`). |
 
 ### Quantity Units
 
@@ -101,20 +102,17 @@ AI-powered meal planning that generates personalized weekly ingredient-based mea
 
 Preferences (dietary type, allergens, meal types) are set on `/household` after onboarding, not during it. See "Onboarding" under Key Decisions.
 
-### Weekly Planning
+### Planning
 
-1. View Today dashboard → navigate to Plan
-2. Click "Generate this week" or "Generate next week"
-3. Review plan, optionally swap meals
-4. Throughout week: mark meals completed/skipped
-5. On completion: pantry auto-deducts ingredients
+A household has one plan, and the Today page (`/`) shows it as a timeline: the past 7 days, collapsed above today, and the next 14 days (`src/app/page.tsx`, `src/components/timeline/`).
 
-### Mid-Week Generation
+1. First plan: `FirstTimeSetup` asks for a start date and a number of days (`getDaysCountOptions` in `src/lib/meal-planning/day-picker.ts`), then calls `POST /api/meal-plans/generate` with `mode: 'generate'`
+2. Later: from the first upcoming day with nothing planned, `FillDaysAction` offers to fill a number of days, calling the same route with `mode: 'fill-empty'`. Only empty slots are filled (`src/lib/ai/fill-plan.ts`)
+3. Review the days, optionally swap meals (see Meal Swap)
+4. Day by day: mark meals completed or skipped
+5. On completion: the pantry deducts the meal's ingredients once (`MealPlanEntry.pantryDeductedAt`)
 
-- `startDate` = Monday (plan identity)
-- `effectiveStartDate` = today (entries start from today)
-- Balance constraints relaxed if <5 dinner days
-- Sunday generation blocked (400 error)
+Generation takes any start date, and `endDate` is exclusive. There is no week boundary and no plan per week; see Meal Plan Rules.
 
 ### Shopping
 
@@ -126,9 +124,11 @@ Preferences (dietary type, allergens, meal types) are set on `/household` after 
 
 ### Meal Swap
 
-1. Click swap icon on entry
-2. See 3 AI alternatives or search library
+1. Click swap on an entry, or add on an empty slot; both open `MealSelectorModal`
+2. See three ranked alternatives, or search the library and My recipes
 3. Select replacement → entry updated
+
+The alternatives make no model call. `/regenerate` (an entry with a meal) and `/suggestions` (an empty slot), under `src/app/api/meal-plans/[id]/entries/[entryId]/`, query candidates from the database with the household's filters and rank them with `scoreCandidate` (`src/lib/meal-planning/candidate-score.ts`) on favourites, the household's own recipes, kid-friendliness, pantry overlap and the household's net rating of the meal. `/regenerate` also rewards a protein type and prep time close to the meal being replaced (`SIMILARITY_WEIGHTS`); `/suggestions` has no meal to compare against (`SLOT_FIT_WEIGHTS`). They import only the cost-cap helpers from `@/lib/ai/usage`.
 
 ---
 
@@ -136,15 +136,16 @@ Preferences (dietary type, allergens, meal types) are set on `/household` after 
 
 ### Generation
 
-- **Sunday current-week**: 400 error (only 1 day left)
-- **<5 dinner days**: Balance constraints skipped (partial week)
-- **Empty required pool**: 400 error with protein type in message
-- **Regenerate**: Deletes existing plan for that week, then creates new
+- **Fewer than 5 dinner days**: Balance constraints are skipped (`MIN_DAYS_FOR_BALANCE` in `src/lib/meal-planning/slots.ts`)
+- **Empty required pool**: 422 with code `insufficient_candidates`, naming the protein type in `message`. Nothing is written
+- **Range too long**: 400 when the range exceeds `MAX_DAYS` (`src/app/api/meal-plans/generate/route.ts`)
+- **Regenerate a range**: Deletes the range's `planned` and `skipped` entries and writes new ones. `completed` entries are kept and their slots are not regenerated, because the pantry was already charged for them (HON-650, `src/lib/ai/generate-plan.ts`)
+- **Error codes**: every error body from the generate route carries a `code` (`src/lib/ai/error-codes.ts`); the client renders copy keyed on it
 
 ### Dates
 
-- `endDate` is exclusive: Mon-Sun plan has `endDate` = next Monday
-- **"Today" uses household timezone**: Not server time
+- `endDate` is exclusive: a 7-day range starting 2026-10-01 has `endDate` 2026-10-08
+- **"Today" uses household timezone**: Not server time (`getTodayInTimezone`, `src/lib/meal-planning/dates.ts`)
 
 ### Pantry
 
@@ -164,16 +165,17 @@ Preferences (dietary type, allergens, meal types) are set on `/household` after 
 
 **Implementation:**
 
-- **Input:** Pre-filtered candidate meals (IDs + minimal metadata)
+- **Input:** Pre-filtered candidate meals (IDs + minimal metadata), capped per pool (`CANDIDATE_POOL_LIMIT` in `src/lib/ai/plan-candidates.ts`)
 - **Output:** Structured output: `{ entries: [{ date, mealType, mealId }] }`
-- **Fallback:** If validation fails twice → manual selection from library
-- **Tech:** Vercel AI SDK + Claude + Zod for structured output
+- **Failure:** A response that is still invalid after deterministic repair returns 422 `invalid_plan`; nothing is written. There is no automatic fallback to manual selection: the household retries, or adds meals slot by slot through Meal Swap
+- **Tech:** Vercel AI SDK + Claude + Zod for structured output; the model is in `src/lib/ai/models.ts` (see [`docs/AI_MODELS.md`](./AI_MODELS.md))
 
 | Concern                         | Handled by                              |
 | ------------------------------- | --------------------------------------- |
 | Allergens                       | Database query (hard filter)            |
 | Excluded ingredients            | Database query                          |
-| Recent history (14 days)        | Database query                          |
+| Recent history                  | Database query (`NO_REPEAT_DAYS`)       |
+| Dietary type (e.g. vegetarian)  | Database query (excluded protein types) |
 | Meal type match                 | Database query                          |
 | Balance constraints (slots)     | Deterministic rules + DB query          |
 | Dietary concepts (restrictions) | AI guidance (best effort, not enforced) |
@@ -207,7 +209,9 @@ enum ProteinType {
 
 **Derivation logic:** See `deriveProteinType` in `src/lib/meal-planning/protein.ts`
 
-**Empty pool handling:** If a required slot's candidate pool is empty (due to allergens, exclusions, or recent history), skip that slot for the week and include a warning.
+**Which slots:** `computeRequiredSlots` in `src/lib/meal-planning/slots.ts` places the required fish and legume dinners at relative positions in the range, by dietary type, and only when the range has at least `MIN_DAYS_FOR_BALANCE` dinner days. The count does not scale with the range: a 14-day range gets the same number of required slots as a 7-day one.
+
+**Empty pool handling:** If a required slot's candidate pool is empty (due to allergens, exclusions, or recent history), generation stops with a 422 `insufficient_candidates` before the model is called (`src/lib/ai/generate-plan.ts`). It does not skip the slot.
 
 **Why this works:**
 
@@ -218,14 +222,15 @@ enum ProteinType {
 
 ### AI Generation Flow
 
-Key steps:
+`generateMealPlan` in `src/lib/ai/generate-plan.ts` (and `fillEmptySlots` in `src/lib/ai/fill-plan.ts`, for empty slots only):
 
-1. Compute required slots
-2. Query candidate meals per slot
-3. Cap and format payload for AI
-4. AI selects within constraints
-5. Hydrate AI response
-6. Validate + repair or retry
+1. Compute the slots in the range from the meal-type preferences, minus slots holding a `completed` entry
+2. Compute required protein slots
+3. Query candidate pools; stop with 422 if a required pool is empty
+4. Cap and format the payload for the model
+5. The model selects within the constraints. The call runs under `PLAN_AI_BUDGET_MS` (`src/lib/ai/budgets.ts`), one wall-clock budget shared by the first attempt and the AI SDK's retries; running out returns 504 `generation_timeout`
+6. Hydrate the response, validate its structure, then validate the constraints and repair deterministically (`validateAndRepairPlan`, `src/lib/ai/plan-helpers.ts`). No second model call
+7. In one transaction: find or create the household's plan, delete the range's replaceable entries, write the new ones
 
 ### Data Model
 
@@ -239,9 +244,9 @@ Key steps:
 - **MealPlanEntry** = Instance (meal template assigned to a date, quantities calculated for household)
 - **Shopping List** = Computed from MealPlanEntry minus pantry stock
 
-**Units:** Each ingredient has a `defaultUnit` (g or piece). All quantities use this unit everywhere. Liquids stored in grams; use `densityGPerMl` for UI display.
+**Units:** Each ingredient has a `defaultUnit` (g or piece). All quantities use this unit everywhere (see Quantity Units above). Liquids are stored in grams; `Ingredient.densityGPerMl` holds the conversion where it is known.
 
-**Dates & Timezones:** Store as UTC midnight in household timezone. Each household has a `timezone` field (default Europe/Tallinn).
+**Dates & Timezones:** Entry dates are calendar days; parse `YYYY-MM-DD` strings with `parseLocalDate` (`src/lib/meal-planning/dates.ts`), not `new Date(string)`. Each household has a `timezone` field (default Europe/Tallinn), and "today" is computed in it.
 
 **Allergens vs Restrictions:**
 
@@ -281,11 +286,14 @@ Key steps:
 
 ### Meal Plan Rules
 
-- **Duration:** Fixed 7 days (weekly planning)
-- **Start day:** Monday enforced
-- **endDate:** Computed as `startDate + 7 days`
-- **Overlapping plans:** Not allowed - unique constraint on `[householdId, startDate]`
-- **Meal editing:** Both "regenerate" and "browse library" options
+**Decision:** One plan per household, holding entries over any dates. Replaced the earlier model of one plan per Monday-to-Sunday week on 2026-03-28 (HON-371, migration `20260328120000_continuous_meal_plan`).
+
+**Why:** Weekly boundaries did not match how families actually plan meals (HON-371's commit message).
+
+- **One plan:** `MealPlan` has `@@unique([householdId])` and no date columns (`prisma/schema.prisma`). The generate route finds or creates it
+- **Dates live on entries:** `MealPlanEntry` has `@@unique([planId, date, mealType])`, so a slot holds at most one entry
+- **Generation range:** `POST /api/meal-plans/generate` takes `startDate` and an exclusive `endDate`, any day of the week, up to `MAX_DAYS` days (`src/app/api/meal-plans/generate/route.ts`). Ranges may overlap earlier generations; regeneration replaces what it may (see Edge Cases)
+- **Meal editing:** Ranked alternatives, or search the library and My recipes (see Meal Swap)
 
 ### Pantry & Shopping List
 
@@ -301,11 +309,14 @@ Key steps:
 
 ### Household Invites
 
-**Decision:** Multi-use shareable links.
+**Decision:** Single-use links, one per household member. Replaced the multi-use household link on 2026-01-16 (HON-114, migration `20260116100000_member_specific_invites`). `maxUses` and `usesCount` are left over from it; no code in `src` reads them.
 
-**Why:** Simple, no email required, suitable for family sharing.
+**Why:** Members and invites were two separate concepts. Making the invite a way to claim an existing member profile merged them into one member-first flow: the owner creates the member, then optionally shares a link (HON-114's commit message). Links rather than email: simple, no email required, suitable for family sharing. Email-based invites remain out of scope.
 
-**Known limitation:** Race condition on concurrent invite use. Acceptable for MVP given low traffic.
+**Implementation:**
+
+- The owner adds a member by name, then creates that member's link (`src/app/api/households/me/invites/route.ts`). Only a member without an account can get one. `HouseholdInvite.memberId` is `@unique`, so creating a link again replaces the member's code and expiry. Expiry is set per request (`expiresInDays` in the route's schema, with its default)
+- Joining (`src/app/api/invites/[code]/join/route.ts`) claims the member row for the signed-in user and deletes the invite in the same transaction. Two people opening the same link race safely: the loser gets `invite_invalid` (400) or `invite_not_found` (404), and the client shows the same message for both. A unique index on `household_member."userId"` keeps a user out of a second household (HON-696); the route's doc comments describe the locking
 
 ### Children's Data (Art. 8)
 
@@ -323,42 +334,46 @@ Key steps:
 
 ### Error Handling
 
-**AI Failures:**
+**AI Failures:** the numbers live in code; read them there rather than copying them here.
 
-- Timeout: 30 seconds max, show "Taking longer than expected" at 10s
-- Retry: Automatic retry once on failure
-- Fallback: Manual meal selection from pre-filtered candidates
-- Rate limiting: 5 plan generations per hour per household
+- **Timeouts:** each AI route has a wall-clock budget in `src/lib/ai/budgets.ts`, sized under the route's `maxDuration`, and shared by the first attempt and the AI SDK's retries. Running out returns a 504 the client renders as catalog copy
+- **Retries:** the AI SDK's own retries, bounded by that budget. No route makes a second model call to repair a bad plan; repair is deterministic (see AI Generation Flow)
+- **Rate limits:** per household or per user, per feature, in `src/lib/rate-limit.ts` (Upstash Redis). A limited request gets 429 with `Retry-After`. The limiter fails open when Redis is unreachable (see `checkRateLimit`)
+- **Cost cap:** every AI route, and the two swap routes, calls `assertUnderCap` (`src/lib/ai/usage.ts`) against the household's `aiCapUsd`
+- **Kill-switch:** `ai_generation_enabled` returns 503 from plan generation (see [`docs/FEATURE_FLAGS.md`](./FEATURE_FLAGS.md))
+- **No fallback flow:** a failed generation shows an error and the household can generate again, or fill slots one at a time through Meal Swap
 
 ### Scope Boundaries
 
 **In scope for MLP:**
 
-- Ingredient combinations, not full recipes
-- Weekly meal planning with preferences
+- Meals as ingredient combinations with per-serving quantities; a household's own recipes can also carry free-text preparation notes
+- Meal planning over a chosen date range (see Meal Plan Rules), with preferences
 - Weekday/weekend meal type scheduling
 - Shopping list generation (computed, rolling window)
 - Pantry tracking with auto-deduction
 - Mobile-responsive web
-- Shareable household invite links
+- Single-use member invite links
 - Progress animation for AI generation
 - Nutrition disclaimers
 - DB-enforced allergen filtering
 - Balance constraints via protein type slots
 - Today dashboard as default home
 - Manual household members (for kids, etc.)
-- Account deletion
+- Account deletion and data export
+- Meal ratings (thumbs up or down on an entry), which feed the swap ranking; plan generation does not read them
+- Favourite meals
+- Own recipes: create, import from a URL or pasted text, or describe one for the AI to write (`/recipes`)
+- AI preparation tips for a planned meal
 
 **Out of scope:**
 
-- Meal ratings and learning
 - Conversational refinement
-- PWA/offline
-- Full recipe instructions
+- Offline support (there is a web manifest but no service worker)
 - Monetization/subscriptions
 - Multi-household switcher
 - Email-based invites
-- Plan history/archive
+- Plan history/archive: the Today timeline shows only the last 7 days
 - Real-time multi-user sync
 
 ---
@@ -369,89 +384,40 @@ _For the tech stack, see [CLAUDE.md](../CLAUDE.md); exact versions are pinned in
 
 ### Environment Variables
 
-```
-ANTHROPIC_API_KEY    # Required for AI meal generation
-DATABASE_URL         # Neon PostgreSQL
-BETTER_AUTH_SECRET   # Auth secret
-```
+**Source of truth:** `src/lib/env.ts` (the Zod schemas; public vars are validated at load, server-only vars on first access). What each one is for and where to get it: [`docs/ENVIRONMENT_SETUP.md`](./ENVIRONMENT_SETUP.md).
 
-### Global Constants
+### Constants
 
-```typescript
-const NO_REPEAT_DAYS = 14 // Don't repeat meals within this window
-const AI_TIMEOUT_MS = 30000 // AI generation timeout
-const AI_RETRY_LIMIT = 1 // Retry once on validation failure
-const RATE_LIMIT_PER_HOUR = 5 // Plan generations per household
-const CANDIDATE_POOL_LIMIT = 50 // Max candidates per pool sent to AI
-```
+Domain constants live beside the code that uses them. The ones a reader is most likely to need:
+
+- `NO_REPEAT_DAYS`: how long a meal stays out of generation after it was planned (`src/lib/meal-planning/candidates.ts`)
+- `CANDIDATE_POOL_LIMIT`: candidates per pool sent to the model (`src/lib/ai/plan-candidates.ts`)
+- `MIN_DAYS_FOR_BALANCE`: dinner days needed before protein slots apply (`src/lib/meal-planning/slots.ts`)
+- `MAX_DAYS`: the longest generation range (`src/app/api/meal-plans/generate/route.ts`)
+- AI budgets: `src/lib/ai/budgets.ts`. Rate limits: `RATE_LIMIT_CONFIG` in `src/lib/rate-limit.ts`
 
 ### Database Schema
 
 **Source of truth:** `prisma/schema.prisma`
 
-Key models:
+The main areas:
 
-- `Household`, `HouseholdMember`, `HouseholdPreferences`, `MemberPreferences` - Multi-tenancy
-- `HouseholdInvite` - Shareable invite links
-- `Ingredient`, `Meal`, `MealComponent` - Meal templates
-- `MealPlan`, `MealPlanEntry` - Weekly plans
-- `PantryItem` - Inventory tracking
-
-Key enums: `DietaryType`, `MealType`, `MealPlanEntryStatus`, `Unit`, `IngredientCategory`, `HouseholdRole`, `Allergen`, `ProteinType`
+- **Auth:** the Better Auth models (`User`, `Session`, `Account`, `Verification`) and `SignupCode` for invite-only sign-up
+- **Households:** `Household`, `HouseholdMember`, `HouseholdPreferences`, `MemberPreferences`, and `HouseholdInvite` (single-use, per member)
+- **Meals:** `Ingredient`, `Meal`, `MealComponent`, `FavoriteMeal`, plus `IngredientTranslation` and `MealTranslation` for Estonian
+- **Planning:** `MealPlan` (one per household) and `MealPlanEntry` (one per date and meal type)
+- **Inventory:** `PantryItem` and `CustomShoppingItem`
+- **AI accounting:** `AiUsage`, read by the per-household cost cap
 
 ### API Routes
 
-- `/api/auth/*` - Better Auth
-- `/api/households` - Create household
-- `/api/households/me` - Get/update current household
-- `/api/households/me/preferences` - Household preferences
-- `/api/households/me/members` - List members
-- `/api/households/me/members/[id]` - Update/delete member
-- `/api/households/me/invites` - List/create invites
-- `/api/households/me/invites/[id]` - Delete invite
-- `/api/households/me/meals` - Household meal library
-- `/api/households/me/meals/[id]` - Get/update/delete meal
-- `/api/members/me/preferences` - Current member preferences
-- `/api/invites/[code]/join` - Join via invite
-- `/api/meals` - Browse/create meals
-- `/api/meals/[id]/favorite` - Toggle favorite
-- `/api/ingredients` - List/search ingredients
-- `/api/pantry` - List/create pantry items
-- `/api/pantry/[id]` - Update/delete pantry item
-- `/api/pantry/by-ingredient/[ingredientId]` - Get by ingredient
-- `/api/meal-plans/generate` - Generate plan
-- `/api/meal-plans/current` - Get current plan
-- `/api/meal-plans/[id]` - Get/delete specific plan
-- `/api/meal-plans/[id]/entries` - List entries
-- `/api/meal-plans/[id]/entries/[entryId]` - Update entry
-- `/api/meal-plans/[id]/entries/[entryId]/regenerate` - Get alternatives
-- `/api/meal-plans/[id]/entries/[entryId]/suggestions` - Get swap suggestions
-- `/api/meal-plans/[id]/entries/[entryId]/preparation-tips` - Get cooking tips
-- `/api/meal-plans/[id]/shopping-list` - Get shopping list
-- `/api/meal-plans/[id]/shopping-list/purchase` - Mark items purchased
-- `/api/meal-plans/[id]/shopping-list/unpurchase` - Unmark purchased
-- `/api/shopping-list` - Unified shopping list
-- `/api/shopping-list/purchase` - Mark purchased (unified)
-- `/api/shopping-list/unpurchase` - Unmark purchased (unified)
-- `/api/recipes/parse` - Parse recipe from URL
+**Source of truth:** `src/app/api/**/route.ts`. Each route's doc comment describes its contract.
+
+The main areas: `auth` (Better Auth, plus account deletion and export under `auth/user`), `households` (the current household under `households/me`: members, invites, preferences, own meals, AI usage), `invites` (joining), `meals` and `ingredients` (library, favourites, imagine, meal images), `recipes` (parse a recipe), `meal-plans` (generate; entries, swaps, preparation tips, per-plan shopping list), `entries` (entries by date range), `shopping-list` and `pantry`. Operational routes: `health`, `status`, `cron`, `admin`, and the E2E-only `e2e-seed` / `e2e-support`.
 
 ### Frontend Pages
 
-- `/` - Today dashboard (default home)
-- `/meal-plan` - Redirects to `/` (the weekly plan lives on the Today dashboard)
-- `/shopping` - Shopping list with urgency sorting on a phone; from `md` up, pantry and list side by side
-- `/pantry` - Pantry inventory on a phone (its own tab); from `md` up, the same page as `/shopping`
-- `/recipes` - Recipe/meal library
-- `/recipes/import` - Import recipe from URL
-- `/household` - Household settings and members
-- `/household/invites` - Redirects to `/household` (invites are managed in its Members section)
-- `/profile` - Personal preferences and account
-- `/onboarding` - New user household setup
-- `/sign-in` - Login
-- `/sign-up` - Registration
-- `/forgot-password` - Password reset request
-- `/reset-password` - Password reset form
-- `/invite/[code]` - Join household via invite link
+**Source of truth:** `src/app/**/page.tsx`. The page map, including which routes are redirect stubs, is in [`docs/CHROME_TESTING.md` → Page map](./CHROME_TESTING.md#page-map). Which routes need a session is decided in `src/proxy.ts` (`PROTECTED_PREFIXES`, `PUBLIC_ROUTES`).
 
 ---
 
@@ -471,13 +437,21 @@ Key enums: `DietaryType`, `MealType`, `MealPlanEntryStatus`, `Unit`, `Ingredient
 
 ### Core Planning (Complete)
 
-- AI meal plan generation with slot-based balance
+- AI meal plan generation over a chosen date range, with slot-based balance
+- Filling empty days without regenerating planned ones
 - Plan validation and repair logic
-- Weekly plan dashboard with week navigation
-- Meal detail view with nutrition
-- Meal swap via AI alternatives or library browse
+- Today timeline: the past 7 days and the next 14
+- Meal detail view with nutrition and AI preparation tips
+- Meal swap via ranked alternatives or library search
+- Meal ratings and favourites
 - Progress animation for generation
-- ~100 meals in library
+- A seeded global meal library (`prisma/seed*.ts`), with Estonian translations
+
+### Recipes (Complete)
+
+- My recipes: create, edit, and import from a URL or pasted text (`/recipes`)
+- Imagine: describe what you want, optionally with photos, and the AI suggests recipes to save (`/recipes/imagine`)
+- Generated meal images
 
 ### Shopping & Pantry (Complete)
 
@@ -485,9 +459,9 @@ Key enums: `DietaryType`, `MealType`, `MealPlanEntryStatus`, `Unit`, `Ingredient
 - Urgency sorting with group headers
 - Pantry management with ingredient search
 - Auto-deduct pantry on meal completion
-- Real-time UI updates
+- Mark purchased to move an item into the pantry, and undo it
+- Custom shopping items
 - Missing ingredients indicators on meals
-- "Have it" quick toggle
 
 ### Polish & UX (Ongoing)
 
@@ -523,22 +497,17 @@ Key enums: `DietaryType`, `MealType`, `MealPlanEntryStatus`, `Unit`, `Ingredient
 
 ## Future Considerations
 
-_Ideas for later. Some may be pulled into MLP iteration if they feel essential._
+_Ideas for later. Some may be pulled into MLP iteration if they feel essential. What has shipped is under What's Built, not here._
 
-- ~~Auto-depletion when meals marked completed~~ Done
-- ~~Urgency sorting for shopping~~ Done
-- ~~Rolling window shopping list~~ Done
-- Expiry tracking & "use soon" suggestions
-- ~~Preparation guidance (AI cooking tips)~~ Done
+- Expiry tracking & "use soon" suggestions (`PantryItem.expiresAt` exists, but no UI sets it and no feature uses it)
 - Calorie-aware meal planning
 - Kid-friendly filtering in AI validation
 - Cooking time optimization
-- ~~Meal ratings and favorites~~ Done
-- Full recipe instructions
-- PWA offline capabilities
+- Ratings as a signal in plan generation (today only the swap ranking reads them)
+- Offline support
 - Multi-household support
 - Email-based invites
-- Plan history/archive
+- Plan history/archive beyond the last 7 days
 - Real-time multi-user sync
 - Restriction templates (auto-expand "nut allergy" → specific nuts)
 - Configurable time budget per household
