@@ -245,14 +245,17 @@ export function MealDetailModal({
         </DialogDescription>
 
         {/* Phone only. Transparent over the hero, where it shows nothing but
-            the close button beside it; the name is a visual repeat of the
-            title, so it stays out of the accessibility tree. */}
+            the close button beside it, and lets taps through to the hero.
+            Once opaque it takes them itself: a tap on the bar must not land
+            on a checkbox or "How to prepare" scrolled out of sight under it.
+            The name is a visual repeat of the title, so it stays out of the
+            accessibility tree. */}
         <div
           data-testid="cook-view-bar"
           data-title-hidden={titleHidden ? '' : undefined}
           className={cn(
-            'pointer-events-none absolute inset-x-0 top-0 z-10 flex h-15 items-center pr-16 pl-5 transition-colors duration-200 ease-out md:pl-8 lg:hidden',
-            titleHidden ? 'bg-card' : 'bg-transparent',
+            'absolute inset-x-0 top-0 z-10 flex h-15 items-center pr-16 pl-5 transition-colors duration-200 ease-out md:pl-8 lg:hidden',
+            titleHidden ? 'bg-card' : 'pointer-events-none bg-transparent',
           )}
         >
           <p

@@ -267,6 +267,8 @@ export const StickyTitleBar: Story = {
     const bar = within(dialog).getByTestId('cook-view-bar')
     await expect(bar).not.toHaveAttribute('data-title-hidden')
     await expect(getComputedStyle(bar).backgroundColor).toBe('rgba(0, 0, 0, 0)')
+    // Transparent, it lets taps through to the hero.
+    await expect(getComputedStyle(bar).pointerEvents).toBe('none')
 
     // Load the steps so there is a long way to scroll, then go to the end.
     await loadTips()
@@ -277,6 +279,12 @@ export const StickyTitleBar: Story = {
     await waitFor(() =>
       expect(getComputedStyle(bar).backgroundColor).toBe(getComputedStyle(dialog).backgroundColor),
     )
+    // Opaque, it takes taps itself: whatever is scrolled under it is hidden,
+    // and a tap there must not reach it (a pantry write, a billed generation).
+    await expect(getComputedStyle(bar).pointerEvents).toBe('auto')
+    const rect = bar.getBoundingClientRect()
+    const hit = document.elementFromPoint(rect.left + 40, rect.top + rect.height / 2)
+    await expect(bar.contains(hit)).toBe(true)
 
     scroller.scrollTop = 0
     await waitFor(() => expect(bar).not.toHaveAttribute('data-title-hidden'))
