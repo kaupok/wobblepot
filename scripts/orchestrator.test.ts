@@ -11,6 +11,8 @@ const worktreeClaude = path.join(scriptsDir, 'worktree-claude.sh')
 const neonCleanup = path.join(scriptsDir, 'neon-cleanup.sh')
 const e2eLocal = path.join(scriptsDir, 'e2e-local.sh')
 const harness = path.join(scriptsDir, 'orchestrator-outcome-harness.sh')
+const models = path.join(scriptsDir, 'models.sh')
+const prReview = path.join(scriptsDir, 'pr-review.sh')
 
 /**
  * The harness inherits the developer's shell, and a machine that has sourced
@@ -32,6 +34,11 @@ function harnessEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
     ORCHESTRATOR_CAP_REQUEUE_COOLDOWN: '',
     // A retry worker's own `pnpm test` must not see itself as a retry (HON-728).
     ORCHESTRATOR_RETRY_CONTEXT: '',
+    // A swap test exports these into the worker that then runs `pnpm test`, so
+    // the models.sh defaults under test would resolve to the swapped model (HON-730).
+    CLAUDE_AUTO_MODEL: '',
+    CLAUDE_REVIEW_MODEL: '',
+    CLAUDE_TRIAGE_MODEL: '',
     ...overrides,
   }
 }
@@ -124,6 +131,8 @@ describe('orchestrator.sh', () => {
     ['worktree-claude.sh', worktreeClaude],
     ['neon-cleanup.sh', neonCleanup],
     ['e2e-local.sh', e2eLocal],
+    ['models.sh', models],
+    ['pr-review.sh', prReview],
   ])('%s is syntactically valid', (_name, script) => {
     expect(() => execFileSync('bash', ['-n', script], { timeout: 30_000 })).not.toThrow()
   })
@@ -1463,6 +1472,77 @@ describe('orchestrator.sh', () => {
       // The passthrough that made the whole guard a no-op wherever coreutils
       // is absent. `"$@"` alone on a line is the shape to keep out.
       expect(wrapper).not.toMatch(/^\s*"\$@"\s*$/m)
+    })
+  })
+
+  // ─── HON-730: one file names the workflow's models ────────────────────────
+  // The worker, reviewer and triage models were picked in three scripts, the
+  // triage one a literal with no override. scripts/models.sh now owns all three,
+  // and each CLAUDE_*_MODEL env var overrides its default.
+  describe('workflow model IDs', () => {
+    /** What models.sh resolves under `env`, as `AUTO REVIEW TRIAGE`. */
+    const resolveModels = (env: Record<string, string> = {}) =>
+      execFileSync(
+        'bash',
+        ['-c', 'source "$1"; echo "$AUTO_MODEL $REVIEW_MODEL $TRIAGE_MODEL"', '_', models],
+        { encoding: 'utf8', timeout: 30_000, env: harnessEnv(env) },
+      )
+        .trim()
+        .split(' ')
+    const triageArgs = (env: Record<string, string>) =>
+      stripTimestamps(runHarnessEnv(env, 'failure', 'BACKLOG', '0', 'false')).match(
+        /^TRIAGE_INPUT:.*?(-p --model \S+)/m,
+      )?.[1]
+
+    it('lets each CLAUDE_*_MODEL override its default, and an empty one fall back', () => {
+      const defaults = resolveModels()
+      expect(defaults).toHaveLength(3)
+      for (const model of defaults) expect(model).toMatch(/^claude-/)
+
+      expect(
+        resolveModels({
+          CLAUDE_AUTO_MODEL: 'auto-x',
+          CLAUDE_REVIEW_MODEL: 'review-x',
+          CLAUDE_TRIAGE_MODEL: 'triage-x',
+        }),
+      ).toEqual(['auto-x', 'review-x', 'triage-x'])
+    })
+
+    it('runs failure triage on CLAUDE_TRIAGE_MODEL', () => {
+      expect(triageArgs({ CLAUDE_TRIAGE_MODEL: 'triage-swap-test' })).toBe(
+        '-p --model triage-swap-test',
+      )
+    })
+
+    it('runs failure triage on the models.sh default when nothing overrides it', () => {
+      expect(triageArgs({})).toBe(`-p --model ${resolveModels()[2]}`)
+    })
+
+    it('names a model ID in no workflow script but models.sh', () => {
+      const offenders = fs
+        .readdirSync(scriptsDir)
+        .filter((f) => f.endsWith('.sh') && f !== 'models.sh')
+        .filter((f) =>
+          /claude-(opus|sonnet|haiku|fable)/.test(
+            fs.readFileSync(path.join(scriptsDir, f), 'utf8'),
+          ),
+        )
+
+      expect(offenders).toEqual([])
+    })
+
+    it('hands the worker and the reviewer their models.sh variable', () => {
+      const wt = fs.readFileSync(worktreeClaude, 'utf8')
+      const sourceLine = 'source "$SCRIPT_DIR/models.sh"'
+
+      expect(wt).toContain('--model "$AUTO_MODEL"')
+      // After load_env_file, or a CLAUDE_AUTO_MODEL line in .env never reaches it.
+      expect(wt.indexOf(sourceLine)).toBeGreaterThan(wt.indexOf('load_env_file "$REPO_ROOT/.env"'))
+      expect(wt.indexOf('load_env_file "$REPO_ROOT/.env"')).toBeGreaterThan(-1)
+
+      const review = fs.readFileSync(prReview, 'utf8')
+      expect(review).toContain(sourceLine)
+      expect(review).toContain('MODEL="$REVIEW_MODEL"')
     })
   })
 

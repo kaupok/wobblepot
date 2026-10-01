@@ -902,7 +902,7 @@ cmd_auto() {
   # and the worker runs `pnpm test`, which sources these scripts — a leaked
   # value would make every script under test see a retry (HON-728).
   exec env -u ANTHROPIC_API_KEY -u ORCHESTRATOR_RETRY_CONTEXT claude --dangerously-skip-permissions \
-    --model "${CLAUDE_AUTO_MODEL:-claude-opus-5-5}" "$(auto_prompt "$prompt")"
+    --model "$AUTO_MODEL" "$(auto_prompt "$prompt")"
 }
 
 # Resume existing worktree
@@ -3347,6 +3347,11 @@ fi
 # .env) available to every subcommand. See load_env_file for why this parses
 # rather than sources.
 load_env_file "$REPO_ROOT/.env"
+
+# After load_env_file, not at the top of the file: a CLAUDE_*_MODEL line in .env
+# has to be in the environment before models.sh resolves it (HON-730).
+# shellcheck source=./models.sh
+source "$SCRIPT_DIR/models.sh"
 
 # Main command router
 case "${1:-}" in

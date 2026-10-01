@@ -994,7 +994,7 @@ gh pr view --json number,title,headRefName,url
 
 ### 6.3 Trigger Claude review
 
-Spawn a fresh Claude Code session to review the PR. **You MUST use the script below — do NOT inline the review prompt or spawn claude directly.** The script handles model selection (the model set by `CLAUDE_REVIEW_MODEL`, default in `scripts/pr-review.sh`), locking, and prompt formatting.
+Spawn a fresh Claude Code session to review the PR. **You MUST use the script below — do NOT inline the review prompt or spawn claude directly.** The script handles model selection (`REVIEW_MODEL` from `scripts/models.sh`, overridable with `CLAUDE_REVIEW_MODEL`), locking, and prompt formatting.
 
 **First record the marker count as `ROUND_BEFORE`**, using the same fetch as the verification below. The cap counts rounds by these markers, so the count has to be shown to *increase* — see the check after the run.
 
