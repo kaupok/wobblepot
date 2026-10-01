@@ -14,7 +14,7 @@ import {
   type GoldenFile,
 } from './golden'
 import { runAgainstGolden, runCheck, type RunResult } from './runner'
-import { prepareCase } from './tasks'
+import { errorScores, prepareCase } from './tasks'
 import { loadStarterCases, mockModelFactory } from './test-utils'
 
 const MODEL = 'claude-sonnet-5'
@@ -123,6 +123,59 @@ describe('compareGolden', () => {
   })
 })
 
+describe('goldenBaselineCalls', () => {
+  it("re-scores the recorded output with today's scorer, so a scorer change is not read as a prompt change", async () => {
+    const { golden } = await recordedTips(1)
+    const [first] = tipsCases
+    const stale: GoldenFile = {
+      ...golden,
+      cases: Object.fromEntries(
+        Object.entries(golden.cases).map(([id, entry]) => [
+          id,
+          { ...entry, calls: entry.calls.map((r) => ({ ...r, scores: { countsInRange: 0 } })) },
+        ]),
+      ),
+    }
+    const errored: GoldenFile = {
+      ...golden,
+      cases: {
+        [first!.id]: {
+          ...golden.cases[first!.id]!,
+          calls: golden.cases[first!.id]!.calls.map((r) => ({ ...r, errorName: 'APICallError' })),
+        },
+      },
+    }
+
+    const calls = goldenBaselineCalls([stale], tipsCases)
+    expect(calls.map((r) => r.role)).toEqual(['baseline', 'baseline'])
+    // The stale 0 is gone: the output scores as today's scorer scores it.
+    expect(calls[0]!.scores).toEqual(prepareCase(first!).score(TIPS_REPLY.object))
+    expect(calls[0]!.scores.countsInRange).toBe(1)
+    // The supplementary case rejected the full-tips reply when it was recorded.
+    expect(calls[1]!.errorName).not.toBeNull()
+    expect(calls[1]!.scores).toEqual(errorScores(tipsCases[1]!))
+    // An errored call scores as an error does today.
+    expect(goldenBaselineCalls([errored], tipsCases)[0]!.scores).toEqual(errorScores(first!))
+  })
+
+  it("names the case and says to re-record when today's scorer cannot read a recorded output", async () => {
+    const { golden } = await recordedTips(1)
+    const [first] = tipsCases
+    const reshaped: GoldenFile = {
+      ...golden,
+      cases: {
+        [first!.id]: {
+          ...golden.cases[first!.id]!,
+          calls: golden.cases[first!.id]!.calls.map((r) => ({ ...r, output: { tips: 'old' } })),
+        },
+      },
+    }
+    expect(() => goldenBaselineCalls([reshaped], tipsCases)).toThrow(
+      new RegExp(`Golden ${first!.id} run 1 no longer scores with today's scorer .*re-record`),
+    )
+  })
+})
+
 describe('runAgainstGolden', () => {
   it('replays the golden as the baseline and calls only the candidate', async () => {
     const { golden } = await recordedTips()
@@ -152,5 +205,25 @@ describe('runAgainstGolden', () => {
       .filter((c) => c.role === 'candidate')
       .reduce((sum, c) => sum + c.costUsd, 0)
     expect(result.spendUsd).toBeCloseTo(candidateSpend)
+  })
+
+  it('keeps only the baseline cases and runs the candidate reached when --max-usd stops it', async () => {
+    const { golden } = await recordedTips()
+    // 200k output tokens at $10 / MTok: $2 a call, so a $1 cap stops after one.
+    const { factory } = mockModelFactory(() => ({ ...TIPS_REPLY, outputTokens: 200_000 }))
+    const result = await runAgainstGolden({
+      cases: tipsCases,
+      baselineCalls: goldenBaselineCalls([golden], tipsCases),
+      candidate: 'claude-sonnet-5-5',
+      runs: 2,
+      maxUsd: 1,
+      modelFactory: factory,
+    })
+
+    expect(result.partial).toBe(true)
+    expect(result.calls.map((c) => [c.role, c.caseId, c.run])).toEqual([
+      ['baseline', tipsCases[0]!.id, 1],
+      ['candidate', tipsCases[0]!.id, 1],
+    ])
   })
 })

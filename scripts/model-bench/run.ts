@@ -207,6 +207,12 @@ function parseCli(argv: string[]) {
     throw new UsageError(`--max-usd must be a positive number, got "${values['max-usd']}".`)
   }
 
+  if (values.record && runs < 2) {
+    throw new UsageError(
+      `--record needs --runs 2 or more: a golden with one run measures no run-to-run range, so every difference against it would read as noise.`,
+    )
+  }
+
   const common = { tasks: tasks as Task[], runs, maxUsd, dryRun: values['dry-run'] }
   if (checkMode) {
     return {
@@ -509,6 +515,13 @@ function loadGoldens(
     }
     if (golden) goldens.push(golden)
     else missing.push(task)
+  }
+  const singleRun = goldens.filter((g) => g.runs < 2).map((g) => g.task)
+  if (singleRun.length > 0) {
+    error(
+      `The golden for ${singleRun.join(', ')} has one run, so it measures no run-to-run range and every difference against it would read as noise. Re-record with \`pnpm bench:models --record --task ${singleRun.join(',')}\` (at least 2 runs).`,
+    )
+    return null
   }
   if (missing.length > 0) {
     error(

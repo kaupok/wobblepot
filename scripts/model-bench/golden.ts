@@ -22,7 +22,8 @@ import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import { TASKS, type BenchCase, type Task } from './case-schema'
 import type { CallRecord, RunResult } from './runner'
-import { prepareCase } from './tasks'
+import { errorScores, prepareCase, type PreparedCase } from './tasks'
+import type { Scores } from './scorers'
 
 export const GOLDEN_DIR = join(dirname(fileURLToPath(import.meta.url)), 'golden')
 
@@ -187,11 +188,36 @@ export function compareGolden(golden: GoldenFile, cases: BenchCase[]): GoldenTas
   }
 }
 
-/** The golden's records for the given cases, as the baseline side of a comparison. */
+function rescore(p: PreparedCase, r: CallRecord): Scores {
+  try {
+    return p.score(r.output)
+  } catch (err) {
+    // The output schema changed since recording, so the golden's output no
+    // longer has the shape the scorer reads.
+    throw new Error(
+      `Golden ${r.caseId} run ${r.run} no longer scores with today's scorer (${(err as Error).message}). The output shape has changed since recording: re-record with \`pnpm bench:models --record --task ${r.task}\`.`,
+    )
+  }
+}
+
+/**
+ * The golden's records for the given cases, as the baseline side of a
+ * comparison. Each is re-scored with today's scorers and case expectations,
+ * as `callOnce` would score it: the golden keeps the output, and a scorer
+ * change since recording must not read as a prompt or model change.
+ */
 export function goldenBaselineCalls(goldens: GoldenFile[], cases: BenchCase[]): CallRecord[] {
   const byTask = new Map(goldens.map((g) => [g.task, g]))
   return cases
-    .flatMap((c) => byTask.get(c.task)?.cases[c.id]?.calls ?? [])
-    .map((r) => ({ ...r, role: 'baseline' as const }))
+    .flatMap((c) => {
+      const recorded = byTask.get(c.task)?.cases[c.id]?.calls ?? []
+      if (recorded.length === 0) return []
+      const p = prepareCase(c)
+      return recorded.map((r) => ({
+        ...r,
+        role: 'baseline' as const,
+        scores: r.errorName === null ? rescore(p, r) : errorScores(c),
+      }))
+    })
     .sort((a, b) => a.run - b.run)
 }

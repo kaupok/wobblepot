@@ -133,12 +133,17 @@ export interface GoldenRunOptions extends Omit<CheckOptions, 'modelFor'> {
  * `--baseline golden` (HON-902): the baseline side is the recorded calls, so
  * only the candidate is called, once per case per run as under `--check`.
  * `plannedCalls` and `spendUsd` count the candidate alone: the golden's calls
- * were paid for when it was recorded.
+ * were paid for when it was recorded. When `--max-usd` stops the candidate,
+ * the baseline keeps only the cases and runs the candidate reached, so both
+ * sides' means cover the same cases.
  */
 export async function runAgainstGolden(options: GoldenRunOptions): Promise<RunResult> {
   const { baselineCalls, candidate, ...rest } = options
   const result = await runCheck({ ...rest, modelFor: () => candidate })
-  return { ...result, calls: [...baselineCalls, ...result.calls] }
+  const key = (r: CallRecord) => `${r.caseId}\u0000${r.run}`
+  const reached = new Set(result.calls.map(key))
+  const baseline = result.partial ? baselineCalls.filter((r) => reached.has(key(r))) : baselineCalls
+  return { ...result, calls: [...baseline, ...result.calls] }
 }
 
 export async function runBenchmark(options: RunOptions): Promise<RunResult> {

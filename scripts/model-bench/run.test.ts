@@ -478,17 +478,21 @@ describe('main', () => {
       JSON.parse(readFileSync(join(goldenDir, `${task}.json`), 'utf8'))
     const editGolden = (
       task: string,
-      edit: (file: { commit?: string; cases: Record<string, { promptHash: string }> }) => void,
+      edit: (file: {
+        commit?: string
+        runs?: number
+        cases: Record<string, { promptHash: string }>
+      }) => void,
     ) => {
       const file = goldenFile(task)
       edit(file)
       writeFileSync(join(goldenDir, `${task}.json`), JSON.stringify(file))
     }
 
-    /** Records imagine (whose gates the mock fails) and tips, one run each. */
+    /** Records imagine (whose gates the mock fails) and tips, two runs each. */
     async function recordImagineAndTips() {
       const { factory } = mockModelFactory(respond)
-      await main(['--record', '--force', '--task', 'imagine,tips', '--runs', '1'], {
+      await main(['--record', '--force', '--task', 'imagine,tips', '--runs', '2'], {
         ...deps,
         modelFactory: factory,
       })
@@ -536,7 +540,7 @@ describe('main', () => {
 
     it('--record writes nothing and exits 1 when a gate fails, and --force records it anyway', async () => {
       const { factory } = mockModelFactory(respond)
-      const argv = ['--record', '--task', 'imagine,tips', '--runs', '1']
+      const argv = ['--record', '--task', 'imagine,tips', '--runs', '2']
 
       expect(await main(argv, { ...deps, modelFactory: factory })).toBe(1)
       expect(existsSync(goldenDir)).toBe(false)
@@ -587,7 +591,7 @@ describe('main', () => {
       let md = readFileSync(join(outDir, `${GOLDEN_STEM}.md`), 'utf8')
       expect(md).toContain('# Model benchmark: golden vs claude-sonnet-5')
       expect(md).toContain(
-        `**Baseline:** golden — \`${IMAGINE_MODEL}\` recorded 2026-10-01 at \`abc1234\`, 1 run(s).`,
+        `**Baseline:** golden — \`${IMAGINE_MODEL}\` recorded 2026-10-01 at \`abc1234\`, 2 run(s).`,
       )
       expect(md).toContain(
         '**Prompts since the golden:** imagine: unchanged; tips: prompt changed for 1 of 2 cases.',
@@ -601,7 +605,8 @@ describe('main', () => {
 
       const json = JSON.parse(readFileSync(join(outDir, `${GOLDEN_STEM}.json`), 'utf8'))
       expect(json.plannedCalls).toBe(4)
-      expect(json.calls.filter((c: { role: string }) => c.role === 'baseline')).toHaveLength(4)
+      // Both golden runs; the judge pairs only run 1, the one both sides have.
+      expect(json.calls.filter((c: { role: string }) => c.role === 'baseline')).toHaveLength(8)
       expect(json.golden.map((g: { task: string }) => g.task)).toEqual(['imagine', 'tips'])
 
       // Nothing the judging session reads says which side is the golden.
@@ -666,6 +671,16 @@ describe('main', () => {
       )
     })
 
+    it('refuses a 1-run golden, against which every difference would read as noise', async () => {
+      await recordImagineAndTips()
+      editGolden('tips', (g) => {
+        g.runs = 1
+      })
+      const code = await main([...COMPARE, '--task', 'tips', '--dry-run'], deps)
+      expect(code).toBe(1)
+      expect(err.join('\n')).toMatch(/The golden for tips has one run.*--record --task tips/)
+    })
+
     it('exits 1 on a golden file that does not parse', async () => {
       await recordImagineAndTips()
       editGolden('tips', (g) => {
@@ -692,6 +707,7 @@ describe('main', () => {
   it.each([
     [['--record', '--baseline', 'claude-sonnet-5'], /--record runs one configuration.*--baseline/],
     [['--check', '--force'], /--force goes with --record/],
+    [['--record', '--runs', '1'], /--record needs --runs 2 or more/],
     [['--baseline', 'claude-sonnet-5', '--candidate', 'golden'], /--candidate takes a model ID/],
     [['--check', '--baseline', 'claude-sonnet-5'], /--check runs one configuration.*--baseline/],
     [['--check', '--candidate', 'x', '--judge'], /cannot be combined with --candidate, --judge/],
