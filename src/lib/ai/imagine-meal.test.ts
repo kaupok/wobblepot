@@ -203,7 +203,21 @@ describe('imagineMeals', () => {
     const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
     expect(call.system).toContain('Dietary type: vegetarian')
     expect(call.system).toContain('Excluded ingredients (do not use): mushrooms')
-    expect(call.system).toContain('Dietary preferences: low FODMAP')
+    // A restriction is a constraint the household set, not an optional
+    // preference (HON-896).
+    expect(call.system).toContain('Household restrictions (follow them): low FODMAP')
+    expect(call.system).not.toContain('Dietary preferences')
+  })
+
+  it('tells the model to substitute, not omit, an ingredient a constraint removes', async () => {
+    mockGenerateObject.mockResolvedValue({ object: { meals: [] } } as never)
+
+    await imagineMeals('a rich satay noodle stir-fry', emptyHousehold, 'en')
+
+    const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
+    expect(call.system).toContain(
+      "substitute it to keep the dish's character (texture, richness, cuisine) rather than leaving it out",
+    )
   })
 
   it('omits constraint section when household has no dietary constraints', async () => {

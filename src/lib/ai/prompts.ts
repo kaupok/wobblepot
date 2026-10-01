@@ -288,7 +288,7 @@ ${pantryIngredients.join(', ')}
   }
 
   if (restrictions.length > 0) {
-    prompt += `\n- Dietary preferences (best effort): ${restrictions.join(', ')}`
+    prompt += `\n- Household restrictions (best effort): ${restrictions.join(', ')}`
   }
 
   prompt += `

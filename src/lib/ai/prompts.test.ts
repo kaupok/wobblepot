@@ -232,20 +232,20 @@ describe('buildMealPlanPrompt', () => {
   })
 
   describe('restrictions', () => {
-    it('does not include dietary preferences line when restrictions are empty', () => {
+    it('does not include household restrictions line when restrictions are empty', () => {
       const input = createInput({ restrictions: [] })
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).not.toContain('Dietary preferences')
+      expect(result).not.toContain('Household restrictions')
     })
 
-    it('includes dietary preferences when restrictions are provided', () => {
+    it('includes household restrictions when restrictions are provided', () => {
       const input = createInput({ restrictions: ['low FODMAP', 'no spicy food'] })
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('Dietary preferences (best effort): low FODMAP, no spicy food')
+      expect(result).toContain('Household restrictions (best effort): low FODMAP, no spicy food')
     })
 
     it('includes single restriction', () => {
@@ -253,7 +253,7 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('Dietary preferences (best effort): keto-friendly')
+      expect(result).toContain('Household restrictions (best effort): keto-friendly')
     })
   })
 
@@ -389,7 +389,7 @@ describe('buildMealPlanPrompt', () => {
 
       const personalizationIndex = result.indexOf('PERSONALIZATION')
       const pantryIndex = result.indexOf('PANTRY')
-      const restrictionsIndex = result.indexOf('Dietary preferences')
+      const restrictionsIndex = result.indexOf('Household restrictions')
 
       expect(personalizationIndex).toBeLessThan(pantryIndex)
       expect(pantryIndex).toBeLessThan(restrictionsIndex)
