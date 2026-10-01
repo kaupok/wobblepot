@@ -1,12 +1,12 @@
 ---
 name: bench-judge
-description: Judge the model benchmark's exported imagine and tips pairs in Claude Code (billed to the subscription, not the API key) and import the verdicts into the report. Use after `pnpm bench:models --judge` has written a `.judge-pairs.json`.
+description: Judge the model benchmark's exported imagine and tips pairs in Claude Code (billed to the subscription, not the API key) and import the verdicts into the report. Use after `pnpm ai-eval --judge` has written a `.judge-pairs.json`.
 context: inherit
 ---
 
 # Bench judge
 
-`pnpm bench:models --judge` runs the benchmark through the API key and exports every judge prompt to `scripts/model-bench/results/<stem>.judge-pairs.json` instead of paying Opus to answer them. This skill answers them with subagents and runs `pnpm bench:models --import-verdicts`, which fills the report's Judge section. Background: `docs/AI_MODELS.md` → The judge.
+`pnpm ai-eval --judge` runs the benchmark through the API key and exports every judge prompt to `scripts/model-bench/results/<stem>.judge-pairs.json` instead of paying Opus to answer them. This skill answers them with subagents and runs `pnpm ai-eval --import-verdicts`, which fills the report's Judge section. Background: `docs/AI_MODELS.md` → The judge.
 
 ## Usage
 
@@ -89,7 +89,7 @@ console.log(`${verdicts.length}/${ids.size} verdicts → ${out}`);
 ### 5. Import
 
 ```bash
-pnpm bench:models --import-verdicts scripts/model-bench/results/<stem>.judge-verdicts.json
+pnpm ai-eval --import-verdicts scripts/model-bench/results/<stem>.judge-verdicts.json
 ```
 
 This rewrites `<stem>.md` and `<stem>.json` in place and echoes the summary. Now the other files may be read. Report the Judge table to the user and remind them that `<stem>.md` is the file to commit; the `.json` files beside it are gitignored.

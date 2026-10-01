@@ -1,5 +1,5 @@
 /**
- * `pnpm bench:models --import-sample <file> --id <task>/<slug>` (HON-903).
+ * `pnpm ai-eval --import-sample <file> --id <task>/<slug>` (HON-903).
  *
  * Turns one production `[ai-sample]` line (`src/lib/ai/sampling.ts`) into
  * `cases/<task>/<slug>.draft.json`: the case's input filled from what the call

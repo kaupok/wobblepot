@@ -1,27 +1,31 @@
 # AI models
 
-Which Claude model each AI feature runs on, and how to check that a new model is better, not only unbroken, before switching to it.
+Which Claude model each AI feature runs on, and how the AI eval (`pnpm ai-eval`) checks that a change to a model, a prompt or a budget is better, not only unbroken, before it ships.
 
-Every model ID lives in `src/lib/ai/models.ts`, and every price in `MODEL_PRICES` in `src/lib/ai/pricing.ts`. Each route's AI time budget is in `src/lib/ai/budgets.ts`.
+Every model ID lives in `src/lib/ai/models.ts`, and every price in `MODEL_PRICES` in `src/lib/ai/pricing.ts`. Each route's AI time budget is in `src/lib/ai/budgets.ts`. The eval lives in `scripts/model-bench/`. Its old script name still works for one release and prints a deprecation line.
 
-## Changing a model
+## Which run a change needs
 
-1. Add the new model to `MODEL_PRICES`. Keep the old entry: historical `AiUsage` rows still carry its ID, and a missing entry prices at $0.
-2. Run the benchmark below with the current model as `--baseline` and the new one as `--candidate`, with `--judge`, then `/bench-judge` in Claude Code to fill in the judge's verdicts.
-3. Commit the report it writes, and attach it to the upgrade PR, linked or pasted into the description.
-4. Change the constants in `models.ts`.
-5. Once the new constants are in production, record the golden from a session that will not judge afterwards: `pnpm bench:models --record`, then commit `scripts/model-bench/golden/`. Prompt changes are compared with it from then on (see Changing a prompt). A session that has read the golden's outputs knows which answers are the recorded ones, so it must not run `/bench-judge` on a comparison against them.
+The eval has three runs. Each writes a report to `scripts/model-bench/results/`, and the PR that makes the change commits it and cites it in its body. `scripts/pr-review.sh` asks for that report when the diff touches `models.ts`, `budgets.ts`, a request builder the eval imports or text it sends, or a committed case (HON-904).
 
-`/plan-issue` adds steps 2 and 3 to any plan that changes a constant in `models.ts`.
+| The PR changes                                                                                                                                                                                                                                | Run                                                               | Section                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------- |
+| A model constant in `src/lib/ai/models.ts`                                                                                                                                                                                                    | A comparison, current model as baseline, new as candidate, judged | Compare → Two models            |
+| A request builder (`prompts.ts`, `recipe-prompt.ts`, `imagine-request.ts`, `review-request.ts`, `preparation-tips.ts` in `src/lib/ai`), or text they send: an output schema (`recipe-schema.ts`, `types.ts`) or `src/lib/vague-quantities.ts` | `--baseline golden`, judged                                       | Compare → A prompt change       |
+| A case under `scripts/model-bench/cases/`, or a budget in `budgets.ts`                                                                                                                                                                        | `--check`                                                         | Check the current configuration |
 
-## Checking the current configuration
+After a model promotion or an accepted prompt change merges, re-record the golden (Record the golden).
 
-The comparison below says which of two models is better. `--check` asks the absolute question: does the configuration we ship pass? It runs one model per task against the same cases and scorers, holds each metric to a fixed gate, and exits 1 when any gate fails.
+**Every run costs real money**, except `--dry-run`, which prints the call count and an estimate. A real run needs `ANTHROPIC_API_KEY` in `.env`. The eval never runs in CI.
+
+## Check the current configuration
+
+A comparison (below) says which of two models is better. `--check` asks the absolute question: does the configuration we ship pass? It runs one model per task against the same cases and scorers, holds each metric to a fixed gate, and exits 1 when any gate fails.
 
 ```bash
-pnpm bench:models --check --dry-run                        # what a bare check calls, and its cost
-pnpm bench:models --check                                  # each task on its constant in models.ts
-pnpm bench:models --check --model claude-sonnet-5-5        # every task on one model
+pnpm ai-eval --check --dry-run                        # what a bare check calls, and its cost
+pnpm ai-eval --check                                  # each task on its constant in models.ts
+pnpm ai-eval --check --model claude-sonnet-5-5        # every task on one model
 ```
 
 Without `--model`, each task runs on its production constant: plan `PLANNING_MODEL`, recipe `RECIPE_MODEL`, imagine `IMAGINE_MODEL`, review `REVIEW_MODEL`, tips `TIPS_MODEL`. `--task`, `--runs`, `--max-usd` and `--dry-run` work as in a comparison. `--check` cannot be combined with `--baseline`, `--candidate`, `--judge` or `--judge-api`, and `--model` only goes with `--check`. Every model it would call needs a `MODEL_PRICES` entry, as in a comparison. A check costs about half a comparison: one model, one call per case and run.
@@ -49,61 +53,13 @@ A metric that no case in the set measures, such as recipe recall when only the n
 
 The report is `scripts/model-bench/results/<date>-check-<model, or "production">.md`, with the same `-2` rule and a gitignored `.json`. It opens with the result and a **Gates** table (task, gate, observed mean and range, threshold, pass or fail), which the run also echoes, followed by one metric table and one operational table per task. `--import-verdicts` refuses a check's files: a check has one model and nothing to judge.
 
-## Changing a prompt
-
-A model comparison sends both models the same prompt: whatever the request builders in the working tree produce. To compare a prompt change, the other side has to be the old prompt's output, and the golden is that: a recorded `--check` run of the production configuration, committed in `scripts/model-bench/golden/<task>.json`.
-
-```bash
-pnpm bench:models --baseline golden --candidate <current-id> --judge --dry-run
-pnpm bench:models --baseline golden --candidate <current-id> --judge
-# then, in Claude Code:
-/bench-judge
-```
-
-Commit the report and cite it in the PR. The baseline side is replayed from the golden, so only the candidate is called: half the cost of a comparison. The judge compares the new prompt's output with the recorded output blind, as it compares two models: nothing in the pairs file says which answers are the golden's. Every other part of the report reads as in a model comparison, with `golden` in the baseline column.
-
-The report header says where the golden came from (`golden — <model> recorded <date> at <commit>`) and, per task, how many cases' prompt has changed since it was recorded (`imagine: prompt changed for 8 of 8 cases; plan: unchanged`). That line shows which tasks a prompt change reached. A task reading `unchanged` that the PR meant to change means the change never got into the request.
-
-- **Recording it.** `pnpm bench:models --record` is a `--check` (same flags, same report) that also writes one golden file per task it ran: the model, the date, the short commit, the run count, and for each case the sha256 of its prompt text and every call record, output included. `--task imagine` re-records only `imagine.json`. A run that fails a gate writes nothing and exits 1, since the golden is what later changes are measured against; `--force` records it anyway, and the exit code still reports the failed gates. A run `--max-usd` stopped never records, with or without `--force`.
-- **When to re-record:** after a model promotion (step 5 of Changing a model), and after merging a prompt change whose report you accepted, so the next prompt change is compared with what ships.
-- **Cases added since recording** have no baseline. They are not run, and the report lists them under **Not in golden**: re-record to include them. A golden case that no longer exists is ignored. A selected task with no golden file stops the run with the `--record` command to fix it.
-- **Runs.** `--record` needs at least 2 runs (the default is 3), and a comparison refuses a 1-run golden: with one run there is no run-to-run range, and every difference would read as noise. Without `--runs`, a comparison runs the candidate as many times as the golden was recorded; it may run fewer (at least 2 for a measured range), and then only that many of the golden's runs are compared, but never more, since a candidate run with no golden run beside it has nothing to be judged against. The noise rule uses each side's own range. If `--max-usd` stops the candidate, the baseline keeps only the cases and runs the candidate reached.
-- **Scores are recomputed.** The golden's outputs are re-scored with today's scorers and case expectations, so a scorer change since recording does not read as a prompt change. If an output schema has changed so that a recorded output no longer scores, the run stops before calling anything and names the task to re-record. The total cost counts this run's calls only, and says what the golden cost to record.
-
-## The benchmark
-
-```bash
-pnpm bench:models --baseline <current-id> --candidate <new-id> --dry-run
-pnpm bench:models --baseline <current-id> --candidate <new-id>
-
-# Past example: the Sonnet 5 → Sonnet 5.5 upgrade, now in `models.ts`
-pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5
-```
-
-| Flag          | Default                           | Meaning                                                                 |
-| ------------- | --------------------------------- | ----------------------------------------------------------------------- |
-| `--baseline`  | required                          | The model in production today, or `golden` (see Changing a prompt)      |
-| `--candidate` | required                          | The model you want to switch to                                         |
-| `--task`      | `plan,recipe,imagine,review,tips` | Comma-separated subset of tasks                                         |
-| `--runs`      | `3`                               | Times each case runs per model                                          |
-| `--max-usd`   | `10`                              | Stop, and mark the report partial, once measured spend passes this      |
-| `--dry-run`   | off                               | Print the call count and an estimated cost. No API calls, no key needed |
-| `--judge`     | off                               | Also export imagine and tips pairs for judging in Claude Code (below)   |
-| `--judge-api` | off                               | Judge those pairs with `claude-opus-5-5` through the API key instead    |
-
-`pnpm bench:models --import-verdicts <stem>.judge-verdicts.json` is the second half of `--judge`; see below.
-
-**It costs real money.** A full run bills both models for every case, every run. Start with `--dry-run` to see the call count and a rough estimate. A real run needs `ANTHROPIC_API_KEY` in `.env`. The benchmark never runs in CI.
-
-Either model ID without a `MODEL_PRICES` entry stops the run at startup, `--dry-run` included. An unpriced model would cost $0 per call, and `--max-usd` would never trip.
-
 ### What it runs
 
 It covers five AI calls: plan generation, recipe parsing (pasted text), imagine a meal (text only), the imagine quantity review, and preparation tips (full and supplementary). Each request comes from the same pure builder production calls, so the only difference from the app is the model ID. Out of scope: `fillEmptySlots`, image inputs, and the meal-image model and its judge.
 
 Cases live in `scripts/model-bench/cases/<task>/*.json`, validated against the Zod schemas in `scripts/model-bench/case-schema.ts`. Every committed case is synthetic: one started from a production sample has had the user's text rewritten (see Where cases come from).
 
-The two models run back to back on each case, and which one goes first alternates, so rate limits and drift through the day don't favour either. No abort signal is sent, so a call slower than its route budget still finishes and its real time is recorded.
+In a comparison, the two models run back to back on each case, and which one goes first alternates, so rate limits and drift through the day don't favour either. No abort signal is sent, so a call slower than its route budget still finishes and its real time is recorded.
 
 ### What it scores
 
@@ -116,6 +72,60 @@ Every check is deterministic. The optional judge, below, is the only place one m
 - **tips:** item counts within the ranges the prompt asks for.
 
 Output that fails the schema is an error, not a score: `generateObject` throws on it. For each task and model the report also gives latency (p50 and max) against the route budget, calls over budget, calls the SDK retried, errors by name, truncations (`finishReason: length`), and mean tokens and cost per call. Latency is timed around `generateObject`, so it includes the SDK's retries (`maxRetries` is 2). A latency finding says when any call retried. Run files from before the count say "not recorded".
+
+## Compare
+
+### Two models
+
+1. Add the new model to `MODEL_PRICES`. Keep the old entry: historical `AiUsage` rows still carry its ID, and a missing entry prices at $0.
+2. Run a comparison with the current model as `--baseline` and the new one as `--candidate`, with `--judge`, then `/bench-judge` in Claude Code to fill in the judge's verdicts.
+3. Commit the report it writes, and cite it in the upgrade PR, linked or pasted into the description.
+4. Change the constants in `models.ts`.
+5. Once the new constants are in production, record the golden (Record the golden). Prompt changes are compared with it from then on.
+
+`/plan-issue` adds steps 2 and 3 to any plan that changes a constant in `models.ts`.
+
+```bash
+pnpm ai-eval --baseline <current-id> --candidate <new-id> --dry-run
+pnpm ai-eval --baseline <current-id> --candidate <new-id>
+
+# Past example: the Sonnet 5 → Sonnet 5.5 upgrade, now in `models.ts`
+pnpm ai-eval --baseline claude-sonnet-5 --candidate claude-sonnet-5-5
+```
+
+### A prompt change
+
+A comparison of two models sends both the same prompt: whatever the request builders in the working tree produce. To compare a prompt change, the other side has to be the old prompt's output, and the golden is that: a recorded `--check` run of the production configuration, committed in `scripts/model-bench/golden/<task>.json` (Record the golden).
+
+```bash
+pnpm ai-eval --baseline golden --candidate <current-id> --judge --dry-run
+pnpm ai-eval --baseline golden --candidate <current-id> --judge
+# then, in Claude Code:
+/bench-judge
+```
+
+Commit the report and cite it in the PR. The baseline side is replayed from the golden, so only the candidate is called: half the cost of a comparison. The judge compares the new prompt's output with the recorded output blind, as it compares two models: nothing in the pairs file says which answers are the golden's. Every other part of the report reads as in a model comparison, with `golden` in the baseline column.
+
+The report header says where the golden came from (`golden — <model> recorded <date> at <commit>`) and, per task, how many cases' prompt has changed since it was recorded (`imagine: prompt changed for 8 of 8 cases; plan: unchanged`). That line shows which tasks a prompt change reached. A task reading `unchanged` that the PR meant to change means the change never got into the request.
+
+### Flags
+
+| Flag          | Default                           | Meaning                                                                 |
+| ------------- | --------------------------------- | ----------------------------------------------------------------------- |
+| `--baseline`  | required                          | The model in production today, or `golden` (see A prompt change)        |
+| `--candidate` | required                          | The model you want to switch to                                         |
+| `--task`      | `plan,recipe,imagine,review,tips` | Comma-separated subset of tasks                                         |
+| `--runs`      | `3`                               | Times each case runs per model                                          |
+| `--max-usd`   | `10`                              | Stop, and mark the report partial, once measured spend passes this      |
+| `--dry-run`   | off                               | Print the call count and an estimated cost. No API calls, no key needed |
+| `--judge`     | off                               | Also export imagine and tips pairs for judging in Claude Code (below)   |
+| `--judge-api` | off                               | Judge those pairs with `claude-opus-5-5` through the API key instead    |
+
+`pnpm ai-eval --import-verdicts <stem>.judge-verdicts.json` is the second half of `--judge`; see below.
+
+A comparison bills both models for every case, every run, so start with `--dry-run`.
+
+Either model ID without a `MODEL_PRICES` entry stops the run at startup, `--dry-run` included. An unpriced model would cost $0 per call, and `--max-usd` would never trip.
 
 ### Reading the report
 
@@ -133,16 +143,33 @@ The report opens with three lists, and the run echoes them to the console:
 
 The `.json` beside the report carries the same three lists. With `--judge` or `--judge-api`, a **Judge** section follows them. Then comes one table per task, and the total cost. A **partial** report was stopped by `--max-usd` and is missing later runs and cases, or, if the API judge was stopped, later judged pairs.
 
+## Record the golden
+
+```bash
+pnpm ai-eval --record --dry-run
+pnpm ai-eval --record                  # then commit scripts/model-bench/golden/
+pnpm ai-eval --record --task imagine   # re-record imagine.json only
+```
+
+`--record` is a `--check` (same flags, same report) that also writes one golden file per task it ran: the model, the date, the short commit, the run count, and for each case the sha256 of its prompt text and every call record, output included. A run that fails a gate writes nothing and exits 1, since the golden is what later changes are measured against; `--force` records it anyway, and the exit code still reports the failed gates. A run `--max-usd` stopped never records, with or without `--force`.
+
+Record from a session that will not judge afterwards. A session that has read the golden's outputs knows which answers are the recorded ones, so it must not run `/bench-judge` on a comparison against them.
+
+- **When to re-record:** after a model promotion (step 5 under Compare → Two models), and after merging a prompt change whose report you accepted, so the next prompt change is compared with what ships.
+- **Cases added since recording** have no baseline. They are not run, and the report lists them under **Not in golden**: re-record to include them. A golden case that no longer exists is ignored. A selected task with no golden file stops the run with the `--record` command to fix it.
+- **Runs.** `--record` needs at least 2 runs (the default is 3), and a comparison refuses a 1-run golden: with one run there is no run-to-run range, and every difference would read as noise. Without `--runs`, a comparison runs the candidate as many times as the golden was recorded; it may run fewer (at least 2 for a measured range), and then only that many of the golden's runs are compared, but never more, since a candidate run with no golden run beside it has nothing to be judged against. The noise rule uses each side's own range. If `--max-usd` stops the candidate, the baseline keeps only the cases and runs the candidate reached.
+- **Scores are recomputed.** The golden's outputs are re-scored with today's scorers and case expectations, so a scorer change since recording does not read as a prompt change. If an output schema has changed so that a recorded output no longer scores, the run stops before calling anything and names the task to re-record. The total cost counts this run's calls only, and says what the golden cost to record.
+
 ## The judge (`--judge`, `--judge-api`)
 
 The deterministic checks for imagine and tips mostly count items. They can't tell whether a meal sounds appetising, whether a tip is useful, or whether Estonian reads naturally. The judge adds a blind comparison for those two tasks: for every imagine and tips case, run by run, it sees the case input and the two models' answers labelled A and B, never a model name, and picks the better one. The rubric is `scripts/model-bench/judge-prompt.md`: fit to the household, then accuracy, then usefulness, then writing. For Estonian cases the judge also gets all of [AI_VOICE_ET.md](./AI_VOICE_ET.md). Plan, recipe and review are not judged: their deterministic scores already measure what matters.
 
 There are two ways to run it. The prompts, the verdict rules and the summary are the same for both.
 
-**`--judge` (the default): judged in Claude Code.** The run writes `<stem>.judge-pairs.json` beside the report, holding every judge prompt, and the report's Judge section says _Pending_. Then, in Claude Code, run `/bench-judge`: it answers the prompts with subagents, billed to the Claude Code subscription rather than the API key, and runs `pnpm bench:models --import-verdicts <stem>.judge-verdicts.json`, which rewrites `<stem>.md` and `<stem>.json` in place with the Judge section filled in. No API cost; the report names the judge `claude-code/<model>`.
+**`--judge` (the default): judged in Claude Code.** The run writes `<stem>.judge-pairs.json` beside the report, holding every judge prompt, and the report's Judge section says _Pending_. Then, in Claude Code, run `/bench-judge`: it answers the prompts with subagents, billed to the Claude Code subscription rather than the API key, and runs `pnpm ai-eval --import-verdicts <stem>.judge-verdicts.json`, which rewrites `<stem>.md` and `<stem>.json` in place with the Judge section filled in. No API cost; the report names the judge `claude-code/<model>`.
 
 ```bash
-pnpm bench:models --baseline <current-id> --candidate <new-id> --judge
+pnpm ai-eval --baseline <current-id> --candidate <new-id> --judge
 # then, in Claude Code:
 /bench-judge
 ```
@@ -152,7 +179,7 @@ Blindness survives the split because the pairs file holds only the A/B prompts. 
 **`--judge-api`: judged by `claude-opus-5-5`** (`JUDGE_MODEL` in `scripts/model-bench/judge.ts`) through the API key, straight after the benchmark. A pinned, reproducible judge, at a cost (end of this section). Use it when the report must not depend on a Claude Code session, or to cross-check a Claude Code verdict.
 
 ```bash
-pnpm bench:models --baseline <current-id> --candidate <new-id> --judge-api --dry-run
+pnpm ai-eval --baseline <current-id> --candidate <new-id> --judge-api --dry-run
 ```
 
 Each pair is judged **twice**, once with each model as A, to cancel any preference for a position. For the candidate:
@@ -171,7 +198,7 @@ The **win rate** is wins ÷ (wins + losses). Ties are left out of it and shown b
 The case set grows from three sources, in this order of value:
 
 1. **AI output bugs.** Every AI output bug that a scorer can express becomes a case, added in the PR that fixes it or before. The case reproduces the input that went wrong and carries the issue ID: `"source": "HON-895"`. It should fail on the configuration that had the bug, so the benchmark catches the bug if a later model or prompt brings it back. `/plan-issue` adds the case to the plan of any AI output bug. A bug no scorer can see, such as a tone problem, is the judge's to catch, so say so in the issue instead.
-2. **Production samples.** `logAiSample` (`src/lib/ai/sampling.ts`) logs every Estonian AI call and 5% of English ones as an `[ai-sample]` line. `pnpm bench:models --import-sample <file> --id <task>/<slug>` turns one line into `cases/<task>/<slug>.draft.json`, with the input fields the sample carried filled in and the expectation left empty. A draft is never loaded and is gitignored, because it holds a real household's words, allergens included. A human writes the expectation, rewrites the text as synthetic text with the same shape, and renames the file. Because the privacy policy keeps runtime logs for 1 day, the copied sample file is deleted once the draft exists, and a draft is finished or deleted the same day. `--import-sample` calls no model and cannot be combined with any other flag. `fill-empty-slots` samples are refused, as `fillEmptySlots` is out of scope.
+2. **Production samples.** `logAiSample` (`src/lib/ai/sampling.ts`) logs every Estonian AI call and 5% of English ones as an `[ai-sample]` line. `pnpm ai-eval --import-sample <file> --id <task>/<slug>` turns one line into `cases/<task>/<slug>.draft.json`, with the input fields the sample carried filled in and the expectation left empty. A draft is never loaded and is gitignored, because it holds a real household's words, allergens included. A human writes the expectation, rewrites the text as synthetic text with the same shape, and renames the file. Because the privacy policy keeps runtime logs for 1 day, the copied sample file is deleted once the draft exists, and a draft is finished or deleted the same day. `--import-sample` calls no model and cannot be combined with any other flag. `fill-empty-slots` samples are refused, as `fillEmptySlots` is out of scope.
 3. **Synthetic cases** for coverage: a locale, a diet or a task variant no other case exercises. These have no `source`.
 
 [`scripts/model-bench/cases/README.md`](../scripts/model-bench/cases/README.md) has a worked example of a good expectation for each task, the draft steps, and the `source` values. Adding a case changes what `--check` measures and leaves the golden without a baseline for it (listed under **Not in golden**), so re-record after adding one.

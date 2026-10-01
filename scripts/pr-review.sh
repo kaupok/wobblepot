@@ -398,12 +398,12 @@ fi
 
 # ─── Checklist items for CLAUDE.md rules that no CI check can enforce ────────
 #
-# Two "definition of done" rules in CLAUDE.md — E2E drift and shared-primitive
-# geometry — have no mechanical check, so they live here as reviewer checklist items
-# (HON-729). Each is appended only when the diff touches the paths the rule is about,
-# so a PR that cannot break the rule does not pay for the check. Both fail closed on
-# an unreadable or truncated file list, like the design gate above. Neither emits a
-# "not applicable" line: the item's own "nothing to do" clause covers a gate that
+# Three rules have no mechanical check, so they live here as reviewer checklist items:
+# the CLAUDE.md "definition of done" rules for E2E drift and shared-primitive geometry
+# (HON-729), and the AI eval report (HON-904). Each is appended only when the diff
+# touches the paths the rule is about, so a PR that cannot break the rule does not pay
+# for the check. All three fail closed on an unreadable or truncated file list, like
+# the design gate above. None emits a "not applicable" line: the item's own "nothing to do" clause covers a gate that
 # fired on a diff the rule turns out not to apply to.
 #
 # E2E drift: routes and dialogs live in .tsx under src/app and src/components, and
@@ -414,6 +414,15 @@ fi
 E2E_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/(app|components)/.*\.tsx|messages/[^/]*\.json|src/proxy\.ts)$' | grep -vE '\.(stories|test)\.tsx$' || true)
 # Geometry: the primitives themselves, and the stylesheet holding the @theme tokens.
 GEOMETRY_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/components/ui/[^/]*\.tsx|src/app/globals\.css)$' | grep -vE '\.(stories|test)\.tsx$' || true)
+# AI eval: what `scripts/model-bench/tasks.ts` imports from src/lib/ai/ — the model
+# constants, the route budgets, and the request builders — plus the two schema files
+# the builders send (recipe-schema.ts, types.ts), whose `.describe()` strings are
+# instructions to the model, the vague-phrase list recipe-prompt.ts joins into its
+# instructions (src/lib/vague-quantities.ts), and the committed cases.
+# The eval spends money, so CI cannot run it, and HON-794 changed `models.ts` with no
+# run at all (HON-859 ran it after the fact). Drafts are gitignored and never loaded,
+# and the README is prose, so neither changes what the eval measures.
+AI_EVAL_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/lib/ai/(models|budgets|prompts|recipe-prompt|recipe-schema|types|imagine-request|review-request|preparation-tips)\.ts|src/lib/vague-quantities\.ts|scripts/model-bench/cases/.*\.json)$' | grep -vE '\.(test\.ts|draft\.json)$' || true)
 
 if [ -n "$E2E_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
   echo -e "${GREEN}Pages, components or copy changed — adding the E2E-drift check.${NC}"
@@ -433,6 +442,16 @@ if [ -n "$GEOMETRY_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
 
 If this diff changes a size, height, padding or radius default on a primitive under `src/components/ui/`, or a `@theme` token in `src/app/globals.css`, run the greps in `.claude/skills/plan-issue/SKILL.md` step 7b against the **old** literal and check that every Mirror hit — a skeleton or sibling primitive sized to match — moved with it in this PR. An unmoved Mirror is a finding (HON-612 desynced 12 `loading.tsx` skeletons this way); Override and Deliberate hits are not. If no geometry default changed, this check has nothing to do.
 GEOMETRY_PROMPT
+fi
+
+if [ -n "$AI_EVAL_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
+  echo -e "${GREEN}AI prompts, models, budgets or eval cases changed — adding the eval-report check.${NC}"
+  cat >> "$PROMPT_FILE" <<'AI_EVAL_PROMPT'
+
+## Also check for an AI eval report
+
+If this diff changes a prompt builder or text it sends to the model (an output schema in `src/lib/ai/recipe-schema.ts` or `src/lib/ai/types.ts`, the phrase list in `src/lib/vague-quantities.ts`), a model constant, an AI budget or a benchmark case, the PR body must cite a report under `scripts/model-bench/results/` committed in this PR and dated after the change: a `--check` report for a case or budget change, a `--baseline golden` comparison with judge verdicts for a prompt, schema or phrase-list change, a model comparison for a `models.ts` change (`docs/AI_MODELS.md`). A missing or older report is a finding. So is a golden comparison whose header reads `unchanged` for a task the diff changes, or one beside a `scripts/model-bench/golden/` change in the same PR: either way the golden was recorded on the new prompt, and the report compares it with itself. If none of those files changed, this check has nothing to do.
+AI_EVAL_PROMPT
 fi
 
 # ─── PR body: Verified / Not verified, no checkboxes ─────────────────────────

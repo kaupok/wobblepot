@@ -1,19 +1,20 @@
 /**
- * Model-comparison benchmark for the app's AI calls (HON-795).
+ * The AI eval: a model-comparison benchmark for the app's AI calls (HON-795),
+ * run as `pnpm ai-eval` (HON-904; `pnpm bench:models` is a deprecated alias).
  *
  * Runs a fixed set of committed, synthetic cases through two Claude models,
  * scores every output deterministically, and writes a report comparing them.
  * Manual only — it spends real money and must never run in CI.
  *
  * Usage:
- *   pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5 \
+ *   pnpm ai-eval --baseline claude-sonnet-5 --candidate claude-sonnet-5-5 \
  *     [--task plan,recipe,imagine,review,tips] [--runs 3] [--dry-run] [--max-usd 10] \
  *     [--judge | --judge-api]
- *   pnpm bench:models --check [--model <id>] [--task …] [--runs 3] [--dry-run] [--max-usd 10]
- *   pnpm bench:models --record [--force] [--model <id>] [--task …] [--runs 3] [--dry-run] [--max-usd 10]
- *   pnpm bench:models --baseline golden --candidate <id> [--task …] [--runs 3] [--judge | --judge-api] …
- *   pnpm bench:models --import-verdicts results/<stem>.judge-verdicts.json
- *   pnpm bench:models --import-sample <sample file> --id <task>/<slug>
+ *   pnpm ai-eval --check [--model <id>] [--task …] [--runs 3] [--dry-run] [--max-usd 10]
+ *   pnpm ai-eval --record [--force] [--model <id>] [--task …] [--runs 3] [--dry-run] [--max-usd 10]
+ *   pnpm ai-eval --baseline golden --candidate <id> [--task …] [--runs 3] [--judge | --judge-api] …
+ *   pnpm ai-eval --import-verdicts results/<stem>.judge-verdicts.json
+ *   pnpm ai-eval --import-sample <sample file> --id <task>/<slug>
  *
  * `--check` (HON-901) runs one configuration — each task's production model
  * from `src/lib/ai/models.ts`, or `--model` for all — against absolute gates
@@ -102,12 +103,12 @@ export const RESULTS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'result
 const DEFAULT_RUNS = 3
 const DEFAULT_MAX_USD = 10
 
-const USAGE = `Usage: pnpm bench:models --baseline <model> --candidate <model> [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge | --judge-api]
-       pnpm bench:models --check [--model <model>] [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]
-       pnpm bench:models --record [--force] [--model <model>] [--task …] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]
-       pnpm bench:models --baseline ${GOLDEN} --candidate <model> [--task …] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge | --judge-api]
-       pnpm bench:models --import-verdicts <results/stem.judge-verdicts.json>
-       pnpm bench:models --import-sample <sample file> --id <task>/<slug>`
+const USAGE = `Usage: pnpm ai-eval --baseline <model> --candidate <model> [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge | --judge-api]
+       pnpm ai-eval --check [--model <model>] [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]
+       pnpm ai-eval --record [--force] [--model <model>] [--task …] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}]
+       pnpm ai-eval --baseline ${GOLDEN} --candidate <model> [--task …] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge | --judge-api]
+       pnpm ai-eval --import-verdicts <results/stem.judge-verdicts.json>
+       pnpm ai-eval --import-sample <sample file> --id <task>/<slug>`
 
 const VERDICTS_SUFFIX = '.judge-verdicts.json'
 
@@ -552,13 +553,13 @@ function loadGoldens(
   const singleRun = goldens.filter((g) => g.runs < 2).map((g) => g.task)
   if (singleRun.length > 0) {
     error(
-      `The golden for ${singleRun.join(', ')} has one run, so it measures no run-to-run range and every difference against it would read as noise. Re-record with \`pnpm bench:models --record --task ${singleRun.join(',')}\` (at least 2 runs).`,
+      `The golden for ${singleRun.join(', ')} has one run, so it measures no run-to-run range and every difference against it would read as noise. Re-record with \`pnpm ai-eval --record --task ${singleRun.join(',')}\` (at least 2 runs).`,
     )
     return null
   }
   if (missing.length > 0) {
     error(
-      `No golden for ${missing.join(', ')} in ${relative(process.cwd(), dir) || '.'}. Record one with \`pnpm bench:models --record --task ${missing.join(',')}\`, or leave ${missing.length === 1 ? 'it' : 'them'} out of --task.`,
+      `No golden for ${missing.join(', ')} in ${relative(process.cwd(), dir) || '.'}. Record one with \`pnpm ai-eval --record --task ${missing.join(',')}\`, or leave ${missing.length === 1 ? 'it' : 'them'} out of --task.`,
     )
     return null
   }
@@ -588,6 +589,13 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   const log = deps.log ?? ((line: string) => console.log(line))
   const error = deps.error ?? ((line: string) => console.error(line))
   const env = deps.env ?? process.env
+
+  // Renamed to `ai-eval` in HON-904; the old script name is kept for one release.
+  // Its package.json entry calls `tsx` without `npx`, because npx overwrites
+  // npm_lifecycle_event with "npx" and this check would never fire.
+  if (env.npm_lifecycle_event === 'bench:models') {
+    error('`pnpm bench:models` is deprecated and will be removed: use `pnpm ai-eval`.')
+  }
 
   let args
   try {
@@ -635,7 +643,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     cases = cases.filter((c) => goldens!.some((g) => g.task === c.task && g.cases[c.id]))
     if (cases.length === 0) {
       error(
-        `The golden has none of the selected cases. Re-record it: pnpm bench:models --record --task ${args.tasks.join(',')}`,
+        `The golden has none of the selected cases. Re-record it: pnpm ai-eval --record --task ${args.tasks.join(',')}`,
       )
       return 1
     }

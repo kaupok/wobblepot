@@ -665,7 +665,7 @@ describe('main', () => {
       const code = await main([...COMPARE, '--task', 'tips,plan', '--dry-run'], deps)
       expect(code).toBe(1)
       expect(err.join('\n')).toMatch(
-        /No golden for plan in .*\. Record one with `pnpm bench:models --record --task plan`/,
+        /No golden for plan in .*\. Record one with `pnpm ai-eval --record --task plan`/,
       )
     })
 
@@ -799,6 +799,35 @@ describe('main', () => {
       expect(code).toBe(1)
       expect(err).toEqual(["fillEmptySlots is out of the benchmark's scope"])
       expect(existsSync(join(casesDir, 'plan', 'x.draft.json'))).toBe(false)
+    })
+  })
+
+  describe('the bench:models alias (HON-904)', () => {
+    const DEPRECATION = '`pnpm bench:models` is deprecated and will be removed: use `pnpm ai-eval`.'
+
+    it('prints a deprecation line when invoked as bench:models, and still runs', async () => {
+      const code = await main(['--check', '--dry-run'], {
+        ...deps,
+        env: { npm_lifecycle_event: 'bench:models' },
+      })
+      expect(code).toBe(0)
+      expect(err).toEqual([DEPRECATION])
+    })
+
+    it('prints nothing extra when invoked as ai-eval', async () => {
+      const code = await main(['--check', '--dry-run'], {
+        ...deps,
+        env: { npm_lifecycle_event: 'ai-eval' },
+      })
+      expect(code).toBe(0)
+      expect(err).toEqual([])
+    })
+
+    it('names ai-eval in the usage text', async () => {
+      expect(await main(['--baseline', 'claude-sonnet-5'], deps)).toBe(2)
+      const usage = err.join('\n')
+      expect(usage).toContain('Usage: pnpm ai-eval --baseline')
+      expect(usage).not.toContain('bench:models')
     })
   })
 
