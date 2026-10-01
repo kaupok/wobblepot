@@ -58,6 +58,15 @@ interface MealDetailProps {
   isTipsExpanded?: boolean
   /** Handler for "How to prepare" button click */
   onHowToPrepare?: () => void
+  /** Indices of the generated steps marked done */
+  doneSteps?: ReadonlySet<number>
+  /** Makes each generated step a done / not-done toggle (HON-933) */
+  onToggleStep?: (index: number) => void
+  /**
+   * Renders "Done cooking" after the steps, Watch out and Tip. The caller
+   * passes it only for a planned entry it can edit.
+   */
+  onDoneCooking?: () => void
 }
 
 /**
@@ -116,6 +125,9 @@ export function MealDetail({
   onRetryTips,
   isTipsExpanded = false,
   onHowToPrepare,
+  doneSteps,
+  onToggleStep,
+  onDoneCooking,
 }: MealDetailProps) {
   const tDetail = useTranslations('meal-plan.detail')
   const tTips = useTranslations('meal-plan.tips')
@@ -145,8 +157,8 @@ export function MealDetail({
   // WHY `tabIndex={0}` on the three scroll regions: a region that scrolls
   // must be reachable by keyboard, or its arrow keys and Page Down do nothing
   // (axe `scrollable-region-focusable`). Once the steps load, the steps column
-  // holds no control at all, and focus opens on the panel, which does not
-  // scroll. Below `lg` only the outer region scrolls; from `lg` only the two
+  // need not hold a control (a completed entry whose tips have no steps to
+  // toggle), and focus opens on the panel, which does not scroll. Below `lg` only the outer region scrolls; from `lg` only the two
   // columns do, and the left one is `display: contents` (no box, so not
   // focusable) below `lg`.
   return (
@@ -251,12 +263,22 @@ export function MealDetail({
             error={showTips ? tipsError : null}
             onRetry={onRetryTips ?? (() => {})}
             preparationNotes={meal.preparationNotes}
+            doneSteps={doneSteps}
+            onToggleStep={onToggleStep}
           />
-          {/* Until part 2 generates steps on open (HON-933), they are asked
-              for: full width on a phone, label-sized from `md`. */}
+          {/* A planned entry generates its steps on open (HON-933); anything
+              else asks for them: full width on a phone, label-sized from `md`. */}
           {!isTipsExpanded && (
             <Button size="lg" className="w-full md:w-auto md:self-start" onClick={onHowToPrepare}>
               {tDetail('howToPrepare')}
+            </Button>
+          )}
+          {/* Where cooking ends, the view ends: marks the entry completed,
+              which runs the pantry deduction and the rating prompt. It does
+              not wait for every step to be ticked. */}
+          {onDoneCooking && (
+            <Button size="lg" className="w-full md:w-auto md:self-start" onClick={onDoneCooking}>
+              {tDetail('doneCooking')}
             </Button>
           )}
         </section>

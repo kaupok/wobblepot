@@ -74,6 +74,38 @@ export const Loading: Story = {
     isLoading: true,
     error: null,
   },
+  play: async ({ canvasElement }) => {
+    // A generation takes up to 45s: the skeletons come with a line saying so (HON-933).
+    await expect(within(canvasElement).getByText('Writing the steps…')).toBeVisible()
+  },
+}
+
+/**
+ * The steps as toggles (HON-933): two done (check, muted), the third the
+ * current one on the chip, the last still to come.
+ */
+export const WithProgress: Story = {
+  args: {
+    tips: fullTips,
+    isLoading: false,
+    error: null,
+    doneSteps: new Set([0, 1]),
+    onToggleStep: fn(),
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    const step = (i: number) => canvas.getByRole('button', { name: fullTips.steps![i]! })
+    await expect(step(0)).toHaveAttribute('aria-pressed', 'true')
+    await expect(step(2)).toHaveAttribute('data-current')
+    await expect(step(2).getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    step(3).click()
+    await expect(args.onToggleStep).toHaveBeenCalledWith(3)
+  },
+}
+
+export const WithProgressDark: Story = {
+  ...WithProgress,
+  globals: { theme: 'dark' },
 }
 
 export const Error: Story = {

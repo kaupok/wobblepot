@@ -23,6 +23,12 @@ interface PantryDeductionModalProps {
   pantryItems: PantryItemFull[]
   onConfirm: () => void
   isLoading?: boolean
+  /**
+   * The dialog opens from state, with no `DialogTrigger` for Radix to return
+   * focus to, so without this it lands on the page body (CLAUDE.md → Focus
+   * management).
+   */
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 export function computeDeductions(
@@ -87,6 +93,7 @@ export function PantryDeductionModal({
   pantryItems,
   onConfirm,
   isLoading = false,
+  onCloseAutoFocus,
 }: PantryDeductionModalProps) {
   const t = useTranslations('meal-plan.deduction')
   const tCommon = useTranslations('common')
@@ -108,7 +115,7 @@ export function PantryDeductionModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>

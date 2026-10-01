@@ -140,10 +140,6 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
     }
   }, [tips, fetchTips])
 
-  const hideTips = useCallback(() => {
-    setIsTipsExpanded(false)
-  }, [])
-
   /**
    * Drop the tips and stop any generation still running for them. For callers
    * that have just changed one of the inputs the tips were generated from — the
@@ -171,7 +167,6 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
     isTipsExpanded,
     fetchTips,
     handleHowToPrepare,
-    hideTips,
     cancelTips,
     setTips,
     setIsTipsExpanded,

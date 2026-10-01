@@ -400,6 +400,14 @@ export const ImageGenerating: Story = {
 export const TipsNotLoaded: Story = {
   name: 'Tips not loaded',
   args: { meal: tintedMeal },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'An entry nobody is about to cook — completed, skipped, past or read-only (`generateOnOpen` off) — asks for its steps with "How to prepare" rather than generating them on open (HON-933).',
+      },
+    },
+  },
   play: async () => {
     const dialog = await findDialog()
     const steps = within(dialog).getByTestId('cook-view-steps')
@@ -541,6 +549,213 @@ export const Estonian: Story = {
 async function loadTipsEt(): Promise<void> {
   await userEvent.click(await body().findByRole('button', { name: 'Kuidas valmistada' }))
   await body().findByText(tips.steps![0]!)
+}
+
+// ── Cooking: steps on open, progress, Done cooking (HON-933) ───────────────
+
+// Counts the tips POSTs, to prove how many generations an open costs.
+let openTipsRequests = 0
+const countedTipsHandler = http.post(
+  '/api/meal-plans/:planId/entries/:entryId/preparation-tips',
+  () => {
+    openTipsRequests += 1
+    return HttpResponse.json({ tips })
+  },
+)
+
+/** A planned entry, as `MealCard` opens one for today. */
+const plannedArgs = {
+  meal: tintedMeal,
+  status: 'planned' as const,
+  generateOnOpen: true,
+  onDoneCooking: fn(),
+}
+
+const stepButton = (index: number) => body().getByRole('button', { name: tips.steps![index]! })
+
+export const StepsLoadOnOpen: Story = {
+  name: 'Planned: steps load on open',
+  args: plannedArgs,
+  parameters: { msw: { handlers: { tips: [countedTipsHandler] } } },
+  beforeEach: () => {
+    openTipsRequests = 0
+  },
+  play: async () => {
+    const dialog = await findDialog()
+    // No "How to prepare": the steps arrive by themselves, from one POST.
+    await within(dialog).findByText(tips.steps![0]!)
+    await expect(within(dialog).queryByRole('button', { name: 'How to prepare' })).toBeNull()
+    await expect(openTipsRequests).toBe(1)
+  },
+}
+
+export const StepsCached: Story = {
+  name: 'Planned: cached steps, no request',
+  args: { ...plannedArgs, initialTips: tips },
+  parameters: { msw: { handlers: { tips: [countedTipsHandler] } } },
+  beforeEach: () => {
+    openTipsRequests = 0
+  },
+  play: async () => {
+    const dialog = await findDialog()
+    await expect(within(dialog).getByText(tips.steps![0]!)).toBeVisible()
+    await expect(within(dialog).queryByTestId('preparation-steps-loading')).toBeNull()
+    await expect(openTipsRequests).toBe(0)
+  },
+}
+
+export const StepsGenerating: Story = {
+  name: 'Planned: writing the steps',
+  args: plannedArgs,
+  globals: { viewport: PHONE },
+  parameters: {
+    msw: {
+      handlers: {
+        tips: [
+          http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', async () => {
+            await delay('infinite')
+            return HttpResponse.json({ tips })
+          }),
+        ],
+      },
+    },
+  },
+  play: async () => {
+    const dialog = await findDialog()
+    await expect(within(dialog).getByTestId('preparation-steps-loading')).toBeVisible()
+    await expect(within(dialog).getByText('Writing the steps…')).toBeVisible()
+    await expect(within(dialog).queryByRole('button', { name: 'How to prepare' })).toBeNull()
+    await assertNoSmallText(dialog)
+  },
+}
+
+export const TapStepToMarkDone: Story = {
+  name: 'Planned: tap a step to mark it done',
+  args: { ...plannedArgs, initialTips: tips },
+  globals: { viewport: PHONE },
+  play: async () => {
+    await findDialog()
+    // Nothing done yet: the first step is the current one.
+    await expect(stepButton(0)).toHaveAttribute('aria-pressed', 'false')
+    await expect(stepButton(0)).toHaveAttribute('data-current')
+    // The whole row is a knuckle-sized target.
+    await expect(stepButton(0).getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+
+    await userEvent.click(stepButton(0))
+    await expect(stepButton(0)).toHaveAttribute('aria-pressed', 'true')
+    await expect(stepButton(0)).not.toHaveAttribute('data-current')
+    await expect(stepButton(1)).toHaveAttribute('data-current')
+    // Done reads muted, never struck through.
+    const text = within(stepButton(0)).getByText(tips.steps![0]!)
+    await expect(text).toHaveClass('text-muted-foreground')
+    await expect(getComputedStyle(text).textDecorationLine).toBe('none')
+
+    // Tapping it again un-marks it, and it is current again.
+    await userEvent.click(stepButton(0))
+    await expect(stepButton(0)).toHaveAttribute('aria-pressed', 'false')
+    await expect(stepButton(0)).toHaveAttribute('data-current')
+
+    // Every step done: nothing is highlighted.
+    for (let i = 0; i < tips.steps!.length; i++) await userEvent.click(stepButton(i))
+    await expect(body().getByRole('dialog').querySelector('[data-current]')).toBeNull()
+  },
+}
+
+export const TapStepToMarkDoneDark: Story = {
+  name: 'Planned: step progress (dark)',
+  args: { ...plannedArgs, initialTips: tips },
+  globals: { viewport: PHONE, theme: 'dark' },
+  play: async () => {
+    await findDialog()
+    await userEvent.click(stepButton(0))
+    await expect(stepButton(1)).toHaveAttribute('data-current')
+  },
+}
+
+export const KeyboardTogglesStep: Story = {
+  name: 'Planned: keyboard toggles a step',
+  args: { ...plannedArgs, initialTips: tips },
+  play: async () => {
+    await findDialog()
+    stepButton(1).focus()
+    await userEvent.keyboard(' ')
+    await expect(stepButton(1)).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.keyboard('{Enter}')
+    await expect(stepButton(1)).toHaveAttribute('aria-pressed', 'false')
+    // Tab moves on to the next step.
+    await userEvent.tab()
+    await expect(stepButton(2)).toHaveFocus()
+  },
+}
+
+export const DoneCooking: Story = {
+  name: 'Planned: Done cooking',
+  args: { ...plannedArgs, initialTips: tips },
+  render: (args) => {
+    const [open, setOpen] = useState(args.open)
+    return (
+      <MealDetailModal
+        {...args}
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next)
+          args.onOpenChange(next)
+        }}
+      />
+    )
+  },
+  play: async ({ args }) => {
+    const dialog = await findDialog()
+    const done = within(dialog).getByRole('button', { name: 'Done cooking' })
+    await expect(done.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    // After the steps, Watch out and Tip.
+    const tip = within(dialog).getByText(tips.tip!)
+    await expect(done.getBoundingClientRect().top).toBeGreaterThan(tip.getBoundingClientRect().top)
+
+    await userEvent.click(done)
+    await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+    await awaitDialogClosed()
+    // Called once the view is gone, so the deduction never stacks on it.
+    await waitFor(() => expect(args.onDoneCooking).toHaveBeenCalledTimes(1))
+  },
+}
+
+export const CompletedNoDoneCooking: Story = {
+  name: 'Completed: no Done cooking',
+  args: { meal: tintedMeal, status: 'completed' },
+  parameters: { msw: { handlers: { tips: [countedTipsHandler] } } },
+  beforeEach: () => {
+    openTipsRequests = 0
+  },
+  play: async () => {
+    const dialog = await findDialog()
+    await expect(within(dialog).getByRole('button', { name: 'How to prepare' })).toBeVisible()
+    await expect(within(dialog).queryByRole('button', { name: 'Done cooking' })).toBeNull()
+    await expect(openTipsRequests).toBe(0)
+  },
+}
+
+export const DoneCookingEstonian: Story = {
+  name: 'Planned: Estonian',
+  args: plannedArgs,
+  globals: { locale: 'et', viewport: PHONE },
+  parameters: {
+    msw: {
+      handlers: {
+        tips: [
+          http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', async () => {
+            await delay('infinite')
+            return HttpResponse.json({ tips })
+          }),
+        ],
+      },
+    },
+  },
+  play: async () => {
+    const dialog = await findDialog()
+    await expect(within(dialog).getByText('Koostan juhiseid…')).toBeVisible()
+    await expect(within(dialog).getByRole('button', { name: 'Söök on valmis' })).toBeVisible()
+  },
 }
 
 // ── Callback contracts ─────────────────────────────────────────────────────

@@ -19,7 +19,6 @@ vi.mock('@/hooks/use-meal-tips', () => ({
     isTipsExpanded: false,
     fetchTips: vi.fn(),
     handleHowToPrepare: vi.fn(),
-    hideTips: vi.fn(),
     cancelTips,
   }),
 }))

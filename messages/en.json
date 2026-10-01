@@ -280,6 +280,7 @@
       "staplesPrefix": "Staples: {list}",
       "viewSource": "View original recipe",
       "howToPrepare": "How to prepare",
+      "doneCooking": "Done cooking",
       "ariaDetailsFor": "Details for {mealName}"
     },
     "tips": {
@@ -289,6 +290,7 @@
       "tip": "Tip",
       "userNotes": "Your notes",
       "retry": "Retry",
+      "generating": "Writing the steps…",
       "errors": {
         "unauthorized": "Please sign in to see preparation tips.",
         "noHousehold": "You need a household before you can get preparation tips.",
