@@ -128,6 +128,14 @@
   scroll-margin-top: calc(5rem + env(safe-area-inset-top, 0px));
 }
 
+/* Lifts fixed chrome clear of the bottom tab bar: its h-16 band, 1rem of
+   breathing room, and the safe-area inset it pads itself with
+   (src/components/bottom-tab-bar.tsx). 80px where that inset is 0; in an
+   installed PWA on an iPhone it adds the 34px the bar grows by (HON-855). */
+@utility bottom-above-tab-bar {
+  bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* Tallest a dialog body may grow before it scrolls internally. Shared by every
    modal so they all stop at the same place. */
 @utility max-h-dialog {

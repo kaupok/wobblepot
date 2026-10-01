@@ -58,6 +58,7 @@ export const CUSTOM_UTILITY_CLASS_GROUPS = {
   'min-h': ['min-h-screen-below-header', 'min-h-screen-below-header-gutters'],
   'grid-cols': ['grid-cols-timeline'],
   'scroll-mt': ['scroll-mt-below-header'],
+  bottom: ['bottom-above-tab-bar'],
 } as const
 
 const twMerge = extendTailwindMerge({

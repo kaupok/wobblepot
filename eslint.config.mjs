@@ -19,6 +19,7 @@ const UNCLASSIFIED_LAYOUT = [
   'min-h-screen-below-header',
   'min-h-screen-below-header-gutters',
   'scroll-mt-below-header',
+  'bottom-above-tab-bar',
   'max-h-dialog',
   'grid-cols-timeline',
   'max-w-page',

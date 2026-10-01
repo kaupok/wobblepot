@@ -10,8 +10,9 @@ import { useAnalyticsConsent } from '@/components/ConsentProvider'
 interface CookieBannerProps {
   /**
    * Whether the mobile bottom tab bar is on screen (signed in with a household).
-   * Below `md` the banner lifts above it; otherwise it keeps the plain 16px inset,
-   * so a signed-out visitor does not get 80px of empty page under it (HON-845).
+   * Below `md` the banner lifts above it, safe-area inset included (HON-855);
+   * otherwise it keeps the plain 16px inset, so a signed-out visitor does not get
+   * 80px of empty page under it (HON-845).
    */
   hasTabBar?: boolean
 }
@@ -24,7 +25,7 @@ export function CookieBanner({ hasTabBar = false }: CookieBannerProps) {
     <div
       className={
         hasTabBar
-          ? 'pointer-events-none fixed inset-x-0 bottom-20 z-50 flex justify-center px-4 md:bottom-4'
+          ? 'bottom-above-tab-bar pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4 md:bottom-4'
           : 'pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4'
       }
     >
