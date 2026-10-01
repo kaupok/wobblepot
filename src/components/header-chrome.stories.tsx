@@ -36,6 +36,28 @@ function PageBehind() {
   )
 }
 
+/**
+ * The box of a link's visible text, ignoring its padding and any icon beside
+ * it: a range from the first text node to the last.
+ */
+function textBox(el: HTMLElement) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+  const first = walker.nextNode() as Text
+  let last = first
+  while (walker.nextNode()) last = walker.currentNode as Text
+  const range = document.createRange()
+  range.setStart(first, 0)
+  range.setEnd(last, last.length)
+  return range.getBoundingClientRect()
+}
+
+const box = (el: Element) => el.getBoundingClientRect()
+
+/** Equal to within a pixel: subpixel text widths round differently per browser. */
+async function expectNear(actual: number, expected: number) {
+  await expect(Math.abs(actual - expected)).toBeLessThanOrEqual(1)
+}
+
 const meta = {
   title: 'Feature/Navigation/Header',
   component: HeaderChrome,
@@ -142,9 +164,34 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          'Desktop layout — the phone pill dissolves into two: logo and daily views left, settings views and account menu right. Exercises the `md:` breakpoint where layout branches.',
+          'Desktop layout — the phone pill dissolves into two: logo and daily views left, settings views and account menu right. Exercises the `md:` breakpoint where layout branches. The space between links is the links’ own padding, not a gap, so neighbours share an edge; the play measures that the labels still sit 24px apart and 20px in from the pill’s edge (HON-922).',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    const primary = within(banner).getByRole('navigation', { name: 'Primary' })
+    const settings = within(banner).getByRole('navigation', { name: 'Settings' })
+    const leftPill = box(primary.parentElement!)
+    const rightPill = box(settings.parentElement!)
+    const logo = textBox(within(banner).getByRole('link', { name: 'Wobblepot' }))
+    const today = within(primary).getByRole('link', { name: 'Today' })
+    const pantry = within(primary).getByRole('link', { name: 'Pantry & shopping' })
+    const recipes = within(settings).getByRole('link', { name: 'My recipes' })
+    const household = within(settings).getByRole('link', { name: 'Household' })
+
+    // 20px padding inside a 1px border, at both ends of the left pill and
+    // the start of the right one.
+    await expectNear(logo.left - leftPill.left, 21)
+    await expectNear(leftPill.right - textBox(pantry).right, 21)
+    await expectNear(textBox(recipes).left - rightPill.left, 21)
+    // 24px between labels, as when it was a `gap-6`.
+    await expectNear(textBox(today).left - logo.right, 24)
+    await expectNear(textBox(pantry).left - textBox(today).right, 24)
+    await expectNear(textBox(household).left - textBox(recipes).right, 24)
+    // ...but the links themselves touch.
+    await expectNear(box(pantry).left, box(today).right)
+    await expectNear(box(household).left, box(recipes).right)
   },
 }
 
@@ -157,7 +204,7 @@ export const DesktopScrolled: Story = {
     docs: {
       description: {
         story:
-          'The right pill folds to icons. Scrolled, My recipes and Household close to their icons and the pill narrows around them; hovering or keyboard-focusing a link opens that link’s label only. The folded label stays the link’s accessible name. The play scrolls, measures both label boxes closing, then keyboard-focuses My recipes and measures its label opening while Household’s stays closed.',
+          'The right pill folds to icons. Scrolled, My recipes and Household close to their icons and the pill narrows around them; hovering or keyboard-focusing a link opens that link’s label only. The folded label stays the link’s accessible name. Each folded link is the account button’s 40px box, and the three touch, so a pointer sweeping across them is always over one of them and the icons sit evenly (HON-922). The play scrolls, measures both label boxes closing, the three boxes meeting edge to edge and the even icon spacing, then keyboard-focuses My recipes and measures its label opening while Household’s stays closed.',
       },
     },
   },
@@ -176,6 +223,29 @@ export const DesktopScrolled: Story = {
     await waitFor(() => expect(labelBox(recipes)).toBe(0), { timeout: 1500 })
     await waitFor(() => expect(labelBox(household)).toBe(0), { timeout: 1500 })
     await expect(recipes).toHaveAccessibleName('My recipes')
+
+    // No dead space: each control starts where the one before it ends.
+    const account = within(banner).getByRole('button', { name: 'User menu' })
+    await expectNear(box(household).left, box(recipes).right)
+    await expectNear(box(account).left, box(household).right)
+    // Even icons: Household sits as far from the account icon as from Recipes.
+    const glyph = (el: HTMLElement) => box(el.querySelector('svg')!)
+    await expectNear(
+      glyph(account).left - glyph(household).right,
+      glyph(household).left - glyph(recipes).right,
+    )
+
+    // The logo folded away cleanly: the daily views sit centred in their pill.
+    const primary = within(banner).getByRole('navigation', { name: 'Primary' })
+    const today = within(primary).getByRole('link', { name: 'Today' })
+    const pantry = within(primary).getByRole('link', { name: 'Pantry & shopping' })
+    await waitFor(
+      () => {
+        const pill = box(primary.parentElement!)
+        return expectNear(box(today).left - pill.left, pill.right - box(pantry).right)
+      },
+      { timeout: 1500 },
+    )
 
     // One at a time: only the focused link's label opens.
     recipes.focus()
@@ -196,8 +266,15 @@ export const DesktopLoggedOut: Story = {
     docs: {
       description: {
         story:
-          'Desktop, no session — the right pill holds the sign-in / sign-up buttons and the theme toggle, the left one just the logo.',
+          'Desktop, no session — the right pill holds the sign-in / sign-up buttons and the theme toggle, the left one just the logo. With no nav links to carry the spacing, the right pill keeps its full 20px left padding; the play measures it.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    const signIn = within(banner).getByRole('link', { name: 'Sign in' })
+    const pill = signIn.closest('.md\\:rounded-full')!
+    // 20px padding inside a 1px border.
+    await expectNear(box(signIn).left - box(pill).left, 21)
   },
 }
