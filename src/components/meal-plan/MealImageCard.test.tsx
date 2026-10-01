@@ -58,24 +58,62 @@ describe('MealImageCard', () => {
     expect(wrapper).not.toHaveClass('right-0', 'w-9/20', '@md/meal-image:w-5/8')
   })
 
-  // HON-755: the planner card's lower rows sit on the tint, not the dish.
-  it('confines the side image to the title row band', () => {
-    render(
-      <MealImageCard
-        meal={{ name: 'Lemon garlic chicken', imageStatus: 'ready', imageUrl: URL, imageHue: 264 }}
-        trailingActions
-        titleBand
-      >
-        <p>Content</p>
-      </MealImageCard>,
-    )
-    const wrapper = screen.getByTestId('meal-card-image')
+  // HON-927: the image is bounded by the head, so the full-width rows below
+  // it sit on the tint (HON-755) without shrinking the plate to a band.
+  describe('with a head', () => {
+    const ready = {
+      name: 'Lemon garlic chicken',
+      imageStatus: 'ready' as const,
+      imageUrl: URL,
+      imageHue: 264,
+    }
 
-    expect(wrapper).toHaveClass('absolute', 'top-0', 'h-20', 'mask-b-from-60%', '-z-10')
-    expect(wrapper).not.toHaveClass('inset-y-0')
-    // The band keeps the horizontal geometry and fades of the trailing box.
-    expect(wrapper).toHaveClass('right-12', 'left-1/3', 'mask-l-from-30%', 'mask-r-from-80%')
-    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 437px, 55vw')
+    it('runs the image from the card top to the next row, fading out, when rows follow', () => {
+      const { container } = render(
+        <MealImageCard meal={ready} trailingActions size="sm" head={<p>Head</p>}>
+          <p>Note</p>
+        </MealImageCard>,
+      )
+      const card = container.querySelector('[data-slot="card"]') as HTMLElement
+      const head = container.querySelector('[data-slot="meal-image-head"]') as HTMLElement
+      const wrapper = screen.getByTestId('meal-card-image')
+
+      expect(Array.from(card.children)).toEqual([head, screen.getByText('Note')])
+      expect(Array.from(head.children)).toEqual([wrapper, screen.getByText('Head')])
+      expect(head).toHaveClass('relative')
+      expect(wrapper).toHaveClass('absolute', '-z-10', '-inset-y-2', 'mask-b-from-60%')
+      expect(wrapper).not.toHaveClass('inset-y-0', 'h-20')
+      // The head keeps the horizontal geometry, fades and `sizes` of the trailing box.
+      expect(wrapper).toHaveClass('right-12', 'left-1/3', 'mask-l-from-30%', 'mask-r-from-80%')
+      expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 437px, 55vw')
+    })
+
+    it('runs the image to the card bottom, unfaded, when nothing follows the head', () => {
+      render(
+        <MealImageCard meal={ready} trailingActions size="sm" head={<p>Head</p>}>
+          {false}
+          {null}
+        </MealImageCard>,
+      )
+      const wrapper = screen.getByTestId('meal-card-image')
+
+      expect(wrapper).toHaveClass('absolute', '-z-10', '-inset-y-2')
+      expect(wrapper).not.toHaveClass('mask-b-from-60%')
+    })
+
+    it('keeps the head mounted when the tint switches on', () => {
+      const plain = { name: 'Lemon garlic chicken', imageStatus: 'none' as const }
+      const head = <button type="button">Lemon garlic chicken</button>
+      const { rerender } = render(<MealImageCard meal={plain} head={head} />)
+      const trigger = screen.getByRole('button')
+
+      rerender(
+        <MealImageCard meal={{ ...plain, imageStatus: 'ready', imageUrl: URL }} head={head} />,
+      )
+
+      expect(screen.getByRole('button')).toBe(trigger)
+      expect(screen.getByTestId('meal-card-image')).toBeInTheDocument()
+    })
   })
 
   // HON-750: a tall card puts the image below the content instead of behind it.
@@ -142,7 +180,7 @@ describe('MealImageCard', () => {
 
     expect(card.firstElementChild).toBe(wrapper)
     expect(wrapper).toHaveClass('absolute', 'inset-y-0', '-z-10')
-    expect(wrapper).not.toHaveClass('top-0', 'h-20', 'mask-b-from-60%')
+    expect(wrapper).not.toHaveClass('-inset-y-2', 'mask-b-from-60%')
     expect(card).toHaveClass('group/meal-image')
   })
 

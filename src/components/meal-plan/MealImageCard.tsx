@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  Children,
   useCallback,
   useState,
   type ComponentProps,
@@ -71,25 +72,27 @@ const IMAGE_BOX = {
 } as const
 
 /**
- * How tall the side image is. `card` runs it down the card's full height.
- * `titleRow` confines it to the band above the card's second row, so the rows
- * below the title (the planner card's note, status and rating) sit on the
- * plain tint instead of the dish (HON-755).
+ * How tall the side image is (HON-927). `card` runs it down the card's full
+ * height: the recipes list, where nothing runs across the width.
  *
- * `h-20` (80px) ends above the planner card's lower rows on a one-line title:
- * the card's `py-2` and the header's `pt-1`, the `MealTypeBadge` row
- * (`min-h-8`), the title row's `min-h-8`, and `CardHeader`'s `gap-2` between
- * and after them put the first lower row at 92px — change them together. The
- * planner passes `titleBand` only for a past card; a planned card's lower row
- * is a short badge at the left, so its plate runs the full height. A title
- * that wraps only pushes the lower rows further
- * down, and it wraps before the image anyway (`TITLE_WIDTH`). The bottom fade
- * keeps a band that ends mid-card from cutting the plate with a hard edge.
+ * A card with a `head` holds the image in the head instead, so it ends where
+ * the full-width rows below (the planner card's note, status and rating)
+ * begin, and those rows sit on the plain tint rather than the dish (HON-755).
+ * The head sits inside the card's `py-2` and is followed by its `gap-2` (Card
+ * `size="sm"`), so `-inset-y-2` takes the image up to the card's top edge and
+ * down to the next row's top edge, or the card's bottom edge when there is no
+ * next row — the same box `card` gives, so a note below the head leaves the
+ * plate as it was (HON-927). Change them together. `headWithRows` adds a
+ * bottom fade, so an image that ends mid-card doesn't cut the plate with a
+ * hard edge. A title that wraps makes the head, and so the plate, taller.
  */
 const IMAGE_HEIGHT = {
   card: 'inset-y-0',
-  titleRow: 'top-0 h-20 mask-b-from-60%',
+  headOnly: '-inset-y-2',
+  headWithRows: '-inset-y-2 mask-b-from-60%',
 } as const
+
+type ImageHeight = keyof typeof IMAGE_HEIGHT
 
 /**
  * The widest the title may be on a tinted card: it wraps before it reaches the
@@ -163,10 +166,13 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
    */
   trailingActions?: boolean
   /**
-   * The card has rows below its title (the planner card's note, status and
-   * rating). The image then stays in the title row's band. `side` only.
+   * The card's head: the rows from the slot badge down to the badge row. The
+   * side image is bounded by it, and `children` become the rows below it, on
+   * the plain tint (HON-927). `side` only; the card must be `size="sm"`.
+   * Any child counts as a row, even an element that renders nothing, so leave
+   * a row out rather than render an empty one.
    */
-  titleBand?: boolean
+  head?: ReactNode
   /**
    * Rendered after the image, so a `bottom` card keeps its actions (the
    * alternative card's Select button) below the picture.
@@ -183,6 +189,9 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
  * image on an untinted surface (`data-meal-surface="neutral"`: the tint's
  * lightness at zero chroma, globals.css).
  *
+ * With a `head`, the side image is bounded by the head rather than the card,
+ * and `children` are the full-width rows below it (HON-927).
+ *
  * The children are the card's content, unchanged: the tint re-scopes the theme
  * tokens (`[data-meal-surface]` in globals.css), so nothing inside needs a
  * tinted variant, and the image sits behind the content in the card's own
@@ -192,7 +201,7 @@ export function MealImageCard({
   meal,
   layout = 'side',
   trailingActions = false,
-  titleBand = false,
+  head,
   footer,
   className,
   style,
@@ -210,6 +219,11 @@ export function MealImageCard({
   // An image without a hue is still shown, on the neutral card: a picture
   // that was generated and paid for is never hidden by its colour (HON-754).
   const tinted = hasImage && hue !== null
+  const hasHead = layout === 'side' && head !== undefined
+  // `toArray` drops `null`, `false` and `undefined`, so a lower row that is
+  // switched off doesn't end the image mid-card.
+  const hasLowerRows = Children.toArray(children).length > 0 || footer != null
+  const height: ImageHeight = !hasHead ? 'card' : hasLowerRows ? 'headWithRows' : 'headOnly'
 
   const image = hasImage ? (
     <CardImage
@@ -218,7 +232,7 @@ export function MealImageCard({
       alt={meal.name}
       layout={layout}
       trailingActions={trailingActions}
-      titleBand={titleBand}
+      height={height}
       onError={() => setBrokenUrl(imageUrl)}
     />
   ) : null
@@ -244,7 +258,18 @@ export function MealImageCard({
       style={tinted ? { ...style, ...mealHueStyle(hue) } : style}
       {...props}
     >
-      {layout === 'side' ? image : null}
+      {hasHead ? (
+        // Rendered with or without an image, so the head never remounts when
+        // the image arrives or fails.
+        <div data-slot="meal-image-head" className="relative">
+          {image}
+          {head}
+        </div>
+      ) : layout === 'side' ? (
+        image
+      ) : (
+        head
+      )}
       {children}
       {layout === 'bottom' ? image : null}
       {footer}
@@ -257,11 +282,11 @@ interface CardImageProps {
   alt: string
   layout: MealImageLayout
   trailingActions: boolean
-  titleBand: boolean
+  height: ImageHeight
   onError: () => void
 }
 
-function CardImage({ src, alt, layout, trailingActions, titleBand, onError }: CardImageProps) {
+function CardImage({ src, alt, layout, trailingActions, height, onError }: CardImageProps) {
   const { loaded, ref, onLoad } = useImageLoaded()
   const bottom = layout === 'bottom'
 
@@ -280,7 +305,7 @@ function CardImage({ src, alt, layout, trailingActions, titleBand, onError }: Ca
             'relative aspect-3/2 w-full shrink-0 mask-t-from-60%'
           : cn(
               'absolute -z-10 mask-l-from-30%',
-              titleBand ? IMAGE_HEIGHT.titleRow : IMAGE_HEIGHT.card,
+              IMAGE_HEIGHT[height],
               trailingActions ? IMAGE_BOX.trailingActions : IMAGE_BOX.default,
             ),
       )}
