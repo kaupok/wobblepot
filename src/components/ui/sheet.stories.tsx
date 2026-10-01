@@ -197,3 +197,23 @@ export const CloseButton: Story = {
     await awaitDialogClosed()
   },
 }
+
+// The close button's screen-reader name comes from `common.close` (HON-914).
+export const CloseButtonEstonian: Story = {
+  args: { open: true },
+  globals: { locale: 'et' },
+  render: (args) => (
+    <Sheet {...args}>
+      <SheetContent side="right">
+        <SheetHeader>
+          <SheetTitle>Menüü</SheetTitle>
+          <SheetDescription>Vali selle nädala toidud.</SheetDescription>
+        </SheetHeader>
+      </SheetContent>
+    </Sheet>
+  ),
+  play: async () => {
+    const sheet = await within(document.body).findByRole('dialog')
+    await expect(within(sheet).getByRole('button', { name: 'Sulge' })).toBeInTheDocument()
+  },
+}

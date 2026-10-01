@@ -50,7 +50,6 @@
   "shopping": {
     "itemCount": "{count, plural, =0 {No items} one {# item} other {# items}}",
     "title": "Shopping list",
-    "dateRangePrefix": "For: {range}",
     "windowNext7": "Next 7 days",
     "windowNext14": "Next 14 days",
     "purchasedTail": "{count} purchased",
@@ -196,7 +195,8 @@
       "servings": "{count, plural, one {# serving} other {# servings}}",
       "statusUpdateFailed": "Failed to update status. Please try again.",
       "clearFailed": "Failed to clear meal. Please try again.",
-      "createEntryFailed": "Failed to add meal slot"
+      "createEntryFailed": "Failed to add meal slot",
+      "entryAlreadyExists": "This slot already has a meal. Refresh the page to see it."
     },
     "noteEditor": {
       "placeholder": "Add a note…",
@@ -589,15 +589,20 @@
   "common": {
     "loading": "Loading…",
     "tryAgain": "Try again",
-    "goHome": "Go home",
     "cancel": "Cancel",
     "save": "Save",
     "remove": "Remove",
+    "removeNamed": "Remove {name}",
     "confirm": "Confirm",
     "clear": "Clear",
+    "close": "Close",
     "back": "Back",
     "nutritionDisclaimer": "Nutrition values are estimates for guidance only and are not medical advice. Consult a healthcare professional for dietary decisions.",
-    "aiUsageCapWarning": "AI usage is at {percentage}% of your monthly cap."
+    "aiUsageCapWarning": "AI usage is at {percentage}% of your monthly cap.",
+    "toaster": {
+      "label": "Notifications",
+      "close": "Close notification"
+    }
   },
   "nav": {
     "skipToContent": "Skip to content",
@@ -903,7 +908,6 @@
       "savedToast": "Settings saved",
       "saveFailed": "Failed to save settings",
       "ownerOnlyNotice": "Only the household owner can change these settings. You can see them here.",
-      "errorGeneric": "An error occurred",
       "basicHeading": "Basic information",
       "nameLabel": "Household name",
       "timezoneLabel": "Timezone",
@@ -942,6 +946,8 @@
       },
       "loadFailed": "Failed to load members",
       "removeFailed": "Failed to remove member",
+      "removeOwnerOnly": "Only the household owner can remove members.",
+      "removeNotAllowed": "This member can't be removed from the household.",
       "removed": "Member removed"
     },
     "portion": {

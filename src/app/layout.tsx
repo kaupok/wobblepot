@@ -101,11 +101,12 @@ export default async function RootLayout({
   // that the `getSession()` it calls is `cache()`-wrapped in `@/lib/session`.
   // So this direct call, `getLocale`'s, and `getMessages()`'s (which re-enters
   // `getLocale` via `src/lib/i18n/request.ts`) share one in-flight auth lookup.
-  const [session, consentDecision, locale, messages] = await Promise.all([
+  const [session, consentDecision, locale, messages, tToaster] = await Promise.all([
     getSession(),
     readConsentCookieServer(),
     getLocale(),
     getMessages(),
+    getTranslations('common.toaster'),
   ])
 
   // Both of these need the resolved session, but not each other — the
@@ -151,7 +152,14 @@ export default async function RootLayout({
                 householdId={householdId}
                 bootstrap={bootstrap}
               >
-                <Toaster richColors closeButton duration={4000} />
+                {/* Sonner's own labels ("Notifications", "Close toast") are English. */}
+                <Toaster
+                  richColors
+                  closeButton
+                  duration={4000}
+                  containerAriaLabel={tToaster('label')}
+                  toastOptions={{ closeButtonAriaLabel: tToaster('close') }}
+                />
                 <Header />
                 <main
                   id="main-content"

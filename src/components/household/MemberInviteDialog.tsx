@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
 import { formatFullDate } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import {
   Dialog,
   DialogContent,
@@ -69,7 +69,13 @@ export function MemberInviteDialog({
       onInviteCreated(newInvite)
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : t('errors.generic'))
+      // The route's `error` is English (HON-914): log it, render catalog copy.
+      // Retrying is the only move for every failure it sends.
+      console.error(
+        '[member-invite] create failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      setError(t('errors.createFailed'))
     },
   })
 

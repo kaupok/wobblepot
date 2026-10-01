@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useTranslations } from 'next-intl'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -18,8 +19,11 @@ interface ConfirmDialogProps {
   onOpenChange: (open: boolean) => void
   title: string
   description: string
+  /** Defaults to `common.confirm`. */
   confirmLabel?: string
+  /** Defaults to `common.cancel`. */
   cancelLabel?: string
+  /** Defaults to `common.loading`. */
   loadingLabel?: string
   onConfirm: () => void
   variant?: 'default' | 'destructive'
@@ -31,13 +35,14 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = 'Continue',
-  cancelLabel = 'Cancel',
-  loadingLabel = 'Loading...',
+  confirmLabel,
+  cancelLabel,
+  loadingLabel,
   onConfirm,
   variant = 'default',
   isLoading = false,
 }: ConfirmDialogProps) {
+  const t = useTranslations('common')
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -46,7 +51,7 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{cancelLabel ?? t('cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault()
@@ -55,7 +60,7 @@ export function ConfirmDialog({
             disabled={isLoading}
             className={cn(variant === 'destructive' && buttonVariants({ variant: 'destructive' }))}
           >
-            {isLoading ? loadingLabel : confirmLabel}
+            {isLoading ? (loadingLabel ?? t('loading')) : (confirmLabel ?? t('confirm'))}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

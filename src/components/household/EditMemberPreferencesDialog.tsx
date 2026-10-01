@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import type { Member } from '@/types/member'
 import { FieldError } from '@/components/FieldError'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 
 const PORTION_PRESETS: Array<{ key: 'small' | 'regular' | 'large' | 'extraLarge'; value: number }> =
   [
@@ -78,7 +78,14 @@ export function EditMemberPreferencesDialog({
       toast.success(t('savedToast'))
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : t('errors.saveFailed'))
+      // The route's `error` is English (HON-914): log it, render catalog copy.
+      // The form already gates who can edit what, so no failure it sends has
+      // a next step beyond retrying.
+      console.error(
+        '[edit-member] save failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      setError(t('errors.saveFailed'))
     },
   })
 

@@ -132,3 +132,16 @@ export const DuplicatePrevented: Story = {
     expect(canvas.getAllByText('gluten')).toHaveLength(1)
   },
 }
+
+// Each remove button's name comes from `common.removeNamed` (HON-914).
+export const RemoveButtonEstonian: Story = {
+  args: {
+    initialValue: ['gluteen'],
+  },
+  globals: { locale: 'et' },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'Eemalda „gluteen"' }))
+    await expect(args.onChange).toHaveBeenCalledWith([])
+  },
+}

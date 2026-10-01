@@ -323,3 +323,23 @@ function parseDurationMs(value: string): number {
   if (trimmed.endsWith('s')) return numeric * 1000
   return Number.NaN
 }
+
+// The close button's screen-reader name comes from `common.close` (HON-914).
+export const CloseButtonEstonian: Story = {
+  args: { open: true },
+  globals: { locale: 'et' },
+  render: (args) => (
+    <Dialog {...args}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Muuda toitu</DialogTitle>
+          <DialogDescription>Uuenda selle toidu nime.</DialogDescription>
+        </DialogHeader>
+      </DialogContent>
+    </Dialog>
+  ),
+  play: async () => {
+    const dialog = await within(document.body).findByRole('dialog')
+    await expect(within(dialog).getByRole('button', { name: 'Sulge' })).toBeInTheDocument()
+  },
+}
