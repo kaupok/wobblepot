@@ -148,6 +148,46 @@ export const Desktop: Story = {
   },
 }
 
+export const DesktopScrolled: Story = {
+  args: { session: authedSession, hasHousehold: true },
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The right pill folds to icons. Scrolled, My recipes and Household close to their icons and the pill narrows around them; hovering or keyboard-focusing a link opens that link’s label only. The folded label stays the link’s accessible name. The play scrolls, measures both label boxes closing, then keyboard-focuses My recipes and measures its label opening while Household’s stays closed.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    const settingsNav = within(banner).getByRole('navigation', { name: 'Settings' })
+    const recipes = within(settingsNav).getByRole('link', { name: 'My recipes' })
+    const household = within(settingsNav).getByRole('link', { name: 'Household' })
+    // The label's clipping box: the link's last child (icon box, label box).
+    const labelBox = (link: HTMLElement) => link.lastElementChild!.getBoundingClientRect().width
+
+    await expect(labelBox(recipes)).toBeGreaterThan(0)
+
+    window.scrollTo(0, 400)
+    await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
+    await waitFor(() => expect(labelBox(recipes)).toBe(0), { timeout: 1500 })
+    await waitFor(() => expect(labelBox(household)).toBe(0), { timeout: 1500 })
+    await expect(recipes).toHaveAccessibleName('My recipes')
+
+    // One at a time: only the focused link's label opens.
+    recipes.focus()
+    await waitFor(() => expect(labelBox(recipes)).toBeGreaterThan(0), { timeout: 1500 })
+    await expect(labelBox(household)).toBe(0)
+
+    recipes.blur()
+    window.scrollTo(0, 0)
+    await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
+  },
+}
+
 export const DesktopLoggedOut: Story = {
   globals: {
     viewport: { value: 'desktop', isRotated: false },

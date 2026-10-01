@@ -57,7 +57,7 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
           <DropdownMenuTrigger asChild>
             {/* `pill`: the hover disc sits inside the header pill's curve. */}
             <Button variant="ghost" size="icon" shape="pill">
-              <User className="h-5 w-5" />
+              <User className="size-5" />
               <span className="sr-only">{t('userMenu')}</span>
             </Button>
           </DropdownMenuTrigger>

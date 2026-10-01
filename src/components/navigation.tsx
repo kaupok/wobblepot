@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { BookOpen, Users, type LucideIcon } from 'lucide-react'
 import { isNavItemActive } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 
@@ -16,15 +17,29 @@ interface NavigationProps {
  * against the muted rest — with `aria-current` carrying the signal to
  * assistive tech. No underline: inside the header's pill it read as a second
  * edge under the curve. Active-route matching is shared with `BottomTabBar`.
+ *
+ * The link is the pill's full height, so the hover zone is the whole band
+ * rather than the line of text.
+ *
+ * With an `icon`, the link folds with the header (`HeaderChrome` sets
+ * `data-scrolled` on its `group`): scrolled, the icon opens in as the label's
+ * box narrows to nothing. Hovering a link, or focusing it from the keyboard,
+ * opens its own label beside its icon (`group/link`), one at a time rather
+ * than the whole group. The label is clipped,
+ * never `invisible` or `hidden`, so it stays the link's accessible name
+ * while folded. Without hover (a tablet) the labels stay folded until focus.
  */
 function NavLink({
   href,
   alsoActiveOn = [],
+  icon: Icon,
   children,
 }: {
   href: string
   /** Other destinations that render this same page at desktop width. */
   alsoActiveOn?: string[]
+  /** Shown in place of the label while the header is scrolled. */
+  icon?: LucideIcon
   children: React.ReactNode
 }) {
   const pathname = usePathname()
@@ -35,11 +50,24 @@ function NavLink({
       href={href}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'text-sm font-medium transition-colors',
+        'group/link flex h-12 items-center text-base font-medium transition-colors',
         isActive ? 'text-foreground' : 'text-muted-foreground hover:text-primary',
       )}
     >
-      {children}
+      {Icon ? (
+        <>
+          <span className="max-w-0 overflow-hidden opacity-0 transition-[max-width,padding,margin,opacity,visibility] duration-300 ease-out group-data-scrolled:max-w-5 group-data-scrolled:opacity-100 motion-reduce:transition-none">
+            <Icon className="size-5" />
+          </span>
+          <span className="max-w-40 overflow-hidden whitespace-nowrap transition-[max-width,padding,margin,opacity,visibility] duration-300 ease-out group-data-scrolled:not-group-hover/link:not-group-focus-visible/link:max-w-0 group-data-scrolled:not-group-hover/link:not-group-focus-visible/link:opacity-0 motion-reduce:transition-none">
+            {/* The gap lives inside the clipped box, so it closes with the
+                label instead of leaving 8px beside a lone icon. */}
+            <span className="group-data-scrolled:pl-2">{children}</span>
+          </span>
+        </>
+      ) : (
+        children
+      )}
     </Link>
   )
 }
@@ -67,7 +95,7 @@ export function NavigationLeft({ isAuthenticated, hasHousehold }: NavigationProp
 
 /**
  * Right navigation - settings/configuration views
- * (My recipes, Household)
+ * (My recipes, Household). Folds to icons once the page scrolls.
  */
 export function NavigationRight({ isAuthenticated, hasHousehold }: NavigationProps) {
   const t = useTranslations('nav.settings')
@@ -76,8 +104,14 @@ export function NavigationRight({ isAuthenticated, hasHousehold }: NavigationPro
 
   return (
     <nav aria-label={t('ariaLabel')} className="hidden items-center gap-6 md:flex">
-      <NavLink href="/recipes">{t('myRecipes')}</NavLink>
-      <NavLink href="/household">{t('household')}</NavLink>
+      {/* Recipes shares the tab bar's icon; Household is people, not the
+          house the phone's Today tab already uses. */}
+      <NavLink href="/recipes" icon={BookOpen}>
+        {t('myRecipes')}
+      </NavLink>
+      <NavLink href="/household" icon={Users}>
+        {t('household')}
+      </NavLink>
     </nav>
   )
 }
