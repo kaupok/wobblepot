@@ -418,6 +418,7 @@ export function describeDraft(draft: Draft & { path: string }, shownPath: string
   lines.push(
     '',
     `To finish: rewrite the household's text as synthetic text with the same shape (a committed case never holds a real user's words), delete sampleInput and sampleOutput, and rename the file to ${slug}.json. Until then it is gitignored and never loaded. See scripts/model-bench/cases/README.md.`,
+    `The draft and the sample file hold a production log line, which the privacy policy keeps for 1 day: delete the sample file now, and finish or delete the draft today.`,
   )
   return lines
 }

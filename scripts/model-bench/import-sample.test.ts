@@ -393,5 +393,6 @@ describe('importSample', () => {
       /delete sampleInput and sampleOutput, and rename the file to et-imported\.json/,
     )
     expect(text).not.toContain('Write the expectation')
+    expect(text).toMatch(/delete the sample file now, and finish or delete the draft today/)
   })
 })

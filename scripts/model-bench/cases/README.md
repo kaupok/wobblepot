@@ -24,12 +24,14 @@ This turns one `[ai-sample]` line from the Vercel logs or `.ai-samples/*.jsonl` 
 
 `fill-empty-slots` samples are refused, because `fillEmptySlots` is out of the benchmark's scope.
 
-A draft is never loaded, and it is gitignored, because it holds a real household's words. To finish one:
+A draft is never loaded, and it is gitignored, because it holds a real household's words. It can include their allergens, which are health data. The privacy policy tells users that runtime logs are kept for 1 day, and the sample file and the draft are copies of a log line. So delete the sample file as soon as the draft is written, and finish or delete the draft the same day. To finish one:
 
 1. Fill in what the command listed as missing, and write the expectation (below).
 2. Rewrite the user's text as synthetic text with the same shape: the request, the constraint or the quirk that made the sample worth keeping. A committed case never holds a real user's words.
 3. Delete `sampleInput` and `sampleOutput`. The strict schema fails a case that still has them.
 4. Rename `<slug>.draft.json` to `<slug>.json` and run `pnpm vitest run scripts/model-bench` to validate it.
+
+Delete a draft you decide not to finish.
 
 A finished draft still has `"source": "ai-sample"`, unless the case reproduces a bug; then it takes the issue ID instead.
 
