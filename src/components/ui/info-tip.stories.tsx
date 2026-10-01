@@ -42,6 +42,8 @@ export const Default: Story = {
     const trigger = within(canvasElement).getByRole('button', { name: LABEL })
 
     // The 16px box reaches 24px through its `::after` (WCAG 2.5.8).
+    // The popover never takes focus, so a screen reader hears the text here.
+    await expect(trigger).toHaveAccessibleDescription(TEXT)
     const after = window.getComputedStyle(trigger, '::after')
     await expect(trigger.getBoundingClientRect().height).toBe(16)
     await expect(after.top).toBe('-4px')
@@ -51,11 +53,12 @@ export const Default: Story = {
     // mounted through its exit animation, so the text alone can't prove open.
     await userEvent.click(trigger)
     await expect(trigger).toHaveAttribute('aria-expanded', 'true')
-    await expect(await body.findByText(TEXT)).toBeInTheDocument()
+    const popover = await body.findByRole('dialog', { name: LABEL })
+    await expect(within(popover).getByText(TEXT)).toBeInTheDocument()
     await expect(trigger).toHaveFocus()
 
     await pressEscape()
-    await waitFor(() => expect(body.queryByText(TEXT)).not.toBeInTheDocument())
+    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument())
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
     await expect(trigger).toHaveFocus()
   },
@@ -75,6 +78,7 @@ export const Small: Story = {
 export const Open: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole('button', { name: LABEL }))
-    await expect(await within(document.body).findByText(TEXT)).toBeInTheDocument()
+    const popover = await within(document.body).findByRole('dialog', { name: LABEL })
+    await expect(within(popover).getByText(TEXT)).toBeInTheDocument()
   },
 }

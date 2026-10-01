@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 // Need the real next-intl provider here so we can verify locale-aware
 // integer formatting (HON-556) against the actual catalogs.
 vi.unmock('next-intl')
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../messages/en.json'
@@ -75,14 +75,17 @@ describe('NutritionSummary', () => {
           components={[{ isVague: true }]}
         />,
       )
-      // The asterisk and the caption line are gone; the button replaces both.
+      // The asterisk and the caption line are gone. The sentence's only
+      // home outside the popover is the button's screen-reader description.
+      const sentence = 'Includes estimates for vague quantities like “to taste”.'
       expect(container.textContent).not.toContain('*')
-      expect(screen.queryByText(/includes estimates/i)).not.toBeInTheDocument()
+      expect(screen.getByText(sentence)).toHaveClass('sr-only')
 
-      fireEvent.click(screen.getByRole('button', { name: 'About these numbers' }))
-      expect(
-        await screen.findByText('Includes estimates for vague quantities like “to taste”.'),
-      ).toBeInTheDocument()
+      const button = screen.getByRole('button', { name: 'About these numbers' })
+      expect(button).toHaveAccessibleDescription(sentence)
+      fireEvent.click(button)
+      const popover = await screen.findByRole('dialog', { name: 'About these numbers' })
+      expect(within(popover).getByText(sentence)).toBeInTheDocument()
     })
 
     it('labels the button and explains in Estonian', async () => {
@@ -90,12 +93,12 @@ describe('NutritionSummary', () => {
         <NutritionSummary nutrition={nutrition} compact components={[{ isVague: true }]} />,
         'et',
       )
-      fireEvent.click(screen.getByRole('button', { name: 'Nende numbrite kohta' }))
-      expect(
-        await screen.findByText(
-          'Sisaldab hinnanguid umbmääraste koguste kohta, nagu „maitse järgi”.',
-        ),
-      ).toBeInTheDocument()
+      const sentence = 'Sisaldab hinnanguid umbmääraste koguste kohta, nagu „maitse järgi”.'
+      const button = screen.getByRole('button', { name: 'Nende numbrite kohta' })
+      expect(button).toHaveAccessibleDescription(sentence)
+      fireEvent.click(button)
+      const popover = await screen.findByRole('dialog', { name: 'Nende numbrite kohta' })
+      expect(within(popover).getByText(sentence)).toBeInTheDocument()
     })
 
     it.each([

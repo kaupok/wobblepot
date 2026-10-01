@@ -31,11 +31,13 @@ const expectNoInfo: Story['play'] = async ({ canvasElement }) => {
   await expect(canvasElement.textContent).not.toContain('*')
 }
 
-// The popover portals to the body, so its text is read from there.
+// The popover portals to the body, so it is found there. Its text is read from
+// the dialog: the button's sr-only description carries the same sentence.
 const expectInfo: Story['play'] = async ({ canvasElement }) => {
   await expect(canvasElement.textContent).not.toContain('*')
   await userEvent.click(within(canvasElement).getByRole('button', { name: LABEL }))
-  await expect(await within(document.body).findByText(EXPLANATION)).toBeInTheDocument()
+  const popover = await within(document.body).findByRole('dialog', { name: LABEL })
+  await expect(within(popover).getByText(EXPLANATION)).toBeInTheDocument()
 }
 
 export const Default: Story = {

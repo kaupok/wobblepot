@@ -26,6 +26,8 @@ interface InfoTipProps {
  *
  * Focus never moves: opening by hover must not pull focus off whatever the user
  * was on, and Escape leaves it on the button rather than sending it elsewhere.
+ * So a screen reader would never reach the portaled content; the button carries
+ * the same text as its description instead, read out when it takes focus.
  */
 export function InfoTip({ label, children, size = 'default' }: InfoTipProps) {
   const [open, setOpen] = React.useState(false)
@@ -33,6 +35,7 @@ export function InfoTip({ label, children, size = 'default' }: InfoTipProps) {
   // always follows a mouse pointerenter, so without this the click would toggle
   // the hover-opened tip straight back shut.
   const openedByHover = React.useRef(false)
+  const descriptionId = React.useId()
 
   return (
     <Popover
@@ -48,6 +51,7 @@ export function InfoTip({ label, children, size = 'default' }: InfoTipProps) {
           size="icon-xs"
           shape="pill"
           aria-label={label}
+          aria-describedby={descriptionId}
           onPointerEnter={(event) => {
             if (event.pointerType === 'mouse' && !open) {
               openedByHover.current = true
@@ -72,6 +76,10 @@ export function InfoTip({ label, children, size = 'default' }: InfoTipProps) {
           <Info className={size === 'sm' ? 'size-3.5' : 'size-4'} aria-hidden />
         </Button>
       </PopoverTrigger>
+      {/* Absolutely positioned, so it takes no gap in the caller's flex row. */}
+      <span id={descriptionId} className="sr-only">
+        {children}
+      </span>
       <PopoverContent
         // Radix gives the content `role="dialog"`, which needs a name.
         aria-label={label}
