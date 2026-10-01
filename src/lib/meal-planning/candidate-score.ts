@@ -165,7 +165,8 @@ export function scoreCandidate(
     score += weights.sameProteinType
   }
 
-  if (currentTimeMinutes && timeMinutes) {
+  // `!= null`, not truthiness: 0 is a real prep time (a no-cook dish), only null is unknown.
+  if (currentTimeMinutes != null && timeMinutes != null) {
     const timeDiff = Math.abs(timeMinutes - currentTimeMinutes)
     if (timeDiff <= SIMILAR_PREP_TIME_MINUTES) {
       score += weights.similarPrepTime
