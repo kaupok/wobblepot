@@ -63,12 +63,13 @@ describe('CookieBanner', () => {
     renderWithConsent({ granted: null, grant: vi.fn(), withdraw: vi.fn() })
     const wrapper = screen.getByRole('region', { name: /cookie consent/i }).parentElement
     expect(wrapper).toHaveClass('bottom-4')
-    expect(wrapper).not.toHaveClass('bottom-20')
+    expect(wrapper).not.toHaveClass('bottom-above-tab-bar')
   })
 
   it('lifts above the tab bar below md when the tab bar renders', () => {
     renderWithConsent({ granted: null, grant: vi.fn(), withdraw: vi.fn() }, { hasTabBar: true })
     const wrapper = screen.getByRole('region', { name: /cookie consent/i }).parentElement
-    expect(wrapper).toHaveClass('bottom-20', 'md:bottom-4')
+    expect(wrapper).toHaveClass('bottom-above-tab-bar', 'md:bottom-4')
+    expect(wrapper).not.toHaveClass('bottom-20')
   })
 })

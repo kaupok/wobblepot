@@ -119,6 +119,9 @@ export const PhoneWithTabBar: Story = {
   args: { hasTabBar: true },
   globals: { viewport: { value: 'mobileIphone', isRotated: false } },
   play: async () => {
+    // `bottom-above-tab-bar` is 5rem plus the safe-area inset. Chromium here
+    // reports a 0 inset, so 80px is that value; on an iPhone PWA it is 114px
+    // (HON-855).
     await assertPhoneLayout(80, 240)
   },
 }
@@ -141,4 +144,15 @@ export const PhoneEstonian: Story = {
 
 export const Desktop: Story = {
   globals: { viewport: { value: 'desktop', isRotated: false } },
+}
+
+/** From `md` there is no tab bar, so `md:bottom-4` must win over `bottom-above-tab-bar`. */
+export const DesktopWithTabBar: Story = {
+  args: { hasTabBar: true },
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  play: async () => {
+    const body = within(document.body)
+    const region = await body.findByRole('region', { name: /cookie consent/i })
+    expect(window.innerHeight - region.getBoundingClientRect().bottom).toBe(16)
+  },
 }
