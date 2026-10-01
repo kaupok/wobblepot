@@ -4657,7 +4657,10 @@ describe('orchestrator.sh', () => {
      * `between` is shell run before every poll after the first, with the poll
      * number in $1 and ORIGIN / CLONE set.
      */
-    function makeFixture(ahead: { scripts?: number; other?: number } = {}, between: string[] = []) {
+    function makeFixture(
+      ahead: { scripts?: number; other?: number; otherScripts?: number } = {},
+      between: string[] = [],
+    ) {
       const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hon861-checkout-'))
       roots.push(root)
       const origin = path.join(root, 'origin')
@@ -4667,6 +4670,7 @@ describe('orchestrator.sh', () => {
       git(root, 'clone', '-q', origin, clone)
       for (let i = 0; i < (ahead.scripts ?? 0); i++) commit(origin, 'scripts/orchestrator.sh')
       for (let i = 0; i < (ahead.other ?? 0); i++) commit(origin, 'docs/README.md')
+      for (let i = 0; i < (ahead.otherScripts ?? 0); i++) commit(origin, 'scripts/pr-review.sh')
       const script = path.join(root, 'between.sh')
       fs.writeFileSync(
         script,
@@ -4693,26 +4697,35 @@ describe('orchestrator.sh', () => {
       )
     const warns = (out: string) => out.match(/WARN +Checkout is behind origin\/main/g) ?? []
 
-    it('reports commits under scripts/ the checkout lacks, once per origin/main SHA', () => {
+    it('reports commits to the code the checkout runs, once per origin/main SHA', () => {
       const { origin, clone } = makeFixture({ scripts: 1, other: 1 })
       const out = check(clone, 3)
       const [first, ...rest] = polls(out)
 
       expect(first).toMatchObject({
         behind: 2,
-        behind_scripts: 1,
+        behind_code: 1,
         origin_main: git(origin, 'rev-parse', 'HEAD').slice(0, 8),
       })
-      for (const later of rest) expect(later).toMatchObject({ behind: 2, behind_scripts: 1 })
+      for (const later of rest) expect(later).toMatchObject({ behind: 2, behind_code: 1 })
       expect(warns(out)).toHaveLength(1)
-      expect(out).toContain('by 2 commit(s), 1 touching scripts/')
+      expect(out).toContain('by 2 commit(s), 1 changing orchestrator.sh or worktree-claude.sh')
+    })
+
+    it('counts worktree-claude.sh, which every worker is spawned through', () => {
+      const { clone, origin } = makeFixture()
+      commit(origin, 'scripts/worktree-claude.sh')
+
+      expect(polls(check(clone, 1))).toEqual([
+        expect.objectContaining({ behind: 1, behind_code: 1 }),
+      ])
     })
 
     it('warns again when origin/main moves to a new SHA', () => {
       const { clone, between } = makeFixture({ scripts: 1 }, ORIGIN_MOVES_AT_POLL_2)
       const out = check(clone, 3, {}, between)
 
-      expect(polls(out).map((p) => p?.behind_scripts)).toEqual([1, 2, 2])
+      expect(polls(out).map((p) => p?.behind_code)).toEqual([1, 2, 2])
       expect(warns(out)).toHaveLength(2)
     })
 
@@ -4738,13 +4751,15 @@ describe('orchestrator.sh', () => {
       const { clone } = makeFixture({ scripts: 1 })
       const out = check(clone, 1, { HARNESS_CHECKOUT_WORKER: '1' })
 
-      expect(polls(out)).toEqual([expect.objectContaining({ behind_scripts: 1 })])
+      expect(polls(out)).toEqual([expect.objectContaining({ behind_code: 1 })])
       expect(warns(out)).toHaveLength(1)
     })
 
     it.each([
       ['up to date', {}],
       ['behind only outside scripts/', { other: 2 }],
+      // Workers run every other script from their own fresh worktree.
+      ['behind only on scripts the checkout does not run', { otherScripts: 2 }],
     ])('stays silent when the checkout is %s', (_label, ahead) => {
       const { clone } = makeFixture(ahead)
       const out = check(clone, 2)
@@ -4766,7 +4781,7 @@ describe('orchestrator.sh', () => {
       const out = check(clone, 3, { HARNESS_CHECKOUT_INTERVAL: '600' }, between)
 
       // Poll 2's new commit is not seen: polls 2 and 3 fall inside the interval.
-      expect(polls(out).map((p) => p?.behind_scripts)).toEqual([1, 1, 1])
+      expect(polls(out).map((p) => p?.behind_code)).toEqual([1, 1, 1])
       expect(warns(out)).toHaveLength(1)
     })
 
@@ -4776,7 +4791,7 @@ describe('orchestrator.sh', () => {
       ])
       const out = check(clone, 2, { HARNESS_CHECKOUT_INTERVAL: '600' }, between)
 
-      expect(polls(out)).toEqual([expect.objectContaining({ behind_scripts: 1 }), null])
+      expect(polls(out)).toEqual([expect.objectContaining({ behind_code: 1 }), null])
     })
 
     describe('checkout_behind_notice', () => {
@@ -4786,17 +4801,17 @@ describe('orchestrator.sh', () => {
       it('says how far behind, and what to do', () => {
         expect(
           notice({
-            checkout: { behind: 3, behind_scripts: 2, origin_main: 'abcd1234', checked_at: 'x' },
+            checkout: { behind: 3, behind_code: 2, origin_main: 'abcd1234', checked_at: 'x' },
           }),
         ).toBe(
-          'Checkout is 3 commit(s) behind origin/main (abcd1234), 2 touching scripts/: pull it, and the orchestrator reloads itself once its running workers finish',
+          'Checkout is 3 commit(s) behind origin/main (abcd1234), 2 changing orchestrator.sh or worktree-claude.sh: pull it, and the orchestrator reloads itself once its running workers finish',
         )
       })
 
       it.each([
         ['a current checkout', { checkout: null }],
         ['a status file from before HON-861', { pid: 1 }],
-        ['no scripts/ commits', { checkout: { behind: 4, behind_scripts: 0 } }],
+        ['no commits to the code the checkout runs', { checkout: { behind: 4, behind_code: 0 } }],
       ])('is empty for %s', (_label, status) => {
         expect(notice(status)).toBe('')
       })

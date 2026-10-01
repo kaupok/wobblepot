@@ -203,9 +203,14 @@ RELOAD_PENDING=false
 # is the origin/main the WARN last named: one WARN per SHA, not one per poll.
 CHECKOUT_CHECK_INTERVAL=600
 CHECKOUT_ORIGIN_REF="refs/orchestrator/origin-main"
+# What runs out of the main checkout: this script, and the worktree-claude.sh it
+# spawns every worker through. Everything else under scripts/ runs from the
+# worker's own worktree, which branches from a fresh origin/main, so a commit
+# there leaves nothing stale to warn about.
+CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh)
 CHECKOUT_LAST_CHECK=0
 CHECKOUT_BEHIND=0
-CHECKOUT_BEHIND_SCRIPTS=0
+CHECKOUT_BEHIND_CODE=0
 CHECKOUT_ORIGIN_SHA=""
 CHECKOUT_CHECKED_AT=""
 CHECKOUT_WARNED_SHA=""
@@ -464,13 +469,13 @@ write_status_file() {
   # null unless the last check found orchestrator code on origin/main that the
   # checkout lacks — `wt status` and `wt watch` read it (checkout_behind_notice).
   local checkout_json="null"
-  if [ "$CHECKOUT_BEHIND_SCRIPTS" -gt 0 ]; then
+  if [ "$CHECKOUT_BEHIND_CODE" -gt 0 ]; then
     checkout_json=$(jq -n \
       --argjson behind "$CHECKOUT_BEHIND" \
-      --argjson behind_scripts "$CHECKOUT_BEHIND_SCRIPTS" \
+      --argjson behind_code "$CHECKOUT_BEHIND_CODE" \
       --arg origin_main "$CHECKOUT_ORIGIN_SHA" \
       --arg checked_at "$CHECKOUT_CHECKED_AT" \
-      '{behind: $behind, behind_scripts: $behind_scripts, origin_main: $origin_main, checked_at: $checked_at}' 2>/dev/null) \
+      '{behind: $behind, behind_code: $behind_code, origin_main: $origin_main, checked_at: $checked_at}' 2>/dev/null) \
       || checkout_json="null"
   fi
 
@@ -2800,7 +2805,7 @@ wait_for_environment() {
   done
 }
 
-# Warn when origin/main has orchestrator code the checkout lacks. The reload
+# Warn when origin/main has orchestrator code the checkout lacks (CHECKOUT_CODE_PATHS). The reload
 # above only sees what is on disk, and the orchestrator and `wt` both run from
 # this checkout, so until someone pulls, a merged fix reaches neither the
 # orchestrator nor the workers it spawns. It never pulls: this checkout is also
@@ -2825,10 +2830,13 @@ check_checkout_behind() {
   now=$(date +%s)
   if [ $(( now - CHECKOUT_LAST_CHECK )) -ge "$CHECKOUT_CHECK_INTERVAL" ]; then
     CHECKOUT_LAST_CHECK=$now
-    # GIT_TERMINAL_PROMPT=0: a credential prompt has nobody to answer it here,
-    # and would hold the poll loop for the full timeout. gc and maintenance off:
+    # No prompts: nobody is there to answer one, and it would hold the poll loop
+    # for the full timeout. GIT_TERMINAL_PROMPT covers HTTPS credentials only;
+    # the remote is SSH, where an unloaded key's passphrase prompt goes to the
+    # operator's terminal unless ssh runs in BatchMode. gc and maintenance off:
     # an auto-gc started from here would run beside the workers' git commands.
-    if run_with_timeout 30 env GIT_TERMINAL_PROMPT=0 git -C "$REPO_ROOT" \
+    if run_with_timeout 30 env GIT_TERMINAL_PROMPT=0 \
+        GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh} -o BatchMode=yes" git -C "$REPO_ROOT" \
         -c gc.auto=0 -c maintenance.auto=false \
         fetch --quiet --no-tags --no-write-fetch-head --refmap= \
         origin "+refs/heads/main:$CHECKOUT_ORIGIN_REF" >/dev/null 2>&1; then
@@ -2838,25 +2846,25 @@ check_checkout_behind() {
     fi
   fi
 
-  local origin_sha="" behind="" behind_scripts=""
+  local origin_sha="" behind="" behind_code=""
   origin_sha=$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$CHECKOUT_ORIGIN_REF" 2>/dev/null) || return 0
   behind=$(git -C "$REPO_ROOT" rev-list --count "HEAD..$CHECKOUT_ORIGIN_REF" 2>/dev/null) || return 0
-  behind_scripts=$(git -C "$REPO_ROOT" rev-list --count "HEAD..$CHECKOUT_ORIGIN_REF" -- scripts/ 2>/dev/null) || return 0
-  [[ "$behind" =~ ^[0-9]+$ ]] && [[ "$behind_scripts" =~ ^[0-9]+$ ]] || return 0
+  behind_code=$(git -C "$REPO_ROOT" rev-list --count "HEAD..$CHECKOUT_ORIGIN_REF" -- "${CHECKOUT_CODE_PATHS[@]}" 2>/dev/null) || return 0
+  [[ "$behind" =~ ^[0-9]+$ ]] && [[ "$behind_code" =~ ^[0-9]+$ ]] || return 0
 
-  if [ "$behind_scripts" -eq 0 ]; then
+  if [ "$behind_code" -eq 0 ]; then
     CHECKOUT_BEHIND=0
-    CHECKOUT_BEHIND_SCRIPTS=0
+    CHECKOUT_BEHIND_CODE=0
     CHECKOUT_ORIGIN_SHA=""
     return 0
   fi
 
   CHECKOUT_BEHIND="$behind"
-  CHECKOUT_BEHIND_SCRIPTS="$behind_scripts"
+  CHECKOUT_BEHIND_CODE="$behind_code"
   CHECKOUT_ORIGIN_SHA="${origin_sha:0:8}"
   if [ "$origin_sha" != "$CHECKOUT_WARNED_SHA" ]; then
     CHECKOUT_WARNED_SHA="$origin_sha"
-    log WARN "Checkout is behind origin/main (${origin_sha:0:8}) by $behind commit(s), $behind_scripts touching scripts/: the orchestrator and its workers run the older code. Pull $REPO_ROOT; the orchestrator reloads itself once its running workers finish"
+    log WARN "Checkout is behind origin/main (${origin_sha:0:8}) by $behind commit(s), $behind_code changing orchestrator.sh or worktree-claude.sh: the orchestrator and its workers run the older code. Pull $REPO_ROOT; the orchestrator reloads itself once its running workers finish"
   fi
   return 0
 }

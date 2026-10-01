@@ -1030,16 +1030,17 @@ wt_detect_phase() {
 }
 
 # The status file's `checkout` object as one line, or nothing while the checkout
-# is current. orchestrator.sh check_checkout_behind fills it on an idle poll when
-# origin/main has commits under scripts/ that the checkout lacks (HON-861).
+# is current. orchestrator.sh check_checkout_behind fills it when origin/main
+# has commits to orchestrator.sh or worktree-claude.sh that the checkout lacks
+# (HON-861).
 # Shared by `wt status` and `wt watch` so the two cannot word it differently.
 #
 # Usage: checkout_behind_notice <status-json>
 checkout_behind_notice() {
   printf '%s' "$1" | jq -r '
     .checkout // empty
-    | select((.behind_scripts // 0) > 0)
-    | "Checkout is \(.behind) commit(s) behind origin/main (\(.origin_main)), \(.behind_scripts) touching scripts/: pull it, and the orchestrator reloads itself once its running workers finish"
+    | select((.behind_code // 0) > 0)
+    | "Checkout is \(.behind) commit(s) behind origin/main (\(.origin_main)), \(.behind_code) changing orchestrator.sh or worktree-claude.sh: pull it, and the orchestrator reloads itself once its running workers finish"
   ' 2>/dev/null || true
 }
 

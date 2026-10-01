@@ -44,7 +44,7 @@ wt stop
 │  If committed main changed on disk:     │
 │  stop claiming, reload once idle        │
 │  Every 10 min: warn if the checkout is  │
-│  behind origin/main under scripts/      │
+│  behind origin/main for its own code    │
 └─────────────────────────────────────────┘
 ```
 
@@ -226,7 +226,7 @@ A merged orchestrator change takes effect once the main checkout the orchestrato
   2. On the first poll with no worker, it logs `INFO Orchestrator code changed on disk (… -> …); reloading in place` and `exec`s the script with its original flags. The PID stays the same, so `orchestrator.pid`, `wt status`, `wt stop` and the console log are unaffected.
 - **State carries over.** The circuit breaker (failure count and pause), the gated and cap-cooldown suppressions, the run's start time and the last behind-`origin/main` WARN are handed to the new image, so a reload changes code, not state. After a reload, an environment check that fails (typically a Linear blip) is retried every poll interval rather than ending the process.
 - **What never reloads.** A change that fails `bash -n` is not loaded: the orchestrator logs one `WARN … fails bash -n` for that version and keeps running (and claiming) on the old code. `--once` runs never reload.
-- **Behind `origin/main`.** Nothing pulls the checkout for you, because it is also your working directory. At most every 10 minutes, whether or not workers are running, the orchestrator fetches `origin/main` into a ref of its own, `refs/orchestrator/origin-main`. It never updates `origin/main` itself, which the workers fetch into the same `.git`. Every poll it counts the commits under `scripts/` that the checkout lacks. When there are any, it logs one `WARN Checkout is behind origin/main …` per new `origin/main` SHA and records the counts in `orchestrator-status.json`. `wt status` prints them, and `wt watch` shows them on its `⚠` line whenever no operational alert needs that line. Because the counts are recomputed every poll, the notice clears on the next poll after you pull. `worktree-claude.sh` runs from the same checkout, so until you pull, the workers the orchestrator spawns also run the old code.
+- **Behind `origin/main`.** Nothing pulls the checkout for you, because it is also your working directory. At most every 10 minutes, whether or not workers are running, the orchestrator fetches `origin/main` into a ref of its own, `refs/orchestrator/origin-main`. It never updates `origin/main` itself, which the workers fetch into the same `.git`. Every poll it counts the commits to `scripts/orchestrator.sh` and `scripts/worktree-claude.sh` that the checkout lacks: those are the only two scripts that run from it, since workers run everything else from their own fresh worktrees. The fetch runs with SSH in `BatchMode`, so an unloaded key fails the fetch instead of prompting. When there are any, it logs one `WARN Checkout is behind origin/main …` per new `origin/main` SHA and records the counts in `orchestrator-status.json`. `wt status` prints them, and `wt watch` shows them on its `⚠` line whenever no operational alert needs that line. Because the counts are recomputed every poll, the notice clears on the next poll after you pull. `worktree-claude.sh` runs from the same checkout, so until you pull, the workers the orchestrator spawns also run the old code.
 
 So after an orchestrator PR merges, `git pull` on `main` in the main checkout is the whole procedure.
 
