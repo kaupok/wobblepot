@@ -12,7 +12,7 @@ import {
   formatAbsoluteDate,
 } from '@/lib/i18n/format-dates'
 import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
-import { getLocale } from '@/lib/i18n/get-locale'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { captureApiError } from '@/lib/errors'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -58,22 +58,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Access denied to this meal plan' }, { status: 403 })
     }
 
+    // One locale for names, quantities and dates, resolved once from the
+    // household already in hand. `getLocale()` would repeat the session and
+    // membership reads, which React `cache()` does not dedupe in a Route
+    // Handler (HON-921).
+    const locale = resolveHouseholdLocale(household)
+
     // Compute shopping list using HON-64 logic
     // Pass timezone to filter out past meals (users don't need ingredients for missed meals)
-    const groupedList = await computeShoppingList(
-      plan.id,
-      household.id,
-      household.timezone,
-      household.locale,
-    )
+    const groupedList = await computeShoppingList(plan.id, household.id, household.timezone, locale)
 
-    // Resolve locale + a date-namespace translator for the relative-date label.
+    // A date-namespace translator for the relative-date label.
     // The reference for "today" is the household's local day, not the server's,
     // so a household in Europe/Tallinn at 23:30 local sees the right label
     // even when the server clock is in a different timezone.
-    const locale = await getLocale()
-    const tDates = await getTranslations('dates')
-    const tVague = await getTranslations('enums.VaguePhrase')
+    const [tDates, tVague] = await Promise.all([
+      getTranslations({ locale, namespace: 'dates' }),
+      getTranslations({ locale, namespace: 'enums.VaguePhrase' }),
+    ])
     const todayInTz = parseLocalDate(getTodayInTimezone(household.timezone))
 
     // Fetch pantry items for purchase tracking

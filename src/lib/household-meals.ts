@@ -8,10 +8,12 @@ import {
 } from '@/lib/i18n/content'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import type { Locale } from '@/lib/i18n/locales'
 
 export interface ListHouseholdMealsOptions {
   householdId: string
-  locale: string | null | undefined
+  /** Resolved household locale (`resolveHouseholdLocale`). */
+  locale: Locale
   search?: string | null
   cursor?: string | null
   limit?: number

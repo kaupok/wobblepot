@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { IngredientCategory, Unit } from '@/generated/prisma/enums'
 import { getStartOfTodayInTimezone, toDateString } from './dates'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
-import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 import { getEffectiveServings } from './servings'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
@@ -148,7 +148,7 @@ export async function computeShoppingList(
   planId: string,
   householdId: string,
   householdTimezone: string,
-  locale: string = DEFAULT_LOCALE,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<GroupedShoppingList[]> {
   // Get start of today in household timezone to filter out past meals
   const startOfToday = getStartOfTodayInTimezone(householdTimezone)
@@ -331,14 +331,14 @@ export interface RollingWindowResult {
  * @param householdId - The household ID
  * @param days - Number of days in the window (7 or 14)
  * @param householdTimezone - IANA timezone string for determining "today"
- * @param locale - Household locale; ingredient names are translated when non-default
+ * @param locale - Resolved household locale (`resolveHouseholdLocale`); ingredient names are translated when non-default
  * @returns Grouped shopping list with window metadata
  */
 export async function computeRollingWindowShoppingList(
   householdId: string,
   days: number,
   householdTimezone: string,
-  locale: string = DEFAULT_LOCALE,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<RollingWindowResult> {
   // Get start of today in household timezone
   const startOfToday = getStartOfTodayInTimezone(householdTimezone)

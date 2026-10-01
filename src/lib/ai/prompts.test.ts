@@ -473,9 +473,10 @@ describe('localeInstruction', () => {
     expect(localeInstruction('et')).toContain('LOCALE:')
   })
 
-  it('falls back to the raw locale tag for unknown locales', () => {
-    expect(localeInstruction('fi')).toContain('fi')
-    expect(localeInstruction('fi')).toContain('LOCALE:')
+  it('returns empty for a locale outside KNOWN_LOCALES', () => {
+    // A locale rolled back out of KNOWN_LOCALES gets English output (HON-921).
+    expect(localeInstruction('fi')).toBe('')
+    expect(localeInstruction('xx')).toBe('')
   })
 })
 

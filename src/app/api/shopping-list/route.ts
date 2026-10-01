@@ -3,7 +3,6 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
-import { getLocale } from '@/lib/i18n/get-locale'
 import { captureApiError } from '@/lib/errors'
 
 /**
@@ -44,8 +43,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const locale = await getLocale()
-    const response = await loadShoppingList(household, { days, locale })
+    const response = await loadShoppingList(household, { days })
     return NextResponse.json(response, { status: 200 })
   } catch (error) {
     captureApiError(error, { route: '/api/shopping-list', userId: session.user.id })

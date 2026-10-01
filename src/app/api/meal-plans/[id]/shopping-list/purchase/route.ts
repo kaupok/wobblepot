@@ -7,7 +7,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
-import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 const purchaseSchema = z
   .object({
@@ -130,7 +130,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // The client inserts these rows straight into the pantry list, so they
     // carry the household's name for each ingredient, as `loadPantry` does
     // (HON-913).
-    const locale = resolveLocale({ householdLocale: household.locale })
+    const locale = resolveHouseholdLocale(household)
 
     // Upsert all items in a transaction
     const upsertedByIngredientId = await prisma.$transaction(async (tx) => {

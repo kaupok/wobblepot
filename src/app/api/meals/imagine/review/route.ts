@@ -17,6 +17,7 @@ import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { withRequestId } from '@/lib/request-id'
 // This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
 import { REVIEW_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 /**
  * Bounds on what one review may carry into the prompt: the ingredient count and
@@ -61,6 +62,9 @@ async function handlePOST(request: Request) {
   }
 
   const { household } = membership
+  // Resolved once: a locale rolled back out of KNOWN_LOCALES reads as English
+  // for content and the AI prompt alike (HON-921).
+  const locale = resolveHouseholdLocale(household)
 
   // A 429 here degrades silently, like the budget timeout below: both callers
   // go through `reviewImaginedMeal`, which keeps the unreviewed meal and reports
@@ -122,7 +126,7 @@ async function handlePOST(request: Request) {
       mealName,
       servings,
       ingredients as ReviewIngredient[],
-      household.locale,
+      locale,
       (usage) =>
         recordAiUsage({ householdId: household.id, feature: 'meal_review_quantities', ...usage }),
       AbortSignal.timeout(REVIEW_AI_BUDGET_MS),

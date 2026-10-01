@@ -12,6 +12,7 @@ import {
   translateMeal,
 } from '@/lib/i18n/content'
 import { captureApiError } from '@/lib/errors'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Auth check
@@ -31,6 +32,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const { household } = membership
+  // Resolved: a locale rolled back out of KNOWN_LOCALES reads as English (HON-921).
+  const locale = resolveHouseholdLocale(household)
 
   // Extract plan ID from params
   const { id } = await params
@@ -47,11 +50,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 components: {
                   include: {
                     ingredient: {
-                      include: ingredientTranslationsInclude(household.locale),
+                      include: ingredientTranslationsInclude(locale),
                     },
                   },
                 },
-                ...mealTranslationsInclude(household.locale),
+                ...mealTranslationsInclude(locale),
               },
             },
           },
@@ -81,7 +84,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         servingOverride: entry.servingOverride,
         meal: entry.meal
           ? (() => {
-              const translatedMeal = translateMeal(entry.meal, household.locale)
+              const translatedMeal = translateMeal(entry.meal, locale)
               return {
                 id: translatedMeal.id,
                 name: translatedMeal.name,
@@ -91,10 +94,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 primaryProteinType: translatedMeal.primaryProteinType,
                 nutrition: computeMealNutrition(entry.meal.components),
                 components: entry.meal.components.map((comp) => {
-                  const translatedIngredient = translateIngredient(
-                    comp.ingredient,
-                    household.locale,
-                  )
+                  const translatedIngredient = translateIngredient(comp.ingredient, locale)
                   return {
                     ingredientId: comp.ingredientId,
                     quantityPerServing: comp.quantityPerServing,

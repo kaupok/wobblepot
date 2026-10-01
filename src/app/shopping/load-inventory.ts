@@ -5,7 +5,6 @@ import type { ComponentProps } from 'react'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { getLocale } from '@/lib/i18n/get-locale'
 import { loadPantry, type PantryResult } from '@/lib/meal-planning/load-pantry'
 import { loadShoppingList, type ShoppingListResult } from '@/lib/shopping/load-shopping-list'
 import type { InventoryPage } from '@/components/inventory/InventoryPage'
@@ -47,7 +46,6 @@ export async function loadInventory(daysParam: string | undefined): Promise<Inve
   const daysFromUrl = daysParam === '7' || daysParam === '14'
 
   const { household } = membership
-  const locale = await getLocale()
 
   // Each loader settles on its own, so one failing does not take the other
   // section down with it (below).
@@ -61,17 +59,15 @@ export async function loadInventory(daysParam: string | undefined): Promise<Inve
       })
       return null
     }),
-    loadShoppingList(household, { days, locale }).catch(
-      (error: unknown): ShoppingListResult | null => {
-        captureApiError(error, {
-          route: '/shopping',
-          section: 'shopping-list',
-          userId: session.user.id,
-          householdId: household.id,
-        })
-        return null
-      },
-    ),
+    loadShoppingList(household, { days }).catch((error: unknown): ShoppingListResult | null => {
+      captureApiError(error, {
+        route: '/shopping',
+        section: 'shopping-list',
+        userId: session.user.id,
+        householdId: household.id,
+      })
+      return null
+    }),
   ])
 
   // A failed pantry load must not read as an empty pantry: on a phone `/pantry`

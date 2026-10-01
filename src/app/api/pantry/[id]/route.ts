@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
-import { resolveLocale } from '@/lib/i18n/resolve-locale'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 // `quantity` floors at 0: `0` is a valid tracked state ("none left, still
 // tracked"), `null` means "have some, amount unknown" (the deduction path
@@ -88,7 +88,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     // The client ignores the name today, but the response matches what
     // `loadPantry` returns for the same row (HON-913).
-    const locale = resolveLocale({ householdLocale: membership.household.locale })
+    const locale = resolveHouseholdLocale(membership.household)
 
     const updated = await prisma.pantryItem.update({
       where: { id },

@@ -17,6 +17,7 @@ import { clearMealImage } from '@/lib/meal-images/invalidation'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { gramsOf } from '@/lib/meal-images/prompt'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { duplicateComponentIds, mealComponentsSchema } from '@/lib/meal-planning/components-schema'
 
 const updateMealSchema = z.object({
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    const householdLocale = membership.household.locale
+    const householdLocale = resolveHouseholdLocale(membership.household)
     const meal = await prisma.meal.findFirst({
       where: {
         id,

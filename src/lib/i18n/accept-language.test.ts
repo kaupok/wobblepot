@@ -32,6 +32,11 @@ describe('parseAcceptLanguage', () => {
     expect(parseAcceptLanguage('*')).toEqual([])
   })
 
+  it('drops q=0 entries, which are refusals rather than low preferences', () => {
+    expect(parseAcceptLanguage('fr, et;q=0')).toEqual([{ locale: 'fr', q: 1.0 }])
+    expect(parseAcceptLanguage('et;q=0.000, en;q=-1')).toEqual([])
+  })
+
   it('tolerates malformed q values', () => {
     const result = parseAcceptLanguage('et;q=garbage')
     expect(result).toEqual([{ locale: 'et', q: 1.0 }])
@@ -39,6 +44,11 @@ describe('parseAcceptLanguage', () => {
 })
 
 describe('matchAcceptLanguage', () => {
+  it('does not match a locale the header refuses with q=0', () => {
+    expect(matchAcceptLanguage('fr, et;q=0')).toBeNull()
+    expect(matchAcceptLanguage('et;q=0, en;q=0.5')).toBe('en')
+  })
+
   it('returns null when no candidates match', () => {
     expect(matchAcceptLanguage('fr,de;q=0.5')).toBeNull()
   })

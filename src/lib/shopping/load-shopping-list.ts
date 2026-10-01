@@ -9,7 +9,7 @@ import {
   formatAbsoluteDate,
 } from '@/lib/i18n/format-dates'
 import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
-import type { Locale } from '@/lib/i18n/locales'
+import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 export interface ShoppingListHousehold {
   id: string
@@ -24,17 +24,20 @@ export type ShoppingListResult = Awaited<ReturnType<typeof loadShoppingList>>
  * the shape `GET /api/shopping-list` returns. The route, `/shopping`, `/pantry`
  * and the Today page all read through this (HON-789).
  *
- * `locale` is the request locale (`getLocale()`), which formats quantities and
- * dates; the caller resolves it so this function stays free of request state
- * beyond the `dates` translator.
+ * Item names, quantities and dates all follow the household's resolved locale,
+ * so one response cannot mix two languages when the household's stored locale
+ * and the request locale disagree (a locale rolled back out of `KNOWN_LOCALES`,
+ * HON-921). The `dates` and `VaguePhrase` translators take that locale
+ * explicitly, so nothing here re-reads the session.
  */
 export async function loadShoppingList(
   household: ShoppingListHousehold,
-  { days, locale }: { days: 7 | 14; locale: Locale },
+  { days }: { days: 7 | 14 },
 ) {
+  const locale = resolveHouseholdLocale(household)
   // Compute rolling window shopping list and fetch custom items in parallel
   const [result, pantryItems, customItems, tDates, tVague] = await Promise.all([
-    computeRollingWindowShoppingList(household.id, days, household.timezone, household.locale),
+    computeRollingWindowShoppingList(household.id, days, household.timezone, locale),
     prisma.pantryItem.findMany({
       where: { householdId: household.id },
       select: {

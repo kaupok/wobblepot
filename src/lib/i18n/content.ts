@@ -1,4 +1,14 @@
-import { isDefaultLocale } from './locales'
+import { isDefaultLocale, isKnownLocale } from './locales'
+
+/**
+ * Whether `locale` gets the translation overlay: a known, non-default locale.
+ * An unknown tag (a locale rolled back out of `KNOWN_LOCALES`) reads as the
+ * default, so a caller that skipped `resolveHouseholdLocale` still renders
+ * English rather than the rolled-back locale's rows (HON-921).
+ */
+function needsTranslation(locale: string | null | undefined): locale is string {
+  return !isDefaultLocale(locale) && isKnownLocale(locale as string)
+}
 
 type IngredientTranslationFields = {
   locale: string
@@ -60,10 +70,10 @@ type MealTranslationsInclude = {
 export function ingredientTranslationsInclude(
   locale: string | null | undefined,
 ): IngredientTranslationsInclude | Record<string, never> {
-  if (isDefaultLocale(locale)) return {}
+  if (!needsTranslation(locale)) return {}
   return {
     translations: {
-      where: { locale: locale as string },
+      where: { locale },
       take: 1,
       select: { locale: true, name: true },
     },
@@ -76,10 +86,10 @@ export function ingredientTranslationsInclude(
 export function mealTranslationsInclude(
   locale: string | null | undefined,
 ): MealTranslationsInclude | Record<string, never> {
-  if (isDefaultLocale(locale)) return {}
+  if (!needsTranslation(locale)) return {}
   return {
     translations: {
-      where: { locale: locale as string },
+      where: { locale },
       take: 1,
       select: {
         locale: true,
@@ -93,14 +103,14 @@ export function mealTranslationsInclude(
 
 /**
  * Coalesce a translation onto an ingredient. Returns the same shape with
- * `name` overridden when a matching translation exists. English (default)
- * passes through unchanged.
+ * `name` overridden when a matching translation exists. English (default) and
+ * unknown locales pass through unchanged.
  */
 export function translateIngredient<T extends { name: string }>(
   ingredient: WithIngredientTranslations<T>,
   locale: string | null | undefined,
 ): T {
-  if (isDefaultLocale(locale)) return ingredient
+  if (!needsTranslation(locale)) return ingredient
   const translation = ingredient.translations?.find((t) => t.locale === locale)
   if (!translation) return ingredient
   return { ...ingredient, name: translation.name }
@@ -110,7 +120,7 @@ export function translateIngredients<T extends { name: string }>(
   ingredients: WithIngredientTranslations<T>[],
   locale: string | null | undefined,
 ): T[] {
-  if (isDefaultLocale(locale)) return ingredients
+  if (!needsTranslation(locale)) return ingredients
   return ingredients.map((i) => translateIngredient(i, locale))
 }
 
@@ -122,7 +132,7 @@ export function translateIngredients<T extends { name: string }>(
 export function translateMeal<
   T extends { name: string; description?: string | null; preparationNotes?: string | null },
 >(meal: WithMealTranslations<T>, locale: string | null | undefined): T {
-  if (isDefaultLocale(locale)) return meal
+  if (!needsTranslation(locale)) return meal
   const translation = meal.translations?.find((t) => t.locale === locale)
   if (!translation) return meal
   return {
@@ -136,7 +146,7 @@ export function translateMeal<
 export function translateMeals<
   T extends { name: string; description?: string | null; preparationNotes?: string | null },
 >(meals: WithMealTranslations<T>[], locale: string | null | undefined): T[] {
-  if (isDefaultLocale(locale)) return meals
+  if (!needsTranslation(locale)) return meals
   return meals.map((m) => translateMeal(m, locale))
 }
 

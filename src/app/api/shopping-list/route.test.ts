@@ -36,6 +36,8 @@ vi.mock('@/lib/meal-planning/shopping-list', () => ({
   computeRollingWindowShoppingList: vi.fn(),
 }))
 
+// Mocked only to prove the route never calls it: the locale comes from the
+// household already in hand (HON-921).
 vi.mock('@/lib/i18n/get-locale', () => ({
   getLocale: vi.fn(() => Promise.resolve('en')),
 }))
@@ -98,8 +100,6 @@ describe('GET /api/shopping-list', () => {
     vi.clearAllMocks()
     // Default: no custom items
     mockCustomItemsFindMany.mockResolvedValue([])
-    // Default locale (per-test overrides allowed)
-    mockGetLocale.mockResolvedValue('en')
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -476,19 +476,47 @@ describe('GET /api/shopping-list', () => {
     const enData = await enResponse.json()
     expect(enData.groups[0].items[0].displayQuantity).toBe('1.5kg')
 
-    // et locale → comma decimal
-    mockGetLocale.mockResolvedValue('et')
+    // et household → comma decimal
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'et' },
+    } as never)
     mockComputeShoppingList.mockResolvedValue(buildResult())
     const etResponse = await GET(createMockRequest())
     const etData = await etResponse.json()
     expect(etData.groups[0].items[0].displayQuantity).toBe('1,5kg')
+    expect(mockComputeShoppingList).toHaveBeenLastCalledWith(
+      'household-123',
+      7,
+      'Europe/Tallinn',
+      'et',
+    )
+
+    // A locale rolled back out of KNOWN_LOCALES → English names and quantities,
+    // resolved once from the household, never from the request (HON-921)
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'xx' },
+    } as never)
+    mockComputeShoppingList.mockResolvedValue(buildResult())
+    const rolledBackData = await (await GET(createMockRequest())).json()
+    expect(rolledBackData.groups[0].items[0].displayQuantity).toBe('1.5kg')
+    expect(mockComputeShoppingList).toHaveBeenLastCalledWith(
+      'household-123',
+      7,
+      'Europe/Tallinn',
+      'en',
+    )
+    expect(mockGetLocale).not.toHaveBeenCalled()
   })
 
-  it('renders a vague phrase in the request locale (HON-917)', async () => {
+  it("renders a vague phrase in the household's locale (HON-917)", async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'et' },
+    } as never)
     mockPantryFindMany.mockResolvedValue([])
-    mockGetLocale.mockResolvedValue('et')
     mockComputeShoppingList.mockResolvedValue({
       groups: [
         {

@@ -28,10 +28,6 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-vi.mock('@/lib/i18n/get-locale', () => ({
-  getLocale: vi.fn(async () => 'en'),
-}))
-
 vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
 
@@ -104,7 +100,7 @@ describe('loadInventory', () => {
     const data = await loadInventory('14')
 
     expect(mockLoadPantry).toHaveBeenCalledWith(household, { days: 14 })
-    expect(mockLoadShoppingList).toHaveBeenCalledWith(household, { days: 14, locale: 'en' })
+    expect(mockLoadShoppingList).toHaveBeenCalledWith(household, { days: 14 })
     expect(data.windowDays).toBe(14)
     expect(data.windowDaysFromUrl).toBe(true)
   })

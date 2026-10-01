@@ -69,7 +69,7 @@ function renderForm(
   overrides: Partial<Parameters<typeof HouseholdSettingsForm>[0]> = {},
   locale: 'en' | 'et' = 'en',
 ) {
-  const { wrapper: QueryWrapper } = createQueryWrapper()
+  const { wrapper: QueryWrapper, queryClient } = createQueryWrapper()
   const props = {
     household: defaultHousehold,
     preferences: defaultPreferences,
@@ -83,7 +83,7 @@ function renderForm(
       </NextIntlClientProvider>
     )
   }
-  return render(<HouseholdSettingsForm {...props} />, { wrapper: Wrapper })
+  return { ...render(<HouseholdSettingsForm {...props} />, { wrapper: Wrapper }), queryClient }
 }
 
 describe('HouseholdSettingsForm', () => {
@@ -426,6 +426,34 @@ describe('HouseholdSettingsForm', () => {
           }),
         )
       })
+    })
+
+    it('invalidates the whole query cache before refreshing when the locale changes', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+      const { queryClient } = renderForm()
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+
+      await userEvent.click(screen.getByRole('combobox', { name: /language/i }))
+      await userEvent.click(screen.getByRole('option', { name: 'Estonian' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+
+      await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
+      // No filter: every cached entity carries locale-dependent names.
+      expect(invalidate).toHaveBeenCalledWith()
+      expect(invalidate.mock.invocationCallOrder[0]).toBeLessThan(
+        mockRouterRefresh.mock.invocationCallOrder[0]!,
+      )
+    })
+
+    it('leaves the query cache alone when the locale is unchanged', async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+      const { queryClient } = renderForm()
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+
+      await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
+      expect(invalidate).not.toHaveBeenCalled()
     })
 
     it('disables timezone select for non-owners', () => {
