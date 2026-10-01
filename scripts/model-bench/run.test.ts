@@ -605,8 +605,8 @@ describe('main', () => {
 
       const json = JSON.parse(readFileSync(join(outDir, `${GOLDEN_STEM}.json`), 'utf8'))
       expect(json.plannedCalls).toBe(4)
-      // Both golden runs; the judge pairs only run 1, the one both sides have.
-      expect(json.calls.filter((c: { role: string }) => c.role === 'baseline')).toHaveLength(8)
+      // The golden has 2 runs; only run 1, the one the candidate made, is replayed.
+      expect(json.calls.filter((c: { role: string }) => c.role === 'baseline')).toHaveLength(4)
       expect(json.golden.map((g: { task: string }) => g.task)).toEqual(['imagine', 'tips'])
 
       // Nothing the judging session reads says which side is the golden.
@@ -702,6 +702,31 @@ describe('main', () => {
       expect(text).toContain('runs: 2')
       expect(text).toContain('Total calls: 8')
       expect(text).toMatch(/ {2}claude-sonnet-5: 8 calls/)
+    })
+
+    it('replays only as many golden runs as the candidate makes', async () => {
+      const { factory } = mockModelFactory(respond)
+      expect(
+        await main(['--record', '--task', 'tips', '--runs', '3'], {
+          ...deps,
+          modelFactory: factory,
+        }),
+      ).toBe(0)
+
+      const code = await main([...COMPARE, '--task', 'tips', '--runs', '2'], {
+        ...deps,
+        modelFactory: factory,
+      })
+      expect(code).toBe(0)
+      const json = JSON.parse(readFileSync(join(outDir, `${GOLDEN_STEM}.json`), 'utf8'))
+      const runsBySide = (role: string) =>
+        json.calls
+          .filter((c: { role: string }) => c.role === role)
+          .map((c: { run: number }) => c.run)
+          .sort()
+      // 2 tips cases × runs 1 and 2 on both sides; the golden's run 3 is left out.
+      expect(runsBySide('baseline')).toEqual([1, 1, 2, 2])
+      expect(runsBySide('candidate')).toEqual([1, 1, 2, 2])
     })
 
     it('refuses more candidate runs than the golden has, which the judge could never pair', async () => {

@@ -656,7 +656,9 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     )
     result = await runAgainstGolden({
       ...common,
-      baselineCalls: goldenBaselineCalls(goldens, cases),
+      // Only the runs the candidate makes: a golden run with no candidate run
+      // beside it would widen the baseline's range and skew its counts.
+      baselineCalls: goldenBaselineCalls(goldens, cases).filter((r) => r.run <= runs),
       candidate: args.candidate,
     })
   } else {
