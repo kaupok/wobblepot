@@ -76,3 +76,22 @@ describe('MealDetail availability', () => {
     expect(missingRows()).toHaveLength(0)
   })
 })
+
+describe('MealDetail prep time', () => {
+  it('renders a zero-minute meal exactly like one with no prep time, with no stray "0" (HON-711)', () => {
+    const renderWith = (timeMinutes: number | null) =>
+      render(
+        <MealDetail
+          meal={{ ...meal, timeMinutes }}
+          householdSize={4}
+          pantryIngredients={[]}
+          onToggleAvailability={vi.fn()}
+        />,
+      )
+    const zero = renderWith(0)
+    const zeroHtml = zero.container.innerHTML
+    zero.unmount()
+
+    expect(zeroHtml).toBe(renderWith(null).container.innerHTML)
+  })
+})

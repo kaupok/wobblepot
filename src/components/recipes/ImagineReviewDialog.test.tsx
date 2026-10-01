@@ -107,6 +107,27 @@ describe('ImagineReviewDialog locale formatting', () => {
   // user interaction here would only re-test the same code path.
 })
 
+describe('ImagineReviewDialog prep time', () => {
+  it('renders a zero-minute meal exactly like one with no prep time, with no stray "0" (HON-711)', () => {
+    const renderWith = (timeMinutes: number | null) =>
+      renderInLocale(
+        <ImagineReviewDialog
+          open
+          meal={buildMeal({ timeMinutes })}
+          onOpenChange={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+        'en',
+      )
+    const zero = renderWith(0)
+    const zeroText = screen.getByRole('dialog').textContent
+    zero.unmount()
+    renderWith(null)
+
+    expect(zeroText).toBe(screen.getByRole('dialog').textContent)
+  })
+})
+
 describe('ImagineReviewDialog save-blocked reason', () => {
   const [matched] = buildMeal().prefilledIngredients as [PrefilledIngredient]
   const unmatched: PrefilledIngredient = {

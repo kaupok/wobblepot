@@ -137,7 +137,8 @@ export function MealDetail({
 
       {/* Time + Kid-friendly badge */}
       <div className="flex flex-wrap items-center gap-1.5">
-        {meal.timeMinutes && (
+        {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711). */}
+        {meal.timeMinutes != null && meal.timeMinutes > 0 && (
           <span className="text-muted-foreground text-xs">
             {tDetail('timeMinutes', { count: meal.timeMinutes })}
           </span>

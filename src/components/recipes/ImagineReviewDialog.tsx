@@ -347,7 +347,8 @@ export function ImagineReviewDialog({
 
           {/* Meta badges */}
           <div className="flex flex-wrap items-center gap-2">
-            {meal.timeMinutes && (
+            {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711). */}
+            {meal.timeMinutes != null && meal.timeMinutes > 0 && (
               <Badge variant="outline">
                 <Clock className="size-3.5" />
                 {tDetail('timeMinutes', { count: meal.timeMinutes })}
