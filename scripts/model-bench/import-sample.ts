@@ -66,9 +66,9 @@ const PlanSampleInput = z.object({
   candidatePoolSizes: z.object({ fish: z.number(), legume: z.number(), any: z.number() }),
 })
 
-/** `imagine-meal.ts`, after the first call. */
+/** `imagine-meal.ts`, after the first call. `prompt` is null for a photos-only request. */
 const ImagineSampleInput = z.object({
-  prompt: z.string(),
+  prompt: z.string().nullable(),
   hasImages: z.boolean().optional(),
   dietaryType: z.string().nullable(),
   allergens: z.array(z.string()),
@@ -264,7 +264,7 @@ function planInput(input: z.infer<typeof PlanSampleInput>, locale: string): Buil
 function imagineInput(input: z.infer<typeof ImagineSampleInput>, locale: string): BuiltInput {
   return {
     fields: {
-      prompt: input.prompt,
+      prompt: input.prompt ?? '',
       household: {
         allergens: input.allergens,
         dietaryType: input.dietaryType,
@@ -276,16 +276,22 @@ function imagineInput(input: z.infer<typeof ImagineSampleInput>, locale: string)
       forbiddenKeywords: [],
       allowedQualifiers: [],
     },
-    missingInput: [],
+    missingInput:
+      input.prompt === null
+        ? [
+            'prompt: the user sent only photos, which the benchmark does not run; write the request they stood for',
+          ]
+        : [],
     expectations: [
       'forbiddenKeywords: the excluded ingredients, and any food the shared lists in src/lib/ai/forbidden-foods.ts lack; delete the field if there are none',
       'allowedQualifiers: swaps that excuse one of those keywords ("vegan parmesan"); delete the field if there are none',
     ],
-    notes: input.hasImages
-      ? [
-          'The user also sent images, which the benchmark does not run: check that the prompt alone still says what they asked for.',
-        ]
-      : [],
+    notes:
+      input.hasImages && input.prompt !== null
+        ? [
+            'The user also sent images, which the benchmark does not run: check that the prompt alone still says what they asked for.',
+          ]
+        : [],
   }
 }
 

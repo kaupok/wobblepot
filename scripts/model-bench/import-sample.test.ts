@@ -218,6 +218,17 @@ describe('draftFromSample', () => {
     expect(draftFromSample(withImages).notes.join(' ')).toMatch(/images/)
   })
 
+  it('takes a photos-only imagine sample, and lists its prompt as missing', () => {
+    const photosOnly = {
+      ...sample('imagine-meal'),
+      input: { ...SAMPLES['imagine-meal'].input, prompt: null, hasImages: true },
+    }
+    const { draft, missingInput, notes } = draftFromSample(photosOnly)
+    expect(draft.prompt).toBe('')
+    expect(missingInput).toEqual([expect.stringMatching(/^prompt: the user sent only photos/)])
+    expect(notes).toEqual([])
+  })
+
   it('maps a recipe sample to its preview text, and says it was truncated', () => {
     const { task, draft, missingInput } = draftFromSample(sample('parse-recipe'))
     expect(task).toBe('recipe')
