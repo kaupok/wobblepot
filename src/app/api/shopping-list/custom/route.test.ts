@@ -241,6 +241,23 @@ describe('POST /api/shopping-list/custom', () => {
     })
   })
 
+  it("scopes the fuzzy match to global and this household's ingredients", async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue(null)
+    mockCreate.mockResolvedValue({ id: 'custom-new', ingredient: null } as never)
+
+    await POST(createRequest({ name: 'Salt' }))
+
+    // A tagged-template call: the SQL fragments, then the interpolated values.
+    const [strings, ...values] = mockQueryRaw.mock.calls[0] as unknown as [
+      TemplateStringsArray,
+      ...unknown[],
+    ]
+    expect(strings.join('?')).toMatch(/\("householdId" IS NULL OR "householdId" = \?\)/)
+    expect(values).toContain('household-123')
+  })
+
   it('swallows fuzzy search failure and creates item without match', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

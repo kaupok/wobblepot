@@ -63,6 +63,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { checked, ingredientId } = parsed.data
 
+    // A new link must point at a global ingredient or this household's own.
+    // Another household's reads as not found, so its id is not revealed (HON-889).
+    if (ingredientId) {
+      const ingredient = await prisma.ingredient.findFirst({
+        where: {
+          id: ingredientId,
+          OR: [{ householdId: null }, { householdId: household.id }],
+        },
+        select: { id: true },
+      })
+
+      if (!ingredient) {
+        return NextResponse.json({ error: 'Ingredient not found' }, { status: 400 })
+      }
+    }
+
     // Build update data
     const updateData: { checked?: boolean; ingredientId?: string | null } = {}
     if (checked !== undefined) updateData.checked = checked

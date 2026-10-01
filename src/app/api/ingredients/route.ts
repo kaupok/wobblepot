@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
 
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 50
@@ -53,6 +54,12 @@ export async function GET(request: NextRequest) {
       ? Prisma.sql`AND category = ${category}::"IngredientCategory"`
       : Prisma.empty
 
+    // Offer global ingredients and the caller's own household's, never another
+    // household's: the write routes reject those (HON-889). A user with no
+    // household gets globals only, since `= NULL` matches nothing.
+    const membership = await getHouseholdMembership(session.user.id)
+    const householdId = membership?.householdId ?? null
+
     const ingredients = await prisma.$queryRaw<IngredientSearchResult[]>`
       SELECT
         id,
@@ -67,6 +74,7 @@ export async function GET(request: NextRequest) {
         similarity(name, ${search}) as similarity
       FROM "ingredient"
       WHERE similarity(name, ${search}) >= ${SIMILARITY_THRESHOLD}
+        AND ("householdId" IS NULL OR "householdId" = ${householdId}::text)
       ${categoryFilter}
       ORDER BY similarity DESC, name ASC
       LIMIT ${limit}

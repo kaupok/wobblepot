@@ -81,7 +81,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Item already exists', existing }, { status: 409 })
   }
 
-  // Auto-match against ingredient database
+  // Auto-match against ingredient database: global ingredients and this
+  // household's own, never another household's (HON-889)
   let matchedIngredientId: string | null = null
 
   try {
@@ -95,6 +96,7 @@ export async function POST(request: Request) {
         similarity(name, ${name}) as similarity
       FROM "ingredient"
       WHERE similarity(name, ${name}) >= ${AUTO_MATCH_THRESHOLD}
+        AND ("householdId" IS NULL OR "householdId" = ${household.id})
       ORDER BY similarity DESC
       LIMIT 1
     `

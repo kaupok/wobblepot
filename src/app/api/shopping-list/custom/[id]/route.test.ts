@@ -27,6 +27,9 @@ vi.mock('@/lib/prisma', () => ({
     pantryItem: {
       upsert: vi.fn(),
     },
+    ingredient: {
+      findFirst: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }))
@@ -40,6 +43,7 @@ const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockFindUnique = vi.mocked(prisma.customShoppingItem.findUnique)
 const mockDelete = vi.mocked(prisma.customShoppingItem.delete)
 const mockTransaction = vi.mocked(prisma.$transaction)
+const mockIngredientFindFirst = vi.mocked(prisma.ingredient.findFirst)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -331,6 +335,8 @@ describe('PATCH /api/shopping-list/custom/[id]', () => {
       return (fn as (t: unknown) => Promise<unknown>)(tx)
     })
 
+    mockIngredientFindFirst.mockResolvedValue({ id: 'ing-salt' } as never)
+
     const response = await patchRequest('custom-1', { ingredientId: 'ing-salt' })
     const data = await response.json()
 
@@ -343,6 +349,62 @@ describe('PATCH /api/shopping-list/custom/[id]', () => {
       }),
     )
     expect(txUpsertSpy).not.toHaveBeenCalled()
+  })
+
+  // HON-889: a link to another household's ingredient reads exactly like a
+  // link to an unknown one, and neither reaches the write.
+  it("rejects linking another household's ingredient as not found", async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue({
+      id: 'custom-1',
+      householdId: 'household-123',
+      name: 'Salt',
+      checked: false,
+      ingredientId: null,
+    } as never)
+    mockIngredientFindFirst.mockResolvedValue(null)
+
+    const response = await patchRequest('custom-1', { ingredientId: 'ing-other-household' })
+    const data = await response.json()
+
+    expect(mockIngredientFindFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'ing-other-household',
+        OR: [{ householdId: null }, { householdId: 'household-123' }],
+      },
+      select: { id: true },
+    })
+    expect(response.status).toBe(400)
+    expect(data).toEqual({ error: 'Ingredient not found' })
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('unlinks with ingredientId null without an ingredient lookup', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue({
+      id: 'custom-1',
+      householdId: 'household-123',
+      name: 'Salt',
+      checked: false,
+      ingredientId: 'ing-salt',
+    } as never)
+    const txUpdateSpy = vi.fn().mockResolvedValue({ id: 'custom-1', ingredientId: null })
+    mockTransaction.mockImplementation(async (fn) =>
+      (fn as (t: unknown) => Promise<unknown>)({
+        customShoppingItem: { update: txUpdateSpy },
+        pantryItem: { upsert: vi.fn() },
+      }),
+    )
+
+    const response = await patchRequest('custom-1', { ingredientId: null })
+
+    expect(response.status).toBe(200)
+    expect(mockIngredientFindFirst).not.toHaveBeenCalled()
+    expect(txUpdateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { ingredientId: null } }),
+    )
   })
 
   it('returns 500 with the { error } JSON shape when the transaction throws', async () => {

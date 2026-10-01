@@ -234,6 +234,34 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(data.invalidIds).toEqual(['nonexistent'])
   })
 
+  // HON-889: another household's ingredient must read exactly like an unknown
+  // one, so the lookup is scoped and a foreign id falls out of it as invalid.
+  it("treats another household's ingredient as invalid", async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
+    mockFindManyIngredient.mockResolvedValue([])
+
+    const response = await POST(createRequest({ ingredientId: 'ing-other-household' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(mockFindManyIngredient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: { in: ['ing-other-household'] },
+          OR: [{ householdId: null }, { householdId: 'household-123' }],
+        },
+      }),
+    )
+    expect(response.status).toBe(400)
+    expect(data).toEqual({ error: 'Invalid ingredient IDs', invalidIds: ['ing-other-household'] })
+  })
+
   it('creates new pantry item for single ingredientId', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },

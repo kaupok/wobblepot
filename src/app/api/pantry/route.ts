@@ -81,9 +81,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    // Verify ingredient exists
-    const ingredient = await prisma.ingredient.findUnique({
-      where: { id: parsed.data.ingredientId },
+    // Verify ingredient exists and is global or this household's own. Another
+    // household's reads as not found, so its id is not revealed (HON-889).
+    const ingredient = await prisma.ingredient.findFirst({
+      where: {
+        id: parsed.data.ingredientId,
+        OR: [{ householdId: null }, { householdId: membership.householdId }],
+      },
       select: { id: true, name: true, category: true, defaultUnit: true },
     })
 

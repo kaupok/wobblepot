@@ -126,10 +126,14 @@ export async function POST(request: Request) {
       components,
     } = parsed.data
 
-    // Verify all ingredients exist and fetch their protein types
+    // Verify all ingredients exist and fetch their protein types. Another
+    // household's ingredient reads as not found, so its id is not revealed (HON-889).
     const ingredientIds = components.map((c) => c.ingredientId)
     const ingredients = await prisma.ingredient.findMany({
-      where: { id: { in: ingredientIds } },
+      where: {
+        id: { in: ingredientIds },
+        OR: [{ householdId: null }, { householdId: membership.household.id }],
+      },
       select: {
         id: true,
         proteinType: true,

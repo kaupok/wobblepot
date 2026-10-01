@@ -79,9 +79,13 @@ export async function POST(request: Request) {
     // Normalize to array
     const ingredientIds = parsed.data.ingredientIds ?? [parsed.data.ingredientId!]
 
-    // Validate all ingredients exist
+    // Validate all ingredients exist and are global or this household's own.
+    // Another household's reads as invalid, so its id is not revealed (HON-889).
     const ingredients = await prisma.ingredient.findMany({
-      where: { id: { in: ingredientIds } },
+      where: {
+        id: { in: ingredientIds },
+        OR: [{ householdId: null }, { householdId: household.id }],
+      },
       select: { id: true },
     })
 

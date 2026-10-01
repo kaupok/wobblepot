@@ -548,6 +548,40 @@ describe('POST /api/households/me/meals', () => {
     expect(data.missingIds).toContain('missing-ing')
   })
 
+  // HON-889: another household's ingredient must read exactly like an unknown
+  // one, so the lookup is scoped and a foreign id falls out of it into the 400.
+  it("treats another household's ingredient as not found", async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockIngredientFindMany.mockResolvedValue([])
+
+    const request = new Request('http://localhost/api/households/me/meals', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'New Meal',
+        suitableFor: ['dinner'],
+        servings: 2,
+        components: [{ ingredientId: 'ing-other-household', totalQuantity: 300 }],
+      }),
+    })
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(mockIngredientFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: { in: ['ing-other-household'] },
+          OR: [{ householdId: null }, { householdId: 'household-123' }],
+        },
+      }),
+    )
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      error: 'Some ingredients not found',
+      missingIds: ['ing-other-household'],
+    })
+  })
+
   // HON-714: a repeated id used to reach the write and trip
   // `@@unique([mealId, ingredientId])`, answering 500.
   it('names the repeated ingredient when a component id appears twice', async () => {
