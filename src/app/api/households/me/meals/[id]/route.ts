@@ -251,9 +251,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       components,
     } = parsed.data
 
-    // If components are being updated, verify all ingredients exist. This half
-    // only reads the global ingredient table, so it stays out of the write
-    // transaction below — a 400 here must not open one.
+    // If components are being updated, verify all ingredients exist and are
+    // global or this household's own; another household's reads as not found
+    // (HON-889). This half only reads the ingredient table, so it stays out of
+    // the write transaction below — a 400 here must not open one.
     let ingredientMap: Map<
       string,
       ComponentForProtein['ingredient'] & {
@@ -269,7 +270,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const ingredientIds = components.map((c) => c.ingredientId)
 
       const ingredients = await prisma.ingredient.findMany({
-        where: { id: { in: ingredientIds } },
+        where: {
+          id: { in: ingredientIds },
+          OR: [{ householdId: null }, { householdId: membership.household.id }],
+        },
         select: {
           id: true,
           proteinType: true,

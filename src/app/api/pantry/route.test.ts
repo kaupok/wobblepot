@@ -30,7 +30,7 @@ vi.mock('@/lib/prisma', () => ({
       create: vi.fn(),
     },
     ingredient: {
-      findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     mealPlanEntry: {
       findMany: vi.fn(),
@@ -46,7 +46,7 @@ const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockFindMany = vi.mocked(prisma.pantryItem.findMany)
 const mockFindUniquePantry = vi.mocked(prisma.pantryItem.findUnique)
 const mockCreatePantry = vi.mocked(prisma.pantryItem.create)
-const mockFindUniqueIngredient = vi.mocked(prisma.ingredient.findUnique)
+const mockFindFirstIngredient = vi.mocked(prisma.ingredient.findFirst)
 const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
 
 const mockHousehold = {
@@ -641,7 +641,7 @@ describe('POST /api/pantry', () => {
       session: { id: 'session-123' },
     } as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniqueIngredient.mockResolvedValue(null)
+    mockFindFirstIngredient.mockResolvedValue(null)
 
     const request = new Request('http://localhost/api/pantry', {
       method: 'POST',
@@ -655,13 +655,44 @@ describe('POST /api/pantry', () => {
     expect(data.error).toBe('Ingredient not found')
   })
 
+  // HON-889: another household's ingredient must read exactly like an unknown
+  // one, so the lookup is scoped and a foreign id falls out of it into the 404.
+  it("treats another household's ingredient as not found", async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockFindFirstIngredient.mockResolvedValue(null)
+
+    const request = new Request('http://localhost/api/pantry', {
+      method: 'POST',
+      body: JSON.stringify({ ingredientId: 'ing-other-household' }),
+    })
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(mockFindFirstIngredient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'ing-other-household',
+          OR: [{ householdId: null }, { householdId: 'household-123' }],
+        },
+      }),
+    )
+    expect(response.status).toBe(404)
+    expect(data).toEqual({ error: 'Ingredient not found' })
+    expect(mockCreatePantry).not.toHaveBeenCalled()
+  })
+
   it('returns 409 when ingredient already in pantry', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },
       session: { id: 'session-123' },
     } as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniqueIngredient.mockResolvedValue(mockIngredient as never)
+    mockFindFirstIngredient.mockResolvedValue(mockIngredient as never)
     mockFindUniquePantry.mockResolvedValue({
       id: 'existing-pantry-item',
       householdId: 'household-123',
@@ -687,7 +718,7 @@ describe('POST /api/pantry', () => {
       session: { id: 'session-123' },
     } as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniqueIngredient.mockResolvedValue(mockIngredient as never)
+    mockFindFirstIngredient.mockResolvedValue(mockIngredient as never)
     mockFindUniquePantry.mockResolvedValue(null)
 
     const createdItem = {
@@ -735,7 +766,7 @@ describe('POST /api/pantry', () => {
       session: { id: 'session-123' },
     } as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniqueIngredient.mockResolvedValue(mockIngredient as never)
+    mockFindFirstIngredient.mockResolvedValue(mockIngredient as never)
     mockFindUniquePantry.mockResolvedValue(null)
 
     const createdItem = {
@@ -781,7 +812,7 @@ describe('POST /api/pantry', () => {
       session: { id: 'session-123' },
     } as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniqueIngredient.mockResolvedValue(mockIngredient as never)
+    mockFindFirstIngredient.mockResolvedValue(mockIngredient as never)
     mockFindUniquePantry.mockResolvedValue(null)
 
     const createdItem = {

@@ -702,6 +702,34 @@ describe('PATCH /api/households/me/meals/[id]', () => {
       expect(mealComponentCreateMany).not.toHaveBeenCalled()
     })
 
+    // HON-889: another household's ingredient must read exactly like an
+    // unknown one, so the lookup is scoped to global and own ingredients and a
+    // foreign id falls out of it into the same 400.
+    it("treats another household's ingredient as not found", async () => {
+      mockIngredientFindMany.mockResolvedValue([] as never)
+      const { mealComponentCreateMany } = setupTransaction(mockMealResult, storedMeal)
+
+      const response = await patchMeal({
+        components: [{ ingredientId: 'ing-other-household', totalQuantity: 800 }],
+      })
+      const data = await response.json()
+
+      expect(mockIngredientFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: { in: ['ing-other-household'] },
+            OR: [{ householdId: null }, { householdId: 'household-123' }],
+          },
+        }),
+      )
+      expect(response.status).toBe(400)
+      expect(data).toEqual({
+        error: 'Some ingredients not found',
+        missingIds: ['ing-other-household'],
+      })
+      expect(mealComponentCreateMany).not.toHaveBeenCalled()
+    })
+
     // The divisor decides what gets written, so it is read inside the write
     // transaction rather than from the pre-transaction lookup at the top of the
     // handler. A concurrent servings edit landing between the two would

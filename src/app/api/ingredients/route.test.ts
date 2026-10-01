@@ -24,11 +24,26 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
+}))
+
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getHouseholdMembership } from '@/lib/household'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockQueryRaw = vi.mocked(prisma.$queryRaw)
+const mockGetMembership = vi.mocked(getHouseholdMembership)
+
+/** The SQL text and interpolated values of the search's tagged-template call. */
+function lastQuery() {
+  const [strings, ...values] = mockQueryRaw.mock.lastCall as unknown as [
+    TemplateStringsArray,
+    ...unknown[],
+  ]
+  return { sql: strings.join('?'), values }
+}
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -38,6 +53,7 @@ const mockSession = {
 describe('GET /api/ingredients', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetMembership.mockResolvedValue({ householdId: 'household-123' } as never)
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -97,6 +113,33 @@ describe('GET /api/ingredients', () => {
     expect(data.ingredients).toHaveLength(2)
     expect(data.ingredients[0].name).toBe('Chicken breast')
     expect(data.ingredients[1].name).toBe('Chicken thigh')
+  })
+
+  // HON-889: the pickers feed the write routes, which reject another
+  // household's ingredient, so the search must not offer one.
+  it("scopes the search to global and the caller's household ingredients", async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockQueryRaw.mockResolvedValue([] as never)
+
+    await GET(createMockRequest('http://localhost/api/ingredients?search=chicken'))
+
+    const { sql, values } = lastQuery()
+    expect(sql).toMatch(/\("householdId" IS NULL OR "householdId" = \?::text\)/)
+    expect(values).toContain('household-123')
+  })
+
+  it('searches global ingredients only for a user with no household', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(null)
+    mockQueryRaw.mockResolvedValue([] as never)
+
+    const response = await GET(createMockRequest('http://localhost/api/ingredients?search=chicken'))
+
+    expect(response.status).toBe(200)
+    const { sql, values } = lastQuery()
+    expect(sql).toMatch(/\("householdId" IS NULL OR "householdId" = \?::text\)/)
+    // `= NULL` matches no row, which leaves the `IS NULL` half: globals only.
+    expect(values).toContain(null)
   })
 
   it('returns 500 when query fails', async () => {

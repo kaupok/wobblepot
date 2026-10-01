@@ -90,7 +90,9 @@ export async function PATCH(request: Request) {
       )
     }
 
-    // Resolve excluded ingredient names to IDs for filtering
+    // Resolve excluded ingredient names to IDs for filtering. Global and this
+    // household's own ingredients only: the ids are returned in the response,
+    // so matching another household's would reveal them (HON-889).
     let excludedIngredientIds: string[] | undefined
     if (parsed.data.excludedIngredients) {
       const ingredients = await prisma.ingredient.findMany({
@@ -99,6 +101,7 @@ export async function PATCH(request: Request) {
             in: parsed.data.excludedIngredients,
             mode: 'insensitive',
           },
+          OR: [{ householdId: null }, { householdId: membership.household.id }],
         },
         select: { id: true },
       })
