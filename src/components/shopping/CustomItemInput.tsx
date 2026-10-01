@@ -78,9 +78,8 @@ export function CustomItemInput({ onItemAdded, disabled }: CustomItemInputProps)
         inputRef.current?.focus()
       }
     },
-    onError: (error) => {
-      const message = error instanceof Error ? error.message : tErrors('addFailed')
-      toast.error(message)
+    onError: () => {
+      toast.error(tErrors('addFailed'))
     },
   })
 
