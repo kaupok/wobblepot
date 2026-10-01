@@ -67,7 +67,7 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
         {/* `icon` for the full touch target, `pill` so its hover disc sits
             inside the header pill's curve. */}
         <Button variant="ghost" size="icon" shape="pill" className="md:hidden">
-          <User className="h-5 w-5" />
+          <User className="size-5" />
           <span className="sr-only">{t('userMenu')}</span>
         </Button>
       </SheetTrigger>

@@ -33,7 +33,9 @@ interface HeaderChromeProps {
  * Scrolling folds the logo away (`useScrolled`): its box narrows to nothing
  * as it fades, so the daily views slide left and the pill closes around them;
  * on a phone the whole pill draws in to a disc around the account icon. It
- * unfolds the same way once the page is back at the top. A pill that holds
+ * unfolds the same way once the page is back at the top. From `md` the right
+ * pill folds with it: the settings views close to icons, and hovering one
+ * opens its label again (`NavigationRight`). A pill that holds
  * only the logo (signed out, onboarding) fades out instead of surviving as an
  * empty ring. The transitions name their properties and run at 300ms on the
  * house curve; a reduced-motion preference snaps them.
