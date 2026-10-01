@@ -47,6 +47,10 @@ const buttonVariants = cva(
         lg: 'h-12 md:h-11 rounded-md px-6 has-[>svg]:px-4',
         icon: 'size-touch md:size-10',
         'icon-sm': 'size-8',
+        // An icon inside a line of small text (the nutrition (i), HON-930): a
+        // 16px box keeps the line its own height, and the `::after` reaches 4px
+        // past it on every side, so the target is 24px (WCAG 2.5.8).
+        'icon-xs': 'relative size-4 after:absolute after:-inset-1',
         'icon-lg': 'size-12 md:size-11',
         // A `link` inside running text: no box, so it sits on the sentence's
         // line instead of a control's. Not a touch target on its own — use it
