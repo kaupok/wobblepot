@@ -40,10 +40,13 @@ PID_FILE="$WORKTREE_BASE/orchestrator.pid"
 LINEAR_API_URL="https://api.linear.app/graphql"
 # The code this process is running, for reload_if_code_changed's fingerprint.
 # Only files bash has READ into this process belong here: this script and
-# anything it sources at load time (none today). worktree-claude.sh is not one:
+# anything it sources at load time (models.sh). worktree-claude.sh is not one:
 # spawn_worker runs it as a fresh process per worker, so it is always current.
 # A new `source` line must add its file here — orchestrator.test.ts pins that.
-ORCHESTRATOR_CODE_FILES=("$SCRIPT_DIR/orchestrator.sh")
+ORCHESTRATOR_CODE_FILES=("$SCRIPT_DIR/orchestrator.sh" "$SCRIPT_DIR/models.sh")
+# The workflow's model IDs; this script reads TRIAGE_MODEL (HON-730).
+# shellcheck source=./models.sh
+source "$SCRIPT_DIR/models.sh"
 
 # Linear workflow state IDs (Honkadori workspace)
 STATE_BACKLOG="035a5cef-88de-4334-98a0-b908f61d26a7"
@@ -203,11 +206,11 @@ RELOAD_PENDING=false
 # is the origin/main the WARN last named: one WARN per SHA, not one per poll.
 CHECKOUT_CHECK_INTERVAL=600
 CHECKOUT_ORIGIN_REF="refs/orchestrator/origin-main"
-# What runs out of the main checkout: this script, and the worktree-claude.sh it
-# spawns every worker through. Everything else under scripts/ runs from the
-# worker's own worktree, which branches from a fresh origin/main, so a commit
-# there leaves nothing stale to warn about.
-CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh)
+# What runs out of the main checkout: this script, the worktree-claude.sh it
+# spawns every worker through, and the models.sh both of them source. Everything
+# else under scripts/ runs from the worker's own worktree, which branches from a
+# fresh origin/main, so a commit there leaves nothing stale to warn about.
+CHECKOUT_CODE_PATHS=(scripts/orchestrator.sh scripts/worktree-claude.sh scripts/models.sh)
 CHECKOUT_LAST_CHECK=0
 CHECKOUT_BEHIND=0
 CHECKOUT_BEHIND_CODE=0
@@ -1932,7 +1935,7 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
     # NEEDS_HUMAN branch a real CLI error takes.
     local triage_output exit_code=0
     triage_output=$(echo "$log_tail" | run_with_timeout "$TRIAGE_TIMEOUT" \
-      env -u ANTHROPIC_API_KEY claude -p --model claude-sonnet-5 "$triage_prompt" 2>&1) || exit_code=$?
+      env -u ANTHROPIC_API_KEY claude -p --model "$TRIAGE_MODEL" "$triage_prompt" 2>&1) || exit_code=$?
 
     # Extract first word only — Claude may include explanatory text after the keyword
     local triage_result

@@ -84,9 +84,13 @@ wt stop
 | —                    | `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` | 1800              | Seconds before a cap-requeued issue is pickable again                                         |
 | —                    | `ORCHESTRATOR_TRIAGE_TIMEOUT`       | 120               | Seconds the failure-triage `claude -p` call may run before the issue falls back to Backlog    |
 | —                    | `CLAUDE_AUTO_MODEL`                 | `claude-opus-5-5` | Model every `wt auto` worker runs; read by `scripts/worktree-claude.sh`, not the orchestrator |
+| —                    | `CLAUDE_REVIEW_MODEL`               | `claude-opus-5-5` | Model the PR reviewer (`scripts/pr-review.sh`) runs                                           |
+| —                    | `CLAUDE_TRIAGE_MODEL`               | `claude-sonnet-5` | Model the orchestrator's failure-triage `claude -p` call runs                                 |
 | —                    | `cleanupPeriodDays`                 | 365               | Days Claude Code keeps transcripts; a setting in `~/.claude/settings.json`, not an env var    |
 
 Requires `LINEAR_API_KEY` env var (format: `lin_api_...`). Every env var above can live in `.env`: `wt` loads it for every subcommand, and the workers the orchestrator spawns inherit it.
+
+The three model defaults live in `scripts/models.sh`, the one file under `scripts/` that names a model ID; see [Swapping models](#swapping-models) before changing one.
 
 `cleanupPeriodDays` defaults to 30. Claude Code then deletes everything under `~/.claude/projects/` older than that, subagent transcripts included, by file age; resuming a session does not reset the clock. Those transcripts are the only record of what a run cost, and `pnpm agent-cost` (`scripts/agent-cost-per-pr.ts`) reads nothing else, so it was raised to 365 on 2026-10-01 (HON-785). It lives in the user-scope file because every worktree session reads that file and no repo file reaches them all.
 
@@ -283,6 +287,43 @@ wt cleanup feat/my-feature              # remove the worktree and its Neon branc
 - **A hand-run worktree holds a Neon branch** from the same cap as the orchestrator's workers ([Branch budget](#branch-budget)). Running one beside a full orchestrator can push the next worker over it.
 - **A common split** is planning and review in the main checkout while a `wt new` worktree carries out the plan.
 - **Clean up** with `wt cleanup <branch>` or `wt cleanup-all` once the PR has merged.
+
+## Swapping models
+
+The workflow runs on three models, set in `scripts/models.sh` (HON-730): `AUTO_MODEL` for the `wt auto` worker, `REVIEW_MODEL` for the PR reviewer, and `TRIAGE_MODEL` for the orchestrator's failure triage. Each takes an override from its `CLAUDE_*_MODEL` env var ([Configuration](#configuration)). These are the workflow's models; the app's own AI calls have their own models and benchmark ([AI_MODELS.md](AI_MODELS.md)).
+
+**Changing a default is a human decision, made on a swap test's results.** An agent does not change one as part of other work.
+
+**The reviewer and the implementer share a model today.** Both default to `claude-opus-5-5`, so the reviewer has the implementer's blind spots: whatever the model gets wrong while writing, it is likely to accept while reviewing. CI and the human who reads the PR are the only checks outside that model. Weigh this when changing either default.
+
+### The swap test
+
+Run it when a new model ships, before changing a default. It answers one question: does the workflow ship as well on the new model as on the current one?
+
+1. **Pick 2–3 issues from different areas**: one UI change, one API route, one orchestrator or other script. A model that is better at React can be worse at bash.
+2. **Run them on the candidate model.** Change one model at a time. To test the implementer, leave `CLAUDE_REVIEW_MODEL` alone so the review findings stay comparable:
+
+   ```bash
+   CLAUDE_AUTO_MODEL=<candidate> wt auto HON-NNN            # one issue
+   CLAUDE_AUTO_MODEL=<candidate> wt start --max-workers 1   # or the next Queued issues (wt stop first)
+   ```
+
+   `wt` re-exports `.env` over the shell, so a `CLAUDE_AUTO_MODEL` line in `.env` beats the one on the command line. Remove it for the test.
+
+3. **Compare each PR against comparable merged PRs from the same area on the current model**, on these numbers:
+
+   | Measure              | Where to read it                                                                             |
+   | -------------------- | -------------------------------------------------------------------------------------------- |
+   | CI passed first time | The first push's checks on the PR; a `fix: Address CI failures` commit means it did not      |
+   | Review findings      | Inline review comments plus the findings in each `<!-- claude-review -->` summary, per round |
+   | Fix-up commits       | Commits after the first push (`fix: Address CI failures`, `fix: Address review feedback`)    |
+   | Time to merge        | The `[OUTCOME]` line's duration in `orchestrator.log`, or PR open to merge for a hand run    |
+   | Outcome              | The `[OUTCOME]` result: `SUCCESS`, or `STRANDED`, `FAILED` or `TIMEOUT`                      |
+   | Token cost           | `pnpm agent-cost` (`scripts/agent-cost-per-pr.ts`), per PR                                   |
+
+4. **Record the results before changing the default**: a table in a comment on the Linear issue that makes the change, with the PR numbers, so the decision can be checked later.
+
+**Replaying an issue that has already merged is not possible yet.** It would be the fairer comparison, since the same issue runs on both models, but `wt auto` always branches from `origin/main`, which already has the change, `/auto-implement` stops on a Done issue (step 2.1), and a full cycle ends by merging. Until replay is supported, the test runs on new issues and compares them with similar merged ones, so read one-PR differences as noise and look for a pattern across the 2–3.
 
 ## Worktree Location
 
