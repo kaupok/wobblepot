@@ -15,6 +15,7 @@ import {
   convertToPrefilledData,
   reviewImaginedMeal,
   type ImaginedMealResponse,
+  withSavableTimeMinutes,
 } from '@/lib/imagine-utils'
 import { ApiError, apiFetch } from '@/lib/api'
 import { MealCardBase } from '../MealCardBase'
@@ -102,7 +103,7 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
       // Every failure branch of the route answers non-2xx, so a resolved call
       // is always `success: true`.
       const data = await apiFetch<{ meals: ImaginedMealResponse[] }>('/api/meals/imagine', init)
-      return data.meals
+      return withSavableTimeMinutes(data.meals)
     },
     onSuccess: (meals) => setImaginedMeals(meals),
     onError: (err) => {

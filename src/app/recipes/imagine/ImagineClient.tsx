@@ -22,6 +22,7 @@ import {
   convertToPrefilledData,
   reviewImaginedMeal,
   type ImaginedMealResponse,
+  withSavableTimeMinutes,
 } from '@/lib/imagine-utils'
 import { track } from '@/lib/analytics'
 import { ApiError, apiFetch } from '@/lib/api'
@@ -101,7 +102,7 @@ export function ImagineClient() {
     // only started seeing it once the compiler could analyse this component.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPrompt(stored.prompt)
-    setMeals(stored.meals)
+    setMeals(withSavableTimeMinutes(stored.meals))
   }, [])
 
   // Degrades on failure and reports it — see `reviewImaginedMeal` (HON-699),
@@ -169,7 +170,7 @@ export function ImagineClient() {
       // Every failure branch of the route answers non-2xx, so a resolved call
       // is always `success: true`.
       const data = await apiFetch<{ meals: ImaginedMealResponse[] }>('/api/meals/imagine', init)
-      return data.meals
+      return withSavableTimeMinutes(data.meals)
     },
     onSuccess: (meals, { prompt }) => {
       setMeals(meals)

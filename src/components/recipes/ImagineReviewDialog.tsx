@@ -25,6 +25,7 @@ import {
 } from '@/components/household/meal-form-types'
 import type { FinalComponent, PrefilledIngredient } from '@/components/household/meal-form-types'
 import { ApiError, apiFetch } from '@/lib/api'
+import { savableTimeMinutes } from '@/lib/imagine-utils'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { formatInteger, formatQuantity } from '@/lib/i18n/format-number'
 import { MAX_MEAL_COMPONENTS } from '@/lib/meal-planning/components-schema'
@@ -92,24 +93,6 @@ export function computeReviewNutrition(
   }
   if (components.length === 0) return null
   return computeMealNutrition(components)
-}
-
-const MAX_PREP_MINUTES = 480
-
-/**
- * The imagined prep time as the create route will accept it, or `null`.
- *
- * `ImaginedMealSchema` states "integer, 1-480" only in its description, so the
- * model can return `12.5` or `600`; `POST /api/households/me/meals` rejects
- * both (`.int().positive().max(480)`), and the dialog has no field to fix them,
- * so every retry failed (HON-891). Round, then treat anything outside 1–480 as
- * unknown — which also covers `0` (HON-711). The badge renders this same value,
- * so it shows exactly what is saved.
- */
-function savableTimeMinutes(timeMinutes: number | null): number | null {
-  if (timeMinutes == null) return null
-  const rounded = Math.round(timeMinutes)
-  return rounded >= 1 && rounded <= MAX_PREP_MINUTES ? rounded : null
 }
 
 function initIngredientRows(prefilledIngredients: PrefilledIngredient[]): IngredientRowData[] {
@@ -220,6 +203,8 @@ export function ImagineReviewDialog({
   const [isMatchedOpen, setIsMatchedOpen] = useState(false)
   const locale = useLocale() as Locale
   const saveBlockedId = useId()
+  // Callers already pass a sanitised value; re-applying it keeps the save valid
+  // and the badge equal to what is saved whatever the caller (HON-891).
   const timeMinutes = savableTimeMinutes(meal.timeMinutes)
 
   const unresolvedCount = ingredientRows.filter((row) => row.type === 'unmatched').length
