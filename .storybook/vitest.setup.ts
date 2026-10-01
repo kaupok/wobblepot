@@ -43,7 +43,7 @@ function resolveViewportSize(
 // declare, rather than whatever Playwright's default is.
 //
 // Registered as a Vitest-only project annotation so it never runs in Storybook
-// dev (where @vitest/browser/context is not available).
+// dev (where `vitest/browser` is not available).
 const vitestViewportSync = {
   beforeEach: async (context: {
     globals?: Record<string, unknown>
