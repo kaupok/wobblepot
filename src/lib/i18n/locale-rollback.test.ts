@@ -10,11 +10,25 @@ import { resolveHouseholdLocale } from './resolve-locale'
 /**
  * The rollback lever (docs/LOCALIZATION.md): removing a locale from
  * `KNOWN_LOCALES` must revert every household still storing it to English
- * chrome, English content names and English AI prompts (HON-921). A household
- * storing `'xx'` is exactly that household, since every path gates on
- * `isKnownLocale`. The translation rows below are tagged `'xx'` so a path that
- * skipped the guard would visibly apply them.
+ * chrome, English content names and English AI prompts (HON-921). This pulls
+ * the lever for real: `KNOWN_LOCALES` is `['en']` here, the household still
+ * stores `'et'`, the browser asks for Estonian, and the `et` translation rows
+ * are present, so any path that skipped the guard would visibly apply them.
  */
+
+vi.mock('@/lib/i18n/locales', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./locales')>()
+  const { z } = await import('zod')
+  const KNOWN_LOCALES = ['en'] as const
+  return {
+    ...actual,
+    KNOWN_LOCALES,
+    PUBLIC_LOCALES: KNOWN_LOCALES,
+    LocaleSchema: z.enum(KNOWN_LOCALES),
+    isKnownLocale: (value: string) => (KNOWN_LOCALES as readonly string[]).includes(value),
+    isPublicLocale: (value: string) => (KNOWN_LOCALES as readonly string[]).includes(value),
+  }
+})
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers({ 'accept-language': 'et' })),
@@ -37,7 +51,7 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-const ROLLED_BACK = { id: 'household-1', locale: 'xx', timezone: 'Europe/Tallinn' }
+const ROLLED_BACK = { id: 'household-1', locale: 'et', timezone: 'Europe/Tallinn' }
 
 const onion = {
   id: 'ing-1',
@@ -45,7 +59,7 @@ const onion = {
   category: 'vegetable',
   defaultUnit: 'g',
   gramsPerPiece: null,
-  translations: [{ locale: 'xx', name: 'xonion' }],
+  translations: [{ locale: 'et', name: 'sibul' }],
 }
 
 beforeEach(() => {
@@ -117,10 +131,10 @@ describe('locale rollback', () => {
           imagePromptVersion: null,
           translations: [
             {
-              locale: 'xx',
-              name: 'Xsoup',
-              description: 'Xwarm',
-              preparationNotes: 'Xcook',
+              locale: 'et',
+              name: 'Sibulasupp',
+              description: 'Soe ja magus',
+              preparationNotes: 'Hauta sibulat aeglaselt',
             },
           ],
           components: [
@@ -157,7 +171,9 @@ describe('locale rollback', () => {
     const locale = resolveHouseholdLocale(ROLLED_BACK)
     expect(localeInstruction(locale)).toBe('')
     expect(estonianVoiceForPrepTips(locale)).toBe('')
-    // A caller that skipped the helper still gets no instruction.
+    // A caller that skipped the helper and passed the stored 'et' still gets
+    // English: both helpers check KNOWN_LOCALES themselves.
     expect(localeInstruction(ROLLED_BACK.locale)).toBe('')
+    expect(estonianVoiceForPrepTips(ROLLED_BACK.locale)).toBe('')
   })
 })

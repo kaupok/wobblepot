@@ -323,6 +323,16 @@ async function handlePOST(
       return NextResponse.json({ tips }, { status: 200 })
     }
 
+    // During a locale rollback the household still stores a locale that is no
+    // longer in KNOWN_LOCALES, and this prompt ran in English. The cache guard
+    // below compares the stored value, which a rollback does not move, so
+    // caching here would leave English tips on the entry after the locale is
+    // re-enabled, with nothing to clear them. Serve them uncached instead; the
+    // next open regenerates through the rate-limited path (HON-921).
+    if (locale !== household.locale) {
+      return NextResponse.json({ tips }, { status: 200 })
+    }
+
     await prisma.mealPlanEntry.updateMany({
       where: {
         id: entryId,

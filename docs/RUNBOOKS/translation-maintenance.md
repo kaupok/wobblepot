@@ -302,7 +302,7 @@ Nothing throws; the revert is silent by construction. `src/lib/i18n/locale-rollb
 
 What the lever does not revert:
 
-- **Stored AI output.** Preparation tips already cached on an entry (`MealPlanEntry.preparationTips`) stay in Estonian until that entry's cache is cleared (a meal swap, a serving change, a meal edit, a membership change or a locale PATCH). Imagined meals and imported recipes were saved in Estonian and stay that way, like any user-created content.
+- **Stored AI output.** Preparation tips already cached on an entry (`MealPlanEntry.preparationTips`) stay in Estonian until that entry's cache is cleared (a meal swap, a serving change, a meal edit, a membership change or a locale PATCH). Tips generated _during_ the rollback are English and are deliberately not cached, because the cache guard compares the stored `'et'`, which the rollback does not move; caching them would leave English tips behind after the re-enable. Each open of an uncached entry therefore regenerates, within the `meal-prep-tips` rate limit. Imagined meals and imported recipes were saved in Estonian and stay that way, like any user-created content.
 - **A browser tab already open.** It keeps its TanStack Query cache until a reload or the 60-second `staleTime`.
 
 Either way: **no data is lost.** `Household.locale` keeps its `'et'` value (unless an owner saves settings meanwhile; see below) and every `ingredient_translation` / `meal_translation` row stays in the database, so re-enabling is the reverse one-line diff — nothing to re-seed.

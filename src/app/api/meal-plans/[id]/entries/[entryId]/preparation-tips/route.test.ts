@@ -807,6 +807,25 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(call.prompt).toContain('Estonian')
   })
 
+  it('builds an English prompt and caches nothing for a locale rolled back out of KNOWN_LOCALES', async () => {
+    // The household still stores the locale, so the cache guard's stored-value
+    // compare would match and the English tips would outlive a re-enable with
+    // nothing to clear them (HON-921).
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(buildMembership('xx') as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    const fresh = { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] }
+    mockGenerateObject.mockResolvedValue({ object: fresh } as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ tips: fresh })
+    const call = mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }
+    expect(call.prompt).not.toContain('LOCALE:')
+    expect(mockEntryCacheWrite).not.toHaveBeenCalled()
+  })
+
   it('does not inject a LOCALE block for English households (byte-identical English path)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
