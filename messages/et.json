@@ -139,6 +139,8 @@
     "pageTitle": "Söögiplaan",
     "shoppingTitle": "Poenimekiri",
     "viewFullList": "Vaata tervet nimekirja",
+    "moreForDays": "Ja veel {count} järgmise {days, plural, one {# päeva} other {# päeva}} jaoks",
+    "toBuyForDays": "{count, plural, one {# asi} other {# asja}} osta järgmise {days, plural, one {# päeva} other {# päeva}} jooksul",
     "listEmpty": "Tänaseks ja homseks pole nimekirjas midagi",
     "summaryToday": "{count} tänaseks",
     "summaryTomorrow": "{count} homseks",

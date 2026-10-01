@@ -139,6 +139,8 @@
     "pageTitle": "Meal plan",
     "shoppingTitle": "Shopping list",
     "viewFullList": "View full list",
+    "moreForDays": "Plus {count} more for the next {days, plural, one {# day} other {# days}}",
+    "toBuyForDays": "{count, plural, one {# item} other {# items}} to buy over the next {days, plural, one {# day} other {# days}}",
     "listEmpty": "Nothing on the list for today or tomorrow",
     "summaryToday": "{count} for today",
     "summaryTomorrow": "{count} for tomorrow",

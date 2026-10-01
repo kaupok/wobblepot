@@ -166,6 +166,7 @@ export default async function Home() {
       pantryIngredients={pantryIngredients}
       pantryItems={pantryItems}
       shoppingItems={shoppingItems}
+      openCustomItemCount={shoppingList.customItems.filter((item) => !item.checked).length}
       todayDate={todayDate}
     />
   )

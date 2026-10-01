@@ -359,11 +359,14 @@
      yellow hue on a sheet paler than a meal tint (`--note-surface-*`), with
      the tint's own text and chip values, so every pairing inside it is at
      least as legible as one src/lib/meal-tint.test.ts measures; it also
-     takes the meal surface's transparent edge below. */
+     takes the meal surface's transparent edge below. The focus ring is the
+     muted text, as on the sticky slip: the neutral grey ring all but
+     disappears on the yellow (the list's closing link row, HON-928). */
   [data-surface='note'] {
     --meal-hue: 95;
     --meal-surface-l: var(--note-surface-l);
     --meal-surface-c: var(--note-surface-c);
+    --ring: var(--muted-foreground);
   }
 
   /* A meal note's slip (`StickyNote`). Sets every lightness and chroma from

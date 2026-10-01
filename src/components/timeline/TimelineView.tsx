@@ -41,6 +41,8 @@ interface TimelineViewProps {
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   shoppingItems: ShoppingItem[]
+  /** Unchecked custom items on the list: they carry no date, so they are not in `shoppingItems`. */
+  openCustomItemCount?: number
   todayDate: string // YYYY-MM-DD
 }
 
@@ -78,6 +80,7 @@ export function TimelineView({
   pantryIngredients,
   pantryItems,
   shoppingItems,
+  openCustomItemCount = 0,
   todayDate,
 }: TimelineViewProps) {
   const router = useRouter()
@@ -236,7 +239,7 @@ export function TimelineView({
               display:none keeps the hidden copy out of the a11y tree. `empty:hidden`
               drops the wrapper's gap when there is nothing to buy. */}
           <div className="empty:hidden lg:hidden">
-            <UrgentShopping items={shoppingItems} compact />
+            <UrgentShopping items={shoppingItems} todayDate={todayDate} compact />
           </div>
 
           <TimelinePastSection
@@ -261,7 +264,11 @@ export function TimelineView({
 
         {/* Right column: Shopping */}
         <div className="hidden flex-col gap-6 lg:flex">
-          <UrgentShopping items={shoppingItems} />
+          <UrgentShopping
+            items={shoppingItems}
+            openCustomItemCount={openCustomItemCount}
+            todayDate={todayDate}
+          />
         </div>
       </div>
     </div>
