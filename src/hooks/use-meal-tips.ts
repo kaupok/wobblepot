@@ -8,6 +8,7 @@ import {
   PREPARATION_TIPS_ERROR_KEYS,
   preparationTipsFallbackKey,
   translateErrorCode,
+  type PreparationTipsErrorCode,
 } from '@/lib/ai/error-codes'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
@@ -16,6 +17,13 @@ interface UseMealTipsOptions {
   entryId: string
   initialTips?: StructuredTips | null
 }
+
+// Conditions a retry 2s later would only hit again — see `isRetryable`.
+const NON_RETRYABLE_CODES: ReadonlySet<string> = new Set([
+  'generation_disabled',
+  'rate_limited',
+  'ai_cap_exceeded',
+] satisfies PreparationTipsErrorCode[])
 
 /**
  * Auto-retry once after 2s for retryable server errors.
@@ -28,18 +36,21 @@ interface UseMealTipsOptions {
  *
  * The `ai_generation_enabled` kill-switch 503 is excluded too: it will still be
  * off 2s later, and the retry would only spend another rate-limit token.
+ *
+ * So are the two 429s the household causes itself: its hourly `rate_limited`
+ * limit and the monthly `ai_cap_exceeded` cap. Neither clears in 2s, so the
+ * retry only delays the message — and on the cap path it spends another hourly
+ * token, because the route checks the rate limit before the cap (HON-893).
+ * `provider_busy` (Anthropic's own 429) and a codeless 429 still retry: those
+ * usually clear in moments.
  */
 function isRetryable(error: unknown): boolean {
   return (
     error instanceof ApiError &&
     error.status !== 504 &&
-    !isGenerationDisabled(error) &&
+    !NON_RETRYABLE_CODES.has(error.code ?? '') &&
     (error.status >= 500 || error.status === 429)
   )
-}
-
-function isGenerationDisabled(error: unknown): boolean {
-  return error instanceof ApiError && error.code === 'generation_disabled'
 }
 
 function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
