@@ -100,7 +100,11 @@ describe('buildUrgencyGroups', () => {
 
 describe('buildAlphabeticalItems', () => {
   it('interleaves computed and custom items A–Z', () => {
-    const rows = buildAlphabeticalItems([item('Carrot'), item('Apple')], [customItem('Bread')])
+    const rows = buildAlphabeticalItems(
+      [item('Carrot'), item('Apple')],
+      [customItem('Bread')],
+      'en',
+    )
 
     expect(rows.map((r) => r.item.name)).toEqual(['Apple', 'Bread', 'Carrot'])
     expect(rows.map((r) => r.kind)).toEqual(['computed', 'custom', 'computed'])
@@ -110,9 +114,25 @@ describe('buildAlphabeticalItems', () => {
     const rows = buildAlphabeticalItems(
       [item('Apple', { purchased: true }), item('Carrot')],
       [customItem('Bread', { checked: true })],
+      'en',
     )
 
     expect(rows.map((r) => r.item.name)).toEqual(['Carrot', 'Apple', 'Bread'])
+  })
+
+  // `š` sorts after `s` and `õ` near the end in Estonian; English collation
+  // folds both onto their base letter (HON-920).
+  it.each([
+    ['et', ['oder', 'sibul', 'suhkur', 'šokolaad', 'õun']],
+    ['en', ['oder', 'õun', 'sibul', 'šokolaad', 'suhkur']],
+  ])('collates names in the %s locale', (locale, expected) => {
+    const rows = buildAlphabeticalItems(
+      [item('šokolaad'), item('suhkur'), item('õun')],
+      [customItem('sibul'), customItem('oder')],
+      locale,
+    )
+
+    expect(rows.map((r) => r.item.name)).toEqual(expected)
   })
 })
 

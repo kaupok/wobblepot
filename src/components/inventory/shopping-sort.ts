@@ -29,7 +29,10 @@ export function getInitialSortMode(): SortMode {
 export function buildUrgencyGroups(
   items: ShoppingItemData[],
 ): Array<{ bucket: UrgencyBucket; items: ShoppingItemData[] }> {
-  const sortedItems = [...items].sort((a, b) => a.neededByDate.localeCompare(b.neededByDate))
+  // ISO dates order by code unit; collation has nothing to add.
+  const sortedItems = [...items].sort((a, b) =>
+    a.neededByDate < b.neededByDate ? -1 : a.neededByDate > b.neededByDate ? 1 : 0,
+  )
 
   const bucketOrder: UrgencyBucket[] = ['today', 'tomorrow', 'this-week', 'later']
   const grouped = new Map<UrgencyBucket, ShoppingItemData[]>()
@@ -49,12 +52,16 @@ export function buildUrgencyGroups(
 
 /**
  * Flatten computed and custom items into one A–Z list, with everything already
- * purchased or checked sorted to the bottom.
+ * purchased or checked sorted to the bottom. Names are collated in the
+ * household's `locale`, not the browser's, so an Estonian list is in Estonian
+ * order whatever language the browser speaks (HON-920).
  */
 export function buildAlphabeticalItems(
   items: ShoppingItemData[],
   customItems: CustomItemData[],
+  locale: string,
 ): AlphabeticalItem[] {
+  const collator = new Intl.Collator(locale)
   const allItems: AlphabeticalItem[] = [
     ...items.map((item) => ({ kind: 'computed' as const, item })),
     ...customItems.map((item) => ({ kind: 'custom' as const, item })),
@@ -67,7 +74,7 @@ export function buildAlphabeticalItems(
     // Purchased/checked items sort to bottom
     if (aPurchased !== bPurchased) return aPurchased ? 1 : -1
 
-    return a.item.name.localeCompare(b.item.name)
+    return collator.compare(a.item.name, b.item.name)
   })
 }
 

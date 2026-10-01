@@ -96,4 +96,24 @@ describe('PantrySection remove', () => {
     // Once to drop the row optimistically, once to put it back.
     expect(onItemsChange).toHaveBeenCalledTimes(2)
   })
+
+  it('puts a restored row back in its sorted place, not at the end (HON-920)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })))
+    const onItemsChange = vi.fn()
+    renderSection([makeItem()], onItemsChange)
+
+    await confirmRemove()
+
+    await waitFor(() => expect(onItemsChange).toHaveBeenCalledTimes(2))
+    const restore = onItemsChange.mock.calls[1]![0] as (prev: PantryItemData[]) => PantryItemData[]
+    const others = [
+      makeItem({ id: 'p-a', ingredient: { ...makeItem().ingredient, id: 'a', name: 'Apple' } }),
+      makeItem({ id: 'p-c', ingredient: { ...makeItem().ingredient, id: 'c', name: 'Carrot' } }),
+    ]
+    expect(restore(others).map((item) => item.ingredient.name)).toEqual([
+      'Apple',
+      'Butter',
+      'Carrot',
+    ])
+  })
 })

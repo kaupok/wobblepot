@@ -2,13 +2,14 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { PantrySection } from './PantrySection'
 import { ShoppingSection } from './ShoppingSection'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { useWindowReconcile } from './use-shopping-window'
 import { cn } from '@/lib/utils'
+import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
 import { Heading } from '@/components/ui/typography'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
@@ -62,6 +63,7 @@ export function InventoryPage({
   windowDaysFromUrl = false,
 }: InventoryPageProps) {
   const router = useRouter()
+  const locale = useLocale()
   const tNav = useTranslations('nav.primary')
 
   // Applies a saved 7/14-day preference to the URL. Here rather than in
@@ -72,20 +74,23 @@ export function InventoryPage({
   const [pantryItems, setPantryItems] = useState<PantryItemData[]>(initialPantryItems)
   const [removedIngredientIds, setRemovedIngredientIds] = useState<Set<string>>(new Set())
 
-  const handleItemPurchased = useCallback((newItem: PantryItemData) => {
-    setPantryItems((prev) => {
-      // Check if item already exists
-      const existingIndex = prev.findIndex((item) => item.ingredient.id === newItem.ingredient.id)
-      if (existingIndex !== -1) {
-        // Update existing item
-        const updated = [...prev]
-        updated[existingIndex] = newItem
-        return updated
-      }
-      // Add new item and sort alphabetically by ingredient name
-      return [...prev, newItem].sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
-    })
-  }, [])
+  const handleItemPurchased = useCallback(
+    (newItem: PantryItemData) => {
+      setPantryItems((prev) => {
+        // Check if item already exists
+        const existingIndex = prev.findIndex((item) => item.ingredient.id === newItem.ingredient.id)
+        if (existingIndex !== -1) {
+          // Update existing item
+          const updated = [...prev]
+          updated[existingIndex] = newItem
+          return updated
+        }
+        // Add the new item in the order the server returns the pantry in
+        return [...prev, newItem].sort(comparePantryItems(locale))
+      })
+    },
+    [locale],
+  )
 
   const handleItemUnpurchased = useCallback((ingredientId: string) => {
     setPantryItems((prev) => prev.filter((item) => item.ingredient.id !== ingredientId))

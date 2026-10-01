@@ -5,13 +5,14 @@ import { useState } from 'react'
 import { useMutation, useMutationState } from '@tanstack/react-query'
 import { Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Body, Heading } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { InlineAddItem } from '@/components/pantry/InlineAddItem'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
+import { comparePantryItems } from '@/lib/meal-planning/pantry-order'
 import type { PantryItemData } from '@/components/pantry/PantryItem'
 import { GroupHeading } from './GroupHeading'
 
@@ -42,6 +43,7 @@ export function PantrySection({
   onPantryItemRemoved,
 }: PantrySectionProps) {
   const tPantry = useTranslations('pantry')
+  const locale = useLocale()
 
   const staples = items.filter((item) => item.isStaple)
   const onHand = items.filter((item) => !item.isStaple)
@@ -93,7 +95,7 @@ export function PantrySection({
     onError: (_error, _id, context) => {
       const removedItem = context?.removedItem
       if (removedItem) {
-        onItemsChange((prev) => [...prev, removedItem])
+        onItemsChange((prev) => [...prev, removedItem].sort(comparePantryItems(locale)))
       }
       toast.error(tPantry('errors.removeFailed'))
     },
@@ -116,7 +118,8 @@ export function PantrySection({
   const handleRemove = (id: string) => removeMutation.mutate(id)
 
   const handleItemAdded = (newItem: PantryItemData) => {
-    onItemsChange((prev) => [...prev, newItem])
+    // Into its sorted place, as a purchase lands, rather than at the end (HON-920)
+    onItemsChange((prev) => [...prev, newItem].sort(comparePantryItems(locale)))
   }
 
   // Create a set of ingredient IDs currently in pantry for the search indicator

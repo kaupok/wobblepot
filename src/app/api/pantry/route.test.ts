@@ -165,8 +165,52 @@ describe('GET /api/pantry', () => {
           select: { id: true, name: true, category: true, defaultUnit: true, gramsPerPiece: true },
         },
       },
-      orderBy: [{ isStaple: 'desc' }, { ingredient: { name: 'asc' } }],
     })
+  })
+
+  it('orders an et household by the Estonian names, not the English ones (HON-920)', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'et' },
+    } as never)
+
+    // English A–Z (apple, chocolate, onion, sugar) is not Estonian A–Z
+    // (sibul, suhkur, šokolaad, õun): the sort must run on the translated name,
+    // with Estonian collation.
+    const row = (id: string, name: string, etName: string, isStaple = false) => ({
+      id: `pantry-${id}`,
+      householdId: 'household-123',
+      ingredientId: `ing-${id}`,
+      quantity: null,
+      isStaple,
+      updatedAt: new Date('2024-01-01'),
+      ingredient: {
+        id: `ing-${id}`,
+        name,
+        category: 'other',
+        defaultUnit: 'g',
+        translations: [{ locale: 'et', name: etName }],
+      },
+    })
+    mockFindMany.mockResolvedValue([
+      row('1', 'Apple', 'õun'),
+      row('2', 'Chocolate', 'šokolaad'),
+      row('3', 'Onion', 'sibul'),
+      row('4', 'Sugar', 'suhkur'),
+      row('5', 'Barley', 'oder', true),
+    ] as never)
+
+    const response = await GET(createMockRequest())
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(
+      data.items.map((item: { ingredient: { name: string } }) => item.ingredient.name),
+    ).toEqual(['oder', 'sibul', 'suhkur', 'šokolaad', 'õun'])
   })
 
   it('returns empty items array when pantry is empty', async () => {

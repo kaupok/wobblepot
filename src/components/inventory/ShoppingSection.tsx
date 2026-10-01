@@ -175,9 +175,10 @@ export function ShoppingSection({
         ? buildAlphabeticalItems(
             enhancedGroups.flatMap((group) => group.items),
             customItems,
+            locale,
           )
         : [],
-    [enhancedGroups, customItems, sortMode],
+    [enhancedGroups, customItems, sortMode, locale],
   )
 
   const { linkedCustomByCategory, unlinkedCustomItems } = useMemo(
