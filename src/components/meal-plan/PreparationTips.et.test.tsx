@@ -8,7 +8,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import etMessages from '../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { useMealTips } from '@/hooks/use-meal-tips'
-import { PreparationTips } from './PreparationTips'
+import { PreparationEquipment, PreparationSteps } from './PreparationTips'
 
 /** The English prose the tips route puts in `data.error` on an entry 404. */
 const SERVER_PROSE = 'Entry not found'
@@ -24,7 +24,8 @@ function TipsHarness() {
       <button type="button" onClick={fetchTips}>
         load
       </button>
-      <PreparationTips
+      <PreparationEquipment equipment={tips?.equipment} />
+      <PreparationSteps
         tips={tips}
         isLoading={isLoadingTips}
         error={tipsError}
@@ -87,5 +88,31 @@ describe('PreparationTips in an Estonian household (HON-888)', () => {
       await screen.findByText(etMessages['meal-plan'].tips.errors.tipsFailed),
     ).toBeInTheDocument()
     expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument()
+  })
+
+  it('renders the loaded tips under the Estonian headings', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            tips: {
+              equipment: ['Pann', 'Lõikelaud'],
+              steps: ['Tükelda köögiviljad'],
+              pitfalls: ['Ära küpseta kana üle'],
+              tip: 'Lase lihal puhata.',
+            },
+          }),
+      }),
+    )
+
+    renderInEstonian()
+    fireEvent.click(screen.getByRole('button', { name: 'load' }))
+
+    expect(await screen.findByText('Vaja läheb: Pann, Lõikelaud')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tähelepanu' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Nõuanne' })).toBeInTheDocument()
   })
 })

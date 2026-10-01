@@ -8,6 +8,7 @@ import {
 } from '@/stories/fixtures'
 import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-helpers'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+import { Heading } from '@/components/ui/typography'
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
 import type { PantryIngredient, StructuredTips } from './types'
@@ -30,16 +31,24 @@ const meta = {
   title: 'Meal plan/MealDetail',
   component: MealDetail,
   tags: ['autodocs'],
-  parameters: { layout: 'padded' },
+  parameters: {
+    layout: 'fullscreen',
+    docs: {
+      description: {
+        component:
+          'The cook view’s content (HON-932), outside its dialog. Below `lg` one scrolling column: hero, title, meta, note, ingredients, steps, nutrition last. From `lg` two columns that scroll on their own. `MealDetailModal` supplies the hero, title and note through slots.',
+      },
+    },
+  },
   args: {
     meal: mealFixture,
     householdSize: 4,
+    title: <Heading variant="display">{mealFixture.name}</Heading>,
   },
   decorators: [
-    // `p-6` and clipping like `DialogContent`: the hero bleeds through that
-    // padding (HON-752).
+    // A fixed height like the cook view's panel, so the columns scroll.
     (Story) => (
-      <div className="max-w-3xl overflow-hidden rounded-lg border p-6">
+      <div className="bg-card h-dvh">
         <Story />
       </div>
     ),
@@ -61,7 +70,7 @@ export const WithDescription: Story = {
     docs: {
       description: {
         story:
-          'Seeded meals carry a description (a localized `MealTranslation` field). It renders as muted body text above the nutrition summary.',
+          'Seeded meals carry a description (a localized `MealTranslation` field). It renders as muted body text under the title.',
       },
     },
   },
@@ -85,7 +94,7 @@ export const WithImage: Story = {
     docs: {
       description: {
         story:
-          'The hero illustration (HON-737) is the first element, above the description. `MealDetailModal` supplies it through the `image` slot.',
+          'The hero illustration (HON-737) is the first element, above the title and the description. `MealDetailModal` supplies it through the `image` slot.',
       },
     },
   },
@@ -93,7 +102,7 @@ export const WithImage: Story = {
     const img = await within(canvasElement).findByRole('img', { name: 'Lemon garlic chicken' })
     // First child of the details, above the description.
     await expect(
-      img.compareDocumentPosition(within(canvasElement).getByText(/lemon-garlic roast chicken/i)) &
+      img.compareDocumentPosition(within(canvasElement).getByText(/crisp potatoes/i)) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
   },
@@ -237,15 +246,9 @@ export const Completed: Story = {
   },
 }
 
-/**
- * The ingredients/tips grid, found from the ingredients header — not the first
- * `.grid`, which is `NutritionSummary`'s when the meal has nutrition.
- */
-function detailGrid(canvasElement: HTMLElement): HTMLElement {
-  const header = within(canvasElement).getByText(/^Ingredients/)
-  const grid = header.closest<HTMLElement>('.grid')
-  if (!grid) throw new Error('Ingredients grid not found')
-  return grid
+/** Whether `b` comes after `a` in document order. */
+function follows(a: Node, b: Node): boolean {
+  return !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 }
 
 export const TipsCollapsed: Story = {
@@ -257,22 +260,24 @@ export const TipsCollapsed: Story = {
     docs: {
       description: {
         story:
-          'Collapsed tips reserve no panel: "How to prepare" is an outline button under the ingredients, which take the full width (HON-763).',
+          'Before tips are asked for, the steps area is its heading and a primary "How to prepare" button, full width on a phone (HON-932; generated on open in HON-933).',
       },
     },
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const grid = detailGrid(canvasElement)
-    const button = canvas.getByRole('button', { name: 'How to prepare' })
-    // One cell: the ingredients with the button under them, no empty tips panel.
-    await expect(grid.children).toHaveLength(1)
-    await expect(grid).not.toHaveClass('md:grid-cols-2')
-    await expect(grid.firstElementChild).toContainElement(button)
-    await expect(
-      canvas.getByText(/^Ingredients/).compareDocumentPosition(button) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    const steps = canvas.getByTestId('cook-view-steps')
+    const button = within(steps).getByRole('button', { name: 'How to prepare' })
+    await expect(within(steps).getByRole('heading', { name: 'Steps' })).toBeVisible()
+    // Ingredients, then the steps area.
+    await expect(follows(canvas.getByRole('heading', { name: /^Ingredients/ }), steps)).toBe(true)
+    // 44px+ and the column's full width below `md`.
+    await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    await expect(button.offsetWidth).toBe(
+      steps.clientWidth -
+        Number.parseFloat(getComputedStyle(steps).paddingLeft) -
+        Number.parseFloat(getComputedStyle(steps).paddingRight),
+    )
 
     await userEvent.click(button)
     await expect(args.onHowToPrepare).toHaveBeenCalledOnce()
@@ -285,22 +290,26 @@ export const TipsExpanded: Story = {
     tips,
     isTipsExpanded: true,
     onHowToPrepare: fn(),
-    onHideTips: fn(),
   },
   parameters: {
     docs: {
       description: {
-        story: 'Shown tips take the right column on md+, beside the ingredients.',
+        story:
+          'Loaded tips: the equipment as a "You’ll need" line under the ingredients, and the numbered steps, Watch out and Tip in the steps area, at the step size.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const grid = detailGrid(canvasElement)
-    await expect(grid.children).toHaveLength(2)
-    await expect(grid).toHaveClass('md:grid-cols-2')
-    await expect(grid.children[1]).toContainElement(canvas.getByText('Steps'))
-    await expect(canvas.queryByRole('button', { name: 'How to prepare' })).toBeNull()
+    const steps = canvas.getByTestId('cook-view-steps')
+    await expect(within(steps).getByText(tips.steps![0]!)).toBeVisible()
+    await expect(within(steps).getByRole('heading', { name: 'Watch out' })).toBeVisible()
+    await expect(within(steps).getByRole('heading', { name: 'Tip' })).toBeVisible()
+    await expect(within(steps).queryByRole('button', { name: 'How to prepare' })).toBeNull()
+    // The equipment sits with the ingredients, before the steps area.
+    const equipment = canvas.getByText("You'll need: Sheet pan, Sharp knife, Tongs")
+    await expect(follows(equipment, steps)).toBe(true)
+    await expect(steps).not.toContainElement(equipment)
   },
 }
 
@@ -332,7 +341,16 @@ export const WithPreparationNotes: Story = {
     tips,
     isTipsExpanded: true,
     onHowToPrepare: fn(),
-    onHideTips: fn(),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // The household's own notes come first; the generated steps supplement them.
+    await expect(
+      follows(
+        canvas.getByRole('heading', { name: 'Your notes' }),
+        canvas.getByText(tips.steps![0]!),
+      ),
+    ).toBe(true)
   },
 }
 
@@ -350,14 +368,13 @@ export const HideAvailability: Story = {
   },
 }
 
-// The ingredients column at ~300px, the width it gets in the desktop meal detail
-// modal (HON-692): below md the grid is one 300px column; at md+ a 640px
-// container splits into two ~300px columns beside the expanded preparation tips
-// (collapsed tips leave the ingredients full width, HON-763). The Vitest browser
-// viewport sits below md, so CI exercises the first case.
+// The ingredients column at its narrowest, ~340px: a 390px phone less the
+// view's `px-5`, and the left 2/5 of the cook view at 1024px less its `px-6`
+// (HON-932). A 380px frame less `px-5` gives it. The header used to fragment
+// and squeeze the badge at this sort of width (HON-692).
 const narrowColumnDecorator: NonNullable<Story['decorators']> = [
   (Story) => (
-    <div className="w-75 md:w-160">
+    <div className="bg-card h-dvh w-95">
       <Story />
     </div>
   ),
@@ -370,12 +387,11 @@ const narrowColumnArgs = {
   tips,
   isTipsExpanded: true,
   onHowToPrepare: fn(),
-  onHideTips: fn(),
 } satisfies Partial<Story['args']>
 
-/** The ingredients column: the grid cell holding the header row. */
+/** The ingredients column: the section holding the header row. */
 function ingredientsColumn(el: HTMLElement): HTMLElement {
-  const column = el.closest<HTMLElement>('.grid > *')
+  const column = el.closest<HTMLElement>('section')
   if (!column) throw new Error('Ingredients column not found')
   return column
 }
@@ -396,7 +412,7 @@ export const NarrowColumn: Story = {
     docs: {
       description: {
         story:
-          'The ingredients column at the ~300px width of the desktop modal. "Ingredients" and the "Serves 4" control stay on one line with no brackets around the control (HON-763), in both the button and the editing state, and the availability badge moves to its own line rather than wrapping inside itself (HON-692).',
+          'The ingredients column at its ~340px narrowest. "Ingredients" and the "Serves 4" control stay on one line with no brackets around the control (HON-763), in both the button and the editing state, and the availability badge moves to its own line rather than wrapping inside itself (HON-692).',
       },
     },
   },

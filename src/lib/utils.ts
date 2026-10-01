@@ -53,12 +53,13 @@ export const CUSTOM_SHADOW_VALUES = ['float'] as const
  * Must stay in sync with `globals.css`; `utils.test.ts` fails if the two drift.
  */
 export const CUSTOM_UTILITY_CLASS_GROUPS = {
-  'max-h': ['max-h-dialog'],
+  'max-h': ['max-h-dialog', 'max-h-hero'],
   'max-w': ['max-w-page'],
   'min-h': ['min-h-screen-below-header', 'min-h-screen-below-header-gutters'],
   'grid-cols': ['grid-cols-timeline'],
   'scroll-mt': ['scroll-mt-below-header'],
   bottom: ['bottom-above-tab-bar'],
+  p: ['p-safe'],
 } as const
 
 const twMerge = extendTailwindMerge({

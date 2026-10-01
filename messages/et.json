@@ -277,17 +277,14 @@
       "staplesPrefix": "Põhitooted: {list}",
       "viewSource": "Vaata algset retsepti",
       "howToPrepare": "Kuidas valmistada",
-      "hideTips": "Peida juhised",
       "ariaDetailsFor": "„{mealName}\" üksikasjad"
     },
     "tips": {
-      "equipment": "Vajaminev varustus",
+      "equipment": "Vaja läheb: {list}",
       "steps": "Sammud",
       "pitfalls": "Tähelepanu",
       "tip": "Nõuanne",
       "userNotes": "Sinu märkused",
-      "additionalTips": "Lisanõuanded",
-      "header": "Valmistusjuhised",
       "retry": "Proovi uuesti",
       "errors": {
         "unauthorized": "Palun logi sisse, et valmistusjuhiseid näha.",

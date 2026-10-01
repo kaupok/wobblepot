@@ -33,8 +33,6 @@ interface IngredientListProps {
    * checkboxes stay: a pantry holding only staples says nothing yet (HON-824).
    */
   showMissingStyle?: boolean
-  /** If true, uses smaller typography for compact layouts */
-  compact?: boolean
   /** Custom header element (e.g., ServingControl) - overrides default "Ingredients (serves X)" */
   headerElement?: React.ReactNode
 }
@@ -87,7 +85,6 @@ export function IngredientList({
   availability,
   hideAvailability = false,
   showMissingStyle = true,
-  compact = false,
   headerElement,
 }: IngredientListProps) {
   const tDetail = useTranslations('meal-plan.detail')
@@ -143,19 +140,23 @@ export function IngredientList({
     return tDetail('staplesPrefix', { list: items.join(', ') })
   }, [stapleComponents, servings, tDetail, locale, vaguePhrase])
 
-  // Default header label
+  // Default header label: a section of the cook view, at the Title level
+  // (docs/DESIGN.md → "Cook view", HON-932).
   const defaultHeader = (
-    <Heading variant="section" as="h3" className="whitespace-nowrap">
+    <Heading variant="h4" as="h3" className="whitespace-nowrap">
       {tDetail('ingredientsHeader', { count: servings })}
     </Heading>
   )
 
   return (
-    <div className={cn('flex flex-col', compact ? 'gap-1.5' : 'gap-3')}>
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {headerElement ?? defaultHeader}
-        {availability && <AvailabilityIndicator availability={availability} />}
+        {availability && <AvailabilityIndicator availability={availability} size="lg" />}
       </div>
+      {/* Rows are read from a counter and tapped with a knuckle (HON-932):
+          18px, at least 44px tall, quantity first in a fixed-width column so
+          the names line up, and the whole row is the checkbox's label. */}
       <Ul variant="plain">
         {regularComponents.map((comp) => {
           // Use optimistic override if available, otherwise fall back to server state
@@ -170,42 +171,57 @@ export function IngredientList({
           const markMissing = isMissing && !hideAvailability && showMissingStyle
           const showCheckbox = onToggleAvailability && !hideAvailability
 
+          const quantity = (
+            <span
+              className={cn(
+                'w-24 shrink-0 tabular-nums',
+                markMissing ? 'text-warning' : 'text-muted-foreground',
+                comp.isVague && 'italic',
+              )}
+            >
+              {formatQuantity(
+                comp.quantityPerServing,
+                servings,
+                comp.ingredient.defaultUnit,
+                locale,
+                comp.isVague,
+                comp.originalPhrase,
+                vaguePhrase,
+              )}
+            </span>
+          )
+
           return (
             <Li
               key={comp.ingredient.name}
               tone={markMissing ? 'warning' : 'default'}
-              className={cn('flex items-center gap-2', isToggling && 'opacity-60')}
+              className={cn(isToggling && 'opacity-60')}
             >
-              {showCheckbox && (
-                <Checkbox
-                  checked={hasIt}
-                  onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
-                  aria-label={tAvailability('ariaToggle', {
-                    name: comp.ingredient.name,
-                    state: hasIt
-                      ? tAvailability('stateUnavailable')
-                      : tAvailability('stateAvailable'),
-                  })}
-                />
+              {showCheckbox ? (
+                // A `label` around the checkbox, so a tap anywhere on the row
+                // toggles it. The checkbox keeps its own `aria-label`, which
+                // carries the action as well as the name.
+                <label className="min-h-touch flex cursor-pointer items-center gap-3 py-1 text-base">
+                  <Checkbox
+                    size="lg"
+                    checked={hasIt}
+                    onCheckedChange={(checked) => handleCheckedChange(comp.ingredientId, checked)}
+                    aria-label={tAvailability('ariaToggle', {
+                      name: comp.ingredient.name,
+                      state: hasIt
+                        ? tAvailability('stateUnavailable')
+                        : tAvailability('stateAvailable'),
+                    })}
+                  />
+                  {quantity}
+                  <span>{comp.ingredient.name}</span>
+                </label>
+              ) : (
+                <div className="min-h-touch flex items-center gap-3 py-1 text-base">
+                  {quantity}
+                  <span>{comp.ingredient.name}</span>
+                </div>
               )}
-              <span>{comp.ingredient.name}</span>
-              <span
-                className={cn(
-                  'whitespace-nowrap',
-                  markMissing ? 'text-warning' : 'text-muted-foreground',
-                  comp.isVague && 'italic',
-                )}
-              >
-                {formatQuantity(
-                  comp.quantityPerServing,
-                  servings,
-                  comp.ingredient.defaultUnit,
-                  locale,
-                  comp.isVague,
-                  comp.originalPhrase,
-                  vaguePhrase,
-                )}
-              </span>
             </Li>
           )
         })}

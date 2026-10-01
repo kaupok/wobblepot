@@ -202,9 +202,16 @@ const CHECKS: Record<DesignRule, (root: HTMLElement) => void> = {
   // Keys on the heading tag, so a `Heading` that renders a non-heading tag
   // (`as="p" | "span" | "div"`) is invisible to it. No production callsite does
   // that today; the axe heading-order gate is what makes the tag worth trusting.
+  //
+  // `Heading variant="display"` is exempt: the cook view's meal name is the one
+  // in-app level above Title, read from a counter 50–70cm away (docs/DESIGN.md
+  // → Type scale, HON-932). Exempted by the variant `Heading` stamps on the
+  // element, not by size, so any other heading above `text-xl` still fails.
   'title-scale': (root) => {
     const maxPx = titleLevelPx(root)
-    for (const heading of root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')) {
+    for (const heading of root.querySelectorAll<HTMLElement>(
+      ':is(h1, h2, h3, h4, h5, h6):not([data-variant="display"])',
+    )) {
       const fontSize = Number.parseFloat(getComputedStyle(heading).fontSize)
       if (Number.isFinite(fontSize) && fontSize > maxPx) {
         throw violation(

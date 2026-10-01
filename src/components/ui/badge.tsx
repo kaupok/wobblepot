@@ -33,9 +33,17 @@ const badgeVariants = cva(
         'surface-success': 'bg-background text-success',
         'surface-warning': 'bg-background text-warning',
       },
+      size: {
+        default: '',
+        // The cook view (HON-932), where nothing but the nutrition fine print
+        // drops below 16px: the `text-sm` line instead of `text-xs`, with the
+        // floor and the icon scaled to match.
+        lg: 'min-h-[calc(var(--text-sm--line-height)+--spacing(2)+2px)] px-3 py-1 text-sm [&>svg]:size-4',
+      },
     },
     defaultVariants: {
       variant: 'default',
+      size: 'default',
     },
   },
 )
@@ -43,6 +51,7 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant,
+  size,
   asChild = false,
   ...props
 }: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
@@ -52,7 +61,7 @@ function Badge({
     <Comp
       data-slot="badge"
       data-variant={variant ?? 'default'}
-      className={cn(badgeVariants({ variant }), className)}
+      className={cn(badgeVariants({ variant, size }), className)}
       {...props}
     />
   )

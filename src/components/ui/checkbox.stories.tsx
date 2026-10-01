@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import { Checkbox } from './checkbox'
 import { Label } from './label'
 
@@ -29,6 +30,17 @@ export const Disabled: Story = {
 
 export const DisabledChecked: Story = {
   args: { disabled: true, defaultChecked: true },
+}
+
+// The cook view's ingredient rows (HON-932): a 24px box with a 20px check.
+export const Large: Story = {
+  args: { size: 'lg', defaultChecked: true },
+  play: async ({ canvasElement }) => {
+    const box = within(canvasElement).getByRole('checkbox')
+    await expect(box.getBoundingClientRect().width).toBe(24)
+    await expect(box.getBoundingClientRect().height).toBe(24)
+    await expect(box.querySelector('svg')!.getBoundingClientRect().width).toBe(20)
+  },
 }
 
 export const WithLabel: Story = {
@@ -69,6 +81,10 @@ export const AllVariants: Story = {
       <div className="flex items-center gap-2">
         <Checkbox id="v-disabled-checked" disabled defaultChecked />
         <Label htmlFor="v-disabled-checked">Disabled (checked)</Label>
+      </div>
+      <div className="flex items-center gap-2">
+        <Checkbox id="v-large" size="lg" defaultChecked />
+        <Label htmlFor="v-large">Large (checked)</Label>
       </div>
       <div className="flex items-center gap-2">
         <Checkbox aria-label="Standalone checkbox" defaultChecked />

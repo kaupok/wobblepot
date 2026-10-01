@@ -23,8 +23,17 @@ vi.mock('@/hooks/use-meal-tips', () => ({
     cancelTips,
   }),
 }))
+let imageState: { status: string; imageUrl: string | null; imageHue: number | null } = {
+  status: 'none',
+  imageUrl: null,
+  imageHue: null,
+}
 vi.mock('@/hooks/use-meal-image', () => ({
-  useMealImage: () => ({ status: 'none', imageUrl: null, imageHue: null, cancelImage: vi.fn() }),
+  useMealImage: () => ({ ...imageState, cancelImage: vi.fn() }),
+}))
+const useWakeLock = vi.fn()
+vi.mock('@/hooks/use-wake-lock', () => ({
+  useWakeLock: (active: boolean) => useWakeLock(active),
 }))
 vi.mock('./NoteEditor', () => ({ NoteEditor: () => null }))
 vi.mock('./MealImage', () => ({ MealImage: () => null }))
@@ -39,10 +48,16 @@ let onServingsChange: ((servings: number | null) => Promise<boolean>) | undefine
 vi.mock('./MealDetail', () => ({
   MealDetail: (props: {
     servings: number
+    title?: React.ReactNode
     onServingsChange?: (servings: number | null) => Promise<boolean>
   }) => {
     onServingsChange = props.onServingsChange
-    return <output aria-label="servings">{props.servings}</output>
+    return (
+      <>
+        {props.title}
+        <output aria-label="servings">{props.servings}</output>
+      </>
+    )
   },
 }))
 
@@ -54,13 +69,13 @@ const meal: MealData = {
   nutrition: {} as MealData['nutrition'],
 }
 
-function renderModal(onServingOverrideChange = vi.fn()) {
+function renderModal(onServingOverrideChange = vi.fn(), open = true) {
   const { wrapper } = createQueryWrapper()
   render(
     <MealDetailModal
       meal={meal}
       householdSize={4}
-      open
+      open={open}
       onOpenChange={vi.fn()}
       planId="plan-1"
       entryId="entry-1"
@@ -136,5 +151,59 @@ describe('MealDetailModal servings update', () => {
     expect(onServingOverrideChange).toHaveBeenCalledWith(6)
     expect(cancelTips).toHaveBeenCalledTimes(1)
     expect(toast.error).not.toHaveBeenCalled()
+  })
+})
+
+describe('MealDetailModal cook view shell (HON-932)', () => {
+  beforeEach(() => {
+    useWakeLock.mockClear()
+    imageState = { status: 'none', imageUrl: null, imageHue: null }
+  })
+
+  it('keeps the screen on while open', () => {
+    renderModal()
+    expect(useWakeLock).toHaveBeenLastCalledWith(true)
+  })
+
+  it('lets the screen sleep while closed', () => {
+    renderModal(vi.fn(), false)
+    expect(useWakeLock).toHaveBeenLastCalledWith(false)
+  })
+
+  it('opens as the fullscreen panel, titled with the meal name', () => {
+    renderModal()
+    const dialog = screen.getByRole('dialog', { name: 'Lentil soup' })
+    expect(dialog).toHaveAttribute('data-size', 'fullscreen')
+    expect(screen.getByRole('heading', { name: 'Lentil soup' })).toHaveAttribute(
+      'data-variant',
+      'display',
+    )
+  })
+
+  it('focuses the panel on open rather than its first control', () => {
+    renderModal()
+    expect(screen.getByRole('dialog')).toHaveFocus()
+  })
+
+  it('tints the whole panel with the meal hue', () => {
+    imageState = { status: 'ready', imageUrl: 'https://blob/meal.png', imageHue: 145 }
+    renderModal()
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveAttribute('data-meal-surface', '')
+    expect(dialog.style.getPropertyValue('--meal-hue')).toBe('145')
+  })
+
+  it('uses the neutral surface for an image without a hue', () => {
+    imageState = { status: 'ready', imageUrl: 'https://blob/meal.png', imageHue: null }
+    renderModal()
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveAttribute('data-meal-surface', 'neutral')
+    expect(dialog.style.getPropertyValue('--meal-hue')).toBe('')
+  })
+
+  it.each(['none', 'generating', 'failed'])('leaves the plain background for %s', (status) => {
+    imageState = { status, imageUrl: null, imageHue: null }
+    renderModal()
+    expect(screen.getByRole('dialog')).not.toHaveAttribute('data-meal-surface')
   })
 })

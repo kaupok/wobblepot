@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { PreparationTips } from './PreparationTips'
+import { PreparationEquipment, PreparationSteps } from './PreparationTips'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
 const sampleTips: StructuredTips = {
@@ -11,18 +11,29 @@ const sampleTips: StructuredTips = {
   tip: 'Let the meat rest for 5 minutes before serving.',
 }
 
-describe('PreparationTips', () => {
+describe('PreparationEquipment', () => {
+  it('lists the equipment on one line', () => {
+    render(<PreparationEquipment equipment={sampleTips.equipment} />)
+    expect(screen.getByText("You'll need: Large pan, Cutting board")).toBeInTheDocument()
+  })
+
+  it('renders nothing without equipment', () => {
+    const { container } = render(<PreparationEquipment equipment={[]} />)
+    expect(container.firstChild).toBeNull()
+  })
+})
+
+describe('PreparationSteps', () => {
   describe('loading state', () => {
-    it('renders loading skeletons', () => {
-      render(<PreparationTips tips={null} isLoading={true} error={null} onRetry={vi.fn()} />)
-      expect(screen.getByText('Equipment needed')).toBeInTheDocument()
-      expect(screen.getByText('Steps')).toBeInTheDocument()
-      expect(screen.getByText('Watch out for')).toBeInTheDocument()
+    it('renders the step skeleton and the Watch out heading', () => {
+      render(<PreparationSteps tips={null} isLoading={true} error={null} onRetry={vi.fn()} />)
+      expect(screen.getByTestId('preparation-steps-loading')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Watch out' })).toBeInTheDocument()
     })
 
-    it('shows user notes alongside skeletons when notes exist', () => {
+    it('shows user notes above the skeleton when notes exist', () => {
       render(
-        <PreparationTips
+        <PreparationSteps
           tips={null}
           isLoading={true}
           error={null}
@@ -30,16 +41,19 @@ describe('PreparationTips', () => {
           preparationNotes="Use extra garlic"
         />,
       )
-      expect(screen.getByText('Your notes')).toBeInTheDocument()
+      const notesHeading = screen.getByRole('heading', { name: 'Your notes' })
       expect(screen.getByText('Use extra garlic')).toBeInTheDocument()
-      expect(screen.getByText('Additional tips')).toBeInTheDocument()
+      expect(
+        notesHeading.compareDocumentPosition(screen.getByTestId('preparation-steps-loading')) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
     })
   })
 
   describe('error state', () => {
-    it('renders error message with retry button', () => {
+    it('renders the error message with a retry button', () => {
       render(
-        <PreparationTips
+        <PreparationSteps
           tips={null}
           isLoading={false}
           error="Failed to load tips"
@@ -54,16 +68,16 @@ describe('PreparationTips', () => {
       const user = userEvent.setup()
       const onRetry = vi.fn()
       render(
-        <PreparationTips tips={null} isLoading={false} error="Failed to load" onRetry={onRetry} />,
+        <PreparationSteps tips={null} isLoading={false} error="Failed to load" onRetry={onRetry} />,
       )
 
       await user.click(screen.getByRole('button', { name: 'Retry' }))
       expect(onRetry).toHaveBeenCalledOnce()
     })
 
-    it('shows user notes alongside error when notes exist', () => {
+    it('shows user notes alongside the error when notes exist', () => {
       render(
-        <PreparationTips
+        <PreparationSteps
           tips={null}
           isLoading={false}
           error="Failed to load"
@@ -71,7 +85,7 @@ describe('PreparationTips', () => {
           preparationNotes="My notes here"
         />,
       )
-      expect(screen.getByText('Your notes')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Your notes' })).toBeInTheDocument()
       expect(screen.getByText('My notes here')).toBeInTheDocument()
     })
   })
@@ -79,14 +93,14 @@ describe('PreparationTips', () => {
   describe('loaded state', () => {
     it('returns null when no tips and no notes', () => {
       const { container } = render(
-        <PreparationTips tips={null} isLoading={false} error={null} onRetry={vi.fn()} />,
+        <PreparationSteps tips={null} isLoading={false} error={null} onRetry={vi.fn()} />,
       )
       expect(container.firstChild).toBeNull()
     })
 
     it('shows only user notes when tips are null but notes exist', () => {
       render(
-        <PreparationTips
+        <PreparationSteps
           tips={null}
           isLoading={false}
           error={null}
@@ -94,51 +108,78 @@ describe('PreparationTips', () => {
           preparationNotes="Cook slowly"
         />,
       )
-      expect(screen.getByText('Your notes')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Your notes' })).toBeInTheDocument()
       expect(screen.getByText('Cook slowly')).toBeInTheDocument()
     })
 
-    it('renders equipment list', () => {
-      render(<PreparationTips tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />)
-      expect(screen.getByText('Equipment needed')).toBeInTheDocument()
-      expect(screen.getByText('Large pan')).toBeInTheDocument()
-      expect(screen.getByText('Cutting board')).toBeInTheDocument()
+    it('leaves the equipment to PreparationEquipment', () => {
+      render(
+        <PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
+      )
+      expect(screen.queryByText(/Large pan/)).not.toBeInTheDocument()
     })
 
-    it('renders steps as numbered list', () => {
-      render(<PreparationTips tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />)
-      expect(screen.getByText('Steps')).toBeInTheDocument()
-      expect(screen.getByText('Chop vegetables')).toBeInTheDocument()
-      expect(screen.getByText('Heat oil in pan')).toBeInTheDocument()
-      expect(screen.getByText('Cook for 10 minutes')).toBeInTheDocument()
+    it('renders the steps as an ordered list, in order', () => {
+      render(
+        <PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
+      )
+      const list = screen.getAllByRole('list')[0]!
+      expect(list.tagName).toBe('OL')
+      const items = within(list).getAllByRole('listitem')
+      expect(items.map((item) => item.textContent)).toEqual([
+        '1Chop vegetables',
+        '2Heat oil in pan',
+        '3Cook for 10 minutes',
+      ])
     })
 
-    it('renders pitfalls', () => {
-      render(<PreparationTips tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />)
-      expect(screen.getByText('Watch out for')).toBeInTheDocument()
+    it('renders pitfalls under Watch out', () => {
+      render(
+        <PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
+      )
+      expect(screen.getByRole('heading', { name: 'Watch out' })).toBeInTheDocument()
       expect(screen.getByText('Do not overcook the chicken')).toBeInTheDocument()
       expect(screen.getByText('Season before cooking')).toBeInTheDocument()
     })
 
-    it('renders tip callout', () => {
-      render(<PreparationTips tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />)
-      expect(screen.getByText('Tip')).toBeInTheDocument()
+    it('renders the tip under Tip', () => {
+      render(
+        <PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
+      )
+      expect(screen.getByRole('heading', { name: 'Tip' })).toBeInTheDocument()
       expect(
         screen.getByText('Let the meat rest for 5 minutes before serving.'),
       ).toBeInTheDocument()
+    })
+
+    it('puts the household notes ahead of the generated steps', () => {
+      render(
+        <PreparationSteps
+          tips={sampleTips}
+          isLoading={false}
+          error={null}
+          onRetry={vi.fn()}
+          preparationNotes="Double the garlic"
+        />,
+      )
+      expect(
+        screen
+          .getByText('Double the garlic')
+          .compareDocumentPosition(screen.getByText('Chop vegetables')) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
     })
 
     it('hides sections when they are empty', () => {
       const minimalTips: StructuredTips = {
         pitfalls: ['Watch the heat'],
       }
-      render(
-        <PreparationTips tips={minimalTips} isLoading={false} error={null} onRetry={vi.fn()} />,
+      const { container } = render(
+        <PreparationSteps tips={minimalTips} isLoading={false} error={null} onRetry={vi.fn()} />,
       )
-      expect(screen.queryByText('Equipment needed')).not.toBeInTheDocument()
-      expect(screen.queryByText('Steps')).not.toBeInTheDocument()
-      expect(screen.queryByText('Tip')).not.toBeInTheDocument()
-      expect(screen.getByText('Watch out for')).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Tip' })).not.toBeInTheDocument()
+      expect(container.querySelector('ol')).toBeNull()
+      expect(screen.getByRole('heading', { name: 'Watch out' })).toBeInTheDocument()
     })
   })
 })

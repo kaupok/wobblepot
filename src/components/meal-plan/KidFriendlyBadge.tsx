@@ -9,6 +9,8 @@ interface KidFriendlyBadgeProps {
    * and in the tooltip.
    */
   compact?: boolean
+  /** `lg` in the cook view, where text stays at 16px or above (HON-932) */
+  size?: 'default' | 'lg'
 }
 
 /**
@@ -16,11 +18,11 @@ interface KidFriendlyBadgeProps {
  * re-scoped to the meal's chip colour inside `[data-meal-surface]`, so the same
  * markup reads on a neutral background and on a tinted meal card.
  */
-export function KidFriendlyBadge({ compact = false }: KidFriendlyBadgeProps) {
+export function KidFriendlyBadge({ compact = false, size = 'default' }: KidFriendlyBadgeProps) {
   const t = useTranslations('meal-plan.detail')
   const label = t('kidFriendly')
   return (
-    <Badge variant="secondary" title={compact ? label : undefined}>
+    <Badge variant="secondary" size={size} title={compact ? label : undefined}>
       <Baby aria-hidden="true" />
       {compact ? <span className="sr-only">{label}</span> : label}
     </Badge>

@@ -130,6 +130,16 @@ export const WithIcon: Story = {
   },
 }
 
+// The cook view (HON-932): 16px text, so nothing in it but the nutrition fine
+// print drops below 16px.
+export const Large: Story = {
+  args: { size: 'lg', variant: 'secondary', children: 'Kid-friendly' },
+  play: async ({ canvasElement }) => {
+    const badge = within(canvasElement).getByText('Kid-friendly')
+    await expect(getComputedStyle(badge).fontSize).toBe('16px')
+  },
+}
+
 export const AllVariants: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-3">

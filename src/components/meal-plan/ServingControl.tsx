@@ -102,10 +102,10 @@ export function ServingControl({
   }
 
   if (isEditing) {
-    // `min-h-8 px-3` matches the resting `Button size="sm"`, so the row neither
-    // shrinks nor shifts sideways when the field opens.
+    // `min-h-12 md:min-h-11 px-6` matches the resting `Button size="lg"`, so
+    // the row neither shrinks nor shifts sideways when the field opens.
     return (
-      <span className="inline-flex min-h-8 items-center gap-1 px-3 whitespace-nowrap">
+      <span className="inline-flex min-h-12 items-center gap-2 px-6 whitespace-nowrap md:min-h-11">
         <span className="text-muted-foreground">{t('label')}</span>
         <input
           ref={inputRef}
@@ -117,7 +117,7 @@ export function ServingControl({
           onBlur={handleBlur}
           disabled={isUpdating}
           className={cn(
-            'w-12 rounded border px-1 py-0.5 text-center text-sm',
+            'w-14 rounded border px-2 py-1 text-center text-base',
             'focus:border-primary focus:ring-primary focus:ring-1 focus:outline-none',
             isUpdating && 'opacity-50',
           )}
@@ -129,14 +129,16 @@ export function ServingControl({
 
   const isInactive = disabled || isUpdating
 
-  // `Button` owns the 32px height (HON-811); colour and weight live on the inner
-  // span because `shadcn/no-restyle` keeps them off `Button`, and `Body` renders
-  // a `<p>`, which a `<button>` cannot contain. The pencil sits inside the span
-  // so it takes the text's colour, and only shows while the control can be used.
+  // `Button` owns the height: `lg`, 44px+, because this sits in the cook view,
+  // read and tapped from a counter (HON-932; it was `sm` since HON-811).
+  // Colour and weight live on the inner span because `shadcn/no-restyle` keeps
+  // them off `Button`, and `Body` renders a `<p>`, which a `<button>` cannot
+  // contain. The pencil sits inside the span so it takes the text's colour, and
+  // only shows while the control can be used.
   return (
     <Button
       variant="ghost"
-      size="sm"
+      size="lg"
       onClick={handleClick}
       disabled={isInactive}
       aria-label={t('ariaButton', { count: servings })}
@@ -148,8 +150,8 @@ export function ServingControl({
         )}
       >
         {t('labelWithCount', { count: servings })}
-        {isOverridden && <span className="text-xs">{t('custom')}</span>}
-        {!isInactive && <Pencil className="size-3.5" aria-hidden="true" />}
+        {isOverridden && <span>{t('custom')}</span>}
+        {!isInactive && <Pencil className="size-4" aria-hidden="true" />}
       </span>
     </Button>
   )

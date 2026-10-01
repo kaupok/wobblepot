@@ -21,6 +21,12 @@ interface NoteEditorProps {
   note: string | null
   onNoteChange?: (note: string | null) => void
   compact?: boolean
+  /**
+   * Size of the editor's buttons (Add note, Cancel, Save). `sm` on a meal
+   * card, where 44px zones would crowd the row; `lg` in the cook view, which
+   * is tapped from a counter (HON-932).
+   */
+  size?: 'sm' | 'lg'
   className?: string
   /** Controlled editing state (optional — uncontrolled by default) */
   isEditing?: boolean
@@ -34,6 +40,7 @@ export function NoteEditor({
   note,
   onNoteChange,
   compact = false,
+  size = 'sm',
   className,
   isEditing: controlledIsEditing,
   onEditingChange,
@@ -147,10 +154,10 @@ export function NoteEditor({
               </Body>
             </div>
           )}
-          <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isSaving}>
+          <Button variant="ghost" size={size} onClick={handleCancel} disabled={isSaving}>
             {t('cancel')}
           </Button>
-          <Button variant="default" size="sm" onClick={handleSave} disabled={isSaving}>
+          <Button variant="default" size={size} onClick={handleSave} disabled={isSaving}>
             {isSaving ? t('saving') : t('save')}
           </Button>
         </div>
@@ -186,7 +193,7 @@ export function NoteEditor({
   return (
     <Button
       variant="quiet"
-      size="sm"
+      size={size}
       onClick={() => setIsEditing(true)}
       className={cn('self-start', className)}
     >
