@@ -175,6 +175,8 @@ describe('AI eval gate', () => {
     expect(body).toContain('scripts/model-bench/results/')
     expect(body).toContain('`--check` report')
     expect(body).toContain('`--baseline golden` comparison')
+    // A golden recorded on the branch compares the new prompt with itself.
+    expect(body).toContain('scripts/model-bench/golden/')
   })
 })
 

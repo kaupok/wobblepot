@@ -450,7 +450,7 @@ if [ -n "$AI_EVAL_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
 
 ## Also check for an AI eval report
 
-If this diff changes a prompt builder or text it sends to the model (an output schema in `src/lib/ai/recipe-schema.ts` or `src/lib/ai/types.ts`, the phrase list in `src/lib/vague-quantities.ts`), a model constant, an AI budget or a benchmark case, the PR body must cite a report under `scripts/model-bench/results/` committed in this PR and dated after the change: a `--check` report for a case or budget change, a `--baseline golden` comparison with judge verdicts for a prompt, schema or phrase-list change, a model comparison for a `models.ts` change (`docs/AI_MODELS.md`). A missing or older report is a finding. If none of those files changed, this check has nothing to do.
+If this diff changes a prompt builder or text it sends to the model (an output schema in `src/lib/ai/recipe-schema.ts` or `src/lib/ai/types.ts`, the phrase list in `src/lib/vague-quantities.ts`), a model constant, an AI budget or a benchmark case, the PR body must cite a report under `scripts/model-bench/results/` committed in this PR and dated after the change: a `--check` report for a case or budget change, a `--baseline golden` comparison with judge verdicts for a prompt, schema or phrase-list change, a model comparison for a `models.ts` change (`docs/AI_MODELS.md`). A missing or older report is a finding. So is a golden comparison whose header reads `unchanged` for a task the diff changes, or one beside a `scripts/model-bench/golden/` change in the same PR: either way the golden was recorded on the new prompt, and the report compares it with itself. If none of those files changed, this check has nothing to do.
 AI_EVAL_PROMPT
 fi
 
