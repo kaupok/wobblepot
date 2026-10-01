@@ -216,7 +216,7 @@ describe('imagineMeals', () => {
 
     const call = mockGenerateObject.mock.calls[0]![0]! as { system: string }
     expect(call.system).toContain(
-      "substitute it to keep the dish's character (texture, richness, cuisine) rather than leaving it out",
+      "When the dietary type, an allergen or an excluded ingredient removes something the dish depends on, substitute it to keep the dish's character",
     )
   })
 

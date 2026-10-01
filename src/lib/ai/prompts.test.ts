@@ -237,7 +237,7 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).not.toContain('Household restrictions')
+      expect(result).not.toContain('HOUSEHOLD RESTRICTIONS')
     })
 
     it('includes household restrictions when restrictions are provided', () => {
@@ -245,7 +245,7 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('Household restrictions (best effort): low FODMAP, no spicy food')
+      expect(result).toContain('HOUSEHOLD RESTRICTIONS (best effort):\n- low FODMAP, no spicy food')
     })
 
     it('includes single restriction', () => {
@@ -253,7 +253,17 @@ describe('buildMealPlanPrompt', () => {
 
       const result = buildMealPlanPrompt(input)
 
-      expect(result).toContain('Household restrictions (best effort): keto-friendly')
+      expect(result).toContain('HOUSEHOLD RESTRICTIONS (best effort):\n- keto-friendly')
+    })
+
+    it('puts restrictions in their own section, not under a soft-preference section', () => {
+      const withPantry = buildMealPlanPrompt(
+        createInput({ pantryIngredients: ['Rice'], restrictions: ['peanut allergy'] }),
+      )
+      const withoutPantry = buildMealPlanPrompt(createInput({ restrictions: ['peanut allergy'] }))
+
+      expect(withPantry).toContain('still come first\n\nHOUSEHOLD RESTRICTIONS')
+      expect(withoutPantry).toContain('only pick favorites\n\nHOUSEHOLD RESTRICTIONS')
     })
   })
 
@@ -389,7 +399,7 @@ describe('buildMealPlanPrompt', () => {
 
       const personalizationIndex = result.indexOf('PERSONALIZATION')
       const pantryIndex = result.indexOf('PANTRY')
-      const restrictionsIndex = result.indexOf('Household restrictions')
+      const restrictionsIndex = result.indexOf('HOUSEHOLD RESTRICTIONS')
 
       expect(personalizationIndex).toBeLessThan(pantryIndex)
       expect(pantryIndex).toBeLessThan(restrictionsIndex)
