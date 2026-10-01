@@ -661,22 +661,27 @@ describe('buildCheckReport', () => {
 
   it('fails the latency gate when the slowest call is over 80% of the route budget', () => {
     const budget = TASK_SPECS.tips.budgetMs
-    const r = check(checked('tips', [{ countsInRange: 1 }], { latencyMs: 0.85 * budget }), ['tips'])
+    const r = check(
+      checked('tips', [{ answered: 1, countsInRange: 1 }], { latencyMs: 0.85 * budget }),
+      ['tips'],
+    )
     expect(gate(r, 'Max latency')).toMatchObject({ status: 'fail', observed: '38.3s' })
     expect(gate(r, 'Max latency')!.threshold).toContain('≤ 36.0s (80% of `TIPS_AI_BUDGET_MS`)')
   })
 
   it('fails a partial run even when every measured gate holds', () => {
-    const r = check(checked('tips', [{ countsInRange: 1 }]), ['tips'], true)
+    const r = check(checked('tips', [{ answered: 1, countsInRange: 1 }]), ['tips'], true)
     expect(r.gates.every((g) => g.status === 'pass')).toBe(true)
     expect(r.passed).toBe(false)
     expect(renderCheckMarkdown(r)).toContain('**Partial run.**')
   })
 
   it('echoes the result and the Gates table, but no per-task table', () => {
-    const summary = renderSummary(check(checked('tips', [{ countsInRange: 1 }]), ['tips']))
+    const summary = renderSummary(
+      check(checked('tips', [{ answered: 1, countsInRange: 1 }]), ['tips']),
+    )
     expect(summary).toContain('# AI eval check: production configuration')
-    expect(summary).toContain('**Pass.** All 2 gates hold.')
+    expect(summary).toContain('**Pass.** All 3 gates hold.')
     expect(summary).toContain('## Gates')
     expect(summary).not.toContain('## tips')
   })
@@ -684,7 +689,7 @@ describe('buildCheckReport', () => {
   it('writes <date>-check-production, then a -2 rather than overwriting it', () => {
     const outDir = mkdtempSync(join(tmpdir(), 'model-bench-check-'))
     try {
-      const calls = checked('tips', [{ countsInRange: 1 }])
+      const calls = checked('tips', [{ answered: 1, countsInRange: 1 }])
       const r = check(calls, ['tips'])
       const first = writeCheckReport(outDir, r, result(calls))
       const second = writeCheckReport(outDir, r, result(calls))

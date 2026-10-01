@@ -361,6 +361,15 @@ const tips: TaskSpec<'tips'> = {
   dryRunOutputTokens: 1_500,
   metrics: [
     {
+      // Always 1 from the scorer and 0 on an errored call, so a tips error
+      // still fails the check now that `countsInRange` tolerates misses.
+      key: 'answered',
+      label: 'Answered without error',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
+    {
       key: 'countsInRange',
       label: 'Item counts in range',
       format: 'percent',

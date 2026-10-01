@@ -525,7 +525,7 @@ describe('scoreTips', () => {
 
   it('passes full tips within every range', () => {
     const scores = scoreTips(full, { equipment: items(4), steps: items(5), pitfalls: items(2) })
-    expect(scores.countsInRange).toBe(1)
+    expect(scores).toEqual({ answered: 1, countsInRange: 1 })
   })
 
   it('detects full tips with 9 steps', () => {
@@ -538,6 +538,9 @@ describe('scoreTips', () => {
       scoreTips(supplementary, { pitfalls: items(2), tip: 'Pat the salmon dry.' }).countsInRange,
     ).toBe(1)
     expect(scoreTips(supplementary, { pitfalls: items(2), tip: '  ' }).countsInRange).toBe(0)
-    expect(scoreTips(supplementary, { pitfalls: items(4), tip: 'x' }).countsInRange).toBe(0)
+    expect(scoreTips(supplementary, { pitfalls: items(4), tip: 'x' })).toEqual({
+      answered: 1,
+      countsInRange: 0,
+    })
   })
 })

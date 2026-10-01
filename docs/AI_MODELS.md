@@ -42,10 +42,11 @@ A gate holds the metric's mean over all runs, with the run-to-run range shown be
 | review     | Every ID exactly once                                                                                      | 100%                        |
 | review     | Seeded errors corrected                                                                                    | ≥ 70% (measured 80%)        |
 | review     | Correct quantities kept                                                                                    | ≥ 85% (measured 91.7–93.6%) |
+| tips       | Answered without error                                                                                     | 100%                        |
 | tips       | Item counts in range                                                                                       | ≥ 90%                       |
 | every task | Max latency                                                                                                | ≤ 80% of the route budget   |
 
-The tips count gate is below 100% because the counts ("2-3 pitfalls", "3-5 pieces of equipment") are a prompt instruction that production does not enforce: the tips schema has no length bound, so a fourth pitfall renders as a fourth item. Over the 24 tips calls (8 cases × 3 runs) it allows 2 answers out of range; a 100% gate failed the first record on one (HON-929). Open product question: should the schema reject a fourth pitfall (the route's fallback then applies) or show it? If it rejects, the gate goes back to 100%.
+The tips count gate is below 100% because the counts ("2-3 pitfalls", "3-5 pieces of equipment") are a prompt instruction that production does not enforce: the tips schema has no length bound, so a fourth pitfall renders as a fourth item. Over the 24 tips calls (8 cases × 3 runs) it allows 2 answers out of range; a 100% gate failed the first record on one (HON-929). An errored call also scores as a miss on it, so tips errors are gated separately, at 100%, by _answered without error_. Open product question: should the schema reject a fourth pitfall (the route's fallback then applies) or show it? If it rejects, the gate goes back to 100%.
 
 Distinct dinner proteins and the step-count delta have no gate. The gates live on the metric definitions (`gate` in `scripts/model-bench/tasks.ts`).
 
