@@ -10,7 +10,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Body } from '@/components/ui/typography'
 import { Pencil, Trash2, User, Crown, Mail } from 'lucide-react'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import type { Member, MemberInvite } from '@/types/member'
 
 const PORTION_PRESET_KEYS: Record<number, 'small' | 'regular' | 'large' | 'extraLarge'> = {
@@ -71,7 +71,20 @@ export function MemberCard({
       toast.success(tMembers('removed'))
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : tMembers('removeFailed'))
+      // The route's `error` is English (HON-914): log it, render catalog copy.
+      // 403 is the owner-only check; 400 is removing yourself or the owner.
+      console.error(
+        '[member-card] remove failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      const status = err instanceof ApiError ? err.status : undefined
+      toast.error(
+        status === 403
+          ? tMembers('removeOwnerOnly')
+          : status === 400
+            ? tMembers('removeNotAllowed')
+            : tMembers('removeFailed'),
+      )
     },
   })
 

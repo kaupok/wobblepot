@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import { ConfirmDialog } from './confirm-dialog'
 
 const meta = {
@@ -59,5 +59,34 @@ export const CustomLabels: Story = {
     description: 'It will be marked as skipped and excluded from the shopping list.',
     confirmLabel: 'Skip meal',
     cancelLabel: 'Keep planned',
+  },
+}
+
+// With no labels passed, cancel, confirm and loading come from `common.*`, so a
+// caller that forgets them still speaks the household's language (HON-914).
+export const DefaultLabelsEstonian: Story = {
+  args: {
+    title: 'Eemalda sahvrist',
+    description: 'Kas oled kindel, et soovid selle sahvrist eemaldada?',
+  },
+  globals: { locale: 'et' },
+  play: async () => {
+    const dialog = await within(document.body).findByRole('alertdialog')
+    await expect(within(dialog).getByRole('button', { name: 'Tühista' })).toBeVisible()
+    await expect(within(dialog).getByRole('button', { name: 'Kinnita' })).toBeVisible()
+  },
+}
+
+export const LoadingEstonian: Story = {
+  args: {
+    title: 'Eemalda liige',
+    description: 'Kas oled kindel?',
+    confirmLabel: 'Eemalda',
+    isLoading: true,
+  },
+  globals: { locale: 'et' },
+  play: async () => {
+    const dialog = await within(document.body).findByRole('alertdialog')
+    await expect(within(dialog).getByRole('button', { name: 'Laen…' })).toBeDisabled()
   },
 }

@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { ApiError, apiFetch } from '@/lib/api'
 
 interface UseIngredientAvailabilityOptions {
@@ -10,6 +11,7 @@ interface UseIngredientAvailabilityOptions {
 }
 
 export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabilityOptions) {
+  const t = useTranslations('pantry.errors')
   const [optimisticOverrides, setOptimisticOverrides] = useState<Map<string, boolean>>(new Map())
 
   const toggleMutation = useMutation({
@@ -19,20 +21,12 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
       // gone. Either way the pantry now matches what the user asked for.
       const toleratedStatus = hasIt ? 409 : 404
       const request = hasIt
-        ? apiFetch<unknown>(
-            '/api/pantry',
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ingredientId }),
-            },
-            'Failed to add to pantry',
-          )
-        : apiFetch<void>(
-            `/api/pantry/by-ingredient/${ingredientId}`,
-            { method: 'DELETE' },
-            'Failed to remove from pantry',
-          )
+        ? apiFetch<unknown>('/api/pantry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ingredientId }),
+          })
+        : apiFetch<void>(`/api/pantry/by-ingredient/${ingredientId}`, { method: 'DELETE' })
       await request.catch((err: unknown) => {
         if (err instanceof ApiError && err.status === toleratedStatus) return
         throw err
@@ -47,7 +41,7 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
 
       return { ingredientId, previousValue }
     },
-    onError: (_err, _vars, context) => {
+    onError: (err, { hasIt }, context) => {
       // Revert optimistic update on error
       if (context) {
         setOptimisticOverrides((prev) => {
@@ -60,7 +54,12 @@ export function useIngredientAvailability({ onRefresh }: UseIngredientAvailabili
           return next
         })
       }
-      toast.error(_err instanceof Error ? _err.message : 'Failed to update pantry')
+      // The route's `error` is English (HON-914): log it, render catalog copy.
+      console.error(
+        '[ingredient-availability] toggle failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      toast.error(hasIt ? t('addFailed') : t('removeFailed'))
     },
     onSettled: (_data, error) => {
       // Only refresh on success

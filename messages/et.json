@@ -50,7 +50,6 @@
   "shopping": {
     "itemCount": "{count, plural, =0 {Tooteid pole} one {# toode} other {# toodet}}",
     "title": "Poenimekiri",
-    "dateRangePrefix": "Periood: {range}",
     "windowNext7": "Järgmised 7 päeva",
     "windowNext14": "Järgmised 14 päeva",
     "purchasedTail": "{count} ostetud",
@@ -196,7 +195,8 @@
       "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
       "statusUpdateFailed": "Oleku uuendamine ebaõnnestus. Palun proovi uuesti.",
       "clearFailed": "Toidu eemaldamine ebaõnnestus. Palun proovi uuesti.",
-      "createEntryFailed": "Toidukoha lisamine ebaõnnestus"
+      "createEntryFailed": "Toidukoha lisamine ebaõnnestus",
+      "entryAlreadyExists": "Sellele kohale on toit juba lisatud. Värskenda lehte, et seda näha."
     },
     "noteEditor": {
       "placeholder": "Lisa märkus…",
@@ -589,15 +589,20 @@
   "common": {
     "loading": "Laen…",
     "tryAgain": "Proovi uuesti",
-    "goHome": "Mine avalehele",
     "cancel": "Tühista",
     "save": "Salvesta",
     "remove": "Eemalda",
+    "removeNamed": "Eemalda „{name}\"",
     "confirm": "Kinnita",
     "clear": "Eemalda",
+    "close": "Sulge",
     "back": "Tagasi",
     "nutritionDisclaimer": "Toiteväärtused on üksnes hinnangulised juhised, mitte meditsiiniline nõuanne. Toitumisotsuste tegemiseks pöördu tervishoiutöötaja poole.",
-    "aiUsageCapWarning": "AI-kasutus on jõudnud {percentage}%-ni sinu kuu limiidist."
+    "aiUsageCapWarning": "AI-kasutus on jõudnud {percentage}%-ni sinu kuu limiidist.",
+    "toaster": {
+      "label": "Teavitused",
+      "close": "Sulge teavitus"
+    }
   },
   "nav": {
     "skipToContent": "Liigu sisu juurde",
@@ -903,7 +908,6 @@
       "savedToast": "Sätted salvestatud",
       "saveFailed": "Sätete salvestamine ebaõnnestus",
       "ownerOnlyNotice": "Neid sätteid saab muuta ainult leibkonna omanik. Siin saad neid vaadata.",
-      "errorGeneric": "Tekkis viga",
       "basicHeading": "Põhiandmed",
       "nameLabel": "Leibkonna nimi",
       "timezoneLabel": "Ajavöönd",
@@ -942,6 +946,8 @@
       },
       "loadFailed": "Liikmete laadimine ebaõnnestus",
       "removeFailed": "Liikme eemaldamine ebaõnnestus",
+      "removeOwnerOnly": "Liikmeid saab eemaldada ainult leibkonna omanik.",
+      "removeNotAllowed": "Seda liiget ei saa leibkonnast eemaldada.",
       "removed": "Liige eemaldati"
     },
     "portion": {

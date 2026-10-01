@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useImperativeHandle, forwardRef, type KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 
@@ -22,6 +23,7 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
   { value, onChange, placeholder = 'Type and press Enter', disabled = false, className, id },
   ref,
 ) {
+  const t = useTranslations('common')
   const [inputValue, setInputValue] = useState('')
 
   const addTag = useCallback(
@@ -85,7 +87,7 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
               type="button"
               onClick={() => removeTag(tag)}
               className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-              aria-label={`Remove ${tag}`}
+              aria-label={t('removeNamed', { name: tag })}
             >
               <X className="size-3.5" />
             </button>

@@ -81,11 +81,11 @@ describe('CreateRecipeClient routing', () => {
     render(<CreateRecipeClient defaultServings={4} />)
 
     // First paint, before the load effect settles: the route's skeleton.
-    expect(screen.getAllByRole('status', { name: 'Loading' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('status', { name: 'Loading…' }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
 
     await screen.findByRole('button', { name: 'Cancel' })
-    expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: 'Loading…' })).not.toBeInTheDocument()
   })
 
   it('cancels back to returnTo when the imagine flow set one', async () => {

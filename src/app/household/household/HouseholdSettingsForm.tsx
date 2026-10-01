@@ -24,7 +24,7 @@ import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { PUBLIC_LOCALES, type Locale } from '@/lib/i18n/locales'
 import { MEAL_TYPE_VALUES } from '@/components/household/meal-form-types'
 import { FieldError } from '@/components/FieldError'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 
 // Types matching Prisma enums
 type DietaryType = 'vegetarian' | 'vegan' | 'pescatarian'
@@ -222,7 +222,19 @@ export function HouseholdSettingsForm({
       router.refresh()
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : tSettings('errorGeneric'))
+      // The routes' `error` is English (HON-914): log it, render catalog copy.
+      // Both endpoints 403 a non-owner, the same case the client-side guard
+      // throws for; anything else ("Validation failed", a 500) gets the
+      // generic save failure.
+      console.error(
+        '[household-settings] save failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      setError(
+        !isOwner || (err instanceof ApiError && err.status === 403)
+          ? tSettings('ownerOnlyNotice')
+          : tSettings('saveFailed'),
+      )
     },
   })
 
