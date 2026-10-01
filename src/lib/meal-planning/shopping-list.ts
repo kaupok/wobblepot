@@ -5,6 +5,7 @@ import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/c
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { getEffectiveServings } from './servings'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
+import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
 
 /**
  * Category configuration for shopping list grouping.
@@ -227,7 +228,7 @@ export async function computeShoppingList(
             existing.originalPhrase = component.originalPhrase
           } else if (
             existing.originalPhrase !== MIXED_VAGUE_PHRASE &&
-            component.originalPhrase?.toLowerCase() !== existing.originalPhrase?.toLowerCase()
+            !sameVaguePhrase(component.originalPhrase, existing.originalPhrase)
           ) {
             // Different vague phrase encountered - use "some" instead
             existing.originalPhrase = MIXED_VAGUE_PHRASE
@@ -438,7 +439,7 @@ export async function computeRollingWindowShoppingList(
             existing.originalPhrase = component.originalPhrase
           } else if (
             existing.originalPhrase !== MIXED_VAGUE_PHRASE &&
-            component.originalPhrase?.toLowerCase() !== existing.originalPhrase?.toLowerCase()
+            !sameVaguePhrase(component.originalPhrase, existing.originalPhrase)
           ) {
             // Different vague phrase encountered - use "some" instead
             existing.originalPhrase = MIXED_VAGUE_PHRASE

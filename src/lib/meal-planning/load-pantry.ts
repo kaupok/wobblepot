@@ -7,6 +7,7 @@ import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/c
 import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
+import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
 
 export interface PantryHousehold {
   id: string
@@ -119,7 +120,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
               existing.originalPhrase = component.originalPhrase
             } else if (
               existing.originalPhrase !== MIXED_VAGUE_PHRASE &&
-              component.originalPhrase?.toLowerCase() !== existing.originalPhrase?.toLowerCase()
+              !sameVaguePhrase(component.originalPhrase, existing.originalPhrase)
             ) {
               // Different vague phrase encountered - use "some" instead
               existing.originalPhrase = MIXED_VAGUE_PHRASE

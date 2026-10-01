@@ -50,3 +50,17 @@ export function formatVaguePhrase(phrase: string, label: VaguePhraseLabel): stri
   const key = vaguePhraseKey(phrase)
   return key ? label(key) : phrase
 }
+
+/**
+ * Whether two stored phrases read the same once rendered: "a pinch" and
+ * "pinch" share a key, so aggregating them keeps the phrase instead of
+ * falling back to "some". Phrases outside the vocabulary compare as text.
+ */
+export function sameVaguePhrase(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const normalize = (phrase: string | null | undefined) =>
+    phrase ? (vaguePhraseKey(phrase) ?? phrase.toLowerCase().trim()) : null
+  return normalize(a) === normalize(b)
+}

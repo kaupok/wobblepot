@@ -5,6 +5,7 @@ import { VAGUE_PHRASES } from '@/lib/vague-quantities'
 import {
   VAGUE_PHRASE_KEYS,
   formatVaguePhrase,
+  sameVaguePhrase,
   vaguePhraseKey,
   type VaguePhraseKey,
 } from './vague-phrase'
@@ -56,5 +57,26 @@ describe('formatVaguePhrase', () => {
   it('renders a phrase outside the vocabulary verbatim', () => {
     expect(formatVaguePhrase('maitse järgi', label('et'))).toBe('maitse järgi')
     expect(formatVaguePhrase('A Smidgen', label('en'))).toBe('A Smidgen')
+  })
+})
+
+describe('sameVaguePhrase', () => {
+  it('treats article variants as the same phrase', () => {
+    expect(sameVaguePhrase('a pinch', 'pinch')).toBe(true)
+    expect(sameVaguePhrase('Garnish', 'for garnish')).toBe(true)
+  })
+
+  it('compares phrases outside the vocabulary as case-insensitive text', () => {
+    expect(sameVaguePhrase('A Smidgen', 'a smidgen')).toBe(true)
+    expect(sameVaguePhrase('a smidgen', 'a pinch')).toBe(false)
+  })
+
+  it('tells different known phrases apart', () => {
+    expect(sameVaguePhrase('to taste', 'a pinch')).toBe(false)
+  })
+
+  it('treats two missing phrases as the same', () => {
+    expect(sameVaguePhrase(null, undefined)).toBe(true)
+    expect(sameVaguePhrase(null, 'to taste')).toBe(false)
   })
 })
