@@ -94,6 +94,24 @@ export function computeReviewNutrition(
   return computeMealNutrition(components)
 }
 
+const MAX_PREP_MINUTES = 480
+
+/**
+ * The imagined prep time as the create route will accept it, or `null`.
+ *
+ * `ImaginedMealSchema` states "integer, 1-480" only in its description, so the
+ * model can return `12.5` or `600`; `POST /api/households/me/meals` rejects
+ * both (`.int().positive().max(480)`), and the dialog has no field to fix them,
+ * so every retry failed (HON-891). Round, then treat anything outside 1–480 as
+ * unknown — which also covers `0` (HON-711). The badge renders this same value,
+ * so it shows exactly what is saved.
+ */
+function savableTimeMinutes(timeMinutes: number | null): number | null {
+  if (timeMinutes == null) return null
+  const rounded = Math.round(timeMinutes)
+  return rounded >= 1 && rounded <= MAX_PREP_MINUTES ? rounded : null
+}
+
 function initIngredientRows(prefilledIngredients: PrefilledIngredient[]): IngredientRowData[] {
   const rows = prefilledIngredients.map((prefilled): IngredientRowData => {
     if (prefilled.type === 'unmatched') {
@@ -202,6 +220,7 @@ export function ImagineReviewDialog({
   const [isMatchedOpen, setIsMatchedOpen] = useState(false)
   const locale = useLocale() as Locale
   const saveBlockedId = useId()
+  const timeMinutes = savableTimeMinutes(meal.timeMinutes)
 
   const unresolvedCount = ingredientRows.filter((row) => row.type === 'unmatched').length
   const lowConfidenceCount = ingredientRows.filter((row) => row.type === 'low-confidence').length
@@ -264,9 +283,7 @@ export function ImagineReviewDialog({
           description: meal.description,
           preparationNotes: meal.preparationNotes ?? null,
           sourceUrl: meal.sourceUrl ?? null,
-          // A zero-minute imagined meal shows no badge, and the create route rejects 0
-          // (`.positive()`): send it as unknown so the save matches the render (HON-711).
-          timeMinutes: meal.timeMinutes != null && meal.timeMinutes > 0 ? meal.timeMinutes : null,
+          timeMinutes,
           kidFriendly: meal.kidFriendly,
           suitableFor: meal.mealTypes,
           servings: meal.servings,
@@ -349,11 +366,11 @@ export function ImagineReviewDialog({
 
           {/* Meta badges */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711). */}
-            {meal.timeMinutes != null && meal.timeMinutes > 0 && (
+            {/* The sanitised value, never `null` or `0`, so no stray "0" (HON-711). */}
+            {timeMinutes != null && (
               <Badge variant="outline">
                 <Clock className="size-3.5" />
-                {tDetail('timeMinutes', { count: meal.timeMinutes })}
+                {tDetail('timeMinutes', { count: timeMinutes })}
               </Badge>
             )}
             {meal.kidFriendly && <KidFriendlyBadge />}

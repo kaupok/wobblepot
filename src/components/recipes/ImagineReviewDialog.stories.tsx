@@ -120,6 +120,29 @@ export const WithoutEditDetails: Story = {
   },
 }
 
+// The model can return a fractional prep time; the create route only accepts
+// integers 1–480, so the dialog rounds it and the badge shows the saved value
+// (HON-891).
+export const FractionalPrepTime: Story = {
+  args: {
+    meal: createReviewMealData({ timeMinutes: 12.5 }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'AI prep time of 12.5 min — the badge shows 13 min, the value the save sends. Over 480 min, the badge is hidden and the save sends no prep time.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    const badge = await body.findByText('13 min')
+    // The dialog fades in, so the badge is not visible on first render.
+    await waitFor(() => expect(badge).toBeVisible())
+  },
+}
+
 // Locale-toggle story — macros use `formatInteger` (comma grouping in en; CLDR
 // Estonian only groups from 5 digits) and matched per-serving rows use
 // `formatQuantity` (comma vs period decimal). One serving of 400g rice gives a
