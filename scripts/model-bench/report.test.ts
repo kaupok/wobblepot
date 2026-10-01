@@ -350,15 +350,30 @@ describe('buildReport', () => {
       ])
     })
 
-    it('lists a candidate just over the line as noise when the gap is inside the run-to-run range of per-run maxes', () => {
+    it("lists a candidate just over the line as noise when the gap is inside the baseline's range of per-run maxes", () => {
       // Baseline per-run maxes 0.6–0.78, candidate 0.65–0.81: gap 0.03, range 0.18.
       const r = report(latencies([0.78, 0.6], [0.81, 0.65]), ['review'])
       expect(r.regressions).toEqual([])
       expect(r.withinNoise.map((f) => f.text)).toEqual([
         expect.stringMatching(
-          /review · Max latency.*36\.5s is above 80%.*baseline's 35\.1s is not, but the gap is inside the run-to-run range/,
+          /review · Max latency.*36\.5s is above 80%.*baseline's 35\.1s is not, but the gap is inside the baseline's run-to-run range/,
         ),
       ])
+    })
+
+    it("does not let the candidate's own outlier widen the range it is judged against", () => {
+      // Candidate per-run maxes 15s and 50s (over the 45s budget), baseline 22s and 20s.
+      const r = report(latencies([0.49, 0.45], [0.33, 1.11]), ['review'])
+      expect(r.withinNoise).toEqual([])
+      expect(r.regressions.map((f) => f.text)).toEqual([
+        expect.stringMatching(/Max latency.*50\.0s/),
+      ])
+    })
+
+    it('never calls a candidate over the full route budget noise', () => {
+      // The baseline's spread (0.4–0.79) covers the 0.22 gap, but 1.01 is past the budget itself.
+      const r = report(latencies([0.79, 0.4], [1.01, 0.5]), ['review'])
+      expect(r.regressions.map((f) => f.text)).toEqual([expect.stringMatching(/Max latency/)])
     })
 
     it('keeps the crossing a regression when one run measured no range', () => {

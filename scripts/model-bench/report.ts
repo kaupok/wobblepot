@@ -13,7 +13,7 @@
  * the route budget, and then asks what the baseline did (HON-898): both over
  * the line is the budget's problem, not the model change's, and a candidate
  * just over it while the baseline sits just under is noise when the gap is
- * inside the run-to-run range of per-run maxes. A
+ * inside the baseline's run-to-run range of per-run maxes. A
  * difference outside noise that crosses no threshold, in either direction, is
  * listed under "Other changes outside noise" (HON-858): most metrics have no
  * threshold, and a real move on one must still reach the summary.
@@ -362,11 +362,13 @@ function retriedNote(...ops: Operational[]): string {
  * The candidate's max over `LATENCY_BUDGET_SHARE` of the budget (HON-898):
  *
  * - baseline over too → "Other changes": the budget is the problem;
- * - baseline under, but the gap between the maxes is inside the wider range
- *   of the two sides' per-run maxes → "Within noise", as `compareMetric`
- *   would call it;
+ * - baseline under, the candidate inside the full budget, and the gap between
+ *   the maxes inside the range of the baseline's per-run maxes → "Within
+ *   noise". Only the baseline's range: the candidate's own range contains the
+ *   outlier being judged, so measuring against it would excuse any spike;
  * - otherwise → a regression. With a single run on either side no range is
- *   measured, and nothing can show the crossing is noise.
+ *   measured, and nothing can show the crossing is noise. A call over the
+ *   full budget is never noise: the route would have timed out on it.
  */
 function latencyFinding(
   task: Task,
@@ -397,17 +399,20 @@ function latencyFinding(
   const c = ops.candidate.latencyRunMaxesMs
   const spread = (v: number[]) => Math.max(...v) - Math.min(...v)
   const inRange =
-    b.length >= 2 && c.length >= 2 && candidateMax - baselineMax <= Math.max(spread(b), spread(c))
+    b.length >= 2 &&
+    c.length >= 2 &&
+    candidateMax <= spec.budgetMs &&
+    candidateMax - baselineMax <= spread(b) + FLOAT_TOLERANCE
   if (inRange) {
     const runs = (v: number[]) => `${seconds(Math.min(...v))}–${seconds(Math.max(...v))}`
     return {
       list: 'noise',
-      text: `${head} the candidate's ${seconds(candidateMax)} is above ${budgetText(spec)} and the baseline's ${seconds(baselineMax)} is not, but the gap is inside the run-to-run range (per-run maxes ${runs(b)} and ${runs(c)}): both are close to the budget${note}`,
+      text: `${head} the candidate's ${seconds(candidateMax)} is above ${budgetText(spec)} and the baseline's ${seconds(baselineMax)} is not, but the gap is inside the baseline's run-to-run range (its per-run maxes ${runs(b)}): both are close to the budget${note}`,
     }
   }
   return {
     list: 'regression',
-    text: `${head} the candidate's ${seconds(candidateMax)} is above ${budgetText(spec)}, and the baseline's ${seconds(baselineMax)} is not, outside the run-to-run range${note}`,
+    text: `${head} the candidate's ${seconds(candidateMax)} is above ${budgetText(spec)}, and the baseline's ${seconds(baselineMax)} is not, outside the baseline's run-to-run range${note}`,
   }
 }
 
