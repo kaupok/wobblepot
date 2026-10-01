@@ -7,20 +7,5 @@
     "restrictions": ["mild spice for the kids"],
     "householdSize": 5
   },
-  "locale": "en",
-  "forbiddenKeywords": [
-    "peanut",
-    "almond",
-    "walnut",
-    "hazelnut",
-    "cashew",
-    "pecan",
-    "pistachio",
-    "macadamia",
-    "brazil nut",
-    "pine nut",
-    "praline",
-    "marzipan",
-    "nutella"
-  ]
+  "locale": "en"
 }

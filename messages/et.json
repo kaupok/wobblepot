@@ -399,6 +399,7 @@
         "promptRequired": "Palun kirjelda, millist toitu soovid.",
         "invalidRequest": "Päringuga läks midagi valesti. Palun proovi uuesti.",
         "imagineTimeout": "Toiduideede koostamine võttis liiga kaua aega. Palun proovi uuesti.",
+        "imagineNoSafeMeals": "Ükski idee ei sobinud sinu leibkonna allergiate ja toitumisviisiga. Proovi kirjeldada mõnda teist rooga.",
         "generationDisabled": "Toiduideede koostamine on praegu välja lülitatud. Palun proovi hiljem uuesti."
       }
     },

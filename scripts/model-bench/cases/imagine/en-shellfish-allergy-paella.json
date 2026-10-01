@@ -8,20 +8,5 @@
     "householdSize": 3
   },
   "locale": "en",
-  "forbiddenKeywords": [
-    "shrimp",
-    "prawn",
-    "langoustine",
-    "crayfish",
-    "lobster",
-    "crab",
-    "mussel",
-    "clam",
-    "scallop",
-    "cockle",
-    "squid",
-    "calamari",
-    "octopus",
-    "chorizo"
-  ]
+  "forbiddenKeywords": ["chorizo"]
 }

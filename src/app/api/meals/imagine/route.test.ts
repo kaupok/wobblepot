@@ -25,6 +25,12 @@ vi.mock('@/lib/rate-limit', () => ({
 
 vi.mock('@/lib/ai/imagine-meal', () => ({
   imagineMeals: vi.fn(),
+  ImagineNoSafeMealsError: class ImagineNoSafeMealsError extends Error {},
+}))
+
+const mockPosthogCapture = vi.fn()
+vi.mock('@/lib/posthog-server', () => ({
+  getPosthogServer: vi.fn(() => ({ capture: mockPosthogCapture })),
 }))
 
 vi.mock('@/lib/ai/match-ingredients', () => ({
@@ -55,7 +61,7 @@ vi.mock('@/lib/ai/usage', async (importOriginal) => {
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { imagineMeals } from '@/lib/ai/imagine-meal'
+import { imagineMeals, ImagineNoSafeMealsError } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { prisma } from '@/lib/prisma'
 import { assertUnderCap } from '@/lib/ai/usage'
@@ -406,6 +412,7 @@ describe('POST /api/meals/imagine', () => {
       // HON-694: without a signal the AI call is unbounded and the platform,
       // not the mapped 504, decides when a slow generation ends.
       expect.any(AbortSignal),
+      expect.any(Function),
     )
   })
 
@@ -523,6 +530,55 @@ describe('POST /api/meals/imagine', () => {
     expect(data.code).toBe('imagine_failed')
   })
 
+  it('returns 422 imagine_no_safe_meals when every suggestion broke a household constraint (HON-895)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockImagineMeals.mockRejectedValue(new ImagineNoSafeMealsError())
+
+    const response = await POST(jsonRequest({ prompt: 'seafood paella' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(422)
+    expect(data.code).toBe('imagine_no_safe_meals')
+  })
+
+  it('sends each dropped suggestion to PostHog as imagine:allergen_violation_dropped (HON-895)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockImagineMeals.mockImplementation(async (...args) => {
+      const onConstraintViolation = args[6]!
+      onConstraintViolation({
+        constraint: 'shellfish',
+        kind: 'allergen',
+        keyword: 'shrimp',
+        field: 'ingredient',
+        text: 'shrimp',
+        model: 'claude-sonnet-4-6',
+        attempt: 1,
+      })
+      return [imaginedMeal() as never]
+    })
+    mockMatchIngredients.mockResolvedValue([matchedResult() as never])
+    mockIngredientFindMany.mockResolvedValue([])
+
+    const response = await POST(jsonRequest({ prompt: 'seafood paella' }))
+
+    expect(response.status).toBe(200)
+    expect(mockPosthogCapture).toHaveBeenCalledWith({
+      distinctId: 'household-123',
+      event: 'imagine:allergen_violation_dropped',
+      properties: {
+        constraint: 'shellfish',
+        constraint_kind: 'allergen',
+        keyword: 'shrimp',
+        field: 'ingredient',
+        model: 'claude-sonnet-4-6',
+        attempt: 1,
+        household_id: 'household-123',
+      },
+    })
+  })
+
   it('returns 504 when imagineMeals exceeds its budget', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
@@ -585,6 +641,7 @@ describe('POST /api/meals/imagine', () => {
       expect.arrayContaining([expect.objectContaining({ mimeType: 'image/jpeg' })]),
       expect.any(Function),
       expect.any(AbortSignal),
+      expect.any(Function),
     )
   })
 })

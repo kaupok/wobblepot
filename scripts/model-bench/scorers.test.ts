@@ -6,6 +6,7 @@ import { loadCases } from './load-cases'
 import {
   countNumberedLines,
   derivePlanContext,
+  imagineRules,
   scoreImagine,
   scorePlan,
   scoreRecipe,
@@ -311,7 +312,7 @@ describe('the Estonian vegetarian imagine case', () => {
   })
 })
 
-describe('allowedQualifiers in the vegan imagine cases', () => {
+describe('swap qualifiers in the vegan imagine cases', () => {
   const meals = (servings: number, ...names: string[]) =>
     Array.from({ length: 3 }, () => ({
       name: 'Vegan dish',
@@ -431,13 +432,44 @@ describe('allowedQualifiers in the vegan imagine cases', () => {
     })
   })
 
-  it('scores a case without allowedQualifiers as a plain substring match', () => {
-    const input = starter('imagine', 'en-vegan-creamy-pasta')
-    const { allowedQualifiers: _, ...unqualified } = input
-    expect(
-      scoreImagine(unqualified, { meals: meals(2, 'vegan parmesan') }).noForbiddenIngredients,
-    ).toBe(0)
-    expect(scoreImagine(unqualified, { meals: meals(2, 'penne') }).noForbiddenIngredients).toBe(1)
+  it("excuses a case keyword only with the case's own qualifiers", () => {
+    const input = starter('imagine', 'en-chicken-rice-weeknight')
+    const score = (c: typeof input, name: string) =>
+      scoreImagine(c, { meals: meals(4, name) }).noForbiddenIngredients
+    // `vegan` qualifies the shared dairy and meat lists, not an excluded ingredient.
+    expect(score(input, 'vegan mushroom')).toBe(0)
+    expect(score({ ...input, allowedQualifiers: ['vegan'] }, 'vegan mushroom')).toBe(1)
+    expect(score(input, 'penne')).toBe(1)
+  })
+})
+
+describe('the imagine scorer and the production guard', () => {
+  it('flags an allergen from the shared lists even when the case lists no keywords', () => {
+    const input = starter('imagine', 'en-shellfish-allergy-paella')
+    const meals = Array.from({ length: 3 }, () => ({
+      name: 'Rice',
+      description: null,
+      timeMinutes: 30,
+      servings: 3,
+      mealTypes: ['dinner' as const],
+      kidFriendly: true,
+      ingredients: ['rice', 'king prawn'].map((name) => ({
+        name,
+        quantity: 100,
+        unit: 'g' as const,
+        originalText: name,
+        isVague: false,
+        vaguePhrase: null,
+        isDried: null,
+      })),
+    }))
+    expect(input.forbiddenKeywords).toEqual(['chorizo'])
+    expect(scoreImagine(input, { meals }).noForbiddenIngredients).toBe(0)
+  })
+
+  it('does not check the meal name, which the guard checks for allergens', () => {
+    const rules = imagineRules(starter('imagine', 'et-fish-allergy-sushi'))
+    expect(rules.every((r) => !r.checkMealName)).toBe(true)
   })
 })
 
