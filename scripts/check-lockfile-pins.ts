@@ -108,8 +108,8 @@ export const PINS: Pin[] = [
   {
     kind: 'minimum',
     package: 'vitest',
-    floors: ['3.2.6', '4.1.11', '5.0.0-rc.2'],
-    why: "GHSA-5xrq-8626-4rwp (critical — Vitest UI server allows arbitrary file read and execute; < 3.2.6 and >= 4.0.0 < 4.1.0) and GHSA-82fw-gwwq-j7x9 (medium; >= 2.1.0 < 4.1.11 and >= 5.0.0-beta.1 < 5.0.0-rc.2). Filed against the `vitest` package itself, which the @vitest/* glob below does NOT match, so this entry is what actually asserts the toolchain version: HON-588's 4.0.18 -> 4.1.11 move, then HON-640's 4.1.11 -> 5.0.3. One floor per branch, the highest either advisory publishes. The 3.x floor is GHSA-5xrq's alone, because GHSA-82fw publishes no 3.x fix; it matters because a patched vitest@3.2.6 could arrive transitively (storybook already bundles @vitest/expect@3.2.4), and judging it against the 4.x floor would red the build over a version GHSA-5xrq calls fixed. The 5.x floor is a prerelease, so it rejects the affected betas and rcs and passes every 5.x release.",
+    floors: ['4.1.11', '5.0.0-rc.2'],
+    why: "GHSA-5xrq-8626-4rwp (critical — Vitest UI server allows arbitrary file read and execute; < 3.2.6 and >= 4.0.0 < 4.1.0) and GHSA-82fw-gwwq-j7x9 (medium; >= 2.1.0 < 4.1.11 and >= 5.0.0-beta.1 < 5.0.0-rc.2). Filed against the `vitest` package itself, which the @vitest/* glob below does NOT match, so this entry is what actually asserts the toolchain version: HON-588's 4.0.18 -> 4.1.11 move, then HON-640's 4.1.11 -> 5.0.3. One floor per branch, the highest either advisory publishes. There is no 3.x floor: GHSA-82fw publishes no 3.x fix, so every 3.x vitest predates every floor and reads as affected, the same as the @vitest/mocker entry below (HON-640 dropped the 3.2.6 floor that GHSA-5xrq alone would justify). The 5.x floor is a prerelease, so it rejects the affected betas and rcs and passes every 5.x release.",
   },
   {
     kind: 'minimum',
@@ -264,11 +264,11 @@ export function compareVersions(a: string, b: string): number {
  * at or below the resolved major.
  *
  * Advisories publish a floor *per affected release branch*, not one number —
- * GHSA-5xrq-8626-4rwp patches vitest's 3.x line at 3.2.6 and its 4.x line at
- * 4.1.0. Judging a 3.x resolution against the 4.x floor reports the patched
- * `vitest@3.2.6` as vulnerable, and a gate that reds a PR over a patched
- * version in a transitive dependency nobody can move is a gate that gets
- * switched off.
+ * GHSA-p63j-vcc4-9vmv patches @vitest/browser's 3.x line at 3.2.7 and its 4.x
+ * line at 4.1.10. Judging a 3.x resolution against the 4.x floor reports the
+ * patched `@vitest/browser@3.2.7` as vulnerable, and a gate that reds a PR
+ * over a patched version in a transitive dependency nobody can move is a gate
+ * that gets switched off.
  *
  * `null` means the version predates every branch the advisory lists a fix for.
  * That is a violation, not a pass: it is older than anything we have a floor

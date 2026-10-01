@@ -291,15 +291,21 @@ describe('findViolations', () => {
   })
 
   it('stays silent on a version an advisory patched on an older branch', () => {
-    // GHSA-5xrq-8626-4rwp patches vitest 3.x at 3.2.6, so vitest@3.2.6 is
+    // GHSA-p63j-vcc4-9vmv patches @vitest/browser 3.x at 3.2.7, so 3.2.7 is
     // fixed. Judging it against the 4.x floor would red the build over a
     // version the advisory calls patched — in a transitive dependency that
     // neither the package.json pin nor `pnpm update` can move.
-    expect(details('  vitest@3.2.6:\n')).toBe('')
     expect(details("  '@vitest/browser@3.2.7':\n")).toBe('')
-    // ...but the versions below those branch floors still fire.
-    expect(details('  vitest@3.2.5:\n')).toContain('vitest@3.2.5')
+    // ...but the versions below that branch floor still fire.
     expect(details("  '@vitest/browser@3.2.4':\n")).toContain('@vitest/browser@3.2.4')
+  })
+
+  it('fires on every vitest 3.x, which GHSA-82fw-gwwq-j7x9 never patched', () => {
+    // GHSA-5xrq-8626-4rwp patches 3.x at 3.2.6, but GHSA-82fw affects
+    // >= 2.1.0 < 4.1.11 with no 3.x fix, so 3.2.6 is still affected — the same
+    // reading the @vitest/mocker entry gives a 3.x mocker.
+    expect(details('  vitest@3.2.6:\n')).toContain('vitest@3.2.6')
+    expect(details('  vitest@3.2.5:\n')).toContain('vitest@3.2.5')
   })
 
   it('fires on a version older than every patched branch', () => {
