@@ -451,6 +451,24 @@ export const errorAddMemberHandlers: HttpHandler[] = [
 ]
 
 /**
+ * Override `POST /api/households/me/members` with the household-size cap
+ * rejection (HON-720). Use for the `AddMemberDialog` household-full story.
+ */
+export const householdFullAddMemberHandlers: HttpHandler[] = [
+  http.post('/api/households/me/members', () =>
+    HttpResponse.json(
+      {
+        error: 'household_full',
+        code: 'household_full',
+        message: 'This household has reached the limit of 30 members.',
+        limit: 30,
+      },
+      { status: 400 },
+    ),
+  ),
+]
+
+/**
  * Hold the `POST /api/households/me/members` request open so the dialog stays
  * in its `Submitting` state.
  */

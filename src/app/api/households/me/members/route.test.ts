@@ -14,6 +14,10 @@ vi.mock('@/lib/auth', () => ({
   },
 }))
 
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     householdMember: {
@@ -37,6 +41,8 @@ vi.mock('@/lib/prisma', () => ({
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
+import { MAX_HOUSEHOLD_MEMBERS } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
@@ -50,9 +56,11 @@ const mockEntryUpdateMany = vi.mocked(prisma.mealPlanEntry.updateMany)
  * test can assert that adding a member cleared the household's cached prep tips
  * inside the same transaction as the membership write (HON-684).
  */
-const mockMemberTransaction = (createdMember: unknown) => {
+const mockMemberTransaction = (createdMember: unknown, memberCount = 1) => {
   const tx = {
+    $queryRaw: vi.fn().mockResolvedValue([]),
     householdMember: {
+      count: vi.fn().mockResolvedValue(memberCount),
       create: vi.fn().mockResolvedValue({ id: 'member-new' }),
       findUnique: vi.fn().mockResolvedValue(createdMember),
     },
@@ -517,5 +525,108 @@ describe('POST /api/households/me/members', () => {
     expect(response.status).toBeGreaterThanOrEqual(400)
     expect(mockTransaction).not.toHaveBeenCalled()
     expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+  })
+
+  describe('household size cap (HON-720)', () => {
+    const ownerMembership = {
+      id: 'member-123',
+      householdId: 'household-123',
+      userId: 'user-123',
+      role: 'owner',
+      household: {
+        id: 'household-123',
+        name: 'Test Household',
+        timezone: 'Europe/Tallinn',
+        preferences: null,
+      },
+    }
+
+    const postChild = () =>
+      POST(
+        new Request('http://localhost/api/households/me/members', {
+          method: 'POST',
+          body: JSON.stringify({ name: 'Test Child' }),
+        }),
+      )
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue({
+        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+        session: { id: 'session-123' },
+      } as never)
+      mockFindFirst.mockResolvedValue(ownerMembership as never)
+    })
+
+    it('sits above the 21 members onboarding can produce', () => {
+      expect(MAX_HOUSEHOLD_MEMBERS).toBeGreaterThanOrEqual(21)
+    })
+
+    it('rejects an add at the cap with household_full and writes nothing', async () => {
+      const tx = mockMemberTransaction(null, MAX_HOUSEHOLD_MEMBERS)
+
+      const response = await postChild()
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('household_full')
+      expect(data.code).toBe('household_full')
+      expect(data.limit).toBe(MAX_HOUSEHOLD_MEMBERS)
+      expect(tx.householdMember.create).not.toHaveBeenCalled()
+      expect(tx.memberPreferences.create).not.toHaveBeenCalled()
+      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+      // An expected client error, not a server fault.
+      expect(captureApiError).not.toHaveBeenCalled()
+    })
+
+    it('accepts an add one below the cap', async () => {
+      const tx = mockMemberTransaction(
+        {
+          id: 'member-new',
+          householdId: 'household-123',
+          userId: null,
+          name: 'Test Child',
+          role: 'member',
+          joinedAt: new Date(),
+          preferences: null,
+        },
+        MAX_HOUSEHOLD_MEMBERS - 1,
+      )
+
+      const response = await postChild()
+
+      expect(response.status).toBe(201)
+      expect(tx.householdMember.create).toHaveBeenCalledTimes(1)
+    })
+
+    // The mocked client cannot race two requests, so what distinguishes the
+    // fixed code from the racy one is where the check runs: on the transaction
+    // client, after the household row lock and before the insert.
+    it('locks the household row and counts on the transaction client before inserting', async () => {
+      const tx = mockMemberTransaction({
+        id: 'member-new',
+        householdId: 'household-123',
+        userId: null,
+        name: 'Test Child',
+        role: 'member',
+        joinedAt: new Date(),
+        preferences: null,
+      })
+
+      await postChild()
+
+      expect(tx.$queryRaw).toHaveBeenCalledTimes(1)
+      const [strings, householdId] = tx.$queryRaw.mock.calls[0] as [TemplateStringsArray, string]
+      expect(strings.join('?')).toMatch(/FROM "household" WHERE "id" = \? FOR NO KEY UPDATE/)
+      expect(householdId).toBe('household-123')
+      expect(tx.householdMember.count).toHaveBeenCalledWith({
+        where: { householdId: 'household-123' },
+      })
+
+      const [lockOrder] = tx.$queryRaw.mock.invocationCallOrder
+      const [countOrder] = tx.householdMember.count.mock.invocationCallOrder
+      const [createOrder] = tx.householdMember.create.mock.invocationCallOrder
+      expect(lockOrder).toBeLessThan(countOrder!)
+      expect(countOrder).toBeLessThan(createOrder!)
+    })
   })
 })

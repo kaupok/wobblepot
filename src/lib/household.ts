@@ -2,6 +2,16 @@ import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { getServerBaseURL } from '@/lib/env'
 
 /**
+ * Most members, owner included, a household can hold. `POST /api/households`
+ * bounds one onboarding payload at 20 members plus the owner (HON-698); this is
+ * the household-size invariant that `POST /api/households/me/members` enforces
+ * on every later add (HON-720). It sits above the 21 onboarding can produce, so
+ * a household created at that bound can still add members, and far above any
+ * real household.
+ */
+export const MAX_HOUSEHOLD_MEMBERS = 30
+
+/**
  * Get household membership for a user.
  * Returns null if user has no household membership.
  *

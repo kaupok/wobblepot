@@ -959,7 +959,9 @@
       "addedToast": "Liige lisatud",
       "errors": {
         "nameRequired": "Nimi on kohustuslik",
-        "addFailed": "Liikme lisamine ebaõnnestus"
+        "addFailed": "Liikme lisamine ebaõnnestus",
+        "householdFull": "Leibkonnas on juba {limit} liiget, rohkem ei saa lisada. Uue liikme lisamiseks eemalda enne keegi.",
+        "householdFullNoLimit": "Leibkonnas on liikmete arv täis. Uue liikme lisamiseks eemalda enne keegi."
       }
     },
     "editMember": {
