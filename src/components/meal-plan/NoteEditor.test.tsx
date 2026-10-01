@@ -40,6 +40,29 @@ describe('NoteEditor', () => {
       expect(screen.getByText('Eating out tonight')).toBeInTheDocument()
     })
 
+    // A saved note is a sticky-note slip, and the slip is the button that
+    // opens the editor; its accessible name is the note itself.
+    it('renders a saved note as a tilted slip that is the edit button', () => {
+      render(<NoteEditor {...defaultProps} note="Eating out tonight" />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
+      const slip = screen.getByRole('button', { name: 'Eating out tonight' })
+      expect(slip).toHaveAttribute('data-surface', 'sticky')
+      expect(slip).toHaveAttribute('data-variant', 'interactive')
+      expect(slip.className).toContain('-rotate-1')
+      expect(slip.className).toContain('hover:rotate-0')
+      expect(slip.className).toContain('motion-reduce:transition-none')
+    })
+
+    it('shows the note upright and not muted', () => {
+      render(<NoteEditor {...defaultProps} note="Eating out tonight" />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
+      const text = screen.getByText('Eating out tonight')
+      expect(text.className).not.toContain('italic')
+      expect(text.className).not.toContain('text-muted-foreground')
+    })
+
     it('enters edit mode when "Add note" button is clicked', async () => {
       render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByText('Add note'))
@@ -56,19 +79,45 @@ describe('NoteEditor', () => {
   })
 
   describe('edit mode', () => {
-    it('shows character count', async () => {
-      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
-      await userEvent.click(screen.getByText('Add note'))
-      expect(screen.getByText('0/200')).toBeInTheDocument()
-    })
-
-    it('updates character count as user types', async () => {
+    // The counter is noise on a short note; it shows once the note is 80% of
+    // the way to the 200 cap.
+    it('hides the character count at 160 characters', async () => {
       render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByText('Add note'))
 
       const textarea = screen.getByPlaceholderText('Add a note…')
-      await userEvent.type(textarea, 'Hello')
-      expect(screen.getByText('5/200')).toBeInTheDocument()
+      expect(screen.queryByText(/\/200$/)).not.toBeInTheDocument()
+      fireEvent.change(textarea, { target: { value: 'a'.repeat(160) } })
+      expect(screen.queryByText(/\/200$/)).not.toBeInTheDocument()
+    })
+
+    it('shows the character count past 160 characters', async () => {
+      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
+      await userEvent.click(screen.getByText('Add note'))
+
+      const textarea = screen.getByPlaceholderText('Add a note…')
+      fireEvent.change(textarea, { target: { value: 'a'.repeat(161) } })
+      expect(screen.getByText('161/200')).toBeInTheDocument()
+    })
+
+    // The editor is the same slip, straightened; the textarea draws no border,
+    // fill or outline of its own, so the slip's focus-within outline is the
+    // only one.
+    it('edits inside the slip with a bare textarea', async () => {
+      render(<NoteEditor {...defaultProps} note="Existing note" />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
+      await userEvent.click(screen.getByText('Existing note'))
+
+      const textarea = screen.getByRole('textbox')
+      const slip = textarea.closest('[data-surface="sticky"]')
+      expect(slip).toHaveAttribute('data-variant', 'editing')
+      expect(slip?.className).not.toContain('-rotate-1')
+      expect(textarea.className).not.toMatch(/\bborder\b/)
+      expect(textarea.className).toContain('outline-none')
+      expect(textarea.className).toContain('bg-transparent')
+      expect(slip).toContainElement(screen.getByRole('button', { name: 'Save' }))
+      expect(slip).toContainElement(screen.getByRole('button', { name: 'Cancel' }))
     })
 
     it('enforces 200 character limit', async () => {

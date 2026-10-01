@@ -96,3 +96,39 @@ describe.each([
     expect(worst((h) => contrast(colour, at('surface', h))).ratio).toBeGreaterThanOrEqual(4.5)
   })
 })
+
+/**
+ * A meal note's slip (`StickyNote`) has one hue, 95, and its own lightness and
+ * chroma, so each pairing is a single measurement. It is held to the same
+ * floors as the meal tint.
+ */
+describe.each([
+  { theme: 'light', body: block(':root') },
+  { theme: 'dark', body: block('.dark') },
+])('sticky note tokens ($theme)', ({ body }) => {
+  const STICKY_HUE = 95
+  const at = (name: string): Oklch => [
+    Number(token(body, `sticky-${name}-l`)),
+    Number(token(body, `sticky-${name}-c`)),
+    STICKY_HUE,
+  ]
+
+  it('keeps text on the slip at 4.5:1', () => {
+    expect(contrast(at('text'), at('surface'))).toBeGreaterThanOrEqual(4.5)
+  })
+
+  // Muted is the counter's caption and the focus ring.
+  it('keeps muted text on the slip at 4.5:1', () => {
+    expect(contrast(at('muted'), at('surface'))).toBeGreaterThanOrEqual(4.5)
+  })
+
+  // The chip is a ghost button's hover inside the slip.
+  it('keeps text on the chip at 5:1', () => {
+    expect(contrast(at('text'), at('chip'))).toBeGreaterThanOrEqual(5)
+  })
+
+  // Save is the theme's `default` button, and its fill is the edge it shows on the slip.
+  it('keeps --primary at 4.5:1 on the slip', () => {
+    expect(contrast(parseOklch(token(body, 'primary')), at('surface'))).toBeGreaterThanOrEqual(4.5)
+  })
+})

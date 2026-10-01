@@ -220,6 +220,23 @@
      test measures stay the floor. */
   --note-surface-l: 0.985;
   --note-surface-c: 0.025;
+  /* A meal note's slip (`StickyNote`, docs/DESIGN.md → "Notes are sticky
+     notes"): the shopping note's yellow at far more chroma, so it stands out
+     on a meal tint. A full set of its own rather than the meal tint's text and
+     chip, because the slip sits inside a tinted card and has to override every
+     value that card set. src/lib/meal-tint.test.ts measures each pairing. */
+  --sticky-surface-l: 0.955;
+  --sticky-surface-c: 0.075;
+  --sticky-text-l: 0.3;
+  --sticky-text-c: 0.04;
+  --sticky-muted-l: 0.48;
+  --sticky-muted-c: 0.04;
+  --sticky-chip-l: 0.89;
+  --sticky-chip-c: 0.11;
+  /* The tape across the slip's top edge: translucent, so the slip and the card
+     both show through it, with faint dashed ends for the torn edge. */
+  --sticky-tape: oklch(1 0 0 / 0.55);
+  --sticky-tape-edge: oklch(0 0 0 / 0.08);
 }
 
 .dark {
@@ -278,6 +295,18 @@
   /* No paler note in the dark: a lighter sheet there would glow. */
   --note-surface-l: 0.35;
   --note-surface-c: 0.035;
+  /* A darker yellow with light text. Muted sits higher than the meal tint's
+     0.78, which measures under 4.5:1 on this lighter surface. */
+  --sticky-surface-l: 0.42;
+  --sticky-surface-c: 0.06;
+  --sticky-text-l: 0.95;
+  --sticky-text-c: 0.02;
+  --sticky-muted-l: 0.82;
+  --sticky-muted-c: 0.03;
+  --sticky-chip-l: 0.34;
+  --sticky-chip-c: 0.08;
+  --sticky-tape: oklch(1 0 0 / 0.2);
+  --sticky-tape-edge: oklch(1 0 0 / 0.15);
 }
 
 /* A meal's tinted surface: a meal card or the modal hero with an image and an
@@ -321,8 +350,45 @@
     --meal-surface-c: var(--note-surface-c);
   }
 
+  /* A meal note's slip (`StickyNote`). Sets every lightness and chroma from
+     its own `--sticky-*` tokens, so the meal tint it sits on (a `neutral` one
+     zeroes the chromas) cannot leak into it. The focus ring is the slip's
+     muted text: the neutral grey ring all but disappears on the yellow. */
+  [data-surface='sticky'] {
+    --meal-hue: 95;
+    --meal-surface-l: var(--sticky-surface-l);
+    --meal-surface-c: var(--sticky-surface-c);
+    --meal-text-l: var(--sticky-text-l);
+    --meal-text-c: var(--sticky-text-c);
+    --meal-muted-l: var(--sticky-muted-l);
+    --meal-muted-c: var(--sticky-muted-c);
+    --meal-chip-l: var(--sticky-chip-l);
+    --meal-chip-c: var(--sticky-chip-c);
+    --ring: var(--muted-foreground);
+    position: relative;
+  }
+
+  /* The tape: a strip centred on the slip's top edge, half over it, tilted the
+     other way from the slip. A pseudo-element in this scope rather than an
+     @utility, for the reason above: it has no tailwind-merge family to be
+     registered under. No blur — that would be the rejected glass effect. */
+  [data-surface='sticky']::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    width: 44px;
+    height: 14px;
+    translate: -50% 0;
+    rotate: 2deg;
+    background-color: var(--sticky-tape);
+    border-inline: 1px dashed var(--sticky-tape-edge);
+    pointer-events: none;
+  }
+
   [data-meal-surface],
-  [data-surface='note'] {
+  [data-surface='note'],
+  [data-surface='sticky'] {
     --meal-text: oklch(var(--meal-text-l) var(--meal-text-c) var(--meal-hue));
     --meal-chip: oklch(var(--meal-chip-l) var(--meal-chip-c) var(--meal-hue));
     --card: oklch(var(--meal-surface-l) var(--meal-surface-c) var(--meal-hue));

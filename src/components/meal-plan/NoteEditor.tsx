@@ -9,8 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { StickyNote } from './StickyNote'
 
 const MAX_NOTE_LENGTH = 200
+/** The counter stays hidden until the note is 80% of the way to the cap. */
+const COUNTER_THRESHOLD = 160
 
 interface NoteEditorProps {
   planId: string
@@ -116,10 +119,15 @@ export function NoteEditor({
     }
   }
 
-  // Editing mode
+  // Editing mode: the same slip, straightened. The textarea is bare — no
+  // border, fill or ring — and takes the slip's text colour and type, so the
+  // slip's focus-within outline is the only one (docs/DESIGN.md → "Notes are
+  // sticky notes"). It grows with the text; `rows` is the fallback where
+  // `field-sizing` is unsupported.
   if (isEditing) {
+    const showCounter = editValue.length > COUNTER_THRESHOLD
     return (
-      <div className={cn('flex flex-col gap-1.5', className)}>
+      <StickyNote variant="editing" className={className}>
         <textarea
           ref={inputRef}
           value={editValue}
@@ -128,48 +136,45 @@ export function NoteEditor({
           aria-label={t('ariaLabel')}
           placeholder={t('placeholder')}
           rows={compact ? 1 : 2}
-          className={cn(
-            'border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring w-full resize-none rounded-md border px-2 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
-          )}
+          className="placeholder:text-muted-foreground field-sizing-content w-full resize-none bg-transparent text-sm leading-normal outline-none disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isSaving}
         />
-        <div className="flex items-center justify-between">
-          <Body variant="caption">
-            {editValue.length}/{MAX_NOTE_LENGTH}
-          </Body>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isSaving}>
-              {t('cancel')}
-            </Button>
-            <Button variant="default" size="sm" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? t('saving') : t('save')}
-            </Button>
-          </div>
+        <div className="flex items-center justify-end gap-1">
+          {showCounter && (
+            <div className="mr-auto">
+              <Body variant="caption">
+                {editValue.length}/{MAX_NOTE_LENGTH}
+              </Body>
+            </div>
+          )}
+          <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isSaving}>
+            {t('cancel')}
+          </Button>
+          <Button variant="default" size="sm" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? t('saving') : t('save')}
+          </Button>
         </div>
-      </div>
+      </StickyNote>
     )
   }
 
-  // Display mode with note. A native button rather than `Button`: a note runs
-  // to 200 characters and wraps, which every fixed-height `Button` size would
-  // overflow. `min-h-8` holds a one-line note to the 32px `sm` floor.
+  // Display mode with note: the slip is the button. A native button rather
+  // than `Button`: a note runs to 200 characters and wraps, which every
+  // fixed-height `Button` size would overflow. Its accessible name is the
+  // note text.
   if (note) {
     return (
-      <button
-        type="button"
-        onClick={() => {
-          setEditValue(note)
-          setIsEditing(true)
-        }}
-        className={cn(
-          'text-muted-foreground hover:text-foreground min-h-8 w-full cursor-pointer text-left transition-colors',
-          className,
-        )}
-      >
-        <Body variant="muted" className="italic">
-          {note}
-        </Body>
-      </button>
+      <StickyNote asChild variant="interactive" className={className}>
+        <button
+          type="button"
+          onClick={() => {
+            setEditValue(note)
+            setIsEditing(true)
+          }}
+        >
+          <Body variant="paragraph">{note}</Body>
+        </button>
+      </StickyNote>
     )
   }
 

@@ -27,6 +27,7 @@ import {
   hasPantryData,
 } from './AvailabilityIndicator'
 import { NoteEditor } from './NoteEditor'
+import { StickyNote } from './StickyNote'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import { MealTypeBadge } from './MealTypeBadge'
@@ -305,14 +306,10 @@ export function MealCard({
         <Card size="sm">
           <CardContent className="flex flex-col gap-1.5 px-4 pt-1 pb-2">
             <MealTypeBadge mealType={mealType} />
-            {note ? (
-              <Body variant="muted" className="italic">
-                {note}
-              </Body>
-            ) : (
-              <Body variant="caption">{tCard('noMealPlanned')}</Body>
-            )}
-            {canEdit && (
+            {/* The note is the slip, once: the editor's own slip when the slot
+                can be edited, a read-only one when it cannot. */}
+            {!note && <Body variant="caption">{tCard('noMealPlanned')}</Body>}
+            {canEdit ? (
               <NoteEditor
                 planId={planId}
                 entryId={entryId}
@@ -320,6 +317,12 @@ export function MealCard({
                 onNoteChange={setNote}
                 compact
               />
+            ) : (
+              note && (
+                <StickyNote>
+                  <Body variant="paragraph">{note}</Body>
+                </StickyNote>
+              )
             )}
           </CardContent>
           {canEdit && (
@@ -476,9 +479,9 @@ export function MealCard({
           )}
           {/* Display note for past/readonly slots */}
           {(isReadOnly || isPast) && note && (
-            <Body variant="muted" className="italic">
-              {note}
-            </Body>
+            <StickyNote>
+              <Body variant="paragraph">{note}</Body>
+            </StickyNote>
           )}
         </CardHeader>
         {!isReadOnly && isPast && (
