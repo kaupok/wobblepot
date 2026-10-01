@@ -6,6 +6,8 @@ import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
+import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
+import { resolveLocale } from '@/lib/i18n/resolve-locale'
 
 const purchaseSchema = z
   .object({
@@ -116,6 +118,11 @@ export async function POST(request: Request) {
     // positions.
     const lockOrderedIngredientIds = [...new Set(ingredientIds)].sort(compareIngredientIds)
 
+    // The client inserts these rows straight into the pantry list, so they
+    // carry the household's name for each ingredient, as `loadPantry` does
+    // (HON-913).
+    const locale = resolveLocale({ householdLocale: household.locale })
+
     // Upsert all items in a transaction
     const upsertedByIngredientId = await prisma.$transaction(async (tx) => {
       const upserted = new Map<string, PurchaseResult>()
@@ -148,16 +155,23 @@ export async function POST(request: Request) {
                 name: true,
                 category: true,
                 defaultUnit: true,
+                ...ingredientTranslationsInclude(locale),
               },
             },
           },
         })
+        const ingredientShown = translateIngredient(pantryItem.ingredient, locale)
 
         upserted.set(ingredientId, {
           ingredientId,
           pantryItem: {
             id: pantryItem.id,
-            ingredient: pantryItem.ingredient,
+            ingredient: {
+              id: ingredientShown.id,
+              name: ingredientShown.name,
+              category: ingredientShown.category,
+              defaultUnit: ingredientShown.defaultUnit,
+            },
             quantity: pantryItem.quantity,
             isStaple: pantryItem.isStaple,
             updatedAt: pantryItem.updatedAt.toISOString(),

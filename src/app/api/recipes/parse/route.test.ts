@@ -63,6 +63,15 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+// The review-row translation overlay (HON-913) reads translation rows directly.
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    ingredientTranslation: {
+      findMany: vi.fn(async () => []),
+    },
+  },
+}))
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -72,6 +81,7 @@ import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
 import { RecipeParseError } from '@/lib/ai/recipe-errors'
 import { captureApiError } from '@/lib/errors'
 import { getServerFlag, type FlagKey } from '@/lib/feature-flags'
+import { prisma } from '@/lib/prisma'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
@@ -81,6 +91,7 @@ const mockFetchRecipeFromUrl = vi.mocked(fetchRecipeFromUrl)
 const mockParseAndMatchRecipe = vi.mocked(parseAndMatchRecipe)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockGetServerFlag = vi.mocked(getServerFlag)
+const mockTranslationFindMany = vi.mocked(prisma.ingredientTranslation.findMany)
 
 describe('extractUrlAndContext', () => {
   it('detects https:// URLs', () => {
@@ -415,6 +426,87 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
     expect(mockParseAndMatchRecipe).toHaveBeenCalledTimes(1)
     const matchOptions = mockParseAndMatchRecipe.mock.calls[0]![3]!
     expect(matchOptions).toMatchObject({ householdId: 'household-42', locale: 'et' })
+  })
+
+  function parseWithPepper() {
+    successfulParse()
+    const parsed = mockParseAndMatchRecipe.getMockImplementation()
+    mockParseAndMatchRecipe.mockImplementation(async (...args) => ({
+      ...(await parsed!(...args)),
+      ingredients: [
+        {
+          type: 'matched',
+          extractedName: 'must pipar',
+          extractedQuantity: 1,
+          extractedUnit: 'tsp',
+          originalText: '1 tl musta pipart',
+          ingredient: {
+            id: 'ing-pepper',
+            name: 'black pepper',
+            category: 'spice',
+            subcategory: null,
+            defaultUnit: 'g',
+            gramsPerPiece: null,
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+          },
+          convertedQuantity: 2,
+          isVague: false,
+          matchedName: 'black pepper',
+          similarityScore: 0.5,
+          lowConfidence: true,
+          alternatives: [
+            {
+              id: 'ing-pepper',
+              name: 'black pepper',
+              category: 'spice',
+              defaultUnit: 'g',
+              similarity: 0.5,
+            },
+            {
+              id: 'ing-white',
+              name: 'white pepper',
+              category: 'spice',
+              defaultUnit: 'g',
+              similarity: 0.4,
+            },
+          ],
+        },
+      ],
+    }))
+  }
+
+  it('returns the household names for the review rows and their alternatives (HON-913)', async () => {
+    mockGetMembership.mockResolvedValue(membership('et') as never)
+    parseWithPepper()
+    mockTranslationFindMany.mockResolvedValueOnce([
+      { ingredientId: 'ing-pepper', name: 'must pipar' },
+      { ingredientId: 'ing-white', name: 'valge pipar' },
+    ] as never)
+
+    const response = await POST(jsonRequest({ text: 'Eesti retsept: 1 tl musta pipart.' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    const [row] = data.recipe.ingredients
+    expect(row.ingredient).toMatchObject({ id: 'ing-pepper', name: 'must pipar' })
+    expect(row.alternatives.map((a: { name: string }) => a.name)).toEqual([
+      'must pipar',
+      'valge pipar',
+    ])
+  })
+
+  it('keeps the English review-row names for an English household', async () => {
+    mockGetMembership.mockResolvedValue(membership('en') as never)
+    parseWithPepper()
+
+    const response = await POST(jsonRequest({ text: 'Recipe: 1 tsp black pepper.' }))
+    const data = await response.json()
+
+    expect(mockTranslationFindMany).not.toHaveBeenCalled()
+    expect(data.recipe.ingredients[0].ingredient.name).toBe('black pepper')
   })
 
   it('passes an abort signal so the AI call is bounded (HON-694)', async () => {

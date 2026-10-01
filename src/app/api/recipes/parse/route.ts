@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { parseAndMatchRecipe } from '@/lib/ai/parse-recipe'
+import { translateMatchResults } from '@/lib/ai/translate-match-results'
+import { resolveLocale } from '@/lib/i18n/resolve-locale'
 import { fetchRecipeFromUrl } from '@/lib/ai/recipe-fetch'
 import { RecipeParseError } from '@/lib/ai/recipe-errors'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
@@ -194,6 +196,13 @@ async function handlePOST(request: Request) {
       ),
     )
 
+    // The review rows render `ingredient.name` and the alternatives' names, and
+    // the matcher returns the English ones (HON-913).
+    const ingredients = await translateMatchResults(
+      result.ingredients,
+      resolveLocale({ householdLocale: membership.household.locale }),
+    )
+
     return NextResponse.json({
       success: true,
       recipe: {
@@ -205,7 +214,7 @@ async function handlePOST(request: Request) {
         servings: result.servings,
         mealTypes: result.mealTypes,
         kidFriendly: result.kidFriendly,
-        ingredients: result.ingredients,
+        ingredients,
         allMatched: result.allMatched,
       },
       confidenceTier: result.confidenceTier,

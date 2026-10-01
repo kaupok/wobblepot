@@ -234,6 +234,45 @@ describe('POST /api/shopping-list/purchase', () => {
     expect(mockPantryFindMany).not.toHaveBeenCalled()
   })
 
+  it('returns the Estonian ingredient name for an et household, so the pantry row is not English (HON-913)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'et' },
+    } as never)
+    mockIngredientFindMany.mockResolvedValue([{ id: 'ing-1' }] as never)
+    const upsert = vi.fn().mockResolvedValue({
+      id: 'pantry-new',
+      quantity: null,
+      isStaple: false,
+      updatedAt: new Date('2026-01-31'),
+      ingredient: {
+        id: 'ing-1',
+        name: 'Chicken',
+        category: 'protein',
+        defaultUnit: 'g',
+        translations: [{ locale: 'et', name: 'Kana' }],
+      },
+    })
+    mockTransaction.mockImplementation(async (fn) =>
+      (fn as (tx: unknown) => unknown)({ pantryItem: { upsert } }),
+    )
+
+    const response = await POST(createRequest({ ingredientId: 'ing-1' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.results[0].pantryItem.ingredient).toEqual({
+      id: 'ing-1',
+      name: 'Kana',
+      category: 'protein',
+      defaultUnit: 'g',
+    })
+    expect(upsert.mock.calls[0]![0].select.ingredient).toMatchObject({
+      select: { translations: { where: { locale: 'et' } } },
+    })
+  })
+
   it('updates existing pantry items', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)

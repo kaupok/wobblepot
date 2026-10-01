@@ -42,6 +42,9 @@ vi.mock('@/lib/prisma', () => ({
     ingredient: {
       findMany: vi.fn(),
     },
+    ingredientTranslation: {
+      findMany: vi.fn(),
+    },
   },
 }))
 
@@ -73,6 +76,7 @@ const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockImagineMeals = vi.mocked(imagineMeals)
 const mockMatchIngredients = vi.mocked(matchIngredients)
 const mockIngredientFindMany = vi.mocked(prisma.ingredient.findMany)
+const mockTranslationFindMany = vi.mocked(prisma.ingredientTranslation.findMany)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
 const mockGetServerFlag = vi.mocked(getServerFlag)
 
@@ -188,6 +192,7 @@ describe('POST /api/meals/imagine', () => {
       resetAt: new Date('2026-02-01T12:00:00.000Z'),
     })
     mockIngredientFindMany.mockResolvedValue([])
+    mockTranslationFindMany.mockResolvedValue([])
     mockAssertUnderCap.mockResolvedValue(undefined)
     mockGetServerFlag.mockResolvedValue(true)
   })
@@ -573,6 +578,69 @@ describe('POST /api/meals/imagine', () => {
     expect(mockMatchIngredients.mock.calls[0]![0]).toEqual([
       expect.objectContaining({ originalText: '1,5 spl hapukoor' }),
     ])
+  })
+
+  it('returns the household names for matched ingredients, alternatives and components (HON-913)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockMembership.household, locale: 'et' },
+    } as never)
+    mockImagineMeals.mockResolvedValue([imaginedMeal() as never])
+    mockMatchIngredients.mockResolvedValue([
+      matchedResult({
+        lowConfidence: true,
+        alternatives: [
+          {
+            id: 'ing-chicken',
+            name: 'Chicken breast',
+            category: 'protein',
+            defaultUnit: 'g',
+            similarity: 0.6,
+          },
+          {
+            id: 'ing-thigh',
+            name: 'Chicken thigh',
+            category: 'protein',
+            defaultUnit: 'g',
+            similarity: 0.5,
+          },
+        ],
+      }) as never,
+    ])
+    mockTranslationFindMany.mockResolvedValue([
+      { ingredientId: 'ing-chicken', name: 'kanafilee' },
+      { ingredientId: 'ing-thigh', name: 'kanakoib' },
+    ] as never)
+
+    const response = await POST(jsonRequest({ prompt: 'kanasalat' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mockTranslationFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ locale: 'et' }) }),
+    )
+    const [meal] = data.meals
+    expect(meal.ingredients[0].ingredient).toMatchObject({ id: 'ing-chicken', name: 'kanafilee' })
+    expect(meal.ingredients[0].alternatives.map((a: { name: string }) => a.name)).toEqual([
+      'kanafilee',
+      'kanakoib',
+    ])
+    expect(meal.components[0].ingredient).toMatchObject({ id: 'ing-chicken', name: 'kanafilee' })
+  })
+
+  it('keeps the English names and skips the translation lookup for an English household', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockImagineMeals.mockResolvedValue([imaginedMeal() as never])
+    mockMatchIngredients.mockResolvedValue([matchedResult() as never])
+
+    const response = await POST(jsonRequest({ prompt: 'chicken salad' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mockTranslationFindMany).not.toHaveBeenCalled()
+    expect(data.meals[0].ingredients[0].ingredient.name).toBe('Chicken breast')
   })
 
   it('returns 500 when imagineMeals throws', async () => {

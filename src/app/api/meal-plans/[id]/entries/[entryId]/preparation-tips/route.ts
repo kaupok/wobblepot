@@ -26,6 +26,13 @@ import {
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings } from '@/lib/meal-planning/servings'
+import {
+  ingredientTranslationsInclude,
+  mealTranslationsInclude,
+  translateIngredient,
+  translateMeal,
+} from '@/lib/i18n/content'
+import { resolveLocale } from '@/lib/i18n/resolve-locale'
 import type { StructuredTips } from '@/components/meal-plan/types'
 import type { PreparationTipsErrorCode } from '@/lib/ai/error-codes'
 
@@ -57,6 +64,9 @@ async function handlePOST(
 
   const { household } = membership
   const { id: planId, entryId } = await params
+  // Which translation rows feed the prompt. The prompt's own language still
+  // follows `household.locale`, as the cache guard below does.
+  const contentLocale = resolveLocale({ householdLocale: household.locale })
 
   try {
     const entry = await prisma.mealPlanEntry.findFirst({
@@ -70,12 +80,14 @@ async function handlePOST(
       include: {
         meal: {
           include: {
+            ...mealTranslationsInclude(contentLocale),
             components: {
               include: {
                 ingredient: {
                   select: {
                     name: true,
                     defaultUnit: true,
+                    ...ingredientTranslationsInclude(contentLocale),
                   },
                 },
               },
@@ -146,12 +158,22 @@ async function handlePOST(
     // a household of 2 would otherwise get timings and pan sizes for a third
     // of the food the card, pantry and shopping list all agree on (HON-614).
     const effectiveServings = getEffectiveServings(entry, household._count.members)
-    const mealName = entry.meal.name
+    // The prompt reads the household's names and notes, not the English ones:
+    // given English inputs the model translates them itself, and its ingredient
+    // names then differ from the Estonian ones the same modal shows, while the
+    // supplementary mode would build on notes the user never read (HON-913).
+    // The translated notes fall back to the English ones per field.
+    //
+    // A translation row is not covered by the `meal.updatedAt` cache guard
+    // below: editing one does not bump the meal, so tips cached from the old
+    // translation stay. Accepted, because translations are seed-managed.
+    const shownMeal = translateMeal(entry.meal, contentLocale)
+    const mealName = shownMeal.name
     const timeMinutes = entry.meal.timeMinutes
-    const preparationNotes = entry.meal.preparationNotes
+    const preparationNotes = shownMeal.preparationNotes
 
     const components = entry.meal.components.map((comp) => ({
-      name: comp.ingredient.name,
+      name: translateIngredient(comp.ingredient, contentLocale).name,
       quantityPerServing: comp.quantityPerServing,
       defaultUnit: comp.ingredient.defaultUnit,
     }))

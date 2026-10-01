@@ -272,6 +272,40 @@ describe('PATCH /api/pantry/[id]', () => {
     })
   })
 
+  it('returns the Estonian ingredient name for an et household (HON-913)', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirstMember.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'et' },
+    } as never)
+    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
+    mockUpdatePantry.mockResolvedValue({
+      ...mockPantryItem,
+      quantity: 250,
+      ingredient: { ...mockIngredient, translations: [{ locale: 'et', name: 'Oliiviõli' }] },
+    } as never)
+
+    const response = await PATCH(
+      new Request('http://localhost/api/pantry/pantry-123', {
+        method: 'PATCH',
+        body: JSON.stringify({ quantity: 250 }),
+      }),
+      { params: Promise.resolve({ id: 'pantry-123' }) },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.ingredient).toEqual({
+      id: 'ing-456',
+      name: 'Oliiviõli',
+      category: 'fat',
+      defaultUnit: 'g',
+    })
+  })
+
   it('updates isStaple only', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },
