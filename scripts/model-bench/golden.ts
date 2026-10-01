@@ -195,7 +195,7 @@ function rescore(p: PreparedCase, r: CallRecord): Scores {
     // The output schema changed since recording, so the golden's output no
     // longer has the shape the scorer reads.
     throw new Error(
-      `Golden ${r.caseId} run ${r.run} no longer scores with today's scorer (${(err as Error).message}). The output shape has changed since recording: re-record with \`pnpm bench:models --record --task ${r.task}\`.`,
+      `Golden ${r.caseId} run ${r.run} no longer scores with today's scorer (${(err as Error).message}). The output shape has changed since recording: re-record with \`pnpm ai-eval --record --task ${r.task}\`.`,
     )
   }
 }

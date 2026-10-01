@@ -1,7 +1,7 @@
 /**
  * Case shapes for the model benchmark (HON-795), one Zod schema per task.
  *
- * Every committed case is synthetic. `pnpm bench:models --import-sample` turns
+ * Every committed case is synthetic. `pnpm ai-eval --import-sample` turns
  * a production `[ai-sample]` line into `cases/<task>/<slug>.draft.json`, which
  * holds a real household's text: it is gitignored and never loaded, and its
  * text is rewritten before it becomes a case (`cases/README.md`, HON-903).

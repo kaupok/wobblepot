@@ -17,7 +17,7 @@ Nothing scores it, and the judge never sees it: a judge told a case is a known f
 ## Drafts (`.draft.json`)
 
 ```bash
-pnpm bench:models --import-sample sample.log --id imagine/en-pasta-for-two
+pnpm ai-eval --import-sample sample.log --id imagine/en-pasta-for-two
 ```
 
 This turns one `[ai-sample]` line from the Vercel logs or `.ai-samples/*.jsonl` into `imagine/en-pasta-for-two.draft.json`. The draft has the input fields the sample carried, every expectation field present but empty, and the sample's own `sampleInput` and `sampleOutput` for reference. The command prints the fields the sample could not fill, since every call site logs less than a case needs. A plan sample has only the pool sizes, and a tips sample has only the ingredient count.

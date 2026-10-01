@@ -9,7 +9,7 @@
  *     voice review reads.
  *   - Default locale (English) calls are logged at `DEFAULT_LOCALE_SAMPLE_RATE`,
  *     5%, so production inputs in English can become benchmark cases
- *     (`pnpm bench:models --import-sample`) without logging every call. Each
+ *     (`pnpm ai-eval --import-sample`) without logging every call. Each
  *     line carries its `sampleRate`, so a count can be weighted back up.
  *   - A logged call emits a single structured JSON line to stdout prefixed
  *     with `[ai-sample]`. Vercel captures stdout to log streams, so this is

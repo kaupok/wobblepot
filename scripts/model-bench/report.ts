@@ -549,7 +549,7 @@ export function renderMarkdown(report: BenchReport): string {
   if (notInGolden.length > 0) {
     lines.push('## Not in golden', '')
     lines.push(
-      'These cases are in the case set but not in the golden, so they have no baseline and were not run: re-record to include them (`pnpm bench:models --record`).',
+      'These cases are in the case set but not in the golden, so they have no baseline and were not run: re-record to include them (`pnpm ai-eval --record`).',
       '',
     )
     for (const id of notInGolden) lines.push(`- \`${id}\` — re-record to include it`)
@@ -585,7 +585,7 @@ export function renderMarkdown(report: BenchReport): string {
     lines.push(
       '## Judge',
       '',
-      `**Pending.** ${pairs} pair(s), ${prompts} prompt(s), are exported to the \`.judge-pairs.json\` beside this report for judging in Claude Code. Run \`/bench-judge\`, which answers them and imports the verdicts here (\`pnpm bench:models --import-verdicts <that>.judge-verdicts.json\`).`,
+      `**Pending.** ${pairs} pair(s), ${prompts} prompt(s), are exported to the \`.judge-pairs.json\` beside this report for judging in Claude Code. Run \`/bench-judge\`, which answers them and imports the verdicts here (\`pnpm ai-eval --import-verdicts <that>.judge-verdicts.json\`).`,
       '',
     )
   }
