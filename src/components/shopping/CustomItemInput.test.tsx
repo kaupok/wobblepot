@@ -109,4 +109,15 @@ describe('CustomItemInput', () => {
 
     await vi.waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to add item'))
   })
+
+  it("toasts the translated failure, not the route's error text", async () => {
+    respondWith({ error: 'Validation failed' }, 400)
+    const user = userEvent.setup()
+    renderInput()
+
+    await user.type(screen.getByPlaceholderText('Add an item…'), 'Oat milk{Enter}')
+
+    await vi.waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to add item'))
+    expect(toast.error).not.toHaveBeenCalledWith('Validation failed')
+  })
 })

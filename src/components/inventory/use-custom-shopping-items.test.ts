@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { QueryClient } from '@tanstack/react-query'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'
 import { createQueryWrapper } from '@/test/query-wrapper'
+import enMessages from '../../../messages/en.json'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
@@ -85,10 +86,13 @@ describe('useCustomShoppingItems', () => {
       expect(JSON.parse(init.body)).toEqual({ checked: true })
     })
 
-    it('reverts and surfaces an error when the request fails', async () => {
+    it('reverts and toasts catalog copy, not the route error, when the request fails', async () => {
+      // A route string that differs from the English catalog copy, so the
+      // assertion cannot pass by coincidence ('Failed to update item' is both).
       fetchMock.mockResolvedValueOnce({
         ok: false,
-        json: async () => ({ error: 'Nope' }),
+        status: 404,
+        json: async () => ({ error: 'Item not found' }),
       })
       const { result } = renderItemsHook([customItem('Bread')])
 
@@ -98,7 +102,8 @@ describe('useCustomShoppingItems', () => {
       await settle()
 
       expect(result.current.customItems[0]?.checked).toBe(false)
-      expect(toast.error).toHaveBeenCalledWith('Nope')
+      expect(toast.error).toHaveBeenCalledWith(enMessages.shopping.errors.updateFailed)
+      expect(toast.error).not.toHaveBeenCalledWith('Item not found')
     })
 
     it('clears the pending id once the request settles', async () => {

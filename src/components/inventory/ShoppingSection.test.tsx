@@ -552,3 +552,29 @@ describe('ShoppingSection header summary', () => {
     expect(fragment).toHaveClass('whitespace-nowrap')
   })
 })
+
+describe('ShoppingSection purchase toggle', () => {
+  beforeEach(() => {
+    vi.mocked(toast.error).mockClear()
+  })
+
+  afterEach(() => {
+    vi.mocked(fetch).mockReset()
+  })
+
+  it("reverts the row and toasts catalog copy, not the route's error text", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({ error: 'No household found' }),
+    } as Response)
+    const user = userEvent.setup()
+    renderSection()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Mark Carrot as purchased' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to update item'))
+    expect(toast.error).not.toHaveBeenCalledWith('No household found')
+    expect(screen.getByRole('checkbox', { name: 'Mark Carrot as purchased' })).not.toBeChecked()
+  })
+})

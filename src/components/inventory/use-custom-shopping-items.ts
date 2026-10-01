@@ -54,12 +54,12 @@ export function useCustomShoppingItems(initialCustomItems: CustomItemData[]) {
       // Optimistic update
       setCustomItems((prev) => prev.map((item) => (item.id === id ? { ...item, checked } : item)))
     },
-    onError: (error, { id, checked }) => {
+    onError: (_error, { id, checked }) => {
       // Revert optimistic update
       setCustomItems((prev) =>
         prev.map((item) => (item.id === id ? { ...item, checked: !checked } : item)),
       )
-      toast.error(error.message)
+      toast.error(tErrors('updateFailed'))
     },
   })
 

@@ -366,9 +366,9 @@ export function ShoppingSection({
         onItemUnpurchased(ingredientId)
       }
     },
-    onError: (error, { ingredientId, purchased }) => {
+    onError: (_error, { ingredientId, purchased }) => {
       setPurchased(ingredientId, !purchased)
-      toast.error(error.message)
+      toast.error(tErrors('updateFailed'))
     },
   })
 
