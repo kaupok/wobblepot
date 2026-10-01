@@ -29,6 +29,7 @@ export type ImagineErrorCode =
   | 'prompt_required'
   | 'invalid_request'
   | 'imagine_timeout'
+  | 'imagine_no_safe_meals'
   | 'imagine_failed'
 
 /** Error codes returned by `POST /api/recipes/parse`. */
@@ -106,7 +107,7 @@ export type RecipeParseErrorCode = Extract<
  *
  * `ImaginePanel` keeps its own copy in `meal-plan.selector.imagine` but reads
  * these strings from `recipes.imagine.errors` too, rather than duplicating
- * fourteen error messages into a second namespace.
+ * fifteen error messages into a second namespace.
  */
 export const IMAGINE_ERROR_KEYS = {
   unauthorized: 'unauthorized',
@@ -122,6 +123,7 @@ export const IMAGINE_ERROR_KEYS = {
   prompt_required: 'promptRequired',
   invalid_request: 'invalidRequest',
   imagine_timeout: 'imagineTimeout',
+  imagine_no_safe_meals: 'imagineNoSafeMeals',
   imagine_failed: 'imagineFailed',
 } as const satisfies Record<ImagineErrorCode, string>
 

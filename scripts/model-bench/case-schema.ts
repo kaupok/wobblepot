@@ -102,13 +102,21 @@ export const ImagineCaseSchema = z.object({
     householdSize: z.number().int().positive(),
   }),
   locale,
-  /** No ingredient name may contain one of these, case-insensitive. */
-  forbiddenKeywords: z.array(z.string().min(1)),
   /**
-   * A keyword match is a swap, not a violation, when one of these
+   * Foods this case forbids on top of the household's allergens and dietary
+   * type, which `src/lib/ai/forbidden-foods.ts` already covers for the scorer
+   * and the production guard alike (HON-895). Use it for excluded ingredients
+   * and for a food the shared lists lack; a food every household with that
+   * allergen or diet must avoid belongs in the shared lists instead.
+   * No ingredient name may contain one of these, case-insensitive.
+   */
+  forbiddenKeywords: z.array(z.string().min(1)).optional(),
+  /**
+   * Excuses a `forbiddenKeywords` match as a swap when one of these
    * (case-insensitive, starting a word) contains the keyword or sits directly
-   * before it: "vegan parmesan", "kaerahapukoor", "eggplant" for "egg". The
-   * rule is in `hasUnexcusedKeyword` in `scorers.ts` (HON-841).
+   * before it: "vegan parmesan", "eggplant" for "egg". Applies to this case's
+   * own keywords only; the shared lists carry their own qualifiers. The rule
+   * is `findUnexcusedKeyword` in `src/lib/ai/forbidden-foods.ts` (HON-841).
    */
   allowedQualifiers: z.array(z.string().min(1)).optional(),
 })

@@ -27,6 +27,12 @@ import { validatePlan } from '../../src/lib/ai/validate-plan'
 import { evaluateRecipeConfidence } from '../../src/lib/ai/recipe-confidence'
 import type { RecipeExtraction } from '../../src/lib/ai/recipe-schema'
 import type { ImaginedMealsSchema } from '../../src/lib/ai/imagine-request'
+import {
+  findViolations,
+  normalizeFoodName,
+  rulesForHousehold,
+  type ForbiddenFoodRule,
+} from '../../src/lib/ai/forbidden-foods'
 import type { ReviewedIngredients } from '../../src/lib/ai/review-request'
 import type { fullTipsSchema, supplementaryTipsSchema } from '../../src/lib/ai/preparation-tips'
 import type { ImagineCase, PlanCase, RecipeCase, ReviewCase, TipsCase } from './case-schema'
@@ -247,44 +253,30 @@ export function scoreRecipe(input: RecipeCase, output: RecipeExtraction): Scores
 // imagine
 // ---------------------------------------------------------------------------
 
-interface Span {
-  start: number
-  end: number
-}
-
-function spansOf(name: string, needle: string): Span[] {
-  const spans: Span[] = []
-  for (let i = name.indexOf(needle); i !== -1; i = name.indexOf(needle, i + 1)) {
-    spans.push({ start: i, end: i + needle.length })
-  }
-  return spans
-}
-
-const startsWord = (name: string, i: number) => i === 0 || !/\p{L}/u.test(name[i - 1]!)
-
 /**
- * Whether an ingredient name holds a forbidden keyword that no qualifier
- * excuses. A qualifier counts only where it starts a word ("oat milk" is not
- * in "goat milk"), and excuses a keyword it overlaps ("eggplant", "kalamata")
- * or that follows it after nothing but spaces ("vegan parmesan",
- * "kaerahapukoor"). An excused keyword excuses the next one the same way, so
- * "plant-based cream cheese" passes, while "honey soy sauce", "coconut milk
- * and butter" and "kalamata oliivid ja parmesan" fail.
+ * The rules `imagineMeals` applies (`src/lib/ai/forbidden-foods.ts`), so a
+ * failure here on an allergen or diet means the production guard failed too
+ * (HON-895). Ingredients only: this metric is "no forbidden ingredient", and
+ * the guard's extra meal-name check is stricter, never looser. A case's own
+ * `forbiddenKeywords` (excluded ingredients, foods the shared lists lack) are
+ * one more rule, excused only by its own `allowedQualifiers`.
  */
-function hasUnexcusedKeyword(name: string, keywords: string[], qualifiers: string[]): boolean {
-  const covered = qualifiers.flatMap((q) =>
-    spansOf(name, q).filter((s) => startsWord(name, s.start)),
-  )
-  let pending = keywords.flatMap((kw) => spansOf(name, kw))
-  const excuses = (c: Span, hit: Span) =>
-    c.start <= hit.start && (hit.start < c.end || /^\s*$/.test(name.slice(c.end, hit.start)))
-
-  for (;;) {
-    const excused = pending.filter((hit) => covered.some((c) => excuses(c, hit)))
-    if (excused.length === 0) return pending.length > 0
-    covered.push(...excused)
-    pending = pending.filter((hit) => !excused.includes(hit))
+export function imagineRules(input: ImagineCase): ForbiddenFoodRule[] {
+  const rules = rulesForHousehold(input.household).map((r) => ({ ...r, checkMealName: false }))
+  if (input.forbiddenKeywords?.length) {
+    rules.push({
+      constraint: 'case',
+      kind: 'case',
+      groups: [
+        {
+          keywords: input.forbiddenKeywords.map(normalizeFoodName),
+          qualifiers: (input.allowedQualifiers ?? []).map(normalizeFoodName),
+        },
+      ],
+      checkMealName: false,
+    })
   }
+  return rules
 }
 
 export function scoreImagine(
@@ -292,16 +284,13 @@ export function scoreImagine(
   output: z.infer<typeof ImaginedMealsSchema>,
 ): Scores {
   const { meals } = output
-  const forbidden = input.forbiddenKeywords.map(normalize)
-  const qualifiers = (input.allowedQualifiers ?? []).map(normalize)
+  const rules = imagineRules(input)
 
   const exactlyThreeMeals = meals.length === 3
   const servingsMatch =
     meals.length > 0 && meals.every((m) => m.servings === input.household.householdSize)
   const minTwoIngredients = meals.length > 0 && meals.every((m) => m.ingredients.length >= 2)
-  const noForbiddenIngredients = meals.every((m) =>
-    m.ingredients.every((ing) => !hasUnexcusedKeyword(normalize(ing.name), forbidden, qualifiers)),
-  )
+  const noForbiddenIngredients = meals.every((m) => findViolations(m, rules).length === 0)
 
   return {
     allChecksPass: pass(

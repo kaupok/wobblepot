@@ -7,29 +7,5 @@
     "restrictions": [],
     "householdSize": 1
   },
-  "locale": "et",
-  "forbiddenKeywords": [
-    "kala",
-    "lõhe",
-    "tuunikala",
-    "forell",
-    "angerjas",
-    "makrell",
-    "heeringas",
-    "räim",
-    "kilu",
-    "tursk",
-    "krevet",
-    "krabi",
-    "homaar",
-    "rannakarp",
-    "kammkarp",
-    "kaaviar",
-    "surimi",
-    "anšoovis",
-    "bonito",
-    "dashi",
-    "kalmaar",
-    "kaheksajalg"
-  ]
+  "locale": "et"
 }

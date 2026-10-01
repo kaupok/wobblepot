@@ -399,6 +399,7 @@
         "promptRequired": "Please describe what kind of meal you want.",
         "invalidRequest": "Something went wrong with that request. Please try again.",
         "imagineTimeout": "Generating meal ideas took too long. Please try again.",
+        "imagineNoSafeMeals": "None of the ideas fit your household's allergies and diet. Try describing a different meal.",
         "generationDisabled": "Imagining meals is turned off right now. Please try again later."
       }
     },

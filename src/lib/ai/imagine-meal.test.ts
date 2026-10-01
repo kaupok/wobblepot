@@ -21,7 +21,13 @@ vi.mock('./sampling', () => ({
 
 import { generateObject } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { imagineMeals, ImaginedMealsSchema, type ImaginedMeal } from './imagine-meal'
+import {
+  imagineMeals,
+  ImaginedMealsSchema,
+  ImagineNoSafeMealsError,
+  type ImaginedMeal,
+} from './imagine-meal'
+import { HON_859_IMAGINE_RUNS, type RecordedMeal } from './imagine-fixtures'
 import { buildImagineRequest } from './imagine-request'
 import { logAiSample } from './sampling'
 import { IMAGINE_MODEL } from './models'
@@ -338,5 +344,255 @@ describe('imagineMeals', () => {
       householdSize: 3,
     })
     expect(args.output).toEqual({ meals })
+  })
+})
+
+/**
+ * The guard, run against what Sonnet 4.6 actually produced for the three
+ * HON-859 cases where the prompt names a food the household cannot eat.
+ */
+describe('imagineMeals forbidden-food guard (HON-895)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const recorded = (caseId: string, model: string, run: number): ImaginedMeal[] => {
+    const found = HON_859_IMAGINE_RUNS.find(
+      (r) => r.caseId === caseId && r.model === model && r.run === run,
+    )
+    if (!found) throw new Error(`No recorded run ${caseId} ${model} ${run}`)
+    return found.meals.map((m: RecordedMeal) =>
+      sampleMeal({
+        name: m.name,
+        ingredients: m.ingredients.map((name) => ({
+          name,
+          quantity: 100,
+          unit: 'g',
+          originalText: name,
+          isVague: false,
+          vaguePhrase: null,
+          isDried: null,
+        })),
+      }),
+    )
+  }
+
+  const paellaHousehold = {
+    allergens: ['shellfish'],
+    dietaryType: null,
+    excludedIngredients: ['chorizo'],
+    restrictions: [],
+    householdSize: 3,
+  }
+  const sushiHousehold = {
+    allergens: ['fish', 'shellfish'],
+    dietaryType: null,
+    excludedIngredients: [],
+    restrictions: [],
+    householdSize: 1,
+  }
+  const veganHousehold = {
+    allergens: [],
+    dietaryType: 'vegan',
+    excludedIngredients: [],
+    restrictions: [],
+    householdSize: 4,
+  }
+
+  const respond = (...calls: ImaginedMeal[][]) => {
+    for (const meals of calls) {
+      mockGenerateObject.mockResolvedValueOnce({ object: { meals } } as never)
+    }
+  }
+  const names = (meals: ImaginedMeal[]) => meals.map((m) => m.name)
+  const userText = (call: number) =>
+    (
+      mockGenerateObject.mock.calls[call]![0]! as {
+        messages: Array<{ content: Array<{ type: string; text?: string }> }>
+      }
+    ).messages[0]!.content.find((c) => c.type === 'text')!.text!
+
+  it('drops the shrimp paellas and fills the gap from the retry (en-shellfish-allergy-paella)', async () => {
+    respond(
+      recorded('en-shellfish-allergy-paella', 'claude-sonnet-4-6', 2),
+      recorded('en-shellfish-allergy-paella', 'claude-sonnet-5-5', 1),
+    )
+
+    const result = await imagineMeals(
+      'a seafood paella for a summer weekend',
+      paellaHousehold,
+      'en',
+    )
+
+    expect(names(result)).toEqual([
+      'Mediterranean Baked Salmon with Roasted Vegetables & Couscous',
+      'Golden Cod and Pea Skillet Paella',
+      'Oven-Baked Salmon and Green Bean Paella',
+    ])
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2)
+    // The retry names what went wrong, in the user message only.
+    expect(userText(0)).not.toContain('previous attempt')
+    expect(userText(1)).toContain(
+      '"Classic Spanish Seafood Paella" is named after seafood (shellfish allergy)',
+    )
+    expect(userText(1)).toContain('"Garlic Butter Prawn & Rice Skillet"')
+  })
+
+  it('drops the salmon onigiri for a fish allergy (et-fish-allergy-sushi)', async () => {
+    respond(
+      recorded('et-fish-allergy-sushi', 'claude-sonnet-4-6', 2),
+      recorded('et-fish-allergy-sushi', 'claude-sonnet-5-5', 2),
+    )
+
+    const result = await imagineMeals(
+      'kiire õhtusöök üheks, midagi sushi moodi',
+      sushiHousehold,
+      'et',
+    )
+
+    expect(names(result)).not.toContain('Onigiri lõhega')
+    expect(names(result)).toEqual(['Sushi kauss', 'Temaki kanapulgad', 'Teriyaki kanakauss'])
+  })
+
+  it('throws ImagineNoSafeMealsError when the retry is no better (et-vegan-sour-cream)', async () => {
+    respond(
+      recorded('et-vegan-sour-cream', 'claude-sonnet-4-6', 1),
+      recorded('et-vegan-sour-cream', 'claude-sonnet-4-6', 3),
+    )
+
+    await expect(
+      imagineMeals(
+        'soe kartulisalat hapukoore ja suitsukalaga, nagu vanaema tegi',
+        veganHousehold,
+        'et',
+      ),
+    ).rejects.toBeInstanceOf(ImagineNoSafeMealsError)
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns the vegan retry when it complies (et-vegan-sour-cream)', async () => {
+    respond(
+      recorded('et-vegan-sour-cream', 'claude-sonnet-4-6', 1),
+      recorded('et-vegan-sour-cream', 'claude-sonnet-5-5', 1),
+    )
+
+    const result = await imagineMeals('soe kartulisalat', veganHousehold, 'et')
+
+    expect(names(result)).toEqual(names(recorded('et-vegan-sour-cream', 'claude-sonnet-5-5', 1)))
+  })
+
+  it('reports each dropped meal and constraint, with the model and attempt', async () => {
+    respond(recorded('et-vegan-sour-cream', 'claude-sonnet-4-6', 1), [sampleMeal({ name: 'Tofu' })])
+    const onConstraintViolation = vi.fn()
+
+    await expect(
+      imagineMeals(
+        'x',
+        veganHousehold,
+        'et',
+        undefined,
+        undefined,
+        undefined,
+        onConstraintViolation,
+      ),
+    ).rejects.toBeInstanceOf(ImagineNoSafeMealsError)
+
+    expect(onConstraintViolation).toHaveBeenCalledTimes(4)
+    expect(onConstraintViolation).toHaveBeenNthCalledWith(1, {
+      constraint: 'vegan',
+      kind: 'diet',
+      keyword: 'lõhe',
+      field: 'ingredient',
+      text: 'suitsulõhe',
+      model: IMAGINE_MODEL,
+      attempt: 1,
+    })
+    // `sampleMeal` is chicken stir fry: the retry's meal is dropped too.
+    expect(onConstraintViolation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ keyword: 'chicken', attempt: 2 }),
+    )
+  })
+
+  it('does not retry when nothing was dropped, even with fewer than three meals', async () => {
+    respond([sampleMeal({ name: 'Only one' })])
+
+    const result = await imagineMeals('x', emptyHousehold, 'en')
+
+    expect(names(result)).toEqual(['Only one'])
+    expect(mockGenerateObject).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retry when three meals survive', async () => {
+    const tofu = (name: string) =>
+      sampleMeal({ name, ingredients: [{ ...sampleMeal().ingredients[1]!, name: 'tofu' }] })
+    respond([tofu('A'), sampleMeal({ name: 'Chicken' }), tofu('B'), tofu('C')])
+
+    const result = await imagineMeals('x', veganHousehold, 'en')
+
+    expect(names(result)).toEqual(['A', 'B', 'C'])
+    expect(mockGenerateObject).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not repeat a meal the first call already kept', async () => {
+    const paella = recorded('en-shellfish-allergy-paella', 'claude-sonnet-4-6', 2)
+    respond(paella, [paella[2]!, sampleMeal({ name: 'Chicken rice' })])
+
+    const result = await imagineMeals('x', paellaHousehold, 'en')
+
+    expect(names(result)).toEqual([paella[2]!.name, 'Chicken rice'])
+  })
+
+  it('returns what the first call kept when the retry runs out of budget', async () => {
+    mockGenerateObject
+      .mockResolvedValueOnce({
+        object: { meals: recorded('en-shellfish-allergy-paella', 'claude-sonnet-4-6', 3) },
+      } as never)
+      .mockRejectedValueOnce(new DOMException('The operation timed out', 'TimeoutError'))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const result = await imagineMeals('x', paellaHousehold, 'en')
+
+    expect(names(result)).toEqual(['Spanish-Style Baked Fish with Tomatoes and Peppers'])
+  })
+
+  it('rethrows a failed retry when the first call kept nothing', async () => {
+    const timeout = new DOMException('The operation timed out', 'TimeoutError')
+    mockGenerateObject
+      .mockResolvedValueOnce({
+        object: { meals: recorded('en-shellfish-allergy-paella', 'claude-sonnet-4-6', 1) },
+      } as never)
+      .mockRejectedValueOnce(timeout)
+
+    await expect(imagineMeals('x', paellaHousehold, 'en')).rejects.toBe(timeout)
+  })
+
+  it('reports usage and logs a sample for both attempts', async () => {
+    mockGenerateObject
+      .mockResolvedValueOnce({
+        object: { meals: recorded('en-shellfish-allergy-paella', 'claude-sonnet-4-6', 1) },
+        usage: USAGE_FIXTURE,
+      } as never)
+      .mockResolvedValueOnce({
+        object: { meals: recorded('en-shellfish-allergy-paella', 'claude-sonnet-5-5', 1) },
+        usage: USAGE_FIXTURE,
+      } as never)
+    const onAiUsage = vi.fn()
+
+    await imagineMeals('x', paellaHousehold, 'en', undefined, onAiUsage)
+
+    expect(onAiUsage).toHaveBeenCalledTimes(2)
+    expect(mockLogAiSample).toHaveBeenCalledTimes(2)
+  })
+
+  it('passes the same abort signal to the retry', async () => {
+    respond(
+      recorded('en-shellfish-allergy-paella', 'claude-sonnet-4-6', 1),
+      recorded('en-shellfish-allergy-paella', 'claude-sonnet-5-5', 1),
+    )
+    const abortSignal = AbortSignal.timeout(40_000)
+
+    await imagineMeals('x', paellaHousehold, 'en', undefined, undefined, abortSignal)
+
+    expect(mockGenerateObject.mock.calls[1]![0]).toEqual(expect.objectContaining({ abortSignal }))
   })
 })
