@@ -104,6 +104,19 @@ describe('assertDesignRules', () => {
       await expect(assertDesignRules(root, ['title-scale'])).rejects.toThrow(/<h2> renders at 24px/)
     })
 
+    it('exempts the cook view display level by its variant, not its size', async () => {
+      const root = render(
+        '<h2 data-variant="display" style="font-size: 30px">Lemon chicken</h2>' +
+          '<h3 data-variant="h4" style="font-size: 22px">Steps</h3>',
+      )
+      await expect(assertDesignRules(root, ['title-scale'])).resolves.toBeUndefined()
+    })
+
+    it('still fails another variant rendered above the Title level', async () => {
+      const root = render('<h2 data-variant="h3" style="font-size: 24px">Page title</h2>')
+      await expect(assertDesignRules(root, ['title-scale'])).rejects.toThrow(/<h2> renders at 24px/)
+    })
+
     it('allows a heading at exactly the Title level', async () => {
       const root = render('<h2 style="font-size: 22px">Page title</h2>')
       await expect(assertDesignRules(root, ['title-scale'])).resolves.toBeUndefined()

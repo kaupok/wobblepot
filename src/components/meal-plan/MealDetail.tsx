@@ -11,15 +11,23 @@ import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
-import { PreparationTips } from './PreparationTips'
+import { PreparationEquipment, PreparationSteps } from './PreparationTips'
 import { ServingControl } from './ServingControl'
 import type { MealStatus } from './StatusSelect'
 import type { MealData, PantryIngredient, StructuredTips } from './types'
 
 interface MealDetailProps {
   meal: MealData
-  /** The meal's hero illustration, rendered first (`MealImage`, HON-737) */
+  /**
+   * The meal's hero illustration, rendered first (`MealImage`, HON-737). Pass
+   * nothing when there is no image to show, so the title clears the close
+   * button instead of sitting under it.
+   */
   image?: ReactNode
+  /** The meal's name: the dialog's title in the cook view */
+  title?: ReactNode
+  /** The plan entry's note (`NoteEditor`), below the meta row */
+  note?: ReactNode
   householdSize: number
   /** Status of the plan entry this meal belongs to */
   status?: MealStatus
@@ -50,8 +58,6 @@ interface MealDetailProps {
   isTipsExpanded?: boolean
   /** Handler for "How to prepare" button click */
   onHowToPrepare?: () => void
-  /** Handler for "Hide tips" button click */
-  onHideTips?: () => void
 }
 
 /**
@@ -76,9 +82,24 @@ function withOverrides(
   return rows
 }
 
+/**
+ * The cook view's content (docs/DESIGN.md → "Cook view", HON-932). Below `lg`
+ * one scrolling column: hero, title, meta, note, ingredients, steps, and
+ * nutrition last. From `lg` two columns that scroll on their own, so
+ * scrolling the steps never moves the ingredients: the hero down to nutrition
+ * on the left (2/5), the steps on the right (3/5).
+ *
+ * One tree for both: the left column is `display: contents` below `lg`, so its
+ * children join the single column, where `order-last` moves nutrition after
+ * the steps. Rendering nutrition twice would leave two of everything in it for
+ * assistive tech and tests. The cost is that on a phone the nutrition (i)
+ * comes before the steps' button in tab order; both orders read sensibly.
+ */
 export function MealDetail({
   meal,
   image,
+  title,
+  note,
   householdSize,
   status,
   servings,
@@ -95,9 +116,9 @@ export function MealDetail({
   onRetryTips,
   isTipsExpanded = false,
   onHowToPrepare,
-  onHideTips,
 }: MealDetailProps) {
   const tDetail = useTranslations('meal-plan.detail')
+  const tTips = useTranslations('meal-plan.tips')
   // Effective servings: use explicit prop if provided, otherwise householdSize
   const effectiveServings = servings ?? householdSize
 
@@ -119,98 +140,127 @@ export function MealDetail({
   // API refuses to change them (409, HON-652) — so show the count as the
   // static header instead of offering an edit that can only fail.
   const showServingControl = !!onServingsChange && status !== 'completed'
+  const hasImage = image != null && image !== false
 
+  // WHY `tabIndex={0}` on the three scroll regions: a region that scrolls
+  // must be reachable by keyboard, or its arrow keys and Page Down do nothing
+  // (axe `scrollable-region-focusable`). Once the steps load, the steps column
+  // holds no control at all, and focus opens on the panel, which does not
+  // scroll. Below `lg` only the outer region scrolls; from `lg` only the two
+  // columns do, and the left one is `display: contents` (no box, so not
+  // focusable) below `lg`.
   return (
-    <div className="flex flex-col gap-4">
-      {image}
+    <div
+      data-slot="cook-view-scroll"
+      tabIndex={0}
+      className="flex h-full flex-col gap-8 overflow-y-auto lg:grid lg:grid-cols-5 lg:grid-rows-1 lg:gap-0 lg:overflow-hidden"
+    >
+      <div
+        data-testid="cook-view-left"
+        tabIndex={0}
+        className="contents lg:col-span-2 lg:flex lg:flex-col lg:gap-8 lg:overflow-y-auto lg:pb-8"
+      >
+        {image}
 
-      {/* Meal description — seeded MealTranslation renders in the household locale */}
-      {meal.description && <Body variant="muted">{meal.description}</Body>}
-
-      {/* Nutrition summary */}
-      {meal.nutrition && (
-        <div className="flex flex-col gap-1">
-          <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
-          <NutritionDisclaimer />
-        </div>
-      )}
-
-      {/* Time + Kid-friendly badge */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711). */}
-        {meal.timeMinutes != null && meal.timeMinutes > 0 && (
-          <span className="text-muted-foreground text-xs">
-            {tDetail('timeMinutes', { count: meal.timeMinutes })}
-          </span>
-        )}
-        {meal.kidFriendly && <KidFriendlyBadge />}
-      </div>
-
-      {/* Ingredients, with the preparation tips beside them on md+ once shown */}
-      <div className={cn('grid grid-cols-1 gap-4', showTips && 'md:grid-cols-2')}>
-        <div className="flex flex-col gap-4">
-          <IngredientList
-            components={meal.components}
-            servings={effectiveServings}
-            householdSize={householdSize}
-            pantryIngredients={pantryIngredients}
-            onToggleAvailability={hideAvailability ? undefined : onToggleAvailability}
-            togglingIds={togglingIds}
-            optimisticOverrides={optimisticOverrides}
-            availability={hideAvailabilityBadge ? null : availability}
-            hideAvailability={hideAvailability}
-            showMissingStyle={pantryHasData}
-            headerElement={
-              showServingControl ? (
-                // The control sits beside the title rather than inside
-                // parentheses, where its padding read as stray spaces (HON-763).
-                <div className="flex flex-wrap items-baseline gap-x-1">
-                  <Heading variant="section" as="h3" className="whitespace-nowrap">
-                    {tDetail('ingredientsTitle')}
-                  </Heading>
-                  <ServingControl
-                    servings={effectiveServings}
-                    householdSize={householdSize}
-                    onServingsChange={onServingsChange}
-                    disabled={hideAvailability}
-                  />
-                </div>
-              ) : undefined
-            }
-          />
-
-          {/* Collapsed tips reserve no panel — just the button (HON-763) */}
-          {showPreparationSection && !isTipsExpanded && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto sm:self-start"
-              onClick={onHowToPrepare}
-            >
-              {tDetail('howToPrepare')}
-            </Button>
+        <div
+          className={cn(
+            'flex flex-col gap-6 px-5 md:px-8 lg:px-6',
+            // Without a hero the title is the first thing in the view, and
+            // the close button sits in the top-right corner over it.
+            !hasImage && 'pt-16 lg:pt-8',
           )}
+        >
+          <div className="flex flex-col gap-2">
+            {title}
+            {/* Seeded MealTranslation renders in the household locale */}
+            {meal.description && <Body variant="muted">{meal.description}</Body>}
+          </div>
+
+          {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711). */}
+          {((meal.timeMinutes != null && meal.timeMinutes > 0) || meal.kidFriendly) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {meal.timeMinutes != null && meal.timeMinutes > 0 && (
+                <Body variant="muted">{tDetail('timeMinutes', { count: meal.timeMinutes })}</Body>
+              )}
+              {meal.kidFriendly && <KidFriendlyBadge size="lg" />}
+            </div>
+          )}
+
+          {note}
+
+          <section className="flex flex-col gap-4">
+            <IngredientList
+              components={meal.components}
+              servings={effectiveServings}
+              householdSize={householdSize}
+              pantryIngredients={pantryIngredients}
+              onToggleAvailability={hideAvailability ? undefined : onToggleAvailability}
+              togglingIds={togglingIds}
+              optimisticOverrides={optimisticOverrides}
+              availability={hideAvailabilityBadge ? null : availability}
+              hideAvailability={hideAvailability}
+              showMissingStyle={pantryHasData}
+              headerElement={
+                showServingControl ? (
+                  // The control sits beside the title rather than inside
+                  // parentheses, where its padding read as stray spaces (HON-763).
+                  <div className="flex flex-wrap items-center gap-x-1">
+                    <Heading variant="h4" as="h3" className="whitespace-nowrap">
+                      {tDetail('ingredientsTitle')}
+                    </Heading>
+                    <ServingControl
+                      servings={effectiveServings}
+                      householdSize={householdSize}
+                      onServingsChange={onServingsChange}
+                      disabled={hideAvailability}
+                    />
+                  </div>
+                ) : undefined
+              }
+            />
+            {showTips && <PreparationEquipment equipment={tips?.equipment} />}
+          </section>
         </div>
 
-        {showTips && (
-          <div className="bg-muted/50 rounded-lg p-4">
-            <PreparationTips
-              tips={tips ?? null}
-              isLoading={isLoadingTips}
-              error={tipsError ?? null}
-              onRetry={onRetryTips ?? (() => {})}
-              preparationNotes={meal.preparationNotes}
-            />
-            {tips && onHideTips && (
-              <div className="mt-3 flex justify-center">
-                <Button variant="ghost" size="sm" onClick={onHideTips}>
-                  {tDetail('hideTips')}
-                </Button>
-              </div>
-            )}
+        {/* Nutrition last, with the disclaimer directly below the macros and
+            visible, never behind an icon (HON-466). After the steps below
+            `lg`; at the end of the left column from `lg`. */}
+        {meal.nutrition && (
+          <div
+            data-testid="cook-view-nutrition"
+            className="order-last flex flex-col gap-1 px-5 pb-8 md:px-8 lg:order-none lg:px-6 lg:pb-0"
+          >
+            <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
+            <NutritionDisclaimer />
           </div>
         )}
       </div>
+
+      {showPreparationSection && (
+        <section
+          data-testid="cook-view-steps"
+          tabIndex={0}
+          className="flex flex-col gap-6 px-5 md:px-8 lg:col-span-3 lg:overflow-y-auto lg:px-10 lg:pt-20 lg:pb-8"
+        >
+          <Heading variant="h4" as="h3">
+            {tTips('steps')}
+          </Heading>
+          <PreparationSteps
+            tips={showTips ? tips : null}
+            isLoading={showTips && isLoadingTips}
+            error={showTips ? tipsError : null}
+            onRetry={onRetryTips ?? (() => {})}
+            preparationNotes={meal.preparationNotes}
+          />
+          {/* Until part 2 generates steps on open (HON-933), they are asked
+              for: full width on a phone, label-sized from `md`. */}
+          {!isTipsExpanded && (
+            <Button size="lg" className="w-full md:w-auto md:self-start" onClick={onHowToPrepare}>
+              {tDetail('howToPrepare')}
+            </Button>
+          )}
+        </section>
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, within } from 'storybook/test'
+import { expect, fn, userEvent, within } from 'storybook/test'
 import { createMealComponent, lemonGarlicChickenComponentsFull } from '@/stories/fixtures'
 import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-helpers'
 import { IngredientList } from './IngredientList'
@@ -23,7 +23,15 @@ const meta = {
   title: 'Meal plan/IngredientList',
   component: IngredientList,
   tags: ['autodocs'],
-  parameters: { layout: 'padded' },
+  parameters: {
+    layout: 'padded',
+    docs: {
+      description: {
+        component:
+          'The cook view’s ingredients (HON-932): 18px rows at least 44px tall, the quantity first in a fixed-width column so the names line up, and the whole row the checkbox’s label, so a tap anywhere on it toggles the pantry.',
+      },
+    },
+  },
   args: {
     components: componentsWithVagueSalt,
     servings: 4,
@@ -42,30 +50,6 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
-
-export const Compact: Story = {
-  args: { compact: true },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Compact tightens the gaps, not the type: the header, rows and staples line stay at the same size as the default list (HON-688).',
-      },
-    },
-  },
-}
-
-export const CompactWithCheckboxes: Story = {
-  args: {
-    compact: true,
-    pantryIngredients: [
-      { ingredientId: 'chicken-thigh', isStaple: false },
-      { ingredientId: 'garlic', isStaple: true },
-      { ingredientId: 'olive-oil', isStaple: true },
-    ] satisfies PantryIngredient[],
-    onToggleAvailability: fn(),
-  },
-}
 
 export const WithPantryAvailability: Story = {
   args: {
@@ -86,6 +70,26 @@ export const WithCheckboxes: Story = {
       { ingredientId: 'olive-oil', isStaple: true },
     ] satisfies PantryIngredient[],
     onToggleAvailability: fn(),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    const rows = canvas.getAllByRole('listitem')
+    for (const row of rows) {
+      // A knuckle-sized target and the 18px row text (HON-932).
+      await expect(row.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+      await expect(getComputedStyle(row.firstElementChild!).fontSize).toBe('18px')
+    }
+    // Quantity first: the names line up behind a fixed-width column.
+    await expect(canvas.getByText('Potato').getBoundingClientRect().left).toBe(
+      canvas.getByText('Lemon').getBoundingClientRect().left,
+    )
+    // The 24px checkbox.
+    const checkbox = canvas.getByRole('checkbox', { name: /potato/i })
+    await expect(checkbox.getBoundingClientRect().width).toBe(24)
+
+    // A tap on the name, not the box, toggles it.
+    await userEvent.click(canvas.getByText('Potato'))
+    await expect(args.onToggleAvailability).toHaveBeenCalledWith('potato', true)
   },
 }
 
@@ -161,11 +165,12 @@ const narrowArgs = {
   availability: { isReady: false, missingCount: 2, missingIngredients: ['Potato', 'Lemon'] },
 } satisfies Partial<Story['args']>
 
-// ~300px is the ingredients column in the desktop meal detail modal, where the
-// header used to fragment and squeeze the badge (HON-692).
+// ~340px is the ingredients column at its narrowest: a 390px phone less the
+// cook view's `px-5`, or its left 2/5 at 1024px less `px-6` (HON-932). The
+// header used to fragment and squeeze the badge at this sort of width (HON-692).
 const narrowDecorator: NonNullable<Story['decorators']> = [
   (Story) => (
-    <div data-testid="narrow-column" className="w-75">
+    <div data-testid="narrow-column" className="w-85">
       <Story />
     </div>
   ),
@@ -194,7 +199,7 @@ export const NarrowWithBadge: Story = {
     docs: {
       description: {
         story:
-          'A ~300px column, the width of the ingredients column in the desktop meal detail modal. The header stays on one line and the badge never wraps inside itself: when the row runs out of room the badge moves to its own line (HON-692).',
+          'A ~340px column, the ingredients column at its narrowest in the cook view. The header stays on one line and the badge never wraps inside itself: when the row runs out of room the badge moves to its own line (HON-692).',
       },
     },
   },

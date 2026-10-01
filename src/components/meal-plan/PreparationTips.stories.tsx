@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
-import { PreparationTips } from './PreparationTips'
+import { expect, fn, within } from 'storybook/test'
+import { mealHueStyle } from './MealImageCard'
+import { PreparationEquipment, PreparationSteps } from './PreparationTips'
 import type { StructuredTips } from './types'
 
 const fullTips: StructuredTips = {
@@ -20,20 +21,29 @@ const fullTips: StructuredTips = {
 
 const meta = {
   title: 'Meal plan/PreparationTips',
-  component: PreparationTips,
+  component: PreparationSteps,
   tags: ['autodocs'],
-  parameters: { layout: 'padded' },
+  parameters: {
+    layout: 'padded',
+    docs: {
+      description: {
+        component:
+          'The cook view’s steps area (HON-932): the household’s notes, then numbered steps, Watch out and Tip at the step size, straight on the meal’s tint. `PreparationEquipment` is the “You’ll need” line that sits under the ingredients instead.',
+      },
+    },
+  },
   args: {
     onRetry: fn(),
   },
   decorators: [
+    // On a meal tint, as in the cook view.
     (Story) => (
-      <div className="bg-muted/50 max-w-md rounded-lg p-4">
+      <div data-meal-surface="" style={mealHueStyle(52)} className="max-w-xl p-4">
         <Story />
       </div>
     ),
   ],
-} satisfies Meta<typeof PreparationTips>
+} satisfies Meta<typeof PreparationSteps>
 
 export default meta
 type Story = StoryObj<typeof meta>
@@ -44,6 +54,18 @@ export const FullTips: Story = {
     isLoading: false,
     error: null,
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Step text is the step level, foreground and 20px below `lg` (HON-932).
+    const step = canvas.getByText(fullTips.steps![0]!)
+    await expect(getComputedStyle(step).fontSize).toBe('20px')
+    await expect(canvas.getByRole('heading', { name: 'Watch out' })).toBeVisible()
+  },
+}
+
+export const Equipment: Story = {
+  args: { tips: null, isLoading: false, error: null },
+  render: () => <PreparationEquipment equipment={fullTips.equipment} />,
 }
 
 export const Loading: Story = {

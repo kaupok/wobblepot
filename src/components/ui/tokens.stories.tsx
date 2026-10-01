@@ -248,6 +248,15 @@ const TYPE_SCALE = [
   { className: 'text-base', level: 'Section', fontSizePx: 18, lineHeightPx: 28 },
   { className: 'text-lg', level: '—', fontSizePx: 20, lineHeightPx: 28 },
   { className: 'text-xl', level: 'Title', fontSizePx: 22, lineHeightPx: 30 },
+  // The cook view's two levels at the phone size (HON-932); from `lg` they
+  // step up to `text-xl` and `text-3xl`. `leading-relaxed` is 1.625 × 20px.
+  {
+    className: 'text-lg leading-relaxed',
+    level: 'Step (cook view)',
+    fontSizePx: 20,
+    lineHeightPx: 32.5,
+  },
+  { className: 'text-2xl', level: 'Display (cook view)', fontSizePx: 24, lineHeightPx: 32 },
 ] as const
 
 function TypeScaleView() {
@@ -268,7 +277,7 @@ export const TypeScale: Story = {
     docs: {
       description: {
         story:
-          'The five text tokens the app uses, re-based one step above stock Tailwind in `globals.css` (HON-686): Caption 14, Body and Secondary 16, Section 18, Title 22. `text-2xl` and up are stock. The play function measures the computed size and line height of each, so a silently dropped override fails here rather than shrinking the whole app.',
+          'The text tokens the app uses, re-based one step above stock Tailwind in `globals.css` (HON-686): Caption 14, Body and Secondary 16, Section 18, Title 22. `text-2xl` and up are stock. The cook view adds Step (`Body variant="step"`, 20 → 22 from `lg`) and Display (`Heading variant="display"`, 24 → 30 from `lg`), scoped to that view (HON-932). The play function measures the computed size and line height of each, so a silently dropped override fails here rather than shrinking the whole app.',
       },
     },
   },

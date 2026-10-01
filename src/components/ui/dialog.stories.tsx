@@ -343,3 +343,58 @@ export const CloseButtonEstonian: Story = {
     await expect(within(dialog).getByRole('button', { name: 'Sulge' })).toBeInTheDocument()
   },
 }
+
+// The cook view's shell (HON-932): the viewport below `lg`, edge to edge with
+// no radius, padded by the safe-area insets; a panel 24px inside the viewport
+// from `lg`. The close is 44px+ on the chip token.
+function FullscreenDialog() {
+  return (
+    <Dialog open>
+      <DialogContent size="fullscreen">
+        <div className="flex h-full flex-col gap-4 overflow-y-auto p-6 pt-16">
+          <DialogTitle>Lemon-garlic roast chicken</DialogTitle>
+          <DialogDescription>The cook view’s panel, without its content.</DialogDescription>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export const Fullscreen: Story = {
+  render: () => <FullscreenDialog />,
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  play: async () => {
+    const dialog = await within(document.body).findByRole('dialog')
+    await expect(dialog).toHaveAttribute('data-size', 'fullscreen')
+    // Layout metrics: the zoom-in transform scales rects while it runs.
+    // The box the `inset-0` overlay fills: on a classic-scrollbar system `html`
+    // keeps a scrollbar gutter under the scroll lock (globals.css, HON-690).
+    const overlay = document.querySelector<HTMLElement>('[data-slot="dialog-overlay"]')!
+    await expect(dialog.offsetWidth).toBe(overlay.offsetWidth)
+    await expect(dialog.offsetHeight).toBe(overlay.offsetHeight)
+    await expect(getComputedStyle(dialog).borderTopLeftRadius).toBe('0px')
+    const close = within(dialog).getByRole('button', { name: 'Close' })
+    await expect(close.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+  },
+}
+
+export const FullscreenDesktop: Story = {
+  name: 'Fullscreen (desktop)',
+  render: () => <FullscreenDialog />,
+  globals: { viewport: { value: 'laptop', isRotated: false } },
+  play: async () => {
+    const dialog = await within(document.body).findByRole('dialog')
+    await expect(dialog.offsetLeft).toBe(24)
+    await expect(dialog.offsetTop).toBe(24)
+    const overlay = document.querySelector<HTMLElement>('[data-slot="dialog-overlay"]')!
+    await expect(dialog.offsetWidth).toBe(overlay.offsetWidth - 48)
+    await expect(dialog.offsetHeight).toBe(overlay.offsetHeight - 48)
+    await expect(getComputedStyle(dialog).borderTopLeftRadius).not.toBe('0px')
+  },
+}
+
+export const FullscreenDark: Story = {
+  name: 'Fullscreen (dark)',
+  render: () => <FullscreenDialog />,
+  globals: { viewport: { value: 'mobileIphone', isRotated: false }, theme: 'dark' },
+}

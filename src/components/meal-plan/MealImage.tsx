@@ -7,23 +7,26 @@ import { mealHueStyle, useImageLoaded } from './MealImageCard'
 import type { MealImageStatus } from '@/generated/prisma/enums'
 
 /**
- * Rendered width of the hero, which bleeds through the dialog's padding
- * (HON-752): `MealDetailModal` is `md:max-w-2xl` (672px) and `sm:max-w-md`
- * (448px), less its 1px borders, and `max-w-[calc(100%-2rem)]` below `sm`.
+ * Rendered width of the hero in the cook view (HON-932). Below `lg` the view is
+ * the viewport and the hero spans it. From `lg` the view is a panel inset 24px
+ * from the viewport, and the hero spans its left column, 2/5 of the panel:
+ * 0.4 × (100vw − 48px), which `40vw` bounds from above.
  *
- * At DPR 2 this picks the 1920w candidate, which Next caps at the 1536px
- * source (HON-748). The browser's `naturalWidth` is density-corrected; load
- * `currentSrc` into a `new Image()` to see the file's real width.
+ * At DPR 2 a phone picks the ~828w candidate and a 1440px desktop the 1200w
+ * one; Next caps everything at the 1536px source (HON-748). The browser's
+ * `naturalWidth` is density-corrected; load `currentSrc` into a `new Image()`
+ * to see the file's real width.
  */
-const SIZES = '(min-width: 768px) 670px, (min-width: 640px) 446px, calc(100vw - 2rem)'
+const SIZES = '(min-width: 1024px) 40vw, 100vw'
 
 /**
- * Full-bleed 2:1 geometry shared by the hero and its `generating` box. The
- * negative margin cancels `DialogContent`'s `p-6`, so the hero runs edge to
- * edge across the dialog and reads as its header band rather than an inset
- * card (HON-752). It has no radius: the dialog clips it.
+ * Full-bleed 3:2 geometry shared by the hero and its `generating` box: the
+ * whole width of its column, edge to edge, with no radius (the panel clips
+ * it). Capped at 45% of the viewport's height (`max-h-hero`), so a phone in
+ * landscape still shows the title; past the cap the frame gets wider than
+ * 3:2 and `object-cover` crops the plate's top and bottom.
  */
-const HERO_BOX = '-mx-6 aspect-2/1'
+const HERO_BOX = 'aspect-3/2 max-h-hero w-full shrink-0'
 
 interface MealImageProps {
   /** Used as the alt text, and nothing more (`docs/DESIGN.md` → Imagery) */
@@ -32,22 +35,35 @@ interface MealImageProps {
   imageUrl: string | null
   /** OKLCH hue taken from the image (HON-744); without one the hero is untinted */
   imageHue: number | null
+  /**
+   * The ready image's URL failed to load. The hero renders nothing either
+   * way; the cook view uses this to drop the tint that came with it.
+   */
+  onError?: (imageUrl: string) => void
 }
 
 /**
  * The meal's hero illustration (HON-737, HON-746), following `docs/DESIGN.md`
- * → Imagery: 2:1, full-bleed across the dialog, on the meal's tinted surface
- * with the image multiplied into it, the whole hero fading bottom-up into the
- * dialog (and briefly at the top), and the image fading in on load. A meal
+ * → Imagery: 3:2, full-bleed across its column of the cook view, on the meal's
+ * tinted surface with the image multiplied into it, the whole hero fading
+ * bottom-up into the panel, and the image fading in on load. A meal
  * with an image but no hue keeps the image, on the untinted neutral surface
  * (HON-754). A meal without an image renders nothing at all. The one
  * exception is `generating`, where a plain box holds the space so the content
  * below does not jump when the image lands.
  */
-export function MealImage({ mealName, status, imageUrl, imageHue }: MealImageProps) {
+export function MealImage({ mealName, status, imageUrl, imageHue, onError }: MealImageProps) {
   if (status === 'ready' && imageUrl) {
     // Keyed by URL so a different image starts transparent and fades in again.
-    return <LoadedImage key={imageUrl} alt={mealName} src={imageUrl} hue={imageHue} />
+    return (
+      <LoadedImage
+        key={imageUrl}
+        alt={mealName}
+        src={imageUrl}
+        hue={imageHue}
+        onError={() => onError?.(imageUrl)}
+      />
+    )
   }
 
   if (status === 'generating') {
@@ -57,7 +73,14 @@ export function MealImage({ mealName, status, imageUrl, imageHue }: MealImagePro
   return null
 }
 
-function LoadedImage({ alt, src, hue }: { alt: string; src: string; hue: number | null }) {
+interface LoadedImageProps {
+  alt: string
+  src: string
+  hue: number | null
+  onError: () => void
+}
+
+function LoadedImage({ alt, src, hue, onError }: LoadedImageProps) {
   const { loaded, ref, onLoad } = useImageLoaded()
   const [broken, setBroken] = useState(false)
 
@@ -66,16 +89,15 @@ function LoadedImage({ alt, src, hue }: { alt: string; src: string; hue: number 
   if (broken) return null
 
   // The fade is on the container, so the tint and the image leave together
-  // and the hero ends in the dialog's own background rather than at an edge.
-  // A short top fade does the same under the note, so the full-bleed band has
-  // no hard edge anywhere (HON-752).
+  // and the hero ends in the panel's own tint rather than at an edge. It is
+  // the first thing in its column, so it needs no top fade (HON-932).
   // `isolate` keeps the multiply against the tint alone. Without a hue the
   // surface is `neutral`: the tint's lightness at zero chroma (globals.css).
   return (
     <div
       data-meal-surface={hue === null ? 'neutral' : ''}
       data-testid="meal-image-hero"
-      className={cn('relative isolate overflow-hidden mask-t-from-85% mask-b-from-60%', HERO_BOX)}
+      className={cn('relative isolate overflow-hidden mask-b-from-60%', HERO_BOX)}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
       style={hue === null ? undefined : mealHueStyle(hue)}
     >
@@ -86,7 +108,10 @@ function LoadedImage({ alt, src, hue }: { alt: string; src: string; hue: number 
         sizes={SIZES}
         ref={ref}
         onLoad={onLoad}
-        onError={() => setBroken(true)}
+        onError={() => {
+          setBroken(true)
+          onError()
+        }}
         className={cn(
           'object-cover mix-blend-multiply transition-opacity duration-200 ease-out',
           loaded ? 'opacity-100' : 'opacity-0',

@@ -1,24 +1,22 @@
 'use client'
 
-import { useState, useCallback, useImperativeHandle } from 'react'
+import { useState, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
 import type { Ref } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { apiFetch } from '@/lib/api'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Heading } from '@/components/ui/typography'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
 import { useMealImage } from '@/hooks/use-meal-image'
+import { useWakeLock } from '@/hooks/use-wake-lock'
+import { cn } from '@/lib/utils'
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
+import { mealHueStyle, mealTintHue } from './MealImageCard'
 import { NoteEditor } from './NoteEditor'
 import type { MealStatus } from './StatusSelect'
 import type { MealData, PantryIngredient } from './types'
@@ -78,10 +76,58 @@ export function MealDetailModal({
     isTipsExpanded,
     fetchTips,
     handleHowToPrepare,
-    hideTips,
     cancelTips,
   } = useMealTips({ planId, entryId })
   const { status: imageStatus, imageUrl, imageHue, cancelImage } = useMealImage({ meal, open })
+  // A URL that no longer resolves is an absent image: the hero renders
+  // nothing, and the panel drops the tint that came with it (as
+  // `MealImageCard` does). Keyed by URL so a new image gets its own chance.
+  const [brokenUrl, setBrokenUrl] = useState<string | null>(null)
+
+  // The cook view keeps the screen on while it is open (HON-932).
+  useWakeLock(open)
+  const contentRef = useRef<HTMLDivElement>(null)
+  // The control that opened the view: the card's meal name. The dialog opens
+  // from state, with no `DialogTrigger`, so Radix has nothing to return focus
+  // to and drops it on `<body>` (CLAUDE.md → Focus management). Captured as
+  // the dialog opens, before focus moves into it.
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+
+  // The surface follows `MealImageCard`'s rules: a hue tints the whole panel,
+  // an image without one gets the `neutral` surface, and no image (or one
+  // still generating) leaves the plain background.
+  const imageFields = { imageStatus, imageUrl, imageHue }
+  const hasImage = imageStatus === 'ready' && !!imageUrl && imageUrl !== brokenUrl
+  const hue = hasImage ? mealTintHue(imageFields) : null
+  const surface = hasImage ? (hue === null ? 'neutral' : '') : undefined
+  const showHero = hasImage || imageStatus === 'generating'
+
+  // The phone's sticky bar: once the title has scrolled up under the bar, the
+  // bar takes the tint and shows the meal's name. The bar is hidden from
+  // `lg`, where the title sits in a column that never scrolls under it.
+  //
+  // Observed against the scroll region, not the viewport: the region starts
+  // under the panel's safe-area padding, as the bar does, so the -60px top
+  // margin (the bar's `h-15`) is the bar's bottom edge on a notched phone too.
+  // Against the viewport it would sit a whole inset (59px on an iPhone 14
+  // Pro) above the bar, and the bar would tint only once the title was gone.
+  const [titleEl, setTitleEl] = useState<HTMLElement | null>(null)
+  const [titleHidden, setTitleHidden] = useState(false)
+  useEffect(() => {
+    if (!titleEl || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(
+      ([entry]) => setTitleHidden(!!entry && !entry.isIntersecting),
+      {
+        root: titleEl.closest('[data-slot="cook-view-scroll"]'),
+        rootMargin: '-60px 0px 0px 0px',
+      },
+    )
+    observer.observe(titleEl)
+    return () => {
+      observer.disconnect()
+      setTitleHidden(false)
+    }
+  }, [titleEl])
 
   // Sync local state when prop changes
   const effectiveServings = servingOverride ?? householdSize
@@ -169,30 +215,87 @@ export function MealDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-dialog overflow-y-auto sm:max-w-md md:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{meal.name}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {tDetail('ariaDetailsFor', { mealName: meal.name })}
-          </DialogDescription>
-        </DialogHeader>
-        {/* Note section at top of modal */}
-        <div className="border-muted mb-2 border-b pb-3">
-          <NoteEditor
-            planId={planId}
-            entryId={entryId}
-            note={note ?? null}
-            onNoteChange={onNoteChange}
-          />
+      <DialogContent
+        ref={contentRef}
+        size="fullscreen"
+        data-meal-surface={surface}
+        // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
+        style={hue === null ? undefined : mealHueStyle(hue)}
+        // Focus the panel itself, not its first control: the note editor or
+        // an ingredient checkbox would pop a keyboard or a focus ring on open.
+        // A screen reader announces the dialog by its title and description.
+        // Radix still traps focus while it is open.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          returnFocusRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null
+          contentRef.current?.focus()
+        }}
+        // Back to the control that opened it, if it is still on the page.
+        onCloseAutoFocus={(event) => {
+          const target = returnFocusRef.current
+          returnFocusRef.current = null
+          if (!target?.isConnected) return
+          event.preventDefault()
+          target.focus()
+        }}
+      >
+        <DialogDescription className="sr-only">
+          {tDetail('ariaDetailsFor', { mealName: meal.name })}
+        </DialogDescription>
+
+        {/* Phone only. Transparent over the hero, where it shows nothing but
+            the close button beside it, and lets taps through to the hero.
+            Once opaque it takes them itself: a tap on the bar must not land
+            on a checkbox or "How to prepare" scrolled out of sight under it.
+            The name is a visual repeat of the title, so it stays out of the
+            accessibility tree. */}
+        <div
+          data-testid="cook-view-bar"
+          data-title-hidden={titleHidden ? '' : undefined}
+          className={cn(
+            'absolute inset-x-0 top-0 z-10 flex h-15 items-center pr-16 pl-5 transition-colors duration-200 ease-out md:pl-8 lg:hidden',
+            titleHidden ? 'bg-card' : 'pointer-events-none bg-transparent',
+          )}
+        >
+          <p
+            aria-hidden="true"
+            className={cn(
+              'truncate text-lg font-semibold transition-opacity duration-200 ease-out',
+              titleHidden ? 'opacity-100' : 'opacity-0',
+            )}
+          >
+            {meal.name}
+          </p>
         </div>
+
         <MealDetail
           meal={meal}
           image={
-            <MealImage
-              mealName={meal.name}
-              status={imageStatus}
-              imageUrl={imageUrl}
-              imageHue={imageHue}
+            showHero ? (
+              <MealImage
+                mealName={meal.name}
+                status={imageStatus}
+                imageUrl={imageUrl}
+                imageHue={imageHue}
+                onError={setBrokenUrl}
+              />
+            ) : null
+          }
+          title={
+            <DialogTitle asChild>
+              <Heading ref={setTitleEl} variant="display">
+                {meal.name}
+              </Heading>
+            </DialogTitle>
+          }
+          note={
+            <NoteEditor
+              planId={planId}
+              entryId={entryId}
+              note={note ?? null}
+              onNoteChange={onNoteChange}
+              size="lg"
             />
           }
           householdSize={householdSize}
@@ -209,7 +312,6 @@ export function MealDetailModal({
           onRetryTips={fetchTips}
           isTipsExpanded={isTipsExpanded}
           onHowToPrepare={handleHowToPrepare}
-          onHideTips={hideTips}
         />
       </DialogContent>
     </Dialog>

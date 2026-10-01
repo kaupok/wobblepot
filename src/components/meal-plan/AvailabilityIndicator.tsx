@@ -4,6 +4,8 @@ import type { MealAvailability, MealData, PantryIngredient } from './types'
 
 interface AvailabilityIndicatorProps {
   availability: MealAvailability
+  /** `lg` in the cook view's ingredients header (HON-932) */
+  size?: 'default' | 'lg'
 }
 
 /**
@@ -67,12 +69,20 @@ export function computeMealAvailability(
  * meal's chip colour, because the pantry's status is not the meal's own
  * (docs/DESIGN.md → Color). The text names the state; colour is not the only cue.
  */
-export function AvailabilityIndicator({ availability }: AvailabilityIndicatorProps) {
+export function AvailabilityIndicator({ availability, size }: AvailabilityIndicatorProps) {
   const t = useTranslations('meal-plan.availability')
 
   if (availability.isReady) {
-    return <Badge variant="surface-success">{t('haveAll')}</Badge>
+    return (
+      <Badge variant="surface-success" size={size}>
+        {t('haveAll')}
+      </Badge>
+    )
   }
 
-  return <Badge variant="surface-warning">{t('toBuy', { count: availability.missingCount })}</Badge>
+  return (
+    <Badge variant="surface-warning" size={size}>
+      {t('toBuy', { count: availability.missingCount })}
+    </Badge>
+  )
 }

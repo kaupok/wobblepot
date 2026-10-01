@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { toast } from 'sonner'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { MealDetailModal } from './MealDetailModal'
@@ -23,8 +23,17 @@ vi.mock('@/hooks/use-meal-tips', () => ({
     cancelTips,
   }),
 }))
+let imageState: { status: string; imageUrl: string | null; imageHue: number | null } = {
+  status: 'none',
+  imageUrl: null,
+  imageHue: null,
+}
 vi.mock('@/hooks/use-meal-image', () => ({
-  useMealImage: () => ({ status: 'none', imageUrl: null, imageHue: null, cancelImage: vi.fn() }),
+  useMealImage: () => ({ ...imageState, cancelImage: vi.fn() }),
+}))
+const useWakeLock = vi.fn()
+vi.mock('@/hooks/use-wake-lock', () => ({
+  useWakeLock: (active: boolean) => useWakeLock(active),
 }))
 vi.mock('./NoteEditor', () => ({ NoteEditor: () => null }))
 vi.mock('./MealImage', () => ({ MealImage: () => null }))
@@ -39,10 +48,16 @@ let onServingsChange: ((servings: number | null) => Promise<boolean>) | undefine
 vi.mock('./MealDetail', () => ({
   MealDetail: (props: {
     servings: number
+    title?: React.ReactNode
     onServingsChange?: (servings: number | null) => Promise<boolean>
   }) => {
     onServingsChange = props.onServingsChange
-    return <output aria-label="servings">{props.servings}</output>
+    return (
+      <div data-slot="cook-view-scroll">
+        {props.title}
+        <output aria-label="servings">{props.servings}</output>
+      </div>
+    )
   },
 }))
 
@@ -54,13 +69,13 @@ const meal: MealData = {
   nutrition: {} as MealData['nutrition'],
 }
 
-function renderModal(onServingOverrideChange = vi.fn()) {
+function renderModal(onServingOverrideChange = vi.fn(), open = true) {
   const { wrapper } = createQueryWrapper()
   render(
     <MealDetailModal
       meal={meal}
       householdSize={4}
-      open
+      open={open}
       onOpenChange={vi.fn()}
       planId="plan-1"
       entryId="entry-1"
@@ -136,5 +151,139 @@ describe('MealDetailModal servings update', () => {
     expect(onServingOverrideChange).toHaveBeenCalledWith(6)
     expect(cancelTips).toHaveBeenCalledTimes(1)
     expect(toast.error).not.toHaveBeenCalled()
+  })
+})
+
+describe('MealDetailModal cook view shell (HON-932)', () => {
+  beforeEach(() => {
+    useWakeLock.mockClear()
+    imageState = { status: 'none', imageUrl: null, imageHue: null }
+  })
+
+  it('keeps the screen on while open', () => {
+    renderModal()
+    expect(useWakeLock).toHaveBeenLastCalledWith(true)
+  })
+
+  it('lets the screen sleep while closed', () => {
+    renderModal(vi.fn(), false)
+    expect(useWakeLock).toHaveBeenLastCalledWith(false)
+  })
+
+  it('opens as the fullscreen panel, titled with the meal name', () => {
+    renderModal()
+    const dialog = screen.getByRole('dialog', { name: 'Lentil soup' })
+    expect(dialog).toHaveAttribute('data-size', 'fullscreen')
+    expect(screen.getByRole('heading', { name: 'Lentil soup' })).toHaveAttribute(
+      'data-variant',
+      'display',
+    )
+  })
+
+  it('focuses the panel on open rather than its first control', () => {
+    renderModal()
+    expect(screen.getByRole('dialog')).toHaveFocus()
+  })
+
+  it('tints the whole panel with the meal hue', () => {
+    imageState = { status: 'ready', imageUrl: 'https://blob/meal.png', imageHue: 145 }
+    renderModal()
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveAttribute('data-meal-surface', '')
+    expect(dialog.style.getPropertyValue('--meal-hue')).toBe('145')
+  })
+
+  it('uses the neutral surface for an image without a hue', () => {
+    imageState = { status: 'ready', imageUrl: 'https://blob/meal.png', imageHue: null }
+    renderModal()
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveAttribute('data-meal-surface', 'neutral')
+    expect(dialog.style.getPropertyValue('--meal-hue')).toBe('')
+  })
+
+  it.each(['none', 'generating', 'failed'])('leaves the plain background for %s', (status) => {
+    imageState = { status, imageUrl: null, imageHue: null }
+    renderModal()
+    expect(screen.getByRole('dialog')).not.toHaveAttribute('data-meal-surface')
+  })
+})
+
+describe('MealDetailModal sticky title bar (HON-932)', () => {
+  let observers: { options?: IntersectionObserverInit; callback: IntersectionObserverCallback }[]
+
+  beforeEach(() => {
+    observers = []
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+          observers.push({ callback, options })
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('measures the title against the scroll region, which starts under the safe-area inset', () => {
+    renderModal()
+    const scroller = screen.getByRole('heading', { name: 'Lentil soup' }).parentElement
+    expect(scroller).toHaveAttribute('data-slot', 'cook-view-scroll')
+    expect(observers.at(-1)?.options).toEqual({
+      root: scroller,
+      rootMargin: '-60px 0px 0px 0px',
+    })
+  })
+
+  it('shows the name in the bar once the title has scrolled under it', () => {
+    renderModal()
+    const bar = screen.getByTestId('cook-view-bar')
+    expect(bar).not.toHaveAttribute('data-title-hidden')
+
+    act(() =>
+      observers
+        .at(-1)!
+        .callback(
+          [{ isIntersecting: false } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        ),
+    )
+    expect(bar).toHaveAttribute('data-title-hidden')
+  })
+})
+
+describe('MealDetailModal focus (HON-932)', () => {
+  function ModalWithTrigger({ open }: { open: boolean }) {
+    return (
+      <>
+        <button type="button">Lentil soup card</button>
+        <MealDetailModal
+          meal={meal}
+          householdSize={4}
+          open={open}
+          onOpenChange={vi.fn()}
+          planId="plan-1"
+          entryId="entry-1"
+        />
+      </>
+    )
+  }
+
+  it('returns focus to the control that opened it when it closes', async () => {
+    const { wrapper } = createQueryWrapper()
+    const { rerender } = render(<ModalWithTrigger open={false} />, { wrapper })
+    const trigger = screen.getByRole('button', { name: 'Lentil soup card' })
+    trigger.focus()
+
+    rerender(<ModalWithTrigger open />)
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveFocus())
+
+    rerender(<ModalWithTrigger open={false} />)
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(trigger).toHaveFocus()
   })
 })

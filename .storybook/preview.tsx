@@ -142,10 +142,12 @@ const withI18n: Decorator = (Story, context) => {
   )
 }
 
-// Custom viewports matching common mobile device sizes the app targets. The
+// Custom viewports matching common device sizes the app targets. The
 // built-in MINIMAL_VIEWPORTS.mobile1 is iPhone 5 (320×568), too small for a
 // mobile-first audit; these add realistic iPhone 13/14 (390×844) and Pixel-class
-// Android (360×640) sizes and re-use the built-in desktop preset.
+// Android (360×640) sizes and re-use the built-in desktop preset. The landscape
+// tablet (1024×768, the `lg` breakpoint exactly) and the 1440×900 laptop are the
+// cook view's two-column sizes (HON-932).
 const honkadoriViewports = {
   mobilePixel: {
     name: 'Mobile — 360×640',
@@ -156,6 +158,16 @@ const honkadoriViewports = {
     name: 'Mobile — 390×844 (iPhone)',
     styles: { width: '390px', height: '844px' },
     type: 'mobile',
+  },
+  tabletLandscape: {
+    name: 'Tablet landscape — 1024×768',
+    styles: { width: '1024px', height: '768px' },
+    type: 'tablet',
+  },
+  laptop: {
+    name: 'Laptop — 1440×900',
+    styles: { width: '1440px', height: '900px' },
+    type: 'desktop',
   },
 } as const
 
