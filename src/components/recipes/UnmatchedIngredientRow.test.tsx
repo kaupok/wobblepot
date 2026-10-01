@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 import type { UnmatchedIngredientData } from './IngredientRow'
+import { imaginedIngredientText } from '@/lib/ai/imagine-request'
 
 function data(extractedName: string): UnmatchedIngredientData {
   return {
@@ -33,5 +34,30 @@ describe('UnmatchedIngredientRow search field name', () => {
       'Search ingredients…',
     )
     expect(screen.getByLabelText('Find a match for yuzu kosho')).toBeInTheDocument()
+  })
+})
+
+describe('UnmatchedIngredientRow original line', () => {
+  // Imagine no longer asks the model for originalText; the route rebuilds it
+  // (HON-897), and the row must still show it.
+  it('shows the rebuilt text of an unmatched imagined ingredient', () => {
+    const { wrapper } = createQueryWrapper()
+    const ingredient = { name: 'yuzu kosho', quantity: 2, unit: 'tsp' as const, vaguePhrase: null }
+    render(
+      <UnmatchedIngredientRow
+        data={{
+          type: 'unmatched',
+          extractedName: ingredient.name,
+          originalText: imaginedIngredientText(ingredient),
+          extractedQuantity: ingredient.quantity,
+          extractedUnit: ingredient.unit,
+        }}
+        disabled={false}
+        onRemove={vi.fn()}
+      />,
+      { wrapper },
+    )
+
+    expect(screen.getByText('Original: 2 tsp yuzu kosho')).toBeInTheDocument()
   })
 })

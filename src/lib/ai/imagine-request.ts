@@ -4,7 +4,11 @@ import type { FoodViolation } from './forbidden-foods'
 
 /**
  * Schema for a single ingredient in an imagined meal.
- * Matches ExtractedIngredientSchema from recipe-schema.ts.
+ *
+ * A subset of ExtractedIngredientSchema from recipe-schema.ts: `originalText`
+ * and `isVague` are left out because the route rebuilds both
+ * (`imaginedIngredientText`, `vaguePhrase !== null`). Imagine latency tracks
+ * output tokens, and `originalText` alone was 11% of every response (HON-897).
  *
  * NOTE: Anthropic's structured output API has limited JSON Schema support.
  * Avoid .positive(), .min(), .max(), .int() on numbers.
@@ -15,17 +19,17 @@ const ImaginedIngredientSchema = z.object({
   quantity: z
     .number()
     .nullable()
-    .describe('The numeric quantity (must be > 0), or null if vague (e.g., "to taste")'),
+    .describe('The numeric quantity (must be > 0), or null when vaguePhrase is set'),
   unit: z
     .enum(['g', 'piece', 'ml', 'tbsp', 'tsp', 'cup', 'oz', 'lb'])
     .nullable()
     .describe('The unit of measurement, or null if vague'),
-  originalText: z.string().describe('A human-readable description like "500g chicken breast"'),
-  isVague: z.boolean().describe('True if quantity is vague (e.g., "to taste", "a pinch")'),
   vaguePhrase: z
     .string()
     .nullable()
-    .describe('The vague phrase if isVague is true (e.g., "to taste", "a pinch")'),
+    .describe(
+      'The vague phrase when the quantity is vague (e.g., "to taste", "a pinch"), otherwise null. When set, quantity and unit must be null',
+    ),
   isDried: z
     .boolean()
     .nullable()
@@ -58,6 +62,24 @@ export const ImaginedMealsSchema = z.object({
 
 export type ImaginedMeal = z.infer<typeof ImaginedMealSchema>
 export type ImaginedIngredient = z.infer<typeof ImaginedIngredientSchema>
+
+/**
+ * The human-readable line the model no longer writes (HON-897): what
+ * `ExtractedIngredient.originalText` carries for an imagined ingredient, shown
+ * under "Original:" in the review rows and given to the benchmark judge.
+ */
+export function imaginedIngredientText(
+  ing: Pick<ImaginedIngredient, 'name' | 'quantity' | 'unit' | 'vaguePhrase'>,
+): string {
+  const vaguePhrase = ing.vaguePhrase?.trim()
+  if (vaguePhrase) return `${vaguePhrase} ${ing.name}`
+  if (ing.quantity !== null) {
+    return ing.unit !== null
+      ? `${ing.quantity} ${ing.unit} ${ing.name}`
+      : `${ing.quantity} ${ing.name}`
+  }
+  return ing.name
+}
 
 export interface HouseholdContext {
   allergens: string[]

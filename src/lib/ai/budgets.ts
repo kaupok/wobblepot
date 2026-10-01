@@ -32,8 +32,7 @@
  * - preparation tips: 7-9s, including an 18-ingredient meal on both prompts
  *
  * No call came within 20% of its budget, so every value stays as sized.
- * Imagine has the least headroom, at 73%, and is the first to revisit if 504s
- * appear.
+ * Imagine had the least headroom, at 73%, and HON-897 revisited it below.
  */
 
 /**
@@ -82,11 +81,18 @@ export const RECIPE_PARSE_AFTER_URL_FETCH_AI_BUDGET_MS = 30_000
 /**
  * `/api/meals/imagine`. Imagine is the quantity-review shape, but it also
  * accepts photos, which add input tokens and latency — so it is sized above
- * that anchor rather than at it. The remaining 20s under `maxDuration` covers
- * base64-decoding up to `MAX_ATTACHED_IMAGES` before the call and the three
- * parallel `matchIngredients` passes plus nutrition reads after it.
+ * that anchor rather than at it.
+ *
+ * Raised from 40s in HON-897. The HON-859 benchmark measured a max of 32.1s on
+ * Sonnet 5.5 and 30.7s on 4.6 (p50 23s on both), from a fast connection with
+ * no contention, so production's tail sat within a few seconds of the old
+ * abort. Latency tracks output tokens, so HON-897 also trimmed the fields the
+ * route can rebuild from the suggestion schema. 45s rather than 50s keeps
+ * 15s under `maxDuration` for base64-decoding up to `MAX_ATTACHED_IMAGES`
+ * before the call and the three parallel `matchIngredients` passes plus
+ * nutrition reads after it, which are DB work measured in low seconds.
  */
-export const IMAGINE_AI_BUDGET_MS = 40_000
+export const IMAGINE_AI_BUDGET_MS = 45_000
 
 /**
  * `/api/meals/imagine/review`. This route *is* the quantity review, so 45s is

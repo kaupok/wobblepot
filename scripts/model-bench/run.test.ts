@@ -46,8 +46,6 @@ function respond({ promptText }: MockCall): MockResponse {
             name: 'spaghetti',
             quantity: 400,
             unit: 'g',
-            originalText: '400 g spaghetti',
-            isVague: false,
             vaguePhrase: null,
             isDried: null,
           },

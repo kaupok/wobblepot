@@ -10,6 +10,7 @@ import {
   type ImagineConstraintViolation,
 } from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
+import { imaginedIngredientText } from '@/lib/ai/imagine-request'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
 import {
@@ -231,15 +232,20 @@ async function handlePOST(request: Request) {
     // Match ingredients and compute nutrition for each meal
     const meals = await Promise.all(
       generatedMeals.map(async (meal, index) => {
-        const extractedIngredients: ExtractedIngredient[] = meal.ingredients.map((ing) => ({
-          name: ing.name,
-          quantity: ing.quantity,
-          unit: ing.unit,
-          originalText: ing.originalText,
-          isVague: ing.isVague,
-          vaguePhrase: ing.vaguePhrase,
-          isDried: ing.isDried,
-        }))
+        const extractedIngredients: ExtractedIngredient[] = meal.ingredients.map((ing) => {
+          // The model no longer writes originalText or isVague (HON-897), so
+          // both are rebuilt here. A blank phrase is not a vague quantity.
+          const vaguePhrase = ing.vaguePhrase?.trim() || null
+          return {
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+            originalText: imaginedIngredientText(ing),
+            isVague: vaguePhrase !== null,
+            vaguePhrase,
+            isDried: ing.isDried,
+          }
+        })
 
         const matchResults = await matchIngredients(extractedIngredients, meal.servings, {
           householdId: household.id,

@@ -131,8 +131,6 @@ function imaginedMeal(overrides: Record<string, unknown> = {}) {
         name: 'Chicken breast',
         quantity: 500,
         unit: 'g',
-        originalText: '500g chicken breast',
-        isVague: false,
         vaguePhrase: null,
         isDried: null,
       },
@@ -515,6 +513,35 @@ describe('POST /api/meals/imagine', () => {
     expect(data.meals[0].allMatched).toBe(false)
     // components only reflect matched ingredients
     expect(data.meals[0].components).toHaveLength(1)
+  })
+
+  it('rebuilds originalText and isVague, which the model no longer writes (HON-897)', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockImagineMeals.mockResolvedValue([
+      imaginedMeal({
+        ingredients: [
+          { name: 'Chicken breast', quantity: 500, unit: 'g', vaguePhrase: null, isDried: null },
+          { name: 'Egg', quantity: 2, unit: null, vaguePhrase: '', isDried: null },
+          { name: 'Salt', quantity: null, unit: null, vaguePhrase: 'to taste', isDried: null },
+        ],
+      }) as never,
+    ])
+    mockMatchIngredients.mockResolvedValue([matchedResult() as never])
+
+    const response = await POST(jsonRequest({ prompt: 'chicken dinner' }))
+
+    expect(response.status).toBe(200)
+    expect(mockMatchIngredients.mock.calls[0]![0]).toEqual([
+      expect.objectContaining({ originalText: '500 g Chicken breast', isVague: false }),
+      expect.objectContaining({ originalText: '2 Egg', isVague: false, vaguePhrase: null }),
+      expect.objectContaining({
+        originalText: 'to taste Salt',
+        isVague: true,
+        vaguePhrase: 'to taste',
+        quantity: null,
+      }),
+    ])
   })
 
   it('returns 500 when imagineMeals throws', async () => {

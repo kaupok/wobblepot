@@ -25,6 +25,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { generateObject, NoObjectGeneratedError, type LanguageModelUsage } from 'ai'
 import { z } from 'zod'
+import { imaginedIngredientText, type ImaginedIngredient } from '../../src/lib/ai/imagine-request'
 import { estimateCostUsd } from '../../src/lib/ai/pricing'
 import { toAiUsageStats, type AiUsageStats } from '../../src/lib/ai/usage-mapping'
 import type { BenchCase, CaseOf, Task } from './case-schema'
@@ -152,7 +153,7 @@ interface ImagineOutput {
     description?: string | null
     timeMinutes?: number | null
     servings?: number
-    ingredients?: { originalText?: string }[]
+    ingredients?: ImaginedIngredient[]
   }[]
 }
 
@@ -171,7 +172,8 @@ function judgeOutput(task: JudgedTask, output: unknown): unknown {
       description: m.description,
       timeMinutes: m.timeMinutes,
       servings: m.servings,
-      ingredients: (m.ingredients ?? []).map((i) => i.originalText),
+      // The line the review dialog shows; the model no longer writes it (HON-897).
+      ingredients: (m.ingredients ?? []).map(imaginedIngredientText),
     })),
   }
 }
