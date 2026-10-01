@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { localeInstruction, estonianVoiceForImagineMeal } from './prompts'
+import type { FoodViolation } from './forbidden-foods'
 
 /**
  * Schema for a single ingredient in an imagined meal.
@@ -71,6 +72,27 @@ export interface ImagineRequestInput {
   household: HouseholdContext
   locale: string
   images?: { base64: string; mimeType: string }[]
+  /**
+   * What the previous attempt got wrong, when `imagineMeals` retries after
+   * dropping meals the household cannot eat (HON-895). The benchmark never
+   * sets it, so its request stays the first-attempt request production sends.
+   */
+  previousViolations?: { meal: string; violations: FoodViolation[] }[]
+}
+
+function describeConstraint(v: FoodViolation): string {
+  return v.kind === 'allergen' ? `${v.constraint} allergy` : `${v.constraint} diet`
+}
+
+function retryInstruction(previous: NonNullable<ImagineRequestInput['previousViolations']>) {
+  const lines = previous.flatMap(({ meal, violations }) =>
+    violations.map((v) =>
+      v.field === 'name'
+        ? `- "${meal}" is named after ${v.keyword} (${describeConstraint(v)})`
+        : `- "${meal}" used ${v.text} (${describeConstraint(v)})`,
+    ),
+  )
+  return `\n\nA previous attempt suggested meals this household cannot eat:\n${lines.join('\n')}\nDo not use these ingredients or anything else from the same allergen or diet group, even where the description asks for them. Adapt the idea instead, and keep every meal name free of the forbidden food too.`
 }
 
 /**
@@ -79,7 +101,7 @@ export interface ImagineRequestInput {
  * production sends (HON-796). Always `messages`, with or without images.
  */
 export function buildImagineRequest(input: ImagineRequestInput) {
-  const { prompt, household, locale, images } = input
+  const { prompt, household, locale, images, previousViolations } = input
 
   const constraintParts: string[] = []
 
@@ -159,7 +181,9 @@ The user may attach photos for context — these could show ingredients they hav
     ? `Generate 3 meal ideas based on this description: "${prompt}"`
     : 'Generate 3 meal ideas inspired by the attached photo(s).'
 
-  content.push({ type: 'text', text: textPrompt })
+  const retryText = previousViolations?.length ? retryInstruction(previousViolations) : ''
+
+  content.push({ type: 'text', text: textPrompt + retryText })
 
   return {
     schema: ImaginedMealsSchema,

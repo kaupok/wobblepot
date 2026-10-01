@@ -8,5 +8,5 @@
     "householdSize": 4
   },
   "locale": "en",
-  "forbiddenKeywords": ["peanut", "mushroom"]
+  "forbiddenKeywords": ["mushroom"]
 }

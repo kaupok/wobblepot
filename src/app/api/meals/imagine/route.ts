@@ -4,7 +4,11 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
-import { imagineMeals } from '@/lib/ai/imagine-meal'
+import {
+  imagineMeals,
+  ImagineNoSafeMealsError,
+  type ImagineConstraintViolation,
+} from '@/lib/ai/imagine-meal'
 import { matchIngredients } from '@/lib/ai/match-ingredients'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
@@ -15,6 +19,7 @@ import {
   respondCapExceeded,
 } from '@/lib/ai/usage'
 import { captureApiError } from '@/lib/errors'
+import { getPosthogServer } from '@/lib/posthog-server'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { deriveProteinType } from '@/lib/meal-planning/protein'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
@@ -44,6 +49,33 @@ const imagineRequestSchema = z.object({
  */
 function errorBody(error: string, code: ImagineErrorCode) {
   return { success: false as const, error, code }
+}
+
+/**
+ * One event per suggestion the forbidden-food guard dropped and per
+ * constraint it broke, so the rate per model is visible after a model switch
+ * (HON-895). Server-side, like `$ai_generation` in `src/lib/ai/usage.ts`; a
+ * PostHog failure never fails the request. `keyword` is from our own lists,
+ * so no model or user free text leaves the server.
+ */
+function captureConstraintViolation(householdId: string, violation: ImagineConstraintViolation) {
+  try {
+    getPosthogServer()?.capture({
+      distinctId: householdId,
+      event: 'imagine:allergen_violation_dropped',
+      properties: {
+        constraint: violation.constraint,
+        constraint_kind: violation.kind,
+        keyword: violation.keyword,
+        field: violation.field,
+        model: violation.model,
+        attempt: violation.attempt,
+        household_id: householdId,
+      },
+    })
+  } catch (error) {
+    console.error('Failed to send imagine violation to PostHog:', error)
+  }
 }
 
 async function handlePOST(request: Request) {
@@ -193,6 +225,7 @@ async function handlePOST(request: Request) {
       images.length > 0 ? images : undefined,
       (usage) => recordAiUsage({ householdId: household.id, feature: 'meal_imagine', ...usage }),
       AbortSignal.timeout(IMAGINE_AI_BUDGET_MS),
+      (violation) => captureConstraintViolation(household.id, violation),
     )
 
     // Match ingredients and compute nutrition for each meal
@@ -320,6 +353,16 @@ async function handlePOST(request: Request) {
 
     return NextResponse.json({ success: true, meals })
   } catch (error) {
+    // Not a fault in this route: the model ignored the household twice, and
+    // every dropped suggestion is already counted in PostHog. The user can
+    // act on it by describing something else, so it is not reported as one.
+    if (error instanceof ImagineNoSafeMealsError) {
+      return NextResponse.json(
+        errorBody("No meal idea fit the household's allergens and diet", 'imagine_no_safe_meals'),
+        { status: 422 },
+      )
+    }
+
     captureApiError(error, {
       route: '/api/meals/imagine',
       userId: session.user.id,
