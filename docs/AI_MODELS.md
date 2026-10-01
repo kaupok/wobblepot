@@ -10,6 +10,7 @@ Every model ID lives in `src/lib/ai/models.ts`, and every price in `MODEL_PRICES
 2. Run the benchmark below with the current model as `--baseline` and the new one as `--candidate`, with `--judge`, then `/bench-judge` in Claude Code to fill in the judge's verdicts.
 3. Commit the report it writes, and attach it to the upgrade PR, linked or pasted into the description.
 4. Change the constants in `models.ts`.
+5. Once the new constants are in production, record the golden from a session that will not judge afterwards: `pnpm bench:models --record`, then commit `scripts/model-bench/golden/`. Prompt changes are compared with it from then on (see Changing a prompt). A session that has read the golden's outputs knows which answers are the recorded ones, so it must not run `/bench-judge` on a comparison against them.
 
 `/plan-issue` adds steps 2 and 3 to any plan that changes a constant in `models.ts`.
 
@@ -48,6 +49,26 @@ A metric that no case in the set measures, such as recipe recall when only the n
 
 The report is `scripts/model-bench/results/<date>-check-<model, or "production">.md`, with the same `-2` rule and a gitignored `.json`. It opens with the result and a **Gates** table (task, gate, observed mean and range, threshold, pass or fail), which the run also echoes, followed by one metric table and one operational table per task. `--import-verdicts` refuses a check's files: a check has one model and nothing to judge.
 
+## Changing a prompt
+
+A model comparison sends both models the same prompt: whatever the request builders in the working tree produce. To compare a prompt change, the other side has to be the old prompt's output, and the golden is that: a recorded `--check` run of the production configuration, committed in `scripts/model-bench/golden/<task>.json`.
+
+```bash
+pnpm bench:models --baseline golden --candidate <current-id> --judge --dry-run
+pnpm bench:models --baseline golden --candidate <current-id> --judge
+# then, in Claude Code:
+/bench-judge
+```
+
+Commit the report and cite it in the PR. The baseline side is replayed from the golden, so only the candidate is called: half the cost of a comparison. The judge compares the new prompt's output with the recorded output blind, as it compares two models: nothing in the pairs file says which answers are the golden's. Every other part of the report reads as in a model comparison, with `golden` in the baseline column.
+
+The report header says where the golden came from (`golden — <model> recorded <date> at <commit>`) and, per task, how many cases' prompt has changed since it was recorded (`imagine: prompt changed for 8 of 8 cases; plan: unchanged`). That line shows which tasks a prompt change reached. A task reading `unchanged` that the PR meant to change means the change never got into the request.
+
+- **Recording it.** `pnpm bench:models --record` is a `--check` (same flags, same report) that also writes one golden file per task it ran: the model, the date, the short commit, the run count, and for each case the sha256 of its prompt text and every call record, output included. `--task imagine` re-records only `imagine.json`. A run that fails a gate writes nothing and exits 1, since the golden is what later changes are measured against; `--force` records it anyway, and the exit code still reports the failed gates. A run `--max-usd` stopped never records, with or without `--force`.
+- **When to re-record:** after a model promotion (step 5 of Changing a model), and after merging a prompt change whose report you accepted, so the next prompt change is compared with what ships.
+- **Cases added since recording** have no baseline. They are not run, and the report lists them under **Not in golden**: re-record to include them. A golden case that no longer exists is ignored. A selected task with no golden file stops the run with the `--record` command to fix it.
+- `--runs` may differ from the golden's: the noise rule uses each side's own range. The total cost counts this run's calls only, and says what the golden cost to record.
+
 ## The benchmark
 
 ```bash
@@ -60,7 +81,7 @@ pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5
 
 | Flag          | Default                           | Meaning                                                                 |
 | ------------- | --------------------------------- | ----------------------------------------------------------------------- |
-| `--baseline`  | required                          | The model in production today                                           |
+| `--baseline`  | required                          | The model in production today, or `golden` (see Changing a prompt)      |
 | `--candidate` | required                          | The model you want to switch to                                         |
 | `--task`      | `plan,recipe,imagine,review,tips` | Comma-separated subset of tasks                                         |
 | `--runs`      | `3`                               | Times each case runs per model                                          |

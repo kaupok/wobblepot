@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -68,6 +69,7 @@ function respond({ promptText }: MockCall): MockResponse {
 describe('main', () => {
   let outDir: string
   let casesDir: string
+  let goldenDir: string
   let out: string[]
   let err: string[]
   let deps: MainDeps
@@ -75,6 +77,8 @@ describe('main', () => {
   beforeEach(() => {
     outDir = mkdtempSync(join(tmpdir(), 'model-bench-results-'))
     casesDir = starterCasesDir()
+    // Never created up front: `--record` must make it.
+    goldenDir = join(outDir, 'golden')
     out = []
     err = []
     deps = {
@@ -83,6 +87,8 @@ describe('main', () => {
       log: (line) => out.push(line),
       error: (line) => err.push(line),
       today: () => new Date(2026, 9, 1),
+      goldenDir,
+      commit: () => 'abc1234',
       env: {},
     }
   })
@@ -465,7 +471,228 @@ describe('main', () => {
     })
   })
 
+  describe('golden (HON-902)', () => {
+    const GOLDEN_STEM = '2026-10-01-golden-vs-claude-sonnet-5'
+    const COMPARE = ['--baseline', 'golden', '--candidate', 'claude-sonnet-5']
+    const goldenFile = (task: string) =>
+      JSON.parse(readFileSync(join(goldenDir, `${task}.json`), 'utf8'))
+    const editGolden = (
+      task: string,
+      edit: (file: { commit?: string; cases: Record<string, { promptHash: string }> }) => void,
+    ) => {
+      const file = goldenFile(task)
+      edit(file)
+      writeFileSync(join(goldenDir, `${task}.json`), JSON.stringify(file))
+    }
+
+    /** Records imagine (whose gates the mock fails) and tips, one run each. */
+    async function recordImagineAndTips() {
+      const { factory } = mockModelFactory(respond)
+      await main(['--record', '--force', '--task', 'imagine,tips', '--runs', '1'], {
+        ...deps,
+        modelFactory: factory,
+      })
+      out = []
+      err = []
+    }
+
+    it('--record writes one golden file per task with its provenance, prompt hashes and records', async () => {
+      const { factory, calls } = mockModelFactory(respond)
+      const code = await main(['--record', '--task', 'tips', '--runs', '2'], {
+        ...deps,
+        modelFactory: factory,
+      })
+
+      expect(code).toBe(0)
+      expect(calls).toHaveLength(4)
+      // The run's own report is written as under --check.
+      expect(existsSync(join(outDir, '2026-10-01-check-production.md'))).toBe(true)
+      expect(readdirSync(goldenDir)).toEqual(['tips.json'])
+
+      const golden = goldenFile('tips')
+      expect(golden).toMatchObject({
+        task: 'tips',
+        model: TIPS_MODEL,
+        recordedAt: '2026-10-01',
+        commit: 'abc1234',
+        runs: 2,
+      })
+      expect(Object.keys(golden.cases)).toEqual([
+        'tips/en-full-bolognese',
+        'tips/et-supplementary-ahjulohe',
+      ])
+      const bolognese = golden.cases['tips/en-full-bolognese']
+      expect(bolognese.promptHash).toMatch(/^[0-9a-f]{64}$/)
+      expect(bolognese.calls.map((c: { run: number }) => c.run)).toEqual([1, 2])
+      expect(bolognese.calls[0]).toMatchObject({
+        caseId: 'tips/en-full-bolognese',
+        model: TIPS_MODEL,
+        output: { equipment: ['a', 'b', 'c'] },
+      })
+      expect(out.join('\n')).toContain(
+        `Golden: ${relative(process.cwd(), join(goldenDir, 'tips.json'))}`,
+      )
+    })
+
+    it('--record writes nothing and exits 1 when a gate fails, and --force records it anyway', async () => {
+      const { factory } = mockModelFactory(respond)
+      const argv = ['--record', '--task', 'imagine,tips', '--runs', '1']
+
+      expect(await main(argv, { ...deps, modelFactory: factory })).toBe(1)
+      expect(existsSync(goldenDir)).toBe(false)
+      expect(err.join('\n')).toContain('Golden not recorded: a gate failed')
+
+      // The check still fails, so the exit code stays 1; the golden is written.
+      expect(await main([...argv, '--force'], { ...deps, modelFactory: factory })).toBe(1)
+      expect(readdirSync(goldenDir).sort()).toEqual(['imagine.json', 'tips.json'])
+      expect(out.join('\n')).toContain('Recording over failed gates (--force).')
+    })
+
+    it('--record never writes a golden from a run --max-usd stopped, even with --force', async () => {
+      const { factory } = mockModelFactory((call) => ({ ...respond(call), outputTokens: 200_000 }))
+      const code = await main(['--record', '--force', '--task', 'tips', '--max-usd', '3'], {
+        ...deps,
+        modelFactory: factory,
+      })
+
+      expect(code).toBe(1)
+      expect(existsSync(goldenDir)).toBe(false)
+      expect(err.join('\n')).toContain('Golden not recorded: the run stopped early')
+    })
+
+    it('--record --dry-run names the files it would write and writes none', async () => {
+      const code = await main(['--record', '--task', 'tips', '--dry-run'], deps)
+      expect(code).toBe(0)
+      expect(out.join('\n')).toMatch(/Would record: .*golden\/tips\.json/)
+      expect(existsSync(goldenDir)).toBe(false)
+    })
+
+    it('--baseline golden calls only the candidate, states the golden and the prompt changes, and judges blind', async () => {
+      await recordImagineAndTips()
+      // One tips case's prompt "changed" since recording.
+      editGolden('tips', (g) => {
+        g.cases['tips/en-full-bolognese']!.promptHash = '0'.repeat(64)
+      })
+
+      const { factory, calls } = mockModelFactory(respond)
+      const code = await main([...COMPARE, '--task', 'imagine,tips', '--runs', '1', '--judge'], {
+        ...deps,
+        modelFactory: factory,
+      })
+
+      expect(code).toBe(0)
+      // 4 cases × 1 run, candidate only: no baseline call.
+      expect(calls.map((c) => c.modelId)).toEqual(Array(4).fill('claude-sonnet-5'))
+
+      let md = readFileSync(join(outDir, `${GOLDEN_STEM}.md`), 'utf8')
+      expect(md).toContain('# Model benchmark: golden vs claude-sonnet-5')
+      expect(md).toContain(
+        `**Baseline:** golden — \`${IMAGINE_MODEL}\` recorded 2026-10-01 at \`abc1234\`, 1 run(s).`,
+      )
+      expect(md).toContain(
+        '**Prompts since the golden:** imagine: unchanged; tips: prompt changed for 1 of 2 cases.',
+      )
+      expect(md).toContain('· 4 calls')
+      expect(md).not.toContain('## Not in golden')
+      // The golden's spend is not this run's.
+      expect(md).toMatch(
+        /\*\*Total cost:\*\* .*The golden's \$[\d.]+ was spent when it was recorded\./,
+      )
+
+      const json = JSON.parse(readFileSync(join(outDir, `${GOLDEN_STEM}.json`), 'utf8'))
+      expect(json.plannedCalls).toBe(4)
+      expect(json.calls.filter((c: { role: string }) => c.role === 'baseline')).toHaveLength(4)
+      expect(json.golden.map((g: { task: string }) => g.task)).toEqual(['imagine', 'tips'])
+
+      // Nothing the judging session reads says which side is the golden.
+      const pairs = JSON.parse(
+        readFileSync(join(outDir, `${GOLDEN_STEM}.judge-pairs.json`), 'utf8'),
+      )
+      expect(pairs.items).toHaveLength(8)
+      for (const secret of ['golden', 'baseline', 'candidate', 'claude-sonnet', 'abc1234']) {
+        expect(JSON.stringify(pairs.items)).not.toContain(secret)
+      }
+
+      const verdicts = json.judgeKey.pairs.flatMap(
+        (p: { items: { id: string; roleAsA: string }[] }) =>
+          p.items.map((i) => ({
+            id: i.id,
+            winner: i.roleAsA === 'candidate' ? 'A' : 'B',
+            reason: 'r',
+          })),
+      )
+      const verdictsPath = join(outDir, pairs.verdictsFile)
+      writeFileSync(verdictsPath, JSON.stringify({ judge: 'claude-code/opus', verdicts }))
+      expect(await main(['--import-verdicts', verdictsPath], deps)).toBe(0)
+
+      md = readFileSync(join(outDir, `${GOLDEN_STEM}.md`), 'utf8')
+      expect(md).toContain('| imagine | 2 | 0 | 0 | 0 | 0 |')
+      // The re-rendered report keeps the golden header.
+      expect(md).toContain('**Prompts since the golden:** imagine: unchanged; tips: prompt changed')
+      expect(md).toContain('· 4 calls')
+    })
+
+    it('lists a case missing from the golden under "Not in golden" and does not run it', async () => {
+      await recordImagineAndTips()
+      editGolden('tips', (g) => {
+        delete g.cases['tips/et-supplementary-ahjulohe']
+        // A golden case that no longer exists is ignored.
+        g.cases['tips/retired-case'] = g.cases['tips/en-full-bolognese']!
+      })
+
+      const { factory, calls } = mockModelFactory(respond)
+      const code = await main([...COMPARE, '--task', 'tips', '--runs', '1'], {
+        ...deps,
+        modelFactory: factory,
+      })
+
+      expect(code).toBe(0)
+      expect(calls).toHaveLength(1)
+      const md = readFileSync(join(outDir, `${GOLDEN_STEM}.md`), 'utf8')
+      expect(md).toContain('## Not in golden')
+      expect(md).toContain('- `tips/et-supplementary-ahjulohe` — re-record to include it')
+      expect(md).toContain('**Prompts since the golden:** tips: unchanged.')
+      expect(md).not.toContain('retired-case')
+      // Echoed with the summary.
+      expect(out.join('\n')).toContain('## Not in golden')
+    })
+
+    it('exits 1 naming a task that has no golden, even under --dry-run', async () => {
+      await recordImagineAndTips()
+      const code = await main([...COMPARE, '--task', 'tips,plan', '--dry-run'], deps)
+      expect(code).toBe(1)
+      expect(err.join('\n')).toMatch(
+        /No golden for plan in .*\. Record one with `pnpm bench:models --record --task plan`/,
+      )
+    })
+
+    it('exits 1 on a golden file that does not parse', async () => {
+      await recordImagineAndTips()
+      editGolden('tips', (g) => {
+        delete g.commit
+      })
+      const code = await main([...COMPARE, '--task', 'tips', '--dry-run'], deps)
+      expect(code).toBe(1)
+      expect(err.join('\n')).toMatch(/Invalid golden .*tips\.json: commit/)
+    })
+
+    it('estimates the candidate alone under --dry-run, without pricing "golden"', async () => {
+      await recordImagineAndTips()
+      const code = await main([...COMPARE, '--task', 'imagine,tips', '--dry-run'], deps)
+
+      expect(code).toBe(0)
+      const text = out.join('\n')
+      expect(text).toContain('Baseline: golden, read from file — no calls.')
+      // 4 cases × 3 runs, one model.
+      expect(text).toContain('Total calls: 12')
+      expect(text).toMatch(/ {2}claude-sonnet-5: 12 calls/)
+    })
+  })
+
   it.each([
+    [['--record', '--baseline', 'claude-sonnet-5'], /--record runs one configuration.*--baseline/],
+    [['--check', '--force'], /--force goes with --record/],
+    [['--baseline', 'claude-sonnet-5', '--candidate', 'golden'], /--candidate takes a model ID/],
     [['--check', '--baseline', 'claude-sonnet-5'], /--check runs one configuration.*--baseline/],
     [['--check', '--candidate', 'x', '--judge'], /cannot be combined with --candidate, --judge/],
     [['--check', '--judge-api'], /cannot be combined with --judge-api/],
