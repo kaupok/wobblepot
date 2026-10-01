@@ -68,7 +68,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
+import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { logAiSample } from '@/lib/ai/sampling'
 import { getServerFlag } from '@/lib/feature-flags'
 import { TIPS_MODEL } from '@/lib/ai/models'
@@ -193,6 +193,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(401)
     expect(data.error).toBe('Unauthorized')
+    expect(data.code).toBe('unauthorized')
   })
 
   it('returns 404 when user has no household', async () => {
@@ -204,6 +205,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('No household found')
+    expect(data.code).toBe('no_household')
   })
 
   it('returns 429 with Retry-After header when rate limited (and cache miss)', async () => {
@@ -223,6 +225,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(response.status).toBe(429)
     expect(response.headers.get('Retry-After')).toBe('90')
     expect(data.error).toBe('Rate limit exceeded')
+    expect(data.code).toBe('rate_limited')
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'meal-prep-tips')
   })
 
@@ -250,6 +253,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(404)
     expect(data.error).toBe('Entry not found')
+    expect(data.code).toBe('entry_not_found')
     expect(mockEntryFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -271,6 +275,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('No meal assigned to this entry')
+    expect(data.code).toBe('no_meal')
   })
 
   it('returns cached tips without calling AI when valid cache exists', async () => {
@@ -293,6 +298,23 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(data.tips).toEqual(cached)
     expect(mockGenerateObject).not.toHaveBeenCalled()
     expect(mockEntryCacheWrite).not.toHaveBeenCalled()
+  })
+
+  // `useMealTips` renders from `code`, so the shared cap response must carry the
+  // one `PREPARATION_TIPS_ERROR_KEYS` maps (HON-888).
+  it('returns 429 with code ai_cap_exceeded when the household is over its AI cap', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockAssertUnderCap.mockRejectedValue(
+      new AiCostCapExceededError(new Date(Date.now() + 86_400_000), 'Europe/Tallinn'),
+    )
+
+    const response = await callPost()
+
+    expect(response.status).toBe(429)
+    expect((await response.json()).code).toBe('ai_cap_exceeded')
+    expect(mockGenerateObject).not.toHaveBeenCalled()
   })
 
   describe('ai_generation_enabled off (HON-868)', () => {
@@ -704,6 +726,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(429)
     expect(data.error).toContain('AI service is busy')
+    expect(data.code).toBe('provider_busy')
   })
 
   it('returns 502 when AI is overloaded (status 529)', async () => {
@@ -718,6 +741,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     const data = await response.json()
 
     expect(response.status).toBe(502)
+    expect(data.code).toBe('provider_unavailable')
   })
 
   it('returns 502 when AI is unavailable (status 503)', async () => {
@@ -732,6 +756,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     const data = await response.json()
 
     expect(response.status).toBe(502)
+    expect(data.code).toBe('provider_unavailable')
   })
 
   it('returns 504 on TimeoutError', async () => {
@@ -747,6 +772,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(504)
     expect(data.error).toContain('timed out')
+    expect(data.code).toBe('tips_timeout')
   })
 
   it('returns 500 on generic AI failure', async () => {
@@ -760,6 +786,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(500)
     expect(data.error).toContain("Couldn't generate tips")
+    expect(data.code).toBe('tips_failed')
     // Only NoObjectGeneratedError is billed-but-failed; other errors record nothing.
     expect(mockRecordAiUsage).not.toHaveBeenCalled()
   })

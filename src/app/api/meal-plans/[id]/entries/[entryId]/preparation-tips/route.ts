@@ -27,6 +27,15 @@ import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings } from '@/lib/meal-planning/servings'
 import type { StructuredTips } from '@/components/meal-plan/types'
+import type { PreparationTipsErrorCode } from '@/lib/ai/error-codes'
+
+/**
+ * `code` is what `useMealTips` renders from, via `PREPARATION_TIPS_ERROR_KEYS`;
+ * `error` is English and stays in the body for logs only (HON-888).
+ */
+function errorBody(error: string, code: PreparationTipsErrorCode) {
+  return { error, code }
+}
 
 async function handlePOST(
   request: Request,
@@ -37,13 +46,13 @@ async function handlePOST(
   })
 
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json(errorBody('Unauthorized', 'unauthorized'), { status: 401 })
   }
 
   const membership = await getHouseholdMembership(session.user.id)
 
   if (!membership) {
-    return NextResponse.json({ error: 'No household found' }, { status: 404 })
+    return NextResponse.json(errorBody('No household found', 'no_household'), { status: 404 })
   }
 
   const { household } = membership
@@ -77,11 +86,13 @@ async function handlePOST(
     })
 
     if (!entry) {
-      return NextResponse.json({ error: 'Entry not found' }, { status: 404 })
+      return NextResponse.json(errorBody('Entry not found', 'entry_not_found'), { status: 404 })
     }
 
     if (!entry.meal) {
-      return NextResponse.json({ error: 'No meal assigned to this entry' }, { status: 400 })
+      return NextResponse.json(errorBody('No meal assigned to this entry', 'no_meal'), {
+        status: 400,
+      })
     }
 
     // Return cached tips if available and valid JSON
@@ -99,7 +110,7 @@ async function handlePOST(
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         {
-          error: 'Rate limit exceeded',
+          ...errorBody('Rate limit exceeded', 'rate_limited'),
           message: `Maximum ${rateLimitResult.limit} preparation tip requests per hour`,
           resetAt: rateLimitResult.resetAt.toISOString(),
         },
@@ -116,7 +127,7 @@ async function handlePOST(
     const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
     if (!aiEnabled) {
       return NextResponse.json(
-        { error: 'AI generation is temporarily disabled', code: 'generation_disabled' },
+        errorBody('AI generation is temporarily disabled', 'generation_disabled'),
         { status: 503 },
       )
     }
@@ -325,14 +336,14 @@ async function handlePOST(
 
     if (statusCode === 429) {
       return NextResponse.json(
-        { error: 'AI service is busy. Please try again in a moment.' },
+        errorBody('AI service is busy. Please try again in a moment.', 'provider_busy'),
         { status: 429 },
       )
     }
 
     if (statusCode === 529 || statusCode === 503) {
       return NextResponse.json(
-        { error: 'AI service temporarily unavailable. Please try again.' },
+        errorBody('AI service temporarily unavailable. Please try again.', 'provider_unavailable'),
         { status: 502 },
       )
     }
@@ -341,10 +352,14 @@ async function handlePOST(
     // ai@7's retry sleep surfaces as `AbortError`, not `TimeoutError`, and
     // would otherwise fall through to the 500 below (HON-694).
     if (isAiBudgetTimeout(error)) {
-      return NextResponse.json({ error: 'Request timed out. Please try again.' }, { status: 504 })
+      return NextResponse.json(errorBody('Request timed out. Please try again.', 'tips_timeout'), {
+        status: 504,
+      })
     }
 
-    return NextResponse.json({ error: "Couldn't generate tips. Try again." }, { status: 500 })
+    return NextResponse.json(errorBody("Couldn't generate tips. Try again.", 'tips_failed'), {
+      status: 500,
+    })
   }
 }
 

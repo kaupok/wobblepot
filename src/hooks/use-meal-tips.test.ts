@@ -5,6 +5,8 @@ import { useMealTips } from './use-meal-tips'
 import type { StructuredTips } from '@/components/meal-plan/types'
 import enMessages from '../../messages/en.json'
 
+const tipsErrors = enMessages['meal-plan'].tips.errors
+
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
@@ -33,11 +35,14 @@ describe('useMealTips', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.clearAllMocks()
     mockFetch.mockReset()
+    // The hook logs the route's prose as a breadcrumb on every API failure.
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
     vi.runOnlyPendingTimers()
     vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   describe('initial state', () => {
@@ -86,7 +91,8 @@ describe('useMealTips', () => {
     it('sets error state on API error', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
-        json: () => Promise.resolve({ error: 'Rate limit exceeded' }),
+        status: 429,
+        json: () => Promise.resolve({ error: 'Rate limit exceeded', code: 'rate_limited' }),
       })
 
       const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
@@ -96,7 +102,7 @@ describe('useMealTips', () => {
       })
 
       expect(result.current.tips).toBeNull()
-      expect(result.current.tipsError).toBe('Rate limit exceeded')
+      expect(result.current.tipsError).toBe(tipsErrors.rateLimited)
       expect(result.current.isLoadingTips).toBe(false)
     })
 
@@ -109,7 +115,7 @@ describe('useMealTips', () => {
         await result.current.fetchTips()
       })
 
-      expect(result.current.tipsError).toBe('Failed to fetch')
+      expect(result.current.tipsError).toBe(tipsErrors.tipsFailed)
       expect(result.current.isLoadingTips).toBe(false)
     })
 
@@ -122,7 +128,7 @@ describe('useMealTips', () => {
         await result.current.fetchTips()
       })
 
-      expect(result.current.tipsError).toBe("Couldn't generate tips. Try again.")
+      expect(result.current.tipsError).toBe(tipsErrors.tipsFailed)
     })
 
     it('sets loading state during fetch', async () => {
@@ -184,12 +190,12 @@ describe('useMealTips', () => {
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
-          json: () => Promise.resolve({ error: 'AI service is busy' }),
+          json: () => Promise.resolve({ error: 'AI service is busy', code: 'provider_busy' }),
         })
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
-          json: () => Promise.resolve({ error: 'AI service is busy' }),
+          json: () => Promise.resolve({ error: 'AI service is busy', code: 'provider_busy' }),
         })
 
       const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
@@ -201,7 +207,7 @@ describe('useMealTips', () => {
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(2)
-      expect(result.current.tipsError).toBe('AI service is busy')
+      expect(result.current.tipsError).toBe(tipsErrors.providerBusy)
     })
 
     it('auto-retries once on 502 and succeeds', async () => {
@@ -233,7 +239,7 @@ describe('useMealTips', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
-        json: () => Promise.resolve({ error: 'Entry not found' }),
+        json: () => Promise.resolve({ error: 'Entry not found', code: 'entry_not_found' }),
       })
 
       const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
@@ -243,7 +249,7 @@ describe('useMealTips', () => {
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      expect(result.current.tipsError).toBe('Entry not found')
+      expect(result.current.tipsError).toBe(tipsErrors.entryNotFound)
     })
 
     // 504 is the one 5xx that must not retry: it means the route already spent
@@ -254,7 +260,8 @@ describe('useMealTips', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 504,
-        json: () => Promise.resolve({ error: 'Request timed out. Please try again.' }),
+        json: () =>
+          Promise.resolve({ error: 'Request timed out. Please try again.', code: 'tips_timeout' }),
       })
 
       const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
@@ -264,7 +271,7 @@ describe('useMealTips', () => {
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      expect(result.current.tipsError).toBe('Request timed out. Please try again.')
+      expect(result.current.tipsError).toBe(tipsErrors.tipsTimeout)
     })
 
     it('does not retry the kill-switch 503, and shows catalog copy rather than the server prose (HON-868)', async () => {
@@ -285,7 +292,75 @@ describe('useMealTips', () => {
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      expect(result.current.tipsError).toBe(enMessages['meal-plan'].tips.generationDisabled)
+      expect(result.current.tipsError).toBe(tipsErrors.generationDisabled)
+    })
+
+    // The route's `error` is English on every branch; rendering it would show
+    // English to an Estonian household (HON-888).
+    it('shows catalog copy, not the route prose, for a 500 and logs the prose', async () => {
+      const serverError = {
+        ok: false,
+        status: 500,
+        json: () =>
+          Promise.resolve({ error: "Couldn't generate tips. Try again.", code: 'tips_failed' }),
+      }
+      mockFetch.mockResolvedValueOnce(serverError).mockResolvedValueOnce(serverError)
+
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+
+      await act(async () => {
+        const promise = result.current.fetchTips()
+        await vi.advanceTimersByTimeAsync(2000)
+        await promise
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(result.current.tipsError).toBe(tipsErrors.tipsFailed)
+      expect(result.current.tipsError).not.toBe("Couldn't generate tips. Try again.")
+      expect(console.error).toHaveBeenCalledWith(
+        '[preparation-tips] request failed',
+        expect.objectContaining({
+          status: 500,
+          code: 'tips_failed',
+          error: "Couldn't generate tips. Try again.",
+        }),
+      )
+    })
+
+    it('falls back to the generic copy for a code this build does not know', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ error: 'Something new', code: 'code_from_a_newer_deploy' }),
+      })
+
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+
+      await act(async () => {
+        await result.current.fetchTips()
+      })
+
+      expect(result.current.tipsError).toBe(tipsErrors.tipsFailed)
+    })
+
+    // The platform kills the function at `maxDuration` with a 504 whose body
+    // the route never wrote, so there is no code — the status still picks the
+    // timeout copy.
+    it('shows the timeout copy for a codeless 504', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 504,
+        json: () => Promise.reject(new SyntaxError('Unexpected token')),
+      })
+
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+
+      await act(async () => {
+        await result.current.fetchTips()
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(result.current.tipsError).toBe(tipsErrors.tipsTimeout)
     })
 
     it('clears previous error on new fetch', async () => {
@@ -301,7 +376,7 @@ describe('useMealTips', () => {
         await result.current.fetchTips()
       })
 
-      expect(result.current.tipsError).toBe('Failed')
+      expect(result.current.tipsError).toBe(tipsErrors.tipsFailed)
 
       // Second call succeeds
       mockFetch.mockResolvedValueOnce({
