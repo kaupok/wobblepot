@@ -696,7 +696,41 @@ function flag(args: string[], name: string): string | undefined {
   return value
 }
 
-function fetchMergedPrs(): MergedPr[] {
+/** Well above a year of merges at ~300 a month; `fetchMergedPrs` throws if it is ever filled. */
+export const PR_FETCH_LIMIT = 5000
+
+/**
+ * Work on a branch can outlive its merge (a cleanup session the next day), so
+ * the PR window opens this long before the oldest request.
+ */
+const PR_WINDOW_SLACK_DAYS = 30
+
+/** The earliest merge date that can own a request in these transcripts, as `YYYY-MM-DD`. */
+export function prWindowStart(requests: RequestRecord[]): string {
+  const oldest = requests.reduce(
+    (min, request) => (request.timestamp && request.timestamp < min ? request.timestamp : min),
+    new Date().toISOString(),
+  )
+  const start = new Date(oldest)
+  start.setUTCDate(start.getUTCDate() - PR_WINDOW_SLACK_DAYS)
+  return start.toISOString().slice(0, 10)
+}
+
+/**
+ * `gh --limit` truncates without an error, and a PR missing from the list
+ * moves its cost somewhere else: to unattributed, to `auto/` overhead, or onto
+ * a newer PR on a reused branch. A full page is therefore a failure.
+ */
+export function assertUnderLimit(prs: MergedPr[], limit: number): MergedPr[] {
+  if (prs.length >= limit) {
+    throw new Error(
+      `gh returned ${prs.length} merged PRs, the --limit; some would be missing and their cost misattributed. Raise PR_FETCH_LIMIT.`,
+    )
+  }
+  return prs
+}
+
+function fetchMergedPrs(mergedSince: string): MergedPr[] {
   const json = execFileSync(
     'gh',
     [
@@ -704,14 +738,16 @@ function fetchMergedPrs(): MergedPr[] {
       'list',
       '--state',
       'merged',
+      '--search',
+      `merged:>=${mergedSince}`,
       '--limit',
-      '500',
+      String(PR_FETCH_LIMIT),
       '--json',
       'number,headRefName,mergedAt,additions,deletions',
     ],
     { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   )
-  return JSON.parse(json) as MergedPr[]
+  return assertUnderLimit(JSON.parse(json) as MergedPr[], PR_FETCH_LIMIT)
 }
 
 function main(): void {
@@ -724,8 +760,11 @@ function main(): void {
     flag(args, '--out') ??
     path.join(os.tmpdir(), `agent-cost-per-pr-${new Date().toISOString().slice(0, 10)}.csv`)
 
-  const prs = prsFile ? (JSON.parse(readFileSync(prsFile, 'utf8')) as MergedPr[]) : fetchMergedPrs()
-  const report = buildReport(readTranscripts(projectsDir), prs)
+  const transcripts = readTranscripts(projectsDir)
+  const prs = prsFile
+    ? (JSON.parse(readFileSync(prsFile, 'utf8')) as MergedPr[])
+    : fetchMergedPrs(prWindowStart(transcripts.requests))
+  const report = buildReport(transcripts, prs)
   const rows = since ? report.rows.filter((row) => row.mergedAt >= since) : report.rows
 
   console.log(formatReport(report, rows, split))

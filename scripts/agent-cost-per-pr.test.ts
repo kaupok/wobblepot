@@ -5,6 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
+  assertUnderLimit,
   buildReport,
   costTotal,
   dedupeRequests,
@@ -13,6 +14,7 @@ import {
   PRICING,
   PRICING_READ_ON,
   priceUsage,
+  prWindowStart,
   quantile,
   readTranscripts,
   toCsv,
@@ -435,6 +437,17 @@ describe('isoInstant', () => {
 
   it('throws on a timestamp it cannot parse', () => {
     expect(() => isoInstant('yesterday')).toThrow(/Unparseable timestamp/)
+  })
+})
+
+describe('merged-PR fetch', () => {
+  it('opens the PR window 30 days before the oldest request', () => {
+    expect(prWindowStart(readTranscripts(fixtureRoot).requests)).toBe('2026-08-11')
+  })
+
+  it('throws when gh fills its --limit, since the missing PRs would move cost elsewhere', () => {
+    expect(() => assertUnderLimit(PRS, PRS.length)).toThrow(/Raise PR_FETCH_LIMIT/)
+    expect(assertUnderLimit(PRS, PRS.length + 1)).toBe(PRS)
   })
 })
 
