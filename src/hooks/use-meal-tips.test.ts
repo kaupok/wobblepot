@@ -210,6 +210,52 @@ describe('useMealTips', () => {
       expect(result.current.tipsError).toBe(tipsErrors.providerBusy)
     })
 
+    it('auto-retries once on a codeless 429', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          json: () => Promise.resolve({ error: 'Too many requests' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ tips: mockTips }),
+        })
+
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+
+      await act(async () => {
+        const promise = result.current.fetchTips()
+        await vi.advanceTimersByTimeAsync(2000)
+        await promise
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(result.current.tips).toEqual(mockTips)
+    })
+
+    // The household's own hourly limit and monthly AI cap will not clear in 2s,
+    // and a cap retry would spend another hourly token (HON-893).
+    it.each([
+      ['rate_limited', 'Rate limit exceeded', tipsErrors.rateLimited],
+      ['ai_cap_exceeded', 'AI usage cap exceeded', tipsErrors.aiCapExceeded],
+    ])('does not retry a %s 429', async (code, error, expected) => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: () => Promise.resolve({ error, code }),
+      })
+
+      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+
+      await act(async () => {
+        await result.current.fetchTips()
+      })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(result.current.tipsError).toBe(expected)
+    })
+
     it('auto-retries once on 502 and succeeds', async () => {
       mockFetch
         .mockResolvedValueOnce({
