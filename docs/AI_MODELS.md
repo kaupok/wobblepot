@@ -47,7 +47,7 @@ A gate holds the metric's mean over all runs, with the run-to-run range shown be
 
 Distinct dinner proteins and the step-count delta have no gate. The gates live on the metric definitions (`gate` in `scripts/model-bench/tasks.ts`).
 
-Gated offline on the HON-859 run's Sonnet 5.5 calls, today's production configuration passes every metric gate and fails one: imagine's max latency, 32.1s against the 32.0s line. Imagine sits close to its budget on both Sonnet 4.6 and 5.5 (HON-897), so expect a real `--check` to fail there until that is settled. That is the gate doing its job, not noise to tune away.
+The first real run (HON-905, 2026-10-01, `results/2026-10-01-check-production.md`) passed all 22 gates on Sonnet 5.5, imagine max latency 25.8s. A first attempt had failed the tips count gate on a single 4-pitfall answer, which is what a 100% gate on a soft "2-3 items" instruction does (HON-929); nothing was forced, the re-run passed. When a gate fails on one call, re-run the whole `--record` once before filing (a failed record writes no golden for any task, so a `--task` re-run would leave the others unrecorded): one miss is a flake, two is a finding.
 
 A metric that no case in the set measures, such as recipe recall when only the not-a-recipe case ran, passes as _not measured_. An errored call scores as a failure on the pass/fail checks, as in a comparison. A run that `--max-usd` stops early fails whatever its gates say, because the cases it never reached were not checked.
 
@@ -108,6 +108,10 @@ Commit the report and cite it in the PR. The baseline side is replayed from the 
 
 The report header says where the golden came from (`golden — <model> recorded <date> at <commit>`) and, per task, how many cases' prompt has changed since it was recorded (`imagine: prompt changed for 8 of 8 cases; plan: unchanged`). That line shows which tasks a prompt change reached. A task reading `unchanged` that the PR meant to change means the change never got into the request.
 
+Worked example: `results/2026-10-01-golden-vs-claude-sonnet-5-5.md` (HON-906) measured the HON-896 imagine wording change, 11 wins / 10 ties / 3 losses for the new prompt. The judge's reasons live in the gitignored `.json` beside it, so the ones that mattered are quoted on HON-896 and HON-935.
+
+**Comparing against a prompt that was never recorded.** The golden holds whatever shipped when it was last recorded. To measure a prompt change that already merged before any golden existed, record a scratch golden from the old prompt first: `git revert --no-commit <the prompt commit>`, `pnpm ai-eval --record --task <task>`, then `git revert --abort`, which restores every tracked file the revert touched, a case the commit added included, and leaves the scratch golden and the report in place (the golden file is tracked, so it shows as modified until the real `--record` overwrites it). (`git checkout -- src/` is not enough: `--no-commit` stages the revert, and `checkout` restores from that staged index.) Run the comparison, then re-record the real golden from `main`. The scratch golden's `commit` field is HEAD at the time, not a commit that holds the old prompt, so say how it was made in the report.
+
 ### Flags
 
 | Flag          | Default                           | Meaning                                                                 |
@@ -152,6 +156,8 @@ pnpm ai-eval --record --task imagine   # re-record imagine.json only
 ```
 
 `--record` is a `--check` (same flags, same report) that also writes one golden file per task it ran: the model, the date, the short commit, the run count, and for each case the sha256 of its prompt text and every call record, output included. A run that fails a gate writes nothing and exits 1, since the golden is what later changes are measured against; `--force` records it anyway, and the exit code still reports the failed gates. A run `--max-usd` stopped never records, with or without `--force`.
+
+The committed golden is Sonnet 5.5 on every task, recorded 2026-10-01 from `main` at `ef94fbf1` (HON-905); each file's header says its own model, date and commit.
 
 Record from a session that will not judge afterwards. A session that has read the golden's outputs knows which answers are the recorded ones, so it must not run `/bench-judge` on a comparison against them.
 
