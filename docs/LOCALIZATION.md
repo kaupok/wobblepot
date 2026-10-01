@@ -52,6 +52,7 @@ These are settled. Don't re-open without cause.
 - `locales.ts` — `KNOWN_LOCALES = ['en', 'et']`, `PUBLIC_LOCALES = ['en', 'et']`, `LocaleSchema`, `DEFAULT_LOCALE = 'en'`, helpers `isKnownLocale` / `isPublicLocale` / `isDefaultLocale`. **`KNOWN_LOCALES` is what the DB and API accept; `PUBLIC_LOCALES` is what the locale selector exposes to general users.** The two sets are identical today (HON-549 widened `PUBLIC_LOCALES` to include Estonian) — the distinction is kept so a future locale can land in the DB / translation tables before being exposed in the selector. New locales should only join `PUBLIC_LOCALES` once transactional email templates exist in that locale — HON-513 closed that gap for Estonian; see [Transactional email](#transactional-email) below.
 - `accept-language.ts`, `resolve-locale.ts` — pre-household locale resolution from headers.
 - `get-locale.ts`, `request.ts` — server-side locale plumbing for `next-intl`.
+- `global-error-messages.ts` — the one client-side resolver. `src/app/global-error.tsx` replaces the root layout, so it has no `NextIntlClientProvider` and no request. It reads the layout's `<html lang>` while that is still in the DOM, else `navigator.languages`, else English. The app sets no locale cookie. Its five strings (`errors.global`, three `errors.boundary` keys) are copied into the module rather than importing the catalogs, because global error ships in every page's bundle and Turbopack does not tree-shake JSON (~30 KB gzip per page). The colocated test fails when a copy differs from its catalog key, so change the catalog first, then the copy.
 
 ### Chrome (Tier 3)
 
@@ -64,6 +65,8 @@ These are settled. Don't re-open without cause.
 - `og-locale.ts`: maps app locales to OpenGraph locale strings for per-route metadata.
 - ICU MessageFormat plural rules live in the `messages/{en,et}.json` catalogs; `next-intl` resolves them at render time. `src/lib/i18n/plurals.test.tsx` covers the contract.
 - `content.ts`: `translateIngredient` and friends — resolves the right display string for translatable content.
+- `manifest.ts` calls `getTranslations('meta.manifest')`, but the browser fetches the manifest without cookies (Next sends credentials on Vercel previews only), so the PWA install description follows Accept-Language, not the household locale.
+- **English by design:** the OpenGraph card (`src/app/opengraph-image.tsx`; per-locale cards are a separate investment, see its header comment). `/status`, `/bot`, the manifest and global error read the catalogs (HON-919). Whether the legal pages stay English is HON-918.
 
 ### AI surfaces (Tier 1)
 
@@ -79,13 +82,13 @@ The selector + onboarding-clamp gate (`FEATURE_PUBLIC_LOCALES_FULL`, plus the `e
 
 ### Transactional email
 
-Two templates are localized (HON-513): `src/lib/emails/reset-password.ts` and `src/lib/emails/account-deletion-requested.ts`. Both are pure functions taking `{ ..., locale }` and returning `subject` / `html` / `text`, with `<html lang>` set from that locale.
+Three templates are localized: `src/lib/emails/reset-password.ts` and `src/lib/emails/account-deletion-requested.ts` (HON-513), and `src/lib/emails/breach-notification.ts` (HON-919). All are pure functions taking `{ ..., locale }` and returning `subject` / `html` / `text`, with `<html lang>` set from that locale.
 
 - **Copy** lives in `messages/{en,et}.json` under `emails.<template>`, so `catalogue-parity.test.ts` enforces en/et parity for email strings too.
 - **Catalog access** goes through `emailTranslator(locale, namespace)` in `src/lib/emails/i18n.ts`, which wraps `createTranslator` over statically imported catalogs, with the `emails` namespace overlaid on English so a missing key degrades to an English sentence instead of a rendered key path. `getTranslations` is deliberately _not_ used: it resolves the locale via `getRequestConfig` → `getLocale()` → `headers()`, and the Better Auth `sendResetPassword` hook has no guaranteed request scope.
 - **Locale resolution** is at the call site, via `resolveEmailLocale(userId)` in `src/lib/emails/locale.ts` — household locale only, validated against `PUBLIC_LOCALES`, falling back to `en` for a user with no household, an unrecognised locale, or a failed lookup. `Accept-Language` is not consulted: it is unavailable in the Better Auth hook, and household locale is the stronger signal anyway.
 - **Mixed HTML/plain-text strings** (the bolded purge date, the linked recovery address) use one key with `t.markup`, which returns a string — `t.rich` returns a `ReactNode` and is unusable here.
-- `breach-notification.ts` is English-only by design — see [Out of scope](#out-of-scope).
+- **Breach notification** is operator-sent, so the operator resolves each recipient's locale with `resolveEmailLocale` and passes it in. The template localizes its fixed copy only; `summary`, `impact` and `remediation` are free text the operator writes once per locale (see [`RUNBOOKS/breach-notification.md`](RUNBOOKS/breach-notification.md)).
 
 ### Form input parsing
 
@@ -162,7 +165,6 @@ Architectural decisions that the platform supports but we deliberately don't shi
 - **User-level locale override** within a household. Household locale is the unit.
 - **Cultural adaptation** — no locale-specific meal swaps or ingredient substitutions. Same row, different display name.
 - **Automated AI quality scoring** (LLM-as-judge). Sampling exists for human review, not synthetic grading.
-- **Localized `breach-notification.ts`.** The GDPR Art. 33/34 breach email is sent by an operator following a runbook, to an audience that is not locale-resolvable at send time. Deliberately English-only (HON-513).
 - **Mid-lifetime locale-change UX** (visual markers, on-demand translation, switch-time prompts). Silent mixed state by design.
 - **PostHog locale tagging** (HON-516, cancelled 2026-09-15). Not wired and not planned; errors and analytics carry no locale. There is no Sentry — PostHog is the error tracker.
 - **Full English AI output sampling.** English output is not voice-reviewed; `logAiSample` keeps 5% of English calls, for benchmark cases only (HON-903).

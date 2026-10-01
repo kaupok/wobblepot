@@ -33,6 +33,9 @@
         "title": "Kasutustingimused",
         "description": "Tingimused, mis kehtivad Wobblepoti kasutamisel."
       }
+    },
+    "manifest": {
+      "description": "Tehisintellekti abil loodud nädalased söögiplaanid peredele"
     }
   },
   "dates": {
@@ -765,6 +768,14 @@
       "cta": "Tühista kustutamine",
       "cancelMailtoSubject": "Tühista konto kustutamine",
       "lastWarning": "Kui sa seda ei taotlenud, kirjuta kohe aadressile <link>{email}</link>, et konto alles hoida."
+    },
+    "breachNotification": {
+      "subject": "Oluline turvateade sinu {appName} konto kohta",
+      "heading": "Oluline turvateade",
+      "affectedHeading": "Mida see puudutas",
+      "actionHeading": "Mida sa peaksid tegema",
+      "cta": "Küsi abi",
+      "apology": "Meil on kahju, et see juhtus. Suhtume sinu andmete turvalisusse tõsiselt ja oleme probleemi lahendamiseks samme astunud. Kui sul on küsimusi, võta meiega ühendust ülaltoodud lingi kaudu."
     }
   },
   "errors": {
@@ -866,6 +877,10 @@
       "timeout": "Päring aegus. Kontrolli ühendust ja proovi uuesti.",
       "internalServer": "Serveril on probleeme. Palun proovi hetke pärast uuesti.",
       "serviceUnavailable": "Teenus on ajutiselt kättesaamatu. Palun proovi hiljem uuesti."
+    },
+    "global": {
+      "title": "Midagi läks valesti!",
+      "body": "Tekkis ootamatu viga. Vabandame ebamugavuste pärast."
     }
   },
   "validation": {
@@ -1161,6 +1176,80 @@
       "asNeeded": "vajadusel",
       "bit": "veidi",
       "little": "natuke"
+    }
+  },
+  "status": {
+    "heading": "Olek",
+    "intro": "Wobblepoti põhiteenuste reaalajas olek.",
+    "incidentTitle": "Käimas on intsident",
+    "support": "Midagi tundub valesti? Kirjuta meile aadressil <mailLink>{email}</mailLink> või naase <homeLink>avalehele</homeLink>.",
+    "checkedAt": "Kontrollitud {time} UTC",
+    "latency": "Latentsus: {ms} ms",
+    "overall": {
+      "ok": {
+        "label": "Kõik süsteemid töötavad",
+        "description": "Kõik komponendid vastavad tavapäraselt."
+      },
+      "degraded": {
+        "label": "Osaline katkestus",
+        "description": "Ühe või mitme komponendiga on probleeme. Üksikasjad allpool."
+      },
+      "down": {
+        "label": "Ulatuslik katkestus",
+        "description": "Kõik kontrollitavad komponendid on praegu rivist väljas."
+      }
+    },
+    "probe": {
+      "ok": "Töötab",
+      "down": "Maas"
+    },
+    "components": {
+      "ai": {
+        "label": "AI-töövoog",
+        "description": "Söögiplaanide koostamine Claude'i abil"
+      },
+      "auth": {
+        "label": "Autentimine",
+        "description": "Sisselogimine ja seansside haldus"
+      },
+      "db": {
+        "label": "Andmebaas",
+        "description": "Peamine PostgreSQL-andmehoidla"
+      },
+      "rateLimit": {
+        "label": "Päringupiirangud",
+        "description": "Kuritarvituste tõrje autentimis- ja AI-otspunktides"
+      }
+    }
+  },
+  "bot": {
+    "heading": "Wobblepot-Boti kohta",
+    "lead": "Wobblepot-Bot laeb retseptilehti, mille kasutajad on ise retseptide impordi kaudu sisestanud. See ei ole veebiroomaja.",
+    "userAgent": {
+      "heading": "User-Agent",
+      "body": "Bot tutvustab end järgmise User-Agent-stringiga:",
+      "robotsToken": "Failis <code>robots.txt</code> kasuta tunnust <code>{token}</code>."
+    },
+    "does": {
+      "heading": "Mida see teeb",
+      "fetch": "Laeb retseptilehti, mille sisseloginud kasutaja on retseptide impordi välja kleepinud.",
+      "extract": "Eraldab sellele kasutajale retsepti andmed (koostisosad, juhised, ettevalmistus- ja valmistusaja)."
+    },
+    "doesNot": {
+      "heading": "Mida see ei tee",
+      "crawl": "Ei roomata. Bot ei järgi kunagi sisestatud lehelt väljuvaid linke.",
+      "index": "Ei indekseerita. Bot ei koosta sinu sisust otsinguindeksit.",
+      "schedule": "Ajastatud päringuid pole. Bot laeb lehte ainult siis, kui kasutaja alustab importi, ega laadi sama URL-i ajakava järgi uuesti."
+    },
+    "respect": {
+      "heading": "Sinu saidi austamine",
+      "robots": "Wobblepot-Bot järgib faili <code>robots.txt</code>. Kui sinu reeglid keelavad URL-i tunnusele <code>{token}</code> (või <code>*</code>), me seda ei lae.",
+      "cache": "Hoiame faili <code>robots.txt</code> otsuseid iga päritolu kohta 24 tundi vahemälus, et vältida korduvaid päringuid.",
+      "disallow": "Kui kasutaja satub keelatud lehele, näeb ta teadet, et võib retsepti teksti otse kleepida."
+    },
+    "contact": {
+      "heading": "Kontakt",
+      "body": "Kui soovid, et lõpetaksime (või alustaksime) sinu saidi laadimist, või sul on küsimusi selle kohta, kuidas Wobblepot sisu käsitleb, kirjuta <link>{email}</link>. Kiireim viis meid keelata on lisada failis <code>robots.txt</code> tunnusele <code>{token}</code> reegel <code>Disallow</code>."
     }
   }
 }

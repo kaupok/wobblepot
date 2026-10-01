@@ -6,13 +6,15 @@ import {
   getStatusSnapshot,
   computeOverall,
   type OverallStatus,
-  type ProbeResult,
   type ProbeStatus,
 } from '@/lib/status/probes'
 import { Heading, Body } from '@/components/ui/typography'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
+import { formatDateTime } from '@/lib/i18n/format-dates'
+import { getLocale } from '@/lib/i18n/get-locale'
+import type { Locale } from '@/lib/i18n/locales'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('meta.status')
@@ -24,32 +26,30 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const dynamic = 'force-dynamic'
 
-const COMPONENTS: {
-  key: 'db' | 'auth' | 'ai' | 'rateLimit'
-  label: string
-  description: string
-}[] = [
-  { key: 'ai', label: 'AI pipeline', description: 'Meal plan generation via Claude' },
-  { key: 'auth', label: 'Auth', description: 'Sign-in and session management' },
-  { key: 'db', label: 'Database', description: 'Primary PostgreSQL store' },
-  {
-    key: 'rateLimit',
-    label: 'Rate limiting',
-    description: 'Abuse protection for auth and AI endpoints',
-  },
-]
+// Card order. Each key's label and description live under
+// `status.components.<key>` in the catalogs.
+const COMPONENTS = ['ai', 'auth', 'db', 'rateLimit'] as const
 
 export default async function StatusPage() {
-  const snapshot = await getStatusSnapshot()
+  const [snapshot, t, locale] = await Promise.all([
+    getStatusSnapshot(),
+    getTranslations('status'),
+    getLocale(),
+  ])
   const overall = computeOverall(snapshot)
+  const checkedAt = (iso: string) => t('checkedAt', { time: formatTimestamp(iso, locale) })
+  const probeLabels: Record<ProbeStatus, string> = {
+    ok: t('probe.ok'),
+    down: t('probe.down'),
+  }
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8">
       <div className="flex flex-col gap-2">
         <Heading as="h1" variant="h2">
-          Status
+          {t('heading')}
         </Heading>
-        <Body variant="muted">Live health of Wobblepot&apos;s core services.</Body>
+        <Body variant="muted">{t('intro')}</Body>
       </div>
 
       {snapshot.incidentMessage ? (
@@ -59,33 +59,49 @@ export default async function StatusPage() {
         >
           <AlertCircle className="text-destructive mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <div className="flex flex-col gap-1">
-            <Body variant="small">Incident in progress</Body>
+            <Body variant="small">{t('incidentTitle')}</Body>
             <Body variant="muted">{snapshot.incidentMessage}</Body>
           </div>
         </div>
       ) : null}
 
-      <OverallStatusHeader overall={overall} timestamp={snapshot.timestamp} />
+      <OverallStatusHeader
+        overall={overall}
+        label={t(`overall.${overall}.label`)}
+        description={t(`overall.${overall}.description`)}
+        checkedAt={checkedAt(snapshot.timestamp)}
+      />
 
       <ul className="flex flex-col gap-3">
-        {COMPONENTS.map(({ key, label, description }) => (
+        {COMPONENTS.map((key) => (
           <li key={key}>
-            <ComponentStatusCard label={label} description={description} result={snapshot[key]} />
+            <ComponentStatusCard
+              label={t(`components.${key}.label`)}
+              description={t(`components.${key}.description`)}
+              status={snapshot[key].status}
+              statusLabel={probeLabels[snapshot[key].status]}
+              latency={t('latency', { ms: snapshot[key].latencyMs })}
+              checkedAt={checkedAt(snapshot[key].checkedAt)}
+            />
           </li>
         ))}
       </ul>
 
       <div className="border-t pt-6">
         <Body variant="muted">
-          Something looks wrong? Email us at{' '}
-          <a className="underline" href={SUPPORT_EMAIL_HREF}>
-            {SUPPORT_EMAIL}
-          </a>{' '}
-          or return to the{' '}
-          <Link className="underline" href="/">
-            home page
-          </Link>
-          .
+          {t.rich('support', {
+            email: SUPPORT_EMAIL,
+            mailLink: (chunks) => (
+              <a className="underline" href={SUPPORT_EMAIL_HREF}>
+                {chunks}
+              </a>
+            ),
+            homeLink: (chunks) => (
+              <Link className="underline" href="/">
+                {chunks}
+              </Link>
+            ),
+          })}
         </Body>
       </div>
     </div>
@@ -94,105 +110,123 @@ export default async function StatusPage() {
 
 function OverallStatusHeader({
   overall,
-  timestamp,
+  label,
+  description,
+  checkedAt,
 }: {
   overall: OverallStatus
-  timestamp: string
+  label: string
+  description: string
+  checkedAt: string
 }) {
-  const copy: Record<OverallStatus, { label: string; description: string }> = {
-    ok: {
-      label: 'All systems operational',
-      description: 'Every component is responding normally.',
-    },
-    degraded: {
-      label: 'Partial outage',
-      description: 'One or more components are reporting issues. Details below.',
-    },
-    down: {
-      label: 'Major outage',
-      description: 'All probed components are currently failing.',
-    },
-  }
-  const { label, description } = copy[overall]
-
   return (
     <div className="flex items-start gap-3 rounded-lg border p-4">
-      <OverallStatusIcon status={overall} className="mt-0.5" />
+      <OverallStatusIcon status={overall} label={label} className="mt-0.5" />
       <div className="flex flex-col gap-1">
         <Body variant="large">{label}</Body>
         <Body variant="muted">{description}</Body>
-        <Body variant="caption">Checked at {formatTimestamp(timestamp)}</Body>
+        <Body variant="caption">{checkedAt}</Body>
       </div>
     </div>
   )
 }
 
-function OverallStatusIcon({ status, className }: { status: OverallStatus; className?: string }) {
+function OverallStatusIcon({
+  status,
+  label,
+  className,
+}: {
+  status: OverallStatus
+  label: string
+  className?: string
+}) {
   const base = `h-5 w-5 shrink-0 ${className ?? ''}`
   if (status === 'ok') {
-    return <CheckCircle2 className={`${base} text-success`} aria-label="All systems operational" />
+    return <CheckCircle2 className={`${base} text-success`} aria-label={label} />
   }
   if (status === 'degraded') {
-    return <AlertCircle className={`${base} text-warning`} aria-label="Partial outage" />
+    return <AlertCircle className={`${base} text-warning`} aria-label={label} />
   }
-  return <XCircle className={`${base} text-destructive`} aria-label="Major outage" />
+  return <XCircle className={`${base} text-destructive`} aria-label={label} />
 }
 
 function ComponentStatusCard({
   label,
   description,
-  result,
+  status,
+  statusLabel,
+  latency,
+  checkedAt,
 }: {
   label: string
   description: string
-  result: ProbeResult
+  status: ProbeStatus
+  statusLabel: string
+  latency: string
+  checkedAt: string
 }) {
   return (
     <Card>
       <CardHeader>
         <div className="flex items-start gap-3">
-          <StatusIcon status={result.status} className="mt-1" />
+          <StatusIcon status={status} label={statusLabel} className="mt-1" />
           <div className="flex flex-1 flex-col gap-1">
             <CardTitle>{label}</CardTitle>
             <Body variant="muted">{description}</Body>
           </div>
-          <StatusBadge status={result.status} />
+          <StatusBadge status={status} label={statusLabel} />
         </div>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <Body variant="caption">Latency: {result.latencyMs}ms</Body>
-          <Body variant="caption">Checked at {formatTimestamp(result.checkedAt)}</Body>
+          <Body variant="caption">{latency}</Body>
+          <Body variant="caption">{checkedAt}</Body>
         </div>
       </CardContent>
     </Card>
   )
 }
 
-function StatusBadge({ status }: { status: ProbeStatus }) {
-  if (status === 'ok') return <Badge variant="secondary">Operational</Badge>
-  return <Badge variant="destructive">Down</Badge>
+function StatusBadge({ status, label }: { status: ProbeStatus; label: string }) {
+  if (status === 'ok') return <Badge variant="secondary">{label}</Badge>
+  return <Badge variant="destructive">{label}</Badge>
 }
 
-function StatusIcon({ status, className }: { status: ProbeStatus; className?: string }) {
+function StatusIcon({
+  status,
+  label,
+  className,
+}: {
+  status: ProbeStatus
+  label: string
+  className?: string
+}) {
   if (status === 'ok') {
     return (
       <CheckCircle2
         className={`text-success h-5 w-5 shrink-0 ${className ?? ''}`}
-        aria-label="Operational"
+        aria-label={label}
       />
     )
   }
   return (
-    <XCircle className={`text-destructive h-5 w-5 shrink-0 ${className ?? ''}`} aria-label="Down" />
+    <XCircle
+      className={`text-destructive h-5 w-5 shrink-0 ${className ?? ''}`}
+      aria-label={label}
+    />
   )
 }
 
-function formatTimestamp(iso: string): string {
+/**
+ * Probe timestamps are UTC instants rendered for an anonymous audience with no
+ * household timezone, so the time stays in UTC (the catalog string says so) and
+ * only the language and format follow the locale.
+ */
+function formatTimestamp(iso: string, locale: Locale): string {
   try {
-    const date = new Date(iso)
-    return date.toUTCString()
+    return formatDateTime(new Date(iso), locale, { timeZone: 'UTC' })
   } catch {
+    // `Intl.DateTimeFormat#format` throws a RangeError on an invalid date.
     return iso
   }
 }
