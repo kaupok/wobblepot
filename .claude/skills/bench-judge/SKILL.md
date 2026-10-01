@@ -19,7 +19,8 @@ The comparison is only worth something if nobody judging knows which answer came
 
 - **Read only the pairs file.** Until the import has run, do not open `<stem>.json` (it holds `judgeKey`, which says which model sat as A), `<stem>.md`, or `scripts/model-bench/cases/`. If you have already read any of them this session, say so and stop: a fresh session has to judge.
 - Each prompt is answered on its own `system` + `prompt`, verbatim, by a subagent that reads nothing else. The id `<caseId>#<run>#<a|b>` is for bookkeeping; the letter is the export order, not a role.
-- Do not reword a prompt, add context, or merge prompts that share a case. Do not answer them yourself from the main session: judge quality should not depend on what else this conversation holds.
+- **No subagent may see both orders of one pair.** Every pair is exported twice, with A and B swapped, and the report counts the pair as a tie when the two verdicts disagree: that disagreement is how position bias shows up. A judge that has already seen the swapped copy just stays consistent with itself, and the guard never fires. The two prompts of a pair share a case and a run and differ in the letter, so the split below is by case _and_ letter.
+- Do not reword a prompt, add context, or merge prompts. Do not answer them yourself from the main session: judge quality should not depend on what else this conversation holds.
 
 ## Workflow
 
@@ -31,9 +32,9 @@ ls -t scripts/model-bench/results/*.judge-pairs.json | head -1
 
 Read its `verdictsFile` and `items.length`. Stop with a message if `items` is empty (every pair had an errored side; the import still works and reports them as skipped).
 
-### 2. Split the prompts per case
+### 2. Split the prompts per case and letter
 
-One slice per case keeps each subagent's input small. In the scratchpad directory (`$SCRATCH` below):
+One slice per case and letter: a slice holds one order of each of that case's pairs (one prompt per run), never both orders of a pair. In the scratchpad directory (`$SCRATCH` below):
 
 ```bash
 node -e '
@@ -41,16 +42,18 @@ const fs = require("fs"), path = require("path");
 const [pairs, out] = process.argv.slice(1);
 const { items } = JSON.parse(fs.readFileSync(pairs, "utf8"));
 fs.mkdirSync(out, { recursive: true });
-const byCase = new Map();
-for (const it of items) { const c = it.id.split("#")[0]; (byCase.get(c) ?? byCase.set(c, []).get(c)).push(it); }
+const slices = new Map();
+for (const it of items) { const [c, , letter] = it.id.split("#"); const k = `${c}#${letter}`; (slices.get(k) ?? slices.set(k, []).get(k)).push(it); }
 let n = 0;
-for (const [c, its] of byCase) { fs.writeFileSync(path.join(out, `${++n}.json`), JSON.stringify({ items: its }, null, 2)); console.log(`${n}.json ${c} ${its.length}`); }
+for (const [k, its] of slices) { fs.writeFileSync(path.join(out, `${++n}.json`), JSON.stringify({ items: its }, null, 2)); console.log(`${n}.json ${k} ${its.length}`); }
 ' scripts/model-bench/results/<stem>.judge-pairs.json "$SCRATCH/bench-judge"
 ```
 
+With the full case set and 3 runs that is 32 slices of 3 prompts.
+
 ### 3. Judge each slice with a subagent
 
-For every slice, spawn an `Agent` (`subagent_type: general-purpose`, `model: opus`), up to five at a time, with this prompt — fill in the two paths:
+For every slice, spawn an `Agent` (`subagent_type: general-purpose`, `model: opus`), up to five at a time, with this prompt — fill in the two paths. One subagent per slice, never one for several slices:
 
 > Read `<slice>.json`. It holds `items`, each with an `id`, a `system` and a `prompt`. For each item independently: treat `system` as your complete instructions and `prompt` as the request, and decide the verdict it asks for. Judge each item on its own; do not compare items with each other, do not read any other file, and do not use any tool other than reading that file and writing the result. Write `<verdicts>.json` containing exactly `{"verdicts":[{"id":"<id>","winner":"A"|"B"|"tie","reason":"<one sentence>"}, ...]}` with one entry per item, in order, and reply with the single word `done`.
 

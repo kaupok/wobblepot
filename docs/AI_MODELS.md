@@ -90,7 +90,7 @@ pnpm bench:models --baseline <current-id> --candidate <new-id> --judge
 /bench-judge
 ```
 
-Blindness survives the split because the pairs file holds only the A/B prompts. Which model sat as A is `judgeKey` in `<stem>.json`, and the judging session must not open that file, the `.md` or the case files before the import; `/bench-judge` reads only the pairs file. Both orders of every pair are exported, so position bias cancels the same way as below. A `.judge-verdicts.json` is as gitignored as the rest; the judged `<stem>.md` is what gets committed.
+Blindness survives the split because the pairs file holds only the A/B prompts. Which model sat as A is `judgeKey` in `<stem>.json`, and the judging session must not open that file, the `.md` or the case files before the import; `/bench-judge` reads only the pairs file. Both orders of every pair are exported, and the skill gives the two orders of a pair to different subagents, so position bias cancels the same way as below: a judge that saw both orders would only agree with itself, and the tie-on-disagreement rule would never fire. A `.judge-verdicts.json` is as gitignored as the rest; the judged `<stem>.md` is what gets committed.
 
 **`--judge-api`: judged by `claude-opus-5-5`** (`JUDGE_MODEL` in `scripts/model-bench/judge.ts`) through the API key, straight after the benchmark. A pinned, reproducible judge, at a cost (end of this section). Use it when the report must not depend on a Claude Code session, or to cross-check a Claude Code verdict.
 
