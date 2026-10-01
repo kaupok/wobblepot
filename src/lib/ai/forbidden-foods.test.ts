@@ -208,6 +208,46 @@ describe('a false friend excuses only the word it is (PR #981 review)', () => {
   })
 })
 
+describe('review round 2 gaps (PR #981)', () => {
+  it.each([
+    [{ allergens: ['gluten'] }, 'rolled oats'],
+    [{ allergens: ['gluten'] }, 'kaerahelbed'],
+    [{ allergens: ['gluten'] }, 'kruubid'],
+    [{ allergens: ['gluten'] }, 'pearl barley'],
+    [{ allergens: ['gluten'] }, 'rice noodle soy sauce'],
+    [{ allergens: ['peanuts'] }, 'satay sauce'],
+    [{ allergens: ['dairy'] }, 'pesto'],
+    [{ allergens: ['dairy'] }, 'tzatziki'],
+    [{ allergens: ['dairy'] }, 'raita'],
+    [{ allergens: ['dairy'] }, 'alfredo sauce'],
+    [{ allergens: ['eggs'] }, 'carbonara sauce'],
+    [{ allergens: ['eggs'] }, 'caesar dressing'],
+    [{ dietaryType: 'vegan' }, 'pesto'],
+    [{ dietaryType: 'vegan' }, 'brioche bun'],
+    [{ dietaryType: 'vegan' }, 'mushroom chicken stock'],
+  ])('%o flags %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(true)
+  })
+
+  it.each([
+    [{ allergens: ['gluten'] }, 'goat cheese'],
+    [{ allergens: ['gluten'] }, 'rice noodle'],
+    [{ allergens: ['gluten'] }, 'riisinuudlid'],
+    [{ dietaryType: 'vegan' }, 'vegan pesto'],
+  ])('%o allows %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(false)
+  })
+
+  it('matches a hidden-allergen sauce in ingredients, not in the dish name it adapts', () => {
+    const rules = rulesForHousehold({ allergens: ['nuts', 'peanuts'], dietaryType: null })
+    const adapted = meal('Nut-free chicken satay', 'chicken', 'sunflower seed butter')
+    expect(findViolations(adapted, rules)).toEqual([])
+    expect(findViolations(meal('Chicken satay', 'chicken', 'satay sauce'), rules)).toEqual([
+      expect.objectContaining({ constraint: 'peanuts', keyword: 'satay', field: 'ingredient' }),
+    ])
+  })
+})
+
 describe('false friends', () => {
   it.each([
     [{ allergens: ['fish'] }, 'kalamata oliivid'],

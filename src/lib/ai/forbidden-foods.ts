@@ -38,6 +38,14 @@ export interface FoodGroup {
    * still fails a nut allergy where a qualifier would have let it through.
    */
   falseFriends?: readonly string[]
+  /**
+   * Sauces and dishes whose ready-made form hides the food ("satay sauce",
+   * "pesto", "tzatziki"), matched in ingredient names only. A safe adaptation
+   * keeps the dish name ("Nut-free chicken satay" made with sunflower seed
+   * butter), so matching them in the meal name would drop exactly the answer
+   * the guard is asking for.
+   */
+  ingredientKeywords?: readonly string[]
 }
 
 /** Words that make an animal product a plant-based swap. Safe for animal-derived groups only. */
@@ -115,7 +123,6 @@ const MEAT: FoodGroup = {
     'tofu',
     'tempeh',
     'seitan',
-    'mushroom',
     'soja',
     'seene',
     'lihata',
@@ -296,7 +303,9 @@ const DAIRY: FoodGroup = {
     'kefiir',
     'vadak',
     'jäätis',
+    'brioche',
   ],
+  ingredientKeywords: ['pesto', 'tzatziki', 'tsatsiki', 'raita', 'alfredo'],
   qualifiers: [
     ...PLANT_SWAP,
     'plant',
@@ -353,7 +362,9 @@ const EGGS: FoodGroup = {
     'muna',
     'majonees',
     'besee',
+    'brioche',
   ],
+  ingredientKeywords: ['carbonara', 'karbonaara', 'caesar'],
   qualifiers: [
     ...PLANT_SWAP,
     'eggless',
@@ -389,7 +400,6 @@ const NUTS: FoodGroup = {
     'marzipan',
     'nutella',
     'frangipane',
-    'pesto',
     'mandel',
     'mandli',
     'pähk',
@@ -400,6 +410,7 @@ const NUTS: FoodGroup = {
     'martsipan',
     'praliin',
   ],
+  ingredientKeywords: ['pesto'],
   qualifiers: ['nut-free', 'nut free', 'pähklivaba'],
   falseFriends: [
     'coconut',
@@ -420,6 +431,7 @@ const NUTS: FoodGroup = {
 const PEANUTS: FoodGroup = {
   keywords: ['peanut', 'groundnut', 'maapähk'],
   qualifiers: ['peanut-free', 'peanut free', 'maapähklivaba'],
+  ingredientKeywords: ['satay', 'satai'],
 }
 
 const SOY: FoodGroup = {
@@ -433,11 +445,10 @@ const SOY: FoodGroup = {
     'tamari',
     'shoyu',
     'natto',
-    'teriyaki',
-    'hoisin',
     'bean curd',
   ],
   qualifiers: ['soy-free', 'sojavaba'],
+  ingredientKeywords: ['teriyaki', 'hoisin'],
 }
 
 const GLUTEN: FoodGroup = {
@@ -463,6 +474,7 @@ const GLUTEN: FoodGroup = {
     'couscous',
     'bulgur',
     'barley',
+    'oat',
     'rye',
     'semolina',
     'seitan',
@@ -509,11 +521,25 @@ const GLUTEN: FoodGroup = {
     'tainas',
     'kook',
     'sojakaste',
+    'kaer',
+    'kruup',
+    'kruub',
   ],
-  // Narrow on purpose: a qualifier also excuses the keyword right after it,
-  // so a bare "corn" or "potato" would pass cornbread and potato bread.
-  qualifiers: ['gluten-free', 'gluten free', 'gluteenivaba', 'rice', 'riisi'],
+  // Grains swap in as false friends, never qualifiers: a qualifier also
+  // excuses the keyword after it, so a bare "corn" or "rice" would pass
+  // cornbread or "rice noodle soy sauce".
+  qualifiers: ['gluten-free', 'gluten free', 'gluteenivaba'],
   falseFriends: [
+    'goat',
+    'rice noodle',
+    'rice flour',
+    'rice paper',
+    'rice pasta',
+    'rice vermicelli',
+    'riisinuudl',
+    'riisijahu',
+    'riisipaber',
+    'riisipasta',
     'corn tortilla',
     'cornflour',
     'corn flour',
@@ -547,18 +573,9 @@ const GLUTEN: FoodGroup = {
 }
 
 const SESAME: FoodGroup = {
-  keywords: [
-    'sesame',
-    'tahini',
-    'tahina',
-    'halva',
-    "za'atar",
-    'zaatar',
-    'hummus',
-    'seesam',
-    'tahiin',
-  ],
+  keywords: ['sesame', 'tahini', 'tahina', 'halva', "za'atar", 'zaatar', 'seesam', 'tahiin'],
   qualifiers: ['sesame-free', 'seesamivaba'],
+  ingredientKeywords: ['hummus'],
 }
 
 /** `Allergen` in `prisma/schema.prisma` → the foods it rules out. */
@@ -704,15 +721,18 @@ type CheckedMeal = { name: string; ingredients: readonly { name: string }[] }
  */
 const ESTONIAN_OR = /\s+või\s+/u
 
-function firstHit(text: string, rule: ForbiddenFoodRule): string | null {
+function firstHit(
+  text: string,
+  field: FoodViolation['field'],
+  rule: ForbiddenFoodRule,
+): string | null {
   for (const part of normalizeFoodName(text).split(ESTONIAN_OR)) {
     for (const group of rule.groups) {
-      const keyword = findUnexcusedKeyword(
-        part,
-        group.keywords,
-        group.qualifiers,
-        group.falseFriends,
-      )
+      const keywords =
+        field === 'ingredient' && group.ingredientKeywords
+          ? [...group.keywords, ...group.ingredientKeywords]
+          : group.keywords
+      const keyword = findUnexcusedKeyword(part, keywords, group.qualifiers, group.falseFriends)
       if (keyword) return keyword
     }
   }
@@ -735,7 +755,7 @@ export function findViolations(
       ...meal.ingredients.map((ing) => ({ field: 'ingredient' as const, text: ing.name })),
     ]
     for (const { field, text } of texts) {
-      const keyword = firstHit(text, rule)
+      const keyword = firstHit(text, field, rule)
       if (keyword) {
         violations.push({ constraint: rule.constraint, kind: rule.kind, keyword, field, text })
         break
