@@ -2,12 +2,12 @@
 
 import { useId, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
-import type { UrgencyBucket } from '@/lib/meal-planning/dates'
+import { parseLocalDate, type UrgencyBucket } from '@/lib/meal-planning/dates'
 
 interface ShoppingItem {
   ingredientId: string
@@ -21,6 +21,8 @@ interface ShoppingItem {
 
 interface UrgentShoppingProps {
   items: ShoppingItem[]
+  /** The household's today, `YYYY-MM-DD`: the day the later-items row counts from. */
+  todayDate: string
   /**
    * The phone form above the timeline (HON-766): the title row, the summary
    * and the link, without the item list. Renders nothing when there is nothing
@@ -32,7 +34,40 @@ interface UrgentShoppingProps {
 // The two days the panel covers, in the order they are listed.
 const URGENT_DAYS = ['today', 'tomorrow'] as const
 
-export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) {
+// The shopping list Today loads (`src/app/page.tsx`, `days: 7`).
+const WINDOW_DAYS = 7
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+/**
+ * What lies past the panel's cut, for the row that closes it (HON-928):
+ * `count` is the unpurchased items due after tomorrow, and `days` runs from
+ * the household's today through the latest day any unpurchased item is
+ * needed, inclusive, capped at the 7-day window. Counted from `todayDate`
+ * rather than `new Date()`, which is the server's or browser's day (HON-762).
+ */
+export function getLaterItemsSummary(
+  items: Pick<ShoppingItem, 'neededByDate' | 'purchased' | 'urgency'>[],
+  todayDate: string,
+): { count: number; days: number } {
+  const unpurchased = items.filter((item) => !item.purchased)
+  const count = unpurchased.filter(
+    (item) => item.urgency !== 'today' && item.urgency !== 'tomorrow',
+  ).length
+  // ISO dates compare as strings. Starting from today keeps `days` at least 1
+  // when every item is overdue.
+  const latest = unpurchased.reduce(
+    (max, item) => (item.neededByDate > max ? item.neededByDate : max),
+    todayDate,
+  )
+  // `round`, not `floor`: a DST change makes one day 23 or 25 hours long.
+  const span =
+    Math.round(
+      (parseLocalDate(latest).getTime() - parseLocalDate(todayDate).getTime()) / MS_PER_DAY,
+    ) + 1
+  return { count, days: Math.min(span, WINDOW_DAYS) }
+}
+
+export function UrgentShopping({ items, todayDate, compact = false }: UrgentShoppingProps) {
   const tToday = useTranslations('today')
   const tUrgency = useTranslations('dates.urgency')
   const locale = useLocale()
@@ -59,28 +94,63 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
   const unpurchasedItems = urgentItems.filter((item) => !item.purchased)
   const purchasedItems = urgentItems.filter((item) => item.purchased)
 
-  // The link sits on the title row in every form (DESIGN.md → "Actions sit on
-  // the title row"), not in a footer under the list.
-  const titleRow = (
+  // The full panel's title row is just its name: the link to the list is the
+  // list's own last line, which says what is past the cut (DESIGN.md →
+  // "Actions sit on the title row", and its continuation-row exception,
+  // HON-928). The phone form has no list to end with a row, so its link stays
+  // on the title row.
+  const titleRow = compact ? (
     <div className="flex items-center justify-between gap-2">
       <CardTitle>{tToday('shoppingTitle')}</CardTitle>
       <Button variant="ghost" size="sm" asChild>
         <Link href="/shopping">{tToday('viewFullList')}</Link>
       </Button>
     </div>
+  ) : (
+    <CardTitle>{tToday('shoppingTitle')}</CardTitle>
   )
 
-  if (unpurchasedItems.length === 0) {
+  // "Plus 8 more for the next 5 days" under the listed items, "8 items to buy
+  // over the next 5 days" under the empty line, and "View full list" when
+  // nothing is due past tomorrow: the full list is the only place to check
+  // items off, so the panel links there while anything is on it.
+  const later = getLaterItemsSummary(items, todayDate)
+  const hasUrgent = unpurchasedItems.length > 0
+  const continuationLabel =
+    later.count > 0
+      ? tToday(hasUrgent ? 'moreForDays' : 'toBuyForDays', later)
+      : hasUrgent
+        ? tToday('viewFullList')
+        : null
+  const continuationRow = continuationLabel && (
+    <div className="border-t pt-3">
+      {/* `-mx-2` lines the label up with the list text while the hover box
+          keeps its padding. */}
+      <div className="-mx-2">
+        <Button variant="quiet" size="row" asChild>
+          <Link href="/shopping">
+            {continuationLabel}
+            <ChevronRight aria-hidden />
+          </Link>
+        </Button>
+      </div>
+    </div>
+  )
+
+  if (!hasUrgent) {
     if (compact) return null
     return (
       <Card>
         <CardHeader>{titleRow}</CardHeader>
         <CardContent>
-          {/* A statement of fact, with no icon: it is reached as often by an
-              empty plan as by a stocked pantry, so it claims nothing about
-              being ready (DESIGN.md → empty states, HON-923). */}
-          <div className="py-6 text-center">
-            <Body variant="muted">{tToday('listEmpty')}</Body>
+          <div className="flex flex-col gap-4">
+            {/* A statement of fact, with no icon: it is reached as often by an
+                empty plan as by a stocked pantry, so it claims nothing about
+                being ready (DESIGN.md → empty states, HON-923). */}
+            <div className="py-6 text-center">
+              <Body variant="muted">{tToday('listEmpty')}</Body>
+            </div>
+            {continuationRow}
           </div>
         </CardContent>
       </Card>
@@ -179,6 +249,7 @@ export function UrgentShopping({ items, compact = false }: UrgentShoppingProps) 
               )}
             </div>
           )}
+          {continuationRow}
         </div>
       </CardContent>
     </Card>

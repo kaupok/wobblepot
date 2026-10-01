@@ -56,6 +56,11 @@ const buttonVariants = cva(
         // line instead of a control's. Not a touch target on its own — use it
         // only where the surrounding text is the tap area's context.
         inline: 'h-auto p-0 has-[>svg]:px-0',
+        // A whole line of a list that links on (the "Plus 8 more" row closing
+        // Today's shopping panel, HON-928): full width, label left and icon
+        // right, and the 44px touch floor at every width, since it is a row and
+        // not a control sitting beside others.
+        row: 'h-touch w-full justify-between px-2 has-[>svg]:px-2',
       },
       // `pill` rounds the control fully, for a button that sits inside a
       // rounded-full surface — the header's pills — where a `rounded-md` hover

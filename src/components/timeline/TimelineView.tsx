@@ -236,7 +236,7 @@ export function TimelineView({
               display:none keeps the hidden copy out of the a11y tree. `empty:hidden`
               drops the wrapper's gap when there is nothing to buy. */}
           <div className="empty:hidden lg:hidden">
-            <UrgentShopping items={shoppingItems} compact />
+            <UrgentShopping items={shoppingItems} todayDate={todayDate} compact />
           </div>
 
           <TimelinePastSection
@@ -261,7 +261,7 @@ export function TimelineView({
 
         {/* Right column: Shopping */}
         <div className="hidden flex-col gap-6 lg:flex">
-          <UrgentShopping items={shoppingItems} />
+          <UrgentShopping items={shoppingItems} todayDate={todayDate} />
         </div>
       </div>
     </div>
