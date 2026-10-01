@@ -47,8 +47,9 @@ const ESTONIAN_VOICE_RULES = `ESTONIAN VOICE:
 - Metric with a space before the unit (200 °C, 500 g, 2 dl), en dash in ranges (5–6 minutit), decimal comma (1,5 kg). These formats take precedence over any unit examples earlier in this prompt. Estonian abbreviations in prose: spl (tbsp), tl (tsp), tk (piece).`
 
 /**
- * Estonian voice block for imagine-meal: meal names, descriptions, and the
- * ingredient name / originalText split. Empty for every other locale so the
+ * Estonian voice block for imagine-meal: meal names, descriptions, and
+ * nominative ingredient names. The model writes no ingredient prose since
+ * HON-897; the route rebuilds that line. Empty for every other locale so the
  * English prompt stays byte-identical.
  */
 export function estonianVoiceForImagineMeal(locale: string | null | undefined): string {
@@ -66,11 +67,11 @@ ESTONIAN EXAMPLES (English-shaped draft → what to output):
 - name: "Chicken Rice Bowl" → "Kanariis"
 - description: "This dish contains chicken, rice and vegetables and is high in protein." → "Mahlane kanafilee aurutatud riisi ja krõmpsuvate köögiviljadega."
 - description: "A healthy and balanced meal for the whole family." → "Kiire argipäeva õhtusöök, mis meeldib ka lastele."
-- ingredient: name "kanafilee", originalText "500 g kanafileed"
-- ingredient: name "sibul", originalText "2 sibulat"
-- ingredient: name "hapukoor", originalText "2 spl hapukoort"
-- ingredient: name "oliiviõli", originalText "1 spl oliiviõli" (not name "olive oil")
-- ingredient: name "sool", originalText "soola maitse järgi", isVague true, vaguePhrase "to taste" (vaguePhrase is a matcher key and stays English: "to taste", "a pinch", "for garnish", "optional"; only originalText is Estonian prose)`
+- ingredient: name "kanafilee", quantity 500, unit "g" (not name "kanafileed")
+- ingredient: name "sibul", quantity 2, unit "piece" (not name "sibulat")
+- ingredient: name "hapukoor", quantity 2, unit "tbsp"
+- ingredient: name "oliiviõli", quantity 1, unit "tbsp" (not name "olive oil")
+- ingredient: name "sool", quantity null, unit null, vaguePhrase "to taste" (vaguePhrase is a matcher key and stays English: "to taste", "a pinch", "for garnish", "optional")`
 }
 
 /**

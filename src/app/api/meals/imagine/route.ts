@@ -240,7 +240,7 @@ async function handlePOST(request: Request) {
             name: ing.name,
             quantity: ing.quantity,
             unit: ing.unit,
-            originalText: imaginedIngredientText(ing),
+            originalText: imaginedIngredientText(ing, household.locale),
             isVague: vaguePhrase !== null,
             vaguePhrase,
             isDried: ing.isDried,

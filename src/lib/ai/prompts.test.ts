@@ -505,10 +505,13 @@ describe('Estonian voice helpers', () => {
 
   it('keeps the matcher-key vs. prose split explicit in the imagine and parse blocks', () => {
     // name stays nominative, originalText inflects — the rule the matcher depends on.
-    expect(estonianVoiceForImagineMeal('et')).toContain(
-      'name "kanafilee", originalText "500 g kanafileed"',
-    )
     expect(estonianVoiceForRecipeParse('et')).toContain('"500 g kanafileed" → name "kanafilee"')
+    // Imagine writes no originalText since HON-897, so its examples show only the
+    // nominative name and the structured quantity.
+    const imagine = estonianVoiceForImagineMeal('et')
+    expect(imagine).toContain('name "kanafilee", quantity 500, unit "g" (not name "kanafileed")')
+    expect(imagine).not.toContain('originalText')
+    expect(imagine).not.toContain('isVague')
   })
 
   it('keeps vaguePhrase as the English matcher key in the imagine and parse blocks', () => {

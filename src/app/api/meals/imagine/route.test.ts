@@ -544,6 +544,29 @@ describe('POST /api/meals/imagine', () => {
     ])
   })
 
+  it('rebuilds originalText in the household locale', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockMembership.household, locale: 'et' },
+    } as never)
+    mockImagineMeals.mockResolvedValue([
+      imaginedMeal({
+        ingredients: [
+          { name: 'hapukoor', quantity: 1.5, unit: 'tbsp', vaguePhrase: null, isDried: null },
+        ],
+      }) as never,
+    ])
+    mockMatchIngredients.mockResolvedValue([matchedResult() as never])
+
+    const response = await POST(jsonRequest({ prompt: 'kartulisalat' }))
+
+    expect(response.status).toBe(200)
+    expect(mockMatchIngredients.mock.calls[0]![0]).toEqual([
+      expect.objectContaining({ originalText: '1,5 spl hapukoor' }),
+    ])
+  })
+
   it('returns 500 when imagineMeals throws', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)

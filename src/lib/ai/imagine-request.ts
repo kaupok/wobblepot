@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { localeInstruction, estonianVoiceForImagineMeal } from './prompts'
 import type { FoodViolation } from './forbidden-foods'
+import { formatQuantity } from '@/lib/i18n/format-number'
+import { DEFAULT_LOCALE, isKnownLocale, type Locale } from '@/lib/i18n/locales'
 
 /**
  * Schema for a single ingredient in an imagined meal.
@@ -62,23 +64,41 @@ export const ImaginedMealsSchema = z.object({
 
 export type ImaginedMeal = z.infer<typeof ImaginedMealSchema>
 export type ImaginedIngredient = z.infer<typeof ImaginedIngredientSchema>
+type ImaginedUnit = NonNullable<ImaginedIngredient['unit']>
+
+/**
+ * Unit abbreviations for the rebuilt ingredient line, by locale. Estonian uses
+ * the ones docs/AI_VOICE_ET.md prescribes (spl, tl, tk); any unit not listed
+ * keeps its schema value. English drops "piece" ("2 egg"). This is data
+ * stored with the meal, like the model-written text it replaces, not UI copy,
+ * and the benchmark judge needs it without next-intl.
+ */
+const UNIT_LABELS: Partial<Record<Locale, Partial<Record<ImaginedUnit, string>>>> = {
+  en: { piece: '' },
+  et: { piece: 'tk', tbsp: 'spl', tsp: 'tl' },
+}
 
 /**
  * The human-readable line the model no longer writes (HON-897): what
  * `ExtractedIngredient.originalText` carries for an imagined ingredient, shown
  * under "Original:" in the review rows and given to the benchmark judge.
+ *
+ * In the household's locale: the quantity takes its decimal separator and the
+ * unit its local abbreviation. `vaguePhrase` is an English matcher key even
+ * for Estonian households, so outside English a vague ingredient's line is
+ * its name alone; the rows show the phrase separately.
  */
 export function imaginedIngredientText(
   ing: Pick<ImaginedIngredient, 'name' | 'quantity' | 'unit' | 'vaguePhrase'>,
+  locale: string,
 ): string {
+  const loc: Locale = isKnownLocale(locale) ? locale : DEFAULT_LOCALE
   const vaguePhrase = ing.vaguePhrase?.trim()
-  if (vaguePhrase) return `${vaguePhrase} ${ing.name}`
-  if (ing.quantity !== null) {
-    return ing.unit !== null
-      ? `${ing.quantity} ${ing.unit} ${ing.name}`
-      : `${ing.quantity} ${ing.name}`
-  }
-  return ing.name
+  if (vaguePhrase) return loc === DEFAULT_LOCALE ? `${vaguePhrase} ${ing.name}` : ing.name
+  if (ing.quantity === null) return ing.name
+  const quantity = formatQuantity(ing.quantity, loc, { maximumFractionDigits: 2 })
+  const unit = ing.unit === null ? '' : (UNIT_LABELS[loc]?.[ing.unit] ?? ing.unit)
+  return [quantity, unit, ing.name].filter(Boolean).join(' ')
 }
 
 export interface HouseholdContext {

@@ -48,7 +48,7 @@ describe('UnmatchedIngredientRow original line', () => {
         data={{
           type: 'unmatched',
           extractedName: ingredient.name,
-          originalText: imaginedIngredientText(ingredient),
+          originalText: imaginedIngredientText(ingredient, 'en'),
           extractedQuantity: ingredient.quantity,
           extractedUnit: ingredient.unit,
         }}

@@ -163,8 +163,9 @@ interface ImagineOutput {
  * flags the app acts on (`mealTypes`, `kidFriendly`, the parsed quantity
  * fields) are left out.
  */
-function judgeOutput(task: JudgedTask, output: unknown): unknown {
-  if (task !== 'imagine') return output
+function judgeOutput(c: CaseOf<JudgedTask>, output: unknown): unknown {
+  if (c.task !== 'imagine') return output
+  const { locale } = c.input
   const meals = (output as ImagineOutput | null)?.meals ?? []
   return {
     meals: meals.map((m) => ({
@@ -173,7 +174,7 @@ function judgeOutput(task: JudgedTask, output: unknown): unknown {
       timeMinutes: m.timeMinutes,
       servings: m.servings,
       // The line the review dialog shows; the model no longer writes it (HON-897).
-      ingredients: (m.ingredients ?? []).map(imaginedIngredientText),
+      ingredients: (m.ingredients ?? []).map((i) => imaginedIngredientText(i, locale)),
     })),
   }
 }
@@ -210,11 +211,11 @@ ${json(judgeInput(c))}
 </input>
 
 <answer_a>
-${json(judgeOutput(c.task, answerA))}
+${json(judgeOutput(c, answerA))}
 </answer_a>
 
 <answer_b>
-${json(judgeOutput(c.task, answerB))}
+${json(judgeOutput(c, answerB))}
 </answer_b>`
 
   return { system, prompt }
