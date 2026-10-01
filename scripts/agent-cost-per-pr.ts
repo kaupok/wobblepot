@@ -332,10 +332,19 @@ function pushTo<K, V>(map: Map<K, V[]>, key: K, value: V): void {
 
 const FALLBACK_BRANCHES = new Set(['main', 'HEAD', ''])
 
+/**
+ * A `main` session that names a PR more than a day after it merged is reading
+ * about it (a Linear attachment during `/refine-backlog`, say), not working on
+ * it, so neither the anchor nor follow-up work after it counts past this.
+ */
+const ANCHOR_GRACE_MS = 24 * 60 * 60 * 1000
+
 export type Attributor = (request: RequestRecord) => Bucket
 
 export function createAttributor(prs: MergedPr[], anchors: Anchor[]): Attributor {
-  const merged = new Set(prs.map((pr) => pr.number))
+  const mergedAt = new Map(prs.map((pr) => [pr.number, Date.parse(pr.mergedAt)]))
+  const withinGrace = (pr: number, timestamp: string) =>
+    Date.parse(timestamp) <= mergedAt.get(pr)! + ANCHOR_GRACE_MS
 
   const prsByBranch = new Map<string, MergedPr[]>()
   for (const pr of prs) pushTo(prsByBranch, pr.headRefName, pr)
@@ -347,7 +356,8 @@ export function createAttributor(prs: MergedPr[], anchors: Anchor[]): Attributor
   const anchorsBySession = new Map<string, Anchor[]>()
   for (const source of ['pr-link', 'url'] as const) {
     for (const anchor of anchors) {
-      if (anchor.source !== source || !merged.has(anchor.pr)) continue
+      if (anchor.source !== source || !mergedAt.has(anchor.pr)) continue
+      if (!withinGrace(anchor.pr, anchor.timestamp)) continue
       if (anchorsBySession.get(anchor.sessionId)?.[0]?.source === 'pr-link' && source === 'url')
         continue
       pushTo(anchorsBySession, anchor.sessionId, anchor)
@@ -366,14 +376,15 @@ export function createAttributor(prs: MergedPr[], anchors: Anchor[]): Attributor
     if (FALLBACK_BRANCHES.has(request.gitBranch)) {
       // Work precedes the PR link it produces, so the next anchor owns a
       // request; anything after the last one (a merge, a Linear summary) is
-      // follow-up on the last PR the session touched.
+      // follow-up on the last PR the session touched, within the grace period.
       const sessionAnchors = anchorsBySession.get(request.sessionId)
       if (!sessionAnchors)
         return { kind: 'unattributed', reason: 'main: session names no merged PR' }
-      const anchor =
-        sessionAnchors.find((candidate) => candidate.timestamp >= request.timestamp) ??
-        sessionAnchors.at(-1)
-      return { kind: 'pr', pr: anchor!.pr }
+      const next = sessionAnchors.find((candidate) => candidate.timestamp >= request.timestamp)
+      if (next) return { kind: 'pr', pr: next.pr }
+      const last = sessionAnchors.at(-1)!
+      if (withinGrace(last.pr, request.timestamp)) return { kind: 'pr', pr: last.pr }
+      return { kind: 'unattributed', reason: 'main: over a day after its PRs merged' }
     }
     if (request.gitBranch.startsWith('auto/')) return { kind: 'overhead' }
     return { kind: 'unattributed', reason: 'branch has no merged PR' }

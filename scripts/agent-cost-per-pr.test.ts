@@ -251,6 +251,26 @@ function writeFixture(root: string, extraLines: string[] = []): string {
         gitBranch: 'main',
         timestamp: '2026-10-02T09:00:00Z',
       }),
+      // Follow-up in sess-main three days after #30 merged: past the grace period.
+      assistantLine({
+        requestId: 'm3',
+        sessionId: 'sess-main',
+        gitBranch: 'main',
+        timestamp: '2026-09-16T12:00:00Z',
+      }),
+      // A refinement session reading a link to #10, ten days after it merged.
+      assistantLine({
+        requestId: 'o1',
+        sessionId: 'sess-old',
+        gitBranch: 'main',
+        timestamp: '2026-09-20T09:00:00Z',
+      }),
+      JSON.stringify({
+        type: 'user',
+        sessionId: 'sess-old',
+        timestamp: '2026-09-20T09:01:00Z',
+        message: { content: 'attachment: https://github.com/kaupok/wobblepot/pull/10' },
+      }),
       ...extraLines,
     ].join('\n'),
   )
@@ -401,11 +421,19 @@ describe('buildReport', () => {
     expect(row(40)!.requests).toBe(1)
   })
 
+  it('ignores a PR named more than a day after it merged, and follow-up past that day', () => {
+    expect(row(10)!.requests).toBe(2)
+    expect(row(30)!.requests).toBe(2)
+    const { unattributed } = report()
+    // n1 names nothing; o1 names only #10, ten days after it merged.
+    expect(unattributed.get('main: session names no merged PR')).toBeCloseTo(2, 6)
+    expect(unattributed.get('main: over a day after its PRs merged')).toBeCloseTo(1, 6)
+  })
+
   it('reports what it cannot attribute, by reason', () => {
     const { unattributed, total } = report()
-    expect(unattributed.get('main: session names no merged PR')).toBeCloseTo(1, 6)
     expect(unattributed.get('branch has no merged PR')).toBeCloseTo(1, 6)
-    expect(total).toBeCloseTo(12, 6)
+    expect(total).toBeCloseTo(14, 6)
   })
 
   it('throws on an unknown model anywhere in the walk', () => {
