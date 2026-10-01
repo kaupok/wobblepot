@@ -1029,6 +1029,21 @@ wt_detect_phase() {
   echo "Initializing"
 }
 
+# The status file's `checkout` object as one line, or nothing while the checkout
+# is current. orchestrator.sh check_checkout_behind fills it when origin/main
+# has commits to orchestrator.sh or worktree-claude.sh that the checkout lacks
+# (HON-861).
+# Shared by `wt status` and `wt watch` so the two cannot word it differently.
+#
+# Usage: checkout_behind_notice <status-json>
+checkout_behind_notice() {
+  printf '%s' "$1" | jq -r '
+    .checkout // empty
+    | select((.behind_code // 0) > 0)
+    | "Checkout is \(.behind) commit(s) behind origin/main (\(.origin_main)), \(.behind_code) changing orchestrator.sh or worktree-claude.sh: pull it, and the orchestrator reloads itself once its running workers finish"
+  ' 2>/dev/null || true
+}
+
 # Show orchestrator and worker status
 cmd_status() {
   local verbose=false
@@ -1108,6 +1123,13 @@ cmd_status() {
       echo -e "${YELLOW}  Circuit breaker active — paused for $(format_duration "$remaining")${NC}"
       echo ""
     fi
+  fi
+
+  local checkout_notice
+  checkout_notice=$(checkout_behind_notice "$status")
+  if [ -n "$checkout_notice" ]; then
+    echo -e "${YELLOW}  ${checkout_notice}${NC}"
+    echo ""
   fi
 
   # Workers
@@ -2652,6 +2674,25 @@ cmd_watch() {
       "$worker_count" "$max_workers" "$alert" "$alert_at" "$alert_full" "$alert_full_at")
     alert_at="${picked_alert%%$'\t'*}"
     alert="${picked_alert#*$'\t'}"
+
+    # A checkout behind origin/main is read from the status file, not the log:
+    # watch_scan_log drops a WARN once anything is claimed after it, but this
+    # stays true until someone pulls. It yields to a live operational alert, and
+    # shows whatever the slots are doing — the workers run the stale code too.
+    if [ -z "$alert" ]; then
+      local checkout_notice=""
+      checkout_notice=$(checkout_behind_notice "$status")
+      if [ -n "$checkout_notice" ]; then
+        local co_checked="" co_epoch=0
+        co_checked=$(echo "$status" | jq -r '.checkout.checked_at // empty' 2>/dev/null) || co_checked=""
+        co_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$co_checked" '+%s' 2>/dev/null) || \
+        co_epoch=$(date -d "$co_checked" '+%s' 2>/dev/null) || co_epoch=0
+        alert="$checkout_notice"
+        alert_at=""
+        [ "$co_epoch" -gt 0 ] && alert_at=$(date -r "$co_epoch" '+%H:%M' 2>/dev/null \
+          || date -d "@$co_epoch" '+%H:%M' 2>/dev/null) || true
+      fi
+    fi
 
     local landed_cache="$cache_dir/landed"
     watch_refresh_async "$landed_cache" 120 watch_landed_probe 6
