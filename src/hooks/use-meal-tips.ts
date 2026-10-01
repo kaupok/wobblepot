@@ -4,6 +4,11 @@ import { useState, useCallback, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ApiError, apiFetch } from '@/lib/api'
+import {
+  PREPARATION_TIPS_ERROR_KEYS,
+  preparationTipsFallbackKey,
+  translateErrorCode,
+} from '@/lib/ai/error-codes'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
 interface UseMealTipsOptions {
@@ -62,7 +67,7 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
         apiFetch<{ tips: StructuredTips }>(
           `/api/meal-plans/${planId}/entries/${entryId}/preparation-tips`,
           { method: 'POST', signal },
-          "Couldn't generate tips",
+          t('errors.tipsFailed'),
         )
       return request().catch(async (error: unknown) => {
         if (!isRetryable(error)) throw error
@@ -79,13 +84,28 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
     onError: (error, controller) => {
       if (controller.signal.aborted) return
       if (error instanceof DOMException && error.name === 'AbortError') return
-      // Catalog copy for the kill-switch (HON-868). The other branches still
-      // show the route's English prose; tracked separately.
-      if (isGenerationDisabled(error)) {
-        setTipsError(t('generationDisabled'))
+      // A network failure never reached the route, so it has no code to read.
+      if (!(error instanceof ApiError)) {
+        setTipsError(t('errors.tipsFailed'))
         return
       }
-      setTipsError(error instanceof Error ? error.message : "Couldn't generate tips. Try again.")
+      // Never `error.message`: `apiFetch` fills it from the route's English
+      // `error`, which would render verbatim to an Estonian household. The
+      // `code` picks the catalog copy; the prose is a console breadcrumb only
+      // (HON-888).
+      const body = error.body as { error?: unknown; message?: unknown }
+      console.error('[preparation-tips] request failed', {
+        status: error.status,
+        code: error.code,
+        error: body.error,
+        message: body.message,
+      })
+      const key = translateErrorCode(
+        error.code,
+        PREPARATION_TIPS_ERROR_KEYS,
+        preparationTipsFallbackKey(error.status),
+      )
+      setTipsError(t(`errors.${key}`))
     },
   })
 

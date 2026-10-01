@@ -1,7 +1,8 @@
 /**
  * Machine-readable error codes for the AI surfaces whose failures reach a
- * user-facing string: `/api/meals/imagine`, `/api/recipes/parse` and
- * `/api/meal-plans/generate` (HON-725).
+ * user-facing string: `/api/meals/imagine`, `/api/recipes/parse`,
+ * `/api/meal-plans/generate` (HON-725) and the entry preparation-tips route
+ * (HON-888).
  *
  * The routes send a `code` alongside the existing `error` prose; the clients
  * map the code to a message key and render the translation. `error` stays in
@@ -65,6 +66,20 @@ export type MealPlanGenerateErrorCode =
   | 'plan_not_found'
   | 'generation_timeout'
   | 'generation_failed'
+
+/** Error codes returned by `POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips`. */
+export type PreparationTipsErrorCode =
+  | 'unauthorized'
+  | 'no_household'
+  | 'entry_not_found'
+  | 'no_meal'
+  | 'rate_limited'
+  | 'generation_disabled'
+  | 'ai_cap_exceeded'
+  | 'provider_busy'
+  | 'provider_unavailable'
+  | 'tips_timeout'
+  | 'tips_failed'
 
 /**
  * The subset of `RecipeImportErrorCode` a `RecipeParseError` can carry. The
@@ -167,6 +182,35 @@ export function mealPlanGenerateFallbackKey(status: number): string {
   if (status === 504) return 'generationTimeout'
   if (status === 429) return 'rateLimit'
   return 'generationFailed'
+}
+
+/**
+ * `PreparationTipsErrorCode` → message key under `meal-plan.tips.errors`, read
+ * by `useMealTips` (HON-888).
+ */
+export const PREPARATION_TIPS_ERROR_KEYS = {
+  unauthorized: 'unauthorized',
+  no_household: 'noHousehold',
+  entry_not_found: 'entryNotFound',
+  no_meal: 'noMeal',
+  // The household's hourly limit — distinct from `provider_busy`, which is
+  // Anthropic's own 429 and clears in moments rather than within the hour.
+  rate_limited: 'rateLimited',
+  generation_disabled: 'generationDisabled',
+  ai_cap_exceeded: 'aiCapExceeded',
+  provider_busy: 'providerBusy',
+  provider_unavailable: 'providerUnavailable',
+  tips_timeout: 'tipsTimeout',
+  tips_failed: 'tipsFailed',
+} as const satisfies Record<PreparationTipsErrorCode, string>
+
+/**
+ * Fallback key for a preparation-tips response with no usable `code`. The
+ * platform kills the function at `maxDuration` with a 504 whose body we did not
+ * write, and that still deserves the timeout copy rather than the generic one.
+ */
+export function preparationTipsFallbackKey(status: number): string {
+  return status === 504 ? 'tipsTimeout' : 'tipsFailed'
 }
 
 /**

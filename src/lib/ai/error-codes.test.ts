@@ -5,8 +5,10 @@ import { ACCOUNT_DELETION_ERROR_KEYS } from '@/lib/account-deletion-error-codes'
 import {
   IMAGINE_ERROR_KEYS,
   MEAL_PLAN_GENERATE_ERROR_KEYS,
+  PREPARATION_TIPS_ERROR_KEYS,
   RECIPE_IMPORT_ERROR_KEYS,
   mealPlanGenerateFallbackKey,
+  preparationTipsFallbackKey,
   translateErrorCode,
 } from './error-codes'
 
@@ -38,6 +40,13 @@ const surfaces = [
     en: enMessages['meal-plan'].errors as Record<string, unknown>,
     et: etMessages['meal-plan'].errors as Record<string, unknown>,
     fallback: 'generationFailed',
+  },
+  {
+    name: 'meal-plan.tips.errors',
+    keys: PREPARATION_TIPS_ERROR_KEYS,
+    en: enMessages['meal-plan'].tips.errors as Record<string, unknown>,
+    et: etMessages['meal-plan'].tips.errors as Record<string, unknown>,
+    fallback: 'tipsFailed',
   },
   // Not an AI surface, but the same contract — kept here so one suite covers
   // every code map `translateErrorCode` is handed (HON-725).
@@ -125,6 +134,24 @@ describe('mealPlanGenerateFallbackKey', () => {
       ) as keyof (typeof enMessages)['meal-plan']['errors']
       expect(typeof enMessages['meal-plan'].errors[key]).toBe('string')
       expect(typeof etMessages['meal-plan'].errors[key]).toBe('string')
+    }
+  })
+})
+
+describe('preparationTipsFallbackKey', () => {
+  it('keeps the timeout copy for a codeless 504 and is generic otherwise', () => {
+    expect(preparationTipsFallbackKey(504)).toBe('tipsTimeout')
+    expect(preparationTipsFallbackKey(500)).toBe('tipsFailed')
+    expect(preparationTipsFallbackKey(429)).toBe('tipsFailed')
+  })
+
+  it('returns keys present in both catalogs', () => {
+    for (const status of [504, 500]) {
+      const key = preparationTipsFallbackKey(
+        status,
+      ) as keyof (typeof enMessages)['meal-plan']['tips']['errors']
+      expect(typeof enMessages['meal-plan'].tips.errors[key]).toBe('string')
+      expect(typeof etMessages['meal-plan'].tips.errors[key]).toBe('string')
     }
   })
 })

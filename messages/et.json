@@ -289,7 +289,19 @@
       "additionalTips": "Lisanõuanded",
       "header": "Valmistusjuhised",
       "retry": "Proovi uuesti",
-      "generationDisabled": "Valmistusjuhised on praegu välja lülitatud. Palun proovi hiljem uuesti."
+      "errors": {
+        "unauthorized": "Palun logi sisse, et valmistusjuhiseid näha.",
+        "noHousehold": "Valmistusjuhiste saamiseks pead kuuluma leibkonda.",
+        "entryNotFound": "Seda toitu pole enam sinu plaanis. Värskenda lehte ja proovi uuesti.",
+        "noMeal": "Siia pole veel toitu valitud. Vali kõigepealt toit.",
+        "rateLimited": "Oled jõudnud selle tunni valmistusjuhiste piiranguni. Palun proovi hiljem uuesti.",
+        "generationDisabled": "Valmistusjuhised on praegu välja lülitatud. Palun proovi hiljem uuesti.",
+        "aiCapExceeded": "Selle kuu AI kasutuslimiit on täis. See lähtestub järgmise kuu alguses.",
+        "providerBusy": "Juhiste teenus on hõivatud. Palun proovi mõne hetke pärast uuesti.",
+        "providerUnavailable": "Juhiste teenus pole ajutiselt saadaval. Palun proovi mõne hetke pärast uuesti.",
+        "tipsTimeout": "Valmistusjuhiste koostamine võttis liiga kaua aega. Palun proovi uuesti.",
+        "tipsFailed": "Valmistusjuhiste koostamine ebaõnnestus. Palun proovi uuesti."
+      }
     },
     "nutrition": {
       "summaryHeader": "Toiteväärtus (portsjoni kohta)",
