@@ -264,7 +264,9 @@ export function ImagineReviewDialog({
           description: meal.description,
           preparationNotes: meal.preparationNotes ?? null,
           sourceUrl: meal.sourceUrl ?? null,
-          timeMinutes: meal.timeMinutes,
+          // A zero-minute imagined meal shows no badge, and the create route rejects 0
+          // (`.positive()`): send it as unknown so the save matches the render (HON-711).
+          timeMinutes: meal.timeMinutes != null && meal.timeMinutes > 0 ? meal.timeMinutes : null,
           kidFriendly: meal.kidFriendly,
           suitableFor: meal.mealTypes,
           servings: meal.servings,

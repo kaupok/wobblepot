@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 vi.unmock('next-intl')
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../messages/en.json'
@@ -125,6 +125,41 @@ describe('ImagineReviewDialog prep time', () => {
     renderWith(null)
 
     expect(zeroText).toBe(screen.getByRole('dialog').textContent)
+  })
+
+  describe('save payload', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    async function savedTimeMinutes(timeMinutes: number | null) {
+      const fetchMock = vi.fn(() =>
+        Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({ id: 'meal-1' }) }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      const onSaved = vi.fn()
+      renderInLocale(
+        <ImagineReviewDialog
+          open
+          meal={buildMeal({ timeMinutes })}
+          onOpenChange={vi.fn()}
+          onSaved={onSaved}
+        />,
+        'en',
+      )
+      fireEvent.click(screen.getByRole('button', { name: /^save recipe$/i }))
+      await waitFor(() => expect(onSaved).toHaveBeenCalled())
+      const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+      return JSON.parse(init.body as string).timeMinutes
+    }
+
+    it('sends a zero-minute meal as unknown, which the create route accepts (HON-711)', async () => {
+      expect(await savedTimeMinutes(0)).toBeNull()
+    })
+
+    it('sends a known prep time unchanged', async () => {
+      expect(await savedTimeMinutes(25)).toBe(25)
+    })
   })
 })
 
