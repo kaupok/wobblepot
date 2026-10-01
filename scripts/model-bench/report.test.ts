@@ -371,6 +371,7 @@ describe('buildReport', () => {
 
   describe('with --judge', () => {
     const judged = (outcomes: JudgedPair['outcome'][], partial = false): JudgeResult => ({
+      judge: 'claude-opus-5-5',
       pairs: outcomes.map((outcome, i) => ({
         caseId: 'imagine/case',
         task: 'imagine',
@@ -384,10 +385,11 @@ describe('buildReport', () => {
       partial,
     })
 
-    const judgeReport = (judge: JudgeResult, tasks: Task[] = ['imagine', 'tips']) =>
+    const judgeReport = (judge: JudgeResult | undefined, tasks: Task[] = ['imagine', 'tips']) =>
       buildReport({
         result: result([call('imagine', 'baseline', 1, {}), call('imagine', 'candidate', 1, {})]),
         judge,
+        judgePending: judge ? undefined : { pairs: 4, prompts: 8 },
         baseline: 'claude-sonnet-5',
         candidate: 'claude-sonnet-5-5',
         runs: 3,
@@ -395,6 +397,23 @@ describe('buildReport', () => {
         tasks,
         date: '2026-10-01',
       })
+
+    it('says the pairs are out for judging in Claude Code until the verdicts are imported', () => {
+      const r = judgeReport(undefined)
+      expect(r.judge).toBeNull()
+      expect(r.judgePending).toEqual({ pairs: 4, prompts: 8 })
+      const md = renderMarkdown(r)
+      expect(md).toContain('## Judge')
+      expect(md).toContain('**Pending.** 4 pair(s), 8 prompt(s), are exported')
+      expect(md).toContain('/bench-judge')
+      expect(renderSummary(r)).toContain('**Pending.**')
+    })
+
+    it('names the judge the verdicts file gave', () => {
+      const md = renderMarkdown(judgeReport({ ...judged(['win']), judge: 'claude-code/opus' }))
+      expect(md).toContain('claude-code/opus compared the two models')
+      expect(md).toMatch(/judge claude-code\/opus \$0\.50 over 0 calls/)
+    })
 
     it('lists a win rate under 40% over 5 decided pairs as a regression', () => {
       const r = judgeReport(judged(['win', 'loss', 'loss', 'loss', 'loss', 'tie']))
@@ -427,7 +446,13 @@ describe('buildReport', () => {
 
     it('says the judge never ran when the benchmark had already passed --max-usd', () => {
       const md = renderMarkdown(
-        judgeReport({ pairs: [], plannedPairs: 4, spendUsd: 0, partial: true }),
+        judgeReport({
+          judge: 'claude-opus-5-5',
+          pairs: [],
+          plannedPairs: 4,
+          spendUsd: 0,
+          partial: true,
+        }),
       )
       expect(md).toContain(
         '**Not judged:** spend had already passed `--max-usd` before the first of 4 pairs',

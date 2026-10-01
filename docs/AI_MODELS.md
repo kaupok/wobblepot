@@ -7,7 +7,7 @@ Every model ID lives in `src/lib/ai/models.ts`, and every price in `MODEL_PRICES
 ## Changing a model
 
 1. Add the new model to `MODEL_PRICES`. Keep the old entry: historical `AiUsage` rows still carry its ID, and a missing entry prices at $0.
-2. Run the benchmark below with the current model as `--baseline` and the new one as `--candidate`.
+2. Run the benchmark below with the current model as `--baseline` and the new one as `--candidate`, with `--judge`, then `/bench-judge` in Claude Code to fill in the judge's verdicts.
 3. Commit the report it writes, and attach it to the upgrade PR, linked or pasted into the description.
 4. Change the constants in `models.ts`.
 
@@ -31,7 +31,10 @@ pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5
 | `--runs`      | `3`                               | Times each case runs per model                                          |
 | `--max-usd`   | `10`                              | Stop, and mark the report partial, once measured spend passes this      |
 | `--dry-run`   | off                               | Print the call count and an estimated cost. No API calls, no key needed |
-| `--judge`     | off                               | Also compare imagine and tips output with a judge model (below)         |
+| `--judge`     | off                               | Also export imagine and tips pairs for judging in Claude Code (below)   |
+| `--judge-api` | off                               | Judge those pairs with `claude-opus-5-5` through the API key instead    |
+
+`pnpm bench:models --import-verdicts <stem>.judge-verdicts.json` is the second half of `--judge`; see below.
 
 **It costs real money.** A full run bills both models for every case, every run. Start with `--dry-run` to see the call count and a rough estimate. A real run needs `ANTHROPIC_API_KEY` in `.env`. The benchmark never runs in CI.
 
@@ -71,17 +74,29 @@ The report opens with three lists, and the run echoes them to the console:
 - **Other changes outside noise:** every other difference outside the noise range, in either direction. Most metrics have no threshold yet, since sizing one needs a live run's ranges, so a consistent drop on, say, review's seeded-error correction lands here rather than under Regressions. This list is what moved for real: read each change for the worse in it as a possible regression before calling a candidate safe. For most metrics that is a drop, but for plan's out-of-pool meal IDs it is a rise.
 - **Within noise:** every difference flagged noise, including any that crossed a threshold. Noise beats thresholds, so these never count as regressions.
 
-The `.json` beside the report carries the same three lists. With `--judge`, a **Judge** section follows them. Then comes one table per task, and the total cost. A **partial** report was stopped by `--max-usd` and is missing later runs and cases, or, if the judge was stopped, later judged pairs.
+The `.json` beside the report carries the same three lists. With `--judge` or `--judge-api`, a **Judge** section follows them. Then comes one table per task, and the total cost. A **partial** report was stopped by `--max-usd` and is missing later runs and cases, or, if the API judge was stopped, later judged pairs.
 
-## The judge (`--judge`)
+## The judge (`--judge`, `--judge-api`)
 
-The deterministic checks for imagine and tips mostly count items. They can't tell whether a meal sounds appetising, whether a tip is useful, or whether Estonian reads naturally. `--judge` adds a blind comparison for those two tasks:
+The deterministic checks for imagine and tips mostly count items. They can't tell whether a meal sounds appetising, whether a tip is useful, or whether Estonian reads naturally. The judge adds a blind comparison for those two tasks: for every imagine and tips case, run by run, it sees the case input and the two models' answers labelled A and B, never a model name, and picks the better one. The rubric is `scripts/model-bench/judge-prompt.md`: fit to the household, then accuracy, then usefulness, then writing. For Estonian cases the judge also gets all of [AI_VOICE_ET.md](./AI_VOICE_ET.md). Plan, recipe and review are not judged: their deterministic scores already measure what matters.
+
+There are two ways to run it. The prompts, the verdict rules and the summary are the same for both.
+
+**`--judge` (the default): judged in Claude Code.** The run writes `<stem>.judge-pairs.json` beside the report, holding every judge prompt, and the report's Judge section says _Pending_. Then, in Claude Code, run `/bench-judge`: it answers the prompts with subagents, billed to the Claude Code subscription rather than the API key, and runs `pnpm bench:models --import-verdicts <stem>.judge-verdicts.json`, which rewrites `<stem>.md` and `<stem>.json` in place with the Judge section filled in. No API cost; the report names the judge `claude-code/<model>`.
 
 ```bash
-pnpm bench:models --baseline <current-id> --candidate <new-id> --judge --dry-run
+pnpm bench:models --baseline <current-id> --candidate <new-id> --judge
+# then, in Claude Code:
+/bench-judge
 ```
 
-After the normal run, `claude-opus-5-5` (`JUDGE_MODEL` in `scripts/model-bench/judge.ts`) compares the two models' output for every imagine and tips case, run by run. It sees the case input and the two answers labelled A and B, never a model name. The rubric is `scripts/model-bench/judge-prompt.md`: fit to the household, then accuracy, then usefulness, then writing. For Estonian cases the judge also gets all of [AI_VOICE_ET.md](./AI_VOICE_ET.md). Plan, recipe and review are not judged: their deterministic scores already measure what matters.
+Blindness survives the split because the pairs file holds only the A/B prompts. Which model sat as A is `judgeKey` in `<stem>.json`, and the judging session must not open that file, the `.md` or the case files before the import; `/bench-judge` reads only the pairs file. Both orders of every pair are exported, and the skill gives the two orders of a pair to different subagents, so position bias cancels the same way as below: a judge that saw both orders would only agree with itself, and the tie-on-disagreement rule would never fire. A `.judge-verdicts.json` is as gitignored as the rest; the judged `<stem>.md` is what gets committed.
+
+**`--judge-api`: judged by `claude-opus-5-5`** (`JUDGE_MODEL` in `scripts/model-bench/judge.ts`) through the API key, straight after the benchmark. A pinned, reproducible judge, at a cost (end of this section). Use it when the report must not depend on a Claude Code session, or to cross-check a Claude Code verdict.
+
+```bash
+pnpm bench:models --baseline <current-id> --candidate <new-id> --judge-api --dry-run
+```
 
 Each pair is judged **twice**, once with each model as A, to cancel any preference for a position. For the candidate:
 
@@ -90,6 +105,6 @@ Each pair is judged **twice**, once with each model as A, to cancel any preferen
 - **Tie:** the orders disagreed, or either said `tie`. A disagreement usually means the judge was following position, not quality.
 - **Skipped:** either model's call errored, so there was nothing to compare. **Judge errors** are pairs where a judge call failed. Neither counts for or against the candidate.
 
-The **win rate** is wins ÷ (wins + losses). Ties are left out of it and shown beside it, so many ties and a 50% win rate mean "no visible difference", not "worse". A win rate **under 40%** over **at least 5** decided pairs is listed under Regressions. With fewer than 5 decided pairs the table says "too few decided pairs" and nothing is flagged: run more `--runs` if the task matters. The noise rule doesn't apply to the judge. The `.json` report keeps both verdicts and both one-sentence reasons for every pair; read them before trusting a regression.
+The **win rate** is wins ÷ (wins + losses). Ties are left out of it and shown beside it, so many ties and a 50% win rate mean "no visible difference", not "worse". A win rate **under 40%** over **at least 5** decided pairs is listed under Regressions. With fewer than 5 decided pairs the table says "too few decided pairs" and nothing is flagged: run more `--runs` if the task matters. The noise rule doesn't apply to the judge. The `.json` report keeps both verdicts and both one-sentence reasons for every pair; read them before trusting a regression. Under `--judge`, a pair whose verdict is missing from the verdicts file counts as a judge error.
 
-**It costs extra.** Two Opus calls per imagine and tips case per run, each sending the case, both answers, the rubric and, for Estonian cases, the voice reference. `--dry-run --judge` shows the judge calls as their own line and adds them to the total, and says when the estimate is above `--max-usd`. Judge calls count toward `--max-usd`, and with the full case set and 3 runs the estimate comes out above the default $10 cap, so raise the cap (`--max-usd 15`) when you pass `--judge`. The estimate errs high, since it sizes each answer by the benchmarked model's reasoning tokens, which the judge never sees. The limit is checked after each pair, so a stop never leaves a pair judged in only one order.
+**`--judge-api` costs extra.** Two Opus calls per imagine and tips case per run, each sending the case, both answers, the rubric and, for Estonian cases, the voice reference. `--dry-run --judge-api` shows the judge calls as their own line and adds them to the total, and says when the estimate is above `--max-usd`. Judge calls count toward `--max-usd`, and with the full case set and 3 runs the estimate comes out above the default $10 cap, so raise the cap (`--max-usd 15`) when you pass `--judge-api`. The estimate errs high, since it sizes each answer by the benchmarked model's reasoning tokens, which the judge never sees. The limit is checked after each pair, so a stop never leaves a pair judged in only one order. `--dry-run --judge` shows the pair count instead, with no cost.

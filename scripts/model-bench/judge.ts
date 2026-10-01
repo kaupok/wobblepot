@@ -1,5 +1,5 @@
 /**
- * Blind pairwise judge for the model benchmark (HON-798), behind `--judge`.
+ * Blind pairwise judge for the model benchmark (HON-798).
  *
  * The deterministic scorers cannot see whether an imagined meal sounds good or
  * whether a tip is useful, so for imagine and tips a stronger model compares
@@ -12,6 +12,12 @@
  * once with the candidate as A, which cancels position bias. The candidate
  * wins the pair only when both orders pick it, loses only when both pick the
  * baseline, and anything else is a tie.
+ *
+ * **Two judges.** `--judge` (the default) exports the prompts for a Claude
+ * Code session to answer on the subscription, and `--import-verdicts` folds
+ * the answers back in; see `judge-files.ts`. `--judge-api` has `JUDGE_MODEL`
+ * answer them here through the API key (`runJudge`). The prompts, the verdict
+ * rules and the summary are the same either way.
  */
 
 import { readFileSync } from 'node:fs'
@@ -94,6 +100,8 @@ export interface JudgedPair {
 }
 
 export interface JudgeResult {
+  /** Who judged: `JUDGE_MODEL` under `--judge-api`, else the label the verdicts file gave. */
+  judge: string
   pairs: JudgedPair[]
   /** Pairs the benchmark produced for judged tasks, skipped ones included. */
   plannedPairs: number
@@ -211,7 +219,7 @@ ${json(judgeOutput(c.task, answerB))}
 // Verdicts
 // ---------------------------------------------------------------------------
 
-const other = (role: Role): Role => (role === 'baseline' ? 'candidate' : 'baseline')
+export const other = (role: Role): Role => (role === 'baseline' ? 'candidate' : 'baseline')
 
 export function toPick(winner: Winner, roleAsA: Role): Pick {
   if (winner === 'tie') return 'tie'
@@ -239,16 +247,20 @@ export interface JudgeOptions {
   onPair?: (pair: JudgedPair, progress: { done: number; planned: number; spendUsd: number }) => void
 }
 
+/** One judged case and run with both sides' records. */
+export interface JudgePair {
+  c: CaseOf<JudgedTask>
+  baseline: CallRecord
+  candidate: CallRecord
+  /** Set when either side errored: there is nothing to compare. */
+  skipReason: string | null
+}
+
 /**
- * Judge every imagine and tips pair the benchmark produced, in the order it
- * ran them. Spend continues from the benchmark's: judge calls count toward
- * the same `--max-usd`. The limit is checked before each pair, not each call,
- * so a pair is always judged in both orders; the overshoot is at most one
- * pair, two judge calls.
+ * Every imagine and tips pair the benchmark produced, in the order it ran
+ * them. A side missing from a `--max-usd` stop leaves no pair at all.
  */
-export async function runJudge(options: JudgeOptions): Promise<JudgeResult> {
-  const { result, cases, maxUsd, modelFactory, onPair } = options
-  const now = options.now ?? (() => performance.now())
+export function pairsToJudge(result: RunResult, cases: BenchCase[]): JudgePair[] {
   const caseById = new Map(cases.map((c) => [c.id, c]))
 
   const sides = new Map<string, Partial<Record<Role, CallRecord>>>()
@@ -257,36 +269,51 @@ export async function runJudge(options: JudgeOptions): Promise<JudgeResult> {
     const key = `${call.caseId}\u0000${call.run}`
     sides.set(key, { ...sides.get(key), [call.role]: call })
   }
-  // A side missing from a `--max-usd` stop leaves no pair at all.
-  const pending = [...sides.values()].filter((s): s is Record<Role, CallRecord> =>
-    Boolean(s.baseline && s.candidate),
-  )
+
+  return [...sides.values()]
+    .filter((s): s is Record<Role, CallRecord> => Boolean(s.baseline && s.candidate))
+    .map(({ baseline, candidate }) => {
+      const c = caseById.get(baseline.caseId)
+      if (!c || !isJudgedTask(c.task)) {
+        throw new Error(`No judged case "${baseline.caseId}" for a judged call record.`)
+      }
+      const errored = [baseline, candidate].filter((r) => r.errorName !== null).map((r) => r.role)
+      return {
+        c: c as CaseOf<JudgedTask>,
+        baseline,
+        candidate,
+        skipReason: errored.length > 0 ? `${errored.join(' and ')} errored` : null,
+      }
+    })
+}
+
+/**
+ * Judge every pair through the API, in the order the benchmark ran them.
+ * Spend continues from the benchmark's: judge calls count toward the same
+ * `--max-usd`. The limit is checked before each pair, not each call, so a
+ * pair is always judged in both orders; the overshoot is at most one pair,
+ * two judge calls.
+ */
+export async function runJudge(options: JudgeOptions): Promise<JudgeResult> {
+  const { result, cases, maxUsd, modelFactory, onPair } = options
+  const now = options.now ?? (() => performance.now())
+  const pending = pairsToJudge(result, cases)
 
   const pairs: JudgedPair[] = []
   let spendUsd = 0
   const totalSpend = () => result.spendUsd + spendUsd
   const model = modelFactory(JUDGE_MODEL)
 
-  for (const { baseline, candidate } of pending) {
+  for (const { c, baseline, candidate, skipReason } of pending) {
     if (totalSpend() > maxUsd) {
-      return { pairs, plannedPairs: pending.length, spendUsd, partial: true }
+      return { judge: JUDGE_MODEL, pairs, plannedPairs: pending.length, spendUsd, partial: true }
     }
 
-    const c = caseById.get(baseline.caseId)
-    if (!c || !isJudgedTask(c.task)) {
-      throw new Error(`No judged case "${baseline.caseId}" for a judged call record.`)
-    }
     const base = { caseId: baseline.caseId, task: c.task, run: baseline.run }
 
-    const errored = [baseline, candidate].filter((r) => r.errorName !== null).map((r) => r.role)
     let pair: JudgedPair
-    if (errored.length > 0) {
-      pair = {
-        ...base,
-        outcome: 'skipped',
-        skipReason: `${errored.join(' and ')} errored`,
-        calls: [],
-      }
+    if (skipReason !== null) {
+      pair = { ...base, outcome: 'skipped', skipReason, calls: [] }
     } else {
       const output: Record<Role, unknown> = {
         baseline: baseline.output,
@@ -294,11 +321,7 @@ export async function runJudge(options: JudgeOptions): Promise<JudgeResult> {
       }
       const calls: JudgeCall[] = []
       for (const roleAsA of ['baseline', 'candidate'] as const) {
-        const { system, prompt } = buildJudgePrompt(
-          c as CaseOf<JudgedTask>,
-          output[roleAsA],
-          output[other(roleAsA)],
-        )
+        const { system, prompt } = buildJudgePrompt(c, output[roleAsA], output[other(roleAsA)])
         const call = await judgeOnce({ model, system, prompt, roleAsA, now })
         calls.push(call)
         spendUsd += call.costUsd
@@ -319,7 +342,7 @@ export async function runJudge(options: JudgeOptions): Promise<JudgeResult> {
     onPair?.(pair, { done: pairs.length, planned: pending.length, spendUsd: totalSpend() })
   }
 
-  return { pairs, plannedPairs: pending.length, spendUsd, partial: false }
+  return { judge: JUDGE_MODEL, pairs, plannedPairs: pending.length, spendUsd, partial: false }
 }
 
 async function judgeOnce(args: {

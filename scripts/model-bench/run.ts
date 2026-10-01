@@ -7,10 +7,15 @@
  *
  * Usage:
  *   pnpm bench:models --baseline claude-sonnet-5 --candidate claude-sonnet-5-5 \
- *     [--task plan,recipe,imagine,review,tips] [--runs 3] [--dry-run] [--max-usd 10] [--judge]
+ *     [--task plan,recipe,imagine,review,tips] [--runs 3] [--dry-run] [--max-usd 10] \
+ *     [--judge | --judge-api]
+ *   pnpm bench:models --import-verdicts results/<stem>.judge-verdicts.json
  *
  * `--judge` (HON-798) adds a blind pairwise comparison of imagine and tips
- * output by `JUDGE_MODEL`; see `judge.ts`.
+ * output. By default the prompts are exported for a Claude Code session to
+ * answer (`/bench-judge`), and `--import-verdicts` folds the answers into the
+ * report; `--judge-api` has `JUDGE_MODEL` answer them through the API key
+ * instead. See `judge.ts` and `judge-files.ts`.
  *
  * Output: scripts/model-bench/results/<YYYY-MM-DD>-<baseline>-vs-<candidate>.md
  * (commit it, attach it to the upgrade PR) and a gitignored `.json` beside it.
@@ -24,24 +29,41 @@
  */
 
 import 'dotenv/config'
-import { dirname, join, relative } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { basename, dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { createAnthropic } from '@ai-sdk/anthropic'
+import { z } from 'zod'
 import { MODEL_PRICES } from '../../src/lib/ai/pricing'
 import { TASKS, type Task } from './case-schema'
 import { CASES_DIR, loadCases } from './load-cases'
 import { estimateRun } from './dry-run'
-import { runBenchmark, type ModelFactory } from './runner'
-import { JUDGE_MODEL, runJudge, type JudgeResult } from './judge'
-import { buildReport, localDateString, renderSummary, writeReport } from './report'
+import { runBenchmark, type CallRecord, type ModelFactory } from './runner'
+import { isJudgedTask, JUDGE_MODEL, runJudge, type JudgeResult } from './judge'
+import {
+  exportJudgePairs,
+  importJudgeVerdicts,
+  JudgeVerdictsFileSchema,
+  type JudgeKey,
+} from './judge-files'
+import {
+  buildReport,
+  localDateString,
+  renderSummary,
+  writeReport,
+  writeReportFiles,
+} from './report'
 
 export const RESULTS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'results')
 
 const DEFAULT_RUNS = 3
 const DEFAULT_MAX_USD = 10
 
-const USAGE = `Usage: pnpm bench:models --baseline <model> --candidate <model> [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge]`
+const USAGE = `Usage: pnpm bench:models --baseline <model> --candidate <model> [--task ${TASKS.join(',')}] [--runs ${DEFAULT_RUNS}] [--dry-run] [--max-usd ${DEFAULT_MAX_USD}] [--judge | --judge-api]
+       pnpm bench:models --import-verdicts <results/stem.judge-verdicts.json>`
+
+const VERDICTS_SUFFIX = '.judge-verdicts.json'
 
 export interface MainDeps {
   /** Defaults to `createAnthropic` with `ANTHROPIC_API_KEY`; never built under `--dry-run`. */
@@ -56,6 +78,8 @@ export interface MainDeps {
 
 class UsageError extends Error {}
 
+type Judge = 'claude-code' | 'api' | false
+
 function parseCli(argv: string[]) {
   let values
   try {
@@ -69,6 +93,8 @@ function parseCli(argv: string[]) {
         'dry-run': { type: 'boolean', default: false },
         'max-usd': { type: 'string' },
         judge: { type: 'boolean', default: false },
+        'judge-api': { type: 'boolean', default: false },
+        'import-verdicts': { type: 'string' },
       },
       strict: true,
       allowPositionals: false,
@@ -77,9 +103,20 @@ function parseCli(argv: string[]) {
     throw new UsageError((err as Error).message)
   }
 
+  if (values['import-verdicts'] !== undefined) {
+    if (!values['import-verdicts'].endsWith(VERDICTS_SUFFIX)) {
+      throw new UsageError(`--import-verdicts takes a \`*${VERDICTS_SUFFIX}\` file.`)
+    }
+    return { mode: 'import' as const, verdictsPath: values['import-verdicts'] }
+  }
+
   if (!values.baseline || !values.candidate) {
     throw new UsageError('--baseline and --candidate are both required.')
   }
+  if (values.judge && values['judge-api']) {
+    throw new UsageError('--judge and --judge-api are alternatives; pass one.')
+  }
+  const judge: Judge = values['judge-api'] ? 'api' : values.judge ? 'claude-code' : false
 
   const tasks = values.task ? values.task.split(',').map((t) => t.trim()) : [...TASKS]
   const unknown = tasks.filter((t) => !(TASKS as readonly string[]).includes(t))
@@ -98,14 +135,106 @@ function parseCli(argv: string[]) {
   }
 
   return {
+    mode: 'bench' as const,
     baseline: values.baseline,
     candidate: values.candidate,
     tasks: tasks as Task[],
     runs,
     maxUsd,
     dryRun: values['dry-run'],
-    judge: values.judge,
+    judge,
   }
+}
+
+/** What `--import-verdicts` reads back from the run's `.json`. */
+const RunFileSchema = z.object({
+  baseline: z.string(),
+  candidate: z.string(),
+  date: z.string(),
+  runs: z.number().int(),
+  tasks: z.array(z.enum(TASKS)),
+  partial: z.boolean(),
+  plannedCalls: z.number().int(),
+  benchSpendUsd: z.number(),
+  maxUsd: z.number(),
+  calls: z.array(z.custom<CallRecord>((v) => typeof v === 'object' && v !== null)),
+  judgeKey: z.custom<JudgeKey>((v) => typeof v === 'object' && v !== null).optional(),
+})
+
+function readJson(path: string, what: string): unknown {
+  if (!existsSync(path)) throw new UsageError(`No ${what} at ${path}.`)
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'))
+  } catch (err) {
+    throw new UsageError(`${what} ${path} is not valid JSON: ${(err as Error).message}`)
+  }
+}
+
+function parseJson<T>(schema: z.ZodType<T>, raw: unknown, path: string): T {
+  const parsed = schema.safeParse(raw)
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+      .join('; ')
+    throw new UsageError(`Invalid ${basename(path)}: ${issues}`)
+  }
+  return parsed.data
+}
+
+/**
+ * Fold `<stem>.judge-verdicts.json` into `<stem>.md` and `<stem>.json`,
+ * rewriting both in place: the report is for the same run, only now judged.
+ */
+function importVerdicts(verdictsPath: string, log: (line: string) => void): number {
+  const dir = dirname(verdictsPath)
+  const stem = basename(verdictsPath, VERDICTS_SUFFIX)
+  const jsonPath = join(dir, `${stem}.json`)
+  const markdownPath = join(dir, `${stem}.md`)
+
+  const verdicts = parseJson(
+    JudgeVerdictsFileSchema,
+    readJson(verdictsPath, 'verdicts file'),
+    verdictsPath,
+  )
+  const run = parseJson(RunFileSchema, readJson(jsonPath, 'run file'), jsonPath)
+  if (!run.judgeKey) {
+    throw new UsageError(`${basename(jsonPath)} exported no judge pairs: was it run with --judge?`)
+  }
+
+  const judge = importJudgeVerdicts(run.judgeKey, verdicts)
+  const result = {
+    calls: run.calls,
+    plannedCalls: run.plannedCalls,
+    spendUsd: run.benchSpendUsd,
+    partial: run.partial,
+  }
+  const report = buildReport({
+    result,
+    judge,
+    baseline: run.baseline,
+    candidate: run.candidate,
+    runs: run.runs,
+    maxUsd: run.maxUsd,
+    tasks: run.tasks,
+    date: run.date,
+  })
+  writeReportFiles(markdownPath, jsonPath, {
+    report,
+    result,
+    tasks: run.tasks,
+    judge,
+    // Kept, so the same run can be judged again.
+    judgeKey: run.judgeKey,
+  })
+
+  const missing = judge.pairs.filter((p) => p.outcome === 'judge-error').length
+  if (missing > 0) {
+    log(`${missing} pair(s) had a verdict missing and count as judge errors.`)
+  }
+  log(renderSummary(report))
+  log('')
+  log(`Report: ${relative(process.cwd(), markdownPath)} (commit it and attach it to the PR)`)
+  return 0
 }
 
 /** Returns the process exit code. */
@@ -117,6 +246,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   let args
   try {
     args = parseCli(argv)
+    if (args.mode === 'import') return importVerdicts(args.verdictsPath, log)
   } catch (err) {
     if (!(err instanceof UsageError)) throw err
     error(err.message)
@@ -126,7 +256,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
 
   // Before any call, and under --dry-run too: `estimateCostUsd` prices an
   // unknown model at $0, which would silently disable --max-usd.
-  const priced = [args.baseline, args.candidate, ...(args.judge ? [JUDGE_MODEL] : [])]
+  const priced = [args.baseline, args.candidate, ...(args.judge === 'api' ? [JUDGE_MODEL] : [])]
   const unpriced = priced.filter((id) => !MODEL_PRICES[id])
   if (unpriced.length > 0) {
     for (const id of unpriced) {
@@ -148,7 +278,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
       cases,
       runs: args.runs,
       models: [args.baseline, args.candidate],
-      judge: args.judge,
+      judge: args.judge === 'api',
     })
     log(`Dry run — no API calls made.`)
     log(`Cases: ${estimate.caseCount} (${args.tasks.join(', ')}), runs: ${args.runs}`)
@@ -160,6 +290,12 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     for (const m of models) {
       log(
         `  ${m.label}: ${m.calls} calls, ~${m.inputTokens} input + ~${m.outputTokens} output tokens, ~$${m.costUsd.toFixed(2)}`,
+      )
+    }
+    if (args.judge === 'claude-code') {
+      const pairs = cases.filter((c) => isJudgedTask(c.task)).length * args.runs
+      log(
+        `  judge: ${pairs} pairs, ${pairs * 2} prompts, exported for Claude Code (/bench-judge) — no API cost`,
       )
     }
     log(`Estimated cost: ~$${estimate.totalCostUsd.toFixed(2)} (--max-usd ${args.maxUsd})`)
@@ -200,7 +336,8 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   })
 
   let judge: JudgeResult | undefined
-  if (args.judge) {
+  const judgeExport = args.judge === 'claude-code' ? exportJudgePairs(result, cases) : undefined
+  if (args.judge === 'api') {
     log('')
     log(`Judging imagine and tips pairs with ${JUDGE_MODEL}, twice each`)
     judge = await runJudge({
@@ -218,6 +355,10 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   const report = buildReport({
     result,
     judge,
+    judgePending: judgeExport && {
+      pairs: judgeExport.key.pairs.length,
+      prompts: judgeExport.items.length,
+    },
     baseline: args.baseline,
     candidate: args.candidate,
     runs: args.runs,
@@ -226,7 +367,10 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     date: localDateString((deps.today ?? (() => new Date()))()),
   })
   const outDir = deps.outDir ?? RESULTS_DIR
-  const { markdownPath, jsonPath } = writeReport(outDir, report, result, judge)
+  const { markdownPath, jsonPath, pairsPath } = writeReport(outDir, report, result, {
+    judge,
+    judgeExport,
+  })
 
   if (result.partial || judge?.partial) {
     const spend = result.spendUsd + (judge?.spendUsd ?? 0)
@@ -240,6 +384,11 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   log('')
   log(`Report: ${relative(process.cwd(), markdownPath)} (commit it and attach it to the PR)`)
   log(`Raw outputs: ${relative(process.cwd(), jsonPath)} (gitignored)`)
+  if (pairsPath) {
+    log(
+      `Judge pairs: ${relative(process.cwd(), pairsPath)} — run /bench-judge to judge them in Claude Code and import the verdicts`,
+    )
+  }
   return 0
 }
 

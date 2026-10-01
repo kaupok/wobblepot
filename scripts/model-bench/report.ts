@@ -21,19 +21,19 @@
  */
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { TASKS, type Task } from './case-schema'
 import { TASK_SPECS, type MetricDef } from './tasks'
 import type { CallRecord, Role, RunResult } from './runner'
 import {
   JUDGE_MIN_DECIDED,
   JUDGE_MIN_WIN_RATE,
-  JUDGE_MODEL,
   JUDGED_TASKS,
   summarizeJudge,
   type JudgeResult,
   type JudgeTaskSummary,
 } from './judge'
+import type { JudgeItem, JudgeKey } from './judge-files'
 
 /** A delta, or its distance past a threshold, smaller than this is float residue. */
 const FLOAT_TOLERANCE = 1e-9
@@ -93,6 +93,7 @@ export interface Finding {
 }
 
 export interface JudgeReport {
+  /** The judge model, or the label the verdicts file gave (`claude-code/opus`). */
   model: string
   tasks: JudgeTaskSummary[]
   /** `true` when `--max-usd` stopped the judge before every pair was judged. */
@@ -117,8 +118,10 @@ export interface BenchReport {
   plannedCalls: number
   madeCalls: number
   maxUsd: number
-  /** `null` without `--judge`. */
+  /** `null` without a judge, or while the exported pairs are still unjudged. */
   judge: JudgeReport | null
+  /** Set under `--judge` until `--import-verdicts` fills `judge` in. */
+  judgePending: { pairs: number; prompts: number } | null
   cost: Record<Role | 'judge', number>
 }
 
@@ -228,8 +231,10 @@ function operational(calls: CallRecord[], budgetMs: number): Operational {
 
 export function buildReport(args: {
   result: RunResult
-  /** Present only under `--judge`. */
+  /** Present under `--judge-api`, or once `--import-verdicts` has run. */
   judge?: JudgeResult
+  /** Present under `--judge` while the pairs are still out for judging. */
+  judgePending?: { pairs: number; prompts: number }
   baseline: string
   candidate: string
   runs: number
@@ -318,6 +323,7 @@ export function buildReport(args: {
     madeCalls: result.calls.length,
     maxUsd,
     judge,
+    judgePending: args.judgePending ?? null,
     cost: {
       baseline: sumCost(result.calls, 'baseline'),
       candidate: sumCost(result.calls, 'candidate'),
@@ -328,7 +334,7 @@ export function buildReport(args: {
 
 function judgeReport(judge: JudgeResult, tasks: readonly Task[]): JudgeReport {
   return {
-    model: JUDGE_MODEL,
+    model: judge.judge,
     tasks: summarizeJudge(
       judge.pairs,
       JUDGED_TASKS.filter((t) => tasks.includes(t)),
@@ -438,6 +444,15 @@ export function renderMarkdown(report: BenchReport): string {
   lines.push('')
 
   if (report.judge) lines.push(...renderJudge(report.judge, candidate))
+  else if (report.judgePending) {
+    const { pairs, prompts } = report.judgePending
+    lines.push(
+      '## Judge',
+      '',
+      `**Pending.** ${pairs} pair(s), ${prompts} prompt(s), are exported to the \`.judge-pairs.json\` beside this report for judging in Claude Code. Run \`/bench-judge\`, which answers them and imports the verdicts here (\`pnpm bench:models --import-verdicts <that>.judge-verdicts.json\`).`,
+      '',
+    )
+  }
 
   for (const t of report.tasks) {
     lines.push(`## ${t.task}`, '')
@@ -549,9 +564,25 @@ export function localDateString(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
+export interface ReportFiles {
+  markdownPath: string
+  jsonPath: string
+  /** Present when the run exported judge pairs. */
+  pairsPath?: string
+}
+
+export interface WriteReportExtras {
+  judge?: JudgeResult
+  /** From `exportJudgePairs`; writes the pairs file and fills in its file names. */
+  judgeExport?: { items: JudgeItem[]; key: JudgeKey }
+  /** A key read back from the run file, kept so the run can be judged again. */
+  judgeKey?: JudgeKey
+}
+
 /**
  * Write `<date>-<baseline>-vs-<candidate>.md` (committed) and the matching
- * `.json` with every raw output (gitignored). Returns both paths.
+ * `.json` with every raw output (gitignored), plus `.judge-pairs.json` when
+ * the run exported its judge prompts. Returns the paths.
  *
  * A second run of the same pair on the same day gets a `-2`, `-3`, … suffix
  * rather than overwriting the first: each run cost money, and the earlier
@@ -561,8 +592,8 @@ export function writeReport(
   outDir: string,
   report: BenchReport,
   result: RunResult,
-  judge?: JudgeResult,
-): { markdownPath: string; jsonPath: string } {
+  extras: WriteReportExtras = {},
+): ReportFiles {
   mkdirSync(outDir, { recursive: true })
   const base = `${report.date}-${report.baseline}-vs-${report.candidate}`
   let stem = base
@@ -573,8 +604,39 @@ export function writeReport(
   ) {
     stem = `${base}-${n}`
   }
-  const markdownPath = join(outDir, `${stem}.md`)
-  const jsonPath = join(outDir, `${stem}.json`)
+  return writeReportFiles(join(outDir, `${stem}.md`), join(outDir, `${stem}.json`), {
+    report,
+    result,
+    tasks: report.tasks.map((t) => t.task),
+    ...extras,
+  })
+}
+
+/**
+ * Write (or, after `--import-verdicts`, rewrite in place) the report files at
+ * the given paths. The `.json` keeps everything a later import needs to
+ * rebuild the report: the calls, the run's arguments and the judge key.
+ */
+export function writeReportFiles(
+  markdownPath: string,
+  jsonPath: string,
+  args: { report: BenchReport; result: RunResult; tasks: readonly Task[] } & WriteReportExtras,
+): ReportFiles {
+  const { report, result, tasks, judge, judgeExport } = args
+  const stem = basename(jsonPath, '.json')
+  const dir = dirname(jsonPath)
+
+  let pairsPath: string | undefined
+  let judgeKey = args.judgeKey
+  if (judgeExport) {
+    pairsPath = join(dir, `${stem}.judge-pairs.json`)
+    const verdictsFile = `${stem}.judge-verdicts.json`
+    judgeKey = { ...judgeExport.key, pairsFile: basename(pairsPath), verdictsFile }
+    writeFileSync(
+      pairsPath,
+      `${JSON.stringify({ verdictsFile, items: judgeExport.items }, null, 2)}\n`,
+    )
+  }
 
   writeFileSync(markdownPath, renderMarkdown(report))
   writeFileSync(
@@ -585,8 +647,11 @@ export function writeReport(
         candidate: report.candidate,
         date: report.date,
         runs: report.runs,
+        tasks,
         partial: report.partial,
         plannedCalls: report.plannedCalls,
+        /** Benchmark calls only; `spendUsd` adds the API judge. */
+        benchSpendUsd: result.spendUsd,
         spendUsd: result.spendUsd + (judge?.spendUsd ?? 0),
         maxUsd: report.maxUsd,
         regressions: report.regressions,
@@ -596,18 +661,21 @@ export function writeReport(
         // Both verdicts and both reasons for every pair.
         ...(judge && {
           judge: {
-            model: JUDGE_MODEL,
+            model: judge.judge,
             spendUsd: judge.spendUsd,
             partial: judge.partial,
             plannedPairs: judge.plannedPairs,
             pairs: judge.pairs,
           },
         }),
+        // Which role each exported prompt showed as A. The judging session
+        // reads the pairs file, never this.
+        ...(judgeKey && { judgeKey }),
       },
       null,
       2,
     )}\n`,
   )
 
-  return { markdownPath, jsonPath }
+  return { markdownPath, jsonPath, ...(pairsPath && { pairsPath }) }
 }
