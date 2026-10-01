@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { toast } from 'sonner'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { MealDetailModal } from './MealDetailModal'
@@ -253,5 +253,37 @@ describe('MealDetailModal sticky title bar (HON-932)', () => {
         ),
     )
     expect(bar).toHaveAttribute('data-title-hidden')
+  })
+})
+
+describe('MealDetailModal focus (HON-932)', () => {
+  function ModalWithTrigger({ open }: { open: boolean }) {
+    return (
+      <>
+        <button type="button">Lentil soup card</button>
+        <MealDetailModal
+          meal={meal}
+          householdSize={4}
+          open={open}
+          onOpenChange={vi.fn()}
+          planId="plan-1"
+          entryId="entry-1"
+        />
+      </>
+    )
+  }
+
+  it('returns focus to the control that opened it when it closes', async () => {
+    const { wrapper } = createQueryWrapper()
+    const { rerender } = render(<ModalWithTrigger open={false} />, { wrapper })
+    const trigger = screen.getByRole('button', { name: 'Lentil soup card' })
+    trigger.focus()
+
+    rerender(<ModalWithTrigger open />)
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveFocus())
+
+    rerender(<ModalWithTrigger open={false} />)
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(trigger).toHaveFocus()
   })
 })

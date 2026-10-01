@@ -87,6 +87,11 @@ export function MealDetailModal({
   // The cook view keeps the screen on while it is open (HON-932).
   useWakeLock(open)
   const contentRef = useRef<HTMLDivElement>(null)
+  // The control that opened the view: the card's meal name. The dialog opens
+  // from state, with no `DialogTrigger`, so Radix has nothing to return focus
+  // to and drops it on `<body>` (CLAUDE.md → Focus management). Captured as
+  // the dialog opens, before focus moves into it.
+  const returnFocusRef = useRef<HTMLElement | null>(null)
 
   // The surface follows `MealImageCard`'s rules: a hue tints the whole panel,
   // an image without one gets the `neutral` surface, and no image (or one
@@ -219,10 +224,20 @@ export function MealDetailModal({
         // Focus the panel itself, not its first control: the note editor or
         // an ingredient checkbox would pop a keyboard or a focus ring on open.
         // A screen reader announces the dialog by its title and description.
-        // Radix still traps focus, and still returns it to the card on close.
+        // Radix still traps focus while it is open.
         onOpenAutoFocus={(event) => {
           event.preventDefault()
+          returnFocusRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null
           contentRef.current?.focus()
+        }}
+        // Back to the control that opened it, if it is still on the page.
+        onCloseAutoFocus={(event) => {
+          const target = returnFocusRef.current
+          returnFocusRef.current = null
+          if (!target?.isConnected) return
+          event.preventDefault()
+          target.focus()
         }}
       >
         <DialogDescription className="sr-only">
