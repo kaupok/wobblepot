@@ -84,8 +84,11 @@ wt stop
 | —                    | `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` | 1800              | Seconds before a cap-requeued issue is pickable again                                         |
 | —                    | `ORCHESTRATOR_TRIAGE_TIMEOUT`       | 120               | Seconds the failure-triage `claude -p` call may run before the issue falls back to Backlog    |
 | —                    | `CLAUDE_AUTO_MODEL`                 | `claude-opus-5-5` | Model every `wt auto` worker runs; read by `scripts/worktree-claude.sh`, not the orchestrator |
+| —                    | `cleanupPeriodDays`                 | 365               | Days Claude Code keeps transcripts; a setting in `~/.claude/settings.json`, not an env var    |
 
-Requires `LINEAR_API_KEY` env var (format: `lin_api_...`). All of these can live in `.env`: `wt` loads it for every subcommand, and the workers the orchestrator spawns inherit it.
+Requires `LINEAR_API_KEY` env var (format: `lin_api_...`). Every env var above can live in `.env`: `wt` loads it for every subcommand, and the workers the orchestrator spawns inherit it.
+
+`cleanupPeriodDays` defaults to 30. Claude Code then deletes everything under `~/.claude/projects/` older than that, subagent transcripts included, by file age; resuming a session does not reset the clock. Those transcripts are the only record of what a run cost, and `pnpm agent-cost` (`scripts/agent-cost-per-pr.ts`) reads nothing else, so it was raised to 365 on 2026-10-01 (HON-785). It lives in the user-scope file because every worktree session reads that file and no repo file reaches them all.
 
 #### Branch budget
 
