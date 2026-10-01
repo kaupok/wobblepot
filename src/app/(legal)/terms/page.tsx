@@ -121,8 +121,9 @@ export default function TermsPage() {
 
       <Section title="Termination">
         <Body>
-          You can delete your account at any time from the app; your data is then purged within 30
-          days as described in the{' '}
+          You can delete your account at any time from the app; your data is then purged after a
+          30-day grace period (the purge runs nightly, so deletion happens within a day of that
+          period ending), as described in the{' '}
           <Link className="underline" href="/privacy">
             privacy policy
           </Link>

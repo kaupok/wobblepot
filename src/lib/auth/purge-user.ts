@@ -2,6 +2,7 @@ import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { countAccountHoldingMembers } from '@/lib/household'
+import { deletePosthogPersons } from '@/lib/posthog-purge'
 
 /**
  * Hard-deletes a user and every record that should not outlive their account.
@@ -28,6 +29,11 @@ import { countAccountHoldingMembers } from '@/lib/household'
  * - Sessions and accounts (Better Auth) → deleted.
  * - The `user` row → deleted (cascades sessions/accounts/memberships again as a
  *   backstop; `SignupCode` links are set null to preserve the audit trail).
+ * - PostHog → the person and events for the user id, and for the id of each
+ *   household this purge deletes (AI usage events attribute to it), are
+ *   deleted before the transaction (HON-907). A failed call throws, so the
+ *   user row stays and the next nightly run retries; an unset purge key skips
+ *   with a captured error (`deletePosthogPersons`).
  *
  * Runs in a single transaction so a partial cascade can never leave an
  * orphaned account behind. The cron calls this once per expired user, so each
@@ -35,9 +41,27 @@ import { countAccountHoldingMembers } from '@/lib/household'
  *
  * **Forward-compat:** when a new model stores user-owned or user-linked data
  * (e.g. HON-453's per-user AI records), add it here AND to the runbook cascade
- * table in the same PR.
+ * table in the same PR. The same goes for a new store outside the database
+ * that keeps data keyed by the user or household id: delete it here and add
+ * it to the runbook's "Data held outside the database" table.
  */
 export async function purgeUser(userId: string, db: PrismaClientType = prisma): Promise<void> {
+  // PostHog first: a failed delete must leave the user row in place so the
+  // next run retries, which it cannot do once the transaction has committed.
+  // This read only decides which household ids to send; the transaction below
+  // re-runs the same check and stays the authority on what it deletes.
+  const ownedMemberships = await db.householdMember.findMany({
+    where: { userId, role: 'owner' },
+    select: { householdId: true },
+  })
+  const householdIdsToDelete: string[] = []
+  for (const { householdId } of ownedMemberships) {
+    if ((await countAccountHoldingMembers(householdId, db)) === 1) {
+      householdIdsToDelete.push(householdId)
+    }
+  }
+  await deletePosthogPersons([userId, ...householdIdsToDelete], { userId })
+
   const imageUrls = await db.$transaction(async (tx) => {
     const imageUrls: string[] = []
 

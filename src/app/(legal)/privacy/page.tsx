@@ -73,7 +73,8 @@ export default function PrivacyPage() {
           <Li>
             <Body>
               You can export your data or delete your account at any time; deleted accounts are
-              purged within 30 days.
+              purged after a 30-day grace period. The purge runs nightly, so deletion happens within
+              a day of that period ending.
             </Body>
           </Li>
         </Ul>
@@ -186,8 +187,9 @@ export default function PrivacyPage() {
         <Ul>
           <Li>
             <Body>
-              Account data: if you delete your account, everything is purged within 30 days of the
-              request. During that window you can change your mind by emailing{' '}
+              Account data: if you delete your account, everything is purged after a 30-day grace
+              period; the purge runs nightly, so deletion happens within a day of that period
+              ending. During the grace period you can change your mind by emailing{' '}
               <a className="underline" href={PRIVACY_EMAIL_HREF}>
                 {PRIVACY_EMAIL}
               </a>
