@@ -305,6 +305,62 @@ export const PlannedAlreadyCharged: Story = {
   },
 }
 
+/**
+ * "Done cooking" in the cook view runs the same completion as the status
+ * select (HON-933): the view closes first, then the pantry deduction opens —
+ * never stacked on it — and confirming shows the rating prompt, with focus
+ * back on the meal's name rather than the page body.
+ */
+export const DoneCookingFromCookView: Story = {
+  args: {
+    meal: mealFixture,
+    status: 'planned',
+  },
+  parameters: {
+    msw: {
+      handlers: {
+        // Opening a planned meal generates its steps on open.
+        tips: [
+          http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () =>
+            HttpResponse.json({
+              tips: {
+                equipment: ['A roasting tin'],
+                steps: ['Preheat while you prep', 'Roast for 35 minutes'],
+                pitfalls: [],
+              },
+            }),
+          ),
+        ],
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+    const name = canvas.getByRole('button', { name: mealFixture.name })
+
+    await userEvent.click(name)
+    const cookView = await body.findByRole('dialog', { name: mealFixture.name })
+    await userEvent.click(
+      await within(cookView).findByRole('button', { name: 'Done cooking' }, ROUND_TRIP),
+    )
+
+    const deduction = await body.findByRole('dialog', { name: 'Mark as completed' })
+    // One dialog at a time: the cook view is gone before the deduction opens.
+    await expect(body.getAllByRole('dialog')).toHaveLength(1)
+    await userEvent.click(within(deduction).getByRole('button', { name: 'Confirm' }))
+    await awaitDialogClosed(ROUND_TRIP.timeout)
+
+    await expect(await canvas.findByText('How was it?')).toBeInTheDocument()
+    await waitFor(() => expect(name).toHaveFocus())
+
+    // Today's card has no status select, so the menu carries the way back.
+    await openMoreActions(canvasElement)
+    await userEvent.click(await body.findByRole('menuitem', { name: 'Not cooked yet' }))
+    await waitFor(() => expect(canvas.queryByText('How was it?')).not.toBeInTheDocument())
+  },
+}
+
 // For waits that sit behind an MSW response. The swap stories chain several
 // dialogs and round-trips, and on a loaded CI runner a render can land after
 // `findBy`'s default 1 s even though the request succeeded (HON-857).
@@ -404,10 +460,9 @@ export const SwapDropsCachedTips: Story = {
     const canvas = within(canvasElement)
     const body = within(document.body)
 
-    // Generate tips for the meal currently on the entry.
+    // Opening the planned meal generates its tips (HON-933).
     await expect(canvas.getByText('6 servings')).toBeInTheDocument()
     await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
-    await userEvent.click(await body.findByRole('button', { name: /how to prepare/i }))
     await body.findByText(/roasting tin/i, undefined, ROUND_TRIP)
 
     // Close the detail modal — the Swap control lives on the card behind it.
@@ -427,22 +482,17 @@ export const SwapDropsCachedTips: Story = {
     // `servingOverride: null` the server wrote.
     await waitFor(() => expect(canvas.queryByText('6 servings')).not.toBeInTheDocument())
 
-    // Reopen the modal. The panel offers the prompt again rather than the
-    // previous meal's expanded tips, and the serving control agrees with the
-    // card...
+    // Reopen the modal. The serving control agrees with the card...
     await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
     const reopened = await body.findByRole('dialog')
     await expect(within(reopened).getByRole('button', { name: /serves 4/i })).toBeInTheDocument()
-    const prompt = await body.findByRole('button', { name: /how to prepare/i })
-    await expect(body.queryByText(/roasting tin/i)).not.toBeInTheDocument()
 
-    // ...and asking again issues a real second POST. This is the assertion
-    // that pins `cancelTips()`: collapsing the panel alone would satisfy
-    // everything above, because `MealDetail` renders the prompt off
-    // `isTipsExpanded` and never reads `tips` — but with the stale object
-    // still in the hook, `handleHowToPrepare` just re-expands it.
-    await userEvent.click(prompt)
+    // ...and the view generates the new meal's tips with a real second POST
+    // rather than replaying the previous meal's. This is the assertion that
+    // pins `cancelTips()`: with the stale object still in the hook, the view
+    // would show it and never ask, since it generates only when it has none.
     await body.findByText(/wok for the stir-fry/i, undefined, ROUND_TRIP)
+    await expect(body.queryByText(/roasting tin/i)).not.toBeInTheDocument()
     await expect(swapTipsRequests).toBe(2)
 
     // The suggestions list is stale for the same reason and at the same
@@ -543,10 +593,9 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
     const canvas = within(canvasElement)
     const body = within(document.body)
 
-    // Generate tips for the planned meal, so there is something to lose.
+    // Opening the planned meal generates its tips, so there is something to lose.
     await expect(canvas.getByText('6 servings')).toBeInTheDocument()
     await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
-    await userEvent.click(await body.findByRole('button', { name: /how to prepare/i }))
     await body.findByText(/roasting tin/i, undefined, ROUND_TRIP)
     await expect(reselectTipsRequests).toBe(1)
 

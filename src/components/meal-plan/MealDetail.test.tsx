@@ -193,3 +193,24 @@ describe('MealDetail ingredient rows (HON-932)', () => {
     expect(row.textContent).toMatch(/^\d[\d,.]*\s?(g|\b)/)
   })
 })
+
+describe('MealDetail Done cooking (HON-933)', () => {
+  it('renders Done cooking only when the caller passes the handler', async () => {
+    const onDoneCooking = vi.fn()
+    const { rerender } = render(
+      <MealDetail meal={meal} householdSize={4} onHowToPrepare={vi.fn()} />,
+    )
+    expect(screen.queryByRole('button', { name: 'Done cooking' })).not.toBeInTheDocument()
+
+    rerender(
+      <MealDetail
+        meal={meal}
+        householdSize={4}
+        onHowToPrepare={vi.fn()}
+        onDoneCooking={onDoneCooking}
+      />,
+    )
+    screen.getByRole('button', { name: 'Done cooking' }).click()
+    expect(onDoneCooking).toHaveBeenCalledTimes(1)
+  })
+})

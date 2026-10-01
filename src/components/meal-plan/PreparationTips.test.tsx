@@ -183,3 +183,79 @@ describe('PreparationSteps', () => {
     })
   })
 })
+
+// The cook view's steps are toggles: tap to mark done, the first one not done
+// is the current one (HON-933).
+describe('PreparationSteps progress', () => {
+  function renderSteps(doneSteps: Set<number>, onToggleStep = vi.fn()) {
+    render(
+      <PreparationSteps
+        tips={sampleTips}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        doneSteps={doneSteps}
+        onToggleStep={onToggleStep}
+      />,
+    )
+    return onToggleStep
+  }
+  const step = (name: string) => screen.getByRole('button', { name })
+
+  it('renders each step as a toggle, the first one current', () => {
+    renderSteps(new Set())
+    expect(step('Chop vegetables')).toHaveAttribute('aria-pressed', 'false')
+    expect(step('Chop vegetables')).toHaveAttribute('data-current')
+    expect(step('Heat oil in pan')).not.toHaveAttribute('data-current')
+  })
+
+  it('marks done steps pressed and muted, and moves current to the next', () => {
+    renderSteps(new Set([0]))
+    expect(step('Chop vegetables')).toHaveAttribute('aria-pressed', 'true')
+    expect(within(step('Chop vegetables')).getByText('Chop vegetables')).toHaveClass(
+      'text-muted-foreground',
+    )
+    expect(step('Chop vegetables')).not.toHaveAttribute('data-current')
+    expect(step('Heat oil in pan')).toHaveAttribute('data-current')
+  })
+
+  it('highlights nothing once every step is done', () => {
+    const { container } = render(
+      <PreparationSteps
+        tips={sampleTips}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        doneSteps={new Set([0, 1, 2])}
+        onToggleStep={vi.fn()}
+      />,
+    )
+    expect(container.querySelector('[data-current]')).toBeNull()
+  })
+
+  it('reports the tapped step by index', async () => {
+    const onToggleStep = renderSteps(new Set())
+    await userEvent.click(step('Heat oil in pan'))
+    expect(onToggleStep).toHaveBeenCalledWith(1)
+  })
+
+  it('keeps the household’s own notes as plain text', () => {
+    render(
+      <PreparationSteps
+        tips={sampleTips}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        preparationNotes="Use extra garlic"
+        onToggleStep={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Use extra garlic' })).toBeNull()
+    expect(screen.getAllByRole('button', { pressed: false })).toHaveLength(3)
+  })
+
+  it('says the steps are being written while loading', () => {
+    render(<PreparationSteps tips={null} isLoading={true} error={null} onRetry={vi.fn()} />)
+    expect(screen.getByText('Writing the steps…')).toBeInTheDocument()
+  })
+})

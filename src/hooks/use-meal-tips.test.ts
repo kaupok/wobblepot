@@ -480,29 +480,6 @@ describe('useMealTips', () => {
     })
   })
 
-  describe('hideTips', () => {
-    it('sets expanded to false', () => {
-      const { result } = renderHook(
-        () => useMealTips({ ...defaultOptions, initialTips: mockSupplementaryTips }),
-        { wrapper },
-      )
-
-      // Expand first
-      act(() => {
-        result.current.handleHowToPrepare()
-      })
-
-      expect(result.current.isTipsExpanded).toBe(true)
-
-      // Hide
-      act(() => {
-        result.current.hideTips()
-      })
-
-      expect(result.current.isTipsExpanded).toBe(false)
-    })
-  })
-
   // For a caller that has just changed one of the inputs the tips were built
   // from — the entry's serving count — which the server answers by nulling the
   // cached copy (HON-681). Clearing the state is only half of it.

@@ -195,6 +195,7 @@
       "note": "Märkus",
       "swap": "Vaheta",
       "clear": "Eemalda",
+      "notCookedYet": "Pole veel valmis",
       "moreActions": "Rohkem toiminguid: {name}",
       "rate": "Hinda",
       "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
@@ -282,6 +283,7 @@
       "staplesPrefix": "Põhitooted: {list}",
       "viewSource": "Vaata algset retsepti",
       "howToPrepare": "Kuidas valmistada",
+      "doneCooking": "Söök on valmis",
       "ariaDetailsFor": "„{mealName}\" üksikasjad"
     },
     "tips": {
@@ -291,6 +293,7 @@
       "tip": "Nõuanne",
       "userNotes": "Sinu märkused",
       "retry": "Proovi uuesti",
+      "generating": "Koostan juhiseid…",
       "errors": {
         "unauthorized": "Palun logi sisse, et valmistusjuhiseid näha.",
         "noHousehold": "Valmistusjuhiste saamiseks pead kuuluma leibkonda.",

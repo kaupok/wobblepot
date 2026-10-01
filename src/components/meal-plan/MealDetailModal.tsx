@@ -19,7 +19,7 @@ import { MealImage } from './MealImage'
 import { mealHueStyle, mealTintHue } from './MealImageCard'
 import { NoteEditor } from './NoteEditor'
 import type { MealStatus } from './StatusSelect'
-import type { MealData, PantryIngredient } from './types'
+import type { MealData, PantryIngredient, StructuredTips } from './types'
 
 export interface MealDetailModalHandle {
   /**
@@ -27,6 +27,11 @@ export interface MealDetailModalHandle {
    * at a different meal. Called by `MealCard`'s `onSwapComplete` (HON-682).
    */
   resetForSwap: () => void
+  /**
+   * Drop the tips the server just nulled when this entry left `completed`
+   * (the entry PATCH route). Called by `MealCard` on that status change.
+   */
+  dropTips: () => void
 }
 
 interface MealDetailModalProps {
@@ -43,6 +48,22 @@ interface MealDetailModalProps {
   onNoteChange?: (note: string | null) => void
   servingOverride?: number | null
   onServingOverrideChange?: (servingOverride: number | null) => void
+  /**
+   * The entry's cached tips, as the server loaded them. Seeds the steps on
+   * first render so a cached entry needs no request. Read once: a later
+   * `router.refresh()` cannot bring back tips a swap or serving change dropped.
+   */
+  initialTips?: StructuredTips | null
+  /**
+   * Generate the steps when the view opens, rather than behind "How to
+   * prepare" — for a planned entry somebody is about to cook (HON-933).
+   */
+  generateOnOpen?: boolean
+  /**
+   * "Done cooking" was chosen. Called once the view has closed, so whatever
+   * the caller opens next never stacks on it. Omit to hide the button.
+   */
+  onDoneCooking?: () => void
   ref?: Ref<MealDetailModalHandle>
 }
 
@@ -59,6 +80,9 @@ export function MealDetailModal({
   onNoteChange,
   servingOverride,
   onServingOverrideChange,
+  initialTips = null,
+  generateOnOpen = false,
+  onDoneCooking,
   ref,
 }: MealDetailModalProps) {
   const router = useRouter()
@@ -77,12 +101,49 @@ export function MealDetailModal({
     fetchTips,
     handleHowToPrepare,
     cancelTips,
-  } = useMealTips({ planId, entryId })
+  } = useMealTips({ planId, entryId, initialTips })
   const { status: imageStatus, imageUrl, imageHue, cancelImage } = useMealImage({ meal, open })
   // A URL that no longer resolves is an absent image: the hero renders
   // nothing, and the panel drops the tint that came with it (as
   // `MealImageCard` does). Keyed by URL so a new image gets its own chance.
   const [brokenUrl, setBrokenUrl] = useState<string | null>(null)
+
+  // A planned entry's steps are just there (HON-933): generate them as the
+  // view opens, unless they are cached, already on their way, or failed. A
+  // failure stays until the user taps Retry, so reopening never loops on it.
+  // Tips dropped while the view is open — a serving change — come back for
+  // the new count the same way.
+  const needsTips = generateOnOpen && !tips && !tipsError
+  useEffect(() => {
+    if (open && needsTips && !isLoadingTips) void fetchTips()
+  }, [open, needsTips, isLoadingTips, fetchTips])
+
+  // Which steps the cook has ticked off. Lives here because `MealCard` keeps
+  // this component mounted, so the progress survives closing and reopening
+  // the view mid-recipe; not persisted, so a reload starts afresh. Tied to
+  // the tips object it was ticked against: new steps (a serving change, a
+  // swap) start unticked.
+  const [doneSteps, setDoneSteps] = useState<ReadonlySet<number>>(() => new Set())
+  const [doneStepsFor, setDoneStepsFor] = useState(tips)
+  if (doneStepsFor !== tips) {
+    setDoneStepsFor(tips)
+    setDoneSteps(new Set())
+  }
+  const handleToggleStep = useCallback((index: number) => {
+    setDoneSteps((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(index)) next.add(index)
+      return next
+    })
+  }, [])
+
+  // Set by "Done cooking", read as the view finishes closing: the caller's
+  // next dialog (the pantry deduction) opens only once this one is gone.
+  const doneCookingRef = useRef(false)
+  const handleDoneCooking = useCallback(() => {
+    doneCookingRef.current = true
+    onOpenChange(false)
+  }, [onOpenChange])
 
   // The cook view keeps the screen on while it is open (HON-932).
   useWakeLock(open)
@@ -199,6 +260,7 @@ export function MealDetailModal({
     () => ({
       resetForSwap: () => {
         cancelTips()
+        setDoneSteps(new Set())
         // Same trap for the image: its request is keyed by the old meal's id,
         // so it can never show under the new one, but it should not keep
         // running for a meal that is no longer on this entry.
@@ -209,6 +271,12 @@ export function MealDetailModal({
         // is open, since the server reverted the entry to the household size.
         setLocalServings(householdSize)
       },
+      // Leaving `completed` nulls the entry's cached tips server-side: they
+      // may be priced for a member count the household no longer has, since
+      // membership changes skip completed entries. The copy seeded from
+      // `initialTips` would otherwise survive here, and generate-on-open
+      // would never ask again.
+      dropTips: cancelTips,
     }),
     [cancelTips, cancelImage, householdSize],
   )
@@ -232,12 +300,20 @@ export function MealDetailModal({
           contentRef.current?.focus()
         }}
         // Back to the control that opened it, if it is still on the page.
+        // After "Done cooking", hand over to the caller from there: the view
+        // has unmounted, so a dialog it opens never stacks on this one, and
+        // that dialog's focus scope starts from the card.
         onCloseAutoFocus={(event) => {
           const target = returnFocusRef.current
           returnFocusRef.current = null
-          if (!target?.isConnected) return
-          event.preventDefault()
-          target.focus()
+          if (target?.isConnected) {
+            event.preventDefault()
+            target.focus()
+          }
+          if (doneCookingRef.current) {
+            doneCookingRef.current = false
+            onDoneCooking?.()
+          }
         }}
       >
         <DialogDescription className="sr-only">
@@ -307,11 +383,16 @@ export function MealDetailModal({
           togglingIds={togglingIngredientIds}
           optimisticOverrides={optimisticOverrides}
           tips={tips}
-          isLoadingTips={isLoadingTips}
+          // Skeletons from the first frame, not once the effect above has
+          // started the request: a planned entry never flashes "How to prepare".
+          isLoadingTips={isLoadingTips || needsTips}
           tipsError={tipsError}
           onRetryTips={fetchTips}
-          isTipsExpanded={isTipsExpanded}
+          isTipsExpanded={generateOnOpen || isTipsExpanded}
           onHowToPrepare={handleHowToPrepare}
+          doneSteps={doneSteps}
+          onToggleStep={handleToggleStep}
+          onDoneCooking={onDoneCooking ? handleDoneCooking : undefined}
         />
       </DialogContent>
     </Dialog>
