@@ -172,6 +172,42 @@ describe('qualifiers stay inside their group', () => {
   })
 })
 
+describe('a false friend excuses only the word it is (PR #981 review)', () => {
+  it.each(['coconut almond milk', 'peanut cashew sauce', 'kookos mandlid', 'nutmeg walnut'])(
+    'flags the nut after %s',
+    (ingredient) => {
+      expect(violates({ allergens: ['nuts'] }, ingredient)).toBe(true)
+    },
+  )
+
+  it('flags a nut in a meal name after a false friend', () => {
+    const rules = rulesForHousehold({ allergens: ['nuts'], dietaryType: null })
+    expect(findViolations(meal('Butternut pecan salad', 'lettuce'), rules)).toHaveLength(1)
+  })
+
+  it('does not let "veggie" excuse shellfish in a meal name', () => {
+    const rules = rulesForHousehold({ allergens: ['shellfish'], dietaryType: null })
+    expect(findViolations(meal('Veggie shrimp fried rice', 'rice'), rules)).toHaveLength(1)
+  })
+
+  it('reads Estonian "või" between two foods as "or", not butter', () => {
+    expect(violates({ allergens: ['dairy'] }, 'riis või kinoa')).toBe(false)
+    expect(violates({ dietaryType: 'vegan' }, 'riis või kinoa')).toBe(false)
+    expect(violates({ allergens: ['dairy'] }, 'riis või')).toBe(true)
+  })
+
+  it.each(['bechamel', 'béchamel sauce', 'beefsteak tomato', 'champagne vinegar'])(
+    'does not read %s as meat',
+    (ingredient) => {
+      expect(violates({ dietaryType: 'vegetarian' }, ingredient)).toBe(false)
+    },
+  )
+
+  it('still reads bechamel as dairy', () => {
+    expect(violates({ allergens: ['dairy'] }, 'bechamel')).toBe(true)
+  })
+})
+
 describe('false friends', () => {
   it.each([
     [{ allergens: ['fish'] }, 'kalamata oliivid'],
@@ -257,6 +293,11 @@ describe('false friends', () => {
 describe('findUnexcusedKeyword', () => {
   it('returns the earliest unexcused keyword', () => {
     expect(findUnexcusedKeyword('butter and milk', ['milk', 'butter'], [])).toBe('butter')
+  })
+
+  it('excuses a keyword inside a false friend without excusing the next word', () => {
+    expect(findUnexcusedKeyword('nutmeg', ['nut'], [], ['nutmeg'])).toBe(null)
+    expect(findUnexcusedKeyword('nutmeg walnut', ['nut', 'walnut'], [], ['nutmeg'])).toBe('walnut')
   })
 
   it('returns null when every keyword is excused', () => {

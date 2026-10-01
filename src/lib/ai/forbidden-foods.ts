@@ -24,28 +24,24 @@ export interface FoodGroup {
   /** Lower-case substrings, English and Estonian. */
   keywords: readonly string[]
   /**
-   * A keyword match is not a violation when one of these, starting a word,
-   * contains it or sits directly before it: "eggplant" for "egg",
-   * "vegan parmesan", "kaerahapukoor". The rule is `findUnexcusedKeyword`.
-   * Qualifiers belong to their group: "almond" excuses the milk in
-   * "almond milk" but must never excuse almonds for a nut allergy.
+   * Swap words: a keyword match is not a violation when one of these,
+   * starting a word, contains it or sits directly before it ("vegan
+   * parmesan", "kaerahapukoor", "almond milk"). The rule is
+   * `findUnexcusedKeyword`. Qualifiers belong to their group: "almond"
+   * excuses the milk in "almond milk" but never the almond for a nut allergy.
    */
   qualifiers: readonly string[]
+  /**
+   * Words that contain a keyword but are not the food ("eggplant", "nutmeg",
+   * "kalamata", "banaan" for "naan"). A false friend excuses only the
+   * keyword inside it, never the word after it, so "coconut almond milk"
+   * still fails a nut allergy where a qualifier would have let it through.
+   */
+  falseFriends?: readonly string[]
 }
 
 /** Words that make an animal product a plant-based swap. Safe for animal-derived groups only. */
-const PLANT_SWAP = [
-  'vegan',
-  'plant-based',
-  'plant based',
-  'plant',
-  'veggie',
-  'taimne',
-  'taimse',
-  'taimsed',
-  'taimset',
-  'taime',
-] as const
+const PLANT_SWAP = ['vegan', 'plant-based', 'plant based', 'taimne', 'taimse', 'taimsed', 'taimset']
 
 const MEAT: FoodGroup = {
   keywords: [
@@ -110,6 +106,7 @@ const MEAT: FoodGroup = {
   ],
   qualifiers: [
     ...PLANT_SWAP,
+    'veggie',
     'vegetarian',
     'meatless',
     'meat-free',
@@ -119,22 +116,30 @@ const MEAT: FoodGroup = {
     'tempeh',
     'seitan',
     'mushroom',
-    'champignon',
-    'graham',
-    'collard',
-    'chamomile',
-    'coconut meat',
-    "lamb's lettuce",
-    'lambs lettuce',
-    'gooseberr',
-    'kanamuna',
-    'kanapee',
     'soja',
     'seene',
     'lihata',
     'lihavaba',
     'taimetoit',
     'porgandi',
+  ],
+  falseFriends: [
+    'champignon',
+    'champagne',
+    'bechamel',
+    'béchamel',
+    'graham',
+    'chamomile',
+    'beefsteak tomato',
+    'collard',
+    'vegetable suet',
+    "lamb's lettuce",
+    'lambs lettuce',
+    'gooseberr',
+    'duck egg',
+    'coconut meat',
+    'kanamuna',
+    'kanapee',
   ],
 }
 
@@ -183,7 +188,8 @@ const FISH: FoodGroup = {
     'säga',
     'tilaapia',
   ],
-  qualifiers: [...PLANT_SWAP, 'fish-free', 'kalavaba', 'kalamata', 'lõhestatud', 'porgandi'],
+  qualifiers: [...PLANT_SWAP, 'fish-free', 'kalavaba', 'porgandi'],
+  falseFriends: ['kalamata', 'lõhestatud'],
 }
 
 const SHELLFISH: FoodGroup = {
@@ -222,7 +228,8 @@ const SHELLFISH: FoodGroup = {
     'mereand',
     'mereanni',
   ],
-  qualifiers: [...PLANT_SWAP, 'oyster mushroom', 'crab apple', 'austerseen'],
+  qualifiers: PLANT_SWAP,
+  falseFriends: ['oyster mushroom', 'crab apple', 'austerseen'],
 }
 
 const DAIRY: FoodGroup = {
@@ -292,6 +299,8 @@ const DAIRY: FoodGroup = {
   ],
   qualifiers: [
     ...PLANT_SWAP,
+    'plant',
+    'taime',
     'dairy-free',
     'dairy free',
     'non-dairy',
@@ -309,10 +318,6 @@ const DAIRY: FoodGroup = {
     'seed butter',
     'cocoa',
     'shea',
-    'butternut',
-    'butter bean',
-    'butter lettuce',
-    'cream of tartar',
     'piimavaba',
     'kaera',
     'soja',
@@ -323,9 +328,15 @@ const DAIRY: FoodGroup = {
     'maapähkli',
     'seesami',
     'kakao',
-    'sidruni',
-    'apelsini',
-    'laimi',
+  ],
+  falseFriends: [
+    'butternut',
+    'butter bean',
+    'butter lettuce',
+    'cream of tartar',
+    'sidrunikoor',
+    'apelsinikoor',
+    'laimikoor',
     'kooritud',
     'koorimata',
   ],
@@ -345,7 +356,6 @@ const EGGS: FoodGroup = {
   ],
   qualifiers: [
     ...PLANT_SWAP,
-    'eggplant',
     'eggless',
     'egg-free',
     'egg free',
@@ -353,13 +363,14 @@ const EGGS: FoodGroup = {
     'chia',
     'aquafaba',
     'munavaba',
-    'reggiano',
   ],
+  falseFriends: ['eggplant', 'veggie', 'reggiano'],
 }
 
 const HONEY: FoodGroup = {
   keywords: ['honey', 'mesi'],
-  qualifiers: [...PLANT_SWAP, 'honeydew', 'honeycrisp'],
+  qualifiers: PLANT_SWAP,
+  falseFriends: ['honeydew', 'honeycrisp'],
 }
 
 const NUTS: FoodGroup = {
@@ -389,22 +400,20 @@ const NUTS: FoodGroup = {
     'martsipan',
     'praliin',
   ],
-  qualifiers: [
-    'nut-free',
-    'nut free',
+  qualifiers: ['nut-free', 'nut free', 'pähklivaba'],
+  falseFriends: [
     'coconut',
     'nutmeg',
     'nutrition',
-    'minute',
-    'donut',
     'butternut',
     'doughnut',
+    'donut',
     'chestnut',
     'peanut',
-    'pähklivaba',
+    'minute',
     'maapähk',
-    'muskaat',
-    'kookos',
+    'muskaatpähk',
+    'kookospähk',
   ],
 }
 
@@ -502,14 +511,9 @@ const GLUTEN: FoodGroup = {
     'sojakaste',
   ],
   // Narrow on purpose: a qualifier also excuses the keyword right after it,
-  // so a bare "corn", "potato" or "küüslaugu" would pass cornbread, potato
-  // bread and garlic bread (küüslauguleib), which are made with wheat.
-  qualifiers: [
-    'gluten-free',
-    'gluten free',
-    'gluteenivaba',
-    'rice',
-    'riisi',
+  // so a bare "corn" or "potato" would pass cornbread and potato bread.
+  qualifiers: ['gluten-free', 'gluten free', 'gluteenivaba', 'rice', 'riisi'],
+  falseFriends: [
     'corn tortilla',
     'cornflour',
     'corn flour',
@@ -521,7 +525,7 @@ const GLUTEN: FoodGroup = {
     'chickpea pasta',
     'buckwheat flour',
     'buckwheat groats',
-    'tapioca',
+    'tapioca flour',
     'glass noodle',
     'pitaya',
     'maisijahu',
@@ -641,24 +645,30 @@ function spansOf(name: string, needle: string): Span[] {
 const startsWord = (name: string, i: number) => i === 0 || !/\p{L}/u.test(name[i - 1]!)
 
 /**
- * The first keyword in `name` that no qualifier excuses, or `null`. Expects
- * normalized (lower-case) input. A qualifier counts only where it starts a
- * word ("oat milk" is not in "goat milk"), and excuses a keyword it overlaps
- * ("eggplant", "kalamata") or that follows it after nothing but spaces
- * ("vegan parmesan", "kaerahapukoor"). An excused keyword excuses the next
- * one the same way, so "plant-based cream cheese" passes, while
- * "honey soy sauce", "coconut milk and butter" and "kalamata oliivid ja
- * parmesan" fail (HON-841).
+ * The first keyword in `name` that nothing excuses, or `null`. Expects
+ * normalized (lower-case) input.
+ *
+ * A false friend excuses a keyword it wholly contains ("nutmeg", "kalamata")
+ * and nothing else. A qualifier counts only where it starts a word ("oat
+ * milk" is not in "goat milk"), and excuses a keyword it overlaps or that
+ * follows it after nothing but spaces ("vegan parmesan", "kaerahapukoor").
+ * An excused keyword excuses the next one the same way, so "plant-based
+ * cream cheese" passes, while "honey soy sauce", "coconut milk and butter"
+ * and "kalamata oliivid ja parmesan" fail (HON-841).
  */
 export function findUnexcusedKeyword(
   name: string,
   keywords: readonly string[],
   qualifiers: readonly string[],
+  falseFriends: readonly string[] = [],
 ): string | null {
+  const friends = falseFriends.flatMap((f) => spansOf(name, f))
   const covered = qualifiers.flatMap((q) =>
     spansOf(name, q).filter((s) => startsWord(name, s.start)),
   )
-  let pending = keywords.flatMap((kw) => spansOf(name, kw).map((s) => ({ ...s, kw })))
+  let pending = keywords
+    .flatMap((kw) => spansOf(name, kw).map((s) => ({ ...s, kw })))
+    .filter((hit) => !friends.some((f) => f.start <= hit.start && hit.end <= f.end))
   const excuses = (c: Span, hit: Span) =>
     c.start <= hit.start && (hit.start < c.end || /^\s*$/.test(name.slice(c.end, hit.start)))
 
@@ -687,11 +697,24 @@ export interface FoodViolation {
 /** The parts of a meal the check reads. */
 type CheckedMeal = { name: string; ingredients: readonly { name: string }[] }
 
+/**
+ * Estonian "või" is both butter and "or": "riis või kinoa" is rice or
+ * quinoa. Each alternative is checked on its own, so the conjunction never
+ * reads as butter while a lone "või" still does.
+ */
+const ESTONIAN_OR = /\s+või\s+/u
+
 function firstHit(text: string, rule: ForbiddenFoodRule): string | null {
-  const name = normalizeFoodName(text)
-  for (const group of rule.groups) {
-    const keyword = findUnexcusedKeyword(name, group.keywords, group.qualifiers)
-    if (keyword) return keyword
+  for (const part of normalizeFoodName(text).split(ESTONIAN_OR)) {
+    for (const group of rule.groups) {
+      const keyword = findUnexcusedKeyword(
+        part,
+        group.keywords,
+        group.qualifiers,
+        group.falseFriends,
+      )
+      if (keyword) return keyword
+    }
   }
   return null
 }
