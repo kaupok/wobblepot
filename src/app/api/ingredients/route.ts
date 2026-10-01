@@ -6,6 +6,8 @@ import { Prisma } from '@/generated/prisma/client'
 import type { IngredientCategory, Unit } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 import { getHouseholdMembership } from '@/lib/household'
+import { ingredientNameMatchSql } from '@/lib/i18n/ingredient-search-sql'
+import { resolveLocale } from '@/lib/i18n/resolve-locale'
 
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 50
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
     // The similarity() function returns a value between 0 and 1
     // We filter results with similarity >= threshold and order by relevance
     const categoryFilter = category
-      ? Prisma.sql`AND category = ${category}::"IngredientCategory"`
+      ? Prisma.sql`AND i.category = ${category}::"IngredientCategory"`
       : Prisma.empty
 
     // Offer global ingredients and the caller's own household's, never another
@@ -60,21 +62,27 @@ export async function GET(request: NextRequest) {
     const membership = await getHouseholdMembership(session.user.id)
     const householdId = membership?.householdId ?? null
 
+    // Match and return the name the household sees on screen, not only the
+    // English one (HON-911). The household's locale, never Accept-Language.
+    const locale = resolveLocale({ householdLocale: membership?.household.locale })
+    const match = ingredientNameMatchSql(search, locale)
+
     const ingredients = await prisma.$queryRaw<IngredientSearchResult[]>`
       SELECT
-        id,
-        name,
-        category,
-        "defaultUnit",
-        "gramsPerPiece",
-        calories,
-        protein,
-        carbs,
-        fat,
-        similarity(name, ${search}) as similarity
-      FROM "ingredient"
-      WHERE similarity(name, ${search}) >= ${SIMILARITY_THRESHOLD}
-        AND ("householdId" IS NULL OR "householdId" = ${householdId}::text)
+        i.id,
+        ${match.displayName} as name,
+        i.category,
+        i."defaultUnit",
+        i."gramsPerPiece",
+        i.calories,
+        i.protein,
+        i.carbs,
+        i.fat,
+        ${match.score} as similarity
+      FROM "ingredient" i
+      ${match.join}
+      WHERE ${match.score} >= ${SIMILARITY_THRESHOLD}
+        AND (i."householdId" IS NULL OR i."householdId" = ${householdId}::text)
       ${categoryFilter}
       ORDER BY similarity DESC, name ASC
       LIMIT ${limit}

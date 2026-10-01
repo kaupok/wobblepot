@@ -6,6 +6,8 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { ingredientNameMatchSql } from '@/lib/i18n/ingredient-search-sql'
+import { resolveLocale } from '@/lib/i18n/resolve-locale'
 
 const AUTO_MATCH_THRESHOLD = 0.4
 
@@ -82,21 +84,20 @@ export async function POST(request: Request) {
   }
 
   // Auto-match against ingredient database: global ingredients and this
-  // household's own, never another household's (HON-889)
+  // household's own, never another household's (HON-889). The household types
+  // names in its own language, so translated names match too (HON-911).
   let matchedIngredientId: string | null = null
+  const match = ingredientNameMatchSql(name, resolveLocale({ householdLocale: household.locale }))
 
   try {
-    const matches = await prisma.$queryRaw<
-      { id: string; name: string; category: string; similarity: number }[]
-    >`
+    const matches = await prisma.$queryRaw<{ id: string; similarity: number }[]>`
       SELECT
-        id,
-        name,
-        category,
-        similarity(name, ${name}) as similarity
-      FROM "ingredient"
-      WHERE similarity(name, ${name}) >= ${AUTO_MATCH_THRESHOLD}
-        AND ("householdId" IS NULL OR "householdId" = ${household.id})
+        i.id,
+        ${match.score} as similarity
+      FROM "ingredient" i
+      ${match.join}
+      WHERE ${match.score} >= ${AUTO_MATCH_THRESHOLD}
+        AND (i."householdId" IS NULL OR i."householdId" = ${household.id})
       ORDER BY similarity DESC
       LIMIT 1
     `

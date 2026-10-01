@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
+import { Prisma } from '@/generated/prisma/client'
 import { GET } from './route'
 
 vi.mock('next/headers', () => ({
@@ -107,6 +108,26 @@ function sampleMeal(overrides: Record<string, unknown> = {}) {
 
 function createRequest(url = 'http://localhost/api/meals') {
   return new NextRequest(url)
+}
+
+const mockEtMembership = {
+  ...mockMembership,
+  household: { ...mockMembership.household, locale: 'et' },
+}
+
+/** The fuzzy search's SQL text, with nested `Prisma.sql` fragments flattened in. */
+function searchQuery() {
+  const [strings, ...values] = mockQueryRaw.mock.calls[0] as unknown as [
+    TemplateStringsArray,
+    ...unknown[],
+  ]
+  const query = Prisma.sql(strings, ...values)
+  return { sql: query.strings.join('?').replace(/\s+/g, ' '), values: query.values }
+}
+
+/** A meal row as the translated-order name query selects it. */
+function nameRow(id: string, name: string, etName?: string) {
+  return { id, name, translations: etName ? [{ locale: 'et', name: etName }] : [] }
 }
 
 describe('GET /api/meals', () => {
@@ -427,6 +448,99 @@ describe('GET /api/meals', () => {
 
     const whereArg = mockMealFindMany.mock.calls[0]?.[0]?.where as { AND: unknown[] }
     expect(whereArg.AND).toContainEqual({ deletedAt: null })
+  })
+
+  it('searches English names only, with no translation join, for an English household', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockQueryRaw.mockResolvedValue([] as never)
+    mockMealCount.mockResolvedValue(0)
+    mockMealFindMany.mockResolvedValue([])
+
+    await GET(createRequest('http://localhost/api/meals?search=chicken'))
+
+    const { sql } = searchQuery()
+    expect(sql).not.toContain('_translation')
+    expect(sql).toContain('similarity(m.name, ?) >= ? OR word_similarity(?, m.name) >= ?')
+  })
+
+  // HON-911: an Estonian household searches and browses by the names it sees.
+  describe('for a household on a non-default locale', () => {
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(mockEtMembership as never)
+    })
+
+    it("matches the meal's and its ingredients' translated names in search", async () => {
+      mockQueryRaw.mockResolvedValue([{ id: 'meal-1', similarity: 1 }] as never)
+      mockMealCount.mockResolvedValue(1)
+      mockMealFindMany.mockResolvedValue([
+        sampleMeal({ translations: [{ locale: 'et', name: 'Kanawokk' }] }),
+      ] as never)
+
+      const response = await GET(createRequest('http://localhost/api/meals?search=kanawokk'))
+      const data = await response.json()
+
+      const { sql, values } = searchQuery()
+      expect(sql).toContain(
+        'LEFT JOIN "meal_translation" mt ON mt."mealId" = m.id AND mt.locale = ?',
+      )
+      expect(sql).toContain(
+        'LEFT JOIN "ingredient_translation" it ON it."ingredientId" = i.id AND it.locale = ?',
+      )
+      expect(sql).toContain('similarity(mt.name, ?) >= ? OR word_similarity(?, mt.name) >= ?')
+      expect(sql).toContain('similarity(it.name, ?) >= ? OR word_similarity(?, it.name) >= ?')
+      expect(values).toContain('et')
+      expect(values).toContain('kanawokk')
+      expect(data.meals[0].name).toBe('Kanawokk')
+    })
+
+    it('orders the alphabetical list by the Estonian names in Estonian order', async () => {
+      mockMealCount.mockResolvedValue(4)
+      // First call: the id/name pass that picks the page. In English order
+      // "Apple pie" would come first.
+      mockMealFindMany.mockResolvedValueOnce([
+        nameRow('meal-apple', 'Apple pie', 'Õunakook'),
+        nameRow('meal-salmon', 'Salmon', 'Lõhe'),
+        nameRow('meal-zucchini', 'Zucchini fritters', 'Suvikõrvitsapannkoogid'),
+        // A household meal has no translation and sorts by its own name
+        nameRow('meal-custom', 'Chicken wok'),
+      ] as never)
+      // Second call: the full rows for the page, in arbitrary database order.
+      mockMealFindMany.mockResolvedValueOnce([
+        sampleMeal({ id: 'meal-apple', translations: [{ locale: 'et', name: 'Õunakook' }] }),
+        sampleMeal({
+          id: 'meal-zucchini',
+          translations: [{ locale: 'et', name: 'Suvikõrvitsapannkoogid' }],
+        }),
+      ] as never)
+
+      // Estonian order is Chicken wok, Lõhe, Suvikõrvitsapannkoogid, Õunakook
+      // (õ sorts after w), so the page at offset 2 is the last two.
+      const response = await GET(createRequest('http://localhost/api/meals?limit=2&offset=2'))
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.meals.map((m: { name: string }) => m.name)).toEqual([
+        'Suvikõrvitsapannkoogid',
+        'Õunakook',
+      ])
+      expect(data.total).toBe(4)
+      expect(data.hasMore).toBe(false)
+
+      const namePass = mockMealFindMany.mock.calls[0]?.[0]
+      expect(namePass?.select).toMatchObject({
+        id: true,
+        name: true,
+        translations: { where: { locale: 'et' } },
+      })
+      const pageFetch = mockMealFindMany.mock.calls[1]?.[0]
+      expect(pageFetch?.where).toEqual({
+        AND: [namePass?.where, { id: { in: ['meal-zucchini', 'meal-apple'] } }],
+      })
+      expect(pageFetch).toMatchObject({ skip: 0, take: undefined })
+      expect(pageFetch?.orderBy).toBeUndefined()
+    })
   })
 
   it('returns 500 when Prisma throws', async () => {

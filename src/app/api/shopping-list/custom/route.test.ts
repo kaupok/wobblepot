@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { Prisma } from '@/generated/prisma/client'
 import { POST } from './route'
 
 vi.mock('next/headers', () => ({
@@ -53,8 +54,22 @@ const mockMembership = {
     id: 'household-123',
     name: 'Test Household',
     timezone: 'Europe/Tallinn',
+    locale: 'en',
     preferences: null,
   },
+}
+
+/**
+ * The auto-match's SQL text and values, with nested `Prisma.sql` fragments
+ * flattened in.
+ */
+function autoMatchQuery() {
+  const [strings, ...values] = mockQueryRaw.mock.calls[0] as unknown as [
+    TemplateStringsArray,
+    ...unknown[],
+  ]
+  const query = Prisma.sql(strings, ...values)
+  return { sql: query.strings.join('?'), values: query.values }
 }
 
 function createRequest(body?: unknown, bodyString?: string) {
@@ -249,13 +264,40 @@ describe('POST /api/shopping-list/custom', () => {
 
     await POST(createRequest({ name: 'Salt' }))
 
-    // A tagged-template call: the SQL fragments, then the interpolated values.
-    const [strings, ...values] = mockQueryRaw.mock.calls[0] as unknown as [
-      TemplateStringsArray,
-      ...unknown[],
-    ]
-    expect(strings.join('?')).toMatch(/\("householdId" IS NULL OR "householdId" = \?\)/)
+    const { sql, values } = autoMatchQuery()
+    expect(sql).toMatch(/\(i\."householdId" IS NULL OR i\."householdId" = \?\)/)
     expect(values).toContain('household-123')
+    // English household: the English name alone, no translation join
+    expect(sql).not.toContain('ingredient_translation')
+    expect(sql).toContain('WHERE similarity(i.name, ?) >= ?')
+  })
+
+  // HON-911: an Estonian household types item names in Estonian.
+  it("matches an Estonian household's item against translated ingredient names", async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockMembership.household, locale: 'et' },
+    } as never)
+    mockFindUnique.mockResolvedValue(null)
+    mockQueryRaw.mockResolvedValue([{ id: 'ing-potato', similarity: 1 }] as never)
+    mockCreate.mockResolvedValue({ id: 'custom-new', ingredientId: 'ing-potato' } as never)
+
+    const response = await POST(createRequest({ name: 'Kartul' }))
+
+    expect(response.status).toBe(201)
+    const { sql, values } = autoMatchQuery()
+    expect(sql).toContain(
+      'LEFT JOIN "ingredient_translation" t ON t."ingredientId" = i.id AND t.locale = ?',
+    )
+    expect(sql).toContain(
+      'WHERE GREATEST(similarity(i.name, ?), COALESCE(similarity(t.name, ?), 0)) >= ?',
+    )
+    expect(values).toEqual(expect.arrayContaining(['et', 'Kartul', 0.4, 'household-123']))
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: { householdId: 'household-123', name: 'Kartul', ingredientId: 'ing-potato' },
+      include: expect.any(Object),
+    })
   })
 
   it('swallows fuzzy search failure and creates item without match', async () => {
