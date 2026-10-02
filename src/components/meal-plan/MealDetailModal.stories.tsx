@@ -180,12 +180,13 @@ async function assertPhone(): Promise<void> {
   await expect(getComputedStyle(dialog).borderTopLeftRadius).toBe('0px')
   const title = within(dialog).getByRole('heading', { level: 2, name: mealFixture.name })
   await expect(getComputedStyle(title).fontSize).toBe('24px')
-  // One column: nutrition under the ingredients, then the steps (HON-965).
-  const steps = within(dialog).getByTestId('cook-view-steps')
+  // One column: the hero first, although it sits in the steps column in the
+  // DOM (HON-966), then nutrition under the ingredients, then the steps (HON-965).
+  const hero = within(dialog).getByTestId('meal-image-hero')
+  await expect(box(hero).bottom).toBeLessThanOrEqual(box(title).top)
+  const steps = within(dialog).getByTestId('cook-view-steps-body')
   const nutrition = within(dialog).getByTestId('cook-view-nutrition')
-  await expect(nutrition.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-    steps.getBoundingClientRect().top,
-  )
+  await expect(box(nutrition).bottom).toBeLessThanOrEqual(box(steps).top)
   // A 44px+ close, always there.
   const close = within(dialog).getByRole('button', { name: 'Close' })
   await expect(close.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
@@ -234,8 +235,19 @@ async function assertColumns(): Promise<void> {
 
   const step = within(steps).getByText(tips.steps![0]!)
   await expect(getComputedStyle(step).fontSize).toBe('22px')
-  // With a hero, "Steps" heads its column, clear of the close button (HON-951).
+  // The title heads the left column; the hero heads the steps column, then
+  // "You'll need", then "Steps" (HON-966).
   steps.scrollTop = 0
+  await expect(box(title).top).toBeLessThan(
+    box(within(left).getByRole('heading', { name: /^Ingredients/ })).top,
+  )
+  const hero = within(steps).getByTestId('meal-image-hero')
+  await expect(box(hero).top).toBe(box(steps).top)
+  await expect(hero.offsetWidth).toBe(steps.clientWidth)
+  const equipment = within(steps).getByRole('heading', { name: "You'll need" })
+  const stepsHeading = within(steps).getByRole('heading', { name: 'Steps' })
+  await expect(box(hero).bottom).toBeLessThanOrEqual(box(equipment).top)
+  await expect(box(equipment).bottom).toBeLessThanOrEqual(box(stepsHeading).top)
   await assertStepsClearOfClose(dialog)
   await assertNoSmallText(dialog)
   await assertDisclaimerUnderMacros(dialog)
@@ -778,10 +790,13 @@ export const DoneCookingPhone: Story = {
     const dialog = await findDialog()
     const done = within(dialog).getByRole('button', { name: 'Done cooking' })
     const nutrition = within(dialog).getByTestId('cook-view-nutrition')
-    const steps = within(dialog).getByTestId('cook-view-steps')
-    await expect(nutrition.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-      steps.getBoundingClientRect().top,
-    )
+    const steps = within(dialog).getByTestId('cook-view-steps-body')
+    await expect(box(nutrition).bottom).toBeLessThanOrEqual(box(steps).top)
+    // "You'll need" sits directly above "Steps" (HON-966).
+    const equipment = within(steps).getByRole('heading', { name: "You'll need" })
+    const stepsHeading = within(steps).getByRole('heading', { name: 'Steps' })
+    await expect(equipment.parentElement?.nextElementSibling).toBe(stepsHeading)
+    await expect(box(equipment).bottom).toBeLessThanOrEqual(box(stepsHeading).top)
     const scroll = dialog.querySelector<HTMLElement>('[data-slot="cook-view-scroll"]')!
     const doneBottom = done.getBoundingClientRect().bottom
     const walker = document.createTreeWalker(scroll, NodeFilter.SHOW_TEXT)
@@ -860,14 +875,18 @@ export const EscapeInFieldKeepsViewOpen: Story = {
   play: async ({ args }) => {
     const dialog = await findDialog()
 
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Add note' }))
+    const more = within(dialog).getByRole('button', { name: `More actions: ${mealFixture.name}` })
+    await userEvent.click(more)
+    await userEvent.click(await body().findByRole('menuitem', { name: 'Add note' }))
     const note = await within(dialog).findByRole('textbox', { name: 'Meal note' })
     await waitFor(() => expect(note).toHaveFocus())
+    // The closing menu keeps its Escape layer through its 200ms exit
+    // animation; no hand is that fast, so wait it out.
+    await waitFor(() => expect(body().queryByRole('menu')).not.toBeInTheDocument())
     await userEvent.type(note, 'Half-typed')
     await pressEscape()
     await waitFor(() => expect(note).not.toBeInTheDocument())
-    await expect(within(dialog).getByRole('button', { name: 'Add note' })).toBeVisible()
-    await assertFocusInDialog()
+    await waitFor(() => expect(more).toHaveFocus())
 
     await userEvent.click(within(dialog).getByRole('button', { name: /serves 4/i }))
     const servings = await within(dialog).findByRole('textbox', { name: 'Number of servings' })
@@ -883,6 +902,80 @@ export const EscapeInFieldKeepsViewOpen: Story = {
     dialog.focus()
     await pressEscape()
     await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+  },
+}
+
+/**
+ * The note opens from the ⋯ menu on the title row (HON-966): "Add note"
+ * without one. The editor takes focus once the menu has closed, and Cancel
+ * hands it back to the trigger. The trigger is a 44px target, like every
+ * other in the view.
+ */
+export const NoteMenuAddNote: Story = {
+  name: 'Note menu: Add note',
+  args: { meal: tintedMeal, onNoteChange: fn() },
+  play: async ({ args }) => {
+    const dialog = await findDialog()
+    const more = within(dialog).getByRole('button', { name: `More actions: ${mealFixture.name}` })
+    await expect(box(more).height).toBeGreaterThanOrEqual(44)
+    await expect(box(more).width).toBeGreaterThanOrEqual(44)
+    // On the title row, beside the name, and no standalone button below it.
+    const title = within(dialog).getByRole('heading', { level: 2, name: mealFixture.name })
+    await expect(box(more).top).toBeLessThan(box(title).bottom)
+    await expect(box(more).left).toBeGreaterThanOrEqual(box(title).right)
+    await expect(within(dialog).queryByRole('button', { name: 'Add note' })).toBeNull()
+
+    await userEvent.click(more)
+    const item = await body().findByRole('menuitem', { name: 'Add note' })
+    await userEvent.click(item)
+    const note = await within(dialog).findByRole('textbox', { name: 'Meal note' })
+    await waitFor(() => expect(note).toHaveFocus())
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(note).not.toBeInTheDocument())
+    await waitFor(() => expect(more).toHaveFocus())
+    await expect(args.onNoteChange).not.toHaveBeenCalled()
+    await expect(args.onOpenChange).not.toHaveBeenCalled()
+  },
+}
+
+/** With a note the item reads "Edit note"; Save hands focus back to the trigger. */
+export const NoteMenuEditNote: Story = {
+  name: 'Note menu: Edit note',
+  args: {
+    meal: tintedMeal,
+    note: 'Kids loved this — double the garlic next time.',
+    onNoteChange: fn(),
+  },
+  parameters: {
+    msw: {
+      handlers: {
+        entry: [
+          http.patch('/api/meal-plans/:planId/entries/:entryId', () =>
+            HttpResponse.json({ ok: true }),
+          ),
+        ],
+      },
+    },
+  },
+  play: async ({ args }) => {
+    const dialog = await findDialog()
+    const more = within(dialog).getByRole('button', { name: `More actions: ${mealFixture.name}` })
+    await userEvent.click(more)
+    await expect(body().queryByRole('menuitem', { name: 'Add note' })).toBeNull()
+    await userEvent.click(await body().findByRole('menuitem', { name: 'Edit note' }))
+    const note = await within(dialog).findByRole('textbox', { name: 'Meal note' })
+    await waitFor(() => expect(note).toHaveFocus())
+    await expect(note).toHaveValue(args.note)
+
+    await userEvent.type(note, ' Add lemon zest.')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(args.onNoteChange).toHaveBeenCalledWith(
+        'Kids loved this — double the garlic next time. Add lemon zest.',
+      ),
+    )
+    await waitFor(() => expect(more).toHaveFocus())
   },
 }
 

@@ -12,7 +12,7 @@ describe('MealImage', () => {
 
     const img = screen.getByRole('img', { name: 'Lemon garlic chicken' })
     expect(img).toHaveAttribute('alt', 'Lemon garlic chicken')
-    expect(img).toHaveAttribute('sizes', '(min-width: 1024px) 40vw, 100vw')
+    expect(img).toHaveAttribute('sizes', '(min-width: 1024px) 60vw, 100vw')
   })
 
   it('puts the image on the meal tint, multiplied in and fading bottom-up', () => {
@@ -41,7 +41,7 @@ describe('MealImage', () => {
     const hero = screen.getByTestId('meal-image-hero')
     expect(hero).toHaveClass('w-full', 'aspect-3/2', 'max-h-hero')
     expect(hero.className).not.toMatch(/\brounded-/)
-    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 1024px) 40vw, 100vw')
+    expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 1024px) 60vw, 100vw')
   })
 
   it('reports a URL that fails to load, and renders nothing', () => {

@@ -9,15 +9,15 @@ import type { MealImageStatus } from '@/generated/prisma/enums'
 /**
  * Rendered width of the hero in the cook view (HON-932). Below `lg` the view is
  * the viewport and the hero spans it. From `lg` the view is a panel inset 24px
- * from the viewport, and the hero spans its left column, 2/5 of the panel:
- * 0.4 × (100vw − 48px), which `40vw` bounds from above.
+ * from the viewport, and the hero spans its steps column, 3/5 of the panel
+ * (HON-966): 0.6 × (100vw − 48px), which `60vw` bounds from above.
  *
  * At DPR 2 a phone picks the ~828w candidate and a 1440px desktop the 1200w
  * one; Next caps everything at the 1536px source (HON-748). The browser's
  * `naturalWidth` is density-corrected; load `currentSrc` into a `new Image()`
  * to see the file's real width.
  */
-const SIZES = '(min-width: 1024px) 40vw, 100vw'
+const SIZES = '(min-width: 1024px) 60vw, 100vw'
 
 /**
  * Full-bleed 3:2 geometry shared by the hero and its `generating` box: the

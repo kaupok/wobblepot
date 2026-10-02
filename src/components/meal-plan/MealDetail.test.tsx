@@ -185,7 +185,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
     expect(screen.queryByText(/You'll need/)).not.toBeInTheDocument()
   })
 
-  it('puts the equipment under the ingredients and the steps in the steps area', () => {
+  it('puts the equipment at the top of the steps area, directly above Steps', () => {
     render(
       <MealDetail
         meal={meal}
@@ -199,9 +199,91 @@ describe('MealDetail cook view layout (HON-932)', () => {
     const equipment = screen.getByRole('list', { name: "You'll need" })
     expect(within(equipment).getAllByRole('listitem')).toHaveLength(2)
     const steps = screen.getByTestId('cook-view-steps')
-    expect(steps).not.toContainElement(equipment)
+    expect(steps).toContainElement(equipment)
+    expect(screen.getByTestId('cook-view-left')).not.toContainElement(equipment)
+    // The same level as Steps (HON-966).
+    const heading = screen.getByRole('heading', { level: 3, name: "You'll need" })
+    const stepsHeading = within(steps).getByRole('heading', { level: 3, name: 'Steps' })
+    expect(heading.parentElement?.nextElementSibling).toBe(stepsHeading)
     expect(within(steps).getByText('Roast it')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'How to prepare' })).not.toBeInTheDocument()
+  })
+
+  it('renders nothing above Steps while the steps generate', () => {
+    render(
+      <MealDetail
+        meal={meal}
+        householdSize={4}
+        onHowToPrepare={vi.fn()}
+        isTipsExpanded
+        isLoadingTips
+      />,
+    )
+
+    const body = screen.getByTestId('cook-view-steps-body')
+    expect(body.firstElementChild).toBe(screen.getByRole('heading', { name: 'Steps' }))
+  })
+
+  it('puts the hero in the steps column, first on a phone (HON-966)', () => {
+    render(
+      <MealDetail
+        meal={meal}
+        householdSize={4}
+        image={<div role="img" aria-label="Lemon chicken" />}
+        title={<h2>Lemon chicken</h2>}
+        onHowToPrepare={vi.fn()}
+      />,
+    )
+
+    const steps = screen.getByTestId('cook-view-steps')
+    const hero = screen.getByRole('img', { name: 'Lemon chicken' })
+    expect(steps.firstElementChild).toContainElement(hero)
+    // Below `lg` both columns are `contents`, and the hero moves to the front.
+    expect(steps).toHaveClass('contents', 'lg:flex')
+    expect(steps.firstElementChild).toHaveClass('order-first', 'lg:order-none')
+    // From `lg` the title starts its column; with a hero, "Steps" needs no
+    // top padding of its own.
+    expect(screen.getByTestId('cook-view-steps-body')).not.toHaveClass('lg:pt-8')
+    expect(
+      screen.getByRole('heading', { name: 'Lemon chicken' }).closest('.lg\\:pt-8'),
+    ).not.toBeNull()
+  })
+
+  it('pads the steps to the title line without a hero (HON-951)', () => {
+    render(<MealDetail meal={meal} householdSize={4} onHowToPrepare={vi.fn()} />)
+
+    expect(screen.getByTestId('cook-view-steps-body')).toHaveClass('lg:pt-8')
+  })
+
+  it('keeps the hero without a steps area', () => {
+    render(
+      <MealDetail
+        meal={meal}
+        householdSize={4}
+        image={<div role="img" aria-label="Lemon chicken" />}
+      />,
+    )
+
+    expect(screen.getByRole('img', { name: 'Lemon chicken' })).toBeInTheDocument()
+    expect(screen.queryByTestId('cook-view-steps-body')).not.toBeInTheDocument()
+  })
+
+  it('puts the title actions on the title row', () => {
+    render(
+      <MealDetail
+        meal={meal}
+        householdSize={4}
+        title={<h2>Lemon chicken</h2>}
+        titleActions={<button type="button">More actions: Lemon chicken</button>}
+      />,
+    )
+
+    const title = screen.getByRole('heading', { name: 'Lemon chicken' })
+    const actions = screen.getByRole('button', { name: 'More actions: Lemon chicken' })
+    const row = title.parentElement?.parentElement
+    expect(row).toHaveClass('flex', 'justify-between')
+    expect(row).toContainElement(actions)
+    expect(actions.parentElement).toHaveClass('shrink-0')
   })
 
   it('renders the household notes in the steps area before tips are asked for', () => {

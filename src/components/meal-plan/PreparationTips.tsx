@@ -20,10 +20,11 @@ interface PreparationEquipmentProps {
 }
 
 /**
- * "You'll need", then one item per row, under the ingredients once tips exist
- * (HON-952). A cook scans it like the ingredients — is it on the counter or
- * not — so the rows take the ingredient rows' 18px. The heading is Section,
- * not Caption: nothing in the cook view goes below 16px.
+ * "You'll need", then one item per row, once tips exist (HON-952). It tops
+ * the steps column, above "Steps": it is what a cook sets out before step 1
+ * (HON-966). A cook scans it like the ingredients — is it on the counter or
+ * not — so the rows take the ingredient rows' 18px. The heading is the same
+ * level as Steps, Watch out and Tip.
  */
 export function PreparationEquipment({ equipment }: PreparationEquipmentProps) {
   const t = useTranslations('meal-plan.tips')
@@ -31,7 +32,7 @@ export function PreparationEquipment({ equipment }: PreparationEquipmentProps) {
   if (!equipment?.length) return null
   return (
     <div className="flex flex-col gap-3 text-base">
-      <Heading variant="section" as="h4" id={headingId}>
+      <Heading variant="h4" as="h3" id={headingId}>
         {t('equipment')}
       </Heading>
       <Ul variant="plain" aria-labelledby={headingId}>

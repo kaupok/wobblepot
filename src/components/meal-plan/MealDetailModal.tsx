@@ -6,8 +6,16 @@ import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
+import { MoreHorizontal, NotebookPen } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
+import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Heading } from '@/components/ui/typography'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
@@ -17,7 +25,7 @@ import { cn } from '@/lib/utils'
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
 import { mealHueStyle, mealTintHue } from './MealImageCard'
-import { NoteEditor } from './NoteEditor'
+import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import type { MealStatus } from './StatusSelect'
 import type { MealData, PantryIngredient, StructuredTips } from './types'
 
@@ -107,6 +115,7 @@ export function MealDetailModal({
   const router = useRouter()
   const tDetail = useTranslations('meal-plan.detail')
   const tServing = useTranslations('meal-plan.serving')
+  const tNote = useTranslations('meal-plan.noteEditor')
   const [localServings, setLocalServings] = useState(servingOverride ?? householdSize)
   const { togglingIngredientIds, optimisticOverrides, handleToggleAvailability } =
     useIngredientAvailability({
@@ -167,6 +176,41 @@ export function MealDetailModal({
   // The cook view keeps the screen on while it is open (HON-932).
   useWakeLock(open)
   const contentRef = useRef<HTMLDivElement>(null)
+
+  // The note opens from the title row's ⋯ menu or from the saved slip
+  // (HON-966). Controlled here, so `NoteEditor` shows no "Add note" button of
+  // its own.
+  const [isEditingNote, setIsEditingNote] = useState(false)
+  // `MealCard` keeps this component mounted, so an editor left open would
+  // otherwise greet the next opening. Closing the view drops the draft, as it
+  // did when the editor's own state unmounted with the panel.
+  if (!open && isEditingNote) setIsEditingNote(false)
+  const noteEditorRef = useRef<NoteEditorHandle>(null)
+  const moreActionsTriggerRef = useRef<HTMLButtonElement>(null)
+  // Set when the menu item is chosen, read once as the menu closes.
+  const noteRequestedRef = useRef(false)
+  // The textarea unmounts when the editor closes, and focus falls out of it.
+  // Return it to what opened the editor: the saved slip, or the ⋯ trigger
+  // (also the fallback when a cleared note leaves no slip). Only when focus
+  // fell to the body or the panel, where Radix's focus trap catches it: a
+  // save closes the editor when its request returns, and the user may have
+  // moved on by then.
+  const noteOpenerRef = useRef<'menu' | 'note' | null>(null)
+  const handleNoteEditingChange = useCallback((editing: boolean) => {
+    // The editor only asks to open from its saved slip; the menu item sets
+    // `isEditingNote` itself.
+    if (editing) noteOpenerRef.current = 'note'
+    setIsEditingNote(editing)
+  }, [])
+  useEffect(() => {
+    const opener = noteOpenerRef.current
+    if (isEditingNote || !opener) return
+    noteOpenerRef.current = null
+    const focused = document.activeElement
+    if (focused && focused !== document.body && focused !== contentRef.current) return
+    if (opener === 'note' && noteEditorRef.current?.focus()) return
+    moreActionsTriggerRef.current?.focus()
+  }, [isEditingNote])
   // The control that opened the view: the card's meal name. The dialog opens
   // from state, with no `DialogTrigger`, so Radix has nothing to return focus
   // to and drops it on `<body>` (CLAUDE.md → Focus management). Captured as
@@ -391,13 +435,59 @@ export function MealDetailModal({
               </Heading>
             </DialogTitle>
           }
+          // Actions on the meal sit on its title row (docs/DESIGN.md). `icon-lg`,
+          // not the cards' `icon-sm`: every target in the cook view is 44px.
+          // `modal={false}` so the editor can take focus once the menu closes
+          // (HON-946).
+          titleActions={
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  ref={moreActionsTriggerRef}
+                  variant="ghost"
+                  size="icon-lg"
+                  aria-label={tDetail('moreActions', { name: meal.name })}
+                >
+                  <MoreHorizontal aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                // Radix returns focus to the trigger as the menu closes, after
+                // `NoteEditor` has focused its textarea (HON-946). When the
+                // note was chosen, focus the textarea here instead: the menu's
+                // unmount is the last thing to move focus.
+                onCloseAutoFocus={(event) => {
+                  if (noteRequestedRef.current) {
+                    event.preventDefault()
+                    noteRequestedRef.current = false
+                    noteEditorRef.current?.focus()
+                  }
+                }}
+              >
+                <DropdownMenuItem
+                  onSelect={() => {
+                    noteRequestedRef.current = true
+                    noteOpenerRef.current = 'menu'
+                    setIsEditingNote(true)
+                  }}
+                >
+                  <NotebookPen aria-hidden="true" />
+                  {note ? tNote('editNote') : tNote('addNote')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
           note={
             <NoteEditor
+              ref={noteEditorRef}
               planId={planId}
               entryId={entryId}
               note={note ?? null}
               onNoteChange={onNoteChange}
               size="lg"
+              isEditing={isEditingNote}
+              onEditingChange={handleNoteEditingChange}
             />
           }
           householdSize={householdSize}
