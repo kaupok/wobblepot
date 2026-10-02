@@ -117,6 +117,22 @@ describe('CustomShoppingItem', () => {
     expect(onDelete).toHaveBeenCalledWith('custom-1')
   })
 
+  // Delete is a trash can, as on pantry rows; X means close/dismiss (HON-968).
+  it('renders a trash can, not an X, in the remove button', () => {
+    render(
+      <CustomShoppingItem
+        item={baseItem}
+        onToggle={vi.fn()}
+        onUnlink={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    const icon = screen.getByRole('button', { name: 'Remove Olive oil' }).querySelector('svg')
+    expect(icon).toHaveClass('lucide-trash')
+    expect(icon).not.toHaveClass('lucide-x')
+  })
+
   it('calls onUnlink when unlink button is clicked', async () => {
     const user = userEvent.setup()
     const onUnlink = vi.fn()

@@ -59,6 +59,9 @@ export const Default: Story = {
       const button = canvas.getByRole('button', { name })
       await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(32)
     }
+    // Delete is a trash can, as on pantry rows; X means close/dismiss (HON-968).
+    const removeIcon = canvas.getByRole('button', { name: /remove/i }).querySelector('svg')
+    await expect(removeIcon).toHaveClass('lucide-trash')
   },
 }
 
