@@ -136,27 +136,28 @@ describe('MealCardBase', () => {
     })
   })
 
-  describe('own-recipe badge', () => {
-    it("marks the household's own recipe after the protein badge (HON-948)", () => {
+  describe('own-recipe icon', () => {
+    it("marks the household's own recipe after its name, not in the badge row (HON-973)", () => {
       const { container } = render(<MealCardBase meal={{ ...mockMeal, isCustom: true }} />)
 
-      const badge = screen.getByText('My recipe').closest('[data-slot="badge"]')
-      expect(badge).toHaveAttribute('title', 'My recipe')
+      const icon = screen.getByRole('button', { name: 'My recipe' })
+      expect(icon).not.toHaveAttribute('title')
+      expect(screen.getByRole('heading', { name: /Salmon Rice Bowl/ })).toContainElement(icon)
       const badges = [...container.querySelectorAll('[data-slot="badge"]')]
-      expect(badges.at(-1)).toBe(badge)
-      expect(badges.at(-2)).toHaveTextContent('Fish')
+      expect(badges.some((badge) => badge.contains(icon))).toBe(false)
+      expect(badges.at(-1)).toHaveTextContent('Fish')
     })
 
-    it('shows no badge for a library meal', () => {
+    it('shows no icon for a library meal', () => {
       render(<MealCardBase meal={{ ...mockMeal, isCustom: false }} />)
 
-      expect(screen.queryByText('My recipe')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'My recipe' })).not.toBeInTheDocument()
     })
 
     it("leaves it out with ownRecipe='hide', as on the My recipes page", () => {
       render(<MealCardBase meal={{ ...mockMeal, isCustom: true }} ownRecipe="hide" />)
 
-      expect(screen.queryByText('My recipe')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'My recipe' })).not.toBeInTheDocument()
     })
   })
 

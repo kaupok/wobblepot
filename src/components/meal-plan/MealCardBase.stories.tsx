@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { expect, userEvent, within } from 'storybook/test'
 import { Heart, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CardContent } from '@/components/ui/card'
@@ -165,8 +165,8 @@ export const MealTypesHidden: Story = {
 
 /**
  * One of the household's own recipes, as the meal selector shows it among
- * library meals: the compact "My recipe" badge after the protein badge
- * (HON-948).
+ * library meals: the bare "My recipe" icon after the name, with a tooltip,
+ * not a pill in the badge row (HON-973).
  */
 export const OwnRecipe: Story = {
   args: {
@@ -174,12 +174,19 @@ export const OwnRecipe: Story = {
     mealTypes: 'hide',
   },
   play: async ({ canvasElement }) => {
-    const badge = within(canvasElement)
-      .getByText('My recipe')
-      .closest<HTMLElement>('[data-slot="badge"]')!
-    await expect(badge).toHaveAttribute('title', 'My recipe')
-    const row = [...badge.parentElement!.querySelectorAll('[data-slot="badge"]')]
-    await expect(row.at(-1)).toBe(badge)
+    const canvas = within(canvasElement)
+    const icon = canvas.getByRole('button', { name: 'My recipe' })
+    await expect(icon).not.toHaveAttribute('title')
+    await expect(icon.closest('[data-slot="badge"]')).toBeNull()
+    const heading = canvas.getByRole('heading')
+    await expect(heading).toContainElement(icon)
+    await expect(
+      heading.getBoundingClientRect().bottom - icon.getBoundingClientRect().bottom,
+    ).toBeLessThan(icon.getBoundingClientRect().height)
+
+    await userEvent.tab()
+    await expect(icon).toHaveFocus()
+    await expect(await within(document.body).findByRole('tooltip')).toHaveTextContent('My recipe')
   },
 }
 
@@ -190,7 +197,9 @@ export const OwnRecipeHidden: Story = {
     ownRecipe: 'hide',
   },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).queryByText('My recipe')).not.toBeInTheDocument()
+    await expect(
+      within(canvasElement).queryByRole('button', { name: 'My recipe' }),
+    ).not.toBeInTheDocument()
   },
 }
 
@@ -289,15 +298,13 @@ export const PantryOnTint: Story = {
   ],
 }
 
-/** An own recipe on the selector's tinted card: the chip colour, no ring (HON-948). */
+/** An own recipe on the selector's tinted card: the icon after the name (HON-973). */
 export const OwnRecipeOnTint: Story = {
   args: { meal: { ...tintedMeal, isCustom: true }, mealTypes: 'hide' },
   decorators: PantryOnTint.decorators,
   play: async ({ canvasElement }) => {
-    const badge = within(canvasElement)
-      .getByText('My recipe')
-      .closest<HTMLElement>('[data-slot="badge"]')!
-    await expect(getComputedStyle(badge).borderTopColor).toBe('rgba(0, 0, 0, 0)')
+    const icon = within(canvasElement).getByRole('button', { name: 'My recipe' })
+    await expect(icon.closest('[data-slot="badge"]')).toBeNull()
   },
 }
 

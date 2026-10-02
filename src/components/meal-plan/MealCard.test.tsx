@@ -66,18 +66,25 @@ async function dismissSelector() {
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 }
 
-describe('MealCard own-recipe badge', () => {
-  it("marks the household's own recipe in the badge row (HON-948)", () => {
+describe('MealCard own-recipe icon', () => {
+  it("marks the household's own recipe after its name, not in the badge row (HON-973)", () => {
     renderCard({ meal: { ...meal, isCustom: true } })
 
-    const badge = screen.getByText('My recipe').closest('[data-slot="badge"]')
-    expect(badge).toHaveAttribute('title', 'My recipe')
+    const icon = screen.getByRole('button', { name: 'My recipe' })
+    expect(icon).not.toHaveAttribute('title')
+    expect(icon.closest('[data-slot="badge"]')).toBeNull()
+    const heading = screen.getByRole('heading', { level: 3 })
+    expect(heading).toContainElement(icon)
+    // The name still opens the cook view as a button of its own, beside the
+    // icon rather than around it.
+    const name = screen.getByRole('button', { name: meal.name })
+    expect(name).not.toContainElement(icon)
   })
 
-  it('shows no badge for a library meal', () => {
+  it('shows no icon for a library meal', () => {
     renderCard({ meal: { ...meal, isCustom: false } })
 
-    expect(screen.queryByText('My recipe')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'My recipe' })).not.toBeInTheDocument()
   })
 })
 

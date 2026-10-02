@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { Card, CardContent } from '@/components/ui/card'
+import { Heading } from '@/components/ui/typography'
 import { mealHueStyle } from './MealImageCard'
-import { MealTypeBadge } from './MealTypeBadge'
-import { MyRecipeBadge } from './MyRecipeBadge'
+import { MyRecipeBadge, MyRecipeIcon } from './MyRecipeBadge'
 import { ProteinBadge } from './ProteinBadge'
 
 const meta = {
@@ -15,7 +15,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Marks one of the household's own recipes among library meals, on the planner card and the meal selector's cards (HON-948). A `secondary` badge with the `BookOpen` icon the header and tab bar use for My recipes: on a tinted meal card `[data-meal-surface]` re-scopes `--secondary` to the meal's chip colour. `compact` keeps the icon alone for a badge row, with the label as the accessible name and tooltip.",
+          "Marks one of the household's own recipes. In the cook view, a labelled `secondary` badge with the `BookOpen` icon the header and tab bar use for My recipes: on a tinted meal surface `[data-meal-surface]` re-scopes `--secondary` to the meal's chip colour (HON-948). On the planner and selector cards, `MyRecipeIcon`: the bare icon after the meal's name, with the label as the trigger's accessible name and in a shadcn `Tooltip` that opens on hover and on keyboard focus (HON-973).",
       },
     },
   },
@@ -36,50 +36,72 @@ export const LabelledDark: Story = {
   globals: { theme: 'dark' },
 }
 
-/**
- * The icon alone, as on the planner and selector cards. The label stays the
- * accessible name and the tooltip.
- */
-export const Compact: Story = {
-  args: { compact: true },
-  play: async ({ canvasElement }) => {
-    const badge = canvasElement.querySelector<HTMLElement>('[data-slot="badge"]')!
-    await expect(badge).toHaveTextContent('My recipe')
-    await expect(badge).toHaveAttribute('title', 'My recipe')
-    await expect(within(canvasElement).getByText('My recipe')).toHaveClass('sr-only')
-    // The label is for assistive tech only: the badge is no wider than a pill
-    // around the icon.
-    await expect(badge.getBoundingClientRect().width).toBeLessThan(48)
-  },
-}
-
-/** `lg`, the cook view's size (HON-932), labelled and compact. */
+/** `lg`, the cook view's size (HON-932). */
 export const Large: Story = {
   args: { size: 'lg' },
-  render: (args) => (
-    <div className="flex items-center gap-1.5">
-      <MyRecipeBadge {...args} />
-      <MyRecipeBadge {...args} compact />
-    </div>
-  ),
 }
 
-/** After the slot and protein badges, as on the planner card: the same height without any text of its own. */
-export const CompactInBadgeRow: Story = {
-  args: { compact: true },
-  render: (args) => (
-    <div className="flex items-center gap-1.5">
-      <MealTypeBadge mealType="dinner" />
-      <ProteinBadge proteinType="poultry" />
-      <MyRecipeBadge {...args} />
+const LONG_NAME = 'Grandma’s slow-roasted lemon garlic chicken with rice'
+
+/**
+ * `MyRecipeIcon` after a meal name that wraps, as on the planner and selector
+ * cards (HON-973): the bare icon, no pill, on the name's last line.
+ */
+function IconAfterName() {
+  return (
+    <div className="w-48">
+      <Heading variant="section" as="h3">
+        {LONG_NAME}
+        {'\u00a0'}
+        <MyRecipeIcon />
+      </Heading>
     </div>
-  ),
+  )
+}
+
+async function expectTooltip() {
+  const tooltip = await within(document.body).findByRole('tooltip')
+  await expect(tooltip).toHaveTextContent('My recipe')
+}
+
+export const IconAfterNameHover: Story = {
+  name: 'Icon after a name (hover)',
+  render: () => <IconAfterName />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const slot = canvas.getByText('Dinner').getBoundingClientRect()
-    const own = canvas.getByText('My recipe').closest('[data-slot="badge"]')!
-    await expect(own.getBoundingClientRect().height).toBe(slot.height)
+    const trigger = canvas.getByRole('button', { name: 'My recipe' })
+    await expect(trigger).not.toHaveAttribute('title')
+    await expect(trigger.closest('[data-slot="badge"]')).toBeNull()
+    // The icon is the badge's 14px, and sits on the name's last line.
+    const icon = trigger.querySelector('svg')!.getBoundingClientRect()
+    await expect(icon.width).toBe(14)
+    const heading = canvas.getByRole('heading').getBoundingClientRect()
+    await expect(heading.bottom - icon.bottom).toBeLessThan(icon.height)
+    await expect(heading.height).toBeGreaterThan(icon.height * 2)
+
+    await userEvent.hover(trigger)
+    await expectTooltip()
+    await userEvent.unhover(trigger)
+    await waitFor(() =>
+      expect(within(document.body).queryByRole('tooltip')).not.toBeInTheDocument(),
+    )
   },
+}
+
+export const IconAfterNameFocus: Story = {
+  name: 'Icon after a name (keyboard focus)',
+  render: () => <IconAfterName />,
+  play: async ({ canvasElement }) => {
+    await userEvent.tab()
+    await expect(within(canvasElement).getByRole('button', { name: 'My recipe' })).toHaveFocus()
+    await expectTooltip()
+  },
+}
+
+export const IconAfterNameDark: Story = {
+  name: 'Icon after a name (dark)',
+  render: () => <IconAfterName />,
+  globals: { theme: 'dark' },
 }
 
 /** Inside a tinted meal surface, the chip takes the meal's hue. */
@@ -88,7 +110,6 @@ function TintedSurface({ hue }: { hue: number }) {
     <Card data-meal-surface="" style={mealHueStyle(hue)}>
       <CardContent className="flex items-center gap-1.5 p-4">
         <ProteinBadge proteinType="poultry" />
-        <MyRecipeBadge compact />
         <MyRecipeBadge />
       </CardContent>
     </Card>
