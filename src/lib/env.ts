@@ -38,7 +38,7 @@ export const clientEnvSchema = z.object({
     .url('NEXT_PUBLIC_POSTHOG_HOST must be a valid URL')
     .optional()
     .describe(
-      'PostHog ingest host (e.g. https://eu.i.posthog.com). Identical across all environments. Distinct from POSTHOG_CLI_HOST (admin host).',
+      'PostHog ingest host (e.g. https://eu.i.posthog.com). Identical across all environments. Distinct from POSTHOG_CLI_HOST (admin host). Server-side capture calls it directly; the browser calls the same-origin /ingest path, which next.config.ts rewrites to this host at build time (src/lib/posthog-proxy.ts).',
     ),
 })
 

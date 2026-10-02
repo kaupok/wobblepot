@@ -7,6 +7,7 @@ import type { PostHog } from 'posthog-js'
 import { clientEnv } from '@/lib/env'
 import { useAnalyticsConsent } from '@/components/ConsentProvider'
 import { postHogBeforeSend } from '@/lib/posthog-before-send'
+import { POSTHOG_PROXY_PATH, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
 import type { BootstrapData } from '@/lib/feature-flags'
 
 interface PostHogProviderProps {
@@ -51,9 +52,12 @@ export function PostHogProvider({
   // Lazy-load and initialise posthog-js only after consent is granted.
   // `opt_out_capturing_by_default` is a post-init event gate — it does not
   // prevent `posthog.init()` from fetching config.js, surveys.js, and
-  // web-vitals.js from eu-assets.i.posthog.com at init time. Those fetches
-  // are tracking-without-consent under EDPB/AKI guidance, so the only
-  // compliant position is to skip init entirely until the user opts in.
+  // web-vitals.js at init time (through `/ingest`, which next.config.ts
+  // rewrites to PostHog EU — HON-985). Those fetches are
+  // tracking-without-consent under EDPB/AKI guidance, so the only compliant
+  // position is to skip init entirely until the user opts in.
+  // The host check stays: an unset NEXT_PUBLIC_POSTHOG_HOST also means no
+  // rewrite exists, so `/ingest` would 404.
   useEffect(() => {
     if (!clientEnv.NEXT_PUBLIC_POSTHOG_KEY || !clientEnv.NEXT_PUBLIC_POSTHOG_HOST) return
     if (granted !== true) return
@@ -64,7 +68,8 @@ export function PostHogProvider({
       const { default: posthog } = await import('posthog-js')
       if (cancelled) return
       posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY as string, {
-        api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST as string,
+        api_host: POSTHOG_PROXY_PATH,
+        ui_host: POSTHOG_UI_HOST,
         person_profiles: 'identified_only',
         capture_pageview: false,
         // The SDK default ('if_capture_pageview') follows capture_pageview, which is off above.

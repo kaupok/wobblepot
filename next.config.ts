@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
+import { postHogRewrites } from './src/lib/posthog-proxy'
 
 const withNextIntl = createNextIntlPlugin('./src/lib/i18n/request.ts')
 
@@ -20,6 +21,15 @@ const nextConfig: NextConfig = {
     // own subdomain and staging/production use different stores, hence the
     // wildcard. Keep in sync with `img-src` in src/proxy.ts.
     remotePatterns: [{ protocol: 'https', hostname: '*.public.blob.vercel-storage.com' }],
+  },
+  // PostHog requests end in `/` (e.g. `/ingest/e/`), and the default redirect
+  // would strip it before the rewrite below forwards the request.
+  skipTrailingSlashRedirect: true,
+  // Same-origin reverse proxy for the PostHog browser SDK, which PostHog's
+  // Installation Health check asks for: ad blockers match the PostHog hosts,
+  // not `/ingest` on our origin (HON-985). See src/lib/posthog-proxy.ts.
+  async rewrites() {
+    return postHogRewrites(process.env.NEXT_PUBLIC_POSTHOG_HOST)
   },
   async redirects() {
     return [

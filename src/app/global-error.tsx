@@ -8,6 +8,7 @@ import { decisionToGranted } from '@/lib/consent'
 import { readConsentCookieClient } from '@/lib/consent.client'
 import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
 import { postHogBeforeSend } from '@/lib/posthog-before-send'
+import { POSTHOG_PROXY_PATH, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
 import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { detectClientLocale, globalErrorTranslator } from '@/lib/i18n/global-error-messages'
@@ -43,7 +44,8 @@ export default function GlobalError({
           // Mirror PostHogProvider's init — once posthog-js initialises, re-init is a no-op,
           // so a minimal config here would silently drop the sanitiser for the rest of the session.
           posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY as string, {
-            api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST as string,
+            api_host: POSTHOG_PROXY_PATH,
+            ui_host: POSTHOG_UI_HOST,
             person_profiles: 'identified_only',
             capture_pageview: false,
             capture_pageleave: true,

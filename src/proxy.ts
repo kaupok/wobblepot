@@ -139,9 +139,9 @@ function buildCspHeader(nonce: string): string {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : " 'strict-dynamic'"}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://*.posthog.com https://*.public.blob.vercel-storage.com",
+    "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
     "font-src 'self'",
-    "connect-src 'self' https://*.posthog.com https://eu.i.posthog.com",
+    "connect-src 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -193,10 +193,13 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // `ingest/` is the PostHog reverse proxy (next.config.ts rewrites, HON-985):
+  // analytics batches are not pages, so they need no nonce, CSP or auth check,
+  // and skipping them saves a proxy invocation per batch.
   matcher: [
     {
       source:
-        '/((?!_next/static|_next/image|favicon.ico|icons/|manifest.json|sw.js|robots.txt|sitemap.xml).*)',
+        '/((?!_next/static|_next/image|ingest/|favicon.ico|icons/|manifest.json|sw.js|robots.txt|sitemap.xml).*)',
       missing: [{ type: 'header', key: 'next-router-prefetch' }],
     },
   ],

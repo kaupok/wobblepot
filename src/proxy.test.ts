@@ -189,7 +189,7 @@ describe('proxy', () => {
     expect(directives).toContain('object-src')
   })
 
-  it('includes PostHog domains in img-src and connect-src', async () => {
+  it('lists no PostHog host, because the SDK goes through the same-origin /ingest proxy', async () => {
     const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
@@ -197,12 +197,22 @@ describe('proxy', () => {
     proxy(req)
 
     const csp = nextMock.responseHeaders.get('Content-Security-Policy')!
-    const imgSrc = csp.split(';').find((d) => d.trim().startsWith('img-src'))!
     const connectSrc = csp.split(';').find((d) => d.trim().startsWith('connect-src'))!
 
-    expect(imgSrc).toContain('https://*.posthog.com')
-    expect(connectSrc).toContain('https://*.posthog.com')
-    expect(connectSrc).toContain('https://eu.i.posthog.com')
+    // HON-985: next.config.ts rewrites /ingest to PostHog EU.
+    expect(csp).not.toContain('posthog.com')
+    expect(connectSrc.trim()).toBe("connect-src 'self'")
+  })
+
+  it('skips the /ingest PostHog proxy in the matcher, but not lookalike paths', async () => {
+    const { config } = await import('./proxy')
+    const matches = (path: string) =>
+      config.matcher.some(({ source }) => new RegExp(`^${source}$`).test(path))
+
+    expect(matches('/ingest/e/')).toBe(false)
+    expect(matches('/ingest/static/web-vitals.js')).toBe(false)
+    expect(matches('/ingestion')).toBe(true)
+    expect(matches('/meal-plan')).toBe(true)
   })
 
   it('allows Vercel Blob meal images in img-src', async () => {
