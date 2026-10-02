@@ -32,14 +32,15 @@ interface NoteEditorProps {
   note: string | null
   onNoteChange?: (note: string | null) => void
   /**
-   * One-line textarea that stops growing at two lines and scrolls, so the
-   * editor stays inside the card it lies on (HON-974).
+   * One-line textarea that does not grow and scrolls instead, so the editor
+   * fits the shortest planner card it lies on (HON-974).
    */
   compact?: boolean
   /**
-   * The saved note shows at most three lines. For a slip laid over a planner
-   * card, which has a fixed height to fit in (HON-974); the button's
-   * accessible name is still the whole note, and the editor shows it all.
+   * The saved note shows at most two lines. For a slip laid over a planner
+   * card, which has a fixed height to fit in: three lines are taller than the
+   * shortest card (HON-974). The button's accessible name is still the whole
+   * note, and the editor shows it all.
    */
   clamped?: boolean
   /**
@@ -200,7 +201,7 @@ export function NoteEditor({
           rows={compact ? 1 : 2}
           className={cn(
             'placeholder:text-muted-foreground field-sizing-content w-full resize-none bg-transparent text-sm leading-normal outline-none disabled:cursor-not-allowed disabled:opacity-50',
-            compact && 'max-h-12 overflow-y-auto',
+            compact && 'max-h-6 overflow-y-auto',
           )}
           disabled={isSaving}
         />
@@ -239,7 +240,7 @@ export function NoteEditor({
           }}
         >
           {clamped ? (
-            <span className="line-clamp-3">
+            <span className="line-clamp-2">
               <Body variant="paragraph">{note}</Body>
             </span>
           ) : (

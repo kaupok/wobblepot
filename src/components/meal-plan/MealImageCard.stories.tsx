@@ -333,9 +333,7 @@ export const HeadWithOverlay: Story = {
     await expect(box.bottom).toBeCloseTo(cardBox.bottom - card.clientTop, 0)
     await expect(slipBox.bottom).toBeLessThanOrEqual(cardBox.bottom)
     await expect(slipBox.left).toBeGreaterThanOrEqual(title.right)
-    // The overlay box ends at the action column; the `-rotate-1` tilt can push
-    // the slip's corner a fraction of a pixel past it.
-    await expect(slipBox.right).toBeLessThanOrEqual(actions.left + 1)
+    await expect(slipBox.right).toBeLessThanOrEqual(actions.left)
   },
 }
 

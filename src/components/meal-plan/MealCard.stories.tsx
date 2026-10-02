@@ -149,7 +149,11 @@ function overlaps(a: DOMRect, b: DOMRect) {
  * the card's full height, inside its border, with nothing below the head to
  * end it.
  */
-async function assertSlipOverCard(card: HTMLElement, slip: HTMLElement) {
+async function assertSlipOverCard(
+  card: HTMLElement,
+  slip: HTMLElement,
+  name: string = mealFixture.name,
+) {
   // The fallback font sets wider, so geometry is only meaningful once the
   // web font has landed.
   await document.fonts.ready
@@ -160,10 +164,11 @@ async function assertSlipOverCard(card: HTMLElement, slip: HTMLElement) {
   await expect(slipBox.bottom).toBeLessThanOrEqual(cardBox.bottom)
   await expect(slipBox.left).toBeGreaterThanOrEqual(cardBox.left)
   await expect(slipBox.right).toBeLessThanOrEqual(cardBox.right)
+  // By structure rather than copy, so the Estonian story checks the same
+  // things: the name, the ⋯ trigger and every badge (slot, protein, pantry).
   const clearOf = [
-    inCard.getByRole('button', { name: mealFixture.name }),
-    inCard.getByRole('button', { name: /^more actions/i }),
-    inCard.getByText(/ingredients to buy|have all/i),
+    inCard.getByRole('button', { name }),
+    ...card.querySelectorAll<HTMLElement>('[aria-haspopup="menu"], [data-slot="badge"]'),
   ]
   for (const element of clearOf) {
     const box = element.getBoundingClientRect()
@@ -278,6 +283,58 @@ export const NoteKeepsThePlatePhone: Story = {
   ...NoteKeepsThePlate,
   name: 'Note keeps the plate (phone)',
   parameters: { cardWidth: 'phone' },
+}
+
+/** In Estonian, whose availability badge is the widest, the slip still clears it. */
+export const NoteKeepsThePlatePhoneEstonian: Story = {
+  ...NoteKeepsThePlatePhone,
+  name: 'Note keeps the plate (phone, Estonian)',
+  globals: { locale: 'et' },
+}
+
+const SHORT_NAME = 'Pasta'
+const LONG_NOTE =
+  'Use the big pot, salt the water well, and save a cup of the pasta water for the sauce before you drain it.'
+
+/**
+ * The shortest planner card: a one-word name, no description and no pantry
+ * badge (a staples-only pantry shows none). A long saved note still fits on it,
+ * clamped, and so does the editor with that note open: it scrolls rather than
+ * rising past the card's top edge, where an image card would clip it (HON-974).
+ */
+export const ShortestCardWithLongNote: Story = {
+  name: 'Shortest card with a long note (desktop)',
+  args: {
+    meal: {
+      ...mealFixture,
+      name: SHORT_NAME,
+      description: null,
+      imageStatus: 'ready',
+      imageUrl: mealIllustration.src,
+      imageHue: 52,
+    },
+    status: 'planned',
+    note: LONG_NOTE,
+    pantryIngredients: [{ ingredientId: 'salt', isStaple: true }],
+  },
+  parameters: { cardWidth: 'desktop' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: SHORT_NAME })
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    await assertSlipOverCard(card, canvas.getByRole('button', { name: LONG_NOTE }), SHORT_NAME)
+    const before = card.getBoundingClientRect()
+
+    await userEvent.click(canvas.getByRole('button', { name: LONG_NOTE }))
+    const textarea = await canvas.findByRole('textbox', { name: /note/i })
+    const editor = textarea.closest<HTMLElement>('[data-surface="sticky"]')!
+    const after = card.getBoundingClientRect()
+    await expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(2)
+    const editorBox = editor.getBoundingClientRect()
+    await expect(editorBox.top).toBeGreaterThanOrEqual(after.top)
+    await expect(editorBox.bottom).toBeLessThanOrEqual(after.bottom)
+    await expect(textarea.scrollHeight).toBeGreaterThan(textarea.clientHeight)
+  },
 }
 
 const PAST_NOTE = 'Swapped the rice for couscous — do that again.'

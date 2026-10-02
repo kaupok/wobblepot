@@ -561,7 +561,7 @@ export function MealCard({
               )
             : note && (
                 <StickyNote>
-                  <div className="line-clamp-3">
+                  <div className="line-clamp-2">
                     <Body variant="paragraph">{note}</Body>
                   </div>
                 </StickyNote>

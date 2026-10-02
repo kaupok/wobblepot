@@ -102,8 +102,8 @@ type ImageHeight = keyof typeof IMAGE_HEIGHT
  * vertical inset.
  *
  * The right edge is the image box's: `right-12` keeps the ⋯ column clear
- * however tall the slip grows, and `right-4` is the card's `px-4` on a card
- * without actions. The left edge is not the image box's. On a narrow card
+ * however tall the slip grows, with `pr-1` so the slip's tilted corner doesn't
+ * touch it, and `right-4` is the card's `px-4` on a card without actions. The left edge is not the image box's. On a narrow card
  * the trailing box starts at a third, under the badge row's "N ingredients to
  * buy", so the slip starts at half; wide, 3/8 clears both the title cap and
  * the badges. `pl-2` keeps it off the title cap's edge (`TITLE_WIDTH`, which
@@ -115,8 +115,8 @@ type ImageHeight = keyof typeof IMAGE_HEIGHT
  */
 const OVERLAY_BOX = {
   default: 'right-4 left-1/2 pl-2 @md/meal-image:left-3/8',
-  trailingActions: 'right-12 left-1/2 pl-2 @md/meal-image:left-3/8',
-  wide: { default: 'right-4 left-0 pl-4', trailingActions: 'right-12 left-0 pl-4' },
+  trailingActions: 'right-12 left-1/2 pr-1 pl-2 @md/meal-image:left-3/8',
+  wide: { default: 'right-4 left-0 pl-4', trailingActions: 'right-12 left-0 pr-1 pl-4' },
 } as const
 
 /**
