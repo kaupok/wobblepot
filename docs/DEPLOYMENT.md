@@ -13,6 +13,7 @@ Complete guide for deploying Wobblepot to staging and production environments.
   - [Security incidents and data breaches](#security-incidents-and-data-breaches)
   - [Scheduled jobs (cron)](#scheduled-jobs-cron)
   - [Global meal illustrations](#global-meal-illustrations)
+  - [Library preparation steps](#library-preparation-steps)
 
 ## CI Pipeline
 
@@ -265,3 +266,18 @@ It prints what it will skip and why, then the database host and Blob store, and 
 Because generation does not depend on the environment, publish the **same run directory** to staging, check it on `wobblepot.dev`, then publish it to production. Meals are matched by the slug of their English name (ids differ between databases). A meal is skipped if it is already `ready` at the current version, so publishing twice is a no-op. It is also skipped if its prompt no longer matches the one drawn, meaning the meal changed since: regenerate it. Publish uses the route's claim columns (`imageClaimedAt`), so two concurrent publishes cannot both attach an image, and an edit mid-upload discards the upload.
 
 **5. Rejected meals.** An excluded meal stays without an image and is selected again by the next `--confirm` run. Repeat steps 2–4 for just those, with `--meal=` or a fresh full run.
+
+### Library preparation steps
+
+The signed-out home page shows three library meals a day and opens each in the cook view, steps included (`src/lib/landing/load-demo-day.ts`, `LandingDemo`). A public page must never call the AI, so an operator writes the steps ahead of time with `scripts/generate-library-steps.ts` into `MealPreparationSteps`: one row per meal and locale, for the meal's own `servings`. The page picks only from library meals that have a ready illustration and a fresh row; when it cannot fill breakfast, lunch and dinner it falls back to a static example day, so the script is never a blocker, only the switch that turns the demo on.
+
+**It runs on every deploy.** Both migration workflows (`deploy-db-migrations-staging.yml`, `deploy-db-migrations-production.yml`) run `pnpm steps:library --confirm --limit=40` after the seed, with `continue-on-error`, so a provider outage never blocks a deploy and a partial run only leaves some meals out of the demo until the next one. The step needs the `ANTHROPIC_API_KEY` repository secret. A rerun writes only what is missing or stale: a meal that got an illustration since, or one whose name, ingredients or notes changed (`mealUpdatedAt` then differs from the meal's `updatedAt`), or a new locale. Most deploys write nothing. The rows are per database, so staging and production fill independently. Run it by hand only to fill a database ahead of a deploy, or past the per-run cap.
+
+**Cost:** about $0.02 per meal and locale on Sonnet, so ~$0.70 for the 16-meal pool in both locales. Printed at the end and never ledgered: no household owns it.
+
+```bash
+pnpm steps:library                           # dry run: what would be written, and the estimate
+pnpm steps:library --confirm                 # write every missing or stale row (needs ANTHROPIC_API_KEY)
+pnpm steps:library --locale=et --limit=5     # one locale, first five
+pnpm steps:library --meal="Beef Bibimbap" --confirm
+```

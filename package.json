@@ -36,6 +36,7 @@
     "spike:meal-images": "npx tsx scripts/spike-meal-images.ts",
     "spike:meal-colour": "npx tsx --require ./scripts/register-server-only.cjs scripts/spike-meal-colour.ts",
     "meal-images:global": "npx tsx --require ./scripts/register-server-only.cjs scripts/generate-global-meal-images.ts",
+    "steps:library": "npx tsx --require ./scripts/register-server-only.cjs scripts/generate-library-steps.ts",
     "env:audit": "npx tsx scripts/env-audit.ts",
     "lockfile:check": "npx tsx scripts/check-lockfile-pins.ts",
     "agent-cost": "npx tsx scripts/agent-cost-per-pr.ts",

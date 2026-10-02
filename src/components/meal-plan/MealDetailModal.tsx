@@ -51,8 +51,9 @@ interface MealDetailModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   pantryIngredients?: PantryIngredient[]
-  planId: string
-  entryId: string
+  /** The entry's plan and id. Unused, and may be omitted, with `readOnly`. */
+  planId?: string
+  entryId?: string
   note?: string | null
   onNoteChange?: (note: string | null) => void
   servingOverride?: number | null
@@ -73,8 +74,18 @@ interface MealDetailModalProps {
    * the caller opens next never stacks on it. Omit to hide the button.
    */
   onDoneCooking?: () => void
+  /**
+   * The view as a demonstration, outside any plan: the signed-out home page.
+   * Nothing writes and nothing is fetched: no note, no serving control, no
+   * pantry toggles, no Ask and no "Done cooking". The steps are `initialTips`,
+   * shown at once as for a planned entry; ticking them stays on the page.
+   */
+  readOnly?: boolean
   ref?: Ref<MealDetailModalHandle>
 }
+
+/** "How to prepare" for a read-only view: the steps are already there. */
+function noop() {}
 
 /** Input types that take no typed text, so have no edit for Escape to cancel. */
 const NON_TEXT_INPUT_TYPES = new Set([
@@ -102,8 +113,8 @@ export function MealDetailModal({
   open,
   onOpenChange,
   pantryIngredients = [],
-  planId,
-  entryId,
+  planId = '',
+  entryId = '',
   note,
   onNoteChange,
   servingOverride,
@@ -111,6 +122,7 @@ export function MealDetailModal({
   initialTips = null,
   generateOnOpen = false,
   onDoneCooking,
+  readOnly = false,
   ref,
 }: MealDetailModalProps) {
   const router = useRouter()
@@ -468,62 +480,66 @@ export function MealDetailModal({
           // `modal={false}` so the editor can take focus once the menu closes
           // (HON-946).
           titleActions={
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  ref={moreActionsTriggerRef}
-                  variant="ghost"
-                  size="icon-lg"
-                  aria-label={tDetail('moreActions', { name: meal.name })}
-                >
-                  <MoreHorizontal aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                // Radix returns focus to the trigger as the menu closes, after
-                // `NoteEditor` has focused its textarea (HON-946). When the
-                // note was chosen, focus the textarea here instead: the menu's
-                // unmount is the last thing to move focus.
-                onCloseAutoFocus={(event) => {
-                  if (noteRequestedRef.current) {
-                    event.preventDefault()
-                    noteRequestedRef.current = false
-                    noteEditorRef.current?.focus()
-                  }
-                }}
-              >
-                <DropdownMenuItem
-                  onSelect={() => {
-                    noteRequestedRef.current = true
-                    noteOpenerRef.current = 'menu'
-                    setIsEditingNote(true)
+            readOnly ? undefined : (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    ref={moreActionsTriggerRef}
+                    variant="ghost"
+                    size="icon-lg"
+                    aria-label={tDetail('moreActions', { name: meal.name })}
+                  >
+                    <MoreHorizontal aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  // Radix returns focus to the trigger as the menu closes, after
+                  // `NoteEditor` has focused its textarea (HON-946). When the
+                  // note was chosen, focus the textarea here instead: the menu's
+                  // unmount is the last thing to move focus.
+                  onCloseAutoFocus={(event) => {
+                    if (noteRequestedRef.current) {
+                      event.preventDefault()
+                      noteRequestedRef.current = false
+                      noteEditorRef.current?.focus()
+                    }
                   }}
                 >
-                  <NotebookPen aria-hidden="true" />
-                  {note ? tNote('editNote') : tNote('addNote')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      noteRequestedRef.current = true
+                      noteOpenerRef.current = 'menu'
+                      setIsEditingNote(true)
+                    }}
+                  >
+                    <NotebookPen aria-hidden="true" />
+                    {note ? tNote('editNote') : tNote('addNote')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
           }
           note={
-            <NoteEditor
-              ref={noteEditorRef}
-              planId={planId}
-              entryId={entryId}
-              note={note ?? null}
-              onNoteChange={onNoteChange}
-              size="lg"
-              isEditing={isEditingNote}
-              onEditingChange={handleNoteEditingChange}
-            />
+            readOnly ? undefined : (
+              <NoteEditor
+                ref={noteEditorRef}
+                planId={planId}
+                entryId={entryId}
+                note={note ?? null}
+                onNoteChange={onNoteChange}
+                size="lg"
+                isEditing={isEditingNote}
+                onEditingChange={handleNoteEditingChange}
+              />
+            )
           }
           householdSize={householdSize}
           status={status}
           servings={localServings}
-          onServingsChange={handleServingsChange}
+          onServingsChange={readOnly ? undefined : handleServingsChange}
           pantryIngredients={pantryIngredients}
-          onToggleAvailability={handleToggleAvailability}
+          onToggleAvailability={readOnly ? undefined : handleToggleAvailability}
           togglingIds={togglingIngredientIds}
           optimisticOverrides={optimisticOverrides}
           tips={tips}
@@ -531,9 +547,9 @@ export function MealDetailModal({
           // started the request: a planned entry never flashes "How to prepare".
           isLoadingTips={isLoadingTips || needsTips}
           tipsError={tipsError}
-          onRetryTips={fetchTips}
-          isTipsExpanded={generateOnOpen || isTipsExpanded}
-          onHowToPrepare={handleHowToPrepare}
+          onRetryTips={readOnly ? undefined : fetchTips}
+          isTipsExpanded={generateOnOpen || readOnly || isTipsExpanded}
+          onHowToPrepare={readOnly ? noop : handleHowToPrepare}
           doneSteps={doneSteps}
           onToggleStep={handleToggleStep}
           // Questions are for a meal somebody is cooking: the same planned,

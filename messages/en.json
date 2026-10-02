@@ -611,13 +611,71 @@
     }
   },
   "landing": {
-    "headline": "Meal planning for busy families",
-    "sub": "AI-powered weekly meal plans tailored to your household's preferences, dietary needs, and what's already in your pantry.",
-    "cta": "Get started — it's free",
-    "feature1": "Personalized for your household",
-    "feature2": "Smart shopping lists",
-    "feature3": "Tracks what you have on hand",
-    "privateBeta": "We're in private beta. You'll need an invite code to sign up."
+    "headline": "Dinner, decided. For the whole week.",
+    "sub": "Wobblepot plans your family's meals around who's eating, what they avoid and what's already in the pantry. Then it writes the shopping list and stays with you at the stove.",
+    "cta": "Get started",
+    "ctaWithCode": "Sign up with your invite code",
+    "free": "Free while we're in beta.",
+    "privateBeta": "We're in private beta, so sign-up needs an invite code.",
+    "demo": {
+      "hint": "Open a meal to see it the way you would at the stove.",
+      "caption": "Three of today's meals from the library. Each name opens the cook view."
+    },
+    "showcase": {
+      "day": "Thursday",
+      "caption": "An example day in Wobblepot: breakfast, lunch and dinner, each on its own card.",
+      "breakfast": {
+        "name": "Avocado toast with poached egg",
+        "description": "Sourdough with smashed avocado and a poached egg"
+      },
+      "lunch": {
+        "name": "Beef bibimbap",
+        "description": "Korean rice bowl with beef and vegetables"
+      },
+      "dinner": {
+        "name": "Baked salmon with asparagus",
+        "description": "Oven-baked salmon with roasted asparagus and lemon"
+      }
+    },
+    "how": {
+      "title": "How it works",
+      "step": "Step {number}",
+      "table": {
+        "title": "Tell it who's at the table",
+        "body": "Adults, kids, allergies and what nobody will eat. Two minutes, once."
+      },
+      "week": {
+        "title": "Get a week of meals",
+        "body": "Breakfast, lunch and dinner for every day, with prep times. Swap any meal you don't like."
+      },
+      "shop": {
+        "title": "Shop once, then cook",
+        "body": "One list of what you're missing, grouped by aisle. At the stove, the steps are on your phone, and you can ask about any of them."
+      }
+    },
+    "why": {
+      "title": "Made for family kitchens",
+      "pantry": {
+        "title": "It knows your pantry",
+        "body": "Tick what you have. The shopping list only shows what's missing, and the pantry updates when you mark a meal cooked."
+      },
+      "recipes": {
+        "title": "Your recipes join the plan",
+        "body": "Paste a link or a recipe, and your own dishes get planned alongside the rest."
+      },
+      "kids": {
+        "title": "Portions follow the people",
+        "body": "Each member has a portion size, so a toddler isn't counted as an adult. Kid-friendly meals are marked."
+      },
+      "cook": {
+        "title": "Cooking help on the counter",
+        "body": "Steps at a size you can read from across the kitchen, and a quick answer when you're stuck on one."
+      }
+    },
+    "close": {
+      "title": "Start with this week's dinners",
+      "body": "Made by a parent, for a family of three. Your data lives in the EU, and there are no ads."
+    }
   },
   "common": {
     "loading": "Loading…",

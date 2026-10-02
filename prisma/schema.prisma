@@ -393,16 +393,41 @@ model Meal {
   // tint. Null when the image carries no chroma or extraction failed.
   imageHue           Int?
 
-  components   MealComponent[]
-  planEntries  MealPlanEntry[]
-  favoritedBy  FavoriteMeal[]
-  translations MealTranslation[]
+  components      MealComponent[]
+  planEntries     MealPlanEntry[]
+  favoritedBy     FavoriteMeal[]
+  translations    MealTranslation[]
+  preparationSteps MealPreparationSteps[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([householdId])
   @@map("meal")
+}
+
+// Preparation steps for a library meal at its own `servings`, one row per
+// locale, written by the deploy workflows (and by hand) with
+// `pnpm steps:library` for the signed-out demo on the home page, which must
+// never call the AI itself, and read by nothing else. The `steps` column is
+// `StructuredTips` as JSON — equipment, steps, pitfalls and the tip — the
+// same shape `MealPlanEntry.preparationTips` stores. `mealUpdatedAt` is the
+// meal's `updatedAt` when the row was written: an edit to the meal moves it,
+// the row is then stale, and the demo leaves that meal out until the next run.
+model MealPreparationSteps {
+  id            String   @id @default(cuid())
+  mealId        String
+  locale        String
+  servings      Int
+  steps         String
+  mealUpdatedAt DateTime
+  meal          Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([mealId, locale])
+  @@map("meal_preparation_steps")
 }
 
 model MealTranslation {
