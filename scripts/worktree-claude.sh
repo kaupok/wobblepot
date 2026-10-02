@@ -2045,8 +2045,8 @@ watch_relative_age() {
 # started_at — which is every log freshly created by this run — would report
 # itself as rotated. Truncation is a gap of minutes, not of seconds.
 #
-# `now` is the scan's own `YYYY-MM-DD HH:MM:SS` local time, used only to age
-# out an alert (see the END block). Empty — or a value `date` cannot parse —
+# `now` is a `YYYY-MM-DD HH:MM:SS` local time the alert age-out measures back
+# from (see the END block); `wt watch` passes the orchestrator's last poll. Empty — or a value `date` cannot parse —
 # means no age limit, which is the behaviour before HON-937. `poll_interval` is
 # the orchestrator's, in seconds (default 60): the age limit is five minutes or
 # three polls, whichever is longer, because a persisting condition is re-logged
@@ -2225,11 +2225,11 @@ watch_scan_log() {
       # With an empty Queued state nothing is ever claimed, so a single curl
       # blip at 07:45 was still on screen at 11:00 (HON-937). So an alert is
       # also dropped once its most recent occurrence is older than the cutoff:
-      # five minutes, or three polls on a slower orchestrator. That is enough
-      # because every condition that persists is re-logged on every poll — low
-      # disk, the pause it causes, the query cap, a failing Linear fetch — so a
-      # live alert is always fresh, and one line with nothing after it was a
-      # blip. The circuit breaker logs
+      # five minutes, or three polls on a slower orchestrator, before `now`.
+      # That is enough because every condition that persists is re-logged on
+      # every poll — low disk, the pause it causes, the query cap, a failing
+      # Linear fetch — so a live alert is always fresh, and one line with
+      # nothing after it was a blip. The circuit breaker logs
       # once per trip, but the header shows it from orchestrator-status.json,
       # so its alert line is not the only place the pause is visible.
       show_any  = (alert_any  != "" && (progress_ts == "" || alert_any_ts  > progress_ts) && fresh(alert_any_ts))
@@ -2689,10 +2689,18 @@ cmd_watch() {
     [ "$start_epoch" -gt 0 ] && grace_ts=$(date -r $((start_epoch + 120)) '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
       || date -d "@$((start_epoch + 120))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || true
     [ -n "$grace_ts" ] || grace_ts="$since_ts"
-    # The scan's clock for the alert age-out — see watch_scan_log.
-    local now_ts=""
-    now_ts=$(date -r "$now" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
-      || date -d "@$now" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || now_ts=""
+    # The clock the alert age-out measures from — see watch_scan_log. The
+    # orchestrator's last poll, not the wall clock: a persisting condition is
+    # re-logged once per loop, and a loop that triages several failed workers
+    # can outrun the age limit, which would blank a live low-disk alert in the
+    # middle of the loop. write_status_file stamps last_poll just before the
+    # disk check, so measured from it a re-logged alert is always fresh, and a
+    # one-off line still ages out as the polls move on. The wall clock is the
+    # fallback for a status file without a readable last_poll.
+    local now_ts="" clock_epoch="$now"
+    [ "$poll_epoch" -gt 0 ] && clock_epoch="$poll_epoch"
+    now_ts=$(date -r "$clock_epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
+      || date -d "@$clock_epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || now_ts=""
     local t_success=0 t_failed=0 t_stranded=0 t_gated=0 t_timeout=0 t_truncated=0
     local last_outcome="" last_outcome_at="" last_pick="" last_pick_at=""
     local skips=0 skip_summary="" alert="" alert_at="" scan_key scan_val scan_line
