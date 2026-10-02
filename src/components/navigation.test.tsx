@@ -18,7 +18,7 @@ function renderBoth() {
 
 describe('active page', () => {
   it.each([
-    ['/', 'Today'],
+    ['/', 'Meal plan'],
     ['/shopping', 'Pantry & shopping'],
     ['/pantry', 'Pantry & shopping'],
     ['/recipes', 'My recipes'],
@@ -42,10 +42,10 @@ describe('active page', () => {
     vi.mocked(usePathname).mockReturnValue('/shopping')
     renderBoth()
 
-    const today = screen.getByRole('link', { name: 'Today' })
-    expect(today).not.toHaveAttribute('aria-current')
-    expect(today).toHaveClass('text-muted-foreground')
-    expect(today).not.toHaveClass('text-foreground')
+    const mealPlan = screen.getByRole('link', { name: 'Meal plan' })
+    expect(mealPlan).not.toHaveAttribute('aria-current')
+    expect(mealPlan).toHaveClass('text-muted-foreground')
+    expect(mealPlan).not.toHaveClass('text-foreground')
   })
 })
 
@@ -53,7 +53,7 @@ describe('NavigationLeft', () => {
   it('renders nav links when authenticated and has household', () => {
     render(<NavigationLeft isAuthenticated={true} hasHousehold={true} />)
 
-    expect(screen.getByRole('link', { name: 'Today' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Meal plan' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Pantry & shopping' })).toBeInTheDocument()
   })
 

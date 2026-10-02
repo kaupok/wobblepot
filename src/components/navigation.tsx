@@ -86,7 +86,7 @@ function NavLink({
 
 /**
  * Left navigation - daily operational views
- * (Today, Pantry & shopping)
+ * (Meal plan, Pantry & shopping)
  */
 export function NavigationLeft({ isAuthenticated, hasHousehold }: NavigationProps) {
   const t = useTranslations('nav.primary')
@@ -95,7 +95,7 @@ export function NavigationLeft({ isAuthenticated, hasHousehold }: NavigationProp
 
   return (
     <nav aria-label={t('ariaLabel')} className="hidden items-center md:flex">
-      <NavLink href="/">{t('today')}</NavLink>
+      <NavLink href="/">{t('mealPlan')}</NavLink>
       {/* From `md` up `/pantry` is the same two-column page as `/shopping`;
           they only differ on a phone, where each is its own tab (HON-776). */}
       <NavLink href="/shopping" alsoActiveOn={['/pantry']}>
@@ -117,7 +117,7 @@ export function NavigationRight({ isAuthenticated, hasHousehold }: NavigationPro
   return (
     <nav aria-label={t('ariaLabel')} className="hidden items-center md:flex">
       {/* Recipes shares the tab bar's icon; Household is people, not the
-          house the phone's Today tab already uses. */}
+          house the phone's Plan tab already uses. */}
       <NavLink href="/recipes" icon={BookOpen}>
         {t('myRecipes')}
       </NavLink>

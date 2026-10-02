@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Desktop top-nav link groups rendered inside the `Header`. `NavigationLeft` covers daily operational views (Today, Pantry & shopping); `NavigationRight` covers configuration (My recipes, Household). The link for the current route is in the foreground colour (the rest are muted) and carries `aria-current="page"`, using the same `isNavItemActive` rule as `BottomTabBar`. Both render `null` when not authenticated or no household — the desktop nav only exists after onboarding.',
+          'Desktop top-nav link groups rendered inside the `Header`. `NavigationLeft` covers daily operational views (Meal plan, Pantry & shopping); `NavigationRight` covers configuration (My recipes, Household). The link for the current route is in the foreground colour (the rest are muted) and carries `aria-current="page"`, using the same `isNavItemActive` rule as `BottomTabBar`. Both render `null` when not authenticated or no household — the desktop nav only exists after onboarding.',
       },
     },
   },
@@ -87,7 +87,7 @@ const activeStory = (pathname: string, label: string): Story => ({
   },
 })
 
-export const ActiveToday: Story = activeStory('/', 'Today')
+export const ActiveMealPlan: Story = activeStory('/', 'Meal plan')
 export const ActiveShopping: Story = activeStory('/shopping', 'Pantry & shopping')
 // `/pantry` is the same page at this width; it is only its own tab on a phone.
 export const ActivePantry: Story = activeStory('/pantry', 'Pantry & shopping')

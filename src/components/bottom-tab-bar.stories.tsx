@@ -14,7 +14,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Fixed bottom tab bar for mobile: Today, Shopping, Pantry, Recipes. Hidden on `md:` and up. Opaque `bg-background` with no backdrop blur, matching the header pills (HON-809). Active tab is derived from the current pathname — root path (`/`) matches exactly; other tabs also match their sub-routes (via the shared `isNavItemActive` helper) so nested routes (e.g. `/recipes/123`) still highlight the correct tab.',
+          'Fixed bottom tab bar for mobile: Plan, Shopping, Pantry, Recipes. Hidden on `md:` and up. Opaque `bg-background` with no backdrop blur, matching the header pills (HON-809). Active tab is derived from the current pathname — root path (`/`) matches exactly; other tabs also match their sub-routes (via the shared `isNavItemActive` helper) so nested routes (e.g. `/recipes/123`) still highlight the correct tab.',
       },
     },
   },
@@ -27,7 +27,7 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Today: Story = {
+export const Plan: Story = {
   parameters: {
     nextjs: { navigation: { pathname: '/' } },
   },
@@ -52,7 +52,7 @@ export const Pantry: Story = {
   play: async ({ canvasElement }) => {
     const links = within(canvasElement).getAllByRole('link')
     await expect(links.map((link) => link.textContent)).toEqual([
-      'Today',
+      'Plan',
       'Shopping',
       'Pantry',
       'Recipes',
@@ -75,7 +75,7 @@ export const NestedRouteHighlightsParent: Story = {
     docs: {
       description: {
         story:
-          'Nested route under `/recipes` — the Recipes tab stays active via `startsWith`. Today (`/`) does not match because root comparison is exact.',
+          'Nested route under `/recipes` — the Recipes tab stays active via `startsWith`. Plan (`/`) does not match because root comparison is exact.',
       },
     },
   },

@@ -615,7 +615,7 @@
     "skipToContent": "Skip to content",
     "primary": {
       "ariaLabel": "Primary",
-      "today": "Today",
+      "mealPlan": "Meal plan",
       "pantryAndShopping": "Pantry & shopping"
     },
     "settings": {
@@ -625,7 +625,7 @@
     },
     "tabs": {
       "ariaLabel": "Primary",
-      "today": "Today",
+      "plan": "Plan",
       "shopping": "Shopping",
       "pantry": "Pantry",
       "recipes": "Recipes"

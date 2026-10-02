@@ -22,7 +22,7 @@ function PageBehind() {
     <main className="pt-[calc(4rem+env(safe-area-inset-top,0px))]">
       <div className="flex w-full flex-col gap-4 px-4 py-8">
         <Heading variant="h4" as="h1">
-          Today
+          Meal plan
         </Heading>
         {Array.from({ length: 12 }, (_, i) => (
           <div key={i} className="rounded-lg border p-4">
@@ -175,7 +175,7 @@ export const Desktop: Story = {
     const leftPill = box(primary.parentElement!)
     const rightPill = box(settings.parentElement!)
     const logo = textBox(within(banner).getByRole('link', { name: 'Wobblepot' }))
-    const today = within(primary).getByRole('link', { name: 'Today' })
+    const mealPlan = within(primary).getByRole('link', { name: 'Meal plan' })
     const pantry = within(primary).getByRole('link', { name: 'Pantry & shopping' })
     const recipes = within(settings).getByRole('link', { name: 'My recipes' })
     const household = within(settings).getByRole('link', { name: 'Household' })
@@ -186,11 +186,11 @@ export const Desktop: Story = {
     await expectNear(leftPill.right - textBox(pantry).right, 21)
     await expectNear(textBox(recipes).left - rightPill.left, 21)
     // 24px between labels, as when it was a `gap-6`.
-    await expectNear(textBox(today).left - logo.right, 24)
-    await expectNear(textBox(pantry).left - textBox(today).right, 24)
+    await expectNear(textBox(mealPlan).left - logo.right, 24)
+    await expectNear(textBox(pantry).left - textBox(mealPlan).right, 24)
     await expectNear(textBox(household).left - textBox(recipes).right, 24)
     // ...but the links themselves touch.
-    await expectNear(box(pantry).left, box(today).right)
+    await expectNear(box(pantry).left, box(mealPlan).right)
     await expectNear(box(household).left, box(recipes).right)
   },
 }
@@ -237,12 +237,12 @@ export const DesktopScrolled: Story = {
 
     // The logo folded away cleanly: the daily views sit centred in their pill.
     const primary = within(banner).getByRole('navigation', { name: 'Primary' })
-    const today = within(primary).getByRole('link', { name: 'Today' })
+    const mealPlan = within(primary).getByRole('link', { name: 'Meal plan' })
     const pantry = within(primary).getByRole('link', { name: 'Pantry & shopping' })
     await waitFor(
       () => {
         const pill = box(primary.parentElement!)
-        return expectNear(box(today).left - pill.left, pill.right - box(pantry).right)
+        return expectNear(box(mealPlan).left - pill.left, pill.right - box(pantry).right)
       },
       { timeout: 1500 },
     )
@@ -253,6 +253,48 @@ export const DesktopScrolled: Story = {
     await expect(labelBox(household)).toBe(0)
 
     recipes.blur()
+    window.scrollTo(0, 0)
+    await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
+  },
+}
+
+export const DesktopAtMd: Story = {
+  args: { session: authedSession, hasHousehold: true },
+  globals: {
+    viewport: { value: 'tabletPortrait', isRotated: false },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The `md` breakpoint exactly (768px), the narrowest width the two pills share. "Meal plan" is wider than the "Today" it replaced (HON-924), so the play measures that the left pill ends before the right one starts, at rest and scrolled.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    const primary = within(banner).getByRole('navigation', { name: 'Primary' })
+    const settings = within(banner).getByRole('navigation', { name: 'Settings' })
+    const leftPill = () => box(primary.parentElement!)
+    const rightPill = () => box(settings.parentElement!)
+
+    await expect(leftPill().right).toBeLessThan(rightPill().left)
+
+    window.scrollTo(0, 400)
+    await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
+    // Wait for the fold to settle before measuring: the right pill's labels
+    // close to their icons as the logo closes in the left one.
+    await waitFor(
+      () =>
+        expect(
+          within(settings)
+            .getByRole('link', { name: 'Household' })
+            .lastElementChild!.getBoundingClientRect().width,
+        ).toBe(0),
+      { timeout: 1500 },
+    )
+    await expect(leftPill().right).toBeLessThan(rightPill().left)
+
     window.scrollTo(0, 0)
     await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
   },

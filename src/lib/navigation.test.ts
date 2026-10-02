@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { isNavItemActive } from './navigation'
 
 describe('isNavItemActive', () => {
-  it('matches Today only on the root path', () => {
+  it('matches the meal plan only on the root path', () => {
     expect(isNavItemActive('/', '/')).toBe(true)
     expect(isNavItemActive('/', '/shopping')).toBe(false)
     expect(isNavItemActive('/', '/recipes/imagine')).toBe(false)
