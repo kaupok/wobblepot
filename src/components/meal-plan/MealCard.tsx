@@ -317,9 +317,14 @@ export function MealCard({
 
   // The textarea unmounts when the editor closes, which would drop focus to
   // the page body. Hand it to the menu trigger first, the same place Note was
-  // chosen from.
+  // chosen from — but only from the note row or the body: a save closes the
+  // editor when its request returns, and the user may have moved on by then.
+  const noteRowRef = useRef<HTMLDivElement>(null)
   function handleNoteEditingChange(editing: boolean) {
-    if (!editing) moreActionsTriggerRef.current?.focus()
+    const focused = document.activeElement
+    if (!editing && (focused === document.body || noteRowRef.current?.contains(focused))) {
+      moreActionsTriggerRef.current?.focus()
+    }
     setIsNoteEditing(editing)
   }
 
@@ -528,7 +533,7 @@ export function MealCard({
         {/* The note, editable on a planned card. Rendered only when there is
             one to show or edit: the row is what ends the plate mid-card. */}
         {!isReadOnly && !isPast && (note != null || isNoteEditing) && (
-          <CardContent className="px-4 pb-2">
+          <CardContent ref={noteRowRef} className="px-4 pb-2">
             <NoteEditor
               ref={noteEditorRef}
               planId={planId}

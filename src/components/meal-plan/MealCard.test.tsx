@@ -94,6 +94,61 @@ describe('MealCard selector focus', () => {
 
 // Every household starts with salt, pepper and water as staples (HON-769), so a
 // staples-only pantry is one the household has never filled in (HON-824).
+// Closing the note editor hands focus to ⋯ so the textarea's unmount does not
+// drop it to the body (HON-946), but a save closes the editor only when its
+// request returns, and the user may have moved focus elsewhere by then.
+describe('MealCard note focus', () => {
+  async function openNoteFromMenu(user: ReturnType<typeof userEvent.setup>) {
+    const trigger = screen.getByRole('button', { name: `More actions: ${meal.name}` })
+    await user.click(trigger)
+    await user.click(await screen.findByRole('menuitem', { name: 'Note' }))
+    return { trigger, textarea: await screen.findByRole('textbox', { name: 'Meal note' }) }
+  }
+
+  it('returns focus to the more-actions trigger when the editor is cancelled', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal })
+    const { trigger, textarea } = await openNoteFromMenu(user)
+
+    fireEvent.keyDown(textarea, { key: 'Escape' })
+
+    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
+    expect(trigger).toHaveFocus()
+  })
+
+  it('leaves focus alone when the user moved on before the save returned', async () => {
+    let resolveSave: (response: Response) => void = () => {}
+    const fetchSuggestions = globalThis.fetch
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) =>
+        init?.method === 'PATCH'
+          ? new Promise<Response>((resolve) => (resolveSave = resolve))
+          : fetchSuggestions(url, init),
+      ),
+    )
+    const user = userEvent.setup()
+    renderCard({ meal })
+    const { trigger, textarea } = await openNoteFromMenu(user)
+    await user.type(textarea, 'Leftovers')
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/meal-plans/plan-1/entries/entry-1',
+        expect.objectContaining({ method: 'PATCH' }),
+      ),
+    )
+
+    const name = screen.getByRole('button', { name: meal.name })
+    name.focus()
+    resolveSave(new Response(JSON.stringify({}), { status: 200 }))
+
+    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
+    expect(name).toHaveFocus()
+    expect(trigger).not.toHaveFocus()
+  })
+})
+
 describe('MealCard availability badge', () => {
   const garlicStaple = { ingredientId: 'garlic', isStaple: true }
 
