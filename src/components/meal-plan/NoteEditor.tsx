@@ -87,10 +87,7 @@ export function NoteEditor({
       setIsEditing(false)
     },
     // The server's error prose is English; the localized copy is always shown.
-    onError: () => {
-      requestRefocus()
-      toast.error(t('saveFailed'))
-    },
+    onError: () => toast.error(t('saveFailed')),
   })
   const isSaving = saveMutation.isPending
   // The textarea is disabled while saving, which drops focus to the body; a
@@ -147,7 +144,16 @@ export function NoteEditor({
       return
     }
 
-    saveMutation.mutate(newNote)
+    saveMutation.mutate(newNote, {
+      // Only if focus is still where the save left it: the user may have
+      // moved on while the request was in flight.
+      onError: () => {
+        const focused = document.activeElement
+        if (!focused || focused === document.body || focused === inputRef.current) {
+          requestRefocus()
+        }
+      },
+    })
   }
 
   function handleCancel() {

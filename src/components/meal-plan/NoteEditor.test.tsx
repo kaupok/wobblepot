@@ -235,6 +235,30 @@ describe('NoteEditor', () => {
       await waitFor(() => expect(textarea).toHaveFocus())
     })
 
+    it('leaves focus alone after a failed save if the user moved on', async () => {
+      let rejectSave: (error: Error) => void = () => {}
+      mockFetch.mockReturnValueOnce(new Promise((_resolve, reject) => (rejectSave = reject)))
+      render(
+        <>
+          <NoteEditor {...defaultProps} />
+          <button type="button">Elsewhere</button>
+        </>,
+        { wrapper: createQueryWrapper().wrapper },
+      )
+      await userEvent.click(screen.getByText('Add note'))
+      const textarea = screen.getByRole('textbox')
+      await userEvent.type(textarea, 'Pizza night')
+      fireEvent.keyDown(textarea, { key: 'Enter' })
+      await waitFor(() => expect(textarea).toBeDisabled())
+      const elsewhere = screen.getByRole('button', { name: 'Elsewhere' })
+      act(() => elsewhere.focus())
+
+      rejectSave(new Error('offline'))
+
+      await waitFor(() => expect(textarea).toBeEnabled())
+      expect(elsewhere).toHaveFocus()
+    })
+
     it('calls onNoteChange after successful save', async () => {
       mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
       const onNoteChange = vi.fn()
