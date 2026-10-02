@@ -333,6 +333,9 @@ test.describe(
       }
 
       // ── 8. Shopping list: Estonian chrome, category headers, ingredient names. ──
+      // The list opens in the urgency sort (HON-959); this step is about the
+      // category labels, so pin the category sort the page restores after mount.
+      await page.evaluate(() => localStorage.setItem('shopping-list-sort-mode', 'category'))
       await page.goto('/shopping')
       await expect(page.locator('html')).toHaveAttribute('lang', 'et')
       await expect(page.getByRole('heading', { name: 'Poenimekiri' })).toBeVisible() // shopping list

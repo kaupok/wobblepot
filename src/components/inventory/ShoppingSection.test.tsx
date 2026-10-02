@@ -204,9 +204,10 @@ describe('ShoppingSection alphabetical sort', () => {
 
   it('does not show category headers in alphabetical mode', async () => {
     const user = userEvent.setup()
+    localStorage.setItem('shopping-list-sort-mode', 'category')
     renderSection()
 
-    // Initially in category mode - headers should be visible
+    // Starts in the stored category mode - headers should be visible
     expect(screen.getByText(/Vegetable/)).toBeInTheDocument()
 
     // Switch to alphabetical
@@ -219,11 +220,19 @@ describe('ShoppingSection alphabetical sort', () => {
     expect(screen.queryByText(/Protein \(/)).not.toBeInTheDocument()
   })
 
-  it('defaults to category sort mode', () => {
+  it('defaults to urgency sort mode with nothing stored', () => {
     renderSection()
 
     const trigger = screen.getByRole('combobox', { name: 'Sort items' })
-    expect(trigger).toHaveTextContent('By category')
+    expect(trigger).toHaveTextContent('By urgency')
+  })
+
+  it('restores category sort mode from localStorage', () => {
+    localStorage.setItem('shopping-list-sort-mode', 'category')
+    renderSection()
+
+    expect(screen.getByRole('combobox', { name: 'Sort items' })).toHaveTextContent('By category')
+    expect(screen.getByText(/Vegetable/)).toBeInTheDocument()
   })
 })
 
@@ -262,6 +271,7 @@ describe('ShoppingSection copy to clipboard', () => {
   it('copies the category-mode list, excluding purchased items', async () => {
     const user = userEvent.setup()
     const writeText = stubClipboard(vi.fn().mockResolvedValue(undefined))
+    localStorage.setItem('shopping-list-sort-mode', 'category')
     renderSection({
       groups: [
         makeGroup('vegetable', 'Vegetable', [
@@ -295,6 +305,7 @@ describe('ShoppingSection copy to clipboard', () => {
   it('copies unchecked custom items under the "Other" heading', async () => {
     const user = userEvent.setup()
     const writeText = stubClipboard(vi.fn().mockResolvedValue(undefined))
+    localStorage.setItem('shopping-list-sort-mode', 'category')
     renderSection({
       groups: [makeGroup('protein', 'Protein', [makeItem('Beef', 'p1')])],
       initialCustomItems: [
@@ -517,7 +528,7 @@ describe('ShoppingSection server render', () => {
     const container = document.createElement('div')
     container.innerHTML = html
     expect(within(container).getByRole('combobox', { name: 'Sort items' })).toHaveTextContent(
-      'By category',
+      'By urgency',
     )
     expect(within(container).getByRole('combobox', { name: 'Time window' })).toHaveTextContent(
       '7 days',
@@ -525,9 +536,9 @@ describe('ShoppingSection server render', () => {
   })
 
   it('hydrates without a mismatch and then applies a stored sort mode', async () => {
-    // The server has no localStorage, so it renders the default sort.
+    // The server has no localStorage, so it renders the default (urgency) sort.
     const html = renderToString(tree())
-    localStorage.setItem('shopping-list-sort-mode', 'urgency')
+    localStorage.setItem('shopping-list-sort-mode', 'category')
 
     const container = document.createElement('div')
     container.innerHTML = html
@@ -540,7 +551,7 @@ describe('ShoppingSection server render', () => {
 
     expect(onRecoverableError).not.toHaveBeenCalled()
     expect(within(container).getByRole('combobox', { name: 'Sort items' })).toHaveTextContent(
-      'By urgency',
+      'By category',
     )
     container.remove()
   })

@@ -11,14 +11,20 @@ export type AlphabeticalItem =
 export const SORT_STORAGE_KEY = 'shopping-list-sort-mode'
 
 /**
- * Read the persisted sort mode. Returns 'category' on the server so SSR and the
+ * The mode a browser with no saved choice opens in. Urgency answers what the
+ * list is for — what to buy before the next meal (HON-959).
+ */
+export const DEFAULT_SORT_MODE: SortMode = 'urgency'
+
+/**
+ * Read the persisted sort mode. Returns the default on the server so SSR and the
  * first client render agree; the real value is applied after mount.
  */
 export function getInitialSortMode(): SortMode {
-  if (typeof window === 'undefined') return 'category'
+  if (typeof window === 'undefined') return DEFAULT_SORT_MODE
   const stored = localStorage.getItem(SORT_STORAGE_KEY)
-  if (stored === 'urgency' || stored === 'alphabetical') return stored
-  return 'category'
+  if (stored === 'category' || stored === 'urgency' || stored === 'alphabetical') return stored
+  return DEFAULT_SORT_MODE
 }
 
 /**
