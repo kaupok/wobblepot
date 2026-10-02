@@ -44,9 +44,18 @@ describe('NutritionSummary', () => {
     expect(screen.getByText('48g')).toBeInTheDocument()
   })
 
-  it('formats the compact line through the locale formatter', () => {
+  it('says the compact line is per serving, formatted for en (HON-964)', () => {
     renderInLocale(<NutritionSummary nutrition={fourDigitNutrition} compact />)
-    expect(screen.getByText(/1,250 kcal/)).toBeInTheDocument()
+    expect(
+      screen.getByText('Per serving: 1,250 kcal · 95g protein · 130g carbs · 48g fat'),
+    ).toBeInTheDocument()
+  })
+
+  it('says the compact line is per serving in Estonian word order (HON-964)', () => {
+    renderInLocale(<NutritionSummary nutrition={fourDigitNutrition} compact />, 'et')
+    expect(
+      screen.getByText('Portsjoni kohta: 1250 kcal · 95g valku · 130g süsivesikuid · 48g rasva'),
+    ).toBeInTheDocument()
   })
 
   it('rounds fractional values like Math.round did', () => {
@@ -83,6 +92,9 @@ describe('NutritionSummary', () => {
 
       const button = screen.getByRole('button', { name: 'About these numbers' })
       expect(button).toHaveAccessibleDescription(sentence)
+      // The (i) follows the text it qualifies: the macros line, or the header.
+      const preceding = compact ? /^Per serving: 520 kcal/ : 'Nutrition (per serving)'
+      expect(button.previousElementSibling).toHaveTextContent(preceding)
       fireEvent.click(button)
       const popover = await screen.findByRole('dialog', { name: 'About these numbers' })
       expect(within(popover).getByText(sentence)).toBeInTheDocument()

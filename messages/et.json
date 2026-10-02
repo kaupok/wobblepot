@@ -313,11 +313,7 @@
       "protein": "Valgud",
       "carbs": "Süsivesikud",
       "fat": "Rasvad",
-      "compact": {
-        "protein": "valku",
-        "carbs": "süsivesikuid",
-        "fat": "rasva"
-      },
+      "compactLine": "Portsjoni kohta: {calories} kcal · {protein}g valku · {carbs}g süsivesikuid · {fat}g rasva",
       "vagueInfo": "Sisaldab hinnanguid umbmääraste koguste kohta, nagu „maitse järgi”.",
       "vagueInfoLabel": "Nende numbrite kohta"
     },

@@ -32,11 +32,15 @@ export function NutritionSummary({ nutrition, compact, components }: NutritionSu
   if (compact) {
     return (
       <div className="text-muted-foreground flex items-center gap-1 text-xs">
+        {/* One message, so Estonian can order the words and the line says what
+            the numbers are for (HON-964). */}
         <span>
-          {formatInteger(nutrition.calories, locale)} kcal ·{' '}
-          {formatInteger(nutrition.protein, locale)}g {t('compact.protein')} ·{' '}
-          {formatInteger(nutrition.carbs, locale)}g {t('compact.carbs')} ·{' '}
-          {formatInteger(nutrition.fat, locale)}g {t('compact.fat')}
+          {t('compactLine', {
+            calories: formatInteger(nutrition.calories, locale),
+            protein: formatInteger(nutrition.protein, locale),
+            carbs: formatInteger(nutrition.carbs, locale),
+            fat: formatInteger(nutrition.fat, locale),
+          })}
         </span>
         {vagueInfo}
       </div>

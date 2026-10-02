@@ -95,7 +95,9 @@ describe('AlternativeCard', () => {
         />,
       )
 
-      expect(screen.getByText('450 kcal · 35g protein · 40g carbs · 12g fat')).toBeInTheDocument()
+      expect(
+        screen.getByText('Per serving: 450 kcal · 35g protein · 40g carbs · 12g fat'),
+      ).toBeInTheDocument()
     })
 
     it('renders kid-friendly badge when true', () => {

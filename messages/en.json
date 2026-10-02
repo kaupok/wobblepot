@@ -313,11 +313,7 @@
       "protein": "Protein",
       "carbs": "Carbs",
       "fat": "Fat",
-      "compact": {
-        "protein": "protein",
-        "carbs": "carbs",
-        "fat": "fat"
-      },
+      "compactLine": "Per serving: {calories} kcal · {protein}g protein · {carbs}g carbs · {fat}g fat",
       "vagueInfo": "Includes estimates for vague quantities like “to taste”.",
       "vagueInfoLabel": "About these numbers"
     },
