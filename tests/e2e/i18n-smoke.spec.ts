@@ -28,9 +28,9 @@ test.describe('@i18n platform smoke', () => {
   test('onboarding persists Estonian Accept-Language locale (HON-549 — et is public)', async ({
     page,
   }) => {
-    // Sign up + onboarding helpers use English-only labels (sign-up /
-    // onboarding chrome is not externalized), so they work fine against an
-    // Estonian-browser session.
+    // Sign-up and onboarding chrome is externalized and renders in Estonian
+    // here; the helpers select by input id and button type, not by label, so
+    // they work under either locale (see `createHousehold`).
     await signUpWithHousehold(page)
 
     // HON-549: `et` is now in PUBLIC_LOCALES and the onboarding clamp is gone,

@@ -95,6 +95,14 @@ Three templates are localized: `src/lib/emails/reset-password.ts` and `src/lib/e
 
 `parse-number.ts` handles locale-aware decimal-separator parsing for numeric form inputs (pantry quantities, recipe-create, shopping). Estonian users typing `1,5 kg` get `1.5` parsed; English users typing `1.5 kg` work unchanged. Display formatting (`Intl.NumberFormat` via `formatQuantity`) is the output-side counterpart.
 
+### Tests
+
+- `src/lib/i18n/catalogue-parity.test.ts` (`pnpm test`): `en.json` and `et.json` have the same keys, ICU placeholders and markup tags, and no empty values. Every message parses with `@formatjs/icu-messageformat-parser`. An argument `en` branches on (`plural`, `select`, `selectordinal`) branches the same way in `et`, and every `et` cardinal plural has `one` and `other`. `et` may add a plural where `en` has a plain `{count}`, because Estonian inflects the noun (`meal-plan.serving.labelWithCount`).
+- `scripts/check-server-prose.test.ts` (`pnpm test`; `pnpm i18n:prose-check` prints the hits): fails on `toast(…)`, `toast.<method>(…)`, `setError(…)` or `set<Name>Error(…)` called with a caught error's `.message`, with the file and line. The rule and its limits are documented at the top of `scripts/check-server-prose.ts`. There is no allowlist: fix a hit by logging the server string and rendering catalog copy. `src/app/admin/` is out of scope (English operator console).
+- `src/lib/i18n/plurals.test.tsx`: plural rendering through the real next-intl.
+- `tests/e2e/i18n-smoke.spec.ts` (`@i18n`, every PR): Estonian chrome signed out, and the onboarding locale round-trip.
+- `tests/e2e/i18n-full-flow.spec.ts` (`@i18n @ai`, run by hand with `pnpm test:e2e:local`; it makes real Claude calls): an Estonian household from sign-up through plan, meal detail, shopping, pantry and imagine. It asserts the pantry rows on screen without a reload, and searches the meal selector and the pantry inline add by Estonian names.
+
 ## Reviewing AI output quality
 
 Every non-default-locale AI call, and 5% of English ones (`DEFAULT_LOCALE_SAMPLE_RATE`), emits a structured `[ai-sample]` JSON line containing the AI input and output (no household / user IDs) and the `sampleRate` it was logged at. This closes the iteration loop for ongoing voice tuning without requiring an admin page or DB table. The English share exists so production inputs can become model-benchmark cases (`--import-sample`, see [AI_MODELS.md → Where cases come from](./AI_MODELS.md#where-cases-come-from)). Implementation: `src/lib/ai/sampling.ts`.

@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /onboarding, /, /shopping, /recipes/imagine, /api/meal-plans/[id]/entries · COMPONENTS: SignUpForm, FirstTimeSetup, TimelineView, MealCard, MealDetailModal, IngredientList, ShoppingSection, CategoryGroup, PantrySection, ImagineClient
+// ROUTES: /sign-up, /onboarding, /, /shopping, /recipes/imagine, /api/meal-plans/[id]/entries, /api/meals, /api/ingredients, /api/pantry · COMPONENTS: SignUpForm, FirstTimeSetup, TimelineView, MealCard, MealDetailModal, MealSelectorModal, IngredientList, ShoppingSection, CategoryGroup, PantrySection, InlineAddItem, ImagineClient
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
 import { mealTranslationsEt } from '../../prisma/seed-meal-translations-et'
@@ -28,6 +28,11 @@ import { ingredientTranslationsEt } from '../../prisma/seed-ingredient-translati
  * picks a meal with a fractional piece quantity, so the step failed on most
  * runs for reasons unrelated to the release (HON-887). It adds its own entry
  * with a seeded system meal instead, on the generated plan's page.
+ *
+ * The searches (meal selector, pantry inline add) type a seeded Estonian name
+ * and expect it back, so they depend on the translated-name search from
+ * HON-911. Pantry and search assertions read the screen, not the API: the
+ * audit that added them (HON-915) found bugs an API-only check could not see.
  */
 
 // Estonian-specific letters — a robust "is this Estonian?" signal for the
@@ -73,6 +78,8 @@ const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'] as const
 // Mirror IngredientList's piece-quantity formatting (locale `et`, max 1 fraction
 // digit) so the predicted decimal string matches what the component renders.
 const fmtEtQty = (n: number) => new Intl.NumberFormat('et', { maximumFractionDigits: 1 }).format(n)
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 test.describe(
   '@i18n full-flow — Estonian renders across the core flow',
@@ -275,6 +282,47 @@ test.describe(
         ).toBeVisible()
         await page.keyboard.press('Escape')
         await expect(commaDialog).toBeHidden()
+
+        // ── 7b. Meal selector search by an Estonian name. Swap on the fixture
+        //        card opens the selector; its search is filtered by the entry's
+        //        meal type, so the target is a system meal suitable for that
+        //        slot, with an Estonian name that differs from the English one
+        //        (an English match cannot satisfy it). ──
+        const slotMealsResponse = await page.request.get(
+          `/api/meals?source=system&mealType=${slot!.mealType}&limit=50`,
+        )
+        expect(slotMealsResponse.ok()).toBe(true)
+        const { meals: slotMeals } = (await slotMealsResponse.json()) as { meals: SystemMeal[] }
+        const searchTarget = slotMeals.find(
+          (m) =>
+            etMealNames.has(m.name) && !enMealNames.has(m.name) && m.name !== commaTarget!.name,
+        )
+        expect(
+          searchTarget,
+          `No seeded ${slot!.mealType} system meal has a distinctly-Estonian name to search for.`,
+        ).toBeTruthy()
+
+        const fixtureCard = page
+          .locator('[data-slot="card"]')
+          .filter({ has: page.getByRole('button', { name: commaTarget!.name, exact: true }) })
+        await fixtureCard
+          .getByRole('button', { name: `Rohkem toiminguid: ${commaTarget!.name}` }) // more actions
+          .click()
+        await page.getByRole('menuitem', { name: 'Vaheta' }).click() // swap
+        const selectorDialog = page.getByRole('dialog')
+        await expect(selectorDialog).toBeVisible()
+        await selectorDialog
+          .getByRole('searchbox', { name: 'Otsi retseptide hulgast' }) // search meal library
+          .fill(searchTarget!.name)
+        // The header gains its count ("Otsingutulemused (N)") only once the
+        // search response is in — while loading it reads "Otsingutulemused" —
+        // so the name below cannot come from the suggestion list.
+        await expect(selectorDialog.getByText(/^Otsingutulemused \(\d+\)/)).toBeVisible()
+        await expect(
+          selectorDialog.getByText(searchTarget!.name, { exact: true }).first(),
+        ).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(selectorDialog).toBeHidden()
       } finally {
         if (fixtureEntryId) {
           await page.request.delete(`/api/meal-plans/${planId}/entries/${fixtureEntryId}`)
@@ -324,6 +372,13 @@ test.describe(
       ])
       expect(purchaseResponse.ok()).toBe(true)
 
+      // The pantry column shows it under its Estonian name, without a reload:
+      // the row is built from the purchase response, so an English name there
+      // would show until the page is refreshed. Scoped to the column, since the
+      // shopping list beside it renders the same name.
+      const pantryColumn = page.getByTestId('pantry-column')
+      await expect(pantryColumn.getByText(etItem!.name, { exact: true })).toBeVisible()
+
       // The pantry received it (server-persisted) — /api/pantry now lists the ingredient.
       await expect
         .poll(
@@ -336,6 +391,29 @@ test.describe(
           { message: 'purchased shopping-list item should appear in the pantry' },
         )
         .toBe(true)
+
+      // ── 9b. Pantry inline add: search by an Estonian ingredient name, add the
+      //        result, and see the row land in Estonian without a reload (the
+      //        row comes from the POST /api/pantry response). ──
+      const addTarget = ['potato', 'carrot', 'onion', 'garlic']
+        .map((en) => ingredientTranslationsEt.find((i) => i.en === en))
+        .find((i) => i && i.et !== i.en && i.et !== etItem!.name)!
+      expect(addTarget, 'no seeded ingredient with a distinct Estonian name to add').toBeTruthy()
+      await pantryColumn
+        .getByRole('textbox', { name: 'Lisa koostisosa sahvrisse' }) // add ingredient to pantry
+        .fill(addTarget.et)
+      const addOption = pantryColumn.getByRole('button', {
+        name: new RegExp(`^${escapeRegExp(addTarget.et)}(\\s|$)`),
+      })
+      await expect(addOption).toBeVisible()
+      const [pantryAddResponse] = await Promise.all([
+        page.waitForResponse(
+          (r) => r.url().endsWith('/api/pantry') && r.request().method() === 'POST',
+        ),
+        addOption.click(),
+      ])
+      expect(pantryAddResponse.ok()).toBe(true)
+      await expect(pantryColumn.getByText(addTarget.et, { exact: true })).toBeVisible()
 
       // ── 10. Imagine a meal: AI output is Estonian. ──
       await page.goto('/recipes/imagine')
