@@ -53,9 +53,36 @@ export const Loading: Story = {
     docs: {
       description: {
         story:
-          'Three skeleton cards stand in for the grid, each with the 3:2 image block an illustrated alternative has above Select. No header is rendered.',
+          'Three skeleton cards stand in for the grid: text bars and a button bar, with no 3:2 image block, since most library meals have no image (HON-943). No header is rendered.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('[data-slot="card"]')).toHaveLength(3)
+    await expect(canvasElement.querySelector('[data-shape="flush"]')).toBeNull()
+  },
+}
+
+/** From `md` the skeleton's button bar is label-wide, as the Select buttons are. */
+export const LoadingDesktop: Story = {
+  args: { isLoading: true },
+  globals: { viewport: { value: 'laptop', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[data-shape="flush"]')).toBeNull()
+  },
+}
+
+/** From `md` each Select is `outline` and as wide as its label (HON-943). */
+export const PopulatedDesktop: Story = {
+  globals: { viewport: { value: 'laptop', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const buttons = await within(canvasElement).findAllByRole('button', { name: /^select$/i })
+    await expect(buttons).toHaveLength(3)
+    for (const button of buttons) {
+      const card = button.closest<HTMLElement>('[data-slot="card"]')!.getBoundingClientRect()
+      await expect(button).toHaveAttribute('data-variant', 'outline')
+      await expect(button.getBoundingClientRect().width).toBeLessThan(card.width / 2)
+    }
   },
 }
 

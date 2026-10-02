@@ -29,8 +29,40 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+/** The footer's content box: `CardFooter` with the card's `p-4`. */
+function footerContentBox(button: HTMLElement) {
+  const footer = button.closest<HTMLElement>('[data-slot="card-footer"]')!
+  const { paddingLeft, paddingRight } = getComputedStyle(footer)
+  const left = footer.getBoundingClientRect().left + parseFloat(paddingLeft)
+  const width = footer.clientWidth - parseFloat(paddingLeft) - parseFloat(paddingRight)
+  return { left, width }
+}
+
+/** Below `md` the cards stack, so Select spans the card for a column-wide target (HON-943). */
 export const Default: Story = {
   args: { meal: mealFixture },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: 'Select' })
+    await expect(button.getBoundingClientRect().width).toBe(footerContentBox(button).width)
+  },
+}
+
+/**
+ * From `md` the dialog lays three cards in a row. Each Select is `outline` and
+ * as wide as its label, at the start of the card, so the row does not read as
+ * three equal black bars (HON-943, DESIGN.md → Reject list).
+ */
+export const Desktop: Story = {
+  args: { meal: mealFixture },
+  globals: { viewport: { value: 'laptop', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: 'Select' })
+    const box = button.getBoundingClientRect()
+    const content = footerContentBox(button)
+    await expect(box.width).toBeLessThan(content.width / 2)
+    await expect(box.left).toBe(content.left)
+    await expect(button).toHaveAttribute('data-variant', 'outline')
+  },
 }
 
 /** The dialog's tall card puts the image below the ingredients, above Select (HON-750). */
