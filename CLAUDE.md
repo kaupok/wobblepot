@@ -2,6 +2,26 @@
 
 In conversational responses, prioritize brevity. Keep explanations concise and direct.
 
+## Writing style
+
+Write in ASD-STE100 (Simplified Technical English) at about 80%, in chat and in anything you write for Linear. The full rule reads fast and never needs a second pass, but it drops the reasoning between facts, which is the part a reader uses to decide.
+
+Keep, always:
+
+- Short sentences, mostly under 20 words, one idea each.
+- Active voice, present tense.
+- One name per thing, no synonyms. A button called Remove is "Remove" every time.
+- No idioms, no filler, no hedging phrases.
+
+Relax, when it carries meaning:
+
+- Join cause and effect in one sentence with "so" or "because".
+- Put a trade-off inside a question, so the user can decide in one read.
+- Follow a judgment call with one sentence of reason.
+- Run to about 25 words when the alternative is a repeated subject.
+
+Issue descriptions and acceptance criteria stay close to the full rule, one fact per line, but keep the why as its own line: see Writing for Agents. Chat takes the wiggle room.
+
 ## Project Overview
 
 **Product:** AI-powered family meal planning app for households. The user-facing brand is **Wobblepot** (pronounced "WOB-bul-pot"). _Honkadori OÜ_ is the parent legal entity — used for vendor accounts, DPAs, subprocessor listings, AKI registration — and the name the package and the Linear workspace still carry. All user-facing copy and email lives on `wobblepot.com`; staging is on `wobblepot.dev`; legal-entity attribution appears in policy text only.
