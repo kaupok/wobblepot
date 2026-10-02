@@ -761,9 +761,7 @@ export const AskAboutStep: Story = {
       handlers: {
         cookQuestion: [
           http.post('/api/meal-plans/:planId/entries/:entryId/cook-question', () =>
-            HttpResponse.json({
-              answer: 'Use the Greek yoghurt you have, stirred in off the heat.',
-            }),
+            HttpResponse.text('Use the Greek yoghurt you have, stirred in off the heat.'),
           ),
         ],
       },
@@ -831,7 +829,7 @@ const longAnswerHandler = http.post(
   '/api/meal-plans/:planId/entries/:entryId/cook-question',
   async () => {
     await delay(200)
-    return HttpResponse.json({ answer: longAnswer })
+    return HttpResponse.text(longAnswer)
   },
 )
 
@@ -916,7 +914,7 @@ export const AskPanelInViewDoesNotMove: Story = {
       handlers: {
         cookQuestion: [
           http.post('/api/meal-plans/:planId/entries/:entryId/cook-question', () =>
-            HttpResponse.json({ answer: 'About 20 minutes more.' }),
+            HttpResponse.text('About 20 minutes more.'),
           ),
         ],
       },
@@ -953,9 +951,9 @@ const secondAnswerWaitsHandler = http.post(
   '/api/meal-plans/:planId/entries/:entryId/cook-question',
   async ({ request }) => {
     const { question } = (await request.json()) as { question: string }
-    if (question === "I'm short on time") return HttpResponse.json({ answer: longAnswer })
+    if (question === "I'm short on time") return HttpResponse.text(longAnswer)
     await delay(1500)
-    return HttpResponse.json({ answer: 'About 20 minutes more.' })
+    return HttpResponse.text('About 20 minutes more.')
   },
 )
 
@@ -1000,6 +998,64 @@ export const AskKeepsOldAnswerWhilePending: Story = {
     await expect(within(status).queryByText(longAnswer)).toBeNull()
     await expect(within(status).queryByText('Thinking…')).toBeNull()
     await expect(within(panel).getByText("You asked: How do I know it's done?")).toBeVisible()
+  },
+}
+
+// ── Ask: the answer streams in (HON-979) ─────────────────────────────────
+
+const streamedChunks = [
+  'Cut into the thickest piece. ',
+  'The juices run clear ',
+  'when it is done.',
+]
+
+/** The answer in three chunks, 400ms apart, as the route streams it. */
+const streamedAnswerHandler = http.post(
+  '/api/meal-plans/:planId/entries/:entryId/cook-question',
+  () => {
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        for (const chunk of streamedChunks) {
+          await delay(400)
+          controller.enqueue(encoder.encode(chunk))
+        }
+        controller.close()
+      },
+    })
+    return new HttpResponse(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+  },
+)
+
+/**
+ * The first words show before the rest is written, and the answer grows in
+ * place. Send and the chips stay disabled until the stream closes, so a second
+ * tap cannot bill a second call.
+ */
+export const AskStreamsAnswer: Story = {
+  name: 'Planned: ask streams the answer in',
+  args: { ...plannedArgs, initialTips: tips },
+  parameters: { msw: { handlers: { cookQuestion: [streamedAnswerHandler] } } },
+  play: async () => {
+    await findDialog()
+    await userEvent.click(body().getByRole('button', { name: 'Ask about step 2' }))
+    const panel = body().getByRole('group', { name: 'Ask about step 2' })
+    const status = within(panel).getByRole('status')
+    const send = within(panel).getByRole('button', { name: 'Send' })
+
+    await userEvent.click(within(panel).getByRole('button', { name: "How do I know it's done?" }))
+    await within(status).findByText('Cut into the thickest piece.')
+    await expect(status).not.toHaveTextContent('Thinking…')
+    await expect(status).toHaveAttribute('aria-busy', 'true')
+    await expect(send).toHaveAttribute('aria-disabled', 'true')
+
+    await within(status).findByText('Cut into the thickest piece. The juices run clear')
+    await expect(send).toHaveAttribute('aria-disabled', 'true')
+
+    const full = streamedChunks.join('').trim()
+    await within(status).findByText(full, {}, { timeout: 4000 })
+    await waitFor(() => expect(send).toHaveAttribute('aria-disabled', 'false'))
+    await expect(status).toHaveAttribute('aria-busy', 'false')
   },
 }
 

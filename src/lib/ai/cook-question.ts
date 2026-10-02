@@ -1,10 +1,5 @@
-import { z } from 'zod'
 import { formatIngredientsList, type TipsComponent } from './preparation-tips'
 import { localeInstruction, estonianVoiceForPrepTips } from './prompts'
-
-export const cookQuestionSchema = z.object({
-  answer: z.string().describe('The answer to the cook, 2-4 sentences'),
-})
 
 export interface CookQuestionPantryItem {
   /** Ingredient name in the household's language */
@@ -134,13 +129,13 @@ Rules:
 }
 
 /**
- * Every `generateObject` argument the cook-question call sends except `model`
- * and `abortSignal`. Pure, so the model benchmark can send the request
+ * Every `streamText` argument the cook-question call sends except `model`
+ * and `abortSignal`. Plain text, no schema: the answer streams to the cook as
+ * it is written (HON-979). Pure, so the model benchmark can send the request
  * production sends (HON-796).
  */
 export function buildCookQuestionRequest(input: CookQuestionRequestInput) {
   return {
-    schema: cookQuestionSchema,
     prompt: buildCookQuestionPrompt(input),
     // A quarter of the full tips' ceiling: the answer is 2-4 sentences, and
     // the rest is headroom for adaptive thinking, which bills as output (HON-693).

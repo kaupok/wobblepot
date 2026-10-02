@@ -169,6 +169,7 @@ export function MealDetailModal({
     active: activeQuestion,
     previous: previousQuestion,
     isPending: isQuestionPending,
+    isStreaming: isQuestionStreaming,
     error: questionError,
     retry: retryQuestion,
     reset: resetQuestion,
@@ -565,6 +566,7 @@ export function MealDetailModal({
                   active: activeQuestion,
                   previous: previousQuestion,
                   isPending: isQuestionPending,
+                  isStreaming: isQuestionStreaming,
                   error: questionError,
                   onRetry: retryQuestion,
                 }

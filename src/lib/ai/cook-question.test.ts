@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   buildCookQuestionPrompt,
   buildCookQuestionRequest,
-  cookQuestionSchema,
   type CookQuestionRequestInput,
 } from './cook-question'
 import { estonianVoiceForPrepTips, localeInstruction } from './prompts'
@@ -125,9 +124,9 @@ describe('buildCookQuestionPrompt', () => {
 })
 
 describe('buildCookQuestionRequest', () => {
-  it('sends the answer schema with the agreed ceilings', () => {
+  it('sends plain text, no schema, with the agreed ceilings', () => {
     const request = buildCookQuestionRequest(input())
-    expect(request.schema).toBe(cookQuestionSchema)
+    expect(request).not.toHaveProperty('schema')
     expect(request.maxOutputTokens).toBe(600)
     expect(request.maxRetries).toBe(3)
     expect(request.prompt).toBe(buildCookQuestionPrompt(input()))
