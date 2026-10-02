@@ -21,6 +21,7 @@ function libraryMeal(id: string, name: string) {
     kidFriendly: true,
     primaryProteinType: 'poultry',
     suitableFor: ['dinner'],
+    isCustom: false,
     components: [],
     nutrition: { calories: 400, protein: 20, carbs: 40, fat: 12 },
   }
@@ -147,6 +148,22 @@ describe('useMealAlternatives', () => {
       expect(url.searchParams.get('mealType')).toBe('dinner')
       expect(url.searchParams.get('offset')).toBe('0')
       expect(url.searchParams.get('source')).toBeNull()
+    })
+
+    it('keeps isCustom on each result, so the card can mark an own recipe (HON-948)', async () => {
+      mockApiFetch.mockResolvedValueOnce({
+        meals: [libraryMeal('lib', 'Library'), { ...libraryMeal('own', 'Own'), isCustom: true }],
+        hasMore: false,
+        total: 2,
+      })
+
+      const { result } = render({ search: 'soup' })
+
+      await waitFor(() => expect(result.current.hasLoadedList).toBe(true))
+      expect(result.current.displayedMeals.map((m) => [m.id, m.isCustom])).toEqual([
+        ['lib', false],
+        ['own', true],
+      ])
     })
 
     it('adds source=custom when the my-recipes filter is on', async () => {

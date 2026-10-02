@@ -94,6 +94,20 @@ export const WithImage: Story = {
   },
 }
 
+/**
+ * One of the household's own recipes among the suggestions or search results:
+ * the compact "My recipe" badge, which a library meal does not get (HON-948).
+ */
+export const OwnRecipe: Story = {
+  args: { meal: { ...mealFixture, isCustom: true } },
+  play: async ({ canvasElement }) => {
+    const badge = within(canvasElement)
+      .getByText('My recipe')
+      .closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(badge).toHaveAttribute('title', 'My recipe')
+  },
+}
+
 export const Selecting: Story = {
   args: { meal: mealFixture, isSelecting: true },
 }

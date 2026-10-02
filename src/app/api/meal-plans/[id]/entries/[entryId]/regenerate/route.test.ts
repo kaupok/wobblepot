@@ -235,7 +235,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
         primaryProteinType: 'beef',
         topIngredients: [{ name: 'Beef' }],
         isFavorite: true,
-        isCustom: false,
+        isCustom: true,
       },
     ]
     mockGetCandidates.mockResolvedValue(mockCandidates as never)
@@ -308,6 +308,12 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/regenerate', () => {
       imageStatus: 'ready',
       imageHue: 30,
     })
+
+    // The selector marks the household's own recipes (HON-948).
+    const isCustomById = Object.fromEntries(
+      data.alternatives.map((a: { id: string; isCustom: boolean }) => [a.id, a.isCustom]),
+    )
+    expect(isCustomById).toEqual({ 'meal-alt-1': false, 'meal-alt-2': true })
   })
 
   describe('tie-break jitter', () => {

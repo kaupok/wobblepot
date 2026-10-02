@@ -183,6 +183,7 @@
       "clear": "Eemalda",
       "notCookedYet": "Pole veel valmis",
       "moreActions": "Rohkem toiminguid: {name}",
+      "myRecipe": "Minu retsept",
       "rate": "Hinda",
       "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
       "statusUpdateFailed": "Oleku uuendamine ebaõnnestus. Palun proovi uuesti.",

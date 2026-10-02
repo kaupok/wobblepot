@@ -31,6 +31,7 @@ import { StickyNote } from './StickyNote'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import { MealTypeBadge } from './MealTypeBadge'
+import { MyRecipeBadge } from './MyRecipeBadge'
 import { ProteinBadge } from './ProteinBadge'
 import type {
   EntryRating,
@@ -431,6 +432,7 @@ export function MealCard({
               <div className="flex flex-wrap items-center gap-1.5">
                 <MealTypeBadge mealType={mealType} />
                 <ProteinBadge proteinType={meal.primaryProteinType} />
+                {meal.isCustom && <MyRecipeBadge compact />}
               </div>
               {hasTrailingActions && (
                 <div className="flex shrink-0 items-center gap-1">

@@ -298,6 +298,10 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/suggestions', () => {
     })
     const withoutImage = data.alternatives.find((a: { id: string }) => a.id === 'meal-2')
     expect(withoutImage).toMatchObject({ imageUrl: null, imageHue: null })
+
+    // The selector marks the household's own recipes (HON-948).
+    expect(withImage.isCustom).toBe(false)
+    expect(withoutImage.isCustom).toBe(true)
   })
 
   describe('tie-break jitter', () => {
