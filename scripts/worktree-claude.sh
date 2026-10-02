@@ -2144,11 +2144,8 @@ watch_scan_log() {
     # claim means the operator cleared it. Without that, the re-run recreates
     # the preserved worktree on the same branch and the strand reads as open
     # again until the new outcome. `[UNGATE]` says nothing about a strand.
-    #
-    # Both lines come only from the Queued fetch, so a gated issue the operator
-    # takes out of Queued (to Todo, Backlog or Canceled) logs neither and stays
-    # open for the rest of the run, even once its label is gone. Putting it back
-    # in Queued without the label logs the `[UNGATE]` that answers it.
+    # The orchestrator also logs `[UNGATE] HON-X — left Queued` when a gated
+    # issue leaves Queued (HON-940), so that answers the gate too.
     /\[UNGATE\] [A-Z]+-[0-9]+ / || / Claimed [A-Z]+-[0-9]+ / {
       if (in_window($0) && match($0, /(\[UNGATE\]|Claimed) [A-Z]+-[0-9]+/)) {
         n = split(substr($0, RSTART, RLENGTH), f, " ")

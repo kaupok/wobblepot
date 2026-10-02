@@ -130,6 +130,13 @@
 #     and the [SKIP] lines, so the jq skip chain and the in-memory suppression
 #     lists (CAP_REQUEUED_ISSUES, GATED_ISSUES) are under test.
 #
+#   gated-reconcile <issues-json> <gated>                           (HON-940)
+#     Seeds GATED_ISSUES and runs the REAL reconcile_gated_issues twice over the
+#     same fixture in one process, as two polls would. Prints GATED (the list
+#     after both calls) and the log, so a test can assert each [UNGATE] line is
+#     written once, not once per poll. LINEAR_QUEUE_PAGE_SIZE can be lowered
+#     through HARNESS_QUEUE_PAGE_SIZE to model a truncated fetch.
+#
 #   log-once                                       (HON-572, finding 3)
 #     Calls the REAL log() once with MAIN_LOG on a temp file, then reports what
 #     the file holds. stderr carries log()'s own colored copy, so a test that
@@ -1120,6 +1127,21 @@ EOF
     WORKER_ISSUES=()
     trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
     echo "PICK:$(select_next_issue "$A1" | head -1)"
+    cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  # ─── Gate answers (HON-940) ────────────────────────────────────────────────
+  #   gated-reconcile <issues-json> <gated>
+  # Two calls in one process: the second is what shows the rebuilt list
+  # persisted, since a drop that did not stick would log the same line again.
+  gated-reconcile)
+    GATED_ISSUES="$A2"
+    LINEAR_QUEUE_PAGE_SIZE="${HARNESS_QUEUE_PAGE_SIZE:-$LINEAR_QUEUE_PAGE_SIZE}"
+    trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
+    reconcile_gated_issues "$A1"
+    reconcile_gated_issues "$A1"
+    echo "GATED:$GATED_ISSUES"
     cat "$MAIN_LOG"
     exit 0
     ;;

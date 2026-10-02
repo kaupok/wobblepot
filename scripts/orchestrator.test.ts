@@ -3324,6 +3324,105 @@ describe('orchestrator.sh', () => {
     })
   })
 
+  describe('HON-940 a gate is answered once the issue leaves Queued', () => {
+    /** A fetch_queued_issues-shaped response; `gated` ids carry the Gated label. */
+    const response = (ids: number[], gated: number[] = []): string =>
+      JSON.stringify({
+        data: {
+          issues: {
+            nodes: ids.map((n) => ({
+              id: `u${n}`,
+              identifier: `HON-${n}`,
+              title: `Fixture ${n}`,
+              branchName: `kaupo/hon-${n}-fixture`,
+              priority: 3,
+              assignee: null,
+              labels: { nodes: gated.includes(n) ? [{ name: 'Gated' }] : [] },
+              relations: { nodes: [] },
+              inverseRelations: { nodes: [] },
+            })),
+          },
+        },
+      })
+
+    /** The REAL reconcile_gated_issues, called twice in one process, as two polls. */
+    const reconcile = (json: string, gated: string, env: Record<string, string> = {}): string =>
+      stripTimestamps(runHarnessEnv(env, 'gated-reconcile', json, gated))
+
+    const count = (out: string, needle: string): number => out.split(needle).length - 1
+
+    it('logs one [UNGATE] for a gated issue that is no longer in Queued', () => {
+      // The operator moved HON-940 to Todo, Backlog or Canceled. Before this,
+      // nothing answered that gate and `wt watch` showed it yellow until restart.
+      const out = reconcile(response([992]), 'HON-940')
+
+      expect(count(out, '[UNGATE] HON-940 — left Queued')).toBe(1)
+      expect(out).toContain('GATED:\n')
+    })
+
+    it('logs one [UNGATE] when the label is removed, not one per poll', () => {
+      // The HON-655 bug: the drop ran inside $(select_next_issue), died with
+      // the subshell, and the same line was logged again on every poll.
+      const out = reconcile(response([940]), 'HON-940')
+
+      expect(count(out, '[UNGATE] HON-940 — Gated label removed by operator')).toBe(1)
+      expect(out).not.toContain('left Queued')
+      expect(out).toContain('GATED:\n')
+    })
+
+    it('keeps a gate open while the issue is in Queued with its label', () => {
+      const out = reconcile(response([940], [940]), 'HON-940')
+
+      expect(out).not.toContain('[UNGATE]')
+      expect(out).toContain('GATED:HON-940')
+    })
+
+    it('answers each entry on its own', () => {
+      const out = reconcile(response([941], [941]), 'HON-940,HON-941,HON-942')
+
+      expect(count(out, '[UNGATE] HON-940 — left Queued')).toBe(1)
+      expect(count(out, '[UNGATE] HON-942 — left Queued')).toBe(1)
+      expect(out).not.toContain('[UNGATE] HON-941')
+      expect(out).toContain('GATED:HON-941\n')
+    })
+
+    it('keeps an absent entry when the fetch hit the page cap', () => {
+      // Past the cap the issue may still be in Queued; answering it would turn
+      // the pane dim for a gate that is still in force.
+      const out = reconcile(response([1, 2, 3]), 'HON-940', { HARNESS_QUEUE_PAGE_SIZE: '2' })
+
+      expect(out).not.toContain('[UNGATE]')
+      expect(out).toContain('GATED:HON-940')
+    })
+
+    it('changes nothing when the response has no issue list', () => {
+      // A bad fetch read as an empty queue would answer every gate at once.
+      for (const bad of ['not json', '{"data":{"issues":null}}']) {
+        const out = reconcile(bad, 'HON-940')
+
+        expect(out).not.toContain('[UNGATE]')
+        expect(out).toContain('GATED:HON-940')
+      }
+    })
+
+    it('still skips a re-queued issue that carries the Gated label', () => {
+      // Dropping the entry must not let it through: the skip comes from the
+      // label, so an empty in-memory list changes nothing here.
+      const out = stripTimestamps(runHarness('select-next', response([940, 992], [940]), '', ''))
+
+      expect(out).toContain('PICK:u992\tHON-992')
+      expect(out).toContain('[SKIP] HON-940 gated')
+    })
+
+    it('runs in the main shell, ahead of the pick', () => {
+      // Inside $(...) the rebuilt list would die with the subshell (HON-655).
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'main')
+
+      expect(body).toMatch(/^\s*reconcile_gated_issues "\$response"$/m)
+      expect(body.indexOf('reconcile_gated_issues')).toBeLessThan(body.indexOf('select_next_issue'))
+    })
+  })
+
   describe('HON-616 the cap error explains itself', () => {
     const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
     const CAP_ERROR = 'ERROR: branch limit exceeded for project'
@@ -3817,6 +3916,13 @@ describe('orchestrator.sh', () => {
           GATED,
           '2026-09-20 10:45:00 INFO  [UNGATE] HON-703 — Gated label removed by operator; eligible again',
         ])
+
+        expect(r.TALLY_GATED).toBe('1')
+        expect(r.TALLY_GATED_OPEN).toBe('0')
+      })
+
+      it('counts a gated outcome as resolved once the issue leaves Queued (HON-940)', () => {
+        const r = scan([GATED, '2026-09-20 10:45:00 INFO  [UNGATE] HON-703 — left Queued'])
 
         expect(r.TALLY_GATED).toBe('1')
         expect(r.TALLY_GATED_OPEN).toBe('0')
