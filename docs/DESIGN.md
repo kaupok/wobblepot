@@ -164,6 +164,14 @@ The product supplies one piece of content imagery: a generated illustration of e
 - **Errors are silent.** A failed or unavailable image never produces a toast or error UI; the card or modal renders as if the meal had no image. The image is decoration and must not interrupt cooking.
 - **Where.** Meal cards wherever they appear (the planner, alternatives, the household meal list, imagine results) and the cook view's hero. Not on ingredient rows, shopping lists, pantry items, or empty states: those are about ingredients and tasks, not dishes.
 
+## Logo
+
+The wordmark is lowercase "wobblepot" set in Bricolage Grotesque at `opsz` 96, `wght` 640, `wdth` 100, tracked -0.035em, with the font's kerning, then outlined to paths. The icon is its `w` alone, in `--primary` ink with the paper colour on it. Decided 2026-10-02 as a starting point, to be refined later. Bricolage Grotesque is under the SIL Open Font License, so the outlined logo is free to use.
+
+- **One component.** The app renders the wordmark through `Wordmark` (`src/components/wordmark.tsx`), never as text in a font. It fills with `currentColor`, so it follows the theme with no `dark:` variant. Its `aria-label` is "Wobblepot", so a link around it is named without extra text. The viewBox is the ink box, so the caller sets the height and the width follows: `h-5` in the header.
+- **Neutral, like the product.** The logo is ink on paper or paper on ink, the `--primary` pair. It does not introduce a brand hue; that waits for the brand decision in [Color](#color).
+- **Files.** Masters are in `public/brand/`: the wordmark, the `w` mark, the pot-shaped app tile, and the full-bleed tiles for maskable and Apple icons. The PNG icons in `public/icons/` and `src/app/favicon.ico` are rendered from those tiles. The tile is a pot in silhouette, slightly wider at the top with rounder bottom corners. Maskable and Apple icons use a full square, because the platform cuts its own shape. To regenerate after a change, outline the glyphs at the settings above (fontTools instancer plus HarfBuzz shaping), then rasterise the tiles at 16, 32, 48, 180, 192 and 512 px.
+
 ## Composition rules
 
 Each of these came from a review that found the opposite in production.
