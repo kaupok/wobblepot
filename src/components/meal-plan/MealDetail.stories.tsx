@@ -36,7 +36,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The cook view’s content (HON-932), outside its dialog. Below `lg` one scrolling column: hero, title, meta, note, ingredients, steps, nutrition last. From `lg` two columns that scroll on their own. `MealDetailModal` supplies the hero, title and note through slots.',
+          'The cook view’s content (HON-932), outside its dialog. Below `lg` one scrolling column: hero, title, meta, note, ingredients, nutrition, steps, so “Done cooking” ends it (HON-965). From `lg` two columns that scroll on their own. `MealDetailModal` supplies the hero, title and note through slots.',
       },
     },
   },

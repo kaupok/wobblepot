@@ -96,16 +96,15 @@ function withOverrides(
 
 /**
  * The cook view's content (docs/DESIGN.md → "Cook view", HON-932). Below `lg`
- * one scrolling column: hero, title, meta, note, ingredients, steps, and
- * nutrition last. From `lg` two columns that scroll on their own, so
- * scrolling the steps never moves the ingredients: the hero down to nutrition
- * on the left (2/5), the steps on the right (3/5).
+ * one scrolling column: hero, title, meta, note, ingredients, nutrition, then
+ * the steps, so "Done cooking" ends the view. From `lg` two columns that
+ * scroll on their own, so scrolling the steps never moves the ingredients:
+ * the hero down to nutrition on the left (2/5), the steps on the right (3/5).
  *
- * One tree for both: the left column is `display: contents` below `lg`, so its
- * children join the single column, where `order-last` moves nutrition after
- * the steps. Rendering nutrition twice would leave two of everything in it for
- * assistive tech and tests. The cost is that on a phone the nutrition (i)
- * comes before the steps' button in tab order; both orders read sensibly.
+ * One tree for both, in one order: the left column is `display: contents`
+ * below `lg`, so its children join the single column with no box of their
+ * own. The DOM order is the visual order in both layouts, so a screen reader
+ * hears what the page shows (WCAG 1.3.2, HON-965).
  */
 export function MealDetail({
   meal,
@@ -246,13 +245,14 @@ export function MealDetail({
           </section>
         </div>
 
-        {/* Nutrition last, with the disclaimer directly below the macros and
-            visible, never behind an icon (HON-466). After the steps below
-            `lg`; at the end of the left column from `lg`. */}
+        {/* Nutrition at the end of the ingredients, with the disclaimer
+            directly below the macros and visible, never behind an icon
+            (HON-466). Before the steps below `lg`, so the view ends on
+            "Done cooking" (HON-965). */}
         {meal.nutrition && (
           <div
             data-testid="cook-view-nutrition"
-            className="order-last flex flex-col gap-1 px-5 pb-8 md:px-8 lg:order-none lg:px-6 lg:pb-0"
+            className="flex flex-col gap-1 px-5 md:px-8 lg:px-6"
           >
             <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
             <NutritionDisclaimer />
@@ -267,7 +267,7 @@ export function MealDetail({
         <section
           data-testid="cook-view-steps"
           tabIndex={0}
-          className="flex flex-col gap-6 px-5 md:px-8 lg:col-span-3 lg:overflow-y-auto lg:px-10 lg:pt-8 lg:pb-8"
+          className="flex flex-col gap-6 px-5 pb-8 md:px-8 lg:col-span-3 lg:overflow-y-auto lg:px-10 lg:pt-8"
         >
           <Heading variant="h4" as="h3">
             {tTips('steps')}

@@ -180,11 +180,11 @@ async function assertPhone(): Promise<void> {
   await expect(getComputedStyle(dialog).borderTopLeftRadius).toBe('0px')
   const title = within(dialog).getByRole('heading', { level: 2, name: mealFixture.name })
   await expect(getComputedStyle(title).fontSize).toBe('24px')
-  // One column: the steps sit under the ingredients, nutrition after them.
+  // One column: nutrition under the ingredients, then the steps (HON-965).
   const steps = within(dialog).getByTestId('cook-view-steps')
   const nutrition = within(dialog).getByTestId('cook-view-nutrition')
-  await expect(nutrition.getBoundingClientRect().top).toBeGreaterThan(
-    steps.getBoundingClientRect().bottom,
+  await expect(nutrition.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+    steps.getBoundingClientRect().top,
   )
   // A 44px+ close, always there.
   const close = within(dialog).getByRole('button', { name: 'Close' })
@@ -762,6 +762,41 @@ export const DoneCooking: Story = {
     await awaitDialogClosed()
     // Called once the view is gone, so the deduction never stacks on it.
     await waitFor(() => expect(args.onDoneCooking).toHaveBeenCalledTimes(1))
+  },
+}
+
+/**
+ * On a phone the view ends on "Done cooking": nutrition and its disclaimer sit
+ * under the ingredients, and nothing follows the button, either in the DOM a
+ * screen reader walks or on screen (HON-965).
+ */
+export const DoneCookingPhone: Story = {
+  name: 'Planned: Done cooking ends the view (phone)',
+  args: { ...plannedArgs, initialTips: tips },
+  globals: { viewport: PHONE },
+  play: async () => {
+    const dialog = await findDialog()
+    const done = within(dialog).getByRole('button', { name: 'Done cooking' })
+    const nutrition = within(dialog).getByTestId('cook-view-nutrition')
+    const steps = within(dialog).getByTestId('cook-view-steps')
+    await expect(nutrition.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      steps.getBoundingClientRect().top,
+    )
+    const scroll = dialog.querySelector<HTMLElement>('[data-slot="cook-view-scroll"]')!
+    const doneBottom = done.getBoundingClientRect().bottom
+    const walker = document.createTreeWalker(scroll, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim() || done.contains(node)) continue
+      const text = node.textContent.trim()
+      if (done.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) {
+        throw new Error(`"${text}" follows Done cooking in the DOM`)
+      }
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      if (range.getBoundingClientRect().bottom > doneBottom) {
+        throw new Error(`"${text}" renders below Done cooking`)
+      }
+    }
   },
 }
 

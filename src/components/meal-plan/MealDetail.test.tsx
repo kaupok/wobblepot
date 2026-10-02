@@ -151,7 +151,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
   const follows = (a: Node, b: Node) =>
     !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-  it('orders title, ingredients and steps, with nutrition last on a phone', () => {
+  it('orders title, ingredients, nutrition and steps in the DOM, as on screen', () => {
     render(
       <MealDetail
         meal={nutritionMeal}
@@ -166,10 +166,11 @@ describe('MealDetail cook view layout (HON-932)', () => {
     const steps = screen.getByTestId('cook-view-steps')
     const nutrition = screen.getByTestId('cook-view-nutrition')
     expect(follows(title, ingredients)).toBe(true)
-    expect(follows(ingredients, steps)).toBe(true)
-    // In the left column in the DOM (from `lg`), and moved after the steps
-    // below `lg` by `order-last` inside a `display: contents` column.
-    expect(nutrition).toHaveClass('order-last', 'lg:order-none')
+    expect(follows(ingredients, nutrition)).toBe(true)
+    expect(follows(nutrition, steps)).toBe(true)
+    // No `order-*` reshuffle: the DOM order is the visual order in both
+    // layouts, so on a phone the view ends on the steps (HON-965).
+    expect(nutrition.className).not.toMatch(/(^|\s|:)order-/)
     expect(screen.getByTestId('cook-view-left')).toHaveClass('contents', 'lg:flex')
     // The disclaimer stays visible, directly under the macros (HON-466).
     expect(nutrition.lastElementChild).toHaveTextContent(/estimate|medical/i)
