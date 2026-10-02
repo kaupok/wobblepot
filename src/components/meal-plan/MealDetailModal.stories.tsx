@@ -809,6 +809,140 @@ export const AskAboutStep: Story = {
   },
 }
 
+// ── Ask: the answer stays in view (HON-977) ──────────────────────────────
+
+/** Twelve long steps, so the last ones sit far below the fold. */
+const longTips: StructuredTips = {
+  ...tips,
+  steps: Array.from(
+    { length: 12 },
+    (_, i) =>
+      `Step ${i + 1}: stir the pan over a medium heat, scraping the bottom so nothing catches, until the sauce coats the back of a spoon.`,
+  ),
+}
+
+const longAnswer =
+  'Skip the resting time and slice the chicken straight away; it will be a little less juicy but still good. ' +
+  'Put the potatoes on the top rack at 230°C so they crisp in 25 minutes instead of 35. ' +
+  'Squeeze the lemon over everything while it is hot. ' +
+  'If the sauce is thin, boil it hard for two minutes while you slice.'
+
+const longAnswerHandler = http.post(
+  '/api/meal-plans/:planId/entries/:entryId/cook-question',
+  async () => {
+    await delay(200)
+    return HttpResponse.json({ answer: longAnswer })
+  },
+)
+
+/** Whether `inner` lies wholly inside `outer`'s box, give or take a pixel of rounding. */
+function isInside(inner: Element, outer: Element): boolean {
+  const a = box(inner)
+  const b = box(outer)
+  return a.top >= b.top - 1 && a.bottom <= b.bottom + 1
+}
+
+const resultOf = (panel: HTMLElement) =>
+  panel.querySelector<HTMLElement>('[data-slot="cook-question-result"]')!
+
+/**
+ * The last step's Ask button sits on the bottom edge of the scroll region,
+ * as a cook reaches it scrolling down. Opening it brings the chips and the
+ * field into view. A chip's long answer arrives, and the answer with Close
+ * scrolls into view, while focus stays on the chip.
+ */
+async function assertAnswerKeptInView(scroller: HTMLElement): Promise<void> {
+  const last = longTips.steps!.length
+  const ask = body().getByRole('button', { name: `Ask about step ${last}` })
+  ask.scrollIntoView({ block: 'end' })
+  await userEvent.click(ask)
+
+  const panel = body().getByRole('group', { name: `Ask about step ${last}` })
+  const field = within(panel).getByRole('textbox', { name: 'Your question' })
+  await waitFor(() => expect(isInside(field, scroller)).toBe(true))
+
+  const chip = within(panel).getByRole('button', { name: "I'm short on time" })
+  await userEvent.click(chip)
+  await within(panel).findByText(longAnswer)
+  const close = within(panel).getByRole('button', { name: 'Close' })
+  await expect(resultOf(panel)).toContainElement(close)
+  await waitFor(() => expect(isInside(resultOf(panel), scroller)).toBe(true))
+  // The answer arriving moved nothing but the scroll.
+  await expect(chip).toHaveFocus()
+}
+
+/**
+ * From `lg` the steps column scrolls on its own: the panel and then the answer
+ * scroll into view inside it.
+ */
+export const AskKeepsAnswerInView: Story = {
+  name: 'Planned: ask keeps the answer in view',
+  args: { ...plannedArgs, initialTips: longTips },
+  globals: { viewport: LAPTOP },
+  parameters: { msw: { handlers: { cookQuestion: [longAnswerHandler] } } },
+  play: async () => {
+    const dialog = await findDialog()
+    await assertAnswerKeptInView(within(dialog).getByTestId('cook-view-steps'))
+  },
+}
+
+/**
+ * Below `lg` the dialog is one column that scrolls as a whole. Reduced motion
+ * on: the scroll snaps rather than glides.
+ */
+export const AskKeepsAnswerInViewPhone: Story = {
+  name: 'Planned: ask keeps the answer in view (phone, reduced motion)',
+  args: { ...plannedArgs, initialTips: longTips },
+  globals: { viewport: PHONE, reducedMotion: 'on' },
+  parameters: { msw: { handlers: { cookQuestion: [longAnswerHandler] } } },
+  play: async () => {
+    const dialog = await findDialog()
+    await assertAnswerKeptInView(
+      dialog.querySelector<HTMLElement>('[data-slot="cook-view-scroll"]')!,
+    )
+  },
+}
+
+/**
+ * A panel that opens, and answers, in full view does not move the steps.
+ * Reduced motion on, so any scroll would land at once and fail the check.
+ */
+export const AskPanelInViewDoesNotMove: Story = {
+  name: 'Planned: ask in view does not scroll',
+  args: { ...plannedArgs, initialTips: tips },
+  globals: { viewport: LAPTOP, reducedMotion: 'on' },
+  parameters: {
+    msw: {
+      handlers: {
+        cookQuestion: [
+          http.post('/api/meal-plans/:planId/entries/:entryId/cook-question', () =>
+            HttpResponse.json({ answer: 'About 20 minutes more.' }),
+          ),
+        ],
+      },
+    },
+  },
+  play: async () => {
+    const dialog = await findDialog()
+    const scroller = within(dialog).getByTestId('cook-view-steps')
+    const ask = within(dialog).getByRole('button', { name: 'Ask about step 2' })
+    ask.scrollIntoView({ block: 'center' })
+    const scrollTop = scroller.scrollTop
+
+    await userEvent.click(ask)
+    const panel = body().getByRole('group', { name: 'Ask about step 2' })
+    await expect(isInside(panel, scroller)).toBe(true)
+    await expect(scroller.scrollTop).toBe(scrollTop)
+
+    await userEvent.click(within(panel).getByRole('button', { name: "I'm short on time" }))
+    await within(panel).findByText('About 20 minutes more.')
+    // The arrival's effect runs before the next frame; give it two.
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    await expect(isInside(resultOf(panel), scroller)).toBe(true)
+    await expect(scroller.scrollTop).toBe(scrollTop)
+  },
+}
+
 /** A completed entry gets no Ask buttons: nobody is cooking it. */
 export const CompletedHasNoAsk: Story = {
   name: 'Completed: no Ask buttons',

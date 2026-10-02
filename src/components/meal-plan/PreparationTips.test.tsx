@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
@@ -271,6 +271,17 @@ describe('PreparationSteps progress', () => {
 
 // Each generated step gets an Ask button beside its toggle (HON-969).
 describe('PreparationSteps cook question', () => {
+  // jsdom has no scrollIntoView; the panel calls it on open and on arrival.
+  const scrollIntoView = vi.fn()
+  beforeEach(() => {
+    scrollIntoView.mockClear()
+    Element.prototype.scrollIntoView = scrollIntoView
+  })
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView
+    document.documentElement.removeAttribute('data-reduced-motion')
+  })
+
   /** The modal's side of the contract: one open step, held in state. */
   function Harness({
     controls = {},
@@ -523,5 +534,54 @@ describe('PreparationSteps cook question', () => {
 
     expect(panel(2)).toBeNull()
     expect(askButton(2)).toHaveFocus()
+  })
+
+  describe('keeps the panel and the answer in view (HON-977)', () => {
+    const result = () => within(panel(1)!).getByRole('status').parentElement
+    const scrolled = () => scrollIntoView.mock.contexts
+
+    it('scrolls the panel into view, nearest and smooth, when it opens', async () => {
+      render(<Harness />)
+      await userEvent.click(askButton(1))
+
+      expect(scrollIntoView).toHaveBeenCalledOnce()
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' })
+      expect(scrolled()[0]).toBe(panel(1))
+    })
+
+    it('scrolls the answer and Close into view when the answer arrives, and leaves focus', async () => {
+      const active = { stepIndex: 0, question: "I'm short on time", answer: null }
+      const { rerender } = render(<Harness controls={{ active, isPending: true }} />)
+      await userEvent.click(askButton(1))
+      const chip = screen.getByRole('button', { name: "I'm short on time" })
+      chip.focus()
+      // "Thinking…" does not scroll: only the open did.
+      expect(scrolled()).toEqual([panel(1)])
+
+      rerender(<Harness controls={{ active: { ...active, answer: 'Skip the rest.' } }} />)
+
+      expect(scrolled()).toEqual([panel(1), result()])
+      expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest', behavior: 'smooth' })
+      expect(result()).toContainElement(screen.getByRole('button', { name: 'Close' }))
+      expect(chip).toHaveFocus()
+    })
+
+    it('scrolls the error and Retry into view when the error arrives', async () => {
+      const { rerender } = render(<Harness controls={{ isPending: true }} />)
+      await userEvent.click(askButton(1))
+
+      rerender(<Harness controls={{ error: { message: 'Took too long.', canRetry: true } }} />)
+
+      expect(scrolled()).toEqual([panel(1), result()])
+      expect(result()).toContainElement(screen.getByRole('button', { name: 'Retry' }))
+    })
+
+    it('snaps instead of scrolling smoothly under reduced motion', async () => {
+      document.documentElement.setAttribute('data-reduced-motion', 'true')
+      render(<Harness />)
+      await userEvent.click(askButton(1))
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'auto' })
+    })
   })
 })
