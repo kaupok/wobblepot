@@ -290,8 +290,15 @@ async function handlePOST(
               if (part.type === 'text-delta') {
                 text += part.text
                 send(part.text)
-              } else if (part.type === 'finish') usage = part.totalUsage
-              else if (part.type === 'error') throw part.error
+              } else if (part.type === 'finish') {
+                usage = part.totalUsage
+                // Cut off at `maxOutputTokens`, which thinking shares: half an
+                // instruction must not read as the whole answer. The words
+                // stay, with the error and Retry under them.
+                if (part.finishReason === 'length') {
+                  throw new Error('Cook question answer was cut off at maxOutputTokens')
+                }
+              } else if (part.type === 'error') throw part.error
               else if (part.type === 'abort') throw abortReason(timeout)
             }
           } catch (error) {

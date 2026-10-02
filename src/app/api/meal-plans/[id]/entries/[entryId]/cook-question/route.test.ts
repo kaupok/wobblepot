@@ -98,14 +98,16 @@ const PROVIDER_USAGE = {
   outputTokens: { total: 787, text: undefined, reasoning: undefined },
 }
 
+const STOP = { unified: 'stop', raw: 'end_turn' }
+
 /** The model's stream: the answer in `chunks`, then a finish with the usage. */
-function answerParts(chunks: string[]) {
+function answerParts(chunks: string[], finishReason: Record<string, string> = STOP) {
   return [
     { type: 'stream-start', warnings: [] },
     { type: 'text-start', id: 't1' },
     ...chunks.map((delta) => ({ type: 'text-delta', id: 't1', delta })),
     { type: 'text-end', id: 't1' },
-    { type: 'finish', finishReason: { unified: 'stop', raw: 'end_turn' }, usage: PROVIDER_USAGE },
+    { type: 'finish', finishReason, usage: PROVIDER_USAGE },
   ]
 }
 
@@ -482,6 +484,27 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
     expect(mockRecordAiUsage).toHaveBeenCalledWith(
       expect.objectContaining({ ...expectedUsageStats(COOK_QUESTION_MODEL), success: false }),
     )
+  })
+
+  it('ends an answer cut off at the token ceiling in an error, billed as a failed call', async () => {
+    model.parts = answerParts(['Pierce the thickest part; ', 'the juices should run'], {
+      unified: 'length',
+      raw: 'max_tokens',
+    })
+
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder()
+    expect(decoder.decode((await reader.read()).value)).toBe('Pierce the thickest part; ')
+    expect(decoder.decode((await reader.read()).value)).toBe('the juices should run')
+    await expect(reader.read()).rejects.toThrow('cut off')
+    expect(mockRecordAiUsage).toHaveBeenCalledOnce()
+    expect(mockRecordAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ ...expectedUsageStats(COOK_QUESTION_MODEL), success: false }),
+    )
+    expect(mockLogAiSample).not.toHaveBeenCalled()
   })
 
   describe('a failure after the first words', () => {
