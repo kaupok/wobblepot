@@ -228,7 +228,7 @@ Agents produce these by default. Recognise them and do not ship them.
 - An emoji standing in for an icon, in a control, a label or a translated string (the shopping list's group headings excepted — see Icons under [Primitives](#primitives-we-already-have))
 - An eyebrow label in all caps above every heading
 - Centered hero plus a three-card grid for anything that is not the landing page
-- Three or more buttons of equal weight in one row. One primary, the rest `outline` or `ghost`
+- Three or more buttons of equal weight in one row. One primary, the rest `outline` or `ghost`. The exception is a row of suggestion chips that each send a ready-made input, such as the cook view's question chips (HON-969). They are alternatives the user picks from, not actions that compete, so none is primary
 - A screen's primary action rendered at `size="sm"`
 - A page-level button stretched to the column width above `md`. From `md` up a button is as wide as its label and aligns to the start of its column (`w-full md:w-auto md:self-start`). Full width is for phones, and for the auth, `/onboarding` and `/invite/[code]` form cards, where the card is the form (`HON-767`'s exception, `HON-782`)
 - Playful copy on more than one element per screen
