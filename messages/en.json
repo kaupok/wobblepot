@@ -320,6 +320,8 @@
       "placeholder": "Ask about this step",
       "send": "Send",
       "thinking": "Thinking…",
+      "youAsked": "You asked: {question}",
+      "edit": "Edit",
       "retry": "Retry",
       "close": "Close",
       "errors": {

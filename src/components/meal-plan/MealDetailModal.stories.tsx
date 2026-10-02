@@ -749,7 +749,9 @@ export const KeyboardTogglesStep: Story = {
 
 /**
  * Ask about a step (HON-969): the chip sends at once, the answer shows under
- * the step, and Close puts focus back on that step's Ask button.
+ * the step below the question asked, and Edit puts the question back in the
+ * field (HON-976). Close puts focus back on that step's Ask button, and the
+ * question is gone on reopening or on another step's panel.
  */
 export const AskAboutStep: Story = {
   name: 'Planned: ask about a step',
@@ -772,16 +774,38 @@ export const AskAboutStep: Story = {
     const ask = body().getByRole('button', { name: 'Ask about step 2' })
     await expect(ask.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     await userEvent.click(ask)
-    const panel = body().getByRole('group', { name: 'Ask about step 2' })
-    await userEvent.click(
-      within(panel).getByRole('button', { name: 'What can I substitute here?' }),
-    )
+    const panelFor = (n: number) => body().getByRole('group', { name: `Ask about step ${n}` })
+    const chip = (n: number) =>
+      within(panelFor(n)).getByRole('button', { name: 'What can I substitute here?' })
+    const answer = 'Use the Greek yoghurt you have, stirred in off the heat.'
+    await userEvent.click(chip(2))
+    const line = await within(panelFor(2)).findByText('You asked: What can I substitute here?')
+    await expect(await within(panelFor(2)).findByText(answer)).toBeVisible()
+    // The question stays above the answer once it arrives.
+    await expect(line).toBeVisible()
     await expect(
-      await within(panel).findByText('Use the Greek yoghurt you have, stirred in off the heat.'),
-    ).toBeVisible()
-    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
+      line.compareDocumentPosition(within(panelFor(2)).getByText(answer)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    await userEvent.click(within(panelFor(2)).getByRole('button', { name: 'Edit' }))
+    const field = within(panelFor(2)).getByRole('textbox', { name: 'Your question' })
+    await expect(field).toHaveValue('What can I substitute here?')
+    await expect(field).toHaveFocus()
+
+    await userEvent.click(within(panelFor(2)).getByRole('button', { name: 'Close' }))
     await expect(body().queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
     await expect(ask).toHaveFocus()
+
+    // Reopened, the panel starts empty.
+    await userEvent.click(ask)
+    await expect(within(panelFor(2)).queryByText(/^You asked:/)).toBeNull()
+
+    // Another step's panel shows no question until one is sent there.
+    await userEvent.click(chip(2))
+    await within(panelFor(2)).findByText(answer)
+    await userEvent.click(body().getByRole('button', { name: 'Ask about step 3' }))
+    await expect(within(panelFor(3)).queryByText(/^You asked:/)).toBeNull()
   },
 }
 

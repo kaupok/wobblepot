@@ -198,9 +198,10 @@ interface CookQuestionPanelProps {
 
 /**
  * The question panel under one step (HON-969): three chips that send at once,
- * a field with Send, then "Thinking…", the answer, or the error with Retry.
- * It sits straight on the tint, indented to the step text, with no card or
- * border of its own (docs/DESIGN.md → cook view).
+ * a field with Send, then the question asked with Edit (HON-976) above
+ * "Thinking…", the answer, or the error with Retry. It sits straight on the
+ * tint, indented to the step text, with no card or border of its own
+ * (docs/DESIGN.md → cook view).
  */
 function CookQuestionPanel({
   id,
@@ -214,12 +215,26 @@ function CookQuestionPanel({
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  // Counts Edit presses: the field gets focus once the question is in it, with
+  // the caret after the text, ready to change the end of it. A count, not a
+  // flag on `text`, so a second Edit with the text unchanged still focuses.
+  const [editCount, setEditCount] = useState(0)
+  const questionId = useId()
   const { ask, active, isPending, error, onRetry } = controls
-  const answer = active?.stepIndex === stepIndex ? active.answer : null
+  const ownStep = active?.stepIndex === stepIndex
+  const asked = ownStep ? active.question : null
+  const answer = ownStep ? active.answer : null
 
   useEffect(() => {
     if (focusField) inputRef.current?.focus()
   }, [focusField])
+
+  useEffect(() => {
+    const input = inputRef.current
+    if (editCount === 0 || !input) return
+    input.focus()
+    input.setSelectionRange(input.value.length, input.value.length)
+  }, [editCount])
 
   const send = (question: string, source: CookQuestionAskInput['source']) =>
     ask({ stepIndex, steps, question, source })
@@ -281,6 +296,30 @@ function CookQuestionPanel({
           {t('send')}
         </Button>
       </form>
+      {/* What was asked, so a chip's answer has its question and a typed one
+          can be changed and sent again (HON-976). Outside the status region:
+          the cook just asked it, so announcing it again adds nothing. */}
+      {asked && (
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1 pt-2">
+            <Body variant="step" tone="muted" id={questionId}>
+              {t('youAsked', { question: asked })}
+            </Body>
+          </div>
+          <Button
+            variant="ghost"
+            size="lg"
+            className="shrink-0"
+            aria-describedby={questionId}
+            onClick={() => {
+              setText(asked)
+              setEditCount((n) => n + 1)
+            }}
+          >
+            {t('edit')}
+          </Button>
+        </div>
+      )}
       <div role="status">
         {isPending ? (
           <Body variant="step" tone="muted">

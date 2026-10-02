@@ -320,6 +320,8 @@
       "placeholder": "Küsi selle sammu kohta",
       "send": "Saada",
       "thinking": "Mõtlen…",
+      "youAsked": "Küsisid: {question}",
+      "edit": "Muuda",
       "retry": "Proovi uuesti",
       "close": "Sulge",
       "errors": {
