@@ -493,11 +493,26 @@ describe('GET /api/meals', () => {
       await GET(createRequest('http://localhost/api/meals?search=oat'))
 
       const { sql, values } = searchQuery()
-      const where = sql.slice(sql.indexOf('WHERE ('), sql.indexOf('ORDER BY'))
+      const where = sql.slice(sql.indexOf('FROM "meal" m'), sql.indexOf('ORDER BY'))
       expect(where).toContain('m.name ILIKE ?')
       expect(where).toContain('i.name ILIKE ?')
       expect(where).not.toContain('similarity')
       expect(values).toContain('%oat%')
+    })
+
+    // A one-letter substring search matches nearly every meal. Rows Prisma
+    // filters out afterwards must not use up the cap, or the household's own
+    // meals drop out and `total` comes back short.
+    it("limits candidates to the household's visible, non-deleted meals under a cap of 500", async () => {
+      await GET(createRequest('http://localhost/api/meals?search=e'))
+
+      const { sql, values } = searchQuery()
+      expect(sql).toContain(
+        'WHERE m."deletedAt" IS NULL AND (m."householdId" IS NULL OR m."householdId" = ?) AND (',
+      )
+      expect(values).toContain(mockMembership.household.id)
+      expect(sql).toMatch(/LIMIT \?\s*$/)
+      expect(values.at(-1)).toBe(500)
     })
 
     it('ranks a substring match above every fuzzy match', async () => {

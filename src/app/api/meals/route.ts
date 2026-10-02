@@ -40,9 +40,11 @@ const MAX_LIMIT = 50
  */
 const FUZZY_THRESHOLD = 0.5
 const FUZZY_MIN_LENGTH = 4
-// Cap fuzzy search results to prevent loading too many meals into memory
-// This is generous enough for any realistic search pagination needs
-const FUZZY_SEARCH_CAP = 200
+// Cap search results to prevent loading too many meals into memory. A one- or
+// two-letter search matches by substring and can hit nearly every meal the
+// household sees (271 global meals in 2026-10), so keep the cap above the
+// library size: matches past it are dropped and `total` comes back short.
+const FUZZY_SEARCH_CAP = 500
 
 interface FuzzyMealMatch {
   id: string
@@ -176,7 +178,11 @@ export async function GET(request: NextRequest) {
           ) as similarity
         FROM "meal" m
         ${mealTranslationJoin}
-        WHERE (
+        -- Only meals the Prisma filter below can keep, so deleted meals and
+        -- those of other households do not use up FUZZY_SEARCH_CAP
+        WHERE m."deletedAt" IS NULL
+        AND (m."householdId" IS NULL OR m."householdId" = ${household.id})
+        AND (
           ${matches(mealNames)}
           OR EXISTS (
             SELECT 1 FROM "meal_component" mc
