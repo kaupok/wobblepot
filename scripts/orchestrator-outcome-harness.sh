@@ -157,12 +157,14 @@
 #     Its two call sites live inside interactive render loops, so this helper is
 #     the only part of them a test can reach.
 #
-#   watch-scan-log <log-file> <since>                     (wt watch rework)
+#   watch-scan-log <log-file> <since> [now] [poll]        (wt watch rework)
 #     Sources worktree-claude.sh and runs the REAL watch_scan_log over a fixture
 #     orchestrator.log, printing its KEY=value lines. This is the whole data
 #     layer of the `wt watch` summary panes — run tallies, last claim, the skip
 #     histogram and the alert-suppression rule — and the render loop that calls
 #     it is unreachable from a test, so this mode is the only way to assert on it.
+#     `now` drives the alert age-out (HON-937); empty means no age limit.
+#     `poll` is the orchestrator's poll interval in seconds, which can stretch it.
 #
 #   watch-pr-probe <pr-list-json> <pr-checks-json> [checks-exit]  (wt watch rework)
 #     Sources worktree-claude.sh and runs the REAL watch_pr_probe with gh
@@ -723,6 +725,9 @@ EOF
     # The breaker value an operator (and `wt status`) actually reads.
     write_status_file
     echo "STATUS_JSON:$(jq -c '.circuit_breaker' "$STATUS_FILE")" >> "$MAIN_LOG"
+    # What `wt watch` sizes the alert age-out from (HON-937).
+    echo "STATUS_POLL:$(jq -c '.poll_interval' "$STATUS_FILE")" >> "$MAIN_LOG"
+    echo "STATUS_LOOP:$(jq -c '.last_loop' "$STATUS_FILE")" >> "$MAIN_LOG"
     exit 0
     ;;
 
@@ -1105,7 +1110,7 @@ EOF
     # Sourced, not executed — see neon-gc-select above for why that is safe.
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
-    watch_scan_log "$A1" "$A2"
+    watch_scan_log "$A1" "$A2" "" "$A3" "$A4"
     exit 0
     ;;
 

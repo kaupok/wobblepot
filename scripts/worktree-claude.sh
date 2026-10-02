@@ -2045,16 +2045,44 @@ watch_relative_age() {
 # started_at — which is every log freshly created by this run — would report
 # itself as rotated. Truncation is a gap of minutes, not of seconds.
 #
-# Usage: watch_scan_log <log_file> <since_local_ts> [grace_local_ts]
+# `now` is a `YYYY-MM-DD HH:MM:SS` local time the alert age-out measures back
+# from (see the END block); `wt watch` passes the orchestrator's last poll. Empty — or a value `date` cannot parse —
+# means no age limit, which is the behaviour before HON-937. `poll_interval` is
+# the orchestrator's, in seconds (default 60): the age limit is five minutes or
+# three polls, whichever is longer, because a persisting condition is re-logged
+# once per poll and an orchestrator started with `--poll-interval 300` repeats
+# it less often than every five minutes.
+#
+# Usage: watch_scan_log <log_file> <since_local_ts> [grace_local_ts] [now_local_ts] [poll_interval]
 watch_scan_log() {
-  local log_file="$1" since="$2" grace="${3:-$2}"
+  local log_file="$1" since="$2" grace="${3:-$2}" now="${4:-}" poll="${5:-}"
   [ -f "$log_file" ] || return 0
 
-  awk -v since="$since" -v grace="$grace" '
+  # Read from the status file, so treat anything non-numeric as the default.
+  case "$poll" in ''|*[!0-9]*) poll=60 ;; esac
+  local max_age=300
+  [ $((poll * 3)) -gt "$max_age" ] && max_age=$((poll * 3))
+
+  # `max_age` before `now`, in the log's own local-time format so awk can
+  # compare it as a string the way it compares `since`. Done in epoch seconds
+  # rather than in awk because the subtraction has to cross midnight, month
+  # ends and DST changes correctly.
+  local cutoff="" now_epoch=""
+  if [ -n "$now" ]; then
+    now_epoch=$(date -jf '%Y-%m-%d %H:%M:%S' "$now" '+%s' 2>/dev/null) || \
+    now_epoch=$(date -d "$now" '+%s' 2>/dev/null) || now_epoch=""
+    if [ -n "$now_epoch" ]; then
+      cutoff=$(date -r $((now_epoch - max_age)) '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
+        || date -d "@$((now_epoch - max_age))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || cutoff=""
+    fi
+  fi
+
+  awk -v since="$since" -v grace="$grace" -v cutoff="$cutoff" '
     # The log is "YYYY-MM-DD HH:MM:SS LEVEL message". Lines that do not match
     # that shape are continuation output and carry no timestamp to window on.
     function ts(line) { return substr(line, 1, 19) }
     function in_window(line) { return since == "" || ts(line) >= since }
+    function fresh(t) { return cutoff == "" || t >= cutoff }
 
     # orchestrator.sh:784 appends a raw, untimestamped 20-line worker tail
     # straight into orchestrator.log on a timeout. Those lines have no timestamp,
@@ -2186,13 +2214,26 @@ watch_scan_log() {
         if (c in skipcat) { summary = summary sep skipcat[c] " " c; sep = ", " }
       }
       if (summary != "") printf "SKIP_SUMMARY=%s\n", summary
-      # An alert the orchestrator has demonstrably recovered from is noise, not
-      # news: a Linear fetch that failed at 19:25 is answered by the three
-      # issues it claimed at 23:00. So it is reported only when nothing has
-      # been claimed or completed since — which is exactly the case where a
-      # free worker slot is going unfilled and the operator wants the reason.
-      show_any  = (alert_any  != "" && (progress_ts == "" || alert_any_ts  > progress_ts))
-      show_slot = (alert_slot != "" && (progress_ts == "" || alert_slot_ts > progress_ts))
+      # An alert is cleared by either of two rules, whichever comes first.
+      #
+      # Progress: an alert the orchestrator has demonstrably recovered from is
+      # noise, not news. A Linear fetch that failed at 19:25 is answered by the
+      # three issues it claimed at 23:00, so the alert is reported only when
+      # nothing has been claimed or completed since.
+      #
+      # Age: progress alone assumed an answer always arrives, and it does not.
+      # With an empty Queued state nothing is ever claimed, so a single curl
+      # blip at 07:45 was still on screen at 11:00 (HON-937). So an alert is
+      # also dropped once its most recent occurrence is older than the cutoff:
+      # five minutes, or three polls on a slower orchestrator, before `now`.
+      # That is enough because every condition that persists is re-logged on
+      # every poll — low disk, the pause it causes, the query cap, a failing
+      # Linear fetch — so a live alert is always fresh, and one line with
+      # nothing after it was a blip. The circuit breaker logs
+      # once per trip, but the header shows it from orchestrator-status.json,
+      # so its alert line is not the only place the pause is visible.
+      show_any  = (alert_any  != "" && (progress_ts == "" || alert_any_ts  > progress_ts) && fresh(alert_any_ts))
+      show_slot = (alert_slot != "" && (progress_ts == "" || alert_slot_ts > progress_ts) && fresh(alert_slot_ts))
       # ALERT is the line to show while a worker slot is free: the most recent
       # blocker of either kind. ALERT_FULL is what survives once every slot is
       # busy — only the blockers a running worker is also subject to.
@@ -2346,9 +2387,10 @@ watch_height_budget() {
 # With every slot busy, a blocker that only explains an UNFILLED slot has
 # nothing left to explain — and the recovery rule cannot clear it either, since
 # a full orchestrator claims nothing and logs no outcome until a worker
-# finishes. So it would sit on screen for the whole run asserting a fault that
-# is not one. In that state only ALERT_FULL — the blockers a running worker is
-# subject to as well — is shown.
+# finishes. The age rule drops a one-off line after five minutes, but a
+# slot-only blocker that keeps re-logging (the query cap) stays fresh and would
+# sit on screen asserting a fault that is not one. In that state only
+# ALERT_FULL — the blockers a running worker is subject to as well — is shown.
 #
 # Prints "<HH:MM>\t<message>" — the timestamp first because it is the field that
 # cannot contain a tab, so the caller can split on the first one and keep an
@@ -2383,15 +2425,19 @@ watch_pick_alert() {
 # The cache is keyed on the run's start epoch, so a restarted orchestrator gets
 # a new window rather than inheriting the previous run's tallies.
 #
-# Usage: watch_scan_log_cached <cache_dir> <log_file> <since> <grace> <start_epoch>
+# `now` and `poll_interval` are passed through for the alert age-out; with the
+# 10s TTL an aged-out alert leaves the screen within one refresh of crossing
+# the line.
+#
+# Usage: watch_scan_log_cached <cache_dir> <log_file> <since> <grace> <start_epoch> [now] [poll_interval]
 watch_scan_log_cached() {
-  local cache_dir="$1" log_file="$2" since="$3" grace="$4" start_epoch="$5"
+  local cache_dir="$1" log_file="$2" since="$3" grace="$4" start_epoch="$5" now="${6:-}" poll="${7:-}"
   local cache="$cache_dir/scan-${start_epoch:-0}"
 
   if [ -f "$cache" ]; then
-    watch_refresh_async "$cache" 10 watch_scan_log "$log_file" "$since" "$grace"
+    watch_refresh_async "$cache" 10 watch_scan_log "$log_file" "$since" "$grace" "$now" "$poll"
   else
-    watch_scan_log "$log_file" "$since" "$grace" > "${cache}.tmp" 2>/dev/null || true
+    watch_scan_log "$log_file" "$since" "$grace" "$now" "$poll" > "${cache}.tmp" 2>/dev/null || true
     mv "${cache}.tmp" "$cache" 2>/dev/null || true
   fi
   [ -f "$cache" ] && cat "$cache"
@@ -2610,13 +2656,15 @@ cmd_watch() {
 
     # One jq pass for the header, one more below for the workers: the old loop
     # spent six jq processes per worker per redraw.
-    local orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count
-    IFS=$'\t' read -r orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count \
+    local orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count poll_interval last_loop
+    IFS=$'\t' read -r orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count poll_interval last_loop \
       <<< "$(echo "$status" | jq -r '[
         (.pid|tostring), .started_at, .last_poll, (.max_workers // 3 | tostring),
         (.circuit_breaker.consecutive_failures | tostring),
         (.circuit_breaker.paused_until // "-"),
-        (.workers | length | tostring)
+        (.workers | length | tostring),
+        (.poll_interval // 60 | tostring),
+        (.last_loop // .last_poll // "-")
       ] | @tsv' 2>/dev/null)"
     [ -n "${worker_count:-}" ] || worker_count=0
 
@@ -2642,6 +2690,22 @@ cmd_watch() {
     [ "$start_epoch" -gt 0 ] && grace_ts=$(date -r $((start_epoch + 120)) '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
       || date -d "@$((start_epoch + 120))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || true
     [ -n "$grace_ts" ] || grace_ts="$since_ts"
+    # The clock the alert age-out measures from — see watch_scan_log. The
+    # orchestrator's loop stamp, not the wall clock: a persisting condition is
+    # re-logged once per loop, and a loop that triages several failed workers
+    # can outrun the age limit, which would blank a live low-disk alert in the
+    # middle of the loop. last_loop is stamped just before the disk check and
+    # nowhere else (unlike last_poll, which monitor_workers restamps after its
+    # triage), so measured from it a re-logged alert is always fresh, and a
+    # one-off line still ages out as the loops move on. last_poll covers a
+    # status file from an orchestrator older than the field, and the wall
+    # clock one with neither.
+    local now_ts="" clock_epoch="$now" loop_epoch=0
+    loop_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$last_loop" '+%s' 2>/dev/null) || \
+    loop_epoch=$(date -d "$last_loop" '+%s' 2>/dev/null) || loop_epoch=0
+    [ "$loop_epoch" -gt 0 ] && clock_epoch="$loop_epoch"
+    now_ts=$(date -r "$clock_epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
+      || date -d "@$clock_epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || now_ts=""
     local t_success=0 t_failed=0 t_stranded=0 t_gated=0 t_timeout=0 t_truncated=0
     local last_outcome="" last_outcome_at="" last_pick="" last_pick_at=""
     local skips=0 skip_summary="" alert="" alert_at="" scan_key scan_val scan_line
@@ -2667,7 +2731,7 @@ cmd_watch() {
         ALERT_FULL)      alert_full="$scan_val" ;;
         ALERT_FULL_AT)   alert_full_at="$scan_val" ;;
       esac
-    done < <(watch_scan_log_cached "$cache_dir" "$orch_log" "$since_ts" "$grace_ts" "$start_epoch")
+    done < <(watch_scan_log_cached "$cache_dir" "$orch_log" "$since_ts" "$grace_ts" "$start_epoch" "$now_ts" "$poll_interval")
 
     local picked_alert=""
     picked_alert=$(watch_pick_alert \
@@ -2676,9 +2740,10 @@ cmd_watch() {
     alert="${picked_alert#*$'\t'}"
 
     # A checkout behind origin/main is read from the status file, not the log:
-    # watch_scan_log drops a WARN once anything is claimed after it, but this
-    # stays true until someone pulls. It yields to a live operational alert, and
-    # shows whatever the slots are doing — the workers run the stale code too.
+    # watch_scan_log drops a WARN once anything is claimed after it or once it
+    # is five minutes old, but this stays true until someone pulls. It yields
+    # to a live operational alert, and shows whatever the slots are doing — the
+    # workers run the stale code too.
     if [ -z "$alert" ]; then
       local checkout_notice=""
       checkout_notice=$(checkout_behind_notice "$status")

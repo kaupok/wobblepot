@@ -425,6 +425,58 @@ describe('orchestrator.sh', () => {
     })
   })
 
+  describe('status file poll_interval (HON-937)', () => {
+    // `wt watch` stretches its alert age-out to three polls on a slow
+    // orchestrator, and this field is the only place it can learn the interval.
+    const statusPoll = (interval: string): { poll: unknown; loop: unknown; breaker: unknown } => {
+      const out = stripTimestamps(
+        runHarnessEnv({ ORCHESTRATOR_POLL_INTERVAL: interval }, 'failure', 'RETRY', '0', 'false'),
+      )
+      const read = (key: string) => out.match(new RegExp(`^${key}:(.*)$`, 'm'))?.[1] ?? ''
+      return {
+        poll: JSON.parse(read('STATUS_POLL') || '"missing"'),
+        loop: JSON.parse(read('STATUS_LOOP') || '"missing"'),
+        breaker: read('STATUS_JSON'),
+      }
+    }
+
+    it('records the poll interval in seconds', () => {
+      expect(statusPoll('300').poll).toBe(300)
+    })
+
+    it('writes the rest of the status file when the interval is not a number', () => {
+      // POLL_INTERVAL is never validated, so `--argjson` on "1m" would have
+      // failed the whole write and blanked `wt status`.
+      const r = statusPoll('1m')
+
+      expect(r.poll).toBeNull()
+      expect(r.breaker).toContain('consecutive_failures')
+    })
+
+    it('leaves last_loop null when the file is written outside the main loop', () => {
+      // The `failure` harness runs handle_failure and then write_status_file,
+      // as monitor_workers does, without entering the main loop. If a write
+      // like that moved last_loop, a triage that outran the age limit would
+      // blank a live alert, which is why last_poll is not used.
+      expect(statusPoll('60').loop).toBeNull()
+    })
+
+    it('stamps last_loop only in the main loop, just before the disk check', () => {
+      // Every alert `wt watch` shows is re-logged after check_disk_space on
+      // each loop, so a stamp taken just before it keeps a live alert fresh.
+      const source = fs.readFileSync(orchestrator, 'utf8')
+      const body = shellFunctionBody(source, 'main')
+      const stamp = body.indexOf('LAST_LOOP_AT="$(date')
+      const disk = body.indexOf('check_disk_space || disk_ok=false')
+
+      expect(stamp).toBeGreaterThan(-1)
+      expect(disk).toBeGreaterThan(stamp)
+      expect(body.slice(stamp, disk)).not.toMatch(/monitor_workers|interruptible_sleep/)
+      // One assignment in main, plus the empty initialiser at file scope.
+      expect(source.match(/LAST_LOOP_AT=/g)).toHaveLength(2)
+    })
+  })
+
   // ─── HON-572 finding 2: circuit breaker ───────────────────────────────────
   // The counter used to be updated from the triage VERDICT, before the case
   // that acts on it. A second RETRY falls through to move_to_backlog — a
@@ -3383,12 +3435,14 @@ describe('orchestrator.sh', () => {
   })
   describe('wt watch summary data (watch_scan_log)', () => {
     /** Write a fixture orchestrator.log and scan it through the real helper. */
-    const scan = (lines: string[], since = ''): Record<string, string> => {
+    // `now` drives the alert age-out. Empty means no age limit, which is what
+    // lets the fixtures below sit on 2026-09-20 without every alert expiring.
+    const scan = (lines: string[], since = '', now = '', poll = ''): Record<string, string> => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-scan-'))
       const log = path.join(dir, 'orchestrator.log')
       fs.writeFileSync(log, `${lines.join('\n')}\n`)
       try {
-        const out = runHarness('watch-scan-log', log, since)
+        const out = runHarness('watch-scan-log', log, since, now, poll)
         return Object.fromEntries(
           out
             .split('\n')
@@ -3556,8 +3610,8 @@ describe('orchestrator.sh', () => {
       // orchestrator.sh:1930 and :1934. Both say "the requeue has been dealt
       // with"; the old `/Neon branch cap/` pattern could not tell them from the
       // cap failure below, so a finished piece of bookkeeping claimed the alert
-      // line — and, since nothing clears an alert but a later claim or outcome,
-      // held it.
+      // line — and, until HON-937 added the five-minute age-out, nothing but a
+      // later claim or outcome cleared it, so it held the line.
       const r = scan([`2026-09-20 10:00:00 WARN  ${message}`])
 
       expect(r.ALERT).toBeUndefined()
@@ -3640,6 +3694,99 @@ describe('orchestrator.sh', () => {
 
       expect(r.ALERT).toBe('Failed to fetch issues from Linear')
       expect(r.ALERT_FULL).toBeUndefined()
+    })
+
+    describe('ages out an alert nothing has answered (HON-937)', () => {
+      // With an empty Queued state nothing is ever claimed, so the progress
+      // rule alone held a single 07:45 curl blip on screen until 11:00. Every
+      // condition that persists is re-logged on each one-minute poll, so a
+      // live alert's latest occurrence is always within five minutes.
+      const BLIP = [
+        '2026-10-02 07:45:00 ERROR Linear API request failed (curl error)',
+        '2026-10-02 07:45:00 WARN  Failed to fetch issues from Linear',
+        '2026-10-02 07:46:00 DEBUG Polling Linear for Queued issues',
+        '2026-10-02 07:47:00 DEBUG Polling Linear for Queued issues',
+        '2026-10-02 07:48:00 DEBUG Polling Linear for Queued issues',
+      ]
+
+      it('drops a one-off WARN once it is more than five minutes old', () => {
+        const r = scan(BLIP, '', '2026-10-02 07:52:00')
+
+        expect(r.ALERT).toBeUndefined()
+        expect(r.ALERT_AT).toBeUndefined()
+      })
+
+      it('keeps the same WARN while it is within five minutes', () => {
+        const r = scan(BLIP, '', '2026-10-02 07:49:00')
+
+        expect(r.ALERT).toBe('Failed to fetch issues from Linear')
+        expect(r.ALERT_AT).toBe('07:45')
+      })
+
+      it('keeps a re-logged condition on screen, measured from its latest line', () => {
+        const DISK = [
+          '2026-09-20 10:00:00 WARN  Low disk space: 0GB free (< 1GB threshold)',
+          '2026-09-20 10:01:00 WARN  Low disk space: 0GB free (< 1GB threshold)',
+          '2026-09-20 10:02:00 WARN  Low disk space: 0GB free (< 1GB threshold)',
+        ]
+        const live = scan(DISK, '', '2026-09-20 10:06:00')
+        const stale = scan(DISK, '', '2026-09-20 10:08:00')
+
+        expect(live.ALERT).toBe('Low disk space: 0GB free (< 1GB threshold)')
+        expect(live.ALERT_AT).toBe('10:02')
+        expect(live.ALERT_FULL).toBe('Low disk space: 0GB free (< 1GB threshold)')
+        // The full-orchestrator channel ages out on the same rule.
+        expect(stale.ALERT).toBeUndefined()
+        expect(stale.ALERT_FULL).toBeUndefined()
+      })
+
+      it('still clears a recent alert that a later claim answers', () => {
+        // The two rules combine with OR on clearing: freshness does not
+        // override recovery.
+        const r = scan(
+          [
+            '2026-09-20 10:00:00 WARN  Failed to fetch issues from Linear',
+            '2026-09-20 10:01:00 INFO  Selected: HON-706 — a later claim proves recovery',
+          ],
+          '',
+          '2026-09-20 10:02:00',
+        )
+
+        expect(r.ALERT).toBeUndefined()
+      })
+
+      it('applies no age limit when no clock is passed', () => {
+        const r = scan(BLIP, '', '')
+
+        expect(r.ALERT).toBe('Failed to fetch issues from Linear')
+      })
+
+      it('stretches the limit to three polls on a slower orchestrator', () => {
+        // A persisting condition is re-logged once per poll, so with
+        // `--poll-interval 300` a live Linear outage repeats every five minutes
+        // or more. A fixed five-minute limit would blank it between polls.
+        const lines = ['2026-09-20 10:00:00 WARN  Failed to fetch issues from Linear']
+
+        expect(scan(lines, '', '2026-09-20 10:12:00', '300').ALERT).toBe(
+          'Failed to fetch issues from Linear',
+        )
+        expect(scan(lines, '', '2026-09-20 10:16:00', '300').ALERT).toBeUndefined()
+        // Never shorter than five minutes, and a value that is not a number of
+        // seconds falls back to the 60s default rather than breaking the scan.
+        expect(scan(lines, '', '2026-09-20 10:04:00', '30').ALERT).toBe(
+          'Failed to fetch issues from Linear',
+        )
+        expect(scan(lines, '', '2026-09-20 10:06:00', '1m').ALERT).toBeUndefined()
+      })
+
+      it('measures the five minutes across midnight', () => {
+        // The cutoff is computed in epoch seconds, not by string arithmetic on
+        // HH:MM, so a WARN just before midnight ages out on the next day.
+        const lines = ['2026-09-20 23:58:00 WARN  Pausing: low disk space']
+
+        expect(scan(lines, '', '2026-09-21 00:02:00').ALERT).toBe('Pausing: low disk space')
+        expect(scan(lines, '', '2026-09-21 00:04:00').ALERT).toBeUndefined()
+      })
     })
 
     it('answers with zeroes rather than failing on a log that does not exist', () => {
