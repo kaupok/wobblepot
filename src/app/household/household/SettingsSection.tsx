@@ -33,6 +33,11 @@ interface SettingsSectionProps<T extends Record<keyof T, SettingsValue>> {
    * input that is not in `values` yet (a TagInput's typed text).
    */
   collectValues?: () => T
+  /**
+   * A catalog message when the values cannot be saved, checked at submit so
+   * the user reads what to fix rather than the route's generic 400.
+   */
+  validate?: (values: T) => string | undefined
   /** After a successful save, with the values that were sent. */
   onSaved: (values: T) => void
   children: (state: SectionFieldState) => ReactNode
@@ -51,6 +56,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
   values,
   saved,
   collectValues,
+  validate,
   onSaved,
   children,
 }: SettingsSectionProps<T>) {
@@ -110,7 +116,10 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
   const { ref: saveButtonRef, requestRefocus } = useRefocusAfterPending(save.isPending)
 
   const isDirty = !sameValues(values, saved)
-  const errorId = error ? `${id}-error` : undefined
+  // An error is about unsaved values. Once the section matches what is saved
+  // there is nothing left to retry, so the error goes with the button.
+  const shownError = isDirty || save.isPending ? error : ''
+  const errorId = shownError ? `${id}-error` : undefined
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -118,8 +127,9 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
     const body = collectValues ? collectValues() : values
     // Enter in a text field submits even with no button on screen.
     if (sameValues(body, saved)) return
-    setError('')
-    save.mutate(body)
+    const invalid = validate?.(body)
+    setError(invalid ?? '')
+    if (!invalid) save.mutate(body)
   }
 
   return (
@@ -129,7 +139,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
           {heading}
         </Heading>
         {children({ disabled: save.isPending || !isOwner, errorId })}
-        {error && <FieldError id={errorId}>{error}</FieldError>}
+        {shownError && <FieldError id={errorId}>{shownError}</FieldError>}
         {isOwner && (isDirty || save.isPending) && (
           <Button
             ref={saveButtonRef}

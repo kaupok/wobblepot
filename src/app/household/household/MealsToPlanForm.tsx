@@ -81,6 +81,12 @@ export function MealsToPlanForm({ preferences, isOwner }: MealsToPlanFormProps) 
       isOwner={isOwner}
       values={{ weekdayMealTypes, weekendMealTypes }}
       saved={saved}
+      // The route needs at least one meal type for each (HON-961).
+      validate={(values) =>
+        values.weekdayMealTypes.length === 0 || values.weekendMealTypes.length === 0
+          ? tSettings('mealsRequired')
+          : undefined
+      }
       onSaved={setSaved}
     >
       {({ disabled, errorId }) =>

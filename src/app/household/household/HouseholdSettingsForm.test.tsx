@@ -618,6 +618,21 @@ describe('HouseholdSettingsForm', () => {
       )
     })
 
+    // The route rejects an empty list; say what to fix instead of its 400.
+    it('asks for at least one meal type per group without sending', async () => {
+      renderForm()
+
+      const weekday = screen.getByRole('group', { name: 'Weekday meals to plan' })
+      await userEvent.click(within(weekday).getByLabelText('Dinner'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(within(section('Meals to plan')).getByRole('alert')).toHaveTextContent(
+        enMessages.household.settings.mealsRequired,
+      )
+      expect(weekday).toHaveAccessibleDescription(enMessages.household.settings.mealsRequired)
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+
     it('labels each day group', () => {
       renderForm()
 
@@ -704,6 +719,23 @@ describe('HouseholdSettingsForm', () => {
         enMessages.household.settings.saveFailed,
       )
       expect(within(details).getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    })
+
+    // With the button gone there is nothing to retry, so the error goes too.
+    it('clears the error when the change is undone', async () => {
+      mockFetch.mockResolvedValue(fail(500, 'Failed to update household'))
+      renderForm()
+
+      const nameInput = screen.getByLabelText('Household name')
+      await userEvent.type(nameInput, '!')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+
+      await userEvent.type(nameInput, '{Backspace}')
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(nameInput).not.toHaveAttribute('aria-invalid', 'true')
+      expect(nameInput).not.toHaveAccessibleDescription()
     })
 
     it('returns focus to the save button', async () => {
