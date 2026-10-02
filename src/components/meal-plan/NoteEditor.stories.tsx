@@ -84,6 +84,39 @@ export const Display: Story = {
   },
 }
 
+/**
+ * `clamped`: the slip laid over a planner card shows two lines at most, so
+ * it fits the card (HON-974). Its name is still the whole note, and the editor
+ * opens on all of it.
+ */
+export const DisplayClamped: Story = {
+  args: {
+    note: 'We usually double the garlic and swap lemon for lime. Took about an hour last time because the thighs were huge — worth pulling earlier next time.',
+    clamped: true,
+  },
+  decorators: [
+    (Story) => (
+      <div className="w-48">
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement, args }) => {
+    await document.fonts.ready
+    const slip = within(canvasElement).getByRole('button', { name: args.note! })
+    const text = slip.querySelector('p')!
+    // The note runs past two lines in this width, so the clamp hides the
+    // rest: the clamp box overflows and is shorter than three lines.
+    const clamp = text.parentElement!
+    const lineHeight = parseFloat(getComputedStyle(text).lineHeight)
+    await expect(clamp.scrollHeight).toBeGreaterThan(clamp.clientHeight)
+    await expect(clamp.clientHeight).toBeLessThan(lineHeight * 2.5)
+    await userEvent.click(slip)
+    const textarea = await within(canvasElement).findByRole('textbox', { name: 'Meal note' })
+    await expect(textarea).toHaveValue(args.note)
+  },
+}
+
 export const DisplayDark: Story = {
   ...Display,
   name: 'Display (dark)',

@@ -152,34 +152,56 @@ export const OwnRecipeDark: Story = {
 
 const NOTE = 'Double the garlic — kids approved.'
 
-/**
- * Asserts the image runs from the card's top edge (inside its border) past the
- * bottom of the head to the first row below it, and returns its box (HON-927).
- */
-async function assertImageBoundedByHead(card: HTMLElement) {
-  const box = within(card).getByTestId('meal-card-image').getBoundingClientRect()
-  const head = card.querySelector('[data-slot="meal-image-head"]')!
-  const firstRow = head.nextElementSibling!.getBoundingClientRect()
-  await expect(box.top).toBeCloseTo(card.getBoundingClientRect().top + card.clientTop, 0)
-  await expect(box.bottom).toBeGreaterThanOrEqual(head.getBoundingClientRect().bottom)
-  await expect(box.bottom).toBeCloseTo(firstRow.top, 0)
-  return box
+/** Whether two boxes share any area. */
+function overlaps(a: DOMRect, b: DOMRect) {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
 }
 
 /**
- * The note's row starts at or below the image, and so does the note's text.
- * Not the slip's own box: its `-rotate-1` tilt lifts one corner ~2px, into the
- * last few pixels of the image's bottom fade, where the image is all but
- * transparent.
+ * The note lies over the card as a slip rather than taking a row (HON-974):
+ * the slip's box is inside the card's, it keeps clear of the meal name, the ⋯
+ * menu and the availability badge, and the image, if there is one, still runs
+ * the card's full height, inside its border, with nothing below the head to
+ * end it.
  */
-async function assertNoteRowBelow(slip: HTMLElement, box: DOMRect) {
-  const row = slip.closest('[data-slot="card-content"]')!.getBoundingClientRect()
-  const text = slip.querySelector('p')!.getBoundingClientRect()
-  await expect(row.top).toBeGreaterThanOrEqual(box.bottom - 0.5)
-  await expect(text.top).toBeGreaterThanOrEqual(box.bottom)
+async function assertSlipOverCard(
+  card: HTMLElement,
+  slip: HTMLElement,
+  name: string = mealFixture.name,
+) {
+  // The fallback font sets wider, so geometry is only meaningful once the
+  // web font has landed.
+  await document.fonts.ready
+  const inCard = within(card)
+  const cardBox = card.getBoundingClientRect()
+  const slipBox = slip.getBoundingClientRect()
+  await expect(slipBox.top).toBeGreaterThanOrEqual(cardBox.top)
+  await expect(slipBox.bottom).toBeLessThanOrEqual(cardBox.bottom)
+  await expect(slipBox.left).toBeGreaterThanOrEqual(cardBox.left)
+  await expect(slipBox.right).toBeLessThanOrEqual(cardBox.right)
+  // By structure rather than copy, so the Estonian story checks the same
+  // things: the name, the ⋯ trigger and every badge (slot, protein, pantry).
+  const clearOf = [
+    inCard.getByRole('button', { name }),
+    ...card.querySelectorAll<HTMLElement>('[aria-haspopup="menu"], [data-slot="badge"]'),
+  ]
+  for (const element of clearOf) {
+    const box = element.getBoundingClientRect()
+    await expect(
+      overlaps(slipBox, box),
+      `slip ${JSON.stringify(slipBox)} over ${element.textContent} ${JSON.stringify(box)}`,
+    ).toBe(false)
+  }
+  const image = inCard.queryByTestId('meal-card-image')?.getBoundingClientRect()
+  if (!image) return
+  await expect(image.top).toBeCloseTo(cardBox.top + card.clientTop, 0)
+  await expect(image.bottom).toBeCloseTo(cardBox.bottom - card.clientTop, 0)
 }
 
-/** A planned card with a note: the note runs the width, so it sits below the image, on the tint (HON-755). */
+/**
+ * A planned card with a note: the note is a slip over the plate's bottom-right
+ * corner, so the plate keeps the card's full height (HON-974).
+ */
 export const PlannedWithImageAndNote: Story = {
   args: {
     meal: { ...mealFixture, imageStatus: 'ready', imageUrl: mealIllustration.src, imageHue: 52 },
@@ -191,15 +213,49 @@ export const PlannedWithImageAndNote: Story = {
     const canvas = within(canvasElement)
     await canvas.findByRole('img', { name: mealFixture.name })
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
-    const box = await assertImageBoundedByHead(card)
-    await assertNoteRowBelow(canvas.getByRole('button', { name: NOTE }), box)
+    await assertSlipOverCard(card, canvas.getByRole('button', { name: NOTE }))
+  },
+}
+
+/**
+ * Opening the slip edits the note where it lies: the editor stays over the
+ * card, and a note typed past one line scrolls in the textarea rather than
+ * growing the card (HON-974).
+ */
+export const EditingKeepsTheCard: Story = {
+  ...PlannedWithImageAndNote,
+  name: 'Editing keeps the card (phone)',
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: mealFixture.name })
+    // A web font that lands mid-story rewraps the title, and with it the card.
+    await document.fonts.ready
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const before = card.getBoundingClientRect()
+    await userEvent.click(canvas.getByRole('button', { name: NOTE }))
+    const textarea = await canvas.findByRole('textbox', { name: /note/i })
+    await userEvent.type(
+      textarea,
+      ' Roast the lemons cut side down, and keep the pan juices for the rice.',
+    )
+    const editor = textarea.closest<HTMLElement>('[data-surface="sticky"]')!
+    await expect(editor).toHaveAttribute('data-variant', 'editing')
+    const after = card.getBoundingClientRect()
+    await expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(2)
+    const editorBox = editor.getBoundingClientRect()
+    await expect(editorBox.top).toBeGreaterThanOrEqual(after.top)
+    await expect(editorBox.bottom).toBeLessThanOrEqual(after.bottom)
+    // The editor keeps clear of the ⋯ column, as the slip does.
+    const menu = canvas.getByRole('button', { name: /^more actions/i })
+    await expect(overlaps(editorBox, menu.getBoundingClientRect())).toBe(false)
+    await expect(canvas.getByRole('button', { name: /^save$/i })).toBeVisible()
   },
 }
 
 /**
  * The same meal with and without a note, in the desktop planner column. The
- * note adds a row below the head and leaves the plate alone: both images are
- * the same height (HON-927), where a fixed band once cut the noted one to 80px.
+ * note lies over the plate and adds no row, so the two cards are the same
+ * height (HON-974).
  */
 export const NoteKeepsThePlate: Story = {
   name: 'Note keeps the plate (desktop)',
@@ -231,27 +287,150 @@ export const NoteKeepsThePlate: Story = {
       canvas.getByTestId(id).querySelector<HTMLElement>('[data-slot="card"]')!
     const plain = cardIn('without-note')
     const noted = cardIn('with-note')
-    const plainBox = within(plain).getByTestId('meal-card-image').getBoundingClientRect()
-    const notedBox = await assertImageBoundedByHead(noted)
-    await expect(Math.abs(notedBox.height - plainBox.height)).toBeLessThanOrEqual(2)
-    await assertNoteRowBelow(within(noted).getByRole('button', { name: NOTE }), notedBox)
+    const height = (card: HTMLElement) => card.getBoundingClientRect().height
+    await expect(Math.abs(height(noted) - height(plain))).toBeLessThanOrEqual(2)
+    await assertSlipOverCard(noted, within(noted).getByRole('button', { name: NOTE }))
+  },
+}
+
+/** The same pair on a phone, where the slip has under half the card to lie on. */
+export const NoteKeepsThePlatePhone: Story = {
+  ...NoteKeepsThePlate,
+  name: 'Note keeps the plate (phone)',
+  parameters: { cardWidth: 'phone' },
+}
+
+/** In Estonian, whose availability badge is the widest, the slip still clears it. */
+export const NoteKeepsThePlatePhoneEstonian: Story = {
+  ...NoteKeepsThePlatePhone,
+  name: 'Note keeps the plate (phone, Estonian)',
+  globals: { locale: 'et' },
+}
+
+/**
+ * A servings override adds a second badge after the pantry one. On a phone
+ * the two no longer fit beside the slip, so the row wraps, and the slip keeps
+ * clear of both (HON-974).
+ */
+export const NoteWithServingOverridePhone: Story = {
+  ...PlannedWithImageAndNote,
+  name: 'Note with a serving override (phone)',
+  args: { ...PlannedWithImageAndNote.args, servingOverride: 6 },
+}
+
+export const NoteWithServingOverridePhoneEstonian: Story = {
+  ...NoteWithServingOverridePhone,
+  name: 'Note with a serving override (phone, Estonian)',
+  globals: { locale: 'et' },
+}
+
+const SHORT_NAME = 'Pasta'
+const LONG_NOTE =
+  'Use the big pot, salt the water well, and save a cup of the pasta water for the sauce before you drain it.'
+
+/**
+ * A short phone card with a full first row: the slip runs up beside it, so
+ * the protein and own-recipe badges wrap before the slip rather than under
+ * it. Estonian, whose protein label is the longer one (HON-974).
+ */
+export const ShortPhoneCardWithFullFirstRow: Story = {
+  name: 'Short card with a full first row (phone, Estonian)',
+  args: {
+    meal: {
+      ...mealFixture,
+      name: SHORT_NAME,
+      description: null,
+      primaryProteinType: 'dairy',
+      isCustom: true,
+      imageStatus: 'ready',
+      imageUrl: mealIllustration.src,
+      imageHue: 52,
+    },
+    mealType: MealType.breakfast,
+    status: 'planned',
+    note: LONG_NOTE,
+    pantryIngredients: [{ ingredientId: 'salt', isStaple: true }],
+  },
+  parameters: { cardWidth: 'phone' },
+  globals: { locale: 'et' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: SHORT_NAME })
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    await assertSlipOverCard(card, canvas.getByRole('button', { name: LONG_NOTE }), SHORT_NAME)
+  },
+}
+
+/**
+ * The shortest planner card: a one-word name, no description and no pantry
+ * badge (a staples-only pantry shows none). A long saved note still fits on it,
+ * clamped, and so does the editor with that note open: it scrolls rather than
+ * rising past the card's top edge, where an image card would clip it (HON-974).
+ */
+export const ShortestCardWithLongNote: Story = {
+  name: 'Shortest card with a long note (desktop)',
+  args: {
+    meal: {
+      ...mealFixture,
+      name: SHORT_NAME,
+      description: null,
+      imageStatus: 'ready',
+      imageUrl: mealIllustration.src,
+      imageHue: 52,
+    },
+    status: 'planned',
+    note: LONG_NOTE,
+    pantryIngredients: [{ ingredientId: 'salt', isStaple: true }],
+  },
+  parameters: { cardWidth: 'desktop' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: SHORT_NAME })
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    await assertSlipOverCard(card, canvas.getByRole('button', { name: LONG_NOTE }), SHORT_NAME)
+    const before = card.getBoundingClientRect()
+
+    await userEvent.click(canvas.getByRole('button', { name: LONG_NOTE }))
+    const textarea = await canvas.findByRole('textbox', { name: /note/i })
+    const editor = textarea.closest<HTMLElement>('[data-surface="sticky"]')!
+    const after = card.getBoundingClientRect()
+    await expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(2)
+    const editorBox = editor.getBoundingClientRect()
+    await expect(editorBox.top).toBeGreaterThanOrEqual(after.top)
+    await expect(editorBox.bottom).toBeLessThanOrEqual(after.bottom)
+    await expect(textarea.scrollHeight).toBeGreaterThan(textarea.clientHeight)
   },
 }
 
 const PAST_NOTE = 'Swapped the rice for couscous — do that again.'
 
 /**
- * A past day with everything below the title: the note, the status control and
- * the rating prompt (opened from the rating badge). The image runs the head's
- * height (HON-927), and every one of them starts at or below its bottom edge,
- * so none sits on the dish (HON-755).
+ * Asserts the image runs from the card's top edge (inside its border) past the
+ * bottom of the head to the first row below it, and returns its box (HON-927).
+ */
+async function assertImageBoundedByHead(card: HTMLElement) {
+  const box = within(card).getByTestId('meal-card-image').getBoundingClientRect()
+  const head = card.querySelector('[data-slot="meal-image-head"]')!
+  const firstRow = head.nextElementSibling!.getBoundingClientRect()
+  await expect(box.top).toBeCloseTo(card.getBoundingClientRect().top + card.clientTop, 0)
+  await expect(box.bottom).toBeGreaterThanOrEqual(head.getBoundingClientRect().bottom)
+  await expect(box.bottom).toBeCloseTo(firstRow.top, 0)
+  return box
+}
+
+/**
+ * A past day with everything below the title: the status control and the
+ * rating prompt (opened from the rating badge) are rows below the head, and
+ * the image runs the head's height (HON-927), so neither sits on the dish
+ * (HON-755). The note is not a row: its slip lies over the head's bottom-right
+ * corner, on the plate and off the rows below (HON-974).
  */
 async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
   const canvas = within(canvasElement)
   await canvas.findByRole('img', { name: mealFixture.name })
   await userEvent.click(canvas.getByRole('button', { name: /^rating:/i }))
+  await document.fonts.ready
   const rows = [
-    canvas.getByText(PAST_NOTE),
     canvas.getByRole('combobox', { name: /meal status/i }),
     await canvas.findByText('How was it?'),
     canvas.getByRole('button', { name: /^thumbs up$/i }),
@@ -262,9 +441,15 @@ async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
   for (const row of rows) {
     await expect(row.getBoundingClientRect().top).toBeGreaterThanOrEqual(box.bottom)
   }
-  // The title still clears the opaque part, as in `PlannedWithImage`.
+  const slip = canvas.getByText(PAST_NOTE).closest<HTMLElement>('[data-surface="sticky"]')!
+  const slipBox = slip.getBoundingClientRect()
+  await expect(slipBox.top).toBeGreaterThanOrEqual(card.getBoundingClientRect().top)
+  await expect(slipBox.bottom).toBeLessThanOrEqual(box.bottom)
+  // The title still clears the opaque part, as in `PlannedWithImage`, and the
+  // slip clears the title.
   const title = canvas.getByRole('button', { name: mealFixture.name }).getBoundingClientRect()
   await expect(title.right).toBeLessThanOrEqual(box.left + box.width * 0.3)
+  await expect(overlaps(slipBox, title)).toBe(false)
 }
 
 export const PastWithImagePhone: Story = {
@@ -820,19 +1005,24 @@ export const SwapDropsSuggestionsForSiblingEntries: Story = {
   },
 }
 
-/** The note is a taped sticky-note slip, and the slip is the button that opens the editor (HON-926). */
+/**
+ * The note is a taped sticky-note slip, and the slip is the button that opens
+ * the editor (HON-926). With no image, the card still lies the slip over its
+ * corner, and caps the title so the name wraps before the slip (HON-974).
+ */
 export const PlannedWithNote: Story = {
   args: {
     meal: mealFixture,
     status: 'planned',
-    note: 'Double the garlic — kids approved.',
+    note: NOTE,
   },
+  parameters: { cardWidth: 'phone' },
   play: async ({ canvasElement }) => {
-    const slip = within(canvasElement).getByRole('button', {
-      name: 'Double the garlic — kids approved.',
-    })
+    const slip = within(canvasElement).getByRole('button', { name: NOTE })
     await expect(slip).toHaveAttribute('data-surface', 'sticky')
     await expect(slip).toHaveAttribute('data-variant', 'interactive')
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    await assertSlipOverCard(card, slip)
   },
 }
 

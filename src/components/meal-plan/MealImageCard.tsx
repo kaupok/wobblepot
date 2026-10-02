@@ -76,15 +76,16 @@ const IMAGE_BOX = {
  * height: the recipes list, where nothing runs across the width.
  *
  * A card with a `head` holds the image in the head instead, so it ends where
- * the full-width rows below (the planner card's note, status and rating)
- * begin, and those rows sit on the plain tint rather than the dish (HON-755).
- * The head sits inside the card's `py-2` and is followed by its `gap-2` (Card
- * `size="sm"`), so `-inset-y-2` takes the image up to the card's top edge and
- * down to the next row's top edge, or the card's bottom edge when there is no
- * next row — the same box `card` gives, so a note below the head leaves the
- * plate as it was (HON-927). Change them together. `headWithRows` adds a
+ * the full-width rows below (a past card's status and rating) begin, and those
+ * rows sit on the plain tint rather than the dish (HON-755). The head sits
+ * inside the card's `py-2` and is followed by its `gap-2` (Card `size="sm"`),
+ * so `-inset-y-2` takes the image up to the card's top edge and down to the
+ * next row's top edge, or the card's bottom edge when there is no next row —
+ * the same box `card` gives. Change them together. `headWithRows` adds a
  * bottom fade, so an image that ends mid-card doesn't cut the plate with a
- * hard edge. A title that wraps makes the head, and so the plate, taller.
+ * hard edge. A title that wraps makes the head, and so the plate, taller. The
+ * note is not a row: it lies over the plate (`overlay`, HON-974), so a
+ * planned card with a note keeps the full-height plate.
  */
 const IMAGE_HEIGHT = {
   card: 'inset-y-0',
@@ -95,6 +96,34 @@ const IMAGE_HEIGHT = {
 type ImageHeight = keyof typeof IMAGE_HEIGHT
 
 /**
+ * Where the `overlay` (the planner card's note) lies: the head's bottom-right
+ * corner, over the plate, so the card is the same shape with or without it
+ * (HON-974). The head ends inside the card's `py-2`, which is the slip's
+ * vertical inset.
+ *
+ * The right edge is the image box's: `right-12` keeps the ⋯ column clear
+ * however tall the slip grows, with `pr-1` so the slip's tilted corner doesn't
+ * touch it, and `right-4` is the card's `px-4` on a card without actions.
+ *
+ * The left edge is not the trailing image box's: that starts at a third on a
+ * narrow card, under the badge row, where the availability badge runs to
+ * about 54% of a phone card in Estonian ("Vaja osta 2 koostisosa", 177px of
+ * 356px). So the slip starts where the default box does, 11/20, and at half
+ * on a wide card, where 3/8 of a 448px card would still be under that badge.
+ * Both clear the title cap (`TITLE_WIDTH`, at most half), and `pl-2` keeps a
+ * gap. Change them together.
+ *
+ * `wide` is the note editor: it is open for seconds and needs room for Cancel
+ * and Save, which a phone's narrow column doesn't have, so it may lie over the
+ * title while it is open. It still keeps clear of the ⋯ column.
+ */
+const OVERLAY_BOX = {
+  default: 'right-4 left-11/20 pl-2 @md/meal-image:left-1/2',
+  trailingActions: 'right-12 left-11/20 pr-1 pl-2 @md/meal-image:left-1/2',
+  wide: { default: 'right-4 left-0 pl-4', trailingActions: 'right-12 left-0 pr-1 pl-4' },
+} as const
+
+/**
  * The widest the title may be on a tinted card: it wraps before it reaches the
  * image's opaque part. Fractions of the card's content row, matched to
  * `IMAGE_BOX` plus the 30% fade — change the two together.
@@ -102,18 +131,34 @@ type ImageHeight = keyof typeof IMAGE_HEIGHT
  * Keyed on the card's own `data-meal-surface` rather than the meal's fields: a
  * card whose image fails to load drops it, and its title gets the full row
  * back with it. A neutral surface (an image without a hue) keeps the cap.
+ *
+ * A card with an `overlay` (`data-meal-overlay`) keeps the cap without an
+ * image too, so the title wraps before the note's slip (`OVERLAY_BOX`) rather
+ * than running under it (HON-974).
  */
 const TITLE_WIDTH = {
   default:
-    'group-data-meal-surface/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
+    'group-data-meal-surface/meal-image:max-w-1/2 group-data-meal-overlay/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8 @md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
   trailingActions:
-    'group-data-meal-surface/meal-image:max-w-1/3 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
+    'group-data-meal-surface/meal-image:max-w-1/3 group-data-meal-overlay/meal-image:max-w-1/3 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8 @md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
 } as const
 
 /** The `max-width` classes for a title inside a `MealImageCard`, matching its image box. */
 export function mealImageTitleWidth(trailingActions = false): string {
   return trailingActions ? TITLE_WIDTH.trailingActions : TITLE_WIDTH.default
 }
+
+/**
+ * The `max-width` for the head's badge rows on a card with an `overlay`: half
+ * the content row, which ends before the slip's left edge (`OVERLAY_BOX`) at
+ * any width, so a second badge wraps rather than running under the slip
+ * (HON-974): the servings override after the pantry badge, and on a short
+ * card, which the slip spans top to bottom, the first row's protein and
+ * own-recipe badges. A single badge
+ * wider than that overflows the cap rather than wrapping; the slip's left
+ * edge is set to clear the widest one. Without an overlay the row is uncapped.
+ */
+export const MEAL_IMAGE_BADGE_ROW_WIDTH = 'group-data-meal-overlay/meal-image:max-w-1/2'
 
 /**
  * The hue to tint with, or null when the meal renders the neutral card: no
@@ -174,6 +219,16 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
    */
   head?: ReactNode
   /**
+   * Laid over the head's bottom-right corner, on the plate, rather than added
+   * as a row: the planner card's note (HON-974). It is not a lower row, so it
+   * neither grows the card nor ends the image. It follows `head` in the DOM,
+   * so reading and focus order are the head's, then the overlay, then the
+   * rows. `side` with a `head` only.
+   */
+  overlay?: ReactNode
+  /** The overlay may lie over the head's whole width (the note editor). */
+  overlayWide?: boolean
+  /**
    * Rendered after the image, so a `bottom` card keeps its actions (the
    * alternative card's Select button) below the picture.
    */
@@ -190,7 +245,8 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
  * lightness at zero chroma, globals.css).
  *
  * With a `head`, the side image is bounded by the head rather than the card,
- * and `children` are the full-width rows below it (HON-927).
+ * and `children` are the full-width rows below it (HON-927). An `overlay` lies
+ * over the head's bottom-right corner without adding a row (HON-974).
  *
  * The children are the card's content, unchanged: the tint re-scopes the theme
  * tokens (`[data-meal-surface]` in globals.css), so nothing inside needs a
@@ -202,6 +258,8 @@ export function MealImageCard({
   layout = 'side',
   trailingActions = false,
   head,
+  overlay,
+  overlayWide = false,
   footer,
   className,
   style,
@@ -220,8 +278,9 @@ export function MealImageCard({
   // that was generated and paid for is never hidden by its colour (HON-754).
   const tinted = hasImage && hue !== null
   const hasHead = layout === 'side' && head !== undefined
+  const hasOverlay = hasHead && !!overlay
   // `toArray` drops `null`, `false` and `undefined`, so a lower row that is
-  // switched off doesn't end the image mid-card.
+  // switched off doesn't end the image mid-card. The overlay is not a row.
   const hasLowerRows = Children.toArray(children).length > 0 || footer != null
   const height: ImageHeight = !hasHead ? 'card' : hasLowerRows ? 'headWithRows' : 'headOnly'
 
@@ -246,12 +305,14 @@ export function MealImageCard({
       // `neutral` keeps the geometry and the title cap below, but not the
       // colour: globals.css gives it the tint's lightness at zero chroma.
       data-meal-surface={tinted ? '' : hasImage ? 'neutral' : undefined}
+      data-meal-overlay={hasOverlay ? '' : undefined}
       className={cn(
         hasImage && 'relative isolate overflow-hidden',
-        // The named group and container drive the side image's geometry and
-        // the title cap (`mealImageTitleWidth`). A bottom card leaves them off,
-        // so its title keeps the full row: nothing sits beside it.
-        hasImage && layout === 'side' && 'group/meal-image @container/meal-image',
+        // The named group and container drive the side image's geometry, the
+        // overlay's box and the title cap (`mealImageTitleWidth`). A bottom
+        // card leaves them off, so its title keeps the full row: nothing sits
+        // beside it.
+        (hasImage || hasOverlay) && layout === 'side' && 'group/meal-image @container/meal-image',
         className,
       )}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
@@ -264,6 +325,21 @@ export function MealImageCard({
         <div data-slot="meal-image-head" className="relative">
           {image}
           {head}
+          {hasOverlay && (
+            // The box is wider than a short slip, so it lets clicks through to
+            // the title beside it; only the slip itself takes them.
+            <div
+              data-slot="meal-image-overlay"
+              className={cn(
+                'pointer-events-none absolute bottom-0 flex justify-end *:pointer-events-auto',
+                (overlayWide ? OVERLAY_BOX.wide : OVERLAY_BOX)[
+                  trailingActions ? 'trailingActions' : 'default'
+                ],
+              )}
+            >
+              {overlay}
+            </div>
+          )}
         </div>
       ) : layout === 'side' ? (
         image

@@ -28,7 +28,7 @@ import {
 } from './AvailabilityIndicator'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import { StickyNote } from './StickyNote'
-import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
+import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import { MealTypeBadge } from './MealTypeBadge'
 import { MyRecipeIcon } from './MyRecipeBadge'
@@ -419,18 +419,24 @@ export function MealCard({
         trailingActions={hasTrailingActions}
         size="sm"
         // The head is every row from the slot badge down to the badges; the
-        // plate runs its height. The rows below it — the note, a past card's
-        // status control and rating prompt — run across the width, so they are
-        // the card's children and sit on the plain tint below the plate
-        // (HON-755, HON-927). A planned card without a note has none, and its
-        // plate runs the card's full height.
+        // plate runs its height. The rows below it — a past card's status
+        // control and rating prompt — run across the width, so they are the
+        // card's children and sit on the plain tint below the plate (HON-755,
+        // HON-927). A planned card has none, and its plate runs the card's
+        // full height. The note is not a row: it lies over the head's
+        // bottom-right corner as a slip, so it doesn't change the card's
+        // shape (HON-974).
         head={
           <CardHeader className="px-4 pt-1 pb-1">
             {/* First row: the slot label, with the menu at the right end. The
                 name has the next row to itself, still capped before the image
-                (`mealImageTitleWidth`). */}
+                (`mealImageTitleWidth`). The badges are capped like the badge
+                row below: on a short card the note's slip rises into this
+                row, so they wrap before it. */}
             <div className="flex min-h-8 items-center justify-between gap-1">
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div
+                className={cn('flex flex-wrap items-center gap-1.5', MEAL_IMAGE_BADGE_ROW_WIDTH)}
+              >
                 <MealTypeBadge mealType={mealType} />
                 <ProteinBadge proteinType={meal.primaryProteinType} />
               </div>
@@ -548,7 +554,9 @@ export function MealCard({
                 </div>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-1">
+            {/* Capped when the note's slip lies beside it, so a second badge
+                wraps instead of running under the slip. */}
+            <div className={cn('flex flex-wrap items-center gap-1', MEAL_IMAGE_BADGE_ROW_WIDTH)}>
               {!isPast && shouldShowAvailability && availability && (
                 <AvailabilityIndicator availability={availability} />
               )}
@@ -561,30 +569,33 @@ export function MealCard({
             </div>
           </CardHeader>
         }
+        overlay={
+          !isReadOnly && !isPast
+            ? // Rendered only when there is a note to show or edit: an empty
+              // controlled editor renders nothing anyway.
+              (!!note || isNoteEditing) && (
+                <NoteEditor
+                  ref={noteEditorRef}
+                  planId={planId}
+                  entryId={entryId}
+                  note={note}
+                  onNoteChange={setNote}
+                  compact
+                  clamped
+                  isEditing={isNoteEditing}
+                  onEditingChange={handleNoteEditingChange}
+                />
+              )
+            : note && (
+                <StickyNote>
+                  <div className="line-clamp-2">
+                    <Body variant="paragraph">{note}</Body>
+                  </div>
+                </StickyNote>
+              )
+        }
+        overlayWide={isNoteEditing}
       >
-        {/* The note, editable on a planned card. Rendered only when there is
-            one to show or edit: the row is what ends the plate mid-card. */}
-        {!isReadOnly && !isPast && (note != null || isNoteEditing) && (
-          <CardContent className="px-4 pb-2">
-            <NoteEditor
-              ref={noteEditorRef}
-              planId={planId}
-              entryId={entryId}
-              note={note}
-              onNoteChange={setNote}
-              compact
-              isEditing={isNoteEditing}
-              onEditingChange={handleNoteEditingChange}
-            />
-          </CardContent>
-        )}
-        {(isReadOnly || isPast) && note && (
-          <CardContent className="px-4 pb-2">
-            <StickyNote>
-              <Body variant="paragraph">{note}</Body>
-            </StickyNote>
-          </CardContent>
-        )}
         {!isReadOnly && isPast && (
           <CardContent className="px-4 pb-2">
             <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
