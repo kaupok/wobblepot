@@ -38,6 +38,13 @@ describe('ShoppingItem', () => {
     expect(screen.getByText('tomorrow')).toBeInTheDocument()
   })
 
+  it('omits the due label when showDue is false', () => {
+    render(<ShoppingItem item={baseItem} onToggle={vi.fn()} showDue={false} />)
+    expect(screen.queryByText('tomorrow')).not.toBeInTheDocument()
+    expect(screen.getByText('Chicken breast')).toBeInTheDocument()
+    expect(screen.getByText('500g')).toBeInTheDocument()
+  })
+
   it('renders checkbox with correct aria-label for unpurchased item', () => {
     render(<ShoppingItem item={baseItem} onToggle={vi.fn()} />)
     expect(

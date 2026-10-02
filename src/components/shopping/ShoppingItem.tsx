@@ -28,9 +28,20 @@ interface ShoppingItemProps {
   onToggle: (ingredientId: string, purchased: boolean) => void
   disabled?: boolean
   pending?: boolean
+  /**
+   * Render the due label and its tooltip. `UrgencyGroup` turns it off in the
+   * Today and Tomorrow groups, whose heading already says the day.
+   */
+  showDue?: boolean
 }
 
-export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItemProps) {
+export function ShoppingItem({
+  item,
+  onToggle,
+  disabled,
+  pending,
+  showDue = true,
+}: ShoppingItemProps) {
   const tShopping = useTranslations('shopping')
   const handleCheckedChange = (checked: boolean | 'indeterminate') => {
     if (checked === 'indeterminate') return
@@ -76,25 +87,27 @@ export function ShoppingItem({ item, onToggle, disabled, pending }: ShoppingItem
           </Body>
         </div>
       </div>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span
-            className={cn(
-              'shrink-0 text-xs',
-              item.purchased
-                ? 'text-muted-foreground/60'
-                : item.dueToday
-                  ? 'text-warning font-medium'
-                  : 'text-muted-foreground',
-            )}
-          >
-            {item.neededByRelative}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{tShopping('neededByTooltip', { date: item.neededByAbsolute })}</p>
-        </TooltipContent>
-      </Tooltip>
+      {showDue && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={cn(
+                'shrink-0 text-xs',
+                item.purchased
+                  ? 'text-muted-foreground/60'
+                  : item.dueToday
+                    ? 'text-warning font-medium'
+                    : 'text-muted-foreground',
+              )}
+            >
+              {item.neededByRelative}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{tShopping('neededByTooltip', { date: item.neededByAbsolute })}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
     </label>
   )
 }

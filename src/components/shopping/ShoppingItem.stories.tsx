@@ -59,6 +59,24 @@ export const DueToday: Story = {
   },
 }
 
+// Urgency sort, Today and Tomorrow groups: the heading says the day, so the
+// row drops its due label and tooltip (HON-958).
+export const WithoutDueLabel: Story = {
+  args: {
+    showDue: false,
+    item: createShoppingItem({
+      name: 'Chicken thigh',
+      displayQuantity: '500g',
+      neededByRelative: 'Tomorrow',
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Chicken thigh')).toBeInTheDocument()
+    await expect(canvas.queryByText('Tomorrow')).not.toBeInTheDocument()
+  },
+}
+
 export const Checked: Story = {
   args: {
     item: createShoppingItem({
