@@ -38,7 +38,7 @@ function respondWith(body: Record<string, unknown>, status: number) {
 }
 
 function generate(locale: 'en' | 'et') {
-  renderInLocale(<ImaginePanel onExit={vi.fn()} onMealSaved={vi.fn()} />, locale)
+  renderInLocale(<ImaginePanel mealType="dinner" onExit={vi.fn()} onMealSaved={vi.fn()} />, locale)
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'something with lentils' } })
   const label = locale === 'en' ? /imagine meals/i : /mõtle toidud välja/i
   fireEvent.click(screen.getByRole('button', { name: label }))
@@ -154,10 +154,35 @@ describe('ImaginePanel prompt field name', () => {
   // getByLabelText matches aria-label but not a placeholder (HON-808).
   it.each(['en', 'et'] as const)('names the prompt textarea in %s', (locale) => {
     const messages = locale === 'en' ? enMessages : etMessages
-    renderInLocale(<ImaginePanel onExit={vi.fn()} onMealSaved={vi.fn()} />, locale)
+    renderInLocale(
+      <ImaginePanel mealType="dinner" onExit={vi.fn()} onMealSaved={vi.fn()} />,
+      locale,
+    )
 
     expect(
       screen.getByLabelText(messages['meal-plan'].selector.imagine.promptAria),
-    ).toHaveAttribute('placeholder', messages['meal-plan'].selector.imagine.promptPlaceholder)
+    ).toHaveAttribute(
+      'placeholder',
+      messages['meal-plan'].selector.imagine.promptPlaceholder.dinner,
+    )
+  })
+})
+
+describe('ImaginePanel prompt placeholder', () => {
+  // An example that could never be a breakfast is a weak example (HON-944).
+  it.each([
+    ['en', 'breakfast', 'Something warm with oats and apple…'],
+    ['en', 'lunch', 'A quick salad with eggs and something green…'],
+    ['en', 'dinner', 'Something healthy with chicken and a fresh salad…'],
+    ['et', 'breakfast', 'Midagi sooja kaerahelveste ja õunaga…'],
+    ['et', 'lunch', 'Kiire salat muna ja millegi rohelisega…'],
+    ['et', 'dinner', 'Midagi tervislikku kanaga ja värske salatiga…'],
+  ] as const)('fits a %s %s slot', (locale, mealType, placeholder) => {
+    renderInLocale(
+      <ImaginePanel mealType={mealType} onExit={vi.fn()} onMealSaved={vi.fn()} />,
+      locale,
+    )
+
+    expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', placeholder)
   })
 })

@@ -323,7 +323,16 @@ export function MealSelectorModal({
       <Body variant="muted" className="text-center">
         {myRecipesOnly
           ? tSelector('emptySearchCustom', { query: searchQuery })
-          : tSelector('emptySearch', { query: searchQuery })}
+          : tSelector.rich('emptySearch', {
+              query: searchQuery,
+              // The fact, then the next step: the same action as the sparkles
+              // button, so the search is still there on the way back (HON-944).
+              imagine: (chunks) => (
+                <Button variant="link" size="inline" onClick={() => setIsImagineMode(true)}>
+                  {chunks}
+                </Button>
+              ),
+            })}
       </Body>
     ) : null
   } else {
@@ -349,6 +358,7 @@ export function MealSelectorModal({
 
         {isImagineMode ? (
           <ImaginePanel
+            mealType={mealType}
             onExit={() => setIsImagineMode(false)}
             onMealSaved={handleImaginedMealSaved}
           />

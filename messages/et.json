@@ -246,12 +246,16 @@
       "noSuggestions": "Soovitusi pole. Proovi otsida toitu.",
       "rateLimited": "Viimase tunni jooksul on küsitud liiga palju soovitusi. Proovi hiljem uuesti või otsi toitu.",
       "emptyMyRecipes": "Sul pole veel oma retsepte. Proovi <link>retsepti importida</link>.",
-      "emptySearchCustom": "Päringule „{query}\" vastavaid oma retsepte ei leitud",
-      "emptySearch": "Päringule „{query}\" vastavaid toite ei leitud",
+      "emptySearchCustom": "Päringule „{query}\" vastavaid oma retsepte ei leitud. Proovi teist sõna või lülita „Ainult minu retseptid\" välja.",
+      "emptySearch": "Päringule „{query}\" vastavaid toite ei leitud. Proovi teist sõna või <imagine>mõtle üks välja</imagine>.",
       "updateMealFailed": "Toidu uuendamine ebaõnnestus",
       "imagine": {
         "back": "Tagasi raamatukokku",
-        "promptPlaceholder": "Midagi tervislikku kanaga ja värske salatiga…",
+        "promptPlaceholder": {
+          "breakfast": "Midagi sooja kaerahelveste ja õunaga…",
+          "lunch": "Kiire salat muna ja millegi rohelisega…",
+          "dinner": "Midagi tervislikku kanaga ja värske salatiga…"
+        },
         "promptAria": "Kirjelda, millist toitu sooviksid",
         "attachAria": "Lisa fotosid",
         "removeImageAria": "Eemalda „{filename}\"",

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse, delay } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { MealType } from '@/generated/prisma/enums'
 import type { ImaginedMealResponse } from '@/lib/imagine-utils'
 import { ImaginePanel } from './ImaginePanel'
 
@@ -111,6 +112,7 @@ const meta = {
     },
   },
   args: {
+    mealType: MealType.dinner,
     onExit: fn(),
     onMealSaved: fn(),
   },
@@ -126,6 +128,27 @@ export const Idle: Story = {
         story: 'Empty prompt — the generate button is disabled until text or a photo is added.',
       },
     },
+  },
+}
+
+/** The placeholder's example fits the slot being filled (HON-944). */
+export const BreakfastPlaceholder: Story = {
+  args: { mealType: MealType.breakfast },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('textbox')).toHaveAttribute(
+      'placeholder',
+      'Something warm with oats and apple…',
+    )
+  },
+}
+
+export const LunchPlaceholder: Story = {
+  args: { mealType: MealType.lunch },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('textbox')).toHaveAttribute(
+      'placeholder',
+      'A quick salad with eggs and something green…',
+    )
   },
 }
 

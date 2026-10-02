@@ -215,6 +215,55 @@ export const Empty: Story = {
   },
 }
 
+/**
+ * A search that matches nothing says so, then offers the next step: "imagine
+ * one" opens the Imagine panel for the slot, and the search is still there on
+ * the way back (HON-944).
+ */
+export const EmptySearch: Story = {
+  args: { mode: 'add', mealType: MealType.breakfast },
+  parameters: { msw: { handlers: emptyMealsHandlers } },
+  play: async ({ args }) => {
+    const body = within(document.body)
+    await body.findByRole('dialog')
+    const searchInput = await body.findByPlaceholderText('Search meal library…')
+    await userEvent.type(searchInput, 'qqqq')
+
+    await body.findByText(/No meals found matching "qqqq"\. Try another word, or/, undefined, {
+      timeout: 3000,
+    })
+    await userEvent.click(body.getByRole('button', { name: 'imagine one' }))
+
+    // The Imagine panel, with a breakfast example rather than the dinner one.
+    await expect(body.getByRole('textbox', { name: /describe the meal/i })).toHaveAttribute(
+      'placeholder',
+      'Something warm with oats and apple…',
+    )
+    await userEvent.click(body.getByRole('button', { name: /back to library/i }))
+    await expect(await body.findByPlaceholderText('Search meal library…')).toHaveValue('qqqq')
+    await expect(args.onSwapComplete).not.toHaveBeenCalled()
+  },
+}
+
+/** With "My recipes only" on, the empty search names that filter as the thing to change. */
+export const EmptySearchMyRecipes: Story = {
+  args: { mode: 'add' },
+  parameters: { msw: { handlers: emptyMealsHandlers } },
+  play: async () => {
+    const body = within(document.body)
+    await body.findByRole('dialog')
+    await userEvent.click(body.getByRole('checkbox', { name: 'My recipes only' }))
+    await userEvent.type(body.getByPlaceholderText('Search meal library…'), 'qqqq')
+
+    await body.findByText(
+      'No custom recipes found matching "qqqq". Try another word, or turn off "My recipes only".',
+      undefined,
+      { timeout: 3000 },
+    )
+    await expect(body.queryByRole('button', { name: 'imagine one' })).not.toBeInTheDocument()
+  },
+}
+
 export const ErrorState: Story = {
   name: 'Error',
   args: { mode: 'add' },
