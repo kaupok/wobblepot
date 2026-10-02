@@ -1,15 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState, type RefObject } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
-import { Pencil, Trash2, Heart } from 'lucide-react'
+import { Heart, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { MealCardBase } from '@/components/meal-plan/MealCardBase'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
@@ -55,16 +61,26 @@ interface MealListProps {
   meals: MealData[]
   onDelete: (mealId: string) => void
   onToggleFavorite: (mealId: string, isFavorite: boolean) => void
+  /** Takes focus after a delete that leaves no card to land on (the page's search field). */
+  emptyFocusRef?: RefObject<HTMLElement | null>
 }
 
-export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
+export function MealList({ meals, onDelete, onToggleFavorite, emptyFocusRef }: MealListProps) {
   const t = useTranslations('recipes.list')
   const [deleteConfirmMeal, setDeleteConfirmMeal] = useState<MealData | null>(null)
+  // The confirm dialog opens from a menu item that is gone by the time it
+  // closes, so Radix has no trigger to return focus to (HON-934). These hold
+  // each card's ⋯ trigger and the card whose trigger should take focus: the
+  // one Delete was chosen on, or after a delete its neighbour.
+  const triggerRefs = useRef(new Map<string, HTMLButtonElement>())
+  const focusTargetIdRef = useRef<string | null>(null)
 
   const deleteMeal = useMutation({
     mutationFn: (mealId: string) =>
       apiFetch(`/api/households/me/meals/${mealId}`, { method: 'DELETE' }),
     onSuccess: (_data, mealId) => {
+      const index = meals.findIndex((meal) => meal.id === mealId)
+      focusTargetIdRef.current = (meals[index + 1] ?? meals[index - 1])?.id ?? null
       onDelete(mealId)
       toast.success(t('deleted'))
       setDeleteConfirmMeal(null)
@@ -93,6 +109,14 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
     deleteMeal.mutate(deleteConfirmMeal.id)
   }
 
+  const handleCloseAutoFocus = (event: Event) => {
+    event.preventDefault()
+    const id = focusTargetIdRef.current
+    focusTargetIdRef.current = null
+    const trigger = id ? triggerRefs.current.get(id) : undefined
+    ;(trigger ?? emptyFocusRef?.current)?.focus()
+  }
+
   if (meals.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -107,7 +131,9 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
       {/* One column on a phone, two from `sm`, three from `lg` (HON-747). The
           columns make the cards taller than wide, so the image sits below the
           content rather than behind it, as in the alternatives grid (HON-750).
-          The actions stay on the title row (docs/DESIGN.md → Composition). */}
+          The actions stay on the title row: the heart, and Edit and Delete
+          behind one ⋯ menu as on the planner card (docs/DESIGN.md →
+          Composition, HON-934). */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {meals.map((meal) => (
           <MealImageCard
@@ -133,7 +159,7 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
                   <>
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon-sm"
                       onClick={() => toggleFavorite.mutate(meal)}
                       disabled={
                         toggleFavorite.isPending && toggleFavorite.variables?.id === meal.id
@@ -143,22 +169,47 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
                       }
                     >
                       <Heart
-                        className={cn('h-4 w-4', meal.isFavorite && 'text-primary fill-current')}
+                        aria-hidden="true"
+                        className={cn(meal.isFavorite && 'text-primary fill-current')}
                       />
                     </Button>
-                    <Button variant="ghost" size="sm" asChild aria-label={t('editAria')}>
-                      <Link href={`/recipes/${meal.id}/edit`}>
-                        <Pencil className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteConfirmMeal(meal)}
-                      aria-label={t('deleteAria')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          ref={(el) => {
+                            if (!el) return
+                            triggerRefs.current.set(meal.id, el)
+                            return () => {
+                              triggerRefs.current.delete(meal.id)
+                            }
+                          }}
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t('moreActions', { name: meal.name })}
+                        >
+                          <MoreHorizontal aria-hidden="true" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {/* A real link, so middle-click and open-in-new-tab work. */}
+                        <DropdownMenuItem asChild>
+                          <Link href={`/recipes/${meal.id}/edit`}>
+                            <Pencil aria-hidden="true" />
+                            {t('edit')}
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => {
+                            focusTargetIdRef.current = meal.id
+                            setDeleteConfirmMeal(meal)
+                          }}
+                        >
+                          <Trash2 aria-hidden="true" />
+                          {t('delete')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </>
                 }
               />
@@ -180,6 +231,7 @@ export function MealList({ meals, onDelete, onToggleFavorite }: MealListProps) {
         variant="destructive"
         onConfirm={handleDelete}
         isLoading={deleteMeal.isPending}
+        onCloseAutoFocus={handleCloseAutoFocus}
       />
     </>
   )

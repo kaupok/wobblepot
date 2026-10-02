@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { ConfirmDialog } from './confirm-dialog'
 
 const meta = {
@@ -88,5 +89,26 @@ export const LoadingEstonian: Story = {
   play: async () => {
     const dialog = await within(document.body).findByRole('alertdialog')
     await expect(within(dialog).getByRole('button', { name: 'Laen…' })).toBeDisabled()
+  },
+}
+
+// A dialog opened from state has no trigger for Radix to return focus to, so
+// callers pass `onCloseAutoFocus` and focus the control that opened it
+// (`MealList`, HON-934). The prop reaches `AlertDialogContent`: it fires as the
+// dialog closes.
+export const CloseAutoFocusPassThrough: Story = {
+  render: function Render(args) {
+    const [open, setOpen] = useState(true)
+    return <ConfirmDialog {...args} open={open} onOpenChange={setOpen} />
+  },
+  args: {
+    title: 'Delete recipe',
+    description: 'Are you sure?',
+    onCloseAutoFocus: fn(),
+  },
+  play: async ({ args }) => {
+    const dialog = await within(document.body).findByRole('alertdialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(args.onCloseAutoFocus).toHaveBeenCalledTimes(1))
   },
 }

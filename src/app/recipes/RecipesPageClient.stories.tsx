@@ -85,7 +85,7 @@ export const Populated: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(await canvas.findByRole('heading', { level: 1, name: 'My recipes' })).toBeVisible()
-    await canvas.findAllByRole('button', { name: /delete recipe/i })
+    await canvas.findAllByRole('button', { name: /^More actions: / })
     const cards = canvasElement.querySelectorAll('[data-slot="card"]')
     await expect(cards.length).toBeGreaterThan(0)
     for (const card of cards) {
@@ -132,7 +132,7 @@ export const PhoneEstonian: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findAllByRole('button', { name: /kustuta/i })
+    await within(canvasElement).findAllByRole('button', { name: /^Rohkem toiminguid: / })
     await expectActionsTwoUp(canvasElement)
   },
 }
