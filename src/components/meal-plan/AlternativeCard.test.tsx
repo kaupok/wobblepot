@@ -57,6 +57,21 @@ describe('AlternativeCard', () => {
       expect(screen.getByText('Chicken Rice Bowl')).toBeInTheDocument()
     })
 
+    it('leaves out the meal-type badges: the dialog title names the slot (HON-945)', () => {
+      render(
+        <AlternativeCard
+          meal={{ ...mockMeal, suitableFor: ['breakfast', 'dinner'] }}
+          householdSize={3}
+          onSelect={vi.fn()}
+          isSelecting={false}
+        />,
+      )
+
+      expect(screen.queryByText('Breakfast')).not.toBeInTheDocument()
+      expect(screen.queryByText('Dinner')).not.toBeInTheDocument()
+      expect(screen.getByText('Kid-friendly')).toBeInTheDocument()
+    })
+
     it('renders time when provided', () => {
       render(
         <AlternativeCard

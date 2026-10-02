@@ -64,7 +64,13 @@ export function AlternativeCard({
       }
     >
       <CardContent className="flex-1 p-4 pb-2">
-        <MealCardBase meal={meal} pantryIngredients={pantryIngredients} nameHeadingTag="h3" />
+        {/* The dialog's title names the slot, so the cards do not (HON-945). */}
+        <MealCardBase
+          meal={meal}
+          pantryIngredients={pantryIngredients}
+          nameHeadingTag="h3"
+          mealTypes="hide"
+        />
         {/* Why this suggestion ranked where it did, when the household's own ratings moved it (HON-340). */}
         {meal.ratingSignal && (
           <div className="text-muted-foreground mt-2 flex items-center gap-1">

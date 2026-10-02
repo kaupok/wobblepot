@@ -116,6 +116,26 @@ describe('MealCardBase', () => {
     })
   })
 
+  describe('meal-type badges', () => {
+    const multiSlot: MealCardBaseData = { ...mockMeal, suitableFor: ['breakfast', 'lunch'] }
+
+    it('shows a badge per slot by default, as in the recipe library', () => {
+      render(<MealCardBase meal={multiSlot} />)
+
+      expect(screen.getByText('Breakfast')).toBeInTheDocument()
+      expect(screen.getByText('Lunch')).toBeInTheDocument()
+    })
+
+    it("leaves them out with mealTypes='hide' and keeps the kid-friendly and protein badges (HON-945)", () => {
+      render(<MealCardBase meal={multiSlot} mealTypes="hide" />)
+
+      expect(screen.queryByText('Breakfast')).not.toBeInTheDocument()
+      expect(screen.queryByText('Lunch')).not.toBeInTheDocument()
+      expect(screen.getByText('Kid-friendly')).toBeInTheDocument()
+      expect(screen.getByText('Fish')).toBeInTheDocument()
+    })
+  })
+
   describe('source URL rendering', () => {
     it('renders link for https URLs', () => {
       const meal = { ...mockMeal, sourceUrl: 'https://example.com/recipe' }

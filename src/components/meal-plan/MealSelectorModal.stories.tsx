@@ -188,6 +188,99 @@ export const TomorrowSlotLaptop: Story = {
   },
 }
 
+/**
+ * Boxes of the search row's three controls: the search field, the "My recipes
+ * only" checkbox and the labelled Imagine button (HON-945).
+ */
+async function searchRow(locale: 'en' | 'et' = 'en') {
+  const dialog = await within(document.body).findByRole('dialog')
+  const scope = within(dialog)
+  const input = scope.getByRole('searchbox')
+  const checkbox = scope.getByRole('checkbox')
+  const imagine = scope.getByRole('button', {
+    name: locale === 'et' ? 'Mõtle välja toit' : 'Imagine a meal',
+  })
+  // The text is the name, not an aria-label beside an icon.
+  await expect(imagine).not.toHaveAttribute('aria-label')
+  await expect(imagine).toHaveAttribute('data-variant', 'outline')
+  const row = input.parentElement!
+  return {
+    row,
+    input: input.getBoundingClientRect(),
+    checkbox: checkbox.parentElement!.getBoundingClientRect(),
+    imagine: imagine.getBoundingClientRect(),
+  }
+}
+
+const centre = (box: DOMRect) => box.top + box.height / 2
+
+/**
+ * From `md` the search, the filter and Imagine share one row in that order,
+ * the search capped at `max-w-sm` (384px) and Imagine at the row's end.
+ */
+async function expectOneRow(locale: 'en' | 'et' = 'en') {
+  const { row, input, checkbox, imagine } = await searchRow(locale)
+  await expect(Math.abs(centre(input) - centre(checkbox))).toBeLessThan(2)
+  await expect(Math.abs(centre(input) - centre(imagine))).toBeLessThan(2)
+  await expect(input.right).toBeLessThanOrEqual(checkbox.left)
+  await expect(checkbox.right).toBeLessThanOrEqual(imagine.left)
+  await expect(input.width).toBeLessThanOrEqual(384)
+  await expect(Math.abs(imagine.right - row.getBoundingClientRect().right)).toBeLessThan(1)
+}
+
+/**
+ * Below `md` the search keeps a line of its own, wide enough for its
+ * placeholder, and the filter and Imagine share the next, Imagine at the end.
+ * Nothing runs past the row.
+ */
+async function expectFilterLine(locale: 'en' | 'et' = 'en') {
+  const { row, input, checkbox, imagine } = await searchRow(locale)
+  const rowBox = row.getBoundingClientRect()
+  await expect(Math.abs(input.width - rowBox.width)).toBeLessThan(1)
+  await expect(checkbox.top).toBeGreaterThanOrEqual(input.bottom)
+  await expect(Math.abs(centre(checkbox) - centre(imagine))).toBeLessThan(2)
+  await expect(checkbox.right).toBeLessThanOrEqual(imagine.left)
+  await expect(Math.abs(imagine.right - rowBox.right)).toBeLessThan(1)
+  await expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth)
+}
+
+export const SearchRowLaptop: Story = {
+  args: { mode: 'add', mealType: MealType.dinner, date: '2026-10-08' },
+  globals: LAPTOP,
+  play: async () => {
+    await expectOneRow()
+  },
+}
+
+/** `md` exactly, the narrowest width the one-row layout has to fit. */
+export const SearchRowTabletPortrait: Story = {
+  args: { mode: 'add', mealType: MealType.dinner, date: '2026-10-08' },
+  globals: { viewport: { value: 'tabletPortrait', isRotated: false } },
+  play: async () => {
+    await expectOneRow()
+  },
+}
+
+export const SearchRowPhone: Story = {
+  args: { mode: 'add', mealType: MealType.dinner, date: '2026-10-08' },
+  globals: PHONE,
+  play: async () => {
+    await expectFilterLine()
+  },
+}
+
+/**
+ * The Estonian filter label and button are the longest; at 360px the label
+ * wraps rather than pushing Imagine to a third line.
+ */
+export const SearchRowNarrowPhoneEstonian: Story = {
+  args: { mode: 'add', mealType: MealType.dinner, date: '2026-10-08' },
+  globals: { viewport: { value: 'mobilePixel', isRotated: false }, locale: 'et' },
+  play: async () => {
+    await expectFilterLine('et')
+  },
+}
+
 export const Populated: Story = {
   args: {
     mode: 'swap',
@@ -334,6 +427,9 @@ export const PopulatedDesktop: Story = {
       await expect(button).toHaveAttribute('data-variant', 'outline')
       await expect(button.getBoundingClientRect().width).toBeLessThan(card.width / 2)
     }
+    // Every fixture is a dinner, and the cards no longer say so (HON-945).
+    const dialog = await body.findByRole('dialog')
+    await expect(within(dialog).queryAllByText('Dinner')).toHaveLength(0)
   },
 }
 
