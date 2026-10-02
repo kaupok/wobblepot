@@ -127,11 +127,12 @@ export function PostHogProvider({
     client.identify(userId, householdId ? { household_id: householdId } : undefined)
   }, [client, granted, userId, householdId])
 
-  if (!client) return <>{children}</>
-
+  // One shape before and after init: React matches unkeyed children by index,
+  // so returning bare `children` first would remount the whole page tree when
+  // the client arrives, dropping typed input and focus.
   return (
     <>
-      <SuspendedPostHogPageView client={client} />
+      {client ? <SuspendedPostHogPageView client={client} /> : null}
       {children}
     </>
   )

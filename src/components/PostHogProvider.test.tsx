@@ -1,4 +1,5 @@
 import { act, render, waitFor } from '@testing-library/react'
+import { useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PostHogProvider } from '@/components/PostHogProvider'
 import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvider'
@@ -123,6 +124,29 @@ describe('PostHogProvider', () => {
     // (literal values: src/lib/posthog-init-options.test.ts).
     expect(posthogMock.init).toHaveBeenCalledWith('phc_test', POSTHOG_INIT_OPTIONS)
     expect(markPostHogLoadedMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not remount its children when the client arrives', async () => {
+    const mounts = vi.fn()
+    function Child() {
+      useEffect(() => {
+        mounts()
+      }, [])
+      return <p>child</p>
+    }
+    render(
+      wrap(
+        makeConsent(true),
+        <PostHogProvider>
+          {null}
+          <Child />
+        </PostHogProvider>,
+      ),
+    )
+
+    await waitFor(() => expect(markPostHogLoadedMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(posthogMock.capture).toHaveBeenCalled())
+    expect(mounts).toHaveBeenCalledTimes(1)
   })
 
   // The client reaches PostHogPageView as a prop, not through @posthog/react's
