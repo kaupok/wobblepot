@@ -67,6 +67,25 @@ interface MealDetailModalProps {
   ref?: Ref<MealDetailModalHandle>
 }
 
+/** Input types that take no typed text, so have no edit for Escape to cancel. */
+const NON_TEXT_INPUT_TYPES = new Set([
+  'checkbox',
+  'radio',
+  'button',
+  'submit',
+  'reset',
+  'image',
+  'file',
+  'color',
+  'range',
+])
+
+/** Whether Escape on `target` belongs to a field editing text in place. */
+function isTextField(target: EventTarget | null): boolean {
+  if (target instanceof HTMLTextAreaElement) return true
+  return target instanceof HTMLInputElement && !NON_TEXT_INPUT_TYPES.has(target.type)
+}
+
 export function MealDetailModal({
   meal,
   householdSize,
@@ -298,6 +317,13 @@ export function MealDetailModal({
           returnFocusRef.current =
             document.activeElement instanceof HTMLElement ? document.activeElement : null
           contentRef.current?.focus()
+        }}
+        // Escape in the note or the "Serves" field cancels that field, not
+        // the view (HON-949). The field's own handler still runs; Radix
+        // listens on the document, so stopping the event there is not enough,
+        // and the planner card's `NoteEditor` must keep its behaviour.
+        onEscapeKeyDown={(event) => {
+          if (isTextField(event.target)) event.preventDefault()
         }}
         // Back to the control that opened it, if it is still on the page.
         // After "Done cooking", hand over to the caller from there: the view

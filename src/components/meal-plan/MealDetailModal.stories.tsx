@@ -815,6 +815,42 @@ export const EscapeClosesDialog: Story = {
   },
 }
 
+// Escape in the note or the "Serves" field cancels that field and leaves the
+// view open; the next Escape, from the panel, closes it (HON-949).
+export const EscapeInFieldKeepsViewOpen: Story = {
+  name: 'Escape in a field keeps the view open',
+  args: {
+    onNoteChange: fn(),
+  },
+  play: async ({ args }) => {
+    const dialog = await findDialog()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add note' }))
+    const note = await within(dialog).findByRole('textbox', { name: 'Meal note' })
+    await waitFor(() => expect(note).toHaveFocus())
+    await userEvent.type(note, 'Half-typed')
+    await pressEscape()
+    await waitFor(() => expect(note).not.toBeInTheDocument())
+    await expect(within(dialog).getByRole('button', { name: 'Add note' })).toBeVisible()
+    await assertFocusInDialog()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: /serves 4/i }))
+    const servings = await within(dialog).findByRole('textbox', { name: 'Number of servings' })
+    await waitFor(() => expect(servings).toHaveFocus())
+    await pressEscape()
+    await waitFor(() => expect(servings).not.toBeInTheDocument())
+    await assertFocusInDialog()
+
+    await expect(args.onOpenChange).not.toHaveBeenCalled()
+    await expect(args.onNoteChange).not.toHaveBeenCalled()
+    await expect(args.onServingOverrideChange).not.toHaveBeenCalled()
+
+    dialog.focus()
+    await pressEscape()
+    await expect(args.onOpenChange).toHaveBeenCalledWith(false)
+  },
+}
+
 export const ChangeServingInvokesCallback: Story = {
   args: {
     servingOverride: 6,
