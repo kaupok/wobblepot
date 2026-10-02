@@ -1,16 +1,43 @@
 /**
  * Typed product-analytics wrapper around `posthog.capture()`.
  *
- * Single entry point for product events: `track(name, props)`. The discriminated
- * union below is the canonical event registry — every product event flows
- * through this file. Raw `posthog.capture()` is reserved for the SDK itself
- * (`PostHogProvider` and `posthog-server`).
+ * Single entry point for client product events: `track(name, props)`. The
+ * discriminated union below is the canonical event registry — every client
+ * product event flows through this file. Raw `capture()` is reserved for the
+ * SDK itself (`PostHogProvider`) and for the server events listed under
+ * "Server events" below, which have no browser to run `track()` in.
  *
  * ## Naming convention: `category:object_action_past`
  *
- * Snake_case, namespace-prefixed, past tense. Categories are a closed enum
- * (`auth`, `onboarding`, `meal_plan`, `meal`, `recipe`, `pantry`, `shopping`;
- * `ai` reserved for HON-475).
+ * Snake_case, namespace-prefixed, past tense. Categories are a closed enum:
+ * `auth`, `onboarding`, `meal_plan`, `meal`, `recipe`, `pantry`, `shopping`
+ * and `cook_view` for client events, `imagine` for the one server event that
+ * has a category. `ai` is reserved for HON-475.
+ *
+ * ## Server events
+ *
+ * Captured with `getPosthogServer().capture()` because they happen in a route
+ * or lib function, not in the browser. They are listed here so this file stays
+ * the one place to read the taxonomy.
+ *
+ * - `imagine:allergen_violation_dropped` (`src/app/api/meals/imagine/route.ts`,
+ *   HON-895): one event per suggestion the forbidden-food guard dropped and
+ *   per constraint it broke. Distinct id is the household id. Properties:
+ *   `constraint`, `constraint_kind`, `keyword`, `field`, `model`, `attempt`,
+ *   `household_id`.
+ * - `external_api_timeout` (`src/lib/errors.ts` → `captureExternalApiTimeout`,
+ *   called from `src/lib/external-fetch.ts`): an external dependency missed a
+ *   deadline its caller set. An infrastructure signal, not a product event,
+ *   so it is outside the naming convention and has no category. Personless:
+ *   `ExternalFetchContext` carries no user id, and the one caller
+ *   (`src/lib/breached-password.ts`) runs at sign-up, before a session.
+ *   Properties: `feature`, `source` (`externalFetch.timeout`), `url`,
+ *   `request_id`, `release`, plus `route` when the caller passes one.
+ *
+ * `$`-prefixed events follow PostHog's own schema and are not defined here:
+ * `$ai_generation` (`src/lib/ai/usage.ts`), `$exception` (`src/lib/errors.ts`,
+ * `src/lib/errors-client.ts`, `src/instrumentation.ts`,
+ * `src/app/global-error.tsx`) and `$pageview` (`PostHogProvider`).
  *
  * **Why past tense, not present (PostHog's documented recommendation):**
  *
@@ -89,7 +116,6 @@
 export type Source =
   | 'meal_card'
   | 'meal_selector'
-  | 'timeline'
   | 'imagine_page'
   | 'import_page'
   | 'pantry_inline'
@@ -142,7 +168,6 @@ export type EventPayload = {
   'meal:imagined': { meal_id: string; source: Source }
   'recipe:imported': { source: Source }
   'pantry:item_added': { source: Source }
-  'shopping:item_purchased': { source: Source }
   /** `item_count` is the number of lines written to the clipboard — a count, never item names. */
   'shopping:list_copied': { source: Source; item_count: number }
   /**

@@ -49,7 +49,7 @@ class AlreadyInHouseholdError extends Error {
  * way to lose the same race (a click after the winner's claim committed misses
  * at `findUnique`; see the expiry check below), so the two describe one
  * situation to the user. Keep them distinct on the wire regardless: logs and
- * Sentry want them apart.
+ * PostHog want them apart.
  */
 class InviteNoLongerClaimableError extends Error {
   constructor() {

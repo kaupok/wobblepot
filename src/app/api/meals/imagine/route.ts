@@ -38,7 +38,7 @@ const imagineRequestSchema = z.object({
 })
 
 /**
- * Failure body for this route: English prose for logs and Sentry breadcrumbs,
+ * Failure body for this route: English prose for logs and PostHog error capture,
  * plus the machine-readable `code` the clients translate (HON-700). Every
  * error response *this handler builds* goes through here, so no branch of it
  * can ship without a code. The one failure it does not build is the shared AI
@@ -392,7 +392,7 @@ async function handlePOST(request: Request) {
 
     // Reported before it is classified, as the reference route does: a timeout
     // is user-facing but it also means the budget above is mis-sized, which is
-    // exactly what should show up in Sentry.
+    // exactly what should show up in PostHog error tracking.
     if (isAiBudgetTimeout(error)) {
       return NextResponse.json(
         errorBody('Generating meal ideas took too long. Please try again.', 'imagine_timeout'),

@@ -216,9 +216,7 @@ describe('track()', () => {
 
     // track() returns Promise<void> and swallows errors internally — neither
     // the synchronous call nor the awaited promise should throw.
-    await expect(
-      track('shopping:item_purchased', { source: 'shopping_list' }),
-    ).resolves.toBeUndefined()
+    await expect(track('pantry:item_added', { source: 'pantry_inline' })).resolves.toBeUndefined()
   })
 
   /**
