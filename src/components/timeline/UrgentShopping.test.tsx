@@ -240,6 +240,13 @@ describe('UrgentShopping', () => {
       expect(links[0]).toHaveAttribute('href', '/shopping')
     })
 
+    // HON-947: the list's last line, not a card action, so no chevron.
+    it('is a text link with no icon', () => {
+      renderPanel([...urgent, ...later])
+
+      expect(screen.getByRole('link').querySelector('svg')).toBeNull()
+    })
+
     it('says it in Estonian for an Estonian household', () => {
       renderPanel([...urgent, ...later], 'et')
 

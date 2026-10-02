@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { expect, within } from 'storybook/test'
 import { Button } from './button'
 
@@ -191,21 +191,6 @@ export const AllSizes: Story = {
       </Button>
       <Button size="icon-lg" aria-label="Add">
         <Plus />
-      </Button>
-    </div>
-  ),
-}
-
-/**
- * `size="row"`: a list's last line that links on, full width with the label
- * left and the icon right (HON-928).
- */
-export const Row: Story = {
-  render: () => (
-    <div className="w-80">
-      <Button variant="quiet" size="row">
-        Plus 8 more for the next 5 days
-        <ChevronRight aria-hidden />
       </Button>
     </div>
   ),
