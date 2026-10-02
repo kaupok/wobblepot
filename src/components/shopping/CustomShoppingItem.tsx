@@ -1,6 +1,6 @@
 'use client'
 
-import { X, Unlink } from 'lucide-react'
+import { Trash2, Unlink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -101,7 +101,7 @@ export function CustomShoppingItem({
               onClick={() => onDelete(item.id)}
               aria-label={tShopping('ariaRemove', { name: item.name })}
             >
-              <X className="size-4" />
+              <Trash2 className="size-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
