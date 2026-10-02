@@ -21,7 +21,7 @@ test.describe('@i18n platform smoke', () => {
     await page.goto('/')
     await expect(page.locator('html')).toHaveAttribute('lang', 'et')
     await expect(
-      page.getByRole('heading', { name: 'Söögiplaanid hõivatud peredele' }),
+      page.getByRole('heading', { name: 'Õhtusöök otsustatud. Terveks nädalaks.' }),
     ).toBeVisible()
   })
 

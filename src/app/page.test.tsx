@@ -4,6 +4,9 @@ import Home from './page'
 import enMessages from '../../messages/en.json'
 import etMessages from '../../messages/et.json'
 import { getServerFlag } from '@/lib/feature-flags'
+import { loadDemoDay } from '@/lib/landing/load-demo-day'
+import { createMeal } from '@/stories/fixtures'
+import { createQueryWrapper } from '@/test/query-wrapper'
 import type { MealType } from '@/generated/prisma/enums'
 
 // Resolve `getTranslations(namespace)` through the real `createTranslator`, so
@@ -68,6 +71,13 @@ vi.mock('@/components/timeline', () => ({
 vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn() }))
 vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
+vi.mock('@/lib/landing/load-demo-day', () => ({
+  DEMO_TIMEZONE: 'Europe/Tallinn',
+  loadDemoDay: vi.fn(async () => null),
+}))
+vi.mock('@/lib/i18n/get-locale', () => ({
+  getLocale: vi.fn(async () => translationLocale),
+}))
 
 // Nothing on this page may call back into our own API over HTTP (HON-789).
 const mockFetch = vi.fn()
@@ -177,6 +187,19 @@ function mockLoadersWithPlannedEntry() {
   return mockLoaders({ entries: { entries: [PLANNED_ENTRY], planId: 'plan-1' } })
 }
 
+/**
+ * Renders the signed-out home. Server copy follows `translationLocale`; the
+ * showcase's client components read the global `next-intl` mock
+ * (`vitest.setup.ts`), which always resolves English.
+ */
+async function renderLanding() {
+  const { auth } = await import('@/lib/auth')
+  vi.mocked(auth.api.getSession).mockResolvedValue(null)
+  // The demo's cook view mounts a mutation, so it needs a query client.
+  const { wrapper } = createQueryWrapper()
+  return render(await Home(), { wrapper })
+}
+
 describe('Home page component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -191,31 +214,45 @@ describe('Home page component', () => {
     })
 
     it('renders the notice with a link to ask support for an invite when invites are required', async () => {
-      render(await Home())
+      await renderLanding()
 
       expect(getServerFlag).toHaveBeenCalledWith('invite_code_required', 'anonymous')
       const notice = screen.getByRole('note', { name: 'Private beta notice' })
       expect(notice).toHaveTextContent(
-        "We're in private beta. You'll need an invite code to sign up. Don't have one? Ask for an invite at support@wobblepot.com.",
+        "We're in private beta, so sign-up needs an invite code. Don't have one? Ask for an invite at support@wobblepot.com.",
       )
       const link = within(notice).getByRole('link', { name: 'Ask for an invite' })
       expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com?subject=Invite%20request')
     })
 
+    it('names the call to action after the code while invites are required', async () => {
+      await renderLanding()
+
+      // Under the hero and again at the end of the page, both to sign-up.
+      const links = screen.getAllByRole('link', { name: 'Sign up with your invite code' })
+      expect(links).toHaveLength(2)
+      for (const link of links) expect(link).toHaveAttribute('href', '/sign-up')
+      expect(screen.queryByRole('link', { name: 'Get started' })).not.toBeInTheDocument()
+    })
+
     it('renders no notice when invites are not required', async () => {
       vi.mocked(getServerFlag).mockResolvedValue(false)
 
-      render(await Home())
+      await renderLanding()
 
       expect(screen.queryByRole('note')).not.toBeInTheDocument()
       expect(screen.queryByText(/private beta/i)).not.toBeInTheDocument()
       expect(screen.queryByRole('link', { name: 'Ask for an invite' })).not.toBeInTheDocument()
+      const links = screen.getAllByRole('link', { name: 'Get started' })
+      expect(links).toHaveLength(2)
+      for (const link of links) expect(link).toHaveAttribute('href', '/sign-up')
+      expect(screen.getAllByText("Free while we're in beta.")).toHaveLength(2)
     })
 
     it('translates the notice label and the mail subject', async () => {
       translationLocale = 'et'
 
-      render(await Home())
+      await renderLanding()
 
       const notice = screen.getByRole('note', { name: 'Suletud beeta märguanne' })
       expect(screen.queryByRole('note', { name: 'Private beta notice' })).not.toBeInTheDocument()
@@ -236,59 +273,104 @@ describe('Home page component', () => {
   })
 
   it('renders landing page heading when not authenticated', async () => {
-    const { auth } = await import('@/lib/auth')
-    vi.mocked(auth.api.getSession).mockResolvedValue(null)
-
-    const component = await Home()
-    render(component)
+    await renderLanding()
     expect(
-      screen.getByRole('heading', { name: 'Meal planning for busy families' }),
+      screen.getByRole('heading', { level: 1, name: 'Dinner, decided. For the whole week.' }),
     ).toBeInTheDocument()
   })
 
   it('renders no main landmark of its own when not authenticated', async () => {
-    const { auth } = await import('@/lib/auth')
-    vi.mocked(auth.api.getSession).mockResolvedValue(null)
-
     // The root layout's <main id="main-content"> is the page landmark; a second
     // one here would nest main inside main (HON-820).
-    const component = await Home()
-    const { container } = render(component)
+    const { container } = await renderLanding()
     expect(container.querySelector('main')).toBeNull()
     expect(screen.queryByRole('main')).not.toBeInTheDocument()
   })
 
   it('renders value proposition when not authenticated', async () => {
-    const { auth } = await import('@/lib/auth')
-    vi.mocked(auth.api.getSession).mockResolvedValue(null)
+    await renderLanding()
+    expect(screen.getByText(/plans your family's meals around who's eating/)).toBeInTheDocument()
+  })
 
-    const component = await Home()
-    render(component)
+  it('renders an example day drawn with the planner card', async () => {
+    await renderLanding()
+    const figure = screen.getByRole('figure')
+    expect(within(figure).getByText(/An example day in Wobblepot/)).toBeInTheDocument()
+    expect(within(figure).getByText('Thursday')).toBeInTheDocument()
+    for (const name of [
+      'Avocado toast with poached egg',
+      'Beef bibimbap',
+      'Baked salmon with asparagus',
+    ]) {
+      expect(within(figure).getByText(name)).toBeInTheDocument()
+      // Alt text is the meal name and nothing more (docs/DESIGN.md → Imagery).
+      expect(within(figure).getByRole('img', { name })).toBeInTheDocument()
+    }
+  })
+
+  it("renders today's meals from the library when the demo day loads", async () => {
+    vi.mocked(loadDemoDay).mockResolvedValueOnce({
+      date: '2026-10-01',
+      meals: [
+        {
+          mealType: 'breakfast',
+          servings: 4,
+          steps: { steps: ['Toast the bread'], pitfalls: [] },
+          meal: createMeal({ id: 'm-1', name: 'Avocado toast', primaryProteinType: 'eggs' }),
+        },
+        {
+          mealType: 'lunch',
+          servings: 4,
+          steps: { steps: ['Cook the rice'], pitfalls: [] },
+          meal: createMeal({ id: 'm-2', name: 'Beef bibimbap', primaryProteinType: 'beef' }),
+        },
+        {
+          mealType: 'dinner',
+          servings: 4,
+          steps: { steps: ['Roast the salmon'], pitfalls: [] },
+          meal: createMeal({ id: 'm-3', name: 'Baked salmon', primaryProteinType: 'fish' }),
+        },
+      ],
+    })
+
+    await renderLanding()
+
+    expect(loadDemoDay).toHaveBeenCalledWith({ locale: 'en', date: expect.any(String) })
+    const figure = screen.getByRole('figure')
+    // 2026-10-01 is a Thursday.
+    expect(within(figure).getByText('Thursday')).toBeInTheDocument()
+    expect(within(figure).getByRole('button', { name: 'Avocado toast' })).toBeInTheDocument()
+    expect(within(figure).getByRole('button', { name: 'Baked salmon' })).toBeInTheDocument()
+    expect(screen.queryByText('Avocado toast with poached egg')).not.toBeInTheDocument()
+  })
+
+  it('renders the three steps and the differences as sections', async () => {
+    await renderLanding()
+    expect(screen.getByRole('heading', { level: 2, name: 'How it works' })).toBeInTheDocument()
     expect(
-      screen.getByText(/AI-powered weekly meal plans tailored to your household/),
+      screen.getByRole('heading', { level: 3, name: "Tell it who's at the table" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Get a week of meals' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Shop once, then cook' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Made for family kitchens' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'It knows your pantry' }),
     ).toBeInTheDocument()
   })
 
-  it('renders feature bullets when not authenticated', async () => {
-    const { auth } = await import('@/lib/auth')
-    vi.mocked(auth.api.getSession).mockResolvedValue(null)
-
-    const component = await Home()
-    render(component)
-    expect(screen.getByText('Personalized for your household')).toBeInTheDocument()
-    expect(screen.getByText('Smart shopping lists')).toBeInTheDocument()
-    expect(screen.getByText('Tracks what you have on hand')).toBeInTheDocument()
-  })
-
-  it('renders CTA button linking to sign-up when not authenticated', async () => {
-    const { auth } = await import('@/lib/auth')
-    vi.mocked(auth.api.getSession).mockResolvedValue(null)
-
-    const component = await Home()
-    render(component)
-    const ctaLink = screen.getByRole('link', { name: "Get started — it's free" })
-    expect(ctaLink).toBeInTheDocument()
-    expect(ctaLink).toHaveAttribute('href', '/sign-up')
+  it('renders the landing page in Estonian', async () => {
+    translationLocale = 'et'
+    await renderLanding()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Õhtusöök otsustatud. Terveks nädalaks.' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Kuidas see töötab' })).toBeInTheDocument()
   })
 
   it('renders first-time setup when authenticated with household but no entries', async () => {

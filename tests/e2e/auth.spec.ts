@@ -67,10 +67,13 @@ test.describe('Authentication flows', () => {
     // Sign out
     await signOut(page)
 
-    // Should be on home page with sign in option
+    // Should be on home page with sign in option. Scoped to the header and
+    // exact: the landing page's own CTA reads "Sign up with your invite code",
+    // which a substring match would also find.
     await expect(page).toHaveURL('/')
-    await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Sign up' })).toBeVisible()
+    const header = page.getByRole('banner')
+    await expect(header.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible()
+    await expect(header.getByRole('link', { name: 'Sign up', exact: true })).toBeVisible()
   })
 
   test('invalid credentials show error message', async ({ page }) => {
