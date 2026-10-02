@@ -418,11 +418,13 @@ export function MealCard({
         trailingActions={hasTrailingActions}
         size="sm"
         // The head is every row from the slot badge down to the badges; the
-        // plate runs its height. The rows below it — the note, a past card's
-        // status control and rating prompt — run across the width, so they are
-        // the card's children and sit on the plain tint below the plate
-        // (HON-755, HON-927). A planned card without a note has none, and its
-        // plate runs the card's full height.
+        // plate runs its height. The rows below it — a past card's status
+        // control and rating prompt — run across the width, so they are the
+        // card's children and sit on the plain tint below the plate (HON-755,
+        // HON-927). A planned card has none, and its plate runs the card's
+        // full height. The note is not a row: it lies over the head's
+        // bottom-right corner as a slip, so it doesn't change the card's
+        // shape (HON-974).
         head={
           <CardHeader className="px-4 pt-1 pb-1">
             {/* First row: the slot label, with the menu at the right end. The
@@ -540,30 +542,33 @@ export function MealCard({
             </div>
           </CardHeader>
         }
+        overlay={
+          !isReadOnly && !isPast
+            ? // Rendered only when there is a note to show or edit: an empty
+              // controlled editor renders nothing anyway.
+              (!!note || isNoteEditing) && (
+                <NoteEditor
+                  ref={noteEditorRef}
+                  planId={planId}
+                  entryId={entryId}
+                  note={note}
+                  onNoteChange={setNote}
+                  compact
+                  clamped
+                  isEditing={isNoteEditing}
+                  onEditingChange={handleNoteEditingChange}
+                />
+              )
+            : note && (
+                <StickyNote>
+                  <div className="line-clamp-3">
+                    <Body variant="paragraph">{note}</Body>
+                  </div>
+                </StickyNote>
+              )
+        }
+        overlayWide={isNoteEditing}
       >
-        {/* The note, editable on a planned card. Rendered only when there is
-            one to show or edit: the row is what ends the plate mid-card. */}
-        {!isReadOnly && !isPast && (note != null || isNoteEditing) && (
-          <CardContent className="px-4 pb-2">
-            <NoteEditor
-              ref={noteEditorRef}
-              planId={planId}
-              entryId={entryId}
-              note={note}
-              onNoteChange={setNote}
-              compact
-              isEditing={isNoteEditing}
-              onEditingChange={handleNoteEditingChange}
-            />
-          </CardContent>
-        )}
-        {(isReadOnly || isPast) && note && (
-          <CardContent className="px-4 pb-2">
-            <StickyNote>
-              <Body variant="paragraph">{note}</Body>
-            </StickyNote>
-          </CardContent>
-        )}
         {!isReadOnly && isPast && (
           <CardContent className="px-4 pb-2">
             <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />

@@ -65,6 +65,18 @@ describe('NoteEditor', () => {
       expect(text.className).not.toContain('text-muted-foreground')
     })
 
+    // HON-974: the slip laid over a planner card has a fixed height to fit in.
+    it('clamps the saved note to three lines only when clamped', () => {
+      const { rerender } = render(<NoteEditor {...defaultProps} note="Eating out tonight" />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
+      expect(screen.getByText('Eating out tonight').parentElement).not.toHaveClass('line-clamp-3')
+
+      rerender(<NoteEditor {...defaultProps} note="Eating out tonight" clamped />)
+      expect(screen.getByText('Eating out tonight').parentElement).toHaveClass('line-clamp-3')
+      expect(screen.getByRole('button', { name: 'Eating out tonight' })).toBeInTheDocument()
+    })
+
     it('enters edit mode when "Add note" button is clicked', async () => {
       render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
       await userEvent.click(screen.getByText('Add note'))
@@ -120,6 +132,17 @@ describe('NoteEditor', () => {
       expect(textarea.className).toContain('bg-transparent')
       expect(slip).toContainElement(screen.getByRole('button', { name: 'Save' }))
       expect(slip).toContainElement(screen.getByRole('button', { name: 'Cancel' }))
+    })
+
+    // HON-974: on a card the editor stops growing at two lines and scrolls.
+    it('caps the compact textarea height', async () => {
+      const { rerender } = render(<NoteEditor {...defaultProps} note="Existing note" isEditing />, {
+        wrapper: createQueryWrapper().wrapper,
+      })
+      expect(screen.getByRole('textbox')).not.toHaveClass('max-h-12')
+
+      rerender(<NoteEditor {...defaultProps} note="Existing note" isEditing compact />)
+      expect(screen.getByRole('textbox')).toHaveClass('max-h-12', 'overflow-y-auto')
     })
 
     it('enforces 200 character limit', async () => {

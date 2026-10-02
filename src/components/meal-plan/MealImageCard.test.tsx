@@ -101,6 +101,75 @@ describe('MealImageCard', () => {
       expect(wrapper).not.toHaveClass('mask-b-from-60%')
     })
 
+    // HON-974: the note lies over the plate, so it is not a row below the head.
+    it('lays an overlay over the head without ending the image', () => {
+      const { container } = render(
+        <MealImageCard
+          meal={ready}
+          trailingActions
+          size="sm"
+          head={<p>Head</p>}
+          overlay={<p>Note</p>}
+        />,
+      )
+      const card = container.querySelector('[data-slot="card"]') as HTMLElement
+      const head = container.querySelector('[data-slot="meal-image-head"]') as HTMLElement
+      const overlay = container.querySelector('[data-slot="meal-image-overlay"]') as HTMLElement
+      const wrapper = screen.getByTestId('meal-card-image')
+
+      // After the head in the DOM, inside its positioned wrapper, and no row.
+      expect(Array.from(card.children)).toEqual([head])
+      expect(Array.from(head.children)).toEqual([wrapper, screen.getByText('Head'), overlay])
+      expect(overlay).toContainElement(screen.getByText('Note'))
+      expect(overlay).toHaveClass('absolute', 'bottom-0', 'right-12', 'left-1/2')
+      expect(wrapper).toHaveClass('-inset-y-2')
+      expect(wrapper).not.toHaveClass('mask-b-from-60%')
+      expect(card).toHaveAttribute('data-meal-overlay')
+    })
+
+    it('widens the overlay to the head for the note editor, still clear of the actions', () => {
+      const { container } = render(
+        <MealImageCard
+          meal={ready}
+          trailingActions
+          size="sm"
+          head={<p>Head</p>}
+          overlay={<p>Note</p>}
+          overlayWide
+        />,
+      )
+      const overlay = container.querySelector('[data-slot="meal-image-overlay"]') as HTMLElement
+
+      expect(overlay).toHaveClass('left-0', 'right-12')
+      expect(overlay).not.toHaveClass('left-1/2')
+    })
+
+    it('caps the title for an overlay on a card without an image', () => {
+      const { container } = render(
+        <MealImageCard
+          meal={{ name: 'Lemon garlic chicken', imageStatus: 'none' }}
+          size="sm"
+          head={<p>Head</p>}
+          overlay={<p>Note</p>}
+        />,
+      )
+      const card = container.querySelector('[data-slot="card"]') as HTMLElement
+
+      // The container and group that `mealImageTitleWidth` reads.
+      expect(card).toHaveAttribute('data-meal-overlay')
+      expect(card).toHaveClass('group/meal-image', '@container/meal-image')
+      expect(card).not.toHaveAttribute('data-meal-surface')
+    })
+
+    it('leaves an empty overlay out', () => {
+      const { container } = render(
+        <MealImageCard meal={ready} size="sm" head={<p>Head</p>} overlay={false} />,
+      )
+
+      expect(container.querySelector('[data-slot="meal-image-overlay"]')).toBeNull()
+      expect(container.querySelector('[data-slot="card"]')).not.toHaveAttribute('data-meal-overlay')
+    })
+
     it('keeps the head mounted when the tint switches on', () => {
       const plain = { name: 'Lemon garlic chicken', imageStatus: 'none' as const }
       const head = <button type="button">Lemon garlic chicken</button>
@@ -201,13 +270,20 @@ describe('MealImageCard', () => {
   })
 
   it('narrows the title to the tint left of the image', () => {
-    // Scoped to a tinted card, so a card whose image fails goes back to the full row.
-    expect(mealImageTitleWidth()).toBe(
-      'group-data-meal-surface/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
-    )
-    expect(mealImageTitleWidth(true)).toBe(
-      'group-data-meal-surface/meal-image:max-w-1/3 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
-    )
+    // Scoped to a tinted card, so a card whose image fails goes back to the
+    // full row — unless the card has an overlay (HON-974), which keeps the cap.
+    expect(mealImageTitleWidth().split(' ')).toEqual([
+      'group-data-meal-surface/meal-image:max-w-1/2',
+      'group-data-meal-overlay/meal-image:max-w-1/2',
+      '@md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
+      '@md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
+    ])
+    expect(mealImageTitleWidth(true).split(' ')).toEqual([
+      'group-data-meal-surface/meal-image:max-w-1/3',
+      'group-data-meal-overlay/meal-image:max-w-1/3',
+      '@md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
+      '@md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
+    ])
   })
 
   it('tints a hue of 0, which is a real hue rather than a missing one', () => {

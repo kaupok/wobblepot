@@ -12,6 +12,7 @@ import { MealCardBase, type MealCardBaseData } from './MealCardBase'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealTypeBadge } from './MealTypeBadge'
 import { ProteinBadge } from './ProteinBadge'
+import { StickyNote } from './StickyNote'
 
 const withImage = (hue: number, overrides: Partial<MealCardBaseData> = {}) =>
   createMealCardBaseData({
@@ -290,6 +291,51 @@ export const HeadWithRowBelow: Story = {
     await expect(box.top).toBeCloseTo(card.getBoundingClientRect().top + card.clientTop, 0)
     await expect(box.bottom).toBeCloseTo(row.top, 0)
     await expect(caption.top).toBeGreaterThanOrEqual(box.bottom)
+  },
+}
+
+/**
+ * `overlay` (HON-974): laid over the head's bottom-right corner, on the plate,
+ * rather than added as a row. The image keeps the card's full height, and the
+ * overlay stays clear of the title and the action column.
+ */
+export const HeadWithOverlay: Story = {
+  name: 'Head with an overlay',
+  args: { meal: withImage(28, { name: LONG_TITLE }), className: undefined },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  render: ({ meal, ...args }) => (
+    <MealImageCard
+      {...args}
+      meal={meal}
+      trailingActions
+      size="sm"
+      head={<TrailingActionsHeader name={meal.name} />}
+      overlay={
+        <StickyNote>
+          <Body variant="paragraph">Double the garlic.</Body>
+        </StickyNote>
+      }
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    await assertOnTint(canvasElement)
+    // The fallback font sets wider; measure once the web font has landed.
+    await document.fonts.ready
+    const canvas = within(canvasElement)
+    const card = canvasElement.querySelector('[data-slot="card"]')!
+    const cardBox = card.getBoundingClientRect()
+    const box = canvas.getByTestId('meal-card-image').getBoundingClientRect()
+    const slip = canvas.getByText('Double the garlic.').closest('[data-surface="sticky"]')!
+    const slipBox = slip.getBoundingClientRect()
+    const title = canvas.getByRole('button', { name: LONG_TITLE }).getBoundingClientRect()
+    const actions = canvas.getByTestId('card-actions').getBoundingClientRect()
+    // The plate runs to the card's bottom edge (inside its border): no row ends it.
+    await expect(box.bottom).toBeCloseTo(cardBox.bottom - card.clientTop, 0)
+    await expect(slipBox.bottom).toBeLessThanOrEqual(cardBox.bottom)
+    await expect(slipBox.left).toBeGreaterThanOrEqual(title.right)
+    // The overlay box ends at the action column; the `-rotate-1` tilt can push
+    // the slip's corner a fraction of a pixel past it.
+    await expect(slipBox.right).toBeLessThanOrEqual(actions.left + 1)
   },
 }
 
