@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { Body, Heading, Li, Ul } from '@/components/ui/typography'
 import { POLICY_LAST_UPDATED_DISPLAY } from '@/lib/consent'
@@ -11,12 +10,11 @@ import {
   PRIVACY_EMAIL_HREF,
 } from '@/lib/support'
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations('meta.legal.privacy')
-  return {
-    title: t('title'),
-    description: t('description'),
-  }
+// English for every household, like the prose below: legal text is maintained
+// in one language (HON-918, docs/LOCALIZATION.md → English by design).
+export const metadata: Metadata = {
+  title: 'Privacy policy',
+  description: 'How Wobblepot collects, uses, and protects your data.',
 }
 
 // "Last updated" derives from POLICY_LAST_UPDATED (src/lib/consent.ts) —
