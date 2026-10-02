@@ -509,3 +509,35 @@ export const AskEchoAndEdit: Story = {
     await expect(args.cookQuestion!.ask).toHaveBeenCalledOnce()
   },
 }
+
+/**
+ * Close hands focus back to the step's Ask button. After a tap or a click on
+ * Close that focus opens no tooltip, which would cover the step until the next
+ * tap; after Escape from the keyboard it does, as Tab does (HON-981).
+ */
+export const AskCloseReturnsFocus: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion(),
+  },
+  render: (args) => <AskWithState {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const ask = canvas.getByRole('button', { name: 'Ask about step 2' })
+    const panel = canvas.getByRole('group', { name: 'Ask about step 2' })
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
+    await expect(ask).toHaveFocus()
+    // Give a wrongly opened tooltip its frame to mount before checking.
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    await expect(within(document.body).queryByRole('tooltip')).not.toBeInTheDocument()
+
+    await userEvent.click(ask)
+    const field = within(canvas.getByRole('group', { name: 'Ask about step 2' })).getByRole(
+      'textbox',
+    )
+    await userEvent.click(field)
+    await userEvent.keyboard('{Escape}')
+    await expect(ask).toHaveFocus()
+    await expectAskTooltip(2)
+  },
+}

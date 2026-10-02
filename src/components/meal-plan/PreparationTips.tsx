@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, type Ref } from 'react'
+import { useEffect, useId, useRef, useState, type Ref, type RefObject } from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, MessageCircleQuestion } from 'lucide-react'
 import { Body, Heading, Li, Ol, Ul } from '@/components/ui/typography'
@@ -207,8 +207,11 @@ interface CookQuestionPanelProps {
   controls: CookQuestionControls
   /** Move focus into the field on mount: the cook switched from another step's panel. */
   focusField: boolean
-  /** Close the panel and return focus to its Ask button */
-  onClose: () => void
+  /**
+   * Close the panel and return focus to its Ask button. `byPointer` is true
+   * when a tap or a click on Close did it, not a key.
+   */
+  onClose: (byPointer?: boolean) => void
 }
 
 /**
@@ -402,7 +405,13 @@ function CookQuestionPanel({
               {t('retry')}
             </Button>
           )}
-          <Button ref={closeRef} variant="ghost" size="lg" onClick={onClose}>
+          <Button
+            ref={closeRef}
+            variant="ghost"
+            size="lg"
+            // `detail` counts clicks; Enter and Space on a button leave it 0.
+            onClick={(e) => onClose(e.detail > 0)}
+          >
             {t('close')}
           </Button>
         </div>
@@ -419,6 +428,8 @@ interface AskButtonProps {
   open: boolean
   panelId: string
   onClick: () => void
+  /** True while a tap or a click on Close hands focus back to this button */
+  quietFocus: RefObject<boolean>
 }
 
 /**
@@ -430,10 +441,18 @@ interface AskButtonProps {
  * input still finds it, and it tells the steps' buttons apart. No `title`.
  * With its panel open it stays an Ask button; Close is in the panel.
  */
-function AskButton({ ref, label, open, panelId, onClick }: AskButtonProps) {
+function AskButton({ ref, label, open, panelId, onClick, quietFocus }: AskButtonProps) {
   const t = useTranslations('meal-plan.cookQuestion')
+  const [tooltipOpen, setTooltipOpen] = useState(false)
   return (
-    <Tooltip>
+    <Tooltip
+      open={tooltipOpen}
+      // Radix opens on any focus, so also on the focus Close hands back. After
+      // a tap the tooltip would cover the step until the next tap, because a
+      // touch never leaves the button. Radix opens on focus synchronously, so
+      // the flag is still set when this runs.
+      onOpenChange={(next) => setTooltipOpen(next && !quietFocus.current)}
+    >
       <TooltipTrigger asChild>
         <Button
           ref={ref}
@@ -480,9 +499,15 @@ function ToggleSteps({
   // field unmounts, so focus moves into the new one's.
   const [focusField, setFocusField] = useState(false)
 
-  const closePanel = (index: number) => {
+  // Set around the focus a tap or a click on Close returns, so the Ask
+  // button's tooltip stays shut; a key on Close or Escape opens it as Tab does.
+  const quietFocus = useRef(false)
+
+  const closePanel = (index: number, byPointer = false) => {
     cookQuestion?.onClose()
+    quietFocus.current = byPointer
     askButtons.current.get(index)?.focus()
+    quietFocus.current = false
   }
 
   return (
@@ -512,6 +537,7 @@ function ToggleSteps({
                     label={t('askAboutStep', { n: i + 1 })}
                     open={open}
                     panelId={panelId}
+                    quietFocus={quietFocus}
                     onClick={() => {
                       if (open) {
                         closePanel(i)
@@ -530,7 +556,7 @@ function ToggleSteps({
                   steps={steps}
                   controls={cookQuestion}
                   focusField={focusField}
-                  onClose={() => closePanel(i)}
+                  onClose={(byPointer) => closePanel(i, byPointer)}
                 />
               )}
             </Li>
