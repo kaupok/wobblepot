@@ -118,7 +118,7 @@ export const AllergensSelected: Story = {
     docs: {
       description: {
         story:
-          'Household with allergens ticked. The AI-processing notice under the allergen group is the DPIA point-of-entry affirmation (HON-666) and describes the group via `aria-describedby`.',
+          'Household with allergens ticked. Each allergen is a toggle chip; a pressed chip is filled and shows a check icon, so the state is not carried by colour alone (HON-962). The AI-processing notice under the allergen group is the DPIA point-of-entry affirmation (HON-666) and describes the group via `aria-describedby`.',
       },
     },
   },
@@ -126,6 +126,13 @@ export const AllergensSelected: Story = {
     const canvas = within(canvasElement)
     const group = canvas.getByRole('group', { name: 'Allergens to avoid' })
     await expect(group).toHaveAccessibleDescription(/sent to our AI provider/)
+    const gluten = within(group).getByRole('button', { name: 'Gluten' })
+    const eggs = within(group).getByRole('button', { name: 'Eggs' })
+    await expect(gluten).toHaveAttribute('aria-pressed', 'true')
+    await expect(eggs).toHaveAttribute('aria-pressed', 'false')
+    // The check icon renders only on a pressed chip.
+    await expect(gluten.querySelector('[data-slot="toggle-indicator"]')).toBeVisible()
+    await expect(eggs.querySelector('[data-slot="toggle-indicator"]')).not.toBeVisible()
     await expect(canvas.getByRole('link', { name: 'privacy policy' })).toHaveAttribute(
       'href',
       '/privacy',
@@ -159,8 +166,8 @@ export const NonOwner: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByLabelText('Household name')).toBeDisabled()
-    await expect(canvas.getByLabelText('Gluten')).toBeDisabled()
-    await expect(canvas.getByLabelText('Vegan')).toBeDisabled()
+    await expect(canvas.getByRole('button', { name: 'Gluten' })).toBeDisabled()
+    await expect(canvas.getByRole('radio', { name: 'Vegan' })).toBeDisabled()
     await expect(canvas.getByLabelText('Dietary restrictions (optional)')).toBeDisabled()
     await expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   },
@@ -222,6 +229,28 @@ export const FoodPreferences: Story = {
   },
 }
 
+export const DietaryTypeDirty: Story = {
+  ...FoodPreferences,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Vegan picked in the Dietary type chips: one chip is always checked, and the section shows its Save button (HON-962).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const group = canvas.getByRole('radiogroup', { name: 'Dietary type' })
+    await expect(within(group).getByRole('radio', { name: 'No preference' })).toBeChecked()
+
+    await userEvent.click(within(group).getByRole('radio', { name: 'Vegan' }))
+    await expect(within(group).getByRole('radio', { name: 'Vegan' })).toBeChecked()
+    await expect(within(group).getByRole('radio', { name: 'No preference' })).not.toBeChecked()
+    await expect(canvas.getByRole('button', { name: 'Save' })).toBeVisible()
+  },
+}
+
 export const FoodPreferencesDirty: Story = {
   ...FoodPreferences,
   parameters: {
@@ -238,7 +267,7 @@ export const FoodPreferencesDirty: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
 
-    await userEvent.click(canvas.getByLabelText('Gluten'))
+    await userEvent.click(canvas.getByRole('button', { name: 'Gluten' }))
     const save = canvas.getByRole('button', { name: 'Save' })
     await expect(save).toBeVisible()
 
@@ -264,7 +293,8 @@ export const MealsToPlan: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'The Meals to plan section on its own: weekday and weekend meal types.',
+        story:
+          'The Meals to plan section on its own: one grid with the meals as columns and Weekdays / Weekends as rows (HON-962).',
       },
     },
   },
@@ -275,14 +305,17 @@ export const MealsToPlanDirty: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Lunch added to the weekend: the section shows its Save button.',
+        story:
+          'Lunch added to the weekend: the section shows its Save button. Each checkbox names both axes ("Weekends: Lunch").',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const weekend = canvas.getByRole('group', { name: 'Weekend meals to plan' })
-    await userEvent.click(within(weekend).getByLabelText('Lunch'))
+    const table = canvas.getByRole('table', { name: 'Meals to plan' })
+    const weekendLunch = within(table).getByRole('checkbox', { name: 'Weekends: Lunch' })
+    await userEvent.click(weekendLunch)
+    await expect(weekendLunch).toBeChecked()
     await expect(canvas.getByRole('button', { name: 'Save' })).toBeVisible()
   },
 }
@@ -334,7 +367,7 @@ export const Desktop: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getAllByLabelText('Lunch')[0]!)
+    await userEvent.click(canvas.getByLabelText('Weekdays: Lunch'))
     const button = canvas.getByRole('button', { name: 'Save' })
     await expect(button.getBoundingClientRect().width).toBeLessThan(
       button.parentElement!.getBoundingClientRect().width,
@@ -348,16 +381,62 @@ export const Phone: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Phone width with a change in Meals to plan: "Save" fills the column.',
+        story:
+          'Phone width with a change in Meals to plan: "Save" fills the column. Every dietary chip and allergen toggle is at least 44px tall, and the chip rows wrap inside the column (HON-962).',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getAllByLabelText('Lunch')[0]!)
+    const chips = [
+      ...within(canvas.getByRole('radiogroup', { name: 'Dietary type' })).getAllByRole('radio'),
+      ...within(canvas.getByRole('group', { name: 'Allergens to avoid' })).getAllByRole('button'),
+    ]
+    for (const chip of chips) {
+      await expect(chip.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    }
+    const food = canvas.getByRole('form', { name: 'Food preferences' })
+    await expect(food.scrollWidth).toBeLessThanOrEqual(food.clientWidth)
+    const grid = canvasElement.querySelector<HTMLElement>('[data-slot="table-container"]')!
+    await expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth)
+
+    await userEvent.click(canvas.getByLabelText('Weekdays: Lunch'))
     const button = canvas.getByRole('button', { name: 'Save' })
     await expect(button.getBoundingClientRect().width).toBe(
       button.parentElement!.getBoundingClientRect().width,
     )
+  },
+}
+
+/**
+ * Estonian at phone width, inside the page's `px-4` gutters. The Estonian meal
+ * heads are the widest single words in the grid, so below `sm` each row head
+ * sits on its own row above its checkboxes, and Dinner stays in view (HON-962).
+ */
+export const PhoneEstonian: Story = {
+  args: Default.args,
+  globals: { viewport: { value: 'mobileIphone', isRotated: false }, locale: 'et' },
+  render: (args) => (
+    <div className="px-4">
+      <HouseholdSettingsForm {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const table = canvas.getByRole('table', { name: 'Planeeritavad toidud' })
+    const grid = table.parentElement!
+    await expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth)
+    // One visible row head per day group, above its checkboxes.
+    await expect(within(table).getAllByRole('rowheader')).toEqual([
+      within(table).getByRole('rowheader', { name: 'Argipäevad' }),
+      within(table).getByRole('rowheader', { name: 'Nädalavahetus' }),
+    ])
+    const dinner = within(table).getByRole('checkbox', { name: 'Nädalavahetus: Õhtusöök' })
+    await expect(dinner.getBoundingClientRect().right).toBeLessThanOrEqual(
+      grid.getBoundingClientRect().right,
+    )
+    for (const form of canvas.getAllByRole('form')) {
+      await expect(form.scrollWidth).toBeLessThanOrEqual(form.clientWidth)
+    }
   },
 }

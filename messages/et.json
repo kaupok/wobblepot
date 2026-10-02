@@ -937,8 +937,9 @@
       "excludedLabel": "Koostisosad, mida vältida (vabatahtlik)",
       "excludedPlaceholder": "nt koriander, seened",
       "mealsHeading": "Planeeritavad toidud",
-      "weekdayMealsLabel": "Tööpäevadel planeeritavad söögikorrad",
-      "weekendMealsLabel": "Nädalavahetustel planeeritavad söögikorrad"
+      "weekdaysRow": "Argipäevad",
+      "weekendsRow": "Nädalavahetus",
+      "mealCellAria": "{day}: {meal}"
     },
     "members": {
       "heading": "Liikmed",

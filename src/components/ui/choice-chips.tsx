@@ -32,6 +32,8 @@ type ChoiceChipsProps = ChoiceChipsLabel & {
   /** `Button`'s sizes: `default` is the 44px touch target below `md`, `sm` 32px. */
   size?: 'default' | 'sm'
   disabled?: boolean
+  /** An error or hint about the whole choice, e.g. a form's `FieldError` id. */
+  'aria-describedby'?: string
 }
 
 function ChoiceChips({

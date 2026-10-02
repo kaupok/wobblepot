@@ -67,6 +67,33 @@ describe('Toggle', () => {
     })
   })
 
+  describe('primary tone', () => {
+    it('fills the pressed state like a chosen ChoiceChips chip', () => {
+      render(<Toggle aria-label="Gluten" tone="primary" />)
+      expect(screen.getByRole('button')).toHaveClass(
+        'data-[state=on]:bg-primary',
+        'data-[state=on]:text-primary-foreground',
+      )
+    })
+  })
+
+  describe('indicator', () => {
+    it('renders no icon without the prop', () => {
+      render(<Toggle>Gluten</Toggle>)
+      expect(screen.getByRole('button').querySelector('svg')).toBeNull()
+    })
+
+    it('renders a hidden check icon before the label, shown while pressed', () => {
+      render(<Toggle indicator>Gluten</Toggle>)
+      const toggle = screen.getByRole('button', { name: 'Gluten' })
+      const icon = toggle.firstElementChild
+      expect(icon).toHaveAttribute('data-slot', 'toggle-indicator')
+      expect(icon).toHaveAttribute('aria-hidden', 'true')
+      expect(icon).toHaveClass('hidden', 'group-data-[state=on]/toggle:block')
+      expect(toggle).toHaveClass('group/toggle')
+    })
+  })
+
   describe('shape', () => {
     it('is rounded-md by default', () => {
       render(<Toggle aria-label="Bold" />)
@@ -85,6 +112,11 @@ describe('Toggle', () => {
     it('uses the touch height by default', () => {
       render(<Toggle aria-label="Bold" />)
       expect(screen.getByRole('button')).toHaveClass('h-touch', 'min-w-touch', 'md:h-10')
+    })
+
+    it('takes the Button default height and padding at chip', () => {
+      render(<Toggle size="chip">Gluten</Toggle>)
+      expect(screen.getByRole('button')).toHaveClass('h-touch', 'md:h-10', 'px-4')
     })
 
     it('is 32px at sm', () => {
