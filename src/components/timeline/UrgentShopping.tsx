@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Check, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
@@ -133,19 +133,15 @@ export function UrgentShopping({
       : hasUrgent || openCustomItemCount > 0
         ? tToday('viewFullList')
         : null
+  // The list's last line, so it looks like one: muted text at the items' size,
+  // with no separator, box or chevron that would make it a card action
+  // (HON-947). The panel is desktop-only, so the 44px row floor does not apply.
+  // `self-start` keeps the column from stretching it, so the label stays in
+  // line with the item text and the underline spans only the label.
   const continuationRow = continuationLabel && (
-    <div className="border-t pt-3">
-      {/* `-mx-2` lines the label up with the list text while the hover box
-          keeps its padding. */}
-      <div className="-mx-2">
-        <Button variant="quiet" size="row" asChild>
-          <Link href="/shopping">
-            {continuationLabel}
-            <ChevronRight aria-hidden />
-          </Link>
-        </Button>
-      </div>
-    </div>
+    <Button variant="quiet-link" size="inline" asChild className="self-start">
+      <Link href="/shopping">{continuationLabel}</Link>
+    </Button>
   )
 
   if (!hasUrgent) {

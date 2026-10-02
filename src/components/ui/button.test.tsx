@@ -159,6 +159,9 @@ describe('Button component', () => {
       const button = screen.getByRole('button')
       expect(button).toHaveClass('h-auto', 'p-0')
       expect(button).not.toHaveClass('h-touch', 'px-4')
+      // It wraps with its text rather than overflowing a narrow column (HON-947).
+      expect(button).toHaveClass('whitespace-normal')
+      expect(button).not.toHaveClass('whitespace-nowrap')
     })
 
     // The `sm` sizes are deliberately viewport-independent: they are for

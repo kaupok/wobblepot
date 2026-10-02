@@ -50,8 +50,11 @@ async function expectDayGroups(canvasElement: HTMLElement, days: string[]) {
 }
 
 /**
- * The full panel's only link is the row that closes it, named for what is past
- * the cut and leading to the list; the title row is just the name (HON-928).
+ * The full panel's only link is the line that closes it, named for what is
+ * past the cut and leading to the list; the title row is just the name
+ * (HON-928). It is a muted text link at the item rows' size, with no chevron
+ * and no separator above it, starting where the item text starts and ending
+ * inside the column (HON-947).
  */
 async function expectContinuationRow(
   canvasElement: HTMLElement,
@@ -61,13 +64,23 @@ async function expectContinuationRow(
   const canvas = within(canvasElement)
   const links = canvas.getAllByRole('link')
   await expect(links).toHaveLength(1)
-  await expect(links[0]).toHaveAccessibleName(name)
-  await expect(links[0]).toHaveAttribute('href', '/shopping')
-  const box = links[0]?.getBoundingClientRect()
-  await expect(box?.height).toBeGreaterThanOrEqual(44)
-  // The label wraps rather than pushing the chevron out of the link's box.
-  const chevron = links[0]?.querySelector('svg')?.getBoundingClientRect()
-  await expect(chevron?.right).toBeLessThanOrEqual(box?.right ?? Number.NaN)
+  const link = links[0] as HTMLElement
+  await expect(link).toHaveAccessibleName(name)
+  await expect(link).toHaveAttribute('href', '/shopping')
+  await expect(link.querySelector('svg')).toBeNull()
+  await expect(getComputedStyle(link).borderTopWidth).toBe('0px')
+  await expect(getComputedStyle(link.parentElement as HTMLElement).borderTopWidth).toBe('0px')
+
+  // The item rows' size; the empty panel has no rows, so its line stands in.
+  const reference =
+    canvas.queryAllByRole('listitem')[0] ??
+    canvas.getByText(/^(Nothing on the list|Tänaseks ja homseks)/)
+  await expect(getComputedStyle(link).fontSize).toBe(getComputedStyle(reference).fontSize)
+
+  const box = link.getBoundingClientRect()
+  const column = (link.parentElement as HTMLElement).getBoundingClientRect()
+  await expect(box.left).toBeCloseTo(column.left, 0)
+  await expect(box.right).toBeLessThanOrEqual(column.right)
   await expect(canvas.getByText(title).parentElement?.querySelector('a')).toBeNull()
 }
 
@@ -144,7 +157,6 @@ export const LaterOnly: Story = {
   },
 }
 
-// The longest label: the Estonian to-buy row wraps inside the 320px column.
 export const LaterOnlyEstonian: Story = {
   globals: { locale: 'et' },
   args: LaterOnly.args,
@@ -152,6 +164,33 @@ export const LaterOnlyEstonian: Story = {
     await expectContinuationRow(
       canvasElement,
       '8 asja osta järgmise 5 päeva jooksul',
+      'Poenimekiri',
+    )
+  },
+}
+
+/**
+ * The longest label a week can produce: the Estonian to-buy line with two-digit
+ * counts over the whole window still ends inside the 320px column.
+ */
+export const LongestLabel: Story = {
+  globals: { locale: 'et' },
+  args: {
+    items: Array.from({ length: 20 }, (_, i) =>
+      createUrgentShoppingItem({
+        ingredientId: `week-${i}`,
+        name: `Item ${i}`,
+        displayQuantity: '1 tk',
+        neededByDate: i < 19 ? '2026-04-17' : '2026-04-21',
+        neededByRelative: i < 19 ? 'reede' : 'teisipäev',
+        urgency: i < 19 ? 'this-week' : 'later',
+      }),
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    await expectContinuationRow(
+      canvasElement,
+      '20 asja osta järgmise 7 päeva jooksul',
       'Poenimekiri',
     )
   },
