@@ -234,6 +234,21 @@ describe('proxy', () => {
     expect(nextMock.responseHeaders.has('Content-Security-Policy')).toBe(false)
   })
 
+  it.each(['/ingest', '/INGEST/e', '/Ingest/flags'])(
+    'strips cookies from %s, which the case-insensitive rewrite also matches',
+    async (path) => {
+      const { proxy } = await import('./proxy')
+      const { NextRequest } = await import('next/server')
+      const req = new NextRequest(`https://wobblepot.dev${path}`, {
+        headers: [['cookie', 'better-auth.session_token=secret']],
+      })
+
+      proxy(req)
+
+      expect(nextMock.requestHeaders.has('cookie')).toBe(false)
+    },
+  )
+
   it('keeps cookies on lookalike paths outside /ingest/', async () => {
     const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')

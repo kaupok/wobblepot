@@ -10,7 +10,7 @@
  * No `@/` imports: `next.config.ts` imports this file by relative path.
  */
 
-/** Browser `api_host`. Also the rewrite source prefix and the proxy matcher exclusion. */
+/** Browser `api_host`. Also the rewrite source prefix, and the path `src/proxy.ts` strips cookies on. */
 export const POSTHOG_PROXY_PATH = '/ingest'
 
 /**
@@ -20,6 +20,24 @@ export const POSTHOG_PROXY_PATH = '/ingest'
  * not an ingest host, so it does not undo the proxy.
  */
 export const POSTHOG_UI_HOST = 'https://eu.posthog.com'
+
+/**
+ * Whether a request path hits the `/ingest` rewrite. Next matches rewrites
+ * case-insensitively, after decoding, and `:path*` also matches zero segments,
+ * so `/INGEST/e`, `/%69ngest/e` and a bare `/ingest` reach PostHog too. A miss
+ * here forwards the session cookie (src/proxy.ts), so match as broadly as the
+ * rewrite does.
+ */
+export function isPostHogProxyPath(pathname: string): boolean {
+  let path = pathname
+  try {
+    path = decodeURIComponent(pathname)
+  } catch {
+    // Malformed escapes: compare the raw path.
+  }
+  path = path.toLowerCase()
+  return path === POSTHOG_PROXY_PATH || path.startsWith(`${POSTHOG_PROXY_PATH}/`)
+}
 
 interface Rewrite {
   source: string

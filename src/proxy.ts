@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionCookie } from 'better-auth/cookies'
-import { POSTHOG_PROXY_PATH, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
+import { isPostHogProxyPath, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
 
 /**
  * Routes that require a signed-in user. Prefix match on `nextUrl.pathname`.
@@ -166,7 +166,7 @@ export function proxy(request: NextRequest) {
   // including the Better Auth session token. PostHog needs none of them (the
   // SDK sends `distinct_id` in the body), so drop the header before the rewrite
   // runs. Nothing else here applies to analytics traffic (HON-985).
-  if (pathname.startsWith(`${POSTHOG_PROXY_PATH}/`)) {
+  if (isPostHogProxyPath(pathname)) {
     const headers = new Headers(request.headers)
     headers.delete('cookie')
     return NextResponse.next({ request: { headers } })

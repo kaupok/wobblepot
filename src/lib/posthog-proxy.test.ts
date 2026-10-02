@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { postHogRewrites } from './posthog-proxy'
+import { isPostHogProxyPath, postHogRewrites } from './posthog-proxy'
 
 describe('postHogRewrites', () => {
   it('sends static assets and remote config to the assets host and everything else to the ingest host, in that order', () => {
@@ -29,5 +29,22 @@ describe('postHogRewrites', () => {
   it('returns no rules when the host is unset', () => {
     expect(postHogRewrites(undefined)).toEqual([])
     expect(postHogRewrites('')).toEqual([])
+  })
+})
+
+describe('isPostHogProxyPath', () => {
+  it('matches every path the /ingest rewrite matches', () => {
+    expect(isPostHogProxyPath('/ingest')).toBe(true)
+    expect(isPostHogProxyPath('/ingest/')).toBe(true)
+    expect(isPostHogProxyPath('/ingest/e/')).toBe(true)
+    expect(isPostHogProxyPath('/INGEST/e')).toBe(true)
+    expect(isPostHogProxyPath('/Ingest/flags')).toBe(true)
+    expect(isPostHogProxyPath('/%69ngest/e')).toBe(true)
+  })
+
+  it('does not match lookalike paths', () => {
+    expect(isPostHogProxyPath('/ingestion')).toBe(false)
+    expect(isPostHogProxyPath('/meal-plan/ingest')).toBe(false)
+    expect(isPostHogProxyPath('/%E0%A4%A')).toBe(false)
   })
 })
