@@ -12,6 +12,7 @@ import { NutritionDisclaimer } from '@/components/NutritionDisclaimer'
 import { NutritionSummary } from './NutritionSummary'
 import { IngredientList } from './IngredientList'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
+import { MyRecipeBadge } from './MyRecipeBadge'
 import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
 import { PreparationEquipment, PreparationSteps } from './PreparationTips'
 import { ServingControl } from './ServingControl'
@@ -192,8 +193,11 @@ export function MealDetail({
 
           {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711).
               The time is the cards' `surface` clock badge, at the cook view's
-              `lg` size, with the cards' gap between badges (HON-951). */}
-          {((meal.timeMinutes != null && meal.timeMinutes > 0) || meal.kidFriendly) && (
+              `lg` size, with the cards' gap between badges (HON-951). The
+              household's own recipe keeps the mark its card shows (HON-953). */}
+          {((meal.timeMinutes != null && meal.timeMinutes > 0) ||
+            meal.kidFriendly ||
+            meal.isCustom) && (
             <div className="flex flex-wrap items-center gap-1.5">
               {meal.timeMinutes != null && meal.timeMinutes > 0 && (
                 <Badge variant="surface" size="lg">
@@ -202,6 +206,7 @@ export function MealDetail({
                 </Badge>
               )}
               {meal.kidFriendly && <KidFriendlyBadge size="lg" />}
+              {meal.isCustom && <MyRecipeBadge size="lg" />}
             </div>
           )}
 

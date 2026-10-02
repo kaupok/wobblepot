@@ -79,6 +79,8 @@ export const Default: Story = {
     // Both `lg`: the same height, on the same line.
     await expect(time.offsetHeight).toBe(kidFriendly.offsetHeight)
     await expect(time.offsetTop).toBe(kidFriendly.offsetTop)
+    // A library meal carries no "My recipe" mark (HON-953).
+    await expect(canvas.queryByText('My recipe')).toBeNull()
   },
 }
 
@@ -100,6 +102,63 @@ export const ZeroMinutes: Story = {
     // No stray "0" where the badge would be (HON-711).
     const row = canvas.getByText('Kid-friendly').closest('[data-slot="badge"]')!.parentElement!
     await expect(row).toHaveTextContent(/^Kid-friendly$/)
+  },
+}
+
+export const OwnRecipe: Story = {
+  name: 'Own recipe',
+  args: { meal: createMeal({ components: lemonGarlicChickenComponentsFull, isCustom: true }) },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'One of the household’s own recipes: the labelled “My recipe” badge follows Kid-friendly, at the cook view’s `lg` size, as the card that opened the view marks it (HON-953).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const myRecipe = canvas.getByText('My recipe').closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(myRecipe.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    const kidFriendly = canvas
+      .getByText('Kid-friendly')
+      .closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(follows(kidFriendly, myRecipe)).toBe(true)
+    // Both `lg`: the same height. Three badges may wrap on a narrow panel.
+    await expect(myRecipe.offsetHeight).toBe(kidFriendly.offsetHeight)
+  },
+}
+
+export const OwnRecipeOnly: Story = {
+  name: 'Own recipe, no time or kid-friendly flag',
+  args: {
+    meal: createMeal({
+      components: lemonGarlicChickenComponentsFull,
+      isCustom: true,
+      kidFriendly: false,
+      timeMinutes: null,
+    }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'The meta row renders for the “My recipe” badge alone (HON-953).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const row = canvas.getByText('My recipe').closest('[data-slot="badge"]')!.parentElement!
+    await expect(row).toHaveTextContent(/^My recipe$/)
+  },
+}
+
+export const OwnRecipeEstonian: Story = {
+  name: 'Own recipe (Estonian)',
+  globals: { locale: 'et' },
+  args: { meal: createMeal({ components: lemonGarlicChickenComponentsFull, isCustom: true }) },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('Minu retsept')).toBeVisible()
   },
 }
 
