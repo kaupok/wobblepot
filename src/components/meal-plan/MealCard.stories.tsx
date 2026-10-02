@@ -292,6 +292,23 @@ export const NoteKeepsThePlatePhoneEstonian: Story = {
   globals: { locale: 'et' },
 }
 
+/**
+ * A servings override adds a second badge after the pantry one. On a phone
+ * the two no longer fit beside the slip, so the row wraps, and the slip keeps
+ * clear of both (HON-974).
+ */
+export const NoteWithServingOverridePhone: Story = {
+  ...PlannedWithImageAndNote,
+  name: 'Note with a serving override (phone)',
+  args: { ...PlannedWithImageAndNote.args, servingOverride: 6 },
+}
+
+export const NoteWithServingOverridePhoneEstonian: Story = {
+  ...NoteWithServingOverridePhone,
+  name: 'Note with a serving override (phone, Estonian)',
+  globals: { locale: 'et' },
+}
+
 const SHORT_NAME = 'Pasta'
 const LONG_NOTE =
   'Use the big pot, salt the water well, and save a cup of the pasta water for the sauce before you drain it.'

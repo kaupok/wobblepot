@@ -149,6 +149,16 @@ export function mealImageTitleWidth(trailingActions = false): string {
 }
 
 /**
+ * The `max-width` for the head's badge row on a card with an `overlay`: half
+ * the content row, which ends before the slip's left edge (`OVERLAY_BOX`) at
+ * any width, so a second badge (the servings override after the pantry
+ * badge) wraps rather than running under the slip (HON-974). A single badge
+ * wider than that overflows the cap rather than wrapping; the slip's left
+ * edge is set to clear the widest one. Without an overlay the row is uncapped.
+ */
+export const MEAL_IMAGE_BADGE_ROW_WIDTH = 'group-data-meal-overlay/meal-image:max-w-1/2'
+
+/**
  * The hue to tint with, or null when the meal renders the neutral card: no
  * image, not `ready`, or no hue (docs/DESIGN.md → Imagery, "Absence renders
  * the neutral card"). A meal with an image but no hue still shows the image,

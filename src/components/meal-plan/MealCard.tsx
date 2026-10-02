@@ -28,7 +28,7 @@ import {
 } from './AvailabilityIndicator'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import { StickyNote } from './StickyNote'
-import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
+import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import { MealTypeBadge } from './MealTypeBadge'
 import { MyRecipeBadge } from './MyRecipeBadge'
@@ -529,7 +529,9 @@ export function MealCard({
                 </div>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-1">
+            {/* Capped when the note's slip lies beside it, so a second badge
+                wraps instead of running under the slip. */}
+            <div className={cn('flex flex-wrap items-center gap-1', MEAL_IMAGE_BADGE_ROW_WIDTH)}>
               {!isPast && shouldShowAvailability && availability && (
                 <AvailabilityIndicator availability={availability} />
               )}
