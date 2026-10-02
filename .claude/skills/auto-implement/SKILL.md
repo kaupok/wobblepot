@@ -993,7 +993,7 @@ Validation:
 
 ### 7.2 Wait for CI
 
-Same mechanism and the same two blocks as 6.1. Re-run the 6.1 poll in the **foreground** with `timeout: 540000`, re-issuing on `CI_WAITING` or a missing marker until it is terminal, then run the 6.1 verification block in the same turn. Never background this poll and never end the turn beside it. `CI_TIMEOUT` → report and stop; do not merge. A `no checks reported` stderr → `recovery.md` → No checks reported.
+Same mechanism and the same two blocks as 6.1. Re-run the 6.1 poll in the **foreground** with `timeout: 540000`, re-issuing on `CI_WAITING` or a missing marker until it is terminal, then run the 6.1 verification block in the same turn. Never background this poll and never end the turn beside it. `CI_TIMEOUT` → report and stop; do not merge. Verification prints nothing → proceed to 7.3. Verification prints any line → **STOP — do NOT merge.** Report the listed checks; do not enter the 6.1 CI-fix loop here, because a push in Phase 7 would merge a commit no review round has seen. A `no checks reported` stderr → `recovery.md` → No checks reported.
 
 **Do NOT merge if the verification prints any line** — any check in the `fail` or `cancel` bucket, including Vercel deployment checks. This is a hard gate, no exceptions: `ci.yml` runs no `next build`, so a failed Vercel deploy is the only build gate there is; only a *pending* third-party status is exempt (HON-600; its accepted residual risk is in `history.md`).
 
