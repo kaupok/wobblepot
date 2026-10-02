@@ -49,7 +49,7 @@ Environment variables are validated at runtime using Zod. Public (`NEXT_PUBLIC_*
 | Variable                                                            | Required             | What it does                                                                                                                                                     |
 | ------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_APP_NAME`                                              | Yes                  | Display name shown in the UI and email subjects.                                                                                                                 |
-| `NEXT_PUBLIC_APP_ENV`                                               | Yes                  | One of `dev`, `preview`, `staging`, `production`, `ci`, `test`. Drives email subject prefixes, the rate-limit bypass allowlist, and PostHog project selection.   |
+| `NEXT_PUBLIC_APP_ENV`                                               | Yes                  | One of `dev`, `preview`, `staging`, `production`, `ci`, `test`. Drives email subject prefixes and the rate-limit bypass allowlist.                               |
 | `NEXT_PUBLIC_APP_URL`                                               | No                   | Base URL override. See [Application URL](#application-url) for the fallback order.                                                                               |
 | `NEXT_PUBLIC_POSTHOG_KEY`                                           | No                   | PostHog project token. Unset disables PostHog entirely. See [PostHog](#posthog-analytics-errors-source-maps).                                                    |
 | `NEXT_PUBLIC_POSTHOG_HOST`                                          | No                   | PostHog ingest host, identical across environments.                                                                                                              |
@@ -275,7 +275,7 @@ Either way, the limiter now fails open, so nothing user-facing breaks — `/stat
 
 ## PostHog (analytics, errors, source maps)
 
-PostHog is the consolidated home for product analytics, error tracking, web analytics + CWV, feature flags, and (later) session replay. Installed by HON-474 as the foundation that child issues (HON-452, HON-460, HON-475, HON-476, HON-477, HON-478) build on.
+PostHog is the consolidated home for product analytics, error tracking, web analytics + CWV, and feature flags. Session replay and surveys are off: `src/lib/posthog-init-options.ts` sets `disable_session_recording` and `disable_surveys`. Installed by HON-474 as the foundation that child issues (HON-452, HON-460, HON-475, HON-476, HON-477) build on.
 
 ### Project topology
 
@@ -330,7 +330,7 @@ In **Project Settings → Environment Variables**, set the six variables per the
 
 ### Verify after provisioning
 
-- Fresh incognito → accept cookie consent → `$pageview` appears in the matching PostHog project, tagged with an authenticated `user_id`.
+- Fresh incognito → accept cookie consent → `$pageview` appears in the matching PostHog project. Once signed in, pageviews carry `$user_id`, which `identify` in `PostHogProvider.tsx` sets and the browser keeps across loads. The first pageview after sign-in has no `$user_id`, because it fires before the identify effect runs.
 - Decline cookie consent → no `ph_*` cookies, no PostHog network requests.
 - After a Vercel build, the build log shows `Running next.config.js provided runAfterProductionCompile`, then `Upload summary:` with a non-zero uploaded or already-present count, then `maybe-upload-sourcemaps: done`.
 - The matching PostHog project → Error tracking → Symbol sets lists sets whose release version is the deploy's commit SHA.

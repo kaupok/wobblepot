@@ -90,7 +90,7 @@ MCP (Model Context Protocol) is an open protocol that standardizes how AI assist
 
 ### 5. PostHog MCP (HTTP server)
 
-- **Purpose**: Product analytics, feature flags, error tracking, and session replay access
+- **Purpose**: Product analytics, feature flags, and error tracking
 - **Capabilities**: Query events and insights, manage feature flags and experiments, inspect errors and logs
 - **Authentication**: OAuth. Claude Code prompts for sign-in on first use.
 - **When to use**: Investigating product data, managing flags, checking rollout health
