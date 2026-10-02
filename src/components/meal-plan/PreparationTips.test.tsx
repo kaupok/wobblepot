@@ -407,6 +407,8 @@ describe('PreparationSteps cook question', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Took too long.')
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(onRetry).toHaveBeenCalledOnce()
+    // Retry leaves the page as the error clears: focus waits on Close.
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
     unmount()
 
     render(<Harness controls={{ error: { message: 'Limit reached.', canRetry: false } }} />)

@@ -213,6 +213,7 @@ function CookQuestionPanel({
   const t = useTranslations('meal-plan.cookQuestion')
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
   const { ask, active, isPending, error, onRetry } = controls
   const answer = active?.stepIndex === stepIndex ? active.answer : null
 
@@ -286,11 +287,20 @@ function CookQuestionPanel({
       </div>
       <div className="flex flex-wrap gap-2">
         {!isPending && error?.canRetry && (
-          <Button variant="outline" size="lg" onClick={onRetry}>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => {
+              // Retry unmounts itself as the error clears, and focus would
+              // fall to the page. Close stays, so focus goes there first.
+              closeRef.current?.focus()
+              onRetry()
+            }}
+          >
             {t('retry')}
           </Button>
         )}
-        <Button variant="ghost" size="lg" onClick={onClose}>
+        <Button ref={closeRef} variant="ghost" size="lg" onClick={onClose}>
           {t('close')}
         </Button>
       </div>
