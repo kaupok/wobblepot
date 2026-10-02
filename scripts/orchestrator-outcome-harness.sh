@@ -202,6 +202,17 @@
 #     empty message from a message that is the timestamp — the tab-collapse
 #     failure this helper's output order exists to rule out.
 #
+#   watch-resolve-stranded <lines> <worktree_base> <resolved_prs>  (HON-938)
+#     The REAL watch_resolve_stranded: how many STRANDED_OPEN lines are still
+#     open once the merged/closed PR numbers and the worktree directories are
+#     taken into account. Prints the count.
+#
+#   watch-tally-row <success> <failed> <stranded> <stranded_open> <gated>
+#                   <gated_open> <timeout> <truncated>              (HON-938)
+#     The REAL watch_tally_row, read back with the same two `read`s cmd_watch
+#     uses and printed bracketed as `[decorated]` then `[plain]`. The escapes
+#     stay literal (`\033[…`), so a test can see which colour wraps which text.
+#
 #   watch-pane-head <label> <width>                         (wt watch rework)
 #     The REAL watch_pane_head. Bracketed output, so a test can assert the rule
 #     is padded to exactly <width> visible characters.
@@ -319,7 +330,7 @@ HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Capture every argument BEFORE clearing "$@": orchestrator.sh parses "$@" at
 # top level, so a sourcing script's own positional parameters would otherwise be
 # read as orchestrator flags.
-MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"; A6="${7:-}"
+MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"; A6="${7:-}"; A7="${8:-}"; A8="${9:-}"
 set --
 
 # The NEON_BRANCH_CAP this process actually inherited, captured before
@@ -1227,6 +1238,22 @@ EOF
     # just the helper.
     picked=$(watch_pick_alert "$A1" "$A2" "$A3" "$A4" "${A5:-}" "${A6:-}")
     printf '[%s][%s]\n' "${picked#*$'\t'}" "${picked%%$'\t'*}"
+    exit 0
+    ;;
+
+  watch-resolve-stranded)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    watch_resolve_stranded "$A1" "$A2" "${A3:-}"
+    exit 0
+    ;;
+
+  watch-tally-row)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    { IFS= read -r tally_line; IFS= read -r tally_plain; } < <(watch_tally_row \
+      "$A1" "$A2" "$A3" "$A4" "$A5" "$A6" "$A7" "$A8")
+    printf '[%s]\n[%s]\n' "$tally_line" "$tally_plain"
     exit 0
     ;;
 

@@ -3789,6 +3789,112 @@ describe('orchestrator.sh', () => {
       })
     })
 
+    describe('tracks which stranded and gated outcomes are still open (HON-938)', () => {
+      /** STRANDED_OPEN repeats, so `scan`'s object would keep only the last one. */
+      const strandedOpen = (lines: string[]): string[] => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-scan-'))
+        const log = path.join(dir, 'orchestrator.log')
+        fs.writeFileSync(log, `${lines.join('\n')}\n`)
+        try {
+          return runHarness('watch-scan-log', log, '')
+            .split('\n')
+            .filter((l) => l.startsWith('STRANDED_OPEN='))
+            .map((l) => l.slice('STRANDED_OPEN='.length))
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true })
+        }
+      }
+
+      const GATED =
+        '2026-09-20 10:30:00 WARN  [OUTCOME] HON-703 GATED 6m1s 0-commits phase=planning'
+      const STRANDED = [
+        '2026-09-20 10:20:00 WARN  [OUTCOME] HON-702 STRANDED 3h0m 16-commits phase=pr-review pr=#707 ci=green exit=timeout',
+        '2026-09-20 10:20:00 WARN  Preserved worktree and branch for HON-702 — resume with: wt resume auto/hon-702-thing (release with: wt cleanup auto/hon-702-thing)',
+      ]
+
+      it('counts a gated outcome the operator ungated as resolved', () => {
+        const r = scan([
+          GATED,
+          '2026-09-20 10:45:00 INFO  [UNGATE] HON-703 — Gated label removed by operator; eligible again',
+        ])
+
+        expect(r.TALLY_GATED).toBe('1')
+        expect(r.TALLY_GATED_OPEN).toBe('0')
+      })
+
+      it('counts a gated outcome as resolved once the issue is claimed or finishes again', () => {
+        const claimed = scan([GATED, '2026-09-20 10:45:00 INFO  Claimed HON-703 → In Progress'])
+        const rerun = scan([
+          GATED,
+          '2026-09-20 11:30:00 INFO  [OUTCOME] HON-703 SUCCESS 45m0s 3-commits phase=done',
+        ])
+
+        expect(claimed.TALLY_GATED_OPEN).toBe('0')
+        expect(rerun.TALLY_GATED).toBe('1')
+        expect(rerun.TALLY_GATED_OPEN).toBe('0')
+      })
+
+      it('keeps a gated outcome open when only other issues move after it', () => {
+        const r = scan([
+          GATED,
+          '2026-09-20 10:45:00 INFO  [UNGATE] HON-799 — Gated label removed by operator; eligible again',
+          '2026-09-20 10:46:00 INFO  Claimed HON-705 → In Progress',
+          '2026-09-20 11:30:00 INFO  [OUTCOME] HON-705 SUCCESS 45m0s 3-commits phase=done',
+        ])
+
+        expect(r.TALLY_GATED).toBe('1')
+        expect(r.TALLY_GATED_OPEN).toBe('1')
+      })
+
+      it('counts a gated outcome open again when the re-run is gated too', () => {
+        // The tally is the run's history (two gates); only the second is open.
+        const r = scan([
+          GATED,
+          '2026-09-20 10:45:00 INFO  Claimed HON-703 → In Progress',
+          '2026-09-20 10:55:00 WARN  [OUTCOME] HON-703 GATED 9m0s 0-commits phase=planning',
+        ])
+
+        expect(r.TALLY_GATED).toBe('2')
+        expect(r.TALLY_GATED_OPEN).toBe('1')
+      })
+
+      it('hands an unanswered stranded outcome to the caller with its PR and branch', () => {
+        expect(strandedOpen(STRANDED)).toEqual(['HON-702:707:auto/hon-702-thing'])
+      })
+
+      it('reports a stranded outcome with no PR as `none`, so the PR check is skipped', () => {
+        expect(
+          strandedOpen([
+            '2026-09-20 10:20:00 WARN  [OUTCOME] HON-702 STRANDED 3h0m 16-commits phase=pr-review pr=none ci=unknown exit=clean',
+          ]),
+        ).toEqual(['HON-702:none:'])
+      })
+
+      it('drops a stranded outcome the issue was re-run past, and keeps the other', () => {
+        // A claim alone does not answer a stranded run (its PR may still be
+        // open); a later outcome for the same issue does.
+        const open = strandedOpen([
+          ...STRANDED,
+          '2026-09-20 10:25:00 WARN  [OUTCOME] HON-710 STRANDED 1h0m 4-commits phase=ci pr=#712 ci=failing exit=clean',
+          '2026-09-20 10:25:00 WARN  Preserved worktree and branch for HON-710 — resume with: wt resume auto/hon-710-other (release with: wt cleanup auto/hon-710-other)',
+          '2026-09-20 11:00:00 INFO  Claimed HON-702 → In Progress',
+          '2026-09-20 12:00:00 INFO  [OUTCOME] HON-702 SUCCESS 1h0m 1-commits phase=done',
+        ])
+
+        expect(open).toEqual(['HON-710:712:auto/hon-710-other'])
+      })
+
+      it('emits one line for an issue stranded twice — the latest', () => {
+        const open = strandedOpen([
+          ...STRANDED,
+          '2026-09-20 12:00:00 WARN  [OUTCOME] HON-702 STRANDED 1h0m 2-commits phase=ci pr=#720 ci=failing exit=clean',
+          '2026-09-20 12:00:00 WARN  Preserved worktree and branch for HON-702 — resume with: wt resume auto/hon-702-thing (release with: wt cleanup auto/hon-702-thing)',
+        ])
+
+        expect(open).toEqual(['HON-702:720:auto/hon-702-thing'])
+      })
+    })
+
     it('answers with zeroes rather than failing on a log that does not exist', () => {
       // The dashboard renders on a timer from the first tick, which can precede
       // the orchestrator's first log write.
@@ -4115,6 +4221,205 @@ describe('orchestrator.sh', () => {
       expect(pick('', '', LINEAR, '10:06')).toEqual([LINEAR, '10:06'])
       // max_workers of 0 is not "every slot is full", it is a broken read.
       expect(pick(0, 0, LINEAR, '10:06')).toEqual([LINEAR, '10:06'])
+    })
+  })
+
+  describe('wt watch stranded resolution (watch_resolve_stranded, HON-938)', () => {
+    let base = ''
+    beforeAll(() => {
+      base = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-resolve-'))
+    })
+    afterAll(() => {
+      fs.rmSync(base, { recursive: true, force: true })
+    })
+
+    const resolve = (lines: string[], resolvedPrs = ''): number =>
+      Number(runHarness('watch-resolve-stranded', lines.join('\n'), base, resolvedPrs).trim())
+
+    /** The worktree `wt cleanup` would remove, at the path cmd_cleanup derives. */
+    const withWorktree = (branch: string) =>
+      fs.mkdirSync(path.join(base, branch.replaceAll('/', '--')), { recursive: true })
+
+    const LINE = 'HON-702:707:auto/hon-702-thing'
+
+    it('resolves a stranded outcome whose PR has merged or closed', () => {
+      withWorktree('auto/hon-702-thing')
+
+      expect(resolve([LINE], '700\n707\n712')).toBe(0)
+    })
+
+    it('keeps it open while the PR is open and the worktree is still there', () => {
+      withWorktree('auto/hon-702-thing')
+
+      expect(resolve([LINE], '')).toBe(1)
+      // A whole-number match: 70 and 7070 are other PRs.
+      expect(resolve([LINE], '70 7070')).toBe(1)
+    })
+
+    it('resolves it once the operator has released the worktree', () => {
+      expect(resolve(['HON-703:708:auto/hon-703-gone'], '')).toBe(0)
+    })
+
+    it('skips the PR check for a run that opened no PR', () => {
+      withWorktree('auto/hon-704-nopr')
+
+      expect(resolve(['HON-704:none:auto/hon-704-nopr'], 'none')).toBe(1)
+      expect(resolve(['HON-705:none:auto/hon-705-gone'], '')).toBe(0)
+    })
+
+    it('counts only the open ones, and nothing for no lines', () => {
+      withWorktree('auto/hon-702-thing')
+
+      expect(resolve([LINE, 'HON-703:708:auto/hon-703-gone'], '')).toBe(1)
+      expect(resolve([], '')).toBe(0)
+    })
+  })
+
+  describe('wt watch tally row (watch_tally_row, HON-938)', () => {
+    const YELLOW = '\\033[0;33m'
+    const DIM = '\\033[2m'
+    const NC = '\\033[0m'
+
+    /** [decorated, plain], read back the way cmd_watch reads them. */
+    const row = (...counts: (number | string)[]): [string, string] => {
+      const out = runHarness('watch-tally-row', ...counts.map(String))
+        .trimEnd()
+        .split('\n')
+      const strip = (l = '') => l.replace(/^\[/, '').replace(/\]$/, '')
+      return [strip(out[0]), strip(out[1])]
+    }
+
+    it('shows a resolved stranded outcome dim, with the run total', () => {
+      const [line, plain] = row(43, 0, 1, 0, 0, 0, 0, 0)
+
+      expect(line).toContain(`${DIM}1 stranded (resolved)${NC}`)
+      expect(line).not.toContain(YELLOW)
+      expect(plain).toBe('43 merged · 0 failed · 1 stranded (resolved)')
+    })
+
+    it('shows an open stranded outcome yellow, with the open count', () => {
+      const [line, plain] = row(43, 0, 2, 1, 0, 0, 0, 0)
+
+      expect(line).toContain(`${YELLOW}1 stranded${NC}`)
+      expect(plain).toBe('43 merged · 0 failed · 1 stranded')
+    })
+
+    it('treats gated the same way, and still omits it when there was none', () => {
+      expect(row(43, 0, 0, 0, 1, 0, 0, 0)[0]).toContain(`${DIM}1 gated (resolved)${NC}`)
+      expect(row(43, 0, 0, 0, 1, 1, 0, 0)[0]).toContain(`${YELLOW}1 gated${NC}`)
+      expect(row(43, 0, 0, 0, 0, 0, 0, 0)[1]).toBe('43 merged · 0 failed · 0 stranded')
+    })
+
+    it('leaves timeout and failed alone', () => {
+      const [line, plain] = row(1, 2, 0, 0, 0, 0, 3, 1)
+
+      expect(line).toContain(`${YELLOW}3 timeout${NC}`)
+      expect(plain).toBe('1 merged · 2 failed · 0 stranded · 3 timeout (floor: log rotated)')
+    })
+
+    it('measures exactly the text it shows', () => {
+      // The plain twin is what the pane clips against, so the two must match
+      // character for character once the escapes are gone.
+      for (const counts of [
+        [43, 0, 1, 0, 1, 0, 0, 0],
+        [43, 1, 2, 1, 3, 2, 1, 1],
+        [0, 0, 0, 0, 0, 0, 0, 0],
+      ]) {
+        const [line, plain] = row(...counts)
+        expect(line.replace(/\\033\[[0-9;]*m/g, '')).toBe(plain)
+      }
+    })
+
+    it('reads non-numeric counts as zero rather than printing a shell error', () => {
+      const [line, plain] = row('', 'null', '', '', '', '', '', '')
+
+      expect(line).not.toMatch(/integer expression/)
+      expect(plain).toBe('0 merged · 0 failed · 0 stranded')
+    })
+  })
+
+  describe('wt watch tallies for the 2026-10-02 log (HON-938)', () => {
+    // The reported shape: HON-902 gated, ungated by the operator, re-claimed
+    // and merged; HON-924 stranded, merged by hand, worktree removed. Both
+    // were resolved, and both still rendered yellow.
+    const LOG = [
+      '2026-10-01 16:04:00 WARN  [OUTCOME] HON-902 GATED 7m0s 0-commits phase=planning',
+      '2026-10-01 18:43:00 INFO  [UNGATE] HON-902 — Gated label removed by operator; eligible again',
+      '2026-10-01 18:43:00 INFO  Claimed HON-902 → In Progress',
+      '2026-10-01 20:16:00 INFO  [OUTCOME] HON-902 SUCCESS 1h33m 4-commits phase=done',
+      '2026-10-02 03:37:00 WARN  [OUTCOME] HON-924 STRANDED 2h0m 6-commits phase=ci pr=#1018 ci=failing exit=clean',
+      '2026-10-02 03:37:00 WARN  Preserved worktree and branch for HON-924 — resume with: wt resume kaupo/hon-924-rename (release with: wt cleanup kaupo/hon-924-rename)',
+    ]
+
+    let dir = ''
+    beforeAll(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-1002-'))
+    })
+    afterAll(() => {
+      fs.rmSync(dir, { recursive: true, force: true })
+    })
+
+    /** Scan → resolve → render, as cmd_watch chains them. Returns [decorated, plain]. */
+    const render = (lines: string[], resolvedPrs = ''): [string, string] => {
+      const log = path.join(dir, 'orchestrator.log')
+      fs.writeFileSync(log, `${lines.join('\n')}\n`)
+      const out = runHarness('watch-scan-log', log, '').split('\n').filter(Boolean)
+      const get = (k: string) => out.find((l) => l.startsWith(`${k}=`))?.slice(k.length + 1) ?? '0'
+      const stranded = out
+        .filter((l) => l.startsWith('STRANDED_OPEN='))
+        .map((l) => l.slice('STRANDED_OPEN='.length))
+      const strandedOpen = runHarness(
+        'watch-resolve-stranded',
+        stranded.join('\n'),
+        path.join(dir, 'worktrees'),
+        resolvedPrs,
+      ).trim()
+      const rendered = runHarness(
+        'watch-tally-row',
+        get('TALLY_SUCCESS'),
+        get('TALLY_FAILED'),
+        get('TALLY_STRANDED'),
+        strandedOpen,
+        get('TALLY_GATED'),
+        get('TALLY_GATED_OPEN'),
+        get('TALLY_TIMEOUT'),
+        get('TALLY_TRUNCATED'),
+      )
+        .trimEnd()
+        .split('\n')
+        .map((l) => l.replace(/^\[/, '').replace(/\]$/, ''))
+      return [rendered[0] ?? '', rendered[1] ?? '']
+    }
+
+    it('shows both as resolved, dim, once they were answered', () => {
+      const [line, plain] = render(LOG)
+
+      expect(plain).toBe('1 merged · 0 failed · 1 stranded (resolved) · 1 gated (resolved)')
+      expect(line).not.toContain('\\033[0;33m')
+    })
+
+    it('turns gated yellow for a fresh gate and dim again once it is ungated', () => {
+      const gated = [
+        ...LOG,
+        '2026-10-02 09:00:00 WARN  [OUTCOME] HON-999 GATED 5m0s 0-commits phase=planning',
+      ]
+      const ungated = [
+        ...gated,
+        '2026-10-02 09:10:00 INFO  [UNGATE] HON-999 — Gated label removed by operator; eligible again',
+      ]
+
+      expect(render(gated)[0]).toContain('\\033[0;33m1 gated\\033[0m')
+      expect(render(ungated)[1]).toContain('2 gated (resolved)')
+    })
+
+    it('keeps a stranded outcome yellow while its PR is open and its worktree exists', () => {
+      fs.mkdirSync(path.join(dir, 'worktrees', 'kaupo--hon-924-rename'), { recursive: true })
+      try {
+        expect(render(LOG)[0]).toContain('\\033[0;33m1 stranded\\033[0m')
+        expect(render(LOG, '1018')[1]).toContain('1 stranded (resolved)')
+      } finally {
+        fs.rmSync(path.join(dir, 'worktrees'), { recursive: true, force: true })
+      }
     })
   })
 

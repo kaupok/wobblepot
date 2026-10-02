@@ -2022,8 +2022,9 @@ watch_relative_age() {
 #
 # One awk over the file rather than six greps: the log is append-only and
 # already multi-megabyte between the 50 MB rotations, and the dashboard rescans
-# it on every redraw. Emits `KEY=value` lines (never more than one per key) so
-# the caller can parse it with a read loop and no eval.
+# it on every redraw. Emits `KEY=value` lines so the caller can parse it with a
+# read loop and no eval. Every key appears at most once except STRANDED_OPEN,
+# which is one line per still-open stranded outcome.
 #
 # `since` is a `YYYY-MM-DD HH:MM:SS` prefix; lines older than it are ignored for
 # the tallies, which is what makes them "this run" rather than "all time". An
@@ -2035,6 +2036,15 @@ watch_relative_age() {
 # Keys: TALLY_SUCCESS TALLY_FAILED TALLY_STRANDED TALLY_GATED TALLY_TIMEOUT
 #       TALLY_TRUNCATED LAST_OUTCOME LAST_OUTCOME_AT LAST_PICK LAST_PICK_AT
 #       SKIPS SKIP_SUMMARY ALERT ALERT_AT ALERT_FULL ALERT_FULL_AT
+#       TALLY_GATED_OPEN STRANDED_OPEN
+#
+# TALLY_GATED_OPEN and STRANDED_OPEN are the gated and stranded outcomes the
+# log has not yet answered (HON-938). The tallies stay the run's history; these
+# decide whether that history still needs the operator. A GATED outcome is
+# answered by a later `[UNGATE]`, `Claimed` or `[OUTCOME]` line for the same
+# issue, and a STRANDED one by a later `[OUTCOME]` for it. STRANDED_OPEN is
+# `<id>:<pr number|none>:<branch>`, and the caller checks the PR and the
+# worktree, which the log cannot see (watch_resolve_stranded).
 #
 # ALERT is the operational blocker to show while a worker slot is free;
 # ALERT_FULL is the subset of that which still applies when every slot is busy,
@@ -2104,10 +2114,51 @@ watch_scan_log() {
         if (match($0, /\[OUTCOME\] [A-Z]+-[0-9]+ [A-Z]+/)) {
           n = split(substr($0, RSTART, RLENGTH), f, " ")
           tally[f[n]]++
+          # Any outcome answers whatever this issue had open before it: the
+          # issue was re-run, so the earlier verdict is history now.
+          oid = f[n - 1]
+          delete gated_open[oid]
+          delete stranded_pr[oid]
+          if (f[n] == "GATED") gated_open[oid] = 1
+          if (f[n] == "STRANDED") {
+            pr = "none"
+            if (match($0, / pr=#[0-9]+/)) pr = substr($0, RSTART + 5, RLENGTH - 5)
+            stranded_pr[oid] = pr
+            stranded_branch[oid] = ""
+            # Kept in outcome order so STRANDED_OPEN is printed in it, not in
+            # the awk hash order.
+            stranded_order[++n_stranded] = oid
+            stranded_seq[oid] = n_stranded
+          }
         }
         last_outcome = substr($0, index($0, "[OUTCOME]") + 10)
         last_outcome_at = substr($0, 12, 5)
         if (ts($0) > progress_ts) progress_ts = ts($0)
+      }
+      next
+    }
+
+    # An operator removing the Gated label, or the orchestrator claiming the
+    # issue again, answers a GATED outcome. Neither says anything about a
+    # STRANDED one: only its PR or its worktree does, and the caller checks those.
+    /\[UNGATE\] [A-Z]+-[0-9]+ / || / Claimed [A-Z]+-[0-9]+ / {
+      if (in_window($0) && match($0, /(\[UNGATE\]|Claimed) [A-Z]+-[0-9]+/)) {
+        n = split(substr($0, RSTART, RLENGTH), f, " ")
+        delete gated_open[f[n]]
+      }
+      next
+    }
+
+    # strand_worker logs the branch on the line after the outcome, and the log
+    # names it nowhere else. The caller needs it to find the preserved worktree.
+    / Preserved worktree and branch for [A-Z]+-[0-9]+ .* wt resume / {
+      if (in_window($0)) {
+        rest = substr($0, index($0, " for ") + 5)
+        split(rest, s, " ")
+        pid = s[1]
+        rest = substr($0, index($0, " wt resume ") + 11)
+        split(rest, s, " ")
+        if (pid in stranded_pr) stranded_branch[pid] = s[1]
       }
       next
     }
@@ -2189,6 +2240,16 @@ watch_scan_log() {
       printf "TALLY_STRANDED=%d\n", tally["STRANDED"] + 0
       printf "TALLY_GATED=%d\n",    tally["GATED"]    + 0
       printf "TALLY_TIMEOUT=%d\n",  tally["TIMEOUT"]  + 0
+      gated_n = 0
+      for (gid in gated_open) gated_n++
+      printf "TALLY_GATED_OPEN=%d\n", gated_n
+      # An issue stranded twice leaves two order entries; only the one its
+      # stranded_seq still points at is the live one.
+      for (k = 1; k <= n_stranded; k++) {
+        sid = stranded_order[k]
+        if ((sid in stranded_pr) && stranded_seq[sid] == k)
+          printf "STRANDED_OPEN=%s:%s:%s\n", sid, stranded_pr[sid], stranded_branch[sid]
+      }
       # The window opens before the file does — the run predates a rotation, so
       # the tallies are a floor, not a total.
       printf "TALLY_TRUNCATED=%d\n", (since != "" && first_ts != "" && first_ts > grace) ? 1 : 0
@@ -2410,6 +2471,112 @@ watch_pick_alert() {
     alert_at="$full_at"
   fi
   printf '%s\t%s\n' "$alert_at" "$alert"
+}
+
+# How many of watch_scan_log's STRANDED_OPEN outcomes still need the operator.
+#
+# The log cannot say when a stranded run was finished by hand: the operator
+# merges the PR and runs `wt cleanup`, and neither writes to orchestrator.log.
+# So an outcome is resolved here when its PR is merged or closed, or its
+# preserved worktree is gone, which is what `wt cleanup` leaves behind. HON-924
+# is the case: stranded at 03:37, merged by hand at 07:22, still yellow at 11:00.
+#
+# Pure on purpose: the caller does the gh lookups and passes in the PR numbers
+# it already knows are merged or closed, so this can be tested without gh.
+# `pr` is `none` when the worker opened no PR, which skips that check. An empty
+# branch skips the worktree check, so an outcome with neither stays open.
+#
+# Prints the open count.
+#
+# Usage: watch_resolve_stranded <id:pr:branch lines> <worktree_base> <resolved_pr_numbers>
+watch_resolve_stranded() {
+  local lines="$1" base="$2" resolved="$3" open=0 so_id so_pr so_branch
+  # Space-padded on both sides, so a whole-number match is one `case` pattern
+  # and 70 never matches 707.
+  resolved=" $(printf '%s' "$resolved" | tr -s '\n\t' '  ') "
+  while IFS=: read -r so_id so_pr so_branch; do
+    [ -n "$so_id" ] || continue
+    case "$so_pr" in
+      ''|*[!0-9]*) ;;
+      *) case "$resolved" in *" $so_pr "*) continue ;; esac ;;
+    esac
+    if [ -n "$so_branch" ] && [ ! -d "$base/$(normalize_branch "$so_branch")" ]; then
+      continue
+    fi
+    open=$((open + 1))
+  done <<< "$lines"
+  printf '%s\n' "$open"
+}
+
+# A PR's state (OPEN, MERGED or CLOSED) by number, for watch_resolve_stranded.
+# The landed cache holds only the newest few merges, so a stranded PR merged by
+# hand hours ago, or closed without merging, is only found by asking for it.
+#
+# Usage: watch_pr_state_probe <number>
+watch_pr_state_probe() {
+  command -v gh &> /dev/null || return 1
+  ( cd "$REPO_ROOT" && gh pr view "$1" --json state --jq .state ) 2>/dev/null
+}
+
+# The THIS RUN tally row, as two lines: the decorated row, then its plain twin.
+#
+# The number is the run's history and the colour is whether any of it still
+# needs the operator (HON-938). A stranded or gated count is yellow only while
+# one is open, and shows the open count. Once everything is answered, the run's
+# total is shown dim with "(resolved)". Yellow used to follow the total, so an
+# outcome resolved hours earlier still read as an action.
+#
+# The plain twin carries exactly the visible text, because it is what the pane
+# measures and clips against.
+#
+# Usage: watch_tally_row <success> <failed> <stranded> <stranded_open> <gated> <gated_open> <timeout> <truncated>
+watch_tally_row() {
+  local success="${1:-0}" failed="${2:-0}" stranded="${3:-0}" stranded_open="${4:-0}"
+  local gated="${5:-0}" gated_open="${6:-0}" timeout="${7:-0}" truncated="${8:-0}"
+  local n
+  for n in success failed stranded stranded_open gated gated_open timeout; do
+    case "${!n}" in ''|*[!0-9]*) printf -v "$n" '%s' 0 ;; esac
+  done
+
+  local line="${GREEN}${success} merged${NC}" plain="${success} merged"
+  if [ "$failed" -gt 0 ]; then
+    line+=" · ${RED}${failed} failed${NC}"
+  else
+    line+=" · ${failed} failed"
+  fi
+  plain+=" · ${failed} failed"
+
+  # `stranded` is always shown, `gated` only once there has been one.
+  local label total open text
+  for label in stranded gated; do
+    if [ "$label" = stranded ]; then
+      total="$stranded"; open="$stranded_open"
+    else
+      total="$gated"; open="$gated_open"
+      [ "$total" -gt 0 ] || continue
+    fi
+    if [ "$open" -gt 0 ]; then
+      text="${open} ${label}"
+      line+=" · ${YELLOW}${text}${NC}"
+    elif [ "$total" -gt 0 ]; then
+      text="${total} ${label} (resolved)"
+      line+=" · ${DIM}${text}${NC}"
+    else
+      text="${total} ${label}"
+      line+=" · ${text}"
+    fi
+    plain+=" · ${text}"
+  done
+
+  if [ "$timeout" -gt 0 ]; then
+    line+=" · ${YELLOW}${timeout} timeout${NC}"
+    plain+=" · ${timeout} timeout"
+  fi
+  if [ "$truncated" = "1" ]; then
+    line+=" ${DIM}(floor: log rotated)${NC}"
+    plain+=" (floor: log rotated)"
+  fi
+  printf '%s\n%s\n' "$line" "$plain"
 }
 
 # watch_scan_log, but off the redraw's critical path.
@@ -2709,7 +2876,7 @@ cmd_watch() {
     local t_success=0 t_failed=0 t_stranded=0 t_gated=0 t_timeout=0 t_truncated=0
     local last_outcome="" last_outcome_at="" last_pick="" last_pick_at=""
     local skips=0 skip_summary="" alert="" alert_at="" scan_key scan_val scan_line
-    local alert_full="" alert_full_at=""
+    local alert_full="" alert_full_at="" t_gated_open="" stranded_open_lines=""
     while IFS= read -r scan_line; do
       scan_key="${scan_line%%=*}"
       scan_val="${scan_line#*=}"
@@ -2730,6 +2897,8 @@ cmd_watch() {
         ALERT_AT)        alert_at="$scan_val" ;;
         ALERT_FULL)      alert_full="$scan_val" ;;
         ALERT_FULL_AT)   alert_full_at="$scan_val" ;;
+        TALLY_GATED_OPEN) t_gated_open="$scan_val" ;;
+        STRANDED_OPEN)   stranded_open_lines+="${scan_val}"$'\n' ;;
       esac
     done < <(watch_scan_log_cached "$cache_dir" "$orch_log" "$since_ts" "$grace_ts" "$start_epoch" "$now_ts" "$poll_interval")
 
@@ -2761,6 +2930,34 @@ cmd_watch() {
 
     local landed_cache="$cache_dir/landed"
     watch_refresh_async "$landed_cache" 120 watch_landed_probe 6
+
+    # Which stranded outcomes are still open — see watch_resolve_stranded. The
+    # landed cache answers a PR merged recently; anything older, or closed
+    # without merging, gets its own state lookup on the landed cache's TTL. A
+    # worktree that is already gone settles it with no gh call at all.
+    local t_stranded_open=0
+    if [ -z "$t_gated_open" ]; then
+      # A scan cached by a wt older than HON-938 has neither key for up to one
+      # refresh. Fall back to the old look rather than call it all resolved.
+      t_gated_open="$t_gated"
+      t_stranded_open="$t_stranded"
+    elif [ -n "$stranded_open_lines" ]; then
+      local resolved_prs="" so_id so_pr so_branch so_cache
+      [ -f "$landed_cache" ] && resolved_prs=$(cut -f1 "$landed_cache" 2>/dev/null)
+      while IFS=: read -r so_id so_pr so_branch; do
+        case "$so_pr" in ''|*[!0-9]*) continue ;; esac
+        printf '%s\n' "$resolved_prs" | grep -qx "$so_pr" && continue
+        if [ -n "$so_branch" ] && [ ! -d "$WORKTREE_BASE/$(normalize_branch "$so_branch")" ]; then
+          continue
+        fi
+        so_cache="$cache_dir/pr-state-$so_pr"
+        watch_refresh_async "$so_cache" 120 watch_pr_state_probe "$so_pr"
+        if [ -f "$so_cache" ] && grep -qxE 'MERGED|CLOSED' "$so_cache"; then
+          resolved_prs+=$'\n'"$so_pr"
+        fi
+      done <<< "$stranded_open_lines"
+      t_stranded_open=$(watch_resolve_stranded "$stranded_open_lines" "$WORKTREE_BASE" "$resolved_prs")
+    fi
 
     # ── Two-pane summary ──
     local pane_l=$(( term_cols / 2 - 1 ))
@@ -2799,31 +2996,13 @@ cmd_watch() {
     l_rows+=("$cb_line")
     l_plain+=("$cb_plain")
 
-    local tally_line="${GREEN}${t_success} merged${NC}" tally_plain="${t_success} merged"
-    if [ "${t_failed:-0}" -gt 0 ] 2>/dev/null; then
-      tally_line+=" · ${RED}${t_failed} failed${NC}"
-    else
-      tally_line+=" · ${t_failed} failed"
-    fi
-    tally_plain+=" · ${t_failed} failed"
-    if [ "${t_stranded:-0}" -gt 0 ] 2>/dev/null; then
-      tally_line+=" · ${YELLOW}${t_stranded} stranded${NC}"
-    else
-      tally_line+=" · ${t_stranded} stranded"
-    fi
-    tally_plain+=" · ${t_stranded} stranded"
-    if [ "${t_gated:-0}" -gt 0 ] 2>/dev/null; then
-      tally_line+=" · ${YELLOW}${t_gated} gated${NC}"
-      tally_plain+=" · ${t_gated} gated"
-    fi
-    if [ "${t_timeout:-0}" -gt 0 ] 2>/dev/null; then
-      tally_line+=" · ${YELLOW}${t_timeout} timeout${NC}"
-      tally_plain+=" · ${t_timeout} timeout"
-    fi
-    if [ "$t_truncated" = "1" ]; then
-      tally_line+=" ${DIM}(floor: log rotated)${NC}"
-      tally_plain+=" (floor: log rotated)"
-    fi
+    # The number is the run's history; the colour is whether any of it is
+    # still open. Yellow for a stranded or gated outcome nobody has answered,
+    # dim "(resolved)" once all of them are (HON-938) — see watch_tally_row.
+    local tally_line="" tally_plain=""
+    { IFS= read -r tally_line; IFS= read -r tally_plain; } < <(watch_tally_row \
+      "$t_success" "$t_failed" "$t_stranded" "$t_stranded_open" \
+      "$t_gated" "$t_gated_open" "$t_timeout" "$t_truncated")
     r_rows+=("$tally_line")
     r_plain+=("$tally_plain")
 
