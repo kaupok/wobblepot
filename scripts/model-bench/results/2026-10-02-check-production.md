@@ -16,7 +16,7 @@ Each gate holds a metric's mean over all runs, with the run-to-run range in brac
 | ---- | ---------------------- | -------- | ------------------------------------ | ------ |
 | tips | Answered without error | 100.0%   | ≥ 100.0%                             | pass   |
 | tips | Item counts in range   | 100.0%   | ≥ 90.0%                              | pass   |
-| tips | Max latency            | 9.4s     | ≤ 36.0s (80% of `TIPS_AI_BUDGET_MS`) | pass   |
+| tips | Max latency            | 9.7s     | ≤ 36.0s (80% of `TIPS_AI_BUDGET_MS`) | pass   |
 
 ## tips
 
@@ -28,13 +28,13 @@ Each gate holds a metric's mean over all runs, with the run-to-run range in brac
 | Operational                                                           | claude-sonnet-5-5      |
 | --------------------------------------------------------------------- | ---------------------- |
 | Calls                                                                 | 24                     |
-| Latency p50                                                           | 4.5s                   |
-| Latency max (budget 45.0s, `TIPS_AI_BUDGET_MS`)                       | 9.4s                   |
+| Latency p50                                                           | 4.6s                   |
+| Latency max (budget 45.0s, `TIPS_AI_BUDGET_MS`)                       | 9.7s                   |
 | Calls over budget                                                     | 0                      |
 | Calls retried (latency includes retries)                              | 0                      |
 | Errors                                                                | none                   |
 | Truncated (`finishReason: length`)                                    | 0                      |
-| Tokens / call (input · output · reasoning · cache read · cache write) | 1767 · 388 · 0 · 0 · 0 |
-| Cost / call                                                           | $0.0074                |
+| Tokens / call (input · output · reasoning · cache read · cache write) | 1894 · 408 · 0 · 0 · 0 |
+| Cost / call                                                           | $0.0079                |
 
-**Total cost:** $0.18 over 24 calls.
+**Total cost:** $0.19 over 24 calls.

@@ -568,7 +568,7 @@ describe('englishVoiceForPrepTips', () => {
     expect(block).toContain('steps: start with the verb')
     expect(block).toContain('At most two sentences and 25 words per step')
     expect(block).toContain('pitfalls: name the mistake and its consequence in one sentence')
-    expect(block).toContain('tip: one sentence')
+    expect(block).toContain('tip: one sentence that adds something new')
     expect(block).toContain('never join clauses with a dash')
     expect(block).toContain('"60–90 seconds"')
   })
