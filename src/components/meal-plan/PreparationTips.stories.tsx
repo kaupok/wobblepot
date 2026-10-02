@@ -181,6 +181,7 @@ function cookQuestion(overrides: Partial<CookQuestionControls> = {}): CookQuesti
     onClose: fn(),
     ask: fn(),
     active: null,
+    previous: null,
     isPending: false,
     error: null,
     onRetry: fn(),
@@ -273,6 +274,35 @@ export const AskAnswered: Story = {
 export const AskAnsweredDark: Story = {
   ...AskAnswered,
   globals: { theme: 'dark' },
+}
+
+/**
+ * A second question on its way (HON-978): the first answer stays, muted,
+ * under its own question, with "Thinking…" below it, so the panel keeps its
+ * height until the new answer takes that place.
+ */
+export const AskPendingWithPrevious: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion({
+      openStep: 1,
+      isPending: true,
+      active: { stepIndex: 1, question: "I'm short on time", answer: null },
+      previous: {
+        stepIndex: 1,
+        question: 'What can I substitute here?',
+        answer:
+          'No garlic? Use the onion you have, sliced thin, for the same base. Add it with the lemon so it softens in the pan juices.',
+      },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const status = canvas.getByRole('status')
+    await expect(within(status).getByText(/^No garlic\?/)).toHaveClass('text-muted-foreground')
+    await expect(status).toHaveTextContent(/Thinking…$/)
+    await expect(canvas.getByText('You asked: What can I substitute here?')).toBeVisible()
+  },
 }
 
 /** A timeout: catalog copy, and Retry because a second try can help. */

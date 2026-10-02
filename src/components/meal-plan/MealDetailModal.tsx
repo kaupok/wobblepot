@@ -155,6 +155,7 @@ export function MealDetailModal({
   const {
     ask: askQuestion,
     active: activeQuestion,
+    previous: previousQuestion,
     isPending: isQuestionPending,
     error: questionError,
     retry: retryQuestion,
@@ -546,6 +547,7 @@ export function MealDetailModal({
                   onClose: handleCloseQuestion,
                   ask: askQuestion,
                   active: activeQuestion,
+                  previous: previousQuestion,
                   isPending: isQuestionPending,
                   error: questionError,
                   onRetry: retryQuestion,

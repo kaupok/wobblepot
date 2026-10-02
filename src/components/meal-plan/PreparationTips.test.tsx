@@ -302,6 +302,7 @@ describe('PreparationSteps cook question', () => {
           onClose: () => setOpenStep(null),
           ask: vi.fn(),
           active: null,
+          previous: null,
           isPending: false,
           error: null,
           onRetry: vi.fn(),
@@ -454,6 +455,41 @@ describe('PreparationSteps cook question', () => {
       expect(line.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       unmount()
     }
+  })
+
+  it('keeps the last answer, muted under its own question, above "Thinking…" (HON-978)', async () => {
+    render(
+      <Harness
+        controls={{
+          active: { stepIndex: 0, question: "I'm short on time", answer: null },
+          previous: { stepIndex: 0, question: 'No cream, what now?', answer: 'Use the yoghurt.' },
+          isPending: true,
+        }}
+      />,
+    )
+    await userEvent.click(askButton(1))
+    const status = within(panel(1)!).getByRole('status')
+    const stale = within(status).getByText('Use the yoghurt.')
+    expect(stale).toHaveClass('text-muted-foreground')
+    expect(status).toHaveTextContent(/Thinking…$/)
+    expect(within(panel(1)!).getByText('You asked: No cream, what now?')).toBeInTheDocument()
+    expect(within(panel(1)!).queryByText("You asked: I'm short on time")).toBeNull()
+  })
+
+  it("shows no stale answer from another step's question", async () => {
+    render(
+      <Harness
+        controls={{
+          active: { stepIndex: 1, question: "I'm short on time", answer: null },
+          previous: { stepIndex: 0, question: 'No cream, what now?', answer: 'Use the yoghurt.' },
+          isPending: true,
+        }}
+      />,
+    )
+    await userEvent.click(askButton(2))
+    const status = within(panel(2)!).getByRole('status')
+    expect(status).toHaveTextContent(/^Thinking…$/)
+    expect(within(panel(2)!).getByText("You asked: I'm short on time")).toBeInTheDocument()
   })
 
   it('Edit puts the question in the field with focus and the caret at the end, and does not send', async () => {
