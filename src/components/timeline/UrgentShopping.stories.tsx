@@ -89,7 +89,7 @@ const laterItems = Array.from({ length: 8 }, (_, i) =>
   createUrgentShoppingItem({
     ingredientId: `later-${i}`,
     name: ['Potato', 'Rice', 'Carrot', 'Leek', 'Butter', 'Flour', 'Eggs', 'Cream'][i],
-    displayQuantity: '1 pc',
+    displayQuantity: '1\u00a0pc',
     neededByDate: i < 7 ? '2026-04-17' : '2026-04-19',
     neededByRelative: i < 7 ? 'Friday' : 'Sunday',
     urgency: 'this-week',
@@ -117,7 +117,11 @@ export const PlusMore: Story = {
   args: {
     items: [
       createUrgentShoppingItem({ ingredientId: 'chicken-thigh', name: 'Chicken thigh' }),
-      createUrgentShoppingItem({ ingredientId: 'lemon', name: 'Lemon', displayQuantity: '2 pcs' }),
+      createUrgentShoppingItem({
+        ingredientId: 'lemon',
+        name: 'Lemon',
+        displayQuantity: '2\u00a0pc',
+      }),
       createUrgentShoppingItem({
         ingredientId: 'salmon-fillet',
         name: 'Salmon fillet',
@@ -180,7 +184,7 @@ export const LongestLabel: Story = {
       createUrgentShoppingItem({
         ingredientId: `week-${i}`,
         name: `Item ${i}`,
-        displayQuantity: '1 tk',
+        displayQuantity: '1\u00a0tk',
         neededByDate: i < 19 ? '2026-04-17' : '2026-04-21',
         neededByRelative: i < 19 ? 'reede' : 'teisipäev',
         urgency: i < 19 ? 'this-week' : 'later',
@@ -211,7 +215,7 @@ export const MixedUrgencyEstonian: Story = {
       createUrgentShoppingItem({
         ingredientId: 'sidrun',
         name: 'Sidrun',
-        displayQuantity: '2 tk',
+        displayQuantity: '2\u00a0tk',
         neededByRelative: 'Täna',
       }),
       createUrgentShoppingItem({
@@ -240,7 +244,7 @@ export const TodayOnly: Story = {
       createUrgentShoppingItem({
         ingredientId: 'lemon',
         name: 'Lemon',
-        displayQuantity: '2 pcs',
+        displayQuantity: '2\u00a0pc',
       }),
     ],
   },
@@ -371,7 +375,7 @@ export const ExpandedPurchased: Story = {
       createUrgentShoppingItem({
         ingredientId: 'onion',
         name: 'Onion',
-        displayQuantity: '2 pcs',
+        displayQuantity: '2\u00a0pc',
         purchased: true,
       }),
     ],

@@ -508,7 +508,7 @@ describe('Home page component', () => {
                 name: 'Onion',
                 quantity: 2,
                 unit: 'piece',
-                displayQuantity: '2',
+                displayQuantity: '2\u00a0pc',
                 mealCount: 1,
                 purchased: false,
                 neededByDate: '2026-03-29',

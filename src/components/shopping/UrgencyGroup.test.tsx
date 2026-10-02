@@ -16,7 +16,7 @@ const items: ShoppingItemData[] = [
   {
     ingredientId: 'ing-2',
     name: 'Onion',
-    displayQuantity: '2',
+    displayQuantity: '2\u00a0pc',
     purchased: true,
     neededByDate: '2026-03-07',
     neededByRelative: 'today',

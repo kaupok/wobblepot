@@ -34,7 +34,7 @@ interface NeededInfo {
  */
 export async function loadPantry(household: PantryHousehold, { days }: { days: 7 | 14 | null }) {
   const locale = resolveHouseholdLocale(household)
-  const [pantryItems, tVague] = await Promise.all([
+  const [pantryItems, tVague, tUnit] = await Promise.all([
     prisma.pantryItem.findMany({
       where: { householdId: household.id },
       include: {
@@ -53,7 +53,9 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
       // after translating, below (HON-920).
     }),
     getTranslations({ locale, namespace: 'enums.VaguePhrase' }),
+    getTranslations({ locale, namespace: 'enums.Unit' }),
   ])
+  const pieceLabel = tUnit('piece')
 
   // If days is provided, compute needed quantities from meal plans
   // Track quantity and vague status per ingredient
@@ -158,7 +160,8 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
         ? {
             neededQuantity: neededInfo.quantity,
             // Locale-aware (shared with the shopping-list route) so `et`
-            // households see comma decimals: "1,5kg" instead of "1.5kg".
+            // households see comma decimals and their piece label: "1,5kg",
+            // "2 tk".
             neededDisplayQuantity: formatShoppingQuantity(
               neededInfo.quantity,
               item.ingredient.defaultUnit,
@@ -166,6 +169,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
               neededInfo.isVague,
               neededInfo.originalPhrase,
               tVague,
+              pieceLabel,
             ),
             windowDays: days,
             // The formatter swaps in the phrase only when there is one, so a

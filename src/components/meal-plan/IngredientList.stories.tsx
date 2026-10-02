@@ -142,9 +142,10 @@ export const LargerServings: Story = {
 }
 
 /**
- * Estonian locale: piece quantities use a comma decimal separator. At 3 servings
- * the lemon (0.5 per serving) renders as "1,5" — not "1.5" — exercising the
- * locale-aware `formatQuantity` path (HON-546 item 1). The rice (350g per
+ * Estonian locale: piece quantities use a comma decimal separator and the
+ * Estonian piece label. At 3 servings the lemon (0.5 per serving) renders as
+ * "1,5 tk" — not "1.5 pc" — exercising the locale-aware `formatQuantity` path
+ * (HON-546 item 1, HON-956). The rice (350g per
  * serving → 1050g) renders in kg with a comma: "1,1kg" (HON-950).
  */
 export const EstonianLocale: Story = {
@@ -155,7 +156,10 @@ export const EstonianLocale: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByText('maitse järgi')).toBeVisible()
-    await expect(canvas.getByText('1,5')).toBeVisible()
+    // The label hangs on a no-break space, which `getByText` folds into a space.
+    const lemonQuantity = canvas.getByText('1,5 tk')
+    await expect(lemonQuantity).toBeVisible()
+    await expect(lemonQuantity.textContent).toBe('1,5\u00a0tk')
     await expect(canvas.getByText('1,1kg')).toBeVisible()
   },
 }

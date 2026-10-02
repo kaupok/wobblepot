@@ -6,9 +6,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Body, Heading, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
-import { formatWeight } from '@/lib/i18n/format-shopping-quantity'
+import { formatWeight, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
-import { useVaguePhrase } from '@/lib/i18n/enum-label'
+import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { AvailabilityIndicator, getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import type { MealAvailability, MealComponent, PantryIngredient } from './types'
 
@@ -45,7 +45,8 @@ interface IngredientListProps {
  * grams for weight-based ingredients). No conversion needed.
  *
  * For vague quantities, returns the phrase in the household's language
- * (e.g., "to taste" / "maitse järgi").
+ * (e.g., "to taste" / "maitse järgi"). Piece counts carry `pieceLabel`
+ * ("1.5 pc" / "1,5 tk", HON-956).
  */
 function formatQuantity(
   quantityPerServing: number,
@@ -55,6 +56,7 @@ function formatQuantity(
   isVague: boolean | undefined,
   originalPhrase: string | null | undefined,
   vaguePhrase: (phrase: string) => string,
+  pieceLabel: string,
 ): string {
   // For vague quantities, show the phrase instead of calculated amount
   if (isVague && originalPhrase) {
@@ -67,7 +69,10 @@ function formatQuantity(
     // Quantity is already in pieces. Locale-aware so `et` renders "1,5" not
     // "1.5"; whole counts collapse to "3" and fractions pick up the locale
     // decimal separator (maximumFractionDigits: 1 matches the prior rounding).
-    return formatLocaleQuantity(totalQuantity, locale, { maximumFractionDigits: 1 })
+    return withPieceUnit(
+      formatLocaleQuantity(totalQuantity, locale, { maximumFractionDigits: 1 }),
+      pieceLabel,
+    )
   }
 
   // Grams switch to kg at 1000g, as on the shopping list and pantry (HON-950).
@@ -91,6 +96,7 @@ export function IngredientList({
   const tAvailability = useTranslations('meal-plan.availability')
   const locale = useLocale() as Locale
   const vaguePhrase = useVaguePhrase()
+  const pieceLabel = useEnumLabel('Unit', 'piece')
   // Build maps for availability and staple status
   const { availableIds, stapleIds } = useMemo(() => {
     if (!pantryIngredients) {
@@ -133,12 +139,13 @@ export function IngredientList({
         comp.isVague,
         comp.originalPhrase,
         vaguePhrase,
+        pieceLabel,
       )
       return `${comp.ingredient.name} (${qty})`
     })
 
     return tDetail('staplesPrefix', { list: items.join(', ') })
-  }, [stapleComponents, servings, tDetail, locale, vaguePhrase])
+  }, [stapleComponents, servings, tDetail, locale, vaguePhrase, pieceLabel])
 
   // Default header label: a section of the cook view, at the Title level
   // (docs/DESIGN.md → "Cook view", HON-932).
@@ -187,6 +194,7 @@ export function IngredientList({
                 comp.isVague,
                 comp.originalPhrase,
                 vaguePhrase,
+                pieceLabel,
               )}
             </span>
           )

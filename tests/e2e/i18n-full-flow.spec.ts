@@ -78,6 +78,9 @@ const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'] as const
 // Mirror IngredientList's piece-quantity formatting (locale `et`, max 1 fraction
 // digit) so the predicted decimal string matches what the component renders.
 const fmtEtQty = (n: number) => new Intl.NumberFormat('et', { maximumFractionDigits: 1 }).format(n)
+// The cook view labels a piece count "1,5 tk" on a no-break space (HON-956);
+// Playwright folds that into a regular space when it matches text.
+const fmtEtPieces = (n: number) => `${fmtEtQty(n)} tk`
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -230,7 +233,7 @@ test.describe(
             commaTarget = {
               mealId: meal.id,
               name: meal.name,
-              expected: fmtEtQty(comp.quantityPerServing * householdSize),
+              expected: fmtEtPieces(comp.quantityPerServing * householdSize),
             }
             break
           }

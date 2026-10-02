@@ -13,7 +13,8 @@ import { formatVaguePhrase, type VaguePhraseLabel } from './vague-phrase'
  *   (the `enums.VaguePhrase` translator); a phrase outside the vocabulary
  *   passes through unchanged.
  * - Pieces: the quantity is already a piece count; rounded up so the shopper
- *   buys enough.
+ *   buys enough, and labelled with `pieceLabel` (`enums.Unit.piece`): `1 pc`,
+ *   `1 tk` (HON-956).
  * - Grams: `formatWeight` — `<n>g` below 1000g, `<n>kg` from there on.
  *
  * Decimal separator and thousands grouping follow `locale`: `1.5kg` in `en`,
@@ -26,6 +27,7 @@ export function formatShoppingQuantity(
   isVague: boolean,
   originalPhrase: string | null,
   tVague: VaguePhraseLabel,
+  pieceLabel: string,
 ): string {
   if (isVague && originalPhrase) {
     return formatVaguePhrase(originalPhrase, tVague)
@@ -34,7 +36,7 @@ export function formatShoppingQuantity(
   if (unit === 'piece') {
     // The epsilon absorbs float residue from `total / servings * servings`
     // (8 / 3 * 3 is 8.000000000000002), which would otherwise round up to 9.
-    return formatInteger(Math.ceil(quantity - 1e-9), locale)
+    return withPieceUnit(formatInteger(Math.ceil(quantity - 1e-9), locale), pieceLabel)
   }
 
   return formatWeight(quantity, locale)
@@ -53,4 +55,13 @@ export function formatWeight(grams: number, locale: Locale): string {
   }
 
   return `${formatInteger(grams, locale)}g`
+}
+
+/**
+ * Join a formatted piece count and its label: `1 pc`, `1,5 tk`. The no-break
+ * space keeps the unit on the number's line (HON-956). Shared by the shopping
+ * list, the pantry and the cook view.
+ */
+export function withPieceUnit(amount: string, pieceLabel: string): string {
+  return `${amount}\u00a0${pieceLabel}`
 }

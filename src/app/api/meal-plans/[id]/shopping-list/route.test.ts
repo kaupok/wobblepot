@@ -53,15 +53,16 @@ vi.mock('@/lib/i18n/get-locale', () => ({
 import { getLocale } from '@/lib/i18n/get-locale'
 const mockGetLocale = vi.mocked(getLocale)
 
-// Vague phrases resolve against the real catalog of the requested locale so the
-// test sees the rendered label; every other namespace returns the key.
+// Enum labels (vague phrases, the piece unit) resolve against the real catalog
+// of the requested locale so the test sees the rendered label; every other
+// namespace returns the key.
 vi.mock('next-intl/server', async () => {
   const { createTranslator } = await vi.importActual<typeof import('next-intl')>('next-intl')
   const enMessages = (await import('../../../../../../messages/en.json')).default
   const etMessages = (await import('../../../../../../messages/et.json')).default
   return {
     getTranslations: vi.fn(async ({ locale, namespace }: { locale: string; namespace: string }) =>
-      namespace === 'enums.VaguePhrase'
+      namespace.startsWith('enums.')
         ? createTranslator({
             locale,
             messages: (locale === 'et' ? etMessages : enMessages) as never,
@@ -346,7 +347,7 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
 
     expect(response.status).toBe(200)
     // Piece quantities are already piece counts (HON-713): 4 eggs, not 4 / 60
-    expect(data.groups[0].items[0].displayQuantity).toBe('4')
+    expect(data.groups[0].items[0].displayQuantity).toBe('4\u00a0pc')
   })
 
   it('formats vague quantities with original phrase', async () => {

@@ -1089,8 +1089,9 @@ describe('computeRollingWindowShoppingList', () => {
         item.isVague,
         item.originalPhrase,
         (key) => key,
+        'pc',
       ),
-    ).toBe('8')
+    ).toBe('8\u00a0pc')
   })
 
   it('falls back to default household size when no members exist', async () => {

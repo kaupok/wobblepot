@@ -72,10 +72,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // The reference for "today" is the household's local day, not the server's,
     // so a household in Europe/Tallinn at 23:30 local sees the right label
     // even when the server clock is in a different timezone.
-    const [tDates, tVague] = await Promise.all([
+    const [tDates, tVague, tUnit] = await Promise.all([
       getTranslations({ locale, namespace: 'dates' }),
       getTranslations({ locale, namespace: 'enums.VaguePhrase' }),
+      getTranslations({ locale, namespace: 'enums.Unit' }),
     ])
+    const pieceLabel = tUnit('piece')
     const todayInTz = parseLocalDate(getTodayInTimezone(household.timezone))
 
     // Fetch pantry items for purchase tracking
@@ -114,6 +116,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             item.isVague,
             item.originalPhrase,
             tVague,
+            pieceLabel,
           ),
           mealCount: item.mealCount,
           purchased,
