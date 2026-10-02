@@ -57,7 +57,7 @@ export function JoinHouseholdCard({
         // otherwise Estonian screen (HON-697). Every code without an explicit
         // branch renders a translated string; the server prose is kept as a
         // console breadcrumb only, and the route still returns the distinct
-        // `error` code so logs and Sentry tell the cases apart.
+        // `error` code so logs and PostHog tell the cases apart.
         console.error('[invite-join] request failed', {
           error: data.error,
           message: data.message,

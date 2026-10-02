@@ -27,7 +27,7 @@ import {
 } from '@/lib/ai/budgets'
 
 /**
- * Failure body for this route: English prose for logs and Sentry breadcrumbs,
+ * Failure body for this route: English prose for logs and PostHog error capture,
  * plus the machine-readable `code` the client translates (HON-700). Every
  * error response *this handler builds* goes through here, so no branch of it
  * can ship without a code. The one failure it does not build is the shared AI
@@ -217,7 +217,7 @@ async function handlePOST(request: Request) {
       // its input was bad. 503, not 502, for every provider failure: the client
       // does the same thing either way, and the reported cause keeps the
       // upstream status for diagnosis. Only this code is reported — ordinary
-      // validation failures below stay out of Sentry (HON-723).
+      // validation failures below stay out of PostHog error tracking (HON-723).
       if (error.code === 'provider_unavailable') {
         captureApiError(error.cause ?? error, {
           route: '/api/recipes/parse',
@@ -245,7 +245,7 @@ async function handlePOST(request: Request) {
     // converts its own 15s abort into a `RecipeParseError`, handled above.
     // Reported before it is classified, as the reference route does: a timeout
     // is user-facing but it also means the budget above is mis-sized, which is
-    // exactly what should show up in Sentry.
+    // exactly what should show up in PostHog error tracking.
     if (isAiBudgetTimeout(error)) {
       return NextResponse.json(
         errorBody('Reading that recipe took too long. Please try again.', 'parse_timeout'),

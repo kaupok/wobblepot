@@ -40,8 +40,9 @@ export function getPosthogServer(): PostHog | null {
       // Outside Vercel, `@vercel/functions`'s `waitUntil` is a no-op
       // (`getContext().waitUntil?.(p)`), and the SDK guards the call with
       // try/catch — so this is safe to set unconditionally and works in dev.
-      // This is the pattern Sentry's `captureRequestError` uses, and PostHog's
-      // own SDK docstring on this option points at exactly this Vercel setup.
+      // Error SDKs' Next.js `captureRequestError` helpers use the same
+      // pattern, and PostHog's own SDK docstring on this option points at
+      // exactly this Vercel setup.
       waitUntil,
       before_send: (event) => {
         if (!event) return event
