@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { expect, userEvent, within } from 'storybook/test'
 import { Card, CardContent } from '@/components/ui/card'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { mealHueStyle } from './MealImageCard'
@@ -44,10 +44,16 @@ export const Compact: Story = {
   play: async ({ canvasElement }) => {
     const badge = canvasElement.querySelector<HTMLElement>('[data-slot="badge"]')!
     await expect(badge).toHaveTextContent('Kid-friendly')
-    await expect(badge).toHaveAttribute('title', 'Kid-friendly')
     // The label is for assistive tech only: the badge is no wider than a pill
     // around the icon.
     await expect(badge.getBoundingClientRect().width).toBeLessThan(48)
+    // A mouse gets the label as the app's tooltip, not the browser's.
+    await expect(badge).not.toHaveAttribute('title')
+    await userEvent.hover(badge)
+    await expect(await within(document.body).findByRole('tooltip')).toHaveTextContent(
+      'Kid-friendly',
+    )
+    await userEvent.unhover(badge)
   },
 }
 

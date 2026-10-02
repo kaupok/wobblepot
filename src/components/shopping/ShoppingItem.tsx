@@ -104,7 +104,7 @@ export function ShoppingItem({
             </span>
           </TooltipTrigger>
           <TooltipContent>
-            <p>{tShopping('neededByTooltip', { date: item.neededByAbsolute })}</p>
+            {tShopping('neededByTooltip', { date: item.neededByAbsolute })}
           </TooltipContent>
         </Tooltip>
       )}
