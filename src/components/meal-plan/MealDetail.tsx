@@ -2,7 +2,9 @@
 
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
+import { Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Body, Heading } from '@/components/ui/typography'
@@ -188,11 +190,16 @@ export function MealDetail({
             {meal.description && <Body variant="muted">{meal.description}</Body>}
           </div>
 
-          {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711). */}
+          {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711).
+              The time is the cards' `surface` clock badge, at the cook view's
+              `lg` size, with the cards' gap between badges (HON-951). */}
           {((meal.timeMinutes != null && meal.timeMinutes > 0) || meal.kidFriendly) && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {meal.timeMinutes != null && meal.timeMinutes > 0 && (
-                <Body variant="muted">{tDetail('timeMinutes', { count: meal.timeMinutes })}</Body>
+                <Badge variant="surface" size="lg">
+                  <Clock aria-hidden="true" />
+                  {tDetail('timeMinutes', { count: meal.timeMinutes })}
+                </Badge>
               )}
               {meal.kidFriendly && <KidFriendlyBadge size="lg" />}
             </div>
@@ -248,11 +255,14 @@ export function MealDetail({
         )}
       </div>
 
+      {/* `lg:pt-8`, the title's own top without a hero, so "Steps" lines up
+          with the meal name (HON-951). The close button is in the far corner,
+          clear of a short heading at the column's left. */}
       {showPreparationSection && (
         <section
           data-testid="cook-view-steps"
           tabIndex={0}
-          className="flex flex-col gap-6 px-5 md:px-8 lg:col-span-3 lg:overflow-y-auto lg:px-10 lg:pt-20 lg:pb-8"
+          className="flex flex-col gap-6 px-5 md:px-8 lg:col-span-3 lg:overflow-y-auto lg:px-10 lg:pt-8 lg:pb-8"
         >
           <Heading variant="h4" as="h3">
             {tTips('steps')}

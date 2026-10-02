@@ -78,6 +78,17 @@ describe('MealDetail availability', () => {
 })
 
 describe('MealDetail prep time', () => {
+  it('shows the time as a surface badge with a clock, before Kid-friendly (HON-951)', () => {
+    renderDetail({ pantryIngredients: [] })
+
+    const time = screen.getByText('45 min')
+    const badge = time.closest('[data-slot="badge"]')
+    expect(badge).toHaveAttribute('data-variant', 'surface')
+    expect(badge?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    const kidFriendly = screen.getByText('Kid-friendly').closest('[data-slot="badge"]')!
+    expect(badge?.compareDocumentPosition(kidFriendly)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
   it('renders a zero-minute meal exactly like one with no prep time, with no stray "0" (HON-711)', () => {
     const renderWith = (timeMinutes: number | null) =>
       render(
