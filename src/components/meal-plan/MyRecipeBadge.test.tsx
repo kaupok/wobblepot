@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
-import { MyRecipeBadge } from './MyRecipeBadge'
+import { MyRecipeBadge, MyRecipeIcon } from './MyRecipeBadge'
 
 describe('MyRecipeBadge', () => {
   it('renders the label as a secondary badge with a decorative icon', () => {
@@ -11,12 +11,16 @@ describe('MyRecipeBadge', () => {
     expect(badge?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
     expect(badge).not.toHaveAttribute('title')
   })
+})
 
-  it('keeps the label for assistive tech and the tooltip when compact', () => {
-    const { container } = render(<MyRecipeBadge compact />)
-    const badge = container.querySelector('[data-slot="badge"]')
-    expect(badge).toHaveAttribute('title', 'My recipe')
-    expect(screen.getByText('My recipe')).toHaveClass('sr-only')
-    expect(badge?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+describe('MyRecipeIcon', () => {
+  it('is a bare icon whose trigger carries the label, with no native tooltip', () => {
+    const { container } = render(<MyRecipeIcon />)
+    const trigger = screen.getByRole('button', { name: 'My recipe' })
+    expect(trigger).not.toHaveAttribute('title')
+    expect(trigger.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    // Not a pill: no badge around the icon.
+    expect(container.querySelector('[data-slot="badge"]')).toBeNull()
+    expect(container.querySelector('[title]')).toBeNull()
   })
 })

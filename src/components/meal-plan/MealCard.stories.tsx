@@ -99,9 +99,9 @@ export const PlannedWithImage: Story = {
 }
 
 /**
- * One of the household's own recipes: the compact "My recipe" badge closes the
- * badge row, after the protein badge, in the meal's chip colour with no ring
- * (HON-948). A library meal (every other story) has none.
+ * One of the household's own recipes: the bare "My recipe" icon follows the
+ * meal name's last word, with a tooltip, and the badge row keeps only the slot
+ * and the protein (HON-973). A library meal (every other story) has none.
  */
 export const OwnRecipe: Story = {
   args: {
@@ -117,14 +117,29 @@ export const OwnRecipe: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const badge = canvas.getByText('My recipe').closest<HTMLElement>('[data-slot="badge"]')!
-    await expect(badge).toHaveAttribute('title', 'My recipe')
-    await expect(badge).toHaveAttribute('data-variant', 'secondary')
-    await expect(getComputedStyle(badge).borderTopColor).toBe('rgba(0, 0, 0, 0)')
-    // The badge row describes the meal: the slot, the protein, then this.
-    const row = [...badge.parentElement!.querySelectorAll('[data-slot="badge"]')]
-    await expect(row.at(-1)).toBe(badge)
-    await expect(row.at(-2)).toHaveTextContent('Poultry')
+    const icon = canvas.getByRole('button', { name: 'My recipe' })
+    await expect(icon).not.toHaveAttribute('title')
+    // Not in the badge row: that ends with the protein.
+    await expect(icon.closest('[data-slot="badge"]')).toBeNull()
+    const protein = canvas.getByText('Poultry')
+    const row = [...protein.parentElement!.querySelectorAll('[data-slot="badge"]')]
+    await expect(row.at(-1)).toBe(protein)
+
+    // After the name, on its last line, and inside the heading beside the
+    // name's button rather than in it.
+    const heading = canvas.getByRole('heading', { level: 3 })
+    await expect(heading).toContainElement(icon)
+    const name = canvas.getByRole('button', { name: mealFixture.name })
+    await expect(name).not.toContainElement(icon)
+    const iconBox = icon.getBoundingClientRect()
+    const headingBox = heading.getBoundingClientRect()
+    await expect(headingBox.bottom - iconBox.bottom).toBeLessThan(iconBox.height)
+
+    // The icon stacks over the name's button: hover opens the tooltip, and the
+    // name still opens the cook view.
+    await userEvent.hover(icon)
+    await expect(await within(document.body).findByRole('tooltip')).toHaveTextContent('My recipe')
+    await userEvent.unhover(icon)
   },
 }
 

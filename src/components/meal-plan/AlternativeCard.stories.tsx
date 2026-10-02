@@ -96,15 +96,16 @@ export const WithImage: Story = {
 
 /**
  * One of the household's own recipes among the suggestions or search results:
- * the compact "My recipe" badge, which a library meal does not get (HON-948).
+ * the "My recipe" icon after the name, which a library meal does not get
+ * (HON-948, HON-973).
  */
 export const OwnRecipe: Story = {
   args: { meal: { ...mealFixture, isCustom: true } },
   play: async ({ canvasElement }) => {
-    const badge = within(canvasElement)
-      .getByText('My recipe')
-      .closest<HTMLElement>('[data-slot="badge"]')!
-    await expect(badge).toHaveAttribute('title', 'My recipe')
+    const canvas = within(canvasElement)
+    const icon = canvas.getByRole('button', { name: 'My recipe' })
+    await expect(icon).not.toHaveAttribute('title')
+    await expect(canvas.getByRole('heading', { level: 3 })).toContainElement(icon)
   },
 }
 

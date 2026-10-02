@@ -10,7 +10,7 @@ import { getIngredientAvailabilitySets, hasPantryData } from './AvailabilityIndi
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { mealImageTitleWidth, type MealImageFields } from './MealImageCard'
 import { MealTypeBadge } from './MealTypeBadge'
-import { MyRecipeBadge } from './MyRecipeBadge'
+import { MyRecipeIcon } from './MyRecipeBadge'
 import { ProteinBadge } from './ProteinBadge'
 import { NutritionSummary } from './NutritionSummary'
 import type { MealComponent, NutritionData, PantryIngredient } from './types'
@@ -29,7 +29,7 @@ export interface MealCardBaseData extends MealImageFields {
   kidFriendly: boolean
   primaryProteinType: string
   suitableFor?: MealType[]
-  /** One of the household's own recipes; marked with `MyRecipeBadge` (HON-948) */
+  /** One of the household's own recipes; marked with `MyRecipeIcon` (HON-948, HON-973) */
   isCustom?: boolean
   components: MealComponent[]
   nutrition: NutritionData
@@ -70,9 +70,9 @@ interface MealCardBaseProps {
    */
   mealTypes?: 'show' | 'hide'
   /**
-   * Whether an own recipe (`meal.isCustom`) carries the "My recipe" badge.
-   * `'hide'` is for the My recipes page, where every card is one, so the badge
-   * would say nothing (HON-948). Elsewhere it tells an own recipe apart from
+   * Whether an own recipe (`meal.isCustom`) carries the "My recipe" icon after
+   * its name. `'hide'` is for the My recipes page, where every card is one, so
+   * the mark would say nothing (HON-948). Elsewhere it tells an own recipe apart from
    * the library meals beside it.
    */
   ownRecipe?: 'show' | 'hide'
@@ -86,7 +86,7 @@ interface MealCardBaseProps {
 
 /**
  * Shared meal card content used by both My Recipes and Add meal modal.
- * Renders: slot, kid-friendly, protein and own-recipe badges, name, description, nutrition, prep time, ingredient list.
+ * Renders: slot, kid-friendly and protein badges, name (with the own-recipe icon), description, nutrition, prep time, ingredient list.
  * Does NOT include Card wrapper or action buttons — consumers provide their own layout.
  */
 export function MealCardBase({
@@ -107,7 +107,7 @@ export function MealCardBase({
 
   return (
     <div className="flex flex-col gap-1.5">
-      {/* 0. Slot, kid-friendly, protein and own-recipe badges — the card's first row, as
+      {/* 0. Slot, kid-friendly and protein badges — the card's first row, as
           on the planner card, so a meal says when it fits and what it is
           before its name. */}
       <div className="flex flex-wrap items-center gap-1.5">
@@ -115,16 +115,23 @@ export function MealCardBase({
           meal.suitableFor?.map((type) => <MealTypeBadge key={type} mealType={type} />)}
         {meal.kidFriendly && <KidFriendlyBadge compact />}
         <ProteinBadge proteinType={meal.primaryProteinType} />
-        {ownRecipe === 'show' && meal.isCustom && <MyRecipeBadge compact />}
       </div>
 
       {/* 1. Meal name — Section, not Title: the page or dialog title above owns
           that size (HON-784). Wraps before the image on a tinted
-          `MealImageCard`, full width anywhere else (HON-749) */}
+          `MealImageCard`, full width anywhere else (HON-749). An own recipe's
+          icon follows the last word, joined by a no-break space so it never
+          wraps onto a line alone (HON-973). */}
       <div className="flex items-start justify-between gap-2">
         <div className={mealImageTitleWidth()}>
           <Heading variant="section" as={nameHeadingTag}>
             {meal.name}
+            {ownRecipe === 'show' && meal.isCustom && (
+              <>
+                {'\u00a0'}
+                <MyRecipeIcon />
+              </>
+            )}
           </Heading>
         </div>
         {titleActions ? (

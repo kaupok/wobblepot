@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useId, useRef } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -31,7 +31,7 @@ import { StickyNote } from './StickyNote'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import { MealTypeBadge } from './MealTypeBadge'
-import { MyRecipeBadge } from './MyRecipeBadge'
+import { MyRecipeIcon } from './MyRecipeBadge'
 import { ProteinBadge } from './ProteinBadge'
 import type {
   EntryRating,
@@ -112,6 +112,7 @@ export function MealCard({
   // The meal name opens the cook view, and is where focus comes back to once
   // the completion flow it can start is over (CLAUDE.md → Focus management).
   const mealNameButtonRef = useRef<HTMLButtonElement>(null)
+  const mealNameId = useId()
   // Where a completion started, read when the deduction is confirmed: the
   // status select on a past card, or "Done cooking" in the cook view.
   const completionSourceRef = useRef<Source>('meal_card')
@@ -432,7 +433,6 @@ export function MealCard({
               <div className="flex flex-wrap items-center gap-1.5">
                 <MealTypeBadge mealType={mealType} />
                 <ProteinBadge proteinType={meal.primaryProteinType} />
-                {meal.isCustom && <MyRecipeBadge compact />}
               </div>
               {hasTrailingActions && (
                 <div className="flex shrink-0 items-center gap-1">
@@ -507,20 +507,41 @@ export function MealCard({
                 name wraps, and every `Button` size is a fixed height a second
                 line would overflow. `min-h-8` holds it to the same 32px floor as
                 the menu above it (docs/DESIGN.md → Spacing, radius, elevation).
+                The button lies over the name rather than around it: a button
+                always lays out as an inline-block, so an own recipe's icon after
+                one could not follow the name's last word. Here the visible text
+                and the icon are one inline run, joined by a no-break space so
+                the icon wraps with that word (HON-973), and the button takes its
+                name from the text. The icon is positioned and later in the DOM,
+                so it stacks over the button and keeps its own hover and focus.
                 The description shares the name's column, so it too stays off
                 the plate; it is hidden below `md`, where that column is a third
                 of a phone card and prose in it would run a dozen lines. */}
             <div className={cn('flex min-w-0 flex-col', mealImageTitleWidth(hasTrailingActions))}>
-              <Heading variant="section" as="h3">
-                <button
-                  ref={mealNameButtonRef}
-                  type="button"
-                  className="min-h-8 cursor-pointer text-left leading-snug underline-offset-2 hover:underline"
-                  onClick={() => setIsDetailModalOpen(true)}
-                >
-                  {meal.name}
-                </button>
-              </Heading>
+              <div className="relative flex min-h-8 w-fit items-center">
+                <Heading variant="section" as="h3">
+                  <button
+                    ref={mealNameButtonRef}
+                    type="button"
+                    aria-labelledby={mealNameId}
+                    className="peer absolute inset-0 cursor-pointer"
+                    onClick={() => setIsDetailModalOpen(true)}
+                  />
+                  <span
+                    id={mealNameId}
+                    aria-hidden="true"
+                    className="underline-offset-2 peer-hover:underline"
+                  >
+                    {meal.name}
+                  </span>
+                  {meal.isCustom && (
+                    <>
+                      {'\u00a0'}
+                      <MyRecipeIcon />
+                    </>
+                  )}
+                </Heading>
+              </div>
               {meal.description && (
                 <div className="hidden md:line-clamp-2">
                   <Body variant="muted">{meal.description}</Body>
