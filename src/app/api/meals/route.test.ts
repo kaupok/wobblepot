@@ -464,6 +464,66 @@ describe('GET /api/meals', () => {
     expect(sql).toContain('similarity(m.name, ?) >= ? OR word_similarity(?, m.name) >= ?')
   })
 
+  // HON-942: at 0.25 one shared first-letter trigram matched a 3-letter search,
+  // so "oat" found every meal with onion. Pin the rule: substring, or from four
+  // characters a fuzzy score of at least 0.5.
+  describe('search matching rule', () => {
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(mockMembership as never)
+      mockQueryRaw.mockResolvedValue([] as never)
+      mockMealCount.mockResolvedValue(0)
+      mockMealFindMany.mockResolvedValue([])
+    })
+
+    it('matches a name by substring or by a fuzzy score of at least 0.5', async () => {
+      await GET(createRequest('http://localhost/api/meals?search=brocoli'))
+
+      const { sql, values } = searchQuery()
+      for (const name of ['m.name', 'i.name']) {
+        expect(sql).toContain(
+          `(${name} ILIKE ? OR similarity(${name}, ?) >= ? OR word_similarity(?, ${name}) >= ?)`,
+        )
+      }
+      expect(values).toContain('%brocoli%')
+      expect(values).toContain(0.5)
+    })
+
+    it('matches a search shorter than four characters by substring only', async () => {
+      await GET(createRequest('http://localhost/api/meals?search=oat'))
+
+      const { sql, values } = searchQuery()
+      const where = sql.slice(sql.indexOf('WHERE ('), sql.indexOf('ORDER BY'))
+      expect(where).toContain('m.name ILIKE ?')
+      expect(where).toContain('i.name ILIKE ?')
+      expect(where).not.toContain('similarity')
+      expect(values).toContain('%oat%')
+    })
+
+    it('ranks a substring match above every fuzzy match', async () => {
+      await GET(createRequest('http://localhost/api/meals?search=oat'))
+
+      const { sql } = searchQuery()
+      for (const name of ['m.name', 'i.name']) {
+        expect(sql).toContain(
+          `GREATEST( CASE WHEN ${name} ILIKE ? THEN 1 + similarity(${name}, ?) END, similarity(${name}, ?), word_similarity(?, ${name}) )`,
+        )
+      }
+    })
+  })
+
+  it('takes % and _ in the search literally in the substring match', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockQueryRaw.mockResolvedValue([] as never)
+    mockMealCount.mockResolvedValue(0)
+    mockMealFindMany.mockResolvedValue([])
+
+    await GET(createRequest(`http://localhost/api/meals?search=${encodeURIComponent('50%_\\')}`))
+
+    expect(searchQuery().values).toContain('%50\\%\\_\\\\%')
+  })
+
   // HON-911: an Estonian household searches and browses by the names it sees.
   describe('for a household on a non-default locale', () => {
     beforeEach(() => {

@@ -11,6 +11,13 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 50
+/**
+ * Minimum `similarity()` for a match. Unlike the meal search's
+ * `word_similarity()` (HON-942), `similarity()` divides by the trigrams of both
+ * strings, so a short query sharing only a name's first-letter trigram stays
+ * well below this: a two-letter query has 3 trigrams and the shortest name has
+ * at least 2, so one shared trigram scores at most 1 / (3 + 2 − 1) = 0.25.
+ */
 const SIMILARITY_THRESHOLD = 0.3
 
 interface IngredientSearchResult {
