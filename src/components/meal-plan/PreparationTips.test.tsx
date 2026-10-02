@@ -333,6 +333,13 @@ describe('PreparationSteps cook question', () => {
     expect(screen.queryByRole('button', { name: /^Ask about step/ })).toBeNull()
   })
 
+  it('labels the Ask button "Ask" for lg, keeps the step in its name, and sets no title', () => {
+    render(<Harness />)
+    const button = askButton(2)
+    expect(within(button).getByText('Ask')).toHaveClass('hidden', 'lg:inline')
+    expect(button).not.toHaveAttribute('title')
+  })
+
   it('shows no Ask button on the static numbered list', () => {
     render(<PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />)
     expect(screen.queryByRole('button', { name: /^Ask about step/ })).toBeNull()

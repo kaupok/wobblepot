@@ -311,6 +311,7 @@
     },
     "cookQuestion": {
       "askAboutStep": "Küsi sammu {n} kohta",
+      "ask": "Küsi",
       "chips": {
         "done": "Kuidas ma tean, et see on valmis?",
         "substitute": "Millega saan siin asendada?",

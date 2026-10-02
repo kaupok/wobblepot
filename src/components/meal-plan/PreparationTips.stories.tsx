@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, within } from 'storybook/test'
+import { expect, fireEvent, fn, userEvent, waitFor, within } from 'storybook/test'
 import { mealHueStyle } from './MealImageCard'
 import {
   PreparationEquipment,
@@ -190,23 +190,80 @@ function cookQuestion(overrides: Partial<CookQuestionControls> = {}): CookQuesti
   }
 }
 
-/** Each step with its 44px Ask button beside the toggle; no panel open. */
+const askButtonsArgs = {
+  tips: fullTips,
+  isLoading: false,
+  error: null,
+  doneSteps: new Set([0]),
+  onToggleStep: fn(),
+  cookQuestion: cookQuestion(),
+}
+
+/** The shadcn tooltip names the step; it is portalled to the body. */
+async function expectAskTooltip(n: number) {
+  const tooltip = await within(document.body).findByRole('tooltip')
+  await expect(tooltip).toHaveTextContent(`Ask about step ${n}`)
+  // The cook view keeps text at 16px or above, the tooltip included.
+  const content = document.querySelector('[data-slot="tooltip-content"]')!
+  await expect(getComputedStyle(content).fontSize).toBe('16px')
+}
+
+/**
+ * Each step with its Ask button beside the toggle; no panel open. On a phone
+ * the button is the 44px icon alone, with a heavier stroke (HON-981), and
+ * hovering it shows the tooltip.
+ */
 export const WithAskButtons: Story = {
-  args: {
-    tips: fullTips,
-    isLoading: false,
-    error: null,
-    doneSteps: new Set([0]),
-    onToggleStep: fn(),
-    cookQuestion: cookQuestion(),
-  },
+  args: askButtonsArgs,
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
     const ask = canvas.getByRole('button', { name: 'Ask about step 2' })
     await expect(ask.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     await expect(ask.getBoundingClientRect().width).toBeGreaterThanOrEqual(44)
+    await expect(within(ask).getByText('Ask')).not.toBeVisible()
+    await expect(ask.querySelector('svg')).toHaveAttribute('stroke-width', '2.25')
+    await expect(ask).not.toHaveAttribute('title')
+
+    await userEvent.hover(ask)
+    await expectAskTooltip(2)
+    await userEvent.unhover(ask)
+    await waitFor(() =>
+      expect(within(document.body).queryByRole('tooltip')).not.toBeInTheDocument(),
+    )
+
     await userEvent.click(ask)
     await expect(args.cookQuestion!.onOpenStep).toHaveBeenCalledWith(1)
+  },
+}
+
+/** Tab to step 1's Ask button: the tooltip opens on keyboard focus too. */
+export const WithAskButtonsFocus: Story = {
+  name: 'With Ask buttons (keyboard focus)',
+  args: askButtonsArgs,
+  play: async ({ canvasElement }) => {
+    const ask = within(canvasElement).getByRole('button', { name: 'Ask about step 1' })
+    // Step 1's toggle, then its Ask button.
+    await userEvent.tab()
+    await userEvent.tab()
+    await expect(ask).toHaveFocus()
+    await expectAskTooltip(1)
+  },
+}
+
+/**
+ * From `lg` the row is wide enough for the visible label: each step ends in a
+ * ghost button that reads "Ask" beside the icon (HON-981).
+ */
+export const WithAskButtonsDesktop: Story = {
+  name: 'With Ask buttons (desktop)',
+  args: askButtonsArgs,
+  globals: { viewport: { value: 'laptop', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const ask = within(canvasElement).getByRole('button', { name: 'Ask about step 2' })
+    await expect(within(ask).getByText('Ask')).toBeVisible()
+    const box = ask.getBoundingClientRect()
+    await expect(box.width).toBeGreaterThan(box.height)
+    await expect(box.height).toBeGreaterThanOrEqual(44)
   },
 }
 
@@ -453,5 +510,48 @@ export const AskEchoAndEdit: Story = {
     await expect(field).toHaveValue("I'm short on time")
     await expect(field).toHaveFocus()
     await expect(args.cookQuestion!.ask).toHaveBeenCalledOnce()
+  },
+}
+
+/**
+ * Closing a panel hands focus back to the step's Ask button. After a tap or a
+ * click on Close, or a Safari tap on Ask itself, that focus opens no tooltip,
+ * which would cover the step until the next tap; after Escape from the
+ * keyboard it does, as Tab does (HON-981).
+ */
+export const AskCloseReturnsFocus: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion(),
+  },
+  render: (args) => <AskWithState {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const ask = canvas.getByRole('button', { name: 'Ask about step 2' })
+    const panelOf = () => canvas.getByRole('group', { name: 'Ask about step 2' })
+    // Give a wrongly opened tooltip its frame to mount before checking.
+    const expectNoTooltip = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      await expect(within(document.body).queryByRole('tooltip')).not.toBeInTheDocument()
+    }
+
+    // A tap on Ask in Safari clicks it without focusing it, so closing the
+    // panel that way moves focus to it afresh.
+    fireEvent.click(ask)
+    await expect(canvas.queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+    await expect(ask).toHaveFocus()
+    await expectNoTooltip()
+
+    await userEvent.click(ask)
+    await userEvent.click(within(panelOf()).getByRole('button', { name: 'Close' }))
+    await expect(ask).toHaveFocus()
+    await expectNoTooltip()
+
+    await userEvent.click(ask)
+    const field = within(panelOf()).getByRole('textbox')
+    await userEvent.click(field)
+    await userEvent.keyboard('{Escape}')
+    await expect(ask).toHaveFocus()
+    await expectAskTooltip(2)
   },
 }

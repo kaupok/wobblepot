@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import { Button } from './button'
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
 
@@ -60,6 +61,23 @@ export const AllSides: Story = {
       </Tooltip>
     </div>
   ),
+}
+
+/** `size="lg"`: 16px text, for the cook view (HON-981). */
+export const Large: Story = {
+  render: () => (
+    <Tooltip defaultOpen>
+      <TooltipTrigger asChild>
+        <Button variant="ghost">Ask</Button>
+      </TooltipTrigger>
+      <TooltipContent size="lg">Ask about step 2</TooltipContent>
+    </Tooltip>
+  ),
+  play: async () => {
+    const tooltip = await within(document.body).findByRole('tooltip')
+    const content = tooltip.closest('[data-slot="tooltip-content"]') ?? tooltip.parentElement!
+    await expect(getComputedStyle(content).fontSize).toBe('16px')
+  },
 }
 
 export const LongContent: Story = {
