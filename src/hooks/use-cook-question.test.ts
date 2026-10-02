@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { useCookQuestion, type CookQuestionAskInput } from './use-cook-question'
+import { COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH } from '@/lib/ai/cook-question-limits'
 import enMessages from '../../messages/en.json'
 
 vi.mock('@/lib/analytics', () => ({
@@ -298,6 +299,18 @@ describe('useCookQuestion', () => {
       await askAndAnswer(result, { question: 'Third?' }, 'Third answer.')
 
       expect(bodyOf(2).previous).toEqual({ question: 'Second?', answer: 'Second answer.' })
+    })
+
+    it('clips a long answer to the limit the route accepts, keeping its start', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      const long = 'a'.repeat(COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH) + 'b'.repeat(300)
+      await askAndAnswer(result, { question: FIRST.question }, long)
+      await askAndAnswer(result, { question: 'And if I have no oil?' }, 'Then…')
+
+      expect(bodyOf(1).previous).toEqual({
+        question: FIRST.question,
+        answer: 'a'.repeat(COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH),
+      })
     })
 
     it('the first question on another step sends no previous', async () => {

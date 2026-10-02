@@ -12,6 +12,7 @@ import {
   type CookQuestionErrorCode,
 } from '@/lib/ai/error-codes'
 import type { CookQuestionPrevious } from '@/lib/ai/cook-question'
+import { COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH } from '@/lib/ai/cook-question-limits'
 
 interface UseCookQuestionOptions {
   planId: string
@@ -291,9 +292,14 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
   const ask = useCallback(
     ({ source, ...request }: CookQuestionAskInput) => {
       const last = lastAnsweredRef.current
+      // Clipped, not left whole: the route drops an answer over its limit,
+      // and the follow-up would go without it.
       const previous =
         last?.stepIndex === request.stepIndex
-          ? { question: last.question, answer: last.answer }
+          ? {
+              question: last.question,
+              answer: last.answer.slice(0, COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH),
+            }
           : undefined
       void track('cook_view:question_asked', {
         plan_id: planId,
