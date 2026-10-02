@@ -3383,12 +3383,14 @@ describe('orchestrator.sh', () => {
   })
   describe('wt watch summary data (watch_scan_log)', () => {
     /** Write a fixture orchestrator.log and scan it through the real helper. */
-    const scan = (lines: string[], since = ''): Record<string, string> => {
+    // `now` drives the alert age-out. Empty means no age limit, which is what
+    // lets the fixtures below sit on 2026-09-20 without every alert expiring.
+    const scan = (lines: string[], since = '', now = ''): Record<string, string> => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-scan-'))
       const log = path.join(dir, 'orchestrator.log')
       fs.writeFileSync(log, `${lines.join('\n')}\n`)
       try {
-        const out = runHarness('watch-scan-log', log, since)
+        const out = runHarness('watch-scan-log', log, since, now)
         return Object.fromEntries(
           out
             .split('\n')
@@ -3556,8 +3558,8 @@ describe('orchestrator.sh', () => {
       // orchestrator.sh:1930 and :1934. Both say "the requeue has been dealt
       // with"; the old `/Neon branch cap/` pattern could not tell them from the
       // cap failure below, so a finished piece of bookkeeping claimed the alert
-      // line — and, since nothing clears an alert but a later claim or outcome,
-      // held it.
+      // line — and, until HON-937 added the five-minute age-out, nothing but a
+      // later claim or outcome cleared it, so it held the line.
       const r = scan([`2026-09-20 10:00:00 WARN  ${message}`])
 
       expect(r.ALERT).toBeUndefined()
@@ -3640,6 +3642,81 @@ describe('orchestrator.sh', () => {
 
       expect(r.ALERT).toBe('Failed to fetch issues from Linear')
       expect(r.ALERT_FULL).toBeUndefined()
+    })
+
+    describe('ages out an alert nothing has answered (HON-937)', () => {
+      // With an empty Queued state nothing is ever claimed, so the progress
+      // rule alone held a single 07:45 curl blip on screen until 11:00. Every
+      // condition that persists is re-logged on each one-minute poll, so a
+      // live alert's latest occurrence is always within five minutes.
+      const BLIP = [
+        '2026-10-02 07:45:00 ERROR Linear API request failed (curl error)',
+        '2026-10-02 07:45:00 WARN  Failed to fetch issues from Linear',
+        '2026-10-02 07:46:00 DEBUG Polling Linear for Queued issues',
+        '2026-10-02 07:47:00 DEBUG Polling Linear for Queued issues',
+        '2026-10-02 07:48:00 DEBUG Polling Linear for Queued issues',
+      ]
+
+      it('drops a one-off WARN once it is more than five minutes old', () => {
+        const r = scan(BLIP, '', '2026-10-02 07:52:00')
+
+        expect(r.ALERT).toBeUndefined()
+        expect(r.ALERT_AT).toBeUndefined()
+      })
+
+      it('keeps the same WARN while it is within five minutes', () => {
+        const r = scan(BLIP, '', '2026-10-02 07:49:00')
+
+        expect(r.ALERT).toBe('Failed to fetch issues from Linear')
+        expect(r.ALERT_AT).toBe('07:45')
+      })
+
+      it('keeps a re-logged condition on screen, measured from its latest line', () => {
+        const DISK = [
+          '2026-09-20 10:00:00 WARN  Low disk space: 0GB free (< 1GB threshold)',
+          '2026-09-20 10:01:00 WARN  Low disk space: 0GB free (< 1GB threshold)',
+          '2026-09-20 10:02:00 WARN  Low disk space: 0GB free (< 1GB threshold)',
+        ]
+        const live = scan(DISK, '', '2026-09-20 10:06:00')
+        const stale = scan(DISK, '', '2026-09-20 10:08:00')
+
+        expect(live.ALERT).toBe('Low disk space: 0GB free (< 1GB threshold)')
+        expect(live.ALERT_AT).toBe('10:02')
+        expect(live.ALERT_FULL).toBe('Low disk space: 0GB free (< 1GB threshold)')
+        // The full-orchestrator channel ages out on the same rule.
+        expect(stale.ALERT).toBeUndefined()
+        expect(stale.ALERT_FULL).toBeUndefined()
+      })
+
+      it('still clears a recent alert that a later claim answers', () => {
+        // The two rules combine with OR on clearing: freshness does not
+        // override recovery.
+        const r = scan(
+          [
+            '2026-09-20 10:00:00 WARN  Failed to fetch issues from Linear',
+            '2026-09-20 10:01:00 INFO  Selected: HON-706 — a later claim proves recovery',
+          ],
+          '',
+          '2026-09-20 10:02:00',
+        )
+
+        expect(r.ALERT).toBeUndefined()
+      })
+
+      it('applies no age limit when no clock is passed', () => {
+        const r = scan(BLIP, '', '')
+
+        expect(r.ALERT).toBe('Failed to fetch issues from Linear')
+      })
+
+      it('measures the five minutes across midnight', () => {
+        // The cutoff is computed in epoch seconds, not by string arithmetic on
+        // HH:MM, so a WARN just before midnight ages out on the next day.
+        const lines = ['2026-09-20 23:58:00 WARN  Pausing: low disk space']
+
+        expect(scan(lines, '', '2026-09-21 00:02:00').ALERT).toBe('Pausing: low disk space')
+        expect(scan(lines, '', '2026-09-21 00:04:00').ALERT).toBeUndefined()
+      })
     })
 
     it('answers with zeroes rather than failing on a log that does not exist', () => {
