@@ -129,7 +129,8 @@ function ShoppingListScreen({
             <div className="flex flex-col gap-2">
               <GroupHeading
                 emoji={CUSTOM_ITEMS_EMOJI}
-                label={tShopping('customItemsSection', { count: customShoppingItems.length })}
+                label={tShopping('customItemsSectionTitle')}
+                total={customShoppingItems.length}
                 count={`${checkedCustomCount}/${customShoppingItems.length}`}
               />
               <div className="flex flex-col gap-1">
@@ -179,7 +180,8 @@ function ShoppingListScreen({
             <div className="flex flex-col gap-2">
               <GroupHeading
                 emoji={CUSTOM_ITEMS_EMOJI}
-                label={tShopping('otherSection', { count: unlinkedCustomItems.length })}
+                label={tShopping('otherSectionTitle')}
+                total={unlinkedCustomItems.length}
                 count={
                   checkedUnlinkedCount > 0 &&
                   `${checkedUnlinkedCount}/${unlinkedCustomItems.length}`
