@@ -807,6 +807,48 @@ export const AskAboutStep: Story = {
   },
 }
 
+/**
+ * Ticking the step whose panel is open closes the panel (HON-982): the cook
+ * has moved on. Focus stays on the toggle that was pressed.
+ */
+export const AskClosesWhenStepDone: Story = {
+  name: 'Planned: ticking the step closes its Ask panel',
+  args: { ...plannedArgs, initialTips: tips },
+  play: async () => {
+    await findDialog()
+    const ask = body().getByRole('button', { name: 'Ask about step 2' })
+    await userEvent.click(ask)
+    await expect(body().getByRole('group', { name: 'Ask about step 2' })).toBeVisible()
+    await expect(ask).toHaveAttribute('aria-expanded', 'true')
+
+    await userEvent.click(stepButton(1))
+    await expect(stepButton(1)).toHaveAttribute('aria-pressed', 'true')
+    await expect(body().queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+    await expect(ask).toHaveAttribute('aria-expanded', 'false')
+    await expect(document.activeElement).toBe(stepButton(1))
+
+    // Un-ticking it reopens nothing.
+    await userEvent.click(stepButton(1))
+    await expect(body().queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+  },
+}
+
+/** Ticking a different step leaves the open panel as it is (HON-982). */
+export const AskStaysWhenOtherStepDone: Story = {
+  name: 'Planned: ticking another step keeps the Ask panel',
+  args: { ...plannedArgs, initialTips: tips },
+  play: async () => {
+    await findDialog()
+    const ask = body().getByRole('button', { name: 'Ask about step 2' })
+    await userEvent.click(ask)
+
+    await userEvent.click(stepButton(2))
+    await expect(stepButton(2)).toHaveAttribute('aria-pressed', 'true')
+    await expect(body().getByRole('group', { name: 'Ask about step 2' })).toBeVisible()
+    await expect(ask).toHaveAttribute('aria-expanded', 'true')
+  },
+}
+
 // ── Ask: the answer stays in view (HON-977) ──────────────────────────────
 
 /** Twelve long steps, so the last ones sit far below the fold. */

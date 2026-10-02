@@ -199,13 +199,23 @@ export function MealDetailModal({
     // An open question panel points at a step of the old list.
     setQuestionStep(null)
   }
-  const handleToggleStep = useCallback((index: number) => {
-    setDoneSteps((prev) => {
-      const next = new Set(prev)
-      if (!next.delete(index)) next.add(index)
-      return next
-    })
-  }, [])
+  const handleToggleStep = useCallback(
+    (index: number) => {
+      // Ticking the step whose panel is open closes the panel (HON-982): the
+      // cook has moved on. Focus stays on the toggle, which is outside the
+      // panel, so it is not handed to the Ask button as Close does.
+      if (!doneSteps.has(index) && questionStep === index) {
+        resetQuestion()
+        setQuestionStep(null)
+      }
+      setDoneSteps((prev) => {
+        const next = new Set(prev)
+        if (!next.delete(index)) next.add(index)
+        return next
+      })
+    },
+    [doneSteps, questionStep, resetQuestion],
+  )
 
   // Set by "Done cooking", read as the view finishes closing: the caller's
   // next dialog (the pantry deduction) opens only once this one is gone.
