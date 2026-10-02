@@ -4,7 +4,7 @@ In conversational responses, prioritize brevity. Keep explanations concise and d
 
 ## Writing style
 
-Write in ASD-STE100 (Simplified Technical English) at about 80%, in chat and in anything you write for Linear. Decided 2026-10-02 after a side-by-side comparison: the full rule reads fast and never needs a second pass, but it drops the reasoning between facts, which is the part a reader uses to decide.
+Write in ASD-STE100 (Simplified Technical English) at about 80%, in chat and in anything you write for Linear. The full rule reads fast and never needs a second pass, but it drops the reasoning between facts, which is the part a reader uses to decide.
 
 Keep, always:
 
@@ -20,7 +20,7 @@ Relax, when it carries meaning:
 - Follow a judgment call with one sentence of reason.
 - Run to about 25 words when the alternative is a repeated subject.
 
-Issue descriptions and acceptance criteria stay close to the full rule: an implementing agent wants one fact per line. Chat takes the wiggle room. See also → Writing for Agents.
+Issue descriptions and acceptance criteria stay close to the full rule, one fact per line, but keep the why as its own line: see Writing for Agents. Chat takes the wiggle room.
 
 ## Project Overview
 
