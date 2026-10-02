@@ -134,6 +134,19 @@ describe('track()', () => {
     })
   })
 
+  it('stores the key as a super property only after the first capture', async () => {
+    // register_once writes posthog-js's super-property store, so the real SDK
+    // attaches the key to every later event (documented in analytics.ts). The
+    // first event itself must not carry it: it goes out before the write.
+    await track('meal_plan:plan_generated', { plan_id: 'p1' })
+
+    expect(lastCaptureProps()).not.toHaveProperty('first_plan_generated_at')
+    expect(posthogMock.register_once.mock.invocationCallOrder[0]).toBeGreaterThan(
+      posthogMock.capture.mock.invocationCallOrder[0] ?? Infinity,
+    )
+    expect(persistence.get('first_plan_generated_at')).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+  })
+
   it('keeps the plan_generated and meal_completed guards independent across calls', async () => {
     await track('meal_plan:plan_generated', { plan_id: 'p1' })
     await track('meal_plan:meal_completed', { plan_id: 'p1', meal_id: 'm1', source: 'meal_card' })

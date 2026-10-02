@@ -52,6 +52,14 @@
  *   persistence (HON-991). If set, fires with `is_first: false`. Callers do
  *   not pass `is_first`. Activation funnels filter `is_first: true`.
  *
+ *   `register_once` stores a super property, so from then on posthog-js
+ *   attaches `first_*_at` to every event from this browser, as an event
+ *   property with the same name as the person property. That is deliberate:
+ *   it keeps the marker inside PostHog's own storage, which `opt_out_capturing()`
+ *   and `reset()` clear, rather than in a key of ours that would outlive a
+ *   consent withdrawal. Activation insights filter on `is_first` or on the
+ *   person property, never on the event property.
+ *
  *   Persistence is per browser, so a user's first activation event on a second
  *   device (or after sign-out, which runs `posthog.reset()`) carries
  *   `is_first: true` again. That is accepted; the person property's
