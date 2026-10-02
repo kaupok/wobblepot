@@ -1,5 +1,14 @@
-import { describe, expect, it } from 'vitest'
-import { getRequestId, withRequestId } from '@/lib/request-id'
+import { describe, expect, it, vi } from 'vitest'
+
+const { headersMock } = vi.hoisted(() => ({
+  // Outside a request, Next's `headers()` throws; the default mirrors that.
+  headersMock: vi.fn<() => Promise<Headers>>(() => {
+    throw new Error('`headers` was called outside a request scope')
+  }),
+}))
+
+vi.mock('next/headers', () => ({ headers: headersMock }))
+import { getClientSession, getRequestId, withRequestId } from '@/lib/request-id'
 
 describe('withRequestId / getRequestId', () => {
   it('returns undefined outside a wrapped scope', () => {
@@ -47,5 +56,45 @@ describe('withRequestId / getRequestId', () => {
     const wrapped = withRequestId(async () => new Response(null))
     await wrapped()
     expect(getRequestId()).toBeUndefined()
+  })
+})
+
+describe('getClientSession', () => {
+  const cookie = `ph_phc_TOKEN_posthog=${encodeURIComponent(
+    JSON.stringify({ distinct_id: 'u', $sesid: [2, 'sess-abc', 1] }),
+  )}`
+
+  it('resolves to an empty object outside a request scope', async () => {
+    await expect(getClientSession()).resolves.toEqual({})
+  })
+
+  it('reads the session id and the Referer of a fetch from a page', async () => {
+    headersMock.mockResolvedValueOnce(
+      new Headers({
+        cookie,
+        referer: 'https://wobblepot.com/plan?token=secret',
+        host: 'wobblepot.com',
+        'sec-fetch-dest': 'empty',
+      }),
+    )
+    await expect(getClientSession()).resolves.toEqual({
+      $session_id: 'sess-abc',
+      $current_url: 'https://wobblepot.com/plan',
+    })
+  })
+
+  it.each([
+    ['a page load', { 'sec-fetch-dest': 'document' }],
+    ['an RSC navigation', { rsc: '1' }],
+  ])('drops the Referer on %s, where it names the previous page', async (_, extra) => {
+    headersMock.mockResolvedValueOnce(
+      new Headers({
+        cookie,
+        referer: 'https://wobblepot.com/previous',
+        host: 'wobblepot.com',
+        ...extra,
+      }),
+    )
+    await expect(getClientSession()).resolves.toEqual({ $session_id: 'sess-abc' })
   })
 })

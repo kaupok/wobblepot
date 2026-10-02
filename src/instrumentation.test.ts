@@ -180,6 +180,79 @@ describe('onRequestError', () => {
     expect(captureExceptionMock.mock.calls[0]![1]).toBeUndefined()
   })
 
+  it('adds $session_id and the same-origin Referer to a route error (HON-998)', async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+    })
+    const cookieValue = encodeURIComponent(
+      JSON.stringify({ distinct_id: 'user-42', $sesid: [2, 'sess-abc', 1] }),
+    )
+    await onRequestError(
+      new Error('x'),
+      {
+        ...baseRequest,
+        headers: {
+          cookie: `ph_phc_TOKEN_posthog=${cookieValue}`,
+          referer: 'https://wobblepot.com/reset-password?token=secret',
+          host: 'wobblepot.com',
+        },
+      },
+      { routeType: 'route' },
+    )
+    const [, distinctIdArg, propsArg] = captureExceptionMock.mock.calls[0]!
+    expect(distinctIdArg).toBe('user-42')
+    expect(propsArg).toMatchObject({
+      $session_id: 'sess-abc',
+      $current_url: 'https://wobblepot.com/reset-password',
+    })
+  })
+
+  it('keeps $session_id but drops the Referer on a page render', async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+    })
+    const cookieValue = encodeURIComponent(JSON.stringify({ $sesid: [2, 'sess-abc', 1] }))
+    await onRequestError(
+      new Error('x'),
+      {
+        ...baseRequest,
+        headers: {
+          cookie: `ph_phc_TOKEN_posthog=${cookieValue}`,
+          referer: 'https://wobblepot.com/previous-page',
+          host: 'wobblepot.com',
+        },
+      },
+      { routeType: 'render' },
+    )
+    const propsArg = captureExceptionMock.mock.calls[0]![2]
+    expect(propsArg).toMatchObject({ $session_id: 'sess-abc' })
+    expect(propsArg).not.toHaveProperty('$current_url')
+  })
+
+  it('drops the Referer on a proxy error during a page load', async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+    })
+    const cookieValue = encodeURIComponent(JSON.stringify({ $sesid: [2, 'sess-abc', 1] }))
+    await onRequestError(
+      new Error('x'),
+      {
+        ...baseRequest,
+        path: '/shopping',
+        headers: {
+          cookie: `ph_phc_TOKEN_posthog=${cookieValue}`,
+          referer: 'https://wobblepot.com/meal-plan',
+          host: 'wobblepot.com',
+          'sec-fetch-dest': 'document',
+        },
+      },
+      { routeType: 'proxy' },
+    )
+    const propsArg = captureExceptionMock.mock.calls[0]![2]
+    expect(propsArg).toMatchObject({ $session_id: 'sess-abc', path: '/shopping' })
+    expect(propsArg).not.toHaveProperty('$current_url')
+  })
+
   it('swallows synchronous errors thrown from captureException', async () => {
     getPosthogServerMock.mockReturnValue({
       captureException: () => {
