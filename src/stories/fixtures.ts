@@ -445,7 +445,7 @@ export const produceShoppingItems: ShoppingItemData[] = [
   createShoppingItem({
     ingredientId: 'lemon',
     name: 'Lemon',
-    displayQuantity: '2 pcs',
+    displayQuantity: '2\u00a0pc',
     neededByDate: '2026-04-21',
     neededByRelative: 'Tuesday',
     neededByAbsolute: 'Tuesday, April 21',
@@ -501,7 +501,7 @@ export const shoppingItemsByUrgency: Record<UrgencyBucket, ShoppingItemData[]> =
     createShoppingItem({
       ingredientId: 'onion',
       name: 'Onion',
-      displayQuantity: '2 pcs',
+      displayQuantity: '2\u00a0pc',
       neededByDate: '2026-04-17',
       neededByRelative: 'today',
       neededByAbsolute: 'Friday, April 17',
@@ -1215,7 +1215,7 @@ export const urgentShoppingItems: UrgentShoppingItemData[] = [
   createUrgentShoppingItem({
     ingredientId: 'onion',
     name: 'Onion',
-    displayQuantity: '2 pcs',
+    displayQuantity: '2\u00a0pc',
     purchased: true,
   }),
   createUrgentShoppingItem({

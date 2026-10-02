@@ -217,7 +217,7 @@ describe('InventoryPage view', () => {
               {
                 ingredientId: 'garlic',
                 name: 'Garlic',
-                displayQuantity: '2',
+                displayQuantity: '2\u00a0pc',
                 purchased: false,
                 neededByDate: '2026-02-18',
                 neededByRelative: 'Wed',

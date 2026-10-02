@@ -28,7 +28,8 @@ export type ShoppingListResult = Awaited<ReturnType<typeof loadShoppingList>>
  * so one response cannot mix two languages when the household's stored locale
  * and the request locale disagree (a locale rolled back out of `KNOWN_LOCALES`,
  * HON-921). The `dates` and `VaguePhrase` translators take that locale
- * explicitly, so nothing here re-reads the session.
+ * explicitly, as does the `Unit` one that labels piece counts, so nothing here
+ * re-reads the session.
  */
 export async function loadShoppingList(
   household: ShoppingListHousehold,
@@ -36,7 +37,7 @@ export async function loadShoppingList(
 ) {
   const locale = resolveHouseholdLocale(household)
   // Compute rolling window shopping list and fetch custom items in parallel
-  const [result, pantryItems, customItems, tDates, tVague] = await Promise.all([
+  const [result, pantryItems, customItems, tDates, tVague, tUnit] = await Promise.all([
     computeRollingWindowShoppingList(household.id, days, household.timezone, locale),
     prisma.pantryItem.findMany({
       where: { householdId: household.id },
@@ -56,7 +57,9 @@ export async function loadShoppingList(
     }),
     getTranslations({ locale, namespace: 'dates' }),
     getTranslations({ locale, namespace: 'enums.VaguePhrase' }),
+    getTranslations({ locale, namespace: 'enums.Unit' }),
   ])
+  const pieceLabel = tUnit('piece')
 
   const pantryMap = new Map(pantryItems.map((p) => [p.ingredientId, p]))
 
@@ -95,6 +98,7 @@ export async function loadShoppingList(
           item.isVague,
           item.originalPhrase,
           tVague,
+          pieceLabel,
         ),
         mealCount: item.mealCount,
         purchased,

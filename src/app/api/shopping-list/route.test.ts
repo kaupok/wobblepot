@@ -45,15 +45,16 @@ vi.mock('@/lib/i18n/get-locale', () => ({
 import { getLocale } from '@/lib/i18n/get-locale'
 const mockGetLocale = vi.mocked(getLocale)
 
-// Vague phrases resolve against the real catalog of the requested locale so the
-// test sees the rendered label; every other namespace returns the key.
+// Enum labels (vague phrases, the piece unit) resolve against the real catalog
+// of the requested locale so the test sees the rendered label; every other
+// namespace returns the key.
 vi.mock('next-intl/server', async () => {
   const { createTranslator } = await vi.importActual<typeof import('next-intl')>('next-intl')
   const enMessages = (await import('../../../../messages/en.json')).default
   const etMessages = (await import('../../../../messages/et.json')).default
   return {
     getTranslations: vi.fn(async ({ locale, namespace }: { locale: string; namespace: string }) =>
-      namespace === 'enums.VaguePhrase'
+      namespace.startsWith('enums.')
         ? createTranslator({
             locale,
             messages: (locale === 'et' ? etMessages : enMessages) as never,
@@ -386,10 +387,16 @@ describe('GET /api/shopping-list', () => {
     )
   })
 
-  it('formats piece-based items correctly', async () => {
+  it.each([
+    ['en', '6\u00a0pc'],
+    ['et', '6\u00a0tk'],
+  ] as const)('formats piece-based items with the %s piece label', async (locale, expected) => {
     const neededDate = new Date('2026-02-01')
     mockGetSession.mockResolvedValue(mockSession as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale },
+    } as never)
     mockComputeShoppingList.mockResolvedValue({
       groups: [
         {
@@ -427,8 +434,9 @@ describe('GET /api/shopping-list', () => {
     const response = await GET(createMockRequest())
     const data = await response.json()
 
-    // Piece quantities are already piece counts (HON-713): 6 eggs, not 6 / 60
-    expect(data.groups[0].items[0].displayQuantity).toBe('6')
+    // Piece quantities are already piece counts (HON-713): 6 eggs, not 6 / 60,
+    // labelled in the household's language (HON-956)
+    expect(data.groups[0].items[0].displayQuantity).toBe(expected)
   })
 
   it('formats kilogram quantities with locale-aware decimal separator', async () => {

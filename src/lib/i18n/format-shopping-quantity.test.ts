@@ -2,13 +2,21 @@ import { describe, it, expect } from 'vitest'
 import type { Unit } from '@/generated/prisma/enums'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { formatShoppingQuantity as format, formatWeight } from './format-shopping-quantity'
+import {
+  formatShoppingQuantity as format,
+  formatWeight,
+  withPieceUnit,
+} from './format-shopping-quantity'
 import type { Locale } from './locales'
 import type { VaguePhraseKey } from './vague-phrase'
 
 const vagueLabels = { en: enMessages.enums.VaguePhrase, et: etMessages.enums.VaguePhrase }
+const pieceLabels = { en: enMessages.enums.Unit.piece, et: etMessages.enums.Unit.piece }
 
-/** Formats with the locale's own `enums.VaguePhrase` labels, as the server callers do. */
+// The no-break space the piece label hangs on (HON-956).
+const NBSP = '\u00a0'
+
+/** Formats with the locale's own `enums.VaguePhrase` and `enums.Unit` labels, as the server callers do. */
 function formatShoppingQuantity(
   quantity: number,
   unit: Unit,
@@ -17,7 +25,7 @@ function formatShoppingQuantity(
   originalPhrase: string | null = null,
 ) {
   const tVague = (key: VaguePhraseKey) => vagueLabels[locale][key]
-  return format(quantity, unit, locale, isVague, originalPhrase, tVague)
+  return format(quantity, unit, locale, isVague, originalPhrase, tVague, pieceLabels[locale])
 }
 
 describe('formatShoppingQuantity', () => {
@@ -72,23 +80,26 @@ describe('formatShoppingQuantity', () => {
 
   describe('pieces', () => {
     // Piece quantities are already piece counts (HON-713), never grams.
-    it('renders a whole piece count as-is', () => {
+    it('renders a whole piece count with the locale piece label', () => {
       // 2 eggs per serving x 4 servings
-      expect(formatShoppingQuantity(8, 'piece', 'en')).toBe('8')
-      expect(formatShoppingQuantity(8, 'piece', 'et')).toBe('8')
+      expect(formatShoppingQuantity(8, 'piece', 'en')).toBe(`8${NBSP}pc`)
+      expect(formatShoppingQuantity(8, 'piece', 'et')).toBe(`8${NBSP}tk`)
+      expect(formatShoppingQuantity(1, 'piece', 'en')).toBe(`1${NBSP}pc`)
+      expect(formatShoppingQuantity(1, 'piece', 'et')).toBe(`1${NBSP}tk`)
+      expect(formatShoppingQuantity(3, 'piece', 'en')).toBe(`3${NBSP}pc`)
     })
 
     it('rounds up partial pieces (always enough for shopping)', () => {
       // half a lemon per serving x 3 servings
-      expect(formatShoppingQuantity(1.5, 'piece', 'en')).toBe('2')
+      expect(formatShoppingQuantity(1.5, 'piece', 'en')).toBe(`2${NBSP}pc`)
     })
 
     it('does not round up float residue from total / servings * servings', () => {
-      expect(formatShoppingQuantity((8 / 3) * 3, 'piece', 'en')).toBe('8')
+      expect(formatShoppingQuantity((8 / 3) * 3, 'piece', 'en')).toBe(`8${NBSP}pc`)
     })
 
     it('never switches to kg, however large the count', () => {
-      expect(formatShoppingQuantity(1500, 'piece', 'en')).toBe('1,500')
+      expect(formatShoppingQuantity(1500, 'piece', 'en')).toBe(`1,500${NBSP}pc`)
     })
   })
 
@@ -128,5 +139,13 @@ describe('formatWeight', () => {
   it('rounds to one fraction digit with the locale decimal separator', () => {
     expect(formatWeight(1250, 'en')).toBe('1.3kg')
     expect(formatWeight(1250, 'et')).toBe('1,3kg')
+  })
+})
+
+describe('withPieceUnit', () => {
+  // A regular space would let the unit wrap onto its own line (HON-956).
+  it('joins the amount and the label with a no-break space', () => {
+    expect(withPieceUnit('1,5', 'tk')).toBe('1,5\u00a0tk')
+    expect(withPieceUnit('1,5', 'tk')).not.toContain(' ')
   })
 })

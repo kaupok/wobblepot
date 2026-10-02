@@ -457,7 +457,7 @@ describe('GET /api/pantry', () => {
 
     expect(response.status).toBe(200)
     // Household size 2, so 1.5 * 2 = 3 eggs — not divided by gramsPerPiece
-    expect(data.items[0].neededDisplayQuantity).toBe('3')
+    expect(data.items[0].neededDisplayQuantity).toBe('3\u00a0pc')
   })
 
   // `isVague` tells the row its display is a phrase, so it must be set only

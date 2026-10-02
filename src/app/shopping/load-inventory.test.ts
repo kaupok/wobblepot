@@ -71,7 +71,7 @@ const SHOPPING_LIST = {
           name: 'Onion',
           quantity: 2,
           unit: 'piece',
-          displayQuantity: '2',
+          displayQuantity: '2\u00a0pc',
           mealCount: 1,
           purchased: true,
           neededByDate: '2026-09-29',

@@ -141,7 +141,7 @@ export const AllStates: Story = {
         item={createShoppingItem({
           ingredientId: 'due-today',
           name: 'Lemon',
-          displayQuantity: '2 pcs',
+          displayQuantity: '2\u00a0pc',
           neededByRelative: 'Today',
           dueToday: true,
         })}
