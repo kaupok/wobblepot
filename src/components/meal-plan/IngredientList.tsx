@@ -5,7 +5,8 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Body, Heading, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
-import { formatInteger, formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
+import { formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
+import { formatWeight } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
 import { useVaguePhrase } from '@/lib/i18n/enum-label'
 import { AvailabilityIndicator, getIngredientAvailabilitySets } from './AvailabilityIndicator'
@@ -69,9 +70,8 @@ function formatQuantity(
     return formatLocaleQuantity(totalQuantity, locale, { maximumFractionDigits: 1 })
   }
 
-  // For grams, round to nearest integer and add unit. Locale-aware so `et`
-  // gets its non-breaking-space thousands separator on ≥1000g values.
-  return `${formatInteger(totalQuantity, locale)}g`
+  // Grams switch to kg at 1000g, as on the shopping list and pantry (HON-950).
+  return formatWeight(totalQuantity, locale)
 }
 
 export function IngredientList({

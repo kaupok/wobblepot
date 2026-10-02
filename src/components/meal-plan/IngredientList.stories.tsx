@@ -12,9 +12,9 @@ const vagueSalt = createMealComponent({
   originalPhrase: 'to taste',
 })
 
-// 350g/serving crosses 1000g total at 3+ servings, exercising the
-// locale-aware grouping on the gram path (HON-556): en "1,400g", et "1400g"
-// (CLDR Estonian only groups at 5+ digits).
+// 350g/serving crosses 1000g total at 3+ servings, so the rice renders in kg
+// with the locale's decimal separator (HON-950): en "1.4kg" at 4 servings,
+// et "1,1kg" at 3.
 const rice = createMealComponent({ ingredientId: 'short-grain-rice', quantityPerServing: 350 })
 
 const componentsWithVagueSalt = [...lemonGarlicChickenComponentsFull, rice, vagueSalt]
@@ -145,9 +145,7 @@ export const LargerServings: Story = {
  * Estonian locale: piece quantities use a comma decimal separator. At 3 servings
  * the lemon (0.5 per serving) renders as "1,5" — not "1.5" — exercising the
  * locale-aware `formatQuantity` path (HON-546 item 1). The rice (350g per
- * serving → 1050g) exercises the locale-aware gram path: `et` renders
- * "1050g" — no grouping below 5 digits per CLDR — where `en` would show
- * "1,050g" (HON-556).
+ * serving → 1050g) renders in kg with a comma: "1,1kg" (HON-950).
  */
 export const EstonianLocale: Story = {
   name: 'Estonian (comma decimals)',
@@ -155,7 +153,10 @@ export const EstonianLocale: Story = {
   args: { servings: 3, householdSize: 3 },
   // The salt's stored "to taste" renders through `enums.VaguePhrase` (HON-917).
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByText('maitse järgi')).toBeVisible()
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('maitse järgi')).toBeVisible()
+    await expect(canvas.getByText('1,5')).toBeVisible()
+    await expect(canvas.getByText('1,1kg')).toBeVisible()
   },
 }
 

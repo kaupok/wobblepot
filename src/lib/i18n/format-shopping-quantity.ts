@@ -14,8 +14,7 @@ import { formatVaguePhrase, type VaguePhraseLabel } from './vague-phrase'
  *   passes through unchanged.
  * - Pieces: the quantity is already a piece count; rounded up so the shopper
  *   buys enough.
- * - Grams: renders `<n>g` for sub-kilogram amounts, `<n>kg` for >= 1000g, with
- *   one fraction digit at most (whole kilograms collapse to e.g. `2kg`).
+ * - Grams: `formatWeight` — `<n>g` below 1000g, `<n>kg` from there on.
  *
  * Decimal separator and thousands grouping follow `locale`: `1.5kg` in `en`,
  * `1,5kg` in `et`.
@@ -38,10 +37,20 @@ export function formatShoppingQuantity(
     return formatInteger(Math.ceil(quantity - 1e-9), locale)
   }
 
-  if (quantity >= 1000) {
-    const kg = quantity / 1000
-    return `${formatQuantity(kg, locale, { maximumFractionDigits: 1 })}kg`
+  return formatWeight(quantity, locale)
+}
+
+/**
+ * Format a weight in grams: `<n>g` below 1000g, `<n>kg` at 1000g and above,
+ * with one fraction digit at most (whole kilograms collapse to e.g. `2kg`).
+ * Shared by the shopping list, the pantry and the cook view, so one weight
+ * reads the same everywhere (HON-950).
+ */
+export function formatWeight(grams: number, locale: Locale): string {
+  // 999.5g and up would round to "1,000g" on the gram path.
+  if (grams >= 999.5) {
+    return `${formatQuantity(grams / 1000, locale, { maximumFractionDigits: 1 })}kg`
   }
 
-  return `${formatInteger(quantity, locale)}g`
+  return `${formatInteger(grams, locale)}g`
 }
