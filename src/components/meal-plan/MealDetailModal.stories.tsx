@@ -103,6 +103,24 @@ async function findDialog(): Promise<HTMLElement> {
 }
 
 const px = (value: string) => Number.parseFloat(value)
+const box = (el: Element) => el.getBoundingClientRect()
+
+/** Whether two boxes share any area: touching edges do not count. */
+function overlaps(a: DOMRect, b: DOMRect): boolean {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+}
+
+/** The "Steps" heading sits clear of the close button in the panel's corner. */
+async function assertStepsClearOfClose(dialog: HTMLElement): Promise<void> {
+  const heading = within(within(dialog).getByTestId('cook-view-steps')).getByRole('heading', {
+    name: 'Steps',
+  })
+  const close = within(dialog).getByRole('button', { name: 'Close' })
+  // The text, not the heading: a block spans the column's full width.
+  const text = document.createRange()
+  text.selectNodeContents(heading)
+  await expect(overlaps(text.getBoundingClientRect(), box(close))).toBe(false)
+}
 
 // The viewport a fixed element fills, read off the dialog's own `inset-0`
 // overlay: on a classic-scrollbar system `html` keeps a scrollbar gutter while
@@ -216,6 +234,9 @@ async function assertColumns(): Promise<void> {
 
   const step = within(steps).getByText(tips.steps![0]!)
   await expect(getComputedStyle(step).fontSize).toBe('22px')
+  // With a hero, "Steps" heads its column, clear of the close button (HON-951).
+  steps.scrollTop = 0
+  await assertStepsClearOfClose(dialog)
   await assertNoSmallText(dialog)
   await assertDisclaimerUnderMacros(dialog)
 }
@@ -246,6 +267,32 @@ export const LaptopDark: Story = {
   args: { meal: tintedMeal },
   globals: { viewport: LAPTOP, theme: 'dark' },
   play: assertColumns,
+}
+
+/**
+ * Without a hero, the "Steps" heading starts on the meal name's line, and the
+ * close button in the corner stays clear of it (HON-951).
+ */
+async function assertStepsAlignedWithTitle(): Promise<void> {
+  const dialog = await findDialog()
+  await expect(within(dialog).queryByTestId('meal-image-hero')).not.toBeInTheDocument()
+  const title = within(dialog).getByRole('heading', { level: 2, name: mealFixture.name })
+  const steps = within(dialog).getByTestId('cook-view-steps')
+  const heading = within(steps).getByRole('heading', { name: 'Steps' })
+  await expect(Math.abs(box(heading).top - box(title).top)).toBeLessThanOrEqual(4)
+  await assertStepsClearOfClose(dialog)
+}
+
+export const WithoutImageTabletLandscape: Story = {
+  name: 'No image, tablet landscape (1024×768)',
+  globals: { viewport: TABLET },
+  play: assertStepsAlignedWithTitle,
+}
+
+export const WithoutImageLaptop: Story = {
+  name: 'No image, laptop (1440×900)',
+  globals: { viewport: LAPTOP },
+  play: assertStepsAlignedWithTitle,
 }
 
 // ── The phone's sticky bar ─────────────────────────────────────────────────

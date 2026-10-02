@@ -58,7 +58,50 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Default: Story = {}
+export const Default: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The meta row: the time as the cards’ `surface` badge with a clock, at the cook view’s `lg` size, then the Kid-friendly badge (HON-951).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const time = canvas.getByText('45 min').closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(time).toHaveAttribute('data-variant', 'surface')
+    await expect(time.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    const kidFriendly = canvas
+      .getByText('Kid-friendly')
+      .closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(follows(time, kidFriendly)).toBe(true)
+    // Both `lg`: the same height, on the same line.
+    await expect(time.offsetHeight).toBe(kidFriendly.offsetHeight)
+    await expect(time.offsetTop).toBe(kidFriendly.offsetTop)
+  },
+}
+
+export const ZeroMinutes: Story = {
+  name: 'No prep time',
+  args: { meal: createMeal({ components: lemonGarlicChickenComponentsFull, timeMinutes: 0 }) },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A meal with no time, or 0 minutes, shows no time badge: only the Kid-friendly badge (HON-711, HON-951).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Kid-friendly')).toBeVisible()
+    await expect(canvas.queryByText(/^\d+ min$/)).toBeNull()
+    // No stray "0" where the badge would be (HON-711).
+    const row = canvas.getByText('Kid-friendly').closest('[data-slot="badge"]')!.parentElement!
+    await expect(row).toHaveTextContent(/^Kid-friendly$/)
+  },
+}
 
 export const WithDescription: Story = {
   args: {
