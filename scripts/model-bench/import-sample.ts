@@ -41,7 +41,9 @@ const SampleSchema = z.object({
 
 export type AiSample = z.infer<typeof SampleSchema>
 
-type SupportedCallSite = Exclude<AiSampleCallSite, 'fill-empty-slots'>
+// `cook-question` has no benchmark task yet (HON-969): its sample reads as an
+// unknown call site until one exists.
+type SupportedCallSite = Exclude<AiSampleCallSite, 'fill-empty-slots' | 'cook-question'>
 
 /** Which benchmark task runs the request each call site sends. */
 export const CALL_SITE_TASKS: Record<SupportedCallSite, Task> = {

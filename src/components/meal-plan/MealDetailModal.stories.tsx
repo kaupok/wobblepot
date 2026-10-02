@@ -739,9 +739,61 @@ export const KeyboardTogglesStep: Story = {
     await expect(stepButton(1)).toHaveAttribute('aria-pressed', 'true')
     await userEvent.keyboard('{Enter}')
     await expect(stepButton(1)).toHaveAttribute('aria-pressed', 'false')
-    // Tab moves on to the next step.
+    // Tab moves on to the step's Ask button (HON-969), then the next step.
+    await userEvent.tab()
+    await expect(body().getByRole('button', { name: 'Ask about step 2' })).toHaveFocus()
     await userEvent.tab()
     await expect(stepButton(2)).toHaveFocus()
+  },
+}
+
+/**
+ * Ask about a step (HON-969): the chip sends at once, the answer shows under
+ * the step, and Close puts focus back on that step's Ask button.
+ */
+export const AskAboutStep: Story = {
+  name: 'Planned: ask about a step',
+  args: { ...plannedArgs, initialTips: tips },
+  parameters: {
+    msw: {
+      handlers: {
+        cookQuestion: [
+          http.post('/api/meal-plans/:planId/entries/:entryId/cook-question', () =>
+            HttpResponse.json({
+              answer: 'Use the Greek yoghurt you have, stirred in off the heat.',
+            }),
+          ),
+        ],
+      },
+    },
+  },
+  play: async () => {
+    await findDialog()
+    const ask = body().getByRole('button', { name: 'Ask about step 2' })
+    await expect(ask.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    await userEvent.click(ask)
+    const panel = body().getByRole('group', { name: 'Ask about step 2' })
+    await userEvent.click(
+      within(panel).getByRole('button', { name: 'What can I substitute here?' }),
+    )
+    await expect(
+      await within(panel).findByText('Use the Greek yoghurt you have, stirred in off the heat.'),
+    ).toBeVisible()
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
+    await expect(body().queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+    await expect(ask).toHaveFocus()
+  },
+}
+
+/** A completed entry gets no Ask buttons: nobody is cooking it. */
+export const CompletedHasNoAsk: Story = {
+  name: 'Completed: no Ask buttons',
+  args: { meal: tintedMeal, status: 'completed', initialTips: tips },
+  play: async () => {
+    await findDialog()
+    await userEvent.click(await body().findByRole('button', { name: 'How to prepare' }))
+    await expect(await body().findByRole('button', { name: tips.steps![0]! })).toBeVisible()
+    await expect(body().queryByRole('button', { name: /^Ask about step/ })).toBeNull()
   },
 }
 

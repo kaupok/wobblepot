@@ -14,7 +14,11 @@ import { IngredientList } from './IngredientList'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { MyRecipeBadge } from './MyRecipeBadge'
 import { computeMealAvailability, hasPantryData } from './AvailabilityIndicator'
-import { PreparationEquipment, PreparationSteps } from './PreparationTips'
+import {
+  PreparationEquipment,
+  PreparationSteps,
+  type CookQuestionControls,
+} from './PreparationTips'
 import { ServingControl } from './ServingControl'
 import type { MealStatus } from './StatusSelect'
 import type { MealData, PantryIngredient, StructuredTips } from './types'
@@ -68,6 +72,8 @@ interface MealDetailProps {
   doneSteps?: ReadonlySet<number>
   /** Makes each generated step a done / not-done toggle (HON-933) */
   onToggleStep?: (index: number) => void
+  /** An Ask button beside each step toggle (HON-969); see `PreparationSteps` */
+  cookQuestion?: CookQuestionControls
   /**
    * Renders "Done cooking" after the steps, Watch out and Tip. The caller
    * passes it only for a planned entry it can edit.
@@ -136,6 +142,7 @@ export function MealDetail({
   onHowToPrepare,
   doneSteps,
   onToggleStep,
+  cookQuestion,
   onDoneCooking,
 }: MealDetailProps) {
   const tDetail = useTranslations('meal-plan.detail')
@@ -301,6 +308,7 @@ export function MealDetail({
                 preparationNotes={meal.preparationNotes}
                 doneSteps={doneSteps}
                 onToggleStep={onToggleStep}
+                cookQuestion={cookQuestion}
               />
               {/* A planned entry generates its steps on open (HON-933); anything
                   else asks for them: full width on a phone, label-sized from `md`. */}

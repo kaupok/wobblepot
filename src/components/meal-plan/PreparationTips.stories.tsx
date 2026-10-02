@@ -1,7 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, within } from 'storybook/test'
+import { expect, fn, userEvent, within } from 'storybook/test'
 import { mealHueStyle } from './MealImageCard'
-import { PreparationEquipment, PreparationSteps } from './PreparationTips'
+import {
+  PreparationEquipment,
+  PreparationSteps,
+  type CookQuestionControls,
+} from './PreparationTips'
 import type { StructuredTips } from './types'
 
 const fullTips: StructuredTips = {
@@ -165,5 +169,135 @@ export const PitfallsOnly: Story = {
     },
     isLoading: false,
     error: null,
+  },
+}
+
+/** The cook-question controls as `MealDetailModal` passes them, with spies (HON-969). */
+function cookQuestion(overrides: Partial<CookQuestionControls> = {}): CookQuestionControls {
+  return {
+    openStep: null,
+    onOpenStep: fn(),
+    onClose: fn(),
+    ask: fn(),
+    active: null,
+    isPending: false,
+    error: null,
+    onRetry: fn(),
+    ...overrides,
+  }
+}
+
+/** Each step with its 44px Ask button beside the toggle; no panel open. */
+export const WithAskButtons: Story = {
+  args: {
+    tips: fullTips,
+    isLoading: false,
+    error: null,
+    doneSteps: new Set([0]),
+    onToggleStep: fn(),
+    cookQuestion: cookQuestion(),
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    const ask = canvas.getByRole('button', { name: 'Ask about step 2' })
+    await expect(ask.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    await expect(ask.getBoundingClientRect().width).toBeGreaterThanOrEqual(44)
+    await userEvent.click(ask)
+    await expect(args.cookQuestion!.onOpenStep).toHaveBeenCalledWith(1)
+  },
+}
+
+/** The panel open under step 2: three chips, then the field and Send. */
+export const AskPanelOpen: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion({ openStep: 1 }),
+  },
+  play: async ({ canvasElement, args }) => {
+    const panel = within(canvasElement).getByRole('group', { name: 'Ask about step 2' })
+    await userEvent.click(within(panel).getByRole('button', { name: "How do I know it's done?" }))
+    await expect(args.cookQuestion!.ask).toHaveBeenCalledWith({
+      stepIndex: 1,
+      steps: fullTips.steps,
+      question: "How do I know it's done?",
+      source: 'chip',
+    })
+    for (const button of within(panel).getAllByRole('button')) {
+      await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    }
+  },
+}
+
+export const AskPending: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion({
+      openStep: 1,
+      isPending: true,
+      active: { stepIndex: 1, question: "How do I know it's done?", answer: null },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('status')).toHaveTextContent('Thinking…')
+    await expect(canvas.getByRole('button', { name: 'Send' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+  },
+}
+
+export const AskAnswered: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion({
+      openStep: 1,
+      active: {
+        stepIndex: 1,
+        question: 'What can I substitute here?',
+        answer:
+          'No garlic? Use the onion you have, sliced thin, for the same base. Add it with the lemon so it softens in the pan juices.',
+      },
+    }),
+  },
+}
+
+export const AskAnsweredDark: Story = {
+  ...AskAnswered,
+  globals: { theme: 'dark' },
+}
+
+/** A timeout: catalog copy, and Retry because a second try can help. */
+export const AskError: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion({
+      openStep: 1,
+      active: { stepIndex: 1, question: "I'm short on time", answer: null },
+      error: { message: 'The answer took too long. Please try again.', canRetry: true },
+    }),
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'Retry' }))
+    await expect(args.cookQuestion!.onRetry).toHaveBeenCalledOnce()
+  },
+}
+
+/** The hourly limit: catalog copy, and no Retry, which would only hit it again. */
+export const AskRateLimited: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion({
+      openStep: 1,
+      active: { stepIndex: 1, question: "I'm short on time", answer: null },
+      error: {
+        message: "You've reached this hour's limit for questions. Please try again later.",
+        canRetry: false,
+      },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByRole('button', { name: 'Retry' })).toBeNull()
   },
 }

@@ -83,6 +83,17 @@ export type PreparationTipsErrorCode =
   | 'tips_failed'
 
 /**
+ * Error codes returned by `POST /api/meal-plans/[id]/entries/[entryId]/cook-question`
+ * (HON-969): the preparation-tips guards, plus its own validation, timeout and
+ * failure codes.
+ */
+export type CookQuestionErrorCode =
+  | Exclude<PreparationTipsErrorCode, 'tips_timeout' | 'tips_failed'>
+  | 'invalid_question'
+  | 'question_timeout'
+  | 'question_failed'
+
+/**
  * The subset of `RecipeImportErrorCode` a `RecipeParseError` can carry. The
  * route maps these to a status: `robots_disallowed` is a 403,
  * `provider_unavailable` a 503, the rest are 400s.
@@ -213,6 +224,33 @@ export const PREPARATION_TIPS_ERROR_KEYS = {
  */
 export function preparationTipsFallbackKey(status: number): string {
   return status === 504 ? 'tipsTimeout' : 'tipsFailed'
+}
+
+/**
+ * `CookQuestionErrorCode` → message key under `meal-plan.cookQuestion.errors`,
+ * read by `useCookQuestion` (HON-969).
+ */
+export const COOK_QUESTION_ERROR_KEYS = {
+  unauthorized: 'unauthorized',
+  no_household: 'noHousehold',
+  entry_not_found: 'entryNotFound',
+  no_meal: 'noMeal',
+  rate_limited: 'rateLimited',
+  generation_disabled: 'generationDisabled',
+  ai_cap_exceeded: 'aiCapExceeded',
+  provider_busy: 'providerBusy',
+  provider_unavailable: 'providerUnavailable',
+  invalid_question: 'invalidQuestion',
+  question_timeout: 'questionTimeout',
+  question_failed: 'questionFailed',
+} as const satisfies Record<CookQuestionErrorCode, string>
+
+/**
+ * Fallback key for a cook-question response with no usable `code`: a platform
+ * 504 still gets the timeout copy, as in `preparationTipsFallbackKey`.
+ */
+export function cookQuestionFallbackKey(status: number): string {
+  return status === 504 ? 'questionTimeout' : 'questionFailed'
 }
 
 /**

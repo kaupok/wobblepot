@@ -309,6 +309,34 @@
         "tipsFailed": "Valmistusjuhiste koostamine ebaõnnestus. Palun proovi uuesti."
       }
     },
+    "cookQuestion": {
+      "askAboutStep": "Küsi sammu {n} kohta",
+      "chips": {
+        "done": "Kuidas ma tean, et see on valmis?",
+        "substitute": "Millega saan siin asendada?",
+        "time": "Mul on vähe aega"
+      },
+      "questionLabel": "Sinu küsimus",
+      "placeholder": "Küsi selle sammu kohta",
+      "send": "Saada",
+      "thinking": "Mõtlen…",
+      "retry": "Proovi uuesti",
+      "close": "Sulge",
+      "errors": {
+        "unauthorized": "Palun logi sisse, et sammu kohta küsida.",
+        "noHousehold": "Sammu kohta küsimiseks pead kuuluma leibkonda.",
+        "entryNotFound": "Seda toitu pole enam sinu plaanis. Värskenda lehte ja proovi uuesti.",
+        "noMeal": "Siia pole veel toitu valitud. Vali kõigepealt toit.",
+        "rateLimited": "Oled jõudnud selle tunni küsimuste piiranguni. Palun proovi hiljem uuesti.",
+        "generationDisabled": "Küsimused on praegu välja lülitatud. Palun proovi hiljem uuesti.",
+        "aiCapExceeded": "Selle kuu AI kasutuslimiit on täis. See lähtestub järgmise kuu alguses.",
+        "providerBusy": "Vastuste teenus on hõivatud. Palun proovi mõne hetke pärast uuesti.",
+        "providerUnavailable": "Vastuste teenus pole ajutiselt saadaval. Palun proovi mõne hetke pärast uuesti.",
+        "invalidQuestion": "Kirjuta küsimus, mis on kuni 300 tähemärki pikk.",
+        "questionTimeout": "Vastamine võttis liiga kaua aega. Palun proovi uuesti.",
+        "questionFailed": "Vastust ei õnnestunud saada. Palun proovi uuesti."
+      }
+    },
     "nutrition": {
       "summaryHeader": "Toiteväärtus (portsjoni kohta)",
       "calories": "Kalorid",

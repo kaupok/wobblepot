@@ -1,7 +1,12 @@
+import { useState } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { PreparationEquipment, PreparationSteps } from './PreparationTips'
+import {
+  PreparationEquipment,
+  PreparationSteps,
+  type CookQuestionControls,
+} from './PreparationTips'
 import type { StructuredTips } from '@/components/meal-plan/types'
 
 const sampleTips: StructuredTips = {
@@ -261,5 +266,171 @@ describe('PreparationSteps progress', () => {
   it('says the steps are being written while loading', () => {
     render(<PreparationSteps tips={null} isLoading={true} error={null} onRetry={vi.fn()} />)
     expect(screen.getByText('Writing the steps…')).toBeInTheDocument()
+  })
+})
+
+// Each generated step gets an Ask button beside its toggle (HON-969).
+describe('PreparationSteps cook question', () => {
+  /** The modal's side of the contract: one open step, held in state. */
+  function Harness({
+    controls = {},
+  }: {
+    controls?: Partial<Omit<CookQuestionControls, 'openStep' | 'onOpenStep' | 'onClose'>>
+  }) {
+    const [openStep, setOpenStep] = useState<number | null>(null)
+    return (
+      <PreparationSteps
+        tips={sampleTips}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        onToggleStep={vi.fn()}
+        cookQuestion={{
+          openStep,
+          onOpenStep: setOpenStep,
+          onClose: () => setOpenStep(null),
+          ask: vi.fn(),
+          active: null,
+          isPending: false,
+          error: null,
+          onRetry: vi.fn(),
+          ...controls,
+        }}
+      />
+    )
+  }
+  const askButton = (n: number) => screen.getByRole('button', { name: `Ask about step ${n}` })
+  const panel = (n: number) => screen.queryByRole('group', { name: `Ask about step ${n}` })
+
+  it('renders an Ask button per step only with cookQuestion', () => {
+    const { unmount } = render(<Harness />)
+    expect(askButton(1)).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getAllByRole('button', { name: /^Ask about step/ })).toHaveLength(3)
+    unmount()
+
+    render(
+      <PreparationSteps
+        tips={sampleTips}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        onToggleStep={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /^Ask about step/ })).toBeNull()
+  })
+
+  it('shows no Ask button on the static numbered list', () => {
+    render(<PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /^Ask about step/ })).toBeNull()
+  })
+
+  it('opens a panel with three chips and a field, and one panel at a time', async () => {
+    render(<Harness />)
+    await userEvent.click(askButton(1))
+
+    const first = panel(1)!
+    expect(askButton(1)).toHaveAttribute('aria-expanded', 'true')
+    expect(within(first).getByRole('button', { name: "How do I know it's done?" })).toBeVisible()
+    expect(within(first).getByRole('button', { name: 'What can I substitute here?' })).toBeVisible()
+    expect(within(first).getByRole('button', { name: "I'm short on time" })).toBeVisible()
+    expect(within(first).getByRole('textbox', { name: 'Your question' })).toBeVisible()
+
+    await userEvent.click(askButton(2))
+    expect(panel(1)).toBeNull()
+    expect(panel(2)).not.toBeNull()
+    // Switching moves focus into the new panel's field.
+    expect(within(panel(2)!).getByRole('textbox')).toHaveFocus()
+  })
+
+  it('a chip sends its text, the steps and source chip', async () => {
+    const ask = vi.fn()
+    render(<Harness controls={{ ask }} />)
+    await userEvent.click(askButton(2))
+    await userEvent.click(screen.getByRole('button', { name: 'What can I substitute here?' }))
+
+    expect(ask).toHaveBeenCalledWith({
+      stepIndex: 1,
+      steps: sampleTips.steps,
+      question: 'What can I substitute here?',
+      source: 'chip',
+    })
+  })
+
+  it('Enter in the field sends the typed question with source text', async () => {
+    const ask = vi.fn()
+    render(<Harness controls={{ ask }} />)
+    await userEvent.click(askButton(1))
+    await userEvent.type(screen.getByRole('textbox'), '  No cream, what now?  {Enter}')
+
+    expect(ask).toHaveBeenCalledOnce()
+    expect(ask).toHaveBeenCalledWith({
+      stepIndex: 0,
+      steps: sampleTips.steps,
+      question: 'No cream, what now?',
+      source: 'text',
+    })
+    expect(screen.getByRole('textbox')).toHaveValue('')
+  })
+
+  it('Send does nothing while an answer is pending, and keeps focus', async () => {
+    const ask = vi.fn()
+    render(<Harness controls={{ ask, isPending: true }} />)
+    await userEvent.click(askButton(1))
+    await userEvent.type(screen.getByRole('textbox'), 'Done yet?')
+    const send = screen.getByRole('button', { name: 'Send' })
+    await userEvent.click(send)
+
+    expect(send).toHaveAttribute('aria-disabled', 'true')
+    expect(send).not.toBeDisabled()
+    expect(send).toHaveFocus()
+    expect(ask).not.toHaveBeenCalled()
+    expect(screen.getByRole('status')).toHaveTextContent('Thinking…')
+  })
+
+  it('shows the answer for its own step', async () => {
+    render(
+      <Harness
+        controls={{ active: { stepIndex: 0, question: 'Q', answer: 'Use the yoghurt you have.' } }}
+      />,
+    )
+    await userEvent.click(askButton(1))
+    expect(within(panel(1)!).getByRole('status')).toHaveTextContent('Use the yoghurt you have.')
+  })
+
+  it('shows the error with Retry when a retry can help, and without it otherwise', async () => {
+    const onRetry = vi.fn()
+    const { unmount } = render(
+      <Harness controls={{ error: { message: 'Took too long.', canRetry: true }, onRetry }} />,
+    )
+    await userEvent.click(askButton(1))
+    expect(screen.getByRole('status')).toHaveTextContent('Took too long.')
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+    unmount()
+
+    render(<Harness controls={{ error: { message: 'Limit reached.', canRetry: false } }} />)
+    await userEvent.click(askButton(1))
+    expect(screen.getByRole('status')).toHaveTextContent('Limit reached.')
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+  })
+
+  it('Close returns focus to that step’s Ask button', async () => {
+    render(<Harness />)
+    await userEvent.click(askButton(3))
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    expect(panel(3)).toBeNull()
+    expect(askButton(3)).toHaveFocus()
+  })
+
+  it('Escape in the field closes the panel and returns focus to the Ask button', async () => {
+    render(<Harness />)
+    await userEvent.click(askButton(2))
+    await userEvent.click(screen.getByRole('textbox'))
+    await userEvent.keyboard('{Escape}')
+
+    expect(panel(2)).toBeNull()
+    expect(askButton(2)).toHaveFocus()
   })
 })
