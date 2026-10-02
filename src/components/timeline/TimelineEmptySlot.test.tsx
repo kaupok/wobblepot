@@ -148,11 +148,16 @@ describe('TimelineEmptySlot', () => {
     await screen.findByRole('dialog')
   })
 
-  it('names the slot in the selector description', async () => {
+  // The selector's title names the slot from its date, long and short forms
+  // both in the DOM; CSS shows one (HON-941).
+  it('names the slot in the selector title', async () => {
     renderSlot()
     await openSelector()
 
-    expect(screen.getByRole('dialog')).toHaveAccessibleDescription('Thursday Apr 16 · Dinner')
+    const title = screen.getByRole('heading')
+    expect(title).toHaveTextContent('Dinner for Thu Apr 16')
+    expect(title).toHaveTextContent('Pick a dinner for Thursday Apr 16')
+    expect(screen.getByRole('dialog')).not.toHaveAttribute('aria-describedby')
   })
 
   it('discards the placeholder without asking for its suggestions again', async () => {

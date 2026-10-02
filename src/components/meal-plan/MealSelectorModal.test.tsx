@@ -7,6 +7,7 @@ vi.unmock('next-intl')
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { toast } from 'sonner'
+import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { MealSelectorModal } from './MealSelectorModal'
 
@@ -63,11 +64,14 @@ vi.mock('./meal-selector/ImaginePanel', () => ({
 /** Verbatim from the plan-entry PATCH route's 404 branch. */
 const SERVER_PROSE = 'Entry not found or access denied'
 
+type ModalProps = React.ComponentProps<typeof MealSelectorModal>
+
 function renderModal(
-  props: Partial<Pick<React.ComponentProps<typeof MealSelectorModal>, 'mode' | 'dayLabel'>> = {},
+  props: Partial<Pick<ModalProps, 'mode' | 'date' | 'relativeDay' | 'mealType'>> = {},
+  { locale = 'et' }: { locale?: 'en' | 'et' } = {},
 ) {
   return render(
-    <NextIntlClientProvider locale="et" messages={etMessages}>
+    <NextIntlClientProvider locale={locale} messages={locale === 'en' ? enMessages : etMessages}>
       <MealSelectorModal
         open
         onOpenChange={vi.fn()}
@@ -83,27 +87,102 @@ function renderModal(
   )
 }
 
-describe('MealSelectorModal description', () => {
-  // The dialog covers the timeline row that was tapped, so in add mode it names
-  // the slot. Estonian, with a separator rather than a preposition, so neither
-  // the day nor the meal needs declining (HON-807).
-  it('names the slot in add mode when given the day', () => {
-    renderModal({ dayLabel: 'Laupäev 3. okt' })
+/**
+ * The title's two forms, short (below `md`) then long. Both are in the DOM and
+ * CSS hides one; jsdom loads no CSS, so each is read from its own span.
+ */
+function titleForms() {
+  const [short, long] = Array.from(screen.getByRole('heading').children)
+  return { short: short?.textContent, long: long?.textContent, shortEl: short!, longEl: long! }
+}
 
-    expect(screen.getByRole('dialog')).toHaveAccessibleDescription('Laupäev 3. okt · Õhtusöök')
+/** 2026-10-08 is a Thursday. */
+const THURSDAY = '2026-10-08'
+
+describe('MealSelectorModal slot title', () => {
+  // The dialog covers the timeline row that was tapped, so in add mode its
+  // title names the slot in one sentence (HON-807, HON-941).
+  it('names a dated slot in English, long and short', () => {
+    renderModal({ date: THURSDAY, mealType: 'breakfast' }, { locale: 'en' })
+
+    const { short, long, shortEl, longEl } = titleForms()
+    expect(long).toBe('Pick a breakfast for Thursday Oct 8')
+    expect(short).toBe('Breakfast for Thu Oct 8')
+    expect(shortEl).toHaveClass('md:hidden')
+    expect(longEl).toHaveClass('hidden', 'md:inline')
   })
 
-  it('keeps the generic add copy without the day', () => {
+  it('dims only the date', () => {
+    renderModal({ date: THURSDAY, mealType: 'breakfast' }, { locale: 'en' })
+
+    const { shortEl, longEl } = titleForms()
+    for (const form of [shortEl, longEl]) {
+      const dimmed = form.querySelectorAll('.text-muted-foreground')
+      expect(dimmed).toHaveLength(1)
+      expect(dimmed[0]).toHaveTextContent(/^Oct 8$/)
+      expect(dimmed[0]).toHaveClass('font-normal')
+    }
+  })
+
+  it('names lunch and dinner slots with their own label', () => {
+    renderModal({ date: THURSDAY, mealType: 'lunch' }, { locale: 'en' })
+    expect(titleForms().long).toBe('Pick a lunch for Thursday Oct 8')
+    expect(titleForms().short).toBe('Lunch for Thu Oct 8')
+  })
+
+  it.each([
+    ['today', 'Pick a dinner for today', 'Dinner for today'],
+    ['tomorrow', 'Pick a dinner for tomorrow', 'Dinner for tomorrow'],
+  ] as const)('says %s rather than the date', (relativeDay, long, short) => {
+    renderModal({ date: THURSDAY, relativeDay }, { locale: 'en' })
+
+    expect(titleForms()).toMatchObject({ long, short })
+    expect(screen.getByRole('heading').querySelector('.text-muted-foreground')).toBeNull()
+  })
+
+  // Estonian joins with a separator rather than "for", which would need the
+  // weekday declined ("neljapäevaks").
+  it('uses the separator form in Estonian', () => {
+    renderModal({ date: THURSDAY })
+
+    expect(titleForms()).toMatchObject({
+      long: 'Vali õhtusöök: neljapäev 8. okt',
+      short: 'Õhtusöök: N 8. okt',
+    })
+  })
+
+  it('uses the Estonian relative day', () => {
+    renderModal({ date: THURSDAY, relativeDay: 'today' })
+
+    expect(titleForms()).toMatchObject({ long: 'Vali õhtusöök: täna', short: 'Õhtusöök: täna' })
+  })
+
+  it('renders no description, and nothing points at one', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    renderModal({ date: THURSDAY })
+
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).not.toHaveAttribute('aria-describedby')
+    expect(dialog).toHaveAccessibleDescription('')
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('keeps the generic add copy without the date', () => {
     renderModal()
 
+    expect(screen.getByRole('heading')).toHaveTextContent(etMessages['meal-plan'].selector.addTitle)
     expect(screen.getByRole('dialog')).toHaveAccessibleDescription(
       etMessages['meal-plan'].selector.addDescription,
     )
   })
 
-  it('ignores the day in swap mode', () => {
-    renderModal({ mode: 'swap', dayLabel: 'Laupäev 3. okt' })
+  it('ignores the date in swap mode', () => {
+    renderModal({ mode: 'swap', date: THURSDAY })
 
+    expect(screen.getByRole('heading')).toHaveTextContent(
+      etMessages['meal-plan'].selector.swapTitle,
+    )
     expect(screen.getByRole('dialog')).toHaveAccessibleDescription(
       etMessages['meal-plan'].selector.swapDescriptionGeneric,
     )

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Sparkles } from 'lucide-react'
 import {
   Dialog,
@@ -21,6 +21,9 @@ import { useMealAlternatives } from './meal-selector/use-meal-alternatives'
 import { ApiError, apiFetch } from '@/lib/api'
 import { track } from '@/lib/analytics'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { formatAbsoluteDate, formatDayLong, formatDayShort } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { toast } from 'sonner'
 import type { PantryIngredient } from './types'
 import type { MealType } from '@/generated/prisma/enums'
@@ -47,10 +50,12 @@ interface MealSelectorModalProps {
   entryId: string
   mealType: MealType
   /**
-   * The slot's day, e.g. "Saturday Oct 3". In add mode the description then
-   * names the slot, since the dialog covers the row that was tapped (HON-807).
+   * The slot's date (YYYY-MM-DD). In add mode the title then names the slot,
+   * since the dialog covers the row that was tapped (HON-807, HON-941).
    */
-  dayLabel?: string
+  date?: string
+  /** Set when `date` is today or tomorrow: the title says the word, not the date. */
+  relativeDay?: 'today' | 'tomorrow'
   householdSize: number
   currentMealName?: string
   /** Current meal id when `mode === 'swap'`. Used as `from_meal_id` on `meal_plan:meal_swapped`. */
@@ -83,7 +88,8 @@ export function MealSelectorModal({
   planId,
   entryId,
   mealType,
-  dayLabel,
+  date,
+  relativeDay,
   householdSize,
   currentMealName,
   currentMealId,
@@ -93,6 +99,7 @@ export function MealSelectorModal({
   onCloseAutoFocus,
 }: MealSelectorModalProps) {
   const tSelector = useTranslations('meal-plan.selector')
+  const locale = useLocale() as Locale
   const mealTypeLabel = useEnumLabel('MealType', mealType)
 
   // Search state
@@ -227,14 +234,63 @@ export function MealSelectorModal({
     }
   }
 
-  const title = mode === 'swap' ? tSelector('swapTitle') : tSelector('addTitle')
+  function slotTitleForms(isoDate: string) {
+    // Mid-sentence in the long form, so lowercase; it opens the short form.
+    const mealTypeLower = mealTypeLabel.toLocaleLowerCase(locale)
+    if (relativeDay) {
+      // No date beside today or tomorrow, as on the timeline's day heading.
+      const day = tSelector(`relativeDay.${relativeDay}`)
+      return {
+        long: tSelector('addSlotTitleRelative', { mealType: mealTypeLower, day }),
+        short: tSelector('addSlotTitleRelativeShort', { mealType: mealTypeLabel, day }),
+      }
+    }
+    const parsed = parseLocalDate(isoDate)
+    const formattedDate = formatAbsoluteDate(parsed, locale)
+    // The date is a detail beside the weekday, dimmed as `TimelineDayCard` does,
+    // and kept whole ("20. märts") if a narrow phone wraps the title.
+    const dim = (chunks: React.ReactNode) => (
+      <span className="text-muted-foreground font-normal whitespace-nowrap">{chunks}</span>
+    )
+    return {
+      long: tSelector.rich('addSlotTitle', {
+        mealType: mealTypeLower,
+        weekday: formatDayLong(parsed, locale),
+        date: formattedDate,
+        dim,
+      }),
+      short: tSelector.rich('addSlotTitleShort', {
+        mealType: mealTypeLabel,
+        weekday: formatDayShort(parsed, locale),
+        date: formattedDate,
+        dim,
+      }),
+    }
+  }
+
+  // An empty slot's title is one sentence naming the slot, long from `md` and
+  // short below it, where the long form does not fit a phone (HON-941). The
+  // centred phone header leaves the title 244px at 390px; the widest short
+  // forms ("Hommikusöök: R 20. märts") are 253px at normal tracking and fit
+  // tight. `MealSelectorModal.stories.tsx` → `DatedSlotPhone*` measure them.
+  const slotTitle = mode === 'add' && date ? slotTitleForms(date) : null
+  const title = slotTitle ? (
+    <>
+      <span className="tracking-tight md:hidden">{slotTitle.short}</span>
+      <span className="hidden md:inline">{slotTitle.long}</span>
+    </>
+  ) : mode === 'swap' ? (
+    tSelector('swapTitle')
+  ) : (
+    tSelector('addTitle')
+  )
   const description =
     mode === 'swap'
       ? currentMealName
         ? tSelector('swapDescription', { name: currentMealName })
         : tSelector('swapDescriptionGeneric')
-      : dayLabel
-        ? tSelector('addSlotDescription', { day: dayLabel, mealType: mealTypeLabel })
+      : slotTitle
+        ? null
         : tSelector('addDescription')
 
   const header = isMyRecipesBrowseMode
@@ -286,7 +342,9 @@ export function MealSelectorModal({
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          {/* The slot title says it all. Radix sets `aria-describedby` only
+              while a description is mounted, so leaving it out is enough. */}
+          {description !== null && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
 
         {isImagineMode ? (

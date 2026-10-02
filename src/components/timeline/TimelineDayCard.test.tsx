@@ -56,8 +56,8 @@ vi.mock('@/components/meal-plan/MealCard', () => ({
 
 // Mock TimelineEmptySlot
 vi.mock('./TimelineEmptySlot', () => ({
-  TimelineEmptySlot: vi.fn(({ mealType, dayLabel }) => (
-    <div data-testid={`empty-slot-${mealType}`}>
+  TimelineEmptySlot: vi.fn(({ mealType, dayLabel, relativeDay }) => (
+    <div data-testid={`empty-slot-${mealType}`} data-relative-day={relativeDay}>
       Empty {mealType} on {dayLabel}
     </div>
   )),
@@ -114,6 +114,19 @@ describe('TimelineDayCard', () => {
     expect(screen.getByTestId('empty-slot-dinner')).toHaveTextContent(
       'Empty dinner on Saturday Oct 3',
     )
+  })
+
+  // The selector's title says "today" or "tomorrow" instead of the date, as
+  // the heading does (HON-941).
+  it.each([
+    ['today', { isToday: true, isTomorrow: false }],
+    ['tomorrow', { isToday: false, isTomorrow: true }],
+    [undefined, { isToday: false, isTomorrow: false, label: 'Saturday', dateLabel: 'Oct 3' }],
+  ] as const)('passes relativeDay %s to empty slots', (relativeDay, overrides) => {
+    render(<TimelineDayCard day={{ ...baseDay, ...overrides }} {...defaultProps} />)
+    const slot = screen.getByTestId('empty-slot-dinner')
+    if (relativeDay) expect(slot).toHaveAttribute('data-relative-day', relativeDay)
+    else expect(slot).not.toHaveAttribute('data-relative-day')
   })
 
   it('does not render empty slots for past days', () => {

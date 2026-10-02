@@ -57,7 +57,7 @@ export const Breakfast: Story = {
 
 /** Today and Tomorrow have no date beside them, so the day is the word alone. */
 export const Tomorrow: Story = {
-  args: { dayLabel: 'Tomorrow' },
+  args: { date: '2026-04-17', dayLabel: 'Tomorrow', relativeDay: 'tomorrow' },
   play: async ({ canvasElement }) => {
     await expect(
       within(canvasElement).getByRole('button', { name: 'Pick a meal: Tomorrow, Dinner' }),
@@ -99,8 +99,11 @@ export const Discarding: Story = {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole('button', { name: /^Pick a meal/ }))
     const dialog = await within(document.body).findByRole('dialog')
-    // The dialog covers the row that was tapped, so it names the slot (HON-807).
-    await expect(dialog).toHaveAccessibleDescription('Thursday Apr 16 · Dinner')
+    // The dialog covers the row that was tapped, so its title names the slot,
+    // in the short form at this phone viewport (HON-807, HON-941).
+    await expect(within(dialog).getByRole('heading', { level: 2 })).toHaveAccessibleName(
+      'Dinner for Thu Apr 16',
+    )
     await pressEscape()
     await awaitDialogClosed()
     await waitFor(() =>
