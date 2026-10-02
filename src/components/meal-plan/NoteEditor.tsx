@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useImperativeHandle, type Ref } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -15,7 +15,13 @@ const MAX_NOTE_LENGTH = 200
 /** The counter stays hidden until the note is 80% of the way to the cap. */
 const COUNTER_THRESHOLD = 160
 
+/** Lets a parent focus the textarea once whatever opened the editor is done moving focus. */
+export interface NoteEditorHandle {
+  focus: () => void
+}
+
 interface NoteEditorProps {
+  ref?: Ref<NoteEditorHandle>
   planId: string
   entryId: string
   note: string | null
@@ -35,6 +41,7 @@ interface NoteEditorProps {
 }
 
 export function NoteEditor({
+  ref,
   planId,
   entryId,
   note,
@@ -90,14 +97,22 @@ export function NoteEditor({
     }
   }
 
-  // Focus input when entering edit mode
+  function focusInput() {
+    const input = inputRef.current
+    if (!input) return
+    input.focus()
+    // Move cursor to end
+    input.setSelectionRange(input.value.length, input.value.length)
+  }
+
+  useImperativeHandle(ref, () => ({ focus: focusInput }), [])
+
+  // Focus input when entering edit mode. This owns focus for the openers that
+  // are done with it by then (the slip, "Add note"); a parent whose opener
+  // still moves focus afterwards (a closing menu) focuses again through `ref`.
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus()
-      // Move cursor to end
-      inputRef.current.setSelectionRange(editValue.length, editValue.length)
-    }
-  }, [isEditing, editValue.length])
+    if (isEditing) focusInput()
+  }, [isEditing])
 
   function handleSave() {
     const trimmedValue = editValue.trim()

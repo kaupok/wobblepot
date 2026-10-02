@@ -26,7 +26,7 @@ import {
   computeMealAvailability,
   hasPantryData,
 } from './AvailabilityIndicator'
-import { NoteEditor } from './NoteEditor'
+import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import { StickyNote } from './StickyNote'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
@@ -98,6 +98,7 @@ export function MealCard({
   const [isNoteEditing, setIsNoteEditing] = useState(false)
   // Set when Note is chosen from the menu, read once as the menu closes.
   const noteRequestedRef = useRef(false)
+  const noteEditorRef = useRef<NoteEditorHandle>(null)
   // Set when a deduction confirmed on this card went through, so a revert and
   // re-complete before `router.refresh()` lands does not preview it again.
   const [chargedHere, setChargedHere] = useState(false)
@@ -314,6 +315,14 @@ export function MealCard({
     moreActionsTriggerRef.current?.focus()
   }
 
+  // The textarea unmounts when the editor closes, which would drop focus to
+  // the page body. Hand it to the menu trigger first, the same place Note was
+  // chosen from.
+  function handleNoteEditingChange(editing: boolean) {
+    if (!editing) moreActionsTriggerRef.current?.focus()
+    setIsNoteEditing(editing)
+  }
+
   // The deduction dialog opens from state too. Whichever way it was reached
   // — the status select or the cook view's "Done cooking" — focus comes back
   // to the meal's name, which is still on the card either way.
@@ -428,12 +437,16 @@ export function MealCard({
                     <DropdownMenuContent
                       align="end"
                       // Radix returns focus to the trigger as the menu closes,
-                      // after `NoteEditor` has focused its textarea. When Note
-                      // was chosen, leave focus where the editor put it.
+                      // after `NoteEditor` has focused its textarea, and on a
+                      // pointer pick it has already pulled focus back into the
+                      // closing menu by then (HON-946). When Note was chosen,
+                      // focus the textarea here instead: the menu's unmount is
+                      // the last thing to move focus.
                       onCloseAutoFocus={(event) => {
                         if (noteRequestedRef.current) {
                           event.preventDefault()
                           noteRequestedRef.current = false
+                          noteEditorRef.current?.focus()
                         }
                       }}
                     >
@@ -517,13 +530,14 @@ export function MealCard({
         {!isReadOnly && !isPast && (note != null || isNoteEditing) && (
           <CardContent className="px-4 pb-2">
             <NoteEditor
+              ref={noteEditorRef}
               planId={planId}
               entryId={entryId}
               note={note}
               onNoteChange={setNote}
               compact
               isEditing={isNoteEditing}
-              onEditingChange={setIsNoteEditing}
+              onEditingChange={handleNoteEditingChange}
             />
           </CardContent>
         )}

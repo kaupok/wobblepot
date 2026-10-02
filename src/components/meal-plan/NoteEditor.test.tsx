@@ -1,8 +1,10 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { createRef } from 'react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
+import { dropFocusToBody } from '@/test/focus'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { NoteEditor } from './NoteEditor'
+import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 
 // Mock fetch
 const mockFetch = vi.fn()
@@ -190,6 +192,29 @@ describe('NoteEditor', () => {
       fireEvent.keyDown(textarea, { key: 'Escape' })
 
       expect(screen.getByText('Add note')).toBeInTheDocument()
+    })
+
+    // A parent whose opener moves focus after the editor mounts (MealCard's
+    // closing menu) refocuses the textarea through the handle (HON-946).
+    it('focuses the textarea, cursor at the end, through its ref handle', async () => {
+      const ref = createRef<NoteEditorHandle>()
+      render(
+        <NoteEditor
+          {...defaultProps}
+          ref={ref}
+          note="Eating out"
+          isEditing
+          onEditingChange={vi.fn()}
+        />,
+        { wrapper: createQueryWrapper().wrapper },
+      )
+      const textarea = screen.getByRole<HTMLTextAreaElement>('textbox')
+      dropFocusToBody()
+
+      act(() => ref.current?.focus())
+
+      expect(textarea).toHaveFocus()
+      expect(textarea.selectionStart).toBe('Eating out'.length)
     })
 
     it('calls onNoteChange after successful save', async () => {
