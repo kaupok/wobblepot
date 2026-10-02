@@ -9,7 +9,7 @@ import {
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
-import { awaitDialogClosed } from '@/stories/a11y-helpers'
+import { awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
 import type { AlternativeMeal } from './types'
 import { MealCard } from './MealCard'
 
@@ -269,6 +269,67 @@ export const Planned: Story = {
       await within(document.body).findByRole('menuitem', { name: /^swap$/i }),
     ).toBeInTheDocument()
   },
+}
+
+/**
+ * Note opens the editor with its textarea focused, typing lands in it, and
+ * Escape cancels with focus back on ⋯ (HON-946). `pick` chooses Note with
+ * the pointer or the keyboard: with the pointer, Radix moved focus back into
+ * the closing menu after the editor had taken it, and it fell to the body
+ * once the menu unmounted.
+ */
+async function assertNoteFromMenu(
+  canvasElement: HTMLElement,
+  pick: (body: ReturnType<typeof within>) => Promise<void>,
+) {
+  const canvas = within(canvasElement)
+  const body = within(document.body)
+  const trigger = canvas.getByRole('button', { name: /more actions/i })
+
+  await pick(body)
+  const textarea = await canvas.findByRole('textbox', { name: /note/i })
+  // Past the menu's 200ms exit: its close is the last thing to move focus.
+  await waitFor(() => expect(body.queryByRole('menu')).not.toBeInTheDocument())
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  await expect(document.activeElement).toBe(textarea)
+
+  await userEvent.keyboard('Leftovers')
+  await expect(textarea).toHaveValue('Leftovers')
+
+  await pressEscape()
+  await waitFor(() => expect(canvas.queryByRole('textbox')).not.toBeInTheDocument())
+  await expect(document.activeElement).toBe(trigger)
+}
+
+/** Note lives in the more-actions menu, not on the card. */
+export const NoteFromMenu: Story = {
+  name: 'Note from the menu (pointer)',
+  args: { meal: mealFixture, status: 'planned' },
+  play: async ({ canvasElement }) =>
+    assertNoteFromMenu(canvasElement, async (body) => {
+      await expect(
+        within(canvasElement).queryByRole('button', { name: /^note$/i }),
+      ).not.toBeInTheDocument()
+      await openMoreActions(canvasElement)
+      await userEvent.click(await body.findByRole('menuitem', { name: /^note$/i }))
+    }),
+}
+
+export const NoteFromMenuKeyboard: Story = {
+  name: 'Note from the menu (keyboard)',
+  args: { meal: mealFixture, status: 'planned' },
+  play: async ({ canvasElement }) =>
+    assertNoteFromMenu(canvasElement, async (body) => {
+      within(canvasElement)
+        .getByRole('button', { name: /more actions/i })
+        .focus()
+      await userEvent.keyboard('{Enter}')
+      // Radix focuses the first item when the menu opens from the keyboard.
+      await waitFor(() =>
+        expect(document.activeElement).toBe(body.getByRole('menuitem', { name: /^note$/i })),
+      )
+      await userEvent.keyboard('{Enter}')
+    }),
 }
 
 export const PlannedAlreadyCharged: Story = {
@@ -720,26 +781,6 @@ export const PlannedWithNote: Story = {
     })
     await expect(slip).toHaveAttribute('data-surface', 'sticky')
     await expect(slip).toHaveAttribute('data-variant', 'interactive')
-  },
-}
-
-/** Note lives in the more-actions menu: choosing it opens the editor with the textarea focused, and the closing menu does not pull focus back to its trigger. */
-export const NoteFromMenu: Story = {
-  args: {
-    meal: mealFixture,
-    status: 'planned',
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    const body = within(document.body)
-    await expect(canvas.queryByRole('button', { name: /^note$/i })).not.toBeInTheDocument()
-    await openMoreActions(canvasElement)
-    await userEvent.click(await body.findByRole('menuitem', { name: /^note$/i }))
-    const textarea = await canvas.findByRole('textbox')
-    await waitFor(() => expect(textarea).toHaveFocus())
-    // The menu leaves after its exit animation, so it is still in the DOM
-    // when focus lands; wait it out rather than asserting on a single frame.
-    await waitFor(() => expect(body.queryByRole('menu')).not.toBeInTheDocument())
   },
 }
 

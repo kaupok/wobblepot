@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback, useImperativeHandle, type Ref } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -9,13 +9,24 @@ import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 import { StickyNote } from './StickyNote'
 
 const MAX_NOTE_LENGTH = 200
 /** The counter stays hidden until the note is 80% of the way to the cap. */
 const COUNTER_THRESHOLD = 160
 
+/** Lets a parent place focus once whatever opened or closed the editor is done moving it. */
+export interface NoteEditorHandle {
+  /**
+   * Focuses what the editor shows: the textarea while editing, else the saved
+   * note. False when there is nothing to focus (no note, editor closed).
+   */
+  focus: () => boolean
+}
+
 interface NoteEditorProps {
+  ref?: Ref<NoteEditorHandle>
   planId: string
   entryId: string
   note: string | null
@@ -35,6 +46,7 @@ interface NoteEditorProps {
 }
 
 export function NoteEditor({
+  ref,
   planId,
   entryId,
   note,
@@ -78,7 +90,11 @@ export function NoteEditor({
     onError: () => toast.error(t('saveFailed')),
   })
   const isSaving = saveMutation.isPending
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  // The textarea is disabled while saving, which drops focus to the body; a
+  // failed save hands it back so the note can be retried (CLAUDE.md → Focus
+  // management).
+  const { ref: inputRef, requestRefocus } = useRefocusAfterPending<HTMLTextAreaElement>(isSaving)
+  const noteButtonRef = useRef<HTMLButtonElement>(null)
 
   // Sync editValue when entering edit mode (handles external trigger via controlled state).
   // Adjusted during render rather than in an effect (`react-hooks/set-state-in-effect`).
@@ -90,14 +106,33 @@ export function NoteEditor({
     }
   }
 
-  // Focus input when entering edit mode
+  const focusInput = useCallback(() => {
+    const input = inputRef.current
+    if (!input) return false
+    input.focus()
+    // Move cursor to end
+    input.setSelectionRange(input.value.length, input.value.length)
+    return true
+  }, [inputRef])
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => {
+        if (focusInput()) return true
+        noteButtonRef.current?.focus()
+        return noteButtonRef.current != null
+      },
+    }),
+    [focusInput],
+  )
+
+  // Focus input when entering edit mode. This owns focus for the openers that
+  // are done with it by then (the slip, "Add note"); a parent whose opener
+  // still moves focus afterwards (a closing menu) focuses again through `ref`.
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus()
-      // Move cursor to end
-      inputRef.current.setSelectionRange(editValue.length, editValue.length)
-    }
-  }, [isEditing, editValue.length])
+    if (isEditing) focusInput()
+  }, [isEditing, focusInput])
 
   function handleSave() {
     const trimmedValue = editValue.trim()
@@ -109,7 +144,16 @@ export function NoteEditor({
       return
     }
 
-    saveMutation.mutate(newNote)
+    saveMutation.mutate(newNote, {
+      // Only if focus is still where the save left it: the user may have
+      // moved on while the request was in flight.
+      onError: () => {
+        const focused = document.activeElement
+        if (!focused || focused === document.body || focused === inputRef.current) {
+          requestRefocus()
+        }
+      },
+    })
   }
 
   function handleCancel() {
@@ -173,6 +217,7 @@ export function NoteEditor({
     return (
       <StickyNote asChild variant="interactive" className={className}>
         <button
+          ref={noteButtonRef}
           type="button"
           onClick={() => {
             setEditValue(note)

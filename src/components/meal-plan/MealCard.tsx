@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -26,7 +26,7 @@ import {
   computeMealAvailability,
   hasPantryData,
 } from './AvailabilityIndicator'
-import { NoteEditor } from './NoteEditor'
+import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import { StickyNote } from './StickyNote'
 import { MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
@@ -98,6 +98,7 @@ export function MealCard({
   const [isNoteEditing, setIsNoteEditing] = useState(false)
   // Set when Note is chosen from the menu, read once as the menu closes.
   const noteRequestedRef = useRef(false)
+  const noteEditorRef = useRef<NoteEditorHandle>(null)
   // Set when a deduction confirmed on this card went through, so a revert and
   // re-complete before `router.refresh()` lands does not preview it again.
   const [chargedHere, setChargedHere] = useState(false)
@@ -314,6 +315,27 @@ export function MealCard({
     moreActionsTriggerRef.current?.focus()
   }
 
+  // The textarea unmounts when the editor closes, which drops focus to the
+  // page body. Return it to whatever opened the editor: the saved note, or the
+  // menu trigger, where Note was chosen (and the fallback when a cleared note
+  // leaves nothing in the row). Only from the body: a save closes the editor
+  // when its request returns, and the user may have moved on by then.
+  const noteOpenerRef = useRef<'menu' | 'note' | null>(null)
+  function handleNoteEditingChange(editing: boolean) {
+    // The editor only asks to open from its saved note; Note in the menu sets
+    // `isNoteEditing` itself.
+    if (editing) noteOpenerRef.current = 'note'
+    setIsNoteEditing(editing)
+  }
+  useEffect(() => {
+    const opener = noteOpenerRef.current
+    if (isNoteEditing || !opener) return
+    noteOpenerRef.current = null
+    if (document.activeElement && document.activeElement !== document.body) return
+    if (opener === 'note' && noteEditorRef.current?.focus()) return
+    moreActionsTriggerRef.current?.focus()
+  }, [isNoteEditing])
+
   // The deduction dialog opens from state too. Whichever way it was reached
   // — the status select or the cook view's "Done cooking" — focus comes back
   // to the meal's name, which is still on the card either way.
@@ -428,18 +450,23 @@ export function MealCard({
                     <DropdownMenuContent
                       align="end"
                       // Radix returns focus to the trigger as the menu closes,
-                      // after `NoteEditor` has focused its textarea. When Note
-                      // was chosen, leave focus where the editor put it.
+                      // after `NoteEditor` has focused its textarea, and on a
+                      // pointer pick it has already pulled focus back into the
+                      // closing menu by then (HON-946). When Note was chosen,
+                      // focus the textarea here instead: the menu's unmount is
+                      // the last thing to move focus.
                       onCloseAutoFocus={(event) => {
                         if (noteRequestedRef.current) {
                           event.preventDefault()
                           noteRequestedRef.current = false
+                          noteEditorRef.current?.focus()
                         }
                       }}
                     >
                       <DropdownMenuItem
                         onSelect={() => {
                           noteRequestedRef.current = true
+                          noteOpenerRef.current = 'menu'
                           setIsNoteEditing(true)
                         }}
                       >
@@ -517,13 +544,14 @@ export function MealCard({
         {!isReadOnly && !isPast && (note != null || isNoteEditing) && (
           <CardContent className="px-4 pb-2">
             <NoteEditor
+              ref={noteEditorRef}
               planId={planId}
               entryId={entryId}
               note={note}
               onNoteChange={setNote}
               compact
               isEditing={isNoteEditing}
-              onEditingChange={setIsNoteEditing}
+              onEditingChange={handleNoteEditingChange}
             />
           </CardContent>
         )}
