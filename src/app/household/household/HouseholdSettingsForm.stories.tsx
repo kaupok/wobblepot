@@ -1,6 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { http, HttpResponse } from 'msw'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
+import { HouseholdDetailsForm } from './HouseholdDetailsForm'
+import { FoodPreferencesForm } from './FoodPreferencesForm'
+import { MealsToPlanForm } from './MealsToPlanForm'
 
 const meta = {
   title: 'Feature/HouseholdSettingsForm',
@@ -11,7 +15,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Household settings form: three sections, each a Section-level h2 (Household details, Food preferences, Meals to plan), and one Save button (HON-960). Locale selector exposes every locale in `PUBLIC_LOCALES` — currently English and Estonian.',
+          'Household settings: three sections, each a Section-level h2 (Household details, Food preferences, Meals to plan) and its own form (HON-960, HON-961). A section shows its Save button only while one of its fields differs from the saved value, and saves only its own fields. Locale selector exposes every locale in `PUBLIC_LOCALES` — currently English and Estonian.',
       },
     },
   },
@@ -54,6 +58,8 @@ export const Default: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    // At rest there is nothing to save (HON-961).
+    await expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     // No waitFor: the value text must be there synchronously, not only after
     // Radix mirrors it from the mounted items (HON-761).
     await expect(canvas.getByRole('combobox', { name: /timezone/i })).toHaveTextContent(
@@ -156,7 +162,162 @@ export const NonOwner: Story = {
     await expect(canvas.getByLabelText('Gluten')).toBeDisabled()
     await expect(canvas.getByLabelText('Vegan')).toBeDisabled()
     await expect(canvas.getByLabelText('Dietary restrictions (optional)')).toBeDisabled()
-    await expect(canvas.queryByRole('button', { name: 'Save settings' })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+  },
+}
+
+// The body of the last PATCH each route received, for the payload assertions.
+let lastHouseholdBody: unknown
+let lastPreferencesBody: unknown
+
+const saveHandlers = [
+  http.patch('/api/households/me', async ({ request }) => {
+    lastHouseholdBody = await request.json()
+    return HttpResponse.json({})
+  }),
+  http.patch('/api/households/me/preferences', async ({ request }) => {
+    lastPreferencesBody = await request.json()
+    return HttpResponse.json({})
+  }),
+]
+
+export const HouseholdDetails: Story = {
+  args: Default.args,
+  render: (args) => <HouseholdDetailsForm household={args.household} isOwner={args.isOwner} />,
+  parameters: {
+    docs: {
+      description: {
+        story: 'The Household details section on its own: name, timezone and language.',
+      },
+    },
+  },
+}
+
+export const HouseholdDetailsDirty: Story = {
+  ...HouseholdDetails,
+  parameters: {
+    docs: {
+      description: {
+        story: 'A changed household name: the section shows its Save button.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByLabelText('Household name'), ' and friends')
+    await expect(canvas.getByRole('button', { name: 'Save' })).toBeVisible()
+  },
+}
+
+export const FoodPreferences: Story = {
+  args: Default.args,
+  render: (args) => <FoodPreferencesForm preferences={args.preferences} isOwner={args.isOwner} />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The Food preferences section on its own: dietary type, allergens, restrictions and ingredients to avoid.',
+      },
+    },
+  },
+}
+
+export const FoodPreferencesDirty: Story = {
+  ...FoodPreferences,
+  parameters: {
+    msw: { handlers: saveHandlers },
+    docs: {
+      description: {
+        story:
+          'Ticking an allergen shows the Save button. Saving sends only the four food fields to the preferences route, so the meal types are left as they are; the button then goes and focus moves to the section heading (HON-961).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    lastPreferencesBody = undefined
+    const canvas = within(canvasElement)
+    await expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+
+    await userEvent.click(canvas.getByLabelText('Gluten'))
+    const save = canvas.getByRole('button', { name: 'Save' })
+    await expect(save).toBeVisible()
+
+    await userEvent.click(save)
+    await waitFor(() =>
+      expect(lastPreferencesBody).toEqual({
+        dietaryType: null,
+        allergensToAvoid: ['gluten'],
+        restrictions: [],
+        excludedIngredients: [],
+      }),
+    )
+    await waitFor(() =>
+      expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
+    )
+    await expect(canvas.getByRole('heading', { name: 'Food preferences' })).toHaveFocus()
+  },
+}
+
+export const MealsToPlan: Story = {
+  args: Default.args,
+  render: (args) => <MealsToPlanForm preferences={args.preferences} isOwner={args.isOwner} />,
+  parameters: {
+    docs: {
+      description: {
+        story: 'The Meals to plan section on its own: weekday and weekend meal types.',
+      },
+    },
+  },
+}
+
+export const MealsToPlanDirty: Story = {
+  ...MealsToPlan,
+  parameters: {
+    docs: {
+      description: {
+        story: 'Lunch added to the weekend: the section shows its Save button.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const weekend = canvas.getByRole('group', { name: 'Weekend meals to plan' })
+    await userEvent.click(within(weekend).getByLabelText('Lunch'))
+    await expect(canvas.getByRole('button', { name: 'Save' })).toBeVisible()
+  },
+}
+
+export const OneSectionChanged: Story = {
+  args: Default.args,
+  parameters: {
+    msw: { handlers: saveHandlers },
+    docs: {
+      description: {
+        story:
+          'The whole settings column with one change in Household details: one Save button, at the end of that section, and none in the other two. Saving it sends only the household fields.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    lastHouseholdBody = undefined
+    lastPreferencesBody = undefined
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByLabelText('Household name'), '!')
+
+    const buttons = canvas.getAllByRole('button', { name: 'Save' })
+    await expect(buttons).toHaveLength(1)
+    const details = canvas.getByRole('form', { name: 'Household details' })
+    await expect(within(details).getByRole('button', { name: 'Save' })).toBe(buttons[0])
+
+    await userEvent.click(buttons[0]!)
+    await waitFor(() =>
+      expect(lastHouseholdBody).toEqual({
+        name: 'Test household!',
+        timezone: 'Europe/Tallinn',
+        locale: 'en',
+      }),
+    )
+    await expect(lastPreferencesBody).toBeUndefined()
   },
 }
 
@@ -167,13 +328,35 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          'Desktop width. "Save settings" is as wide as its label and starts at the column edge; on a phone it fills the column (HON-782).',
+          'Desktop width with a change in Meals to plan. "Save" is as wide as its label and starts at the column edge; on a phone it fills the column (HON-782).',
       },
     },
   },
   play: async ({ canvasElement }) => {
-    const button = within(canvasElement).getByRole('button', { name: 'Save settings' })
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getAllByLabelText('Lunch')[0]!)
+    const button = canvas.getByRole('button', { name: 'Save' })
     await expect(button.getBoundingClientRect().width).toBeLessThan(
+      button.parentElement!.getBoundingClientRect().width,
+    )
+  },
+}
+
+export const Phone: Story = {
+  args: Default.args,
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Phone width with a change in Meals to plan: "Save" fills the column.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getAllByLabelText('Lunch')[0]!)
+    const button = canvas.getByRole('button', { name: 'Save' })
+    await expect(button.getBoundingClientRect().width).toBe(
       button.parentElement!.getBoundingClientRect().width,
     )
   },

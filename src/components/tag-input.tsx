@@ -16,7 +16,12 @@ interface TagInputProps {
 }
 
 interface TagInputRef {
-  commitPendingValue: () => void
+  /**
+   * Add any typed but uncommitted text as a tag and return the resulting tags.
+   * The return value is what a submit handler should send: `onChange` only
+   * reaches the parent's state on its next render (HON-961).
+   */
+  commitPendingValue: () => string[]
 }
 
 const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
@@ -29,9 +34,10 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
   const addTag = useCallback(
     (tag: string) => {
       const trimmed = tag.trim()
-      if (trimmed && !value.includes(trimmed)) {
-        onChange([...value, trimmed])
-      }
+      if (!trimmed || value.includes(trimmed)) return value
+      const next = [...value, trimmed]
+      onChange(next)
+      return next
     },
     [value, onChange],
   )
@@ -44,11 +50,10 @@ const TagInput = forwardRef<TagInputRef, TagInputProps>(function TagInput(
   )
 
   const commitPendingValue = useCallback(() => {
-    if (inputValue.trim()) {
-      addTag(inputValue)
-      setInputValue('')
-    }
-  }, [inputValue, addTag])
+    if (!inputValue.trim()) return value
+    setInputValue('')
+    return addTag(inputValue)
+  }, [inputValue, value, addTag])
 
   useImperativeHandle(ref, () => ({ commitPendingValue }), [commitPendingValue])
 

@@ -48,8 +48,8 @@ export default function HouseholdLoading() {
               ))}
             </div>
           ))}
-          {/* Save settings: label-sized */}
-          <Skeleton className="h-touch w-full md:h-10 md:w-28" />
+          {/* No Save block: each section's button shows only once a field
+              in it changes (HON-961). */}
         </div>
       </div>
     </div>

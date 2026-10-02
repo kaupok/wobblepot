@@ -916,7 +916,7 @@
     "dietaryNone": "No preference",
     "pageTitle": "Household",
     "settings": {
-      "saveButton": "Save settings",
+      "saveButton": "Save",
       "saving": "Saving…",
       "savedToast": "Settings saved",
       "saveFailed": "Failed to save settings",
