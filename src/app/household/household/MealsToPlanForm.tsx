@@ -76,12 +76,20 @@ export function MealsToPlanForm({ preferences, isOwner }: MealsToPlanFormProps) 
       {({ disabled, errorId }) => (
         // As wide as its content, not the column: three checkboxes do not need
         // the form's width between them.
+        //
+        // Below `sm` the row heads move to a row of their own above their
+        // checkboxes. The meal heads are single words that cannot wrap, and in
+        // Estonian ("Hommikusöök", "Lõunasöök", "Õhtusöök") they take about
+        // 310px of a 343px phone column, so a row-head column beside them
+        // pushes Dinner out of view. Only one of each pair of row heads is
+        // displayed at a time, and every checkbox names both axes, so nothing
+        // depends on which one a screen reader meets.
         <Table className="w-auto" aria-labelledby="meals-heading">
           <TableHeader>
             <TableRow>
               {/* The corner cell heads nothing, so it is a data cell: an empty
                   `th` reads as a missing header. */}
-              <TableCell />
+              <TableCell className="max-sm:hidden" />
               {MEAL_TYPE_VALUES.map((mealType) => (
                 <TableHead key={mealType} scope="col">
                   {tMealType(mealType)}
@@ -90,9 +98,17 @@ export function MealsToPlanForm({ preferences, isOwner }: MealsToPlanFormProps) 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map(({ key, label, value, setter }) => (
+            {rows.map(({ key, label, value, setter }) => [
+              // A plain row: no separator between a head and its own checkboxes.
+              <tr key={`${key}-head`} className="sm:hidden">
+                <TableHead scope="row" colSpan={MEAL_TYPE_VALUES.length}>
+                  {label}
+                </TableHead>
+              </tr>,
               <TableRow key={key}>
-                <TableHead scope="row">{label}</TableHead>
+                <TableHead scope="row" className="max-sm:hidden">
+                  {label}
+                </TableHead>
                 {MEAL_TYPE_VALUES.map((mealType) => {
                   const id = `${key}-${mealType}`
                   return (
@@ -120,8 +136,8 @@ export function MealsToPlanForm({ preferences, isOwner }: MealsToPlanFormProps) 
                     </TableCell>
                   )
                 })}
-              </TableRow>
-            ))}
+              </TableRow>,
+            ])}
           </TableBody>
         </Table>
       )}

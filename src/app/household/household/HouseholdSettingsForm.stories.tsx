@@ -397,11 +397,46 @@ export const Phone: Story = {
     }
     const food = canvas.getByRole('form', { name: 'Food preferences' })
     await expect(food.scrollWidth).toBeLessThanOrEqual(food.clientWidth)
+    const grid = canvasElement.querySelector<HTMLElement>('[data-slot="table-container"]')!
+    await expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth)
 
     await userEvent.click(canvas.getByLabelText('Weekdays: Lunch'))
     const button = canvas.getByRole('button', { name: 'Save' })
     await expect(button.getBoundingClientRect().width).toBe(
       button.parentElement!.getBoundingClientRect().width,
     )
+  },
+}
+
+/**
+ * Estonian at phone width, inside the page's `px-4` gutters. The Estonian meal
+ * heads are the widest single words in the grid, so below `sm` each row head
+ * sits on its own row above its checkboxes, and Dinner stays in view (HON-962).
+ */
+export const PhoneEstonian: Story = {
+  args: Default.args,
+  globals: { viewport: { value: 'mobileIphone', isRotated: false }, locale: 'et' },
+  render: (args) => (
+    <div className="px-4">
+      <HouseholdSettingsForm {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const table = canvas.getByRole('table', { name: 'Planeeritavad toidud' })
+    const grid = table.parentElement!
+    await expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth)
+    // One visible row head per day group, above its checkboxes.
+    await expect(within(table).getAllByRole('rowheader')).toEqual([
+      within(table).getByRole('rowheader', { name: 'Argipäevad' }),
+      within(table).getByRole('rowheader', { name: 'Nädalavahetus' }),
+    ])
+    const dinner = within(table).getByRole('checkbox', { name: 'Nädalavahetus: Õhtusöök' })
+    await expect(dinner.getBoundingClientRect().right).toBeLessThanOrEqual(
+      grid.getBoundingClientRect().right,
+    )
+    for (const form of canvas.getAllByRole('form')) {
+      await expect(form.scrollWidth).toBeLessThanOrEqual(form.clientWidth)
+    }
   },
 }

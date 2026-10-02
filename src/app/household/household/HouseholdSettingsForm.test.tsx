@@ -262,11 +262,16 @@ describe('HouseholdSettingsForm', () => {
           .getAllByRole('columnheader')
           .map((head) => head.textContent),
       ).toEqual(['Breakfast', 'Lunch', 'Dinner'])
-      expect(
-        within(table)
-          .getAllByRole('rowheader')
-          .map((head) => head.textContent),
-      ).toEqual(['Weekdays', 'Weekends'])
+      // Each day group has a row head beside its checkboxes from `sm` up, and
+      // one on its own row above them on a phone. CSS shows one of the two;
+      // jsdom applies no Tailwind, so both are in its tree.
+      const [aboveWeekdays, besideWeekdays] = within(table).getAllByRole('rowheader', {
+        name: 'Weekdays',
+      })
+      expect(besideWeekdays).toHaveClass('max-sm:hidden')
+      expect(aboveWeekdays!.closest('tr')).toHaveClass('sm:hidden')
+      expect(aboveWeekdays).toHaveAttribute('colspan', '3')
+      expect(within(table).getAllByRole('rowheader', { name: 'Weekends' })).toHaveLength(2)
 
       // Each checkbox names both axes, so it reads outside the table context.
       for (const day of ['Weekdays', 'Weekends']) {
