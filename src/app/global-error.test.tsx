@@ -85,6 +85,7 @@ describe('GlobalError', () => {
         api_host: 'https://eu.i.posthog.com',
         person_profiles: 'identified_only',
         capture_pageview: false,
+        capture_pageleave: true,
         disable_session_recording: true,
         defaults: '2026-01-30',
         before_send: expect.any(Function),
