@@ -7,7 +7,7 @@ import { Body, Heading, Li, Ol, Ul } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
+import { cn, prefersReducedMotion } from '@/lib/utils'
 import type { StructuredTips } from '@/components/meal-plan/types'
 import type {
   CookQuestionActive,
@@ -185,6 +185,15 @@ function StepToggle({ step, index, done, current, onToggle }: StepToggleProps) {
 
 const CHIP_KEYS = ['done', 'substitute', 'time'] as const
 
+/**
+ * Scroll `el` into its nearest scrollable ancestor: the dialog's one column
+ * below `lg`, the steps column from `lg`. "Nearest" leaves an element that is
+ * already in view where it is. Focus does not move.
+ */
+function scrollIntoViewNearest(el: HTMLElement | null) {
+  el?.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+}
+
 interface CookQuestionPanelProps {
   id: string
   stepIndex: number
@@ -201,7 +210,9 @@ interface CookQuestionPanelProps {
  * a field with Send, then the question asked with Edit (HON-976) above
  * "Thinking…", the answer, or the error with Retry. It sits straight on the
  * tint, indented to the step text, with no card or border of its own
- * (docs/DESIGN.md → cook view).
+ * (docs/DESIGN.md → cook view). It scrolls into view when it opens, and the
+ * answer with Close does when it arrives (HON-977), so a step low in the view
+ * never answers below the fold.
  */
 function CookQuestionPanel({
   id,
@@ -215,6 +226,8 @@ function CookQuestionPanel({
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const resultRef = useRef<HTMLDivElement>(null)
   // Counts Edit presses: the field gets focus once the question is in it, with
   // the caret after the text, ready to change the end of it. A count, not a
   // flag on `text`, so a second Edit with the text unchanged still focuses.
@@ -229,6 +242,17 @@ function CookQuestionPanel({
     if (focusField) inputRef.current?.focus()
   }, [focusField])
 
+  // Opened under a step low in the view, the chips and field show at once.
+  useEffect(() => {
+    scrollIntoViewNearest(panelRef.current)
+  }, [])
+
+  // The answer or the error, with Close under it, once the wait is over. Not
+  // "Thinking…": the field the cook may be typing in stays where it is.
+  useEffect(() => {
+    if (!isPending && (answer || error)) scrollIntoViewNearest(resultRef.current)
+  }, [isPending, answer, error])
+
   useEffect(() => {
     const input = inputRef.current
     if (editCount === 0 || !input) return
@@ -241,6 +265,7 @@ function CookQuestionPanel({
 
   return (
     <div
+      ref={panelRef}
       id={id}
       role="group"
       aria-label={t('askAboutStep', { n: stepIndex + 1 })}
@@ -320,35 +345,39 @@ function CookQuestionPanel({
           </Button>
         </div>
       )}
-      <div role="status">
-        {isPending ? (
-          <Body variant="step" tone="muted">
-            {t('thinking')}
-          </Body>
-        ) : error ? (
-          <Body variant="step">{error.message}</Body>
-        ) : answer ? (
-          <Body variant="step">{answer}</Body>
-        ) : null}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {!isPending && error?.canRetry && (
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => {
-              // Retry unmounts itself as the error clears, and focus would
-              // fall to the page. Close stays, so focus goes there first.
-              closeRef.current?.focus()
-              onRetry()
-            }}
-          >
-            {t('retry')}
+      {/* One box for the answer and the row under it, so one scroll brings
+          both into view (HON-977). */}
+      <div ref={resultRef} data-slot="cook-question-result" className="flex flex-col gap-3">
+        <div role="status">
+          {isPending ? (
+            <Body variant="step" tone="muted">
+              {t('thinking')}
+            </Body>
+          ) : error ? (
+            <Body variant="step">{error.message}</Body>
+          ) : answer ? (
+            <Body variant="step">{answer}</Body>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!isPending && error?.canRetry && (
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => {
+                // Retry unmounts itself as the error clears, and focus would
+                // fall to the page. Close stays, so focus goes there first.
+                closeRef.current?.focus()
+                onRetry()
+              }}
+            >
+              {t('retry')}
+            </Button>
+          )}
+          <Button ref={closeRef} variant="ghost" size="lg" onClick={onClose}>
+            {t('close')}
           </Button>
-        )}
-        <Button ref={closeRef} variant="ghost" size="lg" onClick={onClose}>
-          {t('close')}
-        </Button>
+        </div>
       </div>
     </div>
   )
