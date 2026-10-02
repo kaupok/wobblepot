@@ -313,6 +313,16 @@ describe('useCookQuestion', () => {
       })
     })
 
+    it('does not cut an emoji in half at the limit', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      // The emoji's two UTF-16 units sit at the limit's last unit and the one after it.
+      const head = 'a'.repeat(COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH - 1)
+      await askAndAnswer(result, { question: FIRST.question }, `${head}🔥 and more.`)
+      await askAndAnswer(result, { question: 'And if I have no oil?' }, 'Then…')
+
+      expect(bodyOf(1).previous.answer).toBe(head)
+    })
+
     it('the first question on another step sends no previous', async () => {
       const { result } = renderHook(() => useCookQuestion(options), { wrapper })
       await askAndAnswer(result, { question: FIRST.question }, FIRST.answer)

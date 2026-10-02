@@ -148,6 +148,15 @@ async function readAnswer(
   if (!received) throw new Error('The answer was empty')
 }
 
+/**
+ * The first `max` UTF-16 units of `text`, never ending in half an emoji: a
+ * lone surrogate makes the prompt invalid Unicode, which the model API rejects.
+ */
+function clip(text: string, max: number): string {
+  const clipped = text.slice(0, max)
+  return /[\uD800-\uDBFF]$/.test(clipped) ? clipped.slice(0, -1) : clipped
+}
+
 function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const id = setTimeout(resolve, ms)
@@ -298,7 +307,7 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
         last?.stepIndex === request.stepIndex
           ? {
               question: last.question,
-              answer: last.answer.slice(0, COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH),
+              answer: clip(last.answer, COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH),
             }
           : undefined
       void track('cook_view:question_asked', {
