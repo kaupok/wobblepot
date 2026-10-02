@@ -117,6 +117,105 @@ describe('useCookQuestion', () => {
     })
   })
 
+  describe('the answer on screen while the next one waits (HON-978)', () => {
+    /** A fetch that waits until the test settles it. */
+    function deferredFetch() {
+      let settle: (value: unknown) => void = () => {}
+      mockFetch.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            settle = resolve
+          }),
+      )
+      return (value: unknown) => settle(value)
+    }
+
+    async function answered(result: { current: ReturnType<typeof useCookQuestion> }) {
+      mockFetch.mockResolvedValueOnce(ok('First'))
+      await act(async () => {
+        await result.current.ask(question())
+      })
+    }
+
+    it('keeps the previous answer while pending, and the new answer replaces it', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await answered(result)
+      expect(result.current.previous).toBeNull()
+
+      const settle = deferredFetch()
+      let askPromise: Promise<void>
+      act(() => {
+        askPromise = result.current.ask(question({ question: "I'm short on time" }))
+      })
+
+      expect(result.current.isPending).toBe(true)
+      expect(result.current.active).toEqual({
+        stepIndex: 1,
+        question: "I'm short on time",
+        answer: null,
+      })
+      expect(result.current.previous).toEqual({
+        stepIndex: 1,
+        question: 'What can I substitute here?',
+        answer: 'First',
+      })
+
+      // The mutation reaches `fetch` a tick after `ask`.
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
+      await act(async () => {
+        settle(ok('Second'))
+        await askPromise
+      })
+
+      expect(result.current.active?.answer).toBe('Second')
+      expect(result.current.previous).toBeNull()
+    })
+
+    it('an error replaces the previous answer', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await answered(result)
+
+      mockFetch.mockResolvedValueOnce(fail(504, { error: 'Timed out', code: 'question_timeout' }))
+      await act(async () => {
+        await result.current.ask(question({ question: "I'm short on time" }))
+      })
+
+      expect(result.current.previous).toBeNull()
+      expect(result.current.error).toEqual({ message: errors.questionTimeout, canRetry: true })
+    })
+
+    it('reset drops the previous answer with the question', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await answered(result)
+
+      deferredFetch()
+      act(() => {
+        void result.current.ask(question({ question: "I'm short on time" }))
+      })
+      expect(result.current.previous).not.toBeNull()
+
+      act(() => {
+        result.current.reset()
+      })
+
+      expect(result.current.previous).toBeNull()
+      expect(result.current.active).toBeNull()
+    })
+
+    it("does not carry another step's answer", async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await answered(result)
+
+      deferredFetch()
+      act(() => {
+        void result.current.ask(question({ stepIndex: 0 }))
+      })
+
+      expect(result.current.isPending).toBe(true)
+      expect(result.current.previous).toBeNull()
+    })
+  })
+
   it.each([
     ['rate_limited', 429, errors.rateLimited],
     ['ai_cap_exceeded', 429, errors.aiCapExceeded],

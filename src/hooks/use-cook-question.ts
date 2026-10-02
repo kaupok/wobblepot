@@ -44,6 +44,18 @@ export interface CookQuestionError {
 
 type AskRequest = Omit<CookQuestionAskInput, 'source'>
 
+interface QuestionState {
+  active: CookQuestionActive | null
+  /**
+   * The answered question that was on screen when `active` was sent, for the
+   * same step. Held only while `active` waits: the new answer or an error
+   * takes its place (HON-978).
+   */
+  previous: CookQuestionActive | null
+}
+
+const NO_QUESTION: QuestionState = { active: null, previous: null }
+
 // Conditions a retry 2s later would only hit again — see `isRetryable`.
 const NON_RETRYABLE_CODES: ReadonlySet<string> = new Set([
   'generation_disabled',
@@ -94,7 +106,7 @@ function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
  * closing it discards the answer. Nothing is persisted.
  */
 export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOptions) {
-  const [active, setActive] = useState<CookQuestionActive | null>(null)
+  const [{ active, previous }, setQuestion] = useState<QuestionState>(NO_QUESTION)
   const [error, setError] = useState<CookQuestionError | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const lastRequestRef = useRef<AskRequest | null>(null)
@@ -130,11 +142,16 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
     // A superseded or reset request must not write its result or its error.
     onSuccess: (data, { controller, request }) => {
       if (controller.signal.aborted) return
-      setActive({ stepIndex: request.stepIndex, question: request.question, answer: data.answer })
+      setQuestion({
+        active: { stepIndex: request.stepIndex, question: request.question, answer: data.answer },
+        previous: null,
+      })
     },
     onError: (err, { controller }) => {
       if (controller.signal.aborted) return
       if (err instanceof DOMException && err.name === 'AbortError') return
+      // The error takes the old answer's place, as an answer would.
+      setQuestion((current) => ({ ...current, previous: null }))
       // A network failure never reached the route, so it has no code to read.
       if (!(err instanceof ApiError)) {
         setError({ message: t('errors.questionFailed'), canRetry: true })
@@ -167,7 +184,16 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
       lastRequestRef.current = request
 
       setError(null)
-      setActive({ stepIndex: request.stepIndex, question: request.question, answer: null })
+      setQuestion((current) => {
+        // The answer on screen stays until the new one replaces it, so the
+        // panel keeps its height and the steps below do not jump (HON-978).
+        // An answer still waiting keeps the one it is already showing.
+        const onScreen = current.active?.answer != null ? current.active : current.previous
+        return {
+          active: { stepIndex: request.stepIndex, question: request.question, answer: null },
+          previous: onScreen?.stepIndex === request.stepIndex ? onScreen : null,
+        }
+      })
 
       // Failures are handled in `onError`; the rejection only needs swallowing.
       await mutateAsync({ controller, request }).catch(() => {})
@@ -175,7 +201,10 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
     [mutateAsync],
   )
 
-  /** Send a question. Replaces any answer on screen and aborts one in flight. */
+  /**
+   * Send a question and abort one in flight. The answer on screen stays, as
+   * `previous`, until the new answer or an error replaces it.
+   */
   const ask = useCallback(
     ({ source, ...request }: CookQuestionAskInput) => {
       void track('cook_view:question_asked', {
@@ -200,7 +229,7 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
     abortRef.current?.abort()
     abortRef.current = null
     lastRequestRef.current = null
-    setActive(null)
+    setQuestion(NO_QUESTION)
     setError(null)
   }, [])
 
@@ -210,6 +239,8 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
     // Only while a question is on screen: a reset request may take a moment
     // to settle its abort.
     isPending: isPending && active !== null && active.answer === null && error === null,
+    /** The answered question still on screen while `active` waits; null otherwise. */
+    previous,
     error,
     retry,
     reset,

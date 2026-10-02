@@ -82,6 +82,8 @@ export interface CookQuestionControls {
   onClose: () => void
   ask: (input: CookQuestionAskInput) => void
   active: CookQuestionActive | null
+  /** The answered question still on screen while `active` waits (HON-978) */
+  previous: CookQuestionActive | null
   isPending: boolean
   error: CookQuestionError | null
   onRetry: () => void
@@ -208,11 +210,13 @@ interface CookQuestionPanelProps {
 /**
  * The question panel under one step (HON-969): three chips that send at once,
  * a field with Send, then the question asked with Edit (HON-976) above
- * "Thinking…", the answer, or the error with Retry. It sits straight on the
- * tint, indented to the step text, with no card or border of its own
- * (docs/DESIGN.md → cook view). It scrolls into view when it opens, and the
- * answer with Close does when it arrives (HON-977), so a step low in the view
- * never answers below the fold.
+ * "Thinking…", the answer, or the error with Retry. A second question keeps
+ * the first one's answer, muted, until its own answer takes that place, and
+ * "Thinking…" sits beside Close, so the steps below do not jump (HON-978).
+ * It sits straight on the tint, indented to the step text, with no card or
+ * border of its own (docs/DESIGN.md → cook view). It scrolls into view when it
+ * opens, and the answer with Close does when it arrives (HON-977), so a step
+ * low in the view never answers below the fold.
  */
 function CookQuestionPanel({
   id,
@@ -233,10 +237,16 @@ function CookQuestionPanel({
   // flag on `text`, so a second Edit with the text unchanged still focuses.
   const [editCount, setEditCount] = useState(0)
   const questionId = useId()
-  const { ask, active, isPending, error, onRetry } = controls
+  const { ask, active, previous, isPending, error, onRetry } = controls
   const ownStep = active?.stepIndex === stepIndex
-  const asked = ownStep ? active.question : null
+  // The last answer, kept on screen under its own question while the next one
+  // is on its way, so the panel does not shrink to one line (HON-978).
+  const stale = ownStep && isPending && previous?.stepIndex === stepIndex ? previous : null
+  const asked = stale ? stale.question : ownStep ? active.question : null
   const answer = ownStep ? active.answer : null
+  // One slot for the stale answer, the error or the answer, so each replaces
+  // the last in place and the live region reads only the new text.
+  const shown = isPending ? stale?.answer : (error?.message ?? answer)
 
   useEffect(() => {
     if (focusField) inputRef.current?.focus()
@@ -349,17 +359,21 @@ function CookQuestionPanel({
           both into view (HON-977). */}
       <div ref={resultRef} data-slot="cook-question-result" className="flex flex-col gap-3">
         <div role="status">
-          {isPending ? (
-            <Body variant="step" tone="muted">
+          {shown && (
+            <Body variant="step" tone={isPending ? 'muted' : 'default'}>
+              {shown}
+            </Body>
+          )}
+          {/* Read out here; shown in the row below, beside Close, where it
+              adds no line under the old answer (HON-978). */}
+          {isPending && <span className="sr-only">{t('thinking')}</span>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {isPending && (
+            <Body variant="step" tone="muted" aria-hidden>
               {t('thinking')}
             </Body>
-          ) : error ? (
-            <Body variant="step">{error.message}</Body>
-          ) : answer ? (
-            <Body variant="step">{answer}</Body>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap gap-2">
+          )}
           {!isPending && error?.canRetry && (
             <Button
               variant="outline"

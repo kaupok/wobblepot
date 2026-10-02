@@ -943,6 +943,66 @@ export const AskPanelInViewDoesNotMove: Story = {
   },
 }
 
+// ── Ask: the old answer holds its place (HON-978) ────────────────────────
+
+/**
+ * "I'm short on time" answers at once with the long answer; any other question
+ * takes a second and a half, so the play can measure the panel while it waits.
+ */
+const secondAnswerWaitsHandler = http.post(
+  '/api/meal-plans/:planId/entries/:entryId/cook-question',
+  async ({ request }) => {
+    const { question } = (await request.json()) as { question: string }
+    if (question === "I'm short on time") return HttpResponse.json({ answer: longAnswer })
+    await delay(1500)
+    return HttpResponse.json({ answer: 'About 20 minutes more.' })
+  },
+)
+
+/**
+ * A second question keeps the first answer on screen, muted, above
+ * "Thinking…", so the status block does not shrink and the steps below the
+ * panel stay where they are until the new answer replaces it in place.
+ */
+export const AskKeepsOldAnswerWhilePending: Story = {
+  name: 'Planned: ask keeps the old answer while the next one loads',
+  args: { ...plannedArgs, initialTips: tips },
+  globals: { viewport: LAPTOP, reducedMotion: 'on' },
+  parameters: { msw: { handlers: { cookQuestion: [secondAnswerWaitsHandler] } } },
+  play: async () => {
+    const dialog = await findDialog()
+    const scroller = within(dialog).getByTestId('cook-view-steps')
+    const ask = within(dialog).getByRole('button', { name: 'Ask about step 2' })
+    ask.scrollIntoView({ block: 'start' })
+    await userEvent.click(ask)
+    const panel = body().getByRole('group', { name: 'Ask about step 2' })
+    const status = within(panel).getByRole('status')
+    const nextStep = within(dialog).getByRole('button', { name: tips.steps![2]! })
+    // Where the next step sits in the scroll region's content, so a scroll
+    // does not read as the step moving.
+    const offsetOf = (el: Element) => box(el).top - box(scroller).top + scroller.scrollTop
+
+    await userEvent.click(within(panel).getByRole('button', { name: "I'm short on time" }))
+    await within(panel).findByText(longAnswer)
+    const answeredHeight = box(status).height
+    const answeredOffset = offsetOf(nextStep)
+
+    await userEvent.click(within(panel).getByRole('button', { name: "How do I know it's done?" }))
+    await within(status).findByText('Thinking…')
+    // The old answer stays, muted, under its own question.
+    await expect(within(status).getByText(longAnswer)).toHaveClass('text-muted-foreground')
+    await expect(within(panel).getByText("You asked: I'm short on time")).toBeVisible()
+    await expect(box(status).height).toBeGreaterThanOrEqual(answeredHeight)
+    await expect(offsetOf(nextStep)).toBe(answeredOffset)
+
+    // The new answer takes the old one's place.
+    await within(status).findByText('About 20 minutes more.', {}, { timeout: 4000 })
+    await expect(within(status).queryByText(longAnswer)).toBeNull()
+    await expect(within(status).queryByText('Thinking…')).toBeNull()
+    await expect(within(panel).getByText("You asked: How do I know it's done?")).toBeVisible()
+  },
+}
+
 /** A completed entry gets no Ask buttons: nobody is cooking it. */
 export const CompletedHasNoAsk: Story = {
   name: 'Completed: no Ask buttons',
