@@ -46,18 +46,21 @@ describe('getInitialSortMode', () => {
   beforeEach(() => localStorage.clear())
   afterEach(() => localStorage.clear())
 
-  it('defaults to category with nothing stored', () => {
-    expect(getInitialSortMode()).toBe('category')
+  it('defaults to urgency with nothing stored', () => {
+    expect(getInitialSortMode()).toBe('urgency')
   })
 
-  it.each(['urgency', 'alphabetical'] as const)('restores a stored "%s" mode', (mode) => {
-    localStorage.setItem(SORT_STORAGE_KEY, mode)
-    expect(getInitialSortMode()).toBe(mode)
-  })
+  it.each(['category', 'urgency', 'alphabetical'] as const)(
+    'restores a stored "%s" mode',
+    (mode) => {
+      localStorage.setItem(SORT_STORAGE_KEY, mode)
+      expect(getInitialSortMode()).toBe(mode)
+    },
+  )
 
-  it('ignores an unrecognised stored value', () => {
+  it('falls back to urgency for an unrecognised stored value', () => {
     localStorage.setItem(SORT_STORAGE_KEY, 'by-vibes')
-    expect(getInitialSortMode()).toBe('category')
+    expect(getInitialSortMode()).toBe('urgency')
   })
 })
 

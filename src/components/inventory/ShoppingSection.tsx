@@ -39,6 +39,7 @@ import {
 import {
   buildAlphabeticalItems,
   buildUrgencyGroups,
+  DEFAULT_SORT_MODE,
   getInitialSortMode,
   splitCustomItems,
   SORT_STORAGE_KEY,
@@ -96,7 +97,7 @@ export function ShoppingSection({
   const tCategory = useTranslations('enums.IngredientCategory')
   const tUrgency = useTranslations('dates.urgency')
   const [purchasedIds, setPurchasedIds] = useState<Set<string>>(initialPurchasedIds)
-  const [sortMode, setSortMode] = useState<SortMode>('category')
+  const [sortMode, setSortMode] = useState<SortMode>(DEFAULT_SORT_MODE)
   const [copied, setCopied] = useState(false)
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const copyInFlightRef = useRef(false)
@@ -114,8 +115,8 @@ export function ShoppingSection({
   } = useCustomShoppingItems(initialCustomItems)
 
   // Apply the stored sort mode after mount. The server and the first client
-  // render both use 'category', so the select renders in the server HTML with
-  // the default and switches to the stored mode a frame later (HON-771).
+  // render both use DEFAULT_SORT_MODE, so the select renders in the server HTML
+  // with the default and switches to the stored mode a frame later (HON-771).
   useEffect(() => {
     setSortMode(getInitialSortMode())
   }, [])
