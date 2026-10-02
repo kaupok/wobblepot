@@ -43,6 +43,7 @@ function renderCard(props: {
   pantryIngredients?: PantryIngredient[]
   pantryDeducted?: boolean
   preparationTips?: StructuredTips | null
+  note?: string | null
 }) {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
@@ -114,6 +115,38 @@ describe('MealCard note focus', () => {
 
     await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
     expect(trigger).toHaveFocus()
+  })
+
+  it('returns focus to the saved note when the editor was opened from it', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal, note: 'Leftovers' })
+    await user.click(screen.getByRole('button', { name: 'Leftovers' }))
+    const textarea = await screen.findByRole('textbox', { name: 'Meal note' })
+
+    fireEvent.keyDown(textarea, { key: 'Escape' })
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Leftovers' })).toHaveFocus())
+  })
+
+  // Clearing the note removes the row the note lived in, so there is no note
+  // left to return to.
+  it('falls back to the more-actions trigger when a saved note is cleared', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify({}), { status: 200 }))),
+    )
+    const user = userEvent.setup()
+    renderCard({ meal, note: 'Leftovers' })
+    await user.click(screen.getByRole('button', { name: 'Leftovers' }))
+    const textarea = await screen.findByRole('textbox', { name: 'Meal note' })
+    await user.clear(textarea)
+
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+
+    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: `More actions: ${meal.name}` })).toHaveFocus(),
+    )
   })
 
   it('leaves focus alone when the user moved on before the save returned', async () => {

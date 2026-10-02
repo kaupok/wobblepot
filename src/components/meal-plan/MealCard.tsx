@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -315,18 +315,26 @@ export function MealCard({
     moreActionsTriggerRef.current?.focus()
   }
 
-  // The textarea unmounts when the editor closes, which would drop focus to
-  // the page body. Hand it to the menu trigger first, the same place Note was
-  // chosen from — but only from the note row or the body: a save closes the
-  // editor when its request returns, and the user may have moved on by then.
-  const noteRowRef = useRef<HTMLDivElement>(null)
+  // The textarea unmounts when the editor closes, which drops focus to the
+  // page body. Return it to whatever opened the editor: the saved note, or the
+  // menu trigger, where Note was chosen (and the fallback when a cleared note
+  // leaves nothing in the row). Only from the body: a save closes the editor
+  // when its request returns, and the user may have moved on by then.
+  const noteOpenerRef = useRef<'menu' | 'note' | null>(null)
   function handleNoteEditingChange(editing: boolean) {
-    const focused = document.activeElement
-    if (!editing && (focused === document.body || noteRowRef.current?.contains(focused))) {
-      moreActionsTriggerRef.current?.focus()
-    }
+    // The editor only asks to open from its saved note; Note in the menu sets
+    // `isNoteEditing` itself.
+    if (editing) noteOpenerRef.current = 'note'
     setIsNoteEditing(editing)
   }
+  useEffect(() => {
+    const opener = noteOpenerRef.current
+    if (isNoteEditing || !opener) return
+    noteOpenerRef.current = null
+    if (document.activeElement && document.activeElement !== document.body) return
+    if (opener === 'note' && noteEditorRef.current?.focus()) return
+    moreActionsTriggerRef.current?.focus()
+  }, [isNoteEditing])
 
   // The deduction dialog opens from state too. Whichever way it was reached
   // — the status select or the cook view's "Done cooking" — focus comes back
@@ -458,6 +466,7 @@ export function MealCard({
                       <DropdownMenuItem
                         onSelect={() => {
                           noteRequestedRef.current = true
+                          noteOpenerRef.current = 'menu'
                           setIsNoteEditing(true)
                         }}
                       >
@@ -533,7 +542,7 @@ export function MealCard({
         {/* The note, editable on a planned card. Rendered only when there is
             one to show or edit: the row is what ends the plate mid-card. */}
         {!isReadOnly && !isPast && (note != null || isNoteEditing) && (
-          <CardContent ref={noteRowRef} className="px-4 pb-2">
+          <CardContent className="px-4 pb-2">
             <NoteEditor
               ref={noteEditorRef}
               planId={planId}

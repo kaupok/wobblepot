@@ -217,6 +217,24 @@ describe('NoteEditor', () => {
       expect(textarea.selectionStart).toBe('Eating out'.length)
     })
 
+    // The textarea is disabled while saving; jsdom keeps focus on it, so the
+    // test drops focus as Chromium does (CLAUDE.md → Focus management).
+    it('returns focus to the textarea after a failed save', async () => {
+      let rejectSave: (error: Error) => void = () => {}
+      mockFetch.mockReturnValueOnce(new Promise((_resolve, reject) => (rejectSave = reject)))
+      render(<NoteEditor {...defaultProps} />, { wrapper: createQueryWrapper().wrapper })
+      await userEvent.click(screen.getByText('Add note'))
+      const textarea = screen.getByRole('textbox')
+      await userEvent.type(textarea, 'Pizza night')
+      fireEvent.keyDown(textarea, { key: 'Enter' })
+      await waitFor(() => expect(textarea).toBeDisabled())
+      dropFocusToBody()
+
+      rejectSave(new Error('offline'))
+
+      await waitFor(() => expect(textarea).toHaveFocus())
+    })
+
     it('calls onNoteChange after successful save', async () => {
       mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
       const onNoteChange = vi.fn()
