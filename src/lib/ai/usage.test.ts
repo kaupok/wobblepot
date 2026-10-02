@@ -16,11 +16,12 @@ vi.mock('@/lib/posthog-server', () => ({
 
 vi.mock('@/lib/request-id', () => ({
   getRequestId: vi.fn(),
+  getClientSession: vi.fn(async () => ({})),
 }))
 
 import { prisma } from '@/lib/prisma'
 import { getPosthogServer } from '@/lib/posthog-server'
-import { getRequestId } from '@/lib/request-id'
+import { getClientSession, getRequestId } from '@/lib/request-id'
 import {
   AiCostCapExceededError,
   assertUnderCap,
@@ -317,6 +318,28 @@ describe('recordAiUsage › PostHog streaming', () => {
         household_id: 'h1',
         retry_count: 0,
       },
+    })
+  })
+
+  it('carries the browser session so the generation joins it (HON-998)', async () => {
+    mockCreate.mockResolvedValue({} as never)
+    vi.mocked(getClientSession).mockResolvedValueOnce({
+      $session_id: 'sess-1',
+      $current_url: 'https://wobblepot.com/plan',
+    })
+
+    await recordAiUsage({
+      householdId: 'h1',
+      feature: 'plan_generate',
+      model: 'claude-sonnet-5-5',
+      inputTokens: 10,
+      outputTokens: 10,
+    })
+
+    expect(mockCapture.mock.calls[0]![0].properties).toMatchObject({
+      $session_id: 'sess-1',
+      $current_url: 'https://wobblepot.com/plan',
+      household_id: 'h1',
     })
   })
 

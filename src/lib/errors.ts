@@ -1,7 +1,7 @@
 import 'server-only'
 import { after } from 'next/server'
 import { getPosthogServer } from '@/lib/posthog-server'
-import { getRequestId } from '@/lib/request-id'
+import { getClientSession, getRequestId } from '@/lib/request-id'
 import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
 import { getRelease, shouldSkipLocalCapture } from '@/lib/release'
 
@@ -36,6 +36,11 @@ export interface ApiErrorContext {
  *   so route-caught errors are not the one untagged group.
  * - Reads `release` from `VERCEL_GIT_COMMIT_SHA` so the dashboard can pivot
  *   on deploy.
+ * - Adds `$session_id` and `$current_url` from the request's PostHog cookie
+ *   and Referer (`getClientSession`), so the error opens from the browser
+ *   session that caused it (HON-998). Reading them needs the async
+ *   `headers()`, so the capture runs once that resolves; the signature stays
+ *   synchronous for the callers.
  * - Adds a stable `$exception_fingerprint` for typed errors we throw
  *   ourselves.
  * - Skips local machines (see `shouldSkipLocalCapture`), matching
@@ -63,7 +68,13 @@ export function captureApiError(error: unknown, context: ApiErrorContext): void 
       properties.$exception_fingerprint = fingerprint
     }
 
-    client.captureException(error, context.userId, properties)
+    void getClientSession().then((session) => {
+      try {
+        client.captureException(error, context.userId, { ...session, ...properties })
+      } catch {
+        // Swallow — capture failures must never propagate.
+      }
+    })
     try {
       // Vercel isolates terminate on response — extend lifetime so the async flush completes.
       after(() => client.flush())
@@ -101,18 +112,26 @@ export function captureExternalApiTimeout(context: ApiErrorContext): void {
     const client = getPosthogServer()
     if (!client) return
 
-    client.capture({
-      // Infrastructure health, not a user action. Without a user the event is
-      // personless: a request id as distinct id minted one person per timeout.
-      // `request_id` still joins it to the rest of that request's events.
-      distinctId: context.userId,
-      event: 'external_api_timeout',
-      properties: {
-        ...toSnakeCaseKeys(context),
-        request_id: getRequestId(),
-        release: getRelease(),
-        ...(!context.userId && { $process_person_profile: false }),
-      },
+    const properties = {
+      ...toSnakeCaseKeys(context),
+      request_id: getRequestId(),
+      release: getRelease(),
+      ...(!context.userId && { $process_person_profile: false }),
+    }
+    // Session properties as in `captureApiError` (HON-998).
+    void getClientSession().then((session) => {
+      try {
+        client.capture({
+          // Infrastructure health, not a user action. Without a user the event is
+          // personless: a request id as distinct id minted one person per timeout.
+          // `request_id` still joins it to the rest of that request's events.
+          distinctId: context.userId,
+          event: 'external_api_timeout',
+          properties: { ...session, ...properties },
+        })
+      } catch {
+        // Swallow — capture failures must never propagate.
+      }
     })
   } catch {
     // Swallow — capture failures must never propagate.

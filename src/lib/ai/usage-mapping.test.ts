@@ -41,6 +41,7 @@ vi.mock('@/lib/posthog-server', () => ({
 
 vi.mock('@/lib/request-id', () => ({
   getRequestId: vi.fn(),
+  getClientSession: vi.fn(async () => ({})),
 }))
 
 import type { LanguageModelUsage } from 'ai'

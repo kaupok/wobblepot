@@ -18,7 +18,7 @@ import { NoObjectGeneratedError } from 'ai'
 import type { AiFeature } from '@/generated/prisma/enums'
 import { getPosthogServer } from '@/lib/posthog-server'
 import { prisma } from '@/lib/prisma'
-import { getRequestId } from '@/lib/request-id'
+import { getClientSession, getRequestId } from '@/lib/request-id'
 import { estimateCostUsd } from './pricing'
 import { toAiUsageStats, type AiUsageStats } from './usage-mapping'
 
@@ -265,10 +265,14 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
   // `posthog-server.ts`; no `flush()` needed at the call site.
   try {
     const posthog = getPosthogServer()
+    // `$session_id` / `$current_url` join the generation to the browser
+    // session that asked for it (HON-998). Spread first so the generation's own keys win a clash.
+    const session = posthog ? await getClientSession() : {}
     posthog?.capture({
       distinctId: input.householdId,
       event: '$ai_generation',
       properties: {
+        ...session,
         $ai_input_tokens: input.inputTokens,
         $ai_cache_read_input_tokens: cacheReadTokens,
         $ai_cache_creation_input_tokens: cacheWriteTokens,
