@@ -67,20 +67,124 @@ export const BreakfastSlot: Story = {
   },
 }
 
+const PHONE = { viewport: { value: 'mobileIphone', isRotated: false } }
+const LAPTOP = { viewport: { value: 'laptop', isRotated: false } }
+
+/** Width of the title's displayed form laid out on one line, from a clone. */
+function unwrappedWidth(title: HTMLElement) {
+  const shown = Array.from(title.children).find((form) => form.getClientRects().length > 0)
+  const probe = shown!.cloneNode(true) as HTMLElement
+  probe.style.cssText = 'position:absolute;display:inline-block;white-space:nowrap'
+  title.appendChild(probe)
+  // `offsetWidth` is layout width, unaffected by the dialog's zoom-in transform.
+  const width = probe.offsetWidth
+  probe.remove()
+  return width
+}
+
 /**
- * Opened from an empty slot on Today: the description names the slot, since
- * the dialog covers the row that was tapped (HON-807).
+ * The width a phone gives the title: below `sm` the dialog is the viewport
+ * less 2rem, then its border, its padding and the header's padding. Computed
+ * rather than read off the title, because the harness narrows the dialog with
+ * classic scrollbars that a phone's overlay scrollbars do not take.
  */
-export const AddModeWithSlot: Story = {
-  args: {
-    mode: 'add',
-    mealType: MealType.breakfast,
-    dayLabel: 'Saturday Oct 3',
-  },
+function phoneTitleWidth(dialog: HTMLElement, title: HTMLElement) {
+  const box = getComputedStyle(dialog)
+  const header = getComputedStyle(title.parentElement!)
+  return [
+    box.borderLeftWidth,
+    box.borderRightWidth,
+    box.paddingLeft,
+    box.paddingRight,
+    header.paddingLeft,
+    header.paddingRight,
+  ].reduce((width, inset) => width - parseFloat(inset), window.innerWidth - 32)
+}
+
+/**
+ * Asserts the slot title's accessible name, that it fits on one line, and
+ * that the dialog has no description: the title names the slot (HON-941).
+ * Only one of the title's two forms is displayed at a time, so the name is
+ * whichever the viewport shows.
+ */
+async function expectSlotTitle(name: string, dimmedDate?: string) {
+  const dialog = await within(document.body).findByRole('dialog')
+  const title = within(dialog).getByRole('heading', { level: 2 })
+  await expect(title).toHaveAccessibleName(name)
+  await expect(dialog).not.toHaveAttribute('aria-describedby')
+  // Measured in Geist, at both weights the title uses: the fallback font is
+  // wider and fails a title that fits. `fonts.ready` alone can resolve before
+  // a face has been requested.
+  await Promise.all(
+    [title, ...title.querySelectorAll('span')].map((el) =>
+      document.fonts.load(getComputedStyle(el).font, el.textContent ?? undefined),
+    ),
+  )
+  await expect(unwrappedWidth(title)).toBeLessThanOrEqual(
+    window.innerWidth < 640 ? phoneTitleWidth(dialog, title) : title.clientWidth,
+  )
+  const dimmed = Array.from(title.querySelectorAll('.text-muted-foreground')).filter(
+    (el) => getComputedStyle(el).display !== 'none' && el.getClientRects().length > 0,
+  )
+  await expect(dimmed.map((el) => el.textContent)).toEqual(dimmedDate ? [dimmedDate] : [])
+}
+
+/**
+ * Opened from an empty slot: the title names the slot in one line, with the
+ * date dimmed as on the timeline's day heading (HON-807, HON-941). On a phone
+ * the short form fits even for the widest slot of the year: measured across
+ * every date and meal type, that is Wednesday May 20 at breakfast.
+ */
+export const DatedSlotPhone: Story = {
+  args: { mode: 'add', mealType: MealType.breakfast, date: '2026-05-20' },
+  globals: PHONE,
   play: async () => {
-    await expect(await within(document.body).findByRole('dialog')).toHaveAccessibleDescription(
-      'Saturday Oct 3 · Breakfast',
-    )
+    await expectSlotTitle('Breakfast for Wed May 20', 'May 20')
+  },
+}
+
+export const DatedSlotLaptop: Story = {
+  args: { mode: 'add', mealType: MealType.breakfast, date: '2026-10-08' },
+  globals: LAPTOP,
+  play: async () => {
+    await expectSlotTitle('Pick a breakfast for Thursday Oct 8', 'Oct 8')
+  },
+}
+
+/**
+ * Estonian joins with a separator, so the weekday needs no declension. Its
+ * widest slot of the year is Friday March 20 at breakfast.
+ */
+export const DatedSlotPhoneEstonian: Story = {
+  args: { mode: 'add', mealType: MealType.breakfast, date: '2026-03-20' },
+  globals: { ...PHONE, locale: 'et' },
+  play: async () => {
+    await expectSlotTitle('Hommikusöök: R 20. märts', '20. märts')
+  },
+}
+
+/** Today and tomorrow carry no date, as on the timeline's day heading. */
+export const TodaySlotPhone: Story = {
+  args: { mode: 'add', mealType: MealType.dinner, date: '2026-10-02', relativeDay: 'today' },
+  globals: PHONE,
+  play: async () => {
+    await expectSlotTitle('Dinner for today')
+  },
+}
+
+export const TodaySlotLaptop: Story = {
+  args: { mode: 'add', mealType: MealType.dinner, date: '2026-10-02', relativeDay: 'today' },
+  globals: LAPTOP,
+  play: async () => {
+    await expectSlotTitle('Pick a dinner for today')
+  },
+}
+
+export const TomorrowSlotLaptop: Story = {
+  args: { mode: 'add', mealType: MealType.lunch, date: '2026-10-03', relativeDay: 'tomorrow' },
+  globals: LAPTOP,
+  play: async () => {
+    await expectSlotTitle('Pick a lunch for tomorrow')
   },
 }
 

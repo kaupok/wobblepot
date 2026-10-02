@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import type { ReactNode } from 'react'
+import { Fragment, createElement, type ReactNode } from 'react'
 import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import enMessages from './messages/en.json'
@@ -15,6 +15,8 @@ import enMessages from './messages/en.json'
 // Without that unmock, the no-op `NextIntlClientProvider` below would swallow
 // the test's explicit locale/messages props and silently render against the
 // English fallback regardless of the locale prop.
+type RichValue = string | number | ((chunks: ReactNode) => ReactNode)
+
 vi.mock('next-intl', async () => {
   const actual = await vi.importActual<typeof import('next-intl')>('next-intl')
   function resolve(path: string): string {
@@ -68,8 +70,35 @@ vi.mock('next-intl', async () => {
     ...actual,
     useTranslations: (namespace?: string) => {
       const prefix = namespace ? `${namespace}.` : ''
-      return (key: string, values?: Record<string, string | number>) =>
+      const t = (key: string, values?: Record<string, string | number>) =>
         applyValues(resolve(`${prefix}${key}`), values)
+      // `t.rich`: plain values as above, then each `<tag>…</tag>` handed to its
+      // handler. Flat tags only — nested tags are not used in the catalog.
+      t.rich = (key: string, values: Record<string, RichValue> = {}): ReactNode => {
+        const plain: Record<string, string | number> = {}
+        for (const [name, value] of Object.entries(values)) {
+          if (typeof value !== 'function') plain[name] = value
+        }
+        const text = applyValues(resolve(`${prefix}${key}`), plain)
+        const parts: ReactNode[] = []
+        let last = 0
+        for (const match of text.matchAll(/<(\w+)>(.*?)<\/\1>/g)) {
+          parts.push(text.slice(last, match.index))
+          const handler = values[match[1] ?? '']
+          const chunks = match[2] ?? ''
+          parts.push(
+            createElement(
+              Fragment,
+              { key: match.index },
+              typeof handler === 'function' ? handler(chunks) : chunks,
+            ),
+          )
+          last = match.index + match[0].length
+        }
+        parts.push(text.slice(last))
+        return parts
+      }
+      return t
     },
     // Tests that need locale switching call `vi.unmock('next-intl')` and wrap
     // in a real provider; the default mock just hands back 'en' so callers

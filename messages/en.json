@@ -224,7 +224,14 @@
       "swapDescription": "Replace \"{name}\" with something else",
       "swapDescriptionGeneric": "Select one of these alternatives that match your preferences",
       "addDescription": "Select a meal for this slot",
-      "addSlotDescription": "{day} · {mealType}",
+      "addSlotTitle": "Pick a {mealType} for {weekday} <dim>{date}</dim>",
+      "addSlotTitleShort": "{mealType} for {weekday} <dim>{date}</dim>",
+      "addSlotTitleRelative": "Pick a {mealType} for {day}",
+      "addSlotTitleRelativeShort": "{mealType} for {day}",
+      "relativeDay": {
+        "today": "today",
+        "tomorrow": "tomorrow"
+      },
       "searchPlaceholder": "Search meal library…",
       "searchAria": "Search meal library",
       "myRecipesOnly": "My recipes only",

@@ -224,7 +224,14 @@
       "swapDescription": "Asenda „{name}\" mõne muuga",
       "swapDescriptionGeneric": "Vali üks neist alternatiividest, mis sobivad sinu eelistustega",
       "addDescription": "Vali sellele kohale toit",
-      "addSlotDescription": "{day} · {mealType}",
+      "addSlotTitle": "Vali {mealType}: {weekday} <dim>{date}</dim>",
+      "addSlotTitleShort": "{mealType}: {weekday} <dim>{date}</dim>",
+      "addSlotTitleRelative": "Vali {mealType}: {day}",
+      "addSlotTitleRelativeShort": "{mealType}: {day}",
+      "relativeDay": {
+        "today": "täna",
+        "tomorrow": "homme"
+      },
       "searchPlaceholder": "Otsi retseptide hulgast…",
       "searchAria": "Otsi retseptide hulgast",
       "myRecipesOnly": "Ainult minu retseptid",
