@@ -12,9 +12,12 @@ const sampleTips: StructuredTips = {
 }
 
 describe('PreparationEquipment', () => {
-  it('lists the equipment on one line', () => {
+  it('lists each item on its own row under the heading', () => {
     render(<PreparationEquipment equipment={sampleTips.equipment} />)
-    expect(screen.getByText("You'll need: Large pan, Cutting board")).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: "You'll need" })).toBeInTheDocument()
+    const list = screen.getByRole('list', { name: "You'll need" })
+    const items = within(list).getAllByRole('listitem')
+    expect(items.map((item) => item.textContent)).toEqual(['Large pan', 'Cutting board'])
   })
 
   it('renders nothing without equipment', () => {

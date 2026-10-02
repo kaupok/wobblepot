@@ -284,7 +284,7 @@
       "ariaDetailsFor": "„{mealName}\" üksikasjad"
     },
     "tips": {
-      "equipment": "Vaja läheb: {list}",
+      "equipment": "Vaja läheb",
       "steps": "Sammud",
       "pitfalls": "Tähelepanu",
       "tip": "Nõuanne",

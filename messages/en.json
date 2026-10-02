@@ -284,7 +284,7 @@
       "ariaDetailsFor": "Details for {mealName}"
     },
     "tips": {
-      "equipment": "You'll need: {list}",
+      "equipment": "You'll need",
       "steps": "Steps",
       "pitfalls": "Watch out",
       "tip": "Tip",

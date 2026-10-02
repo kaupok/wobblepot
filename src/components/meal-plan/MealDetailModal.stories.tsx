@@ -498,9 +498,9 @@ export const TipsLoaded: Story = {
     await expect(getComputedStyle(step).color).toBe(getComputedStyle(dialog).color)
     await expect(within(steps).getByRole('heading', { name: 'Watch out' })).toBeVisible()
     await expect(within(steps).getByRole('heading', { name: 'Tip' })).toBeVisible()
-    await expect(
-      within(dialog).getByText("You'll need: Sheet pan, Sharp knife, Tongs"),
-    ).toBeVisible()
+    const equipment = within(dialog).getByRole('list', { name: "You'll need" })
+    await expect(equipment).toBeVisible()
+    await expect(within(equipment).getAllByRole('listitem')).toHaveLength(3)
     await assertNoSmallText(dialog)
   },
 }
@@ -587,9 +587,7 @@ export const Estonian: Story = {
     const dialog = await findDialog()
     await expect(within(dialog).getByRole('heading', { name: 'Koostisosad' })).toBeVisible()
     await expect(within(dialog).getByRole('heading', { name: 'Tähelepanu' })).toBeVisible()
-    await expect(
-      within(dialog).getByText('Vaja läheb: Sheet pan, Sharp knife, Tongs'),
-    ).toBeVisible()
+    await expect(within(dialog).getByRole('list', { name: 'Vaja läheb' })).toBeVisible()
   },
 }
 

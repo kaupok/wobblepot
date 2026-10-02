@@ -159,7 +159,8 @@ describe('MealDetail cook view layout (HON-932)', () => {
       />,
     )
 
-    const equipment = screen.getByText("You'll need: Sheet pan, Tongs")
+    const equipment = screen.getByRole('list', { name: "You'll need" })
+    expect(within(equipment).getAllByRole('listitem')).toHaveLength(2)
     const steps = screen.getByTestId('cook-view-steps')
     expect(steps).not.toContainElement(equipment)
     expect(within(steps).getByText('Roast it')).toBeInTheDocument()
