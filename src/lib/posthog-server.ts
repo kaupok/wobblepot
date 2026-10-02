@@ -2,7 +2,7 @@ import 'server-only'
 import { waitUntil } from '@vercel/functions'
 import { PostHog } from 'posthog-node'
 import { serverEnv } from '@/lib/env'
-import { sanitizeEventProperties } from '@/lib/redact'
+import { redactUrlProperties, sanitizeEventProperties } from '@/lib/redact'
 
 const globalForPosthog = globalThis as unknown as {
   posthog: PostHog | undefined
@@ -45,7 +45,12 @@ export function getPosthogServer(): PostHog | null {
       waitUntil,
       before_send: (event) => {
         if (!event) return event
-        return { ...event, properties: sanitizeEventProperties(event.properties) }
+        // URL redaction first: the sanitiser passes `$`-prefixed keys through,
+        // and `path` from `onRequestError` can carry a reset token (HON-990).
+        return {
+          ...event,
+          properties: sanitizeEventProperties(redactUrlProperties(event.properties)),
+        }
       },
     })
 

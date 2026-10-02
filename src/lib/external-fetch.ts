@@ -1,5 +1,6 @@
 import 'server-only'
 import { captureApiError, captureExternalApiTimeout } from '@/lib/errors'
+import { redactUrlValue } from '@/lib/redact'
 
 export interface ExternalFetchContext {
   /** Logical feature making the call, e.g. `breached_password_check`. */
@@ -31,6 +32,8 @@ export async function externalFetch(
   init: RequestInit | undefined,
   context: ExternalFetchContext,
 ): Promise<Response> {
+  // External APIs sometimes carry tokens or user identifiers in query strings.
+  const url = redactUrlValue(String(input))
   let response: Response
   try {
     response = await fetch(input, init)
@@ -39,7 +42,7 @@ export async function externalFetch(
       captureExternalApiTimeout({
         ...context,
         source: 'externalFetch.timeout',
-        url: redactUrl(input),
+        url,
       })
       throw error
     }
@@ -47,17 +50,17 @@ export async function externalFetch(
     captureApiError(error, {
       ...context,
       $exception_source: 'externalFetch.networkError',
-      url: redactUrl(input),
+      url,
     })
     throw error
   }
 
   if (!response.ok) {
-    captureApiError(new ExternalApiError(redactUrl(input), response.status), {
+    captureApiError(new ExternalApiError(url, response.status), {
       ...context,
       $exception_source: 'externalFetch.nonOk',
       statusCode: response.status,
-      url: redactUrl(input),
+      url,
     })
   }
 
@@ -89,23 +92,6 @@ function isCallerAbort(init: RequestInit | undefined, error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false
   const { name } = error as { name?: unknown }
   return name === 'AbortError' || name === 'TimeoutError'
-}
-
-/**
- * Strip query params and fragments from a URL before sending to PostHog —
- * external APIs sometimes carry tokens or user identifiers in query strings.
- */
-function redactUrl(input: string | URL): string {
-  try {
-    const url = typeof input === 'string' ? new URL(input) : input
-    return `${url.origin}${url.pathname}`
-  } catch {
-    if (typeof input === 'string') {
-      const idx = input.indexOf('?')
-      return idx === -1 ? input : input.slice(0, idx)
-    }
-    return String(input)
-  }
 }
 
 export class ExternalApiError extends Error {

@@ -63,6 +63,20 @@ describe('onRequestError', () => {
     })
   })
 
+  it('drops the query string from the captured path', async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+    })
+
+    await onRequestError(new Error('boom'), {
+      ...baseRequest,
+      path: '/reset-password?token=abc',
+    })
+
+    expect(captureExceptionMock).toHaveBeenCalledOnce()
+    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ path: '/reset-password' })
+  })
+
   it('skips capture when release is local (VERCEL_GIT_COMMIT_SHA unset)', async () => {
     delete process.env.VERCEL_GIT_COMMIT_SHA
     getPosthogServerMock.mockReturnValue({

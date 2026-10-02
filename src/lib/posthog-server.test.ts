@@ -214,4 +214,43 @@ describe('posthog-server', () => {
 
     expect(processOnceSpy).toHaveBeenCalledTimes(1)
   })
+
+  it('before_send drops the query from an $exception path and still strips sensitive keys', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+
+    const { getPosthogServer } = await import('@/lib/posthog-server')
+    getPosthogServer()
+
+    const opts = constructorSpy.mock.calls[0]![1] as {
+      before_send: (event: unknown) => { properties: Record<string, unknown> } | null
+    }
+    const result = opts.before_send({
+      distinctId: 'user_1',
+      event: '$exception',
+      properties: {
+        $exception_source: 'instrumentation.onRequestError',
+        path: '/reset-password?token=abc',
+        url: 'https://wobblepot.com/invite/XYZ123?x=1',
+        email: 'a@example.com',
+      },
+    })
+
+    expect(result?.properties).toEqual({
+      $exception_source: 'instrumentation.onRequestError',
+      path: '/reset-password',
+      url: 'https://wobblepot.com/invite/:code',
+    })
+  })
+
+  it('before_send passes a null event through', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+
+    const { getPosthogServer } = await import('@/lib/posthog-server')
+    getPosthogServer()
+
+    const opts = constructorSpy.mock.calls[0]![1] as { before_send: (event: unknown) => unknown }
+    expect(opts.before_send(null)).toBeNull()
+  })
 })
