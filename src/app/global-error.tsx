@@ -46,6 +46,7 @@ export default function GlobalError({
             api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST as string,
             person_profiles: 'identified_only',
             capture_pageview: false,
+            capture_pageleave: true,
             disable_session_recording: true,
             defaults: '2026-01-30',
             before_send: postHogBeforeSend,
