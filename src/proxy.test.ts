@@ -189,7 +189,7 @@ describe('proxy', () => {
     expect(directives).toContain('object-src')
   })
 
-  it('includes PostHog domains in img-src and connect-src', async () => {
+  it('lists no PostHog ingest or assets host, because the SDK goes through the same-origin /ingest proxy', async () => {
     const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
@@ -197,12 +197,68 @@ describe('proxy', () => {
     proxy(req)
 
     const csp = nextMock.responseHeaders.get('Content-Security-Policy')!
-    const imgSrc = csp.split(';').find((d) => d.trim().startsWith('img-src'))!
     const connectSrc = csp.split(';').find((d) => d.trim().startsWith('connect-src'))!
 
-    expect(imgSrc).toContain('https://*.posthog.com')
-    expect(connectSrc).toContain('https://*.posthog.com')
-    expect(connectSrc).toContain('https://eu.i.posthog.com')
+    // HON-985: next.config.ts rewrites /ingest to PostHog EU. The app host stays
+    // for the toolbar, which calls `ui_host` with fetch.
+    expect(csp).not.toContain('i.posthog.com')
+    expect(csp).not.toContain('*.posthog.com')
+    expect(connectSrc.trim()).toBe("connect-src 'self' https://eu.posthog.com")
+  })
+
+  it('runs on the /ingest PostHog rewrite', async () => {
+    const { config } = await import('./proxy')
+    const matches = (path: string) =>
+      config.matcher.some(({ source }) => new RegExp(`^${source}$`).test(path))
+
+    expect(matches('/ingest/e/')).toBe(true)
+    expect(matches('/ingest/static/web-vitals.js')).toBe(true)
+  })
+
+  it('strips cookies from /ingest requests so the session token never reaches PostHog', async () => {
+    const { proxy } = await import('./proxy')
+    const { NextRequest } = await import('next/server')
+    const req = new NextRequest('https://wobblepot.dev/ingest/e/', {
+      headers: [
+        ['cookie', 'better-auth.session_token=secret; consent-v1=all'],
+        ['user-agent', 'test-agent'],
+      ],
+    })
+
+    proxy(req)
+
+    expect(nextMock.requestHeaders.has('cookie')).toBe(false)
+    expect(nextMock.requestHeaders.get('user-agent')).toBe('test-agent')
+    // Analytics traffic is not a page: no nonce, no CSP.
+    expect(nextMock.requestHeaders.has('x-nonce')).toBe(false)
+    expect(nextMock.responseHeaders.has('Content-Security-Policy')).toBe(false)
+  })
+
+  it.each(['/ingest', '/INGEST/e', '/Ingest/flags'])(
+    'strips cookies from %s, which the case-insensitive rewrite also matches',
+    async (path) => {
+      const { proxy } = await import('./proxy')
+      const { NextRequest } = await import('next/server')
+      const req = new NextRequest(`https://wobblepot.dev${path}`, {
+        headers: [['cookie', 'better-auth.session_token=secret']],
+      })
+
+      proxy(req)
+
+      expect(nextMock.requestHeaders.has('cookie')).toBe(false)
+    },
+  )
+
+  it('keeps cookies on lookalike paths outside /ingest/', async () => {
+    const { proxy } = await import('./proxy')
+    const { NextRequest } = await import('next/server')
+    const req = new NextRequest('https://wobblepot.dev/ingestion', {
+      headers: [['cookie', 'consent-v1=all']],
+    })
+
+    proxy(req)
+
+    expect(nextMock.requestHeaders.get('cookie')).toBe('consent-v1=all')
   })
 
   it('allows Vercel Blob meal images in img-src', async () => {

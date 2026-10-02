@@ -82,7 +82,8 @@ describe('GlobalError', () => {
     expect(posthogMock.init).toHaveBeenCalledWith(
       'phc_test',
       expect.objectContaining({
-        api_host: 'https://eu.i.posthog.com',
+        api_host: '/ingest',
+        ui_host: 'https://eu.posthog.com',
         person_profiles: 'identified_only',
         capture_pageview: false,
         capture_pageleave: true,

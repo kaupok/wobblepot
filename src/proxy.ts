@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionCookie } from 'better-auth/cookies'
+import { isPostHogProxyPath, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
 
 /**
  * Routes that require a signed-in user. Prefix match on `nextUrl.pathname`.
@@ -139,9 +140,11 @@ function buildCspHeader(nonce: string): string {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : " 'strict-dynamic'"}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://*.posthog.com https://*.public.blob.vercel-storage.com",
+    "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
     "font-src 'self'",
-    "connect-src 'self' https://*.posthog.com https://eu.i.posthog.com",
+    // PostHog's SDK traffic is same-origin through the `/ingest` rewrite (HON-985).
+    // Only the app host stays, for the toolbar's API calls.
+    `connect-src 'self' ${POSTHOG_UI_HOST}`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -157,6 +160,17 @@ function buildCspHeader(nonce: string): string {
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
+
+  // The `/ingest` rewrite in next.config.ts forwards request headers to PostHog
+  // unchanged, and a same-origin request carries every first-party cookie,
+  // including the Better Auth session token. PostHog needs none of them (the
+  // SDK sends `distinct_id` in the body), so drop the header before the rewrite
+  // runs. Nothing else here applies to analytics traffic (HON-985).
+  if (isPostHogProxyPath(pathname)) {
+    const headers = new Headers(request.headers)
+    headers.delete('cookie')
+    return NextResponse.next({ request: { headers } })
+  }
 
   // Runs before the response body streams, so this is a real 307 rather than the
   // client-side redirect a page-level `redirect()` produces once a Suspense
@@ -193,6 +207,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // `/ingest/` (the PostHog rewrite) stays in: `proxy()` strips its cookies.
   matcher: [
     {
       source:
