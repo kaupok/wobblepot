@@ -7,7 +7,7 @@ import { clientEnv } from '@/lib/env'
 import { decisionToGranted } from '@/lib/consent'
 import { readConsentCookieClient } from '@/lib/consent.client'
 import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
-import { postHogBeforeSend } from '@/lib/posthog-before-send'
+import { POSTHOG_URL_MASKING, postHogBeforeSend } from '@/lib/posthog-before-send'
 import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { detectClientLocale, globalErrorTranslator } from '@/lib/i18n/global-error-messages'
@@ -50,6 +50,7 @@ export default function GlobalError({
             disable_session_recording: true,
             defaults: '2026-01-30',
             before_send: postHogBeforeSend,
+            ...POSTHOG_URL_MASKING,
           })
         }
         const properties: Record<string, unknown> = {

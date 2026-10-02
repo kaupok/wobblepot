@@ -32,4 +32,96 @@ describe('postHogBeforeSend', () => {
 
     expect(result?.properties).toEqual({ token: 'phc_test' })
   })
+
+  it('drops the reset token from a $pageview URL', () => {
+    const result = postHogBeforeSend({
+      event: '$pageview',
+      properties: {
+        $current_url: 'https://wobblepot.com/reset-password?token=abc',
+        $pathname: '/reset-password',
+        token: 'phc_test',
+      },
+    })
+
+    expect(result?.properties).toEqual({
+      $current_url: 'https://wobblepot.com/reset-password',
+      $pathname: '/reset-password',
+      token: 'phc_test',
+    })
+  })
+
+  it('replaces the invite code in a $pageview path', () => {
+    const result = postHogBeforeSend({
+      event: '$pageview',
+      properties: {
+        $current_url: 'https://wobblepot.com/invite/XYZ123',
+        $pathname: '/invite/XYZ123',
+        token: 'phc_test',
+      },
+    })
+
+    expect(result?.properties.$current_url).toBe('https://wobblepot.com/invite/:code')
+    expect(result?.properties.$pathname).toBe('/invite/:code')
+  })
+
+  it('drops the invite returnUrl from $referrer', () => {
+    const result = postHogBeforeSend({
+      event: '$pageview',
+      properties: {
+        $referrer: 'https://wobblepot.com/sign-in?returnUrl=%2Finvite%2FXYZ123',
+        token: 'phc_test',
+      },
+    })
+
+    expect(result?.properties.$referrer).toBe('https://wobblepot.com/sign-in')
+  })
+
+  it('drops the reset token from the URLs nested in a $web_vitals event', () => {
+    const result = postHogBeforeSend({
+      event: '$web_vitals',
+      properties: {
+        $current_url: 'https://wobblepot.com/reset-password?token=abc',
+        $web_vitals_FCP_event: {
+          value: 1,
+          $current_url: 'https://wobblepot.com/reset-password?token=abc',
+          navigationURL: 'https://wobblepot.com/reset-password?token=abc',
+        },
+        token: 'phc_test',
+      },
+    })
+
+    expect(result?.properties).toEqual({
+      $current_url: 'https://wobblepot.com/reset-password',
+      $web_vitals_FCP_event: {
+        value: 1,
+        $current_url: 'https://wobblepot.com/reset-password',
+        navigationURL: 'https://wobblepot.com/reset-password',
+      },
+      token: 'phc_test',
+    })
+  })
+
+  it('redacts the initial URL on the person properties', () => {
+    const result = postHogBeforeSend({
+      event: '$identify',
+      properties: { token: 'phc_test' },
+      $set: { $current_url: 'https://wobblepot.com/invite/XYZ123' },
+      $set_once: {
+        $initial_current_url: 'https://wobblepot.com/reset-password?token=abc',
+        $initial_pathname: '/invite/XYZ123',
+      },
+    })
+
+    expect(result?.$set).toEqual({ $current_url: 'https://wobblepot.com/invite/:code' })
+    expect(result?.$set_once).toEqual({
+      $initial_current_url: 'https://wobblepot.com/reset-password',
+      $initial_pathname: '/invite/:code',
+    })
+  })
+
+  it('does not add $set or $set_once when the event has none', () => {
+    const result = postHogBeforeSend({ properties: { token: 'phc_test' } })
+
+    expect(result).toEqual({ properties: { token: 'phc_test' } })
+  })
 })
