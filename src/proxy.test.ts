@@ -206,15 +206,44 @@ describe('proxy', () => {
     expect(connectSrc.trim()).toBe("connect-src 'self' https://eu.posthog.com")
   })
 
-  it('skips the /ingest PostHog proxy in the matcher, but not lookalike paths', async () => {
+  it('runs on the /ingest PostHog rewrite', async () => {
     const { config } = await import('./proxy')
     const matches = (path: string) =>
       config.matcher.some(({ source }) => new RegExp(`^${source}$`).test(path))
 
-    expect(matches('/ingest/e/')).toBe(false)
-    expect(matches('/ingest/static/web-vitals.js')).toBe(false)
-    expect(matches('/ingestion')).toBe(true)
-    expect(matches('/meal-plan')).toBe(true)
+    expect(matches('/ingest/e/')).toBe(true)
+    expect(matches('/ingest/static/web-vitals.js')).toBe(true)
+  })
+
+  it('strips cookies from /ingest requests so the session token never reaches PostHog', async () => {
+    const { proxy } = await import('./proxy')
+    const { NextRequest } = await import('next/server')
+    const req = new NextRequest('https://wobblepot.dev/ingest/e/', {
+      headers: [
+        ['cookie', 'better-auth.session_token=secret; consent-v1=all'],
+        ['user-agent', 'test-agent'],
+      ],
+    })
+
+    proxy(req)
+
+    expect(nextMock.requestHeaders.has('cookie')).toBe(false)
+    expect(nextMock.requestHeaders.get('user-agent')).toBe('test-agent')
+    // Analytics traffic is not a page: no nonce, no CSP.
+    expect(nextMock.requestHeaders.has('x-nonce')).toBe(false)
+    expect(nextMock.responseHeaders.has('Content-Security-Policy')).toBe(false)
+  })
+
+  it('keeps cookies on lookalike paths outside /ingest/', async () => {
+    const { proxy } = await import('./proxy')
+    const { NextRequest } = await import('next/server')
+    const req = new NextRequest('https://wobblepot.dev/ingestion', {
+      headers: [['cookie', 'consent-v1=all']],
+    })
+
+    proxy(req)
+
+    expect(nextMock.requestHeaders.get('cookie')).toBe('consent-v1=all')
   })
 
   it('allows Vercel Blob meal images in img-src', async () => {

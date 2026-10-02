@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionCookie } from 'better-auth/cookies'
-import { POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
+import { POSTHOG_PROXY_PATH, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
 
 /**
  * Routes that require a signed-in user. Prefix match on `nextUrl.pathname`.
@@ -161,6 +161,17 @@ function buildCspHeader(nonce: string): string {
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
 
+  // The `/ingest` rewrite in next.config.ts forwards request headers to PostHog
+  // unchanged, and a same-origin request carries every first-party cookie,
+  // including the Better Auth session token. PostHog needs none of them (the
+  // SDK sends `distinct_id` in the body), so drop the header before the rewrite
+  // runs. Nothing else here applies to analytics traffic (HON-985).
+  if (pathname.startsWith(`${POSTHOG_PROXY_PATH}/`)) {
+    const headers = new Headers(request.headers)
+    headers.delete('cookie')
+    return NextResponse.next({ request: { headers } })
+  }
+
   // Runs before the response body streams, so this is a real 307 rather than the
   // client-side redirect a page-level `redirect()` produces once a Suspense
   // fallback has already flushed a 200 (HON-599).
@@ -196,13 +207,11 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // `ingest/` is the PostHog reverse proxy (next.config.ts rewrites, HON-985):
-  // analytics batches are not pages, so they need no nonce, CSP or auth check,
-  // and skipping them saves a proxy invocation per batch.
+  // `/ingest/` (the PostHog rewrite) stays in: `proxy()` strips its cookies.
   matcher: [
     {
       source:
-        '/((?!_next/static|_next/image|ingest/|favicon.ico|icons/|manifest.json|sw.js|robots.txt|sitemap.xml).*)',
+        '/((?!_next/static|_next/image|favicon.ico|icons/|manifest.json|sw.js|robots.txt|sitemap.xml).*)',
       missing: [{ type: 'header', key: 'next-router-prefetch' }],
     },
   ],
