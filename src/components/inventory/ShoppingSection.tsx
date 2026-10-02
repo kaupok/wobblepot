@@ -583,7 +583,10 @@ export function ShoppingSection({
           </div>
         )}
 
-        {sortMode === 'alphabetical' && (
+        {/* `alphabeticalItems.length > 0`: a `RowGroup` with no rows is a bare
+            outline, which an empty list would show after its last custom item
+            is deleted. */}
+        {sortMode === 'alphabetical' && alphabeticalItems.length > 0 && (
           <RowGroup>
             {alphabeticalItems.map((entry) =>
               entry.kind === 'computed' ? (

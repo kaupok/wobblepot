@@ -6,6 +6,7 @@ import { CategoryGroup, CUSTOM_ITEMS_EMOJI } from '@/components/shopping/Categor
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { UrgencyGroup } from '@/components/shopping/UrgencyGroup'
 import { GroupHeading } from '@/components/inventory/GroupHeading'
+import { RowGroup } from '@/components/ui/row-group'
 import { ShoppingEmptyState } from '@/components/inventory/ShoppingEmptyState'
 import { ShoppingListHeader } from '@/components/inventory/ShoppingListHeader'
 import { WINDOW_STORAGE_KEY } from '@/components/inventory/use-shopping-window'
@@ -125,7 +126,7 @@ function ShoppingListScreen({
                 total={customShoppingItems.length}
                 count={`${checkedCustomCount}/${customShoppingItems.length}`}
               />
-              <div className="flex flex-col gap-1">
+              <RowGroup>
                 {customShoppingItems.map((item) => (
                   <CustomShoppingItem
                     key={item.id}
@@ -135,7 +136,7 @@ function ShoppingListScreen({
                     onDelete={onDeleteCustomItem}
                   />
                 ))}
-              </div>
+              </RowGroup>
             </div>
             {URGENCY_BUCKETS.map((bucket) => (
               <UrgencyGroup
@@ -187,7 +188,7 @@ function ShoppingListScreen({
                   `${checkedUnlinkedCount}/${unlinkedCustomItems.length}`
                 }
               />
-              <div className="flex flex-col gap-1">
+              <RowGroup>
                 {unlinkedCustomItems.map((item) => (
                   <CustomShoppingItem
                     key={item.id}
@@ -197,7 +198,7 @@ function ShoppingListScreen({
                     onDelete={onDeleteCustomItem}
                   />
                 ))}
-              </div>
+              </RowGroup>
             </div>
           </>
         )}
@@ -215,7 +216,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The `/shopping` screen as a whole, not a single component. Makes the composition rules visible: the column title and its group headings sit on the page background, only the interactive rows carry a border, every row clears the 44px touch floor, and the title stays at the Title level. Props are fixed — see `.storybook/README.md` → "Scenario stories".',
+          'The `/shopping` screen as a whole, not a single component. Makes the composition rules visible: the column title and its group headings sit on the page background, each group is one bordered `RowGroup` with a divider between its rows, every row clears the 44px touch floor, and the title stays at the Title level. Props are fixed — see `.storybook/README.md` → "Scenario stories".',
       },
     },
   },

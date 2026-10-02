@@ -179,7 +179,7 @@ export function PantrySection({
     </>
   )
 
-  // Title on the page background, the rows the only bordered things under
+  // Title on the page background, each group one bordered `RowGroup` under
   // it — the same shape as the list beside it and the timeline on Today
   // (docs/DESIGN.md → Composition rules, "Headings divide, borders contain").
   // `gap-6` between the header, the search and each group.
