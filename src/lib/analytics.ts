@@ -130,12 +130,15 @@ export type EventPayload = {
   /**
    * The cook sent a question about one step in the cook view (HON-969). Fires
    * on send, not on the answer. `source` says whether it was a chip or typed.
+   * `has_previous` says whether it went with the step's earlier question and
+   * answer, as a follow-up (HON-980).
    */
   'cook_view:question_asked': {
     plan_id: string
     meal_id: string
     step_index: number
     source: 'chip' | 'text'
+    has_previous: boolean
   }
 }
 

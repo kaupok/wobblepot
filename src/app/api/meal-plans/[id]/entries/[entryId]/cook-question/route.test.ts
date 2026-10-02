@@ -288,6 +288,50 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
     })
   })
 
+  describe('the previous question and answer (HON-980)', () => {
+    const previous = { question: 'What can I substitute here?', answer: 'Use the yoghurt.' }
+
+    it('puts a valid previous question and answer in the prompt, trimmed', async () => {
+      const response = await callPost(
+        validBody({
+          question: 'And if I have no oil?',
+          previous: { question: `  ${previous.question} `, answer: ` ${previous.answer}\n` },
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      const prompt = promptSent()
+      expect(prompt).toContain('The cook already asked about this step, and you answered:')
+      expect(prompt).toContain('<<<\nWhat can I substitute here?\n>>>')
+      expect(prompt).toContain('<<<\nUse the yoghurt.\n>>>')
+      expect(prompt).toContain('<<<\nAnd if I have no oil?\n>>>')
+    })
+
+    it('accepts a 1200-character answer', async () => {
+      const answer = 'a'.repeat(1200)
+      const response = await callPost(validBody({ previous: { ...previous, answer } }))
+
+      expect(response.status).toBe(200)
+      expect(promptSent()).toContain(`<<<\n${answer}\n>>>`)
+    })
+
+    it.each([
+      ['a 1201-character answer', { ...previous, answer: 'a'.repeat(1201) }],
+      ['a 301-character question', { ...previous, question: 'a'.repeat(301) }],
+      ['an empty answer', { ...previous, answer: '  ' }],
+      ['a missing answer', { question: previous.question }],
+      ['a number for the answer', { ...previous, answer: 42 }],
+      ['a string instead of an object', 'What can I substitute here?'],
+      ['null', null],
+    ])('drops %s and still answers the question', async (_name, bad) => {
+      const response = await callPost(validBody({ previous: bad }))
+
+      expect(response.status).toBe(200)
+      expect(promptSent()).not.toContain('already asked about this step')
+      expect(promptSent()).toContain("<<<\nHow do I know it's done?\n>>>")
+    })
+  })
+
   it('scopes the entry lookup to the household and returns 404 when not found', async () => {
     mockEntryFindFirst.mockResolvedValue(null)
 
