@@ -35,7 +35,7 @@ if (!enabled) {
 `getServerFlag` is the only sanctioned way to read a flag server-side. It:
 
 - accepts only typed `FlagKey` values — passing an unknown string is a TypeScript error;
-- races the PostHog `getFeatureFlag` call against a 100ms timeout;
+- races the PostHog call against a 100ms timeout: `getFeatureFlag` for a user id, the cached `getAllFlags` evaluation for `'anonymous'` (see [Caching](#caching));
 - returns `FLAG_DEFAULTS[key]` (the safe default) on timeout, error, or `undefined` from PostHog;
 - never throws, never propagates a PostHog error to the caller, never logs to PostHog itself (storming the very dashboard we're trying to read from is the wrong move during an outage — `console.warn` only).
 
@@ -57,6 +57,17 @@ const enabled = posthog?.isFeatureEnabled('ai_generation_enabled') ?? true // sa
 Do not import `posthog-js` or `@posthog/react` statically in client code. Either one puts the whole SDK in the initial JS of every visitor, including users who declined analytics (HON-999). `@posthog/react` is not a dependency for that reason, and `src/lib/posthog-bundle-boundary.test.ts` fails CI on a static import.
 
 Reads on **pre-consent** surfaces (marketing pages, the consent banner itself, the sign-up form): the SDK never initialises before consent, so client-side `posthog.isFeatureEnabled()` returns nothing. Server-evaluate the flag in the RSC and either pass the result down as a prop or skip the client-side flag check entirely. None of the launch flags are read client-side, so this isn't an issue today.
+
+## Caching
+
+`bootstrapFlags` and anonymous `getServerFlag` reads share one `getAllFlags` evaluation per distinct id, held in two caches:
+
+- **Per request:** React `cache()`. The layout bootstrap and the landing or `/sign-up` page read of `invite_code_required` make one `/flags` request together, not two.
+- **Per distinct id, for 30 s (`FLAG_CACHE_TTL_MS`):** an in-memory map in each warm Vercel function instance. Repeat renders by the same user, or by any anonymous visitor, inside that window make no request. Outside a React render (route handlers, the Better Auth sign-up hook) this map is the only cache.
+
+A timeout or an error is not cached, so the next read asks PostHog again. posthog-node reports a failed request as an empty result (`{}`) rather than a rejection, so an empty result counts as an error. Server reads with a user id (the API-route kill-switches) are not cached: each one calls `getFeatureFlag`, because that call sends the `$feature_flag_called` event PostHog uses to show a flag as active. `getAllFlags` sends none.
+
+**Kill-switch delay.** A flip in PostHog reaches the API-route reads on the next request. It reaches the bootstrap and the anonymous reads (`invite_code_required` on `/`, `/sign-up` and the sign-up hook) within 30 s. Each function instance holds its own copy, so two instances can disagree for up to that window.
 
 ## Adding a new flag
 
