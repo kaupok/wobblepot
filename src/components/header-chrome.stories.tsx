@@ -258,47 +258,79 @@ export const DesktopScrolled: Story = {
   },
 }
 
-export const DesktopAtMd: Story = {
+/**
+ * The `md` breakpoint exactly (768px), the narrowest width the two pills
+ * share, with the navigation landmarks and the last folding link named in
+ * the story's locale.
+ */
+const atMd = (
+  locale: 'en' | 'et',
+  names: { primary: string; settings: string; household: string },
+): Story => ({
   args: { session: authedSession, hasHousehold: true },
   globals: {
+    locale,
     viewport: { value: 'tabletPortrait', isRotated: false },
   },
   parameters: {
     docs: {
       description: {
         story:
-          'The `md` breakpoint exactly (768px), the narrowest width the two pills share. "Meal plan" is wider than the "Today" it replaced (HON-924), so the play measures that the left pill ends before the right one starts, at rest and scrolled.',
+          'The `md` breakpoint exactly (768px), the narrowest width the two pills share. "Meal plan" / "Söögiplaan" is wider than the "Today" / "Täna" it replaced (HON-924): with a classic scrollbar taking 15px, the two pills now meet edge to edge in both locales. The play measures that they do not overlap, at rest and scrolled, and that at rest neither the logo nor any label is clipped to make them fit.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const banner = within(canvasElement).getByRole('banner')
-    const primary = within(banner).getByRole('navigation', { name: 'Primary' })
-    const settings = within(banner).getByRole('navigation', { name: 'Settings' })
-    const leftPill = () => box(primary.parentElement!)
-    const rightPill = () => box(settings.parentElement!)
+    const primary = within(banner).getByRole('navigation', { name: names.primary })
+    const settings = within(banner).getByRole('navigation', { name: names.settings })
+    const household = within(settings).getByRole('link', { name: names.household })
+    // Widths depend on the face: measured on the fallback before Geist swaps
+    // in, the pills come out a different width than they render.
+    await document.fonts.ready
 
-    await expect(leftPill().right).toBeLessThan(rightPill().left)
+    const expectNoOverlap = () =>
+      // Within a pixel: subpixel text widths round differently per browser.
+      expect(
+        box(settings.parentElement!).left - box(primary.parentElement!).right,
+      ).toBeGreaterThanOrEqual(-1)
+
+    // At rest, every label is open. A pill squeezed past its content shrinks
+    // its clipped boxes (the logo, the folding labels) rather than
+    // overflowing, so an overlap can also show up as a clipped label.
+    await expectNoOverlap()
+    const logo = within(banner).getByRole('link', { name: 'Wobblepot' }).parentElement!
+    const labels = [primary, settings].flatMap((nav) =>
+      Array.from(nav.querySelectorAll('a'), (link) => link.lastElementChild ?? link),
+    )
+    for (const el of [logo, ...labels]) {
+      await expect(el.scrollWidth - el.clientWidth).toBeLessThanOrEqual(1)
+    }
 
     window.scrollTo(0, 400)
     await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
-    // Wait for the fold to settle before measuring: the right pill's labels
-    // close to their icons as the logo closes in the left one.
-    await waitFor(
-      () =>
-        expect(
-          within(settings)
-            .getByRole('link', { name: 'Household' })
-            .lastElementChild!.getBoundingClientRect().width,
-        ).toBe(0),
-      { timeout: 1500 },
-    )
-    await expect(leftPill().right).toBeLessThan(rightPill().left)
+    // Measure once the right pill's labels have closed to their icons.
+    await waitFor(() => expect(household.lastElementChild!.getBoundingClientRect().width).toBe(0), {
+      timeout: 1500,
+    })
+    await expectNoOverlap()
 
     window.scrollTo(0, 0)
     await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
   },
-}
+})
+
+export const DesktopAtMd: Story = atMd('en', {
+  primary: 'Primary',
+  settings: 'Settings',
+  household: 'Household',
+})
+
+export const DesktopAtMdEstonian: Story = atMd('et', {
+  primary: 'Põhinavigatsioon',
+  settings: 'Sätted',
+  household: 'Leibkond',
+})
 
 export const DesktopLoggedOut: Story = {
   globals: {
