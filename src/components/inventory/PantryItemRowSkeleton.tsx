@@ -4,8 +4,9 @@ import { Skeleton } from '@/components/ui/skeleton'
  * Placeholder for a `PantryItemRow`, used by `src/app/shopping/loading.tsx`.
  *
  * Mirrors the row's box for the reason `ShoppingItemSkeleton` does — same
- * border, same `p-3`, same content lines — and mirrors the variant this route
- * actually serves: the one carrying the "needed in window" caption, at 74px.
+ * `p-3`, same content lines, the border left to the `RowGroup` around it — and
+ * mirrors the variant this route actually serves: the one carrying the "needed
+ * in window" caption, at 72px.
  *
  * Which variant to mirror is a bet, not a fact. `src/app/shopping/page.tsx`
  * always fetches `/api/pantry?days=7|14`, but the caption is per row: it needs
@@ -25,7 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton'
  */
 export function PantryItemRowSkeleton() {
   return (
-    <div className="flex items-center justify-between rounded-lg border p-3">
+    <div className="flex items-center justify-between p-3">
       <div className="flex items-center gap-3">
         {/* Staple star toggle — `Button size="icon-sm"`, so `size-8`. */}
         <Skeleton aria-hidden className="size-8 shrink-0" />

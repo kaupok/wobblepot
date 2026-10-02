@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
 import { createPantryItemData } from '@/stories/fixtures'
+import { RowGroup } from '@/components/ui/row-group'
 import { PantryItemRow } from './PantrySection'
 import { PantryItemRowSkeleton } from './PantryItemRowSkeleton'
 
@@ -36,15 +37,23 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Default: Story = {}
+export const Default: Story = {
+  render: () => (
+    <RowGroup>
+      <PantryItemRowSkeleton />
+      <PantryItemRowSkeleton />
+      <PantryItemRowSkeleton />
+    </RowGroup>
+  ),
+}
 
 export const AgainstLiveRow: Story = {
   render: () => (
     <div className="flex flex-col gap-2">
-      <div data-testid="skeleton">
+      <RowGroup data-testid="skeleton">
         <PantryItemRowSkeleton />
-      </div>
-      <div data-testid="pantry-row-needed">
+      </RowGroup>
+      <RowGroup data-testid="pantry-row-needed">
         <PantryItemRow
           item={createPantryItemData({
             neededQuantity: 500,
@@ -54,17 +63,17 @@ export const AgainstLiveRow: Story = {
           onToggleStaple={noop}
           onRemove={noop}
         />
-      </div>
-      <div data-testid="pantry-row">
+      </RowGroup>
+      <RowGroup data-testid="pantry-row">
         <PantryItemRow item={createPantryItemData()} onToggleStaple={noop} onRemove={noop} />
-      </div>
+      </RowGroup>
     </div>
   ),
   parameters: {
     docs: {
       description: {
         story:
-          'The skeleton above both variants of the row it replaces, stacked at the `gap-2` the real list uses. The middle row is the one whose ingredient the plan needs — the variant this route serves, and the one the skeleton is held equal to. The bottom row is the same component without the caption, 16px shorter; that delta is asserted too, so the choice of which variant to mirror stays a decision rather than a stale comment.',
+          'The skeleton above both variants of the row it replaces, each in its own `RowGroup`, which is where the border now lives. The middle row is the one whose ingredient the plan needs — the variant this route serves, and the one the skeleton is held equal to. The bottom row is the same component without the caption, 16px shorter; that delta is asserted too, so the choice of which variant to mirror stays a decision rather than a stale comment.',
       },
     },
   },

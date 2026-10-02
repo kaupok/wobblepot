@@ -1,6 +1,7 @@
 // `src/app/pantry/loading.tsx` is the same two columns with the other one
 // shown on a phone. Change the geometry in both.
 import { Skeleton } from '@/components/ui/skeleton'
+import { RowGroup } from '@/components/ui/row-group'
 import { PantryItemRowSkeleton } from '@/components/inventory/PantryItemRowSkeleton'
 import { ShoppingItemSkeleton } from '@/components/shopping/ShoppingItemSkeleton'
 
@@ -25,7 +26,7 @@ export default function ShoppingLoading() {
 
 /**
  * `PantrySection`'s shape: the Title line, the add search, a group heading,
- * then rows at `gap-2`. `h-7.5` is the Title's `text-xl` line box, which the
+ * then the rows in one `RowGroup`. `h-7.5` is the Title's `text-xl` line box, which the
  * item count on its baseline does not add to; `h-6.5` the group heading's,
  * whose count badge stands taller than the caption line
  * (`GroupHeading.stories.tsx` › WithTotal measures it).
@@ -42,12 +43,12 @@ export function PantryColumnSkeleton() {
         <div className="flex h-6.5 items-center">
           <Skeleton aria-hidden className="h-3.5 w-24" />
         </div>
-        <div className="flex flex-col gap-2">
+        <RowGroup>
           <PantryItemRowSkeleton />
           <PantryItemRowSkeleton />
           <PantryItemRowSkeleton />
           <PantryItemRowSkeleton />
-        </div>
+        </RowGroup>
       </div>
     </div>
   )
@@ -57,7 +58,7 @@ export function PantryColumnSkeleton() {
  * `ShoppingSection`'s shape: the Title line, the controls row (two `sm`
  * selects and Copy list, all `h-8`, wrapping as the real row does so a 390px
  * column reserves the second line), the add-item input, a group heading,
- * then rows at `gap-1`.
+ * then the rows in one `RowGroup`.
  */
 export function ShoppingColumnSkeleton() {
   return (
@@ -77,13 +78,13 @@ export function ShoppingColumnSkeleton() {
         <div className="flex h-6.5 items-center">
           <Skeleton aria-hidden className="h-3.5 w-24" />
         </div>
-        <div className="flex flex-col gap-1">
+        <RowGroup>
           <ShoppingItemSkeleton />
           <ShoppingItemSkeleton />
           <ShoppingItemSkeleton />
           <ShoppingItemSkeleton />
           <ShoppingItemSkeleton />
-        </div>
+        </RowGroup>
       </div>
     </div>
   )

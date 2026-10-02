@@ -65,7 +65,7 @@ export function PantryItem({ item, onToggleStaple, onRemove }: PantryItemProps) 
   }
 
   return (
-    <div className="flex items-center justify-between rounded-lg border p-3">
+    <div className="flex items-center justify-between p-3">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"

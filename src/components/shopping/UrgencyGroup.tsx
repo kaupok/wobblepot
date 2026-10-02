@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import type { UrgencyBucket } from '@/lib/meal-planning/dates'
 import { GroupHeading } from '@/components/inventory/GroupHeading'
+import { RowGroup } from '@/components/ui/row-group'
 import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
 
 /**
@@ -47,7 +48,7 @@ export function UrgencyGroup({
         total={totalCount}
         count={purchasedCount > 0 && `${purchasedCount}/${totalCount}`}
       />
-      <div className="flex flex-col gap-1">
+      <RowGroup>
         {items.map((item) => (
           <ShoppingItem
             key={item.ingredientId}
@@ -58,7 +59,7 @@ export function UrgencyGroup({
             showDue={showDue}
           />
         ))}
-      </div>
+      </RowGroup>
     </div>
   )
 }

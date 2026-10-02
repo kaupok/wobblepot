@@ -9,6 +9,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Body, Heading } from '@/components/ui/typography'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { RowGroup } from '@/components/ui/row-group'
 import { InlineAddItem } from '@/components/pantry/InlineAddItem'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
@@ -141,7 +142,7 @@ export function PantrySection({
       {staples.length > 0 && (
         <div className="flex flex-col gap-2">
           <GroupHeading label={tPantry('stapleSection')} total={staples.length} />
-          <div className="flex flex-col gap-2">
+          <RowGroup>
             {staples.map((item) => (
               <PantryItemRow
                 key={item.id}
@@ -152,14 +153,14 @@ export function PantrySection({
                 isRemoving={removingIds.includes(item.id)}
               />
             ))}
-          </div>
+          </RowGroup>
         </div>
       )}
 
       {onHand.length > 0 && (
         <div className="flex flex-col gap-2">
           <GroupHeading label={tPantry('onHandSection')} total={onHand.length} />
-          <div className="flex flex-col gap-2">
+          <RowGroup>
             {onHand.map((item) => (
               <PantryItemRow
                 key={item.id}
@@ -170,7 +171,7 @@ export function PantrySection({
                 isRemoving={removingIds.includes(item.id)}
               />
             ))}
-          </div>
+          </RowGroup>
         </div>
       )}
 
@@ -237,7 +238,7 @@ export function PantryItemRow({
     // No entrance when a ticked shopping item lands here: it happens many
     // times a session, and the row appearing is the change (docs/DESIGN.md →
     // Reject list).
-    <div className="flex items-center justify-between rounded-lg border p-3">
+    <div className="flex items-center justify-between p-3">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"

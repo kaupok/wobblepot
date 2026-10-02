@@ -2,6 +2,7 @@
 
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { GroupHeading } from '@/components/inventory/GroupHeading'
+import { RowGroup } from '@/components/ui/row-group'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { ShoppingItem, type ShoppingItemData } from './ShoppingItem'
 import { CustomShoppingItem } from './CustomShoppingItem'
@@ -74,7 +75,7 @@ export function CategoryGroup({
         total={totalCount}
         count={purchasedCount > 0 && `${purchasedCount}/${totalCount}`}
       />
-      <div className="flex flex-col gap-1">
+      <RowGroup>
         {items.map((item) => (
           <ShoppingItem
             key={item.ingredientId}
@@ -95,7 +96,7 @@ export function CategoryGroup({
             pending={pendingIds?.has(item.id)}
           />
         ))}
-      </div>
+      </RowGroup>
     </div>
   )
 }
