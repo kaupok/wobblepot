@@ -1,7 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
-import { useRef } from 'react'
+import { createRef, useRef } from 'react'
 import { TagInput, type TagInputRef } from './tag-input'
 
 describe('TagInput component', () => {
@@ -244,6 +244,30 @@ describe('TagInput component', () => {
       await userEvent.click(screen.getByText('Commit'))
 
       expect(input).toHaveValue('')
+    })
+
+    // Called from a submit handler, without the blur a button click causes:
+    // the parent's state has not caught up yet, so it sends the return value.
+    it('returns the tags including the committed one', async () => {
+      const onChange = vi.fn()
+      const ref = createRef<TagInputRef>()
+      render(<TagInput ref={ref} value={['gluten']} onChange={onChange} />)
+
+      await userEvent.type(screen.getByRole('textbox'), 'halal')
+      let committed: string[] = []
+      act(() => {
+        committed = ref.current!.commitPendingValue()
+      })
+
+      expect(committed).toEqual(['gluten', 'halal'])
+      expect(onChange).toHaveBeenCalledWith(['gluten', 'halal'])
+    })
+
+    it('returns the current tags when nothing is pending', () => {
+      const ref = createRef<TagInputRef>()
+      render(<TagInput ref={ref} value={['gluten']} onChange={vi.fn()} />)
+
+      expect(ref.current!.commitPendingValue()).toEqual(['gluten'])
     })
   })
 })

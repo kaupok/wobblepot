@@ -918,10 +918,11 @@
     "dietaryNone": "No preference",
     "pageTitle": "Household",
     "settings": {
-      "saveButton": "Save settings",
+      "saveButton": "Save",
       "saving": "Saving…",
       "savedToast": "Settings saved",
       "saveFailed": "Failed to save settings",
+      "mealsRequired": "Pick at least one meal for weekdays and one for weekends.",
       "ownerOnlyNotice": "Only the household owner can change these settings. You can see them here.",
       "detailsHeading": "Household details",
       "nameLabel": "Household name",

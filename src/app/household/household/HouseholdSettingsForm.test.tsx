@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { toast } from 'sonner'
@@ -10,6 +10,7 @@ import enMessages from '../../../../messages/en.json'
 import etMessages from '../../../../messages/et.json'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
 import { createQueryWrapper } from '@/test/query-wrapper'
+import { dropFocusToBody } from '@/test/focus'
 
 // The global next-intl mock has no `t.rich`, which the allergen notice needs.
 // This file already wraps in a real provider with the English catalogue.
@@ -63,6 +64,25 @@ const defaultPreferences: {
   excludedIngredients: [],
   weekdayMealTypes: ['dinner'],
   weekendMealTypes: ['dinner'],
+}
+
+const ok = () => ({ ok: true, json: () => Promise.resolve({}) })
+const fail = (status: number, error: string) => ({
+  ok: false,
+  status,
+  json: () => Promise.resolve({ error }),
+})
+
+/** Hold the next request open until the returned function answers it. */
+function deferFetch() {
+  let answer: (response: unknown) => void = () => {}
+  mockFetch.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+  return (response: unknown) => act(() => answer(response))
+}
+
+/** The form of the section with this heading. */
+function section(heading: string) {
+  return screen.getByRole('form', { name: heading })
 }
 
 function renderForm(
@@ -262,10 +282,10 @@ describe('HouseholdSettingsForm', () => {
       expect(screen.getAllByLabelText('Dinner')[0]).not.toBeDisabled()
     })
 
-    it('hides the save button for non-owners', () => {
+    it('never shows a save button to non-owners', () => {
       renderForm({ isOwner: false })
 
-      expect(screen.queryByRole('button', { name: 'Save settings' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     })
   })
 
@@ -344,85 +364,6 @@ describe('HouseholdSettingsForm', () => {
       expect(timezoneTrigger).toHaveTextContent('Europe/Tallinn')
     })
 
-    it('updates the timezone trigger and saves the new zone', async () => {
-      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
-      renderForm()
-
-      const timezoneTrigger = screen.getByRole('combobox', { name: /timezone/i })
-      await userEvent.click(timezoneTrigger)
-      await userEvent.click(screen.getByRole('option', { name: 'America/New York' }))
-
-      expect(timezoneTrigger).toHaveTextContent('America/New York')
-
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
-      await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith(
-          '/api/households/me',
-          expect.objectContaining({
-            body: JSON.stringify({
-              name: 'Test Household',
-              timezone: 'America/New_York',
-              locale: 'en',
-            }),
-          }),
-        )
-      })
-    })
-
-    it('updates the language trigger and saves the new locale', async () => {
-      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
-      renderForm()
-
-      const localeTrigger = screen.getByRole('combobox', { name: /language/i })
-      expect(localeTrigger).toHaveTextContent('English')
-      await userEvent.click(localeTrigger)
-      await userEvent.click(screen.getByRole('option', { name: 'Estonian' }))
-
-      expect(localeTrigger).toHaveTextContent('Estonian')
-
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
-      await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith(
-          '/api/households/me',
-          expect.objectContaining({
-            body: JSON.stringify({
-              name: 'Test Household',
-              timezone: 'Europe/Tallinn',
-              locale: 'et',
-            }),
-          }),
-        )
-      })
-    })
-
-    it('invalidates the whole query cache before refreshing when the locale changes', async () => {
-      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
-      const { queryClient } = renderForm()
-      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
-
-      await userEvent.click(screen.getByRole('combobox', { name: /language/i }))
-      await userEvent.click(screen.getByRole('option', { name: 'Estonian' }))
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
-
-      await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
-      // No filter: every cached entity carries locale-dependent names.
-      expect(invalidate).toHaveBeenCalledWith()
-      expect(invalidate.mock.invocationCallOrder[0]).toBeLessThan(
-        mockRouterRefresh.mock.invocationCallOrder[0]!,
-      )
-    })
-
-    it('leaves the query cache alone when the locale is unchanged', async () => {
-      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
-      const { queryClient } = renderForm()
-      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
-
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
-
-      await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
-      expect(invalidate).not.toHaveBeenCalled()
-    })
-
     it('disables timezone select for non-owners', () => {
       renderForm({ isOwner: false })
 
@@ -453,170 +394,449 @@ describe('HouseholdSettingsForm', () => {
     })
   })
 
-  describe('form submission', () => {
-    it('submits form with correct data for owner', async () => {
-      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+  // Each section is its own form, and its Save button shows only while the
+  // section differs from what was saved (HON-961).
+  describe('save button visibility', () => {
+    it('shows no save button at rest', () => {
+      renderForm()
 
-      renderForm({ isOwner: true })
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    })
 
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    it('shows one save button, in the changed section only', async () => {
+      renderForm()
 
-      await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledTimes(2)
+      await userEvent.click(screen.getByLabelText('Gluten'))
+
+      expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(1)
+      expect(within(section('Food preferences')).getByRole('button', { name: 'Save' })).toBe(
+        screen.getByRole('button', { name: 'Save' }),
+      )
+    })
+
+    it('shows a save button in each section that has a change', async () => {
+      renderForm()
+
+      await userEvent.type(screen.getByLabelText('Household name'), '!')
+      await userEvent.click(screen.getAllByLabelText('Lunch')[0]!)
+
+      expect(within(section('Household details')).getByRole('button', { name: 'Save' }))
+      expect(within(section('Meals to plan')).getByRole('button', { name: 'Save' }))
+      expect(
+        within(section('Food preferences')).queryByRole('button', { name: 'Save' }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('hides the button again when the change is undone', async () => {
+      renderForm()
+
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByLabelText('Gluten'))
+
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    })
+
+    it('ignores the order of a list', async () => {
+      renderForm({
+        preferences: { ...defaultPreferences, allergensToAvoid: ['gluten', 'dairy'] },
       })
 
+      // Unticking and reticking gluten moves it to the end of the list.
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByLabelText('Gluten'))
+
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    })
+
+    it('does not send anything when a clean section is submitted', async () => {
+      renderForm()
+
+      // Enter in the name field submits its form even with no button shown.
+      fireEvent.submit(section('Household details'))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('household details', () => {
+    it('saves the new timezone, and nothing else, to the household', async () => {
+      mockFetch.mockResolvedValue(ok())
+      renderForm()
+
+      const timezoneTrigger = screen.getByRole('combobox', { name: /timezone/i })
+      await userEvent.click(timezoneTrigger)
+      await userEvent.click(screen.getByRole('option', { name: 'America/New York' }))
+      expect(timezoneTrigger).toHaveTextContent('America/New York')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Settings saved'))
+      expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/households/me',
         expect.objectContaining({
           method: 'PATCH',
           body: JSON.stringify({
             name: 'Test Household',
-            timezone: 'Europe/Tallinn',
+            timezone: 'America/New_York',
             locale: 'en',
           }),
         }),
       )
+    })
 
+    it('saves the new locale', async () => {
+      mockFetch.mockResolvedValue(ok())
+      renderForm()
+
+      const localeTrigger = screen.getByRole('combobox', { name: /language/i })
+      expect(localeTrigger).toHaveTextContent('English')
+      await userEvent.click(localeTrigger)
+      await userEvent.click(screen.getByRole('option', { name: 'Estonian' }))
+      expect(localeTrigger).toHaveTextContent('Estonian')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          '/api/households/me',
+          expect.objectContaining({
+            body: JSON.stringify({
+              name: 'Test Household',
+              timezone: 'Europe/Tallinn',
+              locale: 'et',
+            }),
+          }),
+        )
+      })
+    })
+
+    it('invalidates the whole query cache before refreshing when the locale changes', async () => {
+      mockFetch.mockResolvedValue(ok())
+      const { queryClient } = renderForm()
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+
+      await userEvent.click(screen.getByRole('combobox', { name: /language/i }))
+      await userEvent.click(screen.getByRole('option', { name: 'Estonian' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
+      // No filter: every cached entity carries locale-dependent names.
+      expect(invalidate).toHaveBeenCalledWith()
+      expect(invalidate.mock.invocationCallOrder[0]).toBeLessThan(
+        mockRouterRefresh.mock.invocationCallOrder[0]!,
+      )
+    })
+
+    it('leaves the query cache alone when the locale is unchanged', async () => {
+      mockFetch.mockResolvedValue(ok())
+      const { queryClient } = renderForm()
+      const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+
+      await userEvent.type(screen.getByLabelText('Household name'), '!')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
+      expect(invalidate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('food preferences', () => {
+    it('saves only the food fields to the preferences', async () => {
+      mockFetch.mockResolvedValue(ok())
+      renderForm()
+
+      await userEvent.click(screen.getByLabelText('Vegan'))
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
+      expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/households/me/preferences',
         expect.objectContaining({
           method: 'PATCH',
+          body: JSON.stringify({
+            dietaryType: 'vegan',
+            allergensToAvoid: ['gluten'],
+            restrictions: [],
+            excludedIngredients: [],
+          }),
         }),
       )
     })
 
-    // No button to press, so submit the form element directly: the mutation
+    it('sends a dietary type of "No preference" as null', async () => {
+      mockFetch.mockResolvedValue(ok())
+      renderForm({ preferences: { ...defaultPreferences, dietaryType: 'vegetarian' } })
+
+      await userEvent.click(screen.getByLabelText('No preference'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalled())
+      expect(JSON.parse(mockFetch.mock.calls[0]![1].body)).toMatchObject({ dietaryType: null })
+    })
+
+    // Submitting without the blur a click causes: the tag is still only text.
+    it('sends text typed into a tag input but not yet added', async () => {
+      mockFetch.mockResolvedValue(ok())
+      renderForm()
+
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.type(screen.getByLabelText('Dietary restrictions (optional)'), 'halal')
+      fireEvent.submit(section('Food preferences'))
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalled())
+      expect(JSON.parse(mockFetch.mock.calls[0]![1].body)).toMatchObject({
+        restrictions: ['halal'],
+      })
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
+      )
+    })
+  })
+
+  describe('meals to plan', () => {
+    it('saves only the meal types to the preferences', async () => {
+      mockFetch.mockResolvedValue(ok())
+      renderForm()
+
+      await userEvent.click(screen.getAllByLabelText('Breakfast')[1]!)
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/households/me/preferences',
+        expect.objectContaining({
+          body: JSON.stringify({
+            weekdayMealTypes: ['dinner'],
+            weekendMealTypes: ['dinner', 'breakfast'],
+          }),
+        }),
+      )
+    })
+
+    // The route rejects an empty list; say what to fix instead of its 400.
+    it('asks for at least one meal type per group without sending', async () => {
+      renderForm()
+
+      const weekday = screen.getByRole('group', { name: 'Weekday meals to plan' })
+      await userEvent.click(within(weekday).getByLabelText('Dinner'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(within(section('Meals to plan')).getByRole('alert')).toHaveTextContent(
+        enMessages.household.settings.mealsRequired,
+      )
+      expect(weekday).toHaveAccessibleDescription(enMessages.household.settings.mealsRequired)
+      expect(mockFetch).not.toHaveBeenCalled()
+
+      // Fixing it clears the message straight away.
+      await userEvent.click(within(weekday).getByLabelText('Lunch'))
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(weekday).not.toHaveAccessibleDescription()
+    })
+
+    it('labels each day group', () => {
+      renderForm()
+
+      const weekday = screen.getByRole('group', { name: 'Weekday meals to plan' })
+      expect(within(weekday).getByLabelText('Dinner')).toBeChecked()
+      expect(screen.getByRole('group', { name: 'Weekend meals to plan' })).toBeInTheDocument()
+    })
+  })
+
+  describe('after a save', () => {
+    it('removes the button and moves focus to the section heading', async () => {
+      mockFetch.mockResolvedValue(ok())
+      renderForm()
+
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
+      )
+      expect(screen.getByRole('heading', { name: 'Food preferences' })).toHaveFocus()
+      expect(toast.success).toHaveBeenCalledWith('Settings saved')
+    })
+
+    it('treats the sent values as saved', async () => {
+      mockFetch.mockResolvedValue(ok())
+      renderForm()
+
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
+      )
+
+      // Unticking now differs from the new saved value, not the original one.
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    })
+
+    it('leaves focus alone when the user has moved to another section', async () => {
+      const respond = deferFetch()
+      renderForm()
+
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      const nameInput = screen.getByLabelText('Household name')
+      act(() => nameInput.focus())
+      respond(ok())
+
+      await waitFor(() => expect(toast.success).toHaveBeenCalled())
+      expect(nameInput).toHaveFocus()
+    })
+
+    it('shows the saving state while the request is pending', async () => {
+      deferFetch()
+      renderForm()
+
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
+      expect(screen.getByLabelText('Gluten')).toBeDisabled()
+      // The other sections stay editable.
+      expect(screen.getByLabelText('Household name')).not.toBeDisabled()
+    })
+  })
+
+  describe('after a failed save', () => {
+    it('shows catalog copy under the section, not the route error', async () => {
+      mockFetch.mockResolvedValue(fail(400, 'Validation failed'))
+      renderForm()
+
+      await userEvent.type(screen.getByLabelText('Household name'), '!')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      const details = section('Household details')
+      await waitFor(() => {
+        expect(within(details).getByRole('alert')).toHaveTextContent(
+          enMessages.household.settings.saveFailed,
+        )
+      })
+      expect(screen.queryByText('Validation failed')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Household name')).toHaveAccessibleDescription(
+        enMessages.household.settings.saveFailed,
+      )
+      expect(within(details).getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    })
+
+    // With the button gone there is nothing to retry, so the error goes too.
+    it('clears the error when the change is undone', async () => {
+      mockFetch.mockResolvedValue(fail(500, 'Failed to update household'))
+      renderForm()
+
+      const nameInput = screen.getByLabelText('Household name')
+      await userEvent.type(nameInput, '!')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+
+      await userEvent.type(nameInput, '{Backspace}')
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(nameInput).not.toHaveAttribute('aria-invalid', 'true')
+      expect(nameInput).not.toHaveAccessibleDescription()
+
+      // A new edit is not the change that failed, so the error stays gone.
+      await userEvent.type(nameInput, '?')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(nameInput).not.toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('returns focus to the save button', async () => {
+      const respond = deferFetch()
+      renderForm()
+
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      // Chromium blurs the button once it is disabled; jsdom does not.
+      dropFocusToBody()
+      respond(fail(500, 'Failed to update household preferences'))
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toHaveFocus())
+    })
+
+    it('leaves focus alone on a failure when the user has moved to another section', async () => {
+      const respond = deferFetch()
+      renderForm()
+
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      const nameInput = screen.getByLabelText('Household name')
+      act(() => nameInput.focus())
+      respond(fail(500, 'Failed to update household preferences'))
+
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+      expect(nameInput).toHaveFocus()
+    })
+
+    it('handles a network failure', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error'))
+      renderForm()
+
+      await userEvent.click(screen.getAllByLabelText('Lunch')[0]!)
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => {
+        expect(within(section('Meals to plan')).getByRole('alert')).toHaveTextContent(
+          enMessages.household.settings.saveFailed,
+        )
+      })
+      expect(screen.queryByText('Network error')).not.toBeInTheDocument()
+    })
+
+    // No button to press, so submit the form element directly: the section
     // itself must refuse, not just the missing button (HON-677).
     it('does not send any request when a non-owner submits', async () => {
-      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+      mockFetch.mockResolvedValue(ok())
+      renderForm({ isOwner: false })
 
-      const { container } = renderForm({ isOwner: false })
-
-      fireEvent.submit(container.querySelector('form')!)
+      for (const form of screen.getAllByRole('form')) fireEvent.submit(form)
       await new Promise((resolve) => setTimeout(resolve, 0))
 
       expect(mockFetch).not.toHaveBeenCalled()
       expect(toast.success).not.toHaveBeenCalled()
-      expect(toast.error).not.toHaveBeenCalled()
       expect(mockRouterRefresh).not.toHaveBeenCalled()
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    })
-
-    it('shows success toast on successful save', async () => {
-      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
-
-      renderForm()
-
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
-
-      await waitFor(() => {
-        expect(toast.success).toHaveBeenCalledWith('Settings saved')
-      })
-    })
-
-    it('calls router.refresh on successful save so SSR chrome picks up locale', async () => {
-      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
-
-      renderForm()
-
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
-
-      await waitFor(() => {
-        expect(mockRouterRefresh).toHaveBeenCalled()
-      })
-    })
-
-    it('shows catalog copy, not the route error, on a failed save', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 400,
-        json: () => Promise.resolve({ error: 'Validation failed' }),
-      })
-
-      renderForm()
-
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
-
-      await waitFor(() => {
-        expect(screen.getByText(enMessages.household.settings.saveFailed)).toBeInTheDocument()
-      })
-      expect(screen.queryByText('Validation failed')).not.toBeInTheDocument()
     })
 
     // An Estonian household must never read the route's English `error`
     // (HON-914), so these render the real `et` catalog.
     describe('in Estonian', () => {
-      it('shows the Estonian save failure for a validation error', async () => {
-        mockFetch.mockResolvedValue({
-          ok: false,
-          status: 400,
-          json: () => Promise.resolve({ error: 'Validation failed' }),
-        })
+      const et = etMessages.household.settings
 
+      it('shows the Estonian save failure for a validation error', async () => {
+        mockFetch.mockResolvedValue(fail(400, 'Validation failed'))
         renderForm({}, 'et')
 
-        await userEvent.click(
-          screen.getByRole('button', { name: etMessages.household.settings.saveButton }),
-        )
+        await userEvent.type(screen.getByLabelText(et.nameLabel), '!')
+        await userEvent.click(screen.getByRole('button', { name: et.saveButton }))
 
-        await waitFor(() => {
-          expect(screen.getByText(etMessages.household.settings.saveFailed)).toBeInTheDocument()
-        })
+        await waitFor(() => expect(screen.getByText(et.saveFailed)).toBeInTheDocument())
         expect(screen.queryByText('Validation failed')).not.toBeInTheDocument()
       })
 
       it('shows the Estonian owner-only notice for a 403', async () => {
-        mockFetch.mockResolvedValue({
-          ok: false,
-          status: 403,
-          json: () => Promise.resolve({ error: 'Only household owners can update preferences' }),
-        })
-
+        mockFetch.mockResolvedValue(fail(403, 'Only household owners can update preferences'))
         renderForm({}, 'et')
 
-        await userEvent.click(
-          screen.getByRole('button', { name: etMessages.household.settings.saveButton }),
-        )
+        await userEvent.click(screen.getAllByLabelText(etMessages.enums.MealType.lunch)[0]!)
+        await userEvent.click(screen.getByRole('button', { name: et.saveButton }))
 
         await waitFor(() => {
           expect(
-            screen.getByText(etMessages.household.settings.ownerOnlyNotice, {
-              selector: '#form-error',
-            }),
+            screen.getByText(et.ownerOnlyNotice, { selector: '#meals-error' }),
           ).toBeInTheDocument()
         })
         expect(
           screen.queryByText('Only household owners can update preferences'),
         ).not.toBeInTheDocument()
       })
-    })
-
-    it('shows loading state during submission', async () => {
-      mockFetch.mockImplementation(
-        () =>
-          new Promise((resolve) =>
-            setTimeout(() => resolve({ ok: true, json: () => Promise.resolve({}) }), 500),
-          ),
-      )
-
-      renderForm()
-
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
-
-      expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
-    })
-
-    it('handles network failure gracefully', async () => {
-      mockFetch.mockRejectedValue(new Error('Network error'))
-
-      renderForm()
-
-      await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
-
-      await waitFor(() => {
-        expect(screen.getByText(enMessages.household.settings.saveFailed)).toBeInTheDocument()
-      })
-      expect(screen.queryByText('Network error')).not.toBeInTheDocument()
     })
   })
 

@@ -918,10 +918,11 @@
     "dietaryNone": "Pole eelistust",
     "pageTitle": "Leibkond",
     "settings": {
-      "saveButton": "Salvesta sätted",
+      "saveButton": "Salvesta",
       "saving": "Salvestan…",
       "savedToast": "Sätted salvestatud",
       "saveFailed": "Sätete salvestamine ebaõnnestus",
+      "mealsRequired": "Vali vähemalt üks söögikord nii argipäevadeks kui ka nädalavahetuseks.",
       "ownerOnlyNotice": "Neid sätteid saab muuta ainult leibkonna omanik. Siin saad neid vaadata.",
       "detailsHeading": "Leibkonna andmed",
       "nameLabel": "Leibkonna nimi",
