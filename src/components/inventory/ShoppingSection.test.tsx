@@ -386,7 +386,7 @@ describe('ShoppingSection copy to clipboard', () => {
     )
   })
 
-  it('shows a success toast, swaps the icon, and fires the analytics event', async () => {
+  it('swaps the icon, announces through the status region, and fires the analytics event', async () => {
     const user = userEvent.setup()
     stubClipboard(vi.fn().mockResolvedValue(undefined))
     renderSection()
@@ -395,15 +395,22 @@ describe('ShoppingSection copy to clipboard', () => {
     // Both icons are `aria-hidden` by design, so lucide's own class is the only
     // signal the swap actually happened.
     expect(button.querySelector('svg')).toHaveClass('lucide-copy')
+    // The live region is mounted, empty, before the copy: a region that mounts
+    // with its text already in it is not announced.
+    const status = screen.getByRole('status')
+    expect(status).toBeEmptyDOMElement()
 
     await user.click(button)
 
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Shopping list copied'))
+    await waitFor(() => expect(button.querySelector('svg')).toHaveClass('lucide-check'))
+    expect(status).toHaveTextContent('Shopping list copied')
+    // The checkmark is the confirmation; a toast as well would say it twice (HON-955).
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(track).toHaveBeenCalledTimes(1)
     expect(track).toHaveBeenCalledWith('shopping:list_copied', {
       source: 'shopping_list',
       item_count: 3,
     })
-    await waitFor(() => expect(button.querySelector('svg')).toHaveClass('lucide-check'))
     // The label stays constant across that swap, so the accessible name doesn't
     // churn under a screen reader.
     expect(button).toHaveAccessibleName('Copy list')
@@ -446,7 +453,9 @@ describe('ShoppingSection copy to clipboard', () => {
     expect(writeText).toHaveBeenCalledTimes(1)
 
     resolveWrite()
-    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Shopping list copied'),
+    )
     expect(track).toHaveBeenCalledTimes(1)
   })
 

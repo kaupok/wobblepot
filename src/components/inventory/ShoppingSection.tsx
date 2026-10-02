@@ -272,7 +272,7 @@ export function ShoppingSection({
 
   const handleCopy = async () => {
     // The button stays enabled through the ~2s checkmark, so a double-tap would
-    // otherwise stack two success toasts and double-count `shopping:list_copied`.
+    // otherwise double-count `shopping:list_copied`.
     // Same shape as `handleToggle`'s pending guard.
     if (copyInFlightRef.current) return
 
@@ -298,7 +298,7 @@ export function ShoppingSection({
       if (!text) return
 
       // `navigator.clipboard` is undefined outside a secure context. Optional
-      // chaining would resolve to `undefined` and fire a success toast on a copy
+      // chaining would resolve to `undefined` and show the checkmark for a copy
       // that never happened, so check explicitly.
       if (!navigator.clipboard?.writeText) {
         toast.error(tErrors('copyFailed'))
@@ -306,8 +306,9 @@ export function ShoppingSection({
       }
 
       await navigator.clipboard.writeText(text)
+      // The checkmark is the confirmation, not a toast: it is where the user is
+      // already looking (HON-955). The status region below voices it.
       setCopied(true)
-      toast.success(tShopping('copySuccess'))
       void track('shopping:list_copied', { source: 'shopping_list', item_count: itemCount })
       clearTimeout(copiedTimeoutRef.current)
       copiedTimeoutRef.current = setTimeout(() => setCopied(false), 2000)
@@ -453,14 +454,22 @@ export function ShoppingSection({
           </SelectContent>
         </Select>
         {hasItemsToCopy && (
-          <Button variant="quiet" size="sm" onClick={handleCopy}>
-            {copied ? (
-              <Check className="mr-1 size-4" aria-hidden="true" />
-            ) : (
-              <Copy className="mr-1 size-4" aria-hidden="true" />
-            )}
-            {tShopping('copyList')}
-          </Button>
+          <>
+            <Button variant="quiet" size="sm" onClick={handleCopy}>
+              {copied ? (
+                <Check className="mr-1 size-4" aria-hidden="true" />
+              ) : (
+                <Copy className="mr-1 size-4" aria-hidden="true" />
+              )}
+              {tShopping('copyList')}
+            </Button>
+            {/* Both icons are aria-hidden, so this is the checkmark for a screen
+                reader. It mounts with the button and stays mounted, because a
+                live region announces changes, not its first render. */}
+            <span role="status" className="sr-only">
+              {copied ? tShopping('copySuccess') : ''}
+            </span>
+          </>
         )}
         {checkedCustomCount > 0 && (
           <Button variant="quiet" size="sm" onClick={handleClearChecked}>
