@@ -83,12 +83,15 @@ export const Populated: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Default: both groups present. Starring an on-hand item moves it into Staples.',
+        story:
+          "Default: both groups present, and the count of every item on the title's baseline. Starring an on-hand item moves it into Staples.",
       },
     },
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
+    const title = canvas.getByRole('heading', { level: 2, name: 'Your pantry' })
+    await expect(title.parentElement).toHaveTextContent(/^Your pantry5 items$/)
     expect(canvas.getByText(/^Staples/)).toBeInTheDocument()
     expect(canvas.getByText('On hand')).toBeInTheDocument()
 
@@ -127,9 +130,15 @@ export const Empty: Story = {
     docs: {
       description: {
         story:
-          'Nothing in the pantry: the search input stays, above one muted line in a dashed box.',
+          'Nothing in the pantry: "No items" beside the title, and the search input above one muted line.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const title = canvas.getByRole('heading', { level: 2, name: 'Your pantry' })
+    await expect(title.parentElement).toHaveTextContent(/^Your pantryNo items$/)
+    await expect(canvas.getByText(/your pantry is empty/i)).toBeInTheDocument()
   },
 }
 
@@ -147,5 +156,8 @@ export const LoadFailed: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('alert')).toHaveTextContent(/couldn't load your pantry/i)
     await expect(canvas.queryByText(/your pantry is empty/i)).not.toBeInTheDocument()
+    // No count: the number of items is unknown.
+    const title = canvas.getByRole('heading', { level: 2, name: 'Your pantry' })
+    await expect(title.parentElement).toHaveTextContent(/^Your pantry$/)
   },
 }
