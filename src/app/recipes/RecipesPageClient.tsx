@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Plus, Sparkles } from 'lucide-react'
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
@@ -25,6 +25,7 @@ export function RecipesPageClient() {
   const tLibrary = useTranslations('recipes.library')
 
   const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
   useEffect(() => {
@@ -118,6 +119,7 @@ export function RecipesPageClient() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="sm:max-w-md sm:flex-1">
           <Input
+            ref={searchInputRef}
             type="search"
             placeholder={tLibrary('searchPlaceholder')}
             value={searchQuery}
@@ -151,7 +153,12 @@ export function RecipesPageClient() {
         </div>
       ) : (
         <>
-          <MealList meals={meals} onDelete={handleDelete} onToggleFavorite={handleToggleFavorite} />
+          <MealList
+            meals={meals}
+            onDelete={handleDelete}
+            onToggleFavorite={handleToggleFavorite}
+            emptyFocusRef={searchInputRef}
+          />
           {hasNextPage ? (
             <div className="flex justify-center">
               <Button

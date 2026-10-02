@@ -28,6 +28,12 @@ interface ConfirmDialogProps {
   onConfirm: () => void
   variant?: 'default' | 'destructive'
   isLoading?: boolean
+  /**
+   * Passed to `AlertDialogContent`. A dialog opened from state has no trigger
+   * for Radix to return focus to, so the caller calls `preventDefault()` and
+   * focuses the control that opened it (CLAUDE.md → Focus management).
+   */
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 export function ConfirmDialog({
@@ -41,11 +47,12 @@ export function ConfirmDialog({
   onConfirm,
   variant = 'default',
   isLoading = false,
+  onCloseAutoFocus,
 }: ConfirmDialogProps) {
   const t = useTranslations('common')
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
