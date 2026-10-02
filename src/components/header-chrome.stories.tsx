@@ -38,9 +38,12 @@ function PageBehind() {
 
 /**
  * The box of a link's visible text, ignoring its padding and any icon beside
- * it: a range from the first text node to the last.
+ * it: a range from the first text node to the last. The logo has no text
+ * node, so for it the box is the wordmark SVG's own, which is its ink box.
  */
 function textBox(el: HTMLElement) {
+  const wordmark = el.querySelector('svg[aria-label="Wobblepot"]')
+  if (wordmark) return wordmark.getBoundingClientRect()
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
   const first = walker.nextNode() as Text
   let last = first

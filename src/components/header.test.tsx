@@ -82,7 +82,7 @@ describe('Header component', () => {
     render(component)
 
     // HON-806: an `h4` here led every page's outline, ahead of its `h1`.
-    expect(screen.getByText('Wobblepot')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Wobblepot' })).toBeInTheDocument()
     expect(screen.queryByRole('heading')).not.toBeInTheDocument()
   })
 

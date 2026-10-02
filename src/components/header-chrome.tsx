@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { Heading } from '@/components/ui/typography'
 import { useScrolled } from '@/hooks/use-scrolled'
 import type { Session } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { HeaderActions } from './header-actions'
 import { NavigationLeft, NavigationRight } from './navigation'
 import { MobileNav } from './mobile-nav'
+import { Wordmark } from './wordmark'
 
 interface HeaderChromeProps {
   session: Session | null
@@ -92,13 +92,12 @@ export function HeaderChrome({ session, hasHousehold, skipToContentLabel }: Head
                 href="/"
                 className="focus-visible:outline-ring block rounded-sm transition-opacity hover:opacity-70 focus-visible:outline-2 focus-visible:-outline-offset-2"
               >
-                {/* Title-sized, but not a heading: the wordmark is a link home,
-                    not a section of the page, and a heading here would open
-                    every page's outline ahead of its own `h1` (HON-806). A
-                    `div` rather than a `span` so the box stays a block. */}
-                <Heading variant="h4" as="div">
-                  Wobblepot
-                </Heading>
+                {/* An image, not a heading: the wordmark is a link home, not a
+                    section of the page, and a heading here would open every
+                    page's outline ahead of its own `h1` (HON-806). Its
+                    `aria-label` is the link's accessible name. `block` drops
+                    the inline baseline gap under the SVG. */}
+                <Wordmark className="block" />
               </Link>
             </div>
             <NavigationLeft isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
