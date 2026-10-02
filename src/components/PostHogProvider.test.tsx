@@ -14,6 +14,8 @@ const { posthogMock, envMock } = vi.hoisted(() => ({
     has_opted_out_capturing: vi.fn(() => false),
     capture: vi.fn(),
     reset: vi.fn(),
+    get_property: vi.fn((_key: string): unknown => undefined),
+    get_distinct_id: vi.fn(() => 'anon-device-id'),
   },
   envMock: {
     NEXT_PUBLIC_POSTHOG_KEY: 'phc_test' as string | undefined,
@@ -46,6 +48,8 @@ vi.mock('@posthog/react', async () => {
 beforeEach(() => {
   vi.clearAllMocks()
   posthogMock.has_opted_out_capturing.mockReturnValue(false)
+  posthogMock.get_property.mockImplementation(() => undefined)
+  posthogMock.get_distinct_id.mockImplementation(() => 'anon-device-id')
   envMock.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
   envMock.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
 })
@@ -172,6 +176,101 @@ describe('PostHogProvider', () => {
     expect(call).toBeDefined()
     const props = call![1] as Record<string, unknown>
     expect(Object.keys(props)).toEqual(['household_id'])
+  })
+
+  it('resets before identifying when the browser is identified as a different user', async () => {
+    // A session that expired without sign-out leaves the previous user's
+    // super properties, including track()'s first_*_at markers (HON-991).
+    posthogMock.get_property.mockImplementation((key: string) =>
+      key === '$user_state' ? 'identified' : undefined,
+    )
+    posthogMock.get_distinct_id.mockImplementation(() => 'user-previous')
+    render(
+      wrap(
+        makeConsent(true),
+        <PostHogProvider userId="user-42" householdId="hh-9">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.identify).toHaveBeenCalledTimes(1))
+    expect(posthogMock.reset).toHaveBeenCalledTimes(1)
+    expect(posthogMock.reset.mock.invocationCallOrder[0]).toBeLessThan(
+      posthogMock.identify.mock.invocationCallOrder[0] ?? -Infinity,
+    )
+  })
+
+  it('resets on a full page load, after the flag bootstrap has rewritten the identity', async () => {
+    // posthog.init with bootstrap { distinctID: userId } sets distinct_id to
+    // the new user and $user_state to anonymous, but leaves $user_id alone.
+    posthogMock.get_property.mockImplementation((key: string) => {
+      if (key === '$user_state') return 'anonymous'
+      if (key === '$user_id') return 'user-previous'
+      return undefined
+    })
+    posthogMock.get_distinct_id.mockImplementation(() => 'user-42')
+    render(
+      wrap(
+        makeConsent(true),
+        <PostHogProvider userId="user-42" householdId="hh-9">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.identify).toHaveBeenCalledTimes(1))
+    expect(posthogMock.reset).toHaveBeenCalledTimes(1)
+    expect(posthogMock.reset.mock.invocationCallOrder[0]).toBeLessThan(
+      posthogMock.identify.mock.invocationCallOrder[0] ?? -Infinity,
+    )
+  })
+
+  it('does not reset when $user_id already matches the signed-in user', async () => {
+    posthogMock.get_property.mockImplementation((key: string) => {
+      if (key === '$user_state') return 'anonymous'
+      if (key === '$user_id') return 'user-42'
+      return undefined
+    })
+    posthogMock.get_distinct_id.mockImplementation(() => 'user-42')
+    render(
+      wrap(
+        makeConsent(true),
+        <PostHogProvider userId="user-42" householdId="hh-9">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.identify).toHaveBeenCalledTimes(1))
+    expect(posthogMock.reset).not.toHaveBeenCalled()
+  })
+
+  it('does not reset when the browser is already identified as the same user', async () => {
+    posthogMock.get_property.mockImplementation((key: string) =>
+      key === '$user_state' ? 'identified' : undefined,
+    )
+    posthogMock.get_distinct_id.mockImplementation(() => 'user-42')
+    render(
+      wrap(
+        makeConsent(true),
+        <PostHogProvider userId="user-42" householdId="hh-9">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.identify).toHaveBeenCalledTimes(1))
+    expect(posthogMock.reset).not.toHaveBeenCalled()
+  })
+
+  it('does not reset an anonymous browser before its first identify', async () => {
+    render(
+      wrap(
+        makeConsent(true),
+        <PostHogProvider userId="user-42" householdId="hh-9">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.identify).toHaveBeenCalledTimes(1))
+    expect(posthogMock.reset).not.toHaveBeenCalled()
   })
 
   it('does not identify when consent is not granted', async () => {

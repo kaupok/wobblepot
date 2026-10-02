@@ -39,15 +39,33 @@
  *   Callers do not pass it. The one exception is `onboarding:household_created`
  *   — the source-of-truth event that establishes the household; its caller
  *   passes the new id and the wrapper additionally `$set`s it on the person
- *   profile so subsequent events on the same render auto-attach correctly
- *   without waiting for a layout re-render + identify.
+ *   profile server side. That `$set` does not update the person properties
+ *   stored on the client, so later events carry `household_id` only after the
+ *   next layout render re-runs `identify` with it.
  *
  * - `is_first`: for events configured in `FIRST_PROPERTY_FOR`, the wrapper
- *   reads the corresponding `first_*_at` person property. If unset, fires the
- *   event with `is_first: true` and `$set_once`-es the timestamp on the same
- *   capture call (durable across sessions). If set, fires with
- *   `is_first: false`. Callers do not pass `is_first`. Activation funnels
- *   filter `is_first: true`.
+ *   reads the corresponding `first_*_at` key from posthog-js persistence. If
+ *   unset, fires the event with `is_first: true`, `$set_once`-es the timestamp
+ *   on the same capture call (the server-side person property), and
+ *   `register_once`-s it locally. The local write is what the next read sees:
+ *   a `$set_once` on capture goes to the server only and never comes back to
+ *   persistence (HON-991). If set, fires with `is_first: false`. Callers do
+ *   not pass `is_first`. Activation funnels filter `is_first: true`.
+ *
+ *   `register_once` stores a super property, so from then on posthog-js
+ *   attaches `first_*_at` to every event from this browser, as an event
+ *   property with the same name as the person property. That is deliberate:
+ *   the marker lives with the rest of PostHog's identity state, so `reset()`
+ *   clears it together with the distinct id. Sign-out calls `reset()`, and
+ *   `PostHogProvider` calls it before `identify` when the browser is still
+ *   identified as a different user, so one user never inherits another's
+ *   marker. Activation insights filter on `is_first` or on the person
+ *   property, never on the event property.
+ *
+ *   Persistence is per browser, so a user's first activation event on a second
+ *   device (or after sign-out) carries `is_first: true` again. That is
+ *   accepted; the person property's `$set_once` keeps the original timestamp
+ *   regardless.
  *
  * ## PII
  *
@@ -143,8 +161,9 @@ export type EventName = keyof EventPayload
 
 /**
  * Events whose first occurrence sets a `first_*_at` person property via
- * `$set_once`. The wrapper reads the property to attach `is_first` and writes
- * it on the first capture.
+ * `$set_once`. The wrapper reads the key from local persistence to attach
+ * `is_first`, and on the first capture writes it both server side
+ * (`$set_once`) and locally (`register_once`).
  */
 const FIRST_PROPERTY_FOR: Partial<Record<EventName, string>> = {
   'meal_plan:plan_generated': 'first_plan_generated_at',
@@ -183,19 +202,21 @@ export async function track<K extends EventName>(name: K, props: EventPayload[K]
 
     // Auto-attach is_first + $set_once for activation events.
     const firstPropertyKey = FIRST_PROPERTY_FOR[name]
+    let firstAt: string | undefined
     if (firstPropertyKey) {
       const existing = posthog.get_property(firstPropertyKey)
       if (existing) {
         merged.is_first = false
       } else {
+        firstAt = new Date().toISOString()
         merged.is_first = true
-        merged.$set_once = { [firstPropertyKey]: new Date().toISOString() }
+        merged.$set_once = { [firstPropertyKey]: firstAt }
       }
     }
 
     // The one event that establishes household membership: $set the id on
-    // the person profile so subsequent events auto-attach without waiting
-    // for the next layout render + identify.
+    // the person profile server side. Later events pick it up only after the
+    // next layout render re-runs identify (see the header comment).
     if (name === 'onboarding:household_created') {
       const householdId = (props as EventPayload['onboarding:household_created']).household_id
       merged.$set = {
@@ -205,6 +226,12 @@ export async function track<K extends EventName>(name: K, props: EventPayload[K]
     }
 
     posthog.capture(name, merged)
+
+    // `$set_once` never reaches local persistence, so write the key there
+    // too, or the next get_property read is empty again (HON-991).
+    if (firstPropertyKey && firstAt) {
+      posthog.register_once({ [firstPropertyKey]: firstAt })
+    }
   } catch {
     // Swallow — capture must never break a user flow.
   }
