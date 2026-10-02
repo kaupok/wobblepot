@@ -631,6 +631,11 @@ describe('HouseholdSettingsForm', () => {
       )
       expect(weekday).toHaveAccessibleDescription(enMessages.household.settings.mealsRequired)
       expect(mockFetch).not.toHaveBeenCalled()
+
+      // Fixing it clears the message straight away.
+      await userEvent.click(within(weekday).getByLabelText('Lunch'))
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(weekday).not.toHaveAccessibleDescription()
     })
 
     it('labels each day group', () => {
@@ -736,6 +741,11 @@ describe('HouseholdSettingsForm', () => {
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
       expect(nameInput).not.toHaveAttribute('aria-invalid', 'true')
       expect(nameInput).not.toHaveAccessibleDescription()
+
+      // A new edit is not the change that failed, so the error stays gone.
+      await userEvent.type(nameInput, '?')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(nameInput).not.toHaveAttribute('aria-invalid', 'true')
     })
 
     it('returns focus to the save button', async () => {

@@ -62,7 +62,9 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
 }: SettingsSectionProps<T>) {
   const t = useTranslations('household.settings')
   const router = useRouter()
-  const [error, setError] = useState('')
+  // The message and the values it was about: a failed save's body, or the
+  // values that failed `validate`.
+  const [error, setError] = useState<{ message: string; values: T } | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const headingRef = useRef<HTMLElement>(null)
 
@@ -95,7 +97,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
       onSaved(body)
       router.refresh()
     },
-    onError: (err) => {
+    onError: (err, body) => {
       // The routes' `error` is English (HON-914): log it, render catalog copy.
       // A 403 is the same case the client-side guard throws for; anything
       // else ("Validation failed", a 500) gets the generic save failure.
@@ -103,11 +105,13 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
         `[household-settings] ${id} save failed`,
         err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
       )
-      setError(
-        !isOwner || (err instanceof ApiError && err.status === 403)
-          ? t('ownerOnlyNotice')
-          : t('saveFailed'),
-      )
+      setError({
+        message:
+          !isOwner || (err instanceof ApiError && err.status === 403)
+            ? t('ownerOnlyNotice')
+            : t('saveFailed'),
+        values: body,
+      })
       requestRefocus()
     },
   })
@@ -116,9 +120,10 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
   const { ref: saveButtonRef, requestRefocus } = useRefocusAfterPending(save.isPending)
 
   const isDirty = !sameValues(values, saved)
-  // An error is about unsaved values. Once the section matches what is saved
-  // there is nothing left to retry, so the error goes with the button.
-  const shownError = isDirty || save.isPending ? error : ''
+  // An error is about the values it was raised for. Any edit, undoing the
+  // change included, makes it stale, so it shows only while they still hold.
+  const shownError =
+    error && !save.isPending && sameValues(values, error.values) ? error.message : ''
   const errorId = shownError ? `${id}-error` : undefined
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -128,7 +133,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
     // Enter in a text field submits even with no button on screen.
     if (sameValues(body, saved)) return
     const invalid = validate?.(body)
-    setError(invalid ?? '')
+    setError(invalid ? { message: invalid, values: body } : null)
     if (!invalid) save.mutate(body)
   }
 
