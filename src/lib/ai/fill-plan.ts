@@ -175,6 +175,8 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
   // spend the AI budget on them. See `aiBudgetMs` in `./types`.
   const abortSignal = aiBudgetMs === undefined ? undefined : AbortSignal.timeout(aiBudgetMs)
 
+  const startedAt = Date.now()
+
   const result = await withUsageOnFailure(PLANNING_MODEL, onAiUsage, () =>
     generateObject({
       ...request,
@@ -186,7 +188,7 @@ export async function fillEmptySlots(options: FillEmptySlotsOptions): Promise<Ge
     }),
   )
 
-  onAiUsage?.(toAiUsageStats(PLANNING_MODEL, result.usage))
+  onAiUsage?.(toAiUsageStats(PLANNING_MODEL, result.usage, Date.now() - startedAt))
 
   const { object } = result
 

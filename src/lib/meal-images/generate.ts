@@ -139,7 +139,7 @@ export interface GeneratedMealImage {
   verdict: JudgeVerdict | null
 }
 
-function imageUsageStats(usage: ImageModelUsage | undefined): MealImageUsage {
+function imageUsageStats(usage: ImageModelUsage | undefined, durationMs: number): MealImageUsage {
   const input = usage?.inputTokens
   const output = usage?.outputTokens
   const usageMissing = typeof output !== 'number' || !Number.isFinite(output)
@@ -150,6 +150,7 @@ function imageUsageStats(usage: ImageModelUsage | undefined): MealImageUsage {
     cacheWriteTokens: 0,
     outputTokens: usageMissing ? 0 : output,
     usageMissing,
+    durationMs,
     ...(usageMissing && { fallbackCostUsd: IMAGE_FALLBACK_USD }),
   }
 }
@@ -211,8 +212,9 @@ export async function generateMealImage(
     let transient = 0
     for (;;) {
       try {
+        const callStartedAt = Date.now()
         const result = await callImage()
-        await report(imageUsageStats(result.usage))
+        await report(imageUsageStats(result.usage, Date.now() - callStartedAt))
         return { bytes: result.image.uint8Array, mediaType: result.image.mediaType }
       } catch (error) {
         if (isRateLimited(error)) {
@@ -248,6 +250,7 @@ export async function generateMealImage(
     attempt: number,
   ): Promise<JudgeVerdict | null> => {
     try {
+      const judgeStartedAt = Date.now()
       const result = await withUsageOnFailure(REVIEW_MODEL, report, () =>
         generateObject({
           model: anthropic(REVIEW_MODEL),
@@ -267,7 +270,7 @@ export async function generateMealImage(
           abortSignal,
         }),
       )
-      await report(toAiUsageStats(REVIEW_MODEL, result.usage))
+      await report(toAiUsageStats(REVIEW_MODEL, result.usage, Date.now() - judgeStartedAt))
       const verdict = applyJudgeFilters(result.object, meal)
       // Raw and filtered both, so a filter that hid a real extra can be found later.
       // eslint-disable-next-line no-console

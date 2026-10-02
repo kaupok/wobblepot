@@ -73,6 +73,8 @@ export async function imagineMeals(
   async function attempt(n: 1 | 2, previousViolations?: ImagineRequestInput['previousViolations']) {
     const request = buildImagineRequest({ prompt, household, locale, images, previousViolations })
 
+    const startedAt = Date.now()
+
     const result = await withUsageOnFailure(IMAGINE_MODEL, onAiUsage, () =>
       generateObject({
         ...request,
@@ -83,7 +85,7 @@ export async function imagineMeals(
       }),
     )
 
-    onAiUsage?.(toAiUsageStats(IMAGINE_MODEL, result.usage))
+    onAiUsage?.(toAiUsageStats(IMAGINE_MODEL, result.usage, Date.now() - startedAt))
 
     await logAiSample({
       callSite: 'imagine-meal',

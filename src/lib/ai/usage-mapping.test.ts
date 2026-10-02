@@ -164,6 +164,11 @@ describe('toAiUsageStats', () => {
 
     expect(toAiUsageStats(REVIEW_MODEL, usage).usageMissing).toBe(false)
   })
+
+  it('carries the call duration when given one, and leaves it out otherwise', () => {
+    expect(toAiUsageStats(REVIEW_MODEL, USAGE_FIXTURE, 1_250).durationMs).toBe(1_250)
+    expect(toAiUsageStats(REVIEW_MODEL, USAGE_FIXTURE)).not.toHaveProperty('durationMs')
+  })
 })
 
 describe('toAiUsageStats → recordAiUsage', () => {

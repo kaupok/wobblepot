@@ -79,7 +79,11 @@ export async function getServerFlag(key: FlagKey, distinctId: string): Promise<b
   // late rejection from posthog-node (PostHog 5xx, network error, SDK's own
   // 10s timeout) doesn't bubble out as an `unhandledRejection` after the
   // race already resolved with our default.
-  const flagPromise = posthog.getFeatureFlag(key, distinctId).catch((error) => {
+  // The shared `'anonymous'` id sends no `$feature_flag_called`: every landing
+  // and sign-up render (mostly crawlers) piled events onto one person and told
+  // us nothing. User-id reads keep theirs; PostHog shows a flag as active from them.
+  const options = distinctId === 'anonymous' ? { sendFeatureFlagEvents: false } : undefined
+  const flagPromise = posthog.getFeatureFlag(key, distinctId, options).catch((error) => {
     console.warn('[feature-flags] late error', { key, error })
     return undefined as boolean | string | undefined
   })

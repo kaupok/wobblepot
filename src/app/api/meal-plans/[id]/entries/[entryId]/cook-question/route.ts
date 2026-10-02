@@ -233,6 +233,7 @@ async function handlePOST(
     // is written (HON-979). `streamText` never throws; its errors arrive as
     // parts of the full stream, read here so an error before the first word
     // still gets the JSON status the hook translates.
+    const startedAt = Date.now()
     const result = streamText({
       ...aiRequest,
       model: anthropic(COOK_QUESTION_MODEL),
@@ -257,7 +258,8 @@ async function handlePOST(
       recordAiUsage({
         householdId: household.id,
         feature: 'cook_question',
-        ...toAiUsageStats(COOK_QUESTION_MODEL, usage),
+        // Start of the call to its last part: the whole answer, not the first word.
+        ...toAiUsageStats(COOK_QUESTION_MODEL, usage, Date.now() - startedAt),
         ...(!success && { success: false }),
       })
 

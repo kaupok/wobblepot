@@ -57,7 +57,20 @@ describe('getServerFlag', () => {
     const result = await getServerFlag('ai_generation_enabled', 'user_1')
 
     expect(result).toBe(true)
-    expect(client.getFeatureFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user_1')
+    // A user id keeps the default `$feature_flag_called` event.
+    expect(client.getFeatureFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user_1', undefined)
+  })
+
+  it('sends no $feature_flag_called event for the shared anonymous id', async () => {
+    const client = makeClient({ getFeatureFlag: vi.fn().mockResolvedValue(true) })
+    mockedGetPosthogServer.mockReturnValue(client as never)
+
+    const result = await getServerFlag('invite_code_required', 'anonymous')
+
+    expect(result).toBe(true)
+    expect(client.getFeatureFlag).toHaveBeenCalledWith('invite_code_required', 'anonymous', {
+      sendFeatureFlagEvents: false,
+    })
   })
 
   it('returns false when PostHog returns false', async () => {

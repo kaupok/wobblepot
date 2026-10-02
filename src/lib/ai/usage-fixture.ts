@@ -10,6 +10,7 @@
  */
 
 import { NoObjectGeneratedError, type LanguageModelUsage } from 'ai'
+import { expect } from 'vitest'
 
 /**
  * A full ai@7 `usage` object, annotated with the SDK's own exported type so the
@@ -48,7 +49,11 @@ export const USAGE_FIXTURE: LanguageModelUsage = {
   totalTokens: 2318,
 }
 
-/** The stats `toAiUsageStats(model, USAGE_FIXTURE)` must produce. */
+/**
+ * The stats a call site must hand on: `toAiUsageStats(model, USAGE_FIXTURE,
+ * durationMs)`. Any duration matches, but one must be there, so a call site
+ * that stops timing its model call loses `$ai_latency` and fails its test.
+ */
 export function expectedUsageStats(model: string) {
   return {
     model,
@@ -57,6 +62,7 @@ export function expectedUsageStats(model: string) {
     cacheWriteTokens: 0,
     outputTokens: 787,
     usageMissing: false,
+    durationMs: expect.any(Number),
   }
 }
 
