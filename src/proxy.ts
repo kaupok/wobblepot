@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionCookie } from 'better-auth/cookies'
+import { POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
 
 /**
  * Routes that require a signed-in user. Prefix match on `nextUrl.pathname`.
@@ -141,7 +142,9 @@ function buildCspHeader(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
     "font-src 'self'",
-    "connect-src 'self'",
+    // PostHog's SDK traffic is same-origin through the `/ingest` rewrite (HON-985).
+    // Only the app host stays, for the toolbar's API calls.
+    `connect-src 'self' ${POSTHOG_UI_HOST}`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

@@ -13,7 +13,12 @@
 /** Browser `api_host`. Also the rewrite source prefix and the proxy matcher exclusion. */
 export const POSTHOG_PROXY_PATH = '/ingest'
 
-/** Browser `ui_host`: the toolbar and "open in PostHog" links need the app host once `api_host` is relative. */
+/**
+ * Browser `ui_host`: the toolbar and "open in PostHog" links need the app host
+ * once `api_host` is relative. The toolbar calls it with `fetch`, so it is the
+ * one PostHog host left in the CSP `connect-src` (src/proxy.ts). It is the app,
+ * not an ingest host, so it does not undo the proxy.
+ */
 export const POSTHOG_UI_HOST = 'https://eu.posthog.com'
 
 interface Rewrite {
@@ -23,10 +28,12 @@ interface Rewrite {
 
 /**
  * Rewrite rules for `next.config.ts`, built from the ingest host
- * (`NEXT_PUBLIC_POSTHOG_HOST`). The static rule comes first: `/ingest/:path*`
- * would otherwise match the asset paths too and send them to the ingest host.
- * The assets host is the ingest host with `<region>.i.` replaced by
- * `<region>-assets.i.`. No host means PostHog is off, so no rules.
+ * (`NEXT_PUBLIC_POSTHOG_HOST`), in PostHog's documented order. `static/` (SDK
+ * extensions) and `array/` (remote config) go to the assets host, which sends
+ * `cache-control` where the ingest host strips it. They come before
+ * `/ingest/:path*`, which would otherwise match them too. The assets host is
+ * the ingest host with `<region>.i.` replaced by `<region>-assets.i.`. No host
+ * means PostHog is off, so no rules.
  */
 export function postHogRewrites(ingestHost: string | undefined): Rewrite[] {
   if (!ingestHost) return []
@@ -39,6 +46,10 @@ export function postHogRewrites(ingestHost: string | undefined): Rewrite[] {
     {
       source: `${POSTHOG_PROXY_PATH}/static/:path*`,
       destination: `${assets.origin}/static/:path*`,
+    },
+    {
+      source: `${POSTHOG_PROXY_PATH}/array/:path*`,
+      destination: `${assets.origin}/array/:path*`,
     },
     {
       source: `${POSTHOG_PROXY_PATH}/:path*`,

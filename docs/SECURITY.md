@@ -30,7 +30,7 @@ The CSP is delivered via Next.js proxy (`src/proxy.ts`) with a per-request nonce
 | `style-src`                 | `'self' 'unsafe-inline'`                                      | Tailwind CSS and CSS-in-JS libraries emit inline styles at build time. Noncing every inline style is impractical. Inline styles are lower XSS risk than scripts — they cannot execute code, only modify presentation. |
 | `img-src`                   | `'self' data: blob: https://*.public.blob.vercel-storage.com` | Self-hosted images, data URIs (icons), blob URLs, and generated meal illustrations served from Vercel Blob (HON-734)                                                                                                  |
 | `font-src`                  | `'self'`                                                      | Geist fonts are served by `next/font` from the same origin                                                                                                                                                            |
-| `connect-src`               | `'self'`                                                      | API calls to same origin. PostHog goes through the same-origin `/ingest` rewrite (`next.config.ts`, HON-985), so it needs no host here                                                                                |
+| `connect-src`               | `'self' https://eu.posthog.com`                               | API calls to same origin. PostHog SDK traffic goes through the same-origin `/ingest` rewrite (`next.config.ts`, HON-985); only the PostHog app host stays, for the toolbar's API calls                                |
 | `frame-ancestors`           | `'none'`                                                      | Prevents embedding in iframes (clickjacking protection)                                                                                                                                                               |
 | `base-uri`                  | `'self'`                                                      | Prevents base tag injection                                                                                                                                                                                           |
 | `form-action`               | `'self'`                                                      | Forms can only submit to same origin                                                                                                                                                                                  |
@@ -47,9 +47,10 @@ In development (`NODE_ENV=development`):
 
 ### Third-party domains
 
-| Domain                                     | Used by                                                                                                                             | Directive |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| `https://*.public.blob.vercel-storage.com` | Vercel Blob public URLs for generated meal illustrations; also in `images.remotePatterns` (`next.config.ts`) — keep the two in sync | `img-src` |
+| Domain                                     | Used by                                                                                                                                           | Directive     |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `https://eu.posthog.com`                   | PostHog app host (`ui_host`): the toolbar's API calls. The ingest and assets hosts are not listed, because the SDK reaches them through `/ingest` | `connect-src` |
+| `https://*.public.blob.vercel-storage.com` | Vercel Blob public URLs for generated meal illustrations; also in `images.remotePatterns` (`next.config.ts`) — keep the two in sync               | `img-src`     |
 
 ### Adding a new script source
 

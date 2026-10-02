@@ -189,7 +189,7 @@ describe('proxy', () => {
     expect(directives).toContain('object-src')
   })
 
-  it('lists no PostHog host, because the SDK goes through the same-origin /ingest proxy', async () => {
+  it('lists no PostHog ingest or assets host, because the SDK goes through the same-origin /ingest proxy', async () => {
     const { proxy } = await import('./proxy')
     const { NextRequest } = await import('next/server')
     const req = new NextRequest('https://wobblepot.dev/')
@@ -199,9 +199,11 @@ describe('proxy', () => {
     const csp = nextMock.responseHeaders.get('Content-Security-Policy')!
     const connectSrc = csp.split(';').find((d) => d.trim().startsWith('connect-src'))!
 
-    // HON-985: next.config.ts rewrites /ingest to PostHog EU.
-    expect(csp).not.toContain('posthog.com')
-    expect(connectSrc.trim()).toBe("connect-src 'self'")
+    // HON-985: next.config.ts rewrites /ingest to PostHog EU. The app host stays
+    // for the toolbar, which calls `ui_host` with fetch.
+    expect(csp).not.toContain('i.posthog.com')
+    expect(csp).not.toContain('*.posthog.com')
+    expect(connectSrc.trim()).toBe("connect-src 'self' https://eu.posthog.com")
   })
 
   it('skips the /ingest PostHog proxy in the matcher, but not lookalike paths', async () => {
