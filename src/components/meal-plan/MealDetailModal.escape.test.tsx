@@ -66,25 +66,30 @@ function renderModal() {
   return { onOpenChange, onNoteChange, onServingOverrideChange }
 }
 
+/** The note opens from the title row's ⋯ menu (HON-966). */
+async function openNoteFromMenu(user: ReturnType<typeof userEvent.setup>) {
+  const trigger = screen.getByRole('button', { name: 'More actions: Lentil soup' })
+  await user.click(trigger)
+  await user.click(await screen.findByRole('menuitem', { name: 'Add note' }))
+  return trigger
+}
+
 describe('MealDetailModal Escape in a field (HON-949)', () => {
   it('cancels the note and keeps the view open', async () => {
     const user = userEvent.setup()
     const { onOpenChange, onNoteChange } = renderModal()
 
-    await user.click(screen.getByRole('button', { name: 'Add note' }))
-    const textarea = screen.getByRole('textbox', { name: 'Meal note' })
+    const trigger = await openNoteFromMenu(user)
+    const textarea = await screen.findByRole('textbox', { name: 'Meal note' })
     await waitFor(() => expect(textarea).toHaveFocus())
     await user.type(textarea, 'x')
     await user.keyboard('{Escape}')
 
     expect(screen.queryByRole('textbox', { name: 'Meal note' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Add note' })).toBeInTheDocument()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(onOpenChange).not.toHaveBeenCalled()
     expect(onNoteChange).not.toHaveBeenCalled()
-    await waitFor(() =>
-      expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement),
-    )
+    await waitFor(() => expect(trigger).toHaveFocus())
   })
 
   it('cancels the serving count and keeps the view open', async () => {
@@ -107,7 +112,7 @@ describe('MealDetailModal Escape in a field (HON-949)', () => {
     const user = userEvent.setup()
     const { onOpenChange } = renderModal()
 
-    await user.click(screen.getByRole('button', { name: 'Add note' }))
+    await openNoteFromMenu(user)
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Meal note' })).toHaveFocus())
     await user.keyboard('{Escape}')
     expect(onOpenChange).not.toHaveBeenCalled()

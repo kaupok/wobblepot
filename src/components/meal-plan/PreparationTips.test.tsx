@@ -14,7 +14,8 @@ const sampleTips: StructuredTips = {
 describe('PreparationEquipment', () => {
   it('lists each item on its own row under the heading', () => {
     render(<PreparationEquipment equipment={sampleTips.equipment} />)
-    expect(screen.getByRole('heading', { name: "You'll need" })).toBeInTheDocument()
+    // The same level as Steps, Watch out and Tip (HON-966).
+    expect(screen.getByRole('heading', { level: 3, name: "You'll need" })).toBeInTheDocument()
     const list = screen.getByRole('list', { name: "You'll need" })
     const items = within(list).getAllByRole('listitem')
     expect(items.map((item) => item.textContent)).toEqual(['Large pan', 'Cutting board'])

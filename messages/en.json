@@ -195,6 +195,7 @@
     "noteEditor": {
       "placeholder": "Add a note…",
       "addNote": "Add note",
+      "editNote": "Edit note",
       "save": "Save",
       "saving": "Saving…",
       "cancel": "Cancel",
@@ -283,6 +284,7 @@
       "viewSource": "View original recipe",
       "howToPrepare": "How to prepare",
       "doneCooking": "Done cooking",
+      "moreActions": "More actions: {name}",
       "ariaDetailsFor": "Details for {mealName}"
     },
     "tips": {

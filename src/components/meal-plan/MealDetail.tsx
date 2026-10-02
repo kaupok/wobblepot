@@ -22,13 +22,16 @@ import type { MealData, PantryIngredient, StructuredTips } from './types'
 interface MealDetailProps {
   meal: MealData
   /**
-   * The meal's hero illustration, rendered first (`MealImage`, HON-737). Pass
+   * The meal's hero illustration (`MealImage`, HON-737): first in the view
+   * below `lg`, at the top of the steps column from `lg` (HON-966). Pass
    * nothing when there is no image to show, so the title clears the close
    * button instead of sitting under it.
    */
   image?: ReactNode
   /** The meal's name: the dialog's title in the cook view */
   title?: ReactNode
+  /** Actions on the meal, at the right end of the title row (HON-966) */
+  titleActions?: ReactNode
   /** The plan entry's note (`NoteEditor`), below the meta row */
   note?: ReactNode
   householdSize: number
@@ -97,19 +100,23 @@ function withOverrides(
 /**
  * The cook view's content (docs/DESIGN.md → "Cook view", HON-932). Below `lg`
  * one scrolling column: hero, title, meta, note, ingredients, nutrition, then
- * the steps, so "Done cooking" ends the view. From `lg` two columns that
- * scroll on their own, so scrolling the steps never moves the ingredients:
- * the hero down to nutrition on the left (2/5), the steps on the right (3/5).
+ * "You'll need" and the steps, so "Done cooking" ends the view. From `lg` two
+ * columns that scroll on their own, so scrolling the steps never moves the
+ * ingredients: the title down to nutrition on the left (2/5), and the hero,
+ * "You'll need" and the steps on the right (3/5, HON-966).
  *
- * One tree for both, in one order: the left column is `display: contents`
- * below `lg`, so its children join the single column with no box of their
- * own. The DOM order is the visual order in both layouts, so a screen reader
- * hears what the page shows (WCAG 1.3.2, HON-965).
+ * One tree for both: both columns are `display: contents` below `lg`, so
+ * their children join the single column with no box of their own. The DOM
+ * order is the visual order (WCAG 1.3.2, HON-965) except for the hero, which
+ * is in the steps column in the DOM and `order-first` below `lg`. A screen
+ * reader hears it after the nutrition; its alt text is the meal name, so
+ * nothing is lost.
  */
 export function MealDetail({
   meal,
   image,
   title,
+  titleActions,
   note,
   householdSize,
   status,
@@ -160,9 +167,9 @@ export function MealDetail({
   // must be reachable by keyboard, or its arrow keys and Page Down do nothing
   // (axe `scrollable-region-focusable`). Once the steps load, the steps column
   // need not hold a control (a completed entry whose tips have no steps to
-  // toggle), and focus opens on the panel, which does not scroll. Below `lg` only the outer region scrolls; from `lg` only the two
-  // columns do, and the left one is `display: contents` (no box, so not
-  // focusable) below `lg`.
+  // toggle), and focus opens on the panel, which does not scroll. Below `lg`
+  // only the outer region scrolls; from `lg` only the two columns do, and
+  // both are `display: contents` (no box, so not focusable) below `lg`.
   return (
     <div
       data-slot="cook-view-scroll"
@@ -174,18 +181,20 @@ export function MealDetail({
         tabIndex={0}
         className="contents lg:col-span-2 lg:flex lg:flex-col lg:gap-8 lg:overflow-y-auto lg:pb-8"
       >
-        {image}
-
         <div
           className={cn(
-            'flex flex-col gap-6 px-5 md:px-8 lg:px-6',
+            // From `lg` the title is always first in its column.
+            'flex flex-col gap-6 px-5 md:px-8 lg:px-6 lg:pt-8',
             // Without a hero the title is the first thing in the view, and
             // the close button sits in the top-right corner over it.
-            !hasImage && 'pt-16 lg:pt-8',
+            !hasImage && 'pt-16',
           )}
         >
           <div className="flex flex-col gap-2">
-            {title}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">{title}</div>
+              {titleActions && <div className="shrink-0">{titleActions}</div>}
+            </div>
             {/* Seeded MealTranslation renders in the household locale */}
             {meal.description && <Body variant="muted">{meal.description}</Body>}
           </div>
@@ -241,7 +250,6 @@ export function MealDetail({
                 ) : undefined
               }
             />
-            {showTips && <PreparationEquipment equipment={tips?.equipment} />}
           </section>
         </div>
 
@@ -260,41 +268,64 @@ export function MealDetail({
         )}
       </div>
 
-      {/* `lg:pt-8`, the title's own top without a hero, so "Steps" lines up
-          with the meal name (HON-951). The close button is in the far corner,
-          clear of a short heading at the column's left. */}
-      {showPreparationSection && (
+      {/* The hero tops this column from `lg`, under the close button (HON-966).
+          Below `lg` the column is `contents` and the hero `order-first`, so it
+          still opens the view. Without a hero, `lg:pt-8` is the title's own
+          top, so the first heading lines up with the meal name (HON-951). */}
+      {(showPreparationSection || hasImage) && (
         <section
           data-testid="cook-view-steps"
           tabIndex={0}
-          className="flex flex-col gap-6 px-5 pb-8 md:px-8 lg:col-span-3 lg:overflow-y-auto lg:px-10 lg:pt-8"
+          className="contents lg:col-span-3 lg:flex lg:flex-col lg:gap-8 lg:overflow-y-auto"
         >
-          <Heading variant="h4" as="h3">
-            {tTips('steps')}
-          </Heading>
-          <PreparationSteps
-            tips={showTips ? tips : null}
-            isLoading={showTips && isLoadingTips}
-            error={showTips ? tipsError : null}
-            onRetry={onRetryTips ?? (() => {})}
-            preparationNotes={meal.preparationNotes}
-            doneSteps={doneSteps}
-            onToggleStep={onToggleStep}
-          />
-          {/* A planned entry generates its steps on open (HON-933); anything
-              else asks for them: full width on a phone, label-sized from `md`. */}
-          {!isTipsExpanded && (
-            <Button size="lg" className="w-full md:w-auto md:self-start" onClick={onHowToPrepare}>
-              {tDetail('howToPrepare')}
-            </Button>
-          )}
-          {/* Where cooking ends, the view ends: marks the entry completed,
-              which runs the pantry deduction and the rating prompt. It does
-              not wait for every step to be ticked. */}
-          {onDoneCooking && (
-            <Button size="lg" className="w-full md:w-auto md:self-start" onClick={onDoneCooking}>
-              {tDetail('doneCooking')}
-            </Button>
+          {hasImage && <div className="order-first shrink-0 lg:order-none">{image}</div>}
+          {showPreparationSection && (
+            <div
+              data-testid="cook-view-steps-body"
+              className={cn(
+                'flex flex-col gap-6 px-5 pb-8 md:px-8 lg:px-10',
+                !hasImage && 'lg:pt-8',
+              )}
+            >
+              {/* What to set out before step 1. Nothing while the steps generate:
+                  there is no equipment yet, and no skeleton stands in for it. */}
+              {showTips && <PreparationEquipment equipment={tips?.equipment} />}
+              <Heading variant="h4" as="h3">
+                {tTips('steps')}
+              </Heading>
+              <PreparationSteps
+                tips={showTips ? tips : null}
+                isLoading={showTips && isLoadingTips}
+                error={showTips ? tipsError : null}
+                onRetry={onRetryTips ?? (() => {})}
+                preparationNotes={meal.preparationNotes}
+                doneSteps={doneSteps}
+                onToggleStep={onToggleStep}
+              />
+              {/* A planned entry generates its steps on open (HON-933); anything
+                  else asks for them: full width on a phone, label-sized from `md`. */}
+              {!isTipsExpanded && (
+                <Button
+                  size="lg"
+                  className="w-full md:w-auto md:self-start"
+                  onClick={onHowToPrepare}
+                >
+                  {tDetail('howToPrepare')}
+                </Button>
+              )}
+              {/* Where cooking ends, the view ends: marks the entry completed,
+                  which runs the pantry deduction and the rating prompt. It does
+                  not wait for every step to be ticked. */}
+              {onDoneCooking && (
+                <Button
+                  size="lg"
+                  className="w-full md:w-auto md:self-start"
+                  onClick={onDoneCooking}
+                >
+                  {tDetail('doneCooking')}
+                </Button>
+              )}
+            </div>
           )}
         </section>
       )}

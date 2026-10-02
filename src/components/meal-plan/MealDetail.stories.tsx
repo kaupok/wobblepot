@@ -1,4 +1,5 @@
 import { useState, type ComponentProps } from 'react'
+import { MoreHorizontal } from 'lucide-react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
 import {
@@ -8,6 +9,7 @@ import {
 } from '@/stories/fixtures'
 import { expectSingleLine, expectWithinHorizontally } from '@/stories/layout-helpers'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
+import { Button } from '@/components/ui/button'
 import { Heading } from '@/components/ui/typography'
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
@@ -36,7 +38,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The cook view’s content (HON-932), outside its dialog. Below `lg` one scrolling column: hero, title, meta, note, ingredients, nutrition, steps, so “Done cooking” ends it (HON-965). From `lg` two columns that scroll on their own. `MealDetailModal` supplies the hero, title and note through slots.',
+          'The cook view’s content (HON-932), outside its dialog. Below `lg` one scrolling column: hero, title, meta, note, ingredients, nutrition, “You’ll need”, steps, so “Done cooking” ends it (HON-965). From `lg` two columns that scroll on their own: the title down to nutrition on the left, the hero, “You’ll need” and the steps on the right (HON-966). `MealDetailModal` supplies the hero, title, title actions and note through slots.',
       },
     },
   },
@@ -178,6 +180,38 @@ export const WithDescription: Story = {
   },
 }
 
+export const WithTitleActions: Story = {
+  args: {
+    meal: createMeal({
+      description: 'Lemon-garlic roast chicken with crisp potatoes and a bright pan sauce.',
+    }),
+    titleActions: (
+      <Button variant="ghost" size="icon-lg" aria-label={`More actions: ${mealFixture.name}`}>
+        <MoreHorizontal aria-hidden="true" />
+      </Button>
+    ),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Actions on the meal sit at the right end of the title row, beside the name (HON-966). `MealDetailModal` passes its ⋯ menu here; the name wraps before it reaches the button.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const title = canvas.getByRole('heading', { name: mealFixture.name })
+    const actions = canvas.getByRole('button', { name: `More actions: ${mealFixture.name}` })
+    const titleBox = title.getBoundingClientRect()
+    const actionsBox = actions.getBoundingClientRect()
+    // Same row, to the right of the name, and 44px.
+    await expect(actionsBox.top).toBeLessThan(titleBox.bottom)
+    await expect(actionsBox.left).toBeGreaterThanOrEqual(titleBox.right)
+    await expect(actionsBox.height).toBeGreaterThanOrEqual(44)
+  },
+}
+
 export const WithImage: Story = {
   args: {
     meal: createMeal({
@@ -196,17 +230,19 @@ export const WithImage: Story = {
     docs: {
       description: {
         story:
-          'The hero illustration (HON-737) is the first element, above the title and the description. `MealDetailModal` supplies it through the `image` slot.',
+          'The hero illustration (HON-737). Below `lg` it is the first thing on screen, above the title and the description; from `lg` it tops the steps column (HON-966). It sits in the steps column in the DOM either way. `MealDetailModal` supplies it through the `image` slot.',
       },
     },
   },
   play: async ({ canvasElement }) => {
-    const img = await within(canvasElement).findByRole('img', { name: 'Lemon garlic chicken' })
-    // First child of the details, above the description.
-    await expect(
-      img.compareDocumentPosition(within(canvasElement).getByText(/crisp potatoes/i)) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    const canvas = within(canvasElement)
+    const img = await canvas.findByRole('img', { name: 'Lemon garlic chicken' })
+    await expect(canvas.getByTestId('cook-view-steps')).toContainElement(img)
+    // Below `lg`, still above the title and the description.
+    const title = canvas.getByRole('heading', { name: mealFixture.name })
+    await expect(img.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      title.getBoundingClientRect().top,
+    )
   },
 }
 
@@ -368,7 +404,7 @@ export const TipsCollapsed: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    const steps = canvas.getByTestId('cook-view-steps')
+    const steps = canvas.getByTestId('cook-view-steps-body')
     const button = within(steps).getByRole('button', { name: 'How to prepare' })
     await expect(within(steps).getByRole('heading', { name: 'Steps' })).toBeVisible()
     // Ingredients, then the steps area.
@@ -397,7 +433,7 @@ export const TipsExpanded: Story = {
     docs: {
       description: {
         story:
-          'Loaded tips: the equipment as a "You’ll need" list under the ingredients, and the numbered steps, Watch out and Tip in the steps area, at the step size.',
+          'Loaded tips: the equipment as a "You’ll need" list at the top of the steps area, directly above "Steps" (HON-966), then the numbered steps, Watch out and Tip, at the step size.',
       },
     },
   },
@@ -408,10 +444,15 @@ export const TipsExpanded: Story = {
     await expect(within(steps).getByRole('heading', { name: 'Watch out' })).toBeVisible()
     await expect(within(steps).getByRole('heading', { name: 'Tip' })).toBeVisible()
     await expect(within(steps).queryByRole('button', { name: 'How to prepare' })).toBeNull()
-    // The equipment sits with the ingredients, before the steps area.
-    const equipment = canvas.getByRole('list', { name: "You'll need" })
-    await expect(follows(equipment, steps)).toBe(true)
-    await expect(steps).not.toContainElement(equipment)
+    // The equipment tops the steps area, directly above "Steps", after the
+    // ingredients.
+    const equipment = within(steps).getByRole('list', { name: "You'll need" })
+    await expect(follows(canvas.getByRole('heading', { name: /^Ingredients/ }), equipment)).toBe(
+      true,
+    )
+    await expect(follows(equipment, within(steps).getByRole('heading', { name: 'Steps' }))).toBe(
+      true,
+    )
   },
 }
 

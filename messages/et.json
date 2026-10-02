@@ -195,6 +195,7 @@
     "noteEditor": {
       "placeholder": "Lisa märkus…",
       "addNote": "Lisa märkus",
+      "editNote": "Muuda märkust",
       "save": "Salvesta",
       "saving": "Salvestan…",
       "cancel": "Tühista",
@@ -283,6 +284,7 @@
       "viewSource": "Vaata algset retsepti",
       "howToPrepare": "Kuidas valmistada",
       "doneCooking": "Söök on valmis",
+      "moreActions": "Rohkem toiminguid: {name}",
       "ariaDetailsFor": "„{mealName}\" üksikasjad"
     },
     "tips": {
