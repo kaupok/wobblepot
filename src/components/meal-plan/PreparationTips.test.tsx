@@ -388,6 +388,17 @@ describe('PreparationSteps cook question', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Thinking…')
   })
 
+  it('a chip does nothing while an answer is pending', async () => {
+    const ask = vi.fn()
+    render(<Harness controls={{ ask, isPending: true }} />)
+    await userEvent.click(askButton(1))
+    const chip = screen.getByRole('button', { name: "I'm short on time" })
+    await userEvent.click(chip)
+
+    expect(chip).toHaveAttribute('aria-disabled', 'true')
+    expect(ask).not.toHaveBeenCalled()
+  })
+
   it('shows the answer for its own step', async () => {
     render(
       <Harness

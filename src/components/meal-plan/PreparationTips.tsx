@@ -237,7 +237,14 @@ function CookQuestionPanel({
             key={key}
             variant="outline"
             size="lg"
-            onClick={() => send(t(`chips.${key}`), 'chip')}
+            // Like Send: a second tap while the answer is on its way would
+            // bill a second AI call, because the route runs on after the
+            // browser aborts the first.
+            aria-disabled={isPending}
+            onClick={() => {
+              if (isPending) return
+              send(t(`chips.${key}`), 'chip')
+            }}
           >
             {t(`chips.${key}`)}
           </Button>
