@@ -64,6 +64,10 @@ export const WithTotal: Story = {
     const label = [...heading.childNodes].find((node) => node.nodeType === Node.TEXT_NODE)
     if (!label) throw new Error('No label text in the heading')
     await expect(Math.abs(textBottom(badge) - textBottom(label))).toBeLessThan(1)
+    // The badge's 26px floor sets the line, not the caption's 20px. The
+    // `/shopping` and `/pantry` skeletons reserve this height
+    // (`src/app/shopping/loading.tsx`); move them together.
+    await expect(heading.getBoundingClientRect().height).toBeCloseTo(26, 0)
     // Nothing at the right end until something is bought.
     await expect(heading.parentElement?.childElementCount).toBe(1)
   },

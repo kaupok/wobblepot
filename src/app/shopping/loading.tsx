@@ -26,7 +26,9 @@ export default function ShoppingLoading() {
 /**
  * `PantrySection`'s shape: the Title line and its subtitle, the add search,
  * a group heading, then rows at `gap-2`. `h-7.5` is the Title's `text-xl`
- * line box; `h-6` the subtitle's `text-sm` one.
+ * line box; `h-6` the subtitle's `text-sm` one; `h-6.5` the group heading's,
+ * whose count badge stands taller than the caption line
+ * (`GroupHeading.stories.tsx` › WithTotal measures it).
  */
 export function PantryColumnSkeleton() {
   return (
@@ -42,7 +44,7 @@ export function PantryColumnSkeleton() {
       {/* `Input`, `h-11`. */}
       <Skeleton aria-hidden className="h-11 w-full" />
       <div className="flex flex-col gap-2">
-        <div className="flex h-5 items-center">
+        <div className="flex h-6.5 items-center">
           <Skeleton aria-hidden className="h-3.5 w-24" />
         </div>
         <div className="flex flex-col gap-2">
@@ -77,7 +79,7 @@ export function ShoppingColumnSkeleton() {
       </div>
       <Skeleton aria-hidden className="h-11 w-full" />
       <div className="flex flex-col gap-2">
-        <div className="flex h-5 items-center">
+        <div className="flex h-6.5 items-center">
           <Skeleton aria-hidden className="h-3.5 w-24" />
         </div>
         <div className="flex flex-col gap-1">
