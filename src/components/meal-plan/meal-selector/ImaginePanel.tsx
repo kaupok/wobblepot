@@ -233,7 +233,7 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
             disabled={
               isImagining || reviewingMealId !== null || (!prompt.trim() && images.length === 0)
             }
-            className="w-full"
+            className="w-full md:w-auto md:self-start"
           >
             {isImagining ? (
               <>
@@ -248,7 +248,7 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
             )}
           </Button>
           {isImagining && (
-            <Button variant="ghost" size="sm" onClick={handleCancel}>
+            <Button variant="ghost" size="sm" className="md:self-start" onClick={handleCancel}>
               {t('cancel')}
             </Button>
           )}
@@ -266,7 +266,8 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
                     </CardContent>
                     <CardFooter className="p-4 pt-0">
                       <Button
-                        className="w-full"
+                        variant="outline"
+                        className="w-full md:w-auto md:self-start"
                         onClick={() => review.mutate(meal)}
                         disabled={reviewingMealId !== null}
                       >

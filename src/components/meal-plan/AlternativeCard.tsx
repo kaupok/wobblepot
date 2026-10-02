@@ -50,7 +50,14 @@ export function AlternativeCard({
       className="flex h-full flex-col"
       footer={
         <CardFooter className="p-4 pt-0">
-          <Button className="w-full" onClick={() => onSelect(meal.id)} disabled={isSelecting}>
+          {/* Three cards offer the same choice, so none is the primary: outline,
+              and as wide as its label from `md` (HON-943). */}
+          <Button
+            variant="outline"
+            className="w-full md:w-auto md:self-start"
+            onClick={() => onSelect(meal.id)}
+            disabled={isSelecting}
+          >
             {isSelecting ? t('selecting') : t('select')}
           </Button>
         </CardFooter>

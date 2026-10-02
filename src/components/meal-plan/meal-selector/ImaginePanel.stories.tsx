@@ -185,6 +185,34 @@ export const WithResults: Story = {
   },
 }
 
+/**
+ * From `md` "Imagine meals" stays the panel's one filled action but is as wide
+ * as its label, and each result's Select is `outline` and label-wide (HON-943).
+ */
+export const WithResultsDesktop: Story = {
+  globals: { viewport: { value: 'laptop', isRotated: false } },
+  parameters: { msw: { handlers: imagineSuccess } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByRole('textbox'), 'something with lentils')
+    const imagine = canvas.getByRole('button', { name: /imagine meals/i })
+    await userEvent.click(imagine)
+    await canvas.findByText('Smoky red lentil stew')
+
+    const textbox = canvas.getByRole('textbox').getBoundingClientRect()
+    await expect(imagine).not.toHaveAttribute('data-variant', 'outline')
+    await expect(imagine.getBoundingClientRect().width).toBeLessThan(textbox.width / 2)
+
+    const selects = canvas.getAllByRole('button', { name: /^select$/i })
+    await expect(selects).toHaveLength(3)
+    for (const button of selects) {
+      const card = button.closest<HTMLElement>('[data-slot="card"]')!.getBoundingClientRect()
+      await expect(button).toHaveAttribute('data-variant', 'outline')
+      await expect(button.getBoundingClientRect().width).toBeLessThan(card.width / 2)
+    }
+  },
+}
+
 export const RequestFailed: Story = {
   parameters: {
     msw: { handlers: imagineFailure },

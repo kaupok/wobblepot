@@ -148,9 +148,39 @@ export const Loading: Story = {
     msw: { handlers: loadingMealsHandlers },
     docs: {
       description: {
-        story: 'Handlers never resolve — component stays in its skeleton loading state.',
+        story:
+          'Handlers never resolve — component stays in its skeleton loading state. The skeletons carry no 3:2 image band (HON-943).',
       },
     },
+  },
+  play: async () => {
+    const dialog = await within(document.body).findByRole('dialog')
+    await waitFor(() =>
+      expect(dialog.querySelectorAll('[data-slot="card"]').length).toBeGreaterThanOrEqual(3),
+    )
+    await expect(dialog.querySelector('[data-shape="flush"]')).toBeNull()
+  },
+}
+
+/**
+ * The dialog at 1440px: three cards in a row, each Select `outline` and as
+ * wide as its label rather than three equal filled bars (HON-943).
+ */
+export const PopulatedDesktop: Story = {
+  args: {
+    mode: 'swap',
+    currentMealName: 'Lemon-garlic roast chicken',
+  },
+  globals: { viewport: { value: 'laptop', isRotated: false } },
+  play: async () => {
+    const body = within(document.body)
+    const buttons = await body.findAllByRole('button', { name: /^select$/i }, { timeout: 3000 })
+    await expect(buttons.length).toBeGreaterThanOrEqual(3)
+    for (const button of buttons) {
+      const card = button.closest<HTMLElement>('[data-slot="card"]')!.getBoundingClientRect()
+      await expect(button).toHaveAttribute('data-variant', 'outline')
+      await expect(button.getBoundingClientRect().width).toBeLessThan(card.width / 2)
+    }
   },
 }
 
