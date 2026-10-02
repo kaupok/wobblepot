@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type Ref } from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, MessageCircleQuestion } from 'lucide-react'
 import { Body, Heading, Li, Ol, Ul } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn, prefersReducedMotion } from '@/lib/utils'
 import type { StructuredTips } from '@/components/meal-plan/types'
 import type {
@@ -410,6 +411,48 @@ function CookQuestionPanel({
   )
 }
 
+interface AskButtonProps {
+  ref: Ref<HTMLButtonElement>
+  /** "Ask about step {n}": the accessible name and the tooltip */
+  label: string
+  /** Whether this button's panel is open */
+  open: boolean
+  panelId: string
+  onClick: () => void
+}
+
+/**
+ * The Ask button at the end of a row (HON-969, HON-981). Below `lg` it is the
+ * icon alone, with a heavier stroke so the outline reads from the counter;
+ * from `lg` the row is wide enough for the visible label "Ask" beside it. The
+ * tooltip names the step at every width, on hover and on keyboard focus. The
+ * `aria-label` stays the full label: it contains the visible "Ask", so speech
+ * input still finds it, and it tells the steps' buttons apart. No `title`.
+ * With its panel open it stays an Ask button; Close is in the panel.
+ */
+function AskButton({ ref, label, open, panelId, onClick }: AskButtonProps) {
+  const t = useTranslations('meal-plan.cookQuestion')
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          ref={ref}
+          variant="ghost"
+          size="icon-lg-to-lg"
+          aria-label={label}
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          onClick={onClick}
+        >
+          <MessageCircleQuestion strokeWidth={2.25} className="lg:stroke-2" aria-hidden="true" />
+          <span className="hidden lg:inline">{t('ask')}</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 interface ToggleStepsProps {
   steps: string[]
   doneSteps?: ReadonlySet<number>
@@ -461,16 +504,14 @@ function ToggleSteps({
                   onToggle={onToggleStep}
                 />
                 {cookQuestion && (
-                  <Button
+                  <AskButton
                     ref={(el) => {
                       if (el) askButtons.current.set(i, el)
                       else askButtons.current.delete(i)
                     }}
-                    variant="ghost"
-                    size="icon-lg"
-                    aria-label={t('askAboutStep', { n: i + 1 })}
-                    aria-expanded={open}
-                    aria-controls={open ? panelId : undefined}
+                    label={t('askAboutStep', { n: i + 1 })}
+                    open={open}
+                    panelId={panelId}
                     onClick={() => {
                       if (open) {
                         closePanel(i)
@@ -479,9 +520,7 @@ function ToggleSteps({
                       setFocusField(cookQuestion.openStep !== null)
                       cookQuestion.onOpenStep(i)
                     }}
-                  >
-                    <MessageCircleQuestion aria-hidden="true" />
-                  </Button>
+                  />
                 )}
               </div>
               {cookQuestion && open && (

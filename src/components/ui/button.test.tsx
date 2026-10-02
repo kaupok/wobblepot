@@ -150,6 +150,12 @@ describe('Button component', () => {
       expect(button).toHaveClass('size-12', 'md:size-11')
     })
 
+    it('widens icon-lg-to-lg to its content from lg', () => {
+      render(<Button size="icon-lg-to-lg" aria-label="Ask about step 1" />)
+      const button = screen.getByRole('button')
+      expect(button).toHaveClass('size-12', 'md:size-11', 'lg:w-auto', 'lg:px-4')
+    })
+
     it('drops the control box for the inline size', () => {
       render(
         <Button variant="link" size="inline">

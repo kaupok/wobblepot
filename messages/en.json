@@ -311,6 +311,7 @@
     },
     "cookQuestion": {
       "askAboutStep": "Ask about step {n}",
+      "ask": "Ask",
       "chips": {
         "done": "How do I know it's done?",
         "substitute": "What can I substitute here?",
