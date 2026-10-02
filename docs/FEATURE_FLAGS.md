@@ -80,6 +80,14 @@ All five of these collapse to the same answer: the safe default. The explicit to
 
 For kill-switches, "safe" = `true`. The product stays up; the lock-down stays locked. For an experiment flag, "safe" usually means the control variant — pick deliberately when adding it.
 
+## Stale badge
+
+PostHog marks a flag STALE when it has received no `$feature_flag_called` event for 30 days. Only a `getServerFlag` read with a user id sends that event. The layout bootstrap uses `getAllFlags`, which sends none, so it does not count. Reads with the `'anonymous'` id send none either (HON-993), and `invite_code_required` is only read that way: on `/`, on `/sign-up` and in the sign-up hook. So a kill-switch goes STALE when no signed-in user reaches a route that reads it for 30 days. `recipe_import_enabled` went STALE on staging that way, because only `POST /api/recipes/parse` reads it.
+
+- STALE on a kill-switch is a usage signal, not a cleanup signal. The flag still works.
+- Do not archive or remove a kill-switch for this reason. The flags in this file are permanent operational flags (see [Cleanup policy](#cleanup-policy)).
+- Expect it on staging and development, where traffic is low, and on `invite_code_required` in every project, production included.
+
 ## Cleanup policy
 
 - **Kill-switches** stay forever by design — they're insurance.
