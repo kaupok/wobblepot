@@ -330,7 +330,7 @@ In **Project Settings → Environment Variables**, set the six variables per the
 
 ### Verify after provisioning
 
-- Fresh incognito → accept cookie consent → `$pageview` appears in the matching PostHog project. Once signed in, pageviews carry `$user_id`, which `identify` in `PostHogProvider.tsx` sets. The first pageview of a document load has no `$user_id`, because it fires before the identify effect runs.
+- Fresh incognito → accept cookie consent → `$pageview` appears in the matching PostHog project. Once signed in, pageviews carry `$user_id`, which `identify` in `PostHogProvider.tsx` sets and the browser keeps across loads. The first pageview after sign-in has no `$user_id`, because it fires before the identify effect runs.
 - Decline cookie consent → no `ph_*` cookies, no PostHog network requests.
 - After a Vercel build, the build log shows `Running next.config.js provided runAfterProductionCompile`, then `Upload summary:` with a non-zero uploaded or already-present count, then `maybe-upload-sourcemaps: done`.
 - The matching PostHog project → Error tracking → Symbol sets lists sets whose release version is the deploy's commit SHA.
