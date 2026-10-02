@@ -229,6 +229,30 @@ describe('onRequestError', () => {
     expect(propsArg).not.toHaveProperty('$current_url')
   })
 
+  it('drops the Referer on a proxy error during a page load', async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+    })
+    const cookieValue = encodeURIComponent(JSON.stringify({ $sesid: [2, 'sess-abc', 1] }))
+    await onRequestError(
+      new Error('x'),
+      {
+        ...baseRequest,
+        path: '/shopping',
+        headers: {
+          cookie: `ph_phc_TOKEN_posthog=${cookieValue}`,
+          referer: 'https://wobblepot.com/meal-plan',
+          host: 'wobblepot.com',
+          'sec-fetch-dest': 'document',
+        },
+      },
+      { routeType: 'proxy' },
+    )
+    const propsArg = captureExceptionMock.mock.calls[0]![2]
+    expect(propsArg).toMatchObject({ $session_id: 'sess-abc', path: '/shopping' })
+    expect(propsArg).not.toHaveProperty('$current_url')
+  })
+
   it('swallows synchronous errors thrown from captureException', async () => {
     getPosthogServerMock.mockReturnValue({
       captureException: () => {

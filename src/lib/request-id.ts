@@ -40,22 +40,8 @@ export function getRequestId(): string | undefined {
 export async function getClientSession(): Promise<ClientSessionProperties> {
   try {
     const requestHeaders = await headers()
-    return clientSessionProperties({
-      cookie: requestHeaders.get('cookie'),
-      referer: isPageRequest(requestHeaders) ? null : requestHeaders.get('referer'),
-      host: requestHeaders.get('host'),
-    })
+    return clientSessionProperties((name) => requestHeaders.get(name))
   } catch {
     return {}
   }
-}
-
-/**
- * A page load or an RSC navigation. Its Referer is the page the user came
- * from, not the page being rendered, so it is not the `$current_url`. A
- * `fetch` from a page and a server action keep the Referer: there it is the
- * page the user is on.
- */
-function isPageRequest(requestHeaders: Pick<Headers, 'get' | 'has'>): boolean {
-  return requestHeaders.get('sec-fetch-dest') === 'document' || requestHeaders.has('rsc')
 }

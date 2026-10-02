@@ -84,17 +84,28 @@ function currentUrlFrom(referer: HeaderValue, host: HeaderValue): string | undef
 }
 
 /**
- * `$session_id` and `$current_url` for a server event, from the request's
- * `Cookie`, `Referer` and `Host` headers. Keys without a value are omitted, so
- * the result can be spread into event properties as is.
+ * A page load or an RSC navigation. Its Referer is the page the user came
+ * from, not the page being rendered, so it is not the `$current_url`. A
+ * `fetch` from a page and a server action keep the Referer: there it is the
+ * page the user is on.
  */
-export function clientSessionProperties(headers: {
-  cookie: HeaderValue
-  referer: HeaderValue
-  host: HeaderValue
-}): ClientSessionProperties {
-  const { sessionId } = parsePosthogCookie(headers.cookie)
-  const currentUrl = currentUrlFrom(headers.referer, headers.host)
+function isPageNavigation(getHeader: (name: string) => HeaderValue): boolean {
+  return getHeader('sec-fetch-dest') === 'document' || getHeader('rsc') != null
+}
+
+/**
+ * `$session_id` and `$current_url` for a server event, from the request's
+ * `Cookie`, `Referer` and `Host` headers. `getHeader` takes a lower-case
+ * header name. Keys without a value are omitted, so the result can be spread
+ * into event properties as is.
+ */
+export function clientSessionProperties(
+  getHeader: (name: string) => HeaderValue,
+): ClientSessionProperties {
+  const { sessionId } = parsePosthogCookie(getHeader('cookie'))
+  const currentUrl = isPageNavigation(getHeader)
+    ? undefined
+    : currentUrlFrom(getHeader('referer'), getHeader('host'))
   return {
     ...(sessionId && { $session_id: sessionId }),
     ...(currentUrl && { $current_url: currentUrl }),

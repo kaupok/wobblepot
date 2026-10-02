@@ -66,14 +66,11 @@ export async function onRequestError(
   if (!client) return
 
   const { distinctId } = parsePosthogCookie(request.headers.cookie)
-  // Joins the error to the browser session that caused it (HON-998). On a page
-  // render the Referer is the page the user came from, not the one that
-  // failed, so `$current_url` is dropped there; `path` names the page.
-  const { $session_id, $current_url } = clientSessionProperties({
-    cookie: request.headers.cookie,
-    referer: request.headers.referer,
-    host: request.headers.host,
-  })
+  // Joins the error to the browser session that caused it (HON-998).
+  // `clientSessionProperties` drops the Referer on a page load or RSC
+  // navigation, where it names the previous page; the `render` check backs
+  // that up for a browser that sends neither header. `path` names the page.
+  const { $session_id, $current_url } = clientSessionProperties((name) => request.headers[name])
 
   try {
     // Fire-and-forget. The PostHog SDK is constructed with Vercel's

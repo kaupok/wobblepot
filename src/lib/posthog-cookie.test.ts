@@ -62,11 +62,14 @@ describe('parsePosthogCookie', () => {
 })
 
 describe('clientSessionProperties', () => {
+  // A header map with lower-case names, read the way both callers read theirs.
+  const propertiesFor = (headers: Record<string, string>) =>
+    clientSessionProperties((name) => headers[name])
   const host = 'wobblepot.com'
 
   it('returns $session_id and the same-origin Referer as $current_url', () => {
     expect(
-      clientSessionProperties({
+      propertiesFor({
         cookie: posthogCookie(SESSION),
         referer: 'https://wobblepot.com/plan',
         host,
@@ -76,46 +79,48 @@ describe('clientSessionProperties', () => {
 
   it('strips the query string, so a reset token never reaches PostHog', () => {
     expect(
-      clientSessionProperties({
-        cookie: undefined,
-        referer: 'https://wobblepot.com/reset-password?token=secret#x',
-        host,
-      }),
+      propertiesFor({ referer: 'https://wobblepot.com/reset-password?token=secret#x', host }),
     ).toEqual({ $current_url: 'https://wobblepot.com/reset-password' })
   })
 
   it('replaces the invite code in the path', () => {
-    expect(
-      clientSessionProperties({
-        cookie: undefined,
-        referer: 'https://wobblepot.com/invite/XYZ123',
-        host,
-      }),
-    ).toEqual({ $current_url: 'https://wobblepot.com/invite/:code' })
+    expect(propertiesFor({ referer: 'https://wobblepot.com/invite/XYZ123', host })).toEqual({
+      $current_url: 'https://wobblepot.com/invite/:code',
+    })
   })
 
   it('drops a cross-origin Referer', () => {
     expect(
-      clientSessionProperties({
-        cookie: posthogCookie(SESSION),
-        referer: 'https://www.google.com/',
-        host,
-      }),
+      propertiesFor({ cookie: posthogCookie(SESSION), referer: 'https://www.google.com/', host }),
     ).toEqual({ $session_id: 'sess-abc' })
   })
 
   it('drops the Referer when the host is unknown or the Referer is not a URL', () => {
+    expect(propertiesFor({ referer: 'https://wobblepot.com/plan' })).toEqual({})
+    expect(propertiesFor({ referer: '/plan', host })).toEqual({})
+  })
+
+  it.each([
+    ['a page load', { 'sec-fetch-dest': 'document' }],
+    ['an RSC navigation', { rsc: '1' }],
+  ])('drops the Referer on %s, where it names the previous page', (_, extra) => {
     expect(
-      clientSessionProperties({
-        cookie: undefined,
-        referer: 'https://wobblepot.com/plan',
-        host: null,
+      propertiesFor({
+        cookie: posthogCookie(SESSION),
+        referer: 'https://wobblepot.com/previous',
+        host,
+        ...extra,
       }),
-    ).toEqual({})
-    expect(clientSessionProperties({ cookie: undefined, referer: '/plan', host })).toEqual({})
+    ).toEqual({ $session_id: 'sess-abc' })
+  })
+
+  it('keeps the Referer on a fetch from a page', () => {
+    expect(
+      propertiesFor({ referer: 'https://wobblepot.com/plan', host, 'sec-fetch-dest': 'empty' }),
+    ).toEqual({ $current_url: 'https://wobblepot.com/plan' })
   })
 
   it('returns an empty object when nothing is known (no consent, no Referer)', () => {
-    expect(clientSessionProperties({ cookie: undefined, referer: undefined, host })).toEqual({})
+    expect(propertiesFor({ host })).toEqual({})
   })
 })
