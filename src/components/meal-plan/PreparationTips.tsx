@@ -428,7 +428,7 @@ interface AskButtonProps {
   open: boolean
   panelId: string
   onClick: () => void
-  /** True while a tap or a click on Close hands focus back to this button */
+  /** True while a panel closed by a tap or a click hands focus back to this button */
   quietFocus: RefObject<boolean>
 }
 
@@ -443,17 +443,18 @@ interface AskButtonProps {
  */
 function AskButton({ ref, label, open, panelId, onClick, quietFocus }: AskButtonProps) {
   const t = useTranslations('meal-plan.cookQuestion')
-  const [tooltipOpen, setTooltipOpen] = useState(false)
   return (
-    <Tooltip
-      open={tooltipOpen}
-      // Radix opens on any focus, so also on the focus Close hands back. After
-      // a tap the tooltip would cover the step until the next tap, because a
-      // touch never leaves the button. Radix opens on focus synchronously, so
-      // the flag is still set when this runs.
-      onOpenChange={(next) => setTooltipOpen(next && !quietFocus.current)}
-    >
-      <TooltipTrigger asChild>
+    <Tooltip>
+      <TooltipTrigger
+        asChild
+        // Radix opens on any focus, so also on the focus a closed panel hands
+        // back. After a tap the tooltip would cover the step until the next
+        // tap, because a touch never leaves the button. Radix skips its own
+        // focus handler when ours prevents the default.
+        onFocus={(e) => {
+          if (quietFocus.current) e.preventDefault()
+        }}
+      >
         <Button
           ref={ref}
           variant="ghost"
@@ -540,7 +541,10 @@ function ToggleSteps({
                     quietFocus={quietFocus}
                     onClick={() => {
                       if (open) {
-                        closePanel(i)
+                        // A key on Ask leaves focus on it, so a focus event
+                        // here comes from a tap (Safari does not focus a tapped
+                        // button): keep the tooltip shut, as Close does.
+                        closePanel(i, true)
                         return
                       }
                       setFocusField(cookQuestion.openStep !== null)

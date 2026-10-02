@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { expect, fireEvent, fn, userEvent, waitFor, within } from 'storybook/test'
 import { mealHueStyle } from './MealImageCard'
 import {
   PreparationEquipment,
@@ -514,9 +514,10 @@ export const AskEchoAndEdit: Story = {
 }
 
 /**
- * Close hands focus back to the step's Ask button. After a tap or a click on
- * Close that focus opens no tooltip, which would cover the step until the next
- * tap; after Escape from the keyboard it does, as Tab does (HON-981).
+ * Closing a panel hands focus back to the step's Ask button. After a tap or a
+ * click on Close, or a Safari tap on Ask itself, that focus opens no tooltip,
+ * which would cover the step until the next tap; after Escape from the
+ * keyboard it does, as Tab does (HON-981).
  */
 export const AskCloseReturnsFocus: Story = {
   args: {
@@ -527,17 +528,27 @@ export const AskCloseReturnsFocus: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const ask = canvas.getByRole('button', { name: 'Ask about step 2' })
-    const panel = canvas.getByRole('group', { name: 'Ask about step 2' })
-    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
-    await expect(ask).toHaveFocus()
+    const panelOf = () => canvas.getByRole('group', { name: 'Ask about step 2' })
     // Give a wrongly opened tooltip its frame to mount before checking.
-    await new Promise((resolve) => setTimeout(resolve, 100))
-    await expect(within(document.body).queryByRole('tooltip')).not.toBeInTheDocument()
+    const expectNoTooltip = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      await expect(within(document.body).queryByRole('tooltip')).not.toBeInTheDocument()
+    }
+
+    // A tap on Ask in Safari clicks it without focusing it, so closing the
+    // panel that way moves focus to it afresh.
+    fireEvent.click(ask)
+    await expect(canvas.queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+    await expect(ask).toHaveFocus()
+    await expectNoTooltip()
 
     await userEvent.click(ask)
-    const field = within(canvas.getByRole('group', { name: 'Ask about step 2' })).getByRole(
-      'textbox',
-    )
+    await userEvent.click(within(panelOf()).getByRole('button', { name: 'Close' }))
+    await expect(ask).toHaveFocus()
+    await expectNoTooltip()
+
+    await userEvent.click(ask)
+    const field = within(panelOf()).getByRole('textbox')
     await userEvent.click(field)
     await userEvent.keyboard('{Escape}')
     await expect(ask).toHaveFocus()
