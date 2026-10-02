@@ -113,7 +113,10 @@ async function fetchAllFlags(distinctId: string): Promise<EvaluatedFlags | null>
       return null
     }
 
-    if (!result) return null
+    // posthog-node does not reject on a failed `/flags` request (5xx, network
+    // error, quota limit): `getAllFlags` resolves `{}`. Treat that as a failure
+    // too, so the defaults are not cached for the full TTL.
+    if (!result || Object.keys(result).length === 0) return null
 
     return Object.fromEntries(
       FLAG_KEYS.map((key) => [key, coerceFlag(key, result[key])]),

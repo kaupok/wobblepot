@@ -416,6 +416,15 @@ describe('flag cache', () => {
     expect(getAllFlags).toHaveBeenCalledTimes(2)
   })
 
+  it('does not cache an empty result, which is how posthog-node reports a failed request', async () => {
+    const getAllFlags = vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce(ALL_ON)
+    mockedGetPosthogServer.mockReturnValue(makeClient({ getAllFlags }) as never)
+
+    expect((await bootstrapFlags('user_1')).featureFlags).toEqual(FLAG_DEFAULTS)
+    expect((await bootstrapFlags('user_1')).featureFlags).toEqual(ALL_ON)
+    expect(getAllFlags).toHaveBeenCalledTimes(2)
+  })
+
   it('hands each caller its own copy of the cached flags', async () => {
     const client = makeClient({ getAllFlags: vi.fn().mockResolvedValue(ALL_ON) })
     mockedGetPosthogServer.mockReturnValue(client as never)

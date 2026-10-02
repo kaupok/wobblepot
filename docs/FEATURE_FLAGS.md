@@ -67,7 +67,7 @@ Reads on **pre-consent** surfaces (marketing pages, the consent banner itself, t
 - **Per request:** React `cache()`. The layout bootstrap and the landing or `/sign-up` page read of `invite_code_required` make one `/flags` request together, not two.
 - **Per distinct id, for 30 s (`FLAG_CACHE_TTL_MS`):** an in-memory map in each warm Vercel function instance. Repeat renders by the same user, or by any anonymous visitor, inside that window make no request. Outside a React render (route handlers, the Better Auth sign-up hook) this map is the only cache.
 
-A timeout or an error is not cached, so the next read asks PostHog again. Server reads with a user id (the API-route kill-switches) are not cached: each one calls `getFeatureFlag`, because that call sends the `$feature_flag_called` event PostHog uses to show a flag as active. `getAllFlags` sends none.
+A timeout or an error is not cached, so the next read asks PostHog again. posthog-node reports a failed request as an empty result (`{}`) rather than a rejection, so an empty result counts as an error. Server reads with a user id (the API-route kill-switches) are not cached: each one calls `getFeatureFlag`, because that call sends the `$feature_flag_called` event PostHog uses to show a flag as active. `getAllFlags` sends none.
 
 **Kill-switch delay.** A flip in PostHog reaches the API-route reads on the next request. It reaches the bootstrap and the anonymous reads (`invite_code_required` on `/`, `/sign-up` and the sign-up hook) within 30 s. Each function instance holds its own copy, so two instances can disagree for up to that window.
 
