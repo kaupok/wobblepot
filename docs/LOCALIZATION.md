@@ -67,7 +67,7 @@ These are settled. Don't re-open without cause.
 - ICU MessageFormat plural rules live in the `messages/{en,et}.json` catalogs; `next-intl` resolves them at render time. `src/lib/i18n/plurals.test.tsx` covers the contract.
 - `content.ts`: `translateIngredient` and friends — resolves the right display string for translatable content. A locale outside `KNOWN_LOCALES` reads as the default (no join, no overlay), so a caller that skipped `resolveHouseholdLocale` still renders English.
 - `manifest.ts` calls `getTranslations('meta.manifest')`, but the browser fetches the manifest without cookies (Next sends credentials on Vercel previews only), so the PWA install description follows Accept-Language, not the household locale.
-- **English by design:** the OpenGraph card (`src/app/opengraph-image.tsx`; per-locale cards are a separate investment, see its header comment). `/status`, `/bot`, the manifest and global error read the catalogs (HON-919). Whether the legal pages stay English is HON-918.
+- **English by design:** the OpenGraph card (`src/app/opengraph-image.tsx`; per-locale cards are a separate investment, see its header comment). `/status`, `/bot`, the manifest and global error read the catalogs (HON-919). The legal pages — `/privacy`, `/terms`, `/privacy/subprocessors` — title, description and prose included, because legal text is maintained in one language, alongside the DPAs and DPIA in `compliance/`; their shared layout sets `lang="en"` on the prose so screen readers switch language (HON-918).
 
 ### AI surfaces (Tier 1)
 

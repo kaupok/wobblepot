@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import axe from 'axe-core'
-import TermsPage from './page'
+import TermsPage, { metadata } from './page'
 
 function renderedText(): string {
   const { container } = render(<TermsPage />)
@@ -71,5 +71,12 @@ describe('TermsPage', () => {
       rules: { 'color-contrast': { enabled: false } },
     })
     expect(results.violations).toEqual([])
+  })
+
+  it('has English metadata for every household locale (HON-918)', () => {
+    expect(metadata).toEqual({
+      title: 'Terms of service',
+      description: 'The terms that govern your use of Wobblepot.',
+    })
   })
 })
