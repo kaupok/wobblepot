@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // Real next-intl, so the Estonian catalog is what renders. The global mock
 // resolves every key against en.json whatever the provider's locale.
 vi.unmock('next-intl')
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import etMessages from '../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
@@ -111,7 +111,12 @@ describe('PreparationTips in an Estonian household (HON-888)', () => {
     renderInEstonian()
     fireEvent.click(screen.getByRole('button', { name: 'load' }))
 
-    expect(await screen.findByText('Vaja läheb: Pann, Lõikelaud')).toBeInTheDocument()
+    const equipment = await screen.findByRole('list', { name: 'Vaja läheb' })
+    expect(
+      within(equipment)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Pann', 'Lõikelaud'])
     expect(screen.getByRole('heading', { name: 'Tähelepanu' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Nõuanne' })).toBeInTheDocument()
   })

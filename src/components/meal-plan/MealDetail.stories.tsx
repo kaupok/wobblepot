@@ -338,7 +338,7 @@ export const TipsExpanded: Story = {
     docs: {
       description: {
         story:
-          'Loaded tips: the equipment as a "You’ll need" line under the ingredients, and the numbered steps, Watch out and Tip in the steps area, at the step size.',
+          'Loaded tips: the equipment as a "You’ll need" list under the ingredients, and the numbered steps, Watch out and Tip in the steps area, at the step size.',
       },
     },
   },
@@ -350,7 +350,7 @@ export const TipsExpanded: Story = {
     await expect(within(steps).getByRole('heading', { name: 'Tip' })).toBeVisible()
     await expect(within(steps).queryByRole('button', { name: 'How to prepare' })).toBeNull()
     // The equipment sits with the ingredients, before the steps area.
-    const equipment = canvas.getByText("You'll need: Sheet pan, Sharp knife, Tongs")
+    const equipment = canvas.getByRole('list', { name: "You'll need" })
     await expect(follows(equipment, steps)).toBe(true)
     await expect(steps).not.toContainElement(equipment)
   },

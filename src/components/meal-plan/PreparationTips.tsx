@@ -1,5 +1,6 @@
 'use client'
 
+import { useId } from 'react'
 import { useTranslations } from 'next-intl'
 import { Check } from 'lucide-react'
 import { Body, Heading, Li, Ol, Ul } from '@/components/ui/typography'
@@ -18,11 +19,28 @@ interface PreparationEquipmentProps {
   equipment?: string[] | null
 }
 
-/** "You'll need: a sheet pan, tongs", under the ingredients once tips exist. */
+/**
+ * "You'll need", then one item per row, under the ingredients once tips exist
+ * (HON-952). A cook scans it like the ingredients — is it on the counter or
+ * not — so the rows take the ingredient rows' 18px. The heading is Section,
+ * not Caption: nothing in the cook view goes below 16px.
+ */
 export function PreparationEquipment({ equipment }: PreparationEquipmentProps) {
   const t = useTranslations('meal-plan.tips')
+  const headingId = useId()
   if (!equipment?.length) return null
-  return <Body variant="paragraph">{t('equipment', { list: equipment.join(', ') })}</Body>
+  return (
+    <div className="flex flex-col gap-3 text-base">
+      <Heading variant="section" as="h4" id={headingId}>
+        {t('equipment')}
+      </Heading>
+      <Ul variant="plain" aria-labelledby={headingId}>
+        {equipment.map((item, i) => (
+          <Li key={`${i}-${item}`}>{item}</Li>
+        ))}
+      </Ul>
+    </div>
+  )
 }
 
 interface PreparationStepsProps {

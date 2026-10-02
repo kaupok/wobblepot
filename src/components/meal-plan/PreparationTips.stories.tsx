@@ -28,7 +28,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The cook view’s steps area (HON-932): the household’s notes, then numbered steps, Watch out and Tip at the step size, straight on the meal’s tint. `PreparationEquipment` is the “You’ll need” line that sits under the ingredients instead.',
+          'The cook view’s steps area (HON-932): the household’s notes, then numbered steps, Watch out and Tip at the step size, straight on the meal’s tint. `PreparationEquipment` is the “You’ll need” list that sits under the ingredients instead, one item per row at the ingredient rows’ 18px.',
       },
     },
   },
@@ -63,9 +63,33 @@ export const FullTips: Story = {
   },
 }
 
+/** One row per item at the ingredient rows' 18px, under a Section heading (HON-952). */
 export const Equipment: Story = {
   args: { tips: null, isLoading: false, error: null },
   render: () => <PreparationEquipment equipment={fullTips.equipment} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { name: "You'll need" })).toBeVisible()
+    const items = within(canvas.getByRole('list', { name: "You'll need" })).getAllByRole('listitem')
+    await expect(items).toHaveLength(fullTips.equipment!.length)
+    for (const item of items) await expect(getComputedStyle(item).fontSize).toBe('18px')
+  },
+}
+
+/** The long, parenthesised items the model writes (staging, Beef and Broccoli): each wraps on its own row. */
+const longEquipment = [
+  'Two large 36cm flat-bottom woks or heavy skillets (to cook in batches over high heat)',
+  'Large stockpot or 10L bowl with ice bath for blanching broccoli',
+  'Sharp chef’s knife and two large cutting boards',
+]
+
+export const EquipmentLongItems: Story = {
+  args: { tips: null, isLoading: false, error: null },
+  render: () => <PreparationEquipment equipment={longEquipment} />,
+  play: async ({ canvasElement }) => {
+    const items = within(within(canvasElement).getByRole('list')).getAllByRole('listitem')
+    await expect(items.map((item) => item.textContent)).toEqual(longEquipment)
+  },
 }
 
 export const Loading: Story = {
