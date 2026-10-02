@@ -200,6 +200,49 @@ describe('PostHogProvider', () => {
     )
   })
 
+  it('resets on a full page load, after the flag bootstrap has rewritten the identity', async () => {
+    // posthog.init with bootstrap { distinctID: userId } sets distinct_id to
+    // the new user and $user_state to anonymous, but leaves $user_id alone.
+    posthogMock.get_property.mockImplementation((key: string) => {
+      if (key === '$user_state') return 'anonymous'
+      if (key === '$user_id') return 'user-previous'
+      return undefined
+    })
+    posthogMock.get_distinct_id.mockImplementation(() => 'user-42')
+    render(
+      wrap(
+        makeConsent(true),
+        <PostHogProvider userId="user-42" householdId="hh-9">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.identify).toHaveBeenCalledTimes(1))
+    expect(posthogMock.reset).toHaveBeenCalledTimes(1)
+    expect(posthogMock.reset.mock.invocationCallOrder[0]).toBeLessThan(
+      posthogMock.identify.mock.invocationCallOrder[0] ?? -Infinity,
+    )
+  })
+
+  it('does not reset when $user_id already matches the signed-in user', async () => {
+    posthogMock.get_property.mockImplementation((key: string) => {
+      if (key === '$user_state') return 'anonymous'
+      if (key === '$user_id') return 'user-42'
+      return undefined
+    })
+    posthogMock.get_distinct_id.mockImplementation(() => 'user-42')
+    render(
+      wrap(
+        makeConsent(true),
+        <PostHogProvider userId="user-42" householdId="hh-9">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.identify).toHaveBeenCalledTimes(1))
+    expect(posthogMock.reset).not.toHaveBeenCalled()
+  })
+
   it('does not reset when the browser is already identified as the same user', async () => {
     posthogMock.get_property.mockImplementation((key: string) =>
       key === '$user_state' ? 'identified' : undefined,

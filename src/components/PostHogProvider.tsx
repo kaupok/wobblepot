@@ -105,15 +105,19 @@ export function PostHogProvider({
   // A browser still identified as a different user (a session that expired
   // without sign-out, so `reset()` never ran) is reset first: `identify` keeps
   // the previous user's super properties, including the `first_*_at` markers
-  // that `track()` reads for `is_first` (HON-991).
+  // that `track()` reads for `is_first` (HON-991). The previous user is read
+  // from `$user_id`, which `identify` sets and `reset()` clears: on a full page
+  // load the flag bootstrap has already rewritten `distinct_id` to this user
+  // and `$user_state` to anonymous, so those two cannot tell a switch apart.
+  // The `$user_state` branch covers persistence written before `$user_id`.
   useEffect(() => {
     if (!client) return
     if (granted !== true) return
     if (!userId) return
-    if (
-      client.get_property('$user_state') === 'identified' &&
-      client.get_distinct_id() !== userId
-    ) {
+    const previousUserId: unknown =
+      client.get_property('$user_id') ??
+      (client.get_property('$user_state') === 'identified' ? client.get_distinct_id() : undefined)
+    if (previousUserId && previousUserId !== userId) {
       client.reset()
     }
     client.identify(userId, householdId ? { household_id: householdId } : undefined)
