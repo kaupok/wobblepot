@@ -30,19 +30,14 @@ const mockSession: Session = {
 }
 
 describe('BottomTabBar', () => {
-  it('renders Today, Shopping, Pantry, Recipes in that order', async () => {
+  it('renders Plan, Shopping, Pantry, Recipes in that order', async () => {
     const { usePathname } = await import('next/navigation')
     vi.mocked(usePathname).mockReturnValue('/')
 
     render(<BottomTabBar session={mockSession} hasHousehold={true} />)
 
     const links = screen.getAllByRole('link')
-    expect(links.map((link) => link.textContent)).toEqual([
-      'Today',
-      'Shopping',
-      'Pantry',
-      'Recipes',
-    ])
+    expect(links.map((link) => link.textContent)).toEqual(['Plan', 'Shopping', 'Pantry', 'Recipes'])
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/',
       '/shopping',
@@ -94,16 +89,16 @@ describe('BottomTabBar', () => {
     expect(container.innerHTML).toBe('')
   })
 
-  it('highlights Today tab when on root path', async () => {
+  it('highlights Plan tab when on root path', async () => {
     const { usePathname } = await import('next/navigation')
     vi.mocked(usePathname).mockReturnValue('/')
 
     render(<BottomTabBar session={mockSession} hasHousehold={true} />)
 
-    const todayLink = screen.getByRole('link', { name: /today/i })
+    const planLink = screen.getByRole('link', { name: 'Plan' })
     const shoppingLink = screen.getByRole('link', { name: /shopping/i })
 
-    expect(todayLink).toHaveClass('text-primary')
+    expect(planLink).toHaveClass('text-primary')
     expect(shoppingLink).toHaveClass('text-muted-foreground')
   })
 
@@ -113,13 +108,13 @@ describe('BottomTabBar', () => {
 
     render(<BottomTabBar session={mockSession} hasHousehold={true} />)
 
-    const todayLink = screen.getByRole('link', { name: /today/i })
+    const planLink = screen.getByRole('link', { name: 'Plan' })
     const shoppingLink = screen.getByRole('link', { name: /shopping/i })
 
-    expect(todayLink).toHaveClass('text-muted-foreground')
+    expect(planLink).toHaveClass('text-muted-foreground')
     expect(shoppingLink).toHaveClass('text-primary')
     expect(shoppingLink).toHaveAttribute('aria-current', 'page')
-    expect(todayLink).not.toHaveAttribute('aria-current')
+    expect(planLink).not.toHaveAttribute('aria-current')
   })
 
   it('highlights tab for nested routes using startsWith', async () => {
@@ -132,13 +127,13 @@ describe('BottomTabBar', () => {
     expect(recipesLink).toHaveClass('text-primary')
   })
 
-  it('does not highlight Today tab for non-root paths', async () => {
+  it('does not highlight Plan tab for non-root paths', async () => {
     const { usePathname } = await import('next/navigation')
     vi.mocked(usePathname).mockReturnValue('/shopping')
 
     render(<BottomTabBar session={mockSession} hasHousehold={true} />)
 
-    const todayLink = screen.getByRole('link', { name: /today/i })
-    expect(todayLink).toHaveClass('text-muted-foreground')
+    const planLink = screen.getByRole('link', { name: 'Plan' })
+    expect(planLink).toHaveClass('text-muted-foreground')
   })
 })

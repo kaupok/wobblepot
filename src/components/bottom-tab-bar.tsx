@@ -11,7 +11,7 @@ import { isNavItemActive } from '@/lib/navigation'
 // phone"). Household lives in the account sheet (HON-775), which is what freed
 // the slot Pantry took (HON-776).
 const tabs = [
-  { key: 'today', icon: Home, href: '/' },
+  { key: 'plan', icon: Home, href: '/' },
   { key: 'shopping', icon: ShoppingCart, href: '/shopping' },
   // `Package` rather than `Archive`: a box of stored goods reads as "what we
   // have in", where a filing box reads as old records put away.

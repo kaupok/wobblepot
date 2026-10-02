@@ -83,7 +83,7 @@ export function HeaderChrome({ session, hasHousehold, skipToContentLabel }: Head
                 pill's padding. The pill's padding is 8px because the nav
                 links carry 12px of their own (`NavLink`); the logo's 12px
                 margin is the same top-up, putting it 20px in from the edge
-                and 24px from Today. `invisible` at the end takes the hidden
+                and 24px from Meal plan. `invisible` at the end takes the hidden
                 link out of the tab order; visibility only flips once the
                 transition ends, so it is not seen. The link's own focus
                 outline is inset for the same clipping reason. */}

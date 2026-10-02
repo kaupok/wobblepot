@@ -22,7 +22,7 @@ function PageBehind() {
     <main className="pt-[calc(4rem+env(safe-area-inset-top,0px))]">
       <div className="flex w-full flex-col gap-4 px-4 py-8">
         <Heading variant="h4" as="h1">
-          Today
+          Meal plan
         </Heading>
         {Array.from({ length: 12 }, (_, i) => (
           <div key={i} className="rounded-lg border p-4">
@@ -175,7 +175,7 @@ export const Desktop: Story = {
     const leftPill = box(primary.parentElement!)
     const rightPill = box(settings.parentElement!)
     const logo = textBox(within(banner).getByRole('link', { name: 'Wobblepot' }))
-    const today = within(primary).getByRole('link', { name: 'Today' })
+    const mealPlan = within(primary).getByRole('link', { name: 'Meal plan' })
     const pantry = within(primary).getByRole('link', { name: 'Pantry & shopping' })
     const recipes = within(settings).getByRole('link', { name: 'My recipes' })
     const household = within(settings).getByRole('link', { name: 'Household' })
@@ -186,11 +186,11 @@ export const Desktop: Story = {
     await expectNear(leftPill.right - textBox(pantry).right, 21)
     await expectNear(textBox(recipes).left - rightPill.left, 21)
     // 24px between labels, as when it was a `gap-6`.
-    await expectNear(textBox(today).left - logo.right, 24)
-    await expectNear(textBox(pantry).left - textBox(today).right, 24)
+    await expectNear(textBox(mealPlan).left - logo.right, 24)
+    await expectNear(textBox(pantry).left - textBox(mealPlan).right, 24)
     await expectNear(textBox(household).left - textBox(recipes).right, 24)
     // ...but the links themselves touch.
-    await expectNear(box(pantry).left, box(today).right)
+    await expectNear(box(pantry).left, box(mealPlan).right)
     await expectNear(box(household).left, box(recipes).right)
   },
 }
@@ -237,12 +237,12 @@ export const DesktopScrolled: Story = {
 
     // The logo folded away cleanly: the daily views sit centred in their pill.
     const primary = within(banner).getByRole('navigation', { name: 'Primary' })
-    const today = within(primary).getByRole('link', { name: 'Today' })
+    const mealPlan = within(primary).getByRole('link', { name: 'Meal plan' })
     const pantry = within(primary).getByRole('link', { name: 'Pantry & shopping' })
     await waitFor(
       () => {
         const pill = box(primary.parentElement!)
-        return expectNear(box(today).left - pill.left, pill.right - box(pantry).right)
+        return expectNear(box(mealPlan).left - pill.left, pill.right - box(pantry).right)
       },
       { timeout: 1500 },
     )
@@ -257,6 +257,94 @@ export const DesktopScrolled: Story = {
     await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
   },
 }
+
+/**
+ * The `md` breakpoint exactly (768px), the narrowest width the two pills
+ * share, with the navigation landmarks and the last folding link named in
+ * the story's locale.
+ */
+const atMd = (
+  locale: 'en' | 'et',
+  names: { primary: string; settings: string; recipes: string; household: string },
+): Story => ({
+  args: { session: authedSession, hasHousehold: true },
+  globals: {
+    locale,
+    viewport: { value: 'tabletPortrait', isRotated: false },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The `md` breakpoint exactly (768px), the narrowest width the two pills share. "Meal plan" / "Söögiplaan" is wider than the "Today" / "Täna" it replaced (HON-924), and with every label open the two pills no longer fit side by side here. So below `lg` the right pill rests folded, My recipes and Household closed to their icons as they are when scrolled, and a label opens only for the hovered or focused link. The play measures that the pills do not overlap, at rest and scrolled, that at rest the logo and the left pill\'s labels are not clipped to make them fit, and that focusing a folded link opens its label alone.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    const primary = within(banner).getByRole('navigation', { name: names.primary })
+    const settings = within(banner).getByRole('navigation', { name: names.settings })
+    const recipes = within(settings).getByRole('link', { name: names.recipes })
+    const household = within(settings).getByRole('link', { name: names.household })
+    // The label's clipping box: the link's last child (icon box, label box).
+    const labelBox = (link: HTMLElement) => link.lastElementChild!.getBoundingClientRect().width
+    // Widths depend on the face: measured on the fallback before Geist swaps
+    // in, the pills come out a different width than they render.
+    await document.fonts.ready
+
+    const expectNoOverlap = () =>
+      // Within a pixel: subpixel text widths round differently per browser.
+      expect(
+        box(settings.parentElement!).left - box(primary.parentElement!).right,
+      ).toBeGreaterThanOrEqual(-1)
+
+    // At rest the right pill is already folded, and the open labels fit. A
+    // pill squeezed past its content shrinks its clipped boxes (the logo,
+    // the labels) rather than overflowing, so an overlap can also show up
+    // as a clipped label.
+    await expect(labelBox(recipes)).toBe(0)
+    await expect(labelBox(household)).toBe(0)
+    await expectNoOverlap()
+    const logo = within(banner).getByRole('link', { name: 'Wobblepot' }).parentElement!
+    const leftLabels = Array.from(primary.querySelectorAll('a'))
+    for (const el of [logo, ...leftLabels]) {
+      await expect(el.scrollWidth - el.clientWidth).toBeLessThanOrEqual(1)
+    }
+    // Folded, the links keep their names.
+    await expect(recipes).toHaveAccessibleName(names.recipes)
+    await expect(household).toHaveAccessibleName(names.household)
+
+    // Focus opens one label, and the pills still fit with it open.
+    recipes.focus()
+    await waitFor(() => expect(labelBox(recipes)).toBeGreaterThan(0), { timeout: 1500 })
+    await expect(labelBox(household)).toBe(0)
+    await expectNoOverlap()
+    recipes.blur()
+    await waitFor(() => expect(labelBox(recipes)).toBe(0), { timeout: 1500 })
+
+    window.scrollTo(0, 400)
+    await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
+    await expect(labelBox(household)).toBe(0)
+    await expectNoOverlap()
+
+    window.scrollTo(0, 0)
+    await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
+  },
+})
+
+export const DesktopAtMd: Story = atMd('en', {
+  primary: 'Primary',
+  settings: 'Settings',
+  recipes: 'My recipes',
+  household: 'Household',
+})
+
+export const DesktopAtMdEstonian: Story = atMd('et', {
+  primary: 'Põhinavigatsioon',
+  settings: 'Sätted',
+  recipes: 'Minu retseptid',
+  household: 'Leibkond',
+})
 
 export const DesktopLoggedOut: Story = {
   globals: {

@@ -147,7 +147,8 @@ const withI18n: Decorator = (Story, context) => {
 // mobile-first audit; these add realistic iPhone 13/14 (390×844) and Pixel-class
 // Android (360×640) sizes and re-use the built-in desktop preset. The landscape
 // tablet (1024×768, the `lg` breakpoint exactly) and the 1440×900 laptop are the
-// cook view's two-column sizes (HON-932).
+// cook view's two-column sizes (HON-932). The portrait tablet is the `md`
+// breakpoint exactly, the narrowest width the header's two pills share (HON-924).
 const honkadoriViewports = {
   mobilePixel: {
     name: 'Mobile — 360×640',
@@ -158,6 +159,11 @@ const honkadoriViewports = {
     name: 'Mobile — 390×844 (iPhone)',
     styles: { width: '390px', height: '844px' },
     type: 'mobile',
+  },
+  tabletPortrait: {
+    name: 'Tablet portrait — 768×1024',
+    styles: { width: '768px', height: '1024px' },
+    type: 'tablet',
   },
   tabletLandscape: {
     name: 'Tablet landscape — 1024×768',

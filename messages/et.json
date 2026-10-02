@@ -602,7 +602,7 @@
     "skipToContent": "Liigu sisu juurde",
     "primary": {
       "ariaLabel": "Põhinavigatsioon",
-      "today": "Täna",
+      "mealPlan": "Söögiplaan",
       "pantryAndShopping": "Sahver ja pood"
     },
     "settings": {
@@ -612,7 +612,7 @@
     },
     "tabs": {
       "ariaLabel": "Põhinavigatsioon",
-      "today": "Täna",
+      "plan": "Plaan",
       "shopping": "Pood",
       "pantry": "Sahver",
       "recipes": "Retseptid"
