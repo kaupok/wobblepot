@@ -133,6 +133,34 @@ ESTONIAN EXAMPLES (draft → what to output):
 }
 
 /**
+ * English voice block for preparation tips (full and supplementary): the
+ * counterpart of `estonianVoiceForPrepTips`, so a step can be read at a glance
+ * from across the counter (HON-963). Empty for Estonian, so exactly one of the
+ * two blocks is non-empty for a locale and the Estonian prompt is unchanged.
+ */
+export function englishVoiceForPrepTips(locale: string | null | undefined): string {
+  if (isEstonian(locale)) return ''
+  return `
+
+ENGLISH VOICE:
+- equipment: 3–5 short noun phrases of 2–5 words each (Two large woks, Large stockpot, Chef's knife and cutting boards, Slotted spoon and tongs). No reasons and no brackets.
+- steps: start with the verb. One action per step; two only when they happen at the same time ("While the water heats, slice the beef"). At most two sentences and 25 words per step. Never more than 6 steps: on a meal with many parts, fold a small task into the step it happens alongside rather than dropping it.
+- short, not vague: cut reasons, asides and repetition, never the facts. Keep each step's time, heat level, doneness cue and seasoning, and the number that avoids each pitfall.
+- pitfalls: name the mistake and its consequence in one sentence, specific to this dish. Each pitfall names a different problem.
+- tip: one sentence that adds something new: never repeat a step, a pitfall or the user's notes.
+- punctuation: never join clauses with a dash (" - ", " – " or "—"). Use a colon, a semicolon or a new sentence. Write a range with an en dash and no spaces: "60–90 seconds", "4–5 batches".
+
+ENGLISH EXAMPLES (draft → what to output):
+- equipment: "Two large 36cm flat-bottom woks or heavy skillets (to cook in batches over high heat)" → "Two large woks"
+- equipment: "Sharp chef's knife and two large cutting boards (one for meat, one for vegetables)" → "Chef's knife and cutting boards"
+- step: "While water heats, slice beef thinly against the grain (about 0.5cm thick) - partially freezing the steak for 10 minutes makes slicing much faster. Toss slices with part of the soy sauce and a splash of oil to marinate." → two steps: "While the water heats, slice the beef thinly against the grain." and "Toss the beef with half the soy sauce and a splash of oil."
+- step: "Sear the beef for 60-90 seconds - cook in 4-5 batches so the wok stays hot." → "Sear the beef in 4–5 batches, 60–90 seconds each, so the wok stays hot."
+- step: "Fry the onions in butter over a medium-low heat, stirring now and then so they don't catch, until they are soft and golden, which should take around 10-12 minutes or so." → "Fry the onions in butter over medium-low heat for 10–12 minutes, until soft and golden."
+- pitfall: "Leaving the broccoli wet - it turns mushy." → "Wet broccoli steams in the wok and turns mushy, so drain it well."
+- tip: "Partially freezing the steak for 10 minutes makes slicing much faster, and it also helps you get thinner, more even slices." → "Freeze the steak for 10 minutes before slicing; it cuts thinner and faster."`
+}
+
+/**
  * Format a candidate pool for the AI prompt.
  * Includes personalization flags to help AI prefer household favorites.
  */
