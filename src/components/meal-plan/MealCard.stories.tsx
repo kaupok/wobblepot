@@ -278,7 +278,7 @@ export const NoteKeepsThePlate: Story = {
   },
 }
 
-/** The same pair on a phone, where the slip has half the card to lie on. */
+/** The same pair on a phone, where the slip has under half the card to lie on. */
 export const NoteKeepsThePlatePhone: Story = {
   ...NoteKeepsThePlate,
   name: 'Note keeps the plate (phone)',

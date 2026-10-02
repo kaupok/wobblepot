@@ -121,7 +121,7 @@ describe('MealImageCard', () => {
       expect(Array.from(card.children)).toEqual([head])
       expect(Array.from(head.children)).toEqual([wrapper, screen.getByText('Head'), overlay])
       expect(overlay).toContainElement(screen.getByText('Note'))
-      expect(overlay).toHaveClass('absolute', 'bottom-0', 'right-12', 'left-1/2')
+      expect(overlay).toHaveClass('absolute', 'bottom-0', 'right-12', 'left-11/20')
       expect(wrapper).toHaveClass('-inset-y-2')
       expect(wrapper).not.toHaveClass('mask-b-from-60%')
       expect(card).toHaveAttribute('data-meal-overlay')
@@ -141,7 +141,7 @@ describe('MealImageCard', () => {
       const overlay = container.querySelector('[data-slot="meal-image-overlay"]') as HTMLElement
 
       expect(overlay).toHaveClass('left-0', 'right-12')
-      expect(overlay).not.toHaveClass('left-1/2')
+      expect(overlay).not.toHaveClass('left-11/20')
     })
 
     it('caps the title for an overlay on a card without an image', () => {

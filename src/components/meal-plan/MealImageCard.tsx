@@ -103,19 +103,23 @@ type ImageHeight = keyof typeof IMAGE_HEIGHT
  *
  * The right edge is the image box's: `right-12` keeps the ⋯ column clear
  * however tall the slip grows, with `pr-1` so the slip's tilted corner doesn't
- * touch it, and `right-4` is the card's `px-4` on a card without actions. The left edge is not the image box's. On a narrow card
- * the trailing box starts at a third, under the badge row's "N ingredients to
- * buy", so the slip starts at half; wide, 3/8 clears both the title cap and
- * the badges. `pl-2` keeps it off the title cap's edge (`TITLE_WIDTH`, which
- * measures from inside the head's `px-4`). Change them together.
+ * touch it, and `right-4` is the card's `px-4` on a card without actions.
+ *
+ * The left edge is not the trailing image box's: that starts at a third on a
+ * narrow card, under the badge row, where the availability badge runs to
+ * about 54% of a phone card in Estonian ("Vaja osta 2 koostisosa", 177px of
+ * 356px). So the slip starts where the default box does, 11/20, and at half
+ * on a wide card, where 3/8 of a 448px card would still be under that badge.
+ * Both clear the title cap (`TITLE_WIDTH`, at most half), and `pl-2` keeps a
+ * gap. Change them together.
  *
  * `wide` is the note editor: it is open for seconds and needs room for Cancel
- * and Save, which a phone's half column doesn't have, so it may lie over the
+ * and Save, which a phone's narrow column doesn't have, so it may lie over the
  * title while it is open. It still keeps clear of the ⋯ column.
  */
 const OVERLAY_BOX = {
-  default: 'right-4 left-1/2 pl-2 @md/meal-image:left-3/8',
-  trailingActions: 'right-12 left-1/2 pr-1 pl-2 @md/meal-image:left-3/8',
+  default: 'right-4 left-11/20 pl-2 @md/meal-image:left-1/2',
+  trailingActions: 'right-12 left-11/20 pr-1 pl-2 @md/meal-image:left-1/2',
   wide: { default: 'right-4 left-0 pl-4', trailingActions: 'right-12 left-0 pr-1 pl-4' },
 } as const
 
