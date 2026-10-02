@@ -11,9 +11,10 @@
  *    know they're handling user-authored free text.
  *
  * URLs are a third case. `redactUrlProperties` strips the query string and
- * the invite code from the URL-valued properties the SDKs stamp themselves,
- * because a password-reset link carries its token in `?token=` and an invite
- * link carries its code in the path (HON-990).
+ * the secret path segments from the URL-valued properties the SDKs stamp
+ * themselves (HON-990). The reset page carries its token in `?token=`, the
+ * emailed reset link (`/api/auth/reset-password/<token>`) and an invite link
+ * (`/invite/<code>`) carry theirs in the path.
  *
  * The universal PII policy is HON-474 Decision 10 — never send email,
  * password, tokens, names, or invite codes; redact raw free text.
@@ -86,19 +87,24 @@ const URL_KEYS = new Set([
 // the per-metric web-vitals objects (`$web_vitals_FCP_event`, …).
 const NESTED_URL_OBJECT_KEY = /^(\$set|\$set_once|\$web_vitals_[A-Za-z]+_event)$/
 
-// The path segment that holds an invite code. `/api/households/me/invites/<id>`
-// is a database id, not a secret, so it is not matched.
-const SECRET_PATH_SEGMENT = /(^|\/)(invite|api\/invites)\/[^/]+/g
+// Path segments that hold a secret: an invite code, and the Better Auth reset
+// token in the emailed link. `/api/households/me/invites/<id>` is a database id,
+// not a secret, so it is not matched.
+const SECRET_PATH_SEGMENT = /(^|\/)(invite|api\/invites|api\/auth\/reset-password)\/[^/]+/g
 
 const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:\/\//i
 
 function redactPath(path: string): string {
-  return path.replace(SECRET_PATH_SEGMENT, '$1$2/:code')
+  return path.replace(
+    SECRET_PATH_SEGMENT,
+    (_, lead: string, prefix: string) =>
+      `${lead}${prefix}/${prefix.endsWith('reset-password') ? ':token' : ':code'}`,
+  )
 }
 
 /**
- * Drop the query string and fragment from a URL or path and replace an invite
- * code in the path with `:code`. Keeps the origin and the rest of the path,
+ * Drop the query string and fragment from a URL or path and replace a secret
+ * path segment with `:code` (invite) or `:token` (password reset). Keeps the origin and the rest of the path,
  * which web analytics needs. A value that is not a URL (`$direct`) passes
  * through unchanged.
  */

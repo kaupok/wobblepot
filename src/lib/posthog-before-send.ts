@@ -36,3 +36,16 @@ export function postHogBeforeSend<T extends CaptureResultLike>(cr: T | null): T 
   if (cr.$set_once) out.$set_once = redactUrlProperties(cr.$set_once)
   return out
 }
+
+/**
+ * Query parameters posthog-js masks at the source, for both `posthog.init`
+ * calls. `before_send` only sees captured events. The `/flags` request sends
+ * `$initial_current_url` from persistence without going through it, so a
+ * reset page's `?token=` or a sign-in page's `?returnUrl=/invite/<code>` would
+ * reach PostHog that way. `custom_personal_data_properties` only applies when
+ * `mask_personal_data_properties` is on, which also masks ad click ids.
+ */
+export const POSTHOG_URL_MASKING = {
+  mask_personal_data_properties: true,
+  custom_personal_data_properties: ['token', 'returnUrl'],
+}

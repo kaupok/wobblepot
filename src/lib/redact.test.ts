@@ -167,6 +167,12 @@ describe('redactUrlValue', () => {
     expect(redactUrlValue('/api/invites/XYZ123?x=1')).toBe('/api/invites/:code')
   })
 
+  it('replaces the token in the emailed Better Auth reset link', () => {
+    expect(redactUrlValue('/api/auth/reset-password/abc123?callbackURL=%2Freset-password')).toBe(
+      '/api/auth/reset-password/:token',
+    )
+  })
+
   it('keeps a household invite id, which is not a secret', () => {
     expect(redactUrlValue('/api/households/me/invites/inv_1')).toBe(
       '/api/households/me/invites/inv_1',
