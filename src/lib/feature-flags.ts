@@ -10,7 +10,7 @@ import { getPosthogServer } from '@/lib/posthog-server'
  * 3. Create the flag in all three PostHog projects (`mealplan-production` /
  *    `mealplan-staging` / `mealplan-development`) with the same default.
  * 4. Read it via `getServerFlag(key, distinctId)` from server code, or via
- *    `usePostHog().isFeatureEnabled(key)` from a post-consent client surface
+ *    `(await getLoadedPostHog())?.isFeatureEnabled(key)` from a post-consent client surface
  *    (bootstrap is wired in `layout.tsx` so client reads are flicker-free).
  */
 export type FlagKey = 'ai_generation_enabled' | 'recipe_import_enabled' | 'invite_code_required'

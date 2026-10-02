@@ -29,23 +29,11 @@ vi.mock('@/lib/env', () => ({ clientEnv: envMock, serverEnv: envMock }))
 vi.mock('@/lib/posthog-client-state', () => ({ markPostHogLoaded: markPostHogLoadedMock }))
 
 // Next.js navigation hooks — the provider calls these inside
-// SuspendedPostHogPageView but we don't assert pageview fires in these
-// unit tests (Storybook / E2E cover that path).
+// SuspendedPostHogPageView.
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
 }))
-
-// @posthog/react's PHProvider renders a real context that our provider wraps
-// around children. We only care that children render after the client loads.
-vi.mock('@posthog/react', async () => {
-  const React = await import('react')
-  return {
-    PostHogProvider: ({ children }: { children: React.ReactNode }) =>
-      React.createElement(React.Fragment, null, children),
-    usePostHog: () => posthogMock,
-  }
-})
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -135,6 +123,26 @@ describe('PostHogProvider', () => {
     // (literal values: src/lib/posthog-init-options.test.ts).
     expect(posthogMock.init).toHaveBeenCalledWith('phc_test', POSTHOG_INIT_OPTIONS)
     expect(markPostHogLoadedMock).toHaveBeenCalledTimes(1)
+  })
+
+  // The client reaches PostHogPageView as a prop, not through @posthog/react's
+  // context, which would put posthog-js in the initial bundle (HON-999).
+  it('captures a $pageview with the loaded client once consent is granted', async () => {
+    const consent = makeConsent(true)
+    render(
+      wrap(
+        consent,
+        <PostHogProvider>
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+
+    await waitFor(() =>
+      expect(posthogMock.capture).toHaveBeenCalledWith('$pageview', {
+        $current_url: `${window.location.origin}/`,
+      }),
+    )
   })
 
   // HON-992: every document load after consent mounts the provider and sets
