@@ -2042,7 +2042,7 @@ watch_relative_age() {
 # log has not yet answered (HON-938). The tallies stay the run's history; these
 # decide whether that history still needs the operator. A GATED outcome is
 # answered by a later `[UNGATE]`, `Claimed` or `[OUTCOME]` line for the same
-# issue, and a STRANDED one by a later `[OUTCOME]` for it. STRANDED_OPEN is
+# issue, and a STRANDED one by a later `[OUTCOME]` or `Claimed`. STRANDED_OPEN is
 # `<id>:<pr number|none>:<branch>`, and the caller checks the PR and the
 # worktree, which the log cannot see (watch_resolve_stranded).
 #
@@ -2139,8 +2139,11 @@ watch_scan_log() {
     }
 
     # An operator removing the Gated label, or the orchestrator claiming the
-    # issue again, answers a GATED outcome. Neither says anything about a
-    # STRANDED one: only its PR or its worktree does, and the caller checks those.
+    # issue again, answers a GATED outcome. A claim answers a STRANDED one too:
+    # the picker never claims an issue that still has the Stranded label, so a
+    # claim means the operator cleared it. Without that, the re-run recreates
+    # the preserved worktree on the same branch and the strand reads as open
+    # again until the new outcome. `[UNGATE]` says nothing about a strand.
     #
     # Both lines come only from the Queued fetch, so a gated issue the operator
     # takes out of Queued (to Todo, Backlog or Canceled) logs neither and stays
@@ -2150,6 +2153,7 @@ watch_scan_log() {
       if (in_window($0) && match($0, /(\[UNGATE\]|Claimed) [A-Z]+-[0-9]+/)) {
         n = split(substr($0, RSTART, RLENGTH), f, " ")
         delete gated_open[f[n]]
+        if (f[1] == "Claimed") delete stranded_pr[f[n]]
       }
       next
     }
@@ -2563,55 +2567,70 @@ watch_pr_state_probe() {
 # outcome resolved hours earlier still read as an action.
 #
 # The plain twin carries exactly the visible text, because it is what the pane
-# measures and clips against.
+# measures and clips against. A row wider than the pane is drawn as its clipped
+# plain twin, so with no colour at all — which would cost an open strand its
+# yellow on a 100-column terminal. Given `width`, the "(resolved)" words go
+# first: the dim already says the count is history, and the colour is the part
+# that has to survive.
 #
-# Usage: watch_tally_row <success> <failed> <stranded> <stranded_open> <gated> <gated_open> <timeout> <truncated>
+# Usage: watch_tally_row <success> <failed> <stranded> <stranded_open> <gated> <gated_open> <timeout> <truncated> [width]
 watch_tally_row() {
+  # See WT_WIDTH_LOCALE: `${#plain}` must count the `·` as one column, as the
+  # pane does.
+  local LC_ALL="${WT_WIDTH_LOCALE:-${LC_ALL:-}}"
   local success="${1:-0}" failed="${2:-0}" stranded="${3:-0}" stranded_open="${4:-0}"
   local gated="${5:-0}" gated_open="${6:-0}" timeout="${7:-0}" truncated="${8:-0}"
+  local width="${9:-}"
   local n
   for n in success failed stranded stranded_open gated gated_open timeout; do
     case "${!n}" in ''|*[!0-9]*) printf -v "$n" '%s' 0 ;; esac
   done
+  case "$width" in *[!0-9]*) width="" ;; esac
 
-  local line="${GREEN}${success} merged${NC}" plain="${success} merged"
-  if [ "$failed" -gt 0 ]; then
-    line+=" · ${RED}${failed} failed${NC}"
-  else
-    line+=" · ${failed} failed"
-  fi
-  plain+=" · ${failed} failed"
+  local line plain suffix label total open text
+  for suffix in " (resolved)" ""; do
+    line="${GREEN}${success} merged${NC}"
+    plain="${success} merged"
+    if [ "$failed" -gt 0 ]; then
+      line+=" · ${RED}${failed} failed${NC}"
+    else
+      line+=" · ${failed} failed"
+    fi
+    plain+=" · ${failed} failed"
 
-  # `stranded` is always shown, `gated` only once there has been one.
-  local label total open text
-  for label in stranded gated; do
-    if [ "$label" = stranded ]; then
-      total="$stranded"; open="$stranded_open"
-    else
-      total="$gated"; open="$gated_open"
-      [ "$total" -gt 0 ] || continue
+    # `stranded` is always shown, `gated` only once there has been one.
+    for label in stranded gated; do
+      if [ "$label" = stranded ]; then
+        total="$stranded"; open="$stranded_open"
+      else
+        total="$gated"; open="$gated_open"
+        [ "$total" -gt 0 ] || continue
+      fi
+      if [ "$open" -gt 0 ]; then
+        text="${open} ${label}"
+        line+=" · ${YELLOW}${text}${NC}"
+      elif [ "$total" -gt 0 ]; then
+        text="${total} ${label}${suffix}"
+        line+=" · ${DIM}${text}${NC}"
+      else
+        text="${total} ${label}"
+        line+=" · ${text}"
+      fi
+      plain+=" · ${text}"
+    done
+
+    if [ "$timeout" -gt 0 ]; then
+      line+=" · ${YELLOW}${timeout} timeout${NC}"
+      plain+=" · ${timeout} timeout"
     fi
-    if [ "$open" -gt 0 ]; then
-      text="${open} ${label}"
-      line+=" · ${YELLOW}${text}${NC}"
-    elif [ "$total" -gt 0 ]; then
-      text="${total} ${label} (resolved)"
-      line+=" · ${DIM}${text}${NC}"
-    else
-      text="${total} ${label}"
-      line+=" · ${text}"
+    if [ "$truncated" = "1" ]; then
+      line+=" ${DIM}(floor: log rotated)${NC}"
+      plain+=" (floor: log rotated)"
     fi
-    plain+=" · ${text}"
+    if [ -z "$width" ] || [ "${#plain}" -le "$width" ]; then
+      break
+    fi
   done
-
-  if [ "$timeout" -gt 0 ]; then
-    line+=" · ${YELLOW}${timeout} timeout${NC}"
-    plain+=" · ${timeout} timeout"
-  fi
-  if [ "$truncated" = "1" ]; then
-    line+=" ${DIM}(floor: log rotated)${NC}"
-    plain+=" (floor: log rotated)"
-  fi
   printf '%s\n%s\n' "$line" "$plain"
 }
 
@@ -3026,7 +3045,7 @@ cmd_watch() {
     local tally_line="" tally_plain=""
     { IFS= read -r tally_line; IFS= read -r tally_plain; } < <(watch_tally_row \
       "$t_success" "$t_failed" "$t_stranded" "$t_stranded_open" \
-      "$t_gated" "$t_gated_open" "$t_timeout" "$t_truncated")
+      "$t_gated" "$t_gated_open" "$t_timeout" "$t_truncated" "$pane_r")
     r_rows+=("$tally_line")
     r_plain+=("$tally_plain")
 

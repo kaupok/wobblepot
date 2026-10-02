@@ -216,7 +216,7 @@
 #     exactly as on the dashboard. Prints the resolved PR numbers.
 #
 #   watch-tally-row <success> <failed> <stranded> <stranded_open> <gated>
-#                   <gated_open> <timeout> <truncated>              (HON-938)
+#                   <gated_open> <timeout> <truncated> [width]      (HON-938)
 #     The REAL watch_tally_row, read back with the same two `read`s cmd_watch
 #     uses and printed bracketed as `[decorated]` then `[plain]`. The escapes
 #     stay literal (`\033[…`), so a test can see which colour wraps which text.
@@ -338,7 +338,7 @@ HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Capture every argument BEFORE clearing "$@": orchestrator.sh parses "$@" at
 # top level, so a sourcing script's own positional parameters would otherwise be
 # read as orchestrator flags.
-MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"; A6="${7:-}"; A7="${8:-}"; A8="${9:-}"
+MODE="${1:-}"; A1="${2:-}"; A2="${3:-}"; A3="${4:-}"; A4="${5:-}"; A5="${6:-}"; A6="${7:-}"; A7="${8:-}"; A8="${9:-}"; A9="${10:-}"
 set --
 
 # The NEON_BRANCH_CAP this process actually inherited, captured before
@@ -1279,7 +1279,7 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     { IFS= read -r tally_line; IFS= read -r tally_plain; } < <(watch_tally_row \
-      "$A1" "$A2" "$A3" "$A4" "$A5" "$A6" "$A7" "$A8")
+      "$A1" "$A2" "$A3" "$A4" "$A5" "$A6" "$A7" "$A8" "$A9")
     printf '[%s]\n[%s]\n' "$tally_line" "$tally_plain"
     exit 0
     ;;

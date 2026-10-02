@@ -3871,8 +3871,6 @@ describe('orchestrator.sh', () => {
       })
 
       it('drops a stranded outcome the issue was re-run past, and keeps the other', () => {
-        // A claim alone does not answer a stranded run (its PR may still be
-        // open); a later outcome for the same issue does.
         const open = strandedOpen([
           ...STRANDED,
           '2026-09-20 10:25:00 WARN  [OUTCOME] HON-710 STRANDED 1h0m 4-commits phase=ci pr=#712 ci=failing exit=clean',
@@ -3892,6 +3890,25 @@ describe('orchestrator.sh', () => {
         ])
 
         expect(open).toEqual(['HON-702:720:auto/hon-702-thing'])
+      })
+
+      it('drops a stranded outcome once the issue is claimed again', () => {
+        // The picker never claims a Stranded-labelled issue, so a claim means the
+        // operator cleared the strand. The re-run recreates the preserved
+        // worktree on the same branch, so the worktree check alone would turn
+        // the strand yellow again for the whole re-run.
+        expect(
+          strandedOpen([...STRANDED, '2026-09-20 11:00:00 INFO  Claimed HON-702 → In Progress']),
+        ).toEqual([])
+      })
+
+      it('does not let an [UNGATE] answer a stranded outcome', () => {
+        expect(
+          strandedOpen([
+            ...STRANDED,
+            '2026-09-20 11:00:00 INFO  [UNGATE] HON-702 — Gated label removed by operator; eligible again',
+          ]),
+        ).toEqual(['HON-702:707:auto/hon-702-thing'])
       })
     })
 
@@ -4409,6 +4426,27 @@ describe('orchestrator.sh', () => {
 
       expect(line).not.toMatch(/integer expression/)
       expect(plain).toBe('0 merged · 0 failed · 0 stranded')
+    })
+
+    it('drops "(resolved)" before the row outgrows its pane, so the colour survives', () => {
+      // A row wider than the pane is drawn as its clipped plain twin, with no
+      // colour. pane_r is 49 on a 100-column terminal: the mixed state with
+      // "(resolved)" is 54 wide and would lose the open strand's yellow.
+      const [line, plain] = row(43, 0, 1, 1, 1, 0, 0, 0, 49)
+
+      expect(plain).toBe('43 merged · 0 failed · 1 stranded · 1 gated')
+      expect(line).toContain(`${YELLOW}1 stranded${NC}`)
+      expect(line).toContain(`${DIM}1 gated${NC}`)
+    })
+
+    it('keeps "(resolved)" whenever the row fits', () => {
+      expect(row(43, 0, 1, 0, 1, 0, 0, 0, 80)[1]).toBe(
+        '43 merged · 0 failed · 1 stranded (resolved) · 1 gated (resolved)',
+      )
+      // Exactly at the width is a fit, not an overflow.
+      expect(row(43, 0, 1, 0, 0, 0, 0, 0, 44)[1]).toBe(
+        '43 merged · 0 failed · 1 stranded (resolved)',
+      )
     })
   })
 
