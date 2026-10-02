@@ -2141,6 +2141,11 @@ watch_scan_log() {
     # An operator removing the Gated label, or the orchestrator claiming the
     # issue again, answers a GATED outcome. Neither says anything about a
     # STRANDED one: only its PR or its worktree does, and the caller checks those.
+    #
+    # Both lines come only from the Queued fetch, so a gated issue the operator
+    # takes out of Queued (to Todo, Backlog or Canceled) logs neither and stays
+    # open for the rest of the run, even once its label is gone. Putting it back
+    # in Queued without the label logs the `[UNGATE]` that answers it.
     /\[UNGATE\] [A-Z]+-[0-9]+ / || / Claimed [A-Z]+-[0-9]+ / {
       if (in_window($0) && match($0, /(\[UNGATE\]|Claimed) [A-Z]+-[0-9]+/)) {
         n = split(substr($0, RSTART, RLENGTH), f, " ")
