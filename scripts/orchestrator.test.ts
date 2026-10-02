@@ -425,6 +425,31 @@ describe('orchestrator.sh', () => {
     })
   })
 
+  describe('status file poll_interval (HON-937)', () => {
+    // `wt watch` stretches its alert age-out to three polls on a slow
+    // orchestrator, and this field is the only place it can learn the interval.
+    const statusPoll = (interval: string): { poll: unknown; breaker: unknown } => {
+      const out = stripTimestamps(
+        runHarnessEnv({ ORCHESTRATOR_POLL_INTERVAL: interval }, 'failure', 'RETRY', '0', 'false'),
+      )
+      const read = (key: string) => out.match(new RegExp(`^${key}:(.*)$`, 'm'))?.[1] ?? ''
+      return { poll: JSON.parse(read('STATUS_POLL') || '"missing"'), breaker: read('STATUS_JSON') }
+    }
+
+    it('records the poll interval in seconds', () => {
+      expect(statusPoll('300').poll).toBe(300)
+    })
+
+    it('writes the rest of the status file when the interval is not a number', () => {
+      // POLL_INTERVAL is never validated, so `--argjson` on "1m" would have
+      // failed the whole write and blanked `wt status`.
+      const r = statusPoll('1m')
+
+      expect(r.poll).toBeNull()
+      expect(r.breaker).toContain('consecutive_failures')
+    })
+  })
+
   // ─── HON-572 finding 2: circuit breaker ───────────────────────────────────
   // The counter used to be updated from the triage VERDICT, before the case
   // that acts on it. A second RETRY falls through to move_to_backlog — a
@@ -3385,12 +3410,12 @@ describe('orchestrator.sh', () => {
     /** Write a fixture orchestrator.log and scan it through the real helper. */
     // `now` drives the alert age-out. Empty means no age limit, which is what
     // lets the fixtures below sit on 2026-09-20 without every alert expiring.
-    const scan = (lines: string[], since = '', now = ''): Record<string, string> => {
+    const scan = (lines: string[], since = '', now = '', poll = ''): Record<string, string> => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-scan-'))
       const log = path.join(dir, 'orchestrator.log')
       fs.writeFileSync(log, `${lines.join('\n')}\n`)
       try {
-        const out = runHarness('watch-scan-log', log, since, now)
+        const out = runHarness('watch-scan-log', log, since, now, poll)
         return Object.fromEntries(
           out
             .split('\n')
@@ -3707,6 +3732,24 @@ describe('orchestrator.sh', () => {
         const r = scan(BLIP, '', '')
 
         expect(r.ALERT).toBe('Failed to fetch issues from Linear')
+      })
+
+      it('stretches the limit to three polls on a slower orchestrator', () => {
+        // A persisting condition is re-logged once per poll, so with
+        // `--poll-interval 300` a live Linear outage repeats every five minutes
+        // or more. A fixed five-minute limit would blank it between polls.
+        const lines = ['2026-09-20 10:00:00 WARN  Failed to fetch issues from Linear']
+
+        expect(scan(lines, '', '2026-09-20 10:12:00', '300').ALERT).toBe(
+          'Failed to fetch issues from Linear',
+        )
+        expect(scan(lines, '', '2026-09-20 10:16:00', '300').ALERT).toBeUndefined()
+        // Never shorter than five minutes, and a value that is not a number of
+        // seconds falls back to the 60s default rather than breaking the scan.
+        expect(scan(lines, '', '2026-09-20 10:04:00', '30').ALERT).toBe(
+          'Failed to fetch issues from Linear',
+        )
+        expect(scan(lines, '', '2026-09-20 10:06:00', '1m').ALERT).toBeUndefined()
       })
 
       it('measures the five minutes across midnight', () => {

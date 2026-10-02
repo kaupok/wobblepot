@@ -482,12 +482,16 @@ write_status_file() {
       || checkout_json="null"
   fi
 
+  # poll_interval goes in as a string and is converted inside jq: it is never
+  # validated, so `--argjson` on a value like "1m" would fail the whole write.
+  # `wt watch` reads it to size the alert age-out (watch_scan_log).
   local tmp_file="${STATUS_FILE}.tmp.$$"
   jq -n \
     --argjson pid "$$" \
     --arg started_at "$ORCHESTRATOR_START_TIME" \
     --arg last_poll "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
     --argjson max_workers "$MAX_WORKERS" \
+    --arg poll_interval "$POLL_INTERVAL" \
     --argjson circuit_breaker "$(jq -n \
       --argjson consecutive_failures "$CONSECUTIVE_FAILURES" \
       --arg paused_until "${paused_until_val}" \
@@ -495,7 +499,7 @@ write_status_file() {
        else {consecutive_failures: $consecutive_failures, paused_until: $paused_until} end')" \
     --argjson workers "$workers_json" \
     --argjson checkout "$checkout_json" \
-    '{pid: $pid, started_at: $started_at, last_poll: $last_poll, max_workers: $max_workers, circuit_breaker: $circuit_breaker, checkout: $checkout, workers: $workers}' \
+    '{pid: $pid, started_at: $started_at, last_poll: $last_poll, max_workers: $max_workers, poll_interval: ($poll_interval | tonumber? // null), circuit_breaker: $circuit_breaker, checkout: $checkout, workers: $workers}' \
     > "$tmp_file" 2>/dev/null && mv "$tmp_file" "$STATUS_FILE" || rm -f "$tmp_file"
 }
 

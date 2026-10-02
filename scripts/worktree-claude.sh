@@ -2047,14 +2047,23 @@ watch_relative_age() {
 #
 # `now` is the scan's own `YYYY-MM-DD HH:MM:SS` local time, used only to age
 # out an alert (see the END block). Empty — or a value `date` cannot parse —
-# means no age limit, which is the behaviour before HON-937.
+# means no age limit, which is the behaviour before HON-937. `poll_interval` is
+# the orchestrator's, in seconds (default 60): the age limit is five minutes or
+# three polls, whichever is longer, because a persisting condition is re-logged
+# once per poll and an orchestrator started with `--poll-interval 300` repeats
+# it less often than every five minutes.
 #
-# Usage: watch_scan_log <log_file> <since_local_ts> [grace_local_ts] [now_local_ts]
+# Usage: watch_scan_log <log_file> <since_local_ts> [grace_local_ts] [now_local_ts] [poll_interval]
 watch_scan_log() {
-  local log_file="$1" since="$2" grace="${3:-$2}" now="${4:-}"
+  local log_file="$1" since="$2" grace="${3:-$2}" now="${4:-}" poll="${5:-}"
   [ -f "$log_file" ] || return 0
 
-  # Five minutes before `now`, in the log's own local-time format so awk can
+  # Read from the status file, so treat anything non-numeric as the default.
+  case "$poll" in ''|*[!0-9]*) poll=60 ;; esac
+  local max_age=300
+  [ $((poll * 3)) -gt "$max_age" ] && max_age=$((poll * 3))
+
+  # `max_age` before `now`, in the log's own local-time format so awk can
   # compare it as a string the way it compares `since`. Done in epoch seconds
   # rather than in awk because the subtraction has to cross midnight, month
   # ends and DST changes correctly.
@@ -2063,8 +2072,8 @@ watch_scan_log() {
     now_epoch=$(date -jf '%Y-%m-%d %H:%M:%S' "$now" '+%s' 2>/dev/null) || \
     now_epoch=$(date -d "$now" '+%s' 2>/dev/null) || now_epoch=""
     if [ -n "$now_epoch" ]; then
-      cutoff=$(date -r $((now_epoch - 300)) '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
-        || date -d "@$((now_epoch - 300))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || cutoff=""
+      cutoff=$(date -r $((now_epoch - max_age)) '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
+        || date -d "@$((now_epoch - max_age))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || cutoff=""
     fi
   fi
 
@@ -2215,11 +2224,12 @@ watch_scan_log() {
       # Age: progress alone assumed an answer always arrives, and it does not.
       # With an empty Queued state nothing is ever claimed, so a single curl
       # blip at 07:45 was still on screen at 11:00 (HON-937). So an alert is
-      # also dropped once its most recent occurrence is more than five minutes
-      # old. Five minutes is enough because every condition that persists is
-      # re-logged on every one-minute poll — low disk, the pause it causes, the
-      # query cap, a failing Linear fetch — so a live alert is always fresh, and
-      # one line with nothing after it was a blip. The circuit breaker logs
+      # also dropped once its most recent occurrence is older than the cutoff:
+      # five minutes, or three polls on a slower orchestrator. That is enough
+      # because every condition that persists is re-logged on every poll — low
+      # disk, the pause it causes, the query cap, a failing Linear fetch — so a
+      # live alert is always fresh, and one line with nothing after it was a
+      # blip. The circuit breaker logs
       # once per trip, but the header shows it from orchestrator-status.json,
       # so its alert line is not the only place the pause is visible.
       show_any  = (alert_any  != "" && (progress_ts == "" || alert_any_ts  > progress_ts) && fresh(alert_any_ts))
@@ -2415,18 +2425,19 @@ watch_pick_alert() {
 # The cache is keyed on the run's start epoch, so a restarted orchestrator gets
 # a new window rather than inheriting the previous run's tallies.
 #
-# `now` is passed through for the alert age-out; with the 10s TTL an aged-out
-# alert leaves the screen within one refresh of crossing the line.
+# `now` and `poll_interval` are passed through for the alert age-out; with the
+# 10s TTL an aged-out alert leaves the screen within one refresh of crossing
+# the line.
 #
-# Usage: watch_scan_log_cached <cache_dir> <log_file> <since> <grace> <start_epoch> [now]
+# Usage: watch_scan_log_cached <cache_dir> <log_file> <since> <grace> <start_epoch> [now] [poll_interval]
 watch_scan_log_cached() {
-  local cache_dir="$1" log_file="$2" since="$3" grace="$4" start_epoch="$5" now="${6:-}"
+  local cache_dir="$1" log_file="$2" since="$3" grace="$4" start_epoch="$5" now="${6:-}" poll="${7:-}"
   local cache="$cache_dir/scan-${start_epoch:-0}"
 
   if [ -f "$cache" ]; then
-    watch_refresh_async "$cache" 10 watch_scan_log "$log_file" "$since" "$grace" "$now"
+    watch_refresh_async "$cache" 10 watch_scan_log "$log_file" "$since" "$grace" "$now" "$poll"
   else
-    watch_scan_log "$log_file" "$since" "$grace" "$now" > "${cache}.tmp" 2>/dev/null || true
+    watch_scan_log "$log_file" "$since" "$grace" "$now" "$poll" > "${cache}.tmp" 2>/dev/null || true
     mv "${cache}.tmp" "$cache" 2>/dev/null || true
   fi
   [ -f "$cache" ] && cat "$cache"
@@ -2645,13 +2656,14 @@ cmd_watch() {
 
     # One jq pass for the header, one more below for the workers: the old loop
     # spent six jq processes per worker per redraw.
-    local orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count
-    IFS=$'\t' read -r orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count \
+    local orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count poll_interval
+    IFS=$'\t' read -r orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count poll_interval \
       <<< "$(echo "$status" | jq -r '[
         (.pid|tostring), .started_at, .last_poll, (.max_workers // 3 | tostring),
         (.circuit_breaker.consecutive_failures | tostring),
         (.circuit_breaker.paused_until // "-"),
-        (.workers | length | tostring)
+        (.workers | length | tostring),
+        (.poll_interval // 60 | tostring)
       ] | @tsv' 2>/dev/null)"
     [ -n "${worker_count:-}" ] || worker_count=0
 
@@ -2706,7 +2718,7 @@ cmd_watch() {
         ALERT_FULL)      alert_full="$scan_val" ;;
         ALERT_FULL_AT)   alert_full_at="$scan_val" ;;
       esac
-    done < <(watch_scan_log_cached "$cache_dir" "$orch_log" "$since_ts" "$grace_ts" "$start_epoch" "$now_ts")
+    done < <(watch_scan_log_cached "$cache_dir" "$orch_log" "$since_ts" "$grace_ts" "$start_epoch" "$now_ts" "$poll_interval")
 
     local picked_alert=""
     picked_alert=$(watch_pick_alert \
