@@ -51,7 +51,8 @@ describe('NoteEditor', () => {
       const slip = screen.getByRole('button', { name: 'Eating out tonight' })
       expect(slip).toHaveAttribute('data-surface', 'sticky')
       expect(slip).toHaveAttribute('data-variant', 'interactive')
-      expect(slip.className).toContain('-rotate-1')
+      // -1° by default; a planner card sets its own (HON-975).
+      expect(slip.className).toContain('rotate-(--note-tilt)')
       expect(slip.className).toContain('hover:rotate-0')
       expect(slip.className).toContain('motion-reduce:transition-none')
     })
@@ -126,7 +127,7 @@ describe('NoteEditor', () => {
       const textarea = screen.getByRole('textbox')
       const slip = textarea.closest('[data-surface="sticky"]')
       expect(slip).toHaveAttribute('data-variant', 'editing')
-      expect(slip?.className).not.toContain('-rotate-1')
+      expect(slip?.className).not.toContain('rotate-(--note-tilt)')
       expect(textarea.className).not.toMatch(/\bborder\b/)
       expect(textarea.className).toContain('outline-none')
       expect(textarea.className).toContain('bg-transparent')

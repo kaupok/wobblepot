@@ -121,7 +121,10 @@ describe('MealImageCard', () => {
       expect(Array.from(card.children)).toEqual([head])
       expect(Array.from(head.children)).toEqual([wrapper, screen.getByText('Head'), overlay])
       expect(overlay).toContainElement(screen.getByText('Note'))
-      expect(overlay).toHaveClass('absolute', 'bottom-0', 'right-12', 'left-11/20')
+      expect(overlay).toHaveClass('absolute', 'bottom-0', 'right-13', 'max-w-note-slip-actions')
+      // Without a placement it rests in the corner, unmoved.
+      expect(overlay).not.toHaveClass('translate-x-(--note-x)')
+      expect(overlay.getAttribute('style')).toBeNull()
       expect(wrapper).toHaveClass('-inset-y-2')
       expect(wrapper).not.toHaveClass('mask-b-from-60%')
       expect(card).toHaveAttribute('data-meal-overlay')
@@ -141,7 +144,77 @@ describe('MealImageCard', () => {
       const overlay = container.querySelector('[data-slot="meal-image-overlay"]') as HTMLElement
 
       expect(overlay).toHaveClass('left-0', 'right-12')
-      expect(overlay).not.toHaveClass('left-11/20')
+      expect(overlay).not.toHaveClass('max-w-note-slip-actions')
+    })
+
+    it('moves the overlay by its scatter and tilts it (HON-975)', () => {
+      const { container } = render(
+        <MealImageCard
+          meal={ready}
+          trailingActions
+          size="sm"
+          head={<p>Head</p>}
+          overlay={<p>Note</p>}
+          overlayPlacement={{ scatter: { x: -5, y: -2, tilt: 2.5 }, position: null }}
+        />,
+      )
+      const overlay = container.querySelector('[data-slot="meal-image-overlay"]') as HTMLElement
+
+      expect(overlay).toHaveClass('right-13', 'bottom-0', 'translate-x-(--note-x)')
+      expect(overlay).not.toHaveAttribute('data-placed')
+      expect(overlay.style.getPropertyValue('--note-x')).toBe('-5px')
+      expect(overlay.style.getPropertyValue('--note-y')).toBe('-2px')
+      expect(overlay.style.getPropertyValue('--note-tilt')).toBe('2.5deg')
+      expect(overlay.style.getPropertyValue('--note-left')).toBe('')
+    })
+
+    it('lays a placed overlay at its saved fractions, at the same width (HON-975)', () => {
+      const { container } = render(
+        <MealImageCard
+          meal={ready}
+          trailingActions
+          size="sm"
+          head={<p>Head</p>}
+          overlay={<p>Note</p>}
+          overlayPlacement={{
+            scatter: { x: -5, y: -2, tilt: 2.5 },
+            position: { x: 0.125, y: 0.5 },
+          }}
+        />,
+      )
+      const overlay = container.querySelector('[data-slot="meal-image-overlay"]') as HTMLElement
+
+      expect(overlay).toHaveAttribute('data-placed')
+      expect(overlay).toHaveClass(
+        'left-(--note-left)',
+        'top-(--note-top)',
+        '-translate-x-(--note-left)',
+        '-translate-y-(--note-top)',
+        'max-w-note-slip-actions',
+      )
+      // The saved place replaces the corner and its scatter; the tilt stays.
+      expect(overlay).not.toHaveClass('bottom-0', 'right-13', 'translate-x-(--note-x)')
+      expect(overlay.style.getPropertyValue('--note-left')).toBe('12.5%')
+      expect(overlay.style.getPropertyValue('--note-top')).toBe('50%')
+      expect(overlay.style.getPropertyValue('--note-tilt')).toBe('2.5deg')
+    })
+
+    it('opens the editor in the wide box wherever the slip was placed', () => {
+      const { container } = render(
+        <MealImageCard
+          meal={ready}
+          trailingActions
+          size="sm"
+          head={<p>Head</p>}
+          overlay={<p>Note</p>}
+          overlayWide
+          overlayPlacement={{ scatter: { x: 0, y: 0, tilt: 1 }, position: { x: 0.1, y: 0.5 } }}
+        />,
+      )
+      const overlay = container.querySelector('[data-slot="meal-image-overlay"]') as HTMLElement
+
+      expect(overlay).toHaveClass('left-0', 'right-12', 'bottom-0')
+      expect(overlay).not.toHaveClass('left-(--note-left)')
     })
 
     it('caps the title for an overlay on a card without an image', () => {

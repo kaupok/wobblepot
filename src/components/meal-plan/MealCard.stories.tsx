@@ -10,6 +10,7 @@ import {
 } from '@/stories/fixtures'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
+import { defaultHandlers } from '@/stories/msw-handlers'
 import type { AlternativeMeal } from './types'
 import { MealCard } from './MealCard'
 
@@ -399,6 +400,277 @@ export const ShortestCardWithLongNote: Story = {
     await expect(editorBox.top).toBeGreaterThanOrEqual(after.top)
     await expect(editorBox.bottom).toBeLessThanOrEqual(after.bottom)
     await expect(textarea.scrollHeight).toBeGreaterThan(textarea.clientHeight)
+  },
+}
+
+/** The overlay wrapper a card's note slip lies in, which carries its placement (HON-975). */
+function noteOverlay(card: HTMLElement) {
+  return card.querySelector<HTMLElement>('[data-slot="meal-image-overlay"]')!
+}
+
+/**
+ * Three cards with notes, side by side: each slip rests at its own offset and
+ * tilt from its entry id, and every one still lies inside its card, clear of
+ * the name, the ⋯ menu and the badges (HON-975).
+ */
+export const ScatteredNotes: Story = {
+  name: 'Scattered notes (phone)',
+  args: {
+    meal: {
+      ...mealFixture,
+      description: DESCRIPTION,
+      imageStatus: 'ready',
+      imageUrl: mealIllustration.src,
+      imageHue: 52,
+    },
+    status: 'planned',
+  },
+  parameters: { cardWidth: 'phone' },
+  render: (args) => (
+    <div className="flex flex-col gap-4">
+      {['entry-1', 'entry-2', 'entry-3'].map((entryId) => (
+        <div key={entryId} data-testid={entryId}>
+          <MealCard {...args} entryId={entryId} note={NOTE} />
+        </div>
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await waitFor(() => expect(canvas.getAllByTestId('meal-card-image')).toHaveLength(3))
+    const placements = new Set<string>()
+    for (const entryId of ['entry-1', 'entry-2', 'entry-3']) {
+      const card = canvas.getByTestId(entryId).querySelector<HTMLElement>('[data-slot="card"]')!
+      const overlay = noteOverlay(card)
+      placements.add(
+        ['--note-x', '--note-y', '--note-tilt']
+          .map((name) => overlay.style.getPropertyValue(name))
+          .join(' '),
+      )
+      await assertSlipOverCard(card, within(card).getByRole('button', { name: NOTE }))
+    }
+    await expect(placements.size).toBe(3)
+  },
+}
+
+/** The PATCH bodies the note stories' entry handler received. */
+let notePatches: Record<string, unknown>[] = []
+
+/** Records every entry PATCH, answering with `status`, ahead of the default handlers. */
+function notePatchHandlers(status = 200) {
+  return {
+    default: [
+      http.patch('/api/meal-plans/:planId/entries/:entryId', async ({ request }) => {
+        notePatches.push((await request.json()) as Record<string, unknown>)
+        return status === 200
+          ? HttpResponse.json({ ok: true })
+          : HttpResponse.json({ error: 'Failed' }, { status })
+      }),
+      ...defaultHandlers,
+    ],
+  }
+}
+
+/** The patches that moved the note, rather than editing it. */
+function notePositionPatches() {
+  return notePatches.filter((body) => 'noteX' in body)
+}
+
+/**
+ * Where the slip lies on its card: the box of the overlay that hugs it,
+ * relative to the card's. The overlay, not the slip: focusing the slip
+ * straightens it over 200ms, which changes its tilted box without moving it.
+ * Relative to the card: the desktop card is wider than the test viewport, and
+ * focusing the slip can scroll the page sideways.
+ */
+function slipInCard(card: HTMLElement) {
+  const box = noteOverlay(card).getBoundingClientRect()
+  const cardBox = card.getBoundingClientRect()
+  return { left: box.left - cardBox.left, top: box.top - cardBox.top }
+}
+
+/** Presses the slip at its centre, moves by `dx`/`dy`, and lets go. */
+async function dragSlip(slip: HTMLElement, dx: number, dy: number) {
+  const box = slip.getBoundingClientRect()
+  const x = box.left + box.width / 2
+  const y = box.top + box.height / 2
+  await userEvent.pointer([
+    { keys: '[MouseLeft>]', target: slip, coords: { clientX: x, clientY: y } },
+    { coords: { clientX: x + dx / 2, clientY: y + dy / 2 } },
+    { coords: { clientX: x + dx, clientY: y + dy } },
+    { keys: '[/MouseLeft]' },
+  ])
+}
+
+/** A name that wraps to two lines, so the card has room to move the slip up in. */
+const LONG_NAME = 'Lemon garlic chicken with roasted potatoes and green beans'
+
+const tallNotedCard = {
+  meal: {
+    ...mealFixture,
+    name: LONG_NAME,
+    description: DESCRIPTION,
+    imageStatus: 'ready' as const,
+    imageUrl: mealIllustration.src,
+    imageHue: 52,
+  },
+  status: 'planned' as const,
+  note: NOTE,
+}
+
+/**
+ * Dragging the slip moves it on the card and saves the place, as fractions,
+ * without opening the editor. A press without movement still opens it
+ * (HON-975).
+ */
+export const DragNote: Story = {
+  name: 'Drag the note (desktop)',
+  args: tallNotedCard,
+  parameters: { cardWidth: 'desktop', msw: { handlers: notePatchHandlers() } },
+  play: async ({ canvasElement }) => {
+    notePatches = []
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: LONG_NAME })
+    await document.fonts.ready
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const slip = canvas.getByRole('button', { name: NOTE })
+    await expect(slip).toHaveClass('touch-none')
+    const before = slipInCard(card)
+
+    await dragSlip(slip, -60, -20)
+
+    const after = slipInCard(card)
+    await expect(after.left - before.left).toBeCloseTo(-60, 0)
+    await expect(after.top - before.top).toBeCloseTo(-20, 0)
+    await expect(noteOverlay(card)).toHaveAttribute('data-placed')
+    await expect(canvas.queryByRole('textbox')).not.toBeInTheDocument()
+    await waitFor(() => expect(notePositionPatches()).toHaveLength(1))
+    const saved = notePositionPatches()[0] as { noteX: number; noteY: number }
+    for (const value of [saved.noteX, saved.noteY]) {
+      await expect(value).toBeGreaterThanOrEqual(0)
+      await expect(value).toBeLessThanOrEqual(1)
+    }
+    await expect(Object.keys(notePositionPatches()[0] ?? {}).sort()).toEqual(['noteX', 'noteY'])
+
+    // A click without movement opens the editor, as before.
+    await userEvent.click(slip)
+    await expect(await canvas.findByRole('textbox', { name: /note/i })).toBeVisible()
+  },
+}
+
+/**
+ * The slip cannot leave the card, nor cover its first row: dragged far up
+ * and left it stops below the slot badge and the ⋯ menu, inside the card
+ * (HON-975).
+ */
+export const DragNoteIsClamped: Story = {
+  name: 'Drag the note past the card (desktop)',
+  args: tallNotedCard,
+  parameters: { cardWidth: 'desktop', msw: { handlers: notePatchHandlers() } },
+  play: async ({ canvasElement }) => {
+    notePatches = []
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: LONG_NAME })
+    await document.fonts.ready
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const slip = canvas.getByRole('button', { name: NOTE })
+
+    await dragSlip(slip, -2000, -2000)
+
+    const slipBox = slip.getBoundingClientRect()
+    const cardBox = card.getBoundingClientRect()
+    await expect(slipBox.left).toBeGreaterThanOrEqual(cardBox.left)
+    await expect(slipBox.top).toBeGreaterThanOrEqual(cardBox.top)
+    const menu = canvas.getByRole('button', { name: /^more actions/i }).getBoundingClientRect()
+    const slotBadge = card
+      .querySelector<HTMLElement>('[data-slot="badge"]')!
+      .getBoundingClientRect()
+    await expect(overlaps(slipBox, menu)).toBe(false)
+    await expect(overlaps(slipBox, slotBadge)).toBe(false)
+    await waitFor(() => expect(notePositionPatches()).toHaveLength(1))
+  },
+}
+
+/**
+ * The arrow keys move a focused slip 8px, and the place is saved once the
+ * keys are still. Enter still opens the editor (HON-975).
+ */
+export const KeyboardMoveNote: Story = {
+  name: 'Move the note with the keyboard (desktop)',
+  args: tallNotedCard,
+  parameters: { cardWidth: 'desktop', msw: { handlers: notePatchHandlers() } },
+  play: async ({ canvasElement }) => {
+    notePatches = []
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: LONG_NAME })
+    await document.fonts.ready
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const slip = canvas.getByRole('button', { name: NOTE })
+    await expect(slip).toHaveAccessibleDescription(/arrow keys/i)
+    slip.focus()
+    const before = slipInCard(card)
+
+    await userEvent.keyboard('{ArrowLeft}')
+
+    const after = slipInCard(card)
+    await expect(after.left - before.left).toBeCloseTo(-8, 0)
+    await expect(after.top).toBeCloseTo(before.top, 0)
+    await expect(notePositionPatches()).toHaveLength(0)
+    await waitFor(() => expect(notePositionPatches()).toHaveLength(1))
+    await expect(slip).toHaveFocus()
+
+    await userEvent.keyboard('{Enter}')
+    await expect(await canvas.findByRole('textbox', { name: /note/i })).toBeVisible()
+  },
+}
+
+/** A failed save puts the slip back where the server has it (HON-975). */
+export const DragNoteFailedSave: Story = {
+  name: 'Drag the note, save fails (desktop)',
+  args: tallNotedCard,
+  parameters: { cardWidth: 'desktop', msw: { handlers: notePatchHandlers(500) } },
+  play: async ({ canvasElement }) => {
+    notePatches = []
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: LONG_NAME })
+    await document.fonts.ready
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const slip = canvas.getByRole('button', { name: NOTE })
+    const before = slipInCard(card)
+
+    await dragSlip(slip, -60, -20)
+
+    await waitFor(() => expect(notePositionPatches()).toHaveLength(1))
+    await waitFor(() => expect(noteOverlay(card)).not.toHaveAttribute('data-placed'))
+    const after = slipInCard(card)
+    await expect(after.left).toBeCloseTo(before.left, 0)
+    await expect(after.top).toBeCloseTo(before.top, 0)
+  },
+}
+
+/** A slip the household dragged lies at its saved place on the next load (HON-975). */
+export const SavedNotePosition: Story = {
+  name: 'Saved note position (phone)',
+  args: { ...tallNotedCard, noteX: 0.05, noteY: 0.55 },
+  parameters: { cardWidth: 'phone' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: LONG_NAME })
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const head = card.querySelector<HTMLElement>('[data-slot="meal-image-head"]')!
+    const overlay = noteOverlay(card)
+    await expect(overlay).toHaveAttribute('data-placed')
+    // The fractions are of the room the slip has to move in.
+    const headBox = head.getBoundingClientRect()
+    const overlayBox = overlay.getBoundingClientRect()
+    await expect(overlayBox.left - headBox.left).toBeCloseTo(
+      (headBox.width - overlayBox.width) * 0.05,
+      0,
+    )
+    await expect(overlayBox.top - headBox.top).toBeCloseTo(
+      (headBox.height - overlayBox.height) * 0.55,
+      0,
+    )
   },
 }
 

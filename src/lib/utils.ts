@@ -54,7 +54,13 @@ export const CUSTOM_SHADOW_VALUES = ['float'] as const
  */
 export const CUSTOM_UTILITY_CLASS_GROUPS = {
   'max-h': ['max-h-dialog', 'max-h-hero'],
-  'max-w': ['max-w-page'],
+  'max-w': [
+    'max-w-page',
+    'max-w-note-slip',
+    'max-w-note-slip-md',
+    'max-w-note-slip-actions',
+    'max-w-note-slip-actions-md',
+  ],
   'min-h': ['min-h-screen-below-header', 'min-h-screen-below-header-gutters'],
   'grid-cols': ['grid-cols-timeline'],
   'scroll-mt': ['scroll-mt-below-header'],

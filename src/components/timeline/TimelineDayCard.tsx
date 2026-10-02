@@ -96,6 +96,8 @@ export function TimelineDayCard({
                     pantryIngredients={pantryIngredients}
                     pantryItems={pantryItems}
                     note={slot.entry.note}
+                    noteX={slot.entry.noteX}
+                    noteY={slot.entry.noteY}
                     servingOverride={slot.entry.servingOverride}
                     pantryDeducted={slot.entry.pantryDeducted}
                     preparationTips={slot.entry.preparationTips}

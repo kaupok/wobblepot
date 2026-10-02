@@ -200,7 +200,9 @@
       "saving": "Salvestan…",
       "cancel": "Tühista",
       "ariaLabel": "Toidu märkus",
-      "saveFailed": "Märkuse salvestamine ebaõnnestus"
+      "saveFailed": "Märkuse salvestamine ebaõnnestus",
+      "moveHint": "Nooleklahvid liigutavad märkust kaardil.",
+      "moveFailed": "Märkuse liigutamine ebaõnnestus. Palun proovi uuesti."
     },
     "rating": {
       "prompt": "Kuidas oli?",

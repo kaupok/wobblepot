@@ -1936,6 +1936,121 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - rating', () => {
   })
 })
 
+describe('PATCH /api/meal-plans/[id]/entries/[entryId] - note position', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSession.mockResolvedValue(mockSession)
+    mockGetMembership.mockResolvedValue(mockMembership)
+    mockUpdateEntry.mockResolvedValue({
+      id: 'entry-123',
+      status: 'planned',
+      mealId: 'meal-123',
+      rating: null,
+    } as never)
+  })
+
+  /** A planned entry, with or without a note. */
+  const entryWithNote = (note: string | null) =>
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      status: 'planned',
+      note,
+      plan: { household: { members: [{ id: 'member-1' }] } },
+      meal: { components: [] },
+    } as never)
+
+  const patch = (body: Record<string, unknown>) =>
+    PATCH(createPatchRequest(body), { params: createParams() })
+
+  it('saves both axes', async () => {
+    entryWithNote('Use the big pot')
+
+    const response = await patch({ noteX: 0.25, noteY: 0.5 })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123' },
+      data: { noteX: 0.25, noteY: 0.5 },
+    })
+  })
+
+  it('resets the position with both axes null', async () => {
+    entryWithNote('Use the big pot')
+
+    const response = await patch({ noteX: null, noteY: null })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123' },
+      data: { noteX: null, noteY: null },
+    })
+  })
+
+  it.each([
+    ['noteX alone', { noteX: 0.5 }],
+    ['noteY alone', { noteY: 0.5 }],
+    ['one axis null', { noteX: 0.5, noteY: null }],
+    ['a value above 1', { noteX: 1.5, noteY: 0.5 }],
+    ['a value below 0', { noteX: 0.5, noteY: -0.1 }],
+    ['a string', { noteX: '0.5', noteY: 0.5 }],
+    ['a position beside a cleared note', { note: null, noteX: 0.5, noteY: 0.5 }],
+  ])('rejects %s with a 400', async (_label, body) => {
+    entryWithNote('Use the big pot')
+
+    const response = await patch(body)
+
+    expect(response.status).toBe(400)
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+  })
+
+  it('clears the position with the note', async () => {
+    entryWithNote('Use the big pot')
+
+    const response = await patch({ note: null })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123' },
+      data: { note: null, noteX: null, noteY: null },
+    })
+  })
+
+  it('keeps the position when the note is edited', async () => {
+    entryWithNote('Use the big pot')
+
+    const response = await patch({ note: 'Use the small pot' })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123' },
+      data: { note: 'Use the small pot' },
+    })
+  })
+
+  it('refuses a position for an entry without a note', async () => {
+    // Another member cleared the note while this slip was being dragged.
+    entryWithNote(null)
+
+    const response = await patch({ noteX: 0.25, noteY: 0.5 })
+
+    expect(response.status).toBe(409)
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+  })
+
+  it('accepts a position that arrives with a new note', async () => {
+    entryWithNote(null)
+
+    const response = await patch({ note: 'Use the big pot', noteX: 0.25, noteY: 0.5 })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123' },
+      data: { note: 'Use the big pot', noteX: 0.25, noteY: 0.5 },
+    })
+  })
+})
+
 describe('DELETE /api/meal-plans/[id]/entries/[entryId]', () => {
   beforeEach(() => {
     vi.clearAllMocks()

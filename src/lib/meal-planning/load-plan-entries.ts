@@ -83,6 +83,8 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       rating: entry.rating,
       preparationTips: entry.preparationTips ? parseStoredTips(entry.preparationTips) : null,
       note: entry.note,
+      noteX: entry.noteX,
+      noteY: entry.noteY,
       servingOverride: entry.servingOverride,
       pantryDeducted: entry.pantryDeductedAt !== null,
       meal:

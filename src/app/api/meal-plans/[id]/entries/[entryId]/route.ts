@@ -68,14 +68,35 @@ const servingsWritableWhere = (servingOverride: number | null) => ({
   OR: [{ status: { not: MealPlanEntryStatus.completed } }, { servingOverride }],
 })
 
-const updateEntrySchema = z.object({
-  status: z.enum(['planned', 'completed', 'skipped']).optional(),
-  mealId: z.string().optional(),
-  deductPantry: z.boolean().optional(),
-  note: z.string().max(200).nullable().optional(),
-  servingOverride: z.number().int().min(1).max(20).nullable().optional(),
-  rating: z.enum(['up', 'down']).nullable().optional(),
-})
+/** One axis of the note's place on the card: a fraction of its room (`NotePosition`), or null for the default. */
+const notePositionAxis = z.number().min(0).max(1).nullable().optional()
+
+const updateEntrySchema = z
+  .object({
+    status: z.enum(['planned', 'completed', 'skipped']).optional(),
+    mealId: z.string().optional(),
+    deductPantry: z.boolean().optional(),
+    note: z.string().max(200).nullable().optional(),
+    noteX: notePositionAxis,
+    noteY: notePositionAxis,
+    servingOverride: z.number().int().min(1).max(20).nullable().optional(),
+    rating: z.enum(['up', 'down']).nullable().optional(),
+  })
+  // The note's place is one point: both axes or neither, both set or both
+  // null (HON-975). A place beside a cleared note contradicts it, because
+  // clearing the note clears the place.
+  .superRefine((data, ctx) => {
+    if ('noteX' in data !== 'noteY' in data || (data.noteX === null) !== (data.noteY === null)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['noteX'],
+        message: 'noteX and noteY are set together',
+      })
+    }
+    if (data.note === null && data.noteX != null) {
+      ctx.addIssue({ code: 'custom', path: ['noteX'], message: 'A cleared note has no position' })
+    }
+  })
 
 export async function DELETE(
   _request: Request,
@@ -193,6 +214,7 @@ export async function PATCH(
         status: true,
         servingOverride: true,
         pantryDeductedAt: true,
+        note: true,
         plan: {
           select: {
             household: {
@@ -271,6 +293,8 @@ export async function PATCH(
       mealId?: string
       preparationTips?: null
       note?: string | null
+      noteX?: number | null
+      noteY?: number | null
       servingOverride?: number | null
       rating?: EntryRating | null
     } = {}
@@ -379,6 +403,25 @@ export async function PATCH(
     // Handle note updates (including explicit null to clear)
     if ('note' in parsed.data) {
       updateData.note = parsed.data.note ?? null
+      // The place belongs to the note: a note cleared and added again starts
+      // at the default place (HON-975).
+      if (updateData.note === null) {
+        updateData.noteX = null
+        updateData.noteY = null
+      }
+    }
+
+    // The note's place on the planner card (HON-975). Only a note has one: a
+    // slip dragged while another member cleared the note would otherwise leave
+    // a place for the next note to inherit.
+    if ('noteX' in parsed.data) {
+      const noteX = parsed.data.noteX ?? null
+      const noteY = parsed.data.noteY ?? null
+      if (noteX !== null && (updateData.note ?? entry.note) == null) {
+        return NextResponse.json({ error: 'Entry has no note' }, { status: 409 })
+      }
+      updateData.noteX = noteX
+      updateData.noteY = noteY
     }
 
     // Handle servingOverride updates (including explicit null to reset to household default)
