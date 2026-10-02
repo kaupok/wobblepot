@@ -1,7 +1,9 @@
 // ROUTES: / · COMPONENTS: CookieBanner, PostHogProvider
 import { test, expect } from '@playwright/test'
 
-const POSTHOG_URL_PATTERN = /posthog\.com/
+// The browser SDK goes through the same-origin `/ingest` proxy (HON-985); the
+// `posthog.com` arm still catches a regression back to direct calls.
+const POSTHOG_URL_PATTERN = /\/ingest\/|posthog\.com/
 
 test.describe('PostHog consent gating', () => {
   test('declining consent fires no PostHog requests', async ({ browser }) => {

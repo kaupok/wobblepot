@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConsentDecision } from '@/lib/consent'
 import { MealPlanValidationError } from '@/lib/ai/types'
+import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
 import GlobalError from './global-error'
 
 const { posthogMock, envMock, consentMock } = vi.hoisted(() => ({
@@ -76,27 +77,14 @@ describe('GlobalError', () => {
 
     await waitFor(() => expect(posthogMock.captureException).toHaveBeenCalledTimes(1))
     expect(posthogMock.init).toHaveBeenCalledTimes(1)
-    // Mirrors PostHogProvider's init — without `before_send` and `defaults` the
-    // PII sanitiser is silently dropped for the rest of the session because
-    // posthog-js no-ops re-init.
-    expect(posthogMock.init).toHaveBeenCalledWith(
-      'phc_test',
-      expect.objectContaining({
-        api_host: 'https://eu.i.posthog.com',
-        person_profiles: 'identified_only',
-        capture_pageview: false,
-        capture_pageleave: true,
-        disable_session_recording: true,
-        defaults: '2026-01-30',
-        before_send: expect.any(Function),
-        mask_personal_data_properties: true,
-        custom_personal_data_properties: ['token', 'returnUrl'],
-      }),
-    )
+    // The same options PostHogProvider passes — without `before_send` and
+    // `defaults` the PII sanitiser is silently dropped for the rest of the
+    // session because posthog-js no-ops re-init.
+    expect(posthogMock.init).toHaveBeenCalledWith('phc_test', POSTHOG_INIT_OPTIONS)
     expect(posthogMock.captureException).toHaveBeenCalledWith(err, {
       $exception_source: 'app.global-error',
       digest: 'abc-123',
-      errorType: 'Error',
+      error_type: 'Error',
     })
   })
 
@@ -111,7 +99,7 @@ describe('GlobalError', () => {
     expect(posthogMock.captureException).toHaveBeenCalledWith(err, {
       $exception_source: 'app.global-error',
       digest: 'abc-123',
-      errorType: 'Error',
+      error_type: 'Error',
     })
   })
 
@@ -126,7 +114,7 @@ describe('GlobalError', () => {
       err,
       expect.objectContaining({
         $exception_source: 'app.global-error',
-        errorType: 'MealPlanValidationError',
+        error_type: 'MealPlanValidationError',
         $exception_fingerprint: 'MealPlanValidation',
       }),
     )

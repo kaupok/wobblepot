@@ -80,7 +80,7 @@ describe('captureApiError', () => {
     expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ release: 'local' })
   })
 
-  it('captures with requestId, release, route, and errorType', () => {
+  it('captures with request_id, release, route, and error_type in snake_case', () => {
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
@@ -94,6 +94,7 @@ describe('captureApiError', () => {
       userId: 'u-1',
       householdId: 'hh-1',
       feature: 'plan_generate',
+      statusCode: 502,
     })
 
     expect(captureExceptionMock).toHaveBeenCalledOnce()
@@ -102,12 +103,49 @@ describe('captureApiError', () => {
     expect(distinctIdArg).toBe('u-1')
     expect(propsArg).toMatchObject({
       route: '/api/x',
-      userId: 'u-1',
-      householdId: 'hh-1',
+      user_id: 'u-1',
+      household_id: 'hh-1',
       feature: 'plan_generate',
-      requestId: 'req-123',
+      status_code: 502,
+      request_id: 'req-123',
       release: 'abc123',
-      errorType: 'Error',
+      error_type: 'Error',
+    })
+    // One casing across server events: no camelCase key survives.
+    const camelKeys = Object.keys(propsArg).filter((key) => /[A-Z]/.test(key))
+    expect(camelKeys).toEqual([])
+  })
+
+  it('snake_cases free-form context keys too', () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    captureApiError(new Error('boom'), { route: '/api/x', distinctIds: ['a'] })
+    const props = captureExceptionMock.mock.calls[0]![2]
+    expect(props).toMatchObject({ distinct_ids: ['a'] })
+    expect(props).not.toHaveProperty('distinctIds')
+  })
+
+  it('tags $exception_source as captureApiError by default', () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    captureApiError(new Error('boom'), { route: '/api/x' })
+    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({
+      $exception_source: 'captureApiError',
+    })
+  })
+
+  it("keeps the caller's $exception_source", () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    captureApiError(new Error('boom'), { $exception_source: 'externalFetch.nonOk' })
+    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({
+      $exception_source: 'externalFetch.nonOk',
     })
   })
 
@@ -129,7 +167,7 @@ describe('captureApiError', () => {
     captureApiError(err, { route: '/api/meal-plans/generate' })
     expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({
       $exception_fingerprint: 'MealPlanValidation',
-      errorType: 'MealPlanValidationError',
+      error_type: 'MealPlanValidationError',
     })
   })
 
@@ -167,7 +205,7 @@ describe('captureApiError', () => {
       flush: flushMock,
     })
     captureApiError('string-throw', { route: '/api' })
-    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ errorType: 'string' })
+    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ error_type: 'string' })
   })
 
   it('schedules a flush via next/after to keep serverless isolates alive', () => {
@@ -195,7 +233,7 @@ describe('captureExternalApiTimeout', () => {
     vi.unstubAllEnvs()
   })
 
-  it('records an analytics event, not an exception', () => {
+  it('records a personless analytics event, not an exception, when there is no user', () => {
     getRequestIdMock.mockReturnValue('req-1')
     getPosthogServerMock.mockReturnValue({ capture: captureMock })
 
@@ -206,34 +244,43 @@ describe('captureExternalApiTimeout', () => {
 
     expect(captureExceptionMock).not.toHaveBeenCalled()
     expect(captureMock).toHaveBeenCalledOnce()
-    expect(captureMock.mock.calls[0]![0]).toMatchObject({
-      distinctId: 'req-1',
+    const message = captureMock.mock.calls[0]![0]
+    // No distinct id: a per-request id minted one PostHog person per timeout.
+    expect(message.distinctId).toBeUndefined()
+    expect(message).toMatchObject({
       event: 'external_api_timeout',
       properties: {
         feature: 'breached_password_check',
         url: 'https://api.example.com/x',
-        requestId: 'req-1',
+        request_id: 'req-1',
         release: 'deadbeef',
+        $process_person_profile: false,
       },
     })
   })
 
-  it('prefers userId as distinct id when the caller has one', () => {
+  it('attributes to the user, with a person profile, when the caller has a userId', () => {
     getRequestIdMock.mockReturnValue('req-1')
     getPosthogServerMock.mockReturnValue({ capture: captureMock })
 
     captureExternalApiTimeout({ feature: 'test', userId: 'user-9' })
 
-    expect(captureMock.mock.calls[0]![0]).toMatchObject({ distinctId: 'user-9' })
+    const message = captureMock.mock.calls[0]![0]
+    expect(message).toMatchObject({ distinctId: 'user-9', properties: { user_id: 'user-9' } })
+    expect(message.properties).not.toHaveProperty('$process_person_profile')
+    expect(message.properties).not.toHaveProperty('userId')
   })
 
-  it('falls back to "system" outside a request scope', () => {
+  it('stays personless outside a request scope', () => {
     getRequestIdMock.mockReturnValue(undefined)
     getPosthogServerMock.mockReturnValue({ capture: captureMock })
 
     captureExternalApiTimeout({ feature: 'test' })
 
-    expect(captureMock.mock.calls[0]![0]).toMatchObject({ distinctId: 'system' })
+    expect(captureMock.mock.calls[0]![0].distinctId).toBeUndefined()
+    expect(captureMock.mock.calls[0]![0].properties).toMatchObject({
+      $process_person_profile: false,
+    })
   })
 
   it('skips on a local machine', () => {
@@ -273,12 +320,12 @@ describe('captureClientError', () => {
     expect(clientCaptureExceptionMock).not.toHaveBeenCalled()
   })
 
-  it('captures with digest and errorType', async () => {
+  it('captures with digest and error_type', async () => {
     await captureClientError(new Error('boom'), { digest: 'abc' })
     expect(clientCaptureExceptionMock).toHaveBeenCalledOnce()
     const [errorArg, propsArg] = clientCaptureExceptionMock.mock.calls[0]!
     expect(errorArg).toBeInstanceOf(Error)
-    expect(propsArg).toMatchObject({ digest: 'abc', errorType: 'Error' })
+    expect(propsArg).toMatchObject({ digest: 'abc', error_type: 'Error' })
   })
 
   it('attaches fingerprint for typed errors', async () => {

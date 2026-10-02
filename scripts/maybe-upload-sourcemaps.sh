@@ -33,11 +33,24 @@ if [ ! -d "$CHUNKS_DIR" ]; then
   exit 0
 fi
 
-POSTHOG_CLI_PACKAGE="@posthog/cli@0.7.10"
+POSTHOG_CLI_PACKAGE="@posthog/cli@0.18.9"
+
+# Both steps get the same release. `inject` stamps it, and without these flags
+# it derives one from git, which need not match what `upload` passes.
+# `--release-mode symbol-set` binds the release to the uploaded symbol sets,
+# as the CLI did by default before 0.18.0. From 0.18.0 the default is `event`:
+# symbol sets stay unbound and each exception reads its release from the chunk.
+# Moving to `event` is a behaviour change; make it on purpose, not by bumping.
+RELEASE_ARGS=(
+  --release-name honkadori
+  --release-version "$VERCEL_GIT_COMMIT_SHA"
+  --release-mode symbol-set
+)
 
 echo "maybe-upload-sourcemaps: injecting release metadata into $CHUNKS_DIR"
 pnpm dlx "$POSTHOG_CLI_PACKAGE" --host "$POSTHOG_CLI_HOST" sourcemap inject \
-  --directory "$CHUNKS_DIR"
+  --directory "$CHUNKS_DIR" \
+  "${RELEASE_ARGS[@]}"
 
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
@@ -66,7 +79,6 @@ find "$CHUNKS_DIR" -type f -size -10M \( -name "*.js" -o -name "*.map" \) -print
 echo "maybe-upload-sourcemaps: uploading to PostHog (release=$VERCEL_GIT_COMMIT_SHA)"
 pnpm dlx "$POSTHOG_CLI_PACKAGE" --host "$POSTHOG_CLI_HOST" sourcemap upload \
   --directory "$FILTERED_DIR" \
-  --release-name honkadori \
-  --release-version "$VERCEL_GIT_COMMIT_SHA"
+  "${RELEASE_ARGS[@]}"
 
 echo "maybe-upload-sourcemaps: done"

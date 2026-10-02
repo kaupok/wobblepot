@@ -182,7 +182,9 @@ export function sanitizeEventProperties(
       out[key] = value
       continue
     }
-    const keyLower = key.toLowerCase()
+    // Underscores ignored, so `invite_code` matches like `inviteCode`:
+    // `captureApiError` sends snake_case keys (HON-993).
+    const keyLower = key.toLowerCase().replace(/_/g, '')
     if (SENSITIVE_KEYS_LOWER.has(keyLower)) continue
     if (FREE_TEXT_KEYS_LOWER.has(keyLower) && typeof value === 'string') {
       out[key] = redactFreeText(value)

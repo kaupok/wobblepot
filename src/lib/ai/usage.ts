@@ -55,23 +55,28 @@ export interface RecordAiUsageInput extends Omit<
  * failing validation spends past its cap unchecked (HON-668).
  *
  * On `NoObjectGeneratedError` the usage is reported with `success: false`
- * (still counted toward the cap) and the original error is rethrown, so each
- * caller's error mapping is unchanged. Any other error propagates untouched
- * with nothing recorded. The success path is the caller's: it keeps its own
- * `onAiUsage?.(toAiUsageStats(...))` after the call.
+ * (still counted toward the cap) with the time `run` took, and the original
+ * error is rethrown, so each caller's error mapping is unchanged. Any other
+ * error propagates untouched with nothing recorded. The success path is the
+ * caller's: it keeps its own `onAiUsage?.(toAiUsageStats(model, usage,
+ * durationMs))` after the call, timed from just before `run`.
  */
 export async function withUsageOnFailure<T>(
   model: string,
   onUsage: ((stats: AiUsageStats) => void | Promise<void>) | undefined,
   run: () => Promise<T>,
 ): Promise<T> {
+  const startedAt = Date.now()
   try {
     return await run()
   } catch (error) {
     if (NoObjectGeneratedError.isInstance(error)) {
       // A failing callback must not replace the error the caller maps.
       try {
-        await onUsage?.({ ...toAiUsageStats(model, error.usage), success: false })
+        await onUsage?.({
+          ...toAiUsageStats(model, error.usage, Date.now() - startedAt),
+          success: false,
+        })
       } catch (usageError) {
         console.error('Failed to report AI usage for a failed generation:', usageError)
       }
@@ -276,6 +281,7 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
         feature: input.feature,
         household_id: input.householdId,
         retry_count: input.retryCount ?? 0,
+        ...(input.durationMs !== undefined && { $ai_latency: input.durationMs / 1000 }),
         ...(usageMissing && { $ai_usage_missing: true }),
       },
     })

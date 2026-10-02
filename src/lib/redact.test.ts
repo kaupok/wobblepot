@@ -58,6 +58,20 @@ describe('sanitizeEventProperties', () => {
     expect(out).toEqual({ household_id: 'hh_1', route: '/api/things' })
   })
 
+  it('matches snake_case keys the same as camelCase ones', () => {
+    const out = sanitizeEventProperties({
+      invite_code: 'XYZ',
+      api_key: 'k',
+      first_name: 'Anu',
+      user_input: 'hello world secret text long',
+      household_id: 'hh_1',
+    })
+    expect(out).toEqual({
+      user_input: expect.stringMatching(/^hello world secret t…\[h:[0-9a-f]{8}\]$/),
+      household_id: 'hh_1',
+    })
+  })
+
   it('preserves a top-level `name` property (e.g. meal name)', () => {
     const out = sanitizeEventProperties({
       name: 'Spaghetti Bolognese',

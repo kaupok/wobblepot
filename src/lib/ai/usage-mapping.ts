@@ -32,6 +32,11 @@ export interface AiUsageStats {
    * `withUsageOnFailure`). Absent means `true`.
    */
   success?: boolean
+  /**
+   * Wall-clock time of the model call, in ms. Sent to PostHog as `$ai_latency`
+   * (seconds), the only property its LLM analytics reads latency from.
+   */
+  durationMs?: number
 }
 
 /**
@@ -50,7 +55,11 @@ export interface AiUsageStats {
  * `usage.inputTokenDetails`. When a provider omits `noCacheTokens`, it is
  * derived from the total minus the cache tiers.
  */
-export function toAiUsageStats(model: string, usage: LanguageModelUsage | undefined): AiUsageStats {
+export function toAiUsageStats(
+  model: string,
+  usage: LanguageModelUsage | undefined,
+  durationMs?: number,
+): AiUsageStats {
   const totalInputTokens = finiteOrNull(usage?.inputTokens)
   const outputTokens = finiteOrNull(usage?.outputTokens)
   const usageMissing = totalInputTokens === null || outputTokens === null
@@ -77,6 +86,7 @@ export function toAiUsageStats(model: string, usage: LanguageModelUsage | undefi
     cacheWriteTokens,
     outputTokens: outputTokens ?? 0,
     usageMissing,
+    ...(durationMs !== undefined && { durationMs }),
   }
 }
 

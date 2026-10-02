@@ -22,7 +22,8 @@ export async function captureClientError(
     if (!posthog.__loaded) return
     const properties: Record<string, unknown> = {
       ...context,
-      errorType: errorTypeOf(error),
+      // snake_case, the same key `captureApiError` sends for server errors.
+      error_type: errorTypeOf(error),
     }
     const fingerprint = fingerprintFor(error)
     if (fingerprint) {
