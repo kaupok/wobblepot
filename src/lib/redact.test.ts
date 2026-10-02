@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { redactFreeText, sanitizeEventProperties } from './redact'
+import {
+  redactFreeText,
+  redactUrlProperties,
+  redactUrlValue,
+  sanitizeEventProperties,
+} from './redact'
 
 describe('redactFreeText', () => {
   it('truncates at 20 chars and appends a hash suffix', () => {
@@ -133,5 +138,153 @@ describe('sanitizeEventProperties', () => {
   it('strips a top-level `token` key', () => {
     const out = sanitizeEventProperties({ token: 'phc_xxx', other: 'x' })
     expect(out).toEqual({ other: 'x' })
+  })
+})
+
+describe('redactUrlValue', () => {
+  it('drops the query string and fragment from an absolute URL', () => {
+    expect(redactUrlValue('https://wobblepot.com/reset-password?token=abc#top')).toBe(
+      'https://wobblepot.com/reset-password',
+    )
+  })
+
+  it('drops the query string from a path', () => {
+    expect(redactUrlValue('/reset-password?token=abc')).toBe('/reset-password')
+  })
+
+  it('drops a fragment that comes before any query string', () => {
+    expect(redactUrlValue('/meal-plan#token=abc?x=1')).toBe('/meal-plan')
+  })
+
+  it('replaces the invite code in the path', () => {
+    expect(redactUrlValue('https://wobblepot.com/invite/XYZ123')).toBe(
+      'https://wobblepot.com/invite/:code',
+    )
+    expect(redactUrlValue('/invite/XYZ123/')).toBe('/invite/:code/')
+  })
+
+  it('replaces the invite code in the invites API path', () => {
+    expect(redactUrlValue('/api/invites/XYZ123?x=1')).toBe('/api/invites/:code')
+  })
+
+  it('replaces the token in the emailed Better Auth reset link', () => {
+    expect(redactUrlValue('/api/auth/reset-password/abc123?callbackURL=%2Freset-password')).toBe(
+      '/api/auth/reset-password/:token',
+    )
+  })
+
+  it('keeps a household invite id, which is not a secret', () => {
+    expect(redactUrlValue('/api/households/me/invites/inv_1')).toBe(
+      '/api/households/me/invites/inv_1',
+    )
+  })
+
+  it('keeps a path without a query string unchanged', () => {
+    expect(redactUrlValue('https://wobblepot.com/meal-plan')).toBe(
+      'https://wobblepot.com/meal-plan',
+    )
+  })
+
+  it('drops credentials from an absolute URL', () => {
+    expect(redactUrlValue('https://user:pass@api.example.com/x?key=1')).toBe(
+      'https://api.example.com/x',
+    )
+  })
+
+  it('passes a value that is not a URL through unchanged', () => {
+    expect(redactUrlValue('$direct')).toBe('$direct')
+  })
+})
+
+describe('redactUrlProperties', () => {
+  it('redacts every URL-valued key and leaves the rest alone', () => {
+    const out = redactUrlProperties({
+      $current_url: 'https://wobblepot.com/reset-password?token=abc',
+      $pathname: '/invite/XYZ123',
+      $referrer: 'https://wobblepot.com/sign-in?returnUrl=/invite/XYZ123',
+      $prev_pageview_pathname: '/invite/XYZ123',
+      $session_entry_url: 'https://wobblepot.com/reset-password?token=abc',
+      $session_entry_pathname: '/invite/XYZ123',
+      $session_entry_referrer: 'https://mail.example.com/?token=abc',
+      path: '/reset-password?token=abc',
+      url: 'https://api.example.com/x?key=1',
+      $referring_domain: 'wobblepot.com',
+      utm_source: 'newsletter',
+    })
+
+    expect(out).toEqual({
+      $current_url: 'https://wobblepot.com/reset-password',
+      $pathname: '/invite/:code',
+      $referrer: 'https://wobblepot.com/sign-in',
+      $prev_pageview_pathname: '/invite/:code',
+      $session_entry_url: 'https://wobblepot.com/reset-password',
+      $session_entry_pathname: '/invite/:code',
+      $session_entry_referrer: 'https://mail.example.com/',
+      path: '/reset-password',
+      url: 'https://api.example.com/x',
+      $referring_domain: 'wobblepot.com',
+      utm_source: 'newsletter',
+    })
+  })
+
+  it('redacts person properties nested under $set and $set_once', () => {
+    const out = redactUrlProperties({
+      $set: { $current_url: '/invite/XYZ123' },
+      $set_once: {
+        $initial_current_url: 'https://wobblepot.com/reset-password?token=abc',
+        $initial_pathname: '/invite/XYZ123',
+        $initial_referrer: '$direct',
+      },
+    })
+
+    expect(out).toEqual({
+      $set: { $current_url: '/invite/:code' },
+      $set_once: {
+        $initial_current_url: 'https://wobblepot.com/reset-password',
+        $initial_pathname: '/invite/:code',
+        $initial_referrer: '$direct',
+      },
+    })
+  })
+
+  it('redacts the URLs nested in each $web_vitals_*_event object', () => {
+    const out = redactUrlProperties({
+      $web_vitals_FCP_event: {
+        name: 'FCP',
+        value: 812,
+        $current_url: 'https://wobblepot.com/reset-password?token=abc',
+        navigationURL: 'https://wobblepot.com/invite/XYZ123',
+      },
+      $web_vitals_FCP_value: 812,
+    })
+
+    expect(out).toEqual({
+      $web_vitals_FCP_event: {
+        name: 'FCP',
+        value: 812,
+        $current_url: 'https://wobblepot.com/reset-password',
+        navigationURL: 'https://wobblepot.com/invite/:code',
+      },
+      $web_vitals_FCP_value: 812,
+    })
+  })
+
+  it('does not look inside other nested objects', () => {
+    const nested = { $current_url: '/reset-password?token=abc' }
+    expect(redactUrlProperties({ other: nested })).toEqual({ other: nested })
+  })
+
+  it('leaves non-string values alone', () => {
+    expect(redactUrlProperties({ url: 42, path: null })).toEqual({ url: 42, path: null })
+  })
+
+  it('does not mutate its input', () => {
+    const input = { $current_url: '/reset-password?token=abc' }
+    redactUrlProperties(input)
+    expect(input.$current_url).toBe('/reset-password?token=abc')
+  })
+
+  it('passes undefined through', () => {
+    expect(redactUrlProperties(undefined)).toBeUndefined()
   })
 })

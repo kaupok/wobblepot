@@ -129,6 +129,10 @@ describe('PostHogProvider', () => {
         capture_pageview: false,
         capture_pageleave: true,
         disable_session_recording: true,
+        // HON-990: the /flags request skips before_send, so the reset token
+        // and the invite returnUrl are masked at the source.
+        mask_personal_data_properties: true,
+        custom_personal_data_properties: ['token', 'returnUrl'],
       }),
     )
     // We no longer pass opt_out_capturing_by_default — init only happens on

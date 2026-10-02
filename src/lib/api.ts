@@ -29,6 +29,22 @@ export class ApiError extends Error {
 }
 
 /**
+ * The `ApiError` for a non-OK response, read from its JSON body as `apiFetch`
+ * reads it. Exported for a caller that cannot use `apiFetch` because the
+ * success body is not JSON, such as a streamed answer (HON-979).
+ */
+export async function toApiError(res: Response, fallbackMessage?: string): Promise<ApiError> {
+  const parsed: unknown = await res.json().catch(() => ({}))
+  const body: Record<string, unknown> =
+    typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
+  const error = typeof body.error === 'string' ? body.error : undefined
+  return new ApiError(error || fallbackMessage || `Request failed: ${res.status}`, res.status, {
+    code: typeof body.code === 'string' ? body.code : undefined,
+    body,
+  })
+}
+
+/**
  * Fetches JSON and throws `ApiError` on a non-OK response. The error message is
  * the route's `error` field when it sends one, else `fallbackMessage` — pass the
  * localized "…failed" copy a mutation toasts, so a bodiless 500 never surfaces
@@ -43,16 +59,7 @@ export async function apiFetch<T>(
   fallbackMessage?: string,
 ): Promise<T> {
   const res = await fetch(url, init)
-  if (!res.ok) {
-    const parsed: unknown = await res.json().catch(() => ({}))
-    const body: Record<string, unknown> =
-      typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
-    const error = typeof body.error === 'string' ? body.error : undefined
-    throw new ApiError(error || fallbackMessage || `Request failed: ${res.status}`, res.status, {
-      code: typeof body.code === 'string' ? body.code : undefined,
-      body,
-    })
-  }
+  if (!res.ok) throw await toApiError(res, fallbackMessage)
   if (res.status === 204 || res.status === 205) return undefined as T
   return res.json()
 }

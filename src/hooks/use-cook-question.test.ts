@@ -29,8 +29,26 @@ function question(overrides: Partial<CookQuestionAskInput> = {}): CookQuestionAs
   }
 }
 
+/** The whole answer in one chunk, as a streamed text body. */
 function ok(answer: string) {
-  return { ok: true, json: () => Promise.resolve({ answer }) }
+  return new Response(answer, { status: 200 })
+}
+
+/** A streamed answer the test writes chunk by chunk (HON-979). */
+function streamed() {
+  const encoder = new TextEncoder()
+  let controller!: ReadableStreamDefaultController<Uint8Array>
+  const body = new ReadableStream<Uint8Array>({
+    start(c) {
+      controller = c
+    },
+  })
+  return {
+    response: new Response(body, { status: 200 }),
+    push: (text: string) => controller.enqueue(encoder.encode(text)),
+    close: () => controller.close(),
+    fail: (error: Error) => controller.error(error),
+  }
 }
 
 function fail(status: number, body: Record<string, unknown>) {
@@ -213,6 +231,93 @@ describe('useCookQuestion', () => {
 
       expect(result.current.isPending).toBe(true)
       expect(result.current.previous).toBeNull()
+    })
+  })
+
+  describe('the answer streams in (HON-979)', () => {
+    async function asking(result: { current: ReturnType<typeof useCookQuestion> }) {
+      const stream = streamed()
+      mockFetch.mockResolvedValueOnce(stream.response)
+      let askPromise!: Promise<void>
+      act(() => {
+        askPromise = result.current.ask(question())
+      })
+      await waitFor(() => expect(mockFetch).toHaveBeenCalled())
+      return { ...stream, askPromise }
+    }
+
+    it('grows the answer chunk by chunk; pending ends at the first, streaming at close', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      const stream = await asking(result)
+      expect(result.current.isPending).toBe(true)
+      expect(result.current.isStreaming).toBe(false)
+
+      act(() => stream.push('Use the '))
+      await waitFor(() => expect(result.current.active?.answer).toBe('Use the '))
+      expect(result.current.isPending).toBe(false)
+      expect(result.current.isStreaming).toBe(true)
+
+      act(() => stream.push('yoghurt.'))
+      await waitFor(() => expect(result.current.active?.answer).toBe('Use the yoghurt.'))
+      expect(result.current.isStreaming).toBe(true)
+
+      await act(async () => {
+        stream.close()
+        await stream.askPromise
+      })
+      await waitFor(() => expect(result.current.isStreaming).toBe(false))
+      expect(result.current.isPending).toBe(false)
+      expect(result.current.error).toBeNull()
+    })
+
+    it('keeps the words that arrived when the stream breaks, with Retry and no auto-retry', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      const stream = await asking(result)
+
+      act(() => stream.push('Use the '))
+      await waitFor(() => expect(result.current.active?.answer).toBe('Use the '))
+      await act(async () => {
+        stream.fail(new TypeError('network error'))
+        await vi.advanceTimersByTimeAsync(2000)
+        await stream.askPromise
+      })
+
+      expect(result.current.active?.answer).toBe('Use the ')
+      expect(result.current.error).toEqual({ message: errors.questionFailed, canRetry: true })
+      expect(result.current.isStreaming).toBe(false)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('an empty answer is an error, not a blank answer', async () => {
+      mockFetch.mockResolvedValueOnce(ok(''))
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+
+      await act(async () => {
+        await result.current.ask(question())
+      })
+
+      expect(result.current.active?.answer).toBeNull()
+      expect(result.current.error).toEqual({ message: errors.questionFailed, canRetry: true })
+    })
+
+    it('reset mid-stream stops the read and writes nothing more', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      const stream = await asking(result)
+      act(() => stream.push('Use the '))
+      await waitFor(() => expect(result.current.active?.answer).toBe('Use the '))
+
+      act(() => {
+        result.current.reset()
+      })
+      await act(async () => {
+        await stream.askPromise
+      })
+
+      expect(result.current.active).toBeNull()
+      expect(result.current.error).toBeNull()
+      expect(result.current.isStreaming).toBe(false)
+      // The body was cancelled, so no further chunk can be written.
+      expect(() => stream.push('yoghurt.')).toThrow()
     })
   })
 

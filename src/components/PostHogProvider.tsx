@@ -6,7 +6,7 @@ import { PostHogProvider as PHProvider, usePostHog } from '@posthog/react'
 import type { PostHog } from 'posthog-js'
 import { clientEnv } from '@/lib/env'
 import { useAnalyticsConsent } from '@/components/ConsentProvider'
-import { postHogBeforeSend } from '@/lib/posthog-before-send'
+import { POSTHOG_URL_MASKING, postHogBeforeSend } from '@/lib/posthog-before-send'
 import { POSTHOG_PROXY_PATH, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
 import type { BootstrapData } from '@/lib/feature-flags'
 
@@ -77,6 +77,7 @@ export function PostHogProvider({
         disable_session_recording: true,
         defaults: '2026-01-30',
         before_send: postHogBeforeSend,
+        ...POSTHOG_URL_MASKING,
         // Conditional spread keeps the option absent (rather than `undefined`)
         // so PostHog's default behaviour applies when no bootstrap is provided.
         ...(bootstrap ? { bootstrap } : {}),

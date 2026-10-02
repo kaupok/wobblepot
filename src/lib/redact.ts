@@ -10,6 +10,12 @@
  * 2. `redactFreeText` is the per-call helper for callers that explicitly
  *    know they're handling user-authored free text.
  *
+ * URLs are a third case. `redactUrlProperties` strips the query string and
+ * the secret path segments from the URL-valued properties the SDKs stamp
+ * themselves (HON-990). The reset page carries its token in `?token=`, the
+ * emailed reset link (`/api/auth/reset-password/<token>`) and an invite link
+ * (`/invite/<code>`) carry theirs in the path.
+ *
  * The universal PII policy is HON-474 Decision 10 — never send email,
  * password, tokens, names, or invite codes; redact raw free text.
  */
@@ -51,6 +57,98 @@ const TRUNCATE_LENGTH = 20
 export function redactFreeText(s: string): string {
   if (!s) return s
   return `${s.slice(0, TRUNCATE_LENGTH)}…[h:${fnv1aHex(s)}]`
+}
+
+/**
+ * Properties whose value is a URL or a path. posthog-js stamps the
+ * `$current_url` / `$pathname` / `$referrer` set on every event, copies them
+ * into `$session_entry_*` on every event and into `$initial_*` on the person
+ * (`$set_once`). The web-vitals extension nests `$current_url` and
+ * `navigationURL` inside each `$web_vitals_<metric>_event` object. `path` and
+ * `url` are our own server-side keys (`instrumentation.ts`, `external-fetch.ts`).
+ */
+const URL_KEYS = new Set([
+  '$current_url',
+  '$pathname',
+  '$referrer',
+  '$prev_pageview_pathname',
+  '$session_entry_url',
+  '$session_entry_pathname',
+  '$session_entry_referrer',
+  '$initial_current_url',
+  '$initial_pathname',
+  '$initial_referrer',
+  'navigationURL',
+  'path',
+  'url',
+])
+
+// Nested objects that carry URL keys of their own: the person properties, and
+// the per-metric web-vitals objects (`$web_vitals_FCP_event`, …).
+const NESTED_URL_OBJECT_KEY = /^(\$set|\$set_once|\$web_vitals_[A-Za-z]+_event)$/
+
+// Path segments that hold a secret: an invite code, and the Better Auth reset
+// token in the emailed link. `/api/households/me/invites/<id>` is a database id,
+// not a secret, so it is not matched.
+const SECRET_PATH_SEGMENT = /(^|\/)(invite|api\/invites|api\/auth\/reset-password)\/[^/]+/g
+
+const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:\/\//i
+
+function redactPath(path: string): string {
+  return path.replace(
+    SECRET_PATH_SEGMENT,
+    (_, lead: string, prefix: string) =>
+      `${lead}${prefix}/${prefix.endsWith('reset-password') ? ':token' : ':code'}`,
+  )
+}
+
+/**
+ * Drop the query string and fragment from a URL or path and replace a secret
+ * path segment with `:code` (invite) or `:token` (password reset). Keeps the origin and the rest of the path,
+ * which web analytics needs. A value that is not a URL (`$direct`) passes
+ * through unchanged.
+ */
+export function redactUrlValue(url: string): string {
+  if (ABSOLUTE_URL.test(url)) {
+    try {
+      const parsed = new URL(url)
+      if (parsed.origin !== 'null') return `${parsed.origin}${redactPath(parsed.pathname)}`
+    } catch {
+      // Fall through to the string path below.
+    }
+  }
+  const end = url.search(/[?#]/)
+  return redactPath(end === -1 ? url : url.slice(0, end))
+}
+
+function redactUrlKeys(properties: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...properties }
+  for (const key of URL_KEYS) {
+    const value = out[key]
+    if (typeof value === 'string') out[key] = redactUrlValue(value)
+  }
+  return out
+}
+
+/**
+ * Apply `redactUrlValue` to every URL-valued property, including those nested
+ * under `$set` / `$set_once` and the `$web_vitals_*_event` objects. Run it before
+ * `sanitizeEventProperties`, which passes `$`-prefixed keys through untouched.
+ *
+ * Pure: returns a new object, never mutates input.
+ */
+export function redactUrlProperties<T extends Record<string, unknown> | undefined>(
+  properties: T,
+): T {
+  if (!properties) return properties
+  const out = redactUrlKeys(properties)
+  for (const [key, nested] of Object.entries(out)) {
+    if (!NESTED_URL_OBJECT_KEY.test(key)) continue
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+      out[key] = redactUrlKeys(nested as Record<string, unknown>)
+    }
+  }
+  return out as T
 }
 
 /**

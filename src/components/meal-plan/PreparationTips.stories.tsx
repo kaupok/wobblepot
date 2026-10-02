@@ -183,6 +183,7 @@ function cookQuestion(overrides: Partial<CookQuestionControls> = {}): CookQuesti
     active: null,
     previous: null,
     isPending: false,
+    isStreaming: false,
     error: null,
     onRetry: fn(),
     ...overrides,
@@ -302,6 +303,69 @@ export const AskPendingWithPrevious: Story = {
     await expect(within(status).getByText(/^No garlic\?/)).toHaveClass('text-muted-foreground')
     await expect(status).toHaveTextContent(/Thinking…$/)
     await expect(canvas.getByText('You asked: What can I substitute here?')).toBeVisible()
+  },
+}
+
+/**
+ * The answer's first words have arrived and the rest is on its way (HON-979):
+ * no "Thinking…", the status is busy so a screen reader waits for the whole
+ * answer, and Send and the chips stay disabled until the stream closes.
+ */
+export const AskStreaming: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion({
+      openStep: 1,
+      isStreaming: true,
+      active: {
+        stepIndex: 1,
+        question: 'What can I substitute here?',
+        answer: 'No garlic? Use the onion you have, sliced thin,',
+      },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement).getByRole('group', { name: 'Ask about step 2' })
+    const status = within(panel).getByRole('status')
+    await expect(status).toHaveAttribute('aria-busy', 'true')
+    await expect(status).not.toHaveTextContent('Thinking…')
+    await expect(within(status).getByText(/^No garlic\?/)).not.toHaveClass('text-muted-foreground')
+    await expect(within(panel).getByRole('button', { name: 'Send' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await expect(within(panel).getByRole('button', { name: "I'm short on time" })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+  },
+}
+
+/**
+ * The stream broke after its first words (HON-979): the words stay, with the
+ * generic error and Retry under them.
+ */
+export const AskStreamBroke: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion({
+      openStep: 1,
+      active: {
+        stepIndex: 1,
+        question: 'What can I substitute here?',
+        answer: 'No garlic? Use the onion you have, sliced thin,',
+      },
+      error: { message: "Couldn't get an answer. Please try again.", canRetry: true },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const status = within(canvasElement).getByRole('status')
+    const words = within(status).getByText(/^No garlic\?/)
+    const error = within(status).getByText("Couldn't get an answer. Please try again.")
+    await expect(
+      words.compareDocumentPosition(error) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    await expect(within(canvasElement).getByRole('button', { name: 'Retry' })).toBeVisible()
   },
 }
 

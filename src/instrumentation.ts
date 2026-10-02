@@ -22,6 +22,7 @@
  * a different "fix" for HON-533 with the file at the root and none of them
  * ever ran on Node. Keep this file in `src/`.
  */
+import { redactUrlValue } from '@/lib/redact'
 import { getRelease, shouldSkipLocalCapture } from '@/lib/release'
 
 interface RequestErrorRequest {
@@ -69,7 +70,10 @@ export async function onRequestError(
     // alive (verified empirically across PRs #581–#585).
     client.captureException(err, distinctId, {
       $exception_source: 'instrumentation.onRequestError',
-      path: request.path,
+      // `request.path` includes the query string, so a reset link's `?token=`
+      // would ship with the error (HON-990). The server `before_send` redacts
+      // it again; this keeps the capture call itself clean.
+      path: redactUrlValue(request.path),
       method: request.method,
       release: getRelease(),
     })

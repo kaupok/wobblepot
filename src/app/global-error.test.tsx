@@ -90,6 +90,8 @@ describe('GlobalError', () => {
         disable_session_recording: true,
         defaults: '2026-01-30',
         before_send: expect.any(Function),
+        mask_personal_data_properties: true,
+        custom_personal_data_properties: ['token', 'returnUrl'],
       }),
     )
     expect(posthogMock.captureException).toHaveBeenCalledWith(err, {

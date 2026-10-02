@@ -613,13 +613,71 @@
     }
   },
   "landing": {
-    "headline": "Söögiplaanid hõivatud peredele",
-    "sub": "Tehisintellekti abil loodud nädalased söögiplaanid, mis arvestavad sinu leibkonna eelistusi, toitumispiiranguid ja seda, mis on juba sahvris olemas.",
-    "cta": "Alusta – see on tasuta",
-    "feature1": "Kohandatud sinu leibkonnale",
-    "feature2": "Nutikad poenimekirjad",
-    "feature3": "Jälgib, mis sul käepärast on",
-    "privateBeta": "Oleme suletud beetaversioonis. Registreerumiseks on vaja kutsekoodi."
+    "headline": "Õhtusöök otsustatud. Terveks nädalaks.",
+    "sub": "Wobblepot koostab pere söögiplaani selle järgi, kes sööb, mida välditakse ja mis on juba sahvris olemas. Siis kirjutab ta poenimekirja ja on pliidi juures sinuga.",
+    "cta": "Alusta",
+    "ctaWithCode": "Registreeru kutsekoodiga",
+    "free": "Beeta ajal tasuta.",
+    "privateBeta": "Oleme suletud beetas, seega on registreerumiseks vaja kutsekoodi.",
+    "demo": {
+      "hint": "Ava toit, et näha seda nii, nagu pliidi ääres.",
+      "caption": "Kolm tänast toitu raamatukogust. Iga nimi avab kokkamisvaate."
+    },
+    "showcase": {
+      "day": "Neljapäev",
+      "caption": "Näidispäev Wobblepotis: hommikusöök, lõuna ja õhtusöök, igaüks oma kaardil.",
+      "breakfast": {
+        "name": "Avokaadovõileib pošeeritud munaga",
+        "description": "Juuretisega leib purustatud avokaado ja pošeeritud munaga"
+      },
+      "lunch": {
+        "name": "Veiseliha-bibimbap",
+        "description": "Korea riisikauss veiseliha ja köögiviljadega"
+      },
+      "dinner": {
+        "name": "Ahjulõhe sparglitega",
+        "description": "Ahjus küpsetatud lõhe röstitud spargli ja sidruniga"
+      }
+    },
+    "how": {
+      "title": "Kuidas see töötab",
+      "step": "{number}. samm",
+      "table": {
+        "title": "Ütle, kes on laua ääres",
+        "body": "Täiskasvanud, lapsed, allergiad ja see, mida keegi ei söö. Kaks minutit, üks kord."
+      },
+      "week": {
+        "title": "Saa nädala söögid",
+        "body": "Hommikusöök, lõuna ja õhtusöök igaks päevaks koos valmistusajaga. Vaheta iga toit, mis ei meeldi."
+      },
+      "shop": {
+        "title": "Käi korra poes, siis kokka",
+        "body": "Üks nimekiri sellest, mis on puudu, rühmitatud riiulite kaupa. Pliidi juures on sammud telefonis ja iga sammu kohta saab küsida."
+      }
+    },
+    "why": {
+      "title": "Tehtud pereköökidele",
+      "pantry": {
+        "title": "Ta teab sinu sahvrit",
+        "body": "Märgi, mis sul olemas on. Poenimekirjas on ainult see, mis on puudu, ja sahver uueneb, kui märgid toidu valmistatuks."
+      },
+      "recipes": {
+        "title": "Sinu retseptid on plaanis",
+        "body": "Kleebi link või retsept ja sinu enda toidud planeeritakse koos ülejäänutega."
+      },
+      "kids": {
+        "title": "Portsjonid käivad inimeste järgi",
+        "body": "Igal liikmel on oma portsjoni suurus, nii et väikelast ei arvestata täiskasvanuna. Lastesõbralikud toidud on märgitud."
+      },
+      "cook": {
+        "title": "Kokkamisabi leti peal",
+        "body": "Sammud nii suures kirjas, et neid loeb üle köögi, ja kiire vastus, kui mõni samm jääb arusaamatuks."
+      }
+    },
+    "close": {
+      "title": "Alusta selle nädala õhtusöökidest",
+      "body": "Teinud lapsevanem oma kolmeliikmelisele perele. Sinu andmed on Euroopa Liidus ja reklaame ei ole."
+    }
   },
   "common": {
     "loading": "Laen…",

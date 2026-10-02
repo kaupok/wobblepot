@@ -1,19 +1,15 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
-import { getTranslations } from 'next-intl/server'
-import { CheckCircle2 } from 'lucide-react'
-import { Heading, Body } from '@/components/ui/typography'
-import { Button } from '@/components/ui/button'
-import { Callout } from '@/components/ui/callout'
 import { auth } from '@/lib/auth'
 import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership } from '@/lib/household'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
-import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support'
 import { getTodayInTimezone, getUrgencyBucket, parseLocalDate } from '@/lib/meal-planning/dates'
+import { getLocale } from '@/lib/i18n/get-locale'
+import { DEMO_TIMEZONE, loadDemoDay } from '@/lib/landing/load-demo-day'
+import { LandingPage } from './LandingPage'
 import { TimelineView } from '@/components/timeline'
 import { FirstTimeSetup } from '@/components/timeline'
 import type { ComponentProps } from 'react'
@@ -28,62 +24,15 @@ export default async function Home() {
 
   // Landing page for unauthenticated users
   if (!session) {
-    const [t, tSignUp, inviteRequired] = await Promise.all([
-      getTranslations('landing'),
-      getTranslations('auth.signUp'),
+    const [inviteRequired, locale] = await Promise.all([
       getServerFlag('invite_code_required', 'anonymous'),
+      getLocale(),
     ])
-    return (
-      <div className="min-h-screen-below-header grid place-items-center px-4">
-        {/* Not <main>: the root layout's <main id="main-content"> is the page landmark (HON-820). */}
-        <div className="flex max-w-2xl flex-col items-center gap-8 text-center">
-          <div className="flex flex-col gap-4">
-            <Heading>{t('headline')}</Heading>
-            <Body variant="lead">{t('sub')}</Body>
-          </div>
-
-          {inviteRequired && (
-            <Callout
-              className="max-w-md"
-              role="note"
-              aria-label={tSignUp('privateBetaNoticeLabel')}
-            >
-              {t('privateBeta')}{' '}
-              {tSignUp.rich('requestInvite', {
-                email: SUPPORT_EMAIL,
-                link: (chunks) => (
-                  <a
-                    href={supportMailtoHref(tSignUp('requestInviteSubject'))}
-                    className="underline"
-                  >
-                    {chunks}
-                  </a>
-                ),
-              })}
-            </Callout>
-          )}
-
-          <Button asChild size="lg">
-            <Link href="/sign-up">{t('cta')}</Link>
-          </Button>
-
-          <ul className="flex flex-col gap-3 text-left">
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="text-primary h-5 w-5 shrink-0" />
-              <Body>{t('feature1')}</Body>
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="text-primary h-5 w-5 shrink-0" />
-              <Body>{t('feature2')}</Body>
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="text-primary h-5 w-5 shrink-0" />
-              <Body>{t('feature3')}</Body>
-            </li>
-          </ul>
-        </div>
-      </div>
-    )
+    const demo = await loadDemoDay({ locale, date: getTodayInTimezone(DEMO_TIMEZONE) })
+    // Awaited here rather than rendered as `<LandingPage />`: it is an async
+    // Server Component, and `page.test.tsx` renders `await Home()` in a client
+    // renderer, which cannot resolve a nested async component.
+    return await LandingPage({ inviteRequired, locale, demo })
   }
 
   // Check household membership

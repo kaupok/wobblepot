@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { ApiError, apiFetch } from '@/lib/api'
+import { ApiError, toApiError } from '@/lib/api'
 import { track } from '@/lib/analytics'
 import {
   COOK_QUESTION_ERROR_KEYS,
@@ -29,7 +29,10 @@ export interface CookQuestionAskInput {
   source: CookQuestionSource
 }
 
-/** The one question on screen. `answer` is null until it arrives. */
+/**
+ * The one question on screen. `answer` is null until the first words arrive,
+ * then grows as the answer streams in (HON-979).
+ */
 export interface CookQuestionActive {
   stepIndex: number
   question: string
@@ -90,6 +93,52 @@ function isRetryable(error: unknown): boolean {
   )
 }
 
+/**
+ * The stream broke after the first words arrived. Not retried on its own: the
+ * words on screen stay, with the generic error and Retry under them (HON-979).
+ */
+class PartialAnswerError extends Error {
+  constructor(cause: unknown) {
+    super('The answer stream ended early', { cause })
+    this.name = 'PartialAnswerError'
+  }
+}
+
+/**
+ * Read the streamed answer, handing each piece of text to `onText` as it
+ * arrives. Aborting `signal` cancels the read, so `reset` stops it.
+ */
+async function readAnswer(
+  response: Response,
+  signal: AbortSignal,
+  onText: (text: string) => void,
+): Promise<void> {
+  if (!response.body) throw new Error('The answer has no body')
+  const reader = response.body.getReader()
+  signal.addEventListener('abort', () => void reader.cancel().catch(() => {}), { once: true })
+  const decoder = new TextDecoder()
+  let received = false
+  const take = (text: string) => {
+    if (!text) return
+    received = true
+    onText(text)
+  }
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      take(decoder.decode(value, { stream: true }))
+    }
+    take(decoder.decode())
+  } catch (err) {
+    if (received && !(err instanceof DOMException && err.name === 'AbortError')) {
+      throw new PartialAnswerError(err)
+    }
+    throw err
+  }
+  if (!received) throw new Error('The answer was empty')
+}
+
 function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const id = setTimeout(resolve, ms)
@@ -115,43 +164,57 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
   // A mutation, not a query: each POST runs a billed AI call on demand, and
   // the answer lives in local state the caller resets.
   const { mutateAsync, isPending } = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       controller: { signal },
       request,
     }: {
       controller: AbortController
       request: AskRequest
     }) => {
-      const send = () =>
-        apiFetch<{ answer: string }>(
-          `/api/meal-plans/${planId}/entries/${entryId}/cook-question`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(request),
-            signal,
-          },
-          t('errors.questionFailed'),
-        )
-      return send().catch(async (err: unknown) => {
+      // Not `apiFetch`: the answer is a text stream, not JSON. A failure is
+      // still JSON with a `code`, read into the same `ApiError`.
+      const post = async () => {
+        const response = await fetch(`/api/meal-plans/${planId}/entries/${entryId}/cook-question`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request),
+          signal,
+        })
+        if (!response.ok) throw await toApiError(response, t('errors.questionFailed'))
+        return response
+      }
+      // The retry rules apply before the first byte only: after it, the
+      // words on screen would be billed and written a second time.
+      const response = await post().catch(async (err: unknown) => {
         if (!isRetryable(err)) throw err
         await abortableDelay(2000, signal)
-        return send()
+        return post()
       })
-    },
-    // A superseded or reset request must not write its result or its error.
-    onSuccess: (data, { controller, request }) => {
-      if (controller.signal.aborted) return
-      setQuestion({
-        active: { stepIndex: request.stepIndex, question: request.question, answer: data.answer },
-        previous: null,
+      await readAnswer(response, signal, (text) => {
+        // A superseded or reset request must not write its words.
+        if (signal.aborted) return
+        // The first words take the old answer's place (HON-978).
+        setQuestion(({ active }) => ({
+          active: {
+            stepIndex: request.stepIndex,
+            question: request.question,
+            answer: (active?.answer ?? '') + text,
+          },
+          previous: null,
+        }))
       })
     },
     onError: (err, { controller }) => {
       if (controller.signal.aborted) return
       if (err instanceof DOMException && err.name === 'AbortError') return
-      // The error takes the old answer's place, as an answer would.
+      // The error takes the old answer's place, as an answer would. Words
+      // that already arrived stay, with the error under them.
       setQuestion((current) => ({ ...current, previous: null }))
+      if (err instanceof PartialAnswerError) {
+        console.error('[cook-question] answer stream ended early', err.cause)
+        setError({ message: t('errors.questionFailed'), canRetry: true })
+        return
+      }
       // A network failure never reached the route, so it has no code to read.
       if (!(err instanceof ApiError)) {
         setError({ message: t('errors.questionFailed'), canRetry: true })
@@ -233,12 +296,20 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
     setError(null)
   }, [])
 
+  // Only while a question is on screen: a reset request may take a moment
+  // to settle its abort.
+  const inFlight = isPending && active !== null && error === null
+
   return {
     ask,
     active,
-    // Only while a question is on screen: a reset request may take a moment
-    // to settle its abort.
-    isPending: isPending && active !== null && active.answer === null && error === null,
+    /** Waiting for the first words; "Thinking…" shows. */
+    isPending: inFlight && active.answer === null,
+    /**
+     * The words are arriving. Send and the chips stay disabled until the
+     * stream closes, so a second tap cannot bill a second call (HON-969).
+     */
+    isStreaming: inFlight && active.answer !== null,
     /** The answered question still on screen while `active` waits; null otherwise. */
     previous,
     error,

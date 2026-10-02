@@ -42,7 +42,7 @@ test.describe('Smoke', { tag: '@smoke' }, () => {
   test('home renders with heading', async ({ page }) => {
     await page.goto('/')
     await expect(
-      page.getByRole('main').getByRole('heading', { name: 'Meal planning for busy families' }),
+      page.getByRole('main').getByRole('heading', { name: 'Dinner, decided. For the whole week.' }),
     ).toBeVisible()
     await expect(page.getByRole('banner').getByRole('link', { name: 'Wobblepot' })).toBeVisible()
   })

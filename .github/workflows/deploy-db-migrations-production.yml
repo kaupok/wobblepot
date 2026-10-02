@@ -70,6 +70,24 @@ jobs:
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_PRODUCTION }}
         run: pnpm db:seed
 
+      # Steps for the signed-out home page's demo (docs/DEPLOYMENT.md →
+      # "Library preparation steps"). Idempotent: it writes only rows that are
+      # missing or stale, so most runs find nothing and cost nothing. It never
+      # blocks the deploy: the page falls back to its static example day for
+      # any meal without steps. `--limit` caps one run at about $0.60 should a
+      # change ever stale every row at once, and `timeout-minutes` keeps a slow
+      # provider inside the job's 15-minute limit, which `continue-on-error`
+      # would not survive. Rows written before a cut-off stay.
+      - name: Write library preparation steps [production]
+        if: success()
+        continue-on-error: true
+        timeout-minutes: 8
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED_PRODUCTION }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
+        run: pnpm steps:library --confirm --limit=30
+
       - name: Production deployment checklist
         if: success()
         run: |
