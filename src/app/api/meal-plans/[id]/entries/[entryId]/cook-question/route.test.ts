@@ -1,0 +1,403 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { POST } from './route'
+
+vi.mock('next/headers', () => ({
+  headers: vi.fn(() => Promise.resolve(new Headers())),
+}))
+
+vi.mock('@/lib/auth', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(),
+    },
+  },
+}))
+
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
+}))
+
+// Every write the route could make is mocked so the tests can assert it never
+// makes one: the answer lives on the cook's screen only.
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    mealPlanEntry: {
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    meal: { update: vi.fn(), updateMany: vi.fn() },
+    pantryItem: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      upsert: vi.fn(),
+    },
+  },
+}))
+
+vi.mock('@ai-sdk/anthropic', () => ({
+  createAnthropic: vi.fn(() => (modelName: string) => ({ modelId: modelName })),
+}))
+
+// Keep the real exports: `withUsageOnFailure` needs the real
+// `NoObjectGeneratedError.isInstance` on every rejected call.
+vi.mock('ai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('ai')>()),
+  generateObject: vi.fn(),
+}))
+
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 90),
+}))
+
+vi.mock('@/lib/ai/usage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/usage')>()
+  return {
+    ...actual,
+    assertUnderCap: vi.fn(),
+    recordAiUsage: vi.fn(),
+  }
+})
+
+vi.mock('@/lib/feature-flags', () => ({
+  getServerFlag: vi.fn(),
+}))
+
+vi.mock('@/lib/ai/sampling', () => ({
+  logAiSample: vi.fn(),
+}))
+
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+import { auth } from '@/lib/auth'
+import { getHouseholdMembership } from '@/lib/household'
+import { prisma } from '@/lib/prisma'
+import { generateObject } from 'ai'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
+import { logAiSample } from '@/lib/ai/sampling'
+import { getServerFlag } from '@/lib/feature-flags'
+import { COOK_QUESTION_MODEL } from '@/lib/ai/models'
+import { USAGE_FIXTURE, expectedUsageStats } from '@/lib/ai/usage-fixture'
+
+const mockGetSession = vi.mocked(auth.api.getSession)
+const mockGetMembership = vi.mocked(getHouseholdMembership)
+const mockEntryFindFirst = vi.mocked(prisma.mealPlanEntry.findFirst)
+const mockPantryFindMany = vi.mocked(prisma.pantryItem.findMany)
+const mockGenerateObject = vi.mocked(generateObject)
+const mockCheckRateLimit = vi.mocked(checkRateLimit)
+const mockAssertUnderCap = vi.mocked(assertUnderCap)
+const mockRecordAiUsage = vi.mocked(recordAiUsage)
+const mockLogAiSample = vi.mocked(logAiSample)
+const mockGetServerFlag = vi.mocked(getServerFlag)
+
+const mockSession = {
+  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+  session: { id: 'session-123' },
+}
+
+function buildMembership(preferences: Record<string, unknown> | null = null) {
+  return {
+    id: 'member-123',
+    householdId: 'household-123',
+    userId: 'user-123',
+    role: 'owner',
+    household: {
+      id: 'household-123',
+      name: 'Test Household',
+      timezone: 'Europe/Tallinn',
+      locale: 'en',
+      preferences,
+      _count: { members: 4 },
+    },
+  }
+}
+
+function sampleEntry(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'entry-1',
+    planId: 'plan-1',
+    mealId: 'meal-1',
+    preparationTips: null,
+    servingOverride: null,
+    meal: {
+      id: 'meal-1',
+      name: 'Chicken stir fry',
+      timeMinutes: 30,
+      preparationNotes: null,
+      components: [
+        {
+          quantityPerServing: 150,
+          ingredient: { name: 'Chicken breast', defaultUnit: 'g' },
+        },
+      ],
+    },
+    ...overrides,
+  }
+}
+
+const STEPS = ['Slice the chicken.', 'Fry the chicken.', 'Add the sauce.']
+
+function validBody(overrides: Record<string, unknown> = {}) {
+  return { stepIndex: 1, steps: STEPS, question: "How do I know it's done?", ...overrides }
+}
+
+function callPost(body: unknown = validBody()) {
+  return POST(
+    new Request('http://localhost/api/meal-plans/plan-1/entries/entry-1/cook-question', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ id: 'plan-1', entryId: 'entry-1' }) },
+  )
+}
+
+function promptSent(): string {
+  return (mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }).prompt
+}
+
+function expectNoWrites() {
+  expect(prisma.mealPlanEntry.update).not.toHaveBeenCalled()
+  expect(prisma.mealPlanEntry.updateMany).not.toHaveBeenCalled()
+  expect(prisma.meal.update).not.toHaveBeenCalled()
+  expect(prisma.meal.updateMany).not.toHaveBeenCalled()
+  expect(prisma.pantryItem.update).not.toHaveBeenCalled()
+  expect(prisma.pantryItem.updateMany).not.toHaveBeenCalled()
+  expect(prisma.pantryItem.upsert).not.toHaveBeenCalled()
+}
+
+describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(buildMembership() as never)
+    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockPantryFindMany.mockResolvedValue([] as never)
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 59,
+      limit: 60,
+      resetAt: new Date('2026-02-01T12:00:00.000Z'),
+    })
+    mockAssertUnderCap.mockResolvedValue(undefined)
+    mockGetServerFlag.mockResolvedValue(true)
+    mockGenerateObject.mockResolvedValue({
+      object: { answer: 'Cut into the thickest piece: no pink.' },
+      usage: USAGE_FIXTURE,
+    } as never)
+  })
+
+  it('returns 401 when not authenticated', async () => {
+    mockGetSession.mockResolvedValue(null)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(401)
+    expect((await response.json()).code).toBe('unauthorized')
+  })
+
+  it('returns 404 when the user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(404)
+    expect((await response.json()).code).toBe('no_household')
+  })
+
+  describe('invalid_question', () => {
+    it.each([
+      ['an empty question', validBody({ question: '' })],
+      ['a whitespace-only question', validBody({ question: '   ' })],
+      ['a 301-character question', validBody({ question: 'a'.repeat(301) })],
+      ['13 steps', validBody({ steps: Array.from({ length: 13 }, (_, i) => `Step ${i + 1}`) })],
+      ['no steps', validBody({ steps: [], stepIndex: 0 })],
+      ['a 501-character step', validBody({ steps: ['a'.repeat(501)], stepIndex: 0 })],
+      ['a step index past the steps', validBody({ stepIndex: 3 })],
+      ['a negative step index', validBody({ stepIndex: -1 })],
+      ['a fractional step index', validBody({ stepIndex: 1.5 })],
+      ['a body that is not an object', 'hello'],
+    ])('returns 400 for %s', async (_name, body) => {
+      const response = await callPost(body)
+
+      expect(response.status).toBe(400)
+      expect((await response.json()).code).toBe('invalid_question')
+      expect(mockCheckRateLimit).not.toHaveBeenCalled()
+      expect(mockGenerateObject).not.toHaveBeenCalled()
+    })
+
+    it('accepts a 300-character question and 12 steps', async () => {
+      const steps = Array.from({ length: 12 }, (_, i) => `Step ${i + 1}`)
+      const response = await callPost({ stepIndex: 11, steps, question: 'a'.repeat(300) })
+
+      expect(response.status).toBe(200)
+    })
+  })
+
+  it('scopes the entry lookup to the household and returns 404 when not found', async () => {
+    mockEntryFindFirst.mockResolvedValue(null)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(404)
+    expect((await response.json()).code).toBe('entry_not_found')
+    expect(mockEntryFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'entry-1', planId: 'plan-1', plan: { householdId: 'household-123' } },
+      }),
+    )
+  })
+
+  it('returns 400 no_meal when the entry has no meal', async () => {
+    mockEntryFindFirst.mockResolvedValue(sampleEntry({ meal: null, mealId: null }) as never)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(400)
+    expect((await response.json()).code).toBe('no_meal')
+  })
+
+  it('returns 429 rate_limited with Retry-After on the cook-question bucket', async () => {
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      limit: 60,
+      resetAt: new Date('2026-02-01T12:00:00.000Z'),
+    })
+
+    const response = await callPost()
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('90')
+    expect((await response.json()).code).toBe('rate_limited')
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'cook-question')
+    expect(mockGenerateObject).not.toHaveBeenCalled()
+  })
+
+  it('returns 503 generation_disabled when the kill switch is off', async () => {
+    mockGetServerFlag.mockResolvedValue(false)
+
+    const response = await callPost()
+
+    expect(response.status).toBe(503)
+    expect((await response.json()).code).toBe('generation_disabled')
+    expect(mockGetServerFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user-123')
+    expect(mockAssertUnderCap).not.toHaveBeenCalled()
+    expect(mockGenerateObject).not.toHaveBeenCalled()
+  })
+
+  it('returns 429 ai_cap_exceeded when the household is over its AI cap', async () => {
+    mockAssertUnderCap.mockRejectedValue(
+      new AiCostCapExceededError(new Date('2026-03-01T00:00:00.000Z'), 'Europe/Tallinn'),
+    )
+
+    const response = await callPost()
+
+    expect(response.status).toBe(429)
+    expect((await response.json()).code).toBe('ai_cap_exceeded')
+    expect(mockGenerateObject).not.toHaveBeenCalled()
+  })
+
+  it('answers an entry whose tips were served uncached, without pitfalls', async () => {
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ answer: 'Cut into the thickest piece: no pink.' })
+    const prompt = promptSent()
+    expect(prompt).toContain('2. Fry the chicken.')
+    expect(prompt).toContain('The cook is on step 2: Fry the chicken.')
+    expect(prompt).not.toContain('Watch out:')
+    expectNoWrites()
+  })
+
+  it('adds the cached pitfalls and tip, but answers about the steps the request sent', async () => {
+    mockEntryFindFirst.mockResolvedValue(
+      sampleEntry({
+        preparationTips: JSON.stringify({
+          steps: ['A cached step'],
+          pitfalls: ['Do not crowd the pan'],
+          tip: 'Rest the meat',
+        }),
+      }) as never,
+    )
+
+    await callPost()
+
+    const prompt = promptSent()
+    expect(prompt).toContain('Watch out:\n- Do not crowd the pan')
+    expect(prompt).toContain('Tip: Rest the meat')
+    expect(prompt).not.toContain('A cached step')
+    expectNoWrites()
+  })
+
+  it('builds the prompt from the pantry and the household restrictions', async () => {
+    mockGetMembership.mockResolvedValue(
+      buildMembership({
+        allergensToAvoid: ['tree_nuts'],
+        dietaryType: null,
+        excludedIngredients: [],
+        restrictions: ['mild spice only'],
+      }) as never,
+    )
+    mockPantryFindMany.mockResolvedValue([
+      { isStaple: false, ingredient: { name: 'greek yoghurt' } },
+      { isStaple: true, ingredient: { name: 'salt' } },
+    ] as never)
+
+    await callPost()
+
+    const prompt = promptSent()
+    expect(prompt).toContain('- greek yoghurt\n')
+    expect(prompt).toContain('- salt (staple)')
+    expect(prompt).toContain('MUST AVOID these allergens (safety-critical): tree_nuts')
+    expect(prompt).toContain('Household restrictions (follow them): mild spice only')
+    expect(mockPantryFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          householdId: 'household-123',
+          OR: [{ isStaple: true }, { quantity: null }, { quantity: { gt: 0 } }],
+        },
+      }),
+    )
+    expectNoWrites()
+  })
+
+  it('records usage and logs a sample under the cook-question names', async () => {
+    await callPost()
+
+    expect(mockGenerateObject).toHaveBeenCalledWith(
+      expect.objectContaining({ model: { modelId: COOK_QUESTION_MODEL }, maxOutputTokens: 600 }),
+    )
+    expect(mockRecordAiUsage).toHaveBeenCalledWith({
+      householdId: 'household-123',
+      feature: 'cook_question',
+      ...expectedUsageStats(COOK_QUESTION_MODEL),
+    })
+    expect(mockLogAiSample).toHaveBeenCalledWith(
+      expect.objectContaining({
+        callSite: 'cook-question',
+        input: { mealName: 'Chicken stir fry', stepIndex: 1, source: 'uncached' },
+      }),
+    )
+  })
+
+  describe('AI failures', () => {
+    it.each([
+      [Object.assign(new Error('busy'), { statusCode: 429 }), 429, 'provider_busy'],
+      [Object.assign(new Error('overloaded'), { statusCode: 529 }), 502, 'provider_unavailable'],
+      [Object.assign(new Error('Timeout'), { name: 'TimeoutError' }), 504, 'question_timeout'],
+      [new Error('boom'), 500, 'question_failed'],
+    ])('maps %s to %i %s', async (error, status, code) => {
+      mockGenerateObject.mockRejectedValue(error)
+
+      const response = await callPost()
+
+      expect(response.status).toBe(status)
+      expect((await response.json()).code).toBe(code)
+    })
+  })
+})

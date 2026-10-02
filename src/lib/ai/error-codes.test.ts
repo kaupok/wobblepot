@@ -3,10 +3,12 @@ import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { ACCOUNT_DELETION_ERROR_KEYS } from '@/lib/account-deletion-error-codes'
 import {
+  COOK_QUESTION_ERROR_KEYS,
   IMAGINE_ERROR_KEYS,
   MEAL_PLAN_GENERATE_ERROR_KEYS,
   PREPARATION_TIPS_ERROR_KEYS,
   RECIPE_IMPORT_ERROR_KEYS,
+  cookQuestionFallbackKey,
   mealPlanGenerateFallbackKey,
   preparationTipsFallbackKey,
   translateErrorCode,
@@ -47,6 +49,13 @@ const surfaces = [
     en: enMessages['meal-plan'].tips.errors as Record<string, unknown>,
     et: etMessages['meal-plan'].tips.errors as Record<string, unknown>,
     fallback: 'tipsFailed',
+  },
+  {
+    name: 'meal-plan.cookQuestion.errors',
+    keys: COOK_QUESTION_ERROR_KEYS,
+    en: enMessages['meal-plan'].cookQuestion.errors as Record<string, unknown>,
+    et: etMessages['meal-plan'].cookQuestion.errors as Record<string, unknown>,
+    fallback: 'questionFailed',
   },
   // Not an AI surface, but the same contract — kept here so one suite covers
   // every code map `translateErrorCode` is handed (HON-725).
@@ -153,5 +162,13 @@ describe('preparationTipsFallbackKey', () => {
       expect(typeof enMessages['meal-plan'].tips.errors[key]).toBe('string')
       expect(typeof etMessages['meal-plan'].tips.errors[key]).toBe('string')
     }
+  })
+})
+
+describe('cookQuestionFallbackKey', () => {
+  it('keeps the timeout copy for a codeless 504 and is generic otherwise', () => {
+    expect(cookQuestionFallbackKey(504)).toBe('questionTimeout')
+    expect(cookQuestionFallbackKey(500)).toBe('questionFailed')
+    expect(cookQuestionFallbackKey(429)).toBe('questionFailed')
   })
 })

@@ -43,6 +43,7 @@ export type AiSampleCallSite =
   | 'review-quantities'
   | 'preparation-tips-full'
   | 'preparation-tips-supplementary'
+  | 'cook-question'
 
 export interface AiSampleInput {
   callSite: AiSampleCallSite

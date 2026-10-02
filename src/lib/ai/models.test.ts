@@ -3,7 +3,14 @@ import { describe, it, expect, vi } from 'vitest'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
 import { z } from 'zod'
-import { PLANNING_MODEL, RECIPE_MODEL, TIPS_MODEL, IMAGINE_MODEL, REVIEW_MODEL } from './models'
+import {
+  PLANNING_MODEL,
+  RECIPE_MODEL,
+  TIPS_MODEL,
+  IMAGINE_MODEL,
+  REVIEW_MODEL,
+  COOK_QUESTION_MODEL,
+} from './models'
 
 /**
  * Sonnet 5.5 rejects forced tool use (`tool_choice` `any` / `tool`) with a 400
@@ -48,6 +55,7 @@ describe('AI model constants', () => {
     ['TIPS_MODEL', TIPS_MODEL],
     ['IMAGINE_MODEL', IMAGINE_MODEL],
     ['REVIEW_MODEL', REVIEW_MODEL],
+    ['COOK_QUESTION_MODEL', COOK_QUESTION_MODEL],
   ])('%s gets native structured output, not a forced JSON tool', async (_name, modelId) => {
     const body = await captureRequestBody(modelId)
 

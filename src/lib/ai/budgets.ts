@@ -120,3 +120,13 @@ export const REVIEW_AI_BUDGET_MS = 45_000
  * `maxDuration` for the DB reads before the call and the writes after it.
  */
 export const TIPS_AI_BUDGET_MS = 45_000
+
+/**
+ * `/api/meal-plans/[id]/entries/[entryId]/cook-question` (HON-969). Not
+ * measured yet. Sized at two thirds of `TIPS_AI_BUDGET_MS` because the answer
+ * is a quarter of the tips' size: a 600-token ceiling against 2000. That leaves
+ * 30s under the 60s `maxDuration` for the entry, pantry and preferences reads
+ * before the call and the usage write after it. The first benchmark run should
+ * confirm the value or trim it.
+ */
+export const COOK_QUESTION_AI_BUDGET_MS = 30_000

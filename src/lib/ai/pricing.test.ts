@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { estimateCostUsd, MODEL_PRICES } from './pricing'
-import { PLANNING_MODEL, RECIPE_MODEL, TIPS_MODEL, IMAGINE_MODEL, REVIEW_MODEL } from './models'
+import {
+  PLANNING_MODEL,
+  RECIPE_MODEL,
+  TIPS_MODEL,
+  IMAGINE_MODEL,
+  REVIEW_MODEL,
+  COOK_QUESTION_MODEL,
+} from './models'
 
 describe('estimateCostUsd', () => {
   it('charges 1M input tokens at the table rate', () => {
@@ -65,6 +72,7 @@ describe('estimateCostUsd', () => {
     ['TIPS_MODEL', TIPS_MODEL],
     ['IMAGINE_MODEL', IMAGINE_MODEL],
     ['REVIEW_MODEL', REVIEW_MODEL],
+    ['COOK_QUESTION_MODEL', COOK_QUESTION_MODEL],
   ])('prices %s, so the spend cap cannot be zeroed by an unpriced model', (_name, model) => {
     expect(MODEL_PRICES[model]).toBeDefined()
     expect(estimateCostUsd({ model, inputTokens: 1000, outputTokens: 1000 })).toBeGreaterThan(0)

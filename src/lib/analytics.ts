@@ -127,6 +127,16 @@ export type EventPayload = {
   'shopping:item_purchased': { source: Source }
   /** `item_count` is the number of lines written to the clipboard — a count, never item names. */
   'shopping:list_copied': { source: Source; item_count: number }
+  /**
+   * The cook sent a question about one step in the cook view (HON-969). Fires
+   * on send, not on the answer. `source` says whether it was a chip or typed.
+   */
+  'cook_view:question_asked': {
+    plan_id: string
+    meal_id: string
+    step_index: number
+    source: 'chip' | 'text'
+  }
 }
 
 export type EventName = keyof EventPayload

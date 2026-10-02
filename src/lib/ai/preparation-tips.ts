@@ -110,8 +110,11 @@ export interface SupplementaryTipsRequestInput extends TipsRequestInput {
   preparationNotes: string
 }
 
-/** One line per component: total quantity for `servings`, rounded, with `piece` shown as `pcs`. */
-function formatIngredientsList(components: TipsComponent[], servings: number): string {
+/**
+ * One line per component: total quantity for `servings`, rounded, with `piece`
+ * shown as `pcs`. Shared with the cook-question prompt (HON-969).
+ */
+export function formatIngredientsList(components: TipsComponent[], servings: number): string {
   return components
     .map((comp) => {
       const quantity = comp.quantityPerServing * servings

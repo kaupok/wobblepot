@@ -67,6 +67,7 @@ describe('rate-limit', () => {
   describe('CONFIG', () => {
     it('covers all AI + auth + export features', () => {
       expect(Object.keys(RATE_LIMIT_CONFIG).sort()).toEqual([
+        'cook-question',
         'data-export',
         'forgot-password',
         'meal-image',

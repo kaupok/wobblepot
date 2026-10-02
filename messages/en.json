@@ -309,6 +309,34 @@
         "tipsFailed": "Couldn't generate tips. Please try again."
       }
     },
+    "cookQuestion": {
+      "askAboutStep": "Ask about step {n}",
+      "chips": {
+        "done": "How do I know it's done?",
+        "substitute": "What can I substitute here?",
+        "time": "I'm short on time"
+      },
+      "questionLabel": "Your question",
+      "placeholder": "Ask about this step",
+      "send": "Send",
+      "thinking": "Thinking…",
+      "retry": "Retry",
+      "close": "Close",
+      "errors": {
+        "unauthorized": "Please sign in to ask about a step.",
+        "noHousehold": "You need a household before you can ask about a step.",
+        "entryNotFound": "This meal is no longer in your plan. Refresh the page and try again.",
+        "noMeal": "No meal is picked for this slot yet. Pick a meal first.",
+        "rateLimited": "You've reached this hour's limit for questions. Please try again later.",
+        "generationDisabled": "Questions are turned off right now. Please try again later.",
+        "aiCapExceeded": "This month's AI usage limit is used up. It resets at the start of next month.",
+        "providerBusy": "The answer service is busy. Please try again in a moment.",
+        "providerUnavailable": "The answer service is temporarily unavailable. Please try again in a moment.",
+        "invalidQuestion": "Write a question of up to 300 characters.",
+        "questionTimeout": "The answer took too long. Please try again.",
+        "questionFailed": "Couldn't get an answer. Please try again."
+      }
+    },
     "nutrition": {
       "summaryHeader": "Nutrition (per serving)",
       "calories": "Calories",
