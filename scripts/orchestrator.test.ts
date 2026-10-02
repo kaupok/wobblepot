@@ -3386,6 +3386,35 @@ describe('orchestrator.sh', () => {
       expect(out).toContain('GATED:HON-941\n')
     })
 
+    it('keeps a fresh gate that no poll has seen in Queued yet', () => {
+      // The requeue after a gate can fail and leave the issue In Progress,
+      // where the gate is still in force. Its absence is not an answer.
+      const out = reconcile(response([992]), 'HON-940:new')
+
+      expect(out).not.toContain('[UNGATE]')
+      expect(out).toContain('GATED:HON-940:new\n')
+    })
+
+    it('clears the fresh mark once a poll sees the issue in Queued', () => {
+      const out = reconcile(response([940], [940]), 'HON-940:new')
+
+      expect(out).not.toContain('[UNGATE]')
+      expect(out).toContain('GATED:HON-940\n')
+    })
+
+    it('still answers a fresh gate whose label is removed', () => {
+      const out = reconcile(response([940]), 'HON-940:new')
+
+      expect(count(out, '[UNGATE] HON-940 — Gated label removed by operator')).toBe(1)
+      expect(out).toContain('GATED:\n')
+    })
+
+    it('marks a gate fresh when handle_success records it', () => {
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'handle_success')
+
+      expect(body).toContain('GATED_ISSUES="${GATED_ISSUES:+$GATED_ISSUES,}$issue_id:new"')
+    })
+
     it('keeps an absent entry when the fetch hit the page cap', () => {
       // Past the cap the issue may still be in Queued; answering it would turn
       // the pane dim for a gate that is still in force.
