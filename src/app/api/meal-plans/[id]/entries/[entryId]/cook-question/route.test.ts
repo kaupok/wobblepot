@@ -36,16 +36,35 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-vi.mock('@ai-sdk/anthropic', () => ({
-  createAnthropic: vi.fn(() => (modelName: string) => ({ modelId: modelName })),
-}))
+// The real `streamText` runs against a mock model, so the tests read the
+// stream parts and the usage the SDK really produces (HON-979).
+const model = vi.hoisted(() => ({ parts: [] as unknown[], modelIds: [] as string[] }))
 
-// Keep the real exports: `withUsageOnFailure` needs the real
-// `NoObjectGeneratedError.isInstance` on every rejected call.
-vi.mock('ai', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('ai')>()),
-  generateObject: vi.fn(),
-}))
+vi.mock('@ai-sdk/anthropic', async () => {
+  const { MockLanguageModelV4 } = await import('ai/test')
+  return {
+    createAnthropic: vi.fn(() => (modelName: string) => {
+      model.modelIds.push(modelName)
+      return new MockLanguageModelV4({
+        doStream: async () => ({
+          stream: new ReadableStream({
+            start(controller) {
+              // Loosely typed parts, as each test writes them.
+              for (const part of model.parts) controller.enqueue(part as never)
+              controller.close()
+            },
+          }),
+        }),
+      })
+    }),
+  }
+})
+
+// A spy around the real `streamText`, to read the request the route sends.
+vi.mock('ai', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('ai')>()
+  return { ...actual, streamText: vi.fn(actual.streamText) }
+})
 
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: vi.fn(),
@@ -73,27 +92,58 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+/** `USAGE_FIXTURE` as the provider reports it, before the SDK maps it. */
+const PROVIDER_USAGE = {
+  inputTokens: { total: 1531, noCache: 1031, cacheRead: 500, cacheWrite: 0 },
+  outputTokens: { total: 787, text: undefined, reasoning: undefined },
+}
+
+/** The model's stream: the answer in `chunks`, then a finish with the usage. */
+function answerParts(chunks: string[]) {
+  return [
+    { type: 'stream-start', warnings: [] },
+    { type: 'text-start', id: 't1' },
+    ...chunks.map((delta) => ({ type: 'text-delta', id: 't1', delta })),
+    { type: 'text-end', id: 't1' },
+    { type: 'finish', finishReason: { unified: 'stop', raw: 'end_turn' }, usage: PROVIDER_USAGE },
+  ]
+}
+
+/** Read the whole body as the hook does: chunk by chunk. */
+async function readChunks(response: Response): Promise<string[]> {
+  const reader = response.body!.getReader()
+  const decoder = new TextDecoder()
+  const chunks: string[] = []
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) return chunks
+    chunks.push(decoder.decode(value, { stream: true }))
+  }
+}
+
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
-import { generateObject } from 'ai'
+import { streamText } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { logAiSample } from '@/lib/ai/sampling'
 import { getServerFlag } from '@/lib/feature-flags'
 import { COOK_QUESTION_MODEL } from '@/lib/ai/models'
-import { USAGE_FIXTURE, expectedUsageStats } from '@/lib/ai/usage-fixture'
+import { expectedUsageStats } from '@/lib/ai/usage-fixture'
+import { captureApiError } from '@/lib/errors'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
 const mockEntryFindFirst = vi.mocked(prisma.mealPlanEntry.findFirst)
 const mockPantryFindMany = vi.mocked(prisma.pantryItem.findMany)
-const mockGenerateObject = vi.mocked(generateObject)
+const mockStreamText = vi.mocked(streamText)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockAssertUnderCap = vi.mocked(assertUnderCap)
 const mockRecordAiUsage = vi.mocked(recordAiUsage)
 const mockLogAiSample = vi.mocked(logAiSample)
 const mockGetServerFlag = vi.mocked(getServerFlag)
+const mockCaptureApiError = vi.mocked(captureApiError)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -157,7 +207,7 @@ function callPost(body: unknown = validBody()) {
 }
 
 function promptSent(): string {
-  return (mockGenerateObject.mock.calls[0]?.[0] as { prompt: string }).prompt
+  return (mockStreamText.mock.calls[0]?.[0] as { prompt: string }).prompt
 }
 
 function expectNoWrites() {
@@ -185,10 +235,8 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
     })
     mockAssertUnderCap.mockResolvedValue(undefined)
     mockGetServerFlag.mockResolvedValue(true)
-    mockGenerateObject.mockResolvedValue({
-      object: { answer: 'Cut into the thickest piece: no pink.' },
-      usage: USAGE_FIXTURE,
-    } as never)
+    model.parts = answerParts(['Cut into the thickest ', 'piece: no pink.'])
+    model.modelIds = []
   })
 
   it('returns 401 when not authenticated', async () => {
@@ -227,7 +275,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
       expect(response.status).toBe(400)
       expect((await response.json()).code).toBe('invalid_question')
       expect(mockCheckRateLimit).not.toHaveBeenCalled()
-      expect(mockGenerateObject).not.toHaveBeenCalled()
+      expect(mockStreamText).not.toHaveBeenCalled()
     })
 
     it('accepts a 300-character question and 12 steps', async () => {
@@ -275,7 +323,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
     expect(response.headers.get('Retry-After')).toBe('90')
     expect((await response.json()).code).toBe('rate_limited')
     expect(mockCheckRateLimit).toHaveBeenCalledWith('household-123', 'cook-question')
-    expect(mockGenerateObject).not.toHaveBeenCalled()
+    expect(mockStreamText).not.toHaveBeenCalled()
   })
 
   it('returns 503 generation_disabled when the kill switch is off', async () => {
@@ -287,7 +335,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
     expect((await response.json()).code).toBe('generation_disabled')
     expect(mockGetServerFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user-123')
     expect(mockAssertUnderCap).not.toHaveBeenCalled()
-    expect(mockGenerateObject).not.toHaveBeenCalled()
+    expect(mockStreamText).not.toHaveBeenCalled()
   })
 
   it('returns 429 ai_cap_exceeded when the household is over its AI cap', async () => {
@@ -299,14 +347,14 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
 
     expect(response.status).toBe(429)
     expect((await response.json()).code).toBe('ai_cap_exceeded')
-    expect(mockGenerateObject).not.toHaveBeenCalled()
+    expect(mockStreamText).not.toHaveBeenCalled()
   })
 
   it('answers an entry whose tips were served uncached, without pitfalls', async () => {
     const response = await callPost()
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ answer: 'Cut into the thickest piece: no pink.' })
+    expect(await response.text()).toBe('Cut into the thickest piece: no pink.')
     const prompt = promptSent()
     expect(prompt).toContain('2. Fry the chicken.')
     expect(prompt).toContain('The cook is on step 2: Fry the chicken.')
@@ -366,12 +414,25 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
     expectNoWrites()
   })
 
-  it('records usage and logs a sample under the cook-question names', async () => {
-    await callPost()
+  it('streams the answer as plain text, chunk by chunk', async () => {
+    model.parts = answerParts(['Cut into ', 'the thickest ', 'piece.'])
 
-    expect(mockGenerateObject).toHaveBeenCalledWith(
-      expect.objectContaining({ model: { modelId: COOK_QUESTION_MODEL }, maxOutputTokens: 600 }),
+    const response = await callPost()
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toBe('text/plain; charset=utf-8')
+    expect(await readChunks(response)).toEqual(['Cut into ', 'the thickest ', 'piece.'])
+  })
+
+  it('records usage once with the finished numbers, and logs the full text', async () => {
+    const response = await callPost()
+    await response.text()
+
+    expect(model.modelIds).toEqual([COOK_QUESTION_MODEL])
+    expect(mockStreamText).toHaveBeenCalledWith(
+      expect.objectContaining({ maxOutputTokens: 600, maxRetries: 3 }),
     )
+    expect(mockRecordAiUsage).toHaveBeenCalledOnce()
     expect(mockRecordAiUsage).toHaveBeenCalledWith({
       householdId: 'household-123',
       feature: 'cook_question',
@@ -381,8 +442,82 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
       expect.objectContaining({
         callSite: 'cook-question',
         input: { mealName: 'Chicken stir fry', stepIndex: 1, source: 'uncached' },
+        output: { answer: 'Cut into the thickest piece: no pink.' },
       }),
     )
+  })
+
+  it('closes the stream only once the usage is recorded', async () => {
+    let finishWrite: () => void = () => {}
+    mockRecordAiUsage.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = resolve
+        }),
+    )
+    const response = await callPost()
+    const reader = response.body!.getReader()
+    await reader.read()
+    await reader.read()
+
+    let closed = false
+    const end = reader.read().then((result) => {
+      closed = result.done
+    })
+    await vi.waitFor(() => expect(mockRecordAiUsage).toHaveBeenCalledOnce())
+    expect(closed).toBe(false)
+
+    finishWrite()
+    await end
+    expect(closed).toBe(true)
+  })
+
+  it('a model that writes nothing records a failed call and answers 500', async () => {
+    model.parts = answerParts([])
+
+    const response = await callPost()
+
+    expect(response.status).toBe(500)
+    expect((await response.json()).code).toBe('question_failed')
+    expect(mockRecordAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ ...expectedUsageStats(COOK_QUESTION_MODEL), success: false }),
+    )
+  })
+
+  describe('a failure after the first words', () => {
+    beforeEach(() => {
+      model.parts = [
+        { type: 'stream-start', warnings: [] },
+        { type: 'text-start', id: 't1' },
+        { type: 'text-delta', id: 't1', delta: 'Cut into ' },
+        { type: 'error', error: Object.assign(new Error('overloaded'), { statusCode: 529 }) },
+      ]
+    })
+
+    it('sends what arrived, then ends the stream in an error', async () => {
+      const response = await callPost()
+
+      expect(response.status).toBe(200)
+      const reader = response.body!.getReader()
+      const first = await reader.read()
+      expect(new TextDecoder().decode(first.value)).toBe('Cut into ')
+      await expect(reader.read()).rejects.toThrow('overloaded')
+    })
+
+    it('records one failed call, captures the error and logs no sample', async () => {
+      const response = await callPost()
+      await response.text().catch(() => {})
+
+      expect(mockRecordAiUsage).toHaveBeenCalledOnce()
+      expect(mockRecordAiUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ feature: 'cook_question', success: false }),
+      )
+      expect(mockCaptureApiError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'overloaded' }),
+        expect.objectContaining({ feature: 'cook_question' }),
+      )
+      expect(mockLogAiSample).not.toHaveBeenCalled()
+    })
   })
 
   describe('AI failures', () => {
@@ -391,13 +526,18 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
       [Object.assign(new Error('overloaded'), { statusCode: 529 }), 502, 'provider_unavailable'],
       [Object.assign(new Error('Timeout'), { name: 'TimeoutError' }), 504, 'question_timeout'],
       [new Error('boom'), 500, 'question_failed'],
-    ])('maps %s to %i %s', async (error, status, code) => {
-      mockGenerateObject.mockRejectedValue(error)
+    ])('maps %s before the first word to %i %s', async (error, status, code) => {
+      model.parts = [
+        { type: 'stream-start', warnings: [] },
+        { type: 'error', error },
+      ]
 
       const response = await callPost()
 
       expect(response.status).toBe(status)
       expect((await response.json()).code).toBe(code)
+      // A provider error before any text bills nothing, as before streaming.
+      expect(mockRecordAiUsage).not.toHaveBeenCalled()
     })
   })
 })

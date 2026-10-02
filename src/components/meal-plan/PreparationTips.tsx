@@ -84,7 +84,10 @@ export interface CookQuestionControls {
   active: CookQuestionActive | null
   /** The answered question still on screen while `active` waits (HON-978) */
   previous: CookQuestionActive | null
+  /** Waiting for the first words of the answer */
   isPending: boolean
+  /** The answer's words are arriving; true until the stream closes (HON-979) */
+  isStreaming: boolean
   error: CookQuestionError | null
   onRetry: () => void
 }
@@ -210,8 +213,10 @@ interface CookQuestionPanelProps {
 /**
  * The question panel under one step (HON-969): three chips that send at once,
  * a field with Send, then the question asked with Edit (HON-976) above
- * "Thinking…", the answer, or the error with Retry. A second question keeps
- * the first one's answer, muted, until its own answer takes that place, and
+ * "Thinking…", the answer, or the error with Retry. The answer streams in, and
+ * a stream that breaks keeps its words with the error under them (HON-979).
+ * A second question keeps the first one's answer, muted, until its own answer
+ * takes that place, and
  * "Thinking…" sits beside Close, so the steps below do not jump (HON-978).
  * It sits straight on the tint, indented to the step text, with no card or
  * border of its own (docs/DESIGN.md → cook view). It scrolls into view when it
@@ -237,16 +242,23 @@ function CookQuestionPanel({
   // flag on `text`, so a second Edit with the text unchanged still focuses.
   const [editCount, setEditCount] = useState(0)
   const questionId = useId()
-  const { ask, active, previous, isPending, error, onRetry } = controls
+  const { ask, active, previous, isPending, isStreaming, error, onRetry } = controls
+  // Until the stream closes: a second question while the answer is on its way
+  // would bill a second AI call, because the route runs on after the browser
+  // aborts the first.
+  const busy = isPending || isStreaming
   const ownStep = active?.stepIndex === stepIndex
   // The last answer, kept on screen under its own question while the next one
   // is on its way, so the panel does not shrink to one line (HON-978).
   const stale = ownStep && isPending && previous?.stepIndex === stepIndex ? previous : null
   const asked = stale ? stale.question : ownStep ? active.question : null
   const answer = ownStep ? active.answer : null
-  // One slot for the stale answer, the error or the answer, so each replaces
-  // the last in place and the live region reads only the new text.
-  const shown = isPending ? stale?.answer : (error?.message ?? answer)
+  // One slot for the stale answer or the answer, so each replaces the last in
+  // place. The error goes under it: alone, or under the words that arrived
+  // before the stream broke (HON-979).
+  const shown = isPending ? stale?.answer : answer
+  const shownError = isPending ? null : error?.message
+  const hasAnswer = Boolean(answer)
 
   useEffect(() => {
     if (focusField) inputRef.current?.focus()
@@ -258,10 +270,11 @@ function CookQuestionPanel({
   }, [])
 
   // The answer or the error, with Close under it, once the wait is over. Not
-  // "Thinking…": the field the cook may be typing in stays where it is.
+  // "Thinking…": the field the cook may be typing in stays where it is. At the
+  // first words and again when the stream closes, not at every chunk.
   useEffect(() => {
-    if (!isPending && (answer || error)) scrollIntoViewNearest(resultRef.current)
-  }, [isPending, answer, error])
+    if (!isPending && (hasAnswer || error)) scrollIntoViewNearest(resultRef.current)
+  }, [isPending, isStreaming, hasAnswer, error])
 
   useEffect(() => {
     const input = inputRef.current
@@ -287,12 +300,9 @@ function CookQuestionPanel({
             key={key}
             variant="outline"
             size="lg"
-            // Like Send: a second tap while the answer is on its way would
-            // bill a second AI call, because the route runs on after the
-            // browser aborts the first.
-            aria-disabled={isPending}
+            aria-disabled={busy}
             onClick={() => {
-              if (isPending) return
+              if (busy) return
               send(t(`chips.${key}`), 'chip')
             }}
           >
@@ -307,7 +317,7 @@ function CookQuestionPanel({
           e.preventDefault()
           // `aria-disabled`, not `disabled`, keeps focus on Send while the
           // answer is on its way (CLAUDE.md → Focus management).
-          if (isPending) return
+          if (busy) return
           const question = text.trim()
           if (!question) return
           send(question, 'text')
@@ -327,7 +337,7 @@ function CookQuestionPanel({
           maxLength={300}
           enterKeyHint="send"
         />
-        <Button type="submit" aria-disabled={isPending}>
+        <Button type="submit" aria-disabled={busy}>
           {t('send')}
         </Button>
       </form>
@@ -358,12 +368,15 @@ function CookQuestionPanel({
       {/* One box for the answer and the row under it, so one scroll brings
           both into view (HON-977). */}
       <div ref={resultRef} data-slot="cook-question-result" className="flex flex-col gap-3">
-        <div role="status">
+        {/* Busy while the words arrive, so a screen reader reads the
+            finished answer once rather than every chunk (HON-979). */}
+        <div role="status" aria-busy={isStreaming} className="flex flex-col gap-3">
           {shown && (
             <Body variant="step" tone={isPending ? 'muted' : 'default'}>
               {shown}
             </Body>
           )}
+          {shownError && <Body variant="step">{shownError}</Body>}
           {/* Read out here; shown in the row below, beside Close, where it
               adds no line under the old answer (HON-978). */}
           {isPending && <span className="sr-only">{t('thinking')}</span>}

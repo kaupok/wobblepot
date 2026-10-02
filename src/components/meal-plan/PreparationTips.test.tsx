@@ -304,6 +304,7 @@ describe('PreparationSteps cook question', () => {
           active: null,
           previous: null,
           isPending: false,
+          isStreaming: false,
           error: null,
           onRetry: vi.fn(),
           ...controls,
@@ -409,6 +410,58 @@ describe('PreparationSteps cook question', () => {
 
     expect(chip).toHaveAttribute('aria-disabled', 'true')
     expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('Send and the chips do nothing while the answer streams in (HON-979)', async () => {
+    const ask = vi.fn()
+    render(
+      <Harness
+        controls={{
+          ask,
+          isStreaming: true,
+          active: { stepIndex: 0, question: 'Q', answer: 'Use the ' },
+        }}
+      />,
+    )
+    await userEvent.click(askButton(1))
+    await userEvent.type(screen.getByRole('textbox'), 'Done yet?')
+    const send = screen.getByRole('button', { name: 'Send' })
+    await userEvent.click(send)
+    const chip = screen.getByRole('button', { name: "I'm short on time" })
+    await userEvent.click(chip)
+
+    expect(send).toHaveAttribute('aria-disabled', 'true')
+    expect(chip).toHaveAttribute('aria-disabled', 'true')
+    expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('marks the status busy while the answer streams, without "Thinking…"', async () => {
+    const active = { stepIndex: 0, question: 'Q', answer: 'Use the ' }
+    const { rerender } = render(<Harness controls={{ isStreaming: true, active }} />)
+    await userEvent.click(askButton(1))
+    const status = within(panel(1)!).getByRole('status')
+    expect(status).toHaveAttribute('aria-busy', 'true')
+    expect(status).toHaveTextContent(/^Use the$/)
+
+    rerender(<Harness controls={{ active: { ...active, answer: 'Use the yoghurt.' } }} />)
+    expect(within(panel(1)!).getByRole('status')).toHaveAttribute('aria-busy', 'false')
+  })
+
+  it('keeps the words that arrived above the error when the stream broke', async () => {
+    render(
+      <Harness
+        controls={{
+          active: { stepIndex: 0, question: 'Q', answer: 'Use the ' },
+          error: { message: 'Could not answer.', canRetry: true },
+        }}
+      />,
+    )
+    await userEvent.click(askButton(1))
+    const status = within(panel(1)!).getByRole('status')
+    const words = within(status).getByText('Use the')
+    const error = within(status).getByText('Could not answer.')
+    expect(words.compareDocumentPosition(error) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
   })
 
   it('shows the answer for its own step', async () => {
@@ -600,6 +653,23 @@ describe('PreparationSteps cook question', () => {
       expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest', behavior: 'smooth' })
       expect(result()).toContainElement(screen.getByRole('button', { name: 'Close' }))
       expect(chip).toHaveFocus()
+    })
+
+    it('scrolls at the first words and when the stream closes, not at every chunk (HON-979)', async () => {
+      const active = { stepIndex: 0, question: "I'm short on time", answer: null }
+      const { rerender } = render(<Harness controls={{ active, isPending: true }} />)
+      await userEvent.click(askButton(1))
+
+      const streaming = (answer: string) => (
+        <Harness controls={{ active: { ...active, answer }, isStreaming: true }} />
+      )
+      rerender(streaming('Skip '))
+      rerender(streaming('Skip the '))
+      rerender(streaming('Skip the rest.'))
+      expect(scrolled()).toEqual([panel(1), result()])
+
+      rerender(<Harness controls={{ active: { ...active, answer: 'Skip the rest.' } }} />)
+      expect(scrolled()).toEqual([panel(1), result(), result()])
     })
 
     it('scrolls the error and Retry into view when the error arrives', async () => {

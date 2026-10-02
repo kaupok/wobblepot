@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { generateObject } from 'ai'
+import { streamText, type LanguageModelUsage } from 'ai'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { aiErrorStatusCode } from '@/lib/ai/error-status'
 import { auth } from '@/lib/auth'
@@ -22,7 +22,6 @@ import {
   recordAiUsage,
   respondCapExceeded,
   toAiUsageStats,
-  withUsageOnFailure,
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
@@ -42,6 +41,14 @@ import type { CookQuestionErrorCode } from '@/lib/ai/error-codes'
  */
 function errorBody(error: string, code: CookQuestionErrorCode) {
   return { error, code }
+}
+
+/**
+ * What an `abort` part stands for. The only signal is the budget, so its reason
+ * is the `TimeoutError` that `isAiBudgetTimeout` maps to a 504.
+ */
+function abortReason(signal: AbortSignal): unknown {
+  return signal.reason ?? new DOMException('Aborted', 'AbortError')
 }
 
 /**
@@ -88,6 +95,11 @@ async function handlePOST(
   // and an English prompt (HON-921). This route writes nothing, so there is
   // no cache to guard against the stored locale.
   const locale = resolveHouseholdLocale(household)
+  const errorContext = {
+    route: '/api/meal-plans/[id]/entries/[entryId]/cook-question',
+    userId: session.user.id,
+    feature: 'cook_question',
+  }
 
   try {
     const entry = await prisma.mealPlanEntry.findFirst({
@@ -213,49 +225,111 @@ async function handlePOST(
 
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
     // One wall-clock budget for all AI time in this request, shared by the
-    // initial attempt and every retry. Sized against `maxDuration` in `@/lib/ai/budgets`.
+    // initial attempt and every retry, and by the streaming that follows.
+    // Sized against `maxDuration` in `@/lib/ai/budgets`.
     const timeout = AbortSignal.timeout(COOK_QUESTION_AI_BUDGET_MS)
 
-    const result = await withUsageOnFailure(
-      COOK_QUESTION_MODEL,
-      (stats) =>
-        recordAiUsage({
-          householdId: household.id,
-          feature: 'cook_question',
-          ...stats,
-        }),
-      () =>
-        generateObject({
-          ...aiRequest,
-          model: anthropic(COOK_QUESTION_MODEL),
-          abortSignal: timeout,
-        }),
-    )
-
-    await recordAiUsage({
-      householdId: household.id,
-      feature: 'cook_question',
-      ...toAiUsageStats(COOK_QUESTION_MODEL, result.usage),
+    // Plain text, streamed: the cook reads the first sentence while the rest
+    // is written (HON-979). `streamText` never throws; its errors arrive as
+    // parts of the full stream, read here so an error before the first word
+    // still gets the JSON status the hook translates.
+    const result = streamText({
+      ...aiRequest,
+      model: anthropic(COOK_QUESTION_MODEL),
+      abortSignal: timeout,
     })
+    const parts = result.stream[Symbol.asyncIterator]()
+    let usage: LanguageModelUsage | undefined
 
-    // `source` is where Watch out and Tip came from: the entry's cached tips,
-    // or none because the steps were served uncached. The chip-or-typed
-    // source is the analytics event's, and the route never sees it.
-    await logAiSample({
-      callSite: 'cook-question',
-      locale,
-      input: { mealName, stepIndex, source: cachedTips ? 'cached' : 'uncached' },
-      output: result.object,
+    // Before the first word: an error falls through to the catch below.
+    let first: string | null = null
+    while (first === null) {
+      const next = await parts.next()
+      if (next.done) break
+      const part = next.value
+      if (part.type === 'text-delta' && part.text) first = part.text
+      else if (part.type === 'finish') usage = part.totalUsage
+      else if (part.type === 'error') throw part.error
+      else if (part.type === 'abort') throw abortReason(timeout)
+    }
+
+    const recordUsage = (success: boolean) =>
+      recordAiUsage({
+        householdId: household.id,
+        feature: 'cook_question',
+        ...toAiUsageStats(COOK_QUESTION_MODEL, usage),
+        ...(!success && { success: false }),
+      })
+
+    if (first === null) {
+      // Billed, but no answer to show.
+      await recordUsage(false)
+      throw new Error('Cook question returned no text')
+    }
+
+    const firstText = first
+    const encoder = new TextEncoder()
+    let cancelled = false
+
+    const body = new ReadableStream<Uint8Array>({
+      // Pushed, not pulled: the answer is a few sentences, and the model call
+      // runs to its end even when the cook closes the panel, so its usage is
+      // still recorded.
+      start(controller) {
+        const send = (text: string) => {
+          if (!cancelled) controller.enqueue(encoder.encode(text))
+        }
+        void (async () => {
+          let text = firstText
+          send(firstText)
+          try {
+            for (;;) {
+              const next = await parts.next()
+              if (next.done) break
+              const part = next.value
+              if (part.type === 'text-delta') {
+                text += part.text
+                send(part.text)
+              } else if (part.type === 'finish') usage = part.totalUsage
+              else if (part.type === 'error') throw part.error
+              else if (part.type === 'abort') throw abortReason(timeout)
+            }
+          } catch (error) {
+            // Mid-answer: the status is already 200, so the stream ends in an
+            // error and the hook shows what arrived with the generic error.
+            captureApiError(error, errorContext)
+            await recordUsage(false)
+            if (!cancelled) controller.error(error)
+            return
+          }
+          // Before the stream closes, so Send stays disabled until the
+          // monthly cap has seen this call.
+          await recordUsage(true)
+          // `source` is where Watch out and Tip came from: the entry's cached
+          // tips, or none because the steps were served uncached. The
+          // chip-or-typed source is the analytics event's, and the route
+          // never sees it.
+          await logAiSample({
+            callSite: 'cook-question',
+            locale,
+            input: { mealName, stepIndex, source: cachedTips ? 'cached' : 'uncached' },
+            output: { answer: text },
+          })
+          if (!cancelled) controller.close()
+        })()
+      },
+      cancel() {
+        cancelled = true
+      },
     })
 
     // Nothing is written: the answer lives on the cook's screen only.
-    return NextResponse.json({ answer: result.object.answer }, { status: 200 })
-  } catch (error) {
-    captureApiError(error, {
-      route: '/api/meal-plans/[id]/entries/[entryId]/cook-question',
-      userId: session.user.id,
-      feature: 'cook_question',
+    return new Response(body, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
     })
+  } catch (error) {
+    captureApiError(error, errorContext)
 
     const statusCode = aiErrorStatusCode(error)
 
