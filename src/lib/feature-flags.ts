@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache } from 'react'
 import { getPosthogServer } from '@/lib/posthog-server'
 
 /**
@@ -48,6 +49,30 @@ export interface BootstrapData {
 const FLAG_TIMEOUT_MS = 100
 const TIMEOUT_SENTINEL = Symbol('feature-flag-timeout')
 
+/**
+ * How long one `getAllFlags` result is reused for the same distinct id inside a
+ * warm function instance. A kill-switch flip reaches the bootstrap and the
+ * anonymous reads within this window; see "Caching" in `docs/FEATURE_FLAGS.md`.
+ */
+export const FLAG_CACHE_TTL_MS = 30_000
+const FLAG_CACHE_MAX_ENTRIES = 1000
+
+type EvaluatedFlags = Record<FlagKey, boolean>
+
+/**
+ * In-isolate cache of `getAllFlags` evaluations, keyed by distinct id. It holds
+ * the promise rather than the result, so callers that start while a request is
+ * in flight share it: the layout and the page render concurrently, and neither
+ * is guaranteed to start first. A failed evaluation deletes its entry, so a
+ * PostHog outage is never cached and the next read retries.
+ */
+const flagCache = new Map<string, { promise: Promise<EvaluatedFlags | null>; expiresAt: number }>()
+
+/** Empty the in-isolate flag cache. Tests only: the map outlives each test. */
+export function resetFlagCacheForTests(): void {
+  flagCache.clear()
+}
+
 /** Coerce PostHog's `boolean | string | undefined` flag value to our boolean default. */
 function coerceFlag(key: FlagKey, value: boolean | string | undefined): boolean {
   if (value === true) return true
@@ -56,6 +81,72 @@ function coerceFlag(key: FlagKey, value: boolean | string | undefined): boolean 
   // don't model — fall back to the safe default.
   return FLAG_DEFAULTS[key]
 }
+
+/**
+ * Evaluate every known flag in one `getAllFlags` call, raced against the
+ * 100ms timeout. Resolves to `null` on timeout, error, or unset environment;
+ * the callers turn that into the per-flag defaults. Never throws.
+ *
+ * `getAllFlags` sends no `$feature_flag_called` event, so only reads that
+ * should send none may use this: the bootstrap and the shared `'anonymous'` id.
+ */
+async function fetchAllFlags(distinctId: string): Promise<EvaluatedFlags | null> {
+  const posthog = getPosthogServer()
+  if (!posthog) return null
+
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined
+  const timeoutPromise = new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+    timeoutHandle = setTimeout(() => resolve(TIMEOUT_SENTINEL), FLAG_TIMEOUT_MS)
+  })
+
+  // Same late-rejection guard as getServerFlag — Promise.race doesn't cancel.
+  const allFlagsPromise = posthog.getAllFlags(distinctId).catch((error) => {
+    console.warn('[feature-flags] bootstrap late error', { error })
+    return undefined as Record<string, boolean | string> | undefined
+  })
+
+  try {
+    const result = await Promise.race([allFlagsPromise, timeoutPromise])
+
+    if (result === TIMEOUT_SENTINEL) {
+      console.warn('[feature-flags] bootstrap timeout')
+      return null
+    }
+
+    if (!result) return null
+
+    return Object.fromEntries(
+      FLAG_KEYS.map((key) => [key, coerceFlag(key, result[key])]),
+    ) as EvaluatedFlags
+  } catch (error) {
+    console.warn('[feature-flags] bootstrap error', { error })
+    return null
+  } finally {
+    if (timeoutHandle !== undefined) clearTimeout(timeoutHandle)
+  }
+}
+
+/**
+ * `fetchAllFlags` behind two caches: React `cache()` for one evaluation per
+ * request, and `flagCache` for one per distinct id per `FLAG_CACHE_TTL_MS`
+ * across requests. Outside a React render (route handlers, Better Auth hooks)
+ * `cache()` does not memoize, and `flagCache` alone dedupes.
+ */
+const evaluateAllFlags = cache(async (distinctId: string): Promise<EvaluatedFlags | null> => {
+  const now = Date.now()
+  const cached = flagCache.get(distinctId)
+  if (cached && cached.expiresAt > now) return cached.promise
+
+  if (flagCache.size >= FLAG_CACHE_MAX_ENTRIES) flagCache.clear()
+
+  const promise = fetchAllFlags(distinctId)
+  const entry = { promise, expiresAt: now + FLAG_CACHE_TTL_MS }
+  flagCache.set(distinctId, entry)
+  const result = await promise
+  // Only drop our own entry: a later caller may have replaced it already.
+  if (result === null && flagCache.get(distinctId) === entry) flagCache.delete(distinctId)
+  return result
+})
 
 /**
  * Read a feature flag from the server. Returns the flag's default
@@ -70,6 +161,15 @@ export async function getServerFlag(key: FlagKey, distinctId: string): Promise<b
   const posthog = getPosthogServer()
   if (!posthog) return FLAG_DEFAULTS[key]
 
+  // The shared `'anonymous'` id reads the same cached evaluation as the layout
+  // bootstrap, so a landing or sign-up render makes one `/flags` request, not
+  // two. `getAllFlags` also sends no `$feature_flag_called`: every anonymous
+  // render (mostly crawlers) piled events onto one person and told us nothing.
+  if (distinctId === 'anonymous') {
+    const flags = await evaluateAllFlags(distinctId)
+    return flags ? flags[key] : FLAG_DEFAULTS[key]
+  }
+
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined
   const timeoutPromise = new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
     timeoutHandle = setTimeout(() => resolve(TIMEOUT_SENTINEL), FLAG_TIMEOUT_MS)
@@ -79,11 +179,9 @@ export async function getServerFlag(key: FlagKey, distinctId: string): Promise<b
   // late rejection from posthog-node (PostHog 5xx, network error, SDK's own
   // 10s timeout) doesn't bubble out as an `unhandledRejection` after the
   // race already resolved with our default.
-  // The shared `'anonymous'` id sends no `$feature_flag_called`: every landing
-  // and sign-up render (mostly crawlers) piled events onto one person and told
-  // us nothing. User-id reads keep theirs; PostHog shows a flag as active from them.
-  const options = distinctId === 'anonymous' ? { sendFeatureFlagEvents: false } : undefined
-  const flagPromise = posthog.getFeatureFlag(key, distinctId, options).catch((error) => {
+  // User-id reads stay uncached and keep their `$feature_flag_called` event,
+  // which is what PostHog uses to show a flag as active.
+  const flagPromise = posthog.getFeatureFlag(key, distinctId).catch((error) => {
     console.warn('[feature-flags] late error', { key, error })
     return undefined as boolean | string | undefined
   })
@@ -107,53 +205,19 @@ export async function getServerFlag(key: FlagKey, distinctId: string): Promise<b
 
 /**
  * Evaluate every known flag for the given distinct id in a single batched
- * call to PostHog. Without `personalApiKey` configured on the server SDK,
- * `getFeatureFlag` per-call hits the `/decide` endpoint; using `getAllFlags`
- * collapses N round-trips and N `$feature_flag_called` events into one.
+ * call to PostHog, for the client SDK's bootstrap. Cached per request and for
+ * `FLAG_CACHE_TTL_MS` per distinct id, and shared with anonymous
+ * `getServerFlag` reads, so a render that bootstraps and reads a flag makes one
+ * `/flags` request.
  *
  * Same fail-open semantics as `getServerFlag` — timeout, error, or unset
  * environment all return the per-flag defaults.
  */
 export async function bootstrapFlags(distinctId: string): Promise<BootstrapData> {
   const distinctIDForBootstrap = distinctId === 'anonymous' ? undefined : distinctId
-  const safeDefaults = (): BootstrapData => ({
+  const flags = await evaluateAllFlags(distinctId)
+  return {
     distinctID: distinctIDForBootstrap,
-    featureFlags: { ...FLAG_DEFAULTS },
-  })
-
-  const posthog = getPosthogServer()
-  if (!posthog) return safeDefaults()
-
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined
-  const timeoutPromise = new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-    timeoutHandle = setTimeout(() => resolve(TIMEOUT_SENTINEL), FLAG_TIMEOUT_MS)
-  })
-
-  // Same late-rejection guard as getServerFlag — Promise.race doesn't cancel.
-  const allFlagsPromise = posthog.getAllFlags(distinctId).catch((error) => {
-    console.warn('[feature-flags] bootstrap late error', { error })
-    return undefined as Record<string, boolean | string> | undefined
-  })
-
-  try {
-    const result = await Promise.race([allFlagsPromise, timeoutPromise])
-
-    if (result === TIMEOUT_SENTINEL) {
-      console.warn('[feature-flags] bootstrap timeout')
-      return safeDefaults()
-    }
-
-    if (!result) return safeDefaults()
-
-    const featureFlags = Object.fromEntries(
-      FLAG_KEYS.map((key) => [key, coerceFlag(key, result[key])]),
-    ) as Record<FlagKey, boolean>
-
-    return { distinctID: distinctIDForBootstrap, featureFlags }
-  } catch (error) {
-    console.warn('[feature-flags] bootstrap error', { error })
-    return safeDefaults()
-  } finally {
-    if (timeoutHandle !== undefined) clearTimeout(timeoutHandle)
+    featureFlags: flags ? { ...flags } : { ...FLAG_DEFAULTS },
   }
 }
