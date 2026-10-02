@@ -2656,14 +2656,15 @@ cmd_watch() {
 
     # One jq pass for the header, one more below for the workers: the old loop
     # spent six jq processes per worker per redraw.
-    local orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count poll_interval
-    IFS=$'\t' read -r orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count poll_interval \
+    local orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count poll_interval last_loop
+    IFS=$'\t' read -r orch_pid started_at last_poll max_workers cb_failures cb_paused worker_count poll_interval last_loop \
       <<< "$(echo "$status" | jq -r '[
         (.pid|tostring), .started_at, .last_poll, (.max_workers // 3 | tostring),
         (.circuit_breaker.consecutive_failures | tostring),
         (.circuit_breaker.paused_until // "-"),
         (.workers | length | tostring),
-        (.poll_interval // 60 | tostring)
+        (.poll_interval // 60 | tostring),
+        (.last_loop // .last_poll // "-")
       ] | @tsv' 2>/dev/null)"
     [ -n "${worker_count:-}" ] || worker_count=0
 
@@ -2690,15 +2691,19 @@ cmd_watch() {
       || date -d "@$((start_epoch + 120))" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || true
     [ -n "$grace_ts" ] || grace_ts="$since_ts"
     # The clock the alert age-out measures from — see watch_scan_log. The
-    # orchestrator's last poll, not the wall clock: a persisting condition is
+    # orchestrator's loop stamp, not the wall clock: a persisting condition is
     # re-logged once per loop, and a loop that triages several failed workers
     # can outrun the age limit, which would blank a live low-disk alert in the
-    # middle of the loop. write_status_file stamps last_poll just before the
-    # disk check, so measured from it a re-logged alert is always fresh, and a
-    # one-off line still ages out as the polls move on. The wall clock is the
-    # fallback for a status file without a readable last_poll.
-    local now_ts="" clock_epoch="$now"
-    [ "$poll_epoch" -gt 0 ] && clock_epoch="$poll_epoch"
+    # middle of the loop. last_loop is stamped just before the disk check and
+    # nowhere else (unlike last_poll, which monitor_workers restamps after its
+    # triage), so measured from it a re-logged alert is always fresh, and a
+    # one-off line still ages out as the loops move on. last_poll covers a
+    # status file from an orchestrator older than the field, and the wall
+    # clock one with neither.
+    local now_ts="" clock_epoch="$now" loop_epoch=0
+    loop_epoch=$(TZ=UTC date -jf '%Y-%m-%dT%H:%M:%SZ' "$last_loop" '+%s' 2>/dev/null) || \
+    loop_epoch=$(date -d "$last_loop" '+%s' 2>/dev/null) || loop_epoch=0
+    [ "$loop_epoch" -gt 0 ] && clock_epoch="$loop_epoch"
     now_ts=$(date -r "$clock_epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
       || date -d "@$clock_epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || now_ts=""
     local t_success=0 t_failed=0 t_stranded=0 t_gated=0 t_timeout=0 t_truncated=0

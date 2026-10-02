@@ -727,6 +727,7 @@ EOF
     echo "STATUS_JSON:$(jq -c '.circuit_breaker' "$STATUS_FILE")" >> "$MAIN_LOG"
     # What `wt watch` sizes the alert age-out from (HON-937).
     echo "STATUS_POLL:$(jq -c '.poll_interval' "$STATUS_FILE")" >> "$MAIN_LOG"
+    echo "STATUS_LOOP:$(jq -c '.last_loop' "$STATUS_FILE")" >> "$MAIN_LOG"
     exit 0
     ;;
 

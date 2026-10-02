@@ -428,12 +428,16 @@ describe('orchestrator.sh', () => {
   describe('status file poll_interval (HON-937)', () => {
     // `wt watch` stretches its alert age-out to three polls on a slow
     // orchestrator, and this field is the only place it can learn the interval.
-    const statusPoll = (interval: string): { poll: unknown; breaker: unknown } => {
+    const statusPoll = (interval: string): { poll: unknown; loop: unknown; breaker: unknown } => {
       const out = stripTimestamps(
         runHarnessEnv({ ORCHESTRATOR_POLL_INTERVAL: interval }, 'failure', 'RETRY', '0', 'false'),
       )
       const read = (key: string) => out.match(new RegExp(`^${key}:(.*)$`, 'm'))?.[1] ?? ''
-      return { poll: JSON.parse(read('STATUS_POLL') || '"missing"'), breaker: read('STATUS_JSON') }
+      return {
+        poll: JSON.parse(read('STATUS_POLL') || '"missing"'),
+        loop: JSON.parse(read('STATUS_LOOP') || '"missing"'),
+        breaker: read('STATUS_JSON'),
+      }
     }
 
     it('records the poll interval in seconds', () => {
@@ -447,6 +451,29 @@ describe('orchestrator.sh', () => {
 
       expect(r.poll).toBeNull()
       expect(r.breaker).toContain('consecutive_failures')
+    })
+
+    it('leaves last_loop null when the file is written outside the main loop', () => {
+      // The `failure` harness runs handle_failure and then write_status_file,
+      // as monitor_workers does, without entering the main loop. If a write
+      // like that moved last_loop, a triage that outran the age limit would
+      // blank a live alert, which is why last_poll is not used.
+      expect(statusPoll('60').loop).toBeNull()
+    })
+
+    it('stamps last_loop only in the main loop, just before the disk check', () => {
+      // Every alert `wt watch` shows is re-logged after check_disk_space on
+      // each loop, so a stamp taken just before it keeps a live alert fresh.
+      const source = fs.readFileSync(orchestrator, 'utf8')
+      const body = shellFunctionBody(source, 'main')
+      const stamp = body.indexOf('LAST_LOOP_AT="$(date')
+      const disk = body.indexOf('check_disk_space || disk_ok=false')
+
+      expect(stamp).toBeGreaterThan(-1)
+      expect(disk).toBeGreaterThan(stamp)
+      expect(body.slice(stamp, disk)).not.toMatch(/monitor_workers|interruptible_sleep/)
+      // One assignment in main, plus the empty initialiser at file scope.
+      expect(source.match(/LAST_LOOP_AT=/g)).toHaveLength(2)
     })
   })
 
