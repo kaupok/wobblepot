@@ -761,6 +761,20 @@ describe('HouseholdSettingsForm', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toHaveFocus())
     })
 
+    it('leaves focus alone on a failure when the user has moved to another section', async () => {
+      const respond = deferFetch()
+      renderForm()
+
+      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      const nameInput = screen.getByLabelText('Household name')
+      act(() => nameInput.focus())
+      respond(fail(500, 'Failed to update household preferences'))
+
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+      expect(nameInput).toHaveFocus()
+    })
+
     it('handles a network failure', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'))
       renderForm()

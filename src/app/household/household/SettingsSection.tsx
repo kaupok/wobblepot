@@ -68,6 +68,14 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
   const formRef = useRef<HTMLFormElement>(null)
   const headingRef = useRef<HTMLElement>(null)
 
+  // Whether focus is still this section's to place once its save settles: on
+  // <body>, where a disabled button drops it, or inside the form. A user who
+  // has moved on to another section keeps their focus there.
+  const ownsFocus = () => {
+    const active = document.activeElement
+    return !active || active === document.body || !!formRef.current?.contains(active)
+  }
+
   const save = useMutation({
     mutationFn: async (body: T) => {
       // The routes are owner-only (they 403 a member), so a non-owner has
@@ -88,12 +96,9 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
     onSuccess: (_data, body) => {
       toast.success(t('savedToast'))
       // The Save button unmounts once the section is clean, and focus on it
-      // would fall to <body>. Move it to the heading first, unless the user
-      // has already moved on to another section (CLAUDE.md → Focus management).
-      const active = document.activeElement
-      if (!active || active === document.body || formRef.current?.contains(active)) {
-        headingRef.current?.focus()
-      }
+      // would fall to <body>. Move it to the heading first (CLAUDE.md → Focus
+      // management).
+      if (ownsFocus()) headingRef.current?.focus()
       onSaved(body)
       router.refresh()
     },
@@ -112,7 +117,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
             : t('saveFailed'),
         values: body,
       })
-      requestRefocus()
+      if (ownsFocus()) requestRefocus()
     },
   })
 
