@@ -126,6 +126,7 @@ describe('PostHogProvider', () => {
         api_host: 'https://eu.i.posthog.com',
         person_profiles: 'identified_only',
         capture_pageview: false,
+        capture_pageleave: true,
         disable_session_recording: true,
       }),
     )
