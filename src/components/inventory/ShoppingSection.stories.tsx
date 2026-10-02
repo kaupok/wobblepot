@@ -213,5 +213,9 @@ export const CopyList: Story = {
     // The label is constant across the icon swap, so the accessible name is
     // stable while the checkmark is showing.
     await expect(canvas.getByRole('button', { name: /copy list/i })).toBeInTheDocument()
+
+    // No success toast (HON-955): the checkmark confirms the copy, and the
+    // status region voices it, since both icons are aria-hidden.
+    await expect(canvas.getByRole('status')).toHaveTextContent('Shopping list copied')
   },
 }
