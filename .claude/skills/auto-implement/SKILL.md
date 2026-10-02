@@ -24,18 +24,26 @@ Auto-discovery (no arg) reads the `Queued` state only, the same queue the orches
 
 Execute phases 0-7 sequentially. Stop only on error or completion.
 
-**Every turn must end in a terminal state — there is no pending-work exception.** In the orchestrator's headless spawn (`worktree-claude.sh auto` → `claude --dangerously-skip-permissions … "$prompt"`, no TTY, stdout redirected to a log) the process exits the moment a turn ends. There is no session left to deliver a `run_in_background` completion notification to, so any backgrounded work dies with the process and the code that was supposed to run "when the poll returns" never runs at all. The orchestrator then treats the run as finished and cleans up.
+**Every turn must end in a terminal state — there is no pending-work exception.** In the orchestrator's headless spawn (`worktree-claude.sh auto` → `claude --dangerously-skip-permissions … "$prompt"`, no TTY, stdout redirected to a log) the process exits the moment a turn ends. There is no session left to deliver a `run_in_background` completion notification to, so backgrounded work dies with the process, the code meant to run "when the poll returns" never runs, and the orchestrator treats the run as finished and cleans up. That has both destroyed uncommitted work and stranded finished PRs (HON-562, HON-573; the incidents are in `history.md`).
 
-Both halves of that have already cost a run:
+So: never end a turn whose last message describes in-flight work in future tense ("CI is re-running — I'll merge once it settles" is exactly the sentence that stranded PR #651). The last message of a turn must be a phase marker, an explicit error stop, the **Phase 6.7 review-round-cap hand-off**, or the final completion marker.
 
-- **Uncommitted work is destroyed.** HON-562's first run ended a turn with "E2E is still running — I'll pick up when it lands" and lost a fully green batch (2026-08-30).
-- **A finished PR is stranded.** HON-570 (PR #650) and HON-571 (PR #651) ended their turns beside a Phase 6.1 CI poll. HON-570's worker exited 36 seconds later — before the poll's opening `sleep 30` had even elapsed. Both PRs sat open and unmerged until a human merged them by hand ~45 minutes later (HON-573).
+The **6.7 hand-off** is a deliberate terminal state, not a failure. Phase 6 caps the review → fix → re-review loop at **3 rounds**; if the cap is reached with a correctness finding still unresolved, the PR is handed to a human instead of looping until an external budget kills the worker (HON-630).
 
-So: never end a turn whose last message describes in-flight work in future tense ("CI is re-running — I'll merge once it settles" is exactly the sentence that stranded #651). The last message of a turn must be a phase marker, an explicit error stop, the **Phase 6.7 review-round-cap hand-off**, or the final completion marker.
+**Backgrounding a command is allowed; ending the turn beside it is not.** When a command outruns Bash's 600 s foreground cap, you may start it with `run_in_background: true` — but the same turn must then *wait on it* with foreground wait-chunks until it reaches a terminal marker (the pattern in 6.1 and `batched.md`). A tool call in flight cannot end a turn, and the 600 s cap is per call, not per turn, so chained foreground waits cover an arbitrarily long job.
 
-The **6.7 hand-off** is a deliberate terminal state, not a failure. Phase 6 caps the review → fix → re-review loop at **3 rounds**; if the cap is reached with a finding still unresolved, the PR is handed to a human with its findings summarised instead of looping until an external budget kills the worker (HON-630).
+### Sibling files
 
-**Backgrounding a command is allowed; ending the turn beside it is not.** When a command outruns Bash's 600 s foreground cap, you may start it with `run_in_background: true` — but the same turn must then *wait on it* with foreground wait-chunks until it reaches a terminal marker (the pattern in Phase 3.3, 6.1 and 7.2). A tool call in flight cannot end a turn, and the 600 s cap is per call, not per turn, so chained foreground waits cover an arbitrarily long job. Committing and pushing each batch (Phase 3.3) is still required — it is what makes a process death survivable — but it is not a licence to end the turn early.
+Rarely-taken branches live next to this file, in `.claude/skills/auto-implement/`, and cost nothing on a run that never reaches them. Each section that moved keeps its heading here with a pointer saying which file to read and when. **When a pointer applies, read the file before acting** — its rules are not repeated here.
+
+| File            | Read when                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------- |
+| `discovery.md`  | No issue ID was passed (Phase 1 auto-discovery)                                                  |
+| `recovery.md`   | Retry context is present, the 2.1 gate stops, CI fails or reports no checks, a review does not post |
+| `batched.md`    | The plan is split into batches, or a verification outruns the 600 s cap                          |
+| `review-cap.md` | Review `ROUND` ≥ 3: the materiality bar, `not actioned:` notes, the 6.7 hand-off                 |
+| `deferral.md`   | 6.8 finds deferred findings to file as `[AUTO DRAFT]` issues                                     |
+| `history.md`    | Before changing or disputing a rule — the incidents behind them. Never needed to run a cycle     |
 
 ## Argument Parsing
 
@@ -48,20 +56,7 @@ The issue ID is the **first token only**. On an orchestrator retry the arguments
 
 ### Retry context
 
-When `scripts/orchestrator.sh` triages a failed worker as `RETRY` (or hits the Neon-cap one-retry) it respawns `wt auto` with a note appended to this prompt: the phase and failure type the previous attempt died in, its duration and commit count, and the last 40 lines of its log (redacted by `sanitize_log`; progress markers rewritten from `[x:complete]` to `(x:complete)` so they are not read as this run's progress). It is present only on a retry (HON-728).
-
-**If it is present, read it before anything else** and treat it as the first finding of this run: the previous attempt already paid for that failure once. `wt auto` has checked out the kept branch as-is, so pushed work is on disk. Establish where the previous attempt got to, in this order:
-
-```bash
-git log --oneline origin/main..HEAD                       # commits it already made
-gh pr list --head "$(git branch --show-current)" --state open --json number,url
-```
-
-- **Open PR for this branch** → run Phase 0, then 2.1 (the `In Review` exception there applies), skip 2.2–5, and resume at **6.1**. `ROUND` counts the PR's existing `<!-- claude-review -->` markers, so earlier rounds still count toward the cap.
-- **Commits, no PR** → run Phases 0–2.1 as normal, then look for the plan comment the previous attempt posted in 2.8 (`list_comments`). If there is one, reuse it instead of re-planning and do not post a second; continue Phase 3 from the first step the commits do not cover.
-- **No commits** → run the full cycle.
-
-On every path, fix the failure the note describes before redoing work that already landed. A retry is only ever issued for a failure triage judged transient (or the Neon cap), so a note describing an infrastructure fault is not by itself a reason to stop — the fault may have cleared. Stop with an error naming it only if the same fault recurs in this run.
+Present only on an orchestrator retry: the arguments continue past the issue ID with a block that starts `Retry context:` (HON-728). **If it is present, read `recovery.md` → Retry context before anything else.** It says where to resume (6.1, Phase 3, or a full cycle) and how the 2.1 gate treats the open PR.
 
 ---
 
@@ -118,8 +113,6 @@ If output is not empty:
 Stop here.
 
 ### 0.4 Sync with origin/main
-
-**Why this matters:** Branching from a stale local main means every subsequent tool (Explore, planning, codebase grep) searches an outdated tree. If a related or epic-sibling issue landed on origin/main since you last pulled, its files, migrations, conventions, and constants won't be visible. At PR time you'll hit merge conflicts and schema collisions on code you didn't know existed — exactly the HON-500 ↔ HON-501 migration collision that motivated this step.
 
 **Regular repo mode:**
 
@@ -188,87 +181,7 @@ Store the issue ID.
 
 **If no issue ID provided:**
 
-```
-[auto-implement] Phase 1/7: Finding next unblocked issue
-```
-
-### 1.1 Read project context
-
-```
-Read docs/PROJECT_SPEC.md
-```
-
-Review for current phase and relevant context.
-
-### 1.2 List unassigned Queued issues
-
-List **`Queued` only**. Queued is the unattended queue: an issue lands there only when a human has decided an agent can finish it alone. Todo means a human intends to do the work, and Backlog is unrefined or unprioritised, so neither is ever listed here — `/next-issue` is where Backlog and Todo candidates get surfaced to a human (HON-854).
-
-Always pass `assignee: "null"` — In Progress / In Review / Done / Canceled issues are already claimed or complete and must never be picked up by an autonomous cycle, and an assigned Queued issue has been taken by a human.
-
-```
-mcp__linear-server__list_issues({ state: "Queued", assignee: "null", limit: 20 })
-```
-
-### 1.3 MANDATORY: Verify every candidate with `includeRelations: true`
-
-`list_issues` does NOT return relations. Before a candidate can enter the selection pool, re-fetch it:
-
-```
-mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
-```
-
-### 1.4 Hard filters — reject the candidate if ANY of these fail
-
-- `status` is `Queued` — reject `Backlog`, `Todo`, `In Progress`, `In Review`, `Done`, `Canceled`, `Triage`.
-- `assignee` is `null` — reject any assigned issue, including "me".
-- Every id in `relations.blockedBy` resolves to `status` ∈ { `Done`, `Canceled` }. Empty `blockedBy` passes. Any open blocker (Backlog / Todo / Queued / In Progress / In Review) fails.
-- `statusType` is not `triage` or `canceled`.
-
-If a candidate fails any filter, discard and pick another. Do not soften or bypass a filter to keep a candidate. An autonomous cycle that picks a claimed or blocked issue will collide with other work or stall at implementation — both are worse than having no issue to pick.
-
-### 1.5 No-human-input filters — default in auto-discovery
-
-**Only applies when auto-discovering (no issue ID was passed as argument).** When the user passes an explicit `HON-XX`, skip this step — they've made the judgment call and Phase 1 is already short-circuited.
-
-`/auto-implement` runs end-to-end unattended, so an auto-discovered issue must be completable without human input. Moving an issue to Queued already asserts that, so these filters are a second line of defence against a mis-queued issue, not the primary gate — keep them. Reject the candidate if the description or acceptance criteria imply any of:
-
-- Third-party account provisioning (Upstash, PostHog, Sentry, Resend, Chromatic, Anthropic console, etc.)
-- New environment variables / secrets on Vercel or elsewhere
-- DNS changes (SPF/DKIM/DMARC, subdomain setup, registrar actions)
-- Legal / copy review (privacy policy text, ToS, company entity details, parental consent wording)
-- Design assets (OG images, branded graphics, mockups)
-- Ops access (authenticated CLI like `neonctl` against production, Vercel dashboard edits, GitHub org settings)
-- Shared-state side effects (staging DB writes that can't be reset, sending real emails, outbound API calls that cost money)
-- Subjective human review — the acceptance criteria require a human to *validate quality*, not just to provide inputs. An agent can produce the artifact but cannot close the ticket. Covers: native-speaker / native-judgment work (voice, tone, register, idiom), copy or naming quality review, design polish review, and any AC that name-drops a specific reviewer ("does Kaupo read this and…"). Distinct from "legal / copy review" — that's about *clearance*; this is about *taste*.
-
-Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard", "manual spot-check", "reads natural", "feels native", "idiomatic Estonian", "voice reference", "tone of voice", "native speaker", "copy review", and any AC that references a specific human by name as the reviewer.
-
-Also reject `[DRAFT]` and `[AUTO DRAFT]` titles in auto-discovery. A draft spec is not ready to implement unattended, and an `[AUTO DRAFT]` is a finding this skill filed itself in 6.8 — picking one up would let the cycle generate its own work and implement it with no human ever in the loop. A human clears the prefix via `/refine-backlog --auto-drafts`; until then it stays out of auto-discovery. An explicit `HON-XX` argument still overrides this, per the top of 1.5.
-
-If all candidates fail, exit normally per step 1.7 ("No unblocked issues found"). Do not soften the filter to find a match — a stalled half-PR is worse than no work.
-
-### 1.6 Prioritize surviving candidates
-
-- Issues that unblock others (larger `blocks` array) before leaf issues
-- Higher priority (lower `priority.value`) before lower
-
-### 1.7 Select issue
-
-If no unblocked issues found:
-
-```
-[auto-implement] ✓ No unblocked issues found. Nothing to implement.
-```
-
-Stop here (normal exit).
-
-Otherwise, store the issue ID:
-
-```
-[auto-implement] ✓ Selected: HON-XX - [Title]
-[auto-implement] Phase 1/7 complete → Proceeding to Phase 2
-```
+Read `discovery.md` and run it. It holds 1.1 (project context), 1.2 (list unassigned `Queued` issues — Queued only, HON-854), 1.3 (re-fetch each candidate with `includeRelations: true`), 1.4 (hard filters), 1.5 (no-human-input filters, including the rejection of `[DRAFT]` and `[AUTO DRAFT]` titles), 1.6 (prioritise) and 1.7 (select, or exit normally with nothing to do), and prints the Phase 1 markers.
 
 ---
 
@@ -295,58 +208,13 @@ Extract and note:
 - Current `assignee`
 - Any labels or priority
 
-**Hard gate — run the three checks in this order (status → assignee → blockers) and stop at the first failure.** An explicit `HON-XX` argument skips Phase 1 entirely, so this is the only filter on that path. The order matters: a closed issue short-circuits before the assignee and blocker checks, so an issue that is itself `Duplicate` (e.g. HON-496) never reaches the blocker check and cannot be used to exercise it.
+**Hard gate — run three checks in this order (status → assignee → blockers) and stop at the first failure.** An explicit `HON-XX` skips Phase 1, so this is the only filter on that path. The orchestrator pre-claims: `claim_issue()` in `scripts/orchestrator.sh` sets the state to `In Progress` and leaves the assignee empty before it spawns the worker, so `In Progress` + unassigned is the normal case, not a conflict.
 
-**The orchestrator pre-claims.** `scripts/orchestrator.sh` calls `claim_issue()` (state → `In Progress`, assignee left untouched) _before_ it spawns `wt auto HON-XX` → `/auto-implement HON-XX`. On that path the issue is already `In Progress` and unassigned by the time 2.1 runs — that is the normal case, not a conflict. The gate therefore rejects on closed states and on foreign assignees, never on `In Progress` alone.
+1. **Status** — gate on `statusType`, not on the display name. `backlog` / `unstarted` (Backlog, Todo, Queued) pass. `started` passes only as `In Progress`, subject to the assignee check; `In Review` stops, except on an orchestrator retry whose open PR is on this branch (`recovery.md` → Retry context). `completed`, `canceled`, `duplicate` and `triage` stop.
+2. **Assignee** — resolve yourself once with `mcp__linear-server__get_user({ query: "me" })`. Pass if `assignee` is `null`, or its id (`assigneeId` / `assignee.id`) matches yours; compare display names only when `get_issue` returns no id.
+3. **Blockers** — `relations.blockedBy` entries carry no status, so re-fetch each with `mcp__linear-server__get_issue({ id, includeRelations: true })`. Pass if `blockedBy` is empty or every blocker's `statusType` is `completed` / `canceled`.
 
-**Every gate stop must first undo the pre-claim.** If the issue is `In Progress` **and** `assignee` is `null`, it got there via `claim_issue()` — which writes only the state, never an assignee — and stopping would strand it: `fetch_queued_issues` only queries Queued, the orchestrator records a 0-commit exit as SUCCESS and cleans up the worktree, and nothing ever moves the issue back. So before printing the stop message, restore Queued — where `claim_issue()` took it from — so the orchestrator / `/next-issue` can see it again:
-
-```
-mcp__linear-server__save_issue({ id: "HON-XX", state: "Queued" })
-```
-
-Never touch an assigned issue — `In Progress` + assignee me is an explicit claim (`/plan-issue` step 11, or a previous attempt's 2.2) that a stop must not erase, and anything assigned to someone else is theirs. Leave every other state (`Backlog`, `Todo`, `Queued`, `In Review`, closed states) exactly as found: the unassigned pre-claim is the only write this step reverses. If a gate stops on an issue that is `In Progress` and mine, say so in the stop message and leave it for the operator.
-
-**Gate on `statusType`, not on the state's display name.** `get_issue` returns `statusType` ∈ { `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`, `triage` }; state names are workspace-configurable and `Triage` has no "closed" name to match. Keep the human-readable `status` in the stop message.
-
-1. **Status** — stop if `statusType` is `completed`, `canceled`, `duplicate`, or `triage` (a Triage issue is not refined yet — `/next-issue` and Phase 1.4 reject it too). `backlog` / `unstarted` (Backlog, Todo, Queued) pass outright — an explicit `HON-XX` is a human's call, whatever the state. `started` covers both `In Progress` and `In Review`, so also read the state name. `In Progress` passes **only if** the assignee check below passes (unassigned = the orchestrator pre-claim; me = my own earlier claim). `In Review` stops, with one exception: a PR is already open, `claim_issue()` never writes that state so it is never a pre-claim, and a fresh run has no way to resume a PR it did not open. **The exception is an orchestrator retry** — retry context is present, and `gh pr list --head "$(git branch --show-current)" --state open` finds the open PR on this branch. `wt auto` checked the kept branch out as-is, so that PR is this cycle's own work: pass the gate (assignee check still applies), skip 2.2 so the state is left `In Review`, and resume at 6.1 per [Retry context](#retry-context). Nothing to undo on either stop — neither case was pre-claimed by this cycle.
-
-   ```
-   [auto-implement] ✗ Error: HON-XX is In Review — a PR is already open. Resume is not supported; finish or close that PR by hand, then move the issue back to Queued (or Todo, if a human will take it).
-   ```
-
-   ```
-   [auto-implement] ✗ Error: HON-XX is [status] — not open for an autonomous cycle to claim. Pick another issue, or reopen / triage it in Linear first.
-   ```
-
-2. **Assignee** — the issue's `assignee` is a user (display name / id), never the literal string `"me"`, so resolve the current user once and compare against that:
-
-   ```
-   mcp__linear-server__get_user({ query: "me" })
-   ```
-
-   Note the returned `id` and `name`. The issue passes if `assignee` is `null`, or its id (`assigneeId` / `assignee.id`, when returned) matches the resolved `id` — fall back to comparing the display name only if `get_issue` returns no id. Stop otherwise; do not reassign and do not change its state (it has an assignee, so it was not pre-claimed):
-
-   ```
-   [auto-implement] ✗ Error: HON-XX is assigned to [assignee name] — not mine to claim. Unassign it in Linear (or have them hand it over) before running /auto-implement.
-   ```
-
-3. **Blockers** — `relations.blockedBy` entries carry only `{ id, title }`; there is no status on them. Re-fetch each blocker, same pattern as Phase 1.4 and `/next-issue`. `includeRelations: true` is mandatory here as on every `get_issue` call (CLAUDE.md) — without it the response has no `relations` key at all, so `duplicateOf` is invisible and the successor hint below can never be given:
-
-   ```
-   for each blocker in relations.blockedBy:
-     mcp__linear-server__get_issue({ id: blocker.id, includeRelations: true })
-     → note its status / statusType (and relations.duplicateOf, if statusType is duplicate)
-   ```
-
-   An empty `blockedBy` passes. Every blocker must be `Done` or `Canceled` (`statusType` `completed` / `canceled`); otherwise undo the pre-claim (above), list the open ones and stop:
-
-   ```
-   [auto-implement] ✗ Error: HON-XX is blocked by open issues:
-     - HON-YY ([status]) — [title]
-   ```
-
-   A blocker with `statusType` `duplicate` never clears on its own: follow its `duplicateOf` successor if set, otherwise re-point or remove the stale relation in Linear. Do not auto-clear it — `scripts/orchestrator.sh` applies the same Done/Canceled-only rule (and logs `[SKIP] HON-XX blocked by HON-YY (Duplicate)` each poll), so the unattended path agrees.
+**On any stop, read `recovery.md` → Gate stops before printing anything.** A stop must first undo the orchestrator's pre-claim, or the issue is stranded `In Progress` where nothing picks it up again; that section has the undo rule, the stop messages, and what to do with a `Duplicate` blocker.
 
 ### 2.2 Claim issue
 
@@ -357,8 +225,6 @@ mcp__linear-server__save_issue({ id: "HON-XX", state: "In Progress", assignee: "
 ```
 
 ### 2.3 MANDATORY: Check relatedTo + epic siblings for recently-merged overlap
-
-**Why:** When an issue is part of an epic (has `parentId`) or has `relatedTo` links, a sibling issue may have already landed and introduced files, conventions, schema, or constants that your plan needs to build on rather than duplicate. `blockedBy` is checked by Phase 1's selection filter, but `relatedTo` / epic-siblings are not — and a Done sibling in the same epic is a strong "check for overlap" signal. The HON-500 ↔ HON-501 incident (duplicate `Household.locale` schema change, duplicate `locales.ts`) is what motivated this step.
 
 For each id in `relations.relatedTo` and (if `parentId` is set) each sub-issue of the parent:
 
@@ -550,31 +416,7 @@ For each implementation step in the plan:
 
 ### 3.3 Batched plans: commit and push per batch
 
-When the plan splits the work into sequential batches (dependency refreshes, migration series, multi-step refactors), do NOT defer all commits to Phase 5:
-
-- Commit each batch as soon as its fast gate passes (`pnpm lint && pnpm type-check && pnpm test`, plus `pnpm build` when the plan calls for it), following the Phase 5.1/5.2 staging and message conventions.
-- Push after the first batch commit (`git push -u origin $(git branch --show-current)`) and after each subsequent one. Phase 5 then skips straight to PR creation (5.3) for what is already pushed.
-- Long-running verification (`pnpm test:e2e:local`, large `pnpm test-storybook:ci` runs) executes AFTER the batch's commit is pushed. Such a run outlives Bash's 600 s foreground cap, so start it with `run_in_background: true` as one self-contained command that writes its terminal marker to a file, then **wait on that file in the same turn** with foreground wait-chunks — the Phase 6.1 pattern, applied to a marker file instead of `gh pr checks`:
-
-  ```bash
-  # Start (run_in_background: true) — the marker file is the only handoff.
-  rm -f /tmp/batch-verify.done
-  { pnpm test:e2e:local && echo E2E_PASS || echo E2E_FAIL; } > /tmp/batch-verify.log 2>&1
-  tail -1 /tmp/batch-verify.log > /tmp/batch-verify.done
-  ```
-
-  ```bash
-  # Wait (FOREGROUND, timeout: 540000) — re-issue while it prints VERIFY_WAITING.
-  for i in $(seq 1 32); do
-    if [ -s /tmp/batch-verify.done ]; then cat /tmp/batch-verify.done; exit 0; fi
-    sleep 15
-  done
-  echo VERIFY_WAITING
-  ```
-
-  `E2E_PASS` → continue. `E2E_FAIL` → read `/tmp/batch-verify.log` and fix forward with a follow-up commit in the same batch — never rewrite a pushed batch commit. `VERIFY_WAITING` → re-issue the wait; do not end the turn on it. Do not start the next batch until the verification result is in.
-
-**Why:** a batch commit gated on long verification is a batch that can be lost. The orchestrator deletes the worktree and local branch on every worker exit and gates clean 0-commit exits (HON-562, 2026-08-30: batch 1 was fully green but uncommitted while E2E was still seeding; the worker's turn ended, the process exited, and everything was discarded). Pushed commits are the only state that survives a worker death — and the foreground wait is what keeps the process alive long enough to act on the result (HON-573).
+When the plan splits the work into sequential batches (dependency refreshes, migration series, multi-step refactors), or a verification will outrun Bash's 600 s cap (`pnpm test:e2e:local`, a large `pnpm test-storybook:ci` run), **read `batched.md` first.** Each batch is committed and pushed as soon as its fast gate passes, and long verification is waited on through a marker file in the same turn.
 
 ```
 [auto-implement] ✓ Implementation complete
@@ -656,7 +498,7 @@ DEFERRALS=/tmp/auto-implement-deferrals-HON-XX.md
 
 Write one `##`-headed block per item, carrying enough for 6.8 to file it without this conversation: the finding, the file and line, and why it was out of scope.
 
-This file is the **single sink for every deferral in the run** — 6.4 appends to it each round as well. Phase 5, the 6.1 CI wait, and up to three review rounds sit between here and 6.8, and this document already refuses to trust in-context state across that span: `ROUND` comes from GitHub markers rather than a local counter precisely because that survives process death and context summarization within a run.
+This file is the **single sink for every deferral in the run** — 6.4 appends to it each round as well. Phase 5, the CI waits and up to three review rounds sit between here and 6.8, so do not rely on in-context state to carry deferrals across that span.
 
 ### 4.5 Fix loop
 
@@ -808,13 +650,11 @@ Extract PR URL from output.
 
 ### Review-round budget — hard cap of 3 rounds
 
-Phase 6 is the only loop in this skill: 6.3 reviews, 6.4 triages, 6.5 fixes, 6.6 pushes and comes back to 6.3 for the next round. It has to be bounded, because its natural exit — "the reviewer eventually runs out of findings" — only exists when there is an **oracle**: a failing test, a type error, a broken selector. On a prose or heuristic deliverable there is always another defensible finding, so the loop runs until something external kills the worker. HON-627 took **14 rounds over 2h45m** and ended `Stranded` with a green, mergeable PR (#707) that a human had to merge by hand — and its findings, each defensible on its own, grew the artifact until it was no longer usable. For contrast, the 12 PRs before it took 1 round (nine of them), 2 rounds (one), and 3 rounds (two): three rounds covers every PR that has ever converged here.
+Phase 6 is the only loop in this skill: 6.3 reviews, 6.4 triages, 6.5 fixes, 6.6 pushes and comes back to 6.3 for the next round. Its natural exit — "the reviewer runs out of findings" — only exists when there is an oracle (a failing test, a type error, a broken selector). On a prose or heuristic deliverable there is always another defensible finding, so the loop has to be bounded (HON-627 ran 14 rounds; the numbers are in `history.md`).
 
-**ROUND is the number of `<!-- claude-review -->` comments on the PR once 6.3 has posted the current one** — the count 6.3 already fetches to verify the review landed. Deriving it from GitHub rather than from a local counter means it survives process death and context summarization within a run, and that it counts rounds this run did not perform: a manual `/review-pr`, or an earlier worker on the same branch. (It is not a resume mechanism in its own right — Phase 2.1 stops on `In Review`, so an open PR re-enters Phase 6 only through an orchestrator retry, which resumes at 6.1 per [Retry context](#retry-context). Its earlier rounds are on the PR and still count.)
+**ROUND is the number of `<!-- claude-review -->` comments on the PR once 6.3 has posted the current one.** It is read from GitHub rather than a local counter, so it survives process death and context summarization, and it counts rounds this run did not perform (a manual `/review-pr`, an earlier worker on the same branch). 6.3 requires `ROUND` to be **strictly greater** than the count taken before the run and stops the cycle if it is not, which is what makes each round consume budget.
 
-A counter that can stall is not a cap, so 6.3 requires `ROUND` to be **strictly greater** than the count taken before the run and stops the cycle if it is not. That is what makes each iteration consume budget and the loop provably terminate; the stale-lock path that can otherwise freeze it is described there.
-
-**The cap bounds reviews, not merges.** Round 3's findings can still be fixed and shipped — what the cap forbids is asking for a *fourth opinion* on the result. That distinction is load-bearing: the two 3-round PRs in the recent history (#704, #700) each merged by fixing round 3's findings and merging without re-reviewing, so a cap that also blocked the merge would strand runs that converged perfectly well.
+**The cap bounds reviews, not merges.** Round 3's findings can still be fixed and shipped; what the cap forbids is asking for a *fourth opinion* on the result.
 
 Every round ends in exactly one of these, and only the second one re-enters 6.3:
 
@@ -826,7 +666,7 @@ Every round ends in exactly one of these, and only the second one re-enters 6.3:
 | `ROUND` ≥ 3, everything resolved (fixed, or dropped by 6.4's bar with a note)           | 6.8 → Phase 7, merge — no 4th review (6.6 branch C)                     |
 | `ROUND` ≥ 3, a correctness/safety finding still unresolved                             | 6.8 → **6.7 terminal hand-off** — PR left open for a human (6.6 branch C) |
 
-`./scripts/pr-review.sh` is therefore invoked at most 3 times in Phase 6. No other step in this skill invokes a reviewer, 6.3 stops the cycle unless the marker count strictly increases, and 6.1's CI-fix loop is separately capped at 2 attempts — so there is no path through Phase 6 that runs a 4th round.
+`./scripts/pr-review.sh` is therefore invoked at most 3 times in Phase 6, and 6.1's CI-fix loop is separately capped at 2 attempts, so no path through Phase 6 runs a 4th round.
 
 ### 6.1 Wait for CI
 
@@ -932,59 +772,9 @@ gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
 
 - No output → all checks passed. Proceed.
 - Any line printed → CI is failing (check names and states listed).
-- `no checks reported on the '<branch>' branch` on stderr (exit 1) → acceptable **only** when every changed file is excluded by `ci.yml` `paths-ignore` (`**/*.md`, `docs/**`, `.github/ISSUE_TEMPLATE/**`), i.e. no workflow was ever going to run. Otherwise checks simply have not been reported for a code change — stop. In practice this branch is unreachable here (docs-only PRs still receive Vercel and skipped smoke checks, so `gh pr checks` always reports something); it is kept as a defensive branch — do not rely on it:
+- `no checks reported on the '<branch>' branch` on stderr (exit 1) → read `recovery.md` → No checks reported. It decides whether the PR is docs-only (treat as passed) or must stop.
 
-```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-# Paginated, not `gh pr view --json files` — that caps at 100 files (HON-587).
-# System jq, because `--jq` runs per page (HON-586). REST calls the field `filename`.
-FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=100" | jq -rs 'add | .[].filename')
-# A partial walk fails open exactly like the 100-cap did: gh streams each page as it
-# arrives and the pipeline reports jq's status, not gh's, so a 502 on page 2 of a
-# 150-file code PR leaves 100 docs paths that read as DOCS_ONLY. Only a >100-file PR
-# paginates at all, so the exposure is precisely the population this fetch exists for.
-# changedFiles is a scalar total and is not paginated; a mismatch — or a failed count,
-# which can equal nothing — empties FILES into the guard below, the same closing move
-# scripts/pr-review.sh:272 already makes.
-CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null)
-[ "$(printf '%s\n' "$FILES" | grep -c .)" = "$CHANGED" ] || FILES=""
-NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
-# An unreadable file list is not evidence of a docs-only PR. Without the -z test a
-# failed fetch leaves NON_DOCS empty and prints DOCS_ONLY — "treat as passed" — for
-# a PR that nothing has checked. Same guard the poll above puts on DOCS_ONLY.
-if [ -z "$FILES" ]; then
-  # Not the same diagnosis: nothing has established a code change here, the file
-  # list simply could not be read. Saying otherwise points the CI-fix loop below
-  # at healthy CI, where it can spend both attempts pushing commits at nothing.
-  echo "Could not read the PR file list — cannot classify, treat as unverified"  # STOP
-elif [ -n "$NON_DOCS" ]; then
-  echo "CI did not report checks for a code change"  # STOP — do not proceed
-else
-  echo "DOCS_ONLY"  # no CI workflow runs for these paths — treat as passed
-fi
-```
-
-If CI fails, attempt to fix (max 2 attempts):
-
-```
-ci_attempts = 0
-max_ci_attempts = 2
-
-while CI failing and ci_attempts < max_ci_attempts:
-    ci_attempts += 1
-    [auto-implement] CI fix attempt {ci_attempts}/2
-
-    - Analyze CI failure output
-    - Apply fixes using Edit tool
-    - Stage specific changed files by name and commit:
-      git add [changed files] && git commit -m "fix: Address CI failures"
-    - Push: git push
-    - Wait: re-run the foreground wait-chunk + verification above, re-issuing on `CI_WAITING`
-
-If still failing after 2 attempts:
-    [auto-implement] ✗ Error: CI checks failing after fix attempts
-    Stop here with failure details
-```
+If CI fails, read `recovery.md` → CI-fix loop: at most 2 fix attempts, each re-running the wait above, then stop.
 
 ### 6.2 Get PR info
 
@@ -1005,7 +795,7 @@ PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive,
 ./scripts/pr-review.sh ${PR_NUMBER}
 ```
 
-This runs synchronously. When it returns, the review has been posted to GitHub. It spawns `claude -p` and takes several minutes — run it in the **foreground** with `timeout: 600000`; the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`. If it ever outruns 600 s, background it and wait on the `<!-- claude-review -->` comment with foreground wait-chunks in the same turn (Phase 3.3 pattern) — never end the turn beside it.
+This runs synchronously. When it returns, the review has been posted to GitHub. It spawns `claude -p` and takes several minutes — run it in the **foreground** with `timeout: 600000`; the default 120 s Bash timeout kills it mid-run and leaves a stale `/tmp/claude-review-N.lock`. If it ever outruns 600 s, background it and wait on the `<!-- claude-review -->` comment with foreground wait-chunks in the same turn (the `batched.md` pattern) — never end the turn beside it.
 
 ```
 [auto-implement] Running Claude review for PR #${PR_NUMBER}...
@@ -1023,19 +813,7 @@ Substitute the literal PR number for `{number}` — `gh api` expands only `{owne
 
 **That count is `ROUND`.** Note it: 6.4 branches on it for the materiality bar and 6.6 branches on it for the cap. It is the total number of review rounds this PR has had, not just the ones this run performed, which is the quantity the cap is meant to bound.
 
-**`ROUND` must be greater than `ROUND_BEFORE`. If it is not, stop — never loop.** The cap rests entirely on the invariant that each `pr-review.sh` run adds exactly one marker, and that invariant *can* break: when a stale `/tmp/claude-review-${PR_NUMBER}.lock` is present (left by a killed run — see the timeout warning above), the script finds the previous round's marker, prints "Review already posted by another instance" and **exits 0 without reviewing**. The count then never moves, 6.4's "no summary at all" guard cannot fire because the previous round's summary is still on the PR, and 6.6 branch A re-enters 6.3 forever — reinstating the unbounded loop this cap exists to close. Requiring a strict increase is what makes each iteration consume budget, and therefore makes the loop provably terminate.
-
-```
-[auto-implement] ✗ Error: Review round did not post a new review (marker count stayed at ${ROUND_BEFORE}).
-Likely a stale /tmp/claude-review-${PR_NUMBER}.lock from a killed run. Remove it and re-run, or review by hand.
-```
-
-Stop here (do not proceed to 6.4 and do not loop).
-
-**Strict increase is the whole test — `ROUND > ROUND_BEFORE`, not `ROUND > 0`.** A count-based check passes on the stale-lock path (`ROUND_BEFORE` = 2, `ROUND` = 2: no new review, but the count is still non-zero), which is precisely the case that must stop. There is one decision here, and it is the comparison:
-
-- `ROUND > ROUND_BEFORE` → a new review landed. Continue to 6.4.
-- `ROUND == ROUND_BEFORE` → no new review, at any count including 0. Stop with the error above. Never "proceed anyway": with a previous round's summary still on the PR, 6.4 would read stale findings as current and 6.6 would loop on them.
+**`ROUND` must be strictly greater than `ROUND_BEFORE`. If it is not, stop — never loop.** `ROUND == ROUND_BEFORE` at any count, including a non-zero one, means no new review landed — usually a stale `/tmp/claude-review-${PR_NUMBER}.lock` that made the script exit 0 without reviewing. Proceeding would triage the previous round's findings as current and loop on them forever. Read `recovery.md` → Stale review lock for the stop message, and do not proceed to 6.4.
 
 ```
 [auto-implement] ✓ Claude review received (round ${ROUND}/3)
@@ -1075,7 +853,7 @@ gh api --paginate '/repos/:owner/:repo/pulls/{number}/comments?per_page=100' \
 
 `select(.line != null)` is required: if a PR has been reviewed more than once, the earlier round's comments are still on the PR, and GitHub orphans them at `line: null` once the code they pointed at moves. Without the filter, 6.5 tries to open a file at a null line (HON-585).
 
-**Known limitation — this does not catch every stale comment.** A finding from an earlier round that was *addressed* but whose anchor merely shifted keeps `line != null`, and GitHub re-points its `commit_id` to the new head, so it is indistinguishable from a live finding. Filtering on `commit_id == head` does **not** help — verified on PR #667, where comment `3895696376` was addressed by `3a8f1f0` yet still reports `commit_id == head`, `line 417`. `isResolved` / `isOutdated` are both false on it too. Treat a re-reviewed PR's inline list as possibly containing settled findings, and check each against the diff before "fixing" it. Tracked in HON-585.
+**Known limitation:** an earlier round's finding that was addressed but whose anchor merely shifted keeps `line != null` and looks live; neither `commit_id` nor `isResolved` / `isOutdated` tells it apart (HON-585). On a re-reviewed PR, check each inline finding against the diff before "fixing" it.
 
 Also fetch the summary comment — **the most recent one only**, since each review round appends its own:
 
@@ -1086,8 +864,6 @@ gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
 ```
 
 Dropping `| last` concatenates every round, so the "No issues found" check below would be judged against a mixture of verdicts from different commits.
-
-This is also why the fetch cannot be written as `--paginate --jq '… | last'`: gh runs `--jq` once per page, so `last` would yield the newest marker *on each page* rather than the newest overall — reinstating the same defect through a different door. The `jq -s 'add'` form evaluates `last` against the whole set (HON-586).
 
 **Triage rules:**
 
@@ -1103,16 +879,7 @@ The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
   - Moderate fix → address now
   - Significant work → defer if genuinely out of scope
 
-**Materiality bar — applies from ROUND 3 on.** On rounds 1 and 2 every substantive finding is an Address Now item, per the rules above. From round 3 the bar rises, because by then the cheap defects are gone and what is left is usually accretion:
-
-- **Action it** only if it is a **correctness or safety defect** — wrong behaviour, a broken reference (a path, line number, step number, or command that does not resolve), a factual error in the text, a security or data-loss risk.
-- **Do not action it** if the fix only adds coverage, edge cases, hedging, or qualification to something that already works as written. "This grep would also miss X", "this does not cover the case where Y", "consider noting Z" are coverage-only by definition.
-
-The bar exists because the reviewer is asked "what is wrong with this?" and never "is this now worse than it was three rounds ago?" — an asymmetry that makes the loop self-sustaining. Each HON-627 finding was individually defensible; together they improved grep recall and destroyed the artifact's usability, which was the entire point of the artifact. A finding that makes a document longer and harder to follow is a finding worth dropping.
-
-**What the bar decides, given the cap.** Two things. It decides *what gets written into the artifact* on the way out — the thing HON-627 actually lost was not the routing but three rounds of accretion appended after the document had stopped improving. And because 6.6 branch C sends a round-3 PR to 6.7 only when something is left **unresolved**, it also decides whether the run merges or hands off: a coverage-only finding dropped here with a `not actioned:` note is resolved, so the PR merges. Chasing it instead would leave the artifact longer and, if it could not be settled, strand the run for a human to close by hand.
-
-Record the call rather than silently skipping it — see 6.5's `not actioned:` convention.
+**From ROUND 3 on, read `review-cap.md` → Materiality bar before triaging.** The bar rises: only correctness and safety defects are actioned, and every finding it drops gets a `not actioned:` note in 6.5. On rounds 1 and 2 every substantive finding is an Address Now item, per the rules above.
 
 **Append every Defer item to `/tmp/auto-implement-deferrals-HON-XX.md`** — the same file 4.4 truncated and started — in the same `##`-headed block format, as you triage each round. Do not plan to re-read them from the PR at 6.8: the summary fetch above ends in `| last` by design, so a summary-only deferral from round 1 or 2 is unreadable once round 3 has posted, and `scripts/pr-review.sh` puts out-of-diff findings and anything past its 5-comment inline cap in the summary alone. Appending each round is what makes those survive to 6.8.
 
@@ -1125,31 +892,9 @@ For each item in "Address Now":
 - Read the file at that location
 - Apply the suggested fix using Edit tool
 
-A **PR-body finding** (a checkbox, a "Verified" line that cites nothing, a "Not verified" gap) has no file to edit. Rewrite the body under the 5.4 rules with `gh pr edit <PR_NUMBER> --body-file <file>`. For a "Not verified" gap, close it with a test instead where you can, and move the line to "Verified" once it passes. If nothing in this session can check it, keep the line with its reason (never delete it to clear the finding) and post an issue-level comment, with the summary-only command below, whose body starts with the literal prefix `not actioned: cannot be verified from this session — <reason>` instead of the coverage-only one. That settles the finding at any round; it is not an unresolved correctness finding for 6.6.
+A **PR-body finding** (a checkbox, a "Verified" line that cites nothing, a "Not verified" gap) has no file to edit. Rewrite the body under the 5.4 rules with `gh pr edit <PR_NUMBER> --body-file <file>`. For a "Not verified" gap, close it with a test instead where you can, and move the line to "Verified" once it passes. If nothing in this session can check it, keep the line with its reason (never delete it to clear the finding) and post an issue-level comment, with the summary-only command in `review-cap.md` → `not actioned:` convention, whose body starts with the literal prefix `not actioned: cannot be verified from this session — <reason>` instead of the coverage-only one. That settles the finding at any round; it is not an unresolved correctness finding for 6.6.
 
-**The `not actioned:` convention — required for every finding the 6.4 materiality bar drops.** A skipped finding must read as a decision, not an oversight, or the next reviewer (or the human picking up a 6.7 hand-off) re-raises it and the loop restarts by hand.
-
-For a finding that came in as an **inline comment**, reply on that comment so the note sits next to the code it declines to change:
-
-```bash
-# Substitute the literal PR number and the inline comment's `id` from 6.4's fetch.
-gh api "/repos/:owner/:repo/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies" \
-  --method POST \
-  -f body="not actioned: coverage-only, round >= 3 — <one line on what the finding asked for and why it is coverage rather than correctness>"
-```
-
-For a **summary-only finding** there is no comment to reply to, so post the note as an issue-level comment on the PR **here, in 6.5** — do not defer it to 6.7, which runs only when something is left unresolved and therefore never runs on the expected "everything resolved → merge" path:
-
-```bash
-# Substitute the literal PR number. One comment covers every summary-only drop in this round.
-gh api /repos/:owner/:repo/issues/<PR_NUMBER>/comments \
-  --method POST \
-  -f body="not actioned: coverage-only, round >= 3
-
-- <finding> — <why it is coverage rather than correctness>"
-```
-
-Keep the `not actioned: coverage-only, round >= 3` prefix literal — it is what makes the decisions greppable across PRs when judging whether the bar is set right, and that only works if the note is posted on every path, including the one that merges.
+**A finding the round-3 materiality bar drops needs a `not actioned:` note**, posted here in 6.5 on every path, including the one that merges: a reply on the inline comment, or one issue-level comment covering every summary-only drop in the round. The commands and the literal prefix are in `review-cap.md` → `not actioned:` convention.
 
 ### 6.6 Commit and push fixes, then decide the round
 
@@ -1193,7 +938,7 @@ The commit above is conditional on 6.5 having changed something. **The decision 
 
 **C. `ROUND` ≥ 3 — the cap.** Never run a 4th review, whether or not fixes were pushed. The cap bounds *reviews*, not merges, so what happens next depends on whether anything is still unresolved:
 
-- **Every finding resolved** — the material ones fixed and pushed, the coverage-only ones dropped by 6.4's bar with a `not actioned:` note — → **6.8, then Phase 7, merge.** Round 3's fix ships without a 4th review, which is exactly how the two 3-round PRs in the recent history converged (#704: review `08:03:05Z` → fix `08:10:50Z` → merged `08:20:04Z`; #700: `22:23:34Z` → `22:28:03Z` → `22:37:06Z`). Stranding these would triple the hand-off rate for no gain and walk the orchestrator toward `MAX_CONSECUTIVE_FAILURES`.
+- **Every finding resolved** — the material ones fixed and pushed, the coverage-only ones dropped by 6.4's bar with a `not actioned:` note — → **6.8, then Phase 7, merge.** Round 3's fix ships without a 4th review; stranding these would only walk the orchestrator toward `MAX_CONSECUTIVE_FAILURES` (`history.md`).
 - **A correctness or safety finding is still unresolved** — too large to fix in scope, or it needs a decision this run should not make alone — → **6.7 hand-off.** This is the case the issue means by "listing the unaddressed findings": a human resolves what a 4th round would otherwise have chased.
 
 Print the block below on branch B, or on branch C with everything resolved. Branch A goes back to 6.3, and branch C with something unresolved goes to 6.7 and prints its own markers. (6.4's clean-review exit skips 6.6 entirely and prints this block itself on its way to Phase 7.)
@@ -1206,141 +951,20 @@ Print the block below on branch B, or on branch C with everything resolved. Bran
 
 ### 6.7 Review-round cap reached — terminal hand-off
 
-Reached only from 6.6 branch C, and only when a **correctness or safety finding is still unresolved** at the cap. It is a **designed exit, not a crash**: the work is committed, CI is green, and the PR is left open for a human to judge. Getting here in ~25 minutes instead of 2h45m is the entire point, and the `Stranded` label and its recovery path already exist and need no change.
-
-**It is not free, though, and must stay rare.** `scripts/orchestrator.sh` `strand_worker` treats an unmerged run as a failure to ship: it logs `[OUTCOME] … STRANDED`, calls `note_consecutive_failure` (three in a row trips the circuit breaker at `MAX_CONSECUTIVE_FAILURES=3`), sets `ONCE_EXIT_CODE=1`, and deliberately skips `cleanup_worker_worktree` — so every hand-off leaves a worktree, a local branch and a Neon branch that only `wt cleanup <branch>` reclaims. That cost is why 6.6 branch C merges when round 3's findings were all resolved: of the last 13 PRs, only HON-627 would reach 6.7, and the two that used three rounds shipped without a human. If runs start landing here regularly, the answer is to look at why the reviewer keeps finding unresolvable things, not to raise the cap.
-
-**First run 6.8** and file any deferrals, so the IDs can go in the comment below. 7.6 is never reached on this path, so this comment is the only place the human learns the run created follow-up issues.
-
-Post a hand-off comment on the PR listing what happened, so the human inherits the decisions rather than re-deriving them:
-
-```bash
-# Substitute the literal PR number.
-gh api /repos/:owner/:repo/issues/<PR_NUMBER>/comments \
-  --method POST \
-  -f body="## Review-round cap reached (3/3)
-
-\`/auto-implement\` stops looping after 3 review rounds (HON-630). CI is green and the branch is pushed; this PR is ready for a human decision.
-
-**Addressed across rounds 1-3:**
-- [one line per finding that was fixed, with the commit that fixed it]
-
-**Not actioned (materiality bar, round >= 3):**
-- [one line per coverage-only finding, with why — mirrors the \`not actioned:\` replies on the inline comments]
-
-**Still open:**
-- [any finding that is correctness/safety but was too large to fix in scope, or 'none']
-
-**Deferred to follow-up issues (6.8):**
-- [one line per \`[AUTO DRAFT]\` issue filed, with its HON-ID, or 'none']
-- [any deferral 6.8 did not file, with why: over the 3-issue cap, skipped as a duplicate of an existing HON-ID, or a filing failure — 7.6 never runs on this path, so if it is not written here it is written nowhere]
-
-To finish: review the above, then merge, or push a fix and merge. If this run was orchestrated it also carries the \`Stranded\` label and a preserved worktree — release it with \`wt cleanup <branch>\` and clear the label once the PR is settled, or nothing reclaims either."
-```
-
-Post the same summary as a Linear comment on the issue, then stop:
-
-```
-mcp__linear-server__save_comment({ issueId: "HON-XX", body: "[the same hand-off summary]" })
-```
-
-**Do not change the issue's Linear state.** Linear moved it to `In Review` when the PR opened, which is accurate — a PR is open and unmerged — and `strand_worker` deliberately leaves that state alone when a PR exists (`scripts/orchestrator.sh`, the comment above its `restore_queue_if_in_progress` call). The `Stranded` label is what flags the issue for pickup, and the orchestrator adds it on a clean worker exit as well as a timeout, so reaching 6.7 and stopping is enough to get it.
-
-```
-[auto-implement] ⚠ Review-round cap reached (3/3) — handing off
-[auto-implement] PR left open with a hand-off comment; not merged
-[auto-implement] ✗ Autonomous implementation cycle stopped at Phase 6 (review-round cap)
-```
-
-Stop here. Do not proceed to Phase 7. This message ends the turn — it is a terminal marker, so the Execution Model rule against ending a turn on in-flight work is satisfied.
+Reached only from 6.6 branch C, when a **correctness or safety finding is still unresolved** at the cap. **Read `review-cap.md` → 6.7 hand-off and follow it:** run 6.8 first, post the hand-off comment on the PR and on the issue, leave the Linear state alone, print the hand-off markers and stop. Do not proceed to Phase 7.
 
 ### 6.8 File deferred findings as `[AUTO DRAFT]` issues
 
-Runs on every exit from Phase 6, with no exception: 6.4's clean-review exit (which skips 6.6 but can still be carrying deferrals from 4.4), 6.6 branch B, 6.6 branch C with everything resolved, and the 6.7 hand-off, which routes here before posting its comment. That last one matters most: the hand-off template covers only PR-review findings (addressed, not actioned, still-open correctness/safety), so a Phase 4 deferral — or an ordinary perf or refactor deferral from Phase 6 — fits none of its headings and would otherwise be filed nowhere, reported nowhere (7.6 is never reached on that path), and mentioned in no comment.
-
-When 6.8 is reached via 6.6, that step has already printed `[review-pr:complete]` and "Proceeding to Phase 7". Those are progress signals for `detect_phase` in `scripts/orchestrator.sh`, not a gate — they do not license skipping 6.8. Do not print them again here.
-
-Everything deferred during the run gets filed as a Linear issue before the merge. One sink, written by 4.4 and by every 6.4 round:
+Runs on every exit from Phase 6: 6.4's clean-review exit, 6.6 branch B, 6.6 branch C with everything resolved, and the 6.7 hand-off, which comes here before posting its comment. 4.4's deferrals reach every one of those paths, so a clean PR review alone does not make this a no-op. When 6.8 is reached via 6.6, do not print 6.6's markers again.
 
 ```bash
 cat /tmp/auto-implement-deferrals-HON-XX.md 2>/dev/null || echo "(no deferrals)"
 ```
 
-Read it rather than the conversation, and rather than the PR: Phase 5 and up to three CI waits sit between 4.4 and here, and 6.4's summary fetch keeps only the newest round, so an earlier round's summary-only deferral is no longer on any readable surface. File once, here; do not file from Phase 4 or 6.4, or the same finding lands twice. Delete the file once the issues are filed, so a resumed run cannot double-file them.
+- **Nothing deferred** → print `[auto-implement] No deferred findings to file` and leave by the exit below.
+- **Anything deferred** → read `deferral.md` and file per its rules: the `[AUTO DRAFT]` prefix, `Backlog`, a duplicate check first, at most 3 issues per cycle. A filing failure never blocks the merge.
 
-A deferral that exists only in a PR comment is gone the moment the PR merges. The bucket exists precisely for findings that are real but out of scope, and a real finding with no ticket is one nobody will see again.
-
-**Filing is not cheaper than fixing.** The effort-first rules in 4.4 and 6.4 still decide the bucket, and this step does not soften them. An `[AUTO DRAFT]` issue for something that was a five-minute fix is a defect in the cycle, not an output.
-
-**Cap: 3 issues per cycle.** A cycle that files six tickets per PR grows the backlog faster than the cycle drains it. Run the duplicate check below across every deferral **first** — a duplicate adds nothing to the backlog, so it must not consume a slot — then, if more than three still survive, rank by the priority you would assign each one (2 before 3 before 4), break ties by putting correctness and data-loss findings ahead of everything else, and file the top three. List the remainder in the 7.6 report as unfiled, one line each — they are not lost, they are handed to the operator.
-
-**Check each one isn't already filed.** A deferred finding often names a pre-existing condition, and the review pass has no memory of the backlog:
-
-```
-mcp__linear-server__list_issues({ query: "<distinctive phrase from the finding>", limit: 10 })
-```
-
-`query` searches the whole workspace and returns closed issues too, so read each match's `status` before acting on it. A match in `Backlog` / `Todo` / `Queued` / `In Progress` / `In Review` is a live duplicate — skip filing and note the existing ID in the 7.6 report. A match in `Done` / `Canceled` / `Duplicate` is **not** a duplicate: the finding has resurfaced after that issue closed, which is worth its own ticket. File it, and reference the closed issue in `## Context`.
-
-**Create it:**
-
-```
-mcp__linear-server__save_issue({
-  team: "Wobblebot",
-  title: "[AUTO DRAFT] <sentence-case description of the problem>",
-  description: "<body — required sections below>",
-  state: "Backlog",
-  priority: <2-4, matching severity>,
-  labels: ["Bug"],
-  relatedTo: ["HON-XX"],
-})
-```
-
-- **The `[AUTO DRAFT]` prefix is mandatory.** It is the only trace that an agent filed the issue rather than a human, and it is what the selection filters key on (1.5 here, step 5 in `/next-issue`). Never file without it, and never strip it yourself — `/refine-backlog --auto-drafts` removes it once a human has reviewed the issue.
-- **`state: "Backlog"`, never `Queued` (or `Todo`).** Queued means a human decided the work should run unattended, and Todo that a human intends to do it. This step has no authority to make either call.
-- **Unassigned** — do not pass `assignee`.
-- **Never `priority: 1` (Urgent).** An autonomous cycle does not get to page anyone. If a finding genuinely looks urgent, file it at 2 and say so in the 7.6 report.
-- **`relatedTo` the issue this cycle was implementing**, so the finding's origin is traceable from both ends.
-- **`labels`** — reuse an existing label that fits (`Bug`, `Improvement`). Omit the field rather than inventing a new label.
-
-**Required body sections.** An `[AUTO DRAFT]` still has to clear the "Writing for Agents" bar in CLAUDE.md: it will be picked up later by an agent with none of this session's context.
-
-| Section | Contains |
-| --- | --- |
-| `## Problem` | The finding, with file paths and line numbers — what breaks, and under what conditions. |
-| `## Why it wasn't fixed here` | The deferral justification: which review round raised it, the effort estimate, and why it fell outside this PR's scope. State plainly whether it is pre-existing or introduced by this PR. |
-| `## What` | The concrete fix. Where the fix needs a product or design decision, lay out the options instead of picking one. |
-| `## Acceptance criteria` | Testable outcomes, including the standard `pnpm lint && pnpm type-check && pnpm test` line. |
-| `## Context` | The PR number, the parent `HON-XX`, and the review round the finding came from. |
-
-Reference other issues as plain text (`HON-NNN`), never as hand-copied `<issue id="…">` tags — Linear auto-resolves plain text on save, and a copied UUID controls where the link points, so a reference can look right in review and click through to the wrong issue (CLAUDE.md, Git & Workflow Essentials).
-
-**Never nest a markdown table inside a list item.** Linear's description parser silently strips the list item's content indent — 3 characters under `1. `, 2 under `- ` — off the front of every table _body_ cell. The header and delimiter rows survive, so the table still looks right while `` `MealForm.tsx:153` `` has become `` alForm.tsx:153` ``: data loss, not a rendering glitch, and nothing reports it. That lands hardest here — 6.8 files unattended, and the `## Problem` section above is specified as file paths and line numbers, which is exactly the payload that gets eaten. Put any table you add to the issue body at top level, or use a nested bullet list. See CLAUDE.md → Writing for Agents.
-
-Report what was filed:
-
-```
-[auto-implement] Filed N deferred finding(s): HON-AA, HON-BB
-```
-
-When neither 4.4 nor 6.4 deferred anything, this step is a no-op — a clean PR review alone does not mean that, since 4.4's deferrals arrive here too:
-
-```
-[auto-implement] No deferred findings to file
-```
-
-**A filing failure never blocks the merge.** The PR is green and reviewed by this point; holding it back because Linear returned an error trades a shipped fix for a bookkeeping entry. If `save_issue` fails, retry once, and if it fails again print the full issue body you were trying to file so the operator can paste it in, then continue — on the failure path as on the success path, by the exit rule below:
-
-```
-[auto-implement] ⚠ Could not file deferred finding(s) — Linear error: <message>
-[auto-implement] Unfiled body follows, copy into Linear manually:
-<the full title + description>
-```
-
-**Then leave by the door you came in.** 6.8 has two exits, and taking the wrong one is how a hand-off turns into an unwanted merge:
-
-- **Entered from 6.7** — go **back to 6.7**: post the hand-off comment with the filed IDs, print 6.7's markers, and stop. **Do not continue to Phase 7.** That path is holding the PR open because a correctness or safety finding is unresolved; merging it here would also skip `strand_worker`'s label and worktree preservation.
-- **Entered from any other path** (6.4 clean-review, 6.6 branch B, 6.6 branch C resolved) — continue to Phase 7 and merge.
+**Then leave by the door you came in.** Entered from 6.7 → go back to 6.7, post the hand-off with the filed IDs, print its markers and stop; **do not continue to Phase 7**. Entered from any other path → continue to Phase 7 and merge.
 
 ---
 
@@ -1369,143 +993,9 @@ Validation:
 
 ### 7.2 Wait for CI
 
-Same mechanism as 6.1 — foreground wait-chunks, then foreground verification. Never background this poll and never end the turn beside it; re-issue on `CI_WAITING` until a terminal marker.
+Same mechanism and the same two blocks as 6.1. Re-run the 6.1 poll in the **foreground** with `timeout: 540000`, re-issuing on `CI_WAITING` or a missing marker until it is terminal, then run the 6.1 verification block in the same turn. Never background this poll and never end the turn beside it. `CI_TIMEOUT` → report and stop; do not merge. Verification prints nothing → proceed to 7.3. Verification prints any line → **STOP — do NOT merge.** Report the listed checks; do not enter the 6.1 CI-fix loop here, because a push in Phase 7 would merge a commit no review round has seen. A `no checks reported` stderr → `recovery.md` → No checks reported.
 
-Run the block below in the **foreground** with `timeout: 540000`:
-
-```bash
-# One chunk = 16 polls, 15 sleeps × 30 s ≈ 480 s of sleep (510 s on chunk 1,
-# which also waits for GitHub to register the run) plus ~18 gh calls — under the
-# prescribed 540 s timeout with room to spare. The 16th sleep is skipped on
-# purpose: it would only delay CI_WAITING, and it is what used to push chunk 1
-# past the cap, where the call is killed and prints no marker at all.
-# Prints exactly one marker on its last line:
-#   CI_SETTLED  → terminal — proceed to the foreground verification below
-#   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
-#                 which covers ci.yml's timeout-minutes of 45)
-#   CI_TIMEOUT  → terminal — report and stop
-# Settles only when: at least one non-exempt check exists (a docs-only PR is allowed none)
-# and none is pending; the sorted name=bucket list is identical on two consecutive polls
-# (fast Vercel/smoke statuses register before the ci.yml job does); and, unless the PR
-# is affirmatively classified docs-only, the ci.yml job "Lint, Type Check & Test" is
-# present. Affirmatively: a file list that could not be read is not a docs-only PR, so
-# it still requires the job (HON-587) — do not weaken this back to "has non-docs files",
-# which is also true of an unreadable list and waives the only build gate there is. Each Bash call is a
-# fresh shell, so PR_NUMBER is re-derived here and the previous poll's result is carried
-# across chunks in a file — never reuse a shell variable.
-PR_NUMBER=$(gh pr view --json number --jq .number)
-# NOT `gh pr view --json files`: it hardcodes `files(first: 100)` and has no
-# --paginate, so a >100-file PR whose first 100 paths are docs would read as
-# DOCS_ONLY and settle a code PR on no CI at all (HON-587). The REST endpoint
-# paginates; `--jq` runs per page, so the slurp uses the system jq (HON-586).
-# The field is `filename` here — GraphQL's `path` does not exist on this payload
-# and would yield one `null` per file, matching no docs pattern.
-FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=100" | jq -rs 'add | .[].filename')
-# A partial walk fails open exactly like the 100-cap did: gh streams each page as it
-# arrives and the pipeline reports jq's status, not gh's, so a 502 on page 2 of a
-# 150-file code PR leaves 100 docs paths that read as DOCS_ONLY. Only a >100-file PR
-# paginates at all, so the exposure is precisely the population this fetch exists for.
-# changedFiles is a scalar total and is not paginated; a mismatch — or a failed count,
-# which can equal nothing — empties FILES into the guard below, the same closing move
-# scripts/pr-review.sh:272 already makes.
-CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null)
-[ "$(printf '%s\n' "$FILES" | grep -c .)" = "$CHANGED" ] || FILES=""
-NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
-# ci.yml is paths-ignored for docs, and Preview smoke only fires on a SUCCESSFUL
-# Vercel deploy — so a docs-only PR whose Vercel status is stuck has no other
-# check at all, and exempting that one row leaves the list legitimately empty.
-# Requires a non-empty FILES: a fetch that failed must never read as "docs-only,
-# nothing to wait for" and settle a code PR on zero checks. An empty fetch makes
-# `jq -s 'add'` yield null and `.[]` error out, so FILES lands empty either way.
-DOCS_ONLY=false; [ -n "$FILES" ] && [ -z "$NON_DOCS" ] && DOCS_ONLY=true
-PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
-# Reap state left by an abandoned episode (a killed call, a worker timeout).
-# It is keyed only by PR number, so a RETRY worker on the same PR would inherit
-# the spent budget — 2 chunks instead of 6 — and hit CI_TIMEOUT on CI that was
-# always going to take 30 min, re-stranding the PR through the state file. A
-# stale PREV is worse: it can match the first CUR and settle the poll without
-# ever running the two-consecutive-poll stability check. A live episode
-# re-issues within seconds, so age separates the two cleanly.
-[ -n "$(find "$CHUNK_FILE" -mmin +10 2>/dev/null)" ] && rm -f "$PREV_FILE" "$CHUNK_FILE"
-CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "$CHUNK_FILE"
-# INIT is a sentinel no check list can equal: without it an empty CUR would match
-# an empty PREV and settle on the very first poll, skipping the stability check.
-PREV=$(cat "$PREV_FILE" 2>/dev/null || echo INIT)
-[ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
-for i in $(seq 1 16); do
-  # A third-party commit status (empty workflow — Vercel) is exempt while pending:
-  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
-  # no `next build`, so Vercel is the only build gate.
-  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
-    --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
-  OK=1
-  [ -n "$CUR" ] || [ "$DOCS_ONLY" = true ] || OK=0                                   # at least one check (docs-only may have none)
-  printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
-  [ "$DOCS_ONLY" = true ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
-  [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
-  PREV=$CUR; printf '%s' "$CUR" > "$PREV_FILE"
-  if [ "$OK" = 1 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_SETTLED; exit 0; fi
-  [ "$i" -lt 16 ] && sleep 30   # the 16th sleep would only delay CI_WAITING
-done
-if [ "$CHUNKS" -ge 6 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_TIMEOUT; exit 1; fi
-echo "CI_WAITING (chunk $CHUNKS/6)"
-```
-
-Act on the marker:
-
-- `CI_WAITING` — re-issue the same command immediately. **This is not a stopping point.** Never end a turn on it, and never write a message like "CI is still running, I'll merge once it settles" — that sentence is the bug this pattern exists to prevent.
-- **No marker at all** (the Bash call was killed at its timeout, or errored before the loop) — treat it exactly as `CI_WAITING` and re-issue. The chunk counter was already incremented, so the budget shrinks by one and a repeat lands on `CI_TIMEOUT` rather than looping forever. A missing marker is never a reason to end the turn.
-- `CI_TIMEOUT` — terminal: report and stop. Do not merge.
-- `CI_SETTLED` — continue to the verification below.
-
-**CRITICAL: On `CI_SETTLED`, verify ALL checks passed — including a Vercel deployment that reported.** With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so inspect `bucket`: anything other than `pass`/`skipping` (`fail` or `cancel` — FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure. The one exemption matches the poll's: a still-`pending` third-party commit status (empty `workflow`) does not block, because it can stick forever after the deploy is Ready:
-
-```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-# A third-party commit status (empty workflow — Vercel) is exempt while pending:
-# it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
-# no `next build`, so Vercel is the only build gate.
-gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
-  --jq '.[] | select(.workflow != "" or .bucket != "pending") | select(.bucket != "pass" and .bucket != "skipping") | "\(.name): \(.state)"'
-```
-
-- No output → all checks passed. Proceed to 7.3.
-- Any line printed → **STOP — do NOT merge.** Report the listed checks.
-- `no checks reported on the '<branch>' branch` on stderr (exit 1) → acceptable **only** when every changed file is excluded by `ci.yml` `paths-ignore` (`**/*.md`, `docs/**`, `.github/ISSUE_TEMPLATE/**`), i.e. no workflow was ever going to run. Otherwise checks simply have not been reported for a code change — stop. In practice this branch is unreachable here (docs-only PRs still receive Vercel and skipped smoke checks, so `gh pr checks` always reports something); it is kept as a defensive branch — do not rely on it:
-
-```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-# Paginated, not `gh pr view --json files` — that caps at 100 files (HON-587).
-# System jq, because `--jq` runs per page (HON-586). REST calls the field `filename`.
-FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=100" | jq -rs 'add | .[].filename')
-# A partial walk fails open exactly like the 100-cap did: gh streams each page as it
-# arrives and the pipeline reports jq's status, not gh's, so a 502 on page 2 of a
-# 150-file code PR leaves 100 docs paths that read as DOCS_ONLY. Only a >100-file PR
-# paginates at all, so the exposure is precisely the population this fetch exists for.
-# changedFiles is a scalar total and is not paginated; a mismatch — or a failed count,
-# which can equal nothing — empties FILES into the guard below, the same closing move
-# scripts/pr-review.sh:272 already makes.
-CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null)
-[ "$(printf '%s\n' "$FILES" | grep -c .)" = "$CHANGED" ] || FILES=""
-NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
-# An unreadable file list is not evidence of a docs-only PR. Without the -z test a
-# failed fetch leaves NON_DOCS empty and prints DOCS_ONLY — "treat as passed" — for
-# a PR that nothing has checked. Same guard the poll above puts on DOCS_ONLY.
-if [ -z "$FILES" ]; then
-  # Not the same diagnosis: nothing has established a code change here, the file
-  # list simply could not be read. Saying otherwise points the CI-fix loop below
-  # at healthy CI, where it can spend both attempts pushing commits at nothing.
-  echo "Could not read the PR file list — cannot classify, treat as unverified"  # STOP
-elif [ -n "$NON_DOCS" ]; then
-  echo "CI did not report checks for a code change"  # STOP — do not proceed
-else
-  echo "DOCS_ONLY"  # no CI workflow runs for these paths — treat as passed
-fi
-```
-
-**Do NOT merge if any check is in the `fail` or `cancel` bucket, including Vercel deployment checks.** This is a hard gate — no exceptions. `ci.yml` runs no `next build`, so a failed Vercel deploy is the only build gate there is; only a *pending* one is exempt.
-
-**Known residual risk of that exemption (accepted in HON-600).** `gh pr checks` carries no signal separating "stuck after Ready" from "still deploying", so a Vercel build that is merely *queued* past the ~13 min `Lint, Type Check & Test` job is dropped along with a stuck one, and the merge lands before it reports. The exemption is still the right trade — Vercel builds here take 38 s–1 min, and the alternative stranded three finished PRs in one night — but the durable fix is HON-584 (required status checks on `main`), which makes GitHub itself refuse the merge. Same caveat applies to the `smoke` label: `preview-smoke.yml` is `on: deployment_status` gated on `state == 'success'`, so its checks never register while Vercel is pending and a labelled PR can merge without them. Requiring them instead would re-strand exactly the PRs this fixes, and `staging-smoke` still runs post-merge.
+**Do NOT merge if the verification prints any line** — any check in the `fail` or `cancel` bucket, including Vercel deployment checks. This is a hard gate, no exceptions: `ci.yml` runs no `next build`, so a failed Vercel deploy is the only build gate there is; only a *pending* third-party status is exempt (HON-600; its accepted residual risk is in `history.md`).
 
 ### 7.3 Merge the PR
 

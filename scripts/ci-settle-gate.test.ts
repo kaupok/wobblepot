@@ -3,8 +3,8 @@
  *
  * The gate has three implementations that must agree: `pr_ci_state()` in
  * orchestrator.sh (covered in orchestrator.test.ts) and two shell snippets
- * embedded in skill markdown — /auto-implement Phase 6.1 and 7.2, and /merge
- * Step 2. The markdown ones are the ones that actually merge PRs, and until
+ * embedded in skill markdown — /auto-implement Phase 6.1 (which 7.2 re-runs),
+ * and /merge Step 2. The markdown ones are the ones that actually merge PRs, and until
  * this file existed nothing executed them: the snippets were prose, and every
  * defect in them had to be found by stranding a real PR.
  *
@@ -28,13 +28,26 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const autoImplementSkill = path.join(repoRoot, '.claude/skills/auto-implement/SKILL.md')
-const mergeSkill = path.join(repoRoot, '.claude/skills/merge/SKILL.md')
+const autoImplementSkill = path.join(repoRoot, '.claude/skills/auto-implement')
+const mergeSkill = path.join(repoRoot, '.claude/skills/merge')
 
 /** The filter every site must carry, verbatim. */
 const EXEMPTION = 'select(.workflow != "" or .bucket != "pending")'
 
 const read = (file: string) => fs.readFileSync(file, 'utf8')
+/**
+ * A skill's whole text: SKILL.md plus the sibling files it reads on demand.
+ * /auto-implement keeps its rarely-taken branches in siblings (HON-787) — the
+ * "no checks reported" classifier lives in recovery.md — so a site is counted
+ * wherever in the skill it lives.
+ */
+const readSkill = (dir: string) =>
+  fs
+    .readdirSync(dir)
+    .filter((file) => file.endsWith('.md'))
+    .sort()
+    .map((file) => read(path.join(dir, file)))
+    .join('\n')
 const countOccurrences = (haystack: string, needle: string) => haystack.split(needle).length - 1
 
 /** Every ```bash fenced block in a markdown file, fence lines excluded. */
@@ -54,29 +67,26 @@ const CI_JOB = 'Lint, Type Check & Test'
 
 describe('CI-settle gate', () => {
   describe('exemption is present at every site', () => {
-    // The AC's own grep, as an assertion: four snippets in /auto-implement
-    // (6.1 poll + verify, 7.2 poll + verify) and two in /merge (Step 2 poll +
+    // The AC's own grep, as an assertion: two snippets in /auto-implement (6.1
+    // poll + verify, which 7.2 re-runs) and two in /merge (Step 2 poll +
     // verify). A site that misses the filter is a site that strands PRs.
-    it('appears four times in /auto-implement and twice in /merge', () => {
-      expect(countOccurrences(read(autoImplementSkill), EXEMPTION)).toBe(4)
-      expect(countOccurrences(read(mergeSkill), EXEMPTION)).toBe(2)
+    it('appears twice in /auto-implement and twice in /merge', () => {
+      expect(countOccurrences(readSkill(autoImplementSkill), EXEMPTION)).toBe(2)
+      expect(countOccurrences(readSkill(mergeSkill), EXEMPTION)).toBe(2)
     })
 
     // Prose is excluded on purpose — only runnable lines can strand a PR.
     it('leaves no unfiltered `gh pr checks` call in any shell block', () => {
       for (const file of [autoImplementSkill, mergeSkill]) {
-        const calls = bashBlocks(read(file))
+        const calls = bashBlocks(readSkill(file))
           .flatMap((block) => block.split('\n'))
           .filter((line) => line.includes('gh pr checks'))
 
-        expect(
-          calls.length,
-          `${path.basename(path.dirname(file))} has no gh pr checks`,
-        ).toBeGreaterThan(0)
+        expect(calls.length, `${path.basename(file)} has no gh pr checks`).toBeGreaterThan(0)
         for (const line of calls) {
           // The call is split across two lines: the `gh` line names the fields,
           // the `--jq` line carries the filter. Assert on the fields here.
-          expect(line, `${path.basename(path.dirname(file))}: ${line.trim()}`).toContain('workflow')
+          expect(line, `${path.basename(file)}: ${line.trim()}`).toContain('workflow')
         }
       }
     })
@@ -91,12 +101,12 @@ describe('CI-settle gate', () => {
     // comment explaining why they no longer call it.
     it('reads no file list from the 100-capped `gh pr view --json files`', () => {
       for (const file of [autoImplementSkill, mergeSkill]) {
-        const lines = bashBlocks(read(file))
+        const lines = bashBlocks(readSkill(file))
           .flatMap((block) => block.split('\n'))
           .filter((line) => !line.trimStart().startsWith('#'))
           .filter((line) => line.includes('--json files'))
 
-        expect(lines, `${path.basename(path.dirname(file))}: ${lines.join(' / ')}`).toEqual([])
+        expect(lines, `${path.basename(file)}: ${lines.join(' / ')}`).toEqual([])
       }
     })
 
@@ -106,10 +116,10 @@ describe('CI-settle gate', () => {
     // copied-over `.path` would yield one null per file and match no docs pattern.
     it('slurps the paginated REST file list with the system jq', () => {
       for (const [file, expected] of [
-        [autoImplementSkill, 4],
+        [autoImplementSkill, 2],
         [mergeSkill, 2],
       ] as const) {
-        const source = read(file)
+        const source = readSkill(file)
         expect(countOccurrences(source, "jq -rs 'add | .[].filename'")).toBe(expected)
         expect(countOccurrences(source, 'files?per_page=100')).toBe(expected)
         // The token the whole fix turns on: without --paginate `gh api` returns
@@ -132,10 +142,10 @@ describe('CI-settle gate', () => {
     // refuses to. Two implementations of one rule, so assert on both.
     it('refuses to call an unreadable file list docs-only at either classifier', () => {
       for (const [file, expected] of [
-        [autoImplementSkill, 2],
+        [autoImplementSkill, 1],
         [mergeSkill, 1],
       ] as const) {
-        const source = read(file)
+        const source = readSkill(file)
         // The poll's guard, and the verification's.
         expect(countOccurrences(source, 'DOCS_ONLY=false; [ -n "$FILES" ]')).toBe(expected)
         // Three-way, not two: an unreadable list and a code change are different
@@ -155,11 +165,21 @@ describe('CI-settle gate', () => {
       }
     })
 
-    it('keeps the two /auto-implement poll loops byte-identical', () => {
-      const loops = bashBlocks(read(autoImplementSkill)).filter((b) => b.includes('CI_SETTLED'))
+    // 7.2 used to carry a second, byte-identical copy of the loop. It now re-runs
+    // 6.1's (HON-787), so there is one copy to keep right — and it has to stay in
+    // SKILL.md, because every run waits on CI and a sibling file is read only on
+    // demand.
+    it('keeps exactly one /auto-implement poll loop, in SKILL.md, which 7.2 re-runs', () => {
+      const skill = read(path.join(autoImplementSkill, 'SKILL.md'))
+      const loops = bashBlocks(skill).filter((b) => b.includes('CI_SETTLED'))
+      const merge = skill.slice(skill.indexOf('### 7.2 Wait for CI'), skill.indexOf('### 7.3'))
 
-      expect(loops).toHaveLength(2)
-      expect(loops[0]).toBe(loops[1])
+      expect(loops).toHaveLength(1)
+      expect(
+        bashBlocks(readSkill(autoImplementSkill)).filter((b) => b.includes('CI_SETTLED')),
+      ).toHaveLength(1)
+      expect(merge).toContain('Re-run the 6.1 poll')
+      expect(merge).toContain('6.1 verification block')
     })
   })
 
@@ -234,7 +254,9 @@ describe('CI-settle gate', () => {
       )
       fs.writeFileSync(path.join(stubBin, 'sleep'), '#!/bin/sh\nexit 0\n', { mode: 0o755 })
 
-      const [loop] = bashBlocks(read(autoImplementSkill)).filter((b) => b.includes('CI_SETTLED'))
+      const [loop] = bashBlocks(read(path.join(autoImplementSkill, 'SKILL.md'))).filter((b) =>
+        b.includes('CI_SETTLED'),
+      )
       if (!loop) throw new Error('no CI_SETTLED poll loop found in the skill')
       pollScript = path.join(stubBin, 'poll.sh')
       fs.writeFileSync(pollScript, loop)
