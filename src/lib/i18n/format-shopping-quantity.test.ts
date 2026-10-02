@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { Unit } from '@/generated/prisma/enums'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
-import { formatShoppingQuantity as format } from './format-shopping-quantity'
+import { formatShoppingQuantity as format, formatWeight } from './format-shopping-quantity'
 import type { Locale } from './locales'
 import type { VaguePhraseKey } from './vague-phrase'
 
@@ -107,5 +107,26 @@ describe('formatShoppingQuantity', () => {
     it('formats normally when isVague is true but originalPhrase is missing', () => {
       expect(formatShoppingQuantity(5, 'g', 'en', true, null)).toBe('5g')
     })
+  })
+})
+
+describe('formatWeight', () => {
+  it('renders grams below 1000g', () => {
+    expect(formatWeight(999, 'en')).toBe('999g')
+  })
+
+  it('switches to kg at 1000g', () => {
+    expect(formatWeight(1000, 'en')).toBe('1kg')
+    expect(formatWeight(3000, 'en')).toBe('3kg')
+  })
+
+  it('renders kg when the grams would round up to 1000', () => {
+    expect(formatWeight(999.6, 'en')).toBe('1kg')
+    expect(formatWeight(999.4, 'en')).toBe('999g')
+  })
+
+  it('rounds to one fraction digit with the locale decimal separator', () => {
+    expect(formatWeight(1250, 'en')).toBe('1.3kg')
+    expect(formatWeight(1250, 'et')).toBe('1,3kg')
   })
 })
