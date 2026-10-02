@@ -12,6 +12,10 @@ import { serverEnv } from '@/lib/env'
 import { COOK_QUESTION_MODEL } from '@/lib/ai/models'
 import { COOK_QUESTION_AI_BUDGET_MS } from '@/lib/ai/budgets'
 import { buildCookQuestionRequest } from '@/lib/ai/cook-question'
+import {
+  COOK_QUESTION_MAX_LENGTH,
+  COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH,
+} from '@/lib/ai/cook-question-limits'
 import { parseStoredTips } from '@/lib/tips'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
@@ -61,7 +65,16 @@ const bodySchema = z
   .object({
     stepIndex: z.number().int().min(0),
     steps: z.array(z.string().trim().min(1).max(500)).min(1).max(12),
-    question: z.string().trim().min(1).max(300),
+    question: z.string().trim().min(1).max(COOK_QUESTION_MAX_LENGTH),
+    // The last answered question on this step (HON-980). Context only, so a
+    // bad one is dropped rather than failing the question it came with.
+    previous: z
+      .object({
+        question: z.string().trim().min(1).max(COOK_QUESTION_MAX_LENGTH),
+        answer: z.string().trim().min(1).max(COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH),
+      })
+      .optional()
+      .catch(undefined),
   })
   .refine((body) => body.stepIndex < body.steps.length)
 
@@ -87,7 +100,7 @@ async function handlePOST(
   if (!parsed.success) {
     return NextResponse.json(errorBody('Invalid question', 'invalid_question'), { status: 400 })
   }
-  const { stepIndex, steps, question } = parsed.data
+  const { stepIndex, steps, question, previous } = parsed.data
 
   const { household } = membership
   const { id: planId, entryId } = await params
@@ -220,6 +233,7 @@ async function handlePOST(
         restrictions: preferences?.restrictions ?? [],
       },
       question,
+      previous,
       locale,
     })
 
