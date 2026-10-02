@@ -149,10 +149,12 @@ export function mealImageTitleWidth(trailingActions = false): string {
 }
 
 /**
- * The `max-width` for the head's badge row on a card with an `overlay`: half
+ * The `max-width` for the head's badge rows on a card with an `overlay`: half
  * the content row, which ends before the slip's left edge (`OVERLAY_BOX`) at
- * any width, so a second badge (the servings override after the pantry
- * badge) wraps rather than running under the slip (HON-974). A single badge
+ * any width, so a second badge wraps rather than running under the slip
+ * (HON-974): the servings override after the pantry badge, and on a short
+ * card, which the slip spans top to bottom, the first row's protein and
+ * own-recipe badges. A single badge
  * wider than that overflows the cap rather than wrapping; the slip's left
  * edge is set to clear the widest one. Without an overlay the row is uncapped.
  */

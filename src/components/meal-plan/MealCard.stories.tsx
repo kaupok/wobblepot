@@ -314,6 +314,39 @@ const LONG_NOTE =
   'Use the big pot, salt the water well, and save a cup of the pasta water for the sauce before you drain it.'
 
 /**
+ * A short phone card with a full first row: the slip runs up beside it, so
+ * the protein and own-recipe badges wrap before the slip rather than under
+ * it. Estonian, whose protein label is the longer one (HON-974).
+ */
+export const ShortPhoneCardWithFullFirstRow: Story = {
+  name: 'Short card with a full first row (phone, Estonian)',
+  args: {
+    meal: {
+      ...mealFixture,
+      name: SHORT_NAME,
+      description: null,
+      primaryProteinType: 'dairy',
+      isCustom: true,
+      imageStatus: 'ready',
+      imageUrl: mealIllustration.src,
+      imageHue: 52,
+    },
+    mealType: MealType.breakfast,
+    status: 'planned',
+    note: LONG_NOTE,
+    pantryIngredients: [{ ingredientId: 'salt', isStaple: true }],
+  },
+  parameters: { cardWidth: 'phone' },
+  globals: { locale: 'et' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: SHORT_NAME })
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    await assertSlipOverCard(card, canvas.getByRole('button', { name: LONG_NOTE }), SHORT_NAME)
+  },
+}
+
+/**
  * The shortest planner card: a one-word name, no description and no pantry
  * badge (a staples-only pantry shows none). A long saved note still fits on it,
  * clamped, and so does the editor with that note open: it scrolls rather than

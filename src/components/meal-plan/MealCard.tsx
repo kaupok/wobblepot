@@ -429,9 +429,13 @@ export function MealCard({
           <CardHeader className="px-4 pt-1 pb-1">
             {/* First row: the slot label, with the menu at the right end. The
                 name has the next row to itself, still capped before the image
-                (`mealImageTitleWidth`). */}
+                (`mealImageTitleWidth`). The badges are capped like the badge
+                row below: on a short card the note's slip rises into this
+                row, so they wrap before it. */}
             <div className="flex min-h-8 items-center justify-between gap-1">
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div
+                className={cn('flex flex-wrap items-center gap-1.5', MEAL_IMAGE_BADGE_ROW_WIDTH)}
+              >
                 <MealTypeBadge mealType={mealType} />
                 <ProteinBadge proteinType={meal.primaryProteinType} />
                 {meal.isCustom && <MyRecipeBadge compact />}
