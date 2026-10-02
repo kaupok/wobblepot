@@ -103,14 +103,16 @@ export function HeaderChrome({ session, hasHousehold, skipToContentLabel }: Head
             </div>
             <NavigationLeft isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
           </div>
-          {/* No gap: the last nav link meets the account button, and with
-              the nav present the pill's left padding gives way to the
-              links' own (`NavLink`). Without it (signed out, onboarding)
-              the buttons keep the full 20px. */}
+          {/* No gap: the last nav link meets the account button. With the
+              nav present, the pill's 8px plus the first link's own 12px
+              (`NavLink`) put its label 20px in. Without it (signed out,
+              onboarding) the first control is a button whose box carries its
+              own padding, so the pill's 4px meets that box, the same as the
+              right end meets the last disc. */}
           <div
             className={cn(
               'md:bg-background md:shadow-float flex items-center md:h-12 md:rounded-full md:border md:pr-1',
-              showsNav ? 'md:pl-2' : 'md:pl-5',
+              showsNav ? 'md:pl-2' : 'md:pl-1',
             )}
           >
             <NavigationRight isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />

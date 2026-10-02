@@ -354,15 +354,40 @@ export const DesktopLoggedOut: Story = {
     docs: {
       description: {
         story:
-          'Desktop, no session — the right pill holds the sign-in / sign-up buttons and the theme toggle, the left one just the logo. With no nav links to carry the spacing, the right pill keeps its full 20px left padding; the play measures it.',
+          'Desktop, no session — the right pill holds the sign-in / sign-up buttons and the theme toggle, the left one just the logo. With no nav links, the pill’s 4px meets the Sign in button’s own box, so its hover pill sits as far in from the left edge as the theme disc does from the right (HON-939); the play measures both ends.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const banner = within(canvasElement).getByRole('banner')
     const signIn = within(banner).getByRole('link', { name: 'Sign in' })
-    const pill = signIn.closest('.md\\:rounded-full')!
-    // 20px padding inside a 1px border.
-    await expectNear(box(signIn).left - box(pill).left, 21)
+    const theme = within(banner).getByRole('button', { name: 'Toggle theme' })
+    const pill = box(signIn.closest('.md\\:rounded-full')!)
+    // 4px padding inside a 1px border, the same at both ends.
+    await expectNear(box(signIn).left - pill.left, 5)
+    await expectNear(pill.right - box(theme).right, 5)
+  },
+}
+
+export const DesktopOnboarding: Story = {
+  args: { session: authedSession, hasHousehold: false },
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Desktop, signed in without a household — the right pill holds only the account disc. The pill’s 4px meets the disc’s box at both ends, so it sits centred in the pill (HON-939); the play measures it.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    const account = within(banner).getByRole('button', { name: 'User menu' })
+    const pill = box(account.closest('.md\\:rounded-full')!)
+    // 4px padding inside a 1px border, the same at both ends.
+    await expectNear(box(account).left - pill.left, 5)
+    await expectNear(pill.right - box(account).right, 5)
   },
 }
