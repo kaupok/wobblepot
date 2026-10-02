@@ -241,6 +241,33 @@ describe('redactUrlProperties', () => {
     })
   })
 
+  it('redacts the URLs nested in each $web_vitals_*_event object', () => {
+    const out = redactUrlProperties({
+      $web_vitals_FCP_event: {
+        name: 'FCP',
+        value: 812,
+        $current_url: 'https://wobblepot.com/reset-password?token=abc',
+        navigationURL: 'https://wobblepot.com/invite/XYZ123',
+      },
+      $web_vitals_FCP_value: 812,
+    })
+
+    expect(out).toEqual({
+      $web_vitals_FCP_event: {
+        name: 'FCP',
+        value: 812,
+        $current_url: 'https://wobblepot.com/reset-password',
+        navigationURL: 'https://wobblepot.com/invite/:code',
+      },
+      $web_vitals_FCP_value: 812,
+    })
+  })
+
+  it('does not look inside other nested objects', () => {
+    const nested = { $current_url: '/reset-password?token=abc' }
+    expect(redactUrlProperties({ other: nested })).toEqual({ other: nested })
+  })
+
   it('leaves non-string values alone', () => {
     expect(redactUrlProperties({ url: 42, path: null })).toEqual({ url: 42, path: null })
   })

@@ -76,6 +76,31 @@ describe('postHogBeforeSend', () => {
     expect(result?.properties.$referrer).toBe('https://wobblepot.com/sign-in')
   })
 
+  it('drops the reset token from the URLs nested in a $web_vitals event', () => {
+    const result = postHogBeforeSend({
+      event: '$web_vitals',
+      properties: {
+        $current_url: 'https://wobblepot.com/reset-password?token=abc',
+        $web_vitals_FCP_event: {
+          value: 1,
+          $current_url: 'https://wobblepot.com/reset-password?token=abc',
+          navigationURL: 'https://wobblepot.com/reset-password?token=abc',
+        },
+        token: 'phc_test',
+      },
+    })
+
+    expect(result?.properties).toEqual({
+      $current_url: 'https://wobblepot.com/reset-password',
+      $web_vitals_FCP_event: {
+        value: 1,
+        $current_url: 'https://wobblepot.com/reset-password',
+        navigationURL: 'https://wobblepot.com/reset-password',
+      },
+      token: 'phc_test',
+    })
+  })
+
   it('redacts the initial URL on the person properties', () => {
     const result = postHogBeforeSend({
       event: '$identify',

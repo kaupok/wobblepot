@@ -62,8 +62,9 @@ export function redactFreeText(s: string): string {
  * Properties whose value is a URL or a path. posthog-js stamps the
  * `$current_url` / `$pathname` / `$referrer` set on every event, copies them
  * into `$session_entry_*` on every event and into `$initial_*` on the person
- * (`$set_once`). `path` and `url` are our own server-side keys
- * (`instrumentation.ts`, `external-fetch.ts`).
+ * (`$set_once`). The web-vitals extension nests `$current_url` and
+ * `navigationURL` inside each `$web_vitals_<metric>_event` object. `path` and
+ * `url` are our own server-side keys (`instrumentation.ts`, `external-fetch.ts`).
  */
 const URL_KEYS = new Set([
   '$current_url',
@@ -76,11 +77,14 @@ const URL_KEYS = new Set([
   '$initial_current_url',
   '$initial_pathname',
   '$initial_referrer',
+  'navigationURL',
   'path',
   'url',
 ])
 
-const PERSON_PROPERTY_KEYS = ['$set', '$set_once'] as const
+// Nested objects that carry URL keys of their own: the person properties, and
+// the per-metric web-vitals objects (`$web_vitals_FCP_event`, …).
+const NESTED_URL_OBJECT_KEY = /^(\$set|\$set_once|\$web_vitals_[A-Za-z]+_event)$/
 
 // The path segment that holds an invite code. `/api/households/me/invites/<id>`
 // is a database id, not a secret, so it is not matched.
@@ -121,8 +125,8 @@ function redactUrlKeys(properties: Record<string, unknown>): Record<string, unkn
 }
 
 /**
- * Apply `redactUrlValue` to every URL-valued property, including the person
- * properties nested under `$set` / `$set_once`. Run it before
+ * Apply `redactUrlValue` to every URL-valued property, including those nested
+ * under `$set` / `$set_once` and the `$web_vitals_*_event` objects. Run it before
  * `sanitizeEventProperties`, which passes `$`-prefixed keys through untouched.
  *
  * Pure: returns a new object, never mutates input.
@@ -132,8 +136,8 @@ export function redactUrlProperties<T extends Record<string, unknown> | undefine
 ): T {
   if (!properties) return properties
   const out = redactUrlKeys(properties)
-  for (const key of PERSON_PROPERTY_KEYS) {
-    const nested = out[key]
+  for (const [key, nested] of Object.entries(out)) {
+    if (!NESTED_URL_OBJECT_KEY.test(key)) continue
     if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
       out[key] = redactUrlKeys(nested as Record<string, unknown>)
     }
