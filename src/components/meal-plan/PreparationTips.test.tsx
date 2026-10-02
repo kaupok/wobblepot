@@ -409,6 +409,84 @@ describe('PreparationSteps cook question', () => {
     expect(within(panel(1)!).getByRole('status')).toHaveTextContent('Use the yoghurt you have.')
   })
 
+  it('shows no asked question without an active question', async () => {
+    render(<Harness />)
+    await userEvent.click(askButton(1))
+    expect(within(panel(1)!).queryByText(/^You asked:/)).toBeNull()
+    expect(within(panel(1)!).queryByRole('button', { name: 'Edit' })).toBeNull()
+  })
+
+  it('shows no asked question for another step’s question', async () => {
+    render(
+      <Harness
+        controls={{ active: { stepIndex: 0, question: 'Done yet?', answer: 'Not yet.' } }}
+      />,
+    )
+    await userEvent.click(askButton(2))
+    expect(within(panel(2)!).queryByText(/^You asked:/)).toBeNull()
+    expect(within(panel(2)!).queryByRole('button', { name: 'Edit' })).toBeNull()
+  })
+
+  it('shows the asked question above the status, while pending, answered and failed', async () => {
+    const active = { stepIndex: 0, question: 'No cream, what now?', answer: null }
+    const states: Partial<CookQuestionControls>[] = [
+      { active, isPending: true },
+      { active: { ...active, answer: 'Use the yoghurt you have.' } },
+      { active, error: { message: 'Took too long.', canRetry: true } },
+    ]
+    for (const controls of states) {
+      const { unmount } = render(<Harness controls={controls} />)
+      await userEvent.click(askButton(1))
+      const line = within(panel(1)!).getByText('You asked: No cream, what now?')
+      const status = within(panel(1)!).getByRole('status')
+      expect(status).not.toContainElement(line)
+      expect(line.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      unmount()
+    }
+  })
+
+  it('Edit puts the question in the field with focus and the caret at the end, and does not send', async () => {
+    const ask = vi.fn()
+    render(
+      <Harness
+        controls={{ ask, active: { stepIndex: 1, question: 'No cream, what now?', answer: 'A.' } }}
+      />,
+    )
+    await userEvent.click(askButton(2))
+    const edit = within(panel(2)!).getByRole('button', { name: 'Edit' })
+    expect(edit).toHaveAccessibleDescription('You asked: No cream, what now?')
+    await userEvent.click(edit)
+
+    const field = screen.getByRole<HTMLInputElement>('textbox')
+    expect(field).toHaveValue('No cream, what now?')
+    expect(field).toHaveFocus()
+    expect(field.selectionStart).toBe('No cream, what now?'.length)
+    expect(field.selectionEnd).toBe('No cream, what now?'.length)
+    expect(ask).not.toHaveBeenCalled()
+
+    // Sending the edited text is a new typed question.
+    await userEvent.type(field, ' Milk?{Enter}')
+    expect(ask).toHaveBeenCalledWith({
+      stepIndex: 1,
+      steps: sampleTips.steps,
+      question: 'No cream, what now? Milk?',
+      source: 'text',
+    })
+  })
+
+  it('Edit focuses the field again when the text is unchanged', async () => {
+    render(
+      <Harness
+        controls={{ active: { stepIndex: 0, question: 'Done yet?', answer: 'Not yet.' } }}
+      />,
+    )
+    await userEvent.click(askButton(1))
+    const edit = screen.getByRole('button', { name: 'Edit' })
+    await userEvent.click(edit)
+    await userEvent.click(edit)
+    expect(screen.getByRole('textbox')).toHaveFocus()
+  })
+
   it('shows the error with Retry when a retry can help, and without it otherwise', async () => {
     const onRetry = vi.fn()
     const { unmount } = render(

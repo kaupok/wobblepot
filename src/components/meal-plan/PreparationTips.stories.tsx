@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
 import { mealHueStyle } from './MealImageCard'
@@ -239,6 +240,8 @@ export const AskPending: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    // The question stays on screen above "Thinking…" (HON-976).
+    await expect(canvas.getByText("You asked: How do I know it's done?")).toBeVisible()
     await expect(canvas.getByRole('status')).toHaveTextContent('Thinking…')
     await expect(canvas.getByRole('button', { name: 'Send' })).toHaveAttribute(
       'aria-disabled',
@@ -260,6 +263,11 @@ export const AskAnswered: Story = {
       },
     }),
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('You asked: What can I substitute here?')).toBeVisible()
+    await expect(canvas.getByRole('button', { name: 'Edit' })).toBeVisible()
+  },
 }
 
 export const AskAnsweredDark: Story = {
@@ -279,6 +287,7 @@ export const AskError: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
+    await expect(canvas.getByText("You asked: I'm short on time")).toBeVisible()
     await userEvent.click(canvas.getByRole('button', { name: 'Retry' }))
     await expect(args.cookQuestion!.onRetry).toHaveBeenCalledOnce()
   },
@@ -299,5 +308,56 @@ export const AskRateLimited: Story = {
   },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).queryByRole('button', { name: 'Retry' })).toBeNull()
+  },
+}
+
+/**
+ * The modal's side of the contract with state, so a chip's question shows: a
+ * send sets the active question for that step, as `useCookQuestion` does.
+ */
+function AskWithState(args: React.ComponentProps<typeof PreparationSteps>) {
+  const [openStep, setOpenStep] = useState<number | null>(1)
+  const [active, setActive] = useState<CookQuestionControls['active']>(null)
+  const controls = args.cookQuestion!
+  return (
+    <PreparationSteps
+      {...args}
+      cookQuestion={{
+        ...controls,
+        openStep,
+        onOpenStep: setOpenStep,
+        onClose: () => setOpenStep(null),
+        active,
+        isPending: active !== null,
+        ask: (input) => {
+          controls.ask(input)
+          setActive({ stepIndex: input.stepIndex, question: input.question, answer: null })
+        },
+      }}
+    />
+  )
+}
+
+/**
+ * HON-976: a chip's question shows above "Thinking…", and Edit puts it back
+ * in the field with focus, without sending it again.
+ */
+export const AskEchoAndEdit: Story = {
+  args: {
+    ...WithAskButtons.args,
+    cookQuestion: cookQuestion(),
+  },
+  render: (args) => <AskWithState {...args} />,
+  play: async ({ canvasElement, args }) => {
+    const panel = within(canvasElement).getByRole('group', { name: 'Ask about step 2' })
+    await userEvent.click(within(panel).getByRole('button', { name: "I'm short on time" }))
+    await expect(within(panel).getByText("You asked: I'm short on time")).toBeVisible()
+    await expect(within(panel).getByRole('status')).toHaveTextContent('Thinking…')
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Edit' }))
+    const field = within(panel).getByRole('textbox', { name: 'Your question' })
+    await expect(field).toHaveValue("I'm short on time")
+    await expect(field).toHaveFocus()
+    await expect(args.cookQuestion!.ask).toHaveBeenCalledOnce()
   },
 }
