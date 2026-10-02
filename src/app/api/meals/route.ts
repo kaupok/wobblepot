@@ -19,14 +19,41 @@ import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
-const SIMILARITY_THRESHOLD = 0.25
-// Cap fuzzy search results to prevent loading too many meals into memory
-// This is generous enough for any realistic search pagination needs
-const FUZZY_SEARCH_CAP = 200
+/**
+ * A name matches the search when it contains it as a substring or, for a
+ * search of FUZZY_MIN_LENGTH characters or more, when its pg_trgm score
+ * reaches FUZZY_THRESHOLD. The fuzzy half forgives typos ("brocoli" scores
+ * 0.7 against "broccoli", "chiken" 0.5 against "chicken").
+ *
+ * pg_trgm pads each word with two leading spaces and one trailing space, so an
+ * n-letter word has n + 1 trigrams and the first ones are its opening letters:
+ * "oat" → "  o", " oa", "oat", "at ". A name whose word merely starts with the
+ * same k letters shares k trigrams, and `word_similarity()` scores that
+ * k / (n + 1). At the old threshold of 0.25 one shared first letter was enough
+ * for "oat" (1/4), so it matched every meal with onion or olive oil (HON-942).
+ *
+ * At 0.5 a shared prefix has to cover half the search: two letters of a
+ * four-letter search score 2/5 and fail ("kaer" no longer matches every
+ * "kana" and "kartul"). A three-letter search would still pass on two letters
+ * (2/4), so below four characters only the substring match applies. Lowering
+ * either constant brings the leak back.
+ */
+const FUZZY_THRESHOLD = 0.5
+const FUZZY_MIN_LENGTH = 4
+// Cap search results to prevent loading too many meals into memory. A one- or
+// two-letter search matches by substring and can hit nearly every meal the
+// household sees (271 global meals in 2026-10), so keep the cap above the
+// library size: matches past it are dropped and `total` comes back short.
+const FUZZY_SEARCH_CAP = 500
 
 interface FuzzyMealMatch {
   id: string
   similarity: number
+}
+
+/** An ILIKE pattern matching names that contain `search`, its `%`, `_` and `\` taken literally. */
+function likePattern(search: string) {
+  return `%${search.replace(/[\\%_]/g, '\\$&')}%`
 }
 
 export async function GET(request: NextRequest) {
@@ -111,17 +138,29 @@ export async function GET(request: NextRequest) {
       const ingredientTranslationJoin = translate
         ? Prisma.sql`LEFT JOIN "ingredient_translation" it ON it."ingredientId" = i.id AND it.locale = ${locale}`
         : Prisma.empty
-      // similarity() and word_similarity() of the search against each name.
-      // A missing translation scores NULL, which GREATEST skips and OR treats
-      // as no match, so the English name still decides for that row.
+      // A name matches when it contains the search, or (from FUZZY_MIN_LENGTH)
+      // when its similarity() or word_similarity() reaches FUZZY_THRESHOLD.
+      // A substring match scores 1 + similarity, above any fuzzy score, so it
+      // sorts first and the closer of two substring matches still leads. A
+      // missing translation scores NULL, which GREATEST skips and OR treats as
+      // no match, so the English name still decides for that row.
+      const pattern = likePattern(search)
+      const fuzzy = search.length >= FUZZY_MIN_LENGTH
       const scores = (names: Prisma.Sql[]) =>
-        names.flatMap((n) => [
-          Prisma.sql`similarity(${n}, ${search})`,
-          Prisma.sql`word_similarity(${search}, ${n})`,
-        ])
+        names.map(
+          (n) => Prisma.sql`GREATEST(
+            CASE WHEN ${n} ILIKE ${pattern} THEN 1 + similarity(${n}, ${search}) END,
+            similarity(${n}, ${search}),
+            word_similarity(${search}, ${n})
+          )`,
+        )
       const matches = (names: Prisma.Sql[]) =>
         Prisma.join(
-          scores(names).map((score) => Prisma.sql`${score} >= ${SIMILARITY_THRESHOLD}`),
+          names.map((n) =>
+            fuzzy
+              ? Prisma.sql`(${n} ILIKE ${pattern} OR similarity(${n}, ${search}) >= ${FUZZY_THRESHOLD} OR word_similarity(${search}, ${n}) >= ${FUZZY_THRESHOLD})`
+              : Prisma.sql`${n} ILIKE ${pattern}`,
+          ),
           ' OR ',
         )
 
@@ -139,7 +178,11 @@ export async function GET(request: NextRequest) {
           ) as similarity
         FROM "meal" m
         ${mealTranslationJoin}
-        WHERE (
+        -- Only meals the Prisma filter below can keep, so deleted meals and
+        -- those of other households do not use up FUZZY_SEARCH_CAP
+        WHERE m."deletedAt" IS NULL
+        AND (m."householdId" IS NULL OR m."householdId" = ${household.id})
+        AND (
           ${matches(mealNames)}
           OR EXISTS (
             SELECT 1 FROM "meal_component" mc
