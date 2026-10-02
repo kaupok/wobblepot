@@ -364,37 +364,40 @@ export function MealSelectorModal({
           />
         ) : (
           <div className="flex flex-col gap-4">
-            {/* Search input with imagine button */}
-            <div className="flex gap-2">
+            {/* Search, the "My recipes only" filter and Imagine are one control
+                group: one row from `md`, in that order (HON-945). Below `md` the
+                search keeps a line of its own and the filter and Imagine share
+                the next: beside the labelled button the field would be ~100px,
+                too narrow for its own placeholder. */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-4 md:flex-nowrap md:gap-x-4">
               <Input
                 type="search"
                 placeholder={tSelector('searchPlaceholder')}
                 aria-label={tSelector('searchAria')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="min-w-0 flex-1"
+                className="min-w-0 basis-full md:max-w-sm md:flex-1"
               />
+              <div className="flex min-w-0 flex-1 items-center gap-2 md:flex-none md:shrink-0">
+                <Checkbox
+                  id="my-recipes-only"
+                  checked={myRecipesOnly}
+                  onCheckedChange={(checked) => setMyRecipesOnly(checked === true)}
+                />
+                <Label htmlFor="my-recipes-only" className="cursor-pointer font-normal">
+                  {tSelector('myRecipesOnly')}
+                </Label>
+              </div>
+              {/* Labelled, not icon-only: the dialog's second way to find a
+                  meal should be seen (HON-945). The text is its name. */}
               <Button
                 variant="outline"
-                size="icon"
                 onClick={() => setIsImagineMode(true)}
-                aria-label={tSelector('imagineButton')}
-                className="shrink-0"
+                className="shrink-0 md:ml-auto"
               >
-                <Sparkles className="h-4 w-4" />
+                <Sparkles aria-hidden="true" />
+                {tSelector('imagineButton')}
               </Button>
-            </div>
-
-            {/* My recipes filter */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="my-recipes-only"
-                checked={myRecipesOnly}
-                onCheckedChange={(checked) => setMyRecipesOnly(checked === true)}
-              />
-              <Label htmlFor="my-recipes-only" className="cursor-pointer font-normal">
-                {tSelector('myRecipesOnly')}
-              </Label>
             </div>
 
             <AlternativesList

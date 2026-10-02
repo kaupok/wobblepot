@@ -198,13 +198,19 @@ export const CancelStopsGenerating: Story = {
 export const WithResults: Story = {
   parameters: {
     msw: { handlers: imagineSuccess },
-    docs: { description: { story: 'Three generated meals, each openable for review.' } },
+    docs: {
+      description: {
+        story:
+          'Three generated meals, each openable for review. Each is a dinner, but the cards carry no meal-type badge: the dialog title names the slot (HON-945).',
+      },
+    },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole('textbox'), 'something with lentils')
     await userEvent.click(canvas.getByRole('button', { name: /imagine meals/i }))
     await canvas.findByText('Smoky red lentil stew')
+    await expect(canvas.queryByText('Dinner')).not.toBeInTheDocument()
   },
 }
 

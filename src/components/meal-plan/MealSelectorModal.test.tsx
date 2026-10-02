@@ -293,11 +293,14 @@ describe('MealSelectorModal accessible names', () => {
     )
   })
 
-  it('names the imagine button with aria-label rather than title', () => {
+  // The label is visible text, so it is the name; no aria-label to drift
+  // from it, and no title (HON-808, HON-945).
+  it('names the imagine button by its visible label', () => {
     renderModal()
 
-    const button = screen.getByLabelText(selector.imagineButton)
-    expect(button.tagName).toBe('BUTTON')
+    const button = screen.getByRole('button', { name: selector.imagineButton })
+    expect(button).toHaveTextContent(selector.imagineButton)
+    expect(button).not.toHaveAttribute('aria-label')
     expect(button).not.toHaveAttribute('title')
   })
 })

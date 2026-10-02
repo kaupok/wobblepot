@@ -124,6 +124,7 @@ export const NotKidFriendly: Story = {
   },
 }
 
+/** The default, `mealTypes="show"`: one badge per slot, as in the recipe library. */
 export const MultipleMealTypes: Story = {
   args: {
     meal: createMealCardBaseData({
@@ -131,6 +132,34 @@ export const MultipleMealTypes: Story = {
       suitableFor: [MealType.breakfast, MealType.lunch, MealType.dinner],
       primaryProteinType: 'eggs',
     }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    for (const slot of ['Breakfast', 'Lunch', 'Dinner']) {
+      await expect(canvas.getByText(slot)).toBeInTheDocument()
+    }
+  },
+}
+
+/**
+ * `mealTypes="hide"`: the meal selector's cards, where the dialog title already
+ * names the slot. Kid-friendly and protein stay (HON-945).
+ */
+export const MealTypesHidden: Story = {
+  args: {
+    meal: createMealCardBaseData({
+      name: 'Shakshuka',
+      suitableFor: [MealType.breakfast, MealType.lunch, MealType.dinner],
+      primaryProteinType: 'eggs',
+    }),
+    mealTypes: 'hide',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    for (const slot of ['Breakfast', 'Lunch', 'Dinner']) {
+      await expect(canvas.queryByText(slot)).not.toBeInTheDocument()
+    }
+    await expect(canvas.getByText('Eggs')).toBeInTheDocument()
   },
 }
 

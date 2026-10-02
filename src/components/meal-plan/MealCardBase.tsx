@@ -60,6 +60,13 @@ interface MealCardBaseProps {
    */
   ingredients?: 'always' | 'never'
   /**
+   * Whether the `suitableFor` slot badges render. `'hide'` is for the meal
+   * selector, whose title already names the slot being filled, so "Breakfast"
+   * on every card repeats it and pushes the kid-friendly and protein badges to
+   * a second row on a phone (HON-945). Everywhere else a meal's slots are news.
+   */
+  mealTypes?: 'show' | 'hide'
+  /**
    * The card's actions, aligned right on the name's row (docs/DESIGN.md →
    * Composition, "Actions sit on the title row"). For a `layout="bottom"`
    * card, whose title row nothing else shares.
@@ -77,6 +84,7 @@ export function MealCardBase({
   pantryIngredients,
   nameHeadingTag = 'h4',
   ingredients = 'always',
+  mealTypes = 'show',
   titleActions,
 }: MealCardBaseProps) {
   const tDetail = useTranslations('meal-plan.detail')
@@ -92,9 +100,8 @@ export function MealCardBase({
           on the planner card, so a meal says when it fits and what it is
           before its name. */}
       <div className="flex flex-wrap items-center gap-1.5">
-        {meal.suitableFor?.map((type) => (
-          <MealTypeBadge key={type} mealType={type} />
-        ))}
+        {mealTypes === 'show' &&
+          meal.suitableFor?.map((type) => <MealTypeBadge key={type} mealType={type} />)}
         {meal.kidFriendly && <KidFriendlyBadge compact />}
         <ProteinBadge proteinType={meal.primaryProteinType} />
       </div>

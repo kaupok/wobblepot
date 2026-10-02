@@ -38,12 +38,18 @@ function footerContentBox(button: HTMLElement) {
   return { left, width }
 }
 
-/** Below `md` the cards stack, so Select spans the card for a column-wide target (HON-943). */
+/**
+ * Below `md` the cards stack, so Select spans the card for a column-wide target
+ * (HON-943). The fixture is a dinner, but the card leaves the meal-type badge
+ * out: the dialog's title names the slot (HON-945).
+ */
 export const Default: Story = {
   args: { meal: mealFixture },
   play: async ({ canvasElement }) => {
-    const button = within(canvasElement).getByRole('button', { name: 'Select' })
+    const canvas = within(canvasElement)
+    const button = canvas.getByRole('button', { name: 'Select' })
     await expect(button.getBoundingClientRect().width).toBe(footerContentBox(button).width)
+    await expect(canvas.queryByText('Dinner')).not.toBeInTheDocument()
   },
 }
 
