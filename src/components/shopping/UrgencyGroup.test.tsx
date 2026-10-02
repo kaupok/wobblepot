@@ -61,4 +61,28 @@ describe('UrgencyGroup', () => {
     expect(screen.getByText('Tomatoes')).toBeInTheDocument()
     expect(screen.getByText('Onion')).toBeInTheDocument()
   })
+
+  it.each(['today', 'tomorrow'] as const)(
+    'does not repeat the day on each row in the %s group',
+    (bucket) => {
+      const dayItems = items.map((item) => ({ ...item, neededByRelative: bucket }))
+      render(<UrgencyGroup bucket={bucket} items={dayItems} onToggleItem={vi.fn()} />)
+      expect(screen.queryByText(bucket)).not.toBeInTheDocument()
+    },
+  )
+
+  it.each(['this-week', 'later'] as const)(
+    'shows the day on each row in the %s group',
+    (bucket) => {
+      const dayItems = items.map((item) => ({ ...item, neededByRelative: 'Tuesday' }))
+      render(<UrgencyGroup bucket={bucket} items={dayItems} onToggleItem={vi.fn()} />)
+      expect(screen.getAllByText('Tuesday')).toHaveLength(2)
+    },
+  )
+
+  it('keeps the purchased styling on a row in the today group', () => {
+    render(<UrgencyGroup bucket="today" items={items} onToggleItem={vi.fn()} />)
+    expect(screen.getByText('Onion')).toHaveClass('line-through')
+    expect(screen.getByText('Tomatoes')).not.toHaveClass('line-through')
+  })
 })

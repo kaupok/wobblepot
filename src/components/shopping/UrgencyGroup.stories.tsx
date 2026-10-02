@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import { shoppingItemsByUrgency } from '@/stories/fixtures'
 import { UrgencyGroup } from './UrgencyGroup'
 
@@ -47,9 +47,13 @@ export const UrgentItems: Story = {
     a11y: inactiveStateA11y,
     docs: {
       description: {
-        story: '`today` bucket — shows progress count because one item is already purchased.',
+        story:
+          '`today` bucket — shows progress count because one item is already purchased. The heading says the day, so the rows carry no due label.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByText('today')).not.toBeInTheDocument()
   },
 }
 
@@ -60,10 +64,16 @@ export const LaterItems: Story = {
   },
 }
 
+// This week spans several days, so each row keeps its own day.
 export const ThisWeek: Story = {
   args: {
     bucket: 'this-week',
     items: shoppingItemsByUrgency['this-week'],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Tuesday')).toBeInTheDocument()
+    await expect(canvas.getByText('Wednesday')).toBeInTheDocument()
   },
 }
 
@@ -71,6 +81,9 @@ export const Tomorrow: Story = {
   args: {
     bucket: 'tomorrow',
     items: shoppingItemsByUrgency.tomorrow,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByText('tomorrow')).not.toBeInTheDocument()
   },
 }
 
@@ -101,6 +114,6 @@ export const Mixed: Story = {
   ),
 }
 
-// WHY: No play story — UrgencyGroup is purely presentational. Its only
-// callback (`onToggleItem`) is a pass-through to ShoppingItem, which has its
-// own play-function regression test. Adding one here would duplicate coverage.
+// The play functions above assert only which buckets show the row's day. The
+// toggle callback is a pass-through to ShoppingItem, which has its own
+// play-function regression test, so it is not repeated here.

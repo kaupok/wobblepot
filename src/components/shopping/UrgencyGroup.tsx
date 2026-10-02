@@ -35,6 +35,10 @@ export function UrgencyGroup({
   const label = tUrgency(URGENCY_KEYS[bucket])
   const purchasedCount = items.filter((item) => item.purchased).length
   const totalCount = items.length
+  // Today and Tomorrow are single days, and the heading already says which, so
+  // the rows drop their own due label, as the plan page's UrgentShopping panel
+  // does. This week and Later span several days, where the row's day adds to it.
+  const showDue = bucket === 'this-week' || bucket === 'later'
 
   return (
     <div className="flex flex-col gap-2">
@@ -51,6 +55,7 @@ export function UrgencyGroup({
             onToggle={onToggleItem}
             disabled={disabled}
             pending={pendingIds?.has(item.ingredientId)}
+            showDue={showDue}
           />
         ))}
       </div>
