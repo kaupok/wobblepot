@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Per-serving macro summary rendered on the meal detail view. Defaults to a two-column label/value grid; the `compact` variant renders a single interpunct-separated line. When any component has `isVague: true`, an (i) button follows the heading (or the compact line); hover, tap or Enter opens a popover saying the numbers include estimates (HON-764, HON-930).',
+          'Per-serving macro summary rendered on the meal detail view. Defaults to a two-column label/value grid; the `compact` variant renders a single interpunct-separated line prefixed "Per serving:" (HON-964). When any component has `isVague: true`, an (i) button follows the heading (or the compact line); hover, tap or Enter opens a popover saying the numbers include estimates (HON-764, HON-930).',
       },
     },
   },
@@ -44,9 +44,17 @@ export const Default: Story = {
   play: expectNoInfo,
 }
 
+/** The compact line names its basis, so a scaled ingredient list above it is not read as the dish's total (HON-964). */
 export const Compact: Story = {
   args: { compact: true },
-  play: expectNoInfo,
+  play: async (context) => {
+    await expect(
+      within(context.canvasElement).getByText(
+        'Per serving: 520 kcal · 42g protein · 30g carbs · 28g fat',
+      ),
+    ).toBeInTheDocument()
+    await expectNoInfo(context)
+  },
 }
 
 export const WithVagueEstimates: Story = {

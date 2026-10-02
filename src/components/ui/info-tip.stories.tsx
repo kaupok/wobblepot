@@ -68,7 +68,7 @@ export const Small: Story = {
   args: { size: 'sm' },
   render: (args) => (
     <div className="text-muted-foreground flex items-center gap-1 text-xs">
-      <span>520 kcal · 42g protein · 30g carbs · 28g fat</span>
+      <span>Per serving: 520 kcal · 42g protein · 30g carbs · 28g fat</span>
       <InfoTip {...args} />
     </div>
   ),
