@@ -55,7 +55,7 @@ export default function GlobalError({
         const properties: Record<string, unknown> = {
           $exception_source: 'app.global-error',
           digest: error.digest,
-          errorType: errorTypeOf(error),
+          error_type: errorTypeOf(error),
         }
         const fingerprint = fingerprintFor(error)
         if (fingerprint) {

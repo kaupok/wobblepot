@@ -320,12 +320,12 @@ describe('captureClientError', () => {
     expect(clientCaptureExceptionMock).not.toHaveBeenCalled()
   })
 
-  it('captures with digest and errorType', async () => {
+  it('captures with digest and error_type', async () => {
     await captureClientError(new Error('boom'), { digest: 'abc' })
     expect(clientCaptureExceptionMock).toHaveBeenCalledOnce()
     const [errorArg, propsArg] = clientCaptureExceptionMock.mock.calls[0]!
     expect(errorArg).toBeInstanceOf(Error)
-    expect(propsArg).toMatchObject({ digest: 'abc', errorType: 'Error' })
+    expect(propsArg).toMatchObject({ digest: 'abc', error_type: 'Error' })
   })
 
   it('attaches fingerprint for typed errors', async () => {

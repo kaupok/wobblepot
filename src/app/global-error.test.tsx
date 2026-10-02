@@ -94,7 +94,7 @@ describe('GlobalError', () => {
     expect(posthogMock.captureException).toHaveBeenCalledWith(err, {
       $exception_source: 'app.global-error',
       digest: 'abc-123',
-      errorType: 'Error',
+      error_type: 'Error',
     })
   })
 
@@ -109,7 +109,7 @@ describe('GlobalError', () => {
     expect(posthogMock.captureException).toHaveBeenCalledWith(err, {
       $exception_source: 'app.global-error',
       digest: 'abc-123',
-      errorType: 'Error',
+      error_type: 'Error',
     })
   })
 
@@ -124,7 +124,7 @@ describe('GlobalError', () => {
       err,
       expect.objectContaining({
         $exception_source: 'app.global-error',
-        errorType: 'MealPlanValidationError',
+        error_type: 'MealPlanValidationError',
         $exception_fingerprint: 'MealPlanValidation',
       }),
     )
