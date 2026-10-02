@@ -55,6 +55,8 @@
     "copySuccess": "Shopping list copied",
     "otherSection": "Other ({count})",
     "customItemsSection": "Custom items ({count})",
+    "otherSectionTitle": "Other",
+    "customItemsSectionTitle": "Custom items",
     "customInputPlaceholder": "Add an item…",
     "customInputAria": "Add custom item to shopping list",
     "ariaToggleItem": "Mark {name} as {state}",

@@ -27,22 +27,22 @@ const items: ShoppingItemData[] = [
 describe('UrgencyGroup', () => {
   it('renders urgency label with count', () => {
     render(<UrgencyGroup bucket="today" items={items} onToggleItem={vi.fn()} />)
-    expect(screen.getByText(/Today \(2\)/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Today 2' })).toBeInTheDocument()
   })
 
   it('renders "Tomorrow" label for tomorrow bucket', () => {
     render(<UrgencyGroup bucket="tomorrow" items={items} onToggleItem={vi.fn()} />)
-    expect(screen.getByText(/Tomorrow \(2\)/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Tomorrow 2' })).toBeInTheDocument()
   })
 
   it('renders "This week" label for this-week bucket', () => {
     render(<UrgencyGroup bucket="this-week" items={items} onToggleItem={vi.fn()} />)
-    expect(screen.getByText(/This week \(2\)/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'This week 2' })).toBeInTheDocument()
   })
 
   it('renders "Later" label for later bucket', () => {
     render(<UrgencyGroup bucket="later" items={items} onToggleItem={vi.fn()} />)
-    expect(screen.getByText(/Later \(2\)/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Later 2' })).toBeInTheDocument()
   })
 
   it('shows purchase progress when some items are purchased', () => {

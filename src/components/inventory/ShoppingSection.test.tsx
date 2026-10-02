@@ -317,6 +317,11 @@ describe('ShoppingSection copy to clipboard', () => {
       ],
     })
 
+    // On screen the group counts both rows in its badge; the clipboard keeps the
+    // parenthesised count of what is still to buy.
+    expect(screen.getByRole('heading', { level: 3, name: 'Other 2' })).toBeInTheDocument()
+    expect(screen.getByText('1/2')).toBeInTheDocument()
+
     await user.click(screen.getByRole('button', { name: /copy list/i }))
 
     await waitFor(() =>
@@ -350,6 +355,9 @@ describe('ShoppingSection copy to clipboard', () => {
         },
       ],
     })
+
+    expect(screen.getByRole('heading', { level: 3, name: 'This week 3' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Custom items 1' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /copy list/i }))
 

@@ -1,16 +1,25 @@
 import type { ReactNode } from 'react'
+import { useLocale } from 'next-intl'
+import { Badge } from '@/components/ui/badge'
 import { Body, Heading } from '@/components/ui/typography'
+import { formatInteger } from '@/lib/i18n/format-number'
+import type { Locale } from '@/lib/i18n/locales'
 
 interface GroupHeadingProps {
-  /** The group's name — "Staples", "Protein (4)", "Today (3)". */
+  /** The group's name — "Staples", "Protein", "Today". */
   label: ReactNode
   /**
    * A shopping-list group's emoji, shown before the label. Decorative: it is
    * hidden from the accessibility tree, so the heading's name stays "Protein
-   * (4)". The one place the app uses emoji as an icon (docs/DESIGN.md → Icons).
+   * 4". The one place the app uses emoji as an icon (docs/DESIGN.md → Icons).
    */
   emoji?: string
-  /** A fact about the group on the same line, right-aligned — "4 items", "1/3". */
+  /**
+   * How many rows the group holds, as a round count badge after the label.
+   * Part of the heading, so its name reads "Protein 4".
+   */
+  total?: number
+  /** Progress through the group on the same line, right-aligned — "1/3". */
   count?: ReactNode
 }
 
@@ -22,7 +31,9 @@ interface GroupHeadingProps {
  * Composition rules, "Headings divide, borders contain"). `h3` because every
  * column title is an `h2`.
  */
-export function GroupHeading({ label, emoji, count }: GroupHeadingProps) {
+export function GroupHeading({ label, emoji, total, count }: GroupHeadingProps) {
+  const locale = useLocale() as Locale
+
   return (
     <div className="flex items-baseline justify-between gap-3">
       <Heading variant="caption" as="h3">
@@ -32,6 +43,15 @@ export function GroupHeading({ label, emoji, count }: GroupHeadingProps) {
           </span>
         )}
         {label}
+        {total !== undefined && (
+          <>
+            {/* The space keeps the name "Protein 4", not "Protein4"; the
+                margin tops it up to the gap after the emoji. */}{' '}
+            <Badge variant="secondary" shape="count" className="ml-1">
+              {formatInteger(total, locale)}
+            </Badge>
+          </>
+        )}
       </Heading>
       {count !== undefined && count !== null && count !== false && (
         <Body variant="caption">{count}</Body>

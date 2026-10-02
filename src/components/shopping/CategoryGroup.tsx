@@ -70,7 +70,8 @@ export function CategoryGroup({
     <div className="flex flex-col gap-2">
       <GroupHeading
         emoji={emoji}
-        label={`${categoryLabel} (${totalCount})`}
+        label={categoryLabel}
+        total={totalCount}
         count={purchasedCount > 0 && `${purchasedCount}/${totalCount}`}
       />
       <div className="flex flex-col gap-1">

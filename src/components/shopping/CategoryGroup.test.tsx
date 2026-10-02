@@ -42,12 +42,12 @@ function renderInLocale(node: ReactNode, locale: 'en' | 'et' = 'en') {
 describe('CategoryGroup', () => {
   it('renders category label with emoji and count', () => {
     renderInLocale(<CategoryGroup category="protein" items={items} onToggleItem={vi.fn()} />)
-    expect(screen.getByText(/Protein \(2\)/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Protein 2' })).toBeInTheDocument()
   })
 
   it('keeps the emoji out of the heading name', () => {
     renderInLocale(<CategoryGroup category="protein" items={items} onToggleItem={vi.fn()} />)
-    const heading = screen.getByRole('heading', { level: 3, name: 'Protein (2)' })
+    const heading = screen.getByRole('heading', { level: 3, name: 'Protein 2' })
     expect(heading).toHaveTextContent('🥩')
     expect(screen.getByText('🥩')).toHaveAttribute('aria-hidden', 'true')
   })
@@ -100,7 +100,7 @@ describe('CategoryGroup', () => {
         onDeleteCustomItem={vi.fn()}
       />,
     )
-    expect(screen.getByText(/Protein \(3\)/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Protein 3' })).toBeInTheDocument()
   })
 
   it('renders the Estonian category label when locale is et', () => {
@@ -108,6 +108,6 @@ describe('CategoryGroup', () => {
       <CategoryGroup category="vegetable" items={items} onToggleItem={vi.fn()} />,
       'et',
     )
-    expect(screen.getByText(/Aedviljad \(2\)/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Aedviljad 2' })).toBeInTheDocument()
   })
 })
