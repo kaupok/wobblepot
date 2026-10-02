@@ -197,6 +197,7 @@ async function handlePOST(
         locale,
       })
 
+      const startedAt = Date.now()
       const result = await withUsageOnFailure(
         TIPS_MODEL,
         (stats) =>
@@ -216,7 +217,7 @@ async function handlePOST(
       await recordAiUsage({
         householdId: household.id,
         feature: 'entry_preparation_tips',
-        ...toAiUsageStats(TIPS_MODEL, result.usage),
+        ...toAiUsageStats(TIPS_MODEL, result.usage, Date.now() - startedAt),
       })
 
       await logAiSample({
@@ -242,6 +243,7 @@ async function handlePOST(
         locale,
       })
 
+      const startedAt = Date.now()
       const result = await withUsageOnFailure(
         TIPS_MODEL,
         (stats) =>
@@ -261,7 +263,7 @@ async function handlePOST(
       await recordAiUsage({
         householdId: household.id,
         feature: 'entry_preparation_tips',
-        ...toAiUsageStats(TIPS_MODEL, result.usage),
+        ...toAiUsageStats(TIPS_MODEL, result.usage, Date.now() - startedAt),
       })
 
       await logAiSample({

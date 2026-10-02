@@ -52,6 +52,7 @@ export async function parseRecipeText(
   const request = buildRecipeRequest(trimmedText, locale)
 
   try {
+    const startedAt = Date.now()
     const result = await withUsageOnFailure(RECIPE_MODEL, onAiUsage, () =>
       generateObject({
         ...request,
@@ -64,7 +65,7 @@ export async function parseRecipeText(
 
     const { object } = result
 
-    onAiUsage?.(toAiUsageStats(RECIPE_MODEL, result.usage))
+    onAiUsage?.(toAiUsageStats(RECIPE_MODEL, result.usage, Date.now() - startedAt))
 
     await logAiSample({
       callSite: 'parse-recipe',
