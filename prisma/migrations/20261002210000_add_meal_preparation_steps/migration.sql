@@ -5,7 +5,7 @@ CREATE TABLE "meal_preparation_steps" (
     "locale" TEXT NOT NULL,
     "servings" INTEGER NOT NULL,
     "steps" TEXT NOT NULL,
-    "mealUpdatedAt" TIMESTAMP(3) NOT NULL,
+    "inputHash" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

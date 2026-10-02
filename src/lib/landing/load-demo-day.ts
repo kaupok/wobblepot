@@ -12,6 +12,7 @@ import {
   translateMeal,
 } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
+import { stepsInputHash } from './steps-input-hash'
 
 /**
  * The calendar whose day picks the trio. One timezone for every visitor, so
@@ -79,9 +80,9 @@ export function pickDemoMeals<T extends { id: string; suitableFor: MealType[] }>
  * Today's three meals for the signed-out home page: library meals with a
  * ready illustration and steps written ahead of time (`pnpm steps:library`,
  * which the deploy workflows run), so the page never calls the AI. Steps in the
- * visitor's locale, else the English ones; a row older than the meal's last
- * edit is stale and leaves the meal out. Null when a slot cannot be filled,
- * and the page shows its static example instead.
+ * visitor's locale, else the English ones; a row whose `inputHash` no longer
+ * matches the meal is stale and leaves the meal out. Null when a slot cannot
+ * be filled, and the page shows its static example instead.
  */
 export async function loadDemoDay({
   locale,
@@ -112,12 +113,26 @@ export async function loadDemoDay({
   const prepared = meals.flatMap((meal) => {
     const image = presentMealImage(meal)
     if (image.imageStatus !== 'ready') return []
-    const fresh = meal.preparationSteps.filter(
-      (row) => row.mealUpdatedAt.getTime() === meal.updatedAt.getTime(),
-    )
-    const row =
-      fresh.find((candidate) => candidate.locale === locale) ??
-      fresh.find((candidate) => candidate.locale === DEFAULT_LOCALE)
+    // Fresh means written from the inputs the prompt would read now, in the
+    // row's own locale: the English row is checked against the English names.
+    const freshRow = (rowLocale: string) => {
+      const row = meal.preparationSteps.find((candidate) => candidate.locale === rowLocale)
+      if (!row) return null
+      const shown = translateMeal(meal, rowLocale)
+      const expected = stepsInputHash({
+        mealName: shown.name,
+        servings: row.servings,
+        timeMinutes: meal.timeMinutes,
+        components: meal.components.map((comp) => ({
+          name: translateIngredient(comp.ingredient, rowLocale).name,
+          quantityPerServing: comp.quantityPerServing,
+          defaultUnit: comp.ingredient.defaultUnit,
+        })),
+        locale: rowLocale,
+      })
+      return row.inputHash === expected ? row : null
+    }
+    const row = freshRow(locale) ?? freshRow(DEFAULT_LOCALE)
     if (!row) return []
     const steps = parseStoredTips(row.steps)
     if (!steps) return []

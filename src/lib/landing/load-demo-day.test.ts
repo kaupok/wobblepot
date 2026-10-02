@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
 import { loadDemoDay, pickDemoMeals } from './load-demo-day'
+import { stepsInputHash } from './steps-input-hash'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: { meal: { findMany: vi.fn() } },
@@ -10,11 +11,23 @@ import { prisma } from '@/lib/prisma'
 
 const findMany = vi.mocked(prisma.meal.findMany)
 
-const edited = new Date('2026-10-01T10:00:00Z')
-const earlier = new Date('2026-09-01T10:00:00Z')
 const steps = JSON.stringify({ steps: ['Toast the bread'], pitfalls: [] })
 
+/** The hash the loader expects for a meal as `libraryMeal` builds it. */
+function hashFor(name: string, locale: 'en' | 'et') {
+  return stepsInputHash({
+    mealName: name,
+    servings: 4,
+    timeMinutes: 10,
+    components: [
+      { name: locale === 'et' ? 'Muna' : 'Egg', quantityPerServing: 2, defaultUnit: 'piece' },
+    ],
+    locale,
+  })
+}
+
 function libraryMeal(overrides: Record<string, unknown> = {}) {
+  const name = typeof overrides.name === 'string' ? overrides.name : 'Avocado toast'
   return {
     id: 'meal-1',
     name: 'Avocado toast',
@@ -26,7 +39,7 @@ function libraryMeal(overrides: Record<string, unknown> = {}) {
     suitableFor: ['breakfast', 'lunch'],
     servings: 4,
     householdId: null,
-    updatedAt: edited,
+    updatedAt: new Date('2026-10-01T10:00:00Z'),
     imageStatus: 'ready',
     imageUrl: 'https://example.public.blob.vercel-storage.com/meal.png',
     imageHue: 93,
@@ -54,7 +67,7 @@ function libraryMeal(overrides: Record<string, unknown> = {}) {
         },
       },
     ],
-    preparationSteps: [{ locale: 'en', servings: 4, steps, mealUpdatedAt: edited }],
+    preparationSteps: [{ locale: 'en', servings: 4, steps, inputHash: hashFor(name, 'en') }],
     ...overrides,
   }
 }
@@ -145,7 +158,7 @@ describe('loadDemoDay', () => {
                   locale: 'et',
                   servings: 4,
                   steps: JSON.stringify({ steps: ['Rösti leib'], pitfalls: [] }),
-                  mealUpdatedAt: edited,
+                  inputHash: hashFor('Avokaadovõileib', 'et'),
                 },
               ],
             }
@@ -166,11 +179,20 @@ describe('loadDemoDay', () => {
     expect(lunch!.steps.steps).toEqual(['Toast the bread'])
   })
 
-  it('leaves out a meal whose steps predate its last edit, and is null when a slot empties', async () => {
+  it('leaves out a meal whose steps were written from other inputs, and is null when a slot empties', async () => {
+    // The dinner's ingredient was renamed since its row was written.
     findMany.mockResolvedValue(
       pool.map((meal) =>
         meal.id === 'meal-3'
-          ? { ...meal, preparationSteps: [{ ...meal.preparationSteps[0], mealUpdatedAt: earlier }] }
+          ? {
+              ...meal,
+              components: [
+                {
+                  ...meal.components[0],
+                  ingredient: { ...meal.components[0]!.ingredient, name: 'Salmon fillet' },
+                },
+              ],
+            }
           : meal,
       ) as never,
     )

@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { parseArgs, selectWork, type StepsCandidate } from './generate-library-steps'
 
-const edited = new Date('2026-10-01T10:00:00Z')
-const earlier = new Date('2026-09-01T10:00:00Z')
-
 const meal = (overrides: Partial<StepsCandidate> = {}): StepsCandidate => ({
   id: 'meal-1',
   name: 'Beef Bibimbap',
-  updatedAt: edited,
+  inputHashes: { en: 'hash-en', et: 'hash-et' },
   preparationSteps: [],
   ...overrides,
 })
@@ -20,11 +17,11 @@ describe('selectWork', () => {
     ])
   })
 
-  it('rewrites a row written before the meal was last edited, and keeps a fresh one', () => {
+  it('rewrites a row written from other inputs, and keeps a fresh one', () => {
     const candidate = meal({
       preparationSteps: [
-        { locale: 'en', mealUpdatedAt: earlier },
-        { locale: 'et', mealUpdatedAt: edited },
+        { locale: 'en', inputHash: 'hash-en-before-the-edit' },
+        { locale: 'et', inputHash: 'hash-et' },
       ],
     })
     expect(selectWork([candidate], ['en', 'et'])).toEqual([
