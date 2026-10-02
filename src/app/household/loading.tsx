@@ -1,31 +1,55 @@
 import { Skeleton } from '@/components/ui/skeleton'
 
+function MemberRowSkeleton() {
+  return (
+    <div className="flex min-h-11 items-center justify-between gap-3 py-1.5">
+      <Skeleton className="h-5 w-40" />
+      <Skeleton className="h-5 w-20" />
+    </div>
+  )
+}
+
+function FieldSkeleton() {
+  return (
+    <div className="flex flex-col gap-2">
+      <Skeleton className="h-4 w-28" />
+      <Skeleton className="h-touch w-full md:h-10" />
+    </div>
+  )
+}
+
 export default function HouseholdLoading() {
   return (
     <div className="flex w-full flex-col gap-6 px-4 py-8">
       {/* Heading — h-7 matches the text-xl page title (HON-618) */}
       <Skeleton className="h-7 w-24" />
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        {/* Left column: Household settings */}
-        <div className="flex flex-col gap-6">
-          <Skeleton className="h-7 w-40" />
-          <div className="flex flex-col gap-4">
-            <Skeleton className="h-touch w-full md:h-10" />
-            <Skeleton className="h-touch w-full md:h-10" />
-            <Skeleton className="h-touch w-full md:h-10" />
+      {/* The page's order (HON-960): the full-width member list, then the
+          settings' three sections in a max-w-2xl column. */}
+      <div className="flex flex-col gap-10">
+        <div className="flex flex-col gap-4">
+          {/* Members title row: the Section heading, Add member on its right */}
+          <div className="flex items-center justify-between gap-3">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-touch w-32 md:h-10" />
           </div>
-          {/* Save settings: full width on a phone, label-sized from md (HON-782) */}
-          <Skeleton className="h-touch w-full md:h-10 md:w-28" />
+          <div className="flex flex-col divide-y">
+            <MemberRowSkeleton />
+            <MemberRowSkeleton />
+          </div>
         </div>
 
-        {/* Right column: Members */}
-        <div className="flex flex-col gap-6">
-          <Skeleton className="h-7 w-28" />
-          <div className="flex flex-col gap-3">
-            <Skeleton shape="card" className="h-16 w-full" />
-            <Skeleton shape="card" className="h-16 w-full" />
-          </div>
+        <div className="flex max-w-2xl flex-col gap-10">
+          {[3, 4, 2].map((fields, section) => (
+            <div key={section} className="flex flex-col gap-4">
+              <Skeleton className="h-6 w-40" />
+              {Array.from({ length: fields }, (_, i) => (
+                <FieldSkeleton key={i} />
+              ))}
+            </div>
+          ))}
+          {/* Save settings: label-sized */}
+          <Skeleton className="h-touch w-full md:h-10 md:w-28" />
         </div>
       </div>
     </div>

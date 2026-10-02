@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import etMessages from '../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import type { Member } from '@/types/member'
-import { MemberCard } from './MemberCard'
+import { MemberRow } from './MemberRow'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
@@ -39,33 +39,43 @@ function respondWith(body: Record<string, unknown>, status: number) {
   )
 }
 
-function renderCard() {
+function renderRow() {
   const { wrapper: QueryWrapper } = createQueryWrapper()
   return render(
     <QueryWrapper>
       <NextIntlClientProvider locale="et" messages={etMessages}>
-        <MemberCard
-          member={member}
-          canEdit={false}
-          canRemove
-          canInvite={false}
-          onEdit={vi.fn()}
-          onRemove={vi.fn()}
-          onInvite={vi.fn()}
-          onInviteUpdated={vi.fn()}
-        />
+        <ul>
+          <MemberRow
+            member={member}
+            canEdit={false}
+            canRemove
+            canInvite={false}
+            onEdit={vi.fn()}
+            onRemove={vi.fn()}
+            onRemoveFocus={vi.fn()}
+            onInvite={vi.fn()}
+            onInviteUpdated={vi.fn()}
+          />
+        </ul>
       </NextIntlClientProvider>
     </QueryWrapper>,
   )
 }
 
+async function openRemoveDialog() {
+  await userEvent.click(
+    screen.getByRole('button', { name: tMembers.moreActions.replace('{name}', member.name!) }),
+  )
+  await userEvent.click(await screen.findByRole('menuitem', { name: tMembers.removeAction }))
+}
+
 async function confirmRemove() {
-  await userEvent.click(screen.getByRole('button', { name: tMembers.removeAria }))
+  await openRemoveDialog()
   const dialog = await screen.findByRole('alertdialog')
   await userEvent.click(within(dialog).getByRole('button', { name: tMembers.removeDialog.confirm }))
 }
 
-describe('MemberCard in Estonian', () => {
+describe('MemberRow in Estonian', () => {
   beforeEach(() => {
     vi.mocked(toast.error).mockReset()
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -77,8 +87,8 @@ describe('MemberCard in Estonian', () => {
   })
 
   it('labels the confirm dialog cancel button in Estonian', async () => {
-    renderCard()
-    await userEvent.click(screen.getByRole('button', { name: tMembers.removeAria }))
+    renderRow()
+    await openRemoveDialog()
     const dialog = await screen.findByRole('alertdialog')
 
     expect(within(dialog).getByRole('button', { name: etMessages.common.cancel })).toBeVisible()
@@ -86,7 +96,7 @@ describe('MemberCard in Estonian', () => {
 
   it('toasts the owner-only copy for a 403, not the route error', async () => {
     respondWith({ error: 'Only the household owner can remove members' }, 403)
-    renderCard()
+    renderRow()
 
     await confirmRemove()
 
@@ -97,7 +107,7 @@ describe('MemberCard in Estonian', () => {
 
   it('toasts the not-allowed copy for a 400', async () => {
     respondWith({ error: 'Cannot remove the household owner' }, 400)
-    renderCard()
+    renderRow()
 
     await confirmRemove()
 
@@ -108,7 +118,7 @@ describe('MemberCard in Estonian', () => {
 
   it('toasts the generic failure for anything else', async () => {
     respondWith({ error: 'Failed to remove member' }, 500)
-    renderCard()
+    renderRow()
 
     await confirmRemove()
 

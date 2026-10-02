@@ -36,6 +36,8 @@ interface EditMemberPreferencesDialogProps {
   onOpenChange: (open: boolean) => void
   onSaved: (member: Member) => void
   isManualMember: boolean
+  /** Opened from state with no trigger: where focus goes when it closes. */
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 export function EditMemberPreferencesDialog({
@@ -44,6 +46,7 @@ export function EditMemberPreferencesDialog({
   onOpenChange,
   onSaved,
   isManualMember,
+  onCloseAutoFocus,
 }: EditMemberPreferencesDialogProps) {
   const t = useTranslations('household.editMember')
   const tPortion = useTranslations('household.portion')
@@ -150,7 +153,7 @@ export function EditMemberPreferencesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" onCloseAutoFocus={onCloseAutoFocus}>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{t('title', { name: memberDisplayName })}</DialogTitle>

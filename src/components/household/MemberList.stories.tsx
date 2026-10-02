@@ -16,7 +16,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Owner-facing member roster. Fetches `/api/households/me/members` on mount, renders `MemberCard` for each entry, and wires up the add/edit/invite dialogs. Per-story MSW handlers below force loading / empty / error / populated states deterministically.',
+          'Owner-facing member roster. Fetches `/api/households/me/members` on mount, renders a `MemberRow` per entry in an unbordered `divide-y` list, and wires up the add/edit/invite dialogs. Per-story MSW handlers below force loading / empty / error / populated states deterministically.',
       },
     },
   },
@@ -47,7 +47,7 @@ export const SingleMember: Story = {
     docs: {
       description: {
         story:
-          'Non-owner viewing the roster — no "Add member" button, no remove buttons, footnote about owner-only edits visible.',
+          'Non-owner viewing the roster — no "Add member" button and no ⋯ menus; only their own name opens the edit dialog. The owner-only notice is the page\'s, under its title.',
       },
     },
   },
@@ -58,7 +58,7 @@ export const MultipleMembers: Story = {
     docs: {
       description: {
         story:
-          'Owner viewing the full default roster (owner + adult + child + pending-invite). Exercises every `MemberCard` badge variant in one render.',
+          'Owner viewing the full default roster (owner + adult + child + pending-invite). Exercises every `MemberRow` badge variant in one render.',
       },
     },
   },
@@ -69,7 +69,7 @@ export const Loading: Story = {
     msw: { handlers: loadingMembersHandlers },
     docs: {
       description: {
-        story: 'Members request never resolves — verifies the skeleton-card placeholder.',
+        story: 'Members request never resolves — two row-height skeleton lines.',
       },
     },
   },
@@ -92,14 +92,18 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          'Desktop width. The "Add member" trigger is as wide as its label and starts at the column edge; on a phone it fills the column (HON-782).',
+          'Desktop width. The list fills the width (docs/DESIGN.md → Lists fill, forms stay narrow) and "Add member" sits label-sized at the right end of the title row (HON-960).',
       },
     },
   },
   play: async ({ canvasElement }) => {
-    const button = await within(canvasElement).findByRole('button', { name: 'Add member' })
-    await expect(button.getBoundingClientRect().width).toBeLessThan(
-      button.parentElement!.getBoundingClientRect().width,
-    )
+    const canvas = within(canvasElement)
+    const list = await canvas.findByRole('list')
+    const title = canvas.getByRole('heading', { name: 'Members', level: 2 })
+    const button = canvas.getByRole('button', { name: 'Add member' })
+    const row = title.parentElement!.getBoundingClientRect()
+    await expect(list.getBoundingClientRect().width).toBe(row.width)
+    await expect(button.getBoundingClientRect().right).toBe(row.right)
+    await expect(button.getBoundingClientRect().width).toBeLessThan(row.width / 2)
   },
 }

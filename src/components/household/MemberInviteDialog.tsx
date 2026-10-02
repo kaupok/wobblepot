@@ -29,6 +29,8 @@ interface MemberInviteDialogProps {
   memberName: string
   existingInvite: MemberInvite | null
   onInviteCreated: (invite: MemberInvite) => void
+  /** Opened from state with no trigger: where focus goes when it closes. */
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 export function MemberInviteDialog({
@@ -38,6 +40,7 @@ export function MemberInviteDialog({
   memberName,
   existingInvite,
   onInviteCreated,
+  onCloseAutoFocus,
 }: MemberInviteDialogProps) {
   const t = useTranslations('household.invite')
   const locale = useLocale() as Locale
@@ -119,7 +122,7 @@ export function MemberInviteDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('title', { name: memberName })}</DialogTitle>
           <DialogDescription>

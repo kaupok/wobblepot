@@ -280,228 +280,205 @@ export function HouseholdSettingsForm({
     saveSettings.mutate()
   }
 
+  // Three sections, each an h2 at Section directly under the page's h1, the
+  // Members list being the fourth (HON-960). The owner-only notice for a
+  // member is the page's, under the h1.
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1.5">
-        <Heading variant="section" as="h2">
-          {tSettings('heading')}
-        </Heading>
-        <Body variant="muted">{tSettings('description')}</Body>
-        {!isOwner && <Body variant="muted">{tSettings('ownerOnlyNotice')}</Body>}
-      </div>
-      <form onSubmit={handleSubmit}>
-        <div className="flex flex-col gap-8">
-          {/* Section 1: Basic Info */}
-          <section className="flex flex-col gap-4">
-            {/* Caption, not Section: this column's title is already the
-                Section-level h2, and the page's h1 is the one Title (HON-781).
-                Not the Reject list's eyebrow label — these labels are the group
-                headings themselves, not a second line above one. */}
-            <Heading variant="caption" as="h3">
-              {tSettings('basicHeading')}
-            </Heading>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="name">{tSettings('nameLabel')}</Label>
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={100}
-                required
-                disabled={controlsDisabled}
+    <form onSubmit={handleSubmit}>
+      <div className="flex flex-col gap-10">
+        <section className="flex flex-col gap-4">
+          <Heading variant="section" as="h2">
+            {tSettings('detailsHeading')}
+          </Heading>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="name">{tSettings('nameLabel')}</Label>
+            <Input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={100}
+              required
+              disabled={controlsDisabled}
+              aria-invalid={!!error}
+              aria-describedby={error ? 'form-error' : undefined}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="timezone">{tSettings('timezoneLabel')}</Label>
+            <Select value={timezone} onValueChange={setTimezone} disabled={controlsDisabled}>
+              <SelectTrigger
+                id="timezone"
+                className="w-full"
                 aria-invalid={!!error}
                 aria-describedby={error ? 'form-error' : undefined}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="timezone">{tSettings('timezoneLabel')}</Label>
-              <Select value={timezone} onValueChange={setTimezone} disabled={controlsDisabled}>
-                <SelectTrigger
-                  id="timezone"
-                  className="w-full"
-                  aria-invalid={!!error}
-                  aria-describedby={error ? 'form-error' : undefined}
-                >
-                  {/* Explicit children: without them Radix mirrors the selected
-                      item's text only after mount, so the server HTML shows an
-                      empty trigger until hydration (HON-761). An empty value
-                      still falls back to the placeholder. */}
-                  <SelectValue placeholder={tSettings('timezonePlaceholder')}>
-                    {timezoneLabel(timezone)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {TIMEZONES.map((tz) => (
-                    <SelectItem key={tz} value={tz}>
-                      {timezoneLabel(tz)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="locale">{t('localeLabel')}</Label>
-              <Select
-                value={locale}
-                onValueChange={(value) => setLocale(value as Locale)}
-                disabled={controlsDisabled}
               >
-                <SelectTrigger id="locale" className="w-full">
-                  <SelectValue>{t(`localeOption.${locale}`)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {PUBLIC_LOCALES.map((code) => (
-                    <SelectItem key={code} value={code}>
-                      {t(`localeOption.${code}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Body variant="muted">{t('localeHelperText')}</Body>
-            </div>
-          </section>
-
-          {/* Section 2: Dietary Preferences */}
-          <section className="flex flex-col gap-4">
-            <Heading variant="caption" as="h3">
-              {tSettings('preferencesHeading')}
-            </Heading>
-            <div className="flex flex-col gap-2">
-              <Label>{tSettings('dietaryTypeLabel')}</Label>
-              <RadioGroup
-                value={dietaryType}
-                onValueChange={(value) => setDietaryType(value as DietaryType | 'none')}
-                disabled={controlsDisabled}
-                className="flex flex-wrap"
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="none" id="dietary-none" />
-                  <Label htmlFor="dietary-none" className="font-normal">
-                    {t('dietaryNone')}
-                  </Label>
-                </div>
-                {DIETARY_TYPE_VALUES.map((value) => (
-                  <DietaryTypeRadio key={value} value={value} />
+                {/* Explicit children: without them Radix mirrors the selected
+                    item's text only after mount, so the server HTML shows an
+                    empty trigger until hydration (HON-761). An empty value
+                    still falls back to the placeholder. */}
+                <SelectValue placeholder={tSettings('timezonePlaceholder')}>
+                  {timezoneLabel(timezone)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {TIMEZONES.map((tz) => (
+                  <SelectItem key={tz} value={tz}>
+                    {timezoneLabel(tz)}
+                  </SelectItem>
                 ))}
-              </RadioGroup>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label id="allergens-label">{tSettings('allergensLabel')}</Label>
-              <div
-                role="group"
-                aria-labelledby="allergens-label"
-                aria-describedby="allergens-ai-notice"
-                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-              >
-                {ALLERGEN_VALUES.map((allergen) => (
-                  <AllergenCheckbox
-                    key={allergen}
-                    value={allergen}
-                    checked={allergensToAvoid.includes(allergen)}
-                    disabled={controlsDisabled}
-                    onCheckedChange={(checked) => handleAllergenToggle(allergen, checked)}
-                  />
-                ))}
-              </div>
-              {/* The DPIA's point-of-entry affirmation for Art. 9 allergen data
-                  (compliance/dpia.md → Risk area 2, HON-666). */}
-              <Body id="allergens-ai-notice" variant="muted">
-                {tSettings.rich('allergensAiNotice', {
-                  privacy: (chunks) => (
-                    <Link
-                      href="/privacy"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline"
-                    >
-                      {chunks}
-                    </Link>
-                  ),
-                })}
-              </Body>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="restrictions">{tSettings('restrictionsLabel')}</Label>
-              <TagInput
-                ref={restrictionsRef}
-                id="restrictions"
-                value={restrictions}
-                onChange={setRestrictions}
-                placeholder={tSettings('restrictionsPlaceholder')}
-                disabled={controlsDisabled}
-              />
-              <Body variant="muted">{tSettings('restrictionsHelper')}</Body>
-            </div>
-          </section>
-
-          {/* Section 3: Excluded Ingredients */}
-          <section className="flex flex-col gap-4">
-            <Heading variant="caption" as="h3">
-              {tSettings('excludedHeading')}
-            </Heading>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="excluded">{tSettings('excludedLabel')}</Label>
-              <TagInput
-                ref={excludedIngredientsRef}
-                id="excluded"
-                value={excludedIngredients}
-                onChange={setExcludedIngredients}
-                placeholder={tSettings('excludedPlaceholder')}
-                disabled={controlsDisabled}
-              />
-              <Body variant="muted">{tSettings('excludedHelper')}</Body>
-            </div>
-          </section>
-
-          {/* Section 4: Meal Scheduling */}
-          <section className="flex flex-col gap-4">
-            <Heading variant="caption" as="h3">
-              {tSettings('mealSchedulingHeading')}
-            </Heading>
-            <div className="flex flex-col gap-2">
-              <Label>{tSettings('weekdayMealsLabel')}</Label>
-              <div className="flex gap-4">
-                {MEAL_TYPE_VALUES.map((mealType) => (
-                  <MealTypeCheckbox
-                    key={mealType}
-                    mealType={mealType}
-                    idPrefix="weekday"
-                    checked={weekdayMealTypes.includes(mealType)}
-                    disabled={controlsDisabled}
-                    onCheckedChange={(checked) => handleMealTypeToggle(mealType, checked, false)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>{tSettings('weekendMealsLabel')}</Label>
-              <div className="flex gap-4">
-                {MEAL_TYPE_VALUES.map((mealType) => (
-                  <MealTypeCheckbox
-                    key={mealType}
-                    mealType={mealType}
-                    idPrefix="weekend"
-                    checked={weekendMealTypes.includes(mealType)}
-                    disabled={controlsDisabled}
-                    onCheckedChange={(checked) => handleMealTypeToggle(mealType, checked, true)}
-                  />
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* Submit */}
-          <div className="flex flex-col gap-4 pt-2">
-            {error && <FieldError id="form-error">{error}</FieldError>}
-            {isOwner && (
-              <Button type="submit" className="w-full md:w-auto md:self-start" disabled={isLoading}>
-                {isLoading ? tSettings('saving') : tSettings('saveButton')}
-              </Button>
-            )}
+              </SelectContent>
+            </Select>
           </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="locale">{t('localeLabel')}</Label>
+            <Select
+              value={locale}
+              onValueChange={(value) => setLocale(value as Locale)}
+              disabled={controlsDisabled}
+            >
+              <SelectTrigger id="locale" className="w-full">
+                <SelectValue>{t(`localeOption.${locale}`)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PUBLIC_LOCALES.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {t(`localeOption.${code}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Body variant="muted">{t('localeHelperText')}</Body>
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <Heading variant="section" as="h2">
+            {tSettings('foodHeading')}
+          </Heading>
+          <div className="flex flex-col gap-2">
+            <Label>{tSettings('dietaryTypeLabel')}</Label>
+            <RadioGroup
+              value={dietaryType}
+              onValueChange={(value) => setDietaryType(value as DietaryType | 'none')}
+              disabled={controlsDisabled}
+              className="flex flex-wrap"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="none" id="dietary-none" />
+                <Label htmlFor="dietary-none" className="font-normal">
+                  {t('dietaryNone')}
+                </Label>
+              </div>
+              {DIETARY_TYPE_VALUES.map((value) => (
+                <DietaryTypeRadio key={value} value={value} />
+              ))}
+            </RadioGroup>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label id="allergens-label">{tSettings('allergensLabel')}</Label>
+            <div
+              role="group"
+              aria-labelledby="allergens-label"
+              aria-describedby="allergens-ai-notice"
+              className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+            >
+              {ALLERGEN_VALUES.map((allergen) => (
+                <AllergenCheckbox
+                  key={allergen}
+                  value={allergen}
+                  checked={allergensToAvoid.includes(allergen)}
+                  disabled={controlsDisabled}
+                  onCheckedChange={(checked) => handleAllergenToggle(allergen, checked)}
+                />
+              ))}
+            </div>
+            {/* The DPIA's point-of-entry affirmation for Art. 9 allergen data
+                (compliance/dpia.md → Risk area 2, HON-666). */}
+            <Body id="allergens-ai-notice" variant="muted">
+              {tSettings.rich('allergensAiNotice', {
+                privacy: (chunks) => (
+                  <Link
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
+            </Body>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="restrictions">{tSettings('restrictionsLabel')}</Label>
+            <TagInput
+              ref={restrictionsRef}
+              id="restrictions"
+              value={restrictions}
+              onChange={setRestrictions}
+              placeholder={tSettings('restrictionsPlaceholder')}
+              disabled={controlsDisabled}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="excluded">{tSettings('excludedLabel')}</Label>
+            <TagInput
+              ref={excludedIngredientsRef}
+              id="excluded"
+              value={excludedIngredients}
+              onChange={setExcludedIngredients}
+              placeholder={tSettings('excludedPlaceholder')}
+              disabled={controlsDisabled}
+            />
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <Heading variant="section" as="h2">
+            {tSettings('mealsHeading')}
+          </Heading>
+          <div className="flex flex-col gap-2">
+            <Label>{tSettings('weekdayMealsLabel')}</Label>
+            <div className="flex gap-4">
+              {MEAL_TYPE_VALUES.map((mealType) => (
+                <MealTypeCheckbox
+                  key={mealType}
+                  mealType={mealType}
+                  idPrefix="weekday"
+                  checked={weekdayMealTypes.includes(mealType)}
+                  disabled={controlsDisabled}
+                  onCheckedChange={(checked) => handleMealTypeToggle(mealType, checked, false)}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>{tSettings('weekendMealsLabel')}</Label>
+            <div className="flex gap-4">
+              {MEAL_TYPE_VALUES.map((mealType) => (
+                <MealTypeCheckbox
+                  key={mealType}
+                  mealType={mealType}
+                  idPrefix="weekend"
+                  checked={weekendMealTypes.includes(mealType)}
+                  disabled={controlsDisabled}
+                  onCheckedChange={(checked) => handleMealTypeToggle(mealType, checked, true)}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <div className="flex flex-col gap-4">
+          {error && <FieldError id="form-error">{error}</FieldError>}
+          {isOwner && (
+            <Button type="submit" className="w-full md:w-auto md:self-start" disabled={isLoading}>
+              {isLoading ? tSettings('saving') : tSettings('saveButton')}
+            </Button>
+          )}
         </div>
-      </form>
-    </div>
+      </div>
+    </form>
   )
 }

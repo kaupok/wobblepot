@@ -1,44 +1,52 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn } from 'storybook/test'
+import { expect, fn, userEvent, within } from 'storybook/test'
 import {
   createChildMember,
   createManualMemberWithInvite,
   createMember,
   createMemberPreferences,
 } from '@/stories/fixtures'
-import { MemberCard } from './MemberCard'
+import { MemberRow } from './MemberRow'
 
 const meta = {
-  title: 'Feature/Household/MemberCard',
-  component: MemberCard,
+  title: 'Feature/Household/MemberRow',
+  component: MemberRow,
   tags: ['autodocs'],
   parameters: {
     layout: 'padded',
     docs: {
       description: {
         component:
-          'Single-member row with avatar, name, role/invite badges, and edit/invite/remove actions gated by the can* props. Used inside `MemberList`.',
+          'One member as one unbordered row of `MemberList`: the name (the edit button when `canEdit`), the Owner / Invite pending / No account badges, the portion in short form, and a ⋯ menu with Invite and Remove gated by `canInvite` / `canRemove` (HON-960).',
       },
     },
   },
+  // A row is an `li`; outside a list axe flags it (`listitem`).
+  decorators: [
+    (Story) => (
+      <ul className="flex flex-col divide-y">
+        <Story />
+      </ul>
+    ),
+  ],
   args: {
     canEdit: true,
     canRemove: true,
     canInvite: false,
     onEdit: fn(),
     onRemove: fn(),
+    onRemoveFocus: fn(),
     onInvite: fn(),
     onInviteUpdated: fn(),
   },
-} satisfies Meta<typeof MemberCard>
+} satisfies Meta<typeof MemberRow>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-// WHY: MemberCard renders a fixed layout based on its props — no async work,
-// no state worth play-testing here. The actions it exposes (edit/invite/remove)
-// are tested at the integration level in `MemberList` where the click flows
-// matter. This file covers the visual variants.
+// The visual variants, plus `ChildMember`'s play function for the menu wiring;
+// focus return after the dialogs is asserted in `MemberRow.test.tsx` and
+// `MemberList.test.tsx`.
 
 export const Owner: Story = {
   args: {
@@ -48,7 +56,8 @@ export const Owner: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Owner row — crown avatar, "Owner" badge, no remove button (cannot self-remove).',
+        story:
+          'Owner row — "Owner" badge, no ⋯ menu (cannot self-remove); the empty menu slot keeps the portion aligned.',
       },
     },
   },
@@ -66,7 +75,7 @@ export const AdultMember: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Linked adult member — generic user avatar, no badges, edit + remove available.',
+        story: 'Linked adult member — no badges; the name opens edit, the ⋯ menu offers Remove.',
       },
     },
   },
@@ -81,9 +90,19 @@ export const ChildMember: Story = {
     docs: {
       description: {
         story:
-          'Manual child member — "Manual" badge, small portion label, invite button visible (no linked account yet).',
+          'Child member without an account — "No account" badge, "Small 0.75×", ⋯ menu with Invite and Remove.',
       },
     },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'kiddo' }))
+    await expect(args.onEdit).toHaveBeenCalledOnce()
+
+    await userEvent.click(canvas.getByRole('button', { name: 'More actions: kiddo' }))
+    const menu = await within(document.body).findByRole('menu')
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Invite to join' }))
+    await expect(args.onInvite).toHaveBeenCalledOnce()
   },
 }
 
@@ -96,7 +115,7 @@ export const WithInvitePending: Story = {
     docs: {
       description: {
         story:
-          'Manual member with an active invite — "Invite pending" badge replaces "Manual"; invite icon stays so the owner can revisit/regenerate the link.',
+          'Member without an account and with an active invite — "Invite pending" replaces "No account"; Invite stays in the menu so the owner can revisit the link.',
       },
     },
   },
@@ -114,7 +133,7 @@ export const ManualNoInvite: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Manual member, no invite created yet — "Manual" badge, large-portion label.',
+        story: 'Member without an account, no invite yet — "No account" badge, "Large 1.5×".',
       },
     },
   },
@@ -138,7 +157,7 @@ export const WithPreferences: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Custom-portion member with preferences set — verifies the "Custom portion" label.',
+        story: 'Custom-portion member — "Custom 0.85×".',
       },
     },
   },
@@ -154,8 +173,7 @@ export const ReadOnly: Story = {
   parameters: {
     docs: {
       description: {
-        story:
-          'Non-owner viewing another member — no actions shown. Pure display variant for the read-only context.',
+        story: 'Non-owner viewing another member — the name is plain text and there is no menu.',
       },
     },
   },

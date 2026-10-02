@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemberList } from './MemberList'
 import { createQueryWrapper } from '@/test/query-wrapper'
 
@@ -64,5 +65,130 @@ describe('MemberList', () => {
     renderList()
 
     expect(await screen.findByText('Failed to load members')).toBeInTheDocument()
+  })
+
+  // "Actions sit on the title row" (docs/DESIGN.md): Add member shares the
+  // heading's row, and no tagline sits under the heading (HON-960).
+  it('puts Add member on the title row for the owner', async () => {
+    renderList()
+
+    const title = await screen.findByRole('heading', { name: 'Members', level: 2 })
+    expect(title.parentElement).toContainElement(screen.getByRole('button', { name: 'Add member' }))
+    expect(title.nextElementSibling).toBe(screen.getByRole('button', { name: 'Add member' }))
+  })
+
+  it('offers a member no Add member button', async () => {
+    renderList(false)
+
+    await screen.findByRole('heading', { name: 'Members', level: 2 })
+    expect(screen.queryByRole('button', { name: 'Add member' })).not.toBeInTheDocument()
+  })
+
+  it('renders the members as a list of rows', async () => {
+    mockMembers([
+      {
+        id: 'member-123',
+        userId: 'user-123',
+        name: 'Kaupo',
+        role: 'owner',
+        joinedAt: '2026-01-01T00:00:00.000Z',
+        user: { id: 'user-123', name: 'Kaupo', email: 'k@example.com', image: null },
+        preferences: null,
+        invite: null,
+      },
+    ])
+    renderList()
+
+    const row = await screen.findByRole('listitem')
+    expect(row).toHaveTextContent('Kaupo')
+  })
+
+  // The edit dialog opens from state, with no trigger to hand focus back to
+  // (CLAUDE.md → Focus management).
+  it('returns focus to the member name when the edit dialog closes', async () => {
+    mockMembers([
+      {
+        id: 'member-123',
+        userId: 'user-123',
+        name: 'Kaupo',
+        role: 'owner',
+        joinedAt: '2026-01-01T00:00:00.000Z',
+        user: { id: 'user-123', name: 'Kaupo', email: 'k@example.com', image: null },
+        preferences: null,
+        invite: null,
+      },
+    ])
+    renderList()
+
+    const name = await screen.findByRole('button', { name: 'Kaupo' })
+    await userEvent.click(name)
+    await screen.findByRole('dialog')
+    await userEvent.keyboard('{Escape}')
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(name).toHaveFocus())
+  })
+
+  // The invite dialog unmounts as it closes; the menu item that opened it is
+  // long gone, so focus goes back to the row's ⋯ trigger.
+  it('returns focus to the More actions trigger when the invite dialog closes', async () => {
+    mockMembers([
+      {
+        id: 'member-456',
+        userId: null,
+        name: 'Mari',
+        role: 'member',
+        joinedAt: '2026-01-01T00:00:00.000Z',
+        user: null,
+        preferences: null,
+        invite: null,
+      },
+    ])
+    renderList()
+
+    const trigger = await screen.findByRole('button', { name: 'More actions: Mari' })
+    await userEvent.click(trigger)
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Invite to join' }))
+    await screen.findByRole('dialog')
+    await userEvent.keyboard('{Escape}')
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  // The removed member's row unmounts with its ⋯ trigger, so focus would fall
+  // to the body; it goes to the Members heading instead (PR #1042 review).
+  it('moves focus to the Members heading after a member is removed', async () => {
+    const mari = {
+      id: 'member-456',
+      userId: null,
+      name: 'Mari',
+      role: 'member',
+      joinedAt: '2026-01-01T00:00:00.000Z',
+      user: null,
+      preferences: null,
+      invite: null,
+    }
+    let removed = false
+    vi.mocked(fetch).mockImplementation(async (_url, init) => {
+      if (init?.method === 'DELETE') {
+        removed = true
+        return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ members: removed ? [] : [mari] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    renderList()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions: Mari' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove member' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    await screen.findByText('No members found.')
+    const heading = screen.getByRole('heading', { name: 'Members', level: 2 })
+    await waitFor(() => expect(heading).toHaveFocus())
   })
 })
