@@ -1,4 +1,4 @@
-// ROUTES: /household, /invite/[code], / · COMPONENTS: AddMemberDialog, MemberInviteDialog, MemberCard, MemberList, JoinHouseholdCard
+// ROUTES: /household, /invite/[code], / · COMPONENTS: AddMemberDialog, MemberInviteDialog, MemberRow, MemberList, JoinHouseholdCard
 import { test, expect, type Page } from '@playwright/test'
 import { generateUniqueEmail, signUp, signUpWithHousehold } from './utils/test-helpers'
 
@@ -8,7 +8,7 @@ import { generateUniqueEmail, signUp, signUpWithHousehold } from './utils/test-h
  * Restores the coverage HON-518 removed when it deleted the drifted
  * `invite.spec.ts`. Invites are per **manual member**, not per household: the
  * owner adds a member with no linked account, mints a link from that member's
- * card, and the invitee claims that exact member row — `POST
+ * row, and the invitee claims that exact member row — `POST
  * /api/invites/[code]/join` sets `HouseholdMember.userId` on the existing row
  * and deletes the invite, rather than creating a second member.
  *
@@ -29,7 +29,7 @@ test.describe('Household member invite', () => {
   const MANUAL_MEMBER_NAME = 'Kiddo'
 
   /**
-   * A member-card status badge. `exact` is what makes this safe to assert
+   * A member-row status badge. `exact` is what makes this safe to assert
    * `toHaveCount(0)` on: the substring default would also match the badge text
    * inside longer copy elsewhere on the page.
    */
@@ -62,14 +62,16 @@ test.describe('Household member invite', () => {
     await addDialog.getByRole('button', { name: 'Add member' }).click()
     await expect(addDialog).toBeHidden()
 
-    // A manual member carries the "Manual" badge until an invite exists.
+    // A member without an account carries the "No account" badge until an
+    // invite exists.
     await expect(page.getByText(MANUAL_MEMBER_NAME)).toBeVisible()
-    await expect(badge(page, 'Manual')).toBeVisible()
+    await expect(badge(page, 'No account')).toBeVisible()
 
     // --- 2. Owner: mint the invite link ------------------------------------
-    // The mail button only renders for members with `userId === null`, so this
-    // is unambiguous: the owner's own card has a linked account.
-    await page.getByRole('button', { name: 'Invite to join' }).click()
+    // Invite sits in the row's More actions menu (HON-960), named for the
+    // member, so this is unambiguous: the owner's own row has no menu.
+    await page.getByRole('button', { name: `More actions: ${MANUAL_MEMBER_NAME}` }).click()
+    await page.getByRole('menuitem', { name: 'Invite to join' }).click()
     const inviteDialog = page.getByRole('dialog')
     await expect(
       inviteDialog.getByRole('heading', { name: `Invite ${MANUAL_MEMBER_NAME}` }),
@@ -115,15 +117,15 @@ test.describe('Household member invite', () => {
 
       // --- 4. Owner's view: the member is claimed, badges are gone ---------
       await page.reload()
-      // MemberCard resolves the linked account's name ahead of the manual
+      // MemberRow resolves the linked account's name ahead of the manual
       // `member.name`, so the invitee's account name appearing here IS the
       // assertion that the row was claimed rather than duplicated.
       await expect(page.getByText(INVITEE_NAME)).toBeVisible()
       // Keep this assertion after the one above: the roster is a client-side
       // useQuery, so both badge counts are also 0 while the skeleton is on
-      // screen. Waiting for the claimed card first is what gives the count-0
+      // screen. Waiting for the claimed row first is what gives the count-0
       // assertions something to be true *about*.
-      await expect(badge(page, 'Manual')).toHaveCount(0)
+      await expect(badge(page, 'No account')).toHaveCount(0)
       await expect(badge(page, 'Invite pending')).toHaveCount(0)
 
       // --- 5. Invitee's view: same household, both members -----------------

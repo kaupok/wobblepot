@@ -172,7 +172,9 @@ describe('household.portion multiplier decimal separator (HON-554 item 6)', () =
     expect(result.current('preset', { label: 'Suur', multiplier: 1.5 })).toBe('Suur (1,5x)')
     // Integer multipliers render without a decimal part.
     expect(result.current('preset', { label: 'Tavaline', multiplier: 1 })).toBe('Tavaline (1x)')
-    expect(result.current('custom', { multiplier: 1.25 })).toBe('Kohandatud portsjon (1,25x)')
+    // The member row's short form (HON-960).
+    expect(result.current('short', { label: 'Väike', multiplier: 0.75 })).toBe('Väike 0,75×')
+    expect(result.current('shortCustom', { multiplier: 1.25 })).toBe('Kohandatud 1,25×')
   })
 
   it('renders a decimal point in en (unchanged)', () => {
@@ -181,5 +183,6 @@ describe('household.portion multiplier decimal separator (HON-554 item 6)', () =
     })
     expect(result.current('preset', { label: 'Small', multiplier: 0.75 })).toBe('Small (0.75x)')
     expect(result.current('preset', { label: 'Large', multiplier: 1.5 })).toBe('Large (1.5x)')
+    expect(result.current('shortCustom', { multiplier: 1.25 })).toBe('Custom 1.25×')
   })
 })

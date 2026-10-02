@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Household settings form. Locale selector exposes every locale in `PUBLIC_LOCALES` — currently English and Estonian.',
+          'Household settings form: three sections, each a Section-level h2 (Household details, Food preferences, Meals to plan), and one Save button (HON-960). Locale selector exposes every locale in `PUBLIC_LOCALES` — currently English and Estonian.',
       },
     },
   },
@@ -146,17 +146,12 @@ export const NonOwner: Story = {
     docs: {
       description: {
         story:
-          'Non-owner viewer: every control is disabled, one owner-only notice sits under the form description, and there is no save button. Both settings endpoints are owner-only (HON-677).',
+          "Non-owner viewer: every control is disabled and there is no save button. Both settings endpoints are owner-only (HON-677); the owner-only notice is the page's, under its title (HON-960).",
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(
-      canvas.getByText(
-        'Only the household owner can change these settings. You can see them here.',
-      ),
-    ).toBeInTheDocument()
     await expect(canvas.getByLabelText('Household name')).toBeDisabled()
     await expect(canvas.getByLabelText('Gluten')).toBeDisabled()
     await expect(canvas.getByLabelText('Vegan')).toBeDisabled()

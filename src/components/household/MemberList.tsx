@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Heading, Body } from '@/components/ui/typography'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiFetch } from '@/lib/api'
-import { MemberCard } from './MemberCard'
+import { MemberRow } from './MemberRow'
 import { AddMemberDialog } from './AddMemberDialog'
 import { EditMemberPreferencesDialog } from './EditMemberPreferencesDialog'
 import { MemberInviteDialog } from './MemberInviteDialog'
@@ -19,16 +19,12 @@ interface MemberListProps {
   currentMemberId: string
 }
 
-function MemberCardSkeleton() {
+/** A `MemberRow`'s height: `min-h-11`, a name line and the portion at the end. */
+function MemberRowSkeleton() {
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center gap-3">
-        <Skeleton shape="circle" className="h-10 w-10" />
-        <div className="flex flex-col gap-1">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-5 w-48" />
-        </div>
-      </div>
+    <div className="flex min-h-11 items-center justify-between gap-3 py-1.5">
+      <Skeleton className="h-5 w-40" />
+      <Skeleton className="h-5 w-20" />
     </div>
   )
 }
@@ -38,6 +34,15 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
   const queryClient = useQueryClient()
   const [editingMember, setEditingMember] = useState<Member | null>(null)
   const [invitingMember, setInvitingMember] = useState<Member | null>(null)
+  // Both dialogs open from state, with no `DialogTrigger` to hand focus back
+  // to, so each row says which of its controls opened them: the name for the
+  // edit dialog, the ⋯ trigger for the invite dialog.
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+
+  function returnFocusOnClose(event: Event) {
+    event.preventDefault()
+    returnFocusRef.current?.focus()
+  }
 
   const {
     data: members = [],
@@ -72,49 +77,49 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
 
   return (
     <>
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-1.5">
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
           <Heading variant="section" as="h2">
             {t('heading')}
           </Heading>
-          <Body variant="muted">{t('description')}</Body>
-        </div>
-
-        <div className="flex flex-col gap-6">
           {isOwner && <AddMemberDialog onMemberAdded={refreshMembers} />}
-
-          {isLoading ? (
-            <div className="flex flex-col gap-3">
-              <MemberCardSkeleton />
-              <MemberCardSkeleton />
-            </div>
-          ) : error ? (
-            <FieldError>{t('loadFailed')}</FieldError>
-          ) : members.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center">
-              <Body variant="muted">{t('empty')}</Body>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {members.map((member) => (
-                <MemberCard
-                  key={member.id}
-                  member={member}
-                  canEdit={canEditMember(member)}
-                  canRemove={canRemoveMember(member)}
-                  canInvite={canInviteMember(member)}
-                  onEdit={setEditingMember}
-                  onRemove={refreshMembers}
-                  onInvite={setInvitingMember}
-                  onInviteUpdated={refreshMembers}
-                />
-              ))}
-            </div>
-          )}
-
-          {!isOwner && <Body variant="muted">{t('nonOwnerNotice')}</Body>}
         </div>
-      </div>
+
+        {isLoading ? (
+          <div className="flex flex-col divide-y">
+            <MemberRowSkeleton />
+            <MemberRowSkeleton />
+          </div>
+        ) : error ? (
+          <FieldError>{t('loadFailed')}</FieldError>
+        ) : members.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-8 text-center">
+            <Body variant="muted">{t('empty')}</Body>
+          </div>
+        ) : (
+          <ul className="flex flex-col divide-y">
+            {members.map((member) => (
+              <MemberRow
+                key={member.id}
+                member={member}
+                canEdit={canEditMember(member)}
+                canRemove={canRemoveMember(member)}
+                canInvite={canInviteMember(member)}
+                onEdit={(m, returnFocusTo) => {
+                  returnFocusRef.current = returnFocusTo
+                  setEditingMember(m)
+                }}
+                onRemove={refreshMembers}
+                onInvite={(m, returnFocusTo) => {
+                  returnFocusRef.current = returnFocusTo
+                  setInvitingMember(m)
+                }}
+                onInviteUpdated={refreshMembers}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
 
       <EditMemberPreferencesDialog
         member={editingMember}
@@ -122,6 +127,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
         onOpenChange={(open) => !open && setEditingMember(null)}
         onSaved={refreshMembers}
         isManualMember={editingMember?.userId === null}
+        onCloseAutoFocus={returnFocusOnClose}
       />
 
       {invitingMember && (
@@ -136,6 +142,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
           }
           existingInvite={invitingMember.invite}
           onInviteCreated={refreshMembers}
+          onCloseAutoFocus={returnFocusOnClose}
         />
       )}
     </>

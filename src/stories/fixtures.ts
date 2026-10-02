@@ -1000,7 +1000,7 @@ export function createChildMember(overrides: Partial<Member> = {}): Member {
 
 /**
  * Build a manual (no linked user) member with a pending invite link — used by
- * `MemberCard` and `MemberInviteDialog` stories.
+ * `MemberRow` and `MemberInviteDialog` stories.
  */
 export function createManualMemberWithInvite(overrides: Partial<Member> = {}): Member {
   return createMember({

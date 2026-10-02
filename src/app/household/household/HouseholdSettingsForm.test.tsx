@@ -104,67 +104,50 @@ describe('HouseholdSettingsForm', () => {
   })
 
   describe('rendering', () => {
-    it('renders all form sections', () => {
+    it('renders the three settings sections in order', () => {
       renderForm()
 
-      expect(screen.getByText('Basic information')).toBeInTheDocument()
-      expect(screen.getByText('Dietary preferences')).toBeInTheDocument()
-      expect(screen.getByText('Excluded ingredients')).toBeInTheDocument()
-      expect(screen.getByText('Meal scheduling')).toBeInTheDocument()
+      const headings = screen.getAllByRole('heading').map((h) => h.textContent)
+      expect(headings).toEqual(['Household details', 'Food preferences', 'Meals to plan'])
     })
 
     /**
-     * The page supplies the `<h1>` (`src/app/household/page.tsx`), this form's
-     * title is the `<h2>`, and its sections are `<h3>`. See HON-613.
-     *
-     * The section level is read off the title's tag rather than restated, so
-     * this asserts the *relationship* rather than two independent constants.
-     * Both directions it guards are invisible to axe's `heading-order`, which
-     * only flags increases greater than one (`currLevel - prevLevel <= 1`):
-     * a `variant="section"` swap that forgets `as` renders the default `<h2>`,
-     * putting sections level with the title, and HON-607 will make the title
-     * an `<h4>`, putting `as="h3"` sections *above* it. Deriving the expected
-     * level means moving the title also moves what the loop demands, instead
-     * of leaving a hardcoded `level: 3` green under an inverted outline.
+     * The page supplies the `<h1>` (`src/app/household/page.tsx`) and the
+     * Members list's `<h2>`; each settings section is an `<h2>` beside it, at
+     * the Section size, with nothing under it (HON-960). axe's `heading-order`
+     * cannot see a section that lost its `as` or kept a Caption-sized `<h3>`.
      */
-    it('renders each section one level below the form title', () => {
+    it('renders each section as an h2 at the Section size, with no h3', () => {
       renderForm()
 
-      const title = screen.getByRole('heading', { name: 'Household settings', level: 2 })
-      const titleLevel = Number(title.tagName.slice(1))
-
-      for (const name of [
-        'Basic information',
-        'Dietary preferences',
-        'Excluded ingredients',
-        'Meal scheduling',
-      ]) {
-        expect(screen.getByRole('heading', { name, level: titleLevel + 1 })).toBeInTheDocument()
+      for (const name of ['Household details', 'Food preferences', 'Meals to plan']) {
+        const heading = screen.getByRole('heading', { name, level: 2 })
+        expect(heading).toHaveClass('text-base', 'font-semibold')
+        expect(heading).not.toHaveClass('uppercase')
       }
+      expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0)
     })
 
-    /**
-     * `/household` has one Title, the page h1 (HON-781). This column's title
-     * sits one size down at Section, and its group headings one further at
-     * Caption, so parent and child never render at the same size.
-     */
-    it('renders the title at the Section size and its groups at the Caption size', () => {
+    it('puts both tag inputs under Food preferences', () => {
       renderForm()
 
-      const title = screen.getByRole('heading', { name: 'Household settings', level: 2 })
-      expect(title).toHaveClass('text-base', 'font-semibold')
-      expect(title).not.toHaveClass('text-xl')
+      const food = screen.getByRole('heading', { name: 'Food preferences' }).closest('section')!
+      expect(within(food).getByLabelText('Dietary restrictions (optional)')).toBeInTheDocument()
+      expect(within(food).getByLabelText('Ingredients to avoid (optional)')).toBeInTheDocument()
+    })
 
-      for (const name of [
-        'Basic information',
-        'Dietary preferences',
-        'Excluded ingredients',
-        'Meal scheduling',
-      ]) {
-        const group = screen.getByRole('heading', { name, level: 3 })
-        expect(group).toHaveClass('text-xs', 'uppercase')
-        expect(group).not.toHaveClass('text-base')
-      }
+    // The language line and the DPIA's allergen notice (HON-666) are the only
+    // helper copy left; the tag inputs' placeholders carry their examples.
+    it('renders only the language and allergen helper lines', () => {
+      const { container } = renderForm()
+
+      const helpers = Array.from(container.querySelectorAll('p.text-muted-foreground')).map(
+        (p) => p.textContent,
+      )
+      expect(helpers).toEqual([
+        'Recipes you already have keep their language.',
+        expect.stringContaining('Allergens you tick here'),
+      ])
     })
 
     it('renders household name input with initial value', () => {
@@ -248,27 +231,11 @@ describe('HouseholdSettingsForm', () => {
       expect(screen.getByLabelText('Household name')).toBeDisabled()
     })
 
-    it('shows owner-only message for non-owners', () => {
+    // The page shows a member the notice once, under its title (HON-960).
+    it('leaves the owner-only message to the page for non-owners', () => {
       renderForm({ isOwner: false })
-
-      expect(screen.getByText(OWNER_ONLY_NOTICE)).toBeInTheDocument()
-    })
-
-    it('does not show owner-only message for owners', () => {
-      renderForm({ isOwner: true })
 
       expect(screen.queryByText(OWNER_ONLY_NOTICE)).not.toBeInTheDocument()
-    })
-
-    it('shows the owner-only message once, above the first section', () => {
-      renderForm({ isOwner: false })
-
-      // getByText throws on more than one match, so this also asserts "once".
-      const notice = screen.getByText(OWNER_ONLY_NOTICE)
-      const firstSection = screen.getByRole('heading', { name: 'Basic information' })
-      expect(
-        notice.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy()
     })
 
     // The preferences PATCH is owner-only and 403s a member (HON-677).
@@ -284,7 +251,7 @@ describe('HouseholdSettingsForm', () => {
         expect(checkbox).toBeDisabled()
       }
       expect(screen.getByLabelText('Dietary restrictions (optional)')).toBeDisabled()
-      expect(screen.getByLabelText('Ingredients to exclude (optional)')).toBeDisabled()
+      expect(screen.getByLabelText('Ingredients to avoid (optional)')).toBeDisabled()
     })
 
     it('enables preferences for owners', () => {

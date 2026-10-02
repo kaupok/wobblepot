@@ -5,7 +5,7 @@ import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, listHouseholdMembers } from '@/lib/household'
 import { getQueryClient } from '@/lib/get-query-client'
-import { Heading } from '@/components/ui/typography'
+import { Body, Heading } from '@/components/ui/typography'
 import { HouseholdSettingsForm } from './household/HouseholdSettingsForm'
 import { MemberList } from '@/components/household/MemberList'
 import { MEMBERS_QUERY_KEY, type MembersResponse } from '@/components/household/members-query'
@@ -26,7 +26,7 @@ export default async function HouseholdPage() {
     redirect('/')
   }
 
-  // Prefetch the roster so the Members column is in the first HTML response
+  // Prefetch the roster so the Members list is in the first HTML response
   // instead of behind a second client round trip (HON-780, after HON-770). A
   // failed prefetch is not dehydrated, so `MemberList` falls back to fetching
   // it itself; no retries here, since the default two would hold the render.
@@ -51,13 +51,21 @@ export default async function HouseholdPage() {
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <div className="flex w-full flex-col gap-6 px-4 py-8">
-        <Heading variant="h4" as="h1">
-          {t('pageTitle')}
-        </Heading>
+        <div className="flex flex-col gap-1.5">
+          <Heading variant="h4" as="h1">
+            {t('pageTitle')}
+          </Heading>
+          {/* One notice for the whole page: a member can edit only their own
+              row and none of the settings (HON-960). */}
+          {!isOwner && <Body variant="muted">{t('settings.ownerOnlyNotice')}</Body>}
+        </div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          {/* Left column: Household settings */}
-          <div>
+        {/* Members first and full width, the settings after them in a form
+            column (docs/DESIGN.md → Lists fill, forms stay narrow). */}
+        <div className="flex flex-col gap-10">
+          <MemberList isOwner={isOwner} currentMemberId={membership.id} />
+
+          <div className="max-w-2xl">
             <HouseholdSettingsForm
               household={{
                 id: household.id,
@@ -79,11 +87,6 @@ export default async function HouseholdPage() {
               }
               isOwner={isOwner}
             />
-          </div>
-
-          {/* Right column: Members */}
-          <div>
-            <MemberList isOwner={isOwner} currentMemberId={membership.id} />
           </div>
         </div>
       </div>
