@@ -3,25 +3,43 @@ import { track } from '@/lib/analytics'
 
 // Hoisted mock — vi.mock factories run before top-level `const` bindings.
 // Mirrors the pattern in PostHogProvider.test.tsx.
-const { posthogMock } = vi.hoisted(() => ({
-  posthogMock: {
-    __loaded: true,
-    capture: vi.fn(),
-    get_property: vi.fn(),
-  },
-}))
+//
+// `get_property` and `register_once` share one map, the way posthog-js
+// persistence does: `register_once` writes keys that are not yet set, and
+// `get_property` reads them. `capture` deliberately does not write to it,
+// because a `$set_once` on capture never reaches local persistence (HON-991).
+const { posthogMock, persistence } = vi.hoisted(() => {
+  const persistence = new Map<string, unknown>()
+  return {
+    persistence,
+    posthogMock: {
+      __loaded: true,
+      capture: vi.fn(),
+      get_property: vi.fn((key: string) => persistence.get(key)),
+      register_once: vi.fn((props: Record<string, unknown>) => {
+        for (const [key, value] of Object.entries(props)) {
+          if (!persistence.has(key)) persistence.set(key, value)
+        }
+      }),
+    },
+  }
+})
 
 vi.mock('posthog-js', () => ({ default: posthogMock }))
 
+function lastCaptureProps(): Record<string, unknown> {
+  return posthogMock.capture.mock.lastCall?.[1] as Record<string, unknown>
+}
+
 beforeEach(() => {
   posthogMock.__loaded = true
-  posthogMock.capture.mockReset()
-  posthogMock.get_property.mockReset()
+  persistence.clear()
 })
 
 afterEach(() => {
   posthogMock.capture.mockReset()
-  posthogMock.get_property.mockReset()
+  posthogMock.get_property.mockClear()
+  posthogMock.register_once.mockClear()
 })
 
 describe('track()', () => {
@@ -33,10 +51,7 @@ describe('track()', () => {
   })
 
   it('auto-attaches household_id from $stored_person_properties', async () => {
-    posthogMock.get_property.mockImplementation((key: string) => {
-      if (key === '$stored_person_properties') return { household_id: 'hh-42' }
-      return undefined
-    })
+    persistence.set('$stored_person_properties', { household_id: 'hh-42' })
 
     await track('recipe:imported', { source: 'import_page' })
 
@@ -48,8 +63,6 @@ describe('track()', () => {
   })
 
   it('does not attach household_id when person properties are missing', async () => {
-    posthogMock.get_property.mockReturnValue(undefined)
-
     await track('pantry:item_added', { source: 'pantry_inline' })
 
     expect(posthogMock.capture).toHaveBeenCalledTimes(1)
@@ -59,11 +72,7 @@ describe('track()', () => {
   })
 
   it('attaches is_first: true and $set_once on the first plan_generated', async () => {
-    posthogMock.get_property.mockImplementation((key: string) => {
-      if (key === '$stored_person_properties') return { household_id: 'hh-1' }
-      if (key === 'first_plan_generated_at') return undefined
-      return undefined
-    })
+    persistence.set('$stored_person_properties', { household_id: 'hh-1' })
 
     await track('meal_plan:plan_generated', { plan_id: 'p1' })
 
@@ -82,10 +91,7 @@ describe('track()', () => {
   })
 
   it('attaches is_first: false (no $set_once) when first_plan_generated_at is already set', async () => {
-    posthogMock.get_property.mockImplementation((key: string) => {
-      if (key === 'first_plan_generated_at') return '2026-04-01T00:00:00.000Z'
-      return undefined
-    })
+    persistence.set('first_plan_generated_at', '2026-04-01T00:00:00.000Z')
 
     await track('meal_plan:plan_generated', { plan_id: 'p2' })
 
@@ -96,17 +102,56 @@ describe('track()', () => {
   })
 
   it('attaches is_first independently for plan_generated vs meal_completed', async () => {
-    posthogMock.get_property.mockImplementation((key: string) => {
-      if (key === 'first_plan_generated_at') return '2026-04-01T00:00:00.000Z'
-      if (key === 'first_meal_completed_at') return undefined
-      return undefined
-    })
+    persistence.set('first_plan_generated_at', '2026-04-01T00:00:00.000Z')
 
     await track('meal_plan:meal_completed', { plan_id: 'p1', meal_id: 'm1', source: 'meal_card' })
 
     const props = posthogMock.capture.mock.calls[0]?.[1] as Record<string, unknown>
     expect(props.is_first).toBe(true)
     expect((props.$set_once as Record<string, unknown>).first_meal_completed_at).toBeDefined()
+  })
+
+  it('sends is_first: true then false on two plan_generated calls in a row', async () => {
+    await track('meal_plan:plan_generated', { plan_id: 'p1' })
+    const first = lastCaptureProps()
+    await track('meal_plan:plan_generated', { plan_id: 'p2' })
+    const second = lastCaptureProps()
+
+    expect(posthogMock.capture).toHaveBeenCalledTimes(2)
+    expect(first.is_first).toBe(true)
+    expect(first).toHaveProperty('$set_once')
+    expect(second.is_first).toBe(false)
+    expect(second).not.toHaveProperty('$set_once')
+  })
+
+  it('writes the same timestamp locally that it $set_once-s on the server', async () => {
+    await track('meal_plan:meal_completed', { plan_id: 'p1', meal_id: 'm1', source: 'meal_card' })
+
+    const setOnce = lastCaptureProps().$set_once as Record<string, unknown>
+    expect(posthogMock.register_once).toHaveBeenCalledTimes(1)
+    expect(posthogMock.register_once).toHaveBeenCalledWith({
+      first_meal_completed_at: setOnce.first_meal_completed_at,
+    })
+  })
+
+  it('keeps the plan_generated and meal_completed guards independent across calls', async () => {
+    await track('meal_plan:plan_generated', { plan_id: 'p1' })
+    await track('meal_plan:meal_completed', { plan_id: 'p1', meal_id: 'm1', source: 'meal_card' })
+    const firstCompletion = lastCaptureProps()
+    await track('meal_plan:meal_completed', { plan_id: 'p1', meal_id: 'm2', source: 'meal_card' })
+    const secondCompletion = lastCaptureProps()
+
+    expect(firstCompletion.is_first).toBe(true)
+    expect(secondCompletion.is_first).toBe(false)
+  })
+
+  it('does not write persistence when the event already has its first-property', async () => {
+    persistence.set('first_plan_generated_at', '2026-04-01T00:00:00.000Z')
+
+    await track('meal_plan:plan_generated', { plan_id: 'p2' })
+
+    expect(posthogMock.register_once).not.toHaveBeenCalled()
+    expect(persistence.get('first_plan_generated_at')).toBe('2026-04-01T00:00:00.000Z')
   })
 
   it('does not attach is_first to events without a configured first-property', async () => {
@@ -134,10 +179,7 @@ describe('track()', () => {
   })
 
   it('caller-supplied household_id overrides the auto-attached value', async () => {
-    posthogMock.get_property.mockImplementation((key: string) => {
-      if (key === '$stored_person_properties') return { household_id: 'hh-stale' }
-      return undefined
-    })
+    persistence.set('$stored_person_properties', { household_id: 'hh-stale' })
 
     await track('onboarding:household_created', { household_id: 'hh-fresh' })
 
