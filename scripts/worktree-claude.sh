@@ -2508,6 +2508,37 @@ watch_resolve_stranded() {
   printf '%s\n' "$open"
 }
 
+# The PR numbers among STRANDED_OPEN that are merged or closed, one per line,
+# for watch_resolve_stranded.
+#
+# The landed cache answers a PR merged recently, but it holds only the newest
+# few, so anything older, or closed without merging, gets its own state lookup
+# in `<cache_dir>/pr-state-<number>`, refreshed in the background on the landed
+# pane's 120 s TTL. Like every other probe on the dashboard it never blocks: a
+# PR asked about for the first time is answered on a later redraw. A worktree
+# that is already gone settles the outcome on its own, so it costs no gh call.
+#
+# Usage: watch_stranded_resolved_prs <id:pr:branch lines> <worktree_base> <landed_cache> <cache_dir>
+watch_stranded_resolved_prs() {
+  local lines="$1" base="$2" landed="$3" cache_dir="$4"
+  local resolved="" so_id so_pr so_branch so_cache
+  [ -f "$landed" ] && resolved=$(cut -f1 "$landed" 2>/dev/null)
+  while IFS=: read -r so_id so_pr so_branch; do
+    [ -n "$so_id" ] || continue
+    case "$so_pr" in ''|*[!0-9]*) continue ;; esac
+    printf '%s\n' "$resolved" | grep -qx "$so_pr" && continue
+    if [ -n "$so_branch" ] && [ ! -d "$base/$(normalize_branch "$so_branch")" ]; then
+      continue
+    fi
+    so_cache="$cache_dir/pr-state-$so_pr"
+    watch_refresh_async "$so_cache" 120 watch_pr_state_probe "$so_pr"
+    if [ -f "$so_cache" ] && grep -qxE 'MERGED|CLOSED' "$so_cache"; then
+      resolved+=$'\n'"$so_pr"
+    fi
+  done <<< "$lines"
+  printf '%s\n' "$resolved"
+}
+
 # A PR's state (OPEN, MERGED or CLOSED) by number, for watch_resolve_stranded.
 # The landed cache holds only the newest few merges, so a stranded PR merged by
 # hand hours ago, or closed without merging, is only found by asking for it.
@@ -2931,10 +2962,9 @@ cmd_watch() {
     local landed_cache="$cache_dir/landed"
     watch_refresh_async "$landed_cache" 120 watch_landed_probe 6
 
-    # Which stranded outcomes are still open — see watch_resolve_stranded. The
-    # landed cache answers a PR merged recently; anything older, or closed
-    # without merging, gets its own state lookup on the landed cache's TTL. A
-    # worktree that is already gone settles it with no gh call at all.
+    # Which stranded outcomes are still open — see watch_stranded_resolved_prs
+    # for where the merged and closed PR numbers come from, and
+    # watch_resolve_stranded for the rule.
     local t_stranded_open=0
     if [ -z "$t_gated_open" ]; then
       # A scan cached by a wt older than HON-938 has neither key for up to one
@@ -2942,20 +2972,9 @@ cmd_watch() {
       t_gated_open="$t_gated"
       t_stranded_open="$t_stranded"
     elif [ -n "$stranded_open_lines" ]; then
-      local resolved_prs="" so_id so_pr so_branch so_cache
-      [ -f "$landed_cache" ] && resolved_prs=$(cut -f1 "$landed_cache" 2>/dev/null)
-      while IFS=: read -r so_id so_pr so_branch; do
-        case "$so_pr" in ''|*[!0-9]*) continue ;; esac
-        printf '%s\n' "$resolved_prs" | grep -qx "$so_pr" && continue
-        if [ -n "$so_branch" ] && [ ! -d "$WORKTREE_BASE/$(normalize_branch "$so_branch")" ]; then
-          continue
-        fi
-        so_cache="$cache_dir/pr-state-$so_pr"
-        watch_refresh_async "$so_cache" 120 watch_pr_state_probe "$so_pr"
-        if [ -f "$so_cache" ] && grep -qxE 'MERGED|CLOSED' "$so_cache"; then
-          resolved_prs+=$'\n'"$so_pr"
-        fi
-      done <<< "$stranded_open_lines"
+      local resolved_prs=""
+      resolved_prs=$(watch_stranded_resolved_prs \
+        "$stranded_open_lines" "$WORKTREE_BASE" "$landed_cache" "$cache_dir")
       t_stranded_open=$(watch_resolve_stranded "$stranded_open_lines" "$WORKTREE_BASE" "$resolved_prs")
     fi
 

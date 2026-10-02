@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url))
 const orchestrator = path.join(scriptsDir, 'orchestrator.sh')
@@ -4272,6 +4272,80 @@ describe('orchestrator.sh', () => {
 
       expect(resolve([LINE, 'HON-703:708:auto/hon-703-gone'], '')).toBe(1)
       expect(resolve([], '')).toBe(0)
+    })
+  })
+
+  describe('wt watch merged and closed stranded PRs (watch_stranded_resolved_prs, HON-938)', () => {
+    let dir = ''
+    let base = ''
+    let cacheDir = ''
+    let landed = ''
+    beforeAll(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-watch-resolved-prs-'))
+      base = path.join(dir, 'worktrees')
+      fs.mkdirSync(path.join(base, 'auto--hon-702-thing'), { recursive: true })
+    })
+    afterAll(() => {
+      fs.rmSync(dir, { recursive: true, force: true })
+    })
+    beforeEach(() => {
+      // Fresh caches per test: a state cache left by one test would answer the next.
+      cacheDir = fs.mkdtempSync(path.join(dir, 'cache-'))
+      landed = path.join(cacheDir, 'landed')
+    })
+
+    const LINE = 'HON-702:707:auto/hon-702-thing'
+
+    const resolved = (lines: string[], prView = ''): string[] =>
+      runHarness('watch-stranded-resolved-prs', lines.join('\n'), base, landed, cacheDir, prView)
+        .split('\n')
+        .filter(Boolean)
+
+    it('takes the merged numbers from the landed cache', () => {
+      fs.writeFileSync(
+        landed,
+        '707\tHON-702\tA title\t2026-10-02T07:22:00Z\n800\t-\tOther\t2026-10-02T07:00:00Z\n',
+      )
+
+      expect(resolved([LINE])).toEqual(['707', '800'])
+    })
+
+    it.each(['MERGED', 'CLOSED'])('adds a PR its own state cache reports as %s', (state) => {
+      // Merged before the landed pane's six rows, or closed without merging:
+      // neither is in the landed cache, so the per-PR lookup is what finds it.
+      fs.writeFileSync(path.join(cacheDir, 'pr-state-707'), `${state}\n`)
+
+      expect(resolved([LINE])).toEqual(['707'])
+    })
+
+    it('leaves a PR its state cache reports as OPEN out', () => {
+      fs.writeFileSync(path.join(cacheDir, 'pr-state-707'), 'OPEN\n')
+
+      expect(resolved([LINE])).toEqual([])
+    })
+
+    it('fills a cold state cache from gh in the background, for the next redraw', async () => {
+      // The first redraw cannot know yet — the probe never blocks the render.
+      expect(resolved([LINE], JSON.stringify({ state: 'CLOSED' }))).toEqual([])
+
+      const cache = path.join(cacheDir, 'pr-state-707')
+      for (let i = 0; i < 50 && !fs.existsSync(cache); i++) {
+        await new Promise((r) => setTimeout(r, 100))
+      }
+
+      expect(fs.readFileSync(cache, 'utf8').trim()).toBe('CLOSED')
+      expect(resolved([LINE])).toEqual(['707'])
+    })
+
+    it('asks gh nothing for a released worktree or a run with no PR', () => {
+      // watch_resolve_stranded already settles a missing worktree, and `none`
+      // has no number to ask about.
+      resolved(
+        ['HON-703:708:auto/hon-703-gone', 'HON-704:none:auto/hon-702-thing'],
+        JSON.stringify({ state: 'MERGED' }),
+      )
+
+      expect(fs.readdirSync(cacheDir).filter((f) => f.startsWith('pr-state-'))).toEqual([])
     })
   })
 

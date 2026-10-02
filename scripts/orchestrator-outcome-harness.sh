@@ -207,6 +207,14 @@
 #     open once the merged/closed PR numbers and the worktree directories are
 #     taken into account. Prints the count.
 #
+#   watch-stranded-resolved-prs <lines> <worktree_base> <landed_cache> <cache_dir> [pr-view-json]
+#                                                                   (HON-938)
+#     The REAL watch_stranded_resolved_prs, which turns the landed cache and the
+#     per-PR state caches into the merged/closed list watch_resolve_stranded
+#     takes. `gh` is stubbed to apply the caller's --jq to <pr-view-json>, so a
+#     cold cache is filled by the REAL watch_pr_state_probe in the background,
+#     exactly as on the dashboard. Prints the resolved PR numbers.
+#
 #   watch-tally-row <success> <failed> <stranded> <stranded_open> <gated>
 #                   <gated_open> <timeout> <truncated>              (HON-938)
 #     The REAL watch_tally_row, read back with the same two `read`s cmd_watch
@@ -1245,6 +1253,25 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     watch_resolve_stranded "$A1" "$A2" "${A3:-}"
+    exit 0
+    ;;
+
+  watch-stranded-resolved-prs)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    # shellcheck disable=SC2034  # read by watch_pr_state_probe's `cd "$REPO_ROOT"`
+    REPO_ROOT="$HARNESS_DIR/.."
+    PR_VIEW_FIXTURE="$A5"
+    gh() {
+      local jq_expr=""
+      [ -n "$PR_VIEW_FIXTURE" ] || return 1
+      while [ $# -gt 0 ]; do
+        [ "$1" = "--jq" ] && jq_expr="$2"
+        shift
+      done
+      printf '%s' "$PR_VIEW_FIXTURE" | jq -r "$jq_expr" 2>/dev/null
+    }
+    watch_stranded_resolved_prs "$A1" "$A2" "$A3" "$A4" | grep -v '^$' || true
     exit 0
     ;;
 
