@@ -35,6 +35,7 @@ const meta = {
     canInvite: false,
     onEdit: fn(),
     onRemove: fn(),
+    onRemoveFocus: fn(),
     onInvite: fn(),
     onInviteUpdated: fn(),
   },

@@ -34,6 +34,11 @@ interface MemberRowProps {
   /** `returnFocusTo` is the control to focus once the edit dialog closes. */
   onEdit: (member: Member, returnFocusTo: HTMLElement | null) => void
   onRemove: (memberId: string) => void
+  /**
+   * Moves focus once the remove confirm has closed after a remove: the row
+   * unmounts with its ⋯ trigger, so focus needs a target outside it.
+   */
+  onRemoveFocus: () => void
   /** `returnFocusTo` is the control to focus once the invite dialog closes. */
   onInvite: (member: Member, returnFocusTo: HTMLElement | null) => void
   onInviteUpdated: (memberId: string, invite: MemberInvite) => void
@@ -50,12 +55,15 @@ export function MemberRow({
   canInvite,
   onEdit,
   onRemove,
+  onRemoveFocus,
   onInvite,
 }: MemberRowProps) {
   const tMembers = useTranslations('household.members')
   const tPortion = useTranslations('household.portion')
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
   const moreActionsTriggerRef = useRef<HTMLButtonElement>(null)
+  // Set once the remove succeeds: the row is about to unmount, trigger and all.
+  const removedRef = useRef(false)
 
   const displayName =
     member.preferences?.displayName || member.user?.name || member.name || tMembers('unknownName')
@@ -78,6 +86,7 @@ export function MemberRow({
         tMembers('removeFailed'),
       ),
     onSuccess: () => {
+      removedRef.current = true
       setShowRemoveDialog(false)
       onRemove(member.id)
       toast.success(tMembers('removed'))
@@ -102,9 +111,13 @@ export function MemberRow({
 
   // The confirm dialog opens from a menu item that is gone by the time it
   // closes, so it hands focus back to the menu trigger instead of the body.
+  // After a remove the trigger goes with the row, so the list moves focus
+  // instead. Here rather than in `onSuccess`: until the dialog has closed, its
+  // focus trap would pull focus straight back.
   function focusMoreActionsOnClose(event: Event) {
     event.preventDefault()
-    moreActionsTriggerRef.current?.focus()
+    if (removedRef.current) onRemoveFocus()
+    else moreActionsTriggerRef.current?.focus()
   }
 
   return (

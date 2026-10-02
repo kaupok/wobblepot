@@ -38,6 +38,9 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
   // to, so each row says which of its controls opened them: the name for the
   // edit dialog, the ⋯ trigger for the invite dialog.
   const returnFocusRef = useRef<HTMLElement | null>(null)
+  // A removed member's row unmounts with the control that opened its confirm
+  // dialog, so focus goes to the list's heading instead.
+  const headingRef = useRef<HTMLElement>(null)
 
   function returnFocusOnClose(event: Event) {
     event.preventDefault()
@@ -79,7 +82,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
     <>
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
-          <Heading variant="section" as="h2">
+          <Heading ref={headingRef} tabIndex={-1} variant="section" as="h2">
             {t('heading')}
           </Heading>
           {isOwner && <AddMemberDialog onMemberAdded={refreshMembers} />}
@@ -110,6 +113,7 @@ export function MemberList({ isOwner, currentMemberId }: MemberListProps) {
                   setEditingMember(m)
                 }}
                 onRemove={refreshMembers}
+                onRemoveFocus={() => headingRef.current?.focus()}
                 onInvite={(m, returnFocusTo) => {
                   returnFocusRef.current = returnFocusTo
                   setInvitingMember(m)

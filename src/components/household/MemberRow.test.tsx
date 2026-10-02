@@ -34,7 +34,7 @@ const manual: Member = {
 }
 
 function renderRow(props: Partial<ComponentProps<typeof MemberRow>> = {}) {
-  const handlers = { onEdit: vi.fn(), onRemove: vi.fn(), onInvite: vi.fn() }
+  const handlers = { onEdit: vi.fn(), onRemove: vi.fn(), onRemoveFocus: vi.fn(), onInvite: vi.fn() }
   render(
     <NextIntlClientProvider locale="en" messages={enMessages}>
       <ul>
@@ -152,5 +152,26 @@ describe('MemberRow', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
 
     await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it('hands focus to the list once a confirmed remove has closed the dialog', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+        ),
+    )
+    const { onRemove, onRemoveFocus } = renderRow({ member: manual, canRemove: true })
+
+    await userEvent.click(screen.getByRole('button', { name: 'More actions: Mari' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove member' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() => expect(onRemoveFocus).toHaveBeenCalledOnce())
+    expect(onRemove).toHaveBeenCalledWith('member-2')
+    vi.unstubAllGlobals()
   })
 })

@@ -52,6 +52,7 @@ function renderRow() {
             canInvite={false}
             onEdit={vi.fn()}
             onRemove={vi.fn()}
+            onRemoveFocus={vi.fn()}
             onInvite={vi.fn()}
             onInviteUpdated={vi.fn()}
           />
