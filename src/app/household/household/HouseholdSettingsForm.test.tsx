@@ -177,27 +177,58 @@ describe('HouseholdSettingsForm', () => {
       expect(nameInput).toHaveValue('Test Household')
     })
 
-    it('renders dietary type radio buttons', () => {
+    it('renders dietary type as a radio group of four chips, one checked', () => {
       renderForm()
 
-      expect(screen.getByLabelText('No preference')).toBeInTheDocument()
-      expect(screen.getByLabelText('Vegetarian')).toBeInTheDocument()
-      expect(screen.getByLabelText('Vegan')).toBeInTheDocument()
-      expect(screen.getByLabelText('Pescatarian')).toBeInTheDocument()
+      const group = screen.getByRole('radiogroup', { name: 'Dietary type' })
+      const radios = within(group).getAllByRole('radio')
+      expect(radios.map((radio) => radio.textContent)).toEqual([
+        'No preference',
+        'Vegetarian',
+        'Vegan',
+        'Pescatarian',
+      ])
+      expect(radios.filter((radio) => radio.getAttribute('aria-checked') === 'true')).toEqual([
+        within(group).getByRole('radio', { name: 'No preference' }),
+      ])
     })
 
-    it('renders allergen checkboxes', () => {
+    it('moves the dietary choice with the arrow keys', async () => {
       renderForm()
 
-      expect(screen.getByLabelText('Gluten')).toBeInTheDocument()
-      expect(screen.getByLabelText('Dairy')).toBeInTheDocument()
-      expect(screen.getByLabelText('Eggs')).toBeInTheDocument()
-      expect(screen.getByLabelText('Tree nuts')).toBeInTheDocument()
-      expect(screen.getByLabelText('Peanuts')).toBeInTheDocument()
-      expect(screen.getByLabelText('Soy')).toBeInTheDocument()
-      expect(screen.getByLabelText('Fish')).toBeInTheDocument()
-      expect(screen.getByLabelText('Shellfish')).toBeInTheDocument()
-      expect(screen.getByLabelText('Sesame')).toBeInTheDocument()
+      // Radix checks the newly focused radio only while the arrow is still
+      // down, a tick after keydown: hold it (as `choice-chips.stories.tsx`).
+      await userEvent.click(screen.getByRole('radio', { name: 'No preference' }))
+      await userEvent.keyboard('{ArrowRight>}')
+      await waitFor(() => expect(screen.getByRole('radio', { name: 'Vegetarian' })).toHaveFocus())
+      await userEvent.keyboard('{/ArrowRight}')
+
+      expect(screen.getByRole('radio', { name: 'Vegetarian' })).toBeChecked()
+      expect(screen.getByRole('radio', { name: 'No preference' })).not.toBeChecked()
+    })
+
+    it('renders the allergens as nine toggle buttons in a wrapping row', () => {
+      renderForm()
+
+      const group = screen.getByRole('group', { name: 'Allergens to avoid' })
+      const toggles = within(group).getAllByRole('button')
+      expect(toggles.map((toggle) => toggle.textContent)).toEqual([
+        'Gluten',
+        'Dairy',
+        'Eggs',
+        'Tree nuts',
+        'Peanuts',
+        'Soy',
+        'Fish',
+        'Shellfish',
+        'Sesame',
+      ])
+      for (const toggle of toggles) {
+        expect(toggle).toHaveAttribute('aria-pressed', 'false')
+        // 44px on a phone (HON-962).
+        expect(toggle).toHaveClass('h-touch')
+      }
+      expect(group).toHaveClass('flex-wrap')
     })
 
     it('describes the allergen group with the AI-processing notice and a privacy link', () => {
@@ -207,7 +238,7 @@ describe('HouseholdSettingsForm', () => {
       expect(group).toHaveAccessibleDescription(
         'Allergens you tick here are sent to our AI provider so meal plans avoid them. See the privacy policy for details.',
       )
-      expect(within(group).getByLabelText('Gluten')).toBeInTheDocument()
+      expect(within(group).getByRole('button', { name: 'Gluten' })).toBeInTheDocument()
 
       const link = screen.getByRole('link', { name: 'privacy policy' })
       expect(link).toHaveAttribute('href', '/privacy')
@@ -222,19 +253,32 @@ describe('HouseholdSettingsForm', () => {
       )
     })
 
-    it('renders meal type checkboxes for weekday and weekend', () => {
+    it('renders meals to plan as one grid: meals as columns, day groups as rows', () => {
       renderForm()
 
-      expect(screen.getByText('Weekday meals to plan')).toBeInTheDocument()
-      expect(screen.getByText('Weekend meals to plan')).toBeInTheDocument()
+      const table = screen.getByRole('table', { name: 'Meals to plan' })
+      expect(
+        within(table)
+          .getAllByRole('columnheader')
+          .map((head) => head.textContent),
+      ).toEqual(['Breakfast', 'Lunch', 'Dinner'])
+      expect(
+        within(table)
+          .getAllByRole('rowheader')
+          .map((head) => head.textContent),
+      ).toEqual(['Weekdays', 'Weekends'])
 
-      const breakfastCheckboxes = screen.getAllByLabelText('Breakfast')
-      const lunchCheckboxes = screen.getAllByLabelText('Lunch')
-      const dinnerCheckboxes = screen.getAllByLabelText('Dinner')
-
-      expect(breakfastCheckboxes).toHaveLength(2)
-      expect(lunchCheckboxes).toHaveLength(2)
-      expect(dinnerCheckboxes).toHaveLength(2)
+      // Each checkbox names both axes, so it reads outside the table context.
+      for (const day of ['Weekdays', 'Weekends']) {
+        for (const meal of ['Breakfast', 'Lunch', 'Dinner']) {
+          expect(within(table).getByRole('checkbox', { name: `${day}: ${meal}` })).toBeVisible()
+        }
+      }
+      // The i18n smoke spec and older selectors find a cell by this id.
+      expect(screen.getByLabelText('Weekdays: Breakfast')).toHaveAttribute(
+        'id',
+        'weekday-breakfast',
+      )
     })
   })
 
@@ -262,12 +306,12 @@ describe('HouseholdSettingsForm', () => {
     it('disables preferences for non-owners', () => {
       renderForm({ isOwner: false })
 
-      expect(screen.getByLabelText('Gluten')).toBeDisabled()
-      expect(screen.getByLabelText('Dairy')).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Gluten' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Dairy' })).toBeDisabled()
       for (const name of ['No preference', 'Vegetarian', 'Vegan', 'Pescatarian']) {
-        expect(screen.getByLabelText(name)).toBeDisabled()
+        expect(screen.getByRole('radio', { name })).toBeDisabled()
       }
-      for (const checkbox of screen.getAllByLabelText('Dinner')) {
+      for (const checkbox of screen.getAllByRole('checkbox')) {
         expect(checkbox).toBeDisabled()
       }
       expect(screen.getByLabelText('Dietary restrictions (optional)')).toBeDisabled()
@@ -277,9 +321,9 @@ describe('HouseholdSettingsForm', () => {
     it('enables preferences for owners', () => {
       renderForm({ isOwner: true })
 
-      expect(screen.getByLabelText('Gluten')).not.toBeDisabled()
-      expect(screen.getByLabelText('Vegan')).not.toBeDisabled()
-      expect(screen.getAllByLabelText('Dinner')[0]).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Gluten' })).not.toBeDisabled()
+      expect(screen.getByRole('radio', { name: 'Vegan' })).not.toBeDisabled()
+      expect(screen.getByLabelText('Weekdays: Dinner')).not.toBeDisabled()
     })
 
     it('never shows a save button to non-owners', () => {
@@ -295,7 +339,7 @@ describe('HouseholdSettingsForm', () => {
         preferences: { ...defaultPreferences, dietaryType: 'vegetarian' },
       })
 
-      expect(screen.getByLabelText('Vegetarian')).toBeChecked()
+      expect(screen.getByRole('radio', { name: 'Vegetarian' })).toBeChecked()
     })
 
     it('shows selected allergens', () => {
@@ -303,9 +347,9 @@ describe('HouseholdSettingsForm', () => {
         preferences: { ...defaultPreferences, allergensToAvoid: ['gluten', 'dairy'] },
       })
 
-      expect(screen.getByLabelText('Gluten')).toBeChecked()
-      expect(screen.getByLabelText('Dairy')).toBeChecked()
-      expect(screen.getByLabelText('Eggs')).not.toBeChecked()
+      expect(screen.getByRole('button', { name: 'Gluten' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Dairy' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Eggs' })).toHaveAttribute('aria-pressed', 'false')
     })
 
     it('shows selected meal types', () => {
@@ -317,9 +361,11 @@ describe('HouseholdSettingsForm', () => {
         },
       })
 
-      const dinnerCheckboxes = screen.getAllByLabelText('Dinner')
-      expect(dinnerCheckboxes[0]).toBeChecked()
-      expect(dinnerCheckboxes[1]).not.toBeChecked()
+      expect(screen.getByLabelText('Weekdays: Breakfast')).toBeChecked()
+      expect(screen.getByLabelText('Weekdays: Lunch')).not.toBeChecked()
+      expect(screen.getByLabelText('Weekdays: Dinner')).toBeChecked()
+      expect(screen.getByLabelText('Weekends: Lunch')).toBeChecked()
+      expect(screen.getByLabelText('Weekends: Dinner')).not.toBeChecked()
     })
   })
 
@@ -334,27 +380,32 @@ describe('HouseholdSettingsForm', () => {
       expect(nameInput).toHaveValue('New Household Name')
     })
 
-    it('toggles allergen checkbox', async () => {
+    it('toggles an allergen, with a check icon while pressed', async () => {
       renderForm()
 
-      const glutenCheckbox = screen.getByLabelText('Gluten')
-      expect(glutenCheckbox).not.toBeChecked()
+      const gluten = screen.getByRole('button', { name: 'Gluten' })
+      const icon = () => gluten.querySelector('[data-slot="toggle-indicator"]')
+      expect(gluten).toHaveAttribute('aria-pressed', 'false')
 
-      await userEvent.click(glutenCheckbox)
-      expect(glutenCheckbox).toBeChecked()
+      await userEvent.click(gluten)
+      expect(gluten).toHaveAttribute('aria-pressed', 'true')
+      // Hidden by CSS until pressed; jsdom does not apply Tailwind, so assert
+      // the hook the CSS reads.
+      expect(gluten).toHaveAttribute('data-state', 'on')
+      expect(icon()).toHaveClass('group-data-[state=on]/toggle:block')
 
-      await userEvent.click(glutenCheckbox)
-      expect(glutenCheckbox).not.toBeChecked()
+      await userEvent.click(gluten)
+      expect(gluten).toHaveAttribute('aria-pressed', 'false')
     })
 
     it('changes dietary type selection', async () => {
       renderForm()
 
-      const veganRadio = screen.getByLabelText('Vegan')
+      const veganRadio = screen.getByRole('radio', { name: 'Vegan' })
       await userEvent.click(veganRadio)
 
       expect(veganRadio).toBeChecked()
-      expect(screen.getByLabelText('No preference')).not.toBeChecked()
+      expect(screen.getByRole('radio', { name: 'No preference' })).not.toBeChecked()
     })
 
     it('renders timezone select with current value', () => {
@@ -406,7 +457,7 @@ describe('HouseholdSettingsForm', () => {
     it('shows one save button, in the changed section only', async () => {
       renderForm()
 
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
 
       expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(1)
       expect(within(section('Food preferences')).getByRole('button', { name: 'Save' })).toBe(
@@ -418,7 +469,7 @@ describe('HouseholdSettingsForm', () => {
       renderForm()
 
       await userEvent.type(screen.getByLabelText('Household name'), '!')
-      await userEvent.click(screen.getAllByLabelText('Lunch')[0]!)
+      await userEvent.click(screen.getByLabelText('Weekdays: Lunch'))
 
       expect(within(section('Household details')).getByRole('button', { name: 'Save' }))
       expect(within(section('Meals to plan')).getByRole('button', { name: 'Save' }))
@@ -430,8 +481,8 @@ describe('HouseholdSettingsForm', () => {
     it('hides the button again when the change is undone', async () => {
       renderForm()
 
-      await userEvent.click(screen.getByLabelText('Gluten'))
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
 
       expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     })
@@ -442,8 +493,8 @@ describe('HouseholdSettingsForm', () => {
       })
 
       // Unticking and reticking gluten moves it to the end of the list.
-      await userEvent.click(screen.getByLabelText('Gluten'))
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
 
       expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     })
@@ -547,8 +598,8 @@ describe('HouseholdSettingsForm', () => {
       mockFetch.mockResolvedValue(ok())
       renderForm()
 
-      await userEvent.click(screen.getByLabelText('Vegan'))
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('radio', { name: 'Vegan' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
       await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
@@ -571,7 +622,7 @@ describe('HouseholdSettingsForm', () => {
       mockFetch.mockResolvedValue(ok())
       renderForm({ preferences: { ...defaultPreferences, dietaryType: 'vegetarian' } })
 
-      await userEvent.click(screen.getByLabelText('No preference'))
+      await userEvent.click(screen.getByRole('radio', { name: 'No preference' }))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
       await waitFor(() => expect(mockFetch).toHaveBeenCalled())
@@ -583,7 +634,7 @@ describe('HouseholdSettingsForm', () => {
       mockFetch.mockResolvedValue(ok())
       renderForm()
 
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
       await userEvent.type(screen.getByLabelText('Dietary restrictions (optional)'), 'halal')
       fireEvent.submit(section('Food preferences'))
 
@@ -602,7 +653,7 @@ describe('HouseholdSettingsForm', () => {
       mockFetch.mockResolvedValue(ok())
       renderForm()
 
-      await userEvent.click(screen.getAllByLabelText('Breakfast')[1]!)
+      await userEvent.click(screen.getByLabelText('Weekends: Breakfast'))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
       await waitFor(() => expect(mockRouterRefresh).toHaveBeenCalled())
@@ -622,28 +673,20 @@ describe('HouseholdSettingsForm', () => {
     it('asks for at least one meal type per group without sending', async () => {
       renderForm()
 
-      const weekday = screen.getByRole('group', { name: 'Weekday meals to plan' })
-      await userEvent.click(within(weekday).getByLabelText('Dinner'))
+      const weekdayDinner = screen.getByLabelText('Weekdays: Dinner')
+      await userEvent.click(weekdayDinner)
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
       expect(within(section('Meals to plan')).getByRole('alert')).toHaveTextContent(
         enMessages.household.settings.mealsRequired,
       )
-      expect(weekday).toHaveAccessibleDescription(enMessages.household.settings.mealsRequired)
+      expect(weekdayDinner).toHaveAccessibleDescription(enMessages.household.settings.mealsRequired)
       expect(mockFetch).not.toHaveBeenCalled()
 
       // Fixing it clears the message straight away.
-      await userEvent.click(within(weekday).getByLabelText('Lunch'))
+      await userEvent.click(screen.getByLabelText('Weekdays: Lunch'))
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-      expect(weekday).not.toHaveAccessibleDescription()
-    })
-
-    it('labels each day group', () => {
-      renderForm()
-
-      const weekday = screen.getByRole('group', { name: 'Weekday meals to plan' })
-      expect(within(weekday).getByLabelText('Dinner')).toBeChecked()
-      expect(screen.getByRole('group', { name: 'Weekend meals to plan' })).toBeInTheDocument()
+      expect(weekdayDinner).not.toHaveAccessibleDescription()
     })
   })
 
@@ -652,7 +695,7 @@ describe('HouseholdSettingsForm', () => {
       mockFetch.mockResolvedValue(ok())
       renderForm()
 
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
       await waitFor(() =>
@@ -666,14 +709,14 @@ describe('HouseholdSettingsForm', () => {
       mockFetch.mockResolvedValue(ok())
       renderForm()
 
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
       await waitFor(() =>
         expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
       )
 
       // Unticking now differs from the new saved value, not the original one.
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
       expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
     })
 
@@ -681,7 +724,7 @@ describe('HouseholdSettingsForm', () => {
       const respond = deferFetch()
       renderForm()
 
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
       const nameInput = screen.getByLabelText('Household name')
       act(() => nameInput.focus())
@@ -695,11 +738,11 @@ describe('HouseholdSettingsForm', () => {
       deferFetch()
       renderForm()
 
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
       expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
-      expect(screen.getByLabelText('Gluten')).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Gluten' })).toBeDisabled()
       // The other sections stay editable.
       expect(screen.getByLabelText('Household name')).not.toBeDisabled()
     })
@@ -752,7 +795,7 @@ describe('HouseholdSettingsForm', () => {
       const respond = deferFetch()
       renderForm()
 
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
       // Chromium blurs the button once it is disabled; jsdom does not.
       dropFocusToBody()
@@ -765,7 +808,7 @@ describe('HouseholdSettingsForm', () => {
       const respond = deferFetch()
       renderForm()
 
-      await userEvent.click(screen.getByLabelText('Gluten'))
+      await userEvent.click(screen.getByRole('button', { name: 'Gluten' }))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
       const nameInput = screen.getByLabelText('Household name')
       act(() => nameInput.focus())
@@ -779,7 +822,7 @@ describe('HouseholdSettingsForm', () => {
       mockFetch.mockRejectedValue(new Error('Network error'))
       renderForm()
 
-      await userEvent.click(screen.getAllByLabelText('Lunch')[0]!)
+      await userEvent.click(screen.getByLabelText('Weekdays: Lunch'))
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
       await waitFor(() => {
@@ -825,7 +868,11 @@ describe('HouseholdSettingsForm', () => {
         mockFetch.mockResolvedValue(fail(403, 'Only household owners can update preferences'))
         renderForm({}, 'et')
 
-        await userEvent.click(screen.getAllByLabelText(etMessages.enums.MealType.lunch)[0]!)
+        await userEvent.click(
+          screen.getByLabelText(
+            `${etMessages.household.settings.weekdaysRow}: ${etMessages.enums.MealType.lunch}`,
+          ),
+        )
         await userEvent.click(screen.getByRole('button', { name: et.saveButton }))
 
         await waitFor(() => {
@@ -844,10 +891,9 @@ describe('HouseholdSettingsForm', () => {
     it('handles null preferences gracefully', () => {
       renderForm({ preferences: null })
 
-      expect(screen.getByLabelText('No preference')).toBeChecked()
-      const dinnerCheckboxes = screen.getAllByLabelText('Dinner')
-      expect(dinnerCheckboxes[0]).toBeChecked()
-      expect(dinnerCheckboxes[1]).toBeChecked()
+      expect(screen.getByRole('radio', { name: 'No preference' })).toBeChecked()
+      expect(screen.getByLabelText('Weekdays: Dinner')).toBeChecked()
+      expect(screen.getByLabelText('Weekends: Dinner')).toBeChecked()
     })
   })
 

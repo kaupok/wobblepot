@@ -9,9 +9,10 @@ const meta = {
   tags: ['autodocs'],
   argTypes: {
     variant: { control: 'select', options: ['default', 'outline'] },
-    tone: { control: 'select', options: ['default', 'success', 'destructive'] },
+    tone: { control: 'select', options: ['default', 'success', 'destructive', 'primary'] },
     shape: { control: 'select', options: ['default', 'circle'] },
-    size: { control: 'select', options: ['default', 'sm', 'lg'] },
+    size: { control: 'select', options: ['default', 'sm', 'lg', 'chip'] },
+    indicator: { control: 'boolean' },
     pressed: { control: 'boolean' },
     disabled: { control: 'boolean' },
   },
@@ -68,6 +69,44 @@ export const Sizes: Story = {
       <Toggle {...args} size="lg" aria-label="Large" />
     </div>
   ),
+}
+
+/**
+ * An on/off chip with a text label: outline at rest, filled like a chosen
+ * `ChoiceChips` chip when pressed, with a check icon so the state is not
+ * carried by colour alone. The household allergens are the reference use
+ * (HON-962).
+ */
+export const Chip: Story = {
+  args: {
+    'aria-label': undefined,
+    variant: 'outline',
+    tone: 'primary',
+    size: 'chip',
+    indicator: true,
+  },
+  render: (args) => (
+    <div className="flex flex-wrap gap-2">
+      <Toggle {...args} defaultPressed>
+        Gluten
+      </Toggle>
+      <Toggle {...args}>Dairy</Toggle>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const gluten = canvas.getByRole('button', { name: 'Gluten' })
+    const dairy = canvas.getByRole('button', { name: 'Dairy' })
+    const icon = (el: HTMLElement) => el.querySelector('[data-slot="toggle-indicator"]')
+
+    await expect(gluten).toHaveAttribute('aria-pressed', 'true')
+    await expect(icon(gluten)).toBeVisible()
+    await expect(icon(dairy)).not.toBeVisible()
+
+    await userEvent.click(dairy)
+    await expect(dairy).toHaveAttribute('aria-pressed', 'true')
+    await expect(icon(dairy)).toBeVisible()
+  },
 }
 
 export const Circle: Story = {

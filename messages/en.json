@@ -937,8 +937,9 @@
       "excludedLabel": "Ingredients to avoid (optional)",
       "excludedPlaceholder": "e.g., cilantro, mushrooms",
       "mealsHeading": "Meals to plan",
-      "weekdayMealsLabel": "Weekday meals to plan",
-      "weekendMealsLabel": "Weekend meals to plan"
+      "weekdaysRow": "Weekdays",
+      "weekendsRow": "Weekends",
+      "mealCellAria": "{day}: {meal}"
     },
     "members": {
       "heading": "Members",

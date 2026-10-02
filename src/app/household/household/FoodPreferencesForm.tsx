@@ -4,8 +4,8 @@ import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { ChoiceChips } from '@/components/ui/choice-chips'
+import { Toggle } from '@/components/ui/toggle'
 import { Body } from '@/components/ui/typography'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
@@ -25,39 +25,30 @@ const ALLERGEN_VALUES: readonly Allergen[] = [
   'sesame',
 ]
 
-function DietaryTypeRadio({ value }: { value: DietaryType }) {
-  const label = useEnumLabel('DietaryType', value)
-  const id = `dietary-${value}`
-  return (
-    <div className="flex items-center gap-2">
-      <RadioGroupItem value={value} id={id} />
-      <Label htmlFor={id} className="font-normal">
-        {label}
-      </Label>
-    </div>
-  )
-}
-
-function AllergenCheckbox({
+function AllergenToggle({
   value,
-  checked,
+  pressed,
   disabled,
-  onCheckedChange,
+  onPressedChange,
 }: {
   value: Allergen
-  checked: boolean
+  pressed: boolean
   disabled: boolean
-  onCheckedChange: (checked: boolean) => void
+  onPressedChange: (pressed: boolean) => void
 }) {
   const label = useEnumLabel('Allergen', value)
-  const id = `allergen-${value}`
   return (
-    <div className="flex items-center gap-2">
-      <Checkbox id={id} checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
-      <Label htmlFor={id} className="font-normal">
-        {label}
-      </Label>
-    </div>
+    <Toggle
+      variant="outline"
+      tone="primary"
+      size="chip"
+      indicator
+      pressed={pressed}
+      onPressedChange={onPressedChange}
+      disabled={disabled}
+    >
+      {label}
+    </Toggle>
   )
 }
 
@@ -79,6 +70,7 @@ interface FoodPreferencesFormProps {
 export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFormProps) {
   const t = useTranslations('household')
   const tSettings = useTranslations('household.settings')
+  const tDietary = useTranslations('enums.DietaryType')
 
   const [saved, setSaved] = useState<FoodValues>({
     dietaryType: preferences?.dietaryType ?? null,
@@ -106,9 +98,9 @@ export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFor
       excludedIngredientsRef.current?.commitPendingValue() ?? excludedIngredients,
   })
 
-  const handleAllergenToggle = (allergen: Allergen, checked: boolean) => {
+  const handleAllergenToggle = (allergen: Allergen, pressed: boolean) => {
     setAllergensToAvoid((current) =>
-      checked ? [...current, allergen] : current.filter((a) => a !== allergen),
+      pressed ? [...current, allergen] : current.filter((a) => a !== allergen),
     )
   }
 
@@ -127,26 +119,19 @@ export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFor
         <>
           <div className="flex flex-col gap-2">
             <Label id="dietary-type-label">{tSettings('dietaryTypeLabel')}</Label>
-            <RadioGroup
+            <ChoiceChips
+              aria-labelledby="dietary-type-label"
+              aria-describedby={errorId}
               value={dietaryType ?? 'none'}
               onValueChange={(value) =>
                 setDietaryType(value === 'none' ? null : (value as DietaryType))
               }
+              options={[
+                { value: 'none', label: t('dietaryNone') },
+                ...DIETARY_TYPE_VALUES.map((value) => ({ value, label: tDietary(value) })),
+              ]}
               disabled={disabled}
-              aria-labelledby="dietary-type-label"
-              aria-describedby={errorId}
-              className="flex flex-wrap"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="none" id="dietary-none" />
-                <Label htmlFor="dietary-none" className="font-normal">
-                  {t('dietaryNone')}
-                </Label>
-              </div>
-              {DIETARY_TYPE_VALUES.map((value) => (
-                <DietaryTypeRadio key={value} value={value} />
-              ))}
-            </RadioGroup>
+            />
           </div>
           <div className="flex flex-col gap-2">
             <Label id="allergens-label">{tSettings('allergensLabel')}</Label>
@@ -154,15 +139,15 @@ export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFor
               role="group"
               aria-labelledby="allergens-label"
               aria-describedby={errorId ? `allergens-ai-notice ${errorId}` : 'allergens-ai-notice'}
-              className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+              className="flex flex-wrap gap-2"
             >
               {ALLERGEN_VALUES.map((allergen) => (
-                <AllergenCheckbox
+                <AllergenToggle
                   key={allergen}
                   value={allergen}
-                  checked={allergensToAvoid.includes(allergen)}
+                  pressed={allergensToAvoid.includes(allergen)}
                   disabled={disabled}
-                  onCheckedChange={(checked) => handleAllergenToggle(allergen, checked)}
+                  onPressedChange={(pressed) => handleAllergenToggle(allergen, pressed)}
                 />
               ))}
             </div>

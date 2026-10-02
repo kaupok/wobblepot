@@ -1,4 +1,4 @@
-// ROUTES: /, /household · COMPONENTS: Header, MealTypeCheckbox, HouseholdSettingsForm
+// ROUTES: /, /household · COMPONENTS: Header, MealsToPlanForm, HouseholdSettingsForm
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
 
@@ -10,7 +10,7 @@ import { signUpWithHousehold } from './utils/test-helpers'
  *   2. New household created during onboarding with Estonian browser → onboarding
  *      persists `Household.locale = "et"` (HON-549 — `et` is public, so the
  *      Accept-Language-resolved locale is no longer clamped to English).
- *      `useEnumLabel('MealType', 'breakfast')` therefore renders "Hommikusöök"
+ *      the meals grid's breakfast column head therefore renders "Hommikusöök"
  *      on the household settings form.
  */
 
@@ -38,8 +38,8 @@ test.describe('@i18n platform smoke', () => {
     // and chrome stays Estonian after the household row exists.
     await expect(page.locator('html')).toHaveAttribute('lang', 'et')
 
-    // `MealTypeCheckbox` → `useEnumLabel('MealType', 'breakfast')` renders the
-    // Estonian label on the household settings form.
+    // `MealsToPlanForm` renders the Estonian `enums.MealType.breakfast` as a
+    // column head of the meals grid on the household settings form.
     await page.goto('/household')
     await expect(page.getByText('Hommikusöök').first()).toBeVisible()
   })
