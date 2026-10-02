@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { delay, http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { Input } from '@/components/ui/input'
 import { householdMealList } from '@/stories/fixtures'
@@ -182,5 +183,37 @@ export const LastDeleteFocusesFallback: Story = {
     await waitFor(() => expect(args.onDelete).toHaveBeenCalledWith(FIRST.id))
     const search = within(canvasElement).getByRole('searchbox', { hidden: true })
     await waitFor(() => expect(document.activeElement).toBe(search))
+  },
+}
+
+/**
+ * While the DELETE is in flight Cancel is disabled and Escape is ignored: a
+ * close there would focus the deleting card's own trigger, which the delete
+ * then unmounts, dropping focus to the body.
+ */
+export const EscapeIgnoredWhileDeleting: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        http.delete('/api/households/me/meals/:id', async () => {
+          await delay('infinite')
+          return HttpResponse.json({ ok: true })
+        }),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const { dialog } = await chooseDelete(canvasElement, FIRST.name)
+    await userEvent.click(within(dialog).getByRole('button', { name: /^delete$/i }))
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: /^cancel$/i })).toBeDisabled(),
+    )
+
+    // A closing dialog stays in the DOM through its 200ms exit animation, so
+    // check its state after that window rather than its presence.
+    await userEvent.keyboard('{Escape}')
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await expect(dialog).toBeInTheDocument()
+    await expect(dialog).toHaveAttribute('data-state', 'open')
   },
 }

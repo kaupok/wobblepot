@@ -220,7 +220,12 @@ export function MealList({ meals, onDelete, onToggleFavorite, emptyFocusRef }: M
 
       <ConfirmDialog
         open={deleteConfirmMeal !== null}
-        onOpenChange={(open) => !open && setDeleteConfirmMeal(null)}
+        // Not dismissible while the delete is in flight, like its disabled
+        // Cancel: Escape would put focus on the deleting card's trigger, and
+        // the card's removal would then drop it to the body.
+        onOpenChange={(open) => {
+          if (!open && !deleteMeal.isPending) setDeleteConfirmMeal(null)
+        }}
         title={t('deleteDialog.title')}
         description={
           deleteConfirmMeal ? t('deleteDialog.description', { name: deleteConfirmMeal.name }) : ''
