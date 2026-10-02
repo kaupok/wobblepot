@@ -246,12 +246,16 @@
       "noSuggestions": "No suggestions available. Try searching for a meal.",
       "rateLimited": "Too many suggestion requests in the last hour. Try again later, or search for a meal.",
       "emptyMyRecipes": "No custom recipes yet. Try <link>importing a recipe</link> first.",
-      "emptySearchCustom": "No custom recipes found matching \"{query}\"",
-      "emptySearch": "No meals found matching \"{query}\"",
+      "emptySearchCustom": "No custom recipes found matching \"{query}\". Try another word, or turn off \"My recipes only\".",
+      "emptySearch": "No meals found matching \"{query}\". Try another word, or <imagine>imagine one</imagine>.",
       "updateMealFailed": "Failed to update meal",
       "imagine": {
         "back": "Back to library",
-        "promptPlaceholder": "Something healthy with chicken and a fresh salad…",
+        "promptPlaceholder": {
+          "breakfast": "Something warm with oats and apple…",
+          "lunch": "A quick salad with eggs and something green…",
+          "dinner": "Something healthy with chicken and a fresh salad…"
+        },
         "promptAria": "Describe the meal you're in the mood for",
         "attachAria": "Attach photos",
         "removeImageAria": "Remove {filename}",

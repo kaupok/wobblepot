@@ -21,8 +21,11 @@ import { ApiError, apiFetch } from '@/lib/api'
 import { MealCardBase } from '../MealCardBase'
 import { AlternativeSkeleton } from './AlternativesList'
 import { FieldError } from '@/components/FieldError'
+import type { MealType } from '@/generated/prisma/enums'
 
 export interface ImaginePanelProps {
+  /** The slot being filled. Picks a placeholder example that fits the meal (HON-944). */
+  mealType: MealType
   /** Leaves imagine mode and returns to the library list. */
   onExit: () => void
   /**
@@ -40,7 +43,7 @@ export interface ImaginePanelProps {
  * in-flight request is aborted on unmount, which is what cancels generation
  * when the surrounding dialog closes.
  */
-export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
+export function ImaginePanel({ mealType, onExit, onMealSaved }: ImaginePanelProps) {
   const t = useTranslations('meal-plan.selector.imagine')
   // `/api/meals/imagine` is shared with `/recipes/imagine`, so its error codes
   // resolve against that screen's catalog rather than duplicating thirteen
@@ -211,7 +214,7 @@ export function ImaginePanel({ onExit, onMealSaved }: ImaginePanelProps) {
               setPrompt(e.target.value)
               setError(null)
             }}
-            placeholder={t('promptPlaceholder')}
+            placeholder={t(`promptPlaceholder.${mealType}`)}
             aria-label={t('promptAria')}
             rows={3}
             className="min-w-0 flex-1 resize-none"

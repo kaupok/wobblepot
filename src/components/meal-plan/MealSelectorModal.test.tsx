@@ -19,7 +19,7 @@ vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 
 // The list and the imagine panel have their own tests; here they only need to
 // hand the modal a meal id, which is what triggers the PATCH under test.
-const hookState = vi.hoisted(() => ({ isRateLimited: false }))
+const hookState = vi.hoisted(() => ({ isRateLimited: false, isSearchMode: false }))
 
 vi.mock('./meal-selector/use-meal-alternatives', () => ({
   useMealAlternatives: () => ({
@@ -31,7 +31,7 @@ vi.mock('./meal-selector/use-meal-alternatives', () => ({
     reset: vi.fn(),
     total: 0,
     hasLoadedList: true,
-    isSearchMode: false,
+    isSearchMode: hookState.isSearchMode,
     isMyRecipesBrowseMode: false,
     isRateLimited: hookState.isRateLimited,
   }),
@@ -56,8 +56,19 @@ vi.mock('./meal-selector/AlternativesList', () => ({
 }))
 
 vi.mock('./meal-selector/ImaginePanel', () => ({
-  ImaginePanel: ({ onMealSaved }: { onMealSaved: (mealId: string) => void }) => (
-    <button onClick={() => onMealSaved('meal-1')}>save imagined meal</button>
+  ImaginePanel: ({
+    mealType,
+    onExit,
+    onMealSaved,
+  }: {
+    mealType: string
+    onExit: () => void
+    onMealSaved: (mealId: string) => void
+  }) => (
+    <div data-testid="imagine-panel" data-meal-type={mealType}>
+      <button onClick={() => onMealSaved('meal-1')}>save imagined meal</button>
+      <button onClick={onExit}>back to library</button>
+    </div>
   ),
 }))
 
@@ -288,5 +299,68 @@ describe('MealSelectorModal accessible names', () => {
     const button = screen.getByLabelText(selector.imagineButton)
     expect(button.tagName).toBe('BUTTON')
     expect(button).not.toHaveAttribute('title')
+  })
+})
+
+describe('MealSelectorModal empty search', () => {
+  beforeEach(() => {
+    hookState.isSearchMode = true
+  })
+
+  afterEach(() => {
+    hookState.isSearchMode = false
+  })
+
+  function search(query: string, locale: 'en' | 'et') {
+    const messages = locale === 'en' ? enMessages : etMessages
+    fireEvent.change(screen.getByLabelText(messages['meal-plan'].selector.searchAria), {
+      target: { value: query },
+    })
+  }
+
+  // Empty states say what is true, then what to do next (docs/DESIGN.md → Copy).
+  it('says nothing matched, then offers to imagine one', () => {
+    renderModal({}, { locale: 'en' })
+    search('qqqq', 'en')
+
+    expect(
+      screen.getByText(
+        (_, el) =>
+          el?.tagName === 'P' &&
+          el.textContent === 'No meals found matching "qqqq". Try another word, or imagine one.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('opens the imagine panel for the slot and keeps the search for the way back', () => {
+    renderModal({ mealType: 'breakfast' }, { locale: 'en' })
+    search('qqqq', 'en')
+
+    fireEvent.click(screen.getByRole('button', { name: 'imagine one' }))
+    expect(screen.getByTestId('imagine-panel')).toHaveAttribute('data-meal-type', 'breakfast')
+
+    fireEvent.click(screen.getByRole('button', { name: 'back to library' }))
+    expect(screen.getByLabelText(enMessages['meal-plan'].selector.searchAria)).toHaveValue('qqqq')
+  })
+
+  it('offers the same action in Estonian', () => {
+    renderModal()
+    search('qqqq', 'et')
+
+    fireEvent.click(screen.getByRole('button', { name: 'mõtle üks välja' }))
+    expect(screen.getByTestId('imagine-panel')).toBeInTheDocument()
+  })
+
+  it('names "My recipes only" as the thing to change when it is on', () => {
+    renderModal({}, { locale: 'en' })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'My recipes only' }))
+    search('qqqq', 'en')
+
+    expect(
+      screen.getByText(
+        'No custom recipes found matching "qqqq". Try another word, or turn off "My recipes only".',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'imagine one' })).not.toBeInTheDocument()
   })
 })
