@@ -66,6 +66,21 @@ async function dismissSelector() {
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 }
 
+describe('MealCard own-recipe badge', () => {
+  it("marks the household's own recipe in the badge row (HON-948)", () => {
+    renderCard({ meal: { ...meal, isCustom: true } })
+
+    const badge = screen.getByText('My recipe').closest('[data-slot="badge"]')
+    expect(badge).toHaveAttribute('title', 'My recipe')
+  })
+
+  it('shows no badge for a library meal', () => {
+    renderCard({ meal: { ...meal, isCustom: false } })
+
+    expect(screen.queryByText('My recipe')).not.toBeInTheDocument()
+  })
+})
+
 // The selector opens from state with no `DialogTrigger`, so Radix alone would
 // leave focus on the page body when it closes (HON-804).
 describe('MealCard selector focus', () => {

@@ -136,6 +136,30 @@ describe('MealCardBase', () => {
     })
   })
 
+  describe('own-recipe badge', () => {
+    it("marks the household's own recipe after the protein badge (HON-948)", () => {
+      const { container } = render(<MealCardBase meal={{ ...mockMeal, isCustom: true }} />)
+
+      const badge = screen.getByText('My recipe').closest('[data-slot="badge"]')
+      expect(badge).toHaveAttribute('title', 'My recipe')
+      const badges = [...container.querySelectorAll('[data-slot="badge"]')]
+      expect(badges.at(-1)).toBe(badge)
+      expect(badges.at(-2)).toHaveTextContent('Fish')
+    })
+
+    it('shows no badge for a library meal', () => {
+      render(<MealCardBase meal={{ ...mockMeal, isCustom: false }} />)
+
+      expect(screen.queryByText('My recipe')).not.toBeInTheDocument()
+    })
+
+    it("leaves it out with ownRecipe='hide', as on the My recipes page", () => {
+      render(<MealCardBase meal={{ ...mockMeal, isCustom: true }} ownRecipe="hide" />)
+
+      expect(screen.queryByText('My recipe')).not.toBeInTheDocument()
+    })
+  })
+
   describe('source URL rendering', () => {
     it('renders link for https URLs', () => {
       const meal = { ...mockMeal, sourceUrl: 'https://example.com/recipe' }

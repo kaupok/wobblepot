@@ -16,6 +16,7 @@ interface LibraryMeal extends MealImageFields {
   kidFriendly: boolean
   primaryProteinType: ProteinType
   suitableFor: MealType[]
+  isCustom: boolean
   components: MealComponent[]
   nutrition: NutritionData
 }
@@ -41,6 +42,7 @@ function toAlternativeMeal(meal: LibraryMeal): AlternativeMeal {
     kidFriendly: meal.kidFriendly,
     primaryProteinType: meal.primaryProteinType,
     suitableFor: meal.suitableFor,
+    isCustom: meal.isCustom,
     components: meal.components,
     nutrition: meal.nutrition,
     imageUrl: meal.imageUrl,

@@ -258,6 +258,7 @@ async function handlePOST(
         kidFriendly: candidate.kidFriendly,
         primaryProteinType: candidate.primaryProteinType,
         suitableFor: mealDetail?.suitableFor as MealType[] | undefined,
+        isCustom: candidate.isCustom,
         components: components.map((comp) => {
           const translatedIngredient = translateIngredient(comp.ingredient, locale)
           return {

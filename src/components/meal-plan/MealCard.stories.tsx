@@ -98,6 +98,43 @@ export const PlannedWithImage: Story = {
   },
 }
 
+/**
+ * One of the household's own recipes: the compact "My recipe" badge closes the
+ * badge row, after the protein badge, in the meal's chip colour with no ring
+ * (HON-948). A library meal (every other story) has none.
+ */
+export const OwnRecipe: Story = {
+  args: {
+    meal: {
+      ...mealFixture,
+      primaryProteinType: 'poultry',
+      isCustom: true,
+      imageStatus: 'ready',
+      imageUrl: mealIllustration.src,
+      imageHue: 150,
+    },
+    status: 'planned',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const badge = canvas.getByText('My recipe').closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(badge).toHaveAttribute('title', 'My recipe')
+    await expect(badge).toHaveAttribute('data-variant', 'secondary')
+    await expect(getComputedStyle(badge).borderTopColor).toBe('rgba(0, 0, 0, 0)')
+    // The badge row describes the meal: the slot, the protein, then this.
+    const row = [...badge.parentElement!.querySelectorAll('[data-slot="badge"]')]
+    await expect(row.at(-1)).toBe(badge)
+    await expect(row.at(-2)).toHaveTextContent('Poultry')
+  },
+}
+
+export const OwnRecipeDark: Story = {
+  ...OwnRecipe,
+  name: 'Own recipe (dark)',
+  globals: { theme: 'dark' },
+  play: undefined,
+}
+
 const NOTE = 'Double the garlic — kids approved.'
 
 /**

@@ -163,6 +163,37 @@ export const MealTypesHidden: Story = {
   },
 }
 
+/**
+ * One of the household's own recipes, as the meal selector shows it among
+ * library meals: the compact "My recipe" badge after the protein badge
+ * (HON-948).
+ */
+export const OwnRecipe: Story = {
+  args: {
+    meal: createMealCardBaseData({ isCustom: true }),
+    mealTypes: 'hide',
+  },
+  play: async ({ canvasElement }) => {
+    const badge = within(canvasElement)
+      .getByText('My recipe')
+      .closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(badge).toHaveAttribute('title', 'My recipe')
+    const row = [...badge.parentElement!.querySelectorAll('[data-slot="badge"]')]
+    await expect(row.at(-1)).toBe(badge)
+  },
+}
+
+/** `ownRecipe="hide"`: the My recipes page, where every card is one (HON-948). */
+export const OwnRecipeHidden: Story = {
+  args: {
+    meal: createMealCardBaseData({ isCustom: true }),
+    ownRecipe: 'hide',
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByText('My recipe')).not.toBeInTheDocument()
+  },
+}
+
 export const NoDescription: Story = {
   args: {
     meal: createMealCardBaseData({ description: null }),
@@ -256,6 +287,24 @@ export const PantryOnTint: Story = {
       </MealImageCard>
     ),
   ],
+}
+
+/** An own recipe on the selector's tinted card: the chip colour, no ring (HON-948). */
+export const OwnRecipeOnTint: Story = {
+  args: { meal: { ...tintedMeal, isCustom: true }, mealTypes: 'hide' },
+  decorators: PantryOnTint.decorators,
+  play: async ({ canvasElement }) => {
+    const badge = within(canvasElement)
+      .getByText('My recipe')
+      .closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(getComputedStyle(badge).borderTopColor).toBe('rgba(0, 0, 0, 0)')
+  },
+}
+
+export const OwnRecipeOnTintDark: Story = {
+  ...OwnRecipeOnTint,
+  globals: { theme: 'dark' },
+  play: undefined,
 }
 
 export const PantryOnTintDark: Story = {

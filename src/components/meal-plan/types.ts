@@ -88,6 +88,8 @@ export interface AlternativeMeal extends MealImageFields {
   kidFriendly: boolean
   primaryProteinType: string
   suitableFor?: MealType[]
+  /** One of the household's own recipes, rather than a library meal (HON-948) */
+  isCustom?: boolean
   components: MealComponent[]
   nutrition: NutritionData
   /**

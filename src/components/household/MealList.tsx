@@ -155,6 +155,7 @@ export function MealList({ meals, onDelete, onToggleFavorite, emptyFocusRef }: M
                 meal={meal}
                 nameHeadingTag="h2"
                 ingredients="never"
+                ownRecipe="hide"
                 titleActions={
                   <>
                     <Button
