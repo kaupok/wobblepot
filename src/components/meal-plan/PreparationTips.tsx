@@ -467,7 +467,7 @@ function AskButton({ ref, label, open, panelId, onClick, quietFocus }: AskButton
           <span className="hidden lg:inline">{t('ask')}</span>
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent size="lg">{label}</TooltipContent>
     </Tooltip>
   )
 }

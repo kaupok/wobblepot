@@ -203,6 +203,9 @@ const askButtonsArgs = {
 async function expectAskTooltip(n: number) {
   const tooltip = await within(document.body).findByRole('tooltip')
   await expect(tooltip).toHaveTextContent(`Ask about step ${n}`)
+  // The cook view keeps text at 16px or above, the tooltip included.
+  const content = document.querySelector('[data-slot="tooltip-content"]')!
+  await expect(getComputedStyle(content).fontSize).toBe('16px')
 }
 
 /**
