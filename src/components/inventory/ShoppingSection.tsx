@@ -215,18 +215,19 @@ export function ShoppingSection({
     }
 
     if (sortMode === 'urgency') {
-      const sections: ClipboardSection[] = urgencyGroups.map((group) => {
-        const lines = toBuy(group.items).map(computedLine)
-        return { heading: `${tUrgency(URGENCY_KEYS[group.bucket])} (${lines.length})`, lines }
-      })
-
+      // Custom items lead, as on screen: they have no date, and the household
+      // added them by hand.
       const customLines = unchecked(customItems).map(customLine)
-      sections.push({
-        heading: `${CUSTOM_ITEMS_EMOJI} ${tShopping('customItemsSection', { count: customLines.length })}`,
-        lines: customLines,
-      })
-
-      return sections
+      return [
+        {
+          heading: `${CUSTOM_ITEMS_EMOJI} ${tShopping('customItemsSection', { count: customLines.length })}`,
+          lines: customLines,
+        },
+        ...urgencyGroups.map((group) => {
+          const lines = toBuy(group.items).map(computedLine)
+          return { heading: `${tUrgency(URGENCY_KEYS[group.bucket])} (${lines.length})`, lines }
+        }),
+      ]
     }
 
     const categorySection = (
@@ -544,16 +545,9 @@ export function ShoppingSection({
 
         {sortMode === 'urgency' && (
           <div className="flex flex-col gap-6">
-            {urgencyGroups.map((group) => (
-              <UrgencyGroup
-                key={group.bucket}
-                bucket={group.bucket}
-                items={group.items}
-                onToggleItem={handleToggle}
-                pendingIds={pendingIds}
-              />
-            ))}
-            {/* In urgency mode, show all custom items in a single "Custom items" group */}
+            {/* In urgency mode, show all custom items in a single "Custom items"
+                group. It leads: the items have no date, and a new one lands
+                right under the input that added it. */}
             {customItems.length > 0 && (
               <div className="flex flex-col gap-2">
                 <GroupHeading
@@ -576,6 +570,15 @@ export function ShoppingSection({
                 </div>
               </div>
             )}
+            {urgencyGroups.map((group) => (
+              <UrgencyGroup
+                key={group.bucket}
+                bucket={group.bucket}
+                items={group.items}
+                onToggleItem={handleToggle}
+                pendingIds={pendingIds}
+              />
+            ))}
           </div>
         )}
 

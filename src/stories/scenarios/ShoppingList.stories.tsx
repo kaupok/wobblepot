@@ -116,16 +116,8 @@ function ShoppingListScreen({
       <div className="flex flex-col gap-6">
         {sort === 'urgency' ? (
           <>
-            {URGENCY_BUCKETS.map((bucket) => (
-              <UrgencyGroup
-                key={bucket}
-                bucket={bucket}
-                items={shoppingItemsByUrgency[bucket]}
-                onToggleItem={onToggleItem}
-              />
-            ))}
             {/* Urgency mode has no per-item date for custom items, so it
-                  collapses all of them into one group. */}
+                  collapses all of them into one group, ahead of the buckets. */}
             <div className="flex flex-col gap-2">
               <GroupHeading
                 emoji={CUSTOM_ITEMS_EMOJI}
@@ -145,6 +137,14 @@ function ShoppingListScreen({
                 ))}
               </div>
             </div>
+            {URGENCY_BUCKETS.map((bucket) => (
+              <UrgencyGroup
+                key={bucket}
+                bucket={bucket}
+                items={shoppingItemsByUrgency[bucket]}
+                onToggleItem={onToggleItem}
+              />
+            ))}
           </>
         ) : (
           <>
@@ -246,13 +246,14 @@ export const Populated: Story = {
     docs: {
       description: {
         story:
-          'Default urgency grouping: four `UrgencyGroup` buckets of `ShoppingItem` rows, then the single "Custom items" group of `CustomShoppingItem` rows that urgency mode collapses them into.',
+          'Default urgency grouping: the single "Custom items" group of `CustomShoppingItem` rows that urgency mode collapses them into, then four `UrgencyGroup` buckets of `ShoppingItem` rows. Custom items lead because they have no date and a new one lands right under the input.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     expect(canvas.getAllByRole('checkbox')).toHaveLength(URGENCY_ROW_COUNT)
+    expect(canvas.getAllByRole('heading', { level: 3 })[0]).toHaveAccessibleName(/Custom items/)
     await assertDesignRules(canvasElement, SCENARIO_RULES)
   },
 }

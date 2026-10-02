@@ -227,6 +227,14 @@ describe('ShoppingSection alphabetical sort', () => {
     expect(trigger).toHaveTextContent('By urgency')
   })
 
+  it('leads with an urgency bucket when there are no custom items', () => {
+    renderSection()
+
+    // No empty "Custom items" group on top: the first group is a bucket.
+    expect(screen.queryByRole('heading', { name: /Custom items/ })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 3 })[0]).toHaveAccessibleName('This week 3')
+  })
+
   it('restores category sort mode from localStorage', () => {
     localStorage.setItem('shopping-list-sort-mode', 'category')
     renderSection()
@@ -350,7 +358,7 @@ describe('ShoppingSection copy to clipboard', () => {
     )
   })
 
-  it('copies urgency buckets and a custom-items section in urgency mode', async () => {
+  it('puts the custom-items group before the urgency buckets, on screen and in the copy', async () => {
     const user = userEvent.setup()
     const writeText = stubClipboard(vi.fn().mockResolvedValue(undefined))
     localStorage.setItem('shopping-list-sort-mode', 'urgency')
@@ -367,8 +375,12 @@ describe('ShoppingSection copy to clipboard', () => {
       ],
     })
 
-    expect(screen.getByRole('heading', { level: 3, name: 'This week 3' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 3, name: 'Custom items 1' })).toBeInTheDocument()
+    const weekHeading = screen.getByRole('heading', { level: 3, name: 'This week 3' })
+    const customHeading = screen.getByRole('heading', { level: 3, name: 'Custom items 1' })
+    // Custom items lead the urgency groups, right under the input that adds them.
+    expect(customHeading.compareDocumentPosition(weekHeading)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
 
     await user.click(screen.getByRole('button', { name: /copy list/i }))
 
@@ -378,13 +390,13 @@ describe('ShoppingSection copy to clipboard', () => {
         [
           expectedHeading,
           '',
+          '📝 Custom items (1)',
+          '- Bananas',
+          '',
           'This week (3)',
           '- Carrot 100 g',
           '- Asparagus 100 g',
           '- Beef 100 g',
-          '',
-          '📝 Custom items (1)',
-          '- Bananas',
         ].join('\n'),
       ),
     )
