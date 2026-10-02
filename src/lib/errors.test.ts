@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { captureApiError, captureExternalApiTimeout } from './errors'
 import { captureClientError } from './errors-client'
+import { markPostHogLoaded } from '@/lib/posthog-client-state'
 import { MealPlanValidationError, InsufficientCandidatesError } from '@/lib/ai/types'
 
 const captureExceptionMock = vi.fn()
@@ -379,6 +380,8 @@ describe('captureExternalApiTimeout', () => {
 describe('captureClientError', () => {
   beforeEach(() => {
     clientCaptureExceptionMock.mockReset()
+    // What PostHogProvider does after `posthog.init` once consent is granted.
+    markPostHogLoaded()
     clientLoaded = true
   })
 

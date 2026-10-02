@@ -17,6 +17,7 @@ import {
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useThemeToggle } from '@/hooks/use-theme-toggle'
 import type { Session } from '@/lib/auth'
+import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
 interface HeaderActionsProps {
   session: Session | null
@@ -35,10 +36,13 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
       await authClient.signOut({
         fetchOptions: {
           onSuccess: () => {
-            // Dynamic import so posthog-js stays out of the main bundle.
+            // Loads posthog-js only if this document initialised it, so a
+            // user who declined analytics never fetches the chunk (HON-999).
             // Fire-and-forget: don't block the sign-out redirect on an
             // analytics chunk-load failure.
-            import('posthog-js').then(({ default: posthog }) => posthog.reset()).catch(() => {})
+            getLoadedPostHog()
+              .then((posthog) => posthog?.reset())
+              .catch(() => {})
             router.push('/')
             router.refresh()
           },

@@ -25,6 +25,7 @@ import { formatLongDate } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import { translateErrorCode } from '@/lib/ai/error-codes'
 import { ACCOUNT_DELETION_ERROR_KEYS } from '@/lib/account-deletion-error-codes'
+import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
 interface DeleteAccountDialogProps {
   userEmail: string
@@ -76,7 +77,9 @@ export function DeleteAccountDialog({
           onSuccess: () => {
             // Fire-and-forget: account is already deleted, so an analytics
             // chunk-load failure must not block the post-delete redirect.
-            import('posthog-js').then(({ default: posthog }) => posthog.reset()).catch(() => {})
+            getLoadedPostHog()
+              .then((posthog) => posthog?.reset())
+              .catch(() => {})
             router.push('/')
             router.refresh()
           },

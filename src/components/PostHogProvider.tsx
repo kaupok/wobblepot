@@ -2,11 +2,14 @@
 
 import { useEffect, useState, Suspense, type ReactNode } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { PostHogProvider as PHProvider, usePostHog } from '@posthog/react'
+// No `@posthog/react`: its entry imports `posthog-js` statically, which put
+// the whole SDK in the root layout's initial JS for every visitor, consent or
+// not (HON-999). `posthog-js` is reached only through the dynamic import below.
 import type { PostHog } from 'posthog-js'
 import { clientEnv } from '@/lib/env'
 import { useAnalyticsConsent } from '@/components/ConsentProvider'
 import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
+import { markPostHogLoaded } from '@/lib/posthog-client-state'
 import type { BootstrapData } from '@/lib/feature-flags'
 
 interface PostHogProviderProps {
@@ -72,6 +75,7 @@ export function PostHogProvider({
         // so PostHog's default behaviour applies when no bootstrap is provided.
         ...(bootstrap ? { bootstrap } : {}),
       })
+      markPostHogLoaded()
       setClient(posthog)
     })
 
@@ -123,37 +127,37 @@ export function PostHogProvider({
     client.identify(userId, householdId ? { household_id: householdId } : undefined)
   }, [client, granted, userId, householdId])
 
-  if (!client) return <>{children}</>
-
+  // One shape before and after init: React matches unkeyed children by index,
+  // so returning bare `children` first would remount the whole page tree when
+  // the client arrives, dropping typed input and focus.
   return (
-    <PHProvider client={client}>
-      <SuspendedPostHogPageView />
+    <>
+      {client ? <SuspendedPostHogPageView client={client} /> : null}
       {children}
-    </PHProvider>
+    </>
   )
 }
 
-function SuspendedPostHogPageView() {
+function SuspendedPostHogPageView({ client }: { client: PostHog }) {
   // useSearchParams suspends during SSR prerender; isolating the pageview
   // effect behind <Suspense> keeps the rest of the tree prerenderable.
   return (
     <Suspense fallback={null}>
-      <PostHogPageView />
+      <PostHogPageView client={client} />
     </Suspense>
   )
 }
 
-function PostHogPageView() {
+function PostHogPageView({ client }: { client: PostHog }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const posthog = usePostHog()
 
   useEffect(() => {
-    if (!pathname || !posthog) return
+    if (!pathname) return
     const query = searchParams?.toString()
     const url = window.location.origin + pathname + (query ? `?${query}` : '')
-    posthog.capture('$pageview', { $current_url: url })
-  }, [pathname, searchParams, posthog])
+    client.capture('$pageview', { $current_url: url })
+  }, [pathname, searchParams, client])
 
   return null
 }

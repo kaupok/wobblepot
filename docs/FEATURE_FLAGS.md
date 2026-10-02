@@ -43,20 +43,18 @@ When no session is available, pass the literal string `'anonymous'` as the disti
 
 ## Reading a flag (client)
 
-The server evaluates every known flag during `RootLayout` rendering and passes a `BootstrapData` payload through `<Providers>` → `<PostHogProvider>` → `posthog.init({ bootstrap })`. That means once the SDK is loaded, `usePostHog().isFeatureEnabled('ai_generation_enabled')` returns the bootstrapped value synchronously — no flash of wrong variant during hydration.
+The server evaluates every known flag during `RootLayout` rendering and passes a `BootstrapData` payload through `<Providers>` → `<PostHogProvider>` → `posthog.init({ bootstrap })`. That means once the SDK is loaded, `isFeatureEnabled('ai_generation_enabled')` returns the bootstrapped value synchronously — no flash of wrong variant during hydration.
 
-Reads on **post-consent** surfaces:
+Reads on **post-consent** surfaces go through `getLoadedPostHog()` (`src/lib/posthog-client-state.ts`), which resolves to `null` until the SDK has initialised:
 
-```tsx
-'use client'
-import { usePostHog } from '@posthog/react'
+```ts
+import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
-export function ImagineButton() {
-  const posthog = usePostHog()
-  const enabled = posthog?.isFeatureEnabled('ai_generation_enabled') ?? true // safe default
-  return enabled ? <Button>...</Button> : null
-}
+const posthog = await getLoadedPostHog()
+const enabled = posthog?.isFeatureEnabled('ai_generation_enabled') ?? true // safe default
 ```
+
+Do not import `posthog-js` or `@posthog/react` statically in client code. Either one puts the whole SDK in the initial JS of every visitor, including users who declined analytics (HON-999). `@posthog/react` is not a dependency for that reason, and `src/lib/posthog-bundle-boundary.test.ts` fails CI on a static import.
 
 Reads on **pre-consent** surfaces (marketing pages, the consent banner itself, the sign-up form): the SDK never initialises before consent, so client-side `posthog.isFeatureEnabled()` returns nothing. Server-evaluate the flag in the RSC and either pass the result down as a prop or skip the client-side flag check entirely. None of the launch flags are read client-side, so this isn't an issue today.
 
@@ -66,7 +64,7 @@ Reads on **pre-consent** surfaces (marketing pages, the consent banner itself, t
 2. Add an entry to `FLAG_DEFAULTS` with the **safe** value (think: which value should the flag take if PostHog is down at 2am?).
 3. Create the flag in **all three** PostHog projects (`mealplan-production`, `mealplan-staging`, `mealplan-development`) under the `Honkadori` org with the same default.
 4. For an experiment / product flag (not a kill-switch): set an owner and an expected resolution date in PostHog at creation time. Kill-switches are exempt — they stay forever by design.
-5. Read it via `getServerFlag(key, distinctId)` server-side, or `usePostHog().isFeatureEnabled(key)` client-side (post-consent only).
+5. Read it via `getServerFlag(key, distinctId)` server-side, or `(await getLoadedPostHog())?.isFeatureEnabled(key)` client-side (post-consent only).
 
 ## Fail-open default
 

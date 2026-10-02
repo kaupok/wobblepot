@@ -8,6 +8,7 @@ import { decisionToGranted } from '@/lib/consent'
 import { readConsentCookieClient } from '@/lib/consent.client'
 import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
 import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
+import { markPostHogLoaded } from '@/lib/posthog-client-state'
 import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { detectClientLocale, globalErrorTranslator } from '@/lib/i18n/global-error-messages'
@@ -43,6 +44,7 @@ export default function GlobalError({
           // The same options as PostHogProvider's init — once posthog-js initialises, re-init is
           // a no-op, so a minimal config here would silently drop the sanitiser for the session.
           posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY as string, { ...POSTHOG_INIT_OPTIONS })
+          markPostHogLoaded()
         }
         const properties: Record<string, unknown> = {
           $exception_source: 'app.global-error',
