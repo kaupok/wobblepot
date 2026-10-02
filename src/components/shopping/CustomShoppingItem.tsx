@@ -42,7 +42,7 @@ export function CustomShoppingItem({
   return (
     <div
       className={cn(
-        'min-h-touch flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors',
+        'min-h-touch flex items-center justify-between gap-3 p-3 transition-colors',
         'hover:bg-muted/50',
         item.checked && 'bg-muted/30',
         disabled && 'pointer-events-none opacity-50',

@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { RowGroup } from '@/components/ui/row-group'
 import {
   CategoryGroup,
   CATEGORY_EMOJI,
@@ -526,7 +527,7 @@ export function ShoppingSection({
                     `${unlinkedCustomItems.filter((i) => i.checked).length}/${unlinkedCustomItems.length}`
                   }
                 />
-                <div className="flex flex-col gap-1">
+                <RowGroup>
                   {unlinkedCustomItems.map((item) => (
                     <CustomShoppingItem
                       key={item.id}
@@ -537,7 +538,7 @@ export function ShoppingSection({
                       pending={pendingCustomIds.has(item.id)}
                     />
                   ))}
-                </div>
+                </RowGroup>
               </div>
             )}
           </div>
@@ -556,7 +557,7 @@ export function ShoppingSection({
                   total={customItems.length}
                   count={checkedCustomCount > 0 && `${checkedCustomCount}/${customItems.length}`}
                 />
-                <div className="flex flex-col gap-1">
+                <RowGroup>
                   {customItems.map((item) => (
                     <CustomShoppingItem
                       key={item.id}
@@ -567,7 +568,7 @@ export function ShoppingSection({
                       pending={pendingCustomIds.has(item.id)}
                     />
                   ))}
-                </div>
+                </RowGroup>
               </div>
             )}
             {urgencyGroups.map((group) => (
@@ -582,8 +583,11 @@ export function ShoppingSection({
           </div>
         )}
 
-        {sortMode === 'alphabetical' && (
-          <div className="flex flex-col gap-1">
+        {/* `alphabeticalItems.length > 0`: a `RowGroup` with no rows is a bare
+            outline, which an empty list would show after its last custom item
+            is deleted. */}
+        {sortMode === 'alphabetical' && alphabeticalItems.length > 0 && (
+          <RowGroup>
             {alphabeticalItems.map((entry) =>
               entry.kind === 'computed' ? (
                 <ShoppingItem
@@ -603,7 +607,7 @@ export function ShoppingSection({
                 />
               ),
             )}
-          </div>
+          </RowGroup>
         )}
       </div>
     </section>

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
 import { createCustomItem, createShoppingItem } from '@/stories/fixtures'
+import { RowGroup } from '@/components/ui/row-group'
 import { CustomShoppingItem } from './CustomShoppingItem'
 import { ShoppingItem } from './ShoppingItem'
 import { ShoppingItemSkeleton } from './ShoppingItemSkeleton'
@@ -35,32 +36,40 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Default: Story = {}
+export const Default: Story = {
+  render: () => (
+    <RowGroup>
+      <ShoppingItemSkeleton />
+      <ShoppingItemSkeleton />
+      <ShoppingItemSkeleton />
+    </RowGroup>
+  ),
+}
 
 export const AgainstLiveRows: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
-      <div data-testid="skeleton">
+      <RowGroup data-testid="skeleton">
         <ShoppingItemSkeleton />
-      </div>
-      <div data-testid="shopping-item">
+      </RowGroup>
+      <RowGroup data-testid="shopping-item">
         <ShoppingItem item={createShoppingItem()} onToggle={fn()} />
-      </div>
-      <div data-testid="custom-item">
+      </RowGroup>
+      <RowGroup data-testid="custom-item">
         <CustomShoppingItem
           item={createCustomItem()}
           onToggle={fn()}
           onUnlink={fn()}
           onDelete={fn()}
         />
-      </div>
+      </RowGroup>
     </div>
   ),
   parameters: {
     docs: {
       description: {
         story:
-          'The skeleton above the two row types it replaces. `ShoppingItem` and `CustomShoppingItem` share the same `min-h-touch … rounded-lg border p-3` box, so one skeleton covers both — the play function holds all three to the same height rather than to a hardcoded number, so a deliberate row redesign keeps the guard while a one-sided change breaks it.',
+          'The skeleton above the two row types it replaces. `ShoppingItem` and `CustomShoppingItem` share the same `min-h-touch … p-3` box inside a `RowGroup`, so one skeleton covers both — the play function holds all three to the same height rather than to a hardcoded number, so a deliberate row redesign keeps the guard while a one-sided change breaks it.',
       },
     },
   },

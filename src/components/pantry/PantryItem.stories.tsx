@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { RowGroup } from '@/components/ui/row-group'
 import { createPantryItemData } from '@/stories/fixtures'
 import { PantryItem } from './PantryItem'
 
@@ -22,9 +23,13 @@ const meta = {
     onRemove: fn(),
   },
   decorators: [
+    // The row has no border of its own: the live list draws one `RowGroup`
+    // around each group of rows.
     (Story) => (
       <div className="max-w-md">
-        <Story />
+        <RowGroup>
+          <Story />
+        </RowGroup>
       </div>
     ),
   ],
