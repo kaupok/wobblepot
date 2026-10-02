@@ -112,6 +112,8 @@
  * @see HON-476 for the design decisions behind this taxonomy.
  */
 
+import { getLoadedPostHog } from '@/lib/posthog-client-state'
+
 /** Closed enum of UI surfaces an event can originate from. Adding a value is a code change, not a string typo. */
 export type Source =
   | 'meal_card'
@@ -201,10 +203,10 @@ const FIRST_PROPERTY_FOR: Partial<Record<EventName, string>> = {
 /**
  * Capture a product event. Returns `Promise<void>`; never throws.
  *
- * Lazy-imports `posthog-js` so this module stays out of any chunk that hasn't
- * already paid for the SDK (matches the pattern in `src/lib/errors-client.ts`).
- * No-ops when consent is missing, env is unset, or PostHog hasn't finished
- * initialising — `posthog.__loaded` is the canonical guard.
+ * Lazy-imports `posthog-js` through `getLoadedPostHog()` so this module stays
+ * out of any chunk that hasn't already paid for the SDK. No-ops when consent is
+ * missing, env is unset, or PostHog hasn't finished initialising, and in those
+ * cases does not fetch the SDK chunk at all (HON-999).
  *
  * Callers fire-and-forget by prefixing with `void`:
  *   `void track('meal_plan:meal_completed', { ... })`.
@@ -213,8 +215,8 @@ export async function track<K extends EventName>(name: K, props: EventPayload[K]
   if (typeof window === 'undefined') return
 
   try {
-    const { default: posthog } = await import('posthog-js')
-    if (!posthog.__loaded) return
+    const posthog = await getLoadedPostHog()
+    if (!posthog) return
 
     const merged: Record<string, unknown> = {}
 

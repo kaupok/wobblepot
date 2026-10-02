@@ -7,6 +7,7 @@ import type { PostHog } from 'posthog-js'
 import { clientEnv } from '@/lib/env'
 import { useAnalyticsConsent } from '@/components/ConsentProvider'
 import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
+import { markPostHogLoaded } from '@/lib/posthog-client-state'
 import type { BootstrapData } from '@/lib/feature-flags'
 
 interface PostHogProviderProps {
@@ -72,6 +73,7 @@ export function PostHogProvider({
         // so PostHog's default behaviour applies when no bootstrap is provided.
         ...(bootstrap ? { bootstrap } : {}),
       })
+      markPostHogLoaded()
       setClient(posthog)
     })
 

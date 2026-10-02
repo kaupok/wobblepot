@@ -5,7 +5,8 @@ import { MealPlanValidationError } from '@/lib/ai/types'
 import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
 import GlobalError from './global-error'
 
-const { posthogMock, envMock, consentMock } = vi.hoisted(() => ({
+const { posthogMock, envMock, consentMock, markPostHogLoadedMock } = vi.hoisted(() => ({
+  markPostHogLoadedMock: vi.fn(),
   posthogMock: {
     __loaded: false as boolean,
     init: vi.fn(),
@@ -22,6 +23,7 @@ const { posthogMock, envMock, consentMock } = vi.hoisted(() => ({
 
 vi.mock('posthog-js', () => ({ default: posthogMock }))
 vi.mock('@/lib/env', () => ({ clientEnv: envMock, serverEnv: envMock }))
+vi.mock('@/lib/posthog-client-state', () => ({ markPostHogLoaded: markPostHogLoadedMock }))
 vi.mock('@/lib/consent.client', () => ({
   readConsentCookieClient: () => consentMock.read(),
 }))
@@ -81,6 +83,8 @@ describe('GlobalError', () => {
     // `defaults` the PII sanitiser is silently dropped for the rest of the
     // session because posthog-js no-ops re-init.
     expect(posthogMock.init).toHaveBeenCalledWith('phc_test', POSTHOG_INIT_OPTIONS)
+    // So a later captureClientError() or sign-out reaches the client (HON-999).
+    expect(markPostHogLoadedMock).toHaveBeenCalledTimes(1)
     expect(posthogMock.captureException).toHaveBeenCalledWith(err, {
       $exception_source: 'app.global-error',
       digest: 'abc-123',

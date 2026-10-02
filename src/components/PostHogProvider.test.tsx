@@ -5,7 +5,8 @@ import { ConsentContext, type AnalyticsConsent } from '@/components/ConsentProvi
 import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
 
 // Hoisted mocks — vi.mock factories run before top-level `const` bindings.
-const { posthogMock, envMock } = vi.hoisted(() => ({
+const { posthogMock, envMock, markPostHogLoadedMock } = vi.hoisted(() => ({
+  markPostHogLoadedMock: vi.fn(),
   posthogMock: {
     init: vi.fn(),
     identify: vi.fn(),
@@ -25,6 +26,7 @@ const { posthogMock, envMock } = vi.hoisted(() => ({
 
 vi.mock('posthog-js', () => ({ default: posthogMock }))
 vi.mock('@/lib/env', () => ({ clientEnv: envMock, serverEnv: envMock }))
+vi.mock('@/lib/posthog-client-state', () => ({ markPostHogLoaded: markPostHogLoadedMock }))
 
 // Next.js navigation hooks — the provider calls these inside
 // SuspendedPostHogPageView but we don't assert pageview fires in these
@@ -113,6 +115,8 @@ describe('PostHogProvider', () => {
     expect(posthogMock.identify).not.toHaveBeenCalled()
     expect(posthogMock.opt_in_capturing).not.toHaveBeenCalled()
     expect(posthogMock.opt_out_capturing).not.toHaveBeenCalled()
+    // The flag stays unset, so track() and sign-out skip the posthog-js chunk (HON-999).
+    expect(markPostHogLoadedMock).not.toHaveBeenCalled()
   })
 
   it('inits with capture enabled once consent is granted', async () => {
@@ -130,6 +134,7 @@ describe('PostHogProvider', () => {
     // Exactly the shared options, the same object global-error passes
     // (literal values: src/lib/posthog-init-options.test.ts).
     expect(posthogMock.init).toHaveBeenCalledWith('phc_test', POSTHOG_INIT_OPTIONS)
+    expect(markPostHogLoadedMock).toHaveBeenCalledTimes(1)
   })
 
   // HON-992: every document load after consent mounts the provider and sets

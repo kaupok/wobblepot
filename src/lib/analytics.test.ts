@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { track } from '@/lib/analytics'
+import { markPostHogLoaded } from '@/lib/posthog-client-state'
 
 // Hoisted mock — vi.mock factories run before top-level `const` bindings.
 // Mirrors the pattern in PostHogProvider.test.tsx.
@@ -8,10 +9,12 @@ import { track } from '@/lib/analytics'
 // persistence does: `register_once` writes keys that are not yet set, and
 // `get_property` reads them. `capture` deliberately does not write to it,
 // because a `$set_once` on capture never reaches local persistence (HON-991).
-const { posthogMock, persistence } = vi.hoisted(() => {
+const { posthogMock, persistence, posthogImported } = vi.hoisted(() => {
   const persistence = new Map<string, unknown>()
   return {
     persistence,
+    // Runs each time `posthog-js` is imported into a fresh module graph.
+    posthogImported: vi.fn(),
     posthogMock: {
       __loaded: true,
       capture: vi.fn(),
@@ -25,13 +28,18 @@ const { posthogMock, persistence } = vi.hoisted(() => {
   }
 })
 
-vi.mock('posthog-js', () => ({ default: posthogMock }))
+vi.mock('posthog-js', () => {
+  posthogImported()
+  return { default: posthogMock }
+})
 
 function lastCaptureProps(): Record<string, unknown> {
   return posthogMock.capture.mock.lastCall?.[1] as Record<string, unknown>
 }
 
 beforeEach(() => {
+  // What PostHogProvider does after `posthog.init` once consent is granted.
+  markPostHogLoaded()
   posthogMock.__loaded = true
   persistence.clear()
 })
@@ -199,6 +207,19 @@ describe('track()', () => {
     const props = posthogMock.capture.mock.calls[0]?.[1] as Record<string, unknown>
     expect(props.household_id).toBe('hh-fresh')
     expect(props.$set).toEqual({ household_id: 'hh-fresh' })
+  })
+
+  // HON-999: without consent the provider never inits, so track() must not
+  // fetch the SDK chunk just to no-op.
+  it('does not import posthog-js when PostHog was never initialised', async () => {
+    vi.resetModules()
+    posthogImported.mockClear()
+    const { track: freshTrack } = await import('@/lib/analytics')
+
+    await freshTrack('meal:imagined', { meal_id: 'm1', source: 'imagine_page' })
+
+    expect(posthogImported).not.toHaveBeenCalled()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
   })
 
   it('no-ops when posthog has not finished initialising', async () => {
