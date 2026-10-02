@@ -100,7 +100,7 @@ describe('maybe-upload-sourcemaps.sh', () => {
     fs.mkdirSync(path.join(distDir, 'static'), { recursive: true })
     const { status, out, calls } = run(GATE_ENV)
     expect(status).toBe(1)
-    expect(out).toContain('no static/immutable/chunks or static/chunks')
+    expect(out).toContain('static/chunks after compile')
     expect(calls).toEqual([])
   })
 
@@ -113,25 +113,28 @@ describe('maybe-upload-sourcemaps.sh', () => {
     expect(out).toContain('no .map files')
   })
 
-  it('uses static/immutable/chunks, the directory Vercel builds write', () => {
+  it('fails on immutable chunks, which Vercel would serve from an older build', () => {
     writeChunks('static/chunks')
-    const immutable = writeChunks('static/immutable/chunks')
-    const { status, calls } = run({ ...GATE_ENV, STUB_SUMMARY: UPLOADED })
-    expect(status).toBe(0)
-    expect(calls).toHaveLength(2)
-    for (const call of calls) expect(call).toContain(`--directory ${immutable} `)
+    writeChunks('static/immutable/chunks')
+    const { status, out, calls } = run({ ...GATE_ENV, STUB_SUMMARY: UPLOADED })
+    expect(status).toBe(1)
+    expect(out).toContain('Set supportsImmutableAssets: false')
+    expect(calls).toEqual([])
+    expect(mapsUnder(distDir)).toHaveLength(2)
   })
 
   it('injects and uploads with the same release, then deletes every map', () => {
-    writeChunks('static/immutable/chunks')
+    const chunks = writeChunks('static/chunks')
     const { status, out, calls } = run({ ...GATE_ENV, STUB_SUMMARY: UPLOADED })
     expect(status).toBe(0)
     const release = '--release-name honkadori --release-version abc123 --release-mode symbol-set'
     expect(calls[0]).toMatch(
       /^pnpm dlx @posthog\/cli@[\d.]+ --host https:\/\/eu\.posthog\.com sourcemap inject /,
     )
+    expect(calls[0]).toContain(`--directory ${chunks} `)
     expect(calls[0]).toContain(release)
     expect(calls[1]).toContain(' sourcemap upload ')
+    expect(calls[1]).toContain(`--directory ${chunks} `)
     expect(calls[1]).toContain('--delete-after')
     expect(calls[1]).toContain(release)
     // The CLI output reaches the build log.
@@ -141,7 +144,7 @@ describe('maybe-upload-sourcemaps.sh', () => {
   })
 
   it('accepts a rebuild whose symbol sets are all already present', () => {
-    writeChunks('static/immutable/chunks')
+    writeChunks('static/chunks')
     const { status } = run({
       ...GATE_ENV,
       STUB_SUMMARY:
@@ -151,7 +154,7 @@ describe('maybe-upload-sourcemaps.sh', () => {
   })
 
   it('fails and keeps the maps when PostHog reports nothing uploaded', () => {
-    writeChunks('static/immutable/chunks')
+    writeChunks('static/chunks')
     const { status, out } = run({
       ...GATE_ENV,
       STUB_SUMMARY:
@@ -163,7 +166,7 @@ describe('maybe-upload-sourcemaps.sh', () => {
   })
 
   it('fails and keeps the maps when the CLI prints no summary', () => {
-    writeChunks('static/immutable/chunks')
+    writeChunks('static/chunks')
     const { status, out } = run(GATE_ENV)
     expect(status).toBe(1)
     expect(out).toContain('printed no upload summary')
@@ -171,14 +174,14 @@ describe('maybe-upload-sourcemaps.sh', () => {
   })
 
   it('fails when the upload exits non-zero, even after printing a summary', () => {
-    writeChunks('static/immutable/chunks')
+    writeChunks('static/chunks')
     const { status } = run({ ...GATE_ENV, STUB_SUMMARY: UPLOADED, STUB_UPLOAD_RC: '1' })
     expect(status).toBe(1)
     expect(mapsUnder(distDir)).toHaveLength(1)
   })
 
   it('stops before uploading when inject fails', () => {
-    writeChunks('static/immutable/chunks')
+    writeChunks('static/chunks')
     const { status, calls } = run({ ...GATE_ENV, STUB_INJECT_RC: '1' })
     expect(status).toBe(1)
     expect(calls).toHaveLength(1)

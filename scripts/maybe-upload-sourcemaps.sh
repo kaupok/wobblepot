@@ -39,14 +39,18 @@ fi
 # From here on the build is meant to upload, so every missing piece is an
 # error. A silent skip on the chunks check hid a broken upload for five months.
 #
-# Vercel turns on immutable static assets, and Turbopack then writes browser
-# chunks to static/immutable/chunks. Without it they go to static/chunks.
-if [ -d "$DIST_DIR/static/immutable/chunks" ]; then
-  CHUNKS_DIR="$DIST_DIR/static/immutable/chunks"
-elif [ -d "$DIST_DIR/static/chunks" ]; then
-  CHUNKS_DIR="$DIST_DIR/static/chunks"
-else
-  echo "maybe-upload-sourcemaps: error: no static/immutable/chunks or static/chunks under $DIST_DIR" >&2
+# With immutable assets on, Turbopack writes chunks to static/immutable/chunks
+# and Vercel serves them from a store shared across deployments, keyed by a
+# hash taken before inject. The deploy would serve an older build's chunks, so
+# an upload here would look fine and symbolize nothing. next.config.ts sets
+# `supportsImmutableAssets: false`; this guards against that line going away.
+if [ -d "$DIST_DIR/static/immutable" ]; then
+  echo "maybe-upload-sourcemaps: error: $DIST_DIR/static/immutable exists. Set supportsImmutableAssets: false in next.config.ts (HON-997)" >&2
+  exit 1
+fi
+CHUNKS_DIR="$DIST_DIR/static/chunks"
+if [ ! -d "$CHUNKS_DIR" ]; then
+  echo "maybe-upload-sourcemaps: error: no $CHUNKS_DIR after compile" >&2
   exit 1
 fi
 

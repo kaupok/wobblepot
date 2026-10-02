@@ -19,6 +19,13 @@ const nextConfig: NextConfig = {
     // which `postbuild` does not (HON-997). See src/lib/posthog-sourcemaps.ts.
     runAfterProductionCompile: uploadSourcemaps,
   },
+  // The Vercel adapter turns immutable assets on. Vercel then serves each
+  // `_next/static/immutable` file from a store shared across deployments,
+  // keyed by the hash Turbopack computed before the hook above ran. So the
+  // chunks a deploy serves are an older build's, without the PostHog chunk ids
+  // and with their maps still public (HON-997). Off, every deploy serves its
+  // own files. The upload script fails if it finds immutable chunks.
+  supportsImmutableAssets: false,
   typescript: {
     ignoreBuildErrors: false,
   },
