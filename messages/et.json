@@ -55,6 +55,8 @@
     "copySuccess": "Poenimekiri kopeeritud",
     "otherSection": "Muu ({count})",
     "customItemsSection": "Lisatud tooted ({count})",
+    "otherSectionTitle": "Muu",
+    "customItemsSectionTitle": "Lisatud tooted",
     "customInputPlaceholder": "Lisa toode…",
     "customInputAria": "Lisa toode poenimekirja",
     "ariaToggleItem": "Märgi „{name}\" kui {state}",

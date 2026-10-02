@@ -508,7 +508,8 @@ export function ShoppingSection({
               <div className="flex flex-col gap-2">
                 <GroupHeading
                   emoji={CUSTOM_ITEMS_EMOJI}
-                  label={tShopping('otherSection', { count: unlinkedCustomItems.length })}
+                  label={tShopping('otherSectionTitle')}
+                  total={unlinkedCustomItems.length}
                   count={
                     unlinkedCustomItems.filter((i) => i.checked).length > 0 &&
                     `${unlinkedCustomItems.filter((i) => i.checked).length}/${unlinkedCustomItems.length}`
@@ -547,7 +548,8 @@ export function ShoppingSection({
               <div className="flex flex-col gap-2">
                 <GroupHeading
                   emoji={CUSTOM_ITEMS_EMOJI}
-                  label={tShopping('customItemsSection', { count: customItems.length })}
+                  label={tShopping('customItemsSectionTitle')}
+                  total={customItems.length}
                   count={checkedCustomCount > 0 && `${checkedCustomCount}/${customItems.length}`}
                 />
                 <div className="flex flex-col gap-1">

@@ -52,6 +52,31 @@ describe('PantrySection needed line', () => {
   })
 })
 
+// Each group counts its rows in a badge after the label, not as "N items" at
+// the right end (HON-954).
+describe('PantrySection group headings', () => {
+  it('counts each group in a badge inside the heading', () => {
+    renderSection([
+      makeItem({ id: 'pantry-1', isStaple: true }),
+      makeItem({
+        id: 'pantry-2',
+        ingredient: { id: 'ing-2', name: 'Salt', category: 'spice', defaultUnit: 'g' },
+        isStaple: true,
+      }),
+      makeItem({
+        id: 'pantry-3',
+        ingredient: { id: 'ing-3', name: 'Rice', category: 'carb', defaultUnit: 'g' },
+      }),
+    ])
+
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Staples (always stocked) 2' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'On hand 1' })).toBeInTheDocument()
+    expect(screen.queryByText(/\d+ items?$/)).not.toBeInTheDocument()
+  })
+})
+
 describe('PantrySection remove', () => {
   afterEach(() => {
     vi.unstubAllGlobals()

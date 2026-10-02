@@ -9,6 +9,7 @@ const meta = {
   component: Badge,
   tags: ['autodocs'],
   argTypes: {
+    shape: { control: 'select', options: ['default', 'count'] },
     variant: {
       control: 'select',
       options: [
@@ -140,6 +141,46 @@ export const Large: Story = {
   },
 }
 
+/**
+ * A number on its own, as the group headings on `/shopping` and `/pantry`
+ * count their rows (HON-954). One digit is a circle; two are a short pill of
+ * the same height.
+ */
+export const Count: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-3">
+      <Badge variant="secondary" shape="count">
+        4
+      </Badge>
+      <Badge variant="secondary" shape="count">
+        12
+      </Badge>
+      <Badge variant="secondary" shape="count" size="lg">
+        4
+      </Badge>
+      <Badge variant="secondary" shape="count" size="lg">
+        12
+      </Badge>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const [one, two, oneLg, twoLg] = within(canvasElement)
+      .getAllByText(/^(4|12)$/)
+      .map((badge) => badge.getBoundingClientRect())
+    for (const [single, double] of [
+      [one!, two!],
+      [oneLg!, twoLg!],
+    ] as const) {
+      // One digit: as wide as it is tall.
+      await expect(single.width).toBeCloseTo(single.height, 0)
+      // Two digits: the same height, and no narrower.
+      await expect(double.height).toBeCloseTo(single.height, 0)
+      await expect(double.width).toBeGreaterThanOrEqual(single.width)
+    }
+    await expect(oneLg!.height).toBeGreaterThan(one!.height)
+  },
+}
+
 export const AllVariants: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-3">
@@ -152,6 +193,12 @@ export const AllVariants: Story = {
       <Badge variant="surface">Surface</Badge>
       <Badge variant="surface-success">Surface success</Badge>
       <Badge variant="surface-warning">Surface warning</Badge>
+      <Badge variant="secondary" shape="count">
+        4
+      </Badge>
+      <Badge variant="secondary" shape="count">
+        12
+      </Badge>
     </div>
   ),
 }

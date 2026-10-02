@@ -40,10 +40,24 @@ const badgeVariants = cva(
         // floor and the icon scaled to match.
         lg: 'min-h-[calc(var(--text-sm--line-height)+--spacing(2)+2px)] px-3 py-1 text-sm [&>svg]:size-4',
       },
+      shape: {
+        default: '',
+        // A number on its own (HON-954): the floor is also the width, so one
+        // digit makes a circle and two make a short pill of the same height.
+        count: 'min-w-[calc(var(--text-xs--line-height)+--spacing(1)+2px)] px-1.5 tabular-nums',
+      },
     },
+    compoundVariants: [
+      {
+        size: 'lg',
+        shape: 'count',
+        className: 'min-w-[calc(var(--text-sm--line-height)+--spacing(2)+2px)]',
+      },
+    ],
     defaultVariants: {
       variant: 'default',
       size: 'default',
+      shape: 'default',
     },
   },
 )
@@ -52,6 +66,7 @@ function Badge({
   className,
   variant,
   size,
+  shape,
   asChild = false,
   ...props
 }: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
@@ -61,7 +76,7 @@ function Badge({
     <Comp
       data-slot="badge"
       data-variant={variant ?? 'default'}
-      className={cn(badgeVariants({ variant, size }), className)}
+      className={cn(badgeVariants({ variant, size, shape }), className)}
       {...props}
     />
   )

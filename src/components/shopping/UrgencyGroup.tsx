@@ -39,7 +39,8 @@ export function UrgencyGroup({
   return (
     <div className="flex flex-col gap-2">
       <GroupHeading
-        label={`${label} (${totalCount})`}
+        label={label}
+        total={totalCount}
         count={purchasedCount > 0 && `${purchasedCount}/${totalCount}`}
       />
       <div className="flex flex-col gap-1">

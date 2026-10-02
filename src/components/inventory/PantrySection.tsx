@@ -140,10 +140,7 @@ export function PantrySection({
 
       {staples.length > 0 && (
         <div className="flex flex-col gap-2">
-          <GroupHeading
-            label={tPantry('stapleSection')}
-            count={tPantry('ingredientCount', { count: staples.length })}
-          />
+          <GroupHeading label={tPantry('stapleSection')} total={staples.length} />
           <div className="flex flex-col gap-2">
             {staples.map((item) => (
               <PantryItemRow
@@ -161,10 +158,7 @@ export function PantrySection({
 
       {onHand.length > 0 && (
         <div className="flex flex-col gap-2">
-          <GroupHeading
-            label={tPantry('onHandSection')}
-            count={tPantry('ingredientCount', { count: onHand.length })}
-          />
+          <GroupHeading label={tPantry('onHandSection')} total={onHand.length} />
           <div className="flex flex-col gap-2">
             {onHand.map((item) => (
               <PantryItemRow
