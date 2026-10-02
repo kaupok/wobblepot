@@ -5,6 +5,7 @@ import {
   estonianVoiceForImagineMeal,
   estonianVoiceForRecipeParse,
   estonianVoiceForPrepTips,
+  englishVoiceForPrepTips,
 } from './prompts'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { PromptInput } from './types'
@@ -537,5 +538,50 @@ describe('Estonian voice helpers', () => {
   it('forbids teie-form and tuleb-constructions in the step-producing blocks', () => {
     expect(estonianVoiceForRecipeParse('et')).toContain('Never teie-form')
     expect(estonianVoiceForPrepTips('et')).toContain('Never teie-form')
+  })
+})
+
+describe('englishVoiceForPrepTips', () => {
+  it('returns empty for "et", the one locale with its own voice block', () => {
+    expect(englishVoiceForPrepTips('et')).toBe('')
+  })
+
+  it('returns the block for the default locale, null, undefined, and unknown locales', () => {
+    // An unknown locale gets English output (HON-921), so it gets the English rules too.
+    for (const locale of ['en', null, undefined, 'fi']) {
+      const block = englishVoiceForPrepTips(locale)
+      expect(block).toContain('ENGLISH VOICE')
+      expect(block).toContain('ENGLISH EXAMPLES')
+    }
+  })
+
+  it('is non-empty for exactly the locales where the Estonian block is empty', () => {
+    for (const locale of ['en', 'et', null, undefined, 'fi']) {
+      expect(englishVoiceForPrepTips(locale) === '').toBe(estonianVoiceForPrepTips(locale) !== '')
+    }
+  })
+
+  it('names the rules for equipment, steps, pitfalls, the tip, and punctuation', () => {
+    const block = englishVoiceForPrepTips('en')
+    expect(block).toContain('equipment: 3–5 short noun phrases of 2–5 words each')
+    expect(block).toContain('No reasons and no brackets')
+    expect(block).toContain('steps: start with the verb')
+    expect(block).toContain('At most two sentences and 25 words per step')
+    expect(block).toContain('pitfalls: name the mistake and its consequence in one sentence')
+    expect(block).toContain('tip: one sentence')
+    expect(block).toContain('never join clauses with a dash')
+    expect(block).toContain('"60–90 seconds"')
+  })
+
+  it('shows the long equipment item and the run-on step rewritten', () => {
+    const block = englishVoiceForPrepTips('en')
+    expect(block).toContain('→ "Two large woks"')
+    expect(block).toContain(
+      '→ "Sear the beef in 4–5 batches, 60–90 seconds each, so the wok stays hot."',
+    )
+  })
+
+  it('starts with a blank line so it appends cleanly after the prompt body', () => {
+    expect(englishVoiceForPrepTips('en').startsWith('\n\n')).toBe(true)
   })
 })

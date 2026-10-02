@@ -5,6 +5,7 @@ import {
   type PrepTipsPromptInput,
   type SupplementaryPrepTipsPromptInput,
 } from './preparation-tips'
+import { estonianVoiceForPrepTips, englishVoiceForPrepTips } from './prompts'
 
 function fullInput(overrides: Partial<PrepTipsPromptInput> = {}): PrepTipsPromptInput {
   return {
@@ -74,6 +75,19 @@ describe('buildFullTipsPrompt', () => {
 
     expect(buildFullTipsPrompt(fullInput({ locale: 'en' }))).not.toContain('ESTONIAN VOICE')
   })
+
+  it('appends the English voice block for "en" only (HON-963)', () => {
+    const en = buildFullTipsPrompt(fullInput({ locale: 'en' }))
+    expect(en).toContain('ENGLISH VOICE')
+    expect(en.endsWith(englishVoiceForPrepTips('en'))).toBe(true)
+
+    expect(buildFullTipsPrompt(fullInput({ locale: 'et' }))).not.toContain('ENGLISH VOICE')
+  })
+
+  it('leaves the Estonian prompt ending on the Estonian voice block', () => {
+    const et = buildFullTipsPrompt(fullInput({ locale: 'et' }))
+    expect(et.endsWith(estonianVoiceForPrepTips('et'))).toBe(true)
+  })
 })
 
 describe('buildSupplementaryTipsPrompt', () => {
@@ -109,5 +123,15 @@ describe('buildSupplementaryTipsPrompt', () => {
     expect(buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'en' }))).not.toContain(
       'ESTONIAN VOICE',
     )
+  })
+
+  it('appends the English voice block for "en" only (HON-963)', () => {
+    const en = buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'en' }))
+    expect(en).toContain('ENGLISH VOICE')
+    expect(en.endsWith(englishVoiceForPrepTips('en'))).toBe(true)
+
+    const et = buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'et' }))
+    expect(et).not.toContain('ENGLISH VOICE')
+    expect(et.endsWith(estonianVoiceForPrepTips('et'))).toBe(true)
   })
 })

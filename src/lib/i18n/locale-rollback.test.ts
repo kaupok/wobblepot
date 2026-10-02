@@ -3,7 +3,11 @@ import { prisma } from '@/lib/prisma'
 import { getSession, getCachedMembership } from '@/lib/session'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
-import { estonianVoiceForPrepTips, localeInstruction } from '@/lib/ai/prompts'
+import {
+  englishVoiceForPrepTips,
+  estonianVoiceForPrepTips,
+  localeInstruction,
+} from '@/lib/ai/prompts'
 import { getLocale } from './get-locale'
 import { resolveHouseholdLocale } from './resolve-locale'
 
@@ -175,5 +179,7 @@ describe('locale rollback', () => {
     // English: both helpers check KNOWN_LOCALES themselves.
     expect(localeInstruction(ROLLED_BACK.locale)).toBe('')
     expect(estonianVoiceForPrepTips(ROLLED_BACK.locale)).toBe('')
+    // English output gets the English voice rules (HON-963).
+    expect(englishVoiceForPrepTips(ROLLED_BACK.locale)).toContain('ENGLISH VOICE')
   })
 })
