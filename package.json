@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "next dev",
     "build": "pnpm run maybe:migrate && next build",
-    "postbuild": "bash scripts/maybe-upload-sourcemaps.sh",
     "maybe:migrate": "bash scripts/maybe-migrate.sh",
     "start": "next start",
     "postinstall": "prisma generate",

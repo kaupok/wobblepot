@@ -312,7 +312,17 @@ Six variables total — two are per-env (distinct values), four are identical ac
 
 ### Local dev
 
-In `.env`, set `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` to the `mealplan-development` project values (or leave both unset to disable PostHog locally — tests and dev still work without it). Leave the `POSTHOG_CLI_*` vars and `POSTHOG_PURGE_API_KEY` unset; local `pnpm build` skips the sourcemap upload because the postbuild script gates on `VERCEL_GIT_COMMIT_SHA`.
+In `.env`, set `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` to the `mealplan-development` project values (or leave both unset to disable PostHog locally — tests and dev still work without it). Leave the `POSTHOG_CLI_*` vars and `POSTHOG_PURGE_API_KEY` unset; local `pnpm build` skips the sourcemap upload because the script gates on `VERCEL_GIT_COMMIT_SHA`.
+
+### Source maps
+
+Browser errors symbolize from source maps that each Vercel build uploads, so no map is served from the site (HON-997).
+
+- **Where it runs.** `next.config.ts` sets `compiler.runAfterProductionCompile` to `uploadSourcemaps` (`src/lib/posthog-sourcemaps.ts`), which runs `scripts/maybe-upload-sourcemaps.sh <distDir>`. The hook runs inside `next build`, after compilation. It cannot be a `postbuild` script: the Vercel Next.js adapter copies `.next/static` into the deployment output inside `next build`, so a change made in `postbuild` never ships.
+- **Gate.** The script does nothing unless `VERCEL_GIT_COMMIT_SHA` and the three `POSTHOG_CLI_*` build vars are set. Once they are, every later problem fails the build: no chunks directory, no `.map` files, a CLI error, or no symbol set reported.
+- **Immutable assets are off.** The Vercel adapter turns on immutable static assets. Turbopack then writes chunks to `.next/static/immutable/chunks`, and Vercel serves each of those files from a store shared across deployments, keyed by a hash taken before the hook runs. A deploy then serves an older build's chunks: no PostHog chunk ids, and their maps still public. `next.config.ts` sets `supportsImmutableAssets: false`, so chunks go to `.next/static/chunks` and each deploy serves its own. The script fails the build if it finds `.next/static/immutable`.
+- **Flow.** `@posthog/cli sourcemap inject` stamps a chunk id and the release (`honkadori`, the commit SHA, `--release-mode symbol-set`) into each chunk and map. `sourcemap upload --delete-after` uploads the maps, deletes them and strips the `sourceMappingURL` comments. The script then reads the CLI line `Upload summary: N chunk(s) uploaded, M skipped (A already present, B too large)` and fails when it is missing or when `N + A` is 0. Last, it deletes any `.map` left under `.next/static`.
+- **Effect on the deploy.** A deploy with the vars set serves no `.map` files. A PostHog outage during the build fails the deploy; redeploy once PostHog is back.
 
 ### Vercel
 
@@ -322,7 +332,9 @@ In **Project Settings → Environment Variables**, set the six variables per the
 
 - Fresh incognito → accept cookie consent → `$pageview` appears in the matching PostHog project, tagged with an authenticated `user_id`.
 - Decline cookie consent → no `ph_*` cookies, no PostHog network requests.
-- After a Vercel preview build, the CLI sourcemap upload step output reports a non-zero `.map` count (visible in the Vercel build log under `postbuild`).
+- After a Vercel build, the build log shows `Running next.config.js provided runAfterProductionCompile`, then `Upload summary:` with a non-zero uploaded or already-present count, then `maybe-upload-sourcemaps: done`.
+- The matching PostHog project → Error tracking → Symbol sets lists sets whose release version is the deploy's commit SHA.
+- The deploy's chunks under `/_next/static/chunks/` contain `_posthogChunkIds` and no `sourceMappingURL` comment, and `<chunk>.js.map` returns 404.
 
 ## Neon Database Branching (optional)
 
