@@ -52,6 +52,42 @@ describe('PantrySection needed line', () => {
   })
 })
 
+// The column counts every item beside its title, where the shopping list puts
+// its own count, and has no subtitle (HON-957).
+describe('PantrySection header', () => {
+  function titleRow() {
+    return screen.getByRole('heading', { level: 2, name: 'Your pantry' }).parentElement!
+  }
+
+  it('counts staples and on-hand items together beside the title', () => {
+    renderSection([
+      makeItem({ id: 'pantry-1', isStaple: true }),
+      makeItem({
+        id: 'pantry-2',
+        ingredient: { id: 'ing-2', name: 'Rice', category: 'carb', defaultUnit: 'g' },
+      }),
+    ])
+
+    expect(within(titleRow()).getByText('2 items')).toBeInTheDocument()
+    expect(screen.queryByText('Manage your household inventory')).not.toBeInTheDocument()
+  })
+
+  it('shows "No items" beside the title of an empty pantry, above the empty copy', () => {
+    renderSection([])
+
+    expect(within(titleRow()).getByText('No items')).toBeInTheDocument()
+    expect(screen.getByText(/your pantry is empty/i)).toBeInTheDocument()
+  })
+
+  it('shows no count when the pantry failed to load', () => {
+    const { wrapper } = createQueryWrapper()
+    render(<PantrySection items={[]} onItemsChange={vi.fn()} loadFailed />, { wrapper })
+
+    expect(titleRow()).toHaveTextContent(/^Your pantry$/)
+    expect(screen.queryByText('No items')).not.toBeInTheDocument()
+  })
+})
+
 // Each group counts its rows in a badge after the label, not as "N items" at
 // the right end (HON-954).
 describe('PantrySection group headings', () => {
@@ -73,7 +109,11 @@ describe('PantrySection group headings', () => {
       screen.getByRole('heading', { level: 3, name: 'Staples (always stocked) 2' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 3, name: 'On hand 1' })).toBeInTheDocument()
-    expect(screen.queryByText(/\d+ items?$/)).not.toBeInTheDocument()
+    // The one "N items" left is the column count beside the title (HON-957).
+    expect(screen.getAllByText(/\d+ items?$/)).toEqual([screen.getByText('3 items')])
+    expect(screen.getByText('3 items').parentElement).toContainElement(
+      screen.getByRole('heading', { level: 2, name: 'Your pantry' }),
+    )
   })
 })
 

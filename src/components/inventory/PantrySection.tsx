@@ -178,17 +178,21 @@ export function PantrySection({
     </>
   )
 
-  // Title and subtitle on the page background, the rows the only bordered
-  // things under them — the same shape as the list beside it and the
-  // timeline on Today (docs/DESIGN.md → Composition rules, "Headings divide,
-  // borders contain"). `gap-6` between the header, the search and each group.
+  // Title on the page background, the rows the only bordered things under
+  // it — the same shape as the list beside it and the timeline on Today
+  // (docs/DESIGN.md → Composition rules, "Headings divide, borders contain").
+  // `gap-6` between the header, the search and each group.
   return (
     <section className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
+      {/* The count sits on the title's baseline, as the shopping list's does
+          beside it (HON-957). A failed load has no count to show. */}
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <Heading variant="h4" as="h2">
           {tPantry('title')}
         </Heading>
-        <Body variant="muted">{tPantry('subtitle')}</Body>
+        {!loadFailed && (
+          <Body variant="muted">{tPantry('ingredientCount', { count: items.length })}</Body>
+        )}
       </div>
       {content}
     </section>

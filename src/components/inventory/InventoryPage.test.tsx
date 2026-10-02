@@ -160,8 +160,10 @@ describe('InventoryPage view', () => {
   it('renders the pantry as a plain section, with no collapse trigger', () => {
     renderPage({ view: 'pantry', emptyStateVariant: 'nothing-needed', windowDays: 7 })
 
-    expect(screen.getByRole('heading', { name: 'Your pantry' })).toBeInTheDocument()
+    const title = screen.getByRole('heading', { name: 'Your pantry' })
     expect(screen.queryByRole('button', { name: /your pantry/i })).not.toBeInTheDocument()
+    // The count on the title's baseline, as the shopping list has (HON-957).
+    expect(title.parentElement).toHaveTextContent('Your pantryNo items')
   })
 
   it('shows a failed pantry load as an error, not as an empty pantry', () => {
