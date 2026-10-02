@@ -28,10 +28,11 @@
  * - `external_api_timeout` (`src/lib/errors.ts` → `captureExternalApiTimeout`,
  *   called from `src/lib/external-fetch.ts`): an external dependency missed a
  *   deadline its caller set. An infrastructure signal, not a product event,
- *   so it is outside the naming convention and has no category. Distinct id is
- *   the user id; without one the event is personless. Properties: the
- *   caller's `ApiErrorContext` in snake_case (`route`, `user_id`,
- *   `household_id`, `feature`, …), `source`, `url`, `request_id`, `release`.
+ *   so it is outside the naming convention and has no category. Personless:
+ *   `ExternalFetchContext` carries no user id, and the one caller
+ *   (`src/lib/breached-password.ts`) runs at sign-up, before a session.
+ *   Properties: `feature`, `source` (`externalFetch.timeout`), `url`,
+ *   `request_id`, `release`, plus `route` when the caller passes one.
  *
  * `$`-prefixed events follow PostHog's own schema and are not defined here:
  * `$ai_generation` (`src/lib/ai/usage.ts`), `$exception` (`src/lib/errors.ts`,
