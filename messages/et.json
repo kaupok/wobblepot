@@ -670,6 +670,7 @@
     },
     "why": {
       "title": "Tehtud pereköökidele",
+      "lead": "Teinud lapsevanem oma kolmeliikmelisele perele. Sinu andmed on Euroopa Liidus ja reklaame ei ole.",
       "pantry": {
         "title": "Ta teab sinu sahvrit",
         "body": "Märgi, mis sul olemas on. Poenimekirjas on ainult see, mis on puudu, ja sahver uueneb, kui märgid toidu valmistatuks."
@@ -686,10 +687,6 @@
         "title": "Kokkamisabi leti peal",
         "body": "Sammud nii suures kirjas, et neid loeb üle köögi, ja kiire vastus, kui mõni samm jääb arusaamatuks."
       }
-    },
-    "close": {
-      "title": "Alusta selle nädala õhtusöökidest",
-      "body": "Teinud lapsevanem oma kolmeliikmelisele perele. Sinu andmed on Euroopa Liidus ja reklaame ei ole."
     }
   },
   "common": {

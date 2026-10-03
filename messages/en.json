@@ -670,6 +670,7 @@
     },
     "why": {
       "title": "Made for family kitchens",
+      "lead": "Made by a parent, for a family of three. Your data lives in the EU, and there are no ads.",
       "pantry": {
         "title": "It knows your pantry",
         "body": "Tick what you have. The shopping list only shows what's missing, and the pantry updates when you mark a meal cooked."
@@ -686,10 +687,6 @@
         "title": "Cooking help on the counter",
         "body": "Steps at a size you can read from across the kitchen, and a quick answer when you're stuck on one."
       }
-    },
-    "close": {
-      "title": "Start with this week's dinners",
-      "body": "Made by a parent, for a family of three. Your data lives in the EU, and there are no ads."
     }
   },
   "common": {
