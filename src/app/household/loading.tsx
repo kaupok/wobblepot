@@ -24,9 +24,9 @@ export default function HouseholdLoading() {
       {/* Heading — h-7 matches the text-xl page title (HON-618) */}
       <Skeleton className="h-7 w-24" />
 
-      {/* The page's order (HON-960): the full-width member list, then the
-          settings' three sections in a max-w-2xl column. */}
-      <div className="flex flex-col gap-10">
+      {/* The page's order (HON-960) and width (HON-1020): the member list,
+          then the settings' three sections, in one max-w-2xl column. */}
+      <div className="flex max-w-2xl flex-col gap-10">
         <div className="flex flex-col gap-4">
           {/* Members title row: the Section heading, Add member on its right */}
           <div className="flex items-center justify-between gap-3">
@@ -39,18 +39,16 @@ export default function HouseholdLoading() {
           </div>
         </div>
 
-        <div className="flex max-w-2xl flex-col gap-10">
-          {[3, 4, 2].map((fields, section) => (
-            <div key={section} className="flex flex-col gap-4">
-              <Skeleton className="h-6 w-40" />
-              {Array.from({ length: fields }, (_, i) => (
-                <FieldSkeleton key={i} />
-              ))}
-            </div>
-          ))}
-          {/* No Save block: each section's button shows only once a field
-              in it changes (HON-961). */}
-        </div>
+        {[3, 4, 2].map((fields, section) => (
+          <div key={section} className="flex flex-col gap-4">
+            <Skeleton className="h-6 w-40" />
+            {Array.from({ length: fields }, (_, i) => (
+              <FieldSkeleton key={i} />
+            ))}
+          </div>
+        ))}
+        {/* No Save block: each section's button shows only once a field
+            in it changes (HON-961). */}
       </div>
     </div>
   )

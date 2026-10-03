@@ -60,34 +60,34 @@ export default async function HouseholdPage() {
           {!isOwner && <Body variant="muted">{t('settings.ownerOnlyNotice')}</Body>}
         </div>
 
-        {/* Members first and full width, the settings after them in a form
-            column (docs/DESIGN.md → Lists fill, forms stay narrow). */}
-        <div className="flex flex-col gap-10">
+        {/* Members first, then the settings, in one form column: the member
+            list is short and sits above a form, so the page keeps one right
+            edge and each portion stays near its name (HON-1020, reversing the
+            full-width list of HON-960). */}
+        <div className="flex max-w-2xl flex-col gap-10">
           <MemberList isOwner={isOwner} currentMemberId={membership.id} />
 
-          <div className="max-w-2xl">
-            <HouseholdSettingsForm
-              household={{
-                id: household.id,
-                name: household.name,
-                timezone: household.timezone,
-                locale: resolveHouseholdLocale(household),
-              }}
-              preferences={
-                household.preferences
-                  ? {
-                      dietaryType: household.preferences.dietaryType,
-                      allergensToAvoid: household.preferences.allergensToAvoid,
-                      restrictions: household.preferences.restrictions,
-                      excludedIngredients: household.preferences.excludedIngredients,
-                      weekdayMealTypes: household.preferences.weekdayMealTypes,
-                      weekendMealTypes: household.preferences.weekendMealTypes,
-                    }
-                  : null
-              }
-              isOwner={isOwner}
-            />
-          </div>
+          <HouseholdSettingsForm
+            household={{
+              id: household.id,
+              name: household.name,
+              timezone: household.timezone,
+              locale: resolveHouseholdLocale(household),
+            }}
+            preferences={
+              household.preferences
+                ? {
+                    dietaryType: household.preferences.dietaryType,
+                    allergensToAvoid: household.preferences.allergensToAvoid,
+                    restrictions: household.preferences.restrictions,
+                    excludedIngredients: household.preferences.excludedIngredients,
+                    weekdayMealTypes: household.preferences.weekdayMealTypes,
+                    weekendMealTypes: household.preferences.weekendMealTypes,
+                  }
+                : null
+            }
+            isOwner={isOwner}
+          />
         </div>
       </div>
     </HydrationBoundary>

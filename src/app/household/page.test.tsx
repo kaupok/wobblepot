@@ -193,9 +193,10 @@ describe('HouseholdPage', () => {
     expect(title).not.toHaveClass('text-4xl')
   })
 
-  // Members are what a household is, so they come first on every viewport,
-  // full width; the settings follow in a form column (HON-960).
-  it('renders the member list first, then the settings in a max-w-2xl column', async () => {
+  // Members are what a household is, so they come first on every viewport
+  // (HON-960). The list is short and sits above a form, so it shares the
+  // settings' max-w-2xl column and the page has one right edge (HON-1020).
+  it('renders the member list first, then the settings, in one max-w-2xl column', async () => {
     await mockSignedIn()
 
     await renderPage()
@@ -203,8 +204,8 @@ describe('HouseholdPage', () => {
     const memberList = screen.getByTestId('member-list')
     const form = screen.getByTestId('household-settings-form')
     expect(memberList.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(memberList.parentElement).toBe(form.parentElement)
     expect(form.parentElement).toHaveClass('max-w-2xl')
-    expect(memberList.parentElement).not.toHaveClass('max-w-2xl')
     expect(memberList.closest('.lg\\:grid-cols-2')).toBeNull()
   })
 
