@@ -31,6 +31,8 @@ import { StickyNote } from './StickyNote'
 import { MEAL_IMAGE_BADGE_ROW_WIDTH, MealImageCard, mealImageTitleWidth } from './MealImageCard'
 import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import { MealTypeBadge } from './MealTypeBadge'
+import { noteScatter } from './note-placement'
+import { useNoteDrag } from './use-note-drag'
 import { MyRecipeIcon } from './MyRecipeBadge'
 import { ProteinBadge } from './ProteinBadge'
 import type {
@@ -59,6 +61,9 @@ interface MealCardProps {
   pantryIngredients?: PantryIngredient[]
   pantryItems?: PantryItemFull[]
   note?: string | null
+  /** The note slip's saved place on the card (`NotePosition`); both null for the default (HON-975). */
+  noteX?: number | null
+  noteY?: number | null
   servingOverride?: number | null
   /** The pantry was already charged for this entry — see `PlanEntry.pantryDeducted`. */
   pantryDeducted?: boolean
@@ -79,6 +84,8 @@ export function MealCard({
   pantryIngredients = [],
   pantryItems = [],
   note: initialNote,
+  noteX = null,
+  noteY = null,
   servingOverride: initialServingOverride,
   pantryDeducted = false,
   preparationTips = null,
@@ -307,6 +314,28 @@ export function MealCard({
   const addMealButtonRef = useRef<HTMLButtonElement>(null)
   const moreActionsTriggerRef = useRef<HTMLButtonElement>(null)
 
+  // The note's slip lies at its own offset and tilt, or where the household
+  // dragged it; the hook owns the drag, the clamp and the save (HON-975).
+  const firstRowRef = useRef<HTMLDivElement>(null)
+  const noteHintId = useId()
+  const noteSlipScatter = noteScatter(entryId)
+  const noteDrag = useNoteDrag({
+    planId,
+    entryId,
+    initialPosition: noteX !== null && noteY !== null ? { x: noteX, y: noteY } : null,
+    firstRowRef,
+    menuRef: moreActionsTriggerRef,
+    tilt: noteSlipScatter.tilt,
+    hintId: noteHintId,
+  })
+  const notePlacement = { scatter: noteSlipScatter, position: noteDrag.position }
+  // Clearing the note clears its place on the server; a new note starts at
+  // the default place.
+  function handleNoteChange(next: string | null) {
+    setNote(next)
+    if (next === null) noteDrag.reset()
+  }
+
   function focusAddMealOnClose(event: Event) {
     event.preventDefault()
     addMealButtonRef.current?.focus()
@@ -425,7 +454,8 @@ export function MealCard({
         // HON-927). A planned card has none, and its plate runs the card's
         // full height. The note is not a row: it lies over the head's
         // bottom-right corner as a slip, so it doesn't change the card's
-        // shape (HON-974).
+        // shape (HON-974), at its own offset and tilt or wherever the
+        // household dragged it (HON-975).
         head={
           <CardHeader className="px-4 pt-1 pb-1">
             {/* First row: the slot label, with the menu at the right end. The
@@ -433,7 +463,7 @@ export function MealCard({
                 (`mealImageTitleWidth`). The badges are capped like the badge
                 row below: on a short card the note's slip rises into this
                 row, so they wrap before it. */}
-            <div className="flex min-h-8 items-center justify-between gap-1">
+            <div ref={firstRowRef} className="flex min-h-8 items-center justify-between gap-1">
               <div
                 className={cn('flex flex-wrap items-center gap-1.5', MEAL_IMAGE_BADGE_ROW_WIDTH)}
               >
@@ -574,17 +604,23 @@ export function MealCard({
             ? // Rendered only when there is a note to show or edit: an empty
               // controlled editor renders nothing anyway.
               (!!note || isNoteEditing) && (
-                <NoteEditor
-                  ref={noteEditorRef}
-                  planId={planId}
-                  entryId={entryId}
-                  note={note}
-                  onNoteChange={setNote}
-                  compact
-                  clamped
-                  isEditing={isNoteEditing}
-                  onEditingChange={handleNoteEditingChange}
-                />
+                <>
+                  <NoteEditor
+                    ref={noteEditorRef}
+                    planId={planId}
+                    entryId={entryId}
+                    note={note}
+                    onNoteChange={handleNoteChange}
+                    compact
+                    clamped
+                    isEditing={isNoteEditing}
+                    onEditingChange={handleNoteEditingChange}
+                    slipProps={noteDrag.slipProps}
+                  />
+                  <span id={noteHintId} hidden>
+                    {noteDrag.hint}
+                  </span>
+                </>
               )
             : note && (
                 <StickyNote>
@@ -595,6 +631,7 @@ export function MealCard({
               )
         }
         overlayWide={isNoteEditing}
+        overlayPlacement={notePlacement}
       >
         {!isReadOnly && isPast && (
           <CardContent className="px-4 pb-2">
@@ -637,7 +674,7 @@ export function MealCard({
         planId={planId}
         entryId={entryId}
         note={note}
-        onNoteChange={setNote}
+        onNoteChange={handleNoteChange}
         servingOverride={servingOverride}
         onServingOverrideChange={setServingOverride}
         initialTips={preparationTips}

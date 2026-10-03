@@ -337,6 +337,53 @@ export const HeadWithOverlay: Story = {
   },
 }
 
+/**
+ * `overlayPlacement` (HON-975): the overlay rests at its own offset and tilt
+ * from the corner, and lies wherever a saved place puts it, at the same width.
+ */
+export const HeadWithPlacedOverlay: Story = {
+  name: 'Head with a scattered and a placed overlay',
+  args: { meal: withImage(28, { name: LONG_TITLE }), className: undefined },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  render: ({ meal, ...args }) => (
+    <div className="flex flex-col gap-4">
+      {[null, { x: 0.05, y: 0.55 }].map((position) => (
+        <MealImageCard
+          key={position ? 'placed' : 'scattered'}
+          {...args}
+          meal={meal}
+          trailingActions
+          size="sm"
+          head={<TrailingActionsHeader name={meal.name} />}
+          overlay={
+            <StickyNote>
+              <Body variant="paragraph">Double the garlic.</Body>
+            </StickyNote>
+          }
+          overlayPlacement={{ scatter: { x: -6, y: -4, tilt: 2.5 }, position }}
+        />
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    await document.fonts.ready
+    const overlays = canvasElement.querySelectorAll<HTMLElement>('[data-slot="meal-image-overlay"]')
+    const scattered = overlays[0]!
+    const placed = overlays[1]!
+    await expect(scattered).not.toHaveAttribute('data-placed')
+    await expect(getComputedStyle(scattered).translate).toBe('-6px -4px')
+    await expect(placed).toHaveAttribute('data-placed')
+    // The tilt reaches the slip through the custom property.
+    const slip = placed.querySelector<HTMLElement>('[data-surface="sticky"]')!
+    await expect(getComputedStyle(slip).rotate).toBe('2.5deg')
+    // The placed slip keeps the width it had in the corner.
+    await expect(placed.getBoundingClientRect().width).toBeCloseTo(
+      scattered.getBoundingClientRect().width,
+      0,
+    )
+  },
+}
+
 /** An image that fails to load leaves a neutral card, and the title its full row. */
 export const TrailingActionsBrokenImage: Story = {
   name: 'Trailing actions, broken image',

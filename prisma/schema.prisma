@@ -507,6 +507,13 @@ model MealPlanEntry {
   rating           EntryRating?
   preparationTips  String?
   note             String?
+  /// Where the note's slip lies on the planner card: fractions (0–1) of the
+  /// room it has to move in on the card head, 0 flush with the left or top
+  /// edge and 1 with the right or bottom one, so a place set on a desktop lands
+  /// in the same spot on a phone (`toNotePosition`). Both null, or both set:
+  /// null is the slip's default place. Cleared with the note (HON-975).
+  noteX            Float?
+  noteY            Float?
   servingOverride  Int?
   /// Set when completing this entry charged the pantry. Never cleared — not by
   /// a revert, not by a swap after one — so the entry is charged at most once.

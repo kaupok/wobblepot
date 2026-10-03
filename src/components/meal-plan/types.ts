@@ -62,6 +62,13 @@ export interface PlanEntry {
   meal: MealData | null
   preparationTips: StructuredTips | null
   note: string | null
+  /**
+   * Where the note's slip lies on the planner card, as fractions of the room it
+   * moves in (`NotePosition`); both null for the default place (HON-975). Sent
+   * by `/api/entries` only.
+   */
+  noteX?: number | null
+  noteY?: number | null
   servingOverride: number | null
   /**
    * Whether completing this entry has already charged the pantry. The server

@@ -200,7 +200,9 @@
       "saving": "Saving…",
       "cancel": "Cancel",
       "ariaLabel": "Meal note",
-      "saveFailed": "Failed to save note"
+      "saveFailed": "Failed to save note",
+      "moveHint": "Arrow keys move the note on the card.",
+      "moveFailed": "Failed to move note. Please try again."
     },
     "rating": {
       "prompt": "How was it?",

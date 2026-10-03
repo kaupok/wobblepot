@@ -1,6 +1,14 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useImperativeHandle, type Ref } from 'react'
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useImperativeHandle,
+  type ComponentProps,
+  type Ref,
+} from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -50,6 +58,12 @@ interface NoteEditorProps {
    */
   size?: 'sm' | 'lg'
   className?: string
+  /**
+   * Extra props for the saved note's button: the planner card's drag handlers
+   * and move hint (HON-975). A click the handlers let through opens the editor
+   * as before; the editor itself is not draggable.
+   */
+  slipProps?: Omit<ComponentProps<'button'>, 'ref' | 'type' | 'onClick' | 'children'>
   /** Controlled editing state (optional — uncontrolled by default) */
   isEditing?: boolean
   /** Callback when editing state changes (required when `isEditing` is controlled) */
@@ -66,6 +80,7 @@ export function NoteEditor({
   clamped = false,
   size = 'sm',
   className,
+  slipProps,
   isEditing: controlledIsEditing,
   onEditingChange,
 }: NoteEditorProps) {
@@ -232,6 +247,7 @@ export function NoteEditor({
     return (
       <StickyNote asChild variant="interactive" className={className}>
         <button
+          {...slipProps}
           ref={noteButtonRef}
           type="button"
           onClick={() => {
