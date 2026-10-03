@@ -32,7 +32,7 @@ import { MealRatingPrompt, RatingBadge, MealRatingInline } from './MealRating'
 import { MealTypeBadge } from './MealTypeBadge'
 import { noteScatter } from './note-placement'
 import { useNoteDrag } from './use-note-drag'
-import { MyRecipeIcon } from './MyRecipeBadge'
+import { MyRecipeIcon } from './MyRecipeIcon'
 import { ProteinBadge } from './ProteinBadge'
 import type {
   EntryRating,

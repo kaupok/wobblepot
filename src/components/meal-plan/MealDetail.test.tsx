@@ -107,7 +107,7 @@ describe('MealDetail prep time', () => {
   })
 })
 
-describe('MealDetail own recipe (HON-953)', () => {
+describe('MealDetail badge row icons (HON-1023)', () => {
   function renderMeal(overrides: Partial<typeof meal>) {
     return render(
       <MealDetail
@@ -119,27 +119,27 @@ describe('MealDetail own recipe (HON-953)', () => {
     )
   }
 
-  it('shows the labelled "My recipe" badge at lg, after Kid-friendly', () => {
+  it('shows Kid-friendly as the icon pill at lg, with the label for screen readers', () => {
+    renderMeal({ kidFriendly: true })
+
+    const label = screen.getByText('Kid-friendly')
+    expect(label).toHaveClass('sr-only')
+    const pill = label.closest('[data-slot="badge"]')!
+    expect(pill).toHaveAttribute('data-variant', 'secondary')
+    expect(pill.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('keeps "My recipe" out of the badge row; the title carries it', () => {
     renderMeal({ isCustom: true })
 
-    const badge = screen.getByText('My recipe').closest('[data-slot="badge"]')!
-    const kidFriendly = screen.getByText('Kid-friendly').closest('[data-slot="badge"]')!
-    expect(kidFriendly.compareDocumentPosition(badge)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
-    // Both `secondary` at `lg`, so the two render with the same classes.
-    expect(badge.className).toBe(kidFriendly.className)
-  })
-
-  it('shows no badge for a library meal', () => {
-    renderMeal({ isCustom: false })
-
     expect(screen.queryByText('My recipe')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'My recipe' })).toBeNull()
   })
 
-  it('renders the row for an own recipe with no time and no kid-friendly flag', () => {
-    renderMeal({ isCustom: true, timeMinutes: null, kidFriendly: false })
+  it('renders no badge row for an own recipe with no time and no kid-friendly flag', () => {
+    const { container } = renderMeal({ isCustom: true, timeMinutes: null, kidFriendly: false })
 
-    const row = screen.getByText('My recipe').closest('[data-slot="badge"]')!.parentElement!
-    expect(row).toHaveTextContent(/^My recipe$/)
+    expect(container.querySelector('[data-slot="badge"]')).toBeNull()
   })
 })
 

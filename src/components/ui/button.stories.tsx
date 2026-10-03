@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { Plus, Trash2 } from 'lucide-react'
 import { expect, within } from 'storybook/test'
 import { Button } from './button'
+import { Heading } from './typography'
 
 const meta = {
   title: 'UI/Button',
@@ -30,6 +31,7 @@ const meta = {
         'lg',
         'icon',
         'icon-xs',
+        'icon-display',
         'icon-sm',
         'icon-lg',
         'icon-lg-to-lg',
@@ -193,6 +195,9 @@ export const AllSizes: Story = {
       <Button size="icon-xs" aria-label="Add">
         <Plus />
       </Button>
+      <Button size="icon-display" aria-label="Add">
+        <Plus />
+      </Button>
       <Button size="icon-sm" aria-label="Add">
         <Plus />
       </Button>
@@ -247,6 +252,54 @@ export const IconToLabelDesktop: Story = {
     await expect(box.width).toBeGreaterThan(box.height)
     await expect(within(button).getByText('Add')).toBeVisible()
   },
+}
+
+/**
+ * `icon-display` (HON-1023): an icon inside a `display` heading, the cook
+ * view's "My recipe" after the meal name. The 24px box keeps the title's line
+ * height, and the `::after` makes the target 44px. The icon is 20px, then 24px
+ * from `lg`.
+ */
+function IconInDisplayHeading() {
+  return (
+    <div className="w-72">
+      <Heading variant="display">
+        Lemon garlic chicken{'\u00a0'}
+        <Button variant="quiet" size="icon-display" shape="pill" aria-label="Add">
+          <Plus />
+        </Button>
+      </Heading>
+    </div>
+  )
+}
+
+async function expectIconInDisplayHeading(canvasElement: HTMLElement, iconSize: number) {
+  const canvas = within(canvasElement)
+  const button = canvas.getByRole('button', { name: 'Add' })
+  const box = button.getBoundingClientRect()
+  await expect(box.width).toBe(24)
+  await expect(box.height).toBe(24)
+  await expect(button.querySelector('svg')!.getBoundingClientRect().width).toBe(iconSize)
+  // The `::after` is the target: 10px past the 24px box on every side, 44px.
+  const after = getComputedStyle(button, '::after')
+  await expect(after.position).toBe('absolute')
+  for (const side of [after.top, after.right, after.bottom, after.left]) {
+    await expect(side).toBe('-10px')
+  }
+}
+
+export const IconInDisplayHeadingPhone: Story = {
+  name: 'Icon in a display heading (phone)',
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  render: () => <IconInDisplayHeading />,
+  play: async ({ canvasElement }) => expectIconInDisplayHeading(canvasElement, 20),
+}
+
+export const IconInDisplayHeadingDesktop: Story = {
+  name: 'Icon in a display heading (desktop)',
+  globals: { viewport: { value: 'laptop', isRotated: false } },
+  render: () => <IconInDisplayHeading />,
+  play: async ({ canvasElement }) => expectIconInDisplayHeading(canvasElement, 24),
 }
 
 /**

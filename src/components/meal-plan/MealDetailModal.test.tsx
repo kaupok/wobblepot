@@ -68,11 +68,11 @@ const meal: MealData = {
   nutrition: {} as MealData['nutrition'],
 }
 
-function renderModal(onServingOverrideChange = vi.fn(), open = true) {
+function renderModal(onServingOverrideChange = vi.fn(), open = true, mealData = meal) {
   const { wrapper } = createQueryWrapper()
   render(
     <MealDetailModal
-      meal={meal}
+      meal={mealData}
       householdSize={4}
       open={open}
       onOpenChange={vi.fn()}
@@ -177,6 +177,27 @@ describe('MealDetailModal cook view shell (HON-932)', () => {
       'data-variant',
       'display',
     )
+  })
+
+  it('marks an own recipe after the title, outside the dialog name (HON-1023)', () => {
+    renderModal(vi.fn(), true, { ...meal, isCustom: true })
+    const dialog = screen.getByRole('dialog', { name: 'Lentil soup' })
+    const titleId = dialog.getAttribute('aria-labelledby')!
+    const title = document.getElementById(titleId)!
+    expect(title).toHaveTextContent(/^Lentil soup$/)
+    const icon = screen.getByRole('button', { name: 'My recipe' })
+    expect(icon).toHaveAttribute('data-size', 'icon-display')
+    expect(title).not.toContainElement(icon)
+    // The icon follows the name inside the heading, joined by a no-break space.
+    const heading = title.parentElement!
+    expect(heading).toHaveAttribute('data-variant', 'display')
+    expect(heading).toContainElement(icon)
+    expect(heading.textContent).toBe('Lentil soup\u00a0')
+  })
+
+  it('shows no My recipe mark for a library meal', () => {
+    renderModal()
+    expect(screen.queryByRole('button', { name: 'My recipe' })).not.toBeInTheDocument()
   })
 
   it('focuses the panel on open rather than its first control', () => {

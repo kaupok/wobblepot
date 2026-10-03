@@ -40,10 +40,20 @@ const badgeVariants = cva(
         // floor and the icon scaled to match.
         lg: 'min-h-[calc(var(--text-sm--line-height)+--spacing(2)+2px)] px-3 py-1 text-sm [&>svg]:size-4',
       },
+      // A badge that is a tap target, the cook view's icon-only Kid-friendly
+      // pill whose tap opens its label (HON-1023): the `::after` reaches 8px
+      // past the `lg` pill vertically (30px when icon-only) and 4px sideways, so the target
+      // clears the cook view's 44px floor. `overflow-visible` keeps the base
+      // `overflow-hidden` from clipping it.
+      hitArea: {
+        default: '',
+        touch: 'relative overflow-visible after:absolute after:-inset-x-1 after:-inset-y-2',
+      },
     },
     defaultVariants: {
       variant: 'default',
       size: 'default',
+      hitArea: 'default',
     },
   },
 )
@@ -52,6 +62,7 @@ function Badge({
   className,
   variant,
   size,
+  hitArea,
   asChild = false,
   ...props
 }: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
@@ -61,7 +72,7 @@ function Badge({
     <Comp
       data-slot="badge"
       data-variant={variant ?? 'default'}
-      className={cn(badgeVariants({ variant, size }), className)}
+      className={cn(badgeVariants({ variant, size, hitArea }), className)}
       {...props}
     />
   )

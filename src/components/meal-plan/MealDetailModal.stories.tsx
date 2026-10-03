@@ -102,6 +102,16 @@ async function findDialog(): Promise<HTMLElement> {
   return dialog
 }
 
+/**
+ * The meal's title. Its accessible name starts with the meal name; for an own
+ * recipe the "My recipe" icon's label follows it (HON-1023).
+ */
+const titleOf = (dialog: HTMLElement) =>
+  within(dialog).getByRole('heading', {
+    level: 2,
+    name: (name) => name.startsWith(mealFixture.name),
+  })
+
 const px = (value: string) => Number.parseFloat(value)
 const box = (el: Element) => el.getBoundingClientRect()
 
@@ -178,7 +188,7 @@ async function assertPhone(): Promise<void> {
   await expect(dialog.offsetWidth).toBe(viewportWidth())
   await expect(dialog.offsetHeight).toBe(viewportHeight())
   await expect(getComputedStyle(dialog).borderTopLeftRadius).toBe('0px')
-  const title = within(dialog).getByRole('heading', { level: 2, name: mealFixture.name })
+  const title = titleOf(dialog)
   await expect(getComputedStyle(title).fontSize).toBe('24px')
   // One column: the hero first, although it sits in the steps column in the
   // DOM (HON-966), then nutrition under the ingredients, then the steps (HON-965).
@@ -218,7 +228,7 @@ async function assertColumns(): Promise<void> {
   await expect(dialog.offsetLeft).toBe(24)
   await expect(dialog.offsetTop).toBe(24)
   await expect(dialog.offsetWidth).toBe(viewportWidth() - 48)
-  const title = within(dialog).getByRole('heading', { level: 2, name: mealFixture.name })
+  const title = titleOf(dialog)
   await expect(getComputedStyle(title).fontSize).toBe('30px')
 
   await loadTips()
@@ -288,7 +298,7 @@ export const LaptopDark: Story = {
 async function assertStepsAlignedWithTitle(): Promise<void> {
   const dialog = await findDialog()
   await expect(within(dialog).queryByTestId('meal-image-hero')).not.toBeInTheDocument()
-  const title = within(dialog).getByRole('heading', { level: 2, name: mealFixture.name })
+  const title = titleOf(dialog)
   const steps = within(dialog).getByTestId('cook-view-steps')
   const heading = within(steps).getByRole('heading', { name: 'Steps' })
   await expect(Math.abs(box(heading).top - box(title).top)).toBeLessThanOrEqual(4)
@@ -348,6 +358,74 @@ export const StickyTitleBar: Story = {
     scroller.scrollTop = 0
     await waitFor(() => expect(bar).not.toHaveAttribute('data-title-hidden'))
   },
+}
+
+// ── Kid-friendly and My recipe (HON-1023) ──────────────────────────────────
+
+/**
+ * The cards' icon forms: the Kid-friendly pill shows the `Baby` icon with the
+ * label in a tooltip and in `sr-only` text, and "My recipe" is the `BookOpen`
+ * icon after the meal name, out of the dialog's accessible name.
+ */
+async function assertIconMarks(iconSize: number): Promise<void> {
+  const dialog = await findDialog()
+  await expect(body().getByRole('dialog', { name: mealFixture.name })).toBe(dialog)
+
+  // The badge row: no "Kid-friendly" or "My recipe" text pill.
+  const kidFriendly = within(dialog).getByText('Kid-friendly')
+  await expect(kidFriendly).toHaveClass('sr-only')
+  const pill = kidFriendly.closest<HTMLElement>('[data-slot="badge"]')!
+  await expect(pill.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+  await expect(within(dialog).queryByText('My recipe')).toBeNull()
+
+  // "My recipe" follows the title, at the title's line height.
+  const title = titleOf(dialog)
+  const icon = within(title).getByRole('button', { name: 'My recipe' })
+  await expect(icon).toHaveAttribute('data-size', 'icon-display')
+  await expect(icon.querySelector('svg')!.getBoundingClientRect().width).toBe(iconSize)
+  const lineHeight = px(getComputedStyle(title).lineHeight)
+  await expect(title.offsetHeight % lineHeight).toBe(0)
+  // On the name's last line, never alone on a new one.
+  await expect(box(title).bottom - box(icon).bottom).toBeLessThan(lineHeight)
+  // 24px box, `::after` 10px past it: a 44px target.
+  await expect(box(icon).width).toBe(24)
+  const after = getComputedStyle(icon, '::after')
+  for (const side of [after.top, after.right, after.bottom, after.left]) {
+    await expect(side).toBe('-10px')
+  }
+
+  // Hover the pill, then the icon: the dialog sets `pointer-events: none` on
+  // the body, so the pointer moves between the two rather than leaving.
+  await userEvent.hover(pill)
+  await expect(await body().findByRole('tooltip')).toHaveTextContent('Kid-friendly')
+  await userEvent.hover(icon)
+  await waitFor(() => expect(body().getByRole('tooltip')).toHaveTextContent('My recipe'))
+}
+
+export const IconMarksPhone: Story = {
+  name: 'Kid-friendly and My recipe icons (phone)',
+  args: { meal: tintedMeal },
+  globals: { viewport: PHONE },
+  play: async () => {
+    await assertIconMarks(20)
+    // A phone has no hover: a tap opens each label.
+    const dialog = await findDialog()
+    const pill = within(dialog)
+      .getByText('Kid-friendly')
+      .closest<HTMLElement>('[data-slot="badge"]')!
+    await userEvent.pointer({ keys: '[TouchA]', target: pill })
+    await waitFor(() => expect(body().getByRole('tooltip')).toHaveTextContent('Kid-friendly'))
+    const icon = within(titleOf(dialog)).getByRole('button', { name: 'My recipe' })
+    await userEvent.pointer({ keys: '[TouchA]', target: icon })
+    await waitFor(() => expect(body().getByRole('tooltip')).toHaveTextContent('My recipe'))
+  },
+}
+
+export const IconMarksLaptop: Story = {
+  name: 'Kid-friendly and My recipe icons (laptop)',
+  args: { meal: tintedMeal },
+  globals: { viewport: LAPTOP },
+  play: () => assertIconMarks(24),
 }
 
 // ── Image states ───────────────────────────────────────────────────────────
@@ -1394,7 +1472,7 @@ export const NoteMenuAddNote: Story = {
     await expect(box(more).height).toBeGreaterThanOrEqual(44)
     await expect(box(more).width).toBeGreaterThanOrEqual(44)
     // On the title row, beside the name, and no standalone button below it.
-    const title = within(dialog).getByRole('heading', { level: 2, name: mealFixture.name })
+    const title = titleOf(dialog)
     await expect(box(more).top).toBeLessThan(box(title).bottom)
     await expect(box(more).left).toBeGreaterThanOrEqual(box(title).right)
     await expect(within(dialog).queryByRole('button', { name: 'Add note' })).toBeNull()
