@@ -2301,7 +2301,7 @@ export const baseMeals = [
     components: [
       { ingredient: 'bacon', quantity: 60 },
       { ingredient: 'egg', quantity: 2 },
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'butter', quantity: 10 },
     ],
   },
@@ -2516,7 +2516,7 @@ export const baseMeals = [
     primaryProteinType: 'eggs',
     components: [
       { ingredient: 'egg', quantity: 3 },
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'butter', quantity: 15 },
       { ingredient: 'milk', quantity: 30 },
     ],
@@ -2844,7 +2844,7 @@ export const baseMeals = [
     suitableFor: ['breakfast', 'lunch'],
     primaryProteinType: 'none',
     components: [
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'avocado', quantity: 1 },
       { ingredient: 'tomato', quantity: 50 },
       { ingredient: 'olive oil', quantity: 5 },
@@ -3405,7 +3405,7 @@ export const baseMeals = [
       { ingredient: 'olive oil', quantity: 15 },
       { ingredient: 'lemon', quantity: 0.25 },
       { ingredient: 'garlic', quantity: 5 },
-      { ingredient: 'bread', quantity: 1 },
+      { ingredient: 'bread', quantity: 35 },
     ],
   },
   {
@@ -3434,7 +3434,7 @@ export const baseMeals = [
     primaryProteinType: 'poultry',
     components: [
       { ingredient: 'turkey breast', quantity: 150 },
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'lettuce', quantity: 30 },
       { ingredient: 'tomato', quantity: 50 },
       { ingredient: 'onion', quantity: 30 },
@@ -3678,7 +3678,7 @@ export const baseMeals = [
     primaryProteinType: 'pork',
     components: [
       { ingredient: 'pork tenderloin', quantity: 150 },
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'tomato sauce', quantity: 50 },
       { ingredient: 'honey', quantity: 15 },
       { ingredient: 'vinegar', quantity: 10 },
