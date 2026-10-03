@@ -88,10 +88,10 @@ describe('PantrySection header', () => {
   })
 })
 
-// Each group counts its rows in a badge after the label, not as "N items" at
+// Each group counts its rows in a number after the label, not as "N items" at
 // the right end (HON-954).
 describe('PantrySection group headings', () => {
-  it('counts each group in a badge inside the heading', () => {
+  it('counts each group in a number inside the heading', () => {
     renderSection([
       makeItem({ id: 'pantry-1', isStaple: true }),
       makeItem({

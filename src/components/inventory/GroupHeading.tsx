@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { useLocale } from 'next-intl'
-import { Badge } from '@/components/ui/badge'
 import { Body, Heading } from '@/components/ui/typography'
 import { formatInteger } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
@@ -15,8 +14,9 @@ interface GroupHeadingProps {
    */
   emoji?: string
   /**
-   * How many rows the group holds, as a round count badge after the label.
-   * Part of the heading, so its name reads "Protein 4".
+   * How many rows the group holds, as a plain number after the label in the
+   * caption's own muted colour. Part of the heading, so its name reads
+   * "Protein 4".
    */
   total?: number
   /** Progress through the group on the same line, right-aligned — "1/3". */
@@ -47,9 +47,10 @@ export function GroupHeading({ label, emoji, total, count }: GroupHeadingProps) 
           <>
             {/* The space keeps the name "Protein 4", not "Protein4"; the
                 margin tops it up to the gap after the emoji. */}{' '}
-            <Badge variant="secondary" shape="count" className="ml-1">
-              {formatInteger(total, locale)}
-            </Badge>
+            {/* No colour or size of its own: it takes the caption's, so on
+                the shopping note it takes the note's muted token. One weight
+                under the label, so it reads as a count, not part of the name. */}
+            <span className="ml-1 font-normal tabular-nums">{formatInteger(total, locale)}</span>
           </>
         )}
       </Heading>
