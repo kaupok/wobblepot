@@ -15,13 +15,22 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-// The 44px touch floor: the control lives in the cook view (docs/DESIGN.md →
-// "Cook view", HON-932). Layout reports fractional pixels, so round to 0.01px
-// before comparing.
+// The cook view's badge row (HON-1025): the control is a `surface` `lg` badge,
+// as tall as the time badge beside it, and its `::after` reaches past the pill
+// so the target clears the 44px touch floor (docs/DESIGN.md → "Cook view").
+// Layout reports fractional pixels, so round to 0.01px before comparing.
 const FLOOR_PX = 44
+const BADGE_PX = 34
 const px = (value: number) => Math.round(value * 100) / 100
 
 const pencil = (root: HTMLElement) => root.querySelector('svg.lucide-pencil')
+
+/** The badge's height, and the height of its `::after` tap target. */
+function measure(badge: HTMLElement): { height: number; target: number } {
+  const height = badge.getBoundingClientRect().height
+  const after = getComputedStyle(badge, '::after')
+  return { height: px(height), target: px(height - 2 * Number.parseFloat(after.top)) }
+}
 
 export const Default: Story = {
   args: {
@@ -30,7 +39,11 @@ export const Default: Story = {
   },
   play: async ({ canvasElement }) => {
     const button = within(canvasElement).getByRole('button', { name: 'Serves 4. Click to edit.' })
-    await expect(px(button.getBoundingClientRect().height)).toBeGreaterThanOrEqual(FLOOR_PX)
+    await expect(button).toHaveAttribute('data-slot', 'badge')
+    await expect(button).toHaveAttribute('data-variant', 'surface')
+    const { height, target } = measure(button)
+    await expect(height).toBe(BADGE_PX)
+    await expect(target).toBeGreaterThanOrEqual(FLOOR_PX)
     await expect(pencil(button)).toHaveAttribute('aria-hidden', 'true')
   },
 }
@@ -42,8 +55,10 @@ export const Overridden: Story = {
   },
   play: async ({ canvasElement }) => {
     const button = within(canvasElement).getByRole('button', { name: 'Serves 6. Click to edit.' })
-    await expect(px(button.getBoundingClientRect().height)).toBeGreaterThanOrEqual(FLOOR_PX)
-    await expect(button).toHaveTextContent('(custom)')
+    await expect(measure(button).height).toBe(BADGE_PX)
+    // "(custom)" in the info tone, inside the badge.
+    const custom = within(button).getByText('(custom)')
+    await expect(custom.closest('.text-info')).not.toBeNull()
     await expect(pencil(button)).toBeInTheDocument()
   },
 }
@@ -59,10 +74,31 @@ export const Editing: Story = {
     const input = canvas.getByRole('textbox', { name: 'Number of servings' })
     await expect(input).toHaveFocus()
     await expect(pencil(canvasElement)).not.toBeInTheDocument()
+    // The field opens inside a badge of the same height, so the row holds still.
+    const badge = input.closest<HTMLElement>('[data-slot="badge"]')!
+    await expect(measure(badge).height).toBe(BADGE_PX)
+    // 16px, so iOS does not zoom in on focus.
+    await expect(getComputedStyle(input).fontSize).toBe('16px')
 
     await userEvent.clear(input)
     await userEvent.type(input, '6{Enter}')
     await expect(args.onServingsChange).toHaveBeenCalledWith(6)
+  },
+}
+
+export const EditingEscape: Story = {
+  name: 'Editing, Escape cancels',
+  args: {
+    servings: 4,
+    householdSize: 4,
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'Serves 4. Click to edit.' }))
+    await userEvent.type(canvas.getByRole('textbox', { name: 'Number of servings' }), '9')
+    await userEvent.keyboard('{Escape}')
+    await expect(canvas.getByRole('button', { name: 'Serves 4. Click to edit.' })).toBeVisible()
+    await expect(args.onServingsChange).not.toHaveBeenCalled()
   },
 }
 

@@ -93,7 +93,7 @@ export const WithCheckboxes: Story = {
   },
 }
 
-export const WithAvailabilityBadge: Story = {
+export const WithAvailabilityStatus: Story = {
   args: {
     availability: {
       isReady: false,
@@ -104,6 +104,44 @@ export const WithAvailabilityBadge: Story = {
       { ingredientId: 'chicken-thigh', isStaple: false },
       { ingredientId: 'garlic', isStaple: true },
     ] satisfies PantryIngredient[],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '"Ingredients 2 to buy": the pantry status as plain text after the heading, in the warning tone of the missing rows (HON-1025).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { name: 'Ingredients' })).toBeInTheDocument()
+    await expect(canvas.getByText('2 to buy')).toHaveClass('text-warning')
+  },
+}
+
+export const AllAtHome: Story = {
+  name: 'All at home',
+  args: {
+    availability: { isReady: true, missingCount: 0, missingIngredients: [] },
+    pantryIngredients: componentsWithVagueSalt.map((c) => ({
+      ingredientId: c.ingredientId,
+      isStaple: false,
+    })),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('all at home')).toHaveClass('text-success')
+  },
+}
+
+export const NoPantryData: Story = {
+  name: 'No pantry data',
+  args: { availability: null },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const heading = canvas.getByRole('heading', { name: 'Ingredients' })
+    // The heading alone: no status beside it.
+    await expect(heading.parentElement!.children).toHaveLength(1)
   },
 }
 
@@ -172,7 +210,8 @@ const narrowArgs = {
 
 // ~340px is the ingredients column at its narrowest: a 390px phone less the
 // cook view's `px-5`, or its left 2/5 at 1024px less `px-6` (HON-932). The
-// header used to fragment and squeeze the badge at this sort of width (HON-692).
+// header used to fragment and squeeze the badge at this sort of width (HON-692);
+// since HON-1025 it is the heading and a short text status.
 const narrowDecorator: NonNullable<Story['decorators']> = [
   (Story) => (
     <div data-testid="narrow-column" className="w-85">
@@ -184,52 +223,56 @@ const narrowDecorator: NonNullable<Story['decorators']> = [
 async function assertHeaderUnbroken(
   canvasElement: HTMLElement,
   header: string,
-  badge: string,
+  status: string,
 ): Promise<void> {
   const canvas = within(canvasElement)
   const column = canvas.getByTestId('narrow-column')
-  const headerEl = canvas.getByText(header)
-  const badgeEl = canvas.getByText(badge)
+  const headerEl = canvas.getByRole('heading', { name: header })
+  const statusEl = canvas.getByText(status)
   expectSingleLine(headerEl)
-  expectSingleLine(badgeEl)
+  expectSingleLine(statusEl)
   expectWithinHorizontally(headerEl, column)
-  expectWithinHorizontally(badgeEl, column)
+  expectWithinHorizontally(statusEl, column)
+  // One line: the status follows the heading on its baseline, as text, not a pill.
+  await expect(statusEl.closest('[data-slot="badge"]')).toBeNull()
+  await expect(statusEl.getBoundingClientRect().left).toBeGreaterThan(
+    headerEl.getBoundingClientRect().right,
+  )
+  await expect(statusEl.getBoundingClientRect().top).toBeLessThan(
+    headerEl.getBoundingClientRect().bottom,
+  )
 }
 
-export const NarrowWithBadge: Story = {
-  name: 'Narrow column with badge',
+export const NarrowWithStatus: Story = {
+  name: 'Narrow column with status',
   args: narrowArgs,
   decorators: narrowDecorator,
   parameters: {
     docs: {
       description: {
         story:
-          'A ~340px column, the ingredients column at its narrowest in the cook view. The header stays on one line and the badge never wraps inside itself: when the row runs out of room the badge moves to its own line (HON-692).',
+          'A ~340px column, the ingredients column at its narrowest in the cook view. "Ingredients" and the pantry status ("2 to buy", warning tone) share one line, the status as plain text on the heading\'s baseline (HON-1025).',
       },
     },
   },
   play: async ({ canvasElement }) => {
-    await assertHeaderUnbroken(canvasElement, 'Ingredients (serves 4)', '2 ingredients to buy')
+    await assertHeaderUnbroken(canvasElement, 'Ingredients', '2 to buy')
   },
 }
 
-export const NarrowWithBadgeEstonian: Story = {
-  name: 'Narrow column with badge (Estonian)',
+export const NarrowWithStatusEstonian: Story = {
+  name: 'Narrow column with status (Estonian)',
   globals: { locale: 'et' },
   args: narrowArgs,
   decorators: narrowDecorator,
   parameters: {
     docs: {
       description: {
-        story: 'The narrow column in Estonian, whose header and badge strings run longer.',
+        story: 'The narrow column in Estonian, whose heading and status run longer.',
       },
     },
   },
   play: async ({ canvasElement }) => {
-    await assertHeaderUnbroken(
-      canvasElement,
-      'Koostisosad (4 portsjonit)',
-      'Vaja osta 2 koostisosa',
-    )
+    await assertHeaderUnbroken(canvasElement, 'Koostisosad', '2 vaja osta')
   },
 }

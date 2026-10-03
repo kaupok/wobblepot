@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Pencil } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 
@@ -102,11 +102,14 @@ export function ServingControl({
   }
 
   if (isEditing) {
-    // `min-h-12 md:min-h-11 px-6` matches the resting `Button size="lg"`, so
-    // the row neither shrinks nor shifts sideways when the field opens.
+    // The field opens inside the same `surface` `lg` badge, in its place. The
+    // input is the badge's 24px `text-sm` line, so the badge stays 34px and the
+    // badge row does not grow (HON-1025). `text-sm` is 16px here, which also
+    // keeps iOS from zooming in on focus. `hitArea="touch"` is for its
+    // `overflow-visible`, so the input's focus ring is not clipped.
     return (
-      <span className="inline-flex min-h-12 items-center gap-2 px-6 whitespace-nowrap md:min-h-11">
-        <span className="text-muted-foreground">{t('label')}</span>
+      <Badge variant="surface" size="lg" hitArea="touch">
+        <span>{t('label')}</span>
         <input
           ref={inputRef}
           type="text"
@@ -117,42 +120,38 @@ export function ServingControl({
           onBlur={handleBlur}
           disabled={isUpdating}
           className={cn(
-            'w-14 rounded border px-2 py-1 text-center text-base',
+            'h-6 w-12 rounded border px-1 text-center text-sm',
             'focus:border-primary focus:ring-primary focus:ring-1 focus:outline-none',
             isUpdating && 'opacity-50',
           )}
           aria-label={t('ariaLabel')}
         />
-      </span>
+      </Badge>
     )
   }
 
   const isInactive = disabled || isUpdating
 
-  // `Button` owns the height: `lg`, 44px+, because this sits in the cook view,
-  // read and tapped from a counter (HON-932; it was `sm` since HON-811).
-  // Colour and weight live on the inner span because `shadcn/no-restyle` keeps
-  // them off `Button`, and `Body` renders a `<p>`, which a `<button>` cannot
-  // contain. The pencil sits inside the span so it takes the text's colour, and
-  // only shows while the control can be used.
+  // The cook view's badge row holds the meal's facts in one form: Kid-friendly,
+  // the time, and this, a `surface` `lg` badge that is a button (HON-1025).
+  // `hitArea="touch"` reaches 8px past the 34px pill, so the target clears the
+  // cook view's 44px floor without growing the row. The colour lives on the
+  // inner span because the badge owns its own; the pencil sits inside it so it
+  // takes the text's colour, and only shows while the control can be used.
   return (
-    <Button
-      variant="ghost"
-      size="lg"
-      onClick={handleClick}
-      disabled={isInactive}
-      aria-label={t('ariaButton', { count: servings })}
-    >
-      <span
-        className={cn(
-          'inline-flex items-center gap-1',
-          isOverridden ? 'text-info' : 'text-muted-foreground font-normal',
-        )}
+    <Badge asChild variant="surface" size="lg" hitArea="touch">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isInactive}
+        aria-label={t('ariaButton', { count: servings })}
       >
-        {t('labelWithCount', { count: servings })}
-        {isOverridden && <span>{t('custom')}</span>}
-        {!isInactive && <Pencil className="size-4" aria-hidden="true" />}
-      </span>
-    </Button>
+        <span className={cn('inline-flex items-center gap-1', isOverridden && 'text-info')}>
+          {t('labelWithCount', { count: servings })}
+          {isOverridden && <span>{t('custom')}</span>}
+          {!isInactive && <Pencil className="size-4" aria-hidden="true" />}
+        </span>
+      </button>
+    </Badge>
   )
 }

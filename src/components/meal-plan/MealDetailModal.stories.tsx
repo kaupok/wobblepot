@@ -668,14 +668,16 @@ export const CompletedServingsReadOnly: Story = {
     docs: {
       description: {
         story:
-          'A completed entry’s servings are what the pantry was charged for, so the API refuses to change them (HON-652). The count renders as static header text, with no edit control.',
+          'A completed entry’s servings are what the pantry was charged for, so the API refuses to change them (HON-652). The count renders as a static `surface` badge in the badge row, with no pencil and no edit control (HON-1025).',
       },
     },
   },
   play: async () => {
     const dialog = await findDialog()
-    await expect(within(dialog).getByText('Ingredients (serves 6)')).toBeInTheDocument()
+    const serves = within(dialog).getByText('Serves 6')
+    await expect(serves.closest('[data-slot="badge"]')).toHaveAttribute('data-variant', 'surface')
     await expect(within(dialog).queryByRole('button', { name: /serves 6/i })).toBeNull()
+    await expect(within(dialog).getByRole('heading', { name: 'Ingredients' })).toBeInTheDocument()
   },
 }
 

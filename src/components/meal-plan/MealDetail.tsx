@@ -147,6 +147,7 @@ export function MealDetail({
   onDoneCooking,
 }: MealDetailProps) {
   const tDetail = useTranslations('meal-plan.detail')
+  const tServing = useTranslations('meal-plan.serving')
   const tTips = useTranslations('meal-plan.tips')
   // Effective servings: use explicit prop if provided, otherwise householdSize
   const effectiveServings = servings ?? householdSize
@@ -166,8 +167,8 @@ export function MealDetail({
   const showPreparationSection = !!onHowToPrepare
   const showTips = showPreparationSection && isTipsExpanded
   // A completed entry's servings are what the pantry was charged for, and the
-  // API refuses to change them (409, HON-652) — so show the count as the
-  // static header instead of offering an edit that can only fail.
+  // API refuses to change them (409, HON-652) — so show the count as a
+  // static badge instead of offering an edit that can only fail.
   const showServingControl = !!onServingsChange && status !== 'completed'
   const hasImage = image != null && image !== false
 
@@ -207,22 +208,36 @@ export function MealDetail({
             {meal.description && <Body variant="muted">{meal.description}</Body>}
           </div>
 
-          {/* `> 0`, not truthiness: `0 && …` renders a stray "0" (HON-711).
-              The time is the cards' `surface` clock badge, at the cook view's
-              `lg` size, with the cards' gap between badges (HON-951).
-              Kid-friendly is the cards' icon pill with the label in a tooltip,
-              and "My recipe" follows the title, as on the cards (HON-1023). */}
-          {((meal.timeMinutes != null && meal.timeMinutes > 0) || meal.kidFriendly) && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {meal.timeMinutes != null && meal.timeMinutes > 0 && (
-                <Badge variant="surface" size="lg">
-                  <Clock aria-hidden="true" />
-                  {tDetail('timeMinutes', { count: meal.timeMinutes })}
-                </Badge>
-              )}
-              {meal.kidFriendly && <KidFriendlyBadge compact size="lg" />}
-            </div>
-          )}
+          {/* The meal's facts in one row, in one form (HON-1025): Kid-friendly,
+              the time, then Serves. The row always renders, because Serves is
+              always there, and Serves is last, so opening its field moves
+              nothing else. Kid-friendly is the cards' icon pill with the label
+              in a tooltip, and "My recipe" follows the title, as on the cards
+              (HON-1023). The time is the cards' `surface` clock badge, at the
+              cook view's `lg` size, with the cards' gap between badges
+              (HON-951). `> 0`, not truthiness: `0 && …` renders a stray "0"
+              (HON-711). */}
+          <div data-testid="cook-view-badges" className="flex flex-wrap items-center gap-1.5">
+            {meal.kidFriendly && <KidFriendlyBadge compact size="lg" />}
+            {meal.timeMinutes != null && meal.timeMinutes > 0 && (
+              <Badge variant="surface" size="lg">
+                <Clock aria-hidden="true" />
+                {tDetail('timeMinutes', { count: meal.timeMinutes })}
+              </Badge>
+            )}
+            {showServingControl ? (
+              <ServingControl
+                servings={effectiveServings}
+                householdSize={householdSize}
+                onServingsChange={onServingsChange}
+                disabled={hideAvailability}
+              />
+            ) : (
+              <Badge variant="surface" size="lg">
+                {tServing('labelWithCount', { count: effectiveServings })}
+              </Badge>
+            )}
+          </div>
 
           {note}
 
@@ -238,23 +253,6 @@ export function MealDetail({
               availability={hideAvailabilityBadge ? null : availability}
               hideAvailability={hideAvailability}
               showMissingStyle={pantryHasData}
-              headerElement={
-                showServingControl ? (
-                  // The control sits beside the title rather than inside
-                  // parentheses, where its padding read as stray spaces (HON-763).
-                  <div className="flex flex-wrap items-center gap-x-1">
-                    <Heading variant="h4" as="h3" className="whitespace-nowrap">
-                      {tDetail('ingredientsTitle')}
-                    </Heading>
-                    <ServingControl
-                      servings={effectiveServings}
-                      householdSize={householdSize}
-                      onServingsChange={onServingsChange}
-                      disabled={hideAvailability}
-                    />
-                  </div>
-                ) : undefined
-              }
             />
           </section>
         </div>
