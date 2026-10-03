@@ -526,6 +526,19 @@ describe('orchestrator.sh', () => {
       expect(r.consecutiveFailures).toBe(1)
     })
 
+    it('reads the verdict word from a multi-megabyte triage reply', () => {
+      // HON-1005: `printf | awk 'NF{print $1; exit}'` SIGPIPE'd the printf once
+      // awk had the first word, and the 141 from that `$(…)` assignment under
+      // set -e killed the orchestrator. 60,000 lines after the verdict keep the
+      // writer busy far past a 64 KB pipe buffer, so the race is lost every run.
+      const r = parse(
+        runHarnessEnv({ HARNESS_VERDICT_PAD_LINES: '60000' }, 'failure', 'RETRY', '0', 'false'),
+      )
+
+      expect(r.out).toContain('Triage for HON-991: RETRY')
+      expect(r.out).toContain('SPAWN_WORKER:HON-991:retry=1')
+    })
+
     it('counts a RETRY verdict that was already retried as a failure', () => {
       const r = drive('RETRY', '1', 'false')
 

@@ -721,6 +721,14 @@ EOF
       STEP=$((STEP + 1))
       IFS=':' read -r s_triage s_retried s_shutdown <<< "$step"
       printf '%s\n' "$s_triage" > "$VERDICT_FILE"
+      # HARNESS_VERDICT_PAD_LINES (env) appends that many lines of explanation
+      # after the verdict word, so the first-word parse sees a long reply and
+      # its early-exit reader races the writer feeding it (HON-1005).
+      if [ -n "${HARNESS_VERDICT_PAD_LINES:-}" ]; then
+        awk -v n="$HARNESS_VERDICT_PAD_LINES" \
+          'BEGIN { for (i = 0; i < n; i++) print "because the worker log says so, line " i }' \
+          >> "$VERDICT_FILE"
+      fi
       SHUTTING_DOWN="$s_shutdown"
       # A distinct issue id per step, so an assertion can tell the calls apart
       # the way a systemic fault walking the queue would.
