@@ -80,11 +80,13 @@ const pool = [
 
 describe('pickDemoMeals', () => {
   const candidates = [
-    { id: 'b', suitableFor: ['breakfast', 'lunch'] as const },
-    { id: 'a', suitableFor: ['breakfast'] as const },
-    { id: 'c', suitableFor: ['lunch', 'dinner'] as const },
-    { id: 'd', suitableFor: ['dinner'] as const },
+    { id: 'b', suitableFor: ['breakfast', 'lunch'] as const, primaryProteinType: 'eggs' as const },
+    { id: 'a', suitableFor: ['breakfast'] as const, primaryProteinType: 'dairy' as const },
+    { id: 'c', suitableFor: ['lunch', 'dinner'] as const, primaryProteinType: 'poultry' as const },
+    { id: 'd', suitableFor: ['dinner'] as const, primaryProteinType: 'fish' as const },
   ].map((m) => ({ ...m, suitableFor: [...m.suitableFor] }))
+
+  const october = Array.from({ length: 30 }, (_, i) => `2026-10-${String(i + 1).padStart(2, '0')}`)
 
   it('fills every slot with a different meal, the same way for the same date', () => {
     const first = pickDemoMeals(candidates, '2026-10-02')
@@ -112,7 +114,43 @@ describe('pickDemoMeals', () => {
   })
 
   it('is null when a slot has no candidate', () => {
-    expect(pickDemoMeals([{ id: 'a', suitableFor: ['breakfast'] }], '2026-10-02')).toBeNull()
+    expect(
+      pickDemoMeals(
+        [{ id: 'a', suitableFor: ['breakfast'], primaryProteinType: 'eggs' }],
+        '2026-10-02',
+      ),
+    ).toBeNull()
+  })
+
+  it('does not put the same protein in two slots when another is available', () => {
+    const pool = [
+      { id: 'yoghurt', suitableFor: ['breakfast'], primaryProteinType: 'dairy' },
+      { id: 'frittata-1', suitableFor: ['lunch', 'dinner'], primaryProteinType: 'eggs' },
+      { id: 'frittata-2', suitableFor: ['lunch', 'dinner'], primaryProteinType: 'eggs' },
+      { id: 'salmon', suitableFor: ['lunch', 'dinner'], primaryProteinType: 'fish' },
+    ] satisfies Parameters<typeof pickDemoMeals>[0]
+
+    const days = october.map((date) => pickDemoMeals(pool, date)!)
+    for (const day of days) {
+      expect([day.get('lunch')!.primaryProteinType, day.get('dinner')!.primaryProteinType]).toEqual(
+        expect.arrayContaining(['eggs', 'fish']),
+      )
+    }
+    // An egg meal does land in a slot on some dates, so the rule is what keeps the second one out.
+    expect(days.some((day) => day.get('lunch')!.primaryProteinType === 'eggs')).toBe(true)
+  })
+
+  it('still fills a slot when every candidate repeats a protein', () => {
+    const pool = [
+      { id: 'omelette', suitableFor: ['breakfast'], primaryProteinType: 'eggs' },
+      { id: 'frittata', suitableFor: ['lunch'], primaryProteinType: 'eggs' },
+      { id: 'quiche', suitableFor: ['dinner'], primaryProteinType: 'eggs' },
+    ] satisfies Parameters<typeof pickDemoMeals>[0]
+
+    for (const date of october) {
+      const day = pickDemoMeals(pool, date)
+      expect([...day!.values()].map((m) => m.id)).toEqual(['omelette', 'frittata', 'quiche'])
+    }
   })
 })
 
