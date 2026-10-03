@@ -1,0 +1,67 @@
+{
+  "mealName": "Chicken and broccoli stir-fry",
+  "servings": 4,
+  "timeMinutes": 25,
+  "components": [
+    {
+      "name": "chicken breast",
+      "quantityPerServing": 125,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "broccoli",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "red pepper",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "soy sauce",
+      "quantityPerServing": 15,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "jasmine rice",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Cook the rice for 12 minutes.",
+    "Stir-fry the chicken strips in the wok over high heat for 5 minutes.",
+    "Add the broccoli and pepper and stir-fry for 3 minutes, then add the soy sauce.",
+    "Serve over the rice."
+  ],
+  "equipment": ["Large wok", "Saucepan", "Chopping board"],
+  "subject": {
+    "kind": "equipment",
+    "index": 0
+  },
+  "pitfalls": ["A crowded wok steams the chicken instead of browning it."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "salt",
+      "isStaple": true
+    },
+    {
+      "name": "vegetable oil",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "What can I use instead?",
+  "locale": "en",
+  "expected": {
+    "mentionsAny": ["step 2", "steps 2", "step 3", "steps 3"]
+  }
+}

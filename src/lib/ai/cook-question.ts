@@ -195,9 +195,11 @@ Rules:
 export function buildCookQuestionRequest(input: CookQuestionRequestInput) {
   return {
     prompt: buildCookQuestionPrompt(input),
-    // A quarter of the full tips' ceiling: the answer is 2-4 sentences, and
-    // the rest is headroom for adaptive thinking, which bills as output (HON-693).
-    maxOutputTokens: 600,
+    // The answer is 2-4 sentences, about 300 tokens in Estonian; the rest is
+    // headroom for adaptive thinking, which bills as output (HON-693). 600 cut
+    // off 3 of 27 benchmark answers, all Estonian, one after 600 tokens of
+    // thinking and no text at all (HON-972).
+    maxOutputTokens: 1200,
     maxRetries: 3,
   }
 }

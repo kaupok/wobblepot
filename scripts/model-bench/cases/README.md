@@ -95,3 +95,13 @@ There is no expectation field. Tips are scored on whether the item counts fall w
 
 - **`full`**: the app writes the whole preparation guide (equipment, steps and pitfalls) from the meal and its components.
 - **`supplementary`**: the user has written their own `preparationNotes`, and the app adds pitfalls and one tip on top of them. A supplementary case must have notes, and the notes are what the case tests: write ones a good answer should not repeat.
+
+### cook-question
+
+The input is the request the cook view sends, as the route builds it: the meal, its `steps` and `equipment` as the cook sees them, the `subject` (`{ "kind": "step" | "equipment", "index" }`, 0-based into the list its kind names), the cached `pitfalls` and `tip` (empty and `null` when the entry had none), the household's `pantry` and `restrictions`, the `question`, and an optional `previous` question and answer for a follow-up. Every field of `expected` is optional; a check the case sets up nothing for is not scored:
+
+- **`offTopic: true`**: the question is not about the meal, so the answer must be a short decline (at most 50 words).
+- **`mentionsAny`**: a good answer contains at least one of these, case-insensitive. Use it for what the question tests: the pantry item a substitute question should name (`["yogurt", "yoghurt"]`), a doneness cue (`["opaque", "flake", "°c"]`), the step numbers an equipment answer must name. List every phrasing a correct answer may use, in the output language: an Estonian answer inflects, so `"jogurt"` matches `"jogurtiga"`.
+- **`forbiddenKeywords`** and **`allowedQualifiers`**: foods the answer must not suggest, matched as imagine's are. A good answer often names the allergen in a warning ("check the label says free from nuts and peanuts"), so list the forms a suggestion takes (`"cashew"`, `"crushed peanut"`), not the allergen's own name. The first run failed all three nut-allergy answers on `"peanut"` for that reason.
+
+Write the question as a cook types it, or as one of the chips in `messages/*.json` → `meal-plan.cookQuestion`.

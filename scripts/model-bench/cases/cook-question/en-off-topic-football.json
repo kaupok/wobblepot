@@ -1,0 +1,67 @@
+{
+  "mealName": "Chicken tikka masala",
+  "servings": 4,
+  "timeMinutes": 45,
+  "components": [
+    {
+      "name": "chicken thigh",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "plain yogurt",
+      "quantityPerServing": 50,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "chopped tomatoes",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "double cream",
+      "quantityPerServing": 30,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "garam masala",
+      "quantityPerServing": 5,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Marinate the chicken in yogurt and spices for 20 minutes.",
+    "Fry the chicken in batches until browned.",
+    "Simmer the tomatoes with the spices for 10 minutes, add the chicken and the cream, and simmer for 5 minutes more."
+  ],
+  "equipment": ["Large frying pan", "Mixing bowl"],
+  "subject": {
+    "kind": "step",
+    "index": 2
+  },
+  "pitfalls": [],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "salt",
+      "isStaple": true
+    },
+    {
+      "name": "vegetable oil",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "Who won the football World Cup in 2018?",
+  "locale": "en",
+  "expected": {
+    "offTopic": true,
+    "forbiddenKeywords": ["france", "french team"]
+  }
+}

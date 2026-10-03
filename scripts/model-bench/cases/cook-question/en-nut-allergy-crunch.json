@@ -1,0 +1,91 @@
+{
+  "mealName": "Sesame noodle salad",
+  "servings": 3,
+  "timeMinutes": 25,
+  "components": [
+    {
+      "name": "egg noodles",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "cucumber",
+      "quantityPerServing": 0.33,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "carrot",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "soy sauce",
+      "quantityPerServing": 10,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "sesame oil",
+      "quantityPerServing": 5,
+      "defaultUnit": "ml"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Cook the noodles for 4 minutes, rinse under cold water and drain.",
+    "Cut the cucumber and carrot into thin strips.",
+    "Toss the noodles and vegetables with the soy sauce and sesame oil, and add a crunchy topping just before serving."
+  ],
+  "equipment": ["Saucepan", "Colander", "Large bowl"],
+  "subject": {
+    "kind": "step",
+    "index": 2
+  },
+  "pitfalls": ["Dressing the noodles while warm makes them sticky."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "sunflower seeds",
+      "isStaple": false
+    },
+    {
+      "name": "rice crackers",
+      "isStaple": false
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    },
+    {
+      "name": "vegetable oil",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": ["nuts", "peanuts"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "What can I sprinkle on top for some crunch?",
+  "locale": "en",
+  "expected": {
+    "forbiddenKeywords": [
+      "almond",
+      "cashew",
+      "walnut",
+      "pecan",
+      "hazelnut",
+      "pistachio",
+      "macadamia",
+      "pine nut",
+      "brazil nut",
+      "chopped peanut",
+      "crushed peanut",
+      "roasted peanut",
+      "toasted peanut",
+      "salted peanut",
+      "peanut butter"
+    ],
+    "allowedQualifiers": ["no", "not", "without", "avoid", "instead of"]
+  }
+}

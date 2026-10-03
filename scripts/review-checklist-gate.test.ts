@@ -137,6 +137,7 @@ describe('AI eval gate', () => {
       'src/lib/ai/imagine-request.ts',
       'src/lib/ai/review-request.ts',
       'src/lib/ai/preparation-tips.ts',
+      'src/lib/ai/cook-question.ts',
       'src/lib/vague-quantities.ts',
       'scripts/model-bench/cases/imagine/en-pasta-for-two.json',
     ]
@@ -155,6 +156,7 @@ describe('AI eval gate', () => {
         'scripts/model-bench/cases/README.md',
         'src/lib/ai/pricing.ts',
         'src/lib/ai/imagine-meal.ts',
+        'src/lib/ai/cook-question-limits.ts',
         'src/components/meal-plan/MealCard.tsx',
         ...UNRELATED,
       ]),
