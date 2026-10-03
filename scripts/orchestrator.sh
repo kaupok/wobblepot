@@ -649,7 +649,9 @@ reconcile_gated_issues() {
   IFS=',' read -ra _gated_arr <<< "$GATED_ISSUES"
   for entry in ${_gated_arr[@]+"${_gated_arr[@]}"}; do
     g="${entry%%:*}"
-    labelled=$(printf '%s\n' "$seen" | awk -F'\t' -v id="$g" 'NR > 1 && $1 == id { print $2; exit }')
+    # Here-string: awk's `exit` would SIGPIPE a printf and, under set -e, kill
+    # the orchestrator with 141 (HON-1005; see worker_hit_neon_cap).
+    labelled=$(awk -F'\t' -v id="$g" 'NR > 1 && $1 == id { print $2; exit }' <<<"$seen")
     if [ "$labelled" = "true" ]; then
       # Seen in Queued, so the uuid goes: a later absence is a move.
       rebuilt="${rebuilt:+$rebuilt,}$g"
@@ -1995,13 +1997,14 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
 
     # Extract first word only — Claude may include explanatory text after the keyword
     local triage_result
-    triage_result=$(printf '%s' "$triage_output" | awk 'NF{print $1; exit}' | tr -d '[:space:]')
+    # Here-string, not `printf | awk …exit` (HON-1005; see worker_hit_neon_cap).
+    triage_result=$(awk 'NF{print $1; exit}' <<<"$triage_output" | tr -d '[:space:]')
 
     if [ "$exit_code" -eq 124 ]; then
       log WARN "Claude triage timed out after ${TRIAGE_TIMEOUT}s, falling back to BACKLOG"
       triage="BACKLOG"
     elif [ "$exit_code" -ne 0 ]; then
-      log WARN "Claude triage failed (exit $exit_code): $(printf '%s' "$triage_output" | head -1)"
+      log WARN "Claude triage failed (exit $exit_code): $(head -1 <<<"$triage_output")"
       triage="NEEDS_HUMAN"
     else
       case "$triage_result" in

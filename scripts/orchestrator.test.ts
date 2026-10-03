@@ -1787,18 +1787,18 @@ describe('orchestrator.sh', () => {
       expect(out).not.toContain('Stale workflow-state UUID')
     })
 
-    it('leaves no echo or printf piped into grep -q', () => {
-      // Every such check must make grep's own status the answer (here-string or
-      // process substitution) — see the comment in worker_hit_neon_cap.
+    it('leaves no echo or printf piped into a reader that exits early', () => {
+      // grep -q, awk '…exit' and head stop reading before printf has finished,
+      // so the writer dies of SIGPIPE: a wrong answer under `if`, and a 141 that
+      // kills the orchestrator in a `$(…)` assignment under set -e. Feed them a
+      // here-string or process substitution instead — see worker_hit_neon_cap.
+      const earlyExitReader =
+        /\b(printf|echo)\b.*\|\s*(grep\b[^|]*\s(-[a-zA-Z]*q[a-zA-Z]*|--quiet|--silent)\b|awk\b.*\bexit\b|head\b)/
       const offenders = fs
         .readFileSync(orchestrator, 'utf8')
         .split('\n')
         .filter((line) => !line.trimStart().startsWith('#'))
-        .filter((line) =>
-          /\b(printf|echo)\b.*\|\s*grep\b[^|]*\s(-[a-zA-Z]*q[a-zA-Z]*|--quiet|--silent)\b/.test(
-            line,
-          ),
-        )
+        .filter((line) => earlyExitReader.test(line))
 
       expect(offenders).toEqual([])
     })
