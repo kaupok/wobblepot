@@ -552,6 +552,18 @@ describe('MealCard card click (HON-1010)', () => {
     }
   })
 
+  it('returns focus to the name when a view opened by a card click closes', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal: imageMeal, preparationTips: tips })
+
+    await user.click(screen.getByTestId('meal-card-image'))
+    await screen.findByRole('dialog', { name: meal.name })
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(cookView()).not.toBeInTheDocument())
+
+    expect(screen.getByRole('button', { name: meal.name })).toHaveFocus()
+  })
+
   it('opens the cook view from a past card', async () => {
     const user = userEvent.setup()
     renderCard({ meal: imageMeal, isPast: true, preparationTips: tips })

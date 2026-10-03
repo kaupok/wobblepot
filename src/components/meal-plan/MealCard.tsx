@@ -400,6 +400,10 @@ export function MealCard({
     if (!(target instanceof Element) || !event.currentTarget.contains(target)) return
     if (target.closest(CARD_CLICK_IGNORE)) return
     if (window.getSelection()?.toString()) return
+    // The press left focus on the page body, and the cook view hands focus
+    // back to whatever had it as it opened. Give it the name, as a click on
+    // the name would. After a pointer press this shows no focus ring.
+    mealNameButtonRef.current?.focus({ preventScroll: true })
     setIsDetailModalOpen(true)
   }
 

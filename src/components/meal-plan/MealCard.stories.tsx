@@ -133,9 +133,11 @@ export const ClickAnywhereOpensCookView: Story = {
     await expect(await body.findByRole('dialog', { name: mealFixture.name })).toBeInTheDocument()
     await pressEscape()
     await awaitDialogClosed()
+    // Focus comes back to the name, not the page body.
+    const name = canvas.getByRole('button', { name: mealFixture.name })
+    await waitFor(() => expect(name).toHaveFocus())
 
     // One ring, the card's, while the name has keyboard focus.
-    const name = canvas.getByRole('button', { name: mealFixture.name })
     name.focus()
     await expect(name).toHaveFocus()
     await expect(name.matches(':focus-visible')).toBe(true)
