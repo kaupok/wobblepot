@@ -819,6 +819,31 @@ export const AskAboutStep: Story = {
 }
 
 /**
+ * The steps' Ask buttons and the ones in "You'll need" end on one edge, so
+ * the two columns of Ask buttons read as one (HON-1022).
+ */
+async function assertAskColumnsAlign(): Promise<void> {
+  await findDialog()
+  const right = (name: string) =>
+    Math.round(body().getByRole('button', { name }).getBoundingClientRect().right)
+  await expect(right('Ask about step 2')).toBe(right('Ask about Sheet pan'))
+}
+
+export const AskColumnsAlignPhone: Story = {
+  name: 'Planned: Ask columns share one edge (phone)',
+  args: { ...plannedArgs, initialTips: tips },
+  globals: { viewport: PHONE },
+  play: assertAskColumnsAlign,
+}
+
+export const AskColumnsAlignLaptop: Story = {
+  name: 'Planned: Ask columns share one edge (laptop)',
+  args: { ...plannedArgs, initialTips: tips },
+  globals: { viewport: LAPTOP },
+  play: assertAskColumnsAlign,
+}
+
+/**
  * Ticking the step whose panel is open closes the panel (HON-982): the cook
  * has moved on. Focus stays on the toggle that was pressed.
  */
@@ -900,7 +925,8 @@ const resultOf = (panel: HTMLElement) =>
  * The last step's Ask button sits on the bottom edge of the scroll region,
  * as a cook reaches it scrolling down. Opening it brings the chips and the
  * field into view. A chip's long answer arrives, and the answer with Close
- * scrolls into view, while focus stays on the chip.
+ * scrolls into view, while focus stays on Close, where the chip handed it as
+ * the chips gave way to the question (HON-1022).
  */
 async function assertAnswerKeptInView(scroller: HTMLElement): Promise<void> {
   const last = longTips.steps!.length
@@ -914,12 +940,13 @@ async function assertAnswerKeptInView(scroller: HTMLElement): Promise<void> {
 
   const chip = within(panel).getByRole('button', { name: "I'm short on time" })
   await userEvent.click(chip)
-  await within(panel).findByText(longAnswer)
   const close = within(panel).getByRole('button', { name: 'Close' })
+  await expect(close).toHaveFocus()
+  await within(panel).findByText(longAnswer)
   await expect(resultOf(panel)).toContainElement(close)
   await waitFor(() => expect(isInside(resultOf(panel), scroller)).toBe(true))
   // The answer arriving moved nothing but the scroll.
-  await expect(chip).toHaveFocus()
+  await expect(close).toHaveFocus()
 }
 
 /**
@@ -1038,7 +1065,11 @@ export const AskKeepsOldAnswerWhilePending: Story = {
     const answeredHeight = box(status).height
     const answeredOffset = offsetOf(nextStep)
 
-    await userEvent.click(within(panel).getByRole('button', { name: "How do I know it's done?" }))
+    // The chips are gone once a question is out: the follow-up is typed (HON-1022).
+    await userEvent.type(
+      within(panel).getByRole('textbox', { name: 'Your question' }),
+      "How do I know it's done?{Enter}",
+    )
     await within(status).findByText('Thinking…')
     // The old answer stays, muted, under its own question.
     await expect(within(status).getByText(longAnswer)).toHaveClass('text-muted-foreground')

@@ -62,7 +62,7 @@ Renders paragraph text with different text sizes and styles:
 <Body variant="caption">Caption text (xs, medium weight, muted)</Body>
 ```
 
-**Available variants:** `default` | `lead` | `large` | `small` | `paragraph` | `muted` | `caption`
+**Available variants:** `default` | `lead` | `large` | `small` | `paragraph` | `muted` | `caption`, plus the cook view's `step` (20 → 22px from `lg`) and `step-small` (18 → 20px, one size below, for the question above an Ask answer, HON-1022)
 
 ### `tone` — colour
 

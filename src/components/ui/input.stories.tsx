@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import { Input } from './input'
 import { Label } from './label'
 
@@ -12,6 +13,7 @@ const meta = {
       options: ['text', 'email', 'password', 'number', 'search'],
     },
     disabled: { control: 'boolean' },
+    size: { control: 'inline-radio', options: ['default', 'lg'] },
   },
   args: {
     placeholder: 'Type here…',
@@ -28,6 +30,24 @@ export const Default: Story = {
       <Input {...args} />
     </div>
   ),
+}
+
+/**
+ * `lg` matches Button `lg` (48px, 44px from `md`) and its 16px text at every
+ * width: the cook view's Ask field beside `lg` chips and Send (HON-1022).
+ */
+export const Large: Story = {
+  args: { size: 'lg' },
+  render: (args) => (
+    <div className="w-72">
+      <Input {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const field = within(canvasElement).getByRole('textbox')
+    await expect(getComputedStyle(field).fontSize).toBe('16px')
+    await expect(field.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+  },
 }
 
 export const Disabled: Story = {
@@ -112,6 +132,10 @@ export const AllVariants: Story = {
         <Input id="av-default" placeholder="Type here…" />
       </div>
       <div className="flex flex-col gap-1">
+        <Label htmlFor="av-large">Large (size lg)</Label>
+        <Input id="av-large" size="lg" placeholder="Ask a follow-up" />
+      </div>
+      <div className="flex flex-col gap-1">
         <Label htmlFor="av-value">With value</Label>
         <Input id="av-value" defaultValue="Lemon-garlic chicken" />
       </div>
@@ -132,7 +156,7 @@ export const AllVariants: Story = {
 }
 
 // `Input` is `h-touch md:h-10`, so the field is 44px at the default mobile
-// viewport and 40px here. Same a11y waiver as `AllVariants` — it renders the
+// viewport and 40px here; `lg` is 48px there and 44px here. Same a11y waiver as `AllVariants` — it renders the
 // same disabled field.
 export const Desktop: Story = {
   parameters: {

@@ -270,14 +270,38 @@ export const WithAskButtonsDesktop: Story = {
   },
 }
 
-/** The panel open under step 2: three chips, then the field and Send. */
+/**
+ * The panel open under step 2: three chips, then the field and Send, then the
+ * footer row with Close. The chips, the field and Send are one height, the
+ * field's text is 16px, and Send, Close and the open Ask button, filled, end
+ * on one edge (HON-1022).
+ */
 export const AskPanelOpen: Story = {
   args: {
     ...WithAskButtons.args,
     cookQuestion: cookQuestion({ openSubject: STEP_2 }),
   },
   play: async ({ canvasElement, args }) => {
-    const panel = within(canvasElement).getByRole('group', { name: 'Ask about step 2' })
+    const canvas = within(canvasElement)
+    const panel = canvas.getByRole('group', { name: 'Ask about step 2' })
+    const p = within(panel)
+    const field = p.getByRole('textbox')
+    const send = p.getByRole('button', { name: 'Send' })
+    const close = p.getByRole('button', { name: 'Close' })
+    const ask = canvas.getByRole('button', { name: 'Ask about step 2' })
+    const height = (el: HTMLElement) => el.getBoundingClientRect().height
+    const right = (el: HTMLElement) => Math.round(el.getBoundingClientRect().right)
+    for (const chip of p.getAllByRole('button', { name: /\?$|time$/ })) {
+      await expect(height(chip)).toBe(height(send))
+    }
+    await expect(height(field)).toBe(height(send))
+    await expect(getComputedStyle(field).fontSize).toBe('16px')
+    await expect(right(close)).toBe(right(send))
+    await expect(right(ask)).toBe(right(send))
+    await expect(ask).toHaveClass('bg-secondary')
+    await expect(canvas.getByRole('button', { name: 'Ask about step 1' })).not.toHaveClass(
+      'bg-secondary',
+    )
     await userEvent.click(within(panel).getByRole('button', { name: "How do I know it's done?" }))
     await expect(args.cookQuestion!.ask).toHaveBeenCalledWith({
       subject: STEP_2,
@@ -306,6 +330,12 @@ export const AskPending: Story = {
     // The question stays on screen above "Thinking…" (HON-976).
     await expect(canvas.getByText("You asked: How do I know it's done?")).toBeVisible()
     await expect(canvas.getByRole('status')).toHaveTextContent('Thinking…')
+    // "Thinking…" shares the footer row and leaves Close at Send's edge (HON-1022).
+    const right = (el: HTMLElement) => Math.round(el.getBoundingClientRect().right)
+    await expect(right(canvas.getByRole('button', { name: 'Close' }))).toBe(
+      right(canvas.getByRole('button', { name: 'Send' })),
+    )
+    await expect(canvas.getByRole('textbox')).toHaveAttribute('placeholder', 'Ask a follow-up')
     await expect(canvas.getByRole('button', { name: 'Send' })).toHaveAttribute(
       'aria-disabled',
       'true',
@@ -395,10 +425,8 @@ export const AskStreaming: Story = {
       'aria-disabled',
       'true',
     )
-    await expect(within(panel).getByRole('button', { name: "I'm short on time" })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    )
+    // The chips gave way to the question once it went out (HON-1022).
+    await expect(within(panel).queryByRole('button', { name: "I'm short on time" })).toBeNull()
   },
 }
 
@@ -495,7 +523,8 @@ function AskWithState(args: React.ComponentProps<typeof PreparationSteps>) {
 
 /**
  * HON-976: a chip's question shows above "Thinking…", and Edit puts it back
- * in the field with focus, without sending it again.
+ * in the field with focus, without sending it again. The chip moves focus to
+ * Close as the chips go (HON-1022).
  */
 export const AskEchoAndEdit: Story = {
   args: {
@@ -508,6 +537,10 @@ export const AskEchoAndEdit: Story = {
     await userEvent.click(within(panel).getByRole('button', { name: "I'm short on time" }))
     await expect(within(panel).getByText("You asked: I'm short on time")).toBeVisible()
     await expect(within(panel).getByRole('status')).toHaveTextContent('Thinking…')
+    // The chip unmounted with the others; focus waits on Close, not the page
+    // and not the field, which would open a phone's keyboard (HON-1022).
+    await expect(within(panel).queryByRole('button', { name: "I'm short on time" })).toBeNull()
+    await expect(within(panel).getByRole('button', { name: 'Close' })).toHaveFocus()
 
     await userEvent.click(within(panel).getByRole('button', { name: 'Edit' }))
     const field = within(panel).getByRole('textbox', { name: 'Your question' })

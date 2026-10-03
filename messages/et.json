@@ -325,6 +325,7 @@
       "questionLabel": "Sinu küsimus",
       "placeholder": "Küsi selle sammu kohta",
       "equipmentPlaceholder": "Küsi selle vahendi kohta",
+      "followUpPlaceholder": "Küsi veel midagi",
       "send": "Saada",
       "thinking": "Mõtlen…",
       "youAsked": "Küsisid: {question}",

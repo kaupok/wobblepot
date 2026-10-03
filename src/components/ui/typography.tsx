@@ -102,6 +102,9 @@ const bodyVariants = cva('', {
       // The cook view's steps, pitfalls and tip: Paragraph two sizes up, in
       // the foreground colour, for reading at arm's length (HON-932).
       step: 'text-lg lg:text-xl leading-relaxed',
+      // One size below `step`, for a line that labels step-size text rather
+      // than being read itself: the question above its answer (HON-1022).
+      'step-small': 'text-base lg:text-lg leading-relaxed',
     },
     tone: toneVariants,
   },
