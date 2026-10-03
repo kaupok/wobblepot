@@ -92,7 +92,7 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          'Desktop width. The list fills the width (docs/DESIGN.md → Lists fill, forms stay narrow) and "Add member" sits label-sized at the right end of the title row (HON-960).',
+          'Desktop width. The list fills its parent, which on `/household` is the settings\' `max-w-2xl` column (HON-1020), and "Add member" sits label-sized at the right end of the title row (HON-960).',
       },
     },
   },
