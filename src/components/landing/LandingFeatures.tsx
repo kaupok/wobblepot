@@ -342,11 +342,15 @@ function CookVignette() {
           onToggleStep={noop}
           cookQuestion={COOK_QUESTION}
         />
-        <div className="flex flex-col gap-3 pl-15 lg:pl-16">
-          <Body variant="step-small" tone="muted">
-            {tAsk('youAsked', { question: t('question') })}
-          </Body>
-          <Body variant="step">{t('answer')}</Body>
+        {/* The panel's indent inside the toggle list's `-ml-3`, so the
+            answer starts where the step text does. */}
+        <div className="-ml-3">
+          <div className="flex flex-col gap-3 pl-15 lg:pl-16">
+            <Body variant="step-small" tone="muted">
+              {tAsk('youAsked', { question: t('question') })}
+            </Body>
+            <Body variant="step">{t('answer')}</Body>
+          </div>
         </div>
       </div>
     </MealSurface>

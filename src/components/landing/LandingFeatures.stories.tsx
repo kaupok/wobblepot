@@ -43,6 +43,15 @@ const play: Story['play'] = async ({ canvasElement }) => {
   }
 
   await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
+
+  // The answer starts where the step text does, as in the cook view's panel.
+  const stepText = canvasElement.querySelector('[aria-pressed] p')
+  const answer = canvas.getByText(/Press the thickest part/)
+  await expect(stepText).not.toBeNull()
+  await expect(answer.getBoundingClientRect().left).toBeCloseTo(
+    stepText!.getBoundingClientRect().left,
+    0,
+  )
 }
 
 /** Phone (390 px): each row is the text, then its vignette. */
