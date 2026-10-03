@@ -100,6 +100,51 @@ export const PlannedWithImage: Story = {
 }
 
 /**
+ * A click anywhere on the card opens the cook view, the plate included, not
+ * only the name (HON-1010). A hover anywhere underlines the name and darkens
+ * the border; the name stays the keyboard target, and the card draws its
+ * focus ring.
+ */
+export const ClickAnywhereOpensCookView: Story = {
+  args: PlannedWithImage.args,
+  parameters: {
+    msw: {
+      handlers: {
+        // Opening a planned meal generates its steps on open.
+        tips: [
+          http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () =>
+            HttpResponse.json({ tips: { equipment: [], steps: ['Roast'], pitfalls: [] } }),
+          ),
+        ],
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+    await canvas.findByRole('img', { name: mealFixture.name })
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    // A synthetic hover does not reach CSS `:hover`, so the hover look is
+    // asserted by class in MealCard.test.tsx; the pointer cursor is not hover.
+    await expect(getComputedStyle(card).cursor).toBe('pointer')
+    await expect(getComputedStyle(card).boxShadow).toBe('none')
+
+    await userEvent.click(canvas.getByTestId('meal-card-image'))
+    await expect(await body.findByRole('dialog', { name: mealFixture.name })).toBeInTheDocument()
+    await pressEscape()
+    await awaitDialogClosed()
+
+    // One ring, the card's, while the name has keyboard focus.
+    const name = canvas.getByRole('button', { name: mealFixture.name })
+    name.focus()
+    await expect(name).toHaveFocus()
+    await expect(name.matches(':focus-visible')).toBe(true)
+    await expect(getComputedStyle(card).boxShadow).not.toBe('none')
+    await expect(getComputedStyle(name).outlineStyle).toBe('none')
+  },
+}
+
+/**
  * One of the household's own recipes: the bare "My recipe" icon follows the
  * meal name's last word, with a tooltip, and the badge row keeps only the slot
  * and the protein (HON-973). A library meal (every other story) has none.
@@ -544,6 +589,8 @@ export const DragNote: Story = {
     await expect(after.top - before.top).toBeCloseTo(-20, 0)
     await expect(noteOverlay(card)).toHaveAttribute('data-placed')
     await expect(canvas.queryByRole('textbox')).not.toBeInTheDocument()
+    // A drag is not a card click (HON-1010).
+    await expect(within(document.body).queryByRole('dialog')).not.toBeInTheDocument()
     await waitFor(() => expect(notePositionPatches()).toHaveLength(1))
     const saved = notePositionPatches()[0] as { noteX: number; noteY: number }
     for (const value of [saved.noteX, saved.noteY]) {

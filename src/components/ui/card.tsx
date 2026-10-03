@@ -7,28 +7,41 @@ import { cn } from '@/lib/utils'
 // sets only the card's own rhythm; the parts' horizontal padding stays with
 // `CardHeader` / `CardContent` / `CardFooter`, which the page may adjust
 // (HON-674, `shadcn/no-restyle` contract in eslint.config.mjs).
+//
+// `interactive` is a card a pointer click anywhere opens (the planner card,
+// HON-1010). The card stays a plain `div`: its keyboard target is one control
+// inside it marked `data-slot="card-target"`, and the card draws that
+// control's focus ring around itself, so the keyboard user sees the target the
+// mouse user gets. The control drops its own ring. `group/card` lets the
+// target's label react to a hover anywhere on the card.
 const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl border', {
   variants: {
     size: {
       default: 'gap-6 py-6',
       sm: 'gap-2 py-2',
     },
+    interactive: {
+      true: 'group/card cursor-pointer transition-[border-color,box-shadow] duration-150 ease-out hover:border-muted-foreground has-[[data-slot=card-target]:focus-visible]:border-ring has-[[data-slot=card-target]:focus-visible]:ring-[3px] has-[[data-slot=card-target]:focus-visible]:ring-ring/50',
+      false: '',
+    },
   },
   defaultVariants: {
     size: 'default',
+    interactive: false,
   },
 })
 
 function Card({
   className,
   size,
+  interactive,
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof cardVariants>) {
   return (
     <div
       data-slot="card"
       data-size={size ?? 'default'}
-      className={cn(cardVariants({ size }), className)}
+      className={cn(cardVariants({ size, interactive }), className)}
       {...props}
     />
   )

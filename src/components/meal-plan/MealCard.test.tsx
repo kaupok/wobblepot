@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, onTestFinished } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
@@ -40,6 +40,9 @@ afterEach(() => {
 
 function renderCard(props: {
   meal: typeof meal | null
+  status?: 'planned' | 'completed' | 'skipped'
+  rating?: 'up' | 'down' | null
+  isPast?: boolean
   pantryIngredients?: PantryIngredient[]
   pantryDeducted?: boolean
   preparationTips?: StructuredTips | null
@@ -510,5 +513,172 @@ describe('MealCard note placement (HON-975)', () => {
 
     expect(screen.queryByRole('button', { name: 'Leftovers' })).not.toBeInTheDocument()
     expect(overlay().style.getPropertyValue('--note-tilt')).toBe('-1.5deg')
+  })
+})
+
+describe('MealCard card click (HON-1010)', () => {
+  const tips: StructuredTips = { equipment: [], steps: ['Roast the chicken'], pitfalls: [] }
+  const description = 'Crisp skin, soft potatoes.'
+  const imageMeal = {
+    ...meal,
+    description,
+    imageStatus: 'ready' as const,
+    imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
+    imageHue: 40,
+  }
+
+  const card = () =>
+    // eslint-disable-next-line testing-library/no-node-access -- the card root has no role: the click is a pointer shortcut
+    document.querySelector<HTMLElement>('[data-slot="card"]')!
+  const cookView = () => screen.queryByRole('dialog', { name: meal.name })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('opens the cook view from the plate, the description and the card body', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal: imageMeal, preparationTips: tips })
+
+    for (const target of [
+      () => screen.getByTestId('meal-card-image'),
+      () => screen.getByText(description),
+      card,
+    ]) {
+      await user.click(target())
+      expect(await screen.findByRole('dialog', { name: meal.name })).toBeInTheDocument()
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+      await waitFor(() => expect(cookView()).not.toBeInTheDocument())
+    }
+  })
+
+  it('opens the cook view from a past card', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal: imageMeal, isPast: true, preparationTips: tips })
+
+    await user.click(screen.getByTestId('meal-card-image'))
+    expect(await screen.findByRole('dialog', { name: meal.name })).toBeInTheDocument()
+  })
+
+  it('marks the card interactive and the name as its keyboard target', () => {
+    renderCard({ meal })
+    const name = screen.getByRole('button', { name: meal.name })
+
+    expect(card()).toHaveClass('group/card', 'cursor-pointer', 'hover:border-muted-foreground')
+    expect(card()).not.toHaveAttribute('tabindex')
+    expect(card()).not.toHaveAttribute('role')
+    expect(name).toHaveAttribute('data-slot', 'card-target')
+    expect(name).toHaveClass('outline-none')
+  })
+
+  it('opens the cook view once from the name, with Enter and with Space', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal, preparationTips: tips })
+    const name = screen.getByRole('button', { name: meal.name })
+
+    for (const key of ['{Enter}', ' ']) {
+      name.focus()
+      await user.keyboard(key)
+      expect(await screen.findAllByRole('dialog', { name: meal.name })).toHaveLength(1)
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+      await waitFor(() => expect(cookView()).not.toBeInTheDocument())
+    }
+  })
+
+  it('leaves the ⋯ menu and its items to themselves', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal })
+
+    await user.click(screen.getByRole('button', { name: `More actions: ${meal.name}` }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Swap' }))
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(cookView()).not.toBeInTheDocument()
+  })
+
+  it('only closes the open ⋯ menu on a press on the card', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal: imageMeal, preparationTips: tips })
+    const trigger = screen.getByRole('button', { name: `More actions: ${meal.name}` })
+    await user.click(trigger)
+    await screen.findByRole('menu')
+
+    await user.click(screen.getByTestId('meal-card-image'))
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
+    expect(cookView()).not.toBeInTheDocument()
+
+    // The next press is a card click again.
+    await user.click(screen.getByTestId('meal-card-image'))
+    expect(await screen.findByRole('dialog', { name: meal.name })).toBeInTheDocument()
+  })
+
+  it('leaves the rating badge and the rating prompt to themselves', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal, status: 'completed', rating: 'up' })
+
+    await user.click(screen.getByRole('button', { name: /^Rating:/ }))
+    expect(await screen.findByText('How was it?')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Dismiss rating' }))
+
+    expect(cookView()).not.toBeInTheDocument()
+  })
+
+  it("leaves a past card's status control to itself", async () => {
+    // Radix Select reads the pointer-capture and scroll APIs jsdom lacks.
+    // Defined on the instances' prototype for this test only: the note-drag
+    // tests above rely on `setPointerCapture` being absent.
+    const proto = Element.prototype as Partial<Element>
+    const stubs = {
+      hasPointerCapture: () => false,
+      setPointerCapture: () => {},
+      releasePointerCapture: () => {},
+      scrollIntoView: () => {},
+    }
+    const missing = Object.entries(stubs).filter(([key]) => !(key in proto))
+    for (const [key, fn] of missing) {
+      Object.defineProperty(proto, key, { value: fn, configurable: true, writable: true })
+    }
+    onTestFinished(() => {
+      for (const [key] of missing) delete (proto as Record<string, unknown>)[key]
+    })
+    const user = userEvent.setup()
+    renderCard({ meal, isPast: true })
+
+    await user.click(screen.getByRole('combobox', { name: 'Meal status' }))
+    await user.click(await screen.findByRole('option', { name: /skipped/i }))
+
+    expect(cookView()).not.toBeInTheDocument()
+  })
+
+  it('opens the note editor from the slip, not the cook view', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal: imageMeal, note: 'Leftovers' })
+
+    await user.click(screen.getByRole('button', { name: 'Leftovers' }))
+
+    expect(await screen.findByRole('textbox', { name: 'Meal note' })).toBeInTheDocument()
+    expect(cookView()).not.toBeInTheDocument()
+  })
+
+  it('leaves a click that ends a text selection alone', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal: imageMeal })
+    vi.spyOn(window, 'getSelection').mockReturnValue({
+      toString: () => 'Crisp skin',
+    } as Selection)
+
+    await user.click(screen.getByText(description))
+
+    expect(cookView()).not.toBeInTheDocument()
+  })
+
+  it('gives the empty slot no card click', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal: null })
+
+    await user.click(card())
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(card()).not.toHaveClass('cursor-pointer')
   })
 })

@@ -307,6 +307,10 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
  * and `children` are the full-width rows below it (HON-927). An `overlay` lies
  * over the head's bottom-right corner without adding a row (HON-974).
  *
+ * `interactive` (the `Card` variant, passed through) is for a card a click
+ * anywhere opens: the planner card (HON-1010). The caller owns the click and
+ * marks the card's keyboard target `data-slot="card-target"`.
+ *
  * The children are the card's content, unchanged: the tint re-scopes the theme
  * tokens (`[data-meal-surface]` in globals.css), so nothing inside needs a
  * tinted variant, and the image sits behind the content in the card's own

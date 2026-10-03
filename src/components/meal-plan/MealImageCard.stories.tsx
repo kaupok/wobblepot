@@ -73,6 +73,20 @@ export const WithImage: Story = {
   },
 }
 
+/**
+ * `interactive` (the `Card` variant): a click anywhere opens the card, as on
+ * the planner card (HON-1010). The pointer cursor is the card's; the hover
+ * border and the focus ring of the `card-target` are covered in `UI/Card`.
+ */
+export const Interactive: Story = {
+  args: { interactive: true },
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    await expect(getComputedStyle(card).cursor).toBe('pointer')
+    await expect(card).toHaveClass('group/card')
+  },
+}
+
 export const WithImageDark: Story = {
   name: 'With image (dark)',
   globals: { theme: 'dark' },
