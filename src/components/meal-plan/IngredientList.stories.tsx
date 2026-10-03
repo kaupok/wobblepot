@@ -60,6 +60,17 @@ export const WithPantryAvailability: Story = {
       { ingredientId: 'salt', isStaple: true },
     ] satisfies PantryIngredient[],
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // The staples are ingredients the cook needs, so the line is in the
+    // ingredient rows' colour, not muted (HON-1026). The size stays `text-sm`,
+    // which is 16px in this scale (globals.css).
+    const staples = canvas.getByText(/^Staples:/)
+    await expect(getComputedStyle(staples).color).toBe(
+      getComputedStyle(canvas.getByText('Chicken thigh')).color,
+    )
+    await expect(getComputedStyle(staples).fontSize).toBe('16px')
+  },
 }
 
 export const WithCheckboxes: Story = {
