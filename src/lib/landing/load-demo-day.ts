@@ -1,5 +1,5 @@
 import 'server-only'
-import type { MealType } from '@/generated/prisma/enums'
+import type { MealType, ProteinType } from '@/generated/prisma/enums'
 import type { MealData, StructuredTips } from '@/components/meal-plan/types'
 import { prisma } from '@/lib/prisma'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
@@ -56,19 +56,33 @@ function hash(input: string): number {
  * One meal per slot for `date`, from a pool, with no meal in two slots. The
  * pool is sorted by id first so the pick does not depend on query order, and
  * each slot hashes the date and its own name, so a day's breakfast and dinner
- * move independently. Null when any slot has no candidate.
+ * move independently. A slot prefers a protein no earlier slot used, so the
+ * day does not show two egg dishes, and falls back to any unpicked meal when
+ * every candidate repeats one. If that preference takes the only meal a later
+ * slot could have, the day is picked again without it, so any pool that can
+ * fill the day still does. Null when any slot has no candidate.
  */
-export function pickDemoMeals<T extends { id: string; suitableFor: MealType[] }>(
-  pool: readonly T[],
-  date: string,
-): Map<MealType, T> | null {
+export function pickDemoMeals<
+  T extends { id: string; suitableFor: MealType[]; primaryProteinType: ProteinType },
+>(pool: readonly T[], date: string): Map<MealType, T> | null {
   const sorted = [...pool].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  return pickDay(sorted, date, true) ?? pickDay(sorted, date, false)
+}
+
+function pickDay<
+  T extends { id: string; suitableFor: MealType[]; primaryProteinType: ProteinType },
+>(sorted: readonly T[], date: string, varyProtein: boolean): Map<MealType, T> | null {
   const picked = new Map<MealType, T>()
   for (const mealType of DEMO_MEAL_TYPES) {
     const taken = new Set([...picked.values()].map((meal) => meal.id))
-    const candidates = sorted.filter(
+    const usedProteins = new Set([...picked.values()].map((meal) => meal.primaryProteinType))
+    const available = sorted.filter(
       (meal) => meal.suitableFor.includes(mealType) && !taken.has(meal.id),
     )
+    const fresh = varyProtein
+      ? available.filter((meal) => !usedProteins.has(meal.primaryProteinType))
+      : []
+    const candidates = fresh.length > 0 ? fresh : available
     const choice = candidates[hash(`${date}:${mealType}`) % candidates.length]
     if (!choice) return null
     picked.set(mealType, choice)
@@ -137,7 +151,15 @@ export async function loadDemoDay({
     const steps = parseStoredTips(row.steps)
     if (!steps) return []
     return [
-      { id: meal.id, suitableFor: meal.suitableFor, meal, image, steps, servings: row.servings },
+      {
+        id: meal.id,
+        suitableFor: meal.suitableFor,
+        primaryProteinType: meal.primaryProteinType,
+        meal,
+        image,
+        steps,
+        servings: row.servings,
+      },
     ]
   })
 
