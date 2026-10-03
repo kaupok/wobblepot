@@ -447,9 +447,10 @@ export const ImageGenerating: Story = {
   play: async () => {
     const dialog = await findDialog()
     // The box shows once the generation has run a second (`useMealImage`).
-    await expect(
-      await within(dialog).findByTestId('meal-image-placeholder', undefined, { timeout: 3000 }),
-    ).toBeVisible()
+    await waitFor(
+      () => expect(within(dialog).getByTestId('meal-image-placeholder')).toBeVisible(),
+      { timeout: 3000 },
+    )
     await expect(dialog).not.toHaveAttribute('data-meal-surface')
   },
 }
@@ -491,8 +492,13 @@ export const TipsLoading: Story = {
     },
   },
   play: async () => {
-    await userEvent.click(await body().findByRole('button', { name: 'How to prepare' }))
-    await expect(await body().findByTestId('preparation-steps-loading')).toBeVisible()
+    // Past the dialog's fade-in first: the skeleton renders on the click, and
+    // `toBeVisible` fails on it while the dialog's opacity is still 0 (HON-1006).
+    const dialog = await findDialog()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'How to prepare' }))
+    await waitFor(() =>
+      expect(within(dialog).getByTestId('preparation-steps-loading')).toBeVisible(),
+    )
   },
 }
 
@@ -535,9 +541,14 @@ export const TipsError: Story = {
     },
   },
   play: async () => {
-    await userEvent.click(await body().findByRole('button', { name: 'How to prepare' }))
-    await expect(await body().findByText(/reached this hour's limit/i)).toBeVisible()
-    const retry = body().getByRole('button', { name: 'Retry' })
+    // The 429 comes back at once, so without this the error can render in the
+    // first frame of the dialog's fade-in (HON-1006).
+    const dialog = await findDialog()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'How to prepare' }))
+    await waitFor(() =>
+      expect(within(dialog).getByText(/reached this hour's limit/i)).toBeVisible(),
+    )
+    const retry = within(dialog).getByRole('button', { name: 'Retry' })
     await expect(retry.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
   },
 }
@@ -778,7 +789,7 @@ export const AskAboutStep: Story = {
     const answer = 'Use the Greek yoghurt you have, stirred in off the heat.'
     await userEvent.click(chip(2))
     const line = await within(panelFor(2)).findByText('You asked: What can I substitute here?')
-    await expect(await within(panelFor(2)).findByText(answer)).toBeVisible()
+    await waitFor(() => expect(within(panelFor(2)).getByText(answer)).toBeVisible())
     // The question stays above the answer once it arrives.
     await expect(line).toBeVisible()
     await expect(
@@ -1172,7 +1183,7 @@ export const CompletedHasNoAsk: Story = {
   play: async () => {
     await findDialog()
     await userEvent.click(await body().findByRole('button', { name: 'How to prepare' }))
-    await expect(await body().findByRole('button', { name: tips.steps![0]! })).toBeVisible()
+    await waitFor(() => expect(body().getByRole('button', { name: tips.steps![0]! })).toBeVisible())
     await expect(body().queryByRole('button', { name: /^Ask about step/ })).toBeNull()
   },
 }
