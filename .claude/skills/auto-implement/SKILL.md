@@ -1,6 +1,6 @@
 ---
 name: auto-implement
-description: Fully autonomous implementation cycle for a single Linear issue - finds issue, plans, implements, reviews, fixes, creates PR, addresses feedback, and merges.
+description: "Fully autonomous cycle for one Linear issue, through to merge: plan, implement, review, PR, address feedback, merge. Use only when the user says auto-implement or asks for the full unattended cycle. For 'implement HON-X' use /implement-issue."
 context: inherit
 ---
 
