@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, userEvent, within } from 'storybook/test'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMeal } from '@/stories/fixtures'
 import { assertFocusInDialog, awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
@@ -71,7 +71,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Today's three library meals on the signed-out home page, drawn with the planner card. Each name opens the real cook view in `readOnly` mode: the pre-written steps, the ingredients and nutrition, and none of the controls that write (note, servings, pantry toggles, Ask, Done cooking).",
+          "Today's three library meals on the signed-out home page, drawn with the planner card. A click on a name, or anywhere else on its card, opens the real cook view in `readOnly` mode: the pre-written steps, the ingredients and nutrition, and none of the controls that write (note, servings, pantry toggles, Ask, Done cooking).",
       },
     },
   },
@@ -106,5 +106,26 @@ export const OpensCookView: Story = {
     await assertFocusInDialog()
     await pressEscape()
     await awaitDialogClosed()
+  },
+}
+
+/**
+ * A click anywhere on the card opens its meal, as on the planner card
+ * (HON-1036). The name stays the only button, and the cook view hands focus
+ * back to it on close.
+ */
+export const CardClickOpensCookView: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const name = canvas.getByRole('button', { name: 'Beef bibimbap' })
+    const card = name.closest<HTMLElement>('[data-slot="card"]')
+    await expect(card).not.toBeNull()
+    await userEvent.click(card!)
+    const dialog = await within(document.body).findByRole('dialog')
+    await expect(within(dialog).getByRole('heading', { name: 'Beef bibimbap' })).toBeInTheDocument()
+    await assertFocusInDialog()
+    await pressEscape()
+    await awaitDialogClosed()
+    await waitFor(() => expect(name).toHaveFocus())
   },
 }
