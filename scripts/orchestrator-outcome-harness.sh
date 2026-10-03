@@ -137,7 +137,8 @@
 #     written once, not once per poll. LINEAR_QUEUE_PAGE_SIZE can be lowered
 #     through HARNESS_QUEUE_PAGE_SIZE to model a truncated fetch, and
 #     issue_state_id answers HARNESS_ISSUE_STATE (default In Progress; empty
-#     models a failed read) for a fresh `HON-X:<uuid>` entry.
+#     models a failed read) for a fresh `HON-X:<uuid>` entry. <issues-json> = `-`
+#     reads it from stdin, for fixtures past Linux's 128 KB argv-string cap.
 #
 #   log-once                                       (HON-572, finding 3)
 #     Calls the REAL log() once with MAIN_LOG on a temp file, then reports what
@@ -1144,6 +1145,8 @@ EOF
     LINEAR_QUEUE_PAGE_SIZE="${HARNESS_QUEUE_PAGE_SIZE:-$LINEAR_QUEUE_PAGE_SIZE}"
     issue_state_id() { echo "${HARNESS_ISSUE_STATE-$STATE_IN_PROGRESS}"; }
     trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
+    # A1 = `-` reads the JSON from stdin, as validate-states does (HON-1005).
+    [ "$A1" = "-" ] && A1=$(cat)
     reconcile_gated_issues "$A1"
     reconcile_gated_issues "$A1"
     echo "GATED:$GATED_ISSUES"

@@ -3413,6 +3413,25 @@ describe('orchestrator.sh', () => {
       expect(out).toContain('GATED:HON-940')
     })
 
+    it('survives a gated issue that is followed by megabytes of queue', () => {
+      // HON-1005: awk's `exit` on the first match used to SIGPIPE the printf
+      // feeding it, and the 141 from that `$(…)` assignment under set -e killed
+      // the orchestrator outright. Thousands of nodes after the match keep the
+      // writer busy long past a 64 KB pipe buffer, so the race is lost every run.
+      const ids = Array.from({ length: 20_000 }, (_, i) => 940 + i)
+      const out = stripTimestamps(
+        execFileSync('bash', [harness, 'gated-reconcile', '-', 'HON-940'], {
+          encoding: 'utf8',
+          timeout: 30_000,
+          env: harnessEnv({ HARNESS_QUEUE_PAGE_SIZE: '50000' }),
+          input: response(ids, [940]),
+        }),
+      )
+
+      expect(out).not.toContain('[UNGATE]')
+      expect(out).toContain('GATED:HON-940')
+    })
+
     it('answers each entry on its own', () => {
       const out = reconcile(response([941], [941]), 'HON-940,HON-941,HON-942')
 
