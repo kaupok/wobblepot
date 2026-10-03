@@ -325,6 +325,7 @@
       "questionLabel": "Your question",
       "placeholder": "Ask about this step",
       "equipmentPlaceholder": "Ask about this item",
+      "followUpPlaceholder": "Ask a follow-up",
       "send": "Send",
       "thinking": "Thinking…",
       "youAsked": "You asked: {question}",

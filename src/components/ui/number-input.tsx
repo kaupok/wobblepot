@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 type InheritedInputProps = Omit<
   React.ComponentProps<'input'>,
-  'type' | 'value' | 'onChange' | 'inputMode'
+  'type' | 'value' | 'onChange' | 'inputMode' | 'size'
 >
 
 export interface NumberInputProps extends InheritedInputProps {

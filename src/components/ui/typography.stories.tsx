@@ -88,6 +88,10 @@ export const BodyVariants: Story = {
         Step — the cook view’s steps, Watch out and Tip: 20px, 22px from `lg`, relaxed leading, in
         the foreground colour (HON-932).
       </Body>
+      <Body variant="step-small">
+        Step small — one size below Step (18px, 20px from `lg`), for a line that labels step text:
+        the question above its answer in the cook view (HON-1022).
+      </Body>
     </div>
   ),
 }

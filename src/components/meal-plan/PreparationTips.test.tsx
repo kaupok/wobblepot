@@ -9,6 +9,7 @@ import {
 } from './PreparationTips'
 import type { StructuredTips } from '@/components/meal-plan/types'
 import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+import type { CookQuestionActive } from '@/hooks/use-cook-question'
 
 const sampleTips: StructuredTips = {
   equipment: ['Large pan', 'Cutting board'],
@@ -427,7 +428,7 @@ describe('PreparationSteps cook question', () => {
     expect(ask).not.toHaveBeenCalled()
   })
 
-  it('Send and the chips do nothing while the answer streams in (HON-979)', async () => {
+  it('Send does nothing while the answer streams in, and the chips are gone (HON-979)', async () => {
     const ask = vi.fn()
     render(
       <Harness
@@ -442,11 +443,9 @@ describe('PreparationSteps cook question', () => {
     await userEvent.type(screen.getByRole('textbox'), 'Done yet?')
     const send = screen.getByRole('button', { name: 'Send' })
     await userEvent.click(send)
-    const chip = screen.getByRole('button', { name: "I'm short on time" })
-    await userEvent.click(chip)
 
     expect(send).toHaveAttribute('aria-disabled', 'true')
-    expect(chip).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.queryByRole('button', { name: "I'm short on time" })).toBeNull()
     expect(ask).not.toHaveBeenCalled()
   })
 
@@ -635,6 +634,160 @@ describe('PreparationSteps cook question', () => {
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
   })
 
+  describe('reads in the order things happen (HON-1022)', () => {
+    /** Each element's position in the document, to compare reading order. */
+    const inOrder = (...els: HTMLElement[]) =>
+      els.every(
+        (el, i) =>
+          i === 0 || els[i - 1]!.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+
+    it('before a question: the chips, the field with Send, then Close', async () => {
+      render(<Harness />)
+      await userEvent.click(askButton(1))
+      const p = within(panel(1)!)
+      const chip = p.getByRole('button', { name: "How do I know it's done?" })
+      const field = p.getByRole('textbox')
+      const send = p.getByRole('button', { name: 'Send' })
+      const close = p.getByRole('button', { name: 'Close' })
+      expect(inOrder(chip, field, send, close)).toBe(true)
+      expect(field).toHaveAttribute('placeholder', 'Ask about this step')
+    })
+
+    it('after a question: the question with Edit, the answer, the follow-up field, then Close, with no chips', async () => {
+      const active = { subject: step(0), question: 'No cream, what now?', answer: null }
+      const states: Partial<CookQuestionControls>[] = [
+        { active, isPending: true },
+        { active: { ...active, answer: 'Use the yoghurt you have.' } },
+        { active, error: { message: 'Took too long.', canRetry: true } },
+      ]
+      for (const controls of states) {
+        const { unmount } = render(<Harness controls={controls} />)
+        await userEvent.click(askButton(1))
+        const p = within(panel(1)!)
+        const line = p.getByText('You asked: No cream, what now?')
+        const edit = p.getByRole('button', { name: 'Edit' })
+        const status = p.getByRole('status')
+        const field = p.getByRole('textbox')
+        const close = p.getByRole('button', { name: 'Close' })
+        expect(inOrder(line, edit, status, field, close)).toBe(true)
+        expect(field).toHaveAttribute('placeholder', 'Ask a follow-up')
+        expect(p.queryByRole('button', { name: "How do I know it's done?" })).toBeNull()
+        // Edit sits right after the question, not pushed to the row's end.
+        expect(line.parentElement).not.toHaveClass('flex-1')
+        expect(line.parentElement?.nextElementSibling).toBe(edit)
+        // Close ends the footer row in every state, so it does not move.
+        expect(close.parentElement?.lastElementChild).toBe(close)
+        expect(close).toHaveClass('ml-auto')
+        unmount()
+      }
+    })
+
+    it('shows "Thinking…" and Retry in the footer row, before Close', async () => {
+      const active = { subject: step(0), question: 'Q', answer: null }
+      const { unmount } = render(<Harness controls={{ active, isPending: true }} />)
+      await userEvent.click(askButton(1))
+      const close = screen.getByRole('button', { name: 'Close' })
+      const thinking = within(close.parentElement!).getByText('Thinking…')
+      expect(inOrder(thinking, close)).toBe(true)
+      unmount()
+
+      render(
+        <Harness controls={{ active, error: { message: 'Took too long.', canRetry: true } }} />,
+      )
+      await userEvent.click(askButton(1))
+      const retry = screen.getByRole('button', { name: 'Retry' })
+      expect(retry.parentElement).toBe(screen.getByRole('button', { name: 'Close' }).parentElement)
+    })
+
+    it('sets the question one size below the answer', async () => {
+      render(
+        <Harness
+          controls={{ active: { subject: step(0), question: 'Q', answer: 'Use the yoghurt.' } }}
+        />,
+      )
+      await userEvent.click(askButton(1))
+      expect(screen.getByText('You asked: Q')).toHaveClass('text-base', 'lg:text-lg')
+      expect(screen.getByText('Use the yoghurt.')).toHaveClass('text-lg', 'lg:text-xl')
+    })
+
+    it('gives the chips, the field and Send one size', async () => {
+      render(<Harness />)
+      await userEvent.click(askButton(1))
+      const p = within(panel(1)!)
+      expect(p.getByRole('button', { name: "I'm short on time" })).toHaveAttribute(
+        'data-size',
+        'lg',
+      )
+      expect(p.getByRole('textbox')).toHaveAttribute('data-size', 'lg')
+      expect(p.getByRole('button', { name: 'Send' })).toHaveAttribute('data-size', 'lg')
+    })
+
+    it('a chip moves focus to Close as the chips give way to the question', async () => {
+      // The modal's side with a question that goes out when a chip sends it.
+      function Asking() {
+        const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(null)
+        const [active, setActive] = useState<CookQuestionActive | null>(null)
+        return (
+          <PreparationSteps
+            tips={sampleTips}
+            isLoading={false}
+            error={null}
+            onRetry={vi.fn()}
+            onToggleStep={vi.fn()}
+            cookQuestion={{
+              openSubject,
+              onOpenSubject: setOpenSubject,
+              onClose: () => {
+                setOpenSubject(null)
+                setActive(null)
+              },
+              ask: ({ subject, question }) => setActive({ subject, question, answer: null }),
+              active,
+              previous: null,
+              isPending: active !== null,
+              isStreaming: false,
+              error: null,
+              onRetry: vi.fn(),
+            }}
+          />
+        )
+      }
+      render(<Asking />)
+      await userEvent.click(askButton(2))
+      await userEvent.click(screen.getByRole('button', { name: 'What can I substitute here?' }))
+
+      expect(screen.queryByRole('button', { name: 'What can I substitute here?' })).toBeNull()
+      expect(screen.getByText('You asked: What can I substitute here?')).toBeInTheDocument()
+      expect(document.body).not.toHaveFocus()
+      expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
+
+      // Closing discards the question, so the chips are back on the next open.
+      await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+      await userEvent.click(askButton(2))
+      expect(screen.getByRole('button', { name: 'What can I substitute here?' })).toBeVisible()
+    })
+
+    it('fills the Ask button whose panel is open, and no other', async () => {
+      render(<Harness />)
+      await userEvent.click(askButton(2))
+      expect(askButton(2)).toHaveClass('bg-secondary')
+      expect(askButton(1)).not.toHaveClass('bg-secondary')
+      await userEvent.click(askButton(2))
+      expect(askButton(2)).not.toHaveClass('bg-secondary')
+    })
+
+    it('ends the steps’ Ask buttons and panel at the column’s right edge, as in “You’ll need”', async () => {
+      render(<Harness />)
+      await userEvent.click(askButton(1))
+      // The row bleeds left past the numerals, never right.
+      const list = askButton(1).closest('ol')!
+      expect(list.parentElement).toHaveClass('-ml-3')
+      expect(list.parentElement).not.toHaveClass('-mx-3')
+      expect(panel(1)).not.toHaveClass('pr-3')
+    })
+  })
+
   it('Close returns focus to that step’s Ask button', async () => {
     render(<Harness />)
     await userEvent.click(askButton(3))
@@ -671,8 +824,8 @@ describe('PreparationSteps cook question', () => {
       const active = { subject: step(0), question: "I'm short on time", answer: null }
       const { rerender } = render(<Harness controls={{ active, isPending: true }} />)
       await userEvent.click(askButton(1))
-      const chip = screen.getByRole('button', { name: "I'm short on time" })
-      chip.focus()
+      const close = screen.getByRole('button', { name: 'Close' })
+      close.focus()
       // "Thinking…" does not scroll: only the open did.
       expect(scrolled()).toEqual([panel(1)])
 
@@ -680,8 +833,8 @@ describe('PreparationSteps cook question', () => {
 
       expect(scrolled()).toEqual([panel(1), result()])
       expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest', behavior: 'smooth' })
-      expect(result()).toContainElement(screen.getByRole('button', { name: 'Close' }))
-      expect(chip).toHaveFocus()
+      expect(result()).toContainElement(close)
+      expect(close).toHaveFocus()
     })
 
     it('scrolls at the first words and when the stream closes, not at every chunk (HON-979)', async () => {
