@@ -10,7 +10,10 @@ interface KidFriendlyBadgeProps {
    * and in the tooltip.
    */
   compact?: boolean
-  /** `lg` in the cook view, where text stays at 16px or above (HON-932) */
+  /**
+   * `lg` in the cook view, where text stays at 16px or above (HON-932): the
+   * badge and, when `compact`, its tooltip (HON-1023)
+   */
   size?: 'default' | 'lg'
 }
 
@@ -43,7 +46,7 @@ export function KidFriendlyBadge({ compact = false, size = 'default' }: KidFrien
           <span className="sr-only">{label}</span>
         </Badge>
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent size={size}>{label}</TooltipContent>
     </Tooltip>
   )
 }

@@ -57,6 +57,23 @@ export const Compact: Story = {
   },
 }
 
+/**
+ * The cook view's form (HON-1023): the icon pill at `lg`, with the `lg`
+ * tooltip, so no text in the view is below 16px.
+ */
+export const CompactLarge: Story = {
+  args: { compact: true, size: 'lg' },
+  play: async ({ canvasElement }) => {
+    const badge = canvasElement.querySelector<HTMLElement>('[data-slot="badge"]')!
+    await userEvent.hover(badge)
+    const tooltip = await within(document.body).findByRole('tooltip')
+    await expect(tooltip).toHaveTextContent('Kid-friendly')
+    const content = tooltip.closest<HTMLElement>('[data-slot="tooltip-content"]') ?? tooltip
+    await expect(getComputedStyle(content).fontSize).toBe('16px')
+    await userEvent.unhover(badge)
+  },
+}
+
 /** Between the slot and protein badges, as on the recipe library card: the same height without any text of its own. */
 export const CompactInBadgeRow: Story = {
   args: { compact: true },
