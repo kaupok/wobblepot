@@ -28,8 +28,7 @@ import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
 import { mealHueStyle, mealTintHue } from './MealImageCard'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
-import type { MealStatus } from './StatusSelect'
-import type { MealData, PantryIngredient, StructuredTips } from './types'
+import type { MealData, MealStatus, PantryIngredient, StructuredTips } from './types'
 
 export interface MealDetailModalHandle {
   /**

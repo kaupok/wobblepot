@@ -153,7 +153,6 @@ export function TimelineView({
         dateLabel,
         isToday,
         isTomorrow,
-        isPast: false,
         entries: dayEntries,
         emptySlots,
       })

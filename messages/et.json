@@ -214,9 +214,6 @@
       "directionUp": "pöial üles",
       "directionDown": "pöial alla"
     },
-    "status": {
-      "ariaLabel": "Toidu olek"
-    },
     "alternative": {
       "select": "Vali",
       "selecting": "Valin…",
@@ -398,7 +395,12 @@
     "title": "Möödunud toidud",
     "description": "Viimased 7 päeva. Märgi iga toit valmistatuks või vahele jäetuks.",
     "empty": "Viimasel 7 päeval polnud midagi plaanis.",
-    "backToPlan": "Tagasi toiduplaani juurde"
+    "backToPlan": "Tagasi toiduplaani juurde",
+    "row": {
+      "cooked": "Tehtud",
+      "skipped": "Vahele jäetud",
+      "undo": "Võta tagasi: {mealName}"
+    }
   },
   "recipes": {
     "mealCount": "{count, plural, =0 {Retsepte pole} one {# retsept} other {# retsepti}}",

@@ -58,7 +58,10 @@ const membership = {
   },
 }
 
-async function mockLoaders(entries: { id: string }[], planId: string | null = 'plan-1') {
+async function mockLoaders(
+  entries: { id: string; meal: object | null }[],
+  planId: string | null = 'plan-1',
+) {
   const { loadPlanEntries } = await import('@/lib/meal-planning/load-plan-entries')
   const { loadPantry } = await import('@/lib/meal-planning/load-pantry')
   vi.mocked(loadPlanEntries).mockResolvedValue({ entries, planId } as never)
@@ -89,7 +92,7 @@ describe('PastMealsPage', () => {
   })
 
   it('loads the seven days before the household’s today, today excluded', async () => {
-    await mockLoaders([{ id: 'e1' }])
+    await mockLoaders([{ id: 'e1', meal: {} }])
     const { loadPlanEntries } = await import('@/lib/meal-planning/load-plan-entries')
 
     render(await PastMealsPage())
@@ -103,7 +106,10 @@ describe('PastMealsPage', () => {
   })
 
   it('titles the page and renders the list', async () => {
-    await mockLoaders([{ id: 'e1' }, { id: 'e2' }])
+    await mockLoaders([
+      { id: 'e1', meal: {} },
+      { id: 'e2', meal: {} },
+    ])
 
     render(await PastMealsPage())
 
@@ -123,6 +129,26 @@ describe('PastMealsPage', () => {
     expect(screen.getByText('Nothing was planned in the last 7 days.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to the meal plan' })).toHaveAttribute('href', '/')
     expect(screen.queryByTestId('past-meals-list')).not.toBeInTheDocument()
+  })
+
+  it('shows the empty state when every past entry is a note without a meal', async () => {
+    await mockLoaders([{ id: 'e1', meal: null }])
+
+    render(await PastMealsPage())
+
+    expect(screen.getByText('Nothing was planned in the last 7 days.')).toBeInTheDocument()
+    expect(screen.queryByTestId('past-meals-list')).not.toBeInTheDocument()
+  })
+
+  it('hands the list only the entries with a meal', async () => {
+    await mockLoaders([
+      { id: 'e1', meal: {} },
+      { id: 'e2', meal: null },
+    ])
+
+    render(await PastMealsPage())
+
+    expect(screen.getByTestId('past-meals-list')).toHaveAttribute('data-entries', 'e1')
   })
 
   it('shows the empty state for a household with no plan yet', async () => {

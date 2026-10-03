@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Body, Heading } from '@/components/ui/typography'
 import { useRouter } from 'next/navigation'
-import { StatusSelect, type MealStatus } from './StatusSelect'
 import { MealSelectorModal } from './MealSelectorModal'
 import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
 import { PantryDeductionModal } from './PantryDeductionModal'
@@ -38,6 +37,7 @@ import { ProteinBadge } from './ProteinBadge'
 import type {
   EntryRating,
   MealData,
+  MealStatus,
   PantryIngredient,
   PantryItemFull,
   StructuredTips,
@@ -45,7 +45,7 @@ import type {
 import type { MealType } from '@/generated/prisma/enums'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { useMealImageFields } from '@/hooks/use-meal-image'
-import { track, type Source } from '@/lib/analytics'
+import { useEntryStatus } from './use-entry-status'
 import { cn } from '@/lib/utils'
 
 /**
@@ -64,7 +64,6 @@ interface MealCardProps {
   rating?: EntryRating | null
   householdSize: number
   isReadOnly?: boolean
-  isPast?: boolean
   pantryIngredients?: PantryIngredient[]
   pantryItems?: PantryItemFull[]
   note?: string | null
@@ -87,7 +86,6 @@ export function MealCard({
   rating: initialRating,
   householdSize,
   isReadOnly,
-  isPast,
   pantryIngredients = [],
   pantryItems = [],
   note: initialNote,
@@ -100,7 +98,6 @@ export function MealCard({
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
   const tCard = useTranslations('meal-plan.card')
-  const [status, setStatus] = useState<MealStatus>(initialStatus)
   const [rating, setRating] = useState<EntryRating | null>(initialRating ?? null)
   const [showRatingPrompt, setShowRatingPrompt] = useState(false)
   const [note, setNote] = useState<string | null>(initialNote ?? null)
@@ -109,15 +106,10 @@ export function MealCard({
   )
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false)
-  const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false)
   const [isNoteEditing, setIsNoteEditing] = useState(false)
   // Set when Note is chosen from the menu, read once as the menu closes.
   const noteRequestedRef = useRef(false)
   const noteEditorRef = useRef<NoteEditorHandle>(null)
-  // Set when a deduction confirmed on this card went through, so a revert and
-  // re-complete before `router.refresh()` lands does not preview it again.
-  const [chargedHere, setChargedHere] = useState(false)
-  const isPantryCharged = pantryDeducted || chargedHere
 
   const effectiveServings = servingOverride ?? householdSize
   const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
@@ -127,11 +119,28 @@ export function MealCard({
   // the completion flow it can start is over (CLAUDE.md → Focus management).
   const mealNameButtonRef = useRef<HTMLButtonElement>(null)
   const mealNameId = useId()
-  // Where a completion started, read when the deduction is confirmed: the
-  // status select on a past card, or "Done cooking" in the cook view.
-  const completionSourceRef = useRef<Source>('meal_card')
   // The tint follows an image generated from the detail modal, not only the payload.
   const tintMeal = useMealImageFields(meal)
+
+  const {
+    status,
+    isUpdating,
+    isDeductionModalOpen,
+    setIsDeductionModalOpen,
+    handleStatusChange,
+    handleDeductionConfirm,
+  } = useEntryStatus({
+    planId,
+    entryId,
+    meal,
+    initialStatus,
+    pantryDeducted,
+    source: 'meal_card',
+    // The server dropped the entry's cached tips on the way out of
+    // `completed`; the cook view's copy has to go with them.
+    onLeaveCompleted: () => detailModalRef.current?.dropTips(),
+    onCompleted: () => setShowRatingPrompt(true),
+  })
 
   // The PATCH that repoints this entry also nulls its cached `preparationTips`
   // and resets its `servingOverride` server-side (the swap branch of
@@ -189,66 +198,6 @@ export function MealCard({
   // charged for them, and "actually, let's cook something" is a real path.
   const canSwapMeal = status !== 'completed'
 
-  const statusMutation = useMutation({
-    mutationFn: async ({
-      newStatus,
-      deductPantry = false,
-    }: {
-      newStatus: MealStatus
-      deductPantry?: boolean
-      source?: Source
-    }) => {
-      const data = await apiFetch<{ pantryDeducted?: boolean }>(
-        `/api/meal-plans/${planId}/entries/${entryId}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus, deductPantry }),
-        },
-      )
-      return { newStatus, deductPantry, pantryDeducted: data.pantryDeducted === true }
-    },
-    onMutate: async ({ newStatus }) => {
-      const previousStatus = status
-      // Optimistic update
-      setStatus(newStatus)
-      return { previousStatus }
-    },
-    onSuccess: ({ newStatus }, { source = 'meal_card' }, context) => {
-      // The server dropped the entry's cached tips on the way out of
-      // `completed`; the cook view's copy has to go with them.
-      if (context?.previousStatus === 'completed' && newStatus !== 'completed') {
-        detailModalRef.current?.dropTips()
-      }
-
-      // Fire status-transition analytics from `onSuccess` so we don't track
-      // optimistic updates that the server later rejected (the optimistic
-      // state is reverted in `onError`). `meal` is non-null on this code
-      // path because the empty-slot case returns early above.
-      if (!meal) return
-      if (newStatus === 'completed') {
-        void track('meal_plan:meal_completed', {
-          plan_id: planId,
-          meal_id: meal.id,
-          source,
-        })
-      } else if (newStatus === 'skipped') {
-        void track('meal_plan:meal_skipped', {
-          plan_id: planId,
-          meal_id: meal.id,
-          source,
-        })
-      }
-    },
-    onError: (_err, _vars, context) => {
-      // Revert on error
-      if (context?.previousStatus) {
-        setStatus(context.previousStatus)
-      }
-      toast.error(tCard('statusUpdateFailed'))
-    },
-  })
-
   const clearMutation = useMutation({
     mutationFn: () =>
       apiFetch<{ success: true }>(`/api/meal-plans/${planId}/entries/${entryId}`, {
@@ -264,49 +213,6 @@ export function MealCard({
       toast.error(tCard('clearFailed'))
     },
   })
-
-  function handleStatusChange(newStatus: MealStatus, source: Source = 'meal_card') {
-    if (newStatus === 'completed' && meal) {
-      completionSourceRef.current = source
-      // The server charges an entry at most once — reverting does not restock,
-      // and nothing clears the marker (HON-651). Previewing a deduction here
-      // would ask the user to confirm a change that never happens, so an
-      // already-charged entry completes directly.
-      if (isPantryCharged) {
-        statusMutation.mutate(
-          { newStatus, source },
-          {
-            onSuccess: () => {
-              setShowRatingPrompt(true)
-            },
-          },
-        )
-        return
-      }
-
-      // Intercept "completed" status to show deduction modal
-      setIsDeductionModalOpen(true)
-      return
-    }
-
-    // For other statuses, update directly
-    statusMutation.mutate({ newStatus, source })
-  }
-
-  async function handleDeductionConfirm() {
-    statusMutation.mutate(
-      { newStatus: 'completed', deductPantry: true, source: completionSourceRef.current },
-      {
-        onSuccess: ({ pantryDeducted: charged }) => {
-          if (charged) setChargedHere(true)
-          setIsDeductionModalOpen(false)
-          setShowRatingPrompt(true)
-          // Refresh to update pantry data
-          router.refresh()
-        },
-      },
-    )
-  }
 
   function handleClear() {
     clearMutation.mutate()
@@ -374,9 +280,9 @@ export function MealCard({
     moreActionsTriggerRef.current?.focus()
   }, [isNoteEditing])
 
-  // The deduction dialog opens from state too. Whichever way it was reached
-  // — the status select or the cook view's "Done cooking" — focus comes back
-  // to the meal's name, which is still on the card either way.
+  // The deduction dialog opens from state too. It is reached from the cook
+  // view's "Done cooking", which has closed by then, so focus comes back to
+  // the meal's name, which opened the view.
   function focusMealNameOnClose(event: Event) {
     event.preventDefault()
     mealNameButtonRef.current?.focus()
@@ -387,9 +293,8 @@ export function MealCard({
   // target and accessible name, so the card takes no role, tab stop or keys.
   // Skipped for a click on a control (the name opens the view itself), in the
   // open note editor, and for a click that ends a text selection. React bubbles
-  // events out of portals along its own tree, so a click in the ⋯ menu or the
-  // status select's list reaches this handler too; those are outside the
-  // card's DOM, which the first check catches. The menu is not modal, so a
+  // events out of portals along its own tree, so a click in the ⋯ menu
+  // reaches this handler too; that is outside the card's DOM, which the first check catches. The menu is not modal, so a
   // press outside it closes it and still clicks the card: that press only
   // closes the menu.
   const pressClosesMenuRef = useRef(false)
@@ -402,8 +307,8 @@ export function MealCard({
     const target = event.target
     if (!(target instanceof Element) || !event.currentTarget.contains(target)) return
     if (target.closest(CARD_CLICK_IGNORE)) return
-    // The open editor's slip belongs to the editor. A read-only slip, on a
-    // past or read-only card, is part of the card.
+    // The open editor's slip belongs to the editor. A read-only card's slip is
+    // part of the card.
     if (isNoteEditing && target.closest('[data-slot="meal-image-overlay"] *')) return
     if (window.getSelection()?.toString()) return
     // The press left focus on the page body, and the cook view hands focus
@@ -413,15 +318,14 @@ export function MealCard({
     setIsDetailModalOpen(true)
   }
 
-  const isUpdating = statusMutation.isPending
   const isClearing = clearMutation.isPending
 
   // The menu sits at the right end of the first row; the image ends before
   // it and the title wraps before the image (HON-749).
-  const hasTrailingActions = !isReadOnly && !isPast
+  const hasTrailingActions = !isReadOnly
 
   if (!meal) {
-    const canEdit = !isReadOnly && !isPast
+    const canEdit = !isReadOnly
 
     return (
       <>
@@ -489,8 +393,8 @@ export function MealCard({
         onPointerDownCapture={handleCardPointerDown}
         onClick={handleCardClick}
         // The head is every row from the slot badge down to the badges; the
-        // plate runs its height. The rows below it — a past card's status
-        // control and rating prompt — run across the width, so they are the
+        // plate runs its height. The rows below it — the rating prompt
+        // and the inline thumbs — run across the width, so they are the
         // card's children and sit on the plain tint below the plate (HON-755,
         // HON-927). A planned card has none, and its plate runs the card's
         // full height. The note is not a row: it lies over the head's
@@ -553,8 +457,8 @@ export function MealCard({
                         {tCard('note')}
                       </DropdownMenuItem>
                       {/* "Done cooking" can complete today's or a future
-                          day's meal, and the status select is only on past
-                          cards, so a completion here needs its own way back. */}
+                          day's meal, so a completion here needs its own way
+                          back. Past meals have their own page (HON-1018). */}
                       {status === 'completed' && (
                         <DropdownMenuItem
                           onSelect={() => handleStatusChange('planned')}
@@ -632,7 +536,7 @@ export function MealCard({
             {/* Capped when the note's slip lies beside it, so a second badge
                 wraps instead of running under the slip. */}
             <div className={cn('flex flex-wrap items-center gap-1', MEAL_IMAGE_BADGE_ROW_WIDTH)}>
-              {!isPast && shouldShowAvailability && availability && (
+              {shouldShowAvailability && availability && (
                 <AvailabilityIndicator availability={availability} />
               )}
               {hasServingOverride && (
@@ -645,7 +549,7 @@ export function MealCard({
           </CardHeader>
         }
         overlay={
-          !isReadOnly && !isPast
+          !isReadOnly
             ? // Rendered only when there is a note to show or edit: an empty
               // controlled editor renders nothing anyway.
               (!!note || isNoteEditing) && (
@@ -678,11 +582,6 @@ export function MealCard({
         overlayWide={isNoteEditing}
         overlayPlacement={notePlacement}
       >
-        {!isReadOnly && isPast && (
-          <CardContent className="px-4 pb-2">
-            <StatusSelect value={status} onChange={handleStatusChange} disabled={isUpdating} />
-          </CardContent>
-        )}
         {status === 'completed' && showRatingPrompt && (
           <CardContent className="px-4 pb-2">
             <MealRatingPrompt
@@ -724,8 +623,8 @@ export function MealCard({
         onServingOverrideChange={setServingOverride}
         initialTips={preparationTips}
         // Steps generate on open only for a meal somebody is about to cook.
-        generateOnOpen={status === 'planned' && !isPast && !isReadOnly}
-        // Cooking yesterday's meal late is allowed: past is fine, read-only is not.
+        generateOnOpen={status === 'planned' && !isReadOnly}
+        // A read-only card cannot be marked cooked.
         onDoneCooking={
           status === 'planned' && !isReadOnly
             ? () => handleStatusChange('completed', 'cook_view')

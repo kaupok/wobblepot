@@ -39,7 +39,7 @@ describe('buildPastDays', () => {
     const days = buildPastDays(entries, today, 'en')
 
     expect(days.map((d) => d.date)).toEqual(['2026-04-14', '2026-04-13', '2026-04-12'])
-    expect(days.every((d) => d.isPast && !d.isToday && !d.isTomorrow)).toBe(true)
+    expect(days.every((d) => !d.isToday && !d.isTomorrow)).toBe(true)
     expect(days.every((d) => d.emptySlots.length === 0)).toBe(true)
   })
 

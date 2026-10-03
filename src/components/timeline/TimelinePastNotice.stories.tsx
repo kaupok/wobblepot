@@ -23,6 +23,10 @@ export const SeveralToMark: Story = {
   args: { count: 3 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    await expect(canvasElement.querySelector('[data-slot="callout"]')).toHaveAttribute(
+      'data-tone',
+      'info',
+    )
     await expect(canvas.getByText(/3 past meals are not marked yet/)).toBeInTheDocument()
     await expect(canvas.getByRole('link', { name: 'Mark past meals' })).toHaveAttribute(
       'href',
