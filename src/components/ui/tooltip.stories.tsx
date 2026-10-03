@@ -12,7 +12,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Portal-based tooltip. Toggle the theme toolbar to verify content renders correctly in dark mode.',
+          'A label for a control on hover and keyboard focus. The same surface as `Popover` and so as `InfoTip`: popover tokens, border, `shadow-md`, no arrow. Its trigger must be focusable, or the label is a mouse hint only. It never opens on tap, so an explanation a phone has to reach is an `InfoTip`. Never the native `title` attribute: the browser draws that outside the theme. Toggle the theme toolbar to verify content renders correctly in dark mode.',
       },
     },
   },

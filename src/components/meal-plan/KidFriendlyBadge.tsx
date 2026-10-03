@@ -1,6 +1,7 @@
 import { Baby } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface KidFriendlyBadgeProps {
   /**
@@ -21,10 +22,28 @@ interface KidFriendlyBadgeProps {
 export function KidFriendlyBadge({ compact = false, size = 'default' }: KidFriendlyBadgeProps) {
   const t = useTranslations('meal-plan.detail')
   const label = t('kidFriendly')
+  if (!compact) {
+    return (
+      <Badge variant="secondary" size={size}>
+        <Baby aria-hidden="true" />
+        {label}
+      </Badge>
+    )
+  }
+  // The app's `Tooltip`, not the native `title`: the browser's bubble is the
+  // one surface in the app the theme cannot style. The badge is not focusable,
+  // so the tooltip is a mouse hint; the `sr-only` label is the name. The
+  // explicit `data-slot` keeps the badge a badge: the trigger's own slot wins
+  // through `asChild` otherwise, and the badge-row stories query the slot.
   return (
-    <Badge variant="secondary" size={size} title={compact ? label : undefined}>
-      <Baby aria-hidden="true" />
-      {compact ? <span className="sr-only">{label}</span> : label}
-    </Badge>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="secondary" size={size} data-slot="badge">
+          <Baby aria-hidden="true" />
+          <span className="sr-only">{label}</span>
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   )
 }

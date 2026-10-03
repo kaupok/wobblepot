@@ -88,9 +88,7 @@ export function CustomShoppingItem({
                 <Unlink className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
-              <p>{tShopping('unlinkTooltip')}</p>
-            </TooltipContent>
+            <TooltipContent>{tShopping('unlinkTooltip')}</TooltipContent>
           </Tooltip>
         )}
         <Tooltip>
@@ -104,9 +102,7 @@ export function CustomShoppingItem({
               <Trash2 className="size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
-            <p>{tShopping('removeTooltip')}</p>
-          </TooltipContent>
+          <TooltipContent>{tShopping('removeTooltip')}</TooltipContent>
         </Tooltip>
       </div>
     </div>
