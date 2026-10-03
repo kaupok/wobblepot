@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { JudgeV2Findings } from './judge'
 import type { MealImageMeal } from './prompt'
+import { vesselSchema, type Vessel } from './vessel'
 
 // Never call the real APIs: both SDK entry points are mocked, and the providers
 // are stubs that only record the model id they were asked for.
@@ -25,8 +26,27 @@ vi.mock('@ai-sdk/anthropic', () => ({
   createAnthropic: vi.fn(() => (id: string) => ({ languageModelId: id })),
 }))
 
+// The fit is sharp over real pixels, tested in footprint.test.ts; here it is a
+// stub that returns the bytes as they are unless a test says otherwise.
+vi.mock('./footprint', () => ({
+  fitFootprint: vi.fn(async (bytes: Uint8Array, mediaType: string, vessel: Vessel) => ({
+    bytes,
+    mediaType,
+    fit: {
+      vessel,
+      measuredWidth: 0.58,
+      targetWidth: 0.58,
+      scale: 1,
+      action: 'keep',
+      reason: 'already at the target width',
+    },
+  })),
+}))
+
 import { APICallError, generateImage, generateObject, RetryError } from 'ai'
+import { fitFootprint } from './footprint'
 import {
+  classifyVessel,
   generateMealImage,
   IMAGE_FALLBACK_USD,
   MealImageUnavailableError,
@@ -38,6 +58,7 @@ import {
 
 const mockGenerateImage = vi.mocked(generateImage)
 const mockGenerateObject = vi.mocked(generateObject)
+const mockFit = vi.mocked(fitFootprint)
 
 const meal: MealImageMeal = {
   name: 'Greek Salad with Feta',
@@ -71,8 +92,45 @@ const judgeResult = (object: JudgeV2Findings) =>
     },
   }) as never
 
+const vesselResult = (vessel: string = 'plate') =>
+  ({
+    object: { vessel, reason: 'a shallow dish with a wide rim' },
+    usage: {
+      inputTokens: 2_500,
+      outputTokens: 40,
+      inputTokenDetails: { noCacheTokens: 2_500, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    },
+  }) as never
+
 const IMAGE_USD = (110 * 5 + 1_372 * 30) / 1_000_000
 const JUDGE_USD = (2_000 * 2 + 500 * 10) / 1_000_000
+const VESSEL_USD = (2_500 * 2 + 40 * 10) / 1_000_000
+
+type ObjectCall = { schema: unknown }
+const isVesselCall = (call: unknown[]) => (call[0] as ObjectCall).schema === vesselSchema
+
+/**
+ * `generateObject` serves two callers: the judge (answers in order, the last
+ * one repeating) and the vessel call (`vessel`, a result or an error).
+ */
+function answers(
+  judge: Array<JudgeV2Findings | Error>,
+  vessel: string | Error | undefined = 'plate',
+) {
+  let i = 0
+  mockGenerateObject.mockImplementation(async (opts) => {
+    if ((opts as ObjectCall).schema === vesselSchema) {
+      if (vessel instanceof Error) throw vessel
+      return vesselResult(vessel)
+    }
+    const a = judge[Math.min(i++, judge.length - 1)]
+    if (a instanceof Error) throw a
+    return judgeResult(a as JudgeV2Findings)
+  })
+}
+
+const judgeCalls = () => mockGenerateObject.mock.calls.filter((c) => !isVesselCall(c)).length
+const vesselCalls = () => mockGenerateObject.mock.calls.filter(isVesselCall).length
 
 describe('generateMealImage', () => {
   beforeEach(() => {
@@ -88,7 +146,7 @@ describe('generateMealImage', () => {
 
   it('generates once and keeps an image that passes the judge', async () => {
     mockGenerateImage.mockResolvedValue(imageResult([7, 8]))
-    mockGenerateObject.mockResolvedValue(judgeResult(clean))
+    answers([clean])
 
     const result = await generateMealImage(meal)
 
@@ -105,8 +163,10 @@ describe('generateMealImage', () => {
       bytes: new Uint8Array([7, 8]),
       mediaType: 'image/png',
       attempts: 1,
-      totalUsd: IMAGE_USD + JUDGE_USD,
+      totalUsd: IMAGE_USD + JUDGE_USD + VESSEL_USD,
       verdict: expect.objectContaining({ pass: true, strictPass: true }),
+      vessel: 'plate',
+      fit: expect.objectContaining({ vessel: 'plate', action: 'keep' }),
     })
   })
 
@@ -114,14 +174,12 @@ describe('generateMealImage', () => {
     mockGenerateImage
       .mockResolvedValueOnce(imageResult([1]))
       .mockResolvedValueOnce(imageResult([2]))
-    mockGenerateObject
-      .mockResolvedValueOnce(judgeResult({ ...clean, extraIngredients: ['olives'] }))
-      .mockResolvedValueOnce(judgeResult(clean))
+    answers([{ ...clean, extraIngredients: ['olives'] }, clean])
 
     const result = await generateMealImage(meal)
 
     expect(mockGenerateImage).toHaveBeenCalledTimes(2)
-    expect(mockGenerateObject).toHaveBeenCalledTimes(2)
+    expect(judgeCalls()).toBe(2)
     expect(result.attempts).toBe(2)
     expect(result.bytes).toEqual(new Uint8Array([2]))
     // The verdict belongs to the image returned, not the rejected first one.
@@ -130,9 +188,7 @@ describe('generateMealImage', () => {
 
   it('regenerates on props beside the dish too', async () => {
     mockGenerateImage.mockResolvedValue(imageResult())
-    mockGenerateObject
-      .mockResolvedValueOnce(judgeResult({ ...clean, propsOrCookware: ['cutting board'] }))
-      .mockResolvedValueOnce(judgeResult(clean))
+    answers([{ ...clean, propsOrCookware: ['cutting board'] }, clean])
 
     await generateMealImage(meal)
 
@@ -141,9 +197,7 @@ describe('generateMealImage', () => {
 
   it('does not regenerate on a minor-only finding', async () => {
     mockGenerateImage.mockResolvedValue(imageResult())
-    mockGenerateObject.mockResolvedValue(
-      judgeResult({ ...clean, missingIngredients: ['tomato'], portion: 'several-servings' }),
-    )
+    answers([{ ...clean, missingIngredients: ['tomato'], portion: 'several-servings' }])
 
     const result = await generateMealImage(meal)
 
@@ -153,9 +207,7 @@ describe('generateMealImage', () => {
 
   it('does not regenerate when the only extra names a listed ingredient', async () => {
     mockGenerateImage.mockResolvedValue(imageResult())
-    mockGenerateObject.mockResolvedValue(
-      judgeResult({ ...clean, extraIngredients: ['crumbled feta'] }),
-    )
+    answers([{ ...clean, extraIngredients: ['crumbled feta'] }])
 
     await generateMealImage(meal)
 
@@ -166,7 +218,7 @@ describe('generateMealImage', () => {
     mockGenerateImage
       .mockResolvedValueOnce(imageResult([1]))
       .mockResolvedValueOnce(imageResult([2]))
-    mockGenerateObject.mockResolvedValue(judgeResult({ ...clean, extraIngredients: ['olives'] }))
+    answers([{ ...clean, extraIngredients: ['olives'] }])
 
     const result = await generateMealImage(meal, { mealId: 'meal-1' })
 
@@ -177,15 +229,13 @@ describe('generateMealImage', () => {
 
   it('logs the raw findings beside the filtered ones', async () => {
     mockGenerateImage.mockResolvedValue(imageResult())
-    mockGenerateObject.mockResolvedValue(
-      judgeResult({ ...clean, extraIngredients: ['crumbled feta'] }),
-    )
+    answers([{ ...clean, extraIngredients: ['crumbled feta'] }])
 
     await generateMealImage(meal, { mealId: 'meal-1' })
 
-    const [label, payload] = vi.mocked(console.info).mock.calls[0]!
-    expect(label).toBe('[meal-image] judge')
-    expect(JSON.parse(payload as string)).toMatchObject({
+    const judgeLog = vi.mocked(console.info).mock.calls.find(([l]) => l === '[meal-image] judge')
+    expect(judgeLog).toBeDefined()
+    expect(JSON.parse(judgeLog![1] as string)).toMatchObject({
       mealId: 'meal-1',
       attempt: 1,
       pass: true,
@@ -194,14 +244,14 @@ describe('generateMealImage', () => {
     })
   })
 
-  it('reports the image call and the judge call as separate usage rows', async () => {
+  it('reports the image, the judge and the vessel call as separate usage rows', async () => {
     mockGenerateImage.mockResolvedValue(imageResult())
-    mockGenerateObject.mockResolvedValue(judgeResult(clean))
+    answers([clean])
     const onUsage = vi.fn()
 
     await generateMealImage(meal, { onUsage })
 
-    expect(onUsage).toHaveBeenCalledTimes(2)
+    expect(onUsage).toHaveBeenCalledTimes(3)
     expect(onUsage).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -213,12 +263,20 @@ describe('generateMealImage', () => {
         durationMs: expect.any(Number),
       }),
     )
-    expect(onUsage).toHaveBeenNthCalledWith(
-      2,
+    // The judge and the vessel call run side by side, so their order is not fixed.
+    expect(onUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'claude-sonnet-5-5',
         inputTokens: 2_000,
         outputTokens: 500,
+        durationMs: expect.any(Number),
+      }),
+    )
+    expect(onUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'claude-sonnet-5-5',
+        inputTokens: 2_500,
+        outputTokens: 40,
         durationMs: expect.any(Number),
       }),
     )
@@ -228,7 +286,7 @@ describe('generateMealImage', () => {
     mockGenerateImage.mockResolvedValue(
       imageResult([1], { inputTokens: undefined, outputTokens: undefined } as never),
     )
-    mockGenerateObject.mockResolvedValue(judgeResult(clean))
+    answers([clean])
     const onUsage = vi.fn()
 
     const result = await generateMealImage(meal, { onUsage })
@@ -237,22 +295,23 @@ describe('generateMealImage', () => {
       1,
       expect.objectContaining({ usageMissing: true, fallbackCostUsd: IMAGE_FALLBACK_USD }),
     )
-    expect(result.totalUsd).toBeCloseTo(IMAGE_FALLBACK_USD + JUDGE_USD)
+    expect(result.totalUsd).toBeCloseTo(IMAGE_FALLBACK_USD + JUDGE_USD + VESSEL_USD)
   })
 
   it('keeps the image when the judge call fails', async () => {
     mockGenerateImage.mockResolvedValue(imageResult([3]))
-    mockGenerateObject.mockRejectedValue(new Error('overloaded'))
+    answers([new Error('overloaded')])
 
     const result = await generateMealImage(meal)
 
     expect(result.bytes).toEqual(new Uint8Array([3]))
+    expect(result.verdict).toBeNull()
     expect(mockGenerateImage).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the image when the judge runs out of budget', async () => {
     mockGenerateImage.mockResolvedValue(imageResult([4]))
-    mockGenerateObject.mockRejectedValue(Object.assign(new Error('t'), { name: 'TimeoutError' }))
+    answers([Object.assign(new Error('t'), { name: 'TimeoutError' })])
 
     const result = await generateMealImage(meal)
 
@@ -263,7 +322,7 @@ describe('generateMealImage', () => {
     mockGenerateImage
       .mockResolvedValueOnce(imageResult([1]))
       .mockRejectedValueOnce(Object.assign(new Error('t'), { name: 'TimeoutError' }))
-    mockGenerateObject.mockResolvedValue(judgeResult({ ...clean, extraIngredients: ['olives'] }))
+    answers([{ ...clean, extraIngredients: ['olives'] }])
 
     const result = await generateMealImage(meal)
 
@@ -275,7 +334,7 @@ describe('generateMealImage', () => {
     mockGenerateImage
       .mockResolvedValueOnce(imageResult([1]))
       .mockRejectedValueOnce(new Error('content policy'))
-    mockGenerateObject.mockResolvedValue(judgeResult({ ...clean, extraIngredients: ['olives'] }))
+    answers([{ ...clean, extraIngredients: ['olives'] }])
 
     const result = await generateMealImage(meal)
 
@@ -294,7 +353,7 @@ describe('generateMealImage', () => {
       now.mockReturnValue(30_000)
       return imageResult([1])
     })
-    mockGenerateObject.mockResolvedValue(judgeResult({ ...clean, extraIngredients: ['olives'] }))
+    answers([{ ...clean, extraIngredients: ['olives'] }])
 
     const result = await generateMealImage(meal, { budgetMs: 30_000 + RETRY_MIN_REMAINING_MS - 1 })
 
@@ -304,28 +363,162 @@ describe('generateMealImage', () => {
 
   it("judges once and never regenerates in 'report' mode", async () => {
     mockGenerateImage.mockResolvedValue(imageResult())
-    mockGenerateObject.mockResolvedValue(judgeResult({ ...clean, extraIngredients: ['olives'] }))
+    answers([{ ...clean, extraIngredients: ['olives'] }])
 
     const result = await generateMealImage(meal, { judge: 'report' })
 
     expect(mockGenerateImage).toHaveBeenCalledTimes(1)
-    expect(mockGenerateObject).toHaveBeenCalledTimes(1)
+    expect(judgeCalls()).toBe(1)
     expect(result.attempts).toBe(1)
     expect(result.verdict).toMatchObject({
       pass: false,
       filtered: { extraIngredients: ['olives'] },
     })
-    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + JUDGE_USD)
+    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + JUDGE_USD + VESSEL_USD)
   })
 
-  it("makes no judge call in 'off' mode", async () => {
+  it("makes no judge call in 'off' mode, but still fits the image", async () => {
     mockGenerateImage.mockResolvedValue(imageResult())
+    answers([])
 
     const result = await generateMealImage(meal, { judge: 'off' })
 
-    expect(mockGenerateObject).not.toHaveBeenCalled()
-    expect(result).toMatchObject({ attempts: 1, verdict: null })
-    expect(result.totalUsd).toBeCloseTo(IMAGE_USD)
+    expect(judgeCalls()).toBe(0)
+    expect(vesselCalls()).toBe(1)
+    expect(result).toMatchObject({ attempts: 1, verdict: null, vessel: 'plate' })
+    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + VESSEL_USD)
+  })
+
+  describe('vessel fit (HON-1024)', () => {
+    it('returns the fitted bytes and the fit for the kept image', async () => {
+      mockGenerateImage.mockResolvedValue(imageResult([1, 2]))
+      answers([clean], 'bowl')
+      mockFit.mockResolvedValueOnce({
+        bytes: new Uint8Array([9, 9, 9]),
+        mediaType: 'image/png',
+        fit: {
+          vessel: 'bowl',
+          measuredWidth: 0.46,
+          targetWidth: 0.5,
+          scale: 0.5 / 0.46,
+          action: 'scale',
+        },
+      })
+
+      const result = await generateMealImage(meal, { mealId: 'meal-1' })
+
+      expect(mockFit).toHaveBeenCalledWith(new Uint8Array([1, 2]), 'image/png', 'bowl')
+      expect(result.bytes).toEqual(new Uint8Array([9, 9, 9]))
+      expect(result.vessel).toBe('bowl')
+      expect(result.fit).toMatchObject({ action: 'scale', targetWidth: 0.5 })
+      const fitLog = vi.mocked(console.info).mock.calls.find(([l]) => l === '[meal-image] fit')
+      expect(JSON.parse(fitLog![1] as string)).toMatchObject({ mealId: 'meal-1', vessel: 'bowl' })
+    })
+
+    it('classifies and fits the regenerated image, not the rejected first one', async () => {
+      mockGenerateImage
+        .mockResolvedValueOnce(imageResult([1]))
+        .mockResolvedValueOnce(imageResult([2]))
+      answers([{ ...clean, extraIngredients: ['olives'] }, clean])
+
+      await generateMealImage(meal)
+
+      expect(vesselCalls()).toBe(2)
+      expect(mockFit).toHaveBeenCalledTimes(1)
+      expect(mockFit).toHaveBeenCalledWith(new Uint8Array([2]), 'image/png', 'plate')
+    })
+
+    it('keeps the image as drawn when the vessel call fails', async () => {
+      mockGenerateImage.mockResolvedValue(imageResult([5]))
+      answers([clean], new Error('overloaded'))
+
+      const result = await generateMealImage(meal)
+
+      expect(mockFit).not.toHaveBeenCalled()
+      expect(result).toMatchObject({
+        bytes: new Uint8Array([5]),
+        vessel: null,
+        fit: null,
+        verdict: expect.objectContaining({ pass: true }),
+      })
+      expect(result.totalUsd).toBeCloseTo(IMAGE_USD + JUDGE_USD)
+    })
+
+    it('keeps the image as drawn when the model names no known vessel', async () => {
+      mockGenerateImage.mockResolvedValue(imageResult([5]))
+      answers([clean], 'tureen')
+
+      const result = await generateMealImage(meal)
+
+      expect(mockFit).not.toHaveBeenCalled()
+      expect(result).toMatchObject({ vessel: null, fit: null })
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('nothing known'))
+    })
+
+    it('keeps the image as drawn when the fit itself fails', async () => {
+      mockGenerateImage.mockResolvedValue(imageResult([6]))
+      answers([clean])
+      mockFit.mockRejectedValueOnce(new Error('Input buffer contains unsupported image format'))
+
+      const result = await generateMealImage(meal)
+
+      expect(result).toMatchObject({ bytes: new Uint8Array([6]), vessel: 'plate', fit: null })
+      expect(console.warn).toHaveBeenCalledWith(
+        expect.stringContaining('fit failed'),
+        expect.any(Error),
+      )
+    })
+
+    it('makes no vessel call with fit: false', async () => {
+      mockGenerateImage.mockResolvedValue(imageResult())
+      answers([clean])
+
+      const result = await generateMealImage(meal, { fit: false })
+
+      expect(vesselCalls()).toBe(0)
+      expect(mockFit).not.toHaveBeenCalled()
+      expect(result).toMatchObject({ vessel: null, fit: null })
+      expect(result.totalUsd).toBeCloseTo(IMAGE_USD + JUDGE_USD)
+    })
+  })
+
+  describe('classifyVessel', () => {
+    it('asks REVIEW_MODEL with the image and the vessel prompt, and reports the usage', async () => {
+      answers([], 'glass')
+      const onUsage = vi.fn()
+
+      const vessel = await classifyVessel(
+        { bytes: new Uint8Array([1]), mediaType: 'image/png' },
+        { onUsage },
+      )
+
+      expect(vessel).toBe('glass')
+      expect(mockGenerateObject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: { languageModelId: 'claude-sonnet-5-5' },
+          schema: vesselSchema,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'file', data: new Uint8Array([1]), mediaType: 'image/png' },
+                { type: 'text', text: expect.stringContaining('Which single vessel') },
+              ],
+            },
+          ],
+        }),
+      )
+      expect(onUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'claude-sonnet-5-5', inputTokens: 2_500 }),
+      )
+    })
+
+    it('returns null instead of throwing', async () => {
+      answers([], new Error('overloaded'))
+      await expect(
+        classifyVessel({ bytes: new Uint8Array([1]), mediaType: 'image/png' }),
+      ).resolves.toBeNull()
+    })
   })
 
   it('refuses without an OpenAI key, before any call', async () => {
@@ -390,7 +583,7 @@ describe('generateMealImage on a 429 (HON-742)', () => {
     env.OPENAI_API_KEY = 'sk-test'
     vi.spyOn(console, 'info').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    mockGenerateObject.mockResolvedValue(judgeResult(clean))
+    answers([clean])
   })
 
   afterEach(() => {
@@ -419,8 +612,8 @@ describe('generateMealImage on a 429 (HON-742)', () => {
 
     expect(mockGenerateImage).toHaveBeenCalledTimes(2)
     expect(result.bytes).toEqual(new Uint8Array([9]))
-    // The rejected call was never billed.
-    expect(result.totalUsd).toBeCloseTo(IMAGE_USD)
+    // The rejected call was never billed; the vessel call on the kept image was.
+    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + VESSEL_USD)
   })
 
   it('backs off 15 s, 30 s, 60 s without a named delay, then gives up', async () => {
@@ -527,9 +720,7 @@ describe('generateMealImage on a 429 (HON-742)', () => {
     mockGenerateImage
       .mockResolvedValueOnce(imageResult([1]))
       .mockRejectedValueOnce(apiError(429, { headers: { 'retry-after': '1' } }))
-    mockGenerateObject.mockResolvedValueOnce(
-      judgeResult({ ...clean, extraIngredients: ['olives'] }),
-    )
+    answers([{ ...clean, extraIngredients: ['olives'] }])
 
     const result = await generateMealImage(meal)
 

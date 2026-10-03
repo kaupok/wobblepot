@@ -14,6 +14,7 @@ import {
   imagesPerMinute,
   IMAGE_EST_USD,
   JUDGE_EST_USD,
+  VESSEL_EST_USD,
   MEAL_SELECT,
   parseArgs,
   parseExclude,
@@ -290,8 +291,8 @@ describe('selection', () => {
   })
 
   it('estimates the image price, plus the judge when asked', () => {
-    expect(estimateUsd(10, false)).toBeCloseTo(10 * IMAGE_EST_USD)
-    expect(estimateUsd(10, true)).toBeCloseTo(10 * (IMAGE_EST_USD + JUDGE_EST_USD))
+    expect(estimateUsd(10, false)).toBeCloseTo(10 * (IMAGE_EST_USD + VESSEL_EST_USD))
+    expect(estimateUsd(10, true)).toBeCloseTo(10 * (IMAGE_EST_USD + VESSEL_EST_USD + JUDGE_EST_USD))
   })
 })
 
@@ -303,7 +304,7 @@ describe('dry run', () => {
     await run(parseArgs([]), d)
 
     expect(d.lines[0]).toContain('2 global meal(s) need an image')
-    expect(d.lines[0]).toContain(`$${(2 * IMAGE_EST_USD).toFixed(2)}`)
+    expect(d.lines[0]).toContain(`$${(2 * (IMAGE_EST_USD + VESSEL_EST_USD)).toFixed(2)}`)
     expect(d.lines.at(-1)).toMatch(/^Dry run/)
     expect(updateMany).not.toHaveBeenCalled()
     expect(d.generate).not.toHaveBeenCalled()

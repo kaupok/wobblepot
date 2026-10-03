@@ -14,6 +14,7 @@ Complete guide for deploying Wobblepot to staging and production environments.
   - [Scheduled jobs (cron)](#scheduled-jobs-cron)
   - [Global meal illustrations](#global-meal-illustrations)
   - [Meal hue backfill](#meal-hue-backfill)
+  - [Meal footprint backfill](#meal-footprint-backfill)
   - [Library preparation steps](#library-preparation-steps)
 
 ## CI Pipeline
@@ -234,7 +235,7 @@ Global meals (`householdId` null — the seed catalogue every household sees) ne
 
 **When to run it:** after new global seed meals land, after a global meal's name, description, ingredients or preparation notes change (the edit clears its image), and after a bump of `MEAL_IMAGE_PROMPT_VERSION` in `src/lib/meal-images/prompt.ts`, which makes every existing image stale. It selects global meals whose `imageStatus` is not `ready`, or whose `imagePromptVersion` is not the current one, so a rerun only picks up what is missing.
 
-**Cost:** about $0.042 per image, plus about $0.008 per image with `--judge`, so ~$11.50 for the full ~273-meal catalogue. It is printed at the end and never ledgered: no household owns it, so there are no `AiUsage` rows.
+**Cost:** about $0.048 per image ($0.042 for the drawing and $0.006 for the vessel call that sets its footprint, see [Meal footprint backfill](#meal-footprint-backfill)), plus about $0.008 per image with `--judge`, so ~$13 for the full ~273-meal catalogue. It is printed at the end and never ledgered: no household owns it, so there are no `AiUsage` rows.
 
 **1. Dry run (free).** Prints the number of meals and the estimated cost. It only reads the database.
 
@@ -255,7 +256,7 @@ pnpm meal-images:global --confirm [--judge]
 
 `--judge` adds the `REVIEW_MODEL` vision check in report-only mode: its findings show on each contact-sheet cell but never trigger a regeneration. Here the operator is the gate, so it is optional.
 
-**3. Review.** Open `index.html` and note the slug of every image to reject. The images are drawn from the English name and description and shared by every locale.
+**3. Review.** Open `index.html` and note the slug of every image to reject. The images are drawn from the English name and description and shared by every locale. Each file is already fitted: `generateMealImage` classifies the vessel and scales every plate to 0.58 of the frame width and every bowl to 0.50 before the batch writes it (HON-1024), so the sheet shows what will be published. The manifest records the `vessel` and the `fit` per image.
 
 **4. Publish to staging, then to production.** Point the environment at the target — its `DATABASE_URL`, plus Blob credentials for the **same** environment, since staging and production use different Blob stores (see [ENVIRONMENT_SETUP.md § Vercel Blob](ENVIRONMENT_SETUP.md#vercel-blob-meal-images)). Blob authenticates with `BLOB_STORE_ID` plus `VERCEL_OIDC_TOKEN`, and the token expires after about a day. The script checks it before uploading and prints the refresh steps; `vercel env pull --environment=<env> /tmp/<file>` gives you a fresh one (never a bare `vercel env pull`, which writes `.env.local`). A static `BLOB_READ_WRITE_TOKEN` for the store also works.
 
@@ -294,6 +295,30 @@ pnpm meal-images:rehue --confirm
 **The landing page is not in the database.** `src/components/landing/LandingShowcase.tsx` hardcodes the hues of the three illustrations in `public/landing/`, so the backfill does not reach them. After a rule or baseline change, re-extract them with `extractHue` and update the three values in the same PR.
 
 `pnpm meal-images:rehue --help` lists every flag.
+
+### Meal footprint backfill
+
+Every plate in a meal illustration is 0.58 of the frame width and every bowl 0.50 ([DESIGN.md → Imagery](DESIGN.md#imagery)). `generateMealImage` fits each image it keeps: a `REVIEW_MODEL` vision call names the vessel, and `src/lib/meal-images/footprint.ts` scales the drawing about the vessel's centre and pads it with white (HON-1024). Images stored before that, or before a change to `FOOTPRINT_TARGETS`, keep the width they were drawn at until `scripts/refit-meal-images.ts` refits them from the stored file. Nothing is regenerated, so the only AI spend is the vessel call, about $0.006 per distinct image; it needs `ANTHROPIC_API_KEY`. It reads every meal with `imageStatus = ready` and an `imageUrl`, fetches each distinct image once (a household's copy of a global meal shares its image), and leaves an image it cannot read or classify as it is.
+
+**When to run it:** after a change to the targets or to the measurement, on staging and then production. Meals drawn after the change are already fitted. Running it twice is a no-op: a fitted image measures at its target and is kept.
+
+**1. Dry run (writes nothing).** Writes the fitted files and a contact sheet to `.temp/meal-footprints/<timestamp>/index.html`: each image as drawn and as fitted, under dashed guides at the target width, plus a per-vessel summary of how many images move.
+
+```bash
+pnpm meal-images:refit
+```
+
+**2. Review.** Open the sheet. Every plate fills the guides; every bowl fills its narrower guides. Check the vessel label on a dish that could be either (a pasta plate is a plate). An image left as drawn says why on its card.
+
+**3. Write, on staging and then production.** Point the environment at the target: its `DATABASE_URL`, plus Blob credentials for the **same** environment, exactly as for a publish (above). It checks the Blob credentials, asks for the database host to be typed back (`--yes=<host>` does the same non-interactively), then for each rescaled image uploads the fitted file through `putMealImage` to a new URL, moves `imageUrl` for every meal on the old URL with `updatedAt` pinned, and deletes the old blob once every meal on it has moved. `imageHue` does not change: the hue rule drops white and grey pixels, so scale does not affect it. A meal whose image or content changed since it was read is skipped and picked up by a rerun.
+
+```bash
+pnpm meal-images:refit --confirm
+```
+
+**The landing page is not in the database.** The three illustrations in `public/landing/` were fitted by hand in HON-1024 (`fitFootprint`, then JPEG at quality 92). After a target change, refit them the same way in the PR.
+
+`pnpm meal-images:refit --help` lists every flag.
 
 ### Library preparation steps
 

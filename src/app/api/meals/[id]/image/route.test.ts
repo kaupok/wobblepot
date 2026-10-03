@@ -304,10 +304,13 @@ describe('POST /api/meals/[id]/image', () => {
     expect(row().updatedAt).toEqual(EDITED_AT)
   })
 
-  it('records the image and the judge spend as meal_image rows', async () => {
+  it('records the image, the judge and the vessel spend as meal_image rows', async () => {
     await post()
 
-    expect(mockRecordAiUsage).toHaveBeenCalledTimes(2)
+    // Three vision rows: the drawing, the judge, and the vessel call that sets
+    // the footprint (HON-1024). The vessel mock here answers the judge shape,
+    // which reads as "not classified", so the bytes are stored as drawn.
+    expect(mockRecordAiUsage).toHaveBeenCalledTimes(3)
     expect(mockRecordAiUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         householdId: HOUSEHOLD_ID,
