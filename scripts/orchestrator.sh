@@ -649,7 +649,9 @@ reconcile_gated_issues() {
   IFS=',' read -ra _gated_arr <<< "$GATED_ISSUES"
   for entry in ${_gated_arr[@]+"${_gated_arr[@]}"}; do
     g="${entry%%:*}"
-    labelled=$(printf '%s\n' "$seen" | awk -F'\t' -v id="$g" 'NR > 1 && $1 == id { print $2; exit }')
+    # Here-string: awk's `exit` would SIGPIPE a printf and, under set -e, kill
+    # the orchestrator with 141 (HON-1005; see worker_hit_neon_cap).
+    labelled=$(awk -F'\t' -v id="$g" 'NR > 1 && $1 == id { print $2; exit }' <<<"$seen")
     if [ "$labelled" = "true" ]; then
       # Seen in Queued, so the uuid goes: a later absence is a move.
       rebuilt="${rebuilt:+$rebuilt,}$g"
@@ -1338,9 +1340,11 @@ pr_ci_state() {
   # reported — no Actions job has spoken, so CI's state is genuinely unknown.
   [ -z "$buckets" ] && { echo "unknown"; return; }
 
-  if printf '%s\n' "$buckets" | grep -qx 'pending'; then
+  # Here-strings, not `printf | grep -q`: under pipefail a SIGPIPE'd printf
+  # turns a match into 141 (HON-1005; see worker_hit_neon_cap).
+  if grep -qx 'pending' <<<"$buckets"; then
     echo "pending"
-  elif printf '%s\n' "$buckets" | grep -qvxE 'pass|skipping'; then
+  elif grep -qvxE 'pass|skipping' <<<"$buckets"; then
     echo "failing"
   else
     echo "green"
@@ -1993,13 +1997,14 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
 
     # Extract first word only — Claude may include explanatory text after the keyword
     local triage_result
-    triage_result=$(printf '%s' "$triage_output" | awk 'NF{print $1; exit}' | tr -d '[:space:]')
+    # Here-string, not `printf | awk …exit` (HON-1005; see worker_hit_neon_cap).
+    triage_result=$(awk 'NF{print $1; exit}' <<<"$triage_output" | tr -d '[:space:]')
 
     if [ "$exit_code" -eq 124 ]; then
       log WARN "Claude triage timed out after ${TRIAGE_TIMEOUT}s, falling back to BACKLOG"
       triage="BACKLOG"
     elif [ "$exit_code" -ne 0 ]; then
-      log WARN "Claude triage failed (exit $exit_code): $(printf '%s' "$triage_output" | head -1)"
+      log WARN "Claude triage failed (exit $exit_code): $(head -1 <<<"$triage_output")"
       triage="NEEDS_HUMAN"
     else
       case "$triage_result" in
@@ -2007,7 +2012,7 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
         *)
           log WARN "Unexpected triage result: '$triage_result'"
           # Detect Claude CLI errors returned on stdout
-          if printf '%s' "$triage_output" | grep -qiE 'balance|credit|limit|unauthorized|forbidden'; then
+          if grep -qiE 'balance|credit|limit|unauthorized|forbidden' <<<"$triage_output"; then
             log WARN "Looks like a Claude CLI error, treating as NEEDS_HUMAN"
             triage="NEEDS_HUMAN"
           fi ;;
@@ -2501,7 +2506,9 @@ validate_state_ids() {
     "STATE_CANCELED:$STATE_CANCELED" \
     "STATE_DUPLICATE:$STATE_DUPLICATE"; do
     name="${pair%%:*}"; id="${pair#*:}"
-    if ! printf '%s\n' "$known_ids" | grep -qxF "$id"; then
+    # Here-string, not `printf | grep -q`: under pipefail a SIGPIPE'd printf
+    # reads a live ID as stale (HON-1005; see worker_hit_neon_cap).
+    if ! grep -qxF "$id" <<<"$known_ids"; then
       log ERROR "Stale workflow-state UUID: $name ($id) is not a HON workflow state — update the constant in scripts/orchestrator.sh"
       stale=$((stale + 1))
     fi

@@ -526,6 +526,19 @@ describe('orchestrator.sh', () => {
       expect(r.consecutiveFailures).toBe(1)
     })
 
+    it('reads the verdict word from a multi-megabyte triage reply', () => {
+      // HON-1005: `printf | awk 'NF{print $1; exit}'` SIGPIPE'd the printf once
+      // awk had the first word, and the 141 from that `$(…)` assignment under
+      // set -e killed the orchestrator. 60,000 lines after the verdict keep the
+      // writer busy far past a 64 KB pipe buffer, so the race is lost every run.
+      const r = parse(
+        runHarnessEnv({ HARNESS_VERDICT_PAD_LINES: '60000' }, 'failure', 'RETRY', '0', 'false'),
+      )
+
+      expect(r.out).toContain('Triage for HON-991: RETRY')
+      expect(r.out).toContain('SPAWN_WORKER:HON-991:retry=1')
+    })
+
     it('counts a RETRY verdict that was already retried as a failure', () => {
       const r = drive('RETRY', '1', 'false')
 
@@ -1765,6 +1778,42 @@ describe('orchestrator.sh', () => {
 
       expect(out).toContain('STALE_COUNT:0')
       expect(out).not.toContain('Stale workflow-state UUID')
+    })
+
+    // HON-1005: `printf … | grep -qxF` under pipefail. grep -q exits on the
+    // first match; with the matching ID first and megabytes after it, printf is
+    // still writing, dies of SIGPIPE, and the pipeline's 141 read as "stale".
+    // The tail is far past a 64 KB pipe buffer plus one grep read, so the old
+    // pipeline lost this race on every run, not just occasionally as in CI.
+    it('passes when the live IDs are followed by megabytes of further states', () => {
+      const filler = Array.from({ length: 50_000 }, (_, i) => `filler-${i}-${'x'.repeat(24)}`)
+      const out = stripTimestamps(
+        execFileSync('bash', [harness, 'validate-states', '-'], {
+          encoding: 'utf8',
+          timeout: 30_000,
+          env: harnessEnv(),
+          input: statesJson([...Object.values(LIVE_STATES), ...filler]),
+        }),
+      )
+
+      expect(out).toContain('STALE_COUNT:0')
+      expect(out).not.toContain('Stale workflow-state UUID')
+    })
+
+    it('leaves no echo or printf piped into a reader that exits early', () => {
+      // grep -q, awk '…exit' and head stop reading before printf has finished,
+      // so the writer dies of SIGPIPE: a wrong answer under `if`, and a 141 that
+      // kills the orchestrator in a `$(…)` assignment under set -e. Feed them a
+      // here-string or process substitution instead — see worker_hit_neon_cap.
+      const earlyExitReader =
+        /\b(printf|echo)\b.*\|\s*(grep\b[^|]*\s(-[a-zA-Z]*q[a-zA-Z]*|--quiet|--silent)\b|awk\b.*\bexit\b|head\b)/
+      const offenders = fs
+        .readFileSync(orchestrator, 'utf8')
+        .split('\n')
+        .filter((line) => !line.trimStart().startsWith('#'))
+        .filter((line) => earlyExitReader.test(line))
+
+      expect(offenders).toEqual([])
     })
 
     it('names the stale constant when its UUID no longer exists', () => {
@@ -3372,6 +3421,25 @@ describe('orchestrator.sh', () => {
 
     it('keeps a gate open while the issue is in Queued with its label', () => {
       const out = reconcile(response([940], [940]), 'HON-940')
+
+      expect(out).not.toContain('[UNGATE]')
+      expect(out).toContain('GATED:HON-940')
+    })
+
+    it('survives a gated issue that is followed by megabytes of queue', () => {
+      // HON-1005: awk's `exit` on the first match used to SIGPIPE the printf
+      // feeding it, and the 141 from that `$(…)` assignment under set -e killed
+      // the orchestrator outright. Thousands of nodes after the match keep the
+      // writer busy long past a 64 KB pipe buffer, so the race is lost every run.
+      const ids = Array.from({ length: 20_000 }, (_, i) => 940 + i)
+      const out = stripTimestamps(
+        execFileSync('bash', [harness, 'gated-reconcile', '-', 'HON-940'], {
+          encoding: 'utf8',
+          timeout: 30_000,
+          env: harnessEnv({ HARNESS_QUEUE_PAGE_SIZE: '50000' }),
+          input: response(ids, [940]),
+        }),
+      )
 
       expect(out).not.toContain('[UNGATE]')
       expect(out).toContain('GATED:HON-940')
