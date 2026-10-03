@@ -8,6 +8,7 @@ import {
   type CookQuestionControls,
 } from './PreparationTips'
 import type { StructuredTips } from './types'
+import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 
 const fullTips: StructuredTips = {
   equipment: ['Sheet pan', 'Sharp chef’s knife', 'Instant-read thermometer'],
@@ -173,11 +174,13 @@ export const PitfallsOnly: Story = {
   },
 }
 
+const STEP_2: CookQuestionSubject = { kind: 'step', index: 1 }
+
 /** The cook-question controls as `MealDetailModal` passes them, with spies (HON-969). */
 function cookQuestion(overrides: Partial<CookQuestionControls> = {}): CookQuestionControls {
   return {
-    openStep: null,
-    onOpenStep: fn(),
+    openSubject: null,
+    onOpenSubject: fn(),
     onClose: fn(),
     ask: fn(),
     active: null,
@@ -232,7 +235,7 @@ export const WithAskButtons: Story = {
     )
 
     await userEvent.click(ask)
-    await expect(args.cookQuestion!.onOpenStep).toHaveBeenCalledWith(1)
+    await expect(args.cookQuestion!.onOpenSubject).toHaveBeenCalledWith({ kind: 'step', index: 1 })
   },
 }
 
@@ -271,14 +274,15 @@ export const WithAskButtonsDesktop: Story = {
 export const AskPanelOpen: Story = {
   args: {
     ...WithAskButtons.args,
-    cookQuestion: cookQuestion({ openStep: 1 }),
+    cookQuestion: cookQuestion({ openSubject: STEP_2 }),
   },
   play: async ({ canvasElement, args }) => {
     const panel = within(canvasElement).getByRole('group', { name: 'Ask about step 2' })
     await userEvent.click(within(panel).getByRole('button', { name: "How do I know it's done?" }))
     await expect(args.cookQuestion!.ask).toHaveBeenCalledWith({
-      stepIndex: 1,
+      subject: STEP_2,
       steps: fullTips.steps,
+      equipment: fullTips.equipment,
       question: "How do I know it's done?",
       source: 'chip',
     })
@@ -292,9 +296,9 @@ export const AskPending: Story = {
   args: {
     ...WithAskButtons.args,
     cookQuestion: cookQuestion({
-      openStep: 1,
+      openSubject: STEP_2,
       isPending: true,
-      active: { stepIndex: 1, question: "How do I know it's done?", answer: null },
+      active: { subject: STEP_2, question: "How do I know it's done?", answer: null },
     }),
   },
   play: async ({ canvasElement }) => {
@@ -313,9 +317,9 @@ export const AskAnswered: Story = {
   args: {
     ...WithAskButtons.args,
     cookQuestion: cookQuestion({
-      openStep: 1,
+      openSubject: STEP_2,
       active: {
-        stepIndex: 1,
+        subject: STEP_2,
         question: 'What can I substitute here?',
         answer:
           'No garlic? Use the onion you have, sliced thin, for the same base. Add it with the lemon so it softens in the pan juices.',
@@ -343,11 +347,11 @@ export const AskPendingWithPrevious: Story = {
   args: {
     ...WithAskButtons.args,
     cookQuestion: cookQuestion({
-      openStep: 1,
+      openSubject: STEP_2,
       isPending: true,
-      active: { stepIndex: 1, question: "I'm short on time", answer: null },
+      active: { subject: STEP_2, question: "I'm short on time", answer: null },
       previous: {
-        stepIndex: 1,
+        subject: STEP_2,
         question: 'What can I substitute here?',
         answer:
           'No garlic? Use the onion you have, sliced thin, for the same base. Add it with the lemon so it softens in the pan juices.',
@@ -372,10 +376,10 @@ export const AskStreaming: Story = {
   args: {
     ...WithAskButtons.args,
     cookQuestion: cookQuestion({
-      openStep: 1,
+      openSubject: STEP_2,
       isStreaming: true,
       active: {
-        stepIndex: 1,
+        subject: STEP_2,
         question: 'What can I substitute here?',
         answer: 'No garlic? Use the onion you have, sliced thin,',
       },
@@ -406,9 +410,9 @@ export const AskStreamBroke: Story = {
   args: {
     ...WithAskButtons.args,
     cookQuestion: cookQuestion({
-      openStep: 1,
+      openSubject: STEP_2,
       active: {
-        stepIndex: 1,
+        subject: STEP_2,
         question: 'What can I substitute here?',
         answer: 'No garlic? Use the onion you have, sliced thin,',
       },
@@ -431,8 +435,8 @@ export const AskError: Story = {
   args: {
     ...WithAskButtons.args,
     cookQuestion: cookQuestion({
-      openStep: 1,
-      active: { stepIndex: 1, question: "I'm short on time", answer: null },
+      openSubject: STEP_2,
+      active: { subject: STEP_2, question: "I'm short on time", answer: null },
       error: { message: 'The answer took too long. Please try again.', canRetry: true },
     }),
   },
@@ -449,8 +453,8 @@ export const AskRateLimited: Story = {
   args: {
     ...WithAskButtons.args,
     cookQuestion: cookQuestion({
-      openStep: 1,
-      active: { stepIndex: 1, question: "I'm short on time", answer: null },
+      openSubject: STEP_2,
+      active: { subject: STEP_2, question: "I'm short on time", answer: null },
       error: {
         message: "You've reached this hour's limit for questions. Please try again later.",
         canRetry: false,
@@ -467,7 +471,7 @@ export const AskRateLimited: Story = {
  * send sets the active question for that step, as `useCookQuestion` does.
  */
 function AskWithState(args: React.ComponentProps<typeof PreparationSteps>) {
-  const [openStep, setOpenStep] = useState<number | null>(1)
+  const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(STEP_2)
   const [active, setActive] = useState<CookQuestionControls['active']>(null)
   const controls = args.cookQuestion!
   return (
@@ -475,14 +479,14 @@ function AskWithState(args: React.ComponentProps<typeof PreparationSteps>) {
       {...args}
       cookQuestion={{
         ...controls,
-        openStep,
-        onOpenStep: setOpenStep,
-        onClose: () => setOpenStep(null),
+        openSubject,
+        onOpenSubject: setOpenSubject,
+        onClose: () => setOpenSubject(null),
         active,
         isPending: active !== null,
         ask: (input) => {
           controls.ask(input)
-          setActive({ stepIndex: input.stepIndex, question: input.question, answer: null })
+          setActive({ subject: input.subject, question: input.question, answer: null })
         },
       }}
     />
@@ -553,5 +557,94 @@ export const AskCloseReturnsFocus: Story = {
     await userEvent.keyboard('{Escape}')
     await expect(ask).toHaveFocus()
     await expectAskTooltip(2)
+  },
+}
+
+/**
+ * "You'll need" with an Ask button at the end of each row (HON-983), named
+ * for the item. The modal's side holds one open subject, so the play opens a
+ * step's panel, then item 2's, and the step's closes.
+ */
+function EquipmentAndStepsWithState(args: React.ComponentProps<typeof PreparationSteps>) {
+  const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(null)
+  const controls: CookQuestionControls = {
+    ...args.cookQuestion!,
+    openSubject,
+    onOpenSubject: setOpenSubject,
+    onClose: () => setOpenSubject(null),
+  }
+  return (
+    <div className="flex flex-col gap-6">
+      <PreparationEquipment
+        equipment={fullTips.equipment}
+        steps={fullTips.steps}
+        cookQuestion={controls}
+      />
+      <PreparationSteps {...args} cookQuestion={controls} />
+    </div>
+  )
+}
+
+export const EquipmentWithAskButtons: Story = {
+  args: { ...askButtonsArgs, cookQuestion: cookQuestion() },
+  render: (args) => <EquipmentAndStepsWithState {...args} />,
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    const list = canvas.getByRole('list', { name: "You'll need" })
+    for (const item of fullTips.equipment!) {
+      const ask = within(list).getByRole('button', { name: `Ask about ${item}` })
+      await expect(ask.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    }
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Ask about step 2' }))
+    await expect(canvas.getByRole('group', { name: 'Ask about step 2' })).toBeVisible()
+
+    const knife = canvas.getByRole('button', { name: 'Ask about Sharp chef’s knife' })
+    await userEvent.click(knife)
+    await expect(canvas.queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+    await expect(knife).toHaveAttribute('aria-expanded', 'true')
+    const panel = canvas.getByRole('group', { name: 'Ask about Sharp chef’s knife' })
+    await expect(within(panel).getByRole('textbox')).toHaveAttribute(
+      'placeholder',
+      'Ask about this item',
+    )
+    await userEvent.click(within(panel).getByRole('button', { name: 'What can I use instead?' }))
+    await expect(args.cookQuestion!.ask).toHaveBeenCalledWith({
+      subject: { kind: 'equipment', index: 1 },
+      steps: fullTips.steps,
+      equipment: fullTips.equipment,
+      question: 'What can I use instead?',
+      source: 'chip',
+    })
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
+    await expect(knife).toHaveFocus()
+  },
+}
+
+/** An item's panel answered: no numeral to indent past, so it starts at the item text. */
+export const EquipmentAskAnswered: Story = {
+  args: { tips: null, isLoading: false, error: null },
+  render: () => (
+    <PreparationEquipment
+      equipment={fullTips.equipment}
+      steps={fullTips.steps}
+      cookQuestion={cookQuestion({
+        openSubject: { kind: 'equipment', index: 0 },
+        active: {
+          subject: { kind: 'equipment', index: 0 },
+          question: 'What can I use instead?',
+          answer:
+            'A large oven-safe frying pan works for step 3; roast in two batches so the chicken browns, and add 5 minutes to step 4.',
+        },
+      })}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const panel = canvas.getByRole('group', { name: 'Ask about Sheet pan' })
+    const item = canvas.getByText('Sheet pan')
+    await expect(panel.getBoundingClientRect().left).toBe(item.getBoundingClientRect().left)
+    await expect(within(panel).getByText('You asked: What can I use instead?')).toBeVisible()
   },
 }
