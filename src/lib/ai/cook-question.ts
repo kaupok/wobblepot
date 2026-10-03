@@ -197,8 +197,8 @@ export function buildCookQuestionRequest(input: CookQuestionRequestInput) {
     prompt: buildCookQuestionPrompt(input),
     // The answer is 2-4 sentences, about 300 tokens in Estonian; the rest is
     // headroom for adaptive thinking, which bills as output (HON-693). 600 cut
-    // off 3 of 27 benchmark answers, all Estonian, one after 600 tokens of
-    // thinking and no text at all (HON-972).
+    // off 4 of 27 benchmark answers, all Estonian; 2 of them spent all 600 on
+    // thinking and had no text at all (HON-972).
     maxOutputTokens: 1200,
     maxRetries: 3,
   }

@@ -424,11 +424,12 @@ export function scoreTips(
 export const COOK_QUESTION_MAX_WORDS = { answer: 150, offTopic: 50 }
 
 /**
- * An imperial unit right after a number: "350°F", "2 cups", "8 oz". Anchored
- * on the number, so "pound the chicken" and "a cup of tea" never match.
+ * An imperial unit right after a number: "350°F", "400 degrees Fahrenheit",
+ * "2 cups", "8 oz". Anchored on the number, so "pound the chicken" and "a cup
+ * of tea" never match, and "200 degrees" alone is read as Celsius.
  */
 const IMPERIAL_UNIT =
-  /\d\s*(?:°\s*f\b|fahrenheit|cups?\b|oz\b|ounces?\b|lbs?\b|pounds?\b|inch(?:es)?\b|fl\.?\s*oz)/iu
+  /\d\s*(?:°\s*f\b|degrees?\s+f(?:ahrenheit)?\b|fahrenheit|cups?\b|oz\b|ounces?\b|lbs?\b|pounds?\b|inch(?:es)?\b|fl\.?\s*oz)/iu
 
 const wordCount = (text: string) => text.split(/\s+/u).filter(Boolean).length
 

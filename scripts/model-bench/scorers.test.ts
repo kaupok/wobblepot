@@ -574,12 +574,21 @@ describe('scoreCookQuestion', () => {
     expect(scoreCookQuestion(substitute, 'Use crème fraîche.').mentionsExpected).toBe(0)
   })
 
-  it.each(['Bake at 350°F.', 'Add 2 cups of stock.', 'Use 8 oz of beef.', 'Cut it 1 inch thick.'])(
-    'fails an imperial unit after a number: %s',
-    (answer) => {
-      expect(scoreCookQuestion(substitute, answer).metricUnits).toBe(0)
-    },
-  )
+  it.each([
+    'Bake at 350°F.',
+    'Bake at 400 degrees Fahrenheit.',
+    'Bake at 350 degrees F.',
+    'Add 2 cups of stock.',
+    'Use 8 oz of beef.',
+    'Cut it 1 inch thick.',
+  ])('fails an imperial unit after a number: %s', (answer) => {
+    expect(scoreCookQuestion(substitute, answer).metricUnits).toBe(0)
+  })
+
+  it('passes degrees with no unit, or in Celsius', () => {
+    expect(scoreCookQuestion(substitute, 'Bake at 200 degrees for 20 minutes.').metricUnits).toBe(1)
+    expect(scoreCookQuestion(substitute, 'Bake at 180 degrees C.').metricUnits).toBe(1)
+  })
 
   it('passes imperial words that follow no number', () => {
     expect(
