@@ -1,13 +1,16 @@
 // `src/app/pantry/loading.tsx` is the same two columns with the other one
-// shown on a phone. Change the geometry in both.
+// shown on a phone. Change the geometry in both. The list half is on the
+// note's paper here too, so the colour does not arrive with the data (HON-1012).
 import { Skeleton } from '@/components/ui/skeleton'
 import { RowGroup } from '@/components/ui/row-group'
 import { PantryItemRowSkeleton } from '@/components/inventory/PantryItemRowSkeleton'
 import { ShoppingItemSkeleton } from '@/components/shopping/ShoppingItemSkeleton'
+import { ShoppingPaper } from '@/components/inventory/ShoppingPaper'
 
 export default function ShoppingLoading() {
   return (
     <div className="w-full px-4 py-8">
+      <ShoppingPaper view="shopping" />
       <div className="grid gap-8 md:grid-cols-2">
         {/* Pantry section — the left column from `md`; a phone on `/shopping`
             sees only the list, as `InventoryPage` renders it (HON-776). */}
@@ -16,7 +19,7 @@ export default function ShoppingLoading() {
         </div>
 
         {/* Shopping section */}
-        <div>
+        <div data-surface="note">
           <ShoppingColumnSkeleton />
         </div>
       </div>

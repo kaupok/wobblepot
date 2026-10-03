@@ -43,8 +43,10 @@ export function CustomShoppingItem({
     <div
       className={cn(
         'min-h-touch flex items-center justify-between gap-3 p-3 transition-colors',
-        'hover:bg-muted/50',
-        item.checked && 'bg-muted/30',
+        // `accent`, not `muted`: the shopping note re-maps `--accent` to its
+        // chip, so the wash stays yellow on the paper (HON-1012).
+        'hover:bg-accent/50',
+        item.checked && 'bg-accent/30',
         disabled && 'pointer-events-none opacity-50',
         pending && !disabled && 'opacity-70',
       )}

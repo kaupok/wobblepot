@@ -235,6 +235,15 @@ const meta = {
     onUnlinkCustomItem: fn(),
     onDeleteCustomItem: fn(),
   },
+  // The list half of Pantry & shopping is the shopping note's paper
+  // (HON-1012), so the a11y gate measures this column's text on it.
+  decorators: [
+    (Story) => (
+      <div data-surface="note" className="p-4">
+        <Story />
+      </div>
+    ),
+  ],
 } satisfies Meta<typeof ShoppingListScreen>
 
 export default meta
@@ -295,4 +304,16 @@ export const Empty: Story = {
   play: async ({ canvasElement }) => {
     await assertDesignRules(canvasElement, SCENARIO_RULES)
   },
+}
+
+/** `Populated` on the note's dark sheet, so the a11y gate measures both themes (HON-1012). */
+export const PopulatedDark: Story = {
+  ...Populated,
+  globals: { theme: 'dark' },
+}
+
+/** `Empty` on the note's dark sheet: the CTA and muted lines on the dark paper. */
+export const EmptyDark: Story = {
+  ...Empty,
+  globals: { theme: 'dark' },
 }
