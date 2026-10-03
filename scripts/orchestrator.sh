@@ -159,9 +159,9 @@ trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
 # is the `[UNGATE]` line `wt watch` uses to close the GATED outcome (HON-938).
 # reconcile_gated_issues drops an entry, and logs that line once, when the poll
 # sees the issue in Queued without its label or no longer in Queued at all
-# (HON-940); a restart also clears it. A fresh entry is `HON-X:new` until a poll
-# first sees the issue in Queued: until then, absence means the requeue failed,
-# not that the operator moved it.
+# (HON-940); a restart also clears it. A fresh entry is `HON-X:<uuid>` until a
+# poll first sees the issue in Queued: until then, absence alone cannot tell a
+# failed requeue from an operator's move, so the uuid lets the poll ask Linear.
 GATED_ISSUES=""
 # Comma-separated "identifier:expiry-epoch" entries for issues returned to Queued
 # at the Neon branch cap. Unlike the gated path there is no durable label to
@@ -617,12 +617,16 @@ fetch_queued_issues() {
 # Runs in main()'s shell, never inside $(...): the rebuilt list has to outlive
 # the call, or the next poll logs the same line again (HON-655).
 #
-# An absent issue is kept in two cases. Its entry is still `:new`: no poll has
-# seen it in Queued since the gate, so restore_queue_if_in_progress may have
-# failed and left it In Progress, where the gate is still in force. Or the fetch
-# hit the page cap, so the issue may sit past the cap and still be in Queued. A
-# response jq cannot read changes nothing, so a bad fetch cannot answer every
-# gate at once.
+# An absent issue whose entry is still fresh (`HON-X:<uuid>`) has not been seen
+# in Queued since the gate. restore_queue_if_in_progress may have failed and
+# left it In Progress, where the gate is still in force; or no poll ran before
+# the operator moved it, which a tripped circuit breaker makes likely, since the
+# third gate in a row is what trips it. So the poll asks Linear for its state:
+# In Progress, Queued (past the page cap) or unreadable keeps the entry, and
+# any other state answers it. An entry stuck In Progress costs one query a poll.
+# Any other absent entry is answered, unless the fetch hit the page cap, where
+# the issue may sit past the cap and still be in Queued. A response jq cannot
+# read changes nothing, so a bad fetch cannot answer every gate at once.
 
 reconcile_gated_issues() {
   local response="$1"
@@ -641,18 +645,24 @@ reconcile_gated_issues() {
   local count="${seen%%$'\n'*}"
   [[ "$count" =~ ^[0-9]+$ ]] || return 0
 
-  local rebuilt="" entry g labelled
+  local rebuilt="" entry g labelled state
   IFS=',' read -ra _gated_arr <<< "$GATED_ISSUES"
   for entry in ${_gated_arr[@]+"${_gated_arr[@]}"}; do
     g="${entry%%:*}"
     labelled=$(printf '%s\n' "$seen" | awk -F'\t' -v id="$g" 'NR > 1 && $1 == id { print $2; exit }')
     if [ "$labelled" = "true" ]; then
-      # Seen in Queued, so the `:new` mark goes: a later absence is a move.
+      # Seen in Queued, so the uuid goes: a later absence is a move.
       rebuilt="${rebuilt:+$rebuilt,}$g"
     elif [ "$labelled" = "false" ]; then
       log INFO "[UNGATE] $g — Gated label removed by operator; eligible again"
-    elif [ "$entry" != "$g" ] || [ "$count" -gt "$LINEAR_QUEUE_PAGE_SIZE" ]; then
-      rebuilt="${rebuilt:+$rebuilt,}$entry"
+    elif [ "$entry" != "$g" ]; then
+      state=$(issue_state_id "${entry#*:}") || true
+      case "$state" in
+        ''|"$STATE_IN_PROGRESS"|"$STATE_QUEUED") rebuilt="${rebuilt:+$rebuilt,}$entry" ;;
+        *) log INFO "[UNGATE] $g — left Queued" ;;
+      esac
+    elif [ "$count" -gt "$LINEAR_QUEUE_PAGE_SIZE" ]; then
+      rebuilt="${rebuilt:+$rebuilt,}$g"
     else
       log INFO "[UNGATE] $g — left Queued"
     fi
@@ -1540,7 +1550,7 @@ handle_success() {
     log WARN "[OUTCOME] $issue_id GATED ${duration_str} 0-commits phase=$phase"
     notify "Honkadori" "$issue_id produced no commits — returned to Queued"
     gate_no_commit_success "$issue_uuid" "$issue_id" "$log_file"
-    GATED_ISSUES="${GATED_ISSUES:+$GATED_ISSUES,}$issue_id:new"
+    GATED_ISSUES="${GATED_ISSUES:+$GATED_ISSUES,}$issue_id:$issue_uuid"
     # A gated exit is a failure to produce, so it counts toward the circuit
     # breaker: a systemic no-op (expired auth, broken skill) must not sweep
     # the whole queue one worker per poll.

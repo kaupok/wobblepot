@@ -135,7 +135,9 @@
 #     same fixture in one process, as two polls would. Prints GATED (the list
 #     after both calls) and the log, so a test can assert each [UNGATE] line is
 #     written once, not once per poll. LINEAR_QUEUE_PAGE_SIZE can be lowered
-#     through HARNESS_QUEUE_PAGE_SIZE to model a truncated fetch.
+#     through HARNESS_QUEUE_PAGE_SIZE to model a truncated fetch, and
+#     issue_state_id answers HARNESS_ISSUE_STATE (default In Progress; empty
+#     models a failed read) for a fresh `HON-X:<uuid>` entry.
 #
 #   log-once                                       (HON-572, finding 3)
 #     Calls the REAL log() once with MAIN_LOG on a temp file, then reports what
@@ -1138,6 +1140,7 @@ EOF
   gated-reconcile)
     GATED_ISSUES="$A2"
     LINEAR_QUEUE_PAGE_SIZE="${HARNESS_QUEUE_PAGE_SIZE:-$LINEAR_QUEUE_PAGE_SIZE}"
+    issue_state_id() { echo "${HARNESS_ISSUE_STATE-$STATE_IN_PROGRESS}"; }
     trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
     reconcile_gated_issues "$A1"
     reconcile_gated_issues "$A1"

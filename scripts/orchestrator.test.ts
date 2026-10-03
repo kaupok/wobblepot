@@ -3386,33 +3386,49 @@ describe('orchestrator.sh', () => {
       expect(out).toContain('GATED:HON-941\n')
     })
 
-    it('keeps a fresh gate that no poll has seen in Queued yet', () => {
+    const IN_PROGRESS = 'efa0cbda-898d-440d-a6a9-36e798d00881'
+    const QUEUED = 'a397387b-c863-4174-bfc7-57f146196a04'
+    const BACKLOG = '035a5cef-88de-4334-98a0-b908f61d26a7'
+
+    it('keeps a fresh gate whose issue is still In Progress', () => {
       // The requeue after a gate can fail and leave the issue In Progress,
       // where the gate is still in force. Its absence is not an answer.
-      const out = reconcile(response([992]), 'HON-940:new')
+      for (const state of [IN_PROGRESS, QUEUED, '']) {
+        const out = reconcile(response([992]), 'HON-940:u940', { HARNESS_ISSUE_STATE: state })
 
-      expect(out).not.toContain('[UNGATE]')
-      expect(out).toContain('GATED:HON-940:new\n')
+        expect(out).not.toContain('[UNGATE]')
+        expect(out).toContain('GATED:HON-940:u940\n')
+      }
     })
 
-    it('clears the fresh mark once a poll sees the issue in Queued', () => {
-      const out = reconcile(response([940], [940]), 'HON-940:new')
+    it('answers a fresh gate whose issue moved out before any poll saw it', () => {
+      // The third gate in a row trips the circuit breaker, so no poll runs
+      // until the pause ends. An operator who moves the issue meanwhile must
+      // still get the answer, or the pane stays yellow until restart.
+      const out = reconcile(response([992]), 'HON-940:u940', { HARNESS_ISSUE_STATE: BACKLOG })
+
+      expect(count(out, '[UNGATE] HON-940 — left Queued')).toBe(1)
+      expect(out).toContain('GATED:\n')
+    })
+
+    it('drops the uuid once a poll sees the issue in Queued', () => {
+      const out = reconcile(response([940], [940]), 'HON-940:u940')
 
       expect(out).not.toContain('[UNGATE]')
       expect(out).toContain('GATED:HON-940\n')
     })
 
     it('still answers a fresh gate whose label is removed', () => {
-      const out = reconcile(response([940]), 'HON-940:new')
+      const out = reconcile(response([940]), 'HON-940:u940')
 
       expect(count(out, '[UNGATE] HON-940 — Gated label removed by operator')).toBe(1)
       expect(out).toContain('GATED:\n')
     })
 
-    it('marks a gate fresh when handle_success records it', () => {
+    it('records a gate with its uuid when handle_success gates an issue', () => {
       const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'handle_success')
 
-      expect(body).toContain('GATED_ISSUES="${GATED_ISSUES:+$GATED_ISSUES,}$issue_id:new"')
+      expect(body).toContain('GATED_ISSUES="${GATED_ISSUES:+$GATED_ISSUES,}$issue_id:$issue_uuid"')
     })
 
     it('keeps an absent entry when the fetch hit the page cap', () => {
