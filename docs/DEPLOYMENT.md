@@ -290,6 +290,8 @@ pnpm meal-images:rehue --confirm
 
 **Regenerating `HUE_BASELINE`.** `pnpm meal-images:rehue --baseline` prints the mean hue-bin shares over the distinct stored images as a ready-to-paste `HUE_BASELINE`, and writes nothing. The constant is checked in, so a new one lands in a PR (update the date and source in its comment) before the backfill runs. Regenerate it when the image style changes, such as a `MEAL_IMAGE_PROMPT_VERSION` bump or HON-971. The 2026-10-03 constant came from the 25 distinct images in a fork of staging; one taken from the full production catalogue is more representative.
 
+**The landing page is not in the database.** `src/components/landing/LandingShowcase.tsx` hardcodes the hues of the three illustrations in `public/landing/`, so the backfill does not reach them. After a rule or baseline change, re-extract them with `extractHue` and update the three values in the same PR.
+
 `pnpm meal-images:rehue --help` lists every flag.
 
 ### Library preparation steps
