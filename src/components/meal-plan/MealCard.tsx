@@ -48,6 +48,13 @@ import { useMealImageFields } from '@/hooks/use-meal-image'
 import { track, type Source } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 
+/**
+ * What a card click leaves to itself: every control. The saved note's slip is
+ * a button, and a drag of it stops its own click (`useNoteDrag`).
+ */
+const CARD_CLICK_IGNORE =
+  'button, a, input, textarea, select, label, [role="menuitem"], [role="option"]'
+
 interface MealCardProps {
   entryId: string
   planId: string
@@ -375,6 +382,37 @@ export function MealCard({
     mealNameButtonRef.current?.focus()
   }
 
+  // A click anywhere on the card opens the cook view, as the name does
+  // (HON-1010). A pointer shortcut only: the name stays the card's keyboard
+  // target and accessible name, so the card takes no role, tab stop or keys.
+  // Skipped for a click on a control (the name opens the view itself), in the
+  // open note editor, and for a click that ends a text selection. React bubbles
+  // events out of portals along its own tree, so a click in the ⋯ menu or the
+  // status select's list reaches this handler too; those are outside the
+  // card's DOM, which the first check catches. The menu is not modal, so a
+  // press outside it closes it and still clicks the card: that press only
+  // closes the menu.
+  const pressClosesMenuRef = useRef(false)
+  function handleCardPointerDown() {
+    pressClosesMenuRef.current =
+      moreActionsTriggerRef.current?.getAttribute('aria-expanded') === 'true'
+  }
+  function handleCardClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (pressClosesMenuRef.current) return
+    const target = event.target
+    if (!(target instanceof Element) || !event.currentTarget.contains(target)) return
+    if (target.closest(CARD_CLICK_IGNORE)) return
+    // The open editor's slip belongs to the editor. A read-only slip, on a
+    // past or read-only card, is part of the card.
+    if (isNoteEditing && target.closest('[data-slot="meal-image-overlay"] *')) return
+    if (window.getSelection()?.toString()) return
+    // The press left focus on the page body, and the cook view hands focus
+    // back to whatever had it as it opened. Give it the name, as a click on
+    // the name would. After a pointer press this shows no focus ring.
+    mealNameButtonRef.current?.focus({ preventScroll: true })
+    setIsDetailModalOpen(true)
+  }
+
   const isUpdating = statusMutation.isPending
   const isClearing = clearMutation.isPending
 
@@ -447,6 +485,9 @@ export function MealCard({
         meal={tintMeal ?? meal}
         trailingActions={hasTrailingActions}
         size="sm"
+        interactive
+        onPointerDownCapture={handleCardPointerDown}
+        onClick={handleCardClick}
         // The head is every row from the slot badge down to the badges; the
         // plate runs its height. The rows below it — a past card's status
         // control and rating prompt — run across the width, so they are the
@@ -550,6 +591,9 @@ export function MealCard({
                 the icon wraps with that word (HON-973), and the button takes its
                 name from the text. The icon is positioned and later in the DOM,
                 so it stacks over the button and keeps its own hover and focus.
+                The whole card opens the view on a click too, so the name
+                underlines on a hover anywhere on it, and the card draws the
+                name's focus ring around itself (`card-target`, HON-1010).
                 The description shares the name's column, so it too stays off
                 the plate; it is hidden below `md`, where that column is a third
                 of a phone card and prose in it would run a dozen lines. */}
@@ -559,14 +603,15 @@ export function MealCard({
                   <button
                     ref={mealNameButtonRef}
                     type="button"
+                    data-slot="card-target"
                     aria-labelledby={mealNameId}
-                    className="peer absolute inset-0 cursor-pointer"
+                    className="absolute inset-0 cursor-pointer outline-none"
                     onClick={() => setIsDetailModalOpen(true)}
                   />
                   <span
                     id={mealNameId}
                     aria-hidden="true"
-                    className="underline-offset-2 peer-hover:underline"
+                    className="underline-offset-2 group-hover/card:underline"
                   >
                     {meal.name}
                   </span>

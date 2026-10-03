@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
 import { Button } from './button'
 import {
   Card,
@@ -88,4 +89,40 @@ export const Small: Story = {
       </CardFooter>
     </Card>
   ),
+}
+
+// `interactive`: a pointer click anywhere opens the card (the planner card,
+// HON-1010). The card stays a plain `div`; its keyboard target is the control
+// marked `data-slot="card-target"`, and the card draws that control's focus
+// ring around itself.
+export const Interactive: Story = {
+  render: () => (
+    <Card size="sm" interactive className="w-64">
+      <CardHeader className="px-3">
+        <CardTitle>
+          <button
+            type="button"
+            data-slot="card-target"
+            className="cursor-pointer outline-none group-hover/card:underline"
+          >
+            Mushroom risotto
+          </button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-3">
+        <p className="text-muted-foreground text-sm">Dinner · 45 min</p>
+      </CardContent>
+    </Card>
+  ),
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const target = within(canvasElement).getByRole('button', { name: 'Mushroom risotto' })
+    await expect(getComputedStyle(card).cursor).toBe('pointer')
+    await expect(getComputedStyle(card).boxShadow).toBe('none')
+
+    target.focus()
+    await expect(target.matches(':focus-visible')).toBe(true)
+    await expect(getComputedStyle(card).boxShadow).not.toBe('none')
+    await expect(getComputedStyle(target).outlineStyle).toBe('none')
+  },
 }
