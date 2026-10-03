@@ -3656,7 +3656,7 @@ export const newMeals = [
     suitableFor: ['breakfast'],
     primaryProteinType: 'pork',
     components: [
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'bacon', quantity: 40 },
       { ingredient: 'egg', quantity: 1 },
       { ingredient: 'butter', quantity: 10 },
@@ -3737,7 +3737,7 @@ export const newMeals = [
     suitableFor: ['breakfast'],
     primaryProteinType: 'none',
     components: [
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'peanut butter', quantity: 30 },
       { ingredient: 'banana', quantity: 1 },
       { ingredient: 'honey', quantity: 10 },
@@ -4007,7 +4007,7 @@ export const newMeals = [
     primaryProteinType: 'poultry',
     components: [
       { ingredient: 'ground turkey', quantity: 150 },
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'lettuce', quantity: 30 },
       { ingredient: 'tomato', quantity: 50 },
       { ingredient: 'onion', quantity: 20 },
@@ -4296,7 +4296,7 @@ export const newMeals = [
     primaryProteinType: 'pork',
     components: [
       { ingredient: 'bacon', quantity: 60 },
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'lettuce', quantity: 30 },
       { ingredient: 'tomato', quantity: 60 },
       { ingredient: 'mayonnaise', quantity: 20 },
@@ -4914,7 +4914,7 @@ export const newMeals = [
     primaryProteinType: 'fish',
     components: [
       { ingredient: 'canned tuna', quantity: 120 },
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'mayonnaise', quantity: 30 },
       { ingredient: 'celery', quantity: 30 },
       { ingredient: 'lettuce', quantity: 20 },
@@ -4942,7 +4942,7 @@ export const newMeals = [
     suitableFor: ['lunch'],
     primaryProteinType: 'dairy',
     components: [
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
       { ingredient: 'cheddar', quantity: 60 },
       { ingredient: 'butter', quantity: 20 },
     ],
@@ -5186,7 +5186,7 @@ export const newMeals = [
       { ingredient: 'feta cheese', quantity: 50 },
       { ingredient: 'cumin', quantity: 3 },
       { ingredient: 'paprika', quantity: 3 },
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
     ],
   },
   {
@@ -5424,7 +5424,7 @@ export const newMeals = [
       { ingredient: 'tomato sauce', quantity: 100 },
       { ingredient: 'honey', quantity: 30 },
       { ingredient: 'apple cider vinegar', quantity: 30 },
-      { ingredient: 'bread', quantity: 2 },
+      { ingredient: 'bread', quantity: 70 },
     ],
   },
   {
@@ -5608,7 +5608,7 @@ export const newMeals = [
     components: [
       { ingredient: 'pasta', quantity: 100 },
       { ingredient: 'spinach', quantity: 100 },
-      { ingredient: 'artichoke', quantity: 1 },
+      { ingredient: 'artichoke', quantity: 60 },
       { ingredient: 'heavy cream', quantity: 80 },
       { ingredient: 'parmesan', quantity: 40 },
       { ingredient: 'garlic', quantity: 5 },

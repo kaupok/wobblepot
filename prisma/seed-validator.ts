@@ -2,8 +2,8 @@
  * Seed Data Validation Script
  *
  * Validates seed data before database seeding to catch:
- * - Hard errors: duplicates, invalid references, unit mismatches, missing fields,
- *   missing or orphaned et translations
+ * - Hard errors: duplicates, invalid references, unit mismatches, piece counts
+ *   written as grams, missing fields, missing or orphaned et translations
  * - Warnings: nutritional outliers, fiber > carbs, shared et ingredient names
  * - Naming conventions: lowercase, trimmed, no punctuation
  * - Nutritional plausibility: Atwater formula cross-check
@@ -99,6 +99,8 @@ const THRESHOLDS = {
   fatMax: 100,
   // Piece-based quantity (quantities above this are suspicious for piece units)
   pieceQuantityMax: 5,
+  // Gram-based quantity (quantities below this are suspicious for gram units)
+  gramQuantityMin: 5,
   // Meal component counts
   componentsMin: 3,
   componentsMax: 15,
@@ -273,6 +275,41 @@ function checkPieceUnitQuantities(
       if (ingredient.defaultUnit === 'piece' && comp.quantity > THRESHOLDS.pieceQuantityMax) {
         errors.push(
           `${meal.name}: '${comp.ingredient}' quantity ${comp.quantity} looks like grams (unit is 'piece', max expected: ${THRESHOLDS.pieceQuantityMax})`,
+        )
+      }
+    }
+  }
+
+  return { errors, warnings }
+}
+
+// Ingredients a meal legitimately uses at under 5g per serving. Spices cover
+// salt, pepper, dried herbs and blends; a dried nori sheet weighs about 2-3g.
+const SMALL_QUANTITY_CATEGORIES = new Set<string>(['spice'])
+const SMALL_QUANTITY_SUBCATEGORIES = new Set<string>(['sea vegetable'])
+
+// The mirror of checkPieceUnitQuantities: a slice or piece count written into
+// a gram ingredient (2 slices of bread stored as 2g, HON-1029).
+function checkGramUnitQuantities(
+  meals: Meal[],
+  ingredientMap: Map<string, Ingredient>,
+): ValidationResult {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  for (const meal of meals) {
+    for (const comp of meal.components) {
+      const ingredient = ingredientMap.get(comp.ingredient)
+      if (!ingredient) continue // Already reported in reference validation
+      if (ingredient.defaultUnit !== 'g') continue
+      if (SMALL_QUANTITY_CATEGORIES.has(ingredient.category)) continue
+      if (ingredient.subcategory && SMALL_QUANTITY_SUBCATEGORIES.has(ingredient.subcategory)) {
+        continue
+      }
+
+      if (comp.quantity < THRESHOLDS.gramQuantityMin) {
+        errors.push(
+          `${meal.name}: '${comp.ingredient}' quantity ${comp.quantity} looks like a piece count (unit is 'g', min expected: ${THRESHOLDS.gramQuantityMin})`,
         )
       }
     }
@@ -734,6 +771,7 @@ async function main() {
     // Reference integrity
     validateMealReferences(allMeals, ingredientMap),
     checkPieceUnitQuantities(allMeals, ingredientMap),
+    checkGramUnitQuantities(allMeals, ingredientMap),
     checkMealComponentCounts(allMeals),
     validateIngredientAliases(ingredientNames),
 
