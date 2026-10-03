@@ -47,7 +47,8 @@ export default async function Home() {
   const todayDate = getTodayInTimezone(household.timezone)
   const todayParsed = parseLocalDate(todayDate)
 
-  // Compute date range: -7 to +14 from today
+  // Compute date range: -7 to +14 from today. Today renders no past day; the
+  // past 7 feed only the count on its past-meals notice (HON-1007).
   const sevenDaysAgo = new Date(todayParsed)
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
   const fourteenDaysAhead = new Date(todayParsed)

@@ -1,16 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { TimelineDayCard } from './TimelineDayCard'
-import { TimelinePastSection, countPastCatchUp } from './TimelinePastSection'
-import { TimelinePastMenu } from './TimelinePastMenu'
+import { TimelinePastNotice } from './TimelinePastNotice'
+import { countPastCatchUp } from './past-days'
 import { FillDaysAction } from './FillDaysAction'
 import { UrgentShopping } from './UrgentShopping'
 import { Heading } from '@/components/ui/typography'
 import { parseLocalDate, toDateString, isWeekday } from '@/lib/meal-planning/dates'
-import { prefersReducedMotion } from '@/lib/utils'
 import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import type {
@@ -87,28 +86,15 @@ export function TimelineView({
   const locale = useLocale() as Locale
   const tDates = useTranslations('dates')
   const tToday = useTranslations('today')
-  const [isPastExpanded, setIsPastExpanded] = useState(false)
-  const pastSectionRef = useRef<HTMLDivElement>(null)
 
-  // Past days render above Today, so expanding pushes the menu that revealed
-  // them down the page. Bring the first past day into view instead.
-  useEffect(() => {
-    if (!isPastExpanded) return
-    pastSectionRef.current?.scrollIntoView({
-      block: 'start',
-      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-    })
-  }, [isPastExpanded])
-
-  const { pastDays, futureDays, fillStartDate } = useMemo(() => {
+  const { futureDays, fillStartDate } = useMemo(() => {
     const todayParsed = parseLocalDate(todayDate)
     const tomorrowParsed = new Date(todayParsed)
     tomorrowParsed.setDate(tomorrowParsed.getDate() + 1)
     const tomorrowDate = toDateString(tomorrowParsed)
 
-    // Build date range: -7 to +14 from today
-    const startParsed = new Date(todayParsed)
-    startParsed.setDate(startParsed.getDate() - 7)
+    // Build date range: today to +14. Past days have their own page
+    // (`/past-meals`); Today only counts the ones still to mark (HON-1007).
     const endParsed = new Date(todayParsed)
     endParsed.setDate(endParsed.getDate() + 14)
 
@@ -121,8 +107,8 @@ export function TimelineView({
     }
 
     // Build timeline days
-    const allDays: TimelineDay[] = []
-    const current = new Date(startParsed)
+    const days: TimelineDay[] = []
+    const current = new Date(todayParsed)
     // Filling starts on the first future day with nothing planned, so the fill
     // bar sits where the planned run from today ends and its range matches its
     // position. Gaps inside that run (an empty breakfast on a day with a
@@ -134,7 +120,6 @@ export function TimelineView({
 
     while (current <= endParsed) {
       const dateStr = toDateString(current)
-      const isPast = dateStr < todayDate
       const { label, dateLabel, isToday, isTomorrow } = getDayLabel(
         dateStr,
         todayDate,
@@ -158,17 +143,17 @@ export function TimelineView({
       const existingTypes = new Set(dayEntries.map((e) => e.mealType))
       const emptySlots = expectedTypes.filter((mt) => !existingTypes.has(mt))
 
-      if (!isPast && dayEntries.length === 0 && fillStart === null) {
+      if (dayEntries.length === 0 && fillStart === null) {
         fillStart = dateStr
       }
 
-      allDays.push({
+      days.push({
         date: dateStr,
         label,
         dateLabel,
         isToday,
         isTomorrow,
-        isPast,
+        isPast: false,
         entries: dayEntries,
         emptySlots,
       })
@@ -176,11 +161,7 @@ export function TimelineView({
       current.setDate(current.getDate() + 1)
     }
 
-    // Split into past and future (today counts as future)
-    const past = allDays.filter((d) => d.isPast && d.entries.length > 0)
-    const future = allDays.filter((d) => !d.isPast)
-
-    return { pastDays: past, futureDays: future, fillStartDate: fillStart }
+    return { futureDays: days, fillStartDate: fillStart }
   }, [entries, todayDate, expectedMealTypes, locale, tDates])
 
   function handleEntryUpdated() {
@@ -193,19 +174,10 @@ export function TimelineView({
   const plannedDays = fillStartDate ? futureDays.filter((d) => d.date < fillStartDate) : futureDays
   const emptyDays = fillStartDate ? futureDays.filter((d) => d.date >= fillStartDate) : []
 
-  // Today can land in either plannedDays or emptyDays, so the menu is attached
-  // per card rather than at a fixed position in the list.
-  const pastMenu =
-    pastDays.length > 0 ? (
-      <TimelinePastMenu
-        expanded={isPastExpanded}
-        catchUpCount={countPastCatchUp(pastDays)}
-        onToggle={() => setIsPastExpanded((expanded) => !expanded)}
-      />
-    ) : null
+  const catchUpCount = countPastCatchUp(entries, todayDate)
 
   function renderDay(day: TimelineDay) {
-    return (
+    const card = (
       <TimelineDayCard
         key={day.date}
         day={day}
@@ -214,8 +186,16 @@ export function TimelineView({
         pantryIngredients={pantryIngredients}
         pantryItems={pantryItems}
         onEntryUpdated={handleEntryUpdated}
-        headerAction={day.isToday ? pastMenu : undefined}
       />
+    )
+    // Today can land in either plannedDays or emptyDays, so the notice is
+    // attached to its card rather than placed at a fixed point in the list.
+    if (!day.isToday || catchUpCount === 0) return card
+    return (
+      <div key={day.date} className="flex flex-col gap-4">
+        <TimelinePastNotice count={catchUpCount} />
+        {card}
+      </div>
     )
   }
 
@@ -241,17 +221,6 @@ export function TimelineView({
           <div className="empty:hidden lg:hidden">
             <UrgentShopping items={shoppingItems} todayDate={todayDate} compact />
           </div>
-
-          <TimelinePastSection
-            ref={pastSectionRef}
-            days={pastDays}
-            expanded={isPastExpanded}
-            planId={planId}
-            householdSize={householdSize}
-            pantryIngredients={pantryIngredients}
-            pantryItems={pantryItems}
-            onEntryUpdated={handleEntryUpdated}
-          />
 
           {plannedDays.map(renderDay)}
 

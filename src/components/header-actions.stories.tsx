@@ -21,7 +21,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Right-side header chrome — desktop only (`hidden md:flex` at the component root, hidden below `md:`). Shows sign-in/up CTAs when logged out, a user-menu dropdown (Profile, Sign out, theme toggle) when logged in. The Profile item is suppressed during onboarding (authenticated but no household yet).',
+          'Right-side header chrome — desktop only (`hidden md:flex` at the component root, hidden below `md:`). Shows sign-in/up CTAs when logged out, a user-menu dropdown (Past meals, Profile, Sign out, theme toggle) when logged in. The Past meals and Profile items are suppressed during onboarding (authenticated but no household yet).',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -80,6 +80,10 @@ export const MenuOpensOnClick: Story = {
     // Radix DropdownMenu portals the content to document.body
     const menu = await body.findByRole('menu')
     expect(menu).toBeInTheDocument()
+    expect(body.getByRole('menuitem', { name: 'Past meals' })).toHaveAttribute(
+      'href',
+      '/past-meals',
+    )
     expect(body.getByRole('menuitem', { name: 'Profile' })).toBeInTheDocument()
     expect(body.getByRole('menuitem', { name: /sign out/i })).toBeInTheDocument()
   },

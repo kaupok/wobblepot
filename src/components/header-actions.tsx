@@ -69,6 +69,9 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
             {hasHousehold && (
               <>
                 <DropdownMenuItem asChild>
+                  <Link href="/past-meals">{t('pastMeals')}</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href="/profile">{t('profile')}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

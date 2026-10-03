@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, Home, Package, ShoppingCart } from 'lucide-react'
+import { BookOpen, Home, Package, ShoppingCart, type LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Session } from '@/lib/auth'
 import { isNavItemActive } from '@/lib/navigation'
@@ -10,14 +10,21 @@ import { isNavItemActive } from '@/lib/navigation'
 // Four tabs, and a fifth is not an option (DESIGN.md → "Four tabs on a
 // phone"). Household lives in the account sheet (HON-775), which is what freed
 // the slot Pantry took (HON-776).
-const tabs = [
-  { key: 'plan', icon: Home, href: '/' },
+// `alsoActiveOn`: other pages that belong to the tab. Past meals is the plan's
+// history, opened from the account sheet rather than a tab of its own (HON-1007).
+const tabs: readonly {
+  key: 'plan' | 'shopping' | 'pantry' | 'recipes'
+  icon: LucideIcon
+  href: string
+  alsoActiveOn?: readonly string[]
+}[] = [
+  { key: 'plan', icon: Home, href: '/', alsoActiveOn: ['/past-meals'] },
   { key: 'shopping', icon: ShoppingCart, href: '/shopping' },
   // `Package` rather than `Archive`: a box of stored goods reads as "what we
   // have in", where a filing box reads as old records put away.
   { key: 'pantry', icon: Package, href: '/pantry' },
   { key: 'recipes', icon: BookOpen, href: '/recipes' },
-] as const
+]
 
 interface BottomTabBarProps {
   session: Session | null
@@ -36,8 +43,8 @@ export function BottomTabBar({ session, hasHousehold }: BottomTabBarProps) {
       className="bg-background fixed right-0 bottom-0 left-0 z-50 border-t pb-[env(safe-area-inset-bottom,0px)] md:hidden"
     >
       <div className="flex h-16 items-center justify-around">
-        {tabs.map(({ key, icon: Icon, href }) => {
-          const isActive = isNavItemActive(href, pathname)
+        {tabs.map(({ key, icon: Icon, href, alsoActiveOn = [] }) => {
+          const isActive = [href, ...alsoActiveOn].some((path) => isNavItemActive(path, pathname))
 
           return (
             <Link

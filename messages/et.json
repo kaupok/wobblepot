@@ -387,15 +387,18 @@
       "someQuantity": "veidi"
     },
     "past": {
-      "show": "Näita möödunud toite",
-      "hide": "Peida möödunud toidud",
-      "catchUp": "{count, plural, one {# järgi teha} other {# järgi teha}}",
-      "menuLabel": "Ajajoone valikud",
-      "menuLabelWithCatchUp": "Ajajoone valikud, {count, plural, one {# möödunud toit} other {# möödunud toitu}} järgi teha"
+      "notice": "{count, plural, one {# möödunud toit on märkimata.} other {# möödunud toitu on märkimata.}}",
+      "noticeLink": "Märgi möödunud toidud"
     },
     "day": {
       "noMealsPlanned": "Toite pole planeeritud"
     }
+  },
+  "pastMeals": {
+    "title": "Möödunud toidud",
+    "description": "Viimased 7 päeva. Märgi iga toit valmistatuks või vahele jäetuks.",
+    "empty": "Viimasel 7 päeval polnud midagi plaanis.",
+    "backToPlan": "Tagasi toiduplaani juurde"
   },
   "recipes": {
     "mealCount": "{count, plural, =0 {Retsepte pole} one {# retsept} other {# retsepti}}",
@@ -730,6 +733,7 @@
       "userMenu": "Kasutajamenüü",
       "account": "Konto",
       "accountMenu": "Konto menüü",
+      "pastMeals": "Möödunud toidud",
       "profile": "Profiil",
       "signIn": "Logi sisse",
       "signUp": "Loo konto",

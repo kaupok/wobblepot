@@ -129,6 +129,18 @@ describe('HeaderActions', () => {
       expect(screen.getByRole('menuitem', { name: /dark mode/i })).toBeInTheDocument()
     })
 
+    it('Past meals link points to /past-meals', async () => {
+      const user = userEvent.setup()
+      render(<HeaderActions session={mockSession} hasHousehold={true} />)
+
+      await user.click(screen.getByRole('button', { name: 'User menu' }))
+
+      expect(screen.getByRole('menuitem', { name: 'Past meals' })).toHaveAttribute(
+        'href',
+        '/past-meals',
+      )
+    })
+
     it('Profile link points to /profile', async () => {
       const user = userEvent.setup()
       render(<HeaderActions session={mockSession} hasHousehold={true} />)
@@ -156,6 +168,7 @@ describe('HeaderActions', () => {
       await user.click(userMenuButton)
 
       expect(screen.queryByRole('menuitem', { name: 'Profile' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: 'Past meals' })).not.toBeInTheDocument()
       expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeInTheDocument()
     })
   })

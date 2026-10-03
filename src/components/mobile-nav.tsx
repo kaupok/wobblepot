@@ -87,6 +87,9 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
             <>
               {hasHousehold && (
                 <>
+                  <Link href="/past-meals" className={linkClass} onClick={() => setOpen(false)}>
+                    {t('pastMeals')}
+                  </Link>
                   <Link href="/household" className={linkClass} onClick={() => setOpen(false)}>
                     {tSettings('household')}
                   </Link>
