@@ -19,10 +19,12 @@ import type { Vessel, VesselEstimate } from './vessel'
  *
  * The surface is pure white by design (HON-744), so the image can be
  * rescaled about the vessel's rim and padded with white after generation,
- * with no seam. The rim is the anchor, not the drawing's bounding box: the
- * widest row of ink is the rim's horizontal diameter, and it is placed on
- * the frame's centre line, so a tall stack of pancakes rises from the same
- * table level as a flat omelette.
+ * with no seam. The rim sets the scale and the horizontal centre: the
+ * widest row of ink is the rim's horizontal diameter. The vertical centre
+ * is the drawing's bounding box, placed on the frame's centre line
+ * (HON-1031). The rim on that line kept one table level across dishes, but
+ * each card has its own image box, so a tall stack sat high in its card and
+ * a deep bowl, whose widest row is near its top, hung below the centre.
  *
  * The camera's elevation is measured from the rim's front half-ellipse and
  * reported, not corrected: the model picks it per dish (a sandwich is drawn
@@ -61,8 +63,14 @@ export interface FootprintOptions {
   scale: FootprintScale
   /** The vessels that are fitted; any other is left as drawn. */
   fitted: readonly Vessel[]
-  /** Where the rim's horizontal diameter sits, as a fraction of the frame height. */
+  /** Where the vertical anchor sits, as a fraction of the frame height. */
   anchorY: number
+  /**
+   * What is placed at `anchorY`: the centre of the drawing's bounding box,
+   * or the rim's row. The fit uses the box (HON-1031); the view for the
+   * vision call keeps the rim, so its size estimate is unchanged.
+   */
+  anchor: 'box' | 'rim'
   /**
    * A scale outside this range says the footprint is not the vessel: a rim
    * too pale to count would measure only the food and ask for ×1.4 or more.
@@ -77,7 +85,7 @@ export interface FootprintOptions {
    * images for nothing; a 2 cm move still refits.
    */
   tolerance: number
-  /** A rim this close to its anchor, as a fraction of the frame, is not worth a move. */
+  /** A drawing this close to its anchor, as a fraction of the frame, is not worth a move. */
   positionTolerance: number
 }
 
@@ -102,6 +110,7 @@ export const DEFAULT_FOOTPRINT_OPTIONS: FootprintOptions = {
   scale: FOOTPRINT_SCALE,
   fitted: ['plate', 'bowl'],
   anchorY: 0.5,
+  anchor: 'box',
   minScale: 0.7,
   maxScale: 1.2,
   tolerance: 0.035,
@@ -137,6 +146,9 @@ export async function canonicalForEstimate(
   const reference = { vessel: 'plate', diameterCm: options.scale.referenceCm } as const
   const fitted = await fitFootprint(bytes, mediaType, reference, {
     ...options,
+    // The rim on the centre line, as in HON-1024: the view only feeds the
+    // size estimate, and an unchanged view keeps the estimate unchanged.
+    anchor: 'rim',
     // Any width is canonical here, so a cropped or odd drawing is still sent.
     minScale: 0.25,
     maxScale: 4,
@@ -266,11 +278,16 @@ export type FitDecision =
       reason: 'nothing drawn' | 'the footprint touches the frame edge' | 'scale out of range'
     }
 
-/** Where the rim's centre lands after `scale`, and where it should be, in pixels. */
-function rimOffset(fp: Footprint, scale: number, options: FootprintOptions) {
+/**
+ * How far to move the image after `scale`, in pixels: the rim's centre to the
+ * frame's centre horizontally, so a side item does not push the plate aside,
+ * and the anchor to `anchorY` vertically.
+ */
+function anchorOffset(fp: Footprint, scale: number, options: FootprintOptions) {
   const cx = (fp.rimLeft + fp.rimRight + 1) / 2
+  const cy = options.anchor === 'rim' ? fp.rimRow : (fp.top + fp.bottom + 1) / 2
   const dx = fp.frameWidth / 2 - cx * scale
-  const dy = fp.frameHeight * options.anchorY - fp.rimRow * scale
+  const dy = fp.frameHeight * options.anchorY - cy * scale
   return { dx, dy }
 }
 
@@ -296,9 +313,9 @@ export function planFit(
   if (scale < options.minScale || scale > options.maxScale) {
     return { action: 'skip', reason: 'scale out of range' }
   }
-  // "Already fitted" is judged as drawn: a rim at the anchor would still
+  // "Already fitted" is judged as drawn: a drawing at the anchor would still
   // move by its centre times (1 - scale) if the near-1 scale were applied.
-  const { dx, dy } = rimOffset(footprint, 1, options)
+  const { dx, dy } = anchorOffset(footprint, 1, options)
   if (
     Math.abs(scale - 1) <= options.tolerance &&
     Math.abs(dx) <= options.positionTolerance * footprint.frameWidth &&
@@ -334,8 +351,9 @@ export interface FittedImage {
 
 /**
  * Scale the image about its rim so the rim is the width its vessel's size
- * calls for, and place the rim's centre on the frame's centre line, on a
- * white canvas of the original size. The result is a PNG whatever came in.
+ * calls for, and centre the drawing in the frame: the rim's centre
+ * horizontally, the bounding box's centre vertically, on a white canvas of
+ * the original size. The result is a PNG whatever came in.
  * An image that is left as drawn comes back as it was, bytes and media type
  * both.
  */
@@ -374,7 +392,7 @@ export async function fitFootprint(
   const { frameWidth: W, frameHeight: H } = footprint
   const scaledW = Math.max(1, Math.round(W * scale))
   const scaledH = Math.max(1, Math.round(H * scale))
-  const { dx, dy } = rimOffset(footprint, scale, options)
+  const { dx, dy } = anchorOffset(footprint, scale, options)
   const left = Math.round(dx)
   const top = Math.round(dy)
 

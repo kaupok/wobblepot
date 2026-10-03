@@ -247,8 +247,9 @@ export const fileNameFor = (image: RefitImage): string => {
 
 /**
  * Every image as a before/after pair, each under dashed guides at the
- * width its vessel's size calls for and the rim's centre line, so a plate
- * that still misses them is seen at once. The "after" of an image left as drawn is the stored URL again.
+ * width its vessel's size calls for and the frame's centre line, where the
+ * drawing's vertical centre belongs (HON-1031), so a plate that still
+ * misses them is seen at once. The "after" of an image left as drawn is the stored URL again.
  */
 export function renderSheet(
   images: RefitImage[],
@@ -296,7 +297,7 @@ figcaption{font-size:12px;color:#555;padding:4px 0 0}
 pre{background:#fff;border:1px solid #ddd;padding:12px;display:inline-block}
 </style></head><body>
 <h1>Meal footprints — as drawn and fitted</h1>
-<p>Run ${esc(meta.startedAt)}. ${images.length} stored image(s); ${rescaled(images).length} refit; ${failed.length} could not be read or classified. Dashed guides mark the width each vessel's size calls for, and the rim's centre line.</p>
+<p>Run ${esc(meta.startedAt)}. ${images.length} stored image(s); ${rescaled(images).length} refit; ${failed.length} could not be read or classified. Dashed guides mark the width each vessel's size calls for, and the centre line the drawing is centred on.</p>
 <pre>${esc(meta.summary)}</pre>
 ${failed.length > 0 ? `<p>Not fitted: ${failed.map((i) => esc(i.meals.map((m) => m.name).join(', '))).join('; ')}</p>` : ''}
 <div class="grid">
