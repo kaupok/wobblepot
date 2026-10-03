@@ -557,12 +557,43 @@ describe('runPublish', () => {
         imageUrl: 'https://blob/new.png',
         imagePromptVersion: MEAL_IMAGE_PROMPT_VERSION,
         imageHue: expect.closeTo(264, -1),
+        imageVessel: null,
+        imageDiameterCm: null,
         imageClaimedAt: null,
         imageAttempts: 0,
         updatedAt: UPDATED_AT,
       },
     })
     expect(d.remove).not.toHaveBeenCalled()
+  })
+
+  it('stores the vessel estimate the manifest recorded for the image (HON-1034)', async () => {
+    const stew = meal('Irish Lamb Stew')
+    const toast = meal('Avocado Toast')
+    writeImages('irish-lamb-stew', 'avocado-toast')
+    const { db, updateMany } = mockDb()
+
+    await runPublish(
+      buildPublishPlan(
+        manifestOf([
+          entryFor(stew, { vessel: { vessel: 'bowl', diameterCm: 22 } }),
+          entryFor(toast, { vessel: null }),
+        ]),
+        [stew, toast],
+        [],
+      ),
+      dir,
+      publishDeps(db),
+    )
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: stew.id, imageClaimedAt: NOW }),
+      data: expect.objectContaining({ imageVessel: 'bowl', imageDiameterCm: 22 }),
+    })
+    expect(updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: toast.id, imageClaimedAt: NOW }),
+      data: expect.objectContaining({ imageVessel: null, imageDiameterCm: null }),
+    })
   })
 
   it('publishes with a null hue when the image cannot be read for colour', async () => {

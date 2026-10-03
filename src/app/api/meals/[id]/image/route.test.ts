@@ -128,6 +128,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { clearMealImage } from '@/lib/meal-images/invalidation'
 import { extractHue } from '@/lib/meal-images/colour'
+import { vesselSchema } from '@/lib/meal-images/vessel'
 import { captureApiError } from '@/lib/errors'
 import { getServerFlag } from '@/lib/feature-flags'
 import type { Prisma } from '@/generated/prisma/client'
@@ -181,6 +182,8 @@ function seedMeal(over: Record<string, unknown> = {}) {
     imageAttempts: 0,
     imagePromptVersion: null,
     imageHue: null,
+    imageVessel: null,
+    imageDiameterCm: null,
     components: [
       {
         quantityPerServing: 3,
@@ -286,6 +289,34 @@ describe('POST /api/meals/[id]/image', () => {
       imageHue: 264,
     })
     expect(mockCheckRateLimit).toHaveBeenCalledWith(HOUSEHOLD_ID, 'meal-image')
+  })
+
+  it('stores the vessel estimate the image was fitted at (HON-1034)', async () => {
+    // The vessel calls answer a 22 cm plate, the judge calls a clean verdict.
+    // The mocked bytes are not a PNG, so the fit fails and the image is kept
+    // as drawn; the estimate is stored all the same, for a refit to fit from.
+    mockGenerateObject.mockImplementation((async (opts: { schema: unknown }) =>
+      opts.schema === vesselSchema
+        ? {
+            object: { vessel: 'plate', diameterCm: 22 },
+            usage: (cleanJudge as { usage: unknown }).usage,
+          }
+        : cleanJudge) as never)
+
+    const response = await post()
+
+    expect(response.status).toBe(200)
+    expect(row()).toMatchObject({ imageStatus: 'ready', imageVessel: 'plate', imageDiameterCm: 22 })
+  })
+
+  it('stores no vessel estimate when the vessel could not be classified', async () => {
+    // The default mock answers every call with the judge's shape, which names no vessel.
+    seedMeal({ imageVessel: 'bowl', imageDiameterCm: 15 })
+
+    const response = await post()
+
+    expect(response.status).toBe(200)
+    expect(row()).toMatchObject({ imageStatus: 'ready', imageVessel: null, imageDiameterCm: null })
   })
 
   it('draws the ingredients by weight, so a piece of pita outranks 3 g of cumin', async () => {

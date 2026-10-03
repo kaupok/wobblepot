@@ -929,6 +929,8 @@ describe('PATCH /api/households/me/meals/[id]', () => {
         imageClaimedAt: null,
         imageAttempts: 0,
         imageHue: null,
+        imageVessel: null,
+        imageDiameterCm: null,
       },
     }
 
