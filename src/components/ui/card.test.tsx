@@ -36,7 +36,9 @@ describe('Card', () => {
     expect(card).toHaveClass(
       'group/card',
       'cursor-pointer',
-      'hover:border-muted-foreground',
+      'hover:border-border',
+      'hover:ring-1',
+      'hover:ring-border',
       'has-[[data-slot=card-target]:focus-visible]:ring-[3px]',
     )
     expect(card).not.toHaveAttribute('role')

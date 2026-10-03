@@ -94,7 +94,8 @@ export const Small: Story = {
 // `interactive`: a pointer click anywhere opens the card (the planner card,
 // HON-1010). The card stays a plain `div`; its keyboard target is the control
 // marked `data-slot="card-target"`, and the card draws that control's focus
-// ring around itself.
+// ring around itself. On hover the edge is the card's `--border` at 2px (the
+// border plus a 1px ring), so the content does not move (HON-1027).
 export const Interactive: Story = {
   render: () => (
     <Card size="sm" interactive className="w-64">
