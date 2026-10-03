@@ -672,6 +672,28 @@ describe('MealCard card click (HON-1010)', () => {
     expect(cookView()).not.toBeInTheDocument()
   })
 
+  it("leaves the open note editor's slip to the editor", async () => {
+    const user = userEvent.setup()
+    renderCard({ meal: imageMeal, note: 'Leftovers' })
+    await user.click(screen.getByRole('button', { name: 'Leftovers' }))
+    const textarea = await screen.findByRole('textbox', { name: 'Meal note' })
+
+    // The paper around the field, not a control.
+    // eslint-disable-next-line testing-library/no-node-access -- the slip's paper has no role
+    await user.click(textarea.closest('[data-surface="sticky"]')!)
+
+    expect(cookView()).not.toBeInTheDocument()
+  })
+
+  it("opens the cook view from a past card's read-only slip", async () => {
+    const user = userEvent.setup()
+    renderCard({ meal, isPast: true, note: 'Leftovers', preparationTips: tips })
+
+    await user.click(screen.getByText('Leftovers'))
+
+    expect(await screen.findByRole('dialog', { name: meal.name })).toBeInTheDocument()
+  })
+
   it('leaves a click that ends a text selection alone', async () => {
     const user = userEvent.setup()
     renderCard({ meal: imageMeal })

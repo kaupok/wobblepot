@@ -48,9 +48,12 @@ import { useMealImageFields } from '@/hooks/use-meal-image'
 import { track, type Source } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 
-/** What a card click leaves to itself: every control, and the note's slip. */
+/**
+ * What a card click leaves to itself: every control. The saved note's slip is
+ * a button, and a drag of it stops its own click (`useNoteDrag`).
+ */
 const CARD_CLICK_IGNORE =
-  'button, a, input, textarea, select, label, [role="menuitem"], [role="option"], [data-slot="meal-image-overlay"] *'
+  'button, a, input, textarea, select, label, [role="menuitem"], [role="option"]'
 
 interface MealCardProps {
   entryId: string
@@ -382,8 +385,8 @@ export function MealCard({
   // A click anywhere on the card opens the cook view, as the name does
   // (HON-1010). A pointer shortcut only: the name stays the card's keyboard
   // target and accessible name, so the card takes no role, tab stop or keys.
-  // Skipped for a click on a control (the name opens the view itself), on the
-  // note's slip, and for a click that ends a text selection. React bubbles
+  // Skipped for a click on a control (the name opens the view itself), in the
+  // open note editor, and for a click that ends a text selection. React bubbles
   // events out of portals along its own tree, so a click in the ⋯ menu or the
   // status select's list reaches this handler too; those are outside the
   // card's DOM, which the first check catches. The menu is not modal, so a
@@ -399,6 +402,9 @@ export function MealCard({
     const target = event.target
     if (!(target instanceof Element) || !event.currentTarget.contains(target)) return
     if (target.closest(CARD_CLICK_IGNORE)) return
+    // The open editor's slip belongs to the editor. A read-only slip, on a
+    // past or read-only card, is part of the card.
+    if (isNoteEditing && target.closest('[data-slot="meal-image-overlay"] *')) return
     if (window.getSelection()?.toString()) return
     // The press left focus on the page body, and the cook view hands focus
     // back to whatever had it as it opened. Give it the name, as a click on
