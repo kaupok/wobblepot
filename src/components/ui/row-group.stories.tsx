@@ -13,7 +13,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The box around a group of list rows on `/shopping` and `/pantry`: one border, one radius, a divider between rows. Rows inside carry only their padding and backgrounds. `ShoppingItem`, `CustomShoppingItem` and `PantryItemRow` are the rows it holds; their stories render inside it. `variant="ruled"` is the same rows on the shopping list\'s note sheet: dividers only, because the sheet is already the container, and the rows pulled out by their own padding so their content lines up with the heading above (HON-1016).',
+          'The box around a group of list rows on `/shopping` and `/pantry`: one border, one radius, a divider between rows. Rows inside carry only their padding and backgrounds. `ShoppingItem`, `CustomShoppingItem` and `PantryItemRow` are the rows it holds; their stories render inside it. `variant="ruled"` is the same rows on the shopping list\'s note sheet: no box, because the sheet is already the container (HON-1016), and no dividers, because the group headings and the spacing already separate the rows (HON-1017). The rows are pulled out by their own padding so their content lines up with the heading above.',
       },
     },
   },
@@ -62,7 +62,7 @@ export const SingleRow: Story = {
   },
 }
 
-/** The rows on the shopping list's note sheet: dividers, no box (HON-1016). */
+/** The rows on the shopping list's note sheet: no box, no dividers (HON-1016, HON-1017). */
 export const Ruled: Story = {
   render: () => (
     <Card data-surface="note">
@@ -83,9 +83,14 @@ export const Ruled: Story = {
   play: async ({ canvasElement }) => {
     const group = canvasElement.querySelector<HTMLElement>('[data-testid="ruled"]')!
     const style = getComputedStyle(group)
-    // No box of its own: the sheet contains, the dividers separate.
+    // No box of its own: the sheet contains, the headings and spacing separate.
     await expect(style.borderTopWidth).toBe('0px')
     await expect(style.borderLeftWidth).toBe('0px')
+    // No rule between rows either (HON-1017).
+    for (const row of group.children) {
+      await expect(getComputedStyle(row).borderTopWidth).toBe('0px')
+      await expect(getComputedStyle(row).borderBottomWidth).toBe('0px')
+    }
     // A row's content (inside its `p-3`) starts on the heading's left edge.
     const heading = canvasElement.querySelector('h3')!
     const firstText = group.querySelector('p')!
@@ -118,7 +123,9 @@ export const BothVariants: Story = {
     const ruled = canvasElement.querySelector<HTMLElement>('[data-testid="ruled"]')!
     await expect(getComputedStyle(box).borderTopWidth).toBe('1px')
     await expect(getComputedStyle(ruled).borderTopWidth).toBe('0px')
-    // Both draw a divider between their rows.
-    await expect(getComputedStyle(ruled.children[0]!).borderBottomWidth).toBe('1px')
+    // The pantry's box keeps its divider between rows; the sheet's ruled
+    // group draws none (HON-1017).
+    await expect(getComputedStyle(box.children[0]!).borderBottomWidth).toBe('1px')
+    await expect(getComputedStyle(ruled.children[0]!).borderBottomWidth).toBe('0px')
   },
 }

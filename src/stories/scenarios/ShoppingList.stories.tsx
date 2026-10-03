@@ -225,7 +225,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The `/shopping` screen as a whole, not a single component. Makes the composition rules visible: the column title and controls sit on the page background, the list is one note sheet (the paper of the shopping note on Today) holding the Add field and the groups, each group is a ruled `RowGroup` with a divider between its rows and no box of its own, every row clears the 44px touch floor, and the title stays at the Title level. Props are fixed — see `.storybook/README.md` → "Scenario stories".',
+          'The `/shopping` screen as a whole, not a single component. Makes the composition rules visible: the column title and controls sit on the page background, the list is one note sheet (the paper of the shopping note on Today) holding the Add field and the groups, each group is a ruled `RowGroup` with no box and no dividers of its own (the headings and spacing separate the rows), every row is 44px on touch and 36px with a mouse, and the title stays at the Title level. Props are fixed — see `.storybook/README.md` → "Scenario stories".',
       },
     },
   },

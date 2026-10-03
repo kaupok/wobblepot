@@ -102,8 +102,8 @@ export const ListShape: Story = {
 }
 
 // Inside the shopping list's note sheet the bars take `tone="soft"`: the
-// note's accent is the colour of its dividers, so a default bar is as loud as
-// a rule (HON-1016). Default and soft side by side on the sheet, over ruled rows.
+// note's accent is its chip, so a default bar is louder than anything else on
+// the sheet (HON-1016). Default and soft side by side on the sheet, over ruled rows.
 export const SoftOnNote: Story = {
   render: () => (
     <div className="w-80">
@@ -113,7 +113,7 @@ export const SoftOnNote: Story = {
             <Skeleton data-testid="default" className="h-4 w-48" />
             <RowGroup variant="ruled">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="flex items-center gap-3 p-3">
+                <div key={i} className="flex items-center gap-3 px-3 py-2">
                   <Skeleton aria-hidden tone="soft" shape="checkbox" className="size-5" />
                   <Skeleton aria-hidden tone="soft" className="h-5 w-32" />
                 </div>

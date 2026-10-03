@@ -12,8 +12,8 @@ const skeletonVariants = cva('animate-pulse', {
     tone: {
       default: 'bg-accent',
       // Inside the shopping list's note sheet (HON-1016). The note re-maps
-      // `--accent` to its chip, the colour of the sheet's dividers, so a
-      // full-accent bar is as loud as a rule; half of it sits under them.
+      // `--accent` to its chip, so a full-accent bar is louder than anything
+      // else on the sheet; at half it is the rows' hover wash.
       soft: 'bg-accent/50',
     },
     shape: {

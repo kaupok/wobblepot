@@ -215,6 +215,39 @@ export const AllStates: Story = {
   ),
 }
 
+// Two purchased rows next to each other in one ruled group, which has no
+// divider (HON-1017). Their washes touch, so this is the case to look at when
+// deciding whether rows on the sheet still read apart.
+export const AdjacentPurchased: Story = {
+  parameters: { a11y: inactiveStateA11y },
+  render: () => (
+    <>
+      <ShoppingItem
+        item={createShoppingItem({ name: 'Chicken thigh', displayQuantity: '500g' })}
+        onToggle={fn()}
+      />
+      <ShoppingItem
+        item={createShoppingItem({
+          ingredientId: 'purchased-1',
+          name: 'Salmon fillet',
+          displayQuantity: '300g',
+          purchased: true,
+        })}
+        onToggle={fn()}
+      />
+      <ShoppingItem
+        item={createShoppingItem({
+          ingredientId: 'purchased-2',
+          name: 'Lemon',
+          displayQuantity: '2 pc',
+          purchased: true,
+        })}
+        onToggle={fn()}
+      />
+    </>
+  ),
+}
+
 // Play story — verifies the parent-callback contract. The click flips the
 // visual state to `purchased`, so the same inactive-state waiver applies.
 export const CheckInvokesCallback: Story = {

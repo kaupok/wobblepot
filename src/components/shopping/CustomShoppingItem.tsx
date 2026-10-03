@@ -42,7 +42,11 @@ export function CustomShoppingItem({
   return (
     <div
       className={cn(
-        'min-h-touch flex items-center justify-between gap-3 p-3 transition-colors',
+        // 44px on touch (the `leading-7` name line plus `py-2`), 36px with a
+        // mouse, where the hover wash shows the row under the pointer. The
+        // pointer type, not the width: a touch tablet at `md` keeps 44px
+        // (HON-1017, docs/DESIGN.md → Spacing, radius, elevation).
+        'min-h-touch flex items-center justify-between gap-3 px-3 py-2 transition-colors pointer-fine:min-h-9 pointer-fine:py-1',
         // `accent`, not `muted`: the shopping note re-maps `--accent` to its
         // chip, so the wash stays yellow on the sheet (HON-1012).
         'hover:bg-accent/50',
@@ -74,9 +78,9 @@ export function CustomShoppingItem({
         </div>
       </label>
       {/* `-my-0.5` lets the 32px `icon-sm` actions reach 2px into the row's
-          `p-3` instead of growing the row past the 28px name line — the row
-          stays the same height as `ShoppingItem`, which
-          `ShoppingItemSkeleton.stories.tsx` holds both to. */}
+          vertical padding instead of growing the row past the 28px name line,
+          so the row is 44px on touch and 36px with a mouse, as `ShoppingItem`
+          is — `ShoppingItemSkeleton.stories.tsx` holds both to it. */}
       <div className="-my-0.5 flex shrink-0 items-center gap-1">
         {item.ingredientId && !item.checked && (
           <Tooltip>
