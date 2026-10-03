@@ -11,6 +11,7 @@ import {
   refit,
   renderSummary,
   run,
+  storedEstimate,
   type Db,
   type RefitMeal,
   type RunDeps,
@@ -22,7 +23,16 @@ const meal = (
   id: string,
   imageUrl: string | null = `https://blob/${id}.png`,
   name = `Meal ${id}`,
-) => ({ id, name, imageUrl, updatedAt: UPDATED }) satisfies RefitMeal
+  stored: VesselEstimate | null = null,
+) =>
+  ({
+    id,
+    name,
+    imageUrl,
+    imageVessel: stored?.vessel ?? null,
+    imageDiameterCm: stored?.diameterCm ?? null,
+    updatedAt: UPDATED,
+  }) satisfies RefitMeal
 
 /** What the stub fit does to each URL: scale by this factor, or leave it (1). */
 type Plan = Record<string, { vessel: Vessel; scale: number; measured?: number; cm?: number }>
@@ -170,14 +180,21 @@ describe('HON-1024: meal footprint backfill', () => {
     expect(await run(parseArgs(['--confirm', '--yes=db.example']), d)).toEqual({
       moved: 2,
       stale: 0,
+      recorded: 1,
     })
 
     expect(put).toHaveBeenCalledTimes(1)
     expect(put).toHaveBeenCalledWith('a', expect.any(Buffer), 'image/png')
-    expect(updateMany).toHaveBeenCalledTimes(2)
+    // Two moves, and the estimate for `c`, which stays as it is.
+    expect(updateMany).toHaveBeenCalledTimes(3)
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: 'b', imageUrl: shared, updatedAt: UPDATED },
-      data: { imageUrl: 'https://blob/a-fitted.png', updatedAt: UPDATED },
+      data: {
+        imageUrl: 'https://blob/a-fitted.png',
+        imageVessel: 'plate',
+        imageDiameterCm: 27,
+        updatedAt: UPDATED,
+      },
     })
     expect(remove).toHaveBeenCalledTimes(1)
     expect(remove).toHaveBeenCalledWith(shared)
@@ -195,6 +212,7 @@ describe('HON-1024: meal footprint backfill', () => {
     expect(await run(parseArgs(['--confirm', '--yes=db.example']), d)).toEqual({
       moved: 1,
       stale: 1,
+      recorded: 0,
     })
     expect(remove).not.toHaveBeenCalled()
     expect(lines.join('\n')).toContain('Meal b: changed since it was read')
@@ -210,6 +228,7 @@ describe('HON-1024: meal footprint backfill', () => {
     expect(await run(parseArgs(['--confirm', '--yes=db.example']), d)).toEqual({
       moved: 0,
       stale: 1,
+      recorded: 0,
     })
     expect(remove).toHaveBeenCalledTimes(1)
     expect(remove).toHaveBeenCalledWith('https://blob/a-fitted.png')
@@ -240,8 +259,129 @@ describe('HON-1024: meal footprint backfill', () => {
         url: 'u',
         meals: [meal('a', 'u', 'Eggs Benedict (brunch)')],
         vessel: { vessel: 'plate', diameterCm: 27 },
+        estimate: 'classified',
         fitted: null,
       }),
     ).toBe('eggs-benedict-brunch-a.png')
+  })
+})
+
+describe('HON-1034: the stored vessel estimate', () => {
+  const PLATE_22: VesselEstimate = { vessel: 'plate', diameterCm: 22 }
+
+  it('fits an image whose meals carry a stored estimate without calling classify', async () => {
+    const shared = 'https://blob/shared.png'
+    const meals = [meal('a', shared, undefined, PLATE_22), meal('b', shared, undefined, PLATE_22)]
+    const { d } = deps(meals, { [shared]: { vessel: 'bowl', scale: 0.9 } })
+
+    const [image] = await refit(meals, d)
+
+    expect(d.classify).not.toHaveBeenCalled()
+    expect(d.fit).toHaveBeenCalledWith(expect.anything(), 'image/png', PLATE_22)
+    expect(image).toMatchObject({ vessel: PLATE_22, estimate: 'stored' })
+  })
+
+  it('classifies when a meal on the image has none, an unknown vessel, or a different one', () => {
+    const url = 'https://blob/x.png'
+    expect(storedEstimate([meal('a', url, undefined, PLATE_22)])).toEqual(PLATE_22)
+    expect(storedEstimate([meal('a', url, undefined, PLATE_22), meal('b', url)])).toBeNull()
+    expect(
+      storedEstimate([{ ...meal('a', url), imageVessel: 'saucepan', imageDiameterCm: 22 }]),
+    ).toBeNull()
+    expect(
+      storedEstimate([
+        meal('a', url, undefined, PLATE_22),
+        meal('b', url, undefined, { vessel: 'plate', diameterCm: 27 }),
+      ]),
+    ).toBeNull()
+  })
+
+  it('stores a classified estimate on --confirm with updatedAt pinned, and a rerun reads it', async () => {
+    const meals = [meal('a'), meal('b'), meal('c', undefined, undefined, PLATE_22)]
+    const plan: Plan = {
+      'https://blob/a.png': { vessel: 'plate', scale: 0.9 },
+      'https://blob/b.png': { vessel: 'bowl', scale: 1 },
+      'https://blob/c.png': { vessel: 'plate', scale: 1 },
+    }
+    const first = deps(meals, plan)
+
+    expect(await run(parseArgs(['--confirm', '--yes=db.example']), first.d)).toEqual({
+      moved: 1,
+      stale: 0,
+      recorded: 1,
+    })
+    expect(first.d.classify).toHaveBeenCalledTimes(2)
+    // The moved image carries its estimate with the new URL.
+    expect(first.updateMany).toHaveBeenCalledWith({
+      where: { id: 'a', imageUrl: 'https://blob/a.png', updatedAt: UPDATED },
+      data: {
+        imageUrl: 'https://blob/a-fitted.png',
+        imageVessel: 'plate',
+        imageDiameterCm: 27,
+        updatedAt: UPDATED,
+      },
+    })
+    // The image that stays gets only its estimate.
+    expect(first.updateMany).toHaveBeenCalledWith({
+      where: { id: 'b', imageUrl: 'https://blob/b.png', updatedAt: UPDATED },
+      data: { imageVessel: 'bowl', imageDiameterCm: 16, updatedAt: UPDATED },
+    })
+    // The stored estimate is not written again.
+    expect(first.updateMany).toHaveBeenCalledTimes(2)
+    expect(first.lines.join('\n')).toContain(
+      'Estimate: 1 image(s) stored, 2 classified in this run',
+    )
+
+    // The next run, against what the first one stored, asks nothing.
+    const stored = [
+      meal('a', 'https://blob/a-fitted.png', undefined, { vessel: 'plate', diameterCm: 27 }),
+      meal('b', undefined, undefined, { vessel: 'bowl', diameterCm: 16 }),
+      meal('c', undefined, undefined, PLATE_22),
+    ]
+    const second = deps(stored, {
+      'https://blob/a-fitted.png': { vessel: 'plate', scale: 1 },
+      'https://blob/b.png': { vessel: 'bowl', scale: 1 },
+      'https://blob/c.png': { vessel: 'plate', scale: 1 },
+    })
+
+    expect(await run(parseArgs(['--confirm', '--yes=db.example']), second.d)).toEqual({
+      moved: 0,
+      stale: 0,
+      recorded: 0,
+    })
+    expect(second.d.classify).toHaveBeenCalledTimes(0)
+    expect(second.updateMany).not.toHaveBeenCalled()
+    expect(second.lines.join('\n')).toContain(
+      'Estimate: 3 image(s) stored, 0 classified in this run',
+    )
+    expect(second.lines.join('\n')).toContain('Nothing to write.')
+  })
+
+  it('stores nothing for an image that could not be classified', async () => {
+    const { d, updateMany } = deps([meal('a')], {
+      'https://blob/a.png': { vessel: null as unknown as Vessel, scale: 1 },
+    })
+
+    expect(await run(parseArgs(['--confirm', '--yes=db.example']), d)).toEqual({
+      moved: 0,
+      stale: 0,
+      recorded: 0,
+    })
+    expect(updateMany).not.toHaveBeenCalled()
+  })
+
+  it('stores an estimate without touching Blob when no image moves', async () => {
+    const { d, put } = deps(
+      [meal('a')],
+      { 'https://blob/a.png': { vessel: 'plate', scale: 1 } },
+      { env: { DATABASE_URL: 'postgresql://u:p@db.example/neondb' } },
+    )
+
+    expect(await run(parseArgs(['--confirm', '--yes=db.example']), d)).toEqual({
+      moved: 0,
+      stale: 0,
+      recorded: 1,
+    })
+    expect(put).not.toHaveBeenCalled()
   })
 })

@@ -327,6 +327,9 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
       imageUrl: uploadedUrl,
       imagePromptVersion: MEAL_IMAGE_PROMPT_VERSION,
       imageHue,
+      // Stored so a refit reuses it rather than asking again (HON-1034).
+      imageVessel: image.vessel?.vessel ?? null,
+      imageDiameterCm: image.vessel?.diameterCm ?? null,
     })
 
     if (!attached) {

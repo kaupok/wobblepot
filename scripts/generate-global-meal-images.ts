@@ -699,6 +699,10 @@ export async function runPublish(
           imageUrl: uploadedUrl,
           imagePromptVersion: MEAL_IMAGE_PROMPT_VERSION,
           imageHue,
+          // The estimate the image was fitted at, so a refit reuses it (HON-1034).
+          // A manifest from before HON-1024 has none.
+          imageVessel: entry.vessel?.vessel ?? null,
+          imageDiameterCm: entry.vessel?.diameterCm ?? null,
           imageClaimedAt: null,
           imageAttempts: 0,
           updatedAt: meal.updatedAt,

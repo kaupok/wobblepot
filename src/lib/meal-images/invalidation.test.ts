@@ -10,7 +10,7 @@ const makeTx = (imageUrl: string | null) => {
 }
 
 describe('clearMealImage', () => {
-  it('resets all six image columns to their defaults', async () => {
+  it('resets every image column to its default, the vessel estimate included', async () => {
     const { tx, update } = makeTx('https://s.public.blob.vercel-storage.com/meals/m-1.png')
 
     await clearMealImage(tx, 'meal-1')
@@ -24,6 +24,8 @@ describe('clearMealImage', () => {
         imageClaimedAt: null,
         imageAttempts: 0,
         imageHue: null,
+        imageVessel: null,
+        imageDiameterCm: null,
       },
     })
   })

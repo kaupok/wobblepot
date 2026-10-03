@@ -7,17 +7,21 @@
  * narrower by its diameter. Images stored before that, or before a change
  * to the scale, keep the width they were drawn at until this script refits
  * them from the stored file. Nothing is
- * regenerated: the only AI spend is the vessel samples, about $0.018 per image.
+ * regenerated. The fit reads the vessel estimate stored on the meal
+ * (`imageVessel`, `imageDiameterCm`, HON-1034), so a refit applies only the
+ * rule change; an image without one is classified, about $0.018 per image,
+ * and the estimate is written on `--confirm`.
  *
- *   - Dry run (default) — fetches every ready image, classifies its vessel,
- *     fits it, and writes a before/after contact sheet (`index.html`) with
- *     the fitted files to `.temp/meal-footprints/<timestamp>/`. Writes
+ *   - Dry run (default) — fetches every ready image, reads or classifies its
+ *     vessel, fits it, and writes a before/after contact sheet (`index.html`)
+ *     with the fitted files to `.temp/meal-footprints/<timestamp>/`. Writes
  *     nothing to the database or to Blob.
  *   - `--confirm` — uploads each fitted image to a new blob URL, moves
  *     `imageUrl` for every meal on the old URL with `updatedAt` pinned, as in
  *     the image route, and deletes the old blob once every meal has moved.
- *     `imageHue` does not change: the hue rule drops white and grey pixels,
- *     so scale does not affect it.
+ *     An estimate classified in this run is written with it, or on its own
+ *     when the image does not move. `imageHue` does not change: the hue rule
+ *     drops white and grey pixels, so scale does not affect it.
  *
  * Usage: pnpm meal-images:refit --help
  *
@@ -31,7 +35,7 @@ import { createInterface } from 'node:readline/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { PrismaClient } from '../src/generated/prisma/client'
 import type { FittedImage } from '../src/lib/meal-images/footprint'
-import { VESSELS, type VesselEstimate } from '../src/lib/meal-images/vessel'
+import { asVesselEstimate, VESSELS, type VesselEstimate } from '../src/lib/meal-images/vessel'
 import {
   checkBlobCredentials,
   confirmHost,
@@ -53,9 +57,11 @@ Usage:
                      credentials for the same environment as DATABASE_URL.
   --yes=<db host>    Confirm the target database host without the prompt.
 
-Every mode reads meals with imageStatus = ready and an imageUrl, fetches each
-distinct stored image once, and asks REVIEW_MODEL for its vessel and size three
-times (about $0.018 per image, needs ANTHROPIC_API_KEY). No image is regenerated.
+Every mode reads meals with imageStatus = ready and an imageUrl and fetches each
+distinct stored image once. The fit uses the vessel and size stored on the meal;
+an image without one is classified by REVIEW_MODEL, three samples (about $0.018
+per image, needs ANTHROPIC_API_KEY), and --confirm stores the estimate. No image
+is regenerated.
 
 Procedure: docs/DEPLOYMENT.md § "Meal footprint backfill".`
 
@@ -99,13 +105,23 @@ export interface RefitMeal {
   id: string
   name: string
   imageUrl: string | null
+  /** The estimate stored with the image (HON-1034); null on an image stored before it. */
+  imageVessel: string | null
+  imageDiameterCm: number | null
   updatedAt: Date
 }
 
 export async function selectMeals(db: Db): Promise<RefitMeal[]> {
   return db.meal.findMany({
     where: { imageStatus: 'ready', imageUrl: { not: null } },
-    select: { id: true, name: true, imageUrl: true, updatedAt: true },
+    select: {
+      id: true,
+      name: true,
+      imageUrl: true,
+      imageVessel: true,
+      imageDiameterCm: true,
+      updatedAt: true,
+    },
     orderBy: { name: 'asc' },
   })
 }
@@ -116,6 +132,11 @@ export interface RefitImage {
   meals: RefitMeal[]
   /** The vessel and its size in life, as the vision call estimated them from the food. */
   vessel: VesselEstimate | null
+  /**
+   * Where `vessel` came from: the meals' stored estimate, or a vision call in
+   * this run, whose answer `--confirm` stores. Null when the image could not be read.
+   */
+  estimate: 'stored' | 'classified' | null
   /** The fitted image, or null when it could not be read or classified. */
   fitted: FittedImage | null
   error?: string
@@ -131,6 +152,23 @@ export function mediaTypeOf(url: string): string {
   return 'image/png'
 }
 
+/**
+ * The estimate every meal on an image was stored with, or null when one has
+ * none, an unknown vessel or a size outside dishware, or the meals disagree:
+ * then the image is classified again.
+ */
+export function storedEstimate(meals: readonly RefitMeal[]): VesselEstimate | null {
+  let estimate: VesselEstimate | null = null
+  for (const meal of meals) {
+    const own = asVesselEstimate({ vessel: meal.imageVessel, diameterCm: meal.imageDiameterCm })
+    if (!own) return null
+    if (estimate && (own.vessel !== estimate.vessel || own.diameterCm !== estimate.diameterCm))
+      return null
+    estimate = own
+  }
+  return estimate
+}
+
 export interface RefitDeps {
   fetchImage: (url: string) => Promise<Uint8Array>
   classify: (image: { bytes: Uint8Array; mediaType: string }) => Promise<VesselEstimate | null>
@@ -140,9 +178,11 @@ export interface RefitDeps {
 }
 
 /**
- * Fetch, classify and fit each distinct image once, a few at a time: a
- * household's copy of a global meal shares the global meal's image. An image
- * that cannot be read or classified is reported and left as it is.
+ * Fetch and fit each distinct image once, a few at a time: a household's copy
+ * of a global meal shares the global meal's image. The fit uses the stored
+ * estimate and classifies only an image without one, so a rerun is a pure
+ * function of the stored bytes and estimate (HON-1034). An image that cannot
+ * be read or classified is reported and left as it is.
  */
 export async function refit(meals: RefitMeal[], deps: RefitDeps): Promise<RefitImage[]> {
   const byUrl = new Map<string, RefitMeal[]>()
@@ -161,21 +201,38 @@ export async function refit(meals: RefitMeal[], deps: RefitDeps): Promise<RefitI
       try {
         const bytes = await deps.fetchImage(url)
         const mediaType = mediaTypeOf(url)
-        const vessel = await deps.classify({ bytes, mediaType })
+        const stored = storedEstimate(group)
+        const estimate = stored ? 'stored' : 'classified'
+        const vessel = stored ?? (await deps.classify({ bytes, mediaType }))
         if (!vessel) {
           deps.log(`  ${names}: left as drawn, the vessel could not be classified`)
-          images.set(url, { url, meals: group, vessel, fitted: null, error: 'not classified' })
+          images.set(url, {
+            url,
+            meals: group,
+            vessel,
+            estimate,
+            fitted: null,
+            error: 'not classified',
+          })
           continue
         }
         images.set(url, {
           url,
           meals: group,
           vessel,
+          estimate,
           fitted: await deps.fit(bytes, mediaType, vessel),
         })
       } catch (error) {
         deps.log(`  ${names}: skipped, could not read ${url}: ${messageOf(error)}`)
-        images.set(url, { url, meals: group, vessel: null, fitted: null, error: messageOf(error) })
+        images.set(url, {
+          url,
+          meals: group,
+          vessel: null,
+          estimate: null,
+          fitted: null,
+          error: messageOf(error),
+        })
       }
     }
   }
@@ -188,6 +245,16 @@ export async function refit(meals: RefitMeal[], deps: RefitDeps): Promise<RefitI
 /** The images whose stored file changes. */
 export const rescaled = (images: RefitImage[]): RefitImage[] =>
   images.filter((i) => i.fitted?.fit.action === 'fit')
+
+/** The images classified in this run whose file stays: `--confirm` stores only their estimate. */
+export const toRecord = (images: RefitImage[]): RefitImage[] =>
+  images.filter((i) => i.estimate === 'classified' && i.vessel && i.fitted?.fit.action !== 'fit')
+
+/** The estimate's columns, written only when it was classified in this run. */
+const estimateData = (image: RefitImage) =>
+  image.estimate === 'classified' && image.vessel
+    ? { imageVessel: image.vessel.vessel, imageDiameterCm: image.vessel.diameterCm }
+    : {}
 
 /** Per vessel: how many images, their sizes, the width range as drawn, and how many move. */
 export function renderSummary(images: RefitImage[]): string {
@@ -222,6 +289,9 @@ export function renderSummary(images: RefitImage[]): string {
   }
   const unread = images.filter((i) => !i.fitted).length
   if (unread > 0) lines.push(`${unread} image(s) could not be read or classified`)
+  const stored = images.filter((i) => i.estimate === 'stored').length
+  const classified = images.filter((i) => i.estimate === 'classified').length
+  lines.push(`Estimate: ${stored} image(s) stored, ${classified} classified in this run`)
   return lines.join('\n')
 }
 
@@ -329,6 +399,8 @@ export interface RunResult {
   moved: number
   /** Meals that changed between the read and the write, left on the old image. */
   stale: number
+  /** Meals whose image stayed and whose estimate, classified in this run, is now stored. */
+  recorded: number
 }
 
 export async function run(args: ParsedArgs, deps: RunDeps): Promise<RunResult | undefined> {
@@ -364,11 +436,12 @@ export async function run(args: ParsedArgs, deps: RunDeps): Promise<RunResult | 
     return
   }
 
-  if (changes.length === 0) {
+  const records = toRecord(images)
+  if (changes.length === 0 && records.length === 0) {
     log('Nothing to write.')
-    return { moved: 0, stale: 0 }
+    return { moved: 0, stale: 0, recorded: 0 }
   }
-  log(`Blob: ${checkBlobCredentials(deps.env, deps.now())}`)
+  if (changes.length > 0) log(`Blob: ${checkBlobCredentials(deps.env, deps.now())}`)
   if (!(await confirmHost(host, { yes: args.yes, ask: deps.ask }))) {
     throw new Error('Host not confirmed — nothing was written.')
   }
@@ -397,7 +470,7 @@ export async function run(args: ParsedArgs, deps: RunDeps): Promise<RunResult | 
       // move it (the prep-tips cache guards on it, HON-683).
       const { count } = await deps.db.meal.updateMany({
         where: { id: meal.id, imageUrl: image.url, updatedAt: meal.updatedAt },
-        data: { imageUrl: newUrl, updatedAt: meal.updatedAt },
+        data: { imageUrl: newUrl, ...estimateData(image), updatedAt: meal.updatedAt },
       })
       if (count === 1) movedHere++
       else {
@@ -416,8 +489,27 @@ export async function run(args: ParsedArgs, deps: RunDeps): Promise<RunResult | 
       log(`  ${names}: old image kept, ${image.meals.length - movedHere} meal(s) still point at it`)
     log(`${names}  refitted ×${fitted.fit.scale.toFixed(2)}`)
   }
-  log(`\nMoved ${moved} meal(s) to a fitted image; skipped ${stale} that changed during the run.`)
-  return { moved, stale }
+
+  // An image that stays still gets the estimate it was classified at, under
+  // the same pins, so the next run reads it instead of asking again.
+  let recorded = 0
+  for (const image of records) {
+    for (const meal of image.meals) {
+      const { count } = await deps.db.meal.updateMany({
+        where: { id: meal.id, imageUrl: image.url, updatedAt: meal.updatedAt },
+        data: { ...estimateData(image), updatedAt: meal.updatedAt },
+      })
+      if (count === 1) recorded++
+      else {
+        stale++
+        log(`  ${meal.name}: changed since it was read, estimate not stored — rerun to pick it up`)
+      }
+    }
+  }
+  log(
+    `\nMoved ${moved} meal(s) to a fitted image; stored the estimate on ${recorded} more; skipped ${stale} that changed during the run.`,
+  )
+  return { moved, stale, recorded }
 }
 
 async function fetchImage(url: string): Promise<Uint8Array> {

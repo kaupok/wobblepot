@@ -392,6 +392,13 @@ model Meal {
   // OKLCH hue in degrees taken from the image's food (HON-743), for the card
   // tint. Null when the image carries no chroma or extraction failed.
   imageHue           Int?
+  // The vessel the image serves its food in and its rim's diameter, as the
+  // vision call estimated them when the image was stored (HON-1024). Kept so
+  // a refit applies only a rule change, not a fresh, non-deterministic
+  // estimate (HON-1034). Null when not classified. `imageVessel` is one of
+  // `VESSELS` in src/lib/meal-images/vessel.ts, read through `asVessel`.
+  imageVessel        String?
+  imageDiameterCm    Int?
 
   components       MealComponent[]
   planEntries      MealPlanEntry[]
