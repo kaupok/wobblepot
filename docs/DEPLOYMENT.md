@@ -241,6 +241,7 @@ Global meals (`householdId` null — the seed catalogue every household sees) ne
 ```bash
 pnpm meal-images:global                       # all meals that need an image
 pnpm meal-images:global --meal="Irish Lamb Stew"   # one meal, by id or English name
+pnpm meal-images:global --type=breakfast           # only meals suitable for one slot
 ```
 
 **2. Generate (costs money, needs `OPENAI_API_KEY`).** Draws into `.temp/global-meal-images/<timestamp>/`: one image per meal (`<slug>.png`), a `manifest.json` and a contact sheet, `index.html`. It writes nothing to the database or to Blob, so it is safe against any `DATABASE_URL` — which is only read to select the meals. Start with a small slice.

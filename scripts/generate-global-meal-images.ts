@@ -36,6 +36,7 @@ import { join, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { Prisma, PrismaClient } from '../src/generated/prisma/client'
+import { MealType } from '../src/generated/prisma/enums'
 import { extractHue } from '../src/lib/meal-images/colour'
 import type { GeneratedMealImage, GenerateMealImageOptions } from '../src/lib/meal-images/generate'
 import type { JudgeVerdict } from '../src/lib/meal-images/judge'
@@ -74,7 +75,7 @@ export const TIER_IMAGES_PER_MINUTE = 5
 export const USAGE = `Global meal illustrations — operator batch (HON-738)
 
 Usage:
-  pnpm meal-images:global [--confirm] [--judge] [--limit=N] [--meal=<id or name>] [--concurrency=N]
+  pnpm meal-images:global [--confirm] [--judge] [--limit=N] [--meal=<id or name>] [--type=<meal type>] [--concurrency=N]
   pnpm meal-images:global --publish=<run dir> [--exclude=slug,slug] [--yes=<db host>]
 
 Generate (without --confirm: a free dry run that prints the count and cost):
@@ -82,6 +83,7 @@ Generate (without --confirm: a free dry run that prints the count and cost):
   --judge            Add the report-only vision judge to each contact-sheet cell.
   --limit=N          Draw at most N meals.
   --meal=<id|name>   Draw one meal, by id or English name.
+  --type=<meal type> Draw only meals suitable for one slot: breakfast, lunch or dinner.
   --concurrency=N    Images in flight at once. Default ${DEFAULT_CONCURRENCY}: the OpenAI tier allows
                      ${TIER_IMAGES_PER_MINUTE} images per minute, and one lane already runs close to it.
                      More lanes mostly add rate-limit waits (a 429 is retried after
@@ -103,6 +105,7 @@ export interface ParsedArgs {
   judge: boolean
   limit?: number
   meal?: string
+  type?: MealType
   concurrency: number
   publish?: string
   exclude: string[]
@@ -118,6 +121,16 @@ function positiveInt(raw: string | undefined, flag: string): number | undefined 
   if (!Number.isInteger(n) || n < 1)
     throw new Error(`${flag} must be a positive integer, got "${raw}"`)
   return n
+}
+
+const MEAL_TYPES = Object.values(MealType)
+
+function mealType(raw: string | undefined): MealType | undefined {
+  if (raw === undefined) return undefined
+  const t = raw.trim().toLowerCase()
+  if (!(MEAL_TYPES as string[]).includes(t))
+    throw new Error(`--type must be one of ${MEAL_TYPES.join(', ')}, got "${raw}"`)
+  return t as MealType
 }
 
 /** Comma-separated slugs, trimmed, lower-cased, de-duplicated; empty items dropped. */
@@ -139,6 +152,7 @@ const KNOWN_FLAGS = [
   '--judge',
   '--limit',
   '--meal',
+  '--type',
   '--concurrency',
   '--publish',
   '--exclude',
@@ -150,7 +164,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const unknown = argv.filter((a) => !KNOWN_FLAGS.includes(flagOf(a)))
   if (unknown.length > 0) throw new Error(`Unknown argument: ${unknown.join(' ')}`)
 
-  const bare = ['--limit', '--meal', '--concurrency', '--exclude', '--yes'].filter((f) =>
+  const bare = ['--limit', '--meal', '--type', '--concurrency', '--exclude', '--yes'].filter((f) =>
     argv.includes(f),
   )
   if (bare.length > 0) throw new Error(`${bare.join(', ')} needs a value: ${bare[0]}=<value>`)
@@ -162,6 +176,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     judge: argv.includes('--judge'),
     limit: positiveInt(valueOf(argv, '--limit'), '--limit'),
     meal: valueOf(argv, '--meal')?.trim() || undefined,
+    type: mealType(valueOf(argv, '--type')),
     concurrency:
       positiveInt(valueOf(argv, '--concurrency'), '--concurrency') ?? DEFAULT_CONCURRENCY,
     publish: publish?.trim() || undefined,
@@ -173,8 +188,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
     throw new Error('--publish needs a run directory: --publish=<run dir>')
   }
   if (args.publish) {
-    const clash = ['--confirm', '--judge', '--limit', '--meal', '--concurrency'].filter((f) =>
-      argv.some((a) => flagOf(a) === f),
+    const clash = ['--confirm', '--judge', '--limit', '--meal', '--type', '--concurrency'].filter(
+      (f) => argv.some((a) => flagOf(a) === f),
     )
     if (clash.length > 0) {
       throw new Error(`${clash.join(', ')} cannot be combined with --publish`)
@@ -233,7 +248,7 @@ export const NEEDS_IMAGE: Prisma.MealWhereInput = {
   ],
 }
 
-export function selectionWhere(meal?: string): Prisma.MealWhereInput {
+export function selectionWhere(meal?: string, type?: MealType): Prisma.MealWhereInput {
   return {
     householdId: null,
     deletedAt: null,
@@ -242,6 +257,7 @@ export function selectionWhere(meal?: string): Prisma.MealWhereInput {
       ...(meal
         ? [{ OR: [{ id: meal }, { name: { equals: meal, mode: 'insensitive' as const } }] }]
         : []),
+      ...(type ? [{ suitableFor: { has: type } }] : []),
     ],
   }
 }
@@ -249,10 +265,10 @@ export function selectionWhere(meal?: string): Prisma.MealWhereInput {
 /** Global meals that need an image, by name, capped at `limit`. */
 export async function selectMeals(
   db: Db,
-  opts: Pick<ParsedArgs, 'limit' | 'meal'>,
+  opts: Pick<ParsedArgs, 'limit' | 'meal' | 'type'>,
 ): Promise<GlobalMeal[]> {
   return db.meal.findMany({
-    where: selectionWhere(opts.meal),
+    where: selectionWhere(opts.meal, opts.type),
     select: MEAL_SELECT,
     orderBy: { name: 'asc' },
     ...(opts.limit !== undefined && { take: opts.limit }),

@@ -159,6 +159,11 @@ describe('parseArgs', () => {
     })
   })
 
+  it('reads --type as a meal type, case-insensitively', () => {
+    expect(parseArgs(['--type=Breakfast']).type).toBe('breakfast')
+    expect(parseArgs([]).type).toBeUndefined()
+  })
+
   it('reads the publish flags', () => {
     expect(parseArgs(['--publish=.temp/run', '--exclude=a,b', '--yes=db.example'])).toMatchObject({
       publish: '.temp/run',
@@ -179,6 +184,9 @@ describe('parseArgs', () => {
     [['--bogus']],
     [['--limit']],
     [['--meal']],
+    [['--type']],
+    [['--type=brunch']],
+    [['--publish=x', '--type=breakfast']],
   ])('rejects %j', (argv) => {
     expect(() => parseArgs(argv)).toThrow()
   })
@@ -241,6 +249,13 @@ describe('selection', () => {
     expect(selectionWhere('Irish Lamb Stew').AND).toContainEqual({
       OR: [{ id: 'Irish Lamb Stew' }, { name: { equals: 'Irish Lamb Stew', mode: 'insensitive' } }],
     })
+  })
+
+  it('narrows to meals suitable for one slot with --type', () => {
+    expect(selectionWhere(undefined, 'breakfast').AND).toContainEqual({
+      suitableFor: { has: 'breakfast' },
+    })
+    expect(selectionWhere().AND).toHaveLength(1)
   })
 
   it('passes --limit through as take', async () => {
