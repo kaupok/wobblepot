@@ -152,6 +152,24 @@ describe('pickDemoMeals', () => {
       expect([...day!.values()].map((m) => m.id)).toEqual(['omelette', 'frittata', 'quiche'])
     }
   })
+
+  it('fills every day the pick without the protein rule fills', () => {
+    // Lunch would prefer the salmon, which is also the only dinner.
+    const pool = [
+      { id: 'omelette', suitableFor: ['breakfast'], primaryProteinType: 'eggs' },
+      { id: 'frittata', suitableFor: ['lunch'], primaryProteinType: 'eggs' },
+      { id: 'salmon', suitableFor: ['lunch', 'dinner'], primaryProteinType: 'fish' },
+    ] satisfies Parameters<typeof pickDemoMeals>[0]
+    // One protein for every meal: the rule has nothing to prefer, so this is the plain pick.
+    const plain = pool.map((meal) => ({ ...meal, primaryProteinType: 'none' as const }))
+
+    const filled = october.filter((date) => pickDemoMeals(plain, date) !== null)
+    expect(filled.length).toBeGreaterThan(0)
+    for (const date of filled) {
+      const day = pickDemoMeals(pool, date)
+      expect([...day!.values()].map((m) => m.id)).toEqual(['omelette', 'frittata', 'salmon'])
+    }
+  })
 })
 
 describe('loadDemoDay', () => {
