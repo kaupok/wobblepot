@@ -23,6 +23,7 @@ const meta = {
         'surface-warning',
       ],
     },
+    hitArea: { control: 'select', options: ['default', 'touch'] },
   },
   args: {
     children: 'Badge',
@@ -137,6 +138,22 @@ export const Large: Story = {
   play: async ({ canvasElement }) => {
     const badge = within(canvasElement).getByText('Kid-friendly')
     await expect(getComputedStyle(badge).fontSize).toBe('16px')
+  },
+}
+
+// A badge that is a tap target (the cook view's Kid-friendly pill, HON-1023):
+// the `::after` makes the target 44px or more without changing the pill.
+export const TouchHitArea: Story = {
+  args: { size: 'lg', variant: 'secondary', hitArea: 'touch', children: 'Kid-friendly' },
+  play: async ({ canvasElement }) => {
+    const badge = within(canvasElement).getByText('Kid-friendly')
+    const box = badge.getBoundingClientRect()
+    const after = getComputedStyle(badge, '::after')
+    await expect(after.position).toBe('absolute')
+    await expect(after.top).toBe('-8px')
+    await expect(after.left).toBe('-4px')
+    await expect(box.height + 16).toBeGreaterThanOrEqual(44)
+    await expect(getComputedStyle(badge).overflow).toBe('visible')
   },
 }
 

@@ -46,7 +46,12 @@ export function KidFriendlyBadge({ compact = false, size = 'default' }: KidFrien
   return (
     <Tooltip {...tap.rootProps}>
       <TooltipTrigger asChild {...tap.triggerProps}>
-        <Badge variant="secondary" size={size} data-slot="badge">
+        <Badge
+          variant="secondary"
+          size={size}
+          hitArea={size === 'lg' ? 'touch' : 'default'}
+          data-slot="badge"
+        >
           <Baby aria-hidden="true" />
           <span className="sr-only">{label}</span>
         </Badge>
