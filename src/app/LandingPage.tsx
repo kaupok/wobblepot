@@ -86,7 +86,9 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
   return (
     <div className="w-full px-4 py-8 md:py-12">
       <div className="flex flex-col gap-16 md:gap-24">
-        {/* Hero: the promise on the left, the product on the right from lg. */}
+        {/* Hero: the promise on the left, the product on the right from lg. The
+            demo is capped at the planner card's width at every size: an uncapped
+            card below lg is wide and short, and its cover image crops the plate. */}
         <section className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-4 text-balance">
@@ -95,7 +97,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
             </div>
             {renderCta({ note: true })}
           </div>
-          <div className="w-full lg:max-w-md lg:justify-self-end">
+          <div className="w-full max-w-md lg:justify-self-end">
             {demo ? (
               <LandingDemo day={demo} dayLabel={formatDayLong(parseLocalDate(demo.date), locale)} />
             ) : (
