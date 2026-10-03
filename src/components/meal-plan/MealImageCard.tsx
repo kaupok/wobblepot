@@ -392,7 +392,9 @@ export function MealImageCard({
             // through to the title beside it; only the slip itself takes them.
             <div
               data-slot="meal-image-overlay"
-              data-placed={overlayPlaced ? '' : undefined}
+              // Only where the slip lies at its place: the editor's wide box
+              // is not that place, and `useNoteDrag` fits only a placed one.
+              data-placed={overlayPlaced && !overlayWide ? '' : undefined}
               className={cn(
                 'pointer-events-none absolute *:pointer-events-auto',
                 overlayWide

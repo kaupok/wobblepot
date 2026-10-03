@@ -215,6 +215,8 @@ describe('MealImageCard', () => {
 
       expect(overlay).toHaveClass('left-0', 'right-12', 'bottom-0')
       expect(overlay).not.toHaveClass('left-(--note-left)')
+      // Not the slip's place, so nothing fits a place to it.
+      expect(overlay).not.toHaveAttribute('data-placed')
     })
 
     it('caps the title for an overlay on a card without an image', () => {

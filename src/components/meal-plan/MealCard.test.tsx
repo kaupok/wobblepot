@@ -466,6 +466,21 @@ describe('MealCard note placement (HON-975)', () => {
     }
   })
 
+  it('keeps its place through an edit', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal, note: 'Leftovers', noteX: 0.1, noteY: 0.5 })
+    await user.click(screen.getByRole('button', { name: 'Leftovers' }))
+    const textarea = await screen.findByRole('textbox', { name: 'Meal note' })
+    // The editor's wide box is not the slip's place.
+    expect(overlay()).not.toHaveAttribute('data-placed')
+
+    fireEvent.keyDown(textarea, { key: 'Escape' })
+
+    await screen.findByRole('button', { name: 'Leftovers' })
+    expect(overlay()).toHaveAttribute('data-placed')
+    expect(overlay().style.getPropertyValue('--note-left')).toBe('10%')
+  })
+
   it('opens the editor on Enter, as before', async () => {
     renderCard({ meal, note: 'Leftovers' })
     const slip = screen.getByRole('button', { name: 'Leftovers' })
