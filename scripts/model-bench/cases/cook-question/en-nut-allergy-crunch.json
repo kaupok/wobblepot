@@ -84,8 +84,17 @@
       "roasted peanut",
       "toasted peanut",
       "salted peanut",
-      "peanut butter"
+      "peanut butter",
+      "chopped nut",
+      "crushed nut",
+      "toasted nut",
+      "roasted nut",
+      "mixed nut",
+      "salted nut",
+      "of peanut",
+      "few peanut",
+      "some peanut"
     ],
-    "allowedQualifiers": ["no", "not", "without", "avoid", "instead of"]
+    "allowedQualifiers": ["no", "not", "without", "avoid", "instead of", "traces", "free"]
   }
 }

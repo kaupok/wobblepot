@@ -578,6 +578,9 @@ describe('scoreCookQuestion', () => {
     'Bake at 350°F.',
     'Bake at 400 degrees Fahrenheit.',
     'Bake at 350 degrees F.',
+    'Bake at 350F for 20 minutes.',
+    'Bake at 350 F.',
+    'Use a 12-inch pan.',
     'Add 2 cups of stock.',
     'Use 8 oz of beef.',
     'Cut it 1 inch thick.',
@@ -618,9 +621,14 @@ describe('scoreCookQuestion', () => {
     const score = (answer: string) => scoreCookQuestion(nutAllergy, answer).avoidsForbidden
     expect(score('Scatter toasted cashews on top.')).toBe(0)
     expect(score('Add a handful of crushed peanuts.')).toBe(0)
+    expect(score('Sprinkle over a handful of peanuts for crunch.')).toBe(0)
+    expect(score('Top with some toasted mixed nuts.')).toBe(0)
+    expect(score('Scatter chopped nuts over the top.')).toBe(0)
     expect(score('Use the sunflower seeds instead of crushed peanuts.')).toBe(1)
     expect(score('Toast the sunflower seeds, without almonds.')).toBe(1)
     // The first run's answers: a label warning names the allergen, and must pass.
     expect(score('Check the packaging says it is free from nuts and peanuts.')).toBe(1)
+    expect(score('Check the label says it is free of peanuts.')).toBe(1)
+    expect(score('Crackers may contain traces of peanuts.')).toBe(1)
   })
 })
