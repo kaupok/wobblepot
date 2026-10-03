@@ -49,7 +49,7 @@ Environment variables are validated at runtime using Zod. Public (`NEXT_PUBLIC_*
 | Variable                                                            | Required             | What it does                                                                                                                                                     |
 | ------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_APP_NAME`                                              | Yes                  | Display name shown in the UI and email subjects.                                                                                                                 |
-| `NEXT_PUBLIC_APP_ENV`                                               | Yes                  | One of `dev`, `preview`, `staging`, `production`, `ci`, `test`. Drives email subject prefixes, the rate-limit bypass allowlist, and PostHog project selection.   |
+| `NEXT_PUBLIC_APP_ENV`                                               | Yes                  | One of `dev`, `preview`, `staging`, `production`, `ci`, `test`. Drives email subject prefixes and the rate-limit bypass allowlist.                               |
 | `NEXT_PUBLIC_APP_URL`                                               | No                   | Base URL override. See [Application URL](#application-url) for the fallback order.                                                                               |
 | `NEXT_PUBLIC_POSTHOG_KEY`                                           | No                   | PostHog project token. Unset disables PostHog entirely. See [PostHog](#posthog-analytics-errors-source-maps).                                                    |
 | `NEXT_PUBLIC_POSTHOG_HOST`                                          | No                   | PostHog ingest host, identical across environments.                                                                                                              |
@@ -275,7 +275,7 @@ Either way, the limiter now fails open, so nothing user-facing breaks — `/stat
 
 ## PostHog (analytics, errors, source maps)
 
-PostHog is the consolidated home for product analytics, error tracking, web analytics + CWV, feature flags, and (later) session replay. Installed by HON-474 as the foundation that child issues (HON-452, HON-460, HON-475, HON-476, HON-477, HON-478) build on.
+PostHog is the consolidated home for product analytics, error tracking, web analytics + CWV, and feature flags. Session replay and surveys are off: `src/lib/posthog-init-options.ts` sets `disable_session_recording` and `disable_surveys`. Installed by HON-474 as the foundation that child issues (HON-452, HON-460, HON-475, HON-476, HON-477) build on.
 
 ### Project topology
 
@@ -296,7 +296,7 @@ Six variables total — two are per-env (distinct values), four are identical ac
 | Variable                   | Scope                | Purpose                                                                                                                                                                |
 | -------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_POSTHOG_KEY`  | runtime              | Project token for `posthog-js` + `posthog-node`. **Per-Vercel-env.** Unset = PostHog disabled.                                                                         |
-| `NEXT_PUBLIC_POSTHOG_HOST` | runtime              | Ingest host — `https://eu.i.posthog.com`. Identical across all envs.                                                                                                   |
+| `NEXT_PUBLIC_POSTHOG_HOST` | build-time + runtime | Ingest host — `https://eu.i.posthog.com`. Identical across all envs. The server calls it directly; the browser calls `/ingest`, which the build rewrites to this host. |
 | `POSTHOG_CLI_HOST`         | build-time + runtime | Admin host — `https://eu.posthog.com`, not the ingest host. Read by `posthog-cli` at build time and by the account purge at runtime. Identical across all envs.        |
 | `POSTHOG_CLI_PROJECT_ID`   | build-time + runtime | Numeric project id. Read by the sourcemap upload at build time and by the account purge at runtime. **Per-Vercel-env.**                                                |
 | `POSTHOG_CLI_API_KEY`      | build-time           | Personal API key with `sourcemap:write` scope. Identical across all envs (one key for all three).                                                                      |
@@ -304,13 +304,25 @@ Six variables total — two are per-env (distinct values), four are identical ac
 
 **Admin host ≠ ingest host.** `POSTHOG_CLI_HOST` is `https://eu.posthog.com` (app surface). Event ingestion uses `https://eu.i.posthog.com`. Swapping produces auth errors that read like "invalid project ID".
 
+**Browser traffic goes through `/ingest`.** `posthog-js` uses `api_host: '/ingest'` and `ui_host: 'https://eu.posthog.com'`. `next.config.ts` rewrites `/ingest/static/*` and `/ingest/array/*` to `https://eu-assets.i.posthog.com` and the rest of `/ingest/*` to `NEXT_PUBLIC_POSTHOG_HOST`, so ad blockers that match the PostHog hosts do not drop events (HON-985, `src/lib/posthog-proxy.ts`). The rewrites are built from `NEXT_PUBLIC_POSTHOG_HOST` at build time, so a change to it needs a redeploy. `src/proxy.ts` deletes the `Cookie` header from `/ingest/*` requests before the rewrite runs, because a same-origin request carries the Better Auth session token and the rewrite would forward it to PostHog. The CSP keeps one PostHog host, `https://eu.posthog.com` in `connect-src`, for the toolbar (`docs/SECURITY.md`). `posthog-node` runs on the server, where a relative path does not resolve, so it calls `NEXT_PUBLIC_POSTHOG_HOST` directly.
+
 **Project token ≠ personal API key.** `posthog-node` and `posthog-js` both use the **project token** (`NEXT_PUBLIC_POSTHOG_KEY`). The personal API keys (`POSTHOG_CLI_API_KEY` for the CLI, `POSTHOG_PURGE_API_KEY` for the purge) are different values with different scopes.
 
 **Account purge.** The nightly purge (`/api/cron/purge-deleted-users`) deletes the purged user's PostHog person and events, and the household's when the household is deleted, with `POST {POSTHOG_CLI_HOST}/api/projects/{POSTHOG_CLI_PROJECT_ID}/persons/bulk_delete/` (HON-907). So `POSTHOG_CLI_HOST` and `POSTHOG_CLI_PROJECT_ID` must be available at runtime too, not only to the build. With PostHog enabled and `POSTHOG_PURGE_API_KEY` (or either of those two) unset, the purge still deletes the database data and captures one error per user; see [`RUNBOOKS/gdpr-deletion.md`](RUNBOOKS/gdpr-deletion.md) § "Data held outside the database" for the hand sweep.
 
 ### Local dev
 
-In `.env`, set `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` to the `mealplan-development` project values (or leave both unset to disable PostHog locally — tests and dev still work without it). Leave the `POSTHOG_CLI_*` vars and `POSTHOG_PURGE_API_KEY` unset; local `pnpm build` skips the sourcemap upload because the postbuild script gates on `VERCEL_GIT_COMMIT_SHA`.
+In `.env`, set `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_POSTHOG_HOST` to the `mealplan-development` project values (or leave both unset to disable PostHog locally — tests and dev still work without it). Leave the `POSTHOG_CLI_*` vars and `POSTHOG_PURGE_API_KEY` unset; local `pnpm build` skips the sourcemap upload because the script gates on `VERCEL_GIT_COMMIT_SHA`.
+
+### Source maps
+
+Browser errors symbolize from source maps that each Vercel build uploads, so no map is served from the site (HON-997).
+
+- **Where it runs.** `next.config.ts` sets `compiler.runAfterProductionCompile` to `uploadSourcemaps` (`src/lib/posthog-sourcemaps.ts`), which runs `scripts/maybe-upload-sourcemaps.sh <distDir>`. The hook runs inside `next build`, after compilation. It cannot be a `postbuild` script: the Vercel Next.js adapter copies `.next/static` into the deployment output inside `next build`, so a change made in `postbuild` never ships.
+- **Gate.** The script does nothing unless `VERCEL_GIT_COMMIT_SHA` and the three `POSTHOG_CLI_*` build vars are set. Once they are, every later problem fails the build: no chunks directory, no `.map` files, a CLI error, or no symbol set reported.
+- **Immutable assets are off.** The Vercel adapter turns on immutable static assets. Turbopack then writes chunks to `.next/static/immutable/chunks`, and Vercel serves each of those files from a store shared across deployments, keyed by a hash taken before the hook runs. A deploy then serves an older build's chunks: no PostHog chunk ids, and their maps still public. `next.config.ts` sets `supportsImmutableAssets: false`, so chunks go to `.next/static/chunks` and each deploy serves its own. The script fails the build if it finds `.next/static/immutable`.
+- **Flow.** `@posthog/cli sourcemap inject` stamps a chunk id and the release (`honkadori`, the commit SHA, `--release-mode symbol-set`) into each chunk and map. `sourcemap upload --delete-after` uploads the maps, deletes them and strips the `sourceMappingURL` comments. The script then reads the CLI line `Upload summary: N chunk(s) uploaded, M skipped (A already present, B too large)` and fails when it is missing or when `N + A` is 0. Last, it deletes any `.map` left under `.next/static`.
+- **Effect on the deploy.** A deploy with the vars set serves no `.map` files. A PostHog outage during the build fails the deploy; redeploy once PostHog is back.
 
 ### Vercel
 
@@ -318,9 +330,11 @@ In **Project Settings → Environment Variables**, set the six variables per the
 
 ### Verify after provisioning
 
-- Fresh incognito → accept cookie consent → `$pageview` appears in the matching PostHog project, tagged with an authenticated `user_id`.
+- Fresh incognito → accept cookie consent → `$pageview` appears in the matching PostHog project. Once signed in, pageviews carry `$user_id`, which `identify` in `PostHogProvider.tsx` sets and the browser keeps across loads. The first pageview after sign-in has no `$user_id`, because it fires before the identify effect runs.
 - Decline cookie consent → no `ph_*` cookies, no PostHog network requests.
-- After a Vercel preview build, the CLI sourcemap upload step output reports a non-zero `.map` count (visible in the Vercel build log under `postbuild`).
+- After a Vercel build, the build log shows `Running next.config.js provided runAfterProductionCompile`, then `Upload summary:` with a non-zero uploaded or already-present count, then `maybe-upload-sourcemaps: done`.
+- The matching PostHog project → Error tracking → Symbol sets lists sets whose release version is the deploy's commit SHA.
+- The deploy's chunks under `/_next/static/chunks/` contain `_posthogChunkIds` and no `sourceMappingURL` comment, and `<chunk>.js.map` returns 404.
 
 ## Neon Database Branching (optional)
 

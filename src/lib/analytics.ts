@@ -1,16 +1,43 @@
 /**
  * Typed product-analytics wrapper around `posthog.capture()`.
  *
- * Single entry point for product events: `track(name, props)`. The discriminated
- * union below is the canonical event registry — every product event flows
- * through this file. Raw `posthog.capture()` is reserved for the SDK itself
- * (`PostHogProvider` and `posthog-server`).
+ * Single entry point for client product events: `track(name, props)`. The
+ * discriminated union below is the canonical event registry — every client
+ * product event flows through this file. Raw `capture()` is reserved for the
+ * SDK itself (`PostHogProvider`) and for the server events listed under
+ * "Server events" below, which have no browser to run `track()` in.
  *
  * ## Naming convention: `category:object_action_past`
  *
- * Snake_case, namespace-prefixed, past tense. Categories are a closed enum
- * (`auth`, `onboarding`, `meal_plan`, `meal`, `recipe`, `pantry`, `shopping`;
- * `ai` reserved for HON-475).
+ * Snake_case, namespace-prefixed, past tense. Categories are a closed enum:
+ * `auth`, `onboarding`, `meal_plan`, `meal`, `recipe`, `pantry`, `shopping`
+ * and `cook_view` for client events, `imagine` for the one server event that
+ * has a category. `ai` is reserved for HON-475.
+ *
+ * ## Server events
+ *
+ * Captured with `getPosthogServer().capture()` because they happen in a route
+ * or lib function, not in the browser. They are listed here so this file stays
+ * the one place to read the taxonomy.
+ *
+ * - `imagine:allergen_violation_dropped` (`src/app/api/meals/imagine/route.ts`,
+ *   HON-895): one event per suggestion the forbidden-food guard dropped and
+ *   per constraint it broke. Distinct id is the household id. Properties:
+ *   `constraint`, `constraint_kind`, `keyword`, `field`, `model`, `attempt`,
+ *   `household_id`.
+ * - `external_api_timeout` (`src/lib/errors.ts` → `captureExternalApiTimeout`,
+ *   called from `src/lib/external-fetch.ts`): an external dependency missed a
+ *   deadline its caller set. An infrastructure signal, not a product event,
+ *   so it is outside the naming convention and has no category. Personless:
+ *   `ExternalFetchContext` carries no user id, and the one caller
+ *   (`src/lib/breached-password.ts`) runs at sign-up, before a session.
+ *   Properties: `feature`, `source` (`externalFetch.timeout`), `url`,
+ *   `request_id`, `release`, plus `route` when the caller passes one.
+ *
+ * `$`-prefixed events follow PostHog's own schema and are not defined here:
+ * `$ai_generation` (`src/lib/ai/usage.ts`), `$exception` (`src/lib/errors.ts`,
+ * `src/lib/errors-client.ts`, `src/instrumentation.ts`,
+ * `src/app/global-error.tsx`) and `$pageview` (`PostHogProvider`).
  *
  * **Why past tense, not present (PostHog's documented recommendation):**
  *
@@ -39,15 +66,33 @@
  *   Callers do not pass it. The one exception is `onboarding:household_created`
  *   — the source-of-truth event that establishes the household; its caller
  *   passes the new id and the wrapper additionally `$set`s it on the person
- *   profile so subsequent events on the same render auto-attach correctly
- *   without waiting for a layout re-render + identify.
+ *   profile server side. That `$set` does not update the person properties
+ *   stored on the client, so later events carry `household_id` only after the
+ *   next layout render re-runs `identify` with it.
  *
  * - `is_first`: for events configured in `FIRST_PROPERTY_FOR`, the wrapper
- *   reads the corresponding `first_*_at` person property. If unset, fires the
- *   event with `is_first: true` and `$set_once`-es the timestamp on the same
- *   capture call (durable across sessions). If set, fires with
- *   `is_first: false`. Callers do not pass `is_first`. Activation funnels
- *   filter `is_first: true`.
+ *   reads the corresponding `first_*_at` key from posthog-js persistence. If
+ *   unset, fires the event with `is_first: true`, `$set_once`-es the timestamp
+ *   on the same capture call (the server-side person property), and
+ *   `register_once`-s it locally. The local write is what the next read sees:
+ *   a `$set_once` on capture goes to the server only and never comes back to
+ *   persistence (HON-991). If set, fires with `is_first: false`. Callers do
+ *   not pass `is_first`. Activation funnels filter `is_first: true`.
+ *
+ *   `register_once` stores a super property, so from then on posthog-js
+ *   attaches `first_*_at` to every event from this browser, as an event
+ *   property with the same name as the person property. That is deliberate:
+ *   the marker lives with the rest of PostHog's identity state, so `reset()`
+ *   clears it together with the distinct id. Sign-out calls `reset()`, and
+ *   `PostHogProvider` calls it before `identify` when the browser is still
+ *   identified as a different user, so one user never inherits another's
+ *   marker. Activation insights filter on `is_first` or on the person
+ *   property, never on the event property.
+ *
+ *   Persistence is per browser, so a user's first activation event on a second
+ *   device (or after sign-out) carries `is_first: true` again. That is
+ *   accepted; the person property's `$set_once` keeps the original timestamp
+ *   regardless.
  *
  * ## PII
  *
@@ -67,11 +112,12 @@
  * @see HON-476 for the design decisions behind this taxonomy.
  */
 
+import { getLoadedPostHog } from '@/lib/posthog-client-state'
+
 /** Closed enum of UI surfaces an event can originate from. Adding a value is a code change, not a string typo. */
 export type Source =
   | 'meal_card'
   | 'meal_selector'
-  | 'timeline'
   | 'imagine_page'
   | 'import_page'
   | 'pantry_inline'
@@ -124,18 +170,22 @@ export type EventPayload = {
   'meal:imagined': { meal_id: string; source: Source }
   'recipe:imported': { source: Source }
   'pantry:item_added': { source: Source }
-  'shopping:item_purchased': { source: Source }
   /** `item_count` is the number of lines written to the clipboard — a count, never item names. */
   'shopping:list_copied': { source: Source; item_count: number }
   /**
    * The cook sent a question about one step in the cook view (HON-969). Fires
    * on send, not on the answer. `source` says whether it was a chip or typed.
+   * `has_previous` says whether it went with the step's earlier question and
+   * answer, as a follow-up (HON-980).
    */
   'cook_view:question_asked': {
     plan_id: string
     meal_id: string
-    step_index: number
+    /** A step, or an item in "You'll need" (HON-983) */
+    subject: 'step' | 'equipment'
+    subject_index: number
     source: 'chip' | 'text'
+    has_previous: boolean
   }
 }
 
@@ -143,8 +193,9 @@ export type EventName = keyof EventPayload
 
 /**
  * Events whose first occurrence sets a `first_*_at` person property via
- * `$set_once`. The wrapper reads the property to attach `is_first` and writes
- * it on the first capture.
+ * `$set_once`. The wrapper reads the key from local persistence to attach
+ * `is_first`, and on the first capture writes it both server side
+ * (`$set_once`) and locally (`register_once`).
  */
 const FIRST_PROPERTY_FOR: Partial<Record<EventName, string>> = {
   'meal_plan:plan_generated': 'first_plan_generated_at',
@@ -154,10 +205,10 @@ const FIRST_PROPERTY_FOR: Partial<Record<EventName, string>> = {
 /**
  * Capture a product event. Returns `Promise<void>`; never throws.
  *
- * Lazy-imports `posthog-js` so this module stays out of any chunk that hasn't
- * already paid for the SDK (matches the pattern in `src/lib/errors-client.ts`).
- * No-ops when consent is missing, env is unset, or PostHog hasn't finished
- * initialising — `posthog.__loaded` is the canonical guard.
+ * Lazy-imports `posthog-js` through `getLoadedPostHog()` so this module stays
+ * out of any chunk that hasn't already paid for the SDK. No-ops when consent is
+ * missing, env is unset, or PostHog hasn't finished initialising, and in those
+ * cases does not fetch the SDK chunk at all (HON-999).
  *
  * Callers fire-and-forget by prefixing with `void`:
  *   `void track('meal_plan:meal_completed', { ... })`.
@@ -166,8 +217,8 @@ export async function track<K extends EventName>(name: K, props: EventPayload[K]
   if (typeof window === 'undefined') return
 
   try {
-    const { default: posthog } = await import('posthog-js')
-    if (!posthog.__loaded) return
+    const posthog = await getLoadedPostHog()
+    if (!posthog) return
 
     const merged: Record<string, unknown> = {}
 
@@ -183,19 +234,21 @@ export async function track<K extends EventName>(name: K, props: EventPayload[K]
 
     // Auto-attach is_first + $set_once for activation events.
     const firstPropertyKey = FIRST_PROPERTY_FOR[name]
+    let firstAt: string | undefined
     if (firstPropertyKey) {
       const existing = posthog.get_property(firstPropertyKey)
       if (existing) {
         merged.is_first = false
       } else {
+        firstAt = new Date().toISOString()
         merged.is_first = true
-        merged.$set_once = { [firstPropertyKey]: new Date().toISOString() }
+        merged.$set_once = { [firstPropertyKey]: firstAt }
       }
     }
 
     // The one event that establishes household membership: $set the id on
-    // the person profile so subsequent events auto-attach without waiting
-    // for the next layout render + identify.
+    // the person profile server side. Later events pick it up only after the
+    // next layout render re-runs identify (see the header comment).
     if (name === 'onboarding:household_created') {
       const householdId = (props as EventPayload['onboarding:household_created']).household_id
       merged.$set = {
@@ -205,6 +258,12 @@ export async function track<K extends EventName>(name: K, props: EventPayload[K]
     }
 
     posthog.capture(name, merged)
+
+    // `$set_once` never reaches local persistence, so write the key there
+    // too, or the next get_property read is empty again (HON-991).
+    if (firstPropertyKey && firstAt) {
+      posthog.register_once({ [firstPropertyKey]: firstAt })
+    }
   } catch {
     // Swallow — capture must never break a user flow.
   }

@@ -807,6 +807,48 @@ export const AskAboutStep: Story = {
   },
 }
 
+/**
+ * Ticking the step whose panel is open closes the panel (HON-982): the cook
+ * has moved on. Focus stays on the toggle that was pressed.
+ */
+export const AskClosesWhenStepDone: Story = {
+  name: 'Planned: ticking the step closes its Ask panel',
+  args: { ...plannedArgs, initialTips: tips },
+  play: async () => {
+    await findDialog()
+    const ask = body().getByRole('button', { name: 'Ask about step 2' })
+    await userEvent.click(ask)
+    await expect(body().getByRole('group', { name: 'Ask about step 2' })).toBeVisible()
+    await expect(ask).toHaveAttribute('aria-expanded', 'true')
+
+    await userEvent.click(stepButton(1))
+    await expect(stepButton(1)).toHaveAttribute('aria-pressed', 'true')
+    await expect(body().queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+    await expect(ask).toHaveAttribute('aria-expanded', 'false')
+    await expect(document.activeElement).toBe(stepButton(1))
+
+    // Un-ticking it reopens nothing.
+    await userEvent.click(stepButton(1))
+    await expect(body().queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+  },
+}
+
+/** Ticking a different step leaves the open panel as it is (HON-982). */
+export const AskStaysWhenOtherStepDone: Story = {
+  name: 'Planned: ticking another step keeps the Ask panel',
+  args: { ...plannedArgs, initialTips: tips },
+  play: async () => {
+    await findDialog()
+    const ask = body().getByRole('button', { name: 'Ask about step 2' })
+    await userEvent.click(ask)
+
+    await userEvent.click(stepButton(2))
+    await expect(stepButton(2)).toHaveAttribute('aria-pressed', 'true')
+    await expect(body().getByRole('group', { name: 'Ask about step 2' })).toBeVisible()
+    await expect(ask).toHaveAttribute('aria-expanded', 'true')
+  },
+}
+
 // ── Ask: the answer stays in view (HON-977) ──────────────────────────────
 
 /** Twelve long steps, so the last ones sit far below the fold. */
@@ -1056,6 +1098,70 @@ export const AskStreamsAnswer: Story = {
     await within(status).findByText(full, {}, { timeout: 4000 })
     await waitFor(() => expect(send).toHaveAttribute('aria-disabled', 'false'))
     await expect(status).toHaveAttribute('aria-busy', 'false')
+  },
+}
+
+/** The bodies the cook-question route received, newest last (HON-983). */
+const cookQuestionBodies: unknown[] = []
+
+/**
+ * Ask about an item in "You'll need" (HON-983): opening its panel closes an
+ * open step panel, and a chip sends the item as the subject, with the
+ * equipment and the steps on screen.
+ */
+export const AskAboutEquipment: Story = {
+  name: 'Planned: ask about an item in You’ll need',
+  args: { ...plannedArgs, initialTips: tips },
+  parameters: {
+    msw: {
+      handlers: {
+        cookQuestion: [
+          http.post(
+            '/api/meal-plans/:planId/entries/:entryId/cook-question',
+            async ({ request }) => {
+              cookQuestionBodies.push(await request.json())
+              return HttpResponse.text(
+                'A heavy chopping board and a serrated bread knife will do for step 2.',
+              )
+            },
+          ),
+        ],
+      },
+    },
+  },
+  play: async () => {
+    cookQuestionBodies.length = 0
+    await findDialog()
+    const list = body().getByRole('list', { name: "You'll need" })
+    for (const item of tips.equipment!) {
+      await expect(within(list).getByRole('button', { name: `Ask about ${item}` })).toBeVisible()
+    }
+
+    await userEvent.click(body().getByRole('button', { name: 'Ask about step 2' }))
+    await expect(body().getByRole('group', { name: 'Ask about step 2' })).toBeVisible()
+
+    const knife = within(list).getByRole('button', { name: 'Ask about Sharp knife' })
+    await userEvent.click(knife)
+    await expect(body().queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+    await expect(body().getByRole('button', { name: 'Ask about step 2' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    const panel = body().getByRole('group', { name: 'Ask about Sharp knife' })
+    await userEvent.click(within(panel).getByRole('button', { name: 'What can I use instead?' }))
+    await within(panel).findByText(
+      'A heavy chopping board and a serrated bread knife will do for step 2.',
+    )
+    await expect(cookQuestionBodies).toHaveLength(1)
+    await expect(cookQuestionBodies[0]).toEqual({
+      subject: { kind: 'equipment', index: 1 },
+      steps: tips.steps,
+      equipment: tips.equipment,
+      question: 'What can I use instead?',
+    })
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
+    await expect(knife).toHaveFocus()
   },
 }
 

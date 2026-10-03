@@ -205,7 +205,7 @@ describe('POST /api/invites/[code]/join', () => {
     // resolve, so "not found" is the wrong diagnosis, and "expired or already
     // used" is accurate for the loser of a race on a single-use link. (Since
     // HON-697 both codes render the same translated copy in
-    // `JoinHouseholdCard`, so this distinction is for logs and Sentry.)
+    // `JoinHouseholdCard`, so this distinction is for logs and PostHog.)
     expect(response.status).toBe(400)
     expect(data.error).toBe('invite_invalid')
     expect(data.message).toBe('This invite has expired or has already been used.')

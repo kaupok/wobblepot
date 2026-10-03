@@ -41,6 +41,7 @@ vi.mock('@/lib/posthog-server', () => ({
 
 vi.mock('@/lib/request-id', () => ({
   getRequestId: vi.fn(),
+  getClientSession: vi.fn(async () => ({})),
 }))
 
 import type { LanguageModelUsage } from 'ai'
@@ -163,6 +164,11 @@ describe('toAiUsageStats', () => {
     const usage: LanguageModelUsage = { ...USAGE_FIXTURE, outputTokens: 0 }
 
     expect(toAiUsageStats(REVIEW_MODEL, usage).usageMissing).toBe(false)
+  })
+
+  it('carries the call duration when given one, and leaves it out otherwise', () => {
+    expect(toAiUsageStats(REVIEW_MODEL, USAGE_FIXTURE, 1_250).durationMs).toBe(1_250)
+    expect(toAiUsageStats(REVIEW_MODEL, USAGE_FIXTURE)).not.toHaveProperty('durationMs')
   })
 })
 

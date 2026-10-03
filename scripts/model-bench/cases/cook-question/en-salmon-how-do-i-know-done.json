@@ -1,0 +1,65 @@
+{
+  "mealName": "Pan-fried salmon with new potatoes",
+  "servings": 2,
+  "timeMinutes": 30,
+  "components": [
+    {
+      "name": "salmon fillet",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "new potatoes",
+      "quantityPerServing": 200,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "olive oil",
+      "quantityPerServing": 10,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "lemon",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Boil the potatoes for 15 minutes until a knife slides in.",
+    "Fry the salmon skin side down over medium-high heat for 4 minutes, then turn it and cook for 2 to 3 minutes more.",
+    "Serve with the potatoes and a squeeze of lemon."
+  ],
+  "equipment": ["Non-stick frying pan", "Saucepan", "Fish slice"],
+  "subject": {
+    "kind": "step",
+    "index": 1
+  },
+  "pitfalls": ["Moving the fillet too early tears the skin."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "salt",
+      "isStaple": true
+    },
+    {
+      "name": "black pepper",
+      "isStaple": true
+    },
+    {
+      "name": "olive oil",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "How do I know it's done?",
+  "locale": "en",
+  "expected": {
+    "mentionsAny": ["opaque", "flake", "°c"]
+  }
+}

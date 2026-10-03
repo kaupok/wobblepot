@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useThemeToggle } from '@/hooks/use-theme-toggle'
 import type { Session } from '@/lib/auth'
+import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
 interface MobileNavProps {
   session: Session | null
@@ -32,7 +33,9 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
           onSuccess: () => {
             // Fire-and-forget: don't let an analytics chunk-load failure
             // block the sign-out redirect.
-            import('posthog-js').then(({ default: posthog }) => posthog.reset()).catch(() => {})
+            getLoadedPostHog()
+              .then((posthog) => posthog?.reset())
+              .catch(() => {})
             setOpen(false)
             router.push('/')
             router.refresh()

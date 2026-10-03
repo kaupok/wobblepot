@@ -241,7 +241,8 @@ async function handlePOST(request: Request) {
 
       // Reported before it is classified, as the reference route does: a
       // timeout is user-facing but it also means the budget above is
-      // mis-sized, which is exactly what should show up in Sentry.
+      // mis-sized, which is exactly what should show up in PostHog error
+      // tracking.
       if (isAiBudgetTimeout(error)) {
         return errorJson(
           'generation_timeout',
@@ -339,7 +340,7 @@ async function handlePOST(request: Request) {
 
     // Reported before it is classified, as the reference route does: a timeout
     // is user-facing but it also means the budget above is mis-sized, which is
-    // exactly what should show up in Sentry.
+    // exactly what should show up in PostHog error tracking.
     if (isAiBudgetTimeout(error)) {
       return errorJson(
         'generation_timeout',

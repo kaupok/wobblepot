@@ -22,8 +22,12 @@ import {
   ProteinType,
 } from '../../src/generated/prisma/enums'
 import { KNOWN_LOCALES } from '../../src/lib/i18n/locales'
+import {
+  COOK_QUESTION_MAX_LENGTH,
+  COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH,
+} from '../../src/lib/ai/cook-question-limits'
 
-export const TASKS = ['plan', 'recipe', 'imagine', 'review', 'tips'] as const
+export const TASKS = ['plan', 'recipe', 'imagine', 'review', 'tips', 'cook-question'] as const
 export type Task = (typeof TASKS)[number]
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected a YYYY-MM-DD date')
@@ -220,12 +224,80 @@ export const TipsCaseSchema = z.discriminatedUnion('kind', [
   }),
 ])
 
+/**
+ * `CookQuestionRequestInput` from `src/lib/ai/cook-question.ts`, as the route
+ * builds it after validating the body (HON-972). The bounds are the route's.
+ */
+export const CookQuestionCaseSchema = z
+  .strictObject({
+    mealName: z.string().min(1),
+    servings: z.number().int().positive(),
+    timeMinutes: z.number().int().positive().nullable(),
+    components: z.array(tipsComponent).min(1),
+    preparationNotes: z.string().min(1).nullable(),
+    steps: z.array(z.string().min(1).max(500)).min(1).max(12),
+    equipment: z.array(z.string().min(1)),
+    subject: z.object({ kind: z.enum(['step', 'equipment']), index: z.number().int().min(0) }),
+    pitfalls: z.array(z.string().min(1)),
+    tip: z.string().min(1).nullable(),
+    pantry: z.array(z.object({ name: z.string().min(1), isStaple: z.boolean() })),
+    restrictions: z.object({
+      allergens: z.array(z.string()),
+      dietaryType: z.string().nullable(),
+      excludedIngredients: z.array(z.string()),
+      restrictions: z.array(z.string()),
+    }),
+    question: z.string().min(1).max(COOK_QUESTION_MAX_LENGTH),
+    previous: z
+      .object({
+        question: z.string().min(1).max(COOK_QUESTION_MAX_LENGTH),
+        answer: z.string().min(1).max(COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH),
+      })
+      .optional(),
+    locale,
+    expected: z.strictObject({
+      /**
+       * The question is not about the meal, so the answer is the one-sentence
+       * decline the prompt asks for.
+       */
+      offTopic: z.boolean().optional(),
+      /**
+       * A good answer contains at least one of these, case-insensitive: the
+       * pantry item a substitute question should name, a doneness cue. Any one
+       * is enough, so list every phrasing a correct answer may use.
+       */
+      mentionsAny: z.array(z.string().min(1)).min(1).optional(),
+      /**
+       * The answer must not suggest any of these: a food the household's
+       * allergens rule out, or the answer to an off-topic question. Matched
+       * as `findUnexcusedKeyword` matches an imagine ingredient name. A good
+       * answer often names the allergen in a warning ("check the label says
+       * free from nuts and peanuts"), so list the forms a suggestion takes
+       * ("crushed peanut", "cashew"), not the allergen's own name.
+       */
+      forbiddenKeywords: z.array(z.string().min(1)).min(1).optional(),
+      /**
+       * Excuses a `forbiddenKeywords` match that this word starts or sits
+       * directly before: "without", "nut-free". Without them, an answer that
+       * warns against a nut fails as if it suggested one.
+       */
+      allowedQualifiers: z.array(z.string().min(1)).optional(),
+    }),
+    source,
+  })
+  .refine(
+    ({ subject, steps, equipment }) =>
+      subject.index < (subject.kind === 'step' ? steps : equipment).length,
+    { path: ['subject', 'index'], message: 'The index is past the list its kind names' },
+  )
+
 export const CASE_SCHEMAS = {
   plan: PlanCaseSchema,
   recipe: RecipeCaseSchema,
   imagine: ImagineCaseSchema,
   review: ReviewCaseSchema,
   tips: TipsCaseSchema,
+  'cook-question': CookQuestionCaseSchema,
 } as const satisfies Record<Task, z.ZodType>
 
 export type PlanCase = z.infer<typeof PlanCaseSchema>
@@ -233,6 +305,7 @@ export type RecipeCase = z.infer<typeof RecipeCaseSchema>
 export type ImagineCase = z.infer<typeof ImagineCaseSchema>
 export type ReviewCase = z.infer<typeof ReviewCaseSchema>
 export type TipsCase = z.infer<typeof TipsCaseSchema>
+export type CookQuestionCase = z.infer<typeof CookQuestionCaseSchema>
 
 interface CaseInputs {
   plan: PlanCase
@@ -240,6 +313,7 @@ interface CaseInputs {
   imagine: ImagineCase
   review: ReviewCase
   tips: TipsCase
+  'cook-question': CookQuestionCase
 }
 
 /**

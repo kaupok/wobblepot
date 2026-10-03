@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type Ref, type RefObject } from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, MessageCircleQuestion } from 'lucide-react'
 import { Body, Heading, Li, Ol, Ul } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn, prefersReducedMotion } from '@/lib/utils'
 import type { StructuredTips } from '@/components/meal-plan/types'
 import type {
@@ -14,6 +15,8 @@ import type {
   CookQuestionAskInput,
   CookQuestionError,
 } from '@/hooks/use-cook-question'
+import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+import { COOK_QUESTION_EQUIPMENT_MAX_ITEMS } from '@/lib/ai/cook-question-limits'
 
 // The cook view's preparation guide (docs/DESIGN.md → "Cook view", HON-932),
 // split in two: the equipment reads as part of the shopping-and-setup column
@@ -23,6 +26,13 @@ import type {
 
 interface PreparationEquipmentProps {
   equipment?: string[] | null
+  /** The steps on screen; an equipment question sends them (HON-983) */
+  steps?: string[] | null
+  /**
+   * Puts an Ask button at the end of each row (HON-983), as on the steps. The
+   * caller passes it only for a planned entry it can edit.
+   */
+  cookQuestion?: CookQuestionControls
 }
 
 /**
@@ -31,20 +41,53 @@ interface PreparationEquipmentProps {
  * (HON-966). A cook scans it like the ingredients — is it on the counter or
  * not — so the rows take the ingredient rows' 18px. The heading is the same
  * level as Steps, Watch out and Tip.
+ *
+ * With `cookQuestion` each row ends in an Ask button, a sibling of the item
+ * text, that opens the question panel under the row (HON-983): "I don't have
+ * a wok" is asked here, not on the step that uses it.
  */
-export function PreparationEquipment({ equipment }: PreparationEquipmentProps) {
+export function PreparationEquipment({
+  equipment,
+  steps,
+  cookQuestion,
+}: PreparationEquipmentProps) {
   const t = useTranslations('meal-plan.tips')
+  const tAsk = useTranslations('meal-plan.cookQuestion')
   const headingId = useId()
+  const panels = useAskPanels(cookQuestion, 'equipment')
   if (!equipment?.length) return null
+  // The route answers about the steps too, and needs at least one.
+  const askable = cookQuestion && steps?.length ? cookQuestion : null
   return (
     <div className="flex flex-col gap-3 text-base">
       <Heading variant="h4" as="h3" id={headingId}>
         {t('equipment')}
       </Heading>
       <Ul variant="plain" aria-labelledby={headingId}>
-        {equipment.map((item, i) => (
-          <Li key={`${i}-${item}`}>{item}</Li>
-        ))}
+        {equipment.map((item, i) =>
+          // Only rows the route keeps: it drops empty items and those past
+          // its cap, so Ask there could only fail.
+          askable && steps && item.trim() && i < COOK_QUESTION_EQUIPMENT_MAX_ITEMS ? (
+            <Li key={`${i}-${item}`}>
+              {/* Top-aligned, as a step row is: a long item wraps beside the
+                  button, and the padding centres one line on its 44px. */}
+              <div className="flex items-start gap-1">
+                <span className="min-w-0 flex-1 py-2">{item}</span>
+                <AskButton label={tAsk('askAboutItem', { item })} {...panels.buttonProps(i)} />
+              </div>
+              {panels.isOpen(i) && (
+                <CookQuestionPanel
+                  {...panels.panelProps(i)}
+                  steps={steps}
+                  equipment={equipment}
+                  controls={askable}
+                />
+              )}
+            </Li>
+          ) : (
+            <Li key={`${i}-${item}`}>{item}</Li>
+          ),
+        )}
       </Ul>
     </div>
   )
@@ -76,9 +119,12 @@ interface PreparationStepsProps {
  * `useCookQuestion`, so this component stays presentational.
  */
 export interface CookQuestionControls {
-  /** The step whose panel is open; one at a time */
-  openStep: number | null
-  onOpenStep: (index: number) => void
+  /**
+   * The step or the item in "You'll need" whose panel is open: one at a time
+   * across both sections (HON-983)
+   */
+  openSubject: CookQuestionSubject | null
+  onOpenSubject: (subject: CookQuestionSubject) => void
   onClose: () => void
   ask: (input: CookQuestionAskInput) => void
   active: CookQuestionActive | null
@@ -188,7 +234,11 @@ function StepToggle({ step, index, done, current, onToggle }: StepToggleProps) {
   )
 }
 
-const CHIP_KEYS = ['done', 'substitute', 'time'] as const
+// Each chip's catalog key, by what the panel is about (HON-983).
+const CHIP_KEYS = {
+  step: ['chips.done', 'chips.substitute', 'chips.time'],
+  equipment: ['equipmentChips.instead', 'equipmentChips.size', 'equipmentChips.skip'],
+} as const
 
 /**
  * Scroll `el` into its nearest scrollable ancestor: the dialog's one column
@@ -201,32 +251,39 @@ function scrollIntoViewNearest(el: HTMLElement | null) {
 
 interface CookQuestionPanelProps {
   id: string
-  stepIndex: number
+  /** The step or the item in "You'll need" this panel asks about */
+  subject: CookQuestionSubject
   steps: string[]
+  equipment: string[]
   controls: CookQuestionControls
-  /** Move focus into the field on mount: the cook switched from another step's panel. */
+  /** Move focus into the field on mount: the cook switched from another panel. */
   focusField: boolean
-  /** Close the panel and return focus to its Ask button */
-  onClose: () => void
+  /**
+   * Close the panel and return focus to its Ask button. `byPointer` is true
+   * when a tap or a click on Close did it, not a key.
+   */
+  onClose: (byPointer?: boolean) => void
 }
 
 /**
- * The question panel under one step (HON-969): three chips that send at once,
+ * The question panel under one step (HON-969), or under one item in "You'll
+ * need" with its own chips and placeholder (HON-983): three chips that send at once,
  * a field with Send, then the question asked with Edit (HON-976) above
  * "Thinking…", the answer, or the error with Retry. The answer streams in, and
  * a stream that breaks keeps its words with the error under them (HON-979).
  * A second question keeps the first one's answer, muted, until its own answer
  * takes that place, and
  * "Thinking…" sits beside Close, so the steps below do not jump (HON-978).
- * It sits straight on the tint, indented to the step text, with no card or
+ * It sits straight on the tint, indented to the row's text, with no card or
  * border of its own (docs/DESIGN.md → cook view). It scrolls into view when it
  * opens, and the answer with Close does when it arrives (HON-977), so a step
  * low in the view never answers below the fold.
  */
 function CookQuestionPanel({
   id,
-  stepIndex,
+  subject,
   steps,
+  equipment,
   controls,
   focusField,
   onClose,
@@ -247,12 +304,13 @@ function CookQuestionPanel({
   // would bill a second AI call, because the route runs on after the browser
   // aborts the first.
   const busy = isPending || isStreaming
-  const ownStep = active?.stepIndex === stepIndex
+  const isStep = subject.kind === 'step'
+  const own = active && sameSubject(active.subject, subject) ? active : null
   // The last answer, kept on screen under its own question while the next one
   // is on its way, so the panel does not shrink to one line (HON-978).
-  const stale = ownStep && isPending && previous?.stepIndex === stepIndex ? previous : null
-  const asked = stale ? stale.question : ownStep ? active.question : null
-  const answer = ownStep ? active.answer : null
+  const stale = own && isPending && sameSubject(previous?.subject, subject) ? previous : null
+  const asked = stale ? stale.question : own ? own.question : null
+  const answer = own ? own.answer : null
   // One slot for the stale answer or the answer, so each replaces the last in
   // place. The error goes under it: alone, or under the words that arrived
   // before the stream broke (HON-979).
@@ -284,18 +342,24 @@ function CookQuestionPanel({
   }, [editCount])
 
   const send = (question: string, source: CookQuestionAskInput['source']) =>
-    ask({ stepIndex, steps, question, source })
+    ask({ subject, steps, equipment, question, source })
 
   return (
     <div
       ref={panelRef}
       id={id}
       role="group"
-      aria-label={t('askAboutStep', { n: stepIndex + 1 })}
-      className="flex flex-col gap-3 pt-1 pr-3 pb-2 pl-15 lg:pl-16"
+      aria-label={
+        isStep
+          ? t('askAboutStep', { n: subject.index + 1 })
+          : t('askAboutItem', { item: equipment[subject.index] ?? '' })
+      }
+      // A step's panel is indented to the step text, past the numeral; an
+      // item's text starts at the list's edge, so its panel does too.
+      className={cn('flex flex-col gap-3 pt-1 pb-2', isStep && 'pr-3 pl-15 lg:pl-16')}
     >
       <div className="flex flex-wrap gap-2">
-        {CHIP_KEYS.map((key) => (
+        {CHIP_KEYS[subject.kind].map((key) => (
           <Button
             key={key}
             variant="outline"
@@ -303,10 +367,10 @@ function CookQuestionPanel({
             aria-disabled={busy}
             onClick={() => {
               if (busy) return
-              send(t(`chips.${key}`), 'chip')
+              send(t(key), 'chip')
             }}
           >
-            {t(`chips.${key}`)}
+            {t(key)}
           </Button>
         ))}
       </div>
@@ -333,7 +397,7 @@ function CookQuestionPanel({
             if (e.key === 'Escape') onClose()
           }}
           aria-label={t('questionLabel')}
-          placeholder={t('placeholder')}
+          placeholder={t(isStep ? 'placeholder' : 'equipmentPlaceholder')}
           maxLength={300}
           enterKeyHint="send"
         />
@@ -401,7 +465,13 @@ function CookQuestionPanel({
               {t('retry')}
             </Button>
           )}
-          <Button ref={closeRef} variant="ghost" size="lg" onClick={onClose}>
+          <Button
+            ref={closeRef}
+            variant="ghost"
+            size="lg"
+            // `detail` counts clicks; Enter and Space on a button leave it 0.
+            onClick={(e) => onClose(e.detail > 0)}
+          >
             {t('close')}
           </Button>
         </div>
@@ -410,8 +480,131 @@ function CookQuestionPanel({
   )
 }
 
+interface AskButtonProps {
+  ref: Ref<HTMLButtonElement>
+  /** "Ask about step {n}" or "Ask about {item}": the accessible name and the tooltip */
+  label: string
+  /** Whether this button's panel is open */
+  open: boolean
+  panelId: string
+  onClick: () => void
+  /** True while a panel closed by a tap or a click hands focus back to this button */
+  quietFocus: RefObject<boolean>
+}
+
+/**
+ * The Ask button at the end of a row (HON-969, HON-981). Below `lg` it is the
+ * icon alone, with a heavier stroke so the outline reads from the counter;
+ * from `lg` the row is wide enough for the visible label "Ask" beside it. The
+ * tooltip names the step or the item at every width, on hover and on keyboard
+ * focus. The `aria-label` stays the full label: it contains the visible "Ask",
+ * so speech input still finds it, and it tells the rows' buttons apart. No `title`.
+ * With its panel open it stays an Ask button; Close is in the panel.
+ */
+function AskButton({ ref, label, open, panelId, onClick, quietFocus }: AskButtonProps) {
+  const t = useTranslations('meal-plan.cookQuestion')
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        asChild
+        // Radix opens on any focus, so also on the focus a closed panel hands
+        // back. After a tap the tooltip would cover the step until the next
+        // tap, because a touch never leaves the button. Radix skips its own
+        // focus handler when ours prevents the default.
+        onFocus={(e) => {
+          if (quietFocus.current) e.preventDefault()
+        }}
+      >
+        <Button
+          ref={ref}
+          variant="ghost"
+          size="icon-lg-to-lg"
+          aria-label={label}
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          onClick={onClick}
+        >
+          <MessageCircleQuestion strokeWidth={2.25} className="lg:stroke-2" aria-hidden="true" />
+          <span className="hidden lg:inline">{t('ask')}</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent size="lg">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+/**
+ * The Ask buttons and panels of one section, the steps or "You'll need"
+ * (HON-983), so both behave the same: panel ids, focus back to the row's Ask
+ * button on Close, focus into the field when the cook switches panels, and a
+ * tooltip kept shut on the focus a tap hands back.
+ */
+function useAskPanels(
+  cookQuestion: CookQuestionControls | undefined,
+  kind: CookQuestionSubject['kind'],
+) {
+  const panelIdPrefix = useId()
+  const askButtons = useRef(new Map<number, HTMLButtonElement>())
+  // Set when Ask opens a panel while another one is open, in either section:
+  // the old panel's field unmounts, so focus moves into the new one's.
+  const [focusField, setFocusField] = useState(false)
+
+  // Set around the focus a tap or a click on Close returns, so the Ask
+  // button's tooltip stays shut; a key on Close or Escape opens it as Tab does.
+  const quietFocus = useRef(false)
+
+  const closePanel = (index: number, byPointer = false) => {
+    cookQuestion?.onClose()
+    quietFocus.current = byPointer
+    askButtons.current.get(index)?.focus()
+    quietFocus.current = false
+  }
+
+  const subjectAt = (index: number): CookQuestionSubject => ({ kind, index })
+  const isOpen = (index: number) => sameSubject(cookQuestion?.openSubject, subjectAt(index))
+  const panelId = (index: number) => `${panelIdPrefix}-panel-${index}`
+
+  return {
+    isOpen,
+    /** Row `index`'s Ask button, all but its label */
+    buttonProps: (index: number): Omit<AskButtonProps, 'label'> => {
+      const open = isOpen(index)
+      return {
+        ref: (el: HTMLButtonElement | null) => {
+          if (el) askButtons.current.set(index, el)
+          else askButtons.current.delete(index)
+        },
+        open,
+        panelId: panelId(index),
+        quietFocus,
+        onClick: () => {
+          if (!cookQuestion) return
+          if (open) {
+            // A key on Ask leaves focus on it, so a focus event here comes
+            // from a tap (Safari does not focus a tapped button): keep the
+            // tooltip shut, as Close does.
+            closePanel(index, true)
+            return
+          }
+          setFocusField(cookQuestion.openSubject !== null)
+          cookQuestion.onOpenSubject(subjectAt(index))
+        },
+      }
+    },
+    /** Row `index`'s panel, all but what it asks with */
+    panelProps: (index: number) => ({
+      id: panelId(index),
+      subject: subjectAt(index),
+      focusField,
+      onClose: (byPointer?: boolean) => closePanel(index, byPointer),
+    }),
+  }
+}
+
 interface ToggleStepsProps {
   steps: string[]
+  /** "You'll need", which a step question sends too (HON-983) */
+  equipment: string[]
   doneSteps?: ReadonlySet<number>
   currentStep: number
   onToggleStep: (index: number) => void
@@ -425,78 +618,44 @@ interface ToggleStepsProps {
  */
 function ToggleSteps({
   steps,
+  equipment,
   doneSteps,
   currentStep,
   onToggleStep,
   cookQuestion,
 }: ToggleStepsProps) {
   const t = useTranslations('meal-plan.cookQuestion')
-  const panelIdPrefix = useId()
-  const askButtons = useRef(new Map<number, HTMLButtonElement>())
-  // Set when Ask opens a panel while another one is open: the old panel's
-  // field unmounts, so focus moves into the new one's.
-  const [focusField, setFocusField] = useState(false)
-
-  const closePanel = (index: number) => {
-    cookQuestion?.onClose()
-    askButtons.current.get(index)?.focus()
-  }
+  const panels = useAskPanels(cookQuestion, 'step')
 
   return (
     // The row's padding sits outside the text's column, so the numerals line
     // up with the heading above as the static list does.
     <div className="-mx-3">
       <Ol variant="steps">
-        {steps.map((step, i) => {
-          const open = cookQuestion?.openStep === i
-          const panelId = `${panelIdPrefix}-panel-${i}`
-          return (
-            <Li key={i}>
-              <div className="flex items-start gap-1">
-                <StepToggle
-                  step={step}
-                  index={i}
-                  done={doneSteps?.has(i) ?? false}
-                  current={i === currentStep}
-                  onToggle={onToggleStep}
-                />
-                {cookQuestion && (
-                  <Button
-                    ref={(el) => {
-                      if (el) askButtons.current.set(i, el)
-                      else askButtons.current.delete(i)
-                    }}
-                    variant="ghost"
-                    size="icon-lg"
-                    aria-label={t('askAboutStep', { n: i + 1 })}
-                    aria-expanded={open}
-                    aria-controls={open ? panelId : undefined}
-                    onClick={() => {
-                      if (open) {
-                        closePanel(i)
-                        return
-                      }
-                      setFocusField(cookQuestion.openStep !== null)
-                      cookQuestion.onOpenStep(i)
-                    }}
-                  >
-                    <MessageCircleQuestion aria-hidden="true" />
-                  </Button>
-                )}
-              </div>
-              {cookQuestion && open && (
-                <CookQuestionPanel
-                  id={panelId}
-                  stepIndex={i}
-                  steps={steps}
-                  controls={cookQuestion}
-                  focusField={focusField}
-                  onClose={() => closePanel(i)}
-                />
+        {steps.map((step, i) => (
+          <Li key={i}>
+            <div className="flex items-start gap-1">
+              <StepToggle
+                step={step}
+                index={i}
+                done={doneSteps?.has(i) ?? false}
+                current={i === currentStep}
+                onToggle={onToggleStep}
+              />
+              {cookQuestion && (
+                <AskButton label={t('askAboutStep', { n: i + 1 })} {...panels.buttonProps(i)} />
               )}
-            </Li>
-          )
-        })}
+            </div>
+            {cookQuestion && panels.isOpen(i) && (
+              <CookQuestionPanel
+                {...panels.panelProps(i)}
+                steps={steps}
+                equipment={equipment}
+                controls={cookQuestion}
+              />
+            )}
+          </Li>
+        ))}
       </Ol>
     </div>
   )
@@ -586,6 +745,7 @@ export function PreparationSteps({
           (onToggleStep ? (
             <ToggleSteps
               steps={tips.steps}
+              equipment={tips.equipment ?? []}
               doneSteps={doneSteps}
               currentStep={currentStep}
               onToggleStep={onToggleStep}

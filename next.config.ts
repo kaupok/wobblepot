@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
+import { postHogRewrites } from './src/lib/posthog-proxy'
+import { uploadSourcemaps } from './src/lib/posthog-sourcemaps'
 
 const withNextIntl = createNextIntlPlugin('./src/lib/i18n/request.ts')
 
@@ -8,10 +10,22 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   // Required for posthog-cli sourcemap inject/upload — without it, Next.js
-  // doesn't emit browser-readable .map files in production and the CLI
-  // walks an empty directory. Tradeoff: source is visible in devtools for
-  // anyone who looks. See docs/ENVIRONMENT_SETUP.md § "PostHog".
+  // doesn't emit browser-readable .map files in production. The hook below
+  // uploads them and then deletes them, so a Vercel deploy with the
+  // POSTHOG_CLI_* vars set serves no maps. See docs/ENVIRONMENT_SETUP.md § "PostHog".
   productionBrowserSourceMaps: true,
+  compiler: {
+    // Runs before the Vercel adapter copies .next/static into the deployment,
+    // which `postbuild` does not (HON-997). See src/lib/posthog-sourcemaps.ts.
+    runAfterProductionCompile: uploadSourcemaps,
+  },
+  // The Vercel adapter turns immutable assets on. Vercel then serves each
+  // `_next/static/immutable` file from a store shared across deployments,
+  // keyed by the hash Turbopack computed before the hook above ran. So the
+  // chunks a deploy serves are an older build's, without the PostHog chunk ids
+  // and with their maps still public (HON-997). Off, every deploy serves its
+  // own files. The upload script fails if it finds immutable chunks.
+  supportsImmutableAssets: false,
   typescript: {
     ignoreBuildErrors: false,
   },
@@ -20,6 +34,15 @@ const nextConfig: NextConfig = {
     // own subdomain and staging/production use different stores, hence the
     // wildcard. Keep in sync with `img-src` in src/proxy.ts.
     remotePatterns: [{ protocol: 'https', hostname: '*.public.blob.vercel-storage.com' }],
+  },
+  // PostHog requests end in `/` (e.g. `/ingest/e/`), and the default redirect
+  // would strip it before the rewrite below forwards the request.
+  skipTrailingSlashRedirect: true,
+  // Same-origin reverse proxy for the PostHog browser SDK, which PostHog's
+  // Installation Health check asks for: ad blockers match the PostHog hosts,
+  // not `/ingest` on our origin (HON-985). See src/lib/posthog-proxy.ts.
+  async rewrites() {
+    return postHogRewrites(process.env.NEXT_PUBLIC_POSTHOG_HOST)
   },
   async redirects() {
     return [

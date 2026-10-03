@@ -5,7 +5,14 @@ vi.mock('@/lib/posthog-server', () => ({
 }))
 
 import { getPosthogServer } from '@/lib/posthog-server'
-import { bootstrapFlags, FLAG_DEFAULTS, getServerFlag, type FlagKey } from './feature-flags'
+import {
+  bootstrapFlags,
+  FLAG_CACHE_TTL_MS,
+  FLAG_DEFAULTS,
+  getServerFlag,
+  resetFlagCacheForTests,
+  type FlagKey,
+} from './feature-flags'
 
 const mockedGetPosthogServer = vi.mocked(getPosthogServer)
 
@@ -24,6 +31,7 @@ function makeClient(overrides: Partial<MockPosthogClient> = {}): MockPosthogClie
 
 beforeEach(() => {
   vi.clearAllMocks()
+  resetFlagCacheForTests()
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
@@ -57,7 +65,32 @@ describe('getServerFlag', () => {
     const result = await getServerFlag('ai_generation_enabled', 'user_1')
 
     expect(result).toBe(true)
+    // A user id keeps the default `$feature_flag_called` event: no options.
     expect(client.getFeatureFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user_1')
+    expect(client.getAllFlags).not.toHaveBeenCalled()
+  })
+
+  it('reads the shared anonymous id through getAllFlags, which sends no $feature_flag_called', async () => {
+    const client = makeClient({
+      getAllFlags: vi.fn().mockResolvedValue({ invite_code_required: false }),
+    })
+    mockedGetPosthogServer.mockReturnValue(client as never)
+
+    const result = await getServerFlag('invite_code_required', 'anonymous')
+
+    expect(result).toBe(false)
+    expect(client.getAllFlags).toHaveBeenCalledWith('anonymous')
+    expect(client.getFeatureFlag).not.toHaveBeenCalled()
+  })
+
+  it('does not cache user-id reads', async () => {
+    const client = makeClient({ getFeatureFlag: vi.fn().mockResolvedValue(true) })
+    mockedGetPosthogServer.mockReturnValue(client as never)
+
+    await getServerFlag('ai_generation_enabled', 'user_1')
+    await getServerFlag('ai_generation_enabled', 'user_1')
+
+    expect(client.getFeatureFlag).toHaveBeenCalledTimes(2)
   })
 
   it('returns false when PostHog returns false', async () => {
@@ -276,5 +309,130 @@ describe('bootstrapFlags', () => {
       recipe_import_enabled: false,
       invite_code_required: true,
     })
+  })
+})
+
+describe('flag cache', () => {
+  const ALL_ON = {
+    ai_generation_enabled: true,
+    recipe_import_enabled: true,
+    invite_code_required: true,
+  }
+
+  it('makes one flags request for a landing render: layout bootstrap plus the page read', async () => {
+    const client = makeClient({ getAllFlags: vi.fn().mockResolvedValue(ALL_ON) })
+    mockedGetPosthogServer.mockReturnValue(client as never)
+
+    // The layout and the page render concurrently.
+    const [bootstrap, inviteRequired] = await Promise.all([
+      bootstrapFlags('anonymous'),
+      getServerFlag('invite_code_required', 'anonymous'),
+    ])
+
+    expect(bootstrap.featureFlags).toEqual(ALL_ON)
+    expect(inviteRequired).toBe(true)
+    expect(client.getAllFlags.mock.calls.length + client.getFeatureFlag.mock.calls.length).toBe(1)
+  })
+
+  it('serves a repeat evaluation for the same distinct id from the cache (cache hit)', async () => {
+    const client = makeClient({ getAllFlags: vi.fn().mockResolvedValue(ALL_ON) })
+    mockedGetPosthogServer.mockReturnValue(client as never)
+
+    await bootstrapFlags('user_1')
+    const second = await bootstrapFlags('user_1')
+
+    expect(second.featureFlags).toEqual(ALL_ON)
+    expect(client.getAllFlags).toHaveBeenCalledTimes(1)
+  })
+
+  it('evaluates again for a different distinct id (cache miss)', async () => {
+    const client = makeClient({ getAllFlags: vi.fn().mockResolvedValue(ALL_ON) })
+    mockedGetPosthogServer.mockReturnValue(client as never)
+
+    await bootstrapFlags('user_1')
+    await bootstrapFlags('user_2')
+
+    expect(client.getAllFlags).toHaveBeenCalledTimes(2)
+    expect(client.getAllFlags).toHaveBeenNthCalledWith(1, 'user_1')
+    expect(client.getAllFlags).toHaveBeenNthCalledWith(2, 'user_2')
+  })
+
+  it('honours a kill-switch flip once the 30 s window has passed', async () => {
+    vi.useFakeTimers()
+    try {
+      const getAllFlags = vi
+        .fn()
+        .mockResolvedValueOnce(ALL_ON)
+        .mockResolvedValueOnce({ ...ALL_ON, invite_code_required: false })
+      mockedGetPosthogServer.mockReturnValue(makeClient({ getAllFlags }) as never)
+
+      expect(await getServerFlag('invite_code_required', 'anonymous')).toBe(true)
+
+      // Inside the window the cached value stands.
+      await vi.advanceTimersByTimeAsync(FLAG_CACHE_TTL_MS - 1)
+      expect(await getServerFlag('invite_code_required', 'anonymous')).toBe(true)
+      expect(getAllFlags).toHaveBeenCalledTimes(1)
+
+      // At 30 s the entry expires and the flip is read.
+      await vi.advanceTimersByTimeAsync(1)
+      expect(await getServerFlag('invite_code_required', 'anonymous')).toBe(false)
+      expect(getAllFlags).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not cache a timeout, so the next read asks PostHog again', async () => {
+    vi.useFakeTimers()
+    try {
+      const getAllFlags = vi
+        .fn()
+        .mockImplementationOnce(() => new Promise(() => {}))
+        .mockResolvedValueOnce({ ...ALL_ON, ai_generation_enabled: false })
+      mockedGetPosthogServer.mockReturnValue(makeClient({ getAllFlags }) as never)
+
+      const first = bootstrapFlags('user_1')
+      await vi.advanceTimersByTimeAsync(101)
+      expect((await first).featureFlags).toEqual(FLAG_DEFAULTS)
+      expect(console.warn).toHaveBeenCalledWith('[feature-flags] bootstrap timeout')
+
+      const second = await bootstrapFlags('user_1')
+      expect(second.featureFlags.ai_generation_enabled).toBe(false)
+      expect(getAllFlags).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not cache a rejection, so the next read asks PostHog again', async () => {
+    const getAllFlags = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('PostHog 5xx'))
+      .mockResolvedValueOnce(ALL_ON)
+    mockedGetPosthogServer.mockReturnValue(makeClient({ getAllFlags }) as never)
+
+    expect((await bootstrapFlags('user_1')).featureFlags).toEqual(FLAG_DEFAULTS)
+    expect((await bootstrapFlags('user_1')).featureFlags).toEqual(ALL_ON)
+    expect(getAllFlags).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not cache an empty result, which is how posthog-node reports a failed request', async () => {
+    const getAllFlags = vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce(ALL_ON)
+    mockedGetPosthogServer.mockReturnValue(makeClient({ getAllFlags }) as never)
+
+    expect((await bootstrapFlags('user_1')).featureFlags).toEqual(FLAG_DEFAULTS)
+    expect((await bootstrapFlags('user_1')).featureFlags).toEqual(ALL_ON)
+    expect(getAllFlags).toHaveBeenCalledTimes(2)
+  })
+
+  it('hands each caller its own copy of the cached flags', async () => {
+    const client = makeClient({ getAllFlags: vi.fn().mockResolvedValue(ALL_ON) })
+    mockedGetPosthogServer.mockReturnValue(client as never)
+
+    const first = await bootstrapFlags('user_1')
+    first.featureFlags.ai_generation_enabled = false
+    const second = await bootstrapFlags('user_1')
+
+    expect(second.featureFlags.ai_generation_enabled).toBe(true)
   })
 })

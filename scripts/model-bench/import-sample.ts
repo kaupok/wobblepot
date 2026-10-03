@@ -41,9 +41,7 @@ const SampleSchema = z.object({
 
 export type AiSample = z.infer<typeof SampleSchema>
 
-// `cook-question` has no benchmark task yet (HON-969): its sample reads as an
-// unknown call site until one exists.
-type SupportedCallSite = Exclude<AiSampleCallSite, 'fill-empty-slots' | 'cook-question'>
+type SupportedCallSite = Exclude<AiSampleCallSite, 'fill-empty-slots'>
 
 /** Which benchmark task runs the request each call site sends. */
 export const CALL_SITE_TASKS: Record<SupportedCallSite, Task> = {
@@ -53,6 +51,7 @@ export const CALL_SITE_TASKS: Record<SupportedCallSite, Task> = {
   'review-quantities': 'review',
   'preparation-tips-full': 'tips',
   'preparation-tips-supplementary': 'tips',
+  'cook-question': 'cook-question',
 }
 
 // What each call site passes to `logAiSample` as `input`. Kept loose on purpose
@@ -107,6 +106,16 @@ const TipsSampleInput = z.object({
   hasUserNotes: z.boolean(),
 })
 
+/**
+ * The cook-question route, after the answer streamed. `source` is where Watch
+ * out and Tip came from: the entry's cached tips, or none.
+ */
+const CookQuestionSampleInput = z.object({
+  mealName: z.string(),
+  subject: z.object({ kind: z.enum(['step', 'equipment']), index: z.number() }),
+  source: z.enum(['cached', 'uncached']),
+})
+
 export interface Draft {
   task: Task
   /** The case file's contents. */
@@ -154,7 +163,7 @@ export function parseSampleText(text: string): AiSample {
 
 /** `<task>/<slug>`, the same id `loadCases` gives the finished case. */
 export function parseCaseId(id: string): { task: Task; slug: string } {
-  const match = /^([a-z]+)\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(id)
+  const match = /^([a-z]+(?:-[a-z]+)*)\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(id)
   if (!match || !(TASKS as readonly string[]).includes(match[1]!)) {
     throw new ImportSampleError(
       `--id takes <task>/<slug>, with a task from ${TASKS.join(', ')} and a lowercase, hyphenated slug (imagine/en-pasta-for-two); got "${id}".`,
@@ -220,6 +229,8 @@ function buildInput(callSite: SupportedCallSite, input: unknown, locale: string)
         callSite === 'preparation-tips-full' ? 'full' : 'supplementary',
         locale,
       )
+    case 'cook-question':
+      return cookQuestionInput(parseInput(CookQuestionSampleInput, input, callSite), locale)
   }
 }
 
@@ -371,6 +382,50 @@ function tipsInput(
     notes: [
       'A tips case has no expectation to write: tips are scored on item counts and by the judge.',
     ],
+  }
+}
+
+function cookQuestionInput(
+  input: z.infer<typeof CookQuestionSampleInput>,
+  locale: string,
+): BuiltInput {
+  const { subject } = input
+  const about =
+    subject.kind === 'step' ? `step ${subject.index + 1}` : `equipment item ${subject.index + 1}`
+  return {
+    fields: {
+      mealName: input.mealName,
+      servings: null,
+      timeMinutes: null,
+      components: [],
+      preparationNotes: null,
+      steps: [],
+      equipment: [],
+      subject,
+      pitfalls: [],
+      tip: null,
+      pantry: [],
+      restrictions: { allergens: [], dietaryType: null, excludedIngredients: [], restrictions: [] },
+      question: '',
+      locale,
+      expected: {},
+    },
+    missingInput: [
+      `question: the sample logs no question, only that it was about ${about}; sampleOutput.answer shows what was answered`,
+      `steps, equipment: not in the sample; the subject index must point at ${about}`,
+      'servings, timeMinutes, components, preparationNotes: not in the sample',
+      input.source === 'cached'
+        ? "pitfalls, tip: the entry had cached tips, but the sample does not log them; write the meal's Watch out and Tip"
+        : 'pitfalls, tip: the entry had no cached tips, so the request sent none; leave them empty',
+      'pantry, restrictions: not in the sample',
+      'previous: the sample does not say whether this was a follow-up; add one only if sampleOutput.answer refers to an earlier answer',
+    ],
+    expectations: [
+      'expected.offTopic: true only if the question is not about the meal',
+      'expected.mentionsAny: phrases a good answer contains, any one of which is enough; delete the field if there are none',
+      'expected.forbiddenKeywords, expected.allowedQualifiers: foods the answer must not suggest, and words that excuse a warning against one; delete them if there are none',
+    ],
+    notes: [],
   }
 }
 

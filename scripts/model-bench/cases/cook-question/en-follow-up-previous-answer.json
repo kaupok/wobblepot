@@ -1,0 +1,85 @@
+{
+  "mealName": "Chicken and mushroom risotto",
+  "servings": 2,
+  "timeMinutes": 40,
+  "components": [
+    {
+      "name": "arborio rice",
+      "quantityPerServing": 90,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "chicken breast",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "mushrooms",
+      "quantityPerServing": 60,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "dry white wine",
+      "quantityPerServing": 50,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "chicken stock",
+      "quantityPerServing": 400,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "parmesan",
+      "quantityPerServing": 15,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Fry the diced chicken until cooked through, then set it aside.",
+    "Soften the onion and mushrooms, add the rice and toast it for 1 minute.",
+    "Pour in the white wine and stir until it is absorbed.",
+    "Add the hot stock a ladle at a time, stirring, for 18 minutes.",
+    "Stir in the chicken and the parmesan."
+  ],
+  "equipment": ["Wide saucepan", "Small saucepan for the stock", "Ladle"],
+  "subject": {
+    "kind": "step",
+    "index": 2
+  },
+  "pitfalls": ["Cold stock stops the rice cooking evenly."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "white wine vinegar",
+      "isStaple": false
+    },
+    {
+      "name": "chicken stock",
+      "isStaple": false
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    },
+    {
+      "name": "butter",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "previous": {
+    "question": "What can I substitute here?",
+    "answer": "Use an extra ladle of the hot chicken stock instead of the wine, with a squeeze of lemon juice for the acidity the wine would give. Add it the same way and stir until it is absorbed."
+  },
+  "question": "And if I have no lemon either?",
+  "locale": "en",
+  "expected": {
+    "mentionsAny": ["vinegar"]
+  }
+}

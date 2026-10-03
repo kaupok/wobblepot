@@ -52,6 +52,7 @@ export async function parseRecipeText(
   const request = buildRecipeRequest(trimmedText, locale)
 
   try {
+    const startedAt = Date.now()
     const result = await withUsageOnFailure(RECIPE_MODEL, onAiUsage, () =>
       generateObject({
         ...request,
@@ -64,7 +65,7 @@ export async function parseRecipeText(
 
     const { object } = result
 
-    onAiUsage?.(toAiUsageStats(RECIPE_MODEL, result.usage))
+    onAiUsage?.(toAiUsageStats(RECIPE_MODEL, result.usage, Date.now() - startedAt))
 
     await logAiSample({
       callSite: 'parse-recipe',
@@ -129,7 +130,8 @@ export async function parseRecipeText(
     // connection failure (`handleFetchError` in the SDK turns ECONNRESET,
     // "fetch failed" and friends into an `APICallError`). `RetryError` is the
     // same thing after `maxRetries` ran out. The user's input was fine, so this
-    // must not reach the route as a 400 — and it must reach Sentry (HON-723).
+    // must not reach the route as a 400 — and it must reach PostHog error
+    // tracking (HON-723).
     //
     // Only the transient ones, which the SDK flags with `isRetryable`. A
     // non-retryable 4xx — a prompt past the context window, a revoked API key

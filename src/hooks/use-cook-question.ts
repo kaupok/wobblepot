@@ -11,6 +11,9 @@ import {
   translateErrorCode,
   type CookQuestionErrorCode,
 } from '@/lib/ai/error-codes'
+import type { CookQuestionPrevious } from '@/lib/ai/cook-question'
+import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+import { clipText, COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH } from '@/lib/ai/cook-question-limits'
 
 interface UseCookQuestionOptions {
   planId: string
@@ -22,9 +25,12 @@ interface UseCookQuestionOptions {
 export type CookQuestionSource = 'chip' | 'text'
 
 export interface CookQuestionAskInput {
-  stepIndex: number
+  /** The step or the item in "You'll need" the question is about (HON-983) */
+  subject: CookQuestionSubject
   /** The steps on screen; the route answers about these, not the cached ones */
   steps: string[]
+  /** "You'll need" on screen, for the same reason */
+  equipment: string[]
   question: string
   source: CookQuestionSource
 }
@@ -34,7 +40,7 @@ export interface CookQuestionAskInput {
  * then grows as the answer streams in (HON-979).
  */
 export interface CookQuestionActive {
-  stepIndex: number
+  subject: CookQuestionSubject
   question: string
   answer: string | null
 }
@@ -45,13 +51,20 @@ export interface CookQuestionError {
   canRetry: boolean
 }
 
-type AskRequest = Omit<CookQuestionAskInput, 'source'>
+/**
+ * The POST body. `previous` is the last question answered in full about the
+ * same subject, so a follow-up has something to refer to (HON-980).
+ */
+type AskRequest = Omit<CookQuestionAskInput, 'source'> & { previous?: CookQuestionPrevious }
+
+/** A question whose answer streamed to its end, for the subject it was about. */
+type AnsweredQuestion = CookQuestionPrevious & { subject: CookQuestionSubject }
 
 interface QuestionState {
   active: CookQuestionActive | null
   /**
    * The answered question that was on screen when `active` was sent, for the
-   * same step. Held only while `active` waits: the new answer or an error
+   * same subject. Held only while `active` waits: the new answer or an error
    * takes its place (HON-978).
    */
   previous: CookQuestionActive | null
@@ -150,15 +163,17 @@ function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /**
- * One question about one step of the cook view, and its answer (HON-969).
- * Holds a single question, not one per step: one panel is open at a time, and
- * closing it discards the answer. Nothing is persisted.
+ * One question about one step of the cook view, or one item in "You'll need"
+ * (HON-983), and its answer (HON-969). Holds a single question, not one per
+ * subject: one panel is open at a time, and closing it discards the answer.
+ * Nothing is persisted.
  */
 export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOptions) {
   const [{ active, previous }, setQuestion] = useState<QuestionState>(NO_QUESTION)
   const [error, setError] = useState<CookQuestionError | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const lastRequestRef = useRef<AskRequest | null>(null)
+  const lastAnsweredRef = useRef<AnsweredQuestion | null>(null)
   const t = useTranslations('meal-plan.cookQuestion')
 
   // A mutation, not a query: each POST runs a billed AI call on demand, and
@@ -190,19 +205,30 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
         await abortableDelay(2000, signal)
         return post()
       })
+      let answer = ''
       await readAnswer(response, signal, (text) => {
         // A superseded or reset request must not write its words.
         if (signal.aborted) return
+        answer += text
         // The first words take the old answer's place (HON-978).
         setQuestion(({ active }) => ({
           active: {
-            stepIndex: request.stepIndex,
+            subject: request.subject,
             question: request.question,
             answer: (active?.answer ?? '') + text,
           },
           previous: null,
         }))
       })
+      // Only once the stream has closed, and not after an abort: cancelling
+      // the read ends it like a close would, with half an answer.
+      if (!signal.aborted) {
+        lastAnsweredRef.current = {
+          subject: request.subject,
+          question: request.question,
+          answer,
+        }
+      }
     },
     onError: (err, { controller }) => {
       if (controller.signal.aborted) return
@@ -253,8 +279,8 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
         // An answer still waiting keeps the one it is already showing.
         const onScreen = current.active?.answer != null ? current.active : current.previous
         return {
-          active: { stepIndex: request.stepIndex, question: request.question, answer: null },
-          previous: onScreen?.stepIndex === request.stepIndex ? onScreen : null,
+          active: { subject: request.subject, question: request.question, answer: null },
+          previous: sameSubject(onScreen?.subject, request.subject) ? onScreen : null,
         }
       })
 
@@ -270,18 +296,33 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
    */
   const ask = useCallback(
     ({ source, ...request }: CookQuestionAskInput) => {
+      const last = lastAnsweredRef.current
+      // Clipped, not left whole: the route drops an answer over its limit,
+      // and the follow-up would go without it.
+      const previous =
+        last && sameSubject(last.subject, request.subject)
+          ? {
+              question: last.question,
+              answer: clipText(last.answer, COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH),
+            }
+          : undefined
       void track('cook_view:question_asked', {
         plan_id: planId,
         meal_id: mealId,
-        step_index: request.stepIndex,
+        subject: request.subject.kind,
+        subject_index: request.subject.index,
         source,
+        has_previous: previous !== undefined,
       })
-      return send(request)
+      return send({ ...request, previous })
     },
     [send, planId, mealId],
   )
 
-  /** Send the last question again, after an error. Not a new ask for analytics. */
+  /**
+   * Send the last question again, after an error, with the same `previous`.
+   * Not a new ask for analytics.
+   */
   const retry = useCallback(() => {
     if (lastRequestRef.current) return send(lastRequestRef.current)
     return Promise.resolve()
@@ -292,6 +333,7 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
     abortRef.current?.abort()
     abortRef.current = null
     lastRequestRef.current = null
+    lastAnsweredRef.current = null
     setQuestion(NO_QUESTION)
     setError(null)
   }, [])

@@ -114,8 +114,10 @@ export default async function RootLayout({
   // household lookup shares `getCachedMembership` with `getLocale` above and
   // with `<Header />` below, so it is a cache hit rather than a second query.
   // Feature flags are evaluated server-side so PostHog's client SDK can answer
-  // `isFeatureEnabled` synchronously on first render; fail-open semantics live
-  // in `getServerFlag`, so this never throws and never blocks the page.
+  // `isFeatureEnabled` synchronously on first render. The evaluation is cached
+  // per request and for 30 s per distinct id, and an anonymous `getServerFlag`
+  // read in the page shares it, so a landing render makes one `/flags` request.
+  // It fails open to `FLAG_DEFAULTS`, so this never throws and never blocks the page.
   const [householdId, bootstrap] = await Promise.all([
     session ? getHouseholdIdForUser(session.user.id) : Promise.resolve(null),
     bootstrapFlags(session?.user.id ?? 'anonymous'),

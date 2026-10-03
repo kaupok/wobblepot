@@ -2,7 +2,7 @@
  * Next.js instrumentation hook. The `onRequestError` export is the safety net
  * for any error that escapes a route's try/catch — uncaught throws in RSCs,
  * middleware, and API routes — and ensures it lands in PostHog with at least
- * a distinct id derived from the PostHog cookie.
+ * a distinct id and session id derived from the PostHog cookie.
  *
  * Per-route helpers in `src/lib/errors.ts` add richer context (route literal,
  * householdId, feature). This hook is the floor, not the ceiling.
@@ -22,12 +22,19 @@
  * a different "fix" for HON-533 with the file at the root and none of them
  * ever ran on Node. Keep this file in `src/`.
  */
+import { clientSessionProperties, parsePosthogCookie } from '@/lib/posthog-cookie'
+import { redactUrlValue } from '@/lib/redact'
 import { getRelease, shouldSkipLocalCapture } from '@/lib/release'
 
 interface RequestErrorRequest {
   path: string
   method: string
   headers: NodeJS.Dict<string | string[]>
+}
+
+/** The parts of Next's third `onRequestError` argument this hook reads. */
+interface RequestErrorContext {
+  routeType?: 'render' | 'route' | 'action' | 'proxy'
 }
 
 export function register(): void {
@@ -39,6 +46,7 @@ export function register(): void {
 export async function onRequestError(
   err: unknown,
   request: Readonly<RequestErrorRequest>,
+  context?: Readonly<RequestErrorContext>,
 ): Promise<void> {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
@@ -57,7 +65,12 @@ export async function onRequestError(
   const client = getPosthogServer()
   if (!client) return
 
-  const distinctId = extractDistinctIdFromCookie(request.headers.cookie)
+  const { distinctId } = parsePosthogCookie(request.headers.cookie)
+  // Joins the error to the browser session that caused it (HON-998).
+  // `clientSessionProperties` drops the Referer on a page load or RSC
+  // navigation, where it names the previous page; the `render` check backs
+  // that up for a browser that sends neither header. `path` names the page.
+  const { $session_id, $current_url } = clientSessionProperties((name) => request.headers[name])
 
   try {
     // Fire-and-forget. The PostHog SDK is constructed with Vercel's
@@ -69,9 +82,14 @@ export async function onRequestError(
     // alive (verified empirically across PRs #581–#585).
     client.captureException(err, distinctId, {
       $exception_source: 'instrumentation.onRequestError',
-      path: request.path,
+      // `request.path` includes the query string, so a reset link's `?token=`
+      // would ship with the error (HON-990). The server `before_send` redacts
+      // it again; this keeps the capture call itself clean.
+      path: redactUrlValue(request.path),
       method: request.method,
       release: getRelease(),
+      ...($session_id && { $session_id }),
+      ...($current_url && context?.routeType !== 'render' && { $current_url }),
     })
   } catch {
     // Swallow — instrumentation must never crash a request.
@@ -128,37 +146,4 @@ function isFrameworkNoise(err: unknown): boolean {
   }
 
   return false
-}
-
-const POSTHOG_COOKIE_PREFIX = 'ph_'
-const POSTHOG_COOKIE_SUFFIX = '_posthog'
-
-/**
- * PostHog stores its persistence in a cookie named `ph_<token>_posthog`
- * with a JSON value containing `distinct_id`. This pulls the distinct id out
- * of the request cookie header. Returns `undefined` when the cookie is
- * missing or unparseable — the PostHog capture API accepts an undefined
- * distinct id and falls back to its server-side anonymous id.
- */
-function extractDistinctIdFromCookie(
-  cookieHeader: string | string[] | undefined,
-): string | undefined {
-  if (!cookieHeader) return undefined
-  const raw = Array.isArray(cookieHeader) ? cookieHeader.join('; ') : cookieHeader
-
-  for (const cookie of raw.split(';')) {
-    const eq = cookie.indexOf('=')
-    if (eq === -1) continue
-    const name = cookie.slice(0, eq).trim()
-    if (!name.startsWith(POSTHOG_COOKIE_PREFIX) || !name.endsWith(POSTHOG_COOKIE_SUFFIX)) continue
-    const rawValue = cookie.slice(eq + 1).trim()
-    try {
-      const parsed = JSON.parse(decodeURIComponent(rawValue)) as { distinct_id?: unknown }
-      if (typeof parsed.distinct_id === 'string') return parsed.distinct_id
-    } catch {
-      // Malformed PostHog cookie — keep scanning; another cookie may parse.
-      continue
-    }
-  }
-  return undefined
 }

@@ -44,6 +44,8 @@ function renderCard(props: {
   pantryDeducted?: boolean
   preparationTips?: StructuredTips | null
   note?: string | null
+  noteX?: number | null
+  noteY?: number | null
 }) {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
@@ -58,6 +60,13 @@ function renderCard(props: {
       />
     </Wrapper>,
   )
+}
+
+async function openNoteFromMenu(user: ReturnType<typeof userEvent.setup>) {
+  const trigger = screen.getByRole('button', { name: `More actions: ${meal.name}` })
+  await user.click(trigger)
+  await user.click(await screen.findByRole('menuitem', { name: 'Note' }))
+  return { trigger, textarea: await screen.findByRole('textbox', { name: 'Meal note' }) }
 }
 
 async function dismissSelector() {
@@ -121,13 +130,6 @@ describe('MealCard selector focus', () => {
 // drop it to the body (HON-946), but a save closes the editor only when its
 // request returns, and the user may have moved focus elsewhere by then.
 describe('MealCard note focus', () => {
-  async function openNoteFromMenu(user: ReturnType<typeof userEvent.setup>) {
-    const trigger = screen.getByRole('button', { name: `More actions: ${meal.name}` })
-    await user.click(trigger)
-    await user.click(await screen.findByRole('menuitem', { name: 'Note' }))
-    return { trigger, textarea: await screen.findByRole('textbox', { name: 'Meal note' }) }
-  }
-
   it('returns focus to the more-actions trigger when the editor is cancelled', async () => {
     const user = userEvent.setup()
     renderCard({ meal })
@@ -334,5 +336,179 @@ describe('MealCard Done cooking', () => {
     await doneCooking(user)
     expect(await screen.findByText('How was it?')).toBeInTheDocument()
     expect(screen.queryByRole('dialog', { name: 'Mark as completed' })).not.toBeInTheDocument()
+  })
+})
+
+describe('MealCard note placement (HON-975)', () => {
+  const overlay = () =>
+    // eslint-disable-next-line testing-library/no-node-access -- the overlay is a positioning wrapper with no role
+    document.querySelector<HTMLElement>('[data-slot="meal-image-overlay"]')!
+
+  it('describes the slip as movable with the arrow keys', () => {
+    renderCard({ meal, note: 'Leftovers' })
+
+    expect(screen.getByRole('button', { name: 'Leftovers' })).toHaveAccessibleDescription(
+      'Arrow keys move the note on the card.',
+    )
+  })
+
+  it("rests the slip at the entry's own scatter", () => {
+    renderCard({ meal, note: 'Leftovers' })
+
+    expect(overlay()).not.toHaveAttribute('data-placed')
+    // entry-1, pinned in note-placement.test.ts.
+    expect(overlay().style.getPropertyValue('--note-x')).toBe('-2px')
+    expect(overlay().style.getPropertyValue('--note-tilt')).toBe('-1.5deg')
+  })
+
+  it('lays the slip at its saved place', () => {
+    renderCard({ meal, note: 'Leftovers', noteX: 0.1, noteY: 0.5 })
+
+    expect(overlay()).toHaveAttribute('data-placed')
+    expect(overlay().style.getPropertyValue('--note-left')).toBe('10%')
+  })
+
+  it('starts a note cleared and added again at the default place', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify({}), { status: 200 }))),
+    )
+    const user = userEvent.setup()
+    renderCard({ meal, note: 'Leftovers', noteX: 0.1, noteY: 0.5 })
+    await user.click(screen.getByRole('button', { name: 'Leftovers' }))
+    const textarea = await screen.findByRole('textbox', { name: 'Meal note' })
+    await user.clear(textarea)
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
+
+    const { textarea: fresh } = await openNoteFromMenu(user)
+    await user.type(fresh, 'Pizza night')
+    fireEvent.keyDown(fresh, { key: 'Enter' })
+
+    await screen.findByRole('button', { name: 'Pizza night' })
+    expect(overlay()).not.toHaveAttribute('data-placed')
+  })
+
+  it('saves a keyboard move once the keys settle', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({}), { status: 200 })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    vi.useFakeTimers()
+    try {
+      renderCard({ meal, note: 'Leftovers' })
+      const slip = screen.getByRole('button', { name: 'Leftovers' })
+
+      // Arrow keys move the slip, not the page.
+      expect(fireEvent.keyDown(slip, { key: 'ArrowLeft' })).toBe(false)
+      fireEvent.keyDown(slip, { key: 'ArrowUp', shiftKey: true })
+      vi.advanceTimersByTime(399)
+      expect(fetchMock).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(1)
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+      expect(url).toBe('/api/meal-plans/plan-1/entries/entry-1')
+      expect(init.method).toBe('PATCH')
+      const body = JSON.parse(init.body as string)
+      expect(Object.keys(body).sort()).toEqual(['noteX', 'noteY'])
+      expect(overlay()).toHaveAttribute('data-placed')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('puts the slip back when its save fails', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ error: 'Failed' }), { status: 500 })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    vi.useFakeTimers()
+    try {
+      renderCard({ meal, note: 'Leftovers' })
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Leftovers' }), { key: 'ArrowLeft' })
+      expect(overlay()).toHaveAttribute('data-placed')
+
+      vi.advanceTimersByTime(400)
+
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(overlay()).not.toHaveAttribute('data-placed'))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps a later move when an earlier save fails', async () => {
+    let failFirst: (response: Response) => void = () => {}
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (failFirst = resolve)))
+      .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({}), { status: 200 })))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.useFakeTimers()
+    try {
+      renderCard({ meal, note: 'Leftovers' })
+      const slip = screen.getByRole('button', { name: 'Leftovers' })
+      fireEvent.keyDown(slip, { key: 'ArrowLeft' })
+      vi.advanceTimersByTime(400)
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+      // The slip moves again while the first save is still out.
+      fireEvent.keyDown(slip, { key: 'ArrowLeft' })
+      failFirst(new Response(JSON.stringify({ error: 'Failed' }), { status: 500 }))
+      vi.advanceTimersByTime(400)
+
+      // The saves run in order, and the failed one does not undo the move.
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      expect(overlay()).toHaveAttribute('data-placed')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps its place through an edit', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal, note: 'Leftovers', noteX: 0.1, noteY: 0.5 })
+    await user.click(screen.getByRole('button', { name: 'Leftovers' }))
+    const textarea = await screen.findByRole('textbox', { name: 'Meal note' })
+    // The editor's wide box is not the slip's place.
+    expect(overlay()).not.toHaveAttribute('data-placed')
+
+    fireEvent.keyDown(textarea, { key: 'Escape' })
+
+    await screen.findByRole('button', { name: 'Leftovers' })
+    expect(overlay()).toHaveAttribute('data-placed')
+    expect(overlay().style.getPropertyValue('--note-left')).toBe('10%')
+  })
+
+  it('opens the editor on Enter, as before', async () => {
+    renderCard({ meal, note: 'Leftovers' })
+    const slip = screen.getByRole('button', { name: 'Leftovers' })
+    slip.focus()
+
+    await userEvent.setup().keyboard('{Enter}')
+
+    expect(await screen.findByRole('textbox', { name: 'Meal note' })).toBeInTheDocument()
+  })
+
+  it("leaves a past card's slip inert, at its scatter", () => {
+    const { wrapper: Wrapper } = createQueryWrapper()
+    render(
+      <Wrapper>
+        <MealCard
+          entryId="entry-1"
+          planId="plan-1"
+          meal={meal}
+          mealType="dinner"
+          status="planned"
+          householdSize={4}
+          isPast
+          note="Leftovers"
+        />
+      </Wrapper>,
+    )
+
+    expect(screen.queryByRole('button', { name: 'Leftovers' })).not.toBeInTheDocument()
+    expect(overlay().style.getPropertyValue('--note-tilt')).toBe('-1.5deg')
   })
 })

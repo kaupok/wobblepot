@@ -209,6 +209,8 @@ describe('generateMealImage', () => {
         inputTokens: 110,
         outputTokens: 1_372,
         usageMissing: false,
+        // Each call carries its own time, for `$ai_latency`.
+        durationMs: expect.any(Number),
       }),
     )
     expect(onUsage).toHaveBeenNthCalledWith(
@@ -217,6 +219,7 @@ describe('generateMealImage', () => {
         model: 'claude-sonnet-5-5',
         inputTokens: 2_000,
         outputTokens: 500,
+        durationMs: expect.any(Number),
       }),
     )
   })

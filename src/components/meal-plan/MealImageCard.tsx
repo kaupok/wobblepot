@@ -12,6 +12,7 @@ import Image from 'next/image'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { MealImageStatus } from '@/generated/prisma/enums'
+import type { NotePlacement } from './note-placement'
 
 /** The image columns a meal payload carries (HON-735, HON-744). */
 export interface MealImageFields {
@@ -96,32 +97,84 @@ const IMAGE_HEIGHT = {
 type ImageHeight = keyof typeof IMAGE_HEIGHT
 
 /**
- * Where the `overlay` (the planner card's note) lies: the head's bottom-right
- * corner, over the plate, so the card is the same shape with or without it
- * (HON-974). The head ends inside the card's `py-2`, which is the slip's
- * vertical inset.
+ * Where the `overlay` (the planner card's note) lies by default: the head's
+ * bottom-right corner, over the plate, so the card is the same shape with or
+ * without it (HON-974). The head ends inside the card's `py-2`, which is the
+ * slip's vertical inset. The wrapper hugs the slip, so only the slip takes
+ * clicks.
  *
- * The right edge is the image box's: `right-12` keeps the ⋯ column clear
- * however tall the slip grows, with `pr-1` so the slip's tilted corner doesn't
- * touch it, and `right-4` is the card's `px-4` on a card without actions.
+ * The right edge is the image box's: `right-13` keeps the ⋯ column
+ * (`right-12`) clear however tall the slip grows, with 4px so the slip's
+ * tilted corner doesn't touch it, and `right-4` is the card's `px-4` on a card
+ * without actions.
  *
- * The left edge is not the trailing image box's: that starts at a third on a
- * narrow card, under the badge row, where the availability badge runs to
- * about 54% of a phone card in Estonian ("Vaja osta 2 koostisosa", 177px of
- * 356px). So the slip starts where the default box does, 11/20, and at half
- * on a wide card, where 3/8 of a 448px card would still be under that badge.
- * Both clear the title cap (`TITLE_WIDTH`, at most half), and `pl-2` keeps a
- * gap. Change them together.
- *
- * `wide` is the note editor: it is open for seconds and needs room for Cancel
- * and Save, which a phone's narrow column doesn't have, so it may lie over the
- * title while it is open. It still keeps clear of the ⋯ column.
+ * The left edge is the width cap (`max-w-note-slip*` in globals.css). It is not
+ * the trailing image box's: that starts at a third on a narrow card, under the
+ * badge row, where the availability badge runs to about 54% of a phone card in
+ * Estonian ("Vaja osta 2 koostisosa", 177px of 356px). So the slip starts no
+ * further left than 11/20 plus 8px, and half plus 8px on a wide card, where
+ * 3/8 of a 448px card would still be under that badge. Both clear the title
+ * cap (`TITLE_WIDTH`, at most half). A cap rather than a left inset, so a slip
+ * dragged elsewhere keeps its width (HON-975). Change them together, and with
+ * `NOTE_SCATTER_RANGE`, which only moves the slip left and up from here.
  */
-const OVERLAY_BOX = {
-  default: 'right-4 left-11/20 pl-2 @md/meal-image:left-1/2',
-  trailingActions: 'right-12 left-11/20 pr-1 pl-2 @md/meal-image:left-1/2',
-  wide: { default: 'right-4 left-0 pl-4', trailingActions: 'right-12 left-0 pr-1 pl-4' },
+const OVERLAY_ANCHOR = {
+  default: 'right-4 bottom-0 max-w-note-slip @md/meal-image:max-w-note-slip-md',
+  trailingActions:
+    'right-13 bottom-0 max-w-note-slip-actions @md/meal-image:max-w-note-slip-actions-md',
 } as const
+
+/**
+ * The default anchor, moved by the slip's own scatter (HON-975). No transition:
+ * the slip is where it is, and a drag must follow the pointer.
+ */
+const OVERLAY_SCATTER = 'translate-x-(--note-x) translate-y-(--note-y)'
+
+/**
+ * A slip the household placed, with the same width cap as the anchor
+ * (HON-975). The saved fractions are of the room the slip has to move in
+ * (`toNotePosition`), so it lies at that fraction of the head, pulled back by
+ * the same fraction of its own size: at 0 it is flush with the left or top
+ * edge, at 1 with the right or bottom one. No measuring, so the server render
+ * is right, and on a card where the slip wraps taller it still stays on.
+ */
+// `w-max`: anchored by its left edge, the wrapper would otherwise shrink to
+// the room left of the head's right edge, rewrap the slip, and move it by
+// its own changed width. `min-w-min`: a word longer than the cap widens the
+// box rather than spilling the slip out of it, so the box the translate and
+// the clamp measure is the slip's. Not on the anchor: there the box would
+// widen to the left, toward the pantry badge, which the default place must
+// clear.
+const OVERLAY_PLACED_BOX =
+  'left-(--note-left) top-(--note-top) w-max min-w-min -translate-x-(--note-left) -translate-y-(--note-top)'
+const OVERLAY_PLACED = {
+  default: `${OVERLAY_PLACED_BOX} max-w-note-slip @md/meal-image:max-w-note-slip-md`,
+  trailingActions: `${OVERLAY_PLACED_BOX} max-w-note-slip-actions @md/meal-image:max-w-note-slip-actions-md`,
+} as const
+
+/**
+ * The note editor, wherever the slip lies: it is open for seconds and needs
+ * room for Cancel and Save, which a phone's narrow column doesn't have, so it
+ * may lie over the title while it is open. It still keeps clear of the ⋯
+ * column.
+ */
+const OVERLAY_WIDE = {
+  default: 'right-4 bottom-0 left-0 flex justify-end pl-4',
+  trailingActions: 'right-12 bottom-0 left-0 flex justify-end pr-1 pl-4',
+} as const
+
+/** The custom properties the overlay's classes read: the scatter, the tilt, and a saved place. */
+function overlayStyle({ scatter, position }: NotePlacement): CSSProperties {
+  return {
+    '--note-x': `${scatter.x}px`,
+    '--note-y': `${scatter.y}px`,
+    '--note-tilt': `${scatter.tilt}deg`,
+    ...(position && {
+      '--note-left': `${position.x * 100}%`,
+      '--note-top': `${position.y * 100}%`,
+    }),
+  } as CSSProperties
+}
 
 /**
  * The widest the title may be on a tinted card: it wraps before it reaches the
@@ -229,6 +282,12 @@ interface MealImageCardProps extends ComponentProps<typeof Card> {
   /** The overlay may lie over the head's whole width (the note editor). */
   overlayWide?: boolean
   /**
+   * The overlay's own offset and tilt, and the place the household dragged it
+   * to, if any (HON-975). Without it the overlay rests in the corner at the
+   * default tilt.
+   */
+  overlayPlacement?: NotePlacement
+  /**
    * Rendered after the image, so a `bottom` card keeps its actions (the
    * alternative card's Select button) below the picture.
    */
@@ -260,6 +319,7 @@ export function MealImageCard({
   head,
   overlay,
   overlayWide = false,
+  overlayPlacement,
   footer,
   className,
   style,
@@ -282,6 +342,8 @@ export function MealImageCard({
   // `toArray` drops `null`, `false` and `undefined`, so a lower row that is
   // switched off doesn't end the image mid-card. The overlay is not a row.
   const hasLowerRows = Children.toArray(children).length > 0 || footer != null
+  const side = trailingActions ? 'trailingActions' : 'default'
+  const overlayPlaced = !!overlayPlacement?.position
   const height: ImageHeight = !hasHead ? 'card' : hasLowerRows ? 'headWithRows' : 'headOnly'
 
   const image = hasImage ? (
@@ -326,16 +388,23 @@ export function MealImageCard({
           {image}
           {head}
           {hasOverlay && (
-            // The box is wider than a short slip, so it lets clicks through to
-            // the title beside it; only the slip itself takes them.
+            // The wide box is wider than a short slip, so it lets clicks
+            // through to the title beside it; only the slip itself takes them.
             <div
               data-slot="meal-image-overlay"
+              // Only where the slip lies at its place: the editor's wide box
+              // is not that place, and `useNoteDrag` fits only a placed one.
+              data-placed={overlayPlaced && !overlayWide ? '' : undefined}
               className={cn(
-                'pointer-events-none absolute bottom-0 flex justify-end *:pointer-events-auto',
-                (overlayWide ? OVERLAY_BOX.wide : OVERLAY_BOX)[
-                  trailingActions ? 'trailingActions' : 'default'
-                ],
+                'pointer-events-none absolute *:pointer-events-auto',
+                overlayWide
+                  ? OVERLAY_WIDE[side]
+                  : overlayPlaced
+                    ? OVERLAY_PLACED[side]
+                    : cn(OVERLAY_ANCHOR[side], overlayPlacement && OVERLAY_SCATTER),
               )}
+              // eslint-disable-next-line shadcn/no-inline-styles -- the slip's scatter, tilt and saved place are per entry (HON-975), like --meal-hue below; the classes read them.
+              style={overlayPlacement && overlayStyle(overlayPlacement)}
             >
               {overlay}
             </div>

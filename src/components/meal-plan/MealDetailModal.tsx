@@ -20,6 +20,7 @@ import { Heading } from '@/components/ui/typography'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
 import { useCookQuestion } from '@/hooks/use-cook-question'
+import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 import { useMealImage } from '@/hooks/use-meal-image'
 import { useWakeLock } from '@/hooks/use-wake-lock'
 import { cn } from '@/lib/utils'
@@ -159,11 +160,12 @@ export function MealDetailModal({
     if (open && needsTips && !isLoadingTips) void fetchTips()
   }, [open, needsTips, isLoadingTips, fetchTips])
 
-  // The step whose question panel is open (HON-969), one at a time. Opening or
-  // closing a panel drops the answer on screen, so the hook is reset each time.
-  // A question in flight for steps that were replaced cannot show: the next
-  // panel to open resets it first.
-  const [questionStep, setQuestionStep] = useState<number | null>(null)
+  // The step (HON-969) or the item in "You'll need" (HON-983) whose question
+  // panel is open, one at a time across both. Opening or closing a panel drops
+  // the answer on screen, so the hook is reset each time. A question in flight
+  // for steps that were replaced cannot show: the next panel to open resets it
+  // first.
+  const [questionSubject, setQuestionSubject] = useState<CookQuestionSubject | null>(null)
   const {
     ask: askQuestion,
     active: activeQuestion,
@@ -175,15 +177,15 @@ export function MealDetailModal({
     reset: resetQuestion,
   } = useCookQuestion({ planId, entryId, mealId: meal.id })
   const handleOpenQuestion = useCallback(
-    (index: number) => {
+    (subject: CookQuestionSubject) => {
       resetQuestion()
-      setQuestionStep(index)
+      setQuestionSubject(subject)
     },
     [resetQuestion],
   )
   const handleCloseQuestion = useCallback(() => {
     resetQuestion()
-    setQuestionStep(null)
+    setQuestionSubject(null)
   }, [resetQuestion])
 
   // Which steps the cook has ticked off. Lives here because `MealCard` keeps
@@ -196,16 +198,26 @@ export function MealDetailModal({
   if (doneStepsFor !== tips) {
     setDoneStepsFor(tips)
     setDoneSteps(new Set())
-    // An open question panel points at a step of the old list.
-    setQuestionStep(null)
+    // An open question panel points at a step or an item of the old lists.
+    setQuestionSubject(null)
   }
-  const handleToggleStep = useCallback((index: number) => {
-    setDoneSteps((prev) => {
-      const next = new Set(prev)
-      if (!next.delete(index)) next.add(index)
-      return next
-    })
-  }, [])
+  const handleToggleStep = useCallback(
+    (index: number) => {
+      // Ticking the step whose panel is open closes the panel (HON-982): the
+      // cook has moved on. Focus stays on the toggle, which is outside the
+      // panel, so it is not handed to the Ask button as Close does.
+      if (!doneSteps.has(index) && sameSubject(questionSubject, { kind: 'step', index })) {
+        resetQuestion()
+        setQuestionSubject(null)
+      }
+      setDoneSteps((prev) => {
+        const next = new Set(prev)
+        if (!next.delete(index)) next.add(index)
+        return next
+      })
+    },
+    [doneSteps, questionSubject, resetQuestion],
+  )
 
   // Set by "Done cooking", read as the view finishes closing: the caller's
   // next dialog (the pantry deduction) opens only once this one is gone.
@@ -559,8 +571,8 @@ export function MealDetailModal({
           cookQuestion={
             onDoneCooking
               ? {
-                  openStep: questionStep,
-                  onOpenStep: handleOpenQuestion,
+                  openSubject: questionSubject,
+                  onOpenSubject: handleOpenQuestion,
                   onClose: handleCloseQuestion,
                   ask: askQuestion,
                   active: activeQuestion,

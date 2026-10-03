@@ -201,6 +201,56 @@ describe('MealDetailModal step progress (HON-933)', () => {
   })
 })
 
+describe('MealDetailModal Ask panel and step progress (HON-982)', () => {
+  // Ask renders only beside "Done cooking", on an entry somebody is cooking.
+  const askPanel = (n: number) => screen.queryByRole('group', { name: `Ask about step ${n}` })
+
+  // jsdom has no scrollIntoView; the panel scrolls into view as it opens (HON-977).
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView
+  })
+
+  it('closes the panel when its step is ticked, and keeps focus on the toggle', async () => {
+    renderModal({ initialTips: cachedTips, onDoneCooking: vi.fn() })
+    await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
+    expect(askPanel(2)).toBeInTheDocument()
+
+    await userEvent.click(step('Simmer for 25 minutes'))
+    expect(step('Simmer for 25 minutes')).toHaveAttribute('aria-pressed', 'true')
+    expect(askPanel(2)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Ask about step 2' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    expect(step('Simmer for 25 minutes')).toHaveFocus()
+
+    // Un-ticking it reopens nothing.
+    await userEvent.click(step('Simmer for 25 minutes'))
+    expect(askPanel(2)).toBeNull()
+  })
+
+  it('leaves the panel open when another step is ticked', async () => {
+    renderModal({ initialTips: cachedTips, onDoneCooking: vi.fn() })
+    await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
+
+    await userEvent.click(step('Rinse the lentils'))
+    expect(step('Rinse the lentils')).toHaveAttribute('aria-pressed', 'true')
+    expect(askPanel(2)).toBeInTheDocument()
+  })
+
+  it('keeps the panel when its step is un-ticked', async () => {
+    renderModal({ initialTips: cachedTips, onDoneCooking: vi.fn() })
+    await userEvent.click(step('Simmer for 25 minutes'))
+    await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
+    await userEvent.click(step('Simmer for 25 minutes'))
+    expect(step('Simmer for 25 minutes')).toHaveAttribute('aria-pressed', 'false')
+    expect(askPanel(2)).toBeInTheDocument()
+  })
+})
+
 describe('MealDetailModal Done cooking (HON-933)', () => {
   function Stateful({ onDoneCooking }: { onDoneCooking: () => void }) {
     const [open, setOpen] = useState(true)

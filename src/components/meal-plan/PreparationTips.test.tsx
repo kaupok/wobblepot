@@ -8,12 +8,18 @@ import {
   type CookQuestionControls,
 } from './PreparationTips'
 import type { StructuredTips } from '@/components/meal-plan/types'
+import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 
 const sampleTips: StructuredTips = {
   equipment: ['Large pan', 'Cutting board'],
   steps: ['Chop vegetables', 'Heat oil in pan', 'Cook for 10 minutes'],
   pitfalls: ['Do not overcook the chicken', 'Season before cooking'],
   tip: 'Let the meat rest for 5 minutes before serving.',
+}
+
+/** A step as the subject of a cook question (HON-983) */
+function step(index: number): CookQuestionSubject {
+  return { kind: 'step', index }
 }
 
 describe('PreparationEquipment', () => {
@@ -286,9 +292,9 @@ describe('PreparationSteps cook question', () => {
   function Harness({
     controls = {},
   }: {
-    controls?: Partial<Omit<CookQuestionControls, 'openStep' | 'onOpenStep' | 'onClose'>>
+    controls?: Partial<Omit<CookQuestionControls, 'openSubject' | 'onOpenSubject' | 'onClose'>>
   }) {
-    const [openStep, setOpenStep] = useState<number | null>(null)
+    const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(null)
     return (
       <PreparationSteps
         tips={sampleTips}
@@ -297,9 +303,9 @@ describe('PreparationSteps cook question', () => {
         onRetry={vi.fn()}
         onToggleStep={vi.fn()}
         cookQuestion={{
-          openStep,
-          onOpenStep: setOpenStep,
-          onClose: () => setOpenStep(null),
+          openSubject,
+          onOpenSubject: setOpenSubject,
+          onClose: () => setOpenSubject(null),
           ask: vi.fn(),
           active: null,
           previous: null,
@@ -333,6 +339,13 @@ describe('PreparationSteps cook question', () => {
     expect(screen.queryByRole('button', { name: /^Ask about step/ })).toBeNull()
   })
 
+  it('labels the Ask button "Ask" for lg, keeps the step in its name, and sets no title', () => {
+    render(<Harness />)
+    const button = askButton(2)
+    expect(within(button).getByText('Ask')).toHaveClass('hidden', 'lg:inline')
+    expect(button).not.toHaveAttribute('title')
+  })
+
   it('shows no Ask button on the static numbered list', () => {
     render(<PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />)
     expect(screen.queryByRole('button', { name: /^Ask about step/ })).toBeNull()
@@ -363,8 +376,9 @@ describe('PreparationSteps cook question', () => {
     await userEvent.click(screen.getByRole('button', { name: 'What can I substitute here?' }))
 
     expect(ask).toHaveBeenCalledWith({
-      stepIndex: 1,
+      subject: step(1),
       steps: sampleTips.steps,
+      equipment: sampleTips.equipment,
       question: 'What can I substitute here?',
       source: 'chip',
     })
@@ -378,8 +392,9 @@ describe('PreparationSteps cook question', () => {
 
     expect(ask).toHaveBeenCalledOnce()
     expect(ask).toHaveBeenCalledWith({
-      stepIndex: 0,
+      subject: step(0),
       steps: sampleTips.steps,
+      equipment: sampleTips.equipment,
       question: 'No cream, what now?',
       source: 'text',
     })
@@ -419,7 +434,7 @@ describe('PreparationSteps cook question', () => {
         controls={{
           ask,
           isStreaming: true,
-          active: { stepIndex: 0, question: 'Q', answer: 'Use the ' },
+          active: { subject: step(0), question: 'Q', answer: 'Use the ' },
         }}
       />,
     )
@@ -436,7 +451,7 @@ describe('PreparationSteps cook question', () => {
   })
 
   it('marks the status busy while the answer streams, without "Thinking…"', async () => {
-    const active = { stepIndex: 0, question: 'Q', answer: 'Use the ' }
+    const active = { subject: step(0), question: 'Q', answer: 'Use the ' }
     const { rerender } = render(<Harness controls={{ isStreaming: true, active }} />)
     await userEvent.click(askButton(1))
     const status = within(panel(1)!).getByRole('status')
@@ -451,7 +466,7 @@ describe('PreparationSteps cook question', () => {
     render(
       <Harness
         controls={{
-          active: { stepIndex: 0, question: 'Q', answer: 'Use the ' },
+          active: { subject: step(0), question: 'Q', answer: 'Use the ' },
           error: { message: 'Could not answer.', canRetry: true },
         }}
       />,
@@ -467,7 +482,9 @@ describe('PreparationSteps cook question', () => {
   it('shows the answer for its own step', async () => {
     render(
       <Harness
-        controls={{ active: { stepIndex: 0, question: 'Q', answer: 'Use the yoghurt you have.' } }}
+        controls={{
+          active: { subject: step(0), question: 'Q', answer: 'Use the yoghurt you have.' },
+        }}
       />,
     )
     await userEvent.click(askButton(1))
@@ -484,7 +501,7 @@ describe('PreparationSteps cook question', () => {
   it('shows no asked question for another step’s question', async () => {
     render(
       <Harness
-        controls={{ active: { stepIndex: 0, question: 'Done yet?', answer: 'Not yet.' } }}
+        controls={{ active: { subject: step(0), question: 'Done yet?', answer: 'Not yet.' } }}
       />,
     )
     await userEvent.click(askButton(2))
@@ -493,7 +510,7 @@ describe('PreparationSteps cook question', () => {
   })
 
   it('shows the asked question above the status, while pending, answered and failed', async () => {
-    const active = { stepIndex: 0, question: 'No cream, what now?', answer: null }
+    const active = { subject: step(0), question: 'No cream, what now?', answer: null }
     const states: Partial<CookQuestionControls>[] = [
       { active, isPending: true },
       { active: { ...active, answer: 'Use the yoghurt you have.' } },
@@ -514,8 +531,12 @@ describe('PreparationSteps cook question', () => {
     render(
       <Harness
         controls={{
-          active: { stepIndex: 0, question: "I'm short on time", answer: null },
-          previous: { stepIndex: 0, question: 'No cream, what now?', answer: 'Use the yoghurt.' },
+          active: { subject: step(0), question: "I'm short on time", answer: null },
+          previous: {
+            subject: step(0),
+            question: 'No cream, what now?',
+            answer: 'Use the yoghurt.',
+          },
           isPending: true,
         }}
       />,
@@ -533,8 +554,12 @@ describe('PreparationSteps cook question', () => {
     render(
       <Harness
         controls={{
-          active: { stepIndex: 1, question: "I'm short on time", answer: null },
-          previous: { stepIndex: 0, question: 'No cream, what now?', answer: 'Use the yoghurt.' },
+          active: { subject: step(1), question: "I'm short on time", answer: null },
+          previous: {
+            subject: step(0),
+            question: 'No cream, what now?',
+            answer: 'Use the yoghurt.',
+          },
           isPending: true,
         }}
       />,
@@ -549,7 +574,10 @@ describe('PreparationSteps cook question', () => {
     const ask = vi.fn()
     render(
       <Harness
-        controls={{ ask, active: { stepIndex: 1, question: 'No cream, what now?', answer: 'A.' } }}
+        controls={{
+          ask,
+          active: { subject: step(1), question: 'No cream, what now?', answer: 'A.' },
+        }}
       />,
     )
     await userEvent.click(askButton(2))
@@ -567,8 +595,9 @@ describe('PreparationSteps cook question', () => {
     // Sending the edited text is a new typed question.
     await userEvent.type(field, ' Milk?{Enter}')
     expect(ask).toHaveBeenCalledWith({
-      stepIndex: 1,
+      subject: step(1),
       steps: sampleTips.steps,
+      equipment: sampleTips.equipment,
       question: 'No cream, what now? Milk?',
       source: 'text',
     })
@@ -577,7 +606,7 @@ describe('PreparationSteps cook question', () => {
   it('Edit focuses the field again when the text is unchanged', async () => {
     render(
       <Harness
-        controls={{ active: { stepIndex: 0, question: 'Done yet?', answer: 'Not yet.' } }}
+        controls={{ active: { subject: step(0), question: 'Done yet?', answer: 'Not yet.' } }}
       />,
     )
     await userEvent.click(askButton(1))
@@ -639,7 +668,7 @@ describe('PreparationSteps cook question', () => {
     })
 
     it('scrolls the answer and Close into view when the answer arrives, and leaves focus', async () => {
-      const active = { stepIndex: 0, question: "I'm short on time", answer: null }
+      const active = { subject: step(0), question: "I'm short on time", answer: null }
       const { rerender } = render(<Harness controls={{ active, isPending: true }} />)
       await userEvent.click(askButton(1))
       const chip = screen.getByRole('button', { name: "I'm short on time" })
@@ -656,7 +685,7 @@ describe('PreparationSteps cook question', () => {
     })
 
     it('scrolls at the first words and when the stream closes, not at every chunk (HON-979)', async () => {
-      const active = { stepIndex: 0, question: "I'm short on time", answer: null }
+      const active = { subject: step(0), question: "I'm short on time", answer: null }
       const { rerender } = render(<Harness controls={{ active, isPending: true }} />)
       await userEvent.click(askButton(1))
 
@@ -689,5 +718,181 @@ describe('PreparationSteps cook question', () => {
 
       expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'auto' })
     })
+  })
+})
+
+describe('PreparationEquipment cook question (HON-983)', () => {
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView
+  })
+
+  /** The modal's side: one open subject across "You'll need" and the steps. */
+  function Harness({ ask = vi.fn() }: { ask?: CookQuestionControls['ask'] }) {
+    const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(null)
+    const cookQuestion: CookQuestionControls = {
+      openSubject,
+      onOpenSubject: setOpenSubject,
+      onClose: () => setOpenSubject(null),
+      ask,
+      active: null,
+      previous: null,
+      isPending: false,
+      isStreaming: false,
+      error: null,
+      onRetry: vi.fn(),
+    }
+    return (
+      <>
+        <PreparationEquipment
+          equipment={sampleTips.equipment}
+          steps={sampleTips.steps}
+          cookQuestion={cookQuestion}
+        />
+        <PreparationSteps
+          tips={sampleTips}
+          isLoading={false}
+          error={null}
+          onRetry={vi.fn()}
+          onToggleStep={vi.fn()}
+          cookQuestion={cookQuestion}
+        />
+      </>
+    )
+  }
+  const askItem = (item: string) => screen.getByRole('button', { name: `Ask about ${item}` })
+  const itemPanel = (item: string) => screen.queryByRole('group', { name: `Ask about ${item}` })
+
+  it('ends each row in an Ask button named for the item, only with cookQuestion', () => {
+    const { unmount } = render(<Harness />)
+    const list = screen.getByRole('list', { name: "You'll need" })
+    const items = within(list).getAllByRole('listitem')
+    expect(items).toHaveLength(2)
+    expect(within(items[0]!).getByRole('button', { name: 'Ask about Large pan' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    expect(within(items[1]!).getByText('Cutting board')).toBeInTheDocument()
+    expect(within(askItem('Cutting board')).getByText('Ask')).toHaveClass('hidden', 'lg:inline')
+    unmount()
+
+    render(<PreparationEquipment equipment={sampleTips.equipment} steps={sampleTips.steps} />)
+    expect(screen.queryByRole('button', { name: /^Ask about/ })).toBeNull()
+  })
+
+  it('shows no Ask button without steps to send', () => {
+    render(
+      <PreparationEquipment
+        equipment={sampleTips.equipment}
+        steps={[]}
+        cookQuestion={{
+          openSubject: null,
+          onOpenSubject: vi.fn(),
+          onClose: vi.fn(),
+          ask: vi.fn(),
+          active: null,
+          previous: null,
+          isPending: false,
+          isStreaming: false,
+          error: null,
+          onRetry: vi.fn(),
+        }}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /^Ask about/ })).toBeNull()
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Large pan',
+      'Cutting board',
+    ])
+  })
+
+  it('shows no Ask button on a row the route cannot answer about', () => {
+    const equipment = ['  ', ...Array.from({ length: 20 }, (_, i) => `Pan ${i + 1}`)]
+    render(
+      <PreparationEquipment
+        equipment={equipment}
+        steps={sampleTips.steps}
+        cookQuestion={{
+          openSubject: null,
+          onOpenSubject: vi.fn(),
+          onClose: vi.fn(),
+          ask: vi.fn(),
+          active: null,
+          previous: null,
+          isPending: false,
+          isStreaming: false,
+          error: null,
+          onRetry: vi.fn(),
+        }}
+      />,
+    )
+    // The empty row and the 21st row, past the route's 20, have none.
+    expect(screen.getAllByRole('listitem')).toHaveLength(21)
+    expect(screen.getAllByRole('button', { name: /^Ask about/ })).toHaveLength(19)
+    expect(screen.getByRole('button', { name: 'Ask about Pan 19' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ask about Pan 20' })).toBeNull()
+  })
+
+  it('opens a panel under the row with the equipment chips and placeholder', async () => {
+    render(<Harness />)
+    await userEvent.click(askItem('Cutting board'))
+
+    const panel = itemPanel('Cutting board')!
+    expect(askItem('Cutting board')).toHaveAttribute('aria-expanded', 'true')
+    expect(askItem('Cutting board').closest('li')).toContainElement(panel)
+    for (const chip of ['What can I use instead?', 'Does the size matter?', 'Can I skip it?']) {
+      expect(within(panel).getByRole('button', { name: chip })).toBeVisible()
+    }
+    expect(within(panel).queryByRole('button', { name: "How do I know it's done?" })).toBeNull()
+    expect(within(panel).getByRole('textbox', { name: 'Your question' })).toHaveAttribute(
+      'placeholder',
+      'Ask about this item',
+    )
+  })
+
+  it('a chip sends the item as the subject, with the steps and the equipment', async () => {
+    const ask = vi.fn()
+    render(<Harness ask={ask} />)
+    await userEvent.click(askItem('Cutting board'))
+    await userEvent.click(screen.getByRole('button', { name: 'What can I use instead?' }))
+
+    expect(ask).toHaveBeenCalledWith({
+      subject: { kind: 'equipment', index: 1 },
+      steps: sampleTips.steps,
+      equipment: sampleTips.equipment,
+      question: 'What can I use instead?',
+      source: 'chip',
+    })
+  })
+
+  it('keeps one panel open across the steps and the equipment', async () => {
+    render(<Harness />)
+    await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
+    expect(screen.getByRole('group', { name: 'Ask about step 2' })).toBeInTheDocument()
+
+    await userEvent.click(askItem('Large pan'))
+    expect(screen.queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+    // Switching moves focus into the new panel's field.
+    expect(within(itemPanel('Large pan')!).getByRole('textbox')).toHaveFocus()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ask about step 1' }))
+    expect(itemPanel('Large pan')).toBeNull()
+    expect(screen.getByRole('group', { name: 'Ask about step 1' })).toBeInTheDocument()
+  })
+
+  it('Close and Escape return focus to the item’s Ask button', async () => {
+    render(<Harness />)
+    await userEvent.click(askItem('Large pan'))
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(itemPanel('Large pan')).toBeNull()
+    expect(askItem('Large pan')).toHaveFocus()
+
+    await userEvent.click(askItem('Cutting board'))
+    await userEvent.click(screen.getByRole('textbox'))
+    await userEvent.keyboard('{Escape}')
+    expect(itemPanel('Cutting board')).toBeNull()
+    expect(askItem('Cutting board')).toHaveFocus()
   })
 })

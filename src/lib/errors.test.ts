@@ -1,12 +1,14 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { captureApiError, captureExternalApiTimeout } from './errors'
 import { captureClientError } from './errors-client'
+import { markPostHogLoaded } from '@/lib/posthog-client-state'
 import { MealPlanValidationError, InsufficientCandidatesError } from '@/lib/ai/types'
 
 const captureExceptionMock = vi.fn()
 const captureMock = vi.fn()
 const flushMock = vi.fn()
 const getRequestIdMock = vi.fn()
+const getClientSessionMock = vi.fn()
 const getPosthogServerMock = vi.fn()
 
 vi.mock('next/server', () => ({
@@ -20,7 +22,12 @@ vi.mock('@/lib/posthog-server', () => ({
 
 vi.mock('@/lib/request-id', () => ({
   getRequestId: () => getRequestIdMock(),
+  getClientSession: () => getClientSessionMock(),
 }))
+
+// The capture helpers resolve `getClientSession()` before they capture, so a
+// test lets that promise settle before it asserts.
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const clientCaptureExceptionMock = vi.fn()
 let clientLoaded = true
@@ -40,6 +47,7 @@ describe('captureApiError', () => {
     flushMock.mockReset()
     getRequestIdMock.mockReset()
     getPosthogServerMock.mockReset()
+    getClientSessionMock.mockReset().mockResolvedValue({})
     // Default to a deployed release so capture-path tests exercise capture.
     // The local-machine skip is covered by its own test below.
     vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'deadbeef')
@@ -51,24 +59,26 @@ describe('captureApiError', () => {
     vi.unstubAllEnvs()
   })
 
-  it('no-ops silently when PostHog is not configured', () => {
+  it('no-ops silently when PostHog is not configured', async () => {
     getPosthogServerMock.mockReturnValue(null)
     captureApiError(new Error('boom'), { route: '/api/x' })
+    await settle()
     expect(captureExceptionMock).not.toHaveBeenCalled()
   })
 
-  it('skips capture on a local machine (release=local)', () => {
+  it('skips capture on a local machine (release=local)', async () => {
     vi.stubEnv('VERCEL_GIT_COMMIT_SHA', '')
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
     })
     captureApiError(new Error('boom'), { route: '/api/x' })
+    await settle()
     expect(captureExceptionMock).not.toHaveBeenCalled()
     expect(getPosthogServerMock).not.toHaveBeenCalled()
   })
 
-  it('captures on a local machine when POSTHOG_CAPTURE_LOCAL opts in', () => {
+  it('captures on a local machine when POSTHOG_CAPTURE_LOCAL opts in', async () => {
     vi.stubEnv('VERCEL_GIT_COMMIT_SHA', '')
     vi.stubEnv('POSTHOG_CAPTURE_LOCAL', '1')
     getPosthogServerMock.mockReturnValue({
@@ -76,11 +86,12 @@ describe('captureApiError', () => {
       flush: flushMock,
     })
     captureApiError(new Error('boom'), { route: '/api/x' })
+    await settle()
     expect(captureExceptionMock).toHaveBeenCalledOnce()
     expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ release: 'local' })
   })
 
-  it('captures with requestId, release, route, and errorType', () => {
+  it('captures with request_id, release, route, and error_type in snake_case', async () => {
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
@@ -94,63 +105,109 @@ describe('captureApiError', () => {
       userId: 'u-1',
       householdId: 'hh-1',
       feature: 'plan_generate',
+      statusCode: 502,
     })
 
+    await settle()
     expect(captureExceptionMock).toHaveBeenCalledOnce()
     const [errorArg, distinctIdArg, propsArg] = captureExceptionMock.mock.calls[0]!
     expect(errorArg).toBe(err)
     expect(distinctIdArg).toBe('u-1')
     expect(propsArg).toMatchObject({
       route: '/api/x',
-      userId: 'u-1',
-      householdId: 'hh-1',
+      user_id: 'u-1',
+      household_id: 'hh-1',
       feature: 'plan_generate',
-      requestId: 'req-123',
+      status_code: 502,
+      request_id: 'req-123',
       release: 'abc123',
-      errorType: 'Error',
+      error_type: 'Error',
+    })
+    // One casing across server events: no camelCase key survives.
+    const camelKeys = Object.keys(propsArg).filter((key) => /[A-Z]/.test(key))
+    expect(camelKeys).toEqual([])
+  })
+
+  it('snake_cases free-form context keys too', async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    captureApiError(new Error('boom'), { route: '/api/x', distinctIds: ['a'] })
+    await settle()
+    const props = captureExceptionMock.mock.calls[0]![2]
+    expect(props).toMatchObject({ distinct_ids: ['a'] })
+    expect(props).not.toHaveProperty('distinctIds')
+  })
+
+  it('tags $exception_source as captureApiError by default', async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    captureApiError(new Error('boom'), { route: '/api/x' })
+    await settle()
+    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({
+      $exception_source: 'captureApiError',
     })
   })
 
-  it('passes undefined as distinctId when userId is missing', () => {
+  it("keeps the caller's $exception_source", async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    captureApiError(new Error('boom'), { $exception_source: 'externalFetch.nonOk' })
+    await settle()
+    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({
+      $exception_source: 'externalFetch.nonOk',
+    })
+  })
+
+  it('passes undefined as distinctId when userId is missing', async () => {
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
     })
     captureApiError(new Error('boom'), { route: '/api/x', householdId: 'hh-1' })
+    await settle()
     expect(captureExceptionMock.mock.calls[0]![1]).toBeUndefined()
   })
 
-  it('attaches $exception_fingerprint for typed errors', () => {
+  it('attaches $exception_fingerprint for typed errors', async () => {
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
     })
     const err = new MealPlanValidationError('bad plan')
     captureApiError(err, { route: '/api/meal-plans/generate' })
+    await settle()
     expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({
       $exception_fingerprint: 'MealPlanValidation',
-      errorType: 'MealPlanValidationError',
+      error_type: 'MealPlanValidationError',
     })
   })
 
-  it('attaches a fingerprint for InsufficientCandidatesError', () => {
+  it('attaches a fingerprint for InsufficientCandidatesError', async () => {
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
     })
     const err = new InsufficientCandidatesError('fish')
     captureApiError(err, { route: '/api/meal-plans/generate' })
+    await settle()
     expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({
       $exception_fingerprint: 'InsufficientCandidates',
     })
   })
 
-  it('does not attach fingerprint for unknown errors', () => {
+  it('does not attach fingerprint for unknown errors', async () => {
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
     })
     captureApiError(new Error('boom'), { route: '/api/x' })
+    await settle()
     expect(captureExceptionMock.mock.calls[0]![2].$exception_fingerprint).toBeUndefined()
   })
 
@@ -161,21 +218,54 @@ describe('captureApiError', () => {
     expect(() => captureApiError(new Error('x'), { route: '/api' })).not.toThrow()
   })
 
-  it('handles non-Error throws (string, number, undefined)', () => {
+  it('handles non-Error throws (string, number, undefined)', async () => {
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
     })
     captureApiError('string-throw', { route: '/api' })
-    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ errorType: 'string' })
+    await settle()
+    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({ error_type: 'string' })
   })
 
-  it('schedules a flush via next/after to keep serverless isolates alive', () => {
+  it('adds $session_id and $current_url from the browser session (HON-998)', async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    getClientSessionMock.mockResolvedValue({
+      $session_id: 'sess-1',
+      $current_url: 'https://wobblepot.com/plan',
+    })
+    captureApiError(new Error('boom'), { route: '/api/x', userId: 'u-1' })
+    await settle()
+    expect(captureExceptionMock.mock.calls[0]![2]).toMatchObject({
+      $session_id: 'sess-1',
+      $current_url: 'https://wobblepot.com/plan',
+      $exception_source: 'captureApiError',
+      user_id: 'u-1',
+    })
+  })
+
+  it('captures without session properties when there is no browser session', async () => {
     getPosthogServerMock.mockReturnValue({
       captureException: captureExceptionMock,
       flush: flushMock,
     })
     captureApiError(new Error('boom'), { route: '/api/x' })
+    await settle()
+    const props = captureExceptionMock.mock.calls[0]![2]
+    expect(props).not.toHaveProperty('$session_id')
+    expect(props).not.toHaveProperty('$current_url')
+  })
+
+  it('schedules a flush via next/after to keep serverless isolates alive', async () => {
+    getPosthogServerMock.mockReturnValue({
+      captureException: captureExceptionMock,
+      flush: flushMock,
+    })
+    captureApiError(new Error('boom'), { route: '/api/x' })
+    await settle()
     expect(captureExceptionMock).toHaveBeenCalledOnce()
     expect(flushMock).toHaveBeenCalledOnce()
   })
@@ -187,6 +277,7 @@ describe('captureExternalApiTimeout', () => {
     captureExceptionMock.mockReset()
     getRequestIdMock.mockReset()
     getPosthogServerMock.mockReset()
+    getClientSessionMock.mockReset().mockResolvedValue({})
     vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'deadbeef')
     vi.stubEnv('POSTHOG_CAPTURE_LOCAL', '')
   })
@@ -195,7 +286,7 @@ describe('captureExternalApiTimeout', () => {
     vi.unstubAllEnvs()
   })
 
-  it('records an analytics event, not an exception', () => {
+  it('records a personless analytics event, not an exception, when there is no user', async () => {
     getRequestIdMock.mockReturnValue('req-1')
     getPosthogServerMock.mockReturnValue({ capture: captureMock })
 
@@ -204,44 +295,57 @@ describe('captureExternalApiTimeout', () => {
       url: 'https://api.example.com/x',
     })
 
+    await settle()
     expect(captureExceptionMock).not.toHaveBeenCalled()
     expect(captureMock).toHaveBeenCalledOnce()
-    expect(captureMock.mock.calls[0]![0]).toMatchObject({
-      distinctId: 'req-1',
+    const message = captureMock.mock.calls[0]![0]
+    // No distinct id: a per-request id minted one PostHog person per timeout.
+    expect(message.distinctId).toBeUndefined()
+    expect(message).toMatchObject({
       event: 'external_api_timeout',
       properties: {
         feature: 'breached_password_check',
         url: 'https://api.example.com/x',
-        requestId: 'req-1',
+        request_id: 'req-1',
         release: 'deadbeef',
+        $process_person_profile: false,
       },
     })
   })
 
-  it('prefers userId as distinct id when the caller has one', () => {
+  it('attributes to the user, with a person profile, when the caller has a userId', async () => {
     getRequestIdMock.mockReturnValue('req-1')
     getPosthogServerMock.mockReturnValue({ capture: captureMock })
 
     captureExternalApiTimeout({ feature: 'test', userId: 'user-9' })
 
-    expect(captureMock.mock.calls[0]![0]).toMatchObject({ distinctId: 'user-9' })
+    await settle()
+    const message = captureMock.mock.calls[0]![0]
+    expect(message).toMatchObject({ distinctId: 'user-9', properties: { user_id: 'user-9' } })
+    expect(message.properties).not.toHaveProperty('$process_person_profile')
+    expect(message.properties).not.toHaveProperty('userId')
   })
 
-  it('falls back to "system" outside a request scope', () => {
+  it('stays personless outside a request scope', async () => {
     getRequestIdMock.mockReturnValue(undefined)
     getPosthogServerMock.mockReturnValue({ capture: captureMock })
 
     captureExternalApiTimeout({ feature: 'test' })
 
-    expect(captureMock.mock.calls[0]![0]).toMatchObject({ distinctId: 'system' })
+    await settle()
+    expect(captureMock.mock.calls[0]![0].distinctId).toBeUndefined()
+    expect(captureMock.mock.calls[0]![0].properties).toMatchObject({
+      $process_person_profile: false,
+    })
   })
 
-  it('skips on a local machine', () => {
+  it('skips on a local machine', async () => {
     vi.stubEnv('VERCEL_GIT_COMMIT_SHA', '')
     getPosthogServerMock.mockReturnValue({ capture: captureMock })
 
     captureExternalApiTimeout({ feature: 'test' })
 
+    await settle()
     expect(captureMock).not.toHaveBeenCalled()
     expect(getPosthogServerMock).not.toHaveBeenCalled()
   })
@@ -251,19 +355,33 @@ describe('captureExternalApiTimeout', () => {
     expect(() => captureExternalApiTimeout({ feature: 'test' })).not.toThrow()
   })
 
-  it('swallows capture failures', () => {
+  it('swallows capture failures', async () => {
     getPosthogServerMock.mockReturnValue({
       capture: () => {
         throw new Error('posthog-down')
       },
     })
     expect(() => captureExternalApiTimeout({ feature: 'test' })).not.toThrow()
+    // The capture runs after the session resolves; its throw must not escape either.
+    await settle()
+  })
+
+  it('carries the browser session (HON-998)', async () => {
+    getPosthogServerMock.mockReturnValue({ capture: captureMock })
+    getClientSessionMock.mockResolvedValue({ $session_id: 'sess-1' })
+
+    captureExternalApiTimeout({ feature: 'test' })
+
+    await settle()
+    expect(captureMock.mock.calls[0]![0].properties).toMatchObject({ $session_id: 'sess-1' })
   })
 })
 
 describe('captureClientError', () => {
   beforeEach(() => {
     clientCaptureExceptionMock.mockReset()
+    // What PostHogProvider does after `posthog.init` once consent is granted.
+    markPostHogLoaded()
     clientLoaded = true
   })
 
@@ -273,12 +391,12 @@ describe('captureClientError', () => {
     expect(clientCaptureExceptionMock).not.toHaveBeenCalled()
   })
 
-  it('captures with digest and errorType', async () => {
+  it('captures with digest and error_type', async () => {
     await captureClientError(new Error('boom'), { digest: 'abc' })
     expect(clientCaptureExceptionMock).toHaveBeenCalledOnce()
     const [errorArg, propsArg] = clientCaptureExceptionMock.mock.calls[0]!
     expect(errorArg).toBeInstanceOf(Error)
-    expect(propsArg).toMatchObject({ digest: 'abc', errorType: 'Error' })
+    expect(propsArg).toMatchObject({ digest: 'abc', error_type: 'Error' })
   })
 
   it('attaches fingerprint for typed errors', async () => {

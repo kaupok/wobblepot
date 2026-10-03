@@ -193,9 +193,20 @@ function sampleEntry(overrides: Record<string, unknown> = {}) {
 }
 
 const STEPS = ['Slice the chicken.', 'Fry the chicken.', 'Add the sauce.']
+const EQUIPMENT = ['Large wok', 'Cutting board']
+
+function step(index: number) {
+  return { kind: 'step', index }
+}
 
 function validBody(overrides: Record<string, unknown> = {}) {
-  return { stepIndex: 1, steps: STEPS, question: "How do I know it's done?", ...overrides }
+  return {
+    subject: step(1),
+    steps: STEPS,
+    equipment: EQUIPMENT,
+    question: "How do I know it's done?",
+    ...overrides,
+  }
 }
 
 function callPost(body: unknown = validBody()) {
@@ -265,11 +276,33 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
       ['a whitespace-only question', validBody({ question: '   ' })],
       ['a 301-character question', validBody({ question: 'a'.repeat(301) })],
       ['13 steps', validBody({ steps: Array.from({ length: 13 }, (_, i) => `Step ${i + 1}`) })],
-      ['no steps', validBody({ steps: [], stepIndex: 0 })],
-      ['a 501-character step', validBody({ steps: ['a'.repeat(501)], stepIndex: 0 })],
-      ['a step index past the steps', validBody({ stepIndex: 3 })],
-      ['a negative step index', validBody({ stepIndex: -1 })],
-      ['a fractional step index', validBody({ stepIndex: 1.5 })],
+      ['no steps', validBody({ steps: [], subject: step(0) })],
+      ['a 501-character step', validBody({ steps: ['a'.repeat(501)], subject: step(0) })],
+      ['a step index past the steps', validBody({ subject: step(3) })],
+      ['a negative step index', validBody({ subject: step(-1) })],
+      ['a fractional step index', validBody({ subject: step(1.5) })],
+      ['no subject', validBody({ subject: undefined })],
+      ['an unknown subject kind', validBody({ subject: { kind: 'ingredient', index: 0 } })],
+      [
+        'an equipment index past the equipment',
+        validBody({ subject: { kind: 'equipment', index: 2 } }),
+      ],
+      [
+        'an equipment question with no equipment',
+        validBody({ subject: { kind: 'equipment', index: 0 }, equipment: [] }),
+      ],
+      ['no equipment array', validBody({ equipment: undefined })],
+      [
+        'a question about an empty equipment item',
+        validBody({ subject: { kind: 'equipment', index: 0 }, equipment: ['  ', 'Wok'] }),
+      ],
+      [
+        'an equipment index past the 20 items kept',
+        validBody({
+          subject: { kind: 'equipment', index: 20 },
+          equipment: Array.from({ length: 21 }, (_, i) => `Pan ${i}`),
+        }),
+      ],
       ['a body that is not an object', 'hello'],
     ])('returns 400 for %s', async (_name, body) => {
       const response = await callPost(body)
@@ -282,9 +315,121 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
 
     it('accepts a 300-character question and 12 steps', async () => {
       const steps = Array.from({ length: 12 }, (_, i) => `Step ${i + 1}`)
-      const response = await callPost({ stepIndex: 11, steps, question: 'a'.repeat(300) })
+      const response = await callPost(
+        validBody({ subject: step(11), steps, question: 'a'.repeat(300) }),
+      )
 
       expect(response.status).toBe(200)
+    })
+
+    it('accepts a step question with no equipment', async () => {
+      const response = await callPost(validBody({ equipment: [] }))
+
+      expect(response.status).toBe(200)
+      expect(promptSent()).not.toContain('Equipment:')
+    })
+  })
+
+  describe('a question about an item in "You\'ll need" (HON-983)', () => {
+    it('answers about the item, with the equipment and the steps in the prompt', async () => {
+      const response = await callPost(
+        validBody({
+          subject: { kind: 'equipment', index: 1 },
+          question: 'What can I use instead?',
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      const prompt = promptSent()
+      expect(prompt).toContain('The cook is asking about this piece of equipment: Cutting board')
+      expect(prompt).toContain('Equipment:\n- Large wok\n- Cutting board')
+      expect(prompt).toContain('1. Slice the chicken.')
+      expect(prompt).not.toContain('The cook is on step')
+    })
+
+    // The tips schema bounds neither the count nor an item's length, so the
+    // route clips rather than failing every question on the meal.
+    it('clips the equipment a step question carries, instead of rejecting it', async () => {
+      const long = 'Large oven-safe cast-iron pan '.repeat(6)
+      const response = await callPost(
+        validBody({
+          equipment: ['  ', long, ...Array.from({ length: 22 }, (_, i) => `Pan ${i + 1}`)],
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      const prompt = promptSent()
+      const start = prompt.indexOf('Equipment:\n')
+      const equipment = prompt.slice(start, prompt.indexOf('\n\n', start)).split('\n').slice(1)
+      // 20 items kept, the empty one left out of the list.
+      expect(equipment).toHaveLength(19)
+      expect(equipment[0]).toBe(`- ${long.trim().slice(0, 120)}`)
+      expect(equipment.at(-1)).toBe('- Pan 18')
+    })
+
+    it('asks about the clipped item, at its own index', async () => {
+      const response = await callPost(
+        validBody({
+          subject: { kind: 'equipment', index: 1 },
+          equipment: ['', `  ${'Wok '.repeat(40)}`],
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      expect(promptSent()).toContain(
+        `The cook is asking about this piece of equipment: ${'Wok '.repeat(40).trim().slice(0, 120)}\n`,
+      )
+    })
+
+    it('lists the equipment for a step question too', async () => {
+      await callPost()
+
+      expect(promptSent()).toContain('The cook is on step 2: Fry the chicken.')
+      expect(promptSent()).toContain('Equipment:\n- Large wok\n- Cutting board')
+    })
+  })
+
+  describe('the previous question and answer (HON-980)', () => {
+    const previous = { question: 'What can I substitute here?', answer: 'Use the yoghurt.' }
+
+    it('puts a valid previous question and answer in the prompt, trimmed', async () => {
+      const response = await callPost(
+        validBody({
+          question: 'And if I have no oil?',
+          previous: { question: `  ${previous.question} `, answer: ` ${previous.answer}\n` },
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      const prompt = promptSent()
+      expect(prompt).toContain('The cook already asked about this step, and you answered:')
+      expect(prompt).toContain('<<<\nWhat can I substitute here?\n>>>')
+      expect(prompt).toContain('<<<\nUse the yoghurt.\n>>>')
+      expect(prompt).toContain('<<<\nAnd if I have no oil?\n>>>')
+    })
+
+    it('accepts a 1200-character answer', async () => {
+      const answer = 'a'.repeat(1200)
+      const response = await callPost(validBody({ previous: { ...previous, answer } }))
+
+      expect(response.status).toBe(200)
+      expect(promptSent()).toContain(`<<<\n${answer}\n>>>`)
+    })
+
+    it.each([
+      ['a 1201-character answer', { ...previous, answer: 'a'.repeat(1201) }],
+      ['a 301-character question', { ...previous, question: 'a'.repeat(301) }],
+      ['an empty answer', { ...previous, answer: '  ' }],
+      ['a missing answer', { question: previous.question }],
+      ['a number for the answer', { ...previous, answer: 42 }],
+      ['a string instead of an object', 'What can I substitute here?'],
+      ['null', null],
+    ])('drops %s and still answers the question', async (_name, bad) => {
+      const response = await callPost(validBody({ previous: bad }))
+
+      expect(response.status).toBe(200)
+      expect(promptSent()).not.toContain('already asked about this step')
+      expect(promptSent()).toContain("<<<\nHow do I know it's done?\n>>>")
     })
   })
 
@@ -432,7 +577,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
 
     expect(model.modelIds).toEqual([COOK_QUESTION_MODEL])
     expect(mockStreamText).toHaveBeenCalledWith(
-      expect.objectContaining({ maxOutputTokens: 600, maxRetries: 3 }),
+      expect.objectContaining({ maxOutputTokens: 1200, maxRetries: 3 }),
     )
     expect(mockRecordAiUsage).toHaveBeenCalledOnce()
     expect(mockRecordAiUsage).toHaveBeenCalledWith({
@@ -443,7 +588,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
     expect(mockLogAiSample).toHaveBeenCalledWith(
       expect.objectContaining({
         callSite: 'cook-question',
-        input: { mealName: 'Chicken stir fry', stepIndex: 1, source: 'uncached' },
+        input: { mealName: 'Chicken stir fry', subject: step(1), source: 'uncached' },
         output: { answer: 'Cut into the thickest piece: no pink.' },
       }),
     )

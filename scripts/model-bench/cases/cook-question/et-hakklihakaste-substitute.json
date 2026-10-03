@@ -1,0 +1,71 @@
+{
+  "mealName": "Hakklihakaste kartulitega",
+  "servings": 4,
+  "timeMinutes": 40,
+  "components": [
+    {
+      "name": "Sea-veise hakkliha",
+      "quantityPerServing": 125,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Sibul",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "Hapukoor",
+      "quantityPerServing": 40,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Nisujahu",
+      "quantityPerServing": 10,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Kartul",
+      "quantityPerServing": 250,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Keeda kartulid soolaga maitsestatud vees 20 minutit pehmeks.",
+    "Prae hakkliha ja sibul pannil pruuniks.",
+    "Puista peale jahu, sega ja vala juurde 300 ml vett.",
+    "Lisa hapukoor ja hauta tasasel tulel 10 minutit, kuni kaste pakseneb."
+  ],
+  "equipment": ["Suur pann", "Kastrul"],
+  "subject": {
+    "kind": "step",
+    "index": 3
+  },
+  "pitfalls": ["Jahu läheb tükki, kui vesi lisada korraga."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "Kreeka jogurt",
+      "isStaple": false
+    },
+    {
+      "name": "Sool",
+      "isStaple": true
+    },
+    {
+      "name": "Päevalilleõli",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "Millega saan siin asendada? Mul pole hapukoort.",
+  "locale": "et",
+  "expected": {
+    "mentionsAny": ["jogurt"]
+  }
+}

@@ -153,11 +153,15 @@ SEEN_SKIPS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-skips.XXXXXXXX")
 # argument parsing and acquire_lock so the temp file never leaks.
 trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
 # Comma-separated identifiers of issues gated this run (worker exited 0 with
-# no commits). They go back to Queued unassigned, so without this list the
-# picker would re-select them on the very next poll and respawn the same
-# no-op worker in a loop whenever the durable Gated-label write failed. An
-# entry is dropped as soon as selection sees the issue without its Gated
-# label (operator removed it — the retry signal); a restart also clears it.
+# no commits) whose gate the log has not answered yet. The picker does not read
+# it: the skip comes from the durable Gated label alone, so a re-queued issue
+# that still carries the label stays skipped whatever this list holds. Its job
+# is the `[UNGATE]` line `wt watch` uses to close the GATED outcome (HON-938).
+# reconcile_gated_issues drops an entry, and logs that line once, when the poll
+# sees the issue in Queued without its label or no longer in Queued at all
+# (HON-940); a restart also clears it. A fresh entry is `HON-X:<uuid>` until a
+# poll first sees the issue in Queued: until then, absence alone cannot tell a
+# failed requeue from an operator's move, so the uuid lets the poll ask Linear.
 GATED_ISSUES=""
 # Comma-separated "identifier:expiry-epoch" entries for issues returned to Queued
 # at the Neon branch cap. Unlike the gated path there is no durable label to
@@ -601,6 +605,71 @@ fetch_queued_issues() {
   printf '%s\n' "$response"
 }
 
+# ─── Answer gates ───────────────────────────────────────────────────────────
+# Drops each GATED_ISSUES entry the Queued fetch has answered, and logs one
+# `[UNGATE]` line for it, which is what closes the GATED outcome in `wt watch`
+# (watch_scan_log). Two answers:
+#   - in Queued without the Gated label: the operator removed it, the documented
+#     retry signal;
+#   - not in Queued at all: the operator moved the issue to Todo, Backlog or
+#     Canceled. No other line would ever answer that gate, so the pane stayed
+#     yellow until restart (HON-940).
+# Runs in main()'s shell, never inside $(...): the rebuilt list has to outlive
+# the call, or the next poll logs the same line again (HON-655).
+#
+# An absent issue whose entry is still fresh (`HON-X:<uuid>`) has not been seen
+# in Queued since the gate. restore_queue_if_in_progress may have failed and
+# left it In Progress, where the gate is still in force; or no poll ran before
+# the operator moved it, which a tripped circuit breaker makes likely, since the
+# third gate in a row is what trips it. So the poll asks Linear for its state:
+# In Progress, Queued (past the page cap) or unreadable keeps the entry, and
+# any other state answers it. An entry stuck In Progress costs one query a poll.
+# Any other absent entry is answered, unless the fetch hit the page cap, where
+# the issue may sit past the cap and still be in Queued. A response jq cannot
+# read changes nothing, so a bad fetch cannot answer every gate at once.
+
+reconcile_gated_issues() {
+  local response="$1"
+  [ -n "$GATED_ISSUES" ] || return 0
+
+  # Line 1 is the node count, then one "identifier<TAB>true|false" per node,
+  # true when the issue still carries the Gated label. A missing nodes array is
+  # an error, not an empty queue: read as empty, it would answer every gate.
+  local seen
+  seen=$(printf '%s' "$response" | jq -r '
+    .data.issues.nodes
+    | if type == "array" then . else error("no issue nodes") end
+    | (length | tostring),
+      (.[] | [.identifier, ([.labels.nodes[]?.name] | index("Gated") != null | tostring)] | @tsv)
+  ' 2>/dev/null) || return 0
+  local count="${seen%%$'\n'*}"
+  [[ "$count" =~ ^[0-9]+$ ]] || return 0
+
+  local rebuilt="" entry g labelled state
+  IFS=',' read -ra _gated_arr <<< "$GATED_ISSUES"
+  for entry in ${_gated_arr[@]+"${_gated_arr[@]}"}; do
+    g="${entry%%:*}"
+    labelled=$(printf '%s\n' "$seen" | awk -F'\t' -v id="$g" 'NR > 1 && $1 == id { print $2; exit }')
+    if [ "$labelled" = "true" ]; then
+      # Seen in Queued, so the uuid goes: a later absence is a move.
+      rebuilt="${rebuilt:+$rebuilt,}$g"
+    elif [ "$labelled" = "false" ]; then
+      log INFO "[UNGATE] $g — Gated label removed by operator; eligible again"
+    elif [ "$entry" != "$g" ]; then
+      state=$(issue_state_id "${entry#*:}") || true
+      case "$state" in
+        ''|"$STATE_IN_PROGRESS"|"$STATE_QUEUED") rebuilt="${rebuilt:+$rebuilt,}$entry" ;;
+        *) log INFO "[UNGATE] $g — left Queued" ;;
+      esac
+    elif [ "$count" -gt "$LINEAR_QUEUE_PAGE_SIZE" ]; then
+      rebuilt="${rebuilt:+$rebuilt,}$g"
+    else
+      log INFO "[UNGATE] $g — left Queued"
+    fi
+  done
+  GATED_ISSUES="$rebuilt"
+}
+
 # ─── Select next issue ──────────────────────────────────────────────────────
 # Returns: "uuid<TAB>identifier<TAB>branchName<TAB>title" or empty
 # Side effect: one log line per skipped candidate ("[SKIP] HON-XX <reason>") so
@@ -619,7 +688,6 @@ select_next_issue() {
   # jq emits "SKIP<TAB>level<TAB>identifier<TAB>reason" per rejected candidate,
   # then at most one "PICK<TAB>uuid<TAB>identifier<TAB>branchName<TAB>title".
   local line kind level id reason skip_key
-  local gated="$GATED_ISSUES"
   # Live entries only, and READ-ONLY: main() calls this function as
   # `candidate=$(select_next_issue "$response")`, so anything written to a shell
   # variable here dies with the command-substitution subshell — the same trap
@@ -655,26 +723,12 @@ select_next_issue() {
           printf '%s\n' "$skip_key" >> "$SEEN_SKIPS_FILE"
         fi
         ;;
-      UNGATE)
-        IFS=$'\t' read -r kind id <<< "$line"
-        # Operator removed the Gated label — drop the stale in-memory entry so
-        # the issue is eligible again (this poll already treats it as un-gated).
-        local rebuilt="" g
-        IFS=',' read -ra _gated_arr <<< "$GATED_ISSUES"
-        for g in ${_gated_arr[@]+"${_gated_arr[@]}"}; do
-          [ "$g" = "$id" ] && continue
-          rebuilt="${rebuilt:+$rebuilt,}$g"
-        done
-        GATED_ISSUES="$rebuilt"
-        log INFO "[UNGATE] $id — Gated label removed by operator; eligible again"
-        ;;
       PICK)
         printf '%s\n' "${line#PICK$'\t'}"
         ;;
     esac
   done < <(echo "$response" | jq -r \
     --arg running "$running" \
-    --arg gated "$gated" \
     --arg cap_requeued "$cap_requeued" \
     --arg done "$STATE_DONE" \
     --arg canceled "$STATE_CANCELED" \
@@ -684,20 +738,11 @@ select_next_issue() {
     # mirrors the /auto-implement, /implement-issue and /next-issue gates.
     [$done, $canceled] as $terminal |
     (if $running == "" then [] else ($running | split(",")) end) as $running_list |
-    (if $gated == "" then [] else ($gated | split(",")) end) as $gated_list |
     (if $cap_requeued == "" then [] else ($cap_requeued | split(",")) end) as $cap_list |
 
     .data.issues.nodes
     | map(. + {
         _running: (.identifier as $id | ($running_list | index($id)) != null),
-        # Gated this run (in-memory). The durable gate is the label below; this
-        # entry exists so a gated issue cannot be respawned even when the label
-        # write failed. When the label is ABSENT while the in-memory entry
-        # remains, an operator removed the label — the documented retry signal —
-        # so the entry is stale and must un-gate (emitted as an UNGATE line,
-        # handled in the bash loop). Without this, a running orchestrator
-        # ignores label removal until restart (HON-562, 2026-08-30).
-        _gated: (.identifier as $id | ($gated_list | index($id)) != null),
         # Requeued at the Neon branch cap this run. In-memory only — see
         # CAP_REQUEUED_ISSUES for why there is deliberately no label, and why
         # this list is what keeps the requeue from looping.
@@ -743,8 +788,9 @@ select_next_issue() {
     | map(. + {
         _skip: (
           if ._running then ["DEBUG", "already running"]
-          # Only the label gates; a stale in-memory entry (label removed) is
-          # cleaned up via the UNGATE line and the candidate stays eligible.
+          # Only the label gates. GATED_ISSUES is log bookkeeping, answered by
+          # reconcile_gated_issues before this runs, so dropping an entry there
+          # can never let a still-labelled issue through.
           elif ._gate_label == "Gated" then ["INFO", "gated (a worker exited with 0 commits) — fix the cause, then remove the Gated label or re-triage to retry"]
           elif ._gate_label == "Stranded" then ["INFO", "stranded (a worker left an unmerged PR; its worktree is preserved) — finish or close the PR, release with `wt cleanup <branch>`, then remove the Stranded label"]
           # Retrying inside the same run would hit the same full project and
@@ -762,10 +808,8 @@ select_next_issue() {
             ["DEBUG", "blocker " + (._blockers_in_worker | join(", ")) + " is being worked on"]
           else null end)
       })
-    # One UNGATE line per stale in-memory gate (label removed by operator)
-    | (.[] | select(._gated and (._gate_label | not)) | ["UNGATE", .identifier] | @tsv),
     # One SKIP line per rejected candidate
-      (.[] | select(._skip != null) | ["SKIP", ._skip[0], .identifier, ._skip[1]] | @tsv),
+    | (.[] | select(._skip != null) | ["SKIP", ._skip[0], .identifier, ._skip[1]] | @tsv),
     # Sort survivors: blocks others first (desc), then priority (asc, 0=no priority→5)
       ([.[] | select(._skip == null)]
        | sort_by([(._blocks_count * -1), (if .priority == 0 then 5 else .priority end)])
@@ -1506,7 +1550,7 @@ handle_success() {
     log WARN "[OUTCOME] $issue_id GATED ${duration_str} 0-commits phase=$phase"
     notify "Honkadori" "$issue_id produced no commits — returned to Queued"
     gate_no_commit_success "$issue_uuid" "$issue_id" "$log_file"
-    GATED_ISSUES="${GATED_ISSUES:+$GATED_ISSUES,}$issue_id"
+    GATED_ISSUES="${GATED_ISSUES:+$GATED_ISSUES,}$issue_id:$issue_uuid"
     # A gated exit is a failure to produce, so it counts toward the circuit
     # breaker: a systemic no-op (expired auth, broken skill) must not sweep
     # the whole queue one worker per poll.
@@ -2996,6 +3040,10 @@ main() {
         }
 
         if [ -n "$response" ]; then
+          # Before the pick, so an [UNGATE] reads ahead of the Selected and
+          # Claimed lines for the same issue. Not in $(...): see the function.
+          reconcile_gated_issues "$response"
+
           local candidate
           candidate=$(select_next_issue "$response") || true
 

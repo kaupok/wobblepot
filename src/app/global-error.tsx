@@ -7,7 +7,8 @@ import { clientEnv } from '@/lib/env'
 import { decisionToGranted } from '@/lib/consent'
 import { readConsentCookieClient } from '@/lib/consent.client'
 import { errorTypeOf, fingerprintFor } from '@/lib/errors-shared'
-import { postHogBeforeSend } from '@/lib/posthog-before-send'
+import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
+import { markPostHogLoaded } from '@/lib/posthog-client-state'
 import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
 import { detectClientLocale, globalErrorTranslator } from '@/lib/i18n/global-error-messages'
@@ -40,22 +41,15 @@ export default function GlobalError({
         if (!clientEnv.NEXT_PUBLIC_POSTHOG_KEY || !clientEnv.NEXT_PUBLIC_POSTHOG_HOST) return
         const { default: posthog } = await import('posthog-js')
         if (!posthog.__loaded) {
-          // Mirror PostHogProvider's init — once posthog-js initialises, re-init is a no-op,
-          // so a minimal config here would silently drop the sanitiser for the rest of the session.
-          posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY as string, {
-            api_host: clientEnv.NEXT_PUBLIC_POSTHOG_HOST as string,
-            person_profiles: 'identified_only',
-            capture_pageview: false,
-            capture_pageleave: true,
-            disable_session_recording: true,
-            defaults: '2026-01-30',
-            before_send: postHogBeforeSend,
-          })
+          // The same options as PostHogProvider's init — once posthog-js initialises, re-init is
+          // a no-op, so a minimal config here would silently drop the sanitiser for the session.
+          posthog.init(clientEnv.NEXT_PUBLIC_POSTHOG_KEY as string, { ...POSTHOG_INIT_OPTIONS })
+          markPostHogLoaded()
         }
         const properties: Record<string, unknown> = {
           $exception_source: 'app.global-error',
           digest: error.digest,
-          errorType: errorTypeOf(error),
+          error_type: errorTypeOf(error),
         }
         const fingerprint = fingerprintFor(error)
         if (fingerprint) {

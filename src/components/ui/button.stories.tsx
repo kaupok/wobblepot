@@ -24,7 +24,17 @@ const meta = {
     },
     size: {
       control: 'select',
-      options: ['default', 'sm', 'lg', 'icon', 'icon-xs', 'icon-sm', 'icon-lg', 'inline'],
+      options: [
+        'default',
+        'sm',
+        'lg',
+        'icon',
+        'icon-xs',
+        'icon-sm',
+        'icon-lg',
+        'icon-lg-to-lg',
+        'inline',
+      ],
     },
     shape: { control: 'select', options: ['default', 'pill'] },
     disabled: { control: 'boolean' },
@@ -192,8 +202,51 @@ export const AllSizes: Story = {
       <Button size="icon-lg" aria-label="Add">
         <Plus />
       </Button>
+      <Button size="icon-lg-to-lg" aria-label="Add a meal">
+        <Plus />
+        <span className="hidden lg:inline">Add</span>
+      </Button>
     </div>
   ),
+}
+
+/**
+ * `icon-lg-to-lg` (HON-981): the icon alone in an `icon-lg` box below `lg`,
+ * and the icon with its label from `lg`. The `aria-label` contains the label.
+ */
+function IconToLabel() {
+  return (
+    <Button variant="ghost" size="icon-lg-to-lg" aria-label="Add a meal">
+      <Plus />
+      <span className="hidden lg:inline">Add</span>
+    </Button>
+  )
+}
+
+export const IconToLabelPhone: Story = {
+  name: 'Icon to label (phone)',
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  render: () => <IconToLabel />,
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: 'Add a meal' })
+    const box = button.getBoundingClientRect()
+    await expect(box.width).toBe(48)
+    await expect(box.height).toBe(48)
+    await expect(within(button).getByText('Add')).not.toBeVisible()
+  },
+}
+
+export const IconToLabelDesktop: Story = {
+  name: 'Icon to label (desktop)',
+  globals: { viewport: { value: 'laptop', isRotated: false } },
+  render: () => <IconToLabel />,
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: 'Add a meal' })
+    const box = button.getBoundingClientRect()
+    await expect(box.height).toBe(44)
+    await expect(box.width).toBeGreaterThan(box.height)
+    await expect(within(button).getByText('Add')).toBeVisible()
+  },
 }
 
 /**

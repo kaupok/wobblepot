@@ -52,6 +52,11 @@ const buttonVariants = cva(
         // past it on every side, so the target is 24px (WCAG 2.5.8).
         'icon-xs': 'relative size-4 after:absolute after:-inset-1',
         'icon-lg': 'size-12 md:size-11',
+        // `icon-lg` below `lg`, then as wide as its text: a control whose label
+        // shows only from `lg` (`hidden lg:inline`), with the icon alone on a
+        // phone row that needs the width for its text (the cook view's Ask,
+        // HON-981). Keep an `aria-label` that contains the visible label.
+        'icon-lg-to-lg': 'size-12 md:size-11 lg:w-auto lg:px-4',
         // A `link` inside running text: no box, so it sits on the sentence's
         // line instead of a control's. Not a touch target on its own — use it
         // only where the surrounding text is the tap area's context.

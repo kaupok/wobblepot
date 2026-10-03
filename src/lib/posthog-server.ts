@@ -2,7 +2,7 @@ import 'server-only'
 import { waitUntil } from '@vercel/functions'
 import { PostHog } from 'posthog-node'
 import { serverEnv } from '@/lib/env'
-import { sanitizeEventProperties } from '@/lib/redact'
+import { redactUrlProperties, sanitizeEventProperties } from '@/lib/redact'
 
 const globalForPosthog = globalThis as unknown as {
   posthog: PostHog | undefined
@@ -40,12 +40,18 @@ export function getPosthogServer(): PostHog | null {
       // Outside Vercel, `@vercel/functions`'s `waitUntil` is a no-op
       // (`getContext().waitUntil?.(p)`), and the SDK guards the call with
       // try/catch — so this is safe to set unconditionally and works in dev.
-      // This is the pattern Sentry's `captureRequestError` uses, and PostHog's
-      // own SDK docstring on this option points at exactly this Vercel setup.
+      // Error SDKs' Next.js `captureRequestError` helpers use the same
+      // pattern, and PostHog's own SDK docstring on this option points at
+      // exactly this Vercel setup.
       waitUntil,
       before_send: (event) => {
         if (!event) return event
-        return { ...event, properties: sanitizeEventProperties(event.properties) }
+        // URL redaction first: the sanitiser passes `$`-prefixed keys through,
+        // and `path` from `onRequestError` can carry a reset token (HON-990).
+        return {
+          ...event,
+          properties: sanitizeEventProperties(redactUrlProperties(event.properties)),
+        }
       },
     })
 

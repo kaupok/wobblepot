@@ -7,17 +7,19 @@ import { cn } from '@/lib/utils'
 // A meal note as a taped yellow slip (docs/DESIGN.md → "Notes are sticky
 // notes"). The colour, the re-scoped tokens and the tape come from
 // `[data-surface='sticky']` in globals.css; this owns the shape and the tilt.
+// The tilt is `--note-tilt`: -1° from `:root`, or a planner card's own angle
+// for its note, set on the overlay around it (HON-975).
 // No border and no shadow: it is paper stuck onto the card, not a card in it.
 const stickyNoteVariants = cva('flex flex-col self-start rounded-sm px-4 pt-3.5 pb-3 text-left', {
   variants: {
     variant: {
       // Read-only: past or read-only slots.
-      static: 'w-fit max-w-xs -rotate-1',
+      static: 'w-fit max-w-xs rotate-(--note-tilt)',
       // A saved note that opens the editor. It straightens on hover and on
       // keyboard focus. The outline is the slip's `--ring` (re-scoped to its
       // muted text) at full strength: at half, it fades into the yellow.
       interactive:
-        'focus-visible:outline-ring min-h-8 w-fit max-w-xs -rotate-1 cursor-pointer transition-transform duration-200 ease-out hover:rotate-0 focus-visible:rotate-0 focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
+        'focus-visible:outline-ring min-h-8 w-fit max-w-xs rotate-(--note-tilt) cursor-pointer transition-transform duration-200 ease-out hover:rotate-0 focus-visible:rotate-0 focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
       // The editor: straight, at the full width so typing has room. The
       // textarea inside draws no outline of its own, so the slip shows focus.
       editing:

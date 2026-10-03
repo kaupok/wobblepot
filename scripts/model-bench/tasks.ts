@@ -5,13 +5,16 @@
  *
  * Every request comes from the same pure builder production calls (HON-796),
  * so the benchmark sends exactly what the app sends apart from the model.
- * `generateObject` is called with no `abortSignal`: a call that outlives its
- * budget must still finish, so its real duration is recorded.
+ * `generateObject` (`generateText` for the plain-text cook question) is called
+ * with no `abortSignal`: a call that outlives its budget must still finish, so
+ * its real duration is recorded.
  */
 
 import {
   asSchema,
   generateObject,
+  generateText,
+  NoObjectGeneratedError,
   type FinishReason,
   type FlexibleSchema,
   type LanguageModel,
@@ -25,7 +28,9 @@ import {
   buildFullTipsRequest,
   buildSupplementaryTipsRequest,
 } from '../../src/lib/ai/preparation-tips'
+import { buildCookQuestionRequest } from '../../src/lib/ai/cook-question'
 import {
+  COOK_QUESTION_AI_BUDGET_MS,
   IMAGINE_AI_BUDGET_MS,
   PLAN_AI_BUDGET_MS,
   RECIPE_PARSE_AI_BUDGET_MS,
@@ -33,6 +38,7 @@ import {
   TIPS_AI_BUDGET_MS,
 } from '../../src/lib/ai/budgets'
 import {
+  COOK_QUESTION_MODEL,
   IMAGINE_MODEL,
   PLANNING_MODEL,
   RECIPE_MODEL,
@@ -42,11 +48,13 @@ import {
 import type { BenchCase, CaseOf, Task } from './case-schema'
 import {
   derivePlanContext,
+  scoreCookQuestion,
   scoreImagine,
   scorePlan,
   scoreRecipe,
   scoreReview,
   scoreTips,
+  COOK_QUESTION_MAX_WORDS,
   type Scores,
 } from './scorers'
 
@@ -443,7 +451,119 @@ const tips: TaskSpec<'tips'> = {
   },
 }
 
-export const TASK_SPECS: { [T in Task]: TaskSpec<T> } = { plan, recipe, imagine, review, tips }
+const cookQuestion: TaskSpec<'cook-question'> = {
+  productionModel: COOK_QUESTION_MODEL,
+  budgetMs: COOK_QUESTION_AI_BUDGET_MS,
+  budgetLabel: 'COOK_QUESTION_AI_BUDGET_MS',
+  // The request's 1200-token ceiling, which thinking shares; English answers
+  // measured about 200 with no thinking (HON-972).
+  dryRunOutputTokens: 1_200,
+  metrics: [
+    {
+      key: 'answered',
+      label: 'Answered without error',
+      format: 'percent',
+      onError: 0,
+      gate: { min: 1 },
+    },
+    {
+      key: 'metricUnits',
+      label: 'Metric units only',
+      format: 'percent',
+      onError: null,
+      gate: { min: 1 },
+    },
+    {
+      key: 'withinLength',
+      label: `≤ ${COOK_QUESTION_MAX_WORDS.answer} words`,
+      format: 'percent',
+      onError: null,
+      // "2 to 4 sentences" is a prompt instruction nothing enforces, as the
+      // tips counts are (HON-929): one long answer must not fail the record.
+      gate: { min: 0.9 },
+    },
+    {
+      key: 'offTopicDeclined',
+      label: `Off-topic declined (≤ ${COOK_QUESTION_MAX_WORDS.offTopic} words)`,
+      format: 'percent',
+      onError: null,
+      gate: { min: 1 },
+    },
+    {
+      key: 'avoidsForbidden',
+      label: 'No forbidden suggestion',
+      format: 'percent',
+      // As imagine's forbidden-ingredient check: a failed call suggested
+      // nothing, and `answered` already counts the failure.
+      onError: null,
+      regressionDrop: 0,
+      gate: { min: 1 },
+    },
+    {
+      key: 'mentionsExpected',
+      label: 'Names the expected answer',
+      format: 'percent',
+      onError: null,
+      gate: { min: 0.9 },
+    },
+  ],
+  prepare({ input }) {
+    const request = buildCookQuestionRequest({
+      mealName: input.mealName,
+      servings: input.servings,
+      timeMinutes: input.timeMinutes,
+      components: input.components,
+      preparationNotes: input.preparationNotes,
+      steps: input.steps,
+      equipment: input.equipment,
+      subject: input.subject,
+      pitfalls: input.pitfalls,
+      tip: input.tip,
+      pantry: input.pantry,
+      restrictions: input.restrictions,
+      question: input.question,
+      previous: input.previous,
+      locale: input.locale,
+    })
+    return {
+      // Plain text: no output schema instructs the model.
+      promptText: textOf(request),
+      schemaText: '',
+      async generate(model) {
+        // `generateText` returns the text `streamText` streams in production;
+        // timed around the call, the latency is the time to the last word,
+        // which is what the route's budget bounds.
+        const result = await generateText({ ...request, model })
+        // Production ends the stream in an error on a cut-off answer, so the
+        // cook sees half an instruction and Retry. Thrown as the error class
+        // the runner reads usage from, so the billed call still counts.
+        if (result.finishReason === 'length' || !result.text.trim()) {
+          throw new NoObjectGeneratedError({
+            message:
+              result.finishReason === 'length'
+                ? 'Cook question answer was cut off at maxOutputTokens'
+                : 'Cook question returned no text',
+            text: result.text,
+            response: result.response,
+            usage: result.usage,
+            finishReason: result.finishReason,
+          })
+        }
+        return { object: result.text, usage: result.usage, finishReason: result.finishReason }
+      },
+      score: (object) => scoreCookQuestion(input, object as string),
+    }
+  },
+}
+
+export const TASK_SPECS: { [T in Task]: TaskSpec<T> } = {
+  plan,
+  recipe,
+  imagine,
+  review,
+  tips,
+  'cook-question': cookQuestion,
+}
 
 export function prepareCase(c: BenchCase): PreparedCase {
   return (TASK_SPECS[c.task] as TaskSpec<typeof c.task>).prepare(c as never)

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { useCookQuestion, type CookQuestionAskInput } from './use-cook-question'
+import { COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH } from '@/lib/ai/cook-question-limits'
 import enMessages from '../../messages/en.json'
 
 vi.mock('@/lib/analytics', () => ({
@@ -18,11 +19,15 @@ global.fetch = mockFetch
 const options = { planId: 'plan-1', entryId: 'entry-1', mealId: 'meal-1' }
 
 const STEPS = ['Boil the pasta.', 'Stir in the cream.']
+const EQUIPMENT = ['Large pot', 'Frying pan']
+
+const STEP_1 = { kind: 'step', index: 1 } as const
 
 function question(overrides: Partial<CookQuestionAskInput> = {}): CookQuestionAskInput {
   return {
-    stepIndex: 1,
+    subject: STEP_1,
     steps: STEPS,
+    equipment: EQUIPMENT,
     question: 'What can I substitute here?',
     source: 'chip',
     ...overrides,
@@ -72,7 +77,7 @@ describe('useCookQuestion', () => {
     vi.restoreAllMocks()
   })
 
-  it('posts the step, the steps and the question, and shows the answer', async () => {
+  it('posts the subject, the steps, the equipment and the question, and shows the answer', async () => {
     mockFetch.mockResolvedValue(ok('Use the yoghurt you have.'))
     const { result } = renderHook(() => useCookQuestion(options), { wrapper })
 
@@ -85,14 +90,15 @@ describe('useCookQuestion', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          stepIndex: 1,
+          subject: STEP_1,
           steps: STEPS,
+          equipment: EQUIPMENT,
           question: 'What can I substitute here?',
         }),
       }),
     )
     expect(result.current.active).toEqual({
-      stepIndex: 1,
+      subject: STEP_1,
       question: 'What can I substitute here?',
       answer: 'Use the yoghurt you have.',
     })
@@ -105,16 +111,60 @@ describe('useCookQuestion', () => {
     const { result } = renderHook(() => useCookQuestion(options), { wrapper })
 
     await act(async () => {
-      await result.current.ask(question({ source: 'text', stepIndex: 0 }))
+      await result.current.ask(question({ source: 'text', subject: { kind: 'step', index: 0 } }))
     })
 
     expect(track).toHaveBeenCalledTimes(1)
     expect(track).toHaveBeenCalledWith('cook_view:question_asked', {
       plan_id: 'plan-1',
       meal_id: 'meal-1',
-      step_index: 0,
+      subject: 'step',
+      subject_index: 0,
       source: 'text',
+      has_previous: false,
     })
+  })
+
+  it('asks about an item in "You\'ll need" (HON-983)', async () => {
+    mockFetch.mockResolvedValue(ok('A deep frying pan works.'))
+    const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+    const pan = { kind: 'equipment', index: 1 } as const
+
+    await act(async () => {
+      await result.current.ask(question({ subject: pan, question: 'What can I use instead?' }))
+    })
+
+    expect(JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string)).toEqual({
+      subject: pan,
+      steps: STEPS,
+      equipment: EQUIPMENT,
+      question: 'What can I use instead?',
+    })
+    expect(track).toHaveBeenCalledWith(
+      'cook_view:question_asked',
+      expect.objectContaining({ subject: 'equipment', subject_index: 1 }),
+    )
+    expect(result.current.active).toEqual({
+      subject: pan,
+      question: 'What can I use instead?',
+      answer: 'A deep frying pan works.',
+    })
+  })
+
+  it("does not carry a step's answer to an item with the same index", async () => {
+    mockFetch.mockResolvedValueOnce(ok('First'))
+    const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+    await act(async () => {
+      await result.current.ask(question())
+    })
+
+    mockFetch.mockImplementationOnce(() => new Promise(() => {}))
+    act(() => {
+      void result.current.ask(question({ subject: { kind: 'equipment', index: 1 } }))
+    })
+
+    expect(result.current.isPending).toBe(true)
+    expect(result.current.previous).toBeNull()
   })
 
   it('replaces the answer with a second question on the same step', async () => {
@@ -129,7 +179,7 @@ describe('useCookQuestion', () => {
     })
 
     expect(result.current.active).toEqual({
-      stepIndex: 1,
+      subject: STEP_1,
       question: "I'm short on time",
       answer: 'Second',
     })
@@ -168,12 +218,12 @@ describe('useCookQuestion', () => {
 
       expect(result.current.isPending).toBe(true)
       expect(result.current.active).toEqual({
-        stepIndex: 1,
+        subject: STEP_1,
         question: "I'm short on time",
         answer: null,
       })
       expect(result.current.previous).toEqual({
-        stepIndex: 1,
+        subject: STEP_1,
         question: 'What can I substitute here?',
         answer: 'First',
       })
@@ -226,11 +276,208 @@ describe('useCookQuestion', () => {
 
       deferredFetch()
       act(() => {
-        void result.current.ask(question({ stepIndex: 0 }))
+        void result.current.ask(question({ subject: { kind: 'step', index: 0 } }))
       })
 
       expect(result.current.isPending).toBe(true)
       expect(result.current.previous).toBeNull()
+    })
+  })
+
+  describe('the previous question and answer (HON-980)', () => {
+    const FIRST = { question: 'What can I substitute here?', answer: 'Use the yoghurt.' }
+
+    function bodyOf(call: number) {
+      return JSON.parse(mockFetch.mock.calls[call]?.[1]?.body as string)
+    }
+
+    async function askAndAnswer(
+      result: { current: ReturnType<typeof useCookQuestion> },
+      input: Partial<CookQuestionAskInput>,
+      answer: string,
+    ) {
+      mockFetch.mockResolvedValueOnce(ok(answer))
+      await act(async () => {
+        await result.current.ask(question(input))
+      })
+    }
+
+    it('a second question on the same step sends the first question and its full answer', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      const stream = streamed()
+      mockFetch.mockResolvedValueOnce(stream.response)
+      await act(async () => {
+        const promise = result.current.ask(question({ question: FIRST.question }))
+        await waitFor(() => expect(mockFetch).toHaveBeenCalledOnce())
+        stream.push('Use the ')
+        stream.push('yoghurt.')
+        stream.close()
+        await promise
+      })
+
+      await askAndAnswer(result, { question: 'And if I have no oil?', source: 'text' }, 'Then…')
+
+      expect(bodyOf(0)).not.toHaveProperty('previous')
+      expect(bodyOf(1)).toEqual({
+        subject: STEP_1,
+        steps: STEPS,
+        equipment: EQUIPMENT,
+        question: 'And if I have no oil?',
+        previous: FIRST,
+      })
+      expect(track).toHaveBeenNthCalledWith(1, 'cook_view:question_asked', {
+        plan_id: 'plan-1',
+        meal_id: 'meal-1',
+        subject: 'step',
+        subject_index: 1,
+        source: 'chip',
+        has_previous: false,
+      })
+      expect(track).toHaveBeenNthCalledWith(2, 'cook_view:question_asked', {
+        plan_id: 'plan-1',
+        meal_id: 'meal-1',
+        subject: 'step',
+        subject_index: 1,
+        source: 'text',
+        has_previous: true,
+      })
+    })
+
+    it('sends only the last answered question, not the one before it', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await askAndAnswer(result, { question: FIRST.question }, FIRST.answer)
+      await askAndAnswer(result, { question: 'Second?' }, 'Second answer.')
+      await askAndAnswer(result, { question: 'Third?' }, 'Third answer.')
+
+      expect(bodyOf(2).previous).toEqual({ question: 'Second?', answer: 'Second answer.' })
+    })
+
+    it('clips a long answer to the limit the route accepts, keeping its start', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      const long = 'a'.repeat(COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH) + 'b'.repeat(300)
+      await askAndAnswer(result, { question: FIRST.question }, long)
+      await askAndAnswer(result, { question: 'And if I have no oil?' }, 'Then…')
+
+      expect(bodyOf(1).previous).toEqual({
+        question: FIRST.question,
+        answer: 'a'.repeat(COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH),
+      })
+    })
+
+    it('does not cut an emoji in half at the limit', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      // The emoji's two UTF-16 units sit at the limit's last unit and the one after it.
+      const head = 'a'.repeat(COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH - 1)
+      await askAndAnswer(result, { question: FIRST.question }, `${head}🔥 and more.`)
+      await askAndAnswer(result, { question: 'And if I have no oil?' }, 'Then…')
+
+      expect(bodyOf(1).previous.answer).toBe(head)
+    })
+
+    it('the first question on another step sends no previous', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await askAndAnswer(result, { question: FIRST.question }, FIRST.answer)
+      await askAndAnswer(result, { subject: { kind: 'step', index: 0 } }, 'About step one.')
+
+      expect(bodyOf(1)).not.toHaveProperty('previous')
+      expect(track).toHaveBeenLastCalledWith(
+        'cook_view:question_asked',
+        expect.objectContaining({ subject: 'step', subject_index: 0, has_previous: false }),
+      )
+    })
+
+    it('an item with the same index as the step sends no previous (HON-983)', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await askAndAnswer(result, { question: FIRST.question }, FIRST.answer)
+      await askAndAnswer(result, { subject: { kind: 'equipment', index: 1 } }, 'Use a pot.')
+
+      expect(bodyOf(1)).not.toHaveProperty('previous')
+    })
+
+    it('a second question on the same item sends the first one (HON-983)', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      const pan = { kind: 'equipment', index: 1 } as const
+      await askAndAnswer(result, { subject: pan, question: FIRST.question }, FIRST.answer)
+      await askAndAnswer(result, { subject: pan, question: 'Does the size matter?' }, 'A bit.')
+
+      expect(bodyOf(1).previous).toEqual(FIRST)
+    })
+
+    it('the first question after reset sends no previous', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await askAndAnswer(result, { question: FIRST.question }, FIRST.answer)
+      act(() => {
+        result.current.reset()
+      })
+      await askAndAnswer(result, { question: 'And if I have no oil?' }, 'Then…')
+
+      expect(bodyOf(1)).not.toHaveProperty('previous')
+    })
+
+    it('does not send an answer whose stream broke', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      const stream = streamed()
+      mockFetch.mockResolvedValueOnce(stream.response)
+      let broken!: Promise<void>
+      act(() => {
+        broken = result.current.ask(question({ question: FIRST.question }))
+      })
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledOnce())
+      act(() => stream.push('Use the '))
+      await waitFor(() => expect(result.current.active?.answer).toBe('Use the '))
+      await act(async () => {
+        stream.fail(new TypeError('network error'))
+        await broken
+      })
+      expect(result.current.error).not.toBeNull()
+
+      await askAndAnswer(result, { question: 'And if I have no oil?' }, 'Then…')
+
+      expect(bodyOf(1)).not.toHaveProperty('previous')
+    })
+
+    it('does not send an answer that a newer question cut off', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await askAndAnswer(result, { question: FIRST.question }, FIRST.answer)
+
+      const stream = streamed()
+      mockFetch.mockResolvedValueOnce(stream.response)
+      let cutOff!: Promise<void>
+      act(() => {
+        cutOff = result.current.ask(question({ question: 'Second?' }))
+      })
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
+      act(() => stream.push('Half an'))
+      await waitFor(() => expect(result.current.active?.answer).toBe('Half an'))
+
+      // The third fails, so nothing newer than the first is answered in full.
+      mockFetch.mockResolvedValueOnce(fail(504, { error: 'Timed out', code: 'question_timeout' }))
+      await act(async () => {
+        await result.current.ask(question({ question: 'Third?' }))
+        await cutOff
+      })
+      await askAndAnswer(result, { question: 'Fourth?' }, 'Fourth answer.')
+
+      expect(bodyOf(2).previous).toEqual(FIRST)
+      expect(bodyOf(3).previous).toEqual(FIRST)
+    })
+
+    it('retry resends the same previous', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await askAndAnswer(result, { question: FIRST.question }, FIRST.answer)
+      mockFetch
+        .mockResolvedValueOnce(fail(504, { error: 'Timed out', code: 'question_timeout' }))
+        .mockResolvedValueOnce(ok('Then…'))
+
+      await act(async () => {
+        await result.current.ask(question({ question: 'And if I have no oil?' }))
+      })
+      await act(async () => {
+        await result.current.retry()
+      })
+
+      expect(bodyOf(1).previous).toEqual(FIRST)
+      expect(bodyOf(2)).toEqual(bodyOf(1))
     })
   })
 

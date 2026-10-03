@@ -1,0 +1,69 @@
+{
+  "mealName": "Köögiviljalasanje",
+  "servings": 4,
+  "timeMinutes": 75,
+  "components": [
+    {
+      "name": "Lasanjeplaadid",
+      "quantityPerServing": 60,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Suvikõrvits",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Tomatipassata",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Ricotta",
+      "quantityPerServing": 60,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Mozzarella",
+      "quantityPerServing": 30,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Prae kuubikuteks lõigatud suvikõrvitsat 5 minutit ja sega hulka passata.",
+    "Laota vormi kolm kihti kastet, lasanjeplaate ja ricottat.",
+    "Puista peale mozzarella ja küpseta 180 °C juures 45 minutit, kuni pealt on kuldne ja servad mullitavad.",
+    "Lase 10 minutit seista, enne kui lõikad."
+  ],
+  "equipment": ["Ahjuvorm, umbes 20 × 30 cm", "Suur pann"],
+  "subject": {
+    "kind": "step",
+    "index": 2
+  },
+  "pitfalls": ["Otse ahjust lõigates libisevad kihid laiali."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "Sool",
+      "isStaple": true
+    },
+    {
+      "name": "Oliiviõli",
+      "isStaple": true
+    },
+    {
+      "name": "Fooliumpaber",
+      "isStaple": false
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": "vegetarian",
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "Mul on vähe aega. Sööme 25 minuti pärast, kas saan seda kiirendada?",
+  "locale": "et",
+  "expected": {}
+}

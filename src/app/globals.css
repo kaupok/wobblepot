@@ -173,6 +173,27 @@
   max-width: 1152px;
 }
 
+/* The widest a planner card's note slip may be (HON-975): the box between
+   `left-11/20` (`left-1/2` on a card from 448px, `@md/meal-image`) plus `pl-2`,
+   and the right inset — `right-4` on a card without the ⋯ menu, `right-13`
+   (the menu's column plus a 4px gap) on one with it. A cap rather than those
+   left and right insets, so a slip the household dragged elsewhere on the card
+   keeps the width it had and its text does not reflow. Percentages of the card
+   head, the slip's containing block. `OVERLAY_ANCHOR` in
+   src/components/meal-plan/MealImageCard.tsx; change them together. */
+@utility max-w-note-slip {
+  max-width: calc(45% - 1.5rem);
+}
+@utility max-w-note-slip-md {
+  max-width: calc(50% - 1.5rem);
+}
+@utility max-w-note-slip-actions {
+  max-width: calc(45% - 3.75rem);
+}
+@utility max-w-note-slip-actions-md {
+  max-width: calc(50% - 3.75rem);
+}
+
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -253,6 +274,10 @@
      both show through it, with faint dashed ends for the torn edge. */
   --sticky-tape: oklch(1 0 0 / 0.55);
   --sticky-tape-edge: oklch(0 0 0 / 0.08);
+  /* The slip's tilt at rest. A planner card's overlay sets its own for the
+     slip inside it, from the entry id (HON-975); every other slip inherits
+     this one. */
+  --note-tilt: -1deg;
 }
 
 .dark {

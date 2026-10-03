@@ -37,6 +37,8 @@ export async function reviewMealQuantities(
 
   const request = buildReviewRequest({ mealName, servings, ingredients, locale })
 
+  const startedAt = Date.now()
+
   const result = await withUsageOnFailure(REVIEW_MODEL, onAiUsage, () =>
     generateObject({
       ...request,
@@ -47,7 +49,7 @@ export async function reviewMealQuantities(
     }),
   )
 
-  onAiUsage?.(toAiUsageStats(REVIEW_MODEL, result.usage))
+  onAiUsage?.(toAiUsageStats(REVIEW_MODEL, result.usage, Date.now() - startedAt))
 
   await logAiSample({
     callSite: 'review-quantities',

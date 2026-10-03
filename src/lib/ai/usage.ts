@@ -18,7 +18,7 @@ import { NoObjectGeneratedError } from 'ai'
 import type { AiFeature } from '@/generated/prisma/enums'
 import { getPosthogServer } from '@/lib/posthog-server'
 import { prisma } from '@/lib/prisma'
-import { getRequestId } from '@/lib/request-id'
+import { getClientSession, getRequestId } from '@/lib/request-id'
 import { estimateCostUsd } from './pricing'
 import { toAiUsageStats, type AiUsageStats } from './usage-mapping'
 
@@ -55,23 +55,28 @@ export interface RecordAiUsageInput extends Omit<
  * failing validation spends past its cap unchecked (HON-668).
  *
  * On `NoObjectGeneratedError` the usage is reported with `success: false`
- * (still counted toward the cap) and the original error is rethrown, so each
- * caller's error mapping is unchanged. Any other error propagates untouched
- * with nothing recorded. The success path is the caller's: it keeps its own
- * `onAiUsage?.(toAiUsageStats(...))` after the call.
+ * (still counted toward the cap) with the time `run` took, and the original
+ * error is rethrown, so each caller's error mapping is unchanged. Any other
+ * error propagates untouched with nothing recorded. The success path is the
+ * caller's: it keeps its own `onAiUsage?.(toAiUsageStats(model, usage,
+ * durationMs))` after the call, timed from just before `run`.
  */
 export async function withUsageOnFailure<T>(
   model: string,
   onUsage: ((stats: AiUsageStats) => void | Promise<void>) | undefined,
   run: () => Promise<T>,
 ): Promise<T> {
+  const startedAt = Date.now()
   try {
     return await run()
   } catch (error) {
     if (NoObjectGeneratedError.isInstance(error)) {
       // A failing callback must not replace the error the caller maps.
       try {
-        await onUsage?.({ ...toAiUsageStats(model, error.usage), success: false })
+        await onUsage?.({
+          ...toAiUsageStats(model, error.usage, Date.now() - startedAt),
+          success: false,
+        })
       } catch (usageError) {
         console.error('Failed to report AI usage for a failed generation:', usageError)
       }
@@ -260,10 +265,14 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
   // `posthog-server.ts`; no `flush()` needed at the call site.
   try {
     const posthog = getPosthogServer()
+    // `$session_id` / `$current_url` join the generation to the browser
+    // session that asked for it (HON-998). Spread first so the generation's own keys win a clash.
+    const session = posthog ? await getClientSession() : {}
     posthog?.capture({
       distinctId: input.householdId,
       event: '$ai_generation',
       properties: {
+        ...session,
         $ai_input_tokens: input.inputTokens,
         $ai_cache_read_input_tokens: cacheReadTokens,
         $ai_cache_creation_input_tokens: cacheWriteTokens,
@@ -276,6 +285,7 @@ export async function recordAiUsage(input: RecordAiUsageInput): Promise<void> {
         feature: input.feature,
         household_id: input.householdId,
         retry_count: input.retryCount ?? 0,
+        ...(input.durationMs !== undefined && { $ai_latency: input.durationMs / 1000 }),
         ...(usageMissing && { $ai_usage_missing: true }),
       },
     })

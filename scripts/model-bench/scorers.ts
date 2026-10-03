@@ -28,6 +28,7 @@ import { evaluateRecipeConfidence } from '../../src/lib/ai/recipe-confidence'
 import type { RecipeExtraction } from '../../src/lib/ai/recipe-schema'
 import type { ImaginedMealsSchema } from '../../src/lib/ai/imagine-request'
 import {
+  findUnexcusedKeyword,
   findViolations,
   normalizeFoodName,
   rulesForHousehold,
@@ -35,7 +36,14 @@ import {
 } from '../../src/lib/ai/forbidden-foods'
 import type { ReviewedIngredients } from '../../src/lib/ai/review-request'
 import type { fullTipsSchema, supplementaryTipsSchema } from '../../src/lib/ai/preparation-tips'
-import type { ImagineCase, PlanCase, RecipeCase, ReviewCase, TipsCase } from './case-schema'
+import type {
+  CookQuestionCase,
+  ImagineCase,
+  PlanCase,
+  RecipeCase,
+  ReviewCase,
+  TipsCase,
+} from './case-schema'
 
 export type Scores = Record<string, number | null>
 
@@ -398,5 +406,58 @@ export function scoreTips(
       inRange(supplementary.pitfalls.length, TIPS_RANGES.supplementary.pitfalls) &&
         supplementary.tip.trim().length > 0,
     ),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// cook-question
+// ---------------------------------------------------------------------------
+
+/**
+ * Word ceilings for the answer, set from the first run (HON-972). The prompt
+ * asks for 2 to 4 sentences, and one for a question not about the meal, but
+ * English answers ran 65 to 141 words, often in 5 or 6 sentences, and a
+ * decline ran 31 to 40 words because it offers help with the step. So the
+ * ceilings catch a runaway answer or a decline that answers anyway, not a
+ * fifth sentence.
+ */
+export const COOK_QUESTION_MAX_WORDS = { answer: 150, offTopic: 50 }
+
+/**
+ * An imperial unit right after a number: "350°F", "350F", "400 degrees
+ * Fahrenheit", "2 cups", "8 oz", "a 12-inch pan". Anchored on the number, so "pound the chicken" and "a cup
+ * of tea" never match, and "200 degrees" alone is read as Celsius.
+ */
+const IMPERIAL_UNIT =
+  /\d\s*(?:°\s*f\b|f\b|degrees?\s+f(?:ahrenheit)?\b|fahrenheit|cups?\b|oz\b|ounces?\b|lbs?\b|pounds?\b|-?inch(?:es)?\b|fl\.?\s*oz)/iu
+
+const wordCount = (text: string) => text.split(/\s+/u).filter(Boolean).length
+
+/**
+ * Scores the plain-text answer. `answered` is always 1 here: an empty or
+ * truncated answer is an error before it reaches the scorer, as production
+ * shows the cook an error for it.
+ */
+export function scoreCookQuestion(input: CookQuestionCase, output: string): Scores {
+  const { offTopic, mentionsAny, forbiddenKeywords, allowedQualifiers } = input.expected
+  const text = normalizeFoodName(output)
+  const words = wordCount(output)
+  return {
+    answered: 1,
+    metricUnits: pass(!IMPERIAL_UNIT.test(output)),
+    withinLength: offTopic ? null : pass(words <= COOK_QUESTION_MAX_WORDS.answer),
+    offTopicDeclined: offTopic ? pass(words <= COOK_QUESTION_MAX_WORDS.offTopic) : null,
+    avoidsForbidden: forbiddenKeywords
+      ? pass(
+          findUnexcusedKeyword(
+            text,
+            forbiddenKeywords.map(normalizeFoodName),
+            (allowedQualifiers ?? []).map(normalizeFoodName),
+          ) === null,
+        )
+      : null,
+    mentionsExpected: mentionsAny
+      ? pass(mentionsAny.some((phrase) => text.includes(normalizeFoodName(phrase))))
+      : null,
   }
 }
