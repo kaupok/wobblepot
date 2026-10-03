@@ -777,6 +777,27 @@ export async function PATCH(
     // Standard update without pantry deduction. No `mealId` and no
     // `servingOverride`, so neither of the rules above applies: note, rating
     // and status edits are safe on a completed entry.
+    // A place for the note the entry holds now, re-tested in the write: the
+    // read above is stale by the time a concurrent clear has committed, and
+    // a place written after it would be inherited by the next note (HON-975).
+    if (updateData.noteX != null && !('note' in updateData)) {
+      const [placed] = await prisma.mealPlanEntry.updateManyAndReturn({
+        where: { id: entryId, note: { not: null } },
+        data: updateData,
+      })
+
+      if (!placed) {
+        return NextResponse.json({ error: 'Entry has no note' }, { status: 409 })
+      }
+
+      return NextResponse.json({
+        id: placed.id,
+        status: placed.status,
+        mealId: placed.mealId,
+        rating: placed.rating,
+      })
+    }
+
     const updatedEntry = await prisma.mealPlanEntry.update({
       where: { id: entryId },
       data: updateData,

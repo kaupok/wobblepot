@@ -418,6 +418,54 @@ describe('MealCard note placement (HON-975)', () => {
     }
   })
 
+  it('puts the slip back when its save fails', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ error: 'Failed' }), { status: 500 })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    vi.useFakeTimers()
+    try {
+      renderCard({ meal, note: 'Leftovers' })
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Leftovers' }), { key: 'ArrowLeft' })
+      expect(overlay()).toHaveAttribute('data-placed')
+
+      vi.advanceTimersByTime(400)
+
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(overlay()).not.toHaveAttribute('data-placed'))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps a later move when an earlier save fails', async () => {
+    let failFirst: (response: Response) => void = () => {}
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (failFirst = resolve)))
+      .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({}), { status: 200 })))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.useFakeTimers()
+    try {
+      renderCard({ meal, note: 'Leftovers' })
+      const slip = screen.getByRole('button', { name: 'Leftovers' })
+      fireEvent.keyDown(slip, { key: 'ArrowLeft' })
+      vi.advanceTimersByTime(400)
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+      // The slip moves again while the first save is still out.
+      fireEvent.keyDown(slip, { key: 'ArrowLeft' })
+      failFirst(new Response(JSON.stringify({ error: 'Failed' }), { status: 500 }))
+      vi.advanceTimersByTime(400)
+
+      // The saves run in order, and the failed one does not undo the move.
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      expect(overlay()).toHaveAttribute('data-placed')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('opens the editor on Enter, as before', async () => {
     renderCard({ meal, note: 'Leftovers' })
     const slip = screen.getByRole('button', { name: 'Leftovers' })

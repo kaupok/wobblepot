@@ -1963,16 +1963,31 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - note position', () => {
   const patch = (body: Record<string, unknown>) =>
     PATCH(createPatchRequest(body), { params: createParams() })
 
-  it('saves both axes', async () => {
+  it('saves both axes, only while the entry still has a note', async () => {
     entryWithNote('Use the big pot')
+    mockClaimEntry.mockResolvedValue([
+      { id: 'entry-123', status: 'planned', mealId: 'meal-123', rating: null },
+    ] as never)
 
     const response = await patch({ noteX: 0.25, noteY: 0.5 })
 
     expect(response.status).toBe(200)
-    expect(mockUpdateEntry).toHaveBeenCalledWith({
-      where: { id: 'entry-123' },
+    expect(mockClaimEntry).toHaveBeenCalledWith({
+      where: { id: 'entry-123', note: { not: null } },
       data: { noteX: 0.25, noteY: 0.5 },
     })
+    expect(mockUpdateEntry).not.toHaveBeenCalled()
+  })
+
+  it('refuses a position when the note was cleared after the read', async () => {
+    // The read saw a note; a clear committed before the write, which matches
+    // nothing.
+    entryWithNote('Use the big pot')
+    mockClaimEntry.mockResolvedValue([] as never)
+
+    const response = await patch({ noteX: 0.25, noteY: 0.5 })
+
+    expect(response.status).toBe(409)
   })
 
   it('resets the position with both axes null', async () => {

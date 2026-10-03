@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -51,6 +51,36 @@ interface Measured {
 }
 
 /**
+ * The slip's size and place, and the bounds it moves in: the overlay wrapper
+ * hugs the slip and is not rotated, and the card head is what it is
+ * positioned in.
+ */
+function measureOverlay(
+  wrapper: HTMLElement,
+  head: HTMLElement,
+  firstRow: HTMLElement | null,
+  menu: HTMLElement | null,
+  tilt: number,
+): Measured {
+  const headBox = head.getBoundingClientRect()
+  const wrapperBox = wrapper.getBoundingClientRect()
+  const firstRowBox = firstRow?.getBoundingClientRect()
+  const menuBox = menu?.getBoundingClientRect()
+  return {
+    bounds: {
+      width: head.clientWidth,
+      height: head.clientHeight,
+      firstRowBottom: firstRowBox ? firstRowBox.bottom - headBox.top : 0,
+      menuLeft: menuBox ? menuBox.left - headBox.left : null,
+    },
+    // The rect rather than `offsetWidth`, which rounds to whole px.
+    slip: { width: wrapperBox.width, height: wrapperBox.height, tilt },
+    left: wrapperBox.left - headBox.left,
+    top: wrapperBox.top - headBox.top,
+  }
+}
+
+/**
  * Drag a planner card's note slip to a new place on its card, with the pointer
  * or the arrow keys, and save the place for the household (HON-975).
  *
@@ -72,6 +102,12 @@ export function useNoteDrag({
   const [position, setPosition] = useState<NotePosition | null>(initialPosition)
   // What the server holds: the place a failed save goes back to.
   const savedRef = useRef<NotePosition | null>(initialPosition)
+  // The last place a move asked for. A failed save only reverts the slip if
+  // nothing moved it since: a later move is already on its way to the server.
+  const latestMoveRef = useRef<NotePosition | null>(null)
+  // A saved place re-clamped to this card's current size, for display only
+  // (see the layout effect below). Keyed by the place it was fitted from.
+  const [fitted, setFitted] = useState<{ from: NotePosition; to: NotePosition } | null>(null)
   const pressRef = useRef<{
     pointerId: number
     x: number
@@ -94,6 +130,9 @@ export function useNoteDrag({
   useEffect(() => clearKeySaveTimer, [clearKeySaveTimer])
 
   const saveMutation = useMutation({
+    // One at a time, in order: two quick drops must reach the server in the
+    // order they were made, or the earlier one would win.
+    scope: { id: `note-position-${entryId}` },
     mutationFn: (next: NotePosition) =>
       apiFetch(
         `/api/meal-plans/${planId}/entries/${entryId}`,
@@ -108,9 +147,11 @@ export function useNoteDrag({
       savedRef.current = next
     },
     // Optimistic: the slip already lies where it was dropped. A failure puts
-    // it back where the server has it. The server's error prose is English;
-    // the localized copy is always shown.
-    onError: () => {
+    // it back where the server has it, unless the slip has moved again since.
+    // The server's error prose is English; the localized copy is always shown.
+    onError: (_error, failed) => {
+      if (latestMoveRef.current !== failed) return
+      latestMoveRef.current = null
       setPosition(savedRef.current)
       toast.error(t('moveFailed'))
     },
@@ -120,30 +161,52 @@ export function useNoteDrag({
   function measure(slipElement: HTMLElement): Measured | null {
     const wrapper = slipElement.closest<HTMLElement>('[data-slot="meal-image-overlay"]')
     const head = wrapper?.closest<HTMLElement>('[data-slot="meal-image-head"]')
-    if (!wrapper || !head) return null
-    const headBox = head.getBoundingClientRect()
-    const wrapperBox = wrapper.getBoundingClientRect()
-    const firstRow = firstRowRef.current?.getBoundingClientRect()
-    const menu = menuRef.current?.getBoundingClientRect()
-    return {
-      bounds: {
-        width: head.clientWidth,
-        height: head.clientHeight,
-        firstRowBottom: firstRow ? firstRow.bottom - headBox.top : 0,
-        menuLeft: menu ? menu.left - headBox.left : null,
-      },
-      slip: { width: wrapper.offsetWidth, height: wrapper.offsetHeight, tilt },
-      left: wrapperBox.left - headBox.left,
-      top: wrapperBox.top - headBox.top,
-    }
+    return wrapper && head
+      ? measureOverlay(wrapper, head, firstRowRef.current, menuRef.current, tilt)
+      : null
   }
 
   function moveTo(measured: Measured, left: number, top: number): NotePosition {
     const clamped = clampNotePosition(left, top, measured.slip, measured.bounds)
     const next = toNotePosition(clamped.left, clamped.top, measured.slip, measured.bounds)
+    latestMoveRef.current = next
     setPosition(next)
     return next
   }
+
+  // A saved place is a fraction of the room the slip had where it was set. On
+  // a card that is shorter now (a swap to a one-line name, a narrower screen),
+  // the same fraction can lie over the first row and the ⋯ menu. Re-clamp it
+  // to the card as it is, for display only: the saved place is the
+  // household's, and on a card that grows again it is right again. The
+  // observer reports once on `observe`, so this also runs on mount.
+  useLayoutEffect(() => {
+    const head = firstRowRef.current?.closest<HTMLElement>('[data-slot="meal-image-head"]')
+    const wrapper = head?.querySelector<HTMLElement>(':scope > [data-slot="meal-image-overlay"]')
+    if (!position || !head || !wrapper || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      // The wide editor box is not where the slip lies: nothing to fit.
+      if (!wrapper.hasAttribute('data-placed')) return
+      const measured = measureOverlay(wrapper, head, firstRowRef.current, menuRef.current, tilt)
+      const roomX = measured.bounds.width - measured.slip.width
+      const roomY = measured.bounds.height - measured.slip.height
+      const left = position.x * Math.max(0, roomX)
+      const top = position.y * Math.max(0, roomY)
+      const clamped = clampNotePosition(left, top, measured.slip, measured.bounds)
+      const moved = Math.abs(clamped.left - left) > 0.5 || Math.abs(clamped.top - top) > 0.5
+      setFitted(
+        moved
+          ? {
+              from: position,
+              to: toNotePosition(clamped.left, clamped.top, measured.slip, measured.bounds),
+            }
+          : null,
+      )
+    })
+    observer.observe(head)
+    observer.observe(wrapper)
+    return () => observer.disconnect()
+  }, [position, firstRowRef, menuRef, tilt])
 
   function onPointerDown(event: React.PointerEvent<HTMLElement>) {
     suppressClickRef.current = false
@@ -229,11 +292,13 @@ export function useNoteDrag({
   const reset = useCallback(() => {
     clearKeySaveTimer()
     savedRef.current = null
+    latestMoveRef.current = null
     setPosition(null)
   }, [clearKeySaveTimer])
 
   return {
-    position,
+    /** Where the slip lies: the saved or moved place, fitted to the card as it is now. */
+    position: fitted && fitted.from === position ? fitted.to : position,
     reset,
     /** Says the slip moves with the arrow keys (WCAG 2.5.7); render it, hidden, at `hintId`. */
     hint: t('moveHint'),

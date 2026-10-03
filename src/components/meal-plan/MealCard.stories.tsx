@@ -674,6 +674,34 @@ export const SavedNotePosition: Story = {
   },
 }
 
+/**
+ * A place saved against more room than this card has: flush with the top
+ * right corner, over the ⋯ menu. It is fitted to the card as it is, for
+ * display, so the menu stays reachable and the slip stays on the card
+ * (HON-975).
+ */
+export const SavedPlaceKeepsMenuClear: Story = {
+  name: 'Saved place over the menu (phone)',
+  args: { ...PlannedWithImageAndNote.args, noteX: 1, noteY: 0 },
+  parameters: { cardWidth: 'phone' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await canvas.findByRole('img', { name: mealFixture.name })
+    await document.fonts.ready
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    const slip = canvas.getByRole('button', { name: NOTE })
+    const menu = canvas.getByRole('button', { name: /^more actions/i })
+    await waitFor(() =>
+      expect(overlaps(slip.getBoundingClientRect(), menu.getBoundingClientRect())).toBe(false),
+    )
+    const slipBox = slip.getBoundingClientRect()
+    const cardBox = card.getBoundingClientRect()
+    await expect(slipBox.top).toBeGreaterThanOrEqual(cardBox.top)
+    await expect(slipBox.bottom).toBeLessThanOrEqual(cardBox.bottom)
+    await expect(slipBox.right).toBeLessThanOrEqual(cardBox.right)
+  },
+}
+
 const PAST_NOTE = 'Swapped the rice for couscous — do that again.'
 
 /**

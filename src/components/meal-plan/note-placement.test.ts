@@ -58,9 +58,9 @@ describe('clampNotePosition', () => {
     expect(clampNotePosition(100, 500, slip, tall).top).toBe(200 - 60)
   })
 
-  it('keeps the slip below the first row', () => {
-    expect(clampNotePosition(100, 0, slip, tall).top).toBe(36)
-    expect(clampNotePosition(100, -40, slip, tall).top).toBe(36)
+  it('keeps the slip below the first row, with a gap', () => {
+    expect(clampNotePosition(100, 0, slip, tall).top).toBe(36 + NOTE_EDGE_INSET)
+    expect(clampNotePosition(100, -40, slip, tall).top).toBe(36 + NOTE_EDGE_INSET)
   })
 
   it('lets the slip reach the right edge below the first row', () => {
@@ -99,7 +99,7 @@ describe('clampNotePosition', () => {
 
     const topLeft = clampNotePosition(-50, -50, tilted, tall)
     expect(topLeft.left).toBeCloseTo(NOTE_EDGE_INSET + overhangX, 6)
-    expect(topLeft.top).toBeCloseTo(36 + overhangY, 6)
+    expect(topLeft.top).toBeCloseTo(36 + NOTE_EDGE_INSET + overhangY, 6)
 
     const bottomRight = clampNotePosition(900, 900, tilted, tall)
     expect(bottomRight.left).toBeCloseTo(400 - NOTE_EDGE_INSET - overhangX - 120, 6)

@@ -95,7 +95,7 @@ export interface NoteBounds {
   menuLeft: number | null
 }
 
-/** Clear space the slip keeps from the head's sides and from the ⋯ menu. */
+/** Clear space the slip keeps from the head's sides, from the first row and from the ⋯ menu. */
 export const NOTE_EDGE_INSET = 4
 
 /**
@@ -129,7 +129,7 @@ export function clampNotePosition(
 ): { left: number; top: number } {
   const overhang = tiltOverhang(slip)
   const maxTop = Math.max(0, bounds.height - slip.height - overhang.y)
-  const belowFirstRow = bounds.firstRowBottom + overhang.y
+  const belowFirstRow = bounds.firstRowBottom + NOTE_EDGE_INSET + overhang.y
   const minTop = Math.min(belowFirstRow, maxTop)
   const clampedTop = Math.min(Math.max(top, minTop), maxTop)
 
