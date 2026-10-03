@@ -142,32 +142,61 @@ describe('InventoryPage view', () => {
     },
   )
 
-  // The list half is the shopping note's paper; the pantry half stays neutral (HON-1012).
+  // The page stays neutral edge to edge: no layer paints the viewport and
+  // neither column is a surface. The note is one sheet inside the shopping
+  // column, and only once there is a list to put on it (HON-1016).
   it.each(['shopping', 'pantry'] as const)(
-    'view="%s" puts the shopping column, and only it, on the note surface',
+    'view="%s" puts the list, and only the list, on one note sheet',
     (view) => {
-      renderPage({ view, emptyStateVariant: 'nothing-needed', windowDays: 7 })
+      const { container } = renderPage({
+        view,
+        windowDays: 7,
+        shoppingData: {
+          windowDays: 7,
+          startDate: '2026-02-16',
+          endDate: '2026-02-23',
+          groups: [
+            {
+              category: 'vegetable',
+              items: [
+                {
+                  ingredientId: 'v1',
+                  name: 'Carrot',
+                  displayQuantity: '2',
+                  purchased: false,
+                  neededByDate: '2026-02-18',
+                  neededByRelative: 'Wed',
+                  neededByAbsolute: 'Feb 18',
+                },
+              ],
+            },
+          ],
+          initialPurchasedIds: new Set<string>(),
+        },
+      })
 
-      expect(screen.getByTestId('shopping-column')).toHaveAttribute('data-surface', 'note')
+      expect(screen.getByTestId('shopping-column')).not.toHaveAttribute('data-surface')
       expect(screen.getByTestId('pantry-column')).not.toHaveAttribute('data-surface')
+
+      const surfaces = container.querySelectorAll('[data-surface]')
+      expect(surfaces).toHaveLength(1)
+      expect(surfaces[0]).toBe(screen.getByTestId('shopping-sheet'))
+      expect(within(screen.getByTestId('shopping-column')).getByTestId('shopping-sheet')).toBe(
+        surfaces[0],
+      )
     },
   )
 
-  // The paper runs to the viewport's edges, so it is a fixed layer behind the
-  // page: the right half from `md`, the whole screen on a phone on `/shopping`
-  // and none of it on a phone on `/pantry`.
-  it.each([
-    ['shopping', ['left-0'], ['hidden']],
-    ['pantry', ['hidden', 'md:block'], ['left-0']],
-  ] as const)('view="%s" lays the paper behind the list half', (view, has, hasNot) => {
-    renderPage({ view, emptyStateVariant: 'nothing-needed', windowDays: 7 })
+  // There is no list to put on paper, so the empty and load-failed states
+  // render on the page background.
+  it.each(['no-plan', 'nothing-needed', 'error'] as const)(
+    'renders the %s state with no sheet',
+    (emptyStateVariant) => {
+      const { container } = renderPage({ emptyStateVariant, windowDays: 7 })
 
-    const paper = screen.getByTestId('shopping-paper')
-    expect(paper).toHaveAttribute('data-surface', 'note')
-    expect(paper).toHaveAttribute('aria-hidden', 'true')
-    expect(paper).toHaveClass('fixed', 'inset-y-0', 'right-0', '-z-10', 'md:left-1/2', ...has)
-    for (const cls of hasNot) expect(paper).not.toHaveClass(cls)
-  })
+      expect(container.querySelector('[data-surface]')).toBeNull()
+    },
+  )
 
   // One h1 per page, ahead of the column h2s, visually hidden (HON-815).
   it.each(['shopping', 'pantry'] as const)(

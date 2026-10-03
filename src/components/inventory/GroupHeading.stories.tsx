@@ -108,8 +108,8 @@ export const Progress: Story = {
 }
 
 /**
- * A shopping group on the note's paper, where the list half of Pantry &
- * shopping sits (HON-1012). The count takes the note's muted token through the
+ * A shopping group on the note's sheet, where the list on Pantry & shopping
+ * sits (HON-1016). The count takes the note's muted token through the
  * caption, not the neutral grey.
  */
 export const OnNote: Story = {

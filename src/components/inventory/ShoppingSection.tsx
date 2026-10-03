@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { RowGroup } from '@/components/ui/row-group'
 import {
   CategoryGroup,
@@ -481,135 +482,146 @@ export function ShoppingSection({
           </Button>
         )}
       </ShoppingListHeader>
-      <div className="flex flex-col gap-6">
-        <CustomItemInput onItemAdded={handleCustomItemAdded} disabled={isPending} />
-
-        {sortMode === 'category' && (
+      {/* The list is the shopping note's sheet, the paper of Today's
+          `UrgentShopping` (HON-1016). The title and controls stay on the page
+          above it, level with the pantry's title and search; the sheet holds
+          the Add field and the groups, whose rows are ruled rather than boxed
+          because the sheet is already the container. */}
+      <Card data-surface="note" data-testid="shopping-sheet">
+        <CardContent>
           <div className="flex flex-col gap-6">
-            {enhancedGroups.map((group) => (
-              <CategoryGroup
-                key={group.category}
-                category={group.category}
-                items={group.items}
-                customItems={linkedCustomByCategory.get(group.category)}
-                onToggleItem={handleToggle}
-                onToggleCustomItem={handleCustomToggle}
-                onUnlinkCustomItem={handleCustomUnlink}
-                onDeleteCustomItem={handleCustomDelete}
-                pendingIds={allPendingIds}
-              />
-            ))}
-            {/* Render category groups that only have custom items (no computed items) */}
-            {Array.from(linkedCustomByCategory.entries())
-              .filter(([cat]) => !enhancedGroups.some((g) => g.category === cat))
-              .map(([category, items]) => (
-                <CategoryGroup
-                  key={category}
-                  category={category as IngredientCategory}
-                  items={[]}
-                  customItems={items}
-                  onToggleItem={handleToggle}
-                  onToggleCustomItem={handleCustomToggle}
-                  onUnlinkCustomItem={handleCustomUnlink}
-                  onDeleteCustomItem={handleCustomDelete}
-                  pendingIds={allPendingIds}
-                />
-              ))}
-            {/* Unlinked custom items in "Other" section */}
-            {unlinkedCustomItems.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <GroupHeading
-                  emoji={CUSTOM_ITEMS_EMOJI}
-                  label={tShopping('otherSectionTitle')}
-                  total={unlinkedCustomItems.length}
-                  count={
-                    unlinkedCustomItems.filter((i) => i.checked).length > 0 &&
-                    `${unlinkedCustomItems.filter((i) => i.checked).length}/${unlinkedCustomItems.length}`
-                  }
-                />
-                <RowGroup>
-                  {unlinkedCustomItems.map((item) => (
-                    <CustomShoppingItem
-                      key={item.id}
-                      item={item}
-                      onToggle={handleCustomToggle}
-                      onUnlink={handleCustomUnlink}
-                      onDelete={handleCustomDelete}
-                      pending={pendingCustomIds.has(item.id)}
+            <CustomItemInput onItemAdded={handleCustomItemAdded} disabled={isPending} />
+
+            {sortMode === 'category' && (
+              <div className="flex flex-col gap-6">
+                {enhancedGroups.map((group) => (
+                  <CategoryGroup
+                    key={group.category}
+                    category={group.category}
+                    items={group.items}
+                    customItems={linkedCustomByCategory.get(group.category)}
+                    onToggleItem={handleToggle}
+                    onToggleCustomItem={handleCustomToggle}
+                    onUnlinkCustomItem={handleCustomUnlink}
+                    onDeleteCustomItem={handleCustomDelete}
+                    pendingIds={allPendingIds}
+                  />
+                ))}
+                {/* Render category groups that only have custom items (no computed items) */}
+                {Array.from(linkedCustomByCategory.entries())
+                  .filter(([cat]) => !enhancedGroups.some((g) => g.category === cat))
+                  .map(([category, items]) => (
+                    <CategoryGroup
+                      key={category}
+                      category={category as IngredientCategory}
+                      items={[]}
+                      customItems={items}
+                      onToggleItem={handleToggle}
+                      onToggleCustomItem={handleCustomToggle}
+                      onUnlinkCustomItem={handleCustomUnlink}
+                      onDeleteCustomItem={handleCustomDelete}
+                      pendingIds={allPendingIds}
                     />
                   ))}
-                </RowGroup>
+                {/* Unlinked custom items in "Other" section */}
+                {unlinkedCustomItems.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <GroupHeading
+                      emoji={CUSTOM_ITEMS_EMOJI}
+                      label={tShopping('otherSectionTitle')}
+                      total={unlinkedCustomItems.length}
+                      count={
+                        unlinkedCustomItems.filter((i) => i.checked).length > 0 &&
+                        `${unlinkedCustomItems.filter((i) => i.checked).length}/${unlinkedCustomItems.length}`
+                      }
+                    />
+                    <RowGroup variant="ruled">
+                      {unlinkedCustomItems.map((item) => (
+                        <CustomShoppingItem
+                          key={item.id}
+                          item={item}
+                          onToggle={handleCustomToggle}
+                          onUnlink={handleCustomUnlink}
+                          onDelete={handleCustomDelete}
+                          pending={pendingCustomIds.has(item.id)}
+                        />
+                      ))}
+                    </RowGroup>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {sortMode === 'urgency' && (
-          <div className="flex flex-col gap-6">
-            {/* In urgency mode, show all custom items in a single "Custom items"
+            {sortMode === 'urgency' && (
+              <div className="flex flex-col gap-6">
+                {/* In urgency mode, show all custom items in a single "Custom items"
                 group. It leads: the items have no date, and a new one lands
                 right under the input that added it. */}
-            {customItems.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <GroupHeading
-                  emoji={CUSTOM_ITEMS_EMOJI}
-                  label={tShopping('customItemsSectionTitle')}
-                  total={customItems.length}
-                  count={checkedCustomCount > 0 && `${checkedCustomCount}/${customItems.length}`}
-                />
-                <RowGroup>
-                  {customItems.map((item) => (
+                {customItems.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <GroupHeading
+                      emoji={CUSTOM_ITEMS_EMOJI}
+                      label={tShopping('customItemsSectionTitle')}
+                      total={customItems.length}
+                      count={
+                        checkedCustomCount > 0 && `${checkedCustomCount}/${customItems.length}`
+                      }
+                    />
+                    <RowGroup variant="ruled">
+                      {customItems.map((item) => (
+                        <CustomShoppingItem
+                          key={item.id}
+                          item={item}
+                          onToggle={handleCustomToggle}
+                          onUnlink={handleCustomUnlink}
+                          onDelete={handleCustomDelete}
+                          pending={pendingCustomIds.has(item.id)}
+                        />
+                      ))}
+                    </RowGroup>
+                  </div>
+                )}
+                {urgencyGroups.map((group) => (
+                  <UrgencyGroup
+                    key={group.bucket}
+                    bucket={group.bucket}
+                    items={group.items}
+                    onToggleItem={handleToggle}
+                    pendingIds={pendingIds}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* `alphabeticalItems.length > 0`: a `RowGroup` with no rows is an
+                empty flex child, which would add a stray gap under the Add
+                field after an empty list's last custom item is deleted. */}
+            {sortMode === 'alphabetical' && alphabeticalItems.length > 0 && (
+              <RowGroup variant="ruled">
+                {alphabeticalItems.map((entry) =>
+                  entry.kind === 'computed' ? (
+                    <ShoppingItem
+                      key={entry.item.ingredientId}
+                      item={entry.item}
+                      onToggle={handleToggle}
+                      pending={pendingIds.has(entry.item.ingredientId)}
+                    />
+                  ) : (
                     <CustomShoppingItem
-                      key={item.id}
-                      item={item}
+                      key={entry.item.id}
+                      item={entry.item}
                       onToggle={handleCustomToggle}
                       onUnlink={handleCustomUnlink}
                       onDelete={handleCustomDelete}
-                      pending={pendingCustomIds.has(item.id)}
+                      pending={pendingCustomIds.has(entry.item.id)}
                     />
-                  ))}
-                </RowGroup>
-              </div>
+                  ),
+                )}
+              </RowGroup>
             )}
-            {urgencyGroups.map((group) => (
-              <UrgencyGroup
-                key={group.bucket}
-                bucket={group.bucket}
-                items={group.items}
-                onToggleItem={handleToggle}
-                pendingIds={pendingIds}
-              />
-            ))}
           </div>
-        )}
-
-        {/* `alphabeticalItems.length > 0`: a `RowGroup` with no rows is a bare
-            outline, which an empty list would show after its last custom item
-            is deleted. */}
-        {sortMode === 'alphabetical' && alphabeticalItems.length > 0 && (
-          <RowGroup>
-            {alphabeticalItems.map((entry) =>
-              entry.kind === 'computed' ? (
-                <ShoppingItem
-                  key={entry.item.ingredientId}
-                  item={entry.item}
-                  onToggle={handleToggle}
-                  pending={pendingIds.has(entry.item.ingredientId)}
-                />
-              ) : (
-                <CustomShoppingItem
-                  key={entry.item.id}
-                  item={entry.item}
-                  onToggle={handleCustomToggle}
-                  onUnlink={handleCustomUnlink}
-                  onDelete={handleCustomDelete}
-                  pending={pendingCustomIds.has(entry.item.id)}
-                />
-              ),
-            )}
-          </RowGroup>
-        )}
-      </div>
+        </CardContent>
+      </Card>
     </section>
   )
 }

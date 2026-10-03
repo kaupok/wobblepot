@@ -7,8 +7,15 @@ import { cn } from '@/lib/utils'
 // after that thing rather than after a radius (HON-674). Size stays with the
 // callsite (`h-*`, `w-*`, `size-*`); the corner belongs here, so a skeleton
 // cannot drift from the element it mirrors one `rounded-*` at a time.
-const skeletonVariants = cva('bg-accent animate-pulse', {
+const skeletonVariants = cva('animate-pulse', {
   variants: {
+    tone: {
+      default: 'bg-accent',
+      // Inside the shopping list's note sheet (HON-1016). The note re-maps
+      // `--accent` to its chip, the colour of the sheet's dividers, so a
+      // full-accent bar is as loud as a rule; half of it sits under them.
+      soft: 'bg-accent/50',
+    },
     shape: {
       // Text lines, buttons, inputs — every `rounded-md` control.
       default: 'rounded-md',
@@ -23,6 +30,7 @@ const skeletonVariants = cva('bg-accent animate-pulse', {
     },
   },
   defaultVariants: {
+    tone: 'default',
     shape: 'default',
   },
 })
@@ -30,6 +38,7 @@ const skeletonVariants = cva('bg-accent animate-pulse', {
 function Skeleton({
   className,
   shape,
+  tone,
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof skeletonVariants>) {
   // No 'use client': most callers are server `loading.tsx` files, where
@@ -39,10 +48,11 @@ function Skeleton({
     <div
       data-slot="skeleton"
       data-shape={shape ?? 'default'}
+      data-tone={tone ?? 'default'}
       role="status"
       aria-busy="true"
       aria-label={t('loading')}
-      className={cn(skeletonVariants({ shape }), className)}
+      className={cn(skeletonVariants({ shape, tone }), className)}
       {...props}
     />
   )

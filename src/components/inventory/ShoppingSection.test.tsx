@@ -6,6 +6,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import { ShoppingSection } from './ShoppingSection'
+import { SORT_STORAGE_KEY } from './shopping-sort'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { track } from '@/lib/analytics'
 import { formatDateRange } from '@/lib/i18n/format-dates'
@@ -590,6 +591,64 @@ describe('ShoppingSection header summary', () => {
     const fragment = screen.getByText('· 1 purchased')
     expect(fragment.tagName).toBe('SPAN')
     expect(fragment).toHaveClass('whitespace-nowrap')
+  })
+})
+
+/**
+ * The list sits on one note sheet, the paper of Today's `UrgentShopping`; the
+ * title and controls stay on the page above it (HON-1016).
+ */
+describe('ShoppingSection note sheet', () => {
+  it('holds the Add field and every group, and nothing of the header', () => {
+    renderSection()
+
+    const sheet = screen.getByTestId('shopping-sheet')
+    expect(sheet).toHaveAttribute('data-surface', 'note')
+    expect(
+      within(sheet).getByRole('textbox', { name: 'Add custom item to shopping list' }),
+    ).toBeInTheDocument()
+    expect(within(sheet).getByText('Carrot')).toBeInTheDocument()
+    expect(within(sheet).getByText('Beef')).toBeInTheDocument()
+
+    expect(within(sheet).queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+    expect(within(sheet).queryByRole('combobox')).not.toBeInTheDocument()
+    expect(within(sheet).queryByText('3 items')).not.toBeInTheDocument()
+  })
+
+  // A bordered group inside the bordered sheet is a card inside a card.
+  it.each(['urgency', 'category', 'alphabetical'] as const)(
+    'rules the rows in %s mode rather than boxing them',
+    (mode) => {
+      localStorage.setItem(SORT_STORAGE_KEY, mode)
+      renderSection({
+        initialCustomItems: [
+          {
+            id: 'c1',
+            name: 'Napkins',
+            checked: false,
+            ingredientId: null,
+            ingredientCategory: null,
+            createdAt: '2026-02-16T00:00:00.000Z',
+          },
+        ],
+      })
+
+      const groups = screen
+        .getByTestId('shopping-sheet')
+        .querySelectorAll('[data-slot="row-group"]')
+      expect(groups.length).toBeGreaterThan(0)
+      for (const group of groups) {
+        expect(group).toHaveAttribute('data-variant', 'ruled')
+        expect(group).not.toHaveClass('border')
+      }
+    },
+  )
+
+  it('draws no sheet once everything is purchased', () => {
+    renderSection({ initialPurchasedIds: new Set(['v1', 'v2', 'p1']) })
+
+    expect(screen.queryByTestId('shopping-sheet')).not.toBeInTheDocument()
+    expect(document.querySelector('[data-surface]')).toBeNull()
   })
 })
 

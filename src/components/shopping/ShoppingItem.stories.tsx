@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
+import { Card, CardContent } from '@/components/ui/card'
 import { RowGroup } from '@/components/ui/row-group'
 import { createShoppingItem } from '@/stories/fixtures'
 import { ShoppingItem } from './ShoppingItem'
@@ -24,13 +25,17 @@ const meta = {
     onToggle: fn(),
   },
   decorators: [
-    // The row has no border of its own: the live list draws one `RowGroup`
-    // around each group of rows.
+    // The row has no border of its own: the live list rules each group of
+    // rows (`RowGroup variant="ruled"`) on the shopping note's sheet (HON-1016).
     (Story) => (
       <div className="max-w-md">
-        <RowGroup>
-          <Story />
-        </RowGroup>
+        <Card data-surface="note">
+          <CardContent>
+            <RowGroup variant="ruled">
+              <Story />
+            </RowGroup>
+          </CardContent>
+        </Card>
       </div>
     ),
   ],

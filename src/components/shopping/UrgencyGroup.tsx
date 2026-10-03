@@ -48,7 +48,7 @@ export function UrgencyGroup({
         total={totalCount}
         count={purchasedCount > 0 && `${purchasedCount}/${totalCount}`}
       />
-      <RowGroup>
+      <RowGroup variant="ruled">
         {items.map((item) => (
           <ShoppingItem
             key={item.ingredientId}
