@@ -1,6 +1,6 @@
 ---
 name: implement-issue
-description: Implement an approved plan. Reads plan from Linear, creates branch, and begins implementation.
+description: Implement a Linear issue on its branch from the plan posted to Linear. The default for 'implement HON-X'; it stops after implementation and does not open a PR or merge.
 argument-hint: 'HON-XX [--no-plan]'
 context: inherit
 ---

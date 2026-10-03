@@ -74,8 +74,6 @@ Reference skills for AI coding agents, installed from [skills.sh](https://skills
 | -------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
 | `.agents/skills/better-auth-best-practices/` | [better-auth/skills](https://github.com/better-auth/skills) (`better-auth/best-practices`) | No licence file present — retained as upstream reference |
 | `.agents/skills/create-auth-skill/`          | [better-auth/skills](https://github.com/better-auth/skills) (`better-auth/create-auth`)    | No licence file present — retained as upstream reference |
-| `.agents/skills/next-best-practices/`        | [vercel-labs/next-skills](https://github.com/vercel-labs/next-skills)                      | No licence file present — retained as upstream reference |
-| `.agents/skills/next-cache-components/`      | [vercel-labs/next-skills](https://github.com/vercel-labs/next-skills)                      | No licence file present — retained as upstream reference |
 | `.agents/skills/next-upgrade/`               | [vercel-labs/next-skills](https://github.com/vercel-labs/next-skills)                      | No licence file present — retained as upstream reference |
 
 `vercel-labs/next-skills` has since been retired in favour of skills maintained in the [Next.js repository](https://github.com/vercel/next.js/tree/canary/skills); the copies here predate that move. `next-upgrade` also carries a local project-notes block added by Honkadori OÜ.

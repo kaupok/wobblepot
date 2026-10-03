@@ -1,6 +1,6 @@
 ---
 name: next-issue
-description: Find the next unblocked Linear issue to work on. Use when user says "continue implementation" or asks what to work on next. Auto mode (stricter no-human-input filters) is enabled only by the literal token `--auto` in the skill args — never translate prose like "no input needed" or "pure code only" into `--auto`; ask the user to re-invoke with the flag instead. For refined variations ("three without blockers", etc.) re-invoke this skill rather than ad-hoc delegating to a general-purpose agent — its filters are the reason it exists.
+description: Find the next unblocked Linear issue to work on. Use when the user asks what to work on next or says 'continue implementation'. Pass `--auto` only when the user typed `--auto`; never infer it from prose.
 argument-hint: '[--auto]'
 context: fork
 agent: general-purpose
@@ -158,6 +158,12 @@ wt auto [gitBranchName-3]
 The "Parallel Commands" section provides ready-to-copy commands using the `gitBranchName` from Linear. Each command creates a worktree and runs autonomous implementation.
 
 If fewer than 3 unblocked issues exist, return only what's available.
+
+End the output, before the completion marker, with this line verbatim. This skill runs as a fork, so the caller never reads this body; the two rules in `## Important` that govern the caller reach it only through the output:
+
+```
+Caller note: for a refined variation, re-invoke /next-issue rather than delegating to a general-purpose agent. For the no-human-input filters, ask the user to re-invoke with the literal `--auto` flag; never translate prose into `--auto`.
+```
 
 ## Completion
 
