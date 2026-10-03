@@ -48,7 +48,7 @@ async function frameWith(...rects: Rect[]): Promise<Uint8Array> {
   return new Uint8Array(png)
 }
 
-/** A 180 px rim (0.60 of 300) on rows 50–149, so the rim row is 100 — the frame's centre line. */
+/** A 180 px rim (0.60 of 300) on rows 50–149, so the rim row and the box's centre are 100 — the frame's centre line. */
 const fp = (overrides: Partial<Footprint> = {}): Footprint => ({
   left: 60,
   right: 239,
@@ -67,6 +67,21 @@ const rimCentre = (f: Footprint) => ({
   x: (f.rimLeft + f.rimRight + 1) / 2 / f.frameWidth,
   y: f.rimRow / f.frameHeight,
 })
+
+/** The bounding box's vertical centre in pixels. */
+const boxCentreY = (f: Footprint) => (f.top + f.bottom + 1) / 2
+
+/** A stack 100 px tall on a 20 px plate, drawn high: the box's centre is row 80, the rim row 130. */
+const tallStack: Rect[] = [
+  { left: 120, top: 20, width: 60, height: 100 },
+  { left: 60, top: 120, width: 180, height: 20 },
+]
+
+/** A 10 px rim on a body 120 px deep: the rim sits near the top of the box. */
+const deepBowl: Rect[] = [
+  { left: 60, top: 30, width: 180, height: 10 },
+  { left: 90, top: 40, width: 120, height: 120 },
+]
 
 describe('HON-1024: footprint measurement', () => {
   it('measures a rectangle on white to the pixel, with the rim on its middle row', async () => {
@@ -190,7 +205,7 @@ describe('HON-1024: fit plan', () => {
     }
   })
 
-  it('keeps an image whose rim is within 3.5% of the target width and on the centre line', () => {
+  it('keeps an image whose rim is within 3.5% of the target width and whose box is on the centre line', () => {
     // 174 px = 0.58 exactly; 175 px is 0.6% off and 180 px 3.4%, a 1 cm move of the estimate.
     expect(planFit(fp({ left: 63, right: 237, rimLeft: 63, rimRight: 237 }), dinnerPlate)).toEqual({
       action: 'keep',
@@ -204,10 +219,23 @@ describe('HON-1024: fit plan', () => {
     })
   })
 
-  it('moves a rim at the right width that sits off the centre line', () => {
-    // Right width, but the rim is at 45% of the frame height.
-    const off = fp({ left: 63, right: 237, rimLeft: 63, rimRight: 237, rimRow: 90, top: 40 })
+  it('moves a drawing at the right width whose box sits off the centre line', () => {
+    // Right width, but the box's centre is at 45% of the frame height.
+    const off = fp({ left: 63, right: 237, rimLeft: 63, rimRight: 237, top: 40, bottom: 139 })
     expect(planFit(off, dinnerPlate)).toEqual({ action: 'fit', scale: 0.58 / 0.5833333333333334 })
+  })
+
+  it('judges the position by the box, not the rim (HON-1031)', () => {
+    const rightWidth = { left: 63, right: 237, rimLeft: 63, rimRight: 237 }
+    // The rim far below the centre line, the box on it: already fitted.
+    expect(planFit(fp({ ...rightWidth, rimRow: 140 }), dinnerPlate)).toEqual({
+      action: 'keep',
+      reason: 'already fitted',
+    })
+    // The rim on the centre line, the box 10 px above it: moved.
+    expect(planFit(fp({ ...rightWidth, top: 30, bottom: 149 }), dinnerPlate)).toMatchObject({
+      action: 'fit',
+    })
   })
 
   it('skips a blank frame, a cropped vessel and a scale out of range', () => {
@@ -248,10 +276,17 @@ describe('HON-1024: canonicalForEstimate', () => {
     )
     expect((await canonicalForEstimate(blank, 'image/png')).bytes).toBe(blank)
   })
+
+  it('keeps the rim, not the box, on the centre line, so the size estimate is unchanged by HON-1031', async () => {
+    const shown = await canonicalForEstimate(await frameWith(...tallStack), 'image/png')
+    const f = (await measureFootprint(shown.bytes))!
+    expect(Math.abs(rimCentre(f).y - 0.5)).toBeLessThan(0.01)
+    expect(boxCentreY(f)).toBeLessThan(H / 2 - 10)
+  })
 })
 
 describe('HON-1024: fitFootprint', () => {
-  it('shrinks a wide plate to its width, its rim on the centre line, on a white frame of the same size', async () => {
+  it('shrinks a wide plate to its width, centred, on a white frame of the same size', async () => {
     // 210 px = 0.70, off-centre to the left and the top.
     const bytes = await frameWith({ left: 20, top: 30, width: 210, height: 100 })
 
@@ -272,9 +307,10 @@ describe('HON-1024: fitFootprint', () => {
     const after = await measureFootprint(fitted.bytes)
     expect(after).not.toBeNull()
     expect(rimWidth(after!)).toBeCloseTo(0.58, 2)
-    // The rim's centre on the frame's centre, wherever it was drawn.
+    // The rim's centre on the frame's vertical centre line and the box's
+    // centre on its horizontal one, wherever it was drawn.
     expect(rimCentre(after!).x).toBeCloseTo(0.5, 2)
-    expect(rimCentre(after!).y).toBeCloseTo(0.5, 2)
+    expect(Math.abs(boxCentreY(after!) - H / 2)).toBeLessThanOrEqual(1)
     // The padding is white: the corner pixel is untouched.
     const { data } = await sharp(fitted.bytes).raw().toBuffer({ resolveWithObject: true })
     expect([data[0], data[1], data[2]]).toEqual([255, 255, 255])
@@ -291,19 +327,24 @@ describe('HON-1024: fitFootprint', () => {
     expect(rimWidth((await measureFootprint(side.bytes))!)).toBeCloseTo(0.47, 2)
   })
 
-  it('anchors a tall dish by its rim, so the food rises above the centre line', async () => {
-    // A stack 100 px tall on a 20 px plate: as drawn, the box is centred and the plate sits low.
-    const bytes = await frameWith(
-      { left: 120, top: 40, width: 60, height: 100 },
-      { left: 60, top: 140, width: 180, height: 20 },
-    )
+  it.each([
+    ['a tall stack, its ink far above the rim', tallStack],
+    ['a deep bowl, its ink far below the rim', deepBowl],
+  ])('centres %s by its box, not its rim (HON-1031)', async (_, rects) => {
+    const bytes = await frameWith(...rects)
+    for (const estimate of [dinnerPlate, sidePlate]) {
+      const fitted = await fitFootprint(bytes, 'image/png', estimate)
+      expect(fitted.fit.action).toBe('fit')
 
-    const fitted = await fitFootprint(bytes, 'image/png', dinnerPlate)
+      const after = (await measureFootprint(fitted.bytes))!
+      expect(Math.abs(boxCentreY(after) - H / 2)).toBeLessThanOrEqual(1)
+      expect(rimCentre(after).x).toBeCloseTo(0.5, 2)
+      // The rim still sets the scale.
+      expect(rimWidth(after)).toBeCloseTo(targetWidth(estimate)!, 2)
 
-    const after = await measureFootprint(fitted.bytes)
-    // Within 1% of the frame: a 20 px rim anchors on its middle row, give or take a pixel.
-    expect(Math.abs(rimCentre(after!).y - 0.5)).toBeLessThan(0.01)
-    expect(after!.top / H).toBeLessThan(0.3)
+      const twice = await fitFootprint(fitted.bytes, 'image/png', estimate)
+      expect(twice.fit).toMatchObject({ action: 'keep', reason: 'already fitted' })
+    }
   })
 
   it('enlarges a narrow bowl, cutting what overhangs the frame', async () => {
