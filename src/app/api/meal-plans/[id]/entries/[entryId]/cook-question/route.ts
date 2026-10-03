@@ -13,6 +13,9 @@ import { COOK_QUESTION_MODEL } from '@/lib/ai/models'
 import { COOK_QUESTION_AI_BUDGET_MS } from '@/lib/ai/budgets'
 import { buildCookQuestionRequest } from '@/lib/ai/cook-question'
 import {
+  clipText,
+  COOK_QUESTION_EQUIPMENT_ITEM_MAX_LENGTH,
+  COOK_QUESTION_EQUIPMENT_MAX_ITEMS,
   COOK_QUESTION_MAX_LENGTH,
   COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH,
 } from '@/lib/ai/cook-question-limits'
@@ -70,7 +73,17 @@ const bodySchema = z
       index: z.number().int().min(0),
     }),
     steps: z.array(z.string().trim().min(1).max(500)).min(1).max(12),
-    equipment: z.array(z.string().trim().min(1).max(120)).max(8),
+    // Clipped, not rejected: the tips schema bounds neither the count nor an
+    // item's length, and a step question carries the list as context only, so
+    // one long item must not fail every question on the meal. Positions are
+    // kept, so an equipment index still names the item on screen.
+    equipment: z
+      .array(z.string())
+      .transform((items) =>
+        items
+          .slice(0, COOK_QUESTION_EQUIPMENT_MAX_ITEMS)
+          .map((item) => clipText(item.trim(), COOK_QUESTION_EQUIPMENT_ITEM_MAX_LENGTH)),
+      ),
     question: z.string().trim().min(1).max(COOK_QUESTION_MAX_LENGTH),
     // The last answered question on this step (HON-980). Context only, so a
     // bad one is dropped rather than failing the question it came with.
@@ -82,10 +95,10 @@ const bodySchema = z
       .optional()
       .catch(undefined),
   })
-  // The index is inside the list its kind names.
-  .refine(
-    ({ subject, steps, equipment }) =>
-      subject.index < (subject.kind === 'step' ? steps : equipment).length,
+  // The index names an entry of the list its kind names: a step, or a
+  // non-empty item.
+  .refine(({ subject, steps, equipment }) =>
+    subject.kind === 'step' ? subject.index < steps.length : !!equipment[subject.index],
   )
 
 async function handlePOST(

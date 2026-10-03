@@ -104,8 +104,11 @@ export function buildCookQuestionPrompt(input: CookQuestionRequestInput): string
 
   const stepsList = steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
   // After the steps in every request, so a step question can refer to a tool too.
+  // Empty items are skipped, but stay in `equipment` so an index still names
+  // the item the cook sees.
+  const listed = equipment.filter((item) => item.trim())
   const equipmentSection =
-    equipment.length > 0 ? `\n\nEquipment:\n${equipment.map((e) => `- ${e}`).join('\n')}` : ''
+    listed.length > 0 ? `\n\nEquipment:\n${listed.map((e) => `- ${e}`).join('\n')}` : ''
   // The step prompt reads as it did before equipment questions (HON-983).
   const isStep = subject.kind === 'step'
   const stepNumber = subject.index + 1

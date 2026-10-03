@@ -13,7 +13,7 @@ import {
 } from '@/lib/ai/error-codes'
 import type { CookQuestionPrevious } from '@/lib/ai/cook-question'
 import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
-import { COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH } from '@/lib/ai/cook-question-limits'
+import { clipText, COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH } from '@/lib/ai/cook-question-limits'
 
 interface UseCookQuestionOptions {
   planId: string
@@ -150,15 +150,6 @@ async function readAnswer(
     throw err
   }
   if (!received) throw new Error('The answer was empty')
-}
-
-/**
- * The first `max` UTF-16 units of `text`, never ending in half an emoji: a
- * lone surrogate makes the prompt invalid Unicode, which the model API rejects.
- */
-function clip(text: string, max: number): string {
-  const clipped = text.slice(0, max)
-  return /[\uD800-\uDBFF]$/.test(clipped) ? clipped.slice(0, -1) : clipped
 }
 
 function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
@@ -312,7 +303,7 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
         last && sameSubject(last.subject, request.subject)
           ? {
               question: last.question,
-              answer: clip(last.answer, COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH),
+              answer: clipText(last.answer, COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH),
             }
           : undefined
       void track('cook_view:question_asked', {

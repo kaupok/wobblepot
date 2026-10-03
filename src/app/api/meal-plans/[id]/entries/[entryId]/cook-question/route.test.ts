@@ -293,11 +293,16 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
       ],
       ['no equipment array', validBody({ equipment: undefined })],
       [
-        '9 equipment items',
-        validBody({ equipment: Array.from({ length: 9 }, (_, i) => `Pan ${i}`) }),
+        'a question about an empty equipment item',
+        validBody({ subject: { kind: 'equipment', index: 0 }, equipment: ['  ', 'Wok'] }),
       ],
-      ['a 121-character equipment item', validBody({ equipment: ['a'.repeat(121)] })],
-      ['an empty equipment item', validBody({ equipment: ['  '] })],
+      [
+        'an equipment index past the 20 items kept',
+        validBody({
+          subject: { kind: 'equipment', index: 20 },
+          equipment: Array.from({ length: 21 }, (_, i) => `Pan ${i}`),
+        }),
+      ],
       ['a body that is not an object', 'hello'],
     ])('returns 400 for %s', async (_name, body) => {
       const response = await callPost(body)
@@ -340,6 +345,40 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/cook-question', () => {
       expect(prompt).toContain('Equipment:\n- Large wok\n- Cutting board')
       expect(prompt).toContain('1. Slice the chicken.')
       expect(prompt).not.toContain('The cook is on step')
+    })
+
+    // The tips schema bounds neither the count nor an item's length, so the
+    // route clips rather than failing every question on the meal.
+    it('clips the equipment a step question carries, instead of rejecting it', async () => {
+      const long = 'Large oven-safe cast-iron pan '.repeat(6)
+      const response = await callPost(
+        validBody({
+          equipment: ['  ', long, ...Array.from({ length: 22 }, (_, i) => `Pan ${i + 1}`)],
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      const prompt = promptSent()
+      const start = prompt.indexOf('Equipment:\n')
+      const equipment = prompt.slice(start, prompt.indexOf('\n\n', start)).split('\n').slice(1)
+      // 20 items kept, the empty one left out of the list.
+      expect(equipment).toHaveLength(19)
+      expect(equipment[0]).toBe(`- ${long.trim().slice(0, 120)}`)
+      expect(equipment.at(-1)).toBe('- Pan 18')
+    })
+
+    it('asks about the clipped item, at its own index', async () => {
+      const response = await callPost(
+        validBody({
+          subject: { kind: 'equipment', index: 1 },
+          equipment: ['', `  ${'Wok '.repeat(40)}`],
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      expect(promptSent()).toContain(
+        `The cook is asking about this piece of equipment: ${'Wok '.repeat(40).trim().slice(0, 120)}\n`,
+      )
     })
 
     it('lists the equipment for a step question too', async () => {
