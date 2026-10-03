@@ -673,19 +673,43 @@
       "lead": "Made by a parent, for a family of three. Your data lives in the EU, and there are no ads.",
       "pantry": {
         "title": "It knows your pantry",
-        "body": "Tick what you have. The shopping list only shows what's missing, and the pantry updates when you mark a meal cooked."
+        "body": "Tick what you have. The shopping list only shows what's missing, and the pantry updates when you mark a meal cooked.",
+        "vignette": {
+          "caption": "The cook view’s ingredients for baked salmon with asparagus. Salmon fillet, asparagus and olive oil are ticked as in the pantry. Lemon is not, so the list says 1 to buy.",
+          "salmon": "Salmon fillet",
+          "asparagus": "Asparagus",
+          "oliveOil": "Olive oil",
+          "lemon": "Lemon"
+        }
       },
       "recipes": {
         "title": "Your recipes join the plan",
-        "body": "Paste a link or a recipe, and your own dishes get planned alongside the rest."
+        "body": "Paste a link or a recipe, and your own dishes get planned alongside the rest.",
+        "vignette": {
+          "caption": "A pasted recipe link, and below it the same dish on the planner as baked salmon with asparagus, marked as your own recipe.",
+          "linkLabel": "Recipe link",
+          "link": "https://example.com/baked-salmon-with-asparagus"
+        }
       },
       "kids": {
         "title": "Portions follow the people",
-        "body": "Each member has a portion size, so a toddler isn't counted as an adult. Kid-friendly meals are marked."
+        "body": "Each member has a portion size, so a toddler isn't counted as an adult. Kid-friendly meals are marked.",
+        "vignette": {
+          "caption": "Three household members: one adult at a large portion, one at a regular portion and a toddler at half a portion. The meal serves 3, so it calls for {quantity} of salmon.",
+          "adult1": "Anna",
+          "adult2": "Tom",
+          "toddler": "Mia"
+        }
       },
       "cook": {
         "title": "Cooking help on the counter",
-        "body": "Steps at a size you can read from across the kitchen, and a quick answer when you're stuck on one."
+        "body": "Steps at a size you can read from across the kitchen, and a quick answer when you're stuck on one.",
+        "vignette": {
+          "caption": "A cooking step in large type with its Ask button, and the answer to the question \"How do I know the salmon is done?\" below it.",
+          "step": "Lay the salmon and asparagus on the tray, drizzle with olive oil and bake for 12–15 minutes.",
+          "question": "How do I know the salmon is done?",
+          "answer": "Press the thickest part with a fork. It’s done when it flakes easily and is no longer glossy in the middle."
+        }
       }
     }
   },
