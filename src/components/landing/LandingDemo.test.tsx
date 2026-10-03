@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { createMeal } from '@/stories/fixtures'
@@ -82,5 +82,47 @@ describe('LandingDemo', () => {
     expect(within(dialog).getByRole('heading', { name: 'Baked salmon' })).toBeInTheDocument()
     expect(within(dialog).getByText('Roast the salmon')).toBeInTheDocument()
     expect(within(dialog).queryByText('Toast the bread')).toBeNull()
+  })
+
+  it('opens the cook view from a click anywhere on the card, not only the name', async () => {
+    const user = userEvent.setup()
+    renderDemo()
+    const name = screen.getByRole('button', { name: 'Beef bibimbap' })
+    const card = name.closest<HTMLElement>('[data-slot="card"]')!
+
+    await user.click(card)
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Beef bibimbap' })).toBeInTheDocument()
+    expect(within(dialog).getByText('Cook the rice')).toBeInTheDocument()
+
+    // The cook view hands focus back to the name of the card that opened it.
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(name).toHaveFocus()
+  })
+
+  it('does not open the cook view from a click on the Kid-friendly badge', async () => {
+    const user = userEvent.setup()
+    renderDemo()
+    const card = screen
+      .getByRole('button', { name: 'Avocado toast' })
+      .closest<HTMLElement>('[data-slot="card"]')!
+
+    await user.click(within(card).getByText('Kid-friendly'))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('marks the card interactive and the name its only keyboard target', () => {
+    renderDemo()
+    const name = screen.getByRole('button', { name: 'Avocado toast' })
+    const card = name.closest<HTMLElement>('[data-slot="card"]')!
+    expect(card).toHaveClass('group/card', 'cursor-pointer', 'hover:border-border', 'hover:ring-1')
+    expect(name).toHaveAttribute('data-slot', 'card-target')
+    expect(name).toHaveClass('outline-none', 'group-hover/card:underline')
+    expect(card).not.toHaveAttribute('role')
+    expect(card).not.toHaveAttribute('tabindex')
+    expect(within(card).getAllByRole('button')).toHaveLength(1)
   })
 })
