@@ -83,6 +83,11 @@ export function useEntryStatus({
         onLeaveCompleted?.()
       }
 
+      // Every status change, not only a confirmed deduction: the header counts
+      // the past meals still to mark, and this re-renders it so the account
+      // menu's dot clears (HON-1028). A deduction also changes the pantry.
+      router.refresh()
+
       // Fire status-transition analytics from `onSuccess` so we don't track
       // optimistic updates that the server later rejected (the optimistic
       // state is reverted in `onError`).
@@ -139,8 +144,6 @@ export function useEntryStatus({
           if (charged) setChargedHere(true)
           setIsDeductionModalOpen(false)
           onCompleted?.()
-          // Refresh to update pantry data
-          router.refresh()
         },
       },
     )

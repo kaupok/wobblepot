@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
-import { expect, waitFor, within } from 'storybook/test'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { Body, Heading } from '@/components/ui/typography'
 import { createSession } from '@/stories/fixtures'
 import { HeaderChrome } from './header-chrome'
@@ -78,6 +78,7 @@ const meta = {
   args: {
     session: null,
     hasHousehold: false,
+    pastMealsToMark: 0,
     skipToContentLabel: 'Skip to content',
   },
   decorators: [
@@ -117,6 +118,58 @@ export const LoggedIn: Story = {
     // The wordmark is a link, not a heading: each page's own `h1` opens its
     // outline (HON-806).
     await expect(within(banner).queryByRole('heading')).not.toBeInTheDocument()
+    // Nothing to mark: the account icon has no dot and its plain name.
+    await expect(within(banner).getByRole('button', { name: 'User menu' })).toBeVisible()
+    await expect(banner.querySelector('[data-slot="attention-dot"]')).toBeNull()
+  },
+}
+
+/** The dot on the visible account trigger, its box, and the box around it. */
+function visibleDot(banner: HTMLElement) {
+  const trigger = within(banner).getByRole('button', { name: 'User menu, past meals to mark' })
+  const dot = trigger.querySelector('[data-slot="attention-dot"]') as HTMLElement
+  return { trigger, dot }
+}
+
+/** `inner` lies wholly inside `outer`, to within a pixel of rounding. */
+function contains(outer: DOMRect, inner: DOMRect) {
+  return (
+    inner.left >= outer.left - 1 &&
+    inner.right <= outer.right + 1 &&
+    inner.top >= outer.top - 1 &&
+    inner.bottom <= outer.bottom + 1
+  )
+}
+
+export const PastMealsToMark: Story = {
+  args: { session: authedSession, hasHousehold: true, pastMealsToMark: 4 },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Past meals are still to mark (HON-1028): a red dot at the top-right of the account icon, and the trigger is named "User menu, past meals to mark". Scrolled, the phone pill draws in to the 48px disc around the icon, and the dot stays whole inside it. The play measures the dot inside the trigger and inside the pill, at rest and scrolled.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    const { trigger, dot } = visibleDot(banner)
+    await expect(dot).toBeVisible()
+    await expect(dot).toHaveAttribute('aria-hidden', 'true')
+    // The phone pill: the one element with the unprefixed float shadow.
+    const pill = banner.querySelector('.shadow-float') as HTMLElement
+    await expect(contains(box(trigger), box(dot))).toBe(true)
+    await expect(contains(box(pill), box(dot))).toBe(true)
+
+    window.scrollTo(0, 400)
+    await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
+    // Wait for the pill to finish drawing in to the 48px disc.
+    await waitFor(() => expect(Math.round(box(pill).width)).toBe(48), { timeout: 1500 })
+    await expect(dot).toBeVisible()
+    await expect(contains(box(pill), box(dot))).toBe(true)
+
+    window.scrollTo(0, 0)
+    await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
   },
 }
 
@@ -195,6 +248,35 @@ export const Desktop: Story = {
     // ...but the links themselves touch.
     await expectNear(box(pantry).left, box(mealPlan).right)
     await expectNear(box(household).left, box(recipes).right)
+  },
+}
+
+export const DesktopPastMealsToMark: Story = {
+  args: { session: authedSession, hasHousehold: true, pastMealsToMark: 4 },
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'From `md`: the same dot on the account icon in the right pill, and beside Past meals in its dropdown (HON-1028).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    const { trigger, dot } = visibleDot(banner)
+    await expect(dot).toBeVisible()
+    await expect(contains(box(trigger), box(dot))).toBe(true)
+
+    await userEvent.click(trigger)
+    const row = await within(document.body).findByRole('menuitem', {
+      name: /^Past meals\s*\(to mark\)$/,
+    })
+    // The menu fades in from opacity 0, so wait for the dot to be visible.
+    await waitFor(() => expect(row.querySelector('[data-slot="attention-dot"]')).toBeVisible())
+    await userEvent.keyboard('{Escape}')
   },
 }
 

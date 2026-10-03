@@ -81,7 +81,7 @@ describe('useEntryStatus', () => {
     expect(result.current.status).toBe('completed')
     expect(patchBodies()).toEqual([{ status: 'completed', deductPantry: true }])
     expect(onCompleted).toHaveBeenCalledTimes(1)
-    expect(refresh).toHaveBeenCalled()
+    expect(refresh).toHaveBeenCalledTimes(1)
     expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {
       plan_id: 'plan-1',
       meal_id: meal.id,
@@ -162,6 +162,29 @@ describe('useEntryStatus', () => {
     )
     expect(result.current.status).toBe('planned')
     expect(track).not.toHaveBeenCalled()
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  // HON-1028: the header's past-meals dot is a server count, so every status
+  // change has to re-render it, not only a confirmed deduction.
+  it.each(['skipped', 'planned'] as const)('refreshes the router after %s', async (newStatus) => {
+    const { result } = renderStatusHook({
+      initialStatus: newStatus === 'planned' ? 'skipped' : 'planned',
+    })
+
+    respond(200)
+    act(() => result.current.handleStatusChange(newStatus))
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+  })
+
+  it('refreshes the router after completing an already-charged entry', async () => {
+    const { result } = renderStatusHook({ pantryDeducted: true })
+
+    respond(200)
+    act(() => result.current.handleStatusChange('completed'))
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
   })
 
   it('calls onLeaveCompleted only on the way out of completed', async () => {

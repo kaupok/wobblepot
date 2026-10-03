@@ -560,6 +560,20 @@ describe('Home page component', () => {
     expect(vi.mocked(loadShoppingList).mock.calls[0]?.[1]).toEqual({ days: 7 })
   })
 
+  // HON-1028: past days live on /past-meals and the header counts the ones
+  // still to mark, so Today loads none of them.
+  it('loads entries from today, not from past days', async () => {
+    const { loadPlanEntries } = await import('@/lib/meal-planning/load-plan-entries')
+    const { getTodayInTimezone, parseLocalDate } = await import('@/lib/meal-planning/dates')
+    await mockAuthedHouseholdSession(null)
+    await mockLoadersWithPlannedEntry()
+
+    await Home()
+
+    const [, query] = vi.mocked(loadPlanEntries).mock.calls[0]!
+    expect(query.startDate).toEqual(parseLocalDate(getTodayInTimezone('Europe/Tallinn')))
+  })
+
   it('maps pantry items and shopping items onto the timeline props', async () => {
     const { TimelineView } = await import('@/components/timeline')
     await mockAuthedHouseholdSession(null)

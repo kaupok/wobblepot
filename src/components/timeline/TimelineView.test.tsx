@@ -310,9 +310,9 @@ describe('TimelineView', () => {
     expect(screen.queryByTestId('day-card-2026-03-27')).not.toBeInTheDocument()
   })
 
-  // HON-1007: past days moved to /past-meals. Today keeps only a notice with
-  // the count of past meals still `planned`.
-  describe('past meals notice', () => {
+  // HON-1007: past days moved to /past-meals. HON-1028: the nudge to mark them
+  // moved to a dot on the account menu, so Today shows neither.
+  describe('past meals', () => {
     function pastEntry(
       id: string,
       date: string,
@@ -356,45 +356,11 @@ describe('TimelineView', () => {
       expect(screen.queryByRole('button')).not.toBeInTheDocument()
     })
 
-    it('shows one info notice above Today with the count and a link', () => {
+    it('renders no notice, even with past meals still to mark', () => {
       const { container } = renderInLocale(<TimelineView {...defaultProps} entries={pastEntries} />)
-
-      const notices = container.querySelectorAll('[data-slot="callout"]')
-      expect(notices).toHaveLength(1)
-      const notice = notices[0] as HTMLElement
-      expect(notice).toHaveAttribute('data-tone', 'info')
-      // Planned with a meal only: the completed and the meal-less entries do not count.
-      expect(notice).toHaveTextContent('2 past meals are not marked yet.')
-      expect(within(notice).getByRole('link', { name: 'Mark past meals' })).toHaveAttribute(
-        'href',
-        '/past-meals',
-      )
-
-      const today = screen.getByTestId('day-card-2026-03-29')
-      expect(notice.compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(notice.parentElement).toBe(today.parentElement)
-    })
-
-    it('stays with Today when Today is empty and the fill bar is above it', () => {
-      const { container } = renderInLocale(<TimelineView {...defaultProps} entries={pastEntries} />)
-
-      const notice = container.querySelector('[data-slot="callout"]') as HTMLElement
-      const fill = screen.getByTestId('fill-days')
-      expect(fill.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    })
-
-    it('does not render the notice when nothing needs marking', () => {
-      const { container } = renderInLocale(
-        <TimelineView
-          {...defaultProps}
-          entries={[
-            pastEntry('p3', '2026-03-25', 'completed'),
-            pastEntry('p5', '2026-03-24', 'skipped'),
-          ]}
-        />,
-      )
 
       expect(container.querySelector('[data-slot="callout"]')).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /past meals/i })).not.toBeInTheDocument()
     })
   })
 

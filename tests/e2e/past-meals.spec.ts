@@ -1,4 +1,4 @@
-// ROUTES: /past-meals · COMPONENTS: PastMealsList, PastMealRow, PantryDeductionModal, MealRatingInline
+// ROUTES: /past-meals · COMPONENTS: PastMealsList, PastMealRow, PantryDeductionModal, MealRatingInline, Header (User menu)
 import { test, expect, type Page } from '@playwright/test'
 import { signIn } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -48,10 +48,46 @@ async function listEntries(page: Page) {
   return (await response.json()) as { entries: EntrySummary[]; planId: string | null }
 }
 
+// The account trigger's name while the household has past meals to mark: the
+// red dot on it is aria-hidden, so the name carries it (HON-1028).
+const ACCOUNT_MENU_WITH_DOT = 'User menu, past meals to mark'
+
+/**
+ * Past meals still to mark other than `exceptId`, counted as the header counts
+ * them: planned, with a meal, in `[today − 7, today)` of the household's day.
+ * Other specs share this household, so the dot after marking our entry
+ * depends on what they left behind.
+ */
+async function otherPastMealsToMark(page: Page, exceptId: string) {
+  const householdResponse = await page.request.get('/api/households/me')
+  expect(householdResponse.ok()).toBe(true)
+  const { timezone } = (await householdResponse.json()) as { timezone: string }
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+  const start = new Date(`${today}T00:00:00Z`)
+  start.setUTCDate(start.getUTCDate() - 7)
+  const startDate = start.toISOString().slice(0, 10)
+
+  const { entries } = await listEntries(page)
+  return entries.filter(
+    (e) =>
+      e.id !== exceptId &&
+      e.date >= startDate &&
+      e.date < today &&
+      e.status === 'planned' &&
+      e.meal !== null,
+  ).length
+}
+
 // The real page, the real PATCH and the real pantry charge: Cooked opens the
 // deduction, Confirm completes the entry and charges it, and the row and the
-// rating survive a reload (HON-1018). Unit tests and Storybook cover the row
-// in isolation.
+// rating survive a reload (HON-1018). The account menu's dot follows each
+// status change through `router.refresh()`, with no reload (HON-1028). Unit
+// tests and Storybook cover the row in isolation.
 test('a past meal is marked cooked from its row, charged once, and rated', async ({ page }) => {
   await signInAsSmoke(page)
 
@@ -107,6 +143,11 @@ test('a past meal is marked cooked from its row, charged once, and rated', async
     const row = () =>
       page.locator('[data-slot="row-group"] > div').filter({ hasText: meal!.name }).first()
     const undo = row().getByRole('button', { name: `Undo: ${meal!.name}` })
+    // The visible trigger only: the other breakpoint's is `display: none`.
+    const accountMenu = page.getByRole('button', { name: /^User menu/ })
+
+    // Our entry is past and planned, so the account menu shows the dot.
+    await expect(accountMenu).toHaveAccessibleName(ACCOUNT_MENU_WITH_DOT)
 
     await row().getByRole('button', { name: 'Cooked' }).click()
     const dialog = page.getByRole('dialog', { name: 'Mark as completed' })
@@ -122,6 +163,12 @@ test('a past meal is marked cooked from its row, charged once, and rated', async
     expect(patch.ok()).toBe(true)
     await expect(dialog).toBeHidden()
     await expect(undo).toBeFocused()
+
+    // Marked, the dot clears unless another past meal is still to mark.
+    const othersToMark = await otherPastMealsToMark(page, entryId)
+    await expect(accountMenu).toHaveAccessibleName(
+      othersToMark > 0 ? ACCOUNT_MENU_WITH_DOT : 'User menu',
+    )
 
     await row().getByRole('button', { name: 'Thumbs up' }).click()
     await expect(row().getByRole('button', { name: 'Thumbs up' })).toHaveAttribute(
@@ -149,6 +196,8 @@ test('a past meal is marked cooked from its row, charged once, and rated', async
     // Undo returns the row to planned and focus to Cooked.
     await undo.click()
     await expect(row().getByRole('button', { name: 'Cooked' })).toBeFocused()
+    // Undo is not a deduction, and it still refreshes: the dot is back.
+    await expect(accountMenu).toHaveAccessibleName(ACCOUNT_MENU_WITH_DOT)
   } finally {
     await page.request.delete(`/api/meal-plans/${planId}/entries/${entryId}`).catch(() => {})
   }

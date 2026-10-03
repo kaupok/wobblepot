@@ -6,15 +6,6 @@ import type { PlanEntry, TimelineDay } from '@/components/meal-plan/types'
 const mealTypeOrder: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 }
 
 /**
- * Past entries that still need action: before today, still `planned`, and with
- * a meal. Marking one cooked runs the pantry deduction and the rating prompt,
- * so this is the count the notice on Today asks the household to clear.
- */
-export function countPastCatchUp(entries: PlanEntry[], todayDate: string): number {
-  return entries.filter((e) => e.date < todayDate && e.status === 'planned' && e.meal).length
-}
-
-/**
  * The past days that have entries, newest first: yesterday leads because it is
  * the day most likely to still need marking. Entries before `todayDate` only;
  * the caller decides how far back to load.

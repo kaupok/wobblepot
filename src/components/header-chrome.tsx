@@ -12,6 +12,11 @@ import { Wordmark } from './wordmark'
 interface HeaderChromeProps {
   session: Session | null
   hasHousehold: boolean
+  /**
+   * Past meals still to mark (`countPastMealsToMark`). Above 0, the account
+   * icon and its "Past meals" row show a red dot (HON-1028).
+   */
+  pastMealsToMark: number
   /** The skip link's label, resolved by the server half. */
   skipToContentLabel: string
 }
@@ -44,7 +49,12 @@ interface HeaderChromeProps {
  * full-width bar took, so `main`'s top padding and the
  * `*-below-header` utilities in `globals.css` are unchanged.
  */
-export function HeaderChrome({ session, hasHousehold, skipToContentLabel }: HeaderChromeProps) {
+export function HeaderChrome({
+  session,
+  hasHousehold,
+  pastMealsToMark,
+  skipToContentLabel,
+}: HeaderChromeProps) {
   const scrolled = useScrolled()
   // The same test the nav groups apply. When it fails the left pill holds
   // only the logo, so the fold has to take the pill with it.
@@ -115,8 +125,16 @@ export function HeaderChrome({ session, hasHousehold, skipToContentLabel }: Head
             )}
           >
             <NavigationRight isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
-            <HeaderActions session={session} hasHousehold={hasHousehold} />
-            <MobileNav session={session} hasHousehold={hasHousehold} />
+            <HeaderActions
+              session={session}
+              hasHousehold={hasHousehold}
+              pastMealsToMark={pastMealsToMark}
+            />
+            <MobileNav
+              session={session}
+              hasHousehold={hasHousehold}
+              pastMealsToMark={pastMealsToMark}
+            />
           </div>
         </div>
       </div>

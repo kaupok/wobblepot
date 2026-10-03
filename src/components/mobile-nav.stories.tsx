@@ -1,6 +1,6 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite'
 import { ThemeProvider } from 'next-themes'
-import { expect, userEvent, within } from 'storybook/test'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { http, HttpResponse } from 'msw'
 import {
   assertFocusInDialog,
@@ -83,7 +83,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Past meals, Household, Profile, the labelled theme row and Sign out, in that order (HON-775, HON-1007); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783).',
+          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Past meals, Household, Profile, the labelled theme row and Sign out, in that order (HON-775, HON-1007); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row (HON-1028).',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -153,6 +153,33 @@ export const SignedInWithHousehold: Story = {
     )
     assertTouchTargets(nav)
     await assertFocusInDialog()
+  },
+}
+
+export const SignedInWithPastMealsToMark: Story = {
+  globals: { theme: 'light' },
+  args: { session: authedSession, hasHousehold: true, pastMealsToMark: 2 },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Past meals are still to mark: a red dot on the account icon and beside Past meals in the sheet. The dot is `aria-hidden`; the trigger is named "User menu, past meals to mark" and the row adds "(to mark)" for screen readers.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const trigger = within(canvasElement).getByRole('button', {
+      name: 'User menu, past meals to mark',
+    })
+    await expect(trigger.querySelector('[data-slot="attention-dot"]')).toBeVisible()
+
+    await userEvent.click(trigger)
+    const nav = within(document.body).getByRole('navigation', { name: 'Account menu' })
+    const row = within(nav).getByRole('link', { name: /^Past meals\s*\(to mark\)$/ })
+    // The sheet animates in, so wait for the dot to be visible.
+    await waitFor(() => expect(row.querySelector('[data-slot="attention-dot"]')).toBeVisible())
+    await expect(nav.querySelectorAll('[data-slot="attention-dot"]')).toHaveLength(1)
+    assertTouchTargets(nav)
   },
 }
 
