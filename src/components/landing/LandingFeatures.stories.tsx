@@ -1,11 +1,20 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, within } from 'storybook/test'
+import { displayFont } from './display-font'
 import { LandingFeatures } from './LandingFeatures'
 
 const meta = {
   title: 'Landing/LandingFeatures',
   component: LandingFeatures,
   tags: ['autodocs'],
+  // In the app the landing page's root carries the display face's variable.
+  decorators: [
+    (Story) => (
+      <div className={displayFont.variable}>
+        <Story />
+      </div>
+    ),
+  ],
   parameters: {
     layout: 'padded',
     docs: {
@@ -47,6 +56,18 @@ const play: Story['play'] = async ({ canvasElement }) => {
   }
 
   await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
+
+  // The section heading and point titles are in the display face; the
+  // vignettes, drawn with the app's components, keep Geist (HON-1043).
+  const family = (el: Element) => getComputedStyle(el).fontFamily
+  await expect(family(canvas.getByRole('heading', { level: 2 }))).toMatch(/Bricolage Grotesque/)
+  await expect(
+    family(canvas.getByRole('heading', { level: 3, name: 'It knows your pantry' })),
+  ).toMatch(/Bricolage Grotesque/)
+  for (const el of drawings) {
+    await expect(el.querySelector('.font-display')).toBeNull()
+    await expect(family(el)).not.toMatch(/Bricolage Grotesque/)
+  }
 
   // The answer starts where the step text does, as in the cook view's panel.
   const stepText = canvasElement.querySelector('[aria-pressed] p')

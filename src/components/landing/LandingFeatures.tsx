@@ -109,7 +109,7 @@ export function LandingFeatures() {
   return (
     <section aria-labelledby="landing-why" className="flex flex-col gap-8">
       <div className="flex flex-col gap-4 text-balance">
-        <Heading variant="h3" as="h2" id="landing-why">
+        <Heading variant="h3" as="h2" face="brand" id="landing-why">
           {t('title')}
         </Heading>
         <Body variant="muted">{t('lead')}</Body>
@@ -124,8 +124,10 @@ export function LandingFeatures() {
               <div className="flex flex-col gap-2">
                 {/* Title, a step above the Section headings this file draws
                     in the vignettes, so the claim leads and the vignette reads
-                    as its proof. `IngredientList` keeps its own heading. */}
-                <Heading variant="h4" as="h3">
+                    as its proof. `IngredientList` keeps its own heading. The
+                    title is the page's voice, so it takes the display face; the
+                    vignette is the product, so it keeps Geist. */}
+                <Heading variant="h4" as="h3" face="brand">
                   {t(`${point}.title`)}
                 </Heading>
                 <Body variant="muted">{t(`${point}.body`)}</Body>

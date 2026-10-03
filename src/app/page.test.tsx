@@ -78,6 +78,11 @@ vi.mock('@/lib/landing/load-demo-day', () => ({
 vi.mock('@/lib/i18n/get-locale', () => ({
   getLocale: vi.fn(async () => translationLocale),
 }))
+// `next/font/google` is a build-time SWC transform; calling the real loader in
+// Vitest throws. The landing page only reads `.variable` off the result.
+vi.mock('next/font/google', () => ({
+  Bricolage_Grotesque: () => ({ variable: 'bricolage-variable' }),
+}))
 
 // Nothing on this page may call back into our own API over HTTP (HON-789).
 const mockFetch = vi.fn()
@@ -363,6 +368,23 @@ describe('Home page component', () => {
     expect(
       screen.getByRole('heading', { level: 3, name: 'It knows your pantry' }),
     ).toBeInTheDocument()
+  })
+
+  it("sets the page's own headings in the display face, under its font variable (HON-1043)", async () => {
+    await renderLanding()
+    const brand = [
+      screen.getByRole('heading', { level: 1 }),
+      screen.getByRole('heading', { level: 2, name: 'How it works' }),
+      screen.getByRole('heading', { level: 3, name: "Tell it who's at the table" }),
+      screen.getByRole('heading', { level: 3, name: 'Get a week of meals' }),
+      screen.getByRole('heading', { level: 3, name: 'Shop once, then cook' }),
+      screen.getByRole('heading', { level: 2, name: 'Made for family kitchens' }),
+      screen.getByRole('heading', { level: 3, name: 'It knows your pantry' }),
+    ]
+    for (const heading of brand) {
+      expect(heading).toHaveClass('font-display')
+      expect(heading.closest('.bricolage-variable')).not.toBeNull()
+    }
   })
 
   it('puts the trust line under the differences heading and ends the page there', async () => {
