@@ -256,7 +256,7 @@ pnpm meal-images:global --confirm [--judge]
 
 `--judge` adds the `REVIEW_MODEL` vision check in report-only mode: its findings show on each contact-sheet cell but never trigger a regeneration. Here the operator is the gate, so it is optional.
 
-**3. Review.** Open `index.html` and note the slug of every image to reject. The images are drawn from the English name and description and shared by every locale. Each file is already fitted: `generateMealImage` classifies the vessel and scales every plate to 0.58 of the frame width and every bowl to 0.50 before the batch writes it (HON-1024), so the sheet shows what will be published. The manifest records the `vessel` and the `fit` per image.
+**3. Review.** Open `index.html` and note the slug of every image to reject. The images are drawn from the English name and description and shared by every locale. Each file is already fitted: `generateMealImage` classifies the vessel and scales every plate to 0.58 of the frame width and every bowl to 0.42 before the batch writes it (HON-1024), so the sheet shows what will be published. The manifest records the `vessel` and the `fit` per image.
 
 **4. Publish to staging, then to production.** Point the environment at the target — its `DATABASE_URL`, plus Blob credentials for the **same** environment, since staging and production use different Blob stores (see [ENVIRONMENT_SETUP.md § Vercel Blob](ENVIRONMENT_SETUP.md#vercel-blob-meal-images)). Blob authenticates with `BLOB_STORE_ID` plus `VERCEL_OIDC_TOKEN`, and the token expires after about a day. The script checks it before uploading and prints the refresh steps; `vercel env pull --environment=<env> /tmp/<file>` gives you a fresh one (never a bare `vercel env pull`, which writes `.env.local`). A static `BLOB_READ_WRITE_TOKEN` for the store also works.
 
@@ -298,17 +298,17 @@ pnpm meal-images:rehue --confirm
 
 ### Meal footprint backfill
 
-Every plate in a meal illustration is 0.58 of the frame width and every bowl 0.50 ([DESIGN.md → Imagery](DESIGN.md#imagery)). `generateMealImage` fits each image it keeps: a `REVIEW_MODEL` vision call names the vessel, and `src/lib/meal-images/footprint.ts` scales the drawing about the vessel's centre and pads it with white (HON-1024). Images stored before that, or before a change to `FOOTPRINT_TARGETS`, keep the width they were drawn at until `scripts/refit-meal-images.ts` refits them from the stored file. Nothing is regenerated, so the only AI spend is the vessel call, about $0.006 per distinct image; it needs `ANTHROPIC_API_KEY`. It reads every meal with `imageStatus = ready` and an `imageUrl`, fetches each distinct image once (a household's copy of a global meal shares its image), and leaves an image it cannot read or classify as it is.
+Every plate in a meal illustration is 0.58 of the frame width and every bowl 0.42, with the rim's centre line at mid-height ([DESIGN.md → Imagery](DESIGN.md#imagery)). `generateMealImage` fits each image it keeps: a `REVIEW_MODEL` vision call names the vessel, and `src/lib/meal-images/footprint.ts` scales the drawing about the vessel's centre and pads it with white (HON-1024). Images stored before that, or before a change to `FOOTPRINT_TARGETS`, keep the width they were drawn at until `scripts/refit-meal-images.ts` refits them from the stored file. Nothing is regenerated, so the only AI spend is the vessel call, about $0.006 per distinct image; it needs `ANTHROPIC_API_KEY`. It reads every meal with `imageStatus = ready` and an `imageUrl`, fetches each distinct image once (a household's copy of a global meal shares its image), and leaves an image it cannot read or classify as it is.
 
 **When to run it:** after a change to the targets or to the measurement, on staging and then production. Meals drawn after the change are already fitted. Running it twice is a no-op: a fitted image measures at its target and is kept.
 
-**1. Dry run (writes nothing).** Writes the fitted files and a contact sheet to `.temp/meal-footprints/<timestamp>/index.html`: each image as drawn and as fitted, under dashed guides at the target width, plus a per-vessel summary of how many images move.
+**1. Dry run (writes nothing).** Writes the fitted files and a contact sheet to `.temp/meal-footprints/<timestamp>/index.html`: each image as drawn and as fitted, under dashed guides at the target width and the rim line, plus a per-vessel summary of how many images move and the range of camera elevations the plates were drawn at.
 
 ```bash
 pnpm meal-images:refit
 ```
 
-**2. Review.** Open the sheet. Every plate fills the guides; every bowl fills its narrower guides. Check the vessel label on a dish that could be either (a pasta plate is a plate). An image left as drawn says why on its card.
+**2. Review.** Open the sheet. Every plate fills the guides with its rim on the horizontal line; every bowl fills its narrower guides. The camera elevation on each plate's card is reported, not corrected: a plate far from the others (most sit between 35° and 44°) can only be redrawn. Check the vessel label on a dish that could be either (a pasta plate is a plate). An image left as drawn says why on its card.
 
 **3. Write, on staging and then production.** Point the environment at the target: its `DATABASE_URL`, plus Blob credentials for the **same** environment, exactly as for a publish (above). It checks the Blob credentials, asks for the database host to be typed back (`--yes=<host>` does the same non-interactively), then for each rescaled image uploads the fitted file through `putMealImage` to a new URL, moves `imageUrl` for every meal on the old URL with `updatedAt` pinned, and deletes the old blob once every meal on it has moved. `imageHue` does not change: the hue rule drops white and grey pixels, so scale does not affect it. A meal whose image or content changed since it was read is skipped and picked up by a rerun.
 

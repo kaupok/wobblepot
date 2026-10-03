@@ -36,6 +36,7 @@ vi.mock('./footprint', () => ({
       vessel,
       measuredWidth: 0.58,
       targetWidth: 0.58,
+      elevationDeg: 40,
       scale: 1,
       action: 'keep',
       reason: 'already at the target width',
@@ -399,9 +400,10 @@ describe('generateMealImage', () => {
         fit: {
           vessel: 'bowl',
           measuredWidth: 0.46,
-          targetWidth: 0.5,
-          scale: 0.5 / 0.46,
-          action: 'scale',
+          targetWidth: 0.42,
+          elevationDeg: null,
+          scale: 0.42 / 0.46,
+          action: 'fit',
         },
       })
 
@@ -410,7 +412,7 @@ describe('generateMealImage', () => {
       expect(mockFit).toHaveBeenCalledWith(new Uint8Array([1, 2]), 'image/png', 'bowl')
       expect(result.bytes).toEqual(new Uint8Array([9, 9, 9]))
       expect(result.vessel).toBe('bowl')
-      expect(result.fit).toMatchObject({ action: 'scale', targetWidth: 0.5 })
+      expect(result.fit).toMatchObject({ action: 'fit', targetWidth: 0.42 })
       const fitLog = vi.mocked(console.info).mock.calls.find(([l]) => l === '[meal-image] fit')
       expect(JSON.parse(fitLog![1] as string)).toMatchObject({ mealId: 'meal-1', vessel: 'bowl' })
     })

@@ -185,7 +185,7 @@ export async function refit(meals: RefitMeal[], deps: RefitDeps): Promise<RefitI
 
 /** The images whose stored file changes. */
 export const rescaled = (images: RefitImage[]): RefitImage[] =>
-  images.filter((i) => i.fitted?.fit.action === 'scale')
+  images.filter((i) => i.fitted?.fit.action === 'fit')
 
 /** Per vessel: how many images, the width range as drawn, the target, and how many move. */
 export function renderSummary(images: RefitImage[]): string {
@@ -202,9 +202,18 @@ export function renderSummary(images: RefitImage[]): string {
         ? `width ${widths[0]!.toFixed(2)}–${widths[widths.length - 1]!.toFixed(2)} as drawn`
         : 'nothing drawn'
     const target = FOOTPRINT_TARGETS[vessel]
-    const moves = of.filter((i) => i.fitted?.fit.action === 'scale').length
+    const moves = of.filter((i) => i.fitted?.fit.action === 'fit').length
+    const elevations = of
+      .map((i) => i.fitted?.fit.elevationDeg)
+      .filter((e): e is number => typeof e === 'number')
+      .sort((a, b) => a - b)
+    // Reported, not corrected: the model picks the camera per dish.
+    const elevation =
+      elevations.length > 0
+        ? `, camera ${elevations[0]!.toFixed(0)}–${elevations[elevations.length - 1]!.toFixed(0)}°`
+        : ''
     lines.push(
-      `${vessel.padEnd(6)} ${String(of.length).padStart(3)} image(s), ${range}, ${target === null ? 'left as drawn' : `target ${target.toFixed(2)}, ${moves} to rescale`}`,
+      `${vessel.padEnd(6)} ${String(of.length).padStart(3)} image(s), ${range}${elevation}, ${target === null ? 'left as drawn' : `target ${target.toFixed(2)}, ${moves} to refit`}`,
     )
   }
   const unread = images.filter((i) => !i.fitted).length
@@ -233,9 +242,9 @@ export const fileNameFor = (image: RefitImage): string => {
 }
 
 /**
- * Every image as a before/after pair, each under a pair of dashed guides at
- * the vessel's target width, so a plate that still misses them is seen at
- * once. The "after" of an image left as drawn is the stored URL again.
+ * Every image as a before/after pair, each under dashed guides at the
+ * vessel's target width and the rim's centre line, so a plate that still
+ * misses them is seen at once. The "after" of an image left as drawn is the stored URL again.
  */
 export function renderSheet(
   images: RefitImage[],
@@ -252,8 +261,9 @@ export function renderSheet(
     .map((i) => {
       const fit = i.fitted!.fit
       const names = [...new Set(i.meals.map((m) => m.name))].join(', ')
-      const moved = fit.action === 'scale'
-      const before = `as drawn ${fit.measuredWidth?.toFixed(2) ?? '—'}`
+      const moved = fit.action === 'fit'
+      const camera = fit.elevationDeg === null ? '' : `, camera ${fit.elevationDeg.toFixed(0)}°`
+      const before = `as drawn ${fit.measuredWidth?.toFixed(2) ?? '—'}${camera}`
       const after = moved
         ? `fitted ×${fit.scale.toFixed(2)} → ${fit.targetWidth?.toFixed(2)}`
         : `unchanged: ${fit.reason ?? fit.action}`
@@ -277,11 +287,12 @@ small{color:#888;font-weight:normal}
 .card{position:relative;margin:0;background:#fff;border-radius:4px;overflow:hidden}
 .card img{display:block;width:100%;aspect-ratio:3/2;object-fit:cover}
 .guide{position:absolute;top:0;bottom:0;left:calc(50% - var(--t)/2);width:var(--t);border-left:1px dashed #c33;border-right:1px dashed #c33;pointer-events:none}
+.guide::after{content:'';position:absolute;left:-50vw;right:-50vw;top:50%;border-top:1px dashed #36c}
 figcaption{font-size:12px;color:#555;padding:4px 0 0}
 pre{background:#fff;border:1px solid #ddd;padding:12px;display:inline-block}
 </style></head><body>
 <h1>Meal footprints — as drawn and fitted</h1>
-<p>Run ${esc(meta.startedAt)}. ${images.length} stored image(s); ${rescaled(images).length} rescale; ${failed.length} could not be read or classified. Dashed guides mark the target width.</p>
+<p>Run ${esc(meta.startedAt)}. ${images.length} stored image(s); ${rescaled(images).length} refit; ${failed.length} could not be read or classified. Dashed guides mark the target width and the rim's centre line.</p>
 <pre>${esc(meta.summary)}</pre>
 ${failed.length > 0 ? `<p>Not fitted: ${failed.map((i) => esc(i.meals.map((m) => m.name).join(', '))).join('; ')}</p>` : ''}
 <div class="grid">
@@ -331,7 +342,7 @@ export async function run(args: ParsedArgs, deps: RunDeps): Promise<RunResult | 
   const summary = renderSummary(images)
   const changes = rescaled(images)
   log(`\n${summary}\n`)
-  log(`${changes.length} of ${images.length} stored image(s) rescale.`)
+  log(`${changes.length} of ${images.length} stored image(s) refit.`)
 
   if (!args.confirm) {
     const startedAt = deps.now().toISOString()

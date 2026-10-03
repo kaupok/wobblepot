@@ -9,9 +9,19 @@ import type { Vessel } from './vessel'
  * model treats that as a hint: over the first 45 images a plate ran from 0.50
  * to 0.68 of the frame width, a bowl from 0.46 to 0.55, so two plates side by
  * side looked different sizes. The surface is pure white by design (HON-744),
- * so the image can be rescaled about the vessel's centre and padded with
- * white after generation, with no seam. A bowl stays narrower than a plate,
- * as in life: the same vessel gets the same width, not every vessel.
+ * so the image can be rescaled about the vessel's rim and padded with white
+ * after generation, with no seam. A bowl stays narrower than a plate, as in
+ * life: the same vessel gets the same width, not every vessel.
+ *
+ * The rim is the anchor, not the drawing's bounding box: the widest row of
+ * ink is the rim's horizontal diameter, and it is placed on the frame's
+ * centre line, so a tall stack of pancakes rises from the same table level
+ * as a flat omelette instead of pushing its plate down the frame.
+ *
+ * The camera's elevation is measured from the rim's front half-ellipse and
+ * reported, not corrected: the model picks it per dish (a sandwich is drawn
+ * from lower down, to show its layers), an explicit angle in the prompt did
+ * not narrow it, and a squash of the pixels would distort the food.
  *
  * Measured on the stored bytes, so the lazy route, the operator batch and the
  * backfill all produce the same result from the same image.
@@ -30,8 +40,10 @@ export interface FootprintOptions {
    * of the frame's shorter side, so a stray speck never widens the footprint.
    */
   minRun: number
-  /** Width of the footprint per vessel, as a fraction of the frame width; null leaves the image as drawn. */
+  /** Width of the rim per vessel, as a fraction of the frame width; null leaves the image as drawn. */
   targets: Record<Vessel, number | null>
+  /** Where the rim's horizontal diameter sits, as a fraction of the frame height. */
+  anchorY: number
   /**
    * A scale outside this range says the footprint is not the vessel: a rim
    * too pale to count would measure only the food and ask for ×1.4 or more.
@@ -41,17 +53,21 @@ export interface FootprintOptions {
   maxScale: number
   /** A scale this close to 1 is not worth a resample. */
   tolerance: number
+  /** A rim this close to its anchor, as a fraction of the frame, is not worth a move. */
+  positionTolerance: number
 }
 
 /**
- * Plate 0.58 and bowl 0.50: the medians of the 36 plates (0.59) and 9 bowls
- * (0.51) measured on 2026-10-03, rounded towards the prompt's "about half".
- * Changing a target changes every stored image, through the backfill in
- * docs/DEPLOYMENT.md § "Meal footprint backfill".
+ * Plate 0.58: the median of the 36 plates (0.59) measured on 2026-10-03,
+ * rounded towards the prompt's "about half". Bowl 0.42: the bowls' own
+ * median (0.51) made a bowl read as a large portion beside a plate; at 0.42
+ * it reads as a bowl, and 0.46 still looked big. Changing a target changes
+ * every stored image, through the backfill in docs/DEPLOYMENT.md § "Meal
+ * footprint backfill".
  */
 export const FOOTPRINT_TARGETS: Record<Vessel, number | null> = {
   plate: 0.58,
-  bowl: 0.5,
+  bowl: 0.42,
   glass: null,
   board: null,
   other: null,
@@ -61,27 +77,52 @@ export const DEFAULT_FOOTPRINT_OPTIONS: FootprintOptions = {
   inkThreshold: 200,
   minRun: 0.005,
   targets: FOOTPRINT_TARGETS,
+  anchorY: 0.5,
   minScale: 0.7,
   maxScale: 1.2,
   tolerance: 0.01,
+  positionTolerance: 0.005,
 }
 
-/** The bounding box of the vessel and its food, in pixels, edges inclusive. */
+/** The vessel and its food in pixels, edges inclusive. */
 export interface Footprint {
+  /** The bounding box of all ink. */
   left: number
   right: number
   top: number
   bottom: number
+  /** The widest row of ink: the rim's horizontal diameter. */
+  rimRow: number
+  rimLeft: number
+  rimRight: number
   frameWidth: number
   frameHeight: number
 }
 
-/** The footprint's width as a fraction of the frame width. */
+/** The bounding box's width as a fraction of the frame width. */
 export const footprintWidth = (fp: Footprint): number => (fp.right - fp.left + 1) / fp.frameWidth
+
+/** The rim's width as a fraction of the frame width: what the targets are set in. */
+export const rimWidth = (fp: Footprint): number => (fp.rimRight - fp.rimLeft + 1) / fp.frameWidth
+
+/**
+ * The camera's elevation above the table, in degrees, from the rim's front
+ * half-ellipse: its half-height (rim row to the lowest ink) over its
+ * half-width. Only meaningful for a plate, whose lowest ink is the rim's
+ * front edge; a bowl's lowest ink is its base. The 34 plates measured on
+ * 2026-10-03 ran from 32° to 44°.
+ */
+export function elevationDeg(fp: Footprint): number {
+  const halfWidth = (fp.rimRight - fp.rimLeft + 1) / 2
+  const halfHeight = fp.bottom - fp.rimRow
+  if (halfWidth <= 0) return 0
+  return (Math.asin(Math.min(1, Math.max(0, halfHeight / halfWidth))) * 180) / Math.PI
+}
 
 /**
  * Find the footprint from the raw pixels: the first and last column and row
- * with at least `minRun` ink pixels. `null` when nothing is dark enough.
+ * with at least `minRun` ink pixels, and the widest row. `null` when nothing
+ * is dark enough.
  */
 export function footprintOfPixels(
   data: Uint8Array,
@@ -91,6 +132,8 @@ export function footprintOfPixels(
   const { width, height, channels } = frame
   const cols = new Uint32Array(width)
   const rows = new Uint32Array(height)
+  const rowLeft = new Int32Array(height).fill(-1)
+  const rowRight = new Int32Array(height).fill(-1)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * channels
@@ -98,6 +141,8 @@ export function footprintOfPixels(
       if (darkest < options.inkThreshold) {
         cols[x]!++
         rows[y]!++
+        if (rowLeft[y] === -1) rowLeft[y] = x
+        rowRight[y] = x
       }
     }
   }
@@ -112,11 +157,24 @@ export function footprintOfPixels(
   if (left === -1) return null
   const top = first(rows)
   if (top === -1) return null
+
+  // The rim row: the median of the rows within 1.5% of the widest span, so a
+  // rim drawn a few pixels thick anchors on its middle, not its top edge.
+  const span = (y: number) => (rows[y]! >= minRun ? rowRight[y]! - rowLeft[y]! + 1 : 0)
+  let widest = 0
+  for (let y = 0; y < height; y++) widest = Math.max(widest, span(y))
+  const wideRows: number[] = []
+  for (let y = 0; y < height; y++) if (span(y) >= 0.985 * widest) wideRows.push(y)
+  const rimRow = wideRows[Math.floor(wideRows.length / 2)]!
+
   return {
     left,
     right: last(cols),
     top,
     bottom: last(rows),
+    rimRow,
+    rimLeft: rowLeft[rimRow]!,
+    rimRight: rowRight[rimRow]!,
     frameWidth: width,
     frameHeight: height,
   }
@@ -140,12 +198,20 @@ export async function measureFootprint(
 }
 
 export type FitDecision =
-  | { action: 'scale'; scale: number }
-  | { action: 'keep'; reason: 'no target for the vessel' | 'already at the target width' }
+  | { action: 'fit'; scale: number }
+  | { action: 'keep'; reason: 'no target for the vessel' | 'already fitted' }
   | {
       action: 'skip'
       reason: 'nothing drawn' | 'the footprint touches the frame edge' | 'scale out of range'
     }
+
+/** Where the rim's centre lands after `scale`, and where it should be, in pixels. */
+function rimOffset(fp: Footprint, scale: number, options: FootprintOptions) {
+  const cx = (fp.rimLeft + fp.rimRight + 1) / 2
+  const dx = fp.frameWidth / 2 - cx * scale
+  const dy = fp.frameHeight * options.anchorY - fp.rimRow * scale
+  return { dx, dy }
+}
 
 /** What to do with an image, from its footprint and vessel. Pure, so it is unit-tested on numbers. */
 export function planFit(
@@ -165,22 +231,29 @@ export function planFit(
     // A cropped vessel has no measurable width; scaling it would guess.
     return { action: 'skip', reason: 'the footprint touches the frame edge' }
   }
-  const scale = target / footprintWidth(footprint)
+  const scale = target / rimWidth(footprint)
   if (scale < options.minScale || scale > options.maxScale) {
     return { action: 'skip', reason: 'scale out of range' }
   }
-  if (Math.abs(scale - 1) <= options.tolerance) {
-    return { action: 'keep', reason: 'already at the target width' }
+  const { dx, dy } = rimOffset(footprint, scale, options)
+  if (
+    Math.abs(scale - 1) <= options.tolerance &&
+    Math.abs(dx) <= options.positionTolerance * footprint.frameWidth &&
+    Math.abs(dy) <= options.positionTolerance * footprint.frameHeight
+  ) {
+    return { action: 'keep', reason: 'already fitted' }
   }
-  return { action: 'scale', scale }
+  return { action: 'fit', scale }
 }
 
 /** What `fitFootprint` did to an image, stored on the batch manifest and logged by the route. */
 export interface FootprintFit {
   vessel: Vessel
-  /** The footprint as drawn, as a fraction of the frame width; null when nothing was drawn. */
+  /** The rim as drawn, as a fraction of the frame width; null when nothing was drawn. */
   measuredWidth: number | null
   targetWidth: number | null
+  /** The camera's elevation in degrees, for a plate; null for any other vessel or nothing drawn. */
+  elevationDeg: number | null
   /** The scale applied; 1 when the image was left as drawn. */
   scale: number
   action: FitDecision['action']
@@ -195,10 +268,10 @@ export interface FittedImage {
 }
 
 /**
- * Scale the image about its footprint's centre so the footprint is the
- * vessel's target width, on a white canvas of the original size. The result
- * is a PNG whatever came in. An image that is left as drawn comes back as it
- * was, bytes and media type both.
+ * Scale the image about its rim so the rim is the vessel's target width, and
+ * place the rim's centre on the frame's centre line, on a white canvas of
+ * the original size. The result is a PNG whatever came in. An image that is
+ * left as drawn comes back as it was, bytes and media type both.
  */
 export async function fitFootprint(
   bytes: Uint8Array,
@@ -208,10 +281,12 @@ export async function fitFootprint(
 ): Promise<FittedImage> {
   const footprint = await measureFootprint(bytes, options)
   const decision = planFit(footprint, vessel, options)
-  const measuredWidth = footprint ? footprintWidth(footprint) : null
+  const measuredWidth = footprint ? rimWidth(footprint) : null
   const targetWidth = options.targets[vessel]
+  const elevation =
+    footprint && vessel === 'plate' ? Math.round(elevationDeg(footprint) * 10) / 10 : null
 
-  if (decision.action !== 'scale' || !footprint) {
+  if (decision.action !== 'fit' || !footprint) {
     return {
       bytes,
       mediaType,
@@ -219,9 +294,10 @@ export async function fitFootprint(
         vessel,
         measuredWidth,
         targetWidth,
+        elevationDeg: elevation,
         scale: 1,
         action: decision.action,
-        ...(decision.action !== 'scale' && { reason: decision.reason }),
+        ...(decision.action !== 'fit' && { reason: decision.reason }),
       },
     }
   }
@@ -230,11 +306,9 @@ export async function fitFootprint(
   const { frameWidth: W, frameHeight: H } = footprint
   const scaledW = Math.max(1, Math.round(W * scale))
   const scaledH = Math.max(1, Math.round(H * scale))
-  // The footprint's centre, as drawn and after scaling; the offset puts it at the frame's centre.
-  const cx = (footprint.left + footprint.right + 1) / 2
-  const cy = (footprint.top + footprint.bottom + 1) / 2
-  const left = Math.round(W / 2 - cx * scale)
-  const top = Math.round(H / 2 - cy * scale)
+  const { dx, dy } = rimOffset(footprint, scale, options)
+  const left = Math.round(dx)
+  const top = Math.round(dy)
 
   // The part of the scaled image that lands inside the frame: an enlarged
   // image overhangs the frame on the sides, so it is cut to fit first.
@@ -258,6 +332,6 @@ export async function fitFootprint(
   return {
     bytes: new Uint8Array(out),
     mediaType: 'image/png',
-    fit: { vessel, measuredWidth, targetWidth, scale, action: 'scale' },
+    fit: { vessel, measuredWidth, targetWidth, elevationDeg: elevation, scale, action: 'fit' },
   }
 }

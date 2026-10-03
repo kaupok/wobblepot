@@ -42,7 +42,7 @@ function deps(meals: RefitMeal[], plan: Plan, overrides: Partial<RunDeps> = {}) 
     classify: vi.fn(async ({ bytes }) => plan[new TextDecoder().decode(bytes)]?.vessel ?? null),
     fit: vi.fn(async (bytes, mediaType, vessel): Promise<FittedImage> => {
       const { scale, measured = 0.64 } = plan[new TextDecoder().decode(bytes)]!
-      const target = vessel === 'plate' ? 0.58 : vessel === 'bowl' ? 0.5 : null
+      const target = vessel === 'plate' ? 0.58 : vessel === 'bowl' ? 0.42 : null
       return scale === 1
         ? {
             bytes,
@@ -51,6 +51,7 @@ function deps(meals: RefitMeal[], plan: Plan, overrides: Partial<RunDeps> = {}) 
               vessel,
               measuredWidth: measured,
               targetWidth: target,
+              elevationDeg: vessel === 'plate' ? 40 : null,
               scale: 1,
               action: 'keep',
               reason: 'already at the target width',
@@ -59,7 +60,14 @@ function deps(meals: RefitMeal[], plan: Plan, overrides: Partial<RunDeps> = {}) 
         : {
             bytes: new Uint8Array([...bytes, 0]),
             mediaType: 'image/png',
-            fit: { vessel, measuredWidth: measured, targetWidth: target, scale, action: 'scale' },
+            fit: {
+              vessel,
+              measuredWidth: measured,
+              targetWidth: target,
+              elevationDeg: vessel === 'plate' ? 40 : null,
+              scale,
+              action: 'fit',
+            },
           }
     }),
     put,
@@ -105,7 +113,7 @@ describe('HON-1024: meal footprint backfill', () => {
 
     expect(d.fetchImage).toHaveBeenCalledTimes(3)
     expect(images.map((i) => [i.url, i.meals.length, i.vessel, i.fitted?.fit.action])).toEqual([
-      [shared, 2, 'plate', 'scale'],
+      [shared, 2, 'plate', 'fit'],
       ['https://blob/c.png', 1, null, undefined],
       ['https://blob/d.png', 1, null, undefined],
     ])
@@ -125,7 +133,7 @@ describe('HON-1024: meal footprint backfill', () => {
     )
     const summary = renderSummary(images)
     expect(summary).toContain(
-      'plate    2 image(s), width 0.58–0.64 as drawn, target 0.58, 1 to rescale',
+      'plate    2 image(s), width 0.58–0.64 as drawn, camera 40–40°, target 0.58, 1 to refit',
     )
     expect(summary).toContain('glass    1 image(s), width 0.30–0.30 as drawn, left as drawn')
   })
@@ -149,7 +157,7 @@ describe('HON-1024: meal footprint backfill', () => {
     expect(html).toContain('src="eggs-benedict-a.png"')
     expect(html).toContain('unchanged: already at the target width')
     expect(html).toContain('--t:58.0%')
-    expect(lines.join('\n')).toContain('1 of 2 stored image(s) rescale.')
+    expect(lines.join('\n')).toContain('1 of 2 stored image(s) refit.')
     expect(lines.join('\n')).toContain('Dry run')
   })
 
