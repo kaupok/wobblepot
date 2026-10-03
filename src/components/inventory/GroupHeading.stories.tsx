@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The heading over a group of rows on `/shopping` and `/pantry` — staples, on hand, a category, an urgency bucket, "Other". Caption level under the column\'s Title, with an optional round count badge after the label and the group\'s progress right-aligned on the same line.',
+          'The heading over a group of rows on `/shopping` and `/pantry` — staples, on hand, a category, an urgency bucket, "Other". Caption level under the column\'s Title, with an optional plain count after the label and the group\'s progress right-aligned on the same line.',
       },
     },
   },
@@ -31,11 +31,29 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** The badge's box, found from the heading so the query does not depend on its text. */
-function countBadge(heading: HTMLElement) {
-  const badge = heading.querySelector<HTMLElement>('[data-slot="badge"]')
-  if (!badge) throw new Error('No count badge in the heading')
-  return badge
+/** The count's element, found from the heading so the query does not depend on its text. */
+function countOf(heading: HTMLElement) {
+  const count = heading.lastElementChild
+  if (!(count instanceof HTMLElement)) throw new Error('No count in the heading')
+  return count
+}
+
+/**
+ * The count is a plain number in the caption's own colour and size, one weight
+ * under the label: no badge, no fill, no ring (HON-1013).
+ */
+async function expectPlainCount(heading: HTMLElement) {
+  const count = countOf(heading)
+  await expect(heading.querySelector('[data-slot="badge"]')).toBeNull()
+  const own = getComputedStyle(count)
+  const caption = getComputedStyle(heading)
+  await expect(own.color).toBe(caption.color)
+  await expect(own.fontSize).toBe(caption.fontSize)
+  await expect(own.fontWeight).toBe('400')
+  await expect(caption.fontWeight).toBe('500')
+  await expect(own.fontVariantNumeric).toBe('tabular-nums')
+  await expect(own.backgroundColor).toBe('rgba(0, 0, 0, 0)')
+  await expect(own.borderTopWidth).toBe('0px')
 }
 
 export const WithTotal: Story = {
@@ -43,31 +61,18 @@ export const WithTotal: Story = {
     docs: {
       description: {
         story:
-          "A pantry group: the label and a round count badge. One digit makes a circle, sitting on the caption's baseline.",
+          "A pantry group: the label and its count as a plain number in the caption's muted colour, one weight lighter.",
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const heading = canvas.getByRole('heading', { level: 3, name: 'Staples (always stocked) 4' })
-    const badge = countBadge(heading)
-    const box = badge.getBoundingClientRect()
-    // One digit: a circle.
-    await expect(box.width).toBeCloseTo(box.height, 0)
-    // The digit shares the caption's baseline. Both are the same `text-xs`
-    // font, so their glyph boxes end at the same place when the baselines meet.
-    const textBottom = (node: Node) => {
-      const range = document.createRange()
-      range.selectNodeContents(node)
-      return range.getBoundingClientRect().bottom
-    }
-    const label = [...heading.childNodes].find((node) => node.nodeType === Node.TEXT_NODE)
-    if (!label) throw new Error('No label text in the heading')
-    await expect(Math.abs(textBottom(badge) - textBottom(label))).toBeLessThan(1)
-    // The badge's 26px floor sets the line, not the caption's 20px. The
-    // `/shopping` and `/pantry` skeletons reserve this height
-    // (`src/app/shopping/loading.tsx`); move them together.
-    await expect(heading.getBoundingClientRect().height).toBeCloseTo(26, 0)
+    await expectPlainCount(heading)
+    // The count adds nothing to the caption's 20px line. The `/shopping` and
+    // `/pantry` skeletons reserve this height (`src/app/shopping/loading.tsx`);
+    // move them together.
+    await expect(heading.getBoundingClientRect().height).toBeCloseTo(20, 0)
     // Nothing at the right end until something is bought.
     await expect(heading.parentElement?.childElementCount).toBe(1)
   },
@@ -78,9 +83,7 @@ export const TwoDigitTotal: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const heading = canvas.getByRole('heading', { level: 3, name: 'On hand 12' })
-    const box = countBadge(heading).getBoundingClientRect()
-    // Two digits: a short pill, no narrower than it is tall.
-    await expect(box.width).toBeGreaterThan(box.height)
+    await expectPlainCount(heading)
   },
 }
 
@@ -90,7 +93,7 @@ export const Progress: Story = {
     docs: {
       description: {
         story:
-          'A shopping category once something in it is bought: the count badge after the label, the purchased fraction at the right end. The category emoji sits before the label with a gap, hidden from screen readers.',
+          'A shopping category once something in it is bought: the count after the label, the purchased fraction at the right end. The category emoji sits before the label with a gap, hidden from screen readers.',
       },
     },
   },
@@ -101,6 +104,38 @@ export const Progress: Story = {
     await expect(canvas.getByText('🥩')).toHaveAttribute('aria-hidden', 'true')
     await expect(canvas.getByText('1/4')).toBeVisible()
     await expect(heading.parentElement?.childElementCount).toBe(2)
+  },
+}
+
+/**
+ * A shopping group on the note's paper, where the list half of Pantry &
+ * shopping sits (HON-1012). The count takes the note's muted token through the
+ * caption, not the neutral grey.
+ */
+export const OnNote: Story = {
+  args: { emoji: '🥩', label: 'Protein', total: 4, count: '1/4' },
+  decorators: [
+    (Story) => (
+      <div data-surface="note" className="bg-card p-4">
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const heading = canvas.getByRole('heading', { level: 3, name: 'Protein 4' })
+    await expectPlainCount(heading)
+    // Not the neutral page's muted grey: measure one outside the scope.
+    const neutral = document.createElement('span')
+    neutral.className = 'text-muted-foreground'
+    document.body.append(neutral)
+    try {
+      await expect(getComputedStyle(countOf(heading)).color).not.toBe(
+        getComputedStyle(neutral).color,
+      )
+    } finally {
+      neutral.remove()
+    }
   },
 }
 
@@ -118,8 +153,8 @@ export const LabelOnly: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const heading = canvas.getByRole('heading', { level: 3, name: 'On hand' })
-    // No total and no count: no badge, nothing beside the label.
-    await expect(heading.querySelector('[data-slot="badge"]')).toBeNull()
+    // No total and no count: nothing after the label, nothing beside it.
+    await expect(heading.childElementCount).toBe(0)
     await expect(heading.parentElement?.childElementCount).toBe(1)
   },
 }

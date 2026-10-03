@@ -165,7 +165,7 @@ describe.each([
     expect(contrast(at('muted'), surface)).toBeGreaterThanOrEqual(4.5)
   })
 
-  // The chip is a count badge and a quiet button's hover.
+  // The chip is a `secondary` fill and a quiet button's hover.
   it('keeps text on the chip at 5:1', () => {
     expect(contrast(at('text'), at('chip'))).toBeGreaterThanOrEqual(5)
   })

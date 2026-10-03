@@ -61,7 +61,7 @@ export const Default: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    // The emoji is decorative, so the heading's name is the label and the count badge alone.
+    // The emoji is decorative, so the heading's name is the label and the count alone.
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('heading', { level: 3 })).toHaveAccessibleName(/^Protein \d+$/)
   },
