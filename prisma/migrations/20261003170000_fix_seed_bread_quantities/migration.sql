@@ -38,14 +38,28 @@ WITH fixed AS (
     AND i."name" = fix.ingredient_name
     AND mc."quantityPerServing" = fix.old_quantity
   RETURNING mc."mealId"
+),
+-- Cached prep tips were written from the old ingredient list, which
+-- `PATCH /api/households/me/meals/[id]` treats as a tips input (HON-683).
+-- Clear them so the next open regenerates from the fixed quantities.
+-- PostgreSQL runs a data-modifying WITH statement even when the main query
+-- does not reference it.
+cleared_tips AS (
+  UPDATE "meal_plan_entry"
+  SET "preparationTips" = NULL
+  WHERE "mealId" IN (SELECT "mealId" FROM fixed)
+    AND "preparationTips" IS NOT NULL
 )
 -- The illustration depicts the components (`clearMealImage`), and the image
 -- prompt lists ingredients by weight, so the changed meals go back to the
 -- global image batch's NEEDS_IMAGE selection (docs/DEPLOYMENT.md → Global
 -- meal illustrations). The old blob is not deleted: a migration cannot reach
--- Blob, and a household copy of the meal may still point at it.
+-- Blob, and a household copy of the meal may still point at it. `updatedAt`
+-- moves too, so the prep-tips route's HON-683 guard rejects a tips write that
+-- started before this migration.
 UPDATE "meal"
-SET "imageUrl" = NULL,
+SET "updatedAt" = CURRENT_TIMESTAMP,
+    "imageUrl" = NULL,
     "imagePromptVersion" = NULL,
     "imageStatus" = 'none',
     "imageClaimedAt" = NULL,
