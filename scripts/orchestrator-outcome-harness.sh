@@ -924,8 +924,10 @@ EOF
     # A1 = the workflowStates JSON Linear would return. Runs the REAL
     # validate_state_ids against it; no network. The stale count lands on
     # stdout, and the ERROR lines log() wrote land in $MAIN_LOG, so both are
-    # asserted from one run.
+    # asserted from one run. A1 = `-` reads the JSON from stdin instead: the
+    # HON-1005 race needs megabytes, and Linux caps one argv string at 128 KB.
     trap 'rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
+    [ "$A1" = "-" ] && A1=$(cat)
     STALE_COUNT=$(validate_state_ids "$A1")
     echo "STALE_COUNT:$STALE_COUNT"
     cat "$MAIN_LOG"

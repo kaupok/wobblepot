@@ -1767,6 +1767,42 @@ describe('orchestrator.sh', () => {
       expect(out).not.toContain('Stale workflow-state UUID')
     })
 
+    // HON-1005: `printf … | grep -qxF` under pipefail. grep -q exits on the
+    // first match; with the matching ID first and megabytes after it, printf is
+    // still writing, dies of SIGPIPE, and the pipeline's 141 read as "stale".
+    // The tail is far past a 64 KB pipe buffer plus one grep read, so the old
+    // pipeline lost this race on every run, not just occasionally as in CI.
+    it('passes when the live IDs are followed by megabytes of further states', () => {
+      const filler = Array.from({ length: 50_000 }, (_, i) => `filler-${i}-${'x'.repeat(24)}`)
+      const out = stripTimestamps(
+        execFileSync('bash', [harness, 'validate-states', '-'], {
+          encoding: 'utf8',
+          timeout: 30_000,
+          env: harnessEnv(),
+          input: statesJson([...Object.values(LIVE_STATES), ...filler]),
+        }),
+      )
+
+      expect(out).toContain('STALE_COUNT:0')
+      expect(out).not.toContain('Stale workflow-state UUID')
+    })
+
+    it('leaves no echo or printf piped into grep -q', () => {
+      // Every such check must make grep's own status the answer (here-string or
+      // process substitution) — see the comment in worker_hit_neon_cap.
+      const offenders = fs
+        .readFileSync(orchestrator, 'utf8')
+        .split('\n')
+        .filter((line) => !line.trimStart().startsWith('#'))
+        .filter((line) =>
+          /\b(printf|echo)\b.*\|\s*grep\b[^|]*\s(-[a-zA-Z]*q[a-zA-Z]*|--quiet|--silent)\b/.test(
+            line,
+          ),
+        )
+
+      expect(offenders).toEqual([])
+    })
+
     it('names the stale constant when its UUID no longer exists', () => {
       // Queued recreated: its old UUID is gone, a fresh one takes its place.
       const others = Object.values(LIVE_STATES).filter((id) => id !== LIVE_STATES.STATE_QUEUED)

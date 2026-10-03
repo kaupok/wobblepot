@@ -1338,9 +1338,11 @@ pr_ci_state() {
   # reported — no Actions job has spoken, so CI's state is genuinely unknown.
   [ -z "$buckets" ] && { echo "unknown"; return; }
 
-  if printf '%s\n' "$buckets" | grep -qx 'pending'; then
+  # Here-strings, not `printf | grep -q`: under pipefail a SIGPIPE'd printf
+  # turns a match into 141 (HON-1005; see worker_hit_neon_cap).
+  if grep -qx 'pending' <<<"$buckets"; then
     echo "pending"
-  elif printf '%s\n' "$buckets" | grep -qvxE 'pass|skipping'; then
+  elif grep -qvxE 'pass|skipping' <<<"$buckets"; then
     echo "failing"
   else
     echo "green"
@@ -2007,7 +2009,7 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
         *)
           log WARN "Unexpected triage result: '$triage_result'"
           # Detect Claude CLI errors returned on stdout
-          if printf '%s' "$triage_output" | grep -qiE 'balance|credit|limit|unauthorized|forbidden'; then
+          if grep -qiE 'balance|credit|limit|unauthorized|forbidden' <<<"$triage_output"; then
             log WARN "Looks like a Claude CLI error, treating as NEEDS_HUMAN"
             triage="NEEDS_HUMAN"
           fi ;;
@@ -2501,7 +2503,9 @@ validate_state_ids() {
     "STATE_CANCELED:$STATE_CANCELED" \
     "STATE_DUPLICATE:$STATE_DUPLICATE"; do
     name="${pair%%:*}"; id="${pair#*:}"
-    if ! printf '%s\n' "$known_ids" | grep -qxF "$id"; then
+    # Here-string, not `printf | grep -q`: under pipefail a SIGPIPE'd printf
+    # reads a live ID as stale (HON-1005; see worker_hit_neon_cap).
+    if ! grep -qxF "$id" <<<"$known_ids"; then
       log ERROR "Stale workflow-state UUID: $name ($id) is not a HON workflow state — update the constant in scripts/orchestrator.sh"
       stale=$((stale + 1))
     fi
