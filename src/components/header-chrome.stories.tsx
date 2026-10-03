@@ -274,7 +274,8 @@ export const DesktopPastMealsToMark: Story = {
     const row = await within(document.body).findByRole('menuitem', {
       name: /^Past meals\s*\(to mark\)$/,
     })
-    await expect(row.querySelector('[data-slot="attention-dot"]')).toBeVisible()
+    // The menu fades in from opacity 0, so wait for the dot to be visible.
+    await waitFor(() => expect(row.querySelector('[data-slot="attention-dot"]')).toBeVisible())
     await userEvent.keyboard('{Escape}')
   },
 }

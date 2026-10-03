@@ -110,7 +110,8 @@ export const PastMealsToMark: Story = {
 
     const body = within(document.body)
     const row = await body.findByRole('menuitem', { name: /^Past meals\s*\(to mark\)$/ })
-    await expect(row.querySelector('[data-slot="attention-dot"]')).toBeVisible()
+    // The menu fades in from opacity 0, so wait for the dot to be visible.
+    await waitFor(() => expect(row.querySelector('[data-slot="attention-dot"]')).toBeVisible())
     // Only the Past meals row carries it.
     await expect(
       body.getByRole('menuitem', { name: 'Profile' }).querySelector('[data-slot="attention-dot"]'),

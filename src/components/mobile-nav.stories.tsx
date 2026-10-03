@@ -1,6 +1,6 @@
 import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite'
 import { ThemeProvider } from 'next-themes'
-import { expect, userEvent, within } from 'storybook/test'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { http, HttpResponse } from 'msw'
 import {
   assertFocusInDialog,
@@ -176,7 +176,8 @@ export const SignedInWithPastMealsToMark: Story = {
     await userEvent.click(trigger)
     const nav = within(document.body).getByRole('navigation', { name: 'Account menu' })
     const row = within(nav).getByRole('link', { name: /^Past meals\s*\(to mark\)$/ })
-    await expect(row.querySelector('[data-slot="attention-dot"]')).toBeVisible()
+    // The sheet animates in, so wait for the dot to be visible.
+    await waitFor(() => expect(row.querySelector('[data-slot="attention-dot"]')).toBeVisible())
     await expect(nav.querySelectorAll('[data-slot="attention-dot"]')).toHaveLength(1)
     assertTouchTargets(nav)
   },
