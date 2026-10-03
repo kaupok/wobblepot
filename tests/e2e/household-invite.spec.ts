@@ -54,8 +54,9 @@ test.describe('Household member invite', () => {
     await page.getByRole('button', { name: 'Add member' }).click()
     const addDialog = page.getByRole('dialog')
     await expect(addDialog).toBeVisible()
-    // `exact` matters: the default substring match also hits "Display name
-    // (optional)", which would be a strict-mode violation.
+    // `exact` keeps the match to the Name field alone. The dialog has had one
+    // name field since HON-1021, but a substring match would also hit any later
+    // label that contains "name".
     await addDialog.getByLabel('Name', { exact: true }).fill(MANUAL_MEMBER_NAME)
     // Scoped to the dialog because the page-level trigger shares this
     // accessible name and stays mounted while the dialog is open.

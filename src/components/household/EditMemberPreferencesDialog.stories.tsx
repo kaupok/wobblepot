@@ -20,7 +20,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Dialog for editing a member’s display name and portion size. The "Name" input only shows for manual members (no linked user account). PATCH submission goes to `/api/households/me/members/:id` via MSW in stories.',
+          'Dialog for editing how a member appears and their portion size. A manual member (no linked account) has one "Name" field; an account member has "Display name (optional)" instead, because their account name is fixed (HON-1021). PATCH submission goes to `/api/households/me/members/:id` via MSW in stories.',
       },
     },
   },
@@ -41,7 +41,7 @@ export const Adult: Story = {
     docs: {
       description: {
         story:
-          'Linked-account adult member — Name field hidden, regular portion preselected. The display name is optional: the account name stands in for it.',
+          'Account member — Display name shown, no Name field, regular portion preselected and the custom input hidden. The display name is optional: the account name stands in for it.',
       },
     },
   },
@@ -49,13 +49,16 @@ export const Adult: Story = {
     const body = within(document.body)
     await body.findByRole('dialog')
     await expect(body.getByLabelText('Display name (optional)')).not.toBeRequired()
+    await expect(body.queryByLabelText('Name')).toBeNull()
+    await expect(body.getByText(/change how this member appears/i)).toBeInTheDocument()
+    await expect(body.queryByRole('textbox', { name: /portion multiplier/i })).toBeNull()
     // The presets are a named radiogroup with the matching preset checked (HON-828).
     const presets = await body.findByRole('radiogroup', { name: /portion size/i })
     const checked = within(presets)
       .getAllByRole('radio')
       .filter((radio) => radio.getAttribute('aria-checked') === 'true')
     await expect(checked).toHaveLength(1)
-    await expect(checked[0]).toHaveAccessibleName(/regular \(1x\)/i)
+    await expect(checked[0]).toHaveAccessibleName(/regular \(1×\)/i)
   },
 }
 
@@ -69,16 +72,18 @@ export const CustomPortion: Story = {
     docs: {
       description: {
         story:
-          'A portion multiplier that matches no preset (1.25x, typed into the input): no preset chip is checked.',
+          'A portion multiplier that matches no preset (1.25×): Custom is checked and the input shows the value.',
       },
     },
   },
   play: async () => {
     const body = within(document.body)
     const presets = await body.findByRole('radiogroup', { name: /portion size/i })
-    for (const radio of within(presets).getAllByRole('radio')) {
-      await expect(radio).toHaveAttribute('aria-checked', 'false')
-    }
+    await expect(within(presets).getByRole('radio', { name: /custom/i })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await expect(body.getByRole('textbox', { name: /portion multiplier/i })).toHaveValue('1.25')
   },
 }
 
@@ -91,14 +96,17 @@ export const Child: Story = {
     docs: {
       description: {
         story:
-          'Manual child member — Name field visible, "Small" portion preselected with the matching display name. The display name is optional here too: the member\'s name stands in for it (HON-842).',
+          'Manual child member — one Name field, prefilled with the old display name ("kiddo") so saving folds it into the name (HON-1021). "Small" portion preselected.',
       },
     },
   },
   play: async () => {
     const body = within(document.body)
     await body.findByRole('dialog')
-    await expect(body.getByLabelText('Display name (optional)')).not.toBeRequired()
+    await expect(body.queryByLabelText(/display name/i)).toBeNull()
+    const nameInput = body.getByLabelText('Name')
+    await expect(nameInput).toHaveValue('kiddo')
+    await expect(nameInput).toHaveAttribute('placeholder', 'e.g., Mia')
   },
 }
 
@@ -116,7 +124,7 @@ export const WithAllergens: Story = {
     docs: {
       description: {
         story:
-          'Member with allergens + dietary type set — current dialog only edits display name + portion, but the existing preferences are preserved on save (verified by the play story below).',
+          'Member with allergens + dietary type set — the dialog only edits display name + portion; the other preferences are left out of the PATCH, so the route keeps them.',
       },
     },
   },
@@ -133,10 +141,11 @@ export const Open: Story = {
   },
 }
 
-// Play story — exercises the parent-callback contract. We toggle a different
-// portion preset, type into the display name field, then submit. The default
-// MSW handler echoes the payload back as a saved member, so onSaved fires with
-// the new shape.
+// Play stories — exercise the parent-callback contract. The default MSW handler
+// echoes the payload back as a saved member, so onSaved fires with the new shape.
+
+// Manual member: the typed name goes out as `name` and the display name is
+// cleared, so the row shows the one name.
 
 export const SaveInvokesCallback: Story = {
   args: {
@@ -147,11 +156,11 @@ export const SaveInvokesCallback: Story = {
     const body = within(document.body)
     await body.findByRole('dialog')
 
-    const displayNameInput = await body.findByLabelText(/display name/i)
-    await userEvent.clear(displayNameInput)
-    await userEvent.type(displayNameInput, 'Sammy')
+    const nameInput = await body.findByLabelText('Name')
+    await userEvent.clear(nameInput)
+    await userEvent.type(nameInput, 'Sammy')
 
-    const largePortion = await body.findByRole('radio', { name: /^large \(1\.5x\)/i })
+    const largePortion = await body.findByRole('radio', { name: /^large \(1\.5×\)/i })
     await userEvent.click(largePortion)
     await expect(largePortion).toHaveAttribute('aria-checked', 'true')
 
@@ -161,14 +170,43 @@ export const SaveInvokesCallback: Story = {
     await waitFor(() =>
       expect(args.onSaved).toHaveBeenCalledWith(
         expect.objectContaining({
+          name: 'Sammy',
           preferences: expect.objectContaining({
-            displayName: 'Sammy',
+            displayName: null,
             portionMultiplier: 1.5,
           }),
         }),
       ),
     )
     await waitFor(() => expect(args.onOpenChange).toHaveBeenCalledWith(false))
+  },
+}
+
+// Account member: the display name saves as before, and no name is sent.
+export const SaveAccountMemberInvokesCallback: Story = {
+  play: async ({ args }) => {
+    const body = within(document.body)
+    await body.findByRole('dialog')
+
+    const displayNameInput = await body.findByLabelText('Display name (optional)')
+    await userEvent.clear(displayNameInput)
+    await userEvent.type(displayNameInput, 'Mom')
+    await userEvent.click(body.getByRole('radio', { name: /custom/i }))
+    const portionInput = body.getByRole('textbox', { name: /portion multiplier/i })
+    await userEvent.clear(portionInput)
+    await userEvent.type(portionInput, '1.25')
+
+    await userEvent.click(body.getByRole('button', { name: /save preferences/i }))
+
+    await waitFor(() =>
+      expect(args.onSaved).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // The MSW handler falls back to 'Member' when no name is sent.
+          name: 'Member',
+          preferences: expect.objectContaining({ displayName: 'Mom', portionMultiplier: 1.25 }),
+        }),
+      ),
+    )
   },
 }
 

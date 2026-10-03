@@ -10,6 +10,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import etMessages from '../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import type { Member } from '@/types/member'
+import { AddMemberDialog } from './AddMemberDialog'
 import { EditMemberPreferencesDialog } from './EditMemberPreferencesDialog'
 import { MemberInviteDialog } from './MemberInviteDialog'
 
@@ -100,5 +101,102 @@ describe('member dialogs in Estonian', () => {
       await screen.findByText(etMessages.household.editMember.errors.saveFailed),
     ).toBeInTheDocument()
     expect(screen.queryByText('Validation failed')).not.toBeInTheDocument()
+  })
+
+  it('AddMemberDialog has one name field with the Estonian placeholder', async () => {
+    renderInEstonian(<AddMemberDialog onMemberAdded={vi.fn()} />)
+    await userEvent.click(
+      screen.getByRole('button', { name: etMessages.household.addMember.trigger }),
+    )
+
+    expect(screen.getByLabelText(etMessages.household.addMember.nameLabel)).toHaveAttribute(
+      'placeholder',
+      'nt Mia',
+    )
+    expect(screen.queryByLabelText(/hüüdnimi/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Väike (0,75×)' })).toBeInTheDocument()
+  })
+
+  it('EditMemberPreferencesDialog folds a manual member display name into the name', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(member), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    renderInEstonian(
+      <EditMemberPreferencesDialog
+        member={{
+          ...member,
+          preferences: {
+            displayName: 'Mari-Liis',
+            portionMultiplier: 1.25,
+            targetCalories: null,
+            targetProtein: null,
+            targetCarbs: null,
+            targetFat: null,
+            dietaryType: null,
+            allergens: [],
+            restrictions: [],
+            excludedIngredients: [],
+            excludedIngredientIds: [],
+          },
+        }}
+        open
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+        isManualMember
+      />,
+    )
+
+    expect(screen.getByText(etMessages.household.editMember.description)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/hüüdnimi/i)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(etMessages.household.editMember.nameLabel)).toHaveValue(
+      'Mari-Liis',
+    )
+    expect(
+      screen.getByRole('radio', { name: etMessages.household.portion.custom }),
+    ).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByText('× tavaline portsjon')).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: etMessages.household.editMember.submit }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toEqual({
+      name: 'Mari-Liis',
+      preferences: { displayName: null, portionMultiplier: 1.25 },
+    })
+  })
+
+  it('EditMemberPreferencesDialog refuses an empty name for a manual member', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    renderInEstonian(
+      <EditMemberPreferencesDialog
+        member={member}
+        open
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
+        isManualMember
+      />,
+    )
+
+    // `required` stops a real browser before the handler runs; drop it so the
+    // test reaches the handler's own guard.
+    const nameInput = screen.getByLabelText(etMessages.household.editMember.nameLabel)
+    await userEvent.clear(nameInput)
+    nameInput.removeAttribute('required')
+    await userEvent.click(
+      screen.getByRole('button', { name: etMessages.household.editMember.submit }),
+    )
+
+    expect(
+      await screen.findByText(etMessages.household.editMember.errors.nameRequired),
+    ).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

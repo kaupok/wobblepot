@@ -9,10 +9,10 @@ const MEMBER_TYPES = [
 ]
 
 const PORTIONS = [
-  { value: '0.75', label: 'Small (0.75x)' },
-  { value: '1', label: 'Regular (1x)' },
-  { value: '1.5', label: 'Large (1.5x)' },
-  { value: '2', label: 'Extra large (2x)' },
+  { value: '0.75', label: 'Small (0.75×)' },
+  { value: '1', label: 'Regular (1×)' },
+  { value: '1.5', label: 'Large (1.5×)' },
+  { value: '2', label: 'Extra large (2×)' },
 ]
 
 /** Controlled wrapper, so clicks and arrow keys move the selection in the canvas. */

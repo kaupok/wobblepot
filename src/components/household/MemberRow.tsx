@@ -18,13 +18,7 @@ import { Body } from '@/components/ui/typography'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { ApiError, apiFetch } from '@/lib/api'
 import type { Member, MemberInvite } from '@/types/member'
-
-const PORTION_PRESET_KEYS: Record<number, 'small' | 'regular' | 'large' | 'extraLarge'> = {
-  0.75: 'small',
-  1: 'regular',
-  1.5: 'large',
-  2: 'extraLarge',
-}
+import { PORTION_PRESETS } from './PortionSizeField'
 
 interface MemberRowProps {
   member: Member
@@ -72,7 +66,7 @@ export function MemberRow({
   const hasActiveInvite = member.invite?.isActive === true
   const ownerLabel = useEnumLabel('HouseholdRole', 'owner')
   const portionMultiplier = member.preferences?.portionMultiplier ?? 1.0
-  const presetKey = PORTION_PRESET_KEYS[portionMultiplier]
+  const presetKey = PORTION_PRESETS.find((preset) => preset.value === portionMultiplier)?.key
   const portionLabel = presetKey
     ? tPortion('short', { label: tPortion(presetKey), multiplier: portionMultiplier })
     : tPortion('shortCustom', { multiplier: portionMultiplier })

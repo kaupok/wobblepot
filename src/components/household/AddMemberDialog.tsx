@@ -6,11 +6,8 @@ import { Plus } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { ChoiceChips } from '@/components/ui/choice-chips'
 import { Input } from '@/components/ui/input'
-import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
-import { Body } from '@/components/ui/typography'
 import {
   Dialog,
   DialogContent,
@@ -23,14 +20,7 @@ import {
 import type { Member } from '@/types/member'
 import { ApiError, apiFetch } from '@/lib/api'
 import { FieldError } from '@/components/FieldError'
-
-const PORTION_PRESETS: Array<{ key: 'small' | 'regular' | 'large' | 'extraLarge'; value: number }> =
-  [
-    { key: 'small', value: 0.75 },
-    { key: 'regular', value: 1.0 },
-    { key: 'large', value: 1.5 },
-    { key: 'extraLarge', value: 2.0 },
-  ]
+import { PortionSizeField, isValidPortion } from './PortionSizeField'
 
 interface AddMemberDialogProps {
   onMemberAdded: (member: Member) => void
@@ -41,13 +31,12 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
   const tPortion = useTranslations('household.portion')
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [portionMultiplier, setPortionMultiplier] = useState(1.0)
+  const [portionMultiplier, setPortionMultiplier] = useState<number | null>(1.0)
   const [portionError, setPortionError] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   const addMember = useMutation({
-    mutationFn: () =>
+    mutationFn: (portionMultiplier: number) =>
       apiFetch<Member>(
         '/api/households/me/members',
         {
@@ -55,8 +44,9 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: name.trim(),
+            // A member without an account has one name (HON-1021).
             preferences: {
-              displayName: displayName.trim() || null,
+              displayName: null,
               portionMultiplier,
             },
           }),
@@ -94,7 +84,6 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
 
   const resetForm = () => {
     setName('')
-    setDisplayName('')
     setPortionMultiplier(1.0)
     setPortionError(null)
     setError('')
@@ -117,25 +106,18 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
       return
     }
 
-    if (portionMultiplier < 0.5 || portionMultiplier > 3.0) {
+    if (!isValidPortion(portionMultiplier)) {
       setPortionError(tPortion('invalid'))
       return
     }
 
-    addMember.mutate()
+    addMember.mutate(portionMultiplier)
   }
 
-  const handlePortionInputChange = (value: number | null) => {
-    if (value === null) {
-      setPortionError(null)
-      return
-    }
-    if (value < 0.5 || value > 3.0) {
-      setPortionError(tPortion('invalid'))
-      return
-    }
-    setPortionError(null)
+  const handlePortionChange = (value: number | null) => {
     setPortionMultiplier(value)
+    // An empty input is not flagged while typing; submit catches it.
+    setPortionError(value === null || isValidPortion(value) ? null : tPortion('invalid'))
   }
 
   return (
@@ -171,57 +153,13 @@ export function AddMemberDialog({ onMemberAdded }: AddMemberDialogProps) {
               />
             </div>
 
-            {/* Display name */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="add-member-displayName">{t('displayNameLabel')}</Label>
-              <Input
-                id="add-member-displayName"
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                maxLength={50}
-                placeholder={t('displayNamePlaceholder')}
-                disabled={isLoading}
-              />
-              <Body variant="muted">{t('displayNameHelper')}</Body>
-            </div>
-
-            {/* Portion size */}
-            <div className="flex flex-col gap-2">
-              <Label id="add-member-portion-label">{tPortion('size')}</Label>
-              <ChoiceChips
-                aria-labelledby="add-member-portion-label"
-                size="sm"
-                // A custom multiplier from the input below can match no preset:
-                // then no chip is checked.
-                value={
-                  PORTION_PRESETS.some((preset) => preset.value === portionMultiplier)
-                    ? String(portionMultiplier)
-                    : undefined
-                }
-                onValueChange={(v) => setPortionMultiplier(Number(v))}
-                options={PORTION_PRESETS.map((preset) => ({
-                  value: String(preset.value),
-                  label: tPortion('preset', {
-                    label: tPortion(preset.key),
-                    multiplier: preset.value,
-                  }),
-                }))}
-                disabled={isLoading}
-              />
-              <div className="flex items-center gap-2">
-                <NumberInput
-                  value={portionMultiplier}
-                  onValueChange={handlePortionInputChange}
-                  className="w-24"
-                  disabled={isLoading}
-                  aria-invalid={!!portionError}
-                  aria-label={tPortion('aria')}
-                />
-                <Body variant="muted">{tPortion('helper')}</Body>
-              </div>
-              {portionError && <FieldError>{portionError}</FieldError>}
-            </div>
+            <PortionSizeField
+              labelId="add-member-portion-label"
+              value={portionMultiplier}
+              onValueChange={handlePortionChange}
+              disabled={isLoading}
+              error={portionError}
+            />
 
             {error && <FieldError>{error}</FieldError>}
           </div>
