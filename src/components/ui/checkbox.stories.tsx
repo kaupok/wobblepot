@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
+import { Card, CardContent } from './card'
 import { Checkbox } from './checkbox'
 import { Label } from './label'
 
@@ -40,6 +41,41 @@ export const Large: Story = {
     await expect(box.getBoundingClientRect().width).toBe(24)
     await expect(box.getBoundingClientRect().height).toBe(24)
     await expect(box.querySelector('svg')!.getBoundingClientRect().width).toBe(20)
+  },
+}
+
+// HON-1019: the unticked border is `muted-foreground`, so it follows the
+// surface. The play function holds each box's border to the muted text beside
+// it: neutral grey on the background, the tint's muted on the note sheet.
+export const OnSurfaces: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2" data-testid="on-background">
+        <Checkbox id="s-background" />
+        <Label htmlFor="s-background" className="text-muted-foreground">
+          On the background
+        </Label>
+      </div>
+      <Card data-surface="note">
+        <CardContent>
+          <div className="flex items-center gap-2" data-testid="on-note">
+            <Checkbox id="s-note" />
+            <Label htmlFor="s-note" className="text-muted-foreground">
+              On the note sheet
+            </Label>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    for (const id of ['on-background', 'on-note']) {
+      const row = within(canvas.getByTestId(id))
+      const box = getComputedStyle(row.getByRole('checkbox'))
+      const muted = getComputedStyle(row.getByText(/^On the/)).color
+      await expect(box.borderTopColor).toBe(muted)
+    }
   },
 }
 

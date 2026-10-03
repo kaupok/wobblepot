@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
+import { Card, CardContent } from './card'
 import { Label } from './label'
 import { RadioGroup, RadioGroupItem } from './radio-group'
 
@@ -67,6 +69,45 @@ export const NoSelection: Story = {
       </div>
     </RadioGroup>
   ),
+}
+
+// HON-1019: the unticked border is `muted-foreground`, so it follows the
+// surface. The play function holds each item's border to the muted text beside
+// it: neutral grey on the background, the tint's muted on the note sheet.
+export const OnSurfaces: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4">
+      <RadioGroup aria-label="On the background" data-testid="on-background">
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="a" id="s-background" />
+          <Label htmlFor="s-background" className="text-muted-foreground">
+            On the background
+          </Label>
+        </div>
+      </RadioGroup>
+      <Card data-surface="note">
+        <CardContent>
+          <RadioGroup aria-label="On the note sheet" data-testid="on-note">
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="a" id="s-note" />
+              <Label htmlFor="s-note" className="text-muted-foreground">
+                On the note sheet
+              </Label>
+            </div>
+          </RadioGroup>
+        </CardContent>
+      </Card>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    for (const id of ['on-background', 'on-note']) {
+      const group = within(canvas.getByTestId(id))
+      const item = getComputedStyle(group.getByRole('radio'))
+      const muted = getComputedStyle(group.getByText(/^On the/)).color
+      await expect(item.borderTopColor).toBe(muted)
+    }
+  },
 }
 
 // WHY: Full-group and per-item disabled states render at 50% opacity. WCAG
