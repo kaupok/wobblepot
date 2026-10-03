@@ -115,15 +115,13 @@ type ImageHeight = keyof typeof IMAGE_HEIGHT
  * further left than 11/20 plus 8px, and half plus 8px on a wide card, where
  * 3/8 of a 448px card would still be under that badge. Both clear the title
  * cap (`TITLE_WIDTH`, at most half). A cap rather than a left inset, so a slip
- * dragged elsewhere keeps its width (HON-975). `min-w-min`: a word longer than
- * the cap widens the box to the left rather than spilling the slip out of it
- * toward the ⋯ column, so the box is always the slip's. Change them together, and with
+ * dragged elsewhere keeps its width (HON-975). Change them together, and with
  * `NOTE_SCATTER_RANGE`, which only moves the slip left and up from here.
  */
 const OVERLAY_ANCHOR = {
-  default: 'right-4 bottom-0 min-w-min max-w-note-slip @md/meal-image:max-w-note-slip-md',
+  default: 'right-4 bottom-0 max-w-note-slip @md/meal-image:max-w-note-slip-md',
   trailingActions:
-    'right-13 bottom-0 min-w-min max-w-note-slip-actions @md/meal-image:max-w-note-slip-actions-md',
+    'right-13 bottom-0 max-w-note-slip-actions @md/meal-image:max-w-note-slip-actions-md',
 } as const
 
 /**
@@ -142,7 +140,11 @@ const OVERLAY_SCATTER = 'translate-x-(--note-x) translate-y-(--note-y)'
  */
 // `w-max`: anchored by its left edge, the wrapper would otherwise shrink to
 // the room left of the head's right edge, rewrap the slip, and move it by
-// its own changed width.
+// its own changed width. `min-w-min`: a word longer than the cap widens the
+// box rather than spilling the slip out of it, so the box the translate and
+// the clamp measure is the slip's. Not on the anchor: there the box would
+// widen to the left, toward the pantry badge, which the default place must
+// clear.
 const OVERLAY_PLACED_BOX =
   'left-(--note-left) top-(--note-top) w-max min-w-min -translate-x-(--note-left) -translate-y-(--note-top)'
 const OVERLAY_PLACED = {
