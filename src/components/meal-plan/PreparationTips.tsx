@@ -16,6 +16,7 @@ import type {
   CookQuestionError,
 } from '@/hooks/use-cook-question'
 import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
+import { COOK_QUESTION_EQUIPMENT_MAX_ITEMS } from '@/lib/ai/cook-question-limits'
 
 // The cook view's preparation guide (docs/DESIGN.md → "Cook view", HON-932),
 // split in two: the equipment reads as part of the shopping-and-setup column
@@ -64,7 +65,9 @@ export function PreparationEquipment({
       </Heading>
       <Ul variant="plain" aria-labelledby={headingId}>
         {equipment.map((item, i) =>
-          askable && steps ? (
+          // Only rows the route keeps: it drops empty items and those past
+          // its cap, so Ask there could only fail.
+          askable && steps && item.trim() && i < COOK_QUESTION_EQUIPMENT_MAX_ITEMS ? (
             <Li key={`${i}-${item}`}>
               {/* Top-aligned, as a step row is: a long item wraps beside the
                   button, and the padding centres one line on its 44px. */}

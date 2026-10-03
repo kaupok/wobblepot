@@ -808,6 +808,33 @@ describe('PreparationEquipment cook question (HON-983)', () => {
     ])
   })
 
+  it('shows no Ask button on a row the route cannot answer about', () => {
+    const equipment = ['  ', ...Array.from({ length: 20 }, (_, i) => `Pan ${i + 1}`)]
+    render(
+      <PreparationEquipment
+        equipment={equipment}
+        steps={sampleTips.steps}
+        cookQuestion={{
+          openSubject: null,
+          onOpenSubject: vi.fn(),
+          onClose: vi.fn(),
+          ask: vi.fn(),
+          active: null,
+          previous: null,
+          isPending: false,
+          isStreaming: false,
+          error: null,
+          onRetry: vi.fn(),
+        }}
+      />,
+    )
+    // The empty row and the 21st row, past the route's 20, have none.
+    expect(screen.getAllByRole('listitem')).toHaveLength(21)
+    expect(screen.getAllByRole('button', { name: /^Ask about/ })).toHaveLength(19)
+    expect(screen.getByRole('button', { name: 'Ask about Pan 19' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ask about Pan 20' })).toBeNull()
+  })
+
   it('opens a panel under the row with the equipment chips and placeholder', async () => {
     render(<Harness />)
     await userEvent.click(askItem('Cutting board'))
