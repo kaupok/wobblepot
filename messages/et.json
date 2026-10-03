@@ -277,7 +277,6 @@
     "detail": {
       "kidFriendly": "Lastesõbralik",
       "timeMinutes": "{count} min",
-      "ingredientsHeader": "Koostisosad ({count, plural, one {# portsjon} other {# portsjonit}})",
       "ingredientsTitle": "Koostisosad",
       "staplesPrefix": "Põhitooted: {list}",
       "viewSource": "Vaata algset retsepti",
@@ -368,6 +367,8 @@
     "availability": {
       "haveAll": "Kõik koostisosad olemas",
       "toBuy": "{count, plural, one {Vaja osta # koostisosa} other {Vaja osta # koostisosa}}",
+      "toBuyShort": "{count, plural, one {# vaja osta} other {# vaja osta}}",
+      "haveAllShort": "kõik olemas",
       "ariaToggle": "Märgi „{name}\" kui {state}",
       "stateAvailable": "olemas",
       "stateUnavailable": "puudu"

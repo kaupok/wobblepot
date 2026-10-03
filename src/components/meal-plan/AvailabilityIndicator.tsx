@@ -1,11 +1,10 @@
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
+import { Body } from '@/components/ui/typography'
 import type { MealAvailability, MealData, PantryIngredient } from './types'
 
 interface AvailabilityIndicatorProps {
   availability: MealAvailability
-  /** `lg` in the cook view's ingredients header (HON-932) */
-  size?: 'default' | 'lg'
 }
 
 /**
@@ -69,20 +68,37 @@ export function computeMealAvailability(
  * meal's chip colour, because the pantry's status is not the meal's own
  * (docs/DESIGN.md → Color). The text names the state; colour is not the only cue.
  */
-export function AvailabilityIndicator({ availability, size }: AvailabilityIndicatorProps) {
+export function AvailabilityIndicator({ availability }: AvailabilityIndicatorProps) {
+  const t = useTranslations('meal-plan.availability')
+
+  if (availability.isReady) {
+    return <Badge variant="surface-success">{t('haveAll')}</Badge>
+  }
+
+  return <Badge variant="surface-warning">{t('toBuy', { count: availability.missingCount })}</Badge>
+}
+
+/**
+ * The same verdict as plain text, for the cook view's Ingredients line
+ * (HON-1025): "1 to buy" or "all at home" after the heading. A pill there had
+ * the shape of the meal's own badges, so it read as a fact about the meal, not
+ * the state of the list. The warning tone matches the missing rows below it,
+ * and the words name the state, so colour is not the only cue.
+ */
+export function AvailabilityStatus({ availability }: AvailabilityIndicatorProps) {
   const t = useTranslations('meal-plan.availability')
 
   if (availability.isReady) {
     return (
-      <Badge variant="surface-success" size={size}>
-        {t('haveAll')}
-      </Badge>
+      <Body variant="small" tone="success" className="whitespace-nowrap">
+        {t('haveAllShort')}
+      </Body>
     )
   }
 
   return (
-    <Badge variant="surface-warning" size={size}>
-      {t('toBuy', { count: availability.missingCount })}
-    </Badge>
+    <Body variant="small" tone="warning" className="whitespace-nowrap">
+      {t('toBuyShort', { count: availability.missingCount })}
+    </Body>
   )
 }

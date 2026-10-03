@@ -137,14 +137,6 @@ describe('meal-plan.firstTime.dayOption plural rendering (HON-554 item 3)', () =
 })
 
 describe('meal-plan portion (portsjon) numeral agreement in et (HON-554 item 4)', () => {
-  it('ingredients header uses nominative singular for 1, partitive for N>1', () => {
-    const { result } = renderHook(() => useTranslations('meal-plan.detail'), {
-      wrapper: makeWrapper('et'),
-    })
-    expect(result.current('ingredientsHeader', { count: 1 })).toBe('Koostisosad (1 portsjon)')
-    expect(result.current('ingredientsHeader', { count: 4 })).toBe('Koostisosad (4 portsjonit)')
-  })
-
   it('serving stepper label uses nominative singular for 1, partitive for N>1', () => {
     const { result } = renderHook(() => useTranslations('meal-plan.serving'), {
       wrapper: makeWrapper('et'),
@@ -154,12 +146,12 @@ describe('meal-plan portion (portsjon) numeral agreement in et (HON-554 item 4)'
     expect(result.current('ariaButton', { count: 1 })).toBe('1 portsjon. Klõpsa, et muuta.')
   })
 
-  it('en ingredients header is unaffected', () => {
-    const { result } = renderHook(() => useTranslations('meal-plan.detail'), {
+  it('en serving label is unaffected', () => {
+    const { result } = renderHook(() => useTranslations('meal-plan.serving'), {
       wrapper: makeWrapper('en'),
     })
-    expect(result.current('ingredientsHeader', { count: 1 })).toBe('Ingredients (serves 1)')
-    expect(result.current('ingredientsHeader', { count: 4 })).toBe('Ingredients (serves 4)')
+    expect(result.current('labelWithCount', { count: 1 })).toBe('Serves 1')
+    expect(result.current('labelWithCount', { count: 4 })).toBe('Serves 4')
   })
 })
 

@@ -28,29 +28,33 @@ function missingRows() {
 // A staples-only pantry is one the household has never filled in (HON-769), so
 // meal detail keeps the checkboxes but claims nothing is missing (HON-824).
 describe('MealDetail availability', () => {
-  it('keeps the checkboxes but shows no badge or missing styling on a staples-only pantry', () => {
+  it('keeps the checkboxes but shows no status or missing styling on a staples-only pantry', () => {
     renderDetail({ pantryIngredients: staplesOnly })
 
     expect(screen.getAllByRole('checkbox')).toHaveLength(3)
-    expect(screen.queryByText(/ingredients? to buy/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/to buy/)).not.toBeInTheDocument()
     expect(missingRows()).toHaveLength(0)
   })
 
-  it('shows the badge and missing styling once the pantry holds a non-staple', () => {
+  it('shows the status and missing styling once the pantry holds a non-staple', () => {
     renderDetail({
       pantryIngredients: [...staplesOnly, { ingredientId: 'chicken-thigh', isStaple: false }],
     })
 
-    expect(screen.getByText('2 ingredients to buy')).toBeInTheDocument()
+    // Plain text after the heading in the warning tone, not a pill (HON-1025).
+    const status = screen.getByText('2 to buy')
+    expect(status).toHaveClass('text-warning')
+    expect(status.closest('[data-slot="badge"]')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Ingredients' })).toBeInTheDocument()
     expect(missingRows().map((row) => row.textContent)).toEqual([
       expect.stringContaining('Potato'),
       expect.stringContaining('Lemon'),
     ])
   })
 
-  it('turns the badge on as soon as an ingredient is ticked, before the refresh', () => {
+  it('turns the status on as soon as an ingredient is ticked, before the refresh', () => {
     const { rerender } = renderDetail({ pantryIngredients: staplesOnly })
-    expect(screen.queryByText(/ingredients? to buy/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/to buy/)).not.toBeInTheDocument()
 
     rerender(
       <MealDetail
@@ -62,23 +66,23 @@ describe('MealDetail availability', () => {
       />,
     )
 
-    expect(screen.getByText('2 ingredients to buy')).toBeInTheDocument()
+    expect(screen.getByText('2 to buy')).toBeInTheDocument()
     expect(missingRows()).toHaveLength(2)
   })
 
-  it('drops the badge again when the only non-staple is unticked', () => {
+  it('drops the status again when the only non-staple is unticked', () => {
     renderDetail({
       pantryIngredients: [...staplesOnly, { ingredientId: 'chicken-thigh', isStaple: false }],
       optimisticOverrides: new Map([['chicken-thigh', false]]),
     })
 
-    expect(screen.queryByText(/ingredients? to buy/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/to buy/)).not.toBeInTheDocument()
     expect(missingRows()).toHaveLength(0)
   })
 })
 
 describe('MealDetail prep time', () => {
-  it('shows the time as a surface badge with a clock, before Kid-friendly (HON-951)', () => {
+  it('shows the time as a surface badge with a clock, after Kid-friendly (HON-951, HON-1025)', () => {
     renderDetail({ pantryIngredients: [] })
 
     const time = screen.getByText('45 min')
@@ -86,7 +90,7 @@ describe('MealDetail prep time', () => {
     expect(badge).toHaveAttribute('data-variant', 'surface')
     expect(badge?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
     const kidFriendly = screen.getByText('Kid-friendly').closest('[data-slot="badge"]')!
-    expect(badge?.compareDocumentPosition(kidFriendly)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(kidFriendly.compareDocumentPosition(badge!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
   it('renders a zero-minute meal exactly like one with no prep time, with no stray "0" (HON-711)', () => {
@@ -136,10 +140,55 @@ describe('MealDetail badge row icons (HON-1023)', () => {
     expect(screen.queryByRole('button', { name: 'My recipe' })).toBeNull()
   })
 
-  it('renders no badge row for an own recipe with no time and no kid-friendly flag', () => {
-    const { container } = renderMeal({ isCustom: true, timeMinutes: null, kidFriendly: false })
+  it('keeps the badge row for Serves alone when there is no time and no kid-friendly flag', () => {
+    renderMeal({ isCustom: true, timeMinutes: null, kidFriendly: false })
 
-    expect(container.querySelector('[data-slot="badge"]')).toBeNull()
+    const row = screen.getByTestId('cook-view-badges')
+    expect(row.querySelectorAll('[data-slot="badge"]')).toHaveLength(1)
+    expect(row).toHaveTextContent(/^Serves 4$/)
+  })
+})
+
+describe('MealDetail Serves badge (HON-1025)', () => {
+  const badges = () =>
+    Array.from(screen.getByTestId('cook-view-badges').querySelectorAll('[data-slot="badge"]'))
+
+  it('puts Kid-friendly, the time and Serves in one row, in that order', () => {
+    render(
+      <MealDetail
+        meal={{ ...meal, kidFriendly: true }}
+        householdSize={4}
+        servings={4}
+        onServingsChange={vi.fn(async () => true)}
+      />,
+    )
+
+    const [kidFriendly, time, serves] = badges()
+    expect(kidFriendly).toHaveTextContent('Kid-friendly')
+    expect(time).toHaveTextContent('45 min')
+    expect(serves).toBe(screen.getByRole('button', { name: 'Serves 4. Click to edit.' }))
+    expect(serves).toHaveAttribute('data-variant', 'surface')
+    expect(screen.getByRole('heading', { name: 'Ingredients' })).toBeInTheDocument()
+  })
+
+  it("shows a completed entry's servings as a static badge with no pencil", () => {
+    const onServingsChange = vi.fn(async () => true)
+    render(
+      <MealDetail
+        meal={meal}
+        householdSize={4}
+        status="completed"
+        servings={6}
+        onServingsChange={onServingsChange}
+      />,
+    )
+
+    const serves = badges().at(-1)!
+    expect(serves.tagName).toBe('SPAN')
+    expect(serves).toHaveTextContent(/^Serves 6$/)
+    expect(serves.querySelector('svg')).toBeNull()
+    expect(screen.queryByRole('button', { name: /serves/i })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Ingredients' })).toBeInTheDocument()
   })
 })
 

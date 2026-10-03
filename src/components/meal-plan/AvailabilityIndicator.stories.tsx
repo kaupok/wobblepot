@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
-import { AvailabilityIndicator } from './AvailabilityIndicator'
+import { Heading } from '@/components/ui/typography'
+import { AvailabilityIndicator, AvailabilityStatus } from './AvailabilityIndicator'
 import { MealTypeBadge } from './MealTypeBadge'
 import { ProteinBadge } from './ProteinBadge'
 
@@ -14,7 +15,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pantry\'s verdict on a meal card, as a `surface` `Badge`: the same pill as the slot and protein badges above it, on the page background rather than the meal\'s chip colour. Green "Have all ingredients" when the meal is ready to cook, otherwise amber "{n} ingredients to buy". `missingIngredients` is accepted on the `MealAvailability` shape but not rendered by this component — the detailed list appears elsewhere.',
+          'The pantry\'s verdict on a meal card, as a `surface` `Badge`: the same pill as the slot and protein badges above it, on the page background rather than the meal\'s chip colour. Green "Have all ingredients" when the meal is ready to cook, otherwise amber "{n} ingredients to buy". The cook view uses the text form, `AvailabilityStatus` (HON-1025). `missingIngredients` is accepted on the `MealAvailability` shape but not rendered by this component — the detailed list appears elsewhere.',
       },
     },
   },
@@ -95,5 +96,46 @@ export const OnTintedSurfaceReady: Story = {
   play: async ({ canvasElement }) => {
     const badge = within(canvasElement).getByText('Have all ingredients')
     await expect(getComputedStyle(badge).borderTopColor).toBe('rgba(0, 0, 0, 0)')
+  },
+}
+
+/**
+ * The text form, `AvailabilityStatus`, on the cook view's Ingredients line
+ * (HON-1025): plain text on the heading's baseline, smaller than the heading,
+ * in the warning tone of the missing rows below it. The cards keep the badge.
+ */
+export const CookViewText: Story = {
+  name: 'Cook view text form',
+  args: {
+    availability: { isReady: false, missingCount: 1, missingIngredients: ['Lemon'] },
+  },
+  render: (args) => (
+    <div className="flex items-baseline gap-x-2">
+      <Heading variant="h4" as="h3">
+        Ingredients
+      </Heading>
+      <AvailabilityStatus {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const status = canvas.getByText('1 to buy')
+    const heading = canvas.getByRole('heading', { name: 'Ingredients' })
+    await expect(status.closest('[data-slot="badge"]')).toBeNull()
+    await expect(status).toHaveClass('text-warning')
+    await expect(Number.parseFloat(getComputedStyle(status).fontSize)).toBeLessThan(
+      Number.parseFloat(getComputedStyle(heading).fontSize),
+    )
+  },
+}
+
+export const CookViewTextReady: Story = {
+  ...CookViewText,
+  name: 'Cook view text form, all at home',
+  args: {
+    availability: { isReady: true, missingCount: 0, missingIngredients: [] },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('all at home')).toHaveClass('text-success')
   },
 }

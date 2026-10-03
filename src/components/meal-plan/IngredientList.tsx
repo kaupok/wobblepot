@@ -9,7 +9,7 @@ import { formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number
 import { formatWeight, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
-import { AvailabilityIndicator, getIngredientAvailabilitySets } from './AvailabilityIndicator'
+import { AvailabilityStatus, getIngredientAvailabilitySets } from './AvailabilityIndicator'
 import type { MealAvailability, MealComponent, PantryIngredient } from './types'
 
 interface IngredientListProps {
@@ -25,7 +25,7 @@ interface IngredientListProps {
   togglingIds?: Set<string>
   /** Optimistic availability overrides from in-flight toggles */
   optimisticOverrides?: Map<string, boolean>
-  /** If provided, renders availability badge inline with header */
+  /** If provided, the pantry's verdict follows the heading as text */
   availability?: MealAvailability | null
   /** If true, hides checkboxes and missing ingredient styling (for completed/skipped meals) */
   hideAvailability?: boolean
@@ -34,8 +34,6 @@ interface IngredientListProps {
    * checkboxes stay: a pantry holding only staples says nothing yet (HON-824).
    */
   showMissingStyle?: boolean
-  /** Custom header element (e.g., ServingControl) - overrides default "Ingredients (serves X)" */
-  headerElement?: React.ReactNode
 }
 
 /**
@@ -90,7 +88,6 @@ export function IngredientList({
   availability,
   hideAvailability = false,
   showMissingStyle = true,
-  headerElement,
 }: IngredientListProps) {
   const tDetail = useTranslations('meal-plan.detail')
   const tAvailability = useTranslations('meal-plan.availability')
@@ -147,19 +144,17 @@ export function IngredientList({
     return tDetail('staplesPrefix', { list: items.join(', ') })
   }, [stapleComponents, servings, tDetail, locale, vaguePhrase, pieceLabel])
 
-  // Default header label: a section of the cook view, at the Title level
-  // (docs/DESIGN.md → "Cook view", HON-932).
-  const defaultHeader = (
-    <Heading variant="h4" as="h3" className="whitespace-nowrap">
-      {tDetail('ingredientsHeader', { count: servings })}
-    </Heading>
-  )
-
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        {headerElement ?? defaultHeader}
-        {availability && <AvailabilityIndicator availability={availability} size="lg" />}
+      {/* A section of the cook view, at the Title level (docs/DESIGN.md →
+          "Cook view", HON-932), then the pantry's verdict as text on its
+          baseline: "Ingredients 1 to buy" (HON-1025). Serves is in the badge
+          row above, with the meal's other facts. */}
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <Heading variant="h4" as="h3" className="whitespace-nowrap">
+          {tDetail('ingredientsTitle')}
+        </Heading>
+        {availability && <AvailabilityStatus availability={availability} />}
       </div>
       {/* Rows are read from a counter and tapped with a knuckle (HON-932):
           18px, at least 44px tall, quantity first in a fixed-width column so
