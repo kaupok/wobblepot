@@ -228,10 +228,11 @@ describe('Home page component', () => {
     it('names the call to action after the code while invites are required', async () => {
       await renderLanding()
 
-      // Under the hero and again at the end of the page, both to sign-up.
-      const links = screen.getAllByRole('link', { name: 'Sign up with your invite code' })
-      expect(links).toHaveLength(2)
-      for (const link of links) expect(link).toHaveAttribute('href', '/sign-up')
+      // Once, under the hero: the header's Sign up covers the rest of the page.
+      expect(screen.getByRole('link', { name: 'Sign up with your invite code' })).toHaveAttribute(
+        'href',
+        '/sign-up',
+      )
       expect(screen.queryByRole('link', { name: 'Get started' })).not.toBeInTheDocument()
     })
 
@@ -243,10 +244,8 @@ describe('Home page component', () => {
       expect(screen.queryByRole('note')).not.toBeInTheDocument()
       expect(screen.queryByText(/private beta/i)).not.toBeInTheDocument()
       expect(screen.queryByRole('link', { name: 'Ask for an invite' })).not.toBeInTheDocument()
-      const links = screen.getAllByRole('link', { name: 'Get started' })
-      expect(links).toHaveLength(2)
-      for (const link of links) expect(link).toHaveAttribute('href', '/sign-up')
-      expect(screen.getAllByText("Free while we're in beta.")).toHaveLength(2)
+      expect(screen.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/sign-up')
+      expect(screen.getByText("Free while we're in beta.")).toBeInTheDocument()
     })
 
     it('translates the notice label and the mail subject', async () => {
@@ -364,6 +363,21 @@ describe('Home page component', () => {
     ).toBeInTheDocument()
   })
 
+  it('puts the trust line under the differences heading and ends the page there', async () => {
+    await renderLanding()
+    const why = screen.getByRole('region', { name: 'Made for family kitchens' })
+    expect(
+      within(why).getByText(
+        'Made by a parent, for a family of three. Your data lives in the EU, and there are no ads.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: "Start with this week's dinners" }),
+    ).not.toBeInTheDocument()
+    const sections = screen.getAllByRole('region')
+    expect(sections[sections.length - 1]).toBe(why)
+  })
+
   it('renders the landing page in Estonian', async () => {
     translationLocale = 'et'
     await renderLanding()
@@ -371,6 +385,11 @@ describe('Home page component', () => {
       screen.getByRole('heading', { level: 1, name: 'Õhtusöök otsustatud. Terveks nädalaks.' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Kuidas see töötab' })).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('region', { name: 'Tehtud pereköökidele' })).getByText(
+        'Teinud lapsevanem oma kolmeliikmelisele perele. Sinu andmed on Euroopa Liidus ja reklaame ei ole.',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('renders first-time setup when authenticated with household but no entries', async () => {

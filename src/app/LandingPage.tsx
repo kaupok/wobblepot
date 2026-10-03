@@ -35,8 +35,9 @@ interface LandingPageProps {
 /**
  * The signed-out home page. One page, read top to bottom: the problem and the
  * promise, today's three meals drawn with the planner's own cards (each one
- * opening the cook view), how it works in three steps, what makes it
- * different, and the call to action again.
+ * opening the cook view), how it works in three steps, and who it is for and
+ * what makes it different. The floating header keeps "Sign up" on screen at
+ * every scroll position, so the page does not repeat the call to action.
  *
  * Not `<main>`: the root layout's `<main id="main-content">` is the page
  * landmark (HON-820). Left-aligned and capped at the page width like the app,
@@ -47,41 +48,6 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
     getTranslations('landing'),
     getTranslations('auth.signUp'),
   ])
-
-  /**
-   * The call to action, under the hero and again at the end. The invite line
-   * is a `note` landmark once, in the hero: the closing copy repeats the
-   * words, not the landmark.
-   */
-  const renderCta = ({ note }: { note: boolean }) => (
-    <div className="flex flex-col gap-3">
-      <Button asChild size="lg" className="w-full md:w-auto md:self-start">
-        <Link href="/sign-up">{inviteRequired ? t('ctaWithCode') : t('cta')}</Link>
-      </Button>
-      {inviteRequired ? (
-        <Body
-          variant="muted"
-          role={note ? 'note' : undefined}
-          aria-label={note ? tSignUp('privateBetaNoticeLabel') : undefined}
-        >
-          {t('privateBeta')}{' '}
-          {tSignUp.rich('requestInvite', {
-            email: SUPPORT_EMAIL,
-            link: (chunks) => (
-              <a
-                href={supportMailtoHref(tSignUp('requestInviteSubject'))}
-                className="text-foreground underline underline-offset-2"
-              >
-                {chunks}
-              </a>
-            ),
-          })}
-        </Body>
-      ) : (
-        <Body variant="muted">{t('free')}</Body>
-      )}
-    </div>
-  )
 
   return (
     <div className="w-full px-4 py-8 md:py-12">
@@ -95,7 +61,29 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
               <Heading>{t('headline')}</Heading>
               <Body variant="lead">{t('sub')}</Body>
             </div>
-            {renderCta({ note: true })}
+            <div className="flex flex-col gap-3">
+              <Button asChild size="lg" className="w-full md:w-auto md:self-start">
+                <Link href="/sign-up">{inviteRequired ? t('ctaWithCode') : t('cta')}</Link>
+              </Button>
+              {inviteRequired ? (
+                <Body variant="muted" role="note" aria-label={tSignUp('privateBetaNoticeLabel')}>
+                  {t('privateBeta')}{' '}
+                  {tSignUp.rich('requestInvite', {
+                    email: SUPPORT_EMAIL,
+                    link: (chunks) => (
+                      <a
+                        href={supportMailtoHref(tSignUp('requestInviteSubject'))}
+                        className="text-foreground underline underline-offset-2"
+                      >
+                        {chunks}
+                      </a>
+                    ),
+                  })}
+                </Body>
+              ) : (
+                <Body variant="muted">{t('free')}</Body>
+              )}
+            </div>
           </div>
           <div className="w-full max-w-md lg:justify-self-end">
             {demo ? (
@@ -129,9 +117,12 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
         </section>
 
         <section aria-labelledby="landing-why" className="flex flex-col gap-8">
-          <Heading variant="h3" as="h2" id="landing-why">
-            {t('why.title')}
-          </Heading>
+          <div className="flex flex-col gap-4 text-balance">
+            <Heading variant="h3" as="h2" id="landing-why">
+              {t('why.title')}
+            </Heading>
+            <Body variant="muted">{t('why.lead')}</Body>
+          </div>
           <ul role="list" className="grid list-none gap-8 md:grid-cols-2">
             {DIFFERENCES.map(({ key, Icon }) => (
               <li key={key}>
@@ -147,16 +138,6 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
               </li>
             ))}
           </ul>
-        </section>
-
-        <section aria-labelledby="landing-close" className="flex flex-col gap-6">
-          <div className="flex flex-col gap-4 text-balance">
-            <Heading variant="h3" as="h2" id="landing-close">
-              {t('close.title')}
-            </Heading>
-            <Body variant="muted">{t('close.body')}</Body>
-          </div>
-          {renderCta({ note: false })}
         </section>
       </div>
     </div>
