@@ -111,8 +111,9 @@ export const OpensCookView: Story = {
 
 /**
  * A click anywhere on the card opens its meal, as on the planner card
- * (HON-1036). The name stays the only button, and the cook view hands focus
- * back to it on close.
+ * (HON-1036): a pointer cursor, the name's focus ring drawn around the card.
+ * The name stays the only button, and the cook view hands focus back to it on
+ * close.
  */
 export const CardClickOpensCookView: Story = {
   play: async ({ canvasElement }) => {
@@ -120,6 +121,13 @@ export const CardClickOpensCookView: Story = {
     const name = canvas.getByRole('button', { name: 'Beef bibimbap' })
     const card = name.closest<HTMLElement>('[data-slot="card"]')
     await expect(card).not.toBeNull()
+    await expect(getComputedStyle(card!).cursor).toBe('pointer')
+    // The name's focus ring is drawn around the card, not on the name.
+    name.focus()
+    await expect(name.matches(':focus-visible')).toBe(true)
+    await expect(getComputedStyle(card!).boxShadow).not.toBe('none')
+    await expect(getComputedStyle(name).outlineStyle).toBe('none')
+    name.blur()
     await userEvent.click(card!)
     const dialog = await within(document.body).findByRole('dialog')
     await expect(within(dialog).getByRole('heading', { name: 'Beef bibimbap' })).toBeInTheDocument()

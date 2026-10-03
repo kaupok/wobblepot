@@ -114,11 +114,13 @@ describe('LandingDemo', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('keeps the name the only button on each card', () => {
+  it('marks the card interactive and the name its only keyboard target', () => {
     renderDemo()
-    const card = screen
-      .getByRole('button', { name: 'Avocado toast' })
-      .closest<HTMLElement>('[data-slot="card"]')!
+    const name = screen.getByRole('button', { name: 'Avocado toast' })
+    const card = name.closest<HTMLElement>('[data-slot="card"]')!
+    expect(card).toHaveClass('group/card', 'cursor-pointer', 'hover:border-border', 'hover:ring-1')
+    expect(name).toHaveAttribute('data-slot', 'card-target')
+    expect(name).toHaveClass('outline-none', 'group-hover/card:underline')
     expect(card).not.toHaveAttribute('role')
     expect(card).not.toHaveAttribute('tabindex')
     expect(within(card).getAllByRole('button')).toHaveLength(1)
