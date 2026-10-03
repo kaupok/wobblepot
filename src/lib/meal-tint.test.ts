@@ -132,3 +132,47 @@ describe.each([
     expect(contrast(parseOklch(token(body, 'primary')), at('surface'))).toBeGreaterThanOrEqual(4.5)
   })
 })
+
+/**
+ * The shopping note (`[data-surface='note']`): Today's `UrgentShopping` and the
+ * list half of Pantry & shopping (HON-1012). One hue, 95, its own surface
+ * lightness and chroma, and the meal tint's text, muted and chip values. The
+ * dark sheet is lighter than a dark meal tint, so "paler only gains contrast"
+ * holds in the light theme alone; this measures both.
+ */
+describe.each([
+  { theme: 'light', body: block(':root') },
+  { theme: 'dark', body: block('.dark') },
+])('shopping note tokens ($theme)', ({ body }) => {
+  const NOTE_HUE = 95
+  const at = (name: string): Oklch => [
+    Number(token(body, `meal-${name}-l`)),
+    Number(token(body, `meal-${name}-c`)),
+    NOTE_HUE,
+  ]
+  const surface: Oklch = [
+    Number(token(body, 'note-surface-l')),
+    Number(token(body, 'note-surface-c')),
+    NOTE_HUE,
+  ]
+
+  it('keeps text on the note at 4.5:1', () => {
+    expect(contrast(at('text'), surface)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  // Muted is the list's summary line, due dates and the focus ring.
+  it('keeps muted text on the note at 4.5:1', () => {
+    expect(contrast(at('muted'), surface)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  // The chip is a count badge and a quiet button's hover.
+  it('keeps text on the chip at 5:1', () => {
+    expect(contrast(at('text'), at('chip'))).toBeGreaterThanOrEqual(5)
+  })
+
+  // `--warning` is a row's due-today date; `--primary` the empty state's
+  // button and a checked box.
+  it.each(['warning', 'primary'])('keeps --%s at 4.5:1 on the note', (name) => {
+    expect(contrast(parseOklch(token(body, name)), surface)).toBeGreaterThanOrEqual(4.5)
+  })
+})

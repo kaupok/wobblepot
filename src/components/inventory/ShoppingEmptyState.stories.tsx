@@ -24,6 +24,15 @@ const meta = {
   args: {
     variant: 'no-plan',
   },
+  // The list half of Pantry & shopping is the shopping note's paper
+  // (HON-1012), so the a11y gate measures this column's text on it.
+  decorators: [
+    (Story) => (
+      <div data-surface="note" className="p-4">
+        <Story />
+      </div>
+    ),
+  ],
 } satisfies Meta<typeof ShoppingEmptyState>
 
 export default meta

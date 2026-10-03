@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 import { PantrySection } from './PantrySection'
 import { ShoppingSection } from './ShoppingSection'
+import { ShoppingPaper } from './ShoppingPaper'
 import { ShoppingEmptyState, type ShoppingEmptyStateVariant } from './ShoppingEmptyState'
 import { useWindowReconcile } from './use-shopping-window'
 import { cn } from '@/lib/utils'
@@ -114,9 +115,12 @@ export function InventoryPage({
   // The page shell every in-app page uses (docs/DESIGN.md → Composition
   // rules, "No page-level Card"); the two columns sit on the background with
   // their own titles, `gap-8` apart so the seam reads as two sections rather
-  // than one grid.
+  // than one grid. The list half is the shopping note's paper (HON-1012):
+  // `ShoppingPaper` paints it to the viewport's edges, and the column takes
+  // the note's tokens so nothing inside it stays neutral grey.
   return (
     <div className="w-full px-4 py-8">
+      <ShoppingPaper view={view} />
       {/* The page's one h1, for the outline only: the columns carry the visible
           titles (HON-815). Both routes share the desktop nav label, since from
           `md` up both show both columns; on a phone the hidden column is
@@ -137,7 +141,11 @@ export function InventoryPage({
           />
         </div>
 
-        <div className={cn(view !== 'shopping' && 'hidden md:block')} data-testid="shopping-column">
+        <div
+          className={cn(view !== 'shopping' && 'hidden md:block')}
+          data-testid="shopping-column"
+          data-surface="note"
+        >
           {emptyStateVariant ? (
             <ShoppingEmptyState variant={emptyStateVariant} windowDays={windowDays} />
           ) : shoppingData ? (

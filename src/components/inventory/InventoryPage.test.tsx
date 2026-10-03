@@ -142,6 +142,33 @@ describe('InventoryPage view', () => {
     },
   )
 
+  // The list half is the shopping note's paper; the pantry half stays neutral (HON-1012).
+  it.each(['shopping', 'pantry'] as const)(
+    'view="%s" puts the shopping column, and only it, on the note surface',
+    (view) => {
+      renderPage({ view, emptyStateVariant: 'nothing-needed', windowDays: 7 })
+
+      expect(screen.getByTestId('shopping-column')).toHaveAttribute('data-surface', 'note')
+      expect(screen.getByTestId('pantry-column')).not.toHaveAttribute('data-surface')
+    },
+  )
+
+  // The paper runs to the viewport's edges, so it is a fixed layer behind the
+  // page: the right half from `md`, the whole screen on a phone on `/shopping`
+  // and none of it on a phone on `/pantry`.
+  it.each([
+    ['shopping', ['left-0'], ['hidden']],
+    ['pantry', ['hidden', 'md:block'], ['left-0']],
+  ] as const)('view="%s" lays the paper behind the list half', (view, has, hasNot) => {
+    renderPage({ view, emptyStateVariant: 'nothing-needed', windowDays: 7 })
+
+    const paper = screen.getByTestId('shopping-paper')
+    expect(paper).toHaveAttribute('data-surface', 'note')
+    expect(paper).toHaveAttribute('aria-hidden', 'true')
+    expect(paper).toHaveClass('fixed', 'inset-y-0', 'right-0', '-z-10', 'md:left-1/2', ...has)
+    for (const cls of hasNot) expect(paper).not.toHaveClass(cls)
+  })
+
   // One h1 per page, ahead of the column h2s, visually hidden (HON-815).
   it.each(['shopping', 'pantry'] as const)(
     'view="%s" opens its outline with one hidden h1',
