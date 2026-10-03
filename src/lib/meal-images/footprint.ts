@@ -70,7 +70,12 @@ export interface FootprintOptions {
    */
   minScale: number
   maxScale: number
-  /** A scale this close to 1 is not worth a resample. */
+  /**
+   * A scale this close to 1 is not worth a resample. Wide enough to absorb
+   * the size estimate moving by a centimetre between two runs (3.2% of the
+   * width at 22 cm), so a refit rerun does not re-upload a third of the
+   * images for nothing; a 2 cm move still refits.
+   */
   tolerance: number
   /** A rim this close to its anchor, as a fraction of the frame, is not worth a move. */
   positionTolerance: number
@@ -99,7 +104,7 @@ export const DEFAULT_FOOTPRINT_OPTIONS: FootprintOptions = {
   anchorY: 0.5,
   minScale: 0.7,
   maxScale: 1.2,
-  tolerance: 0.01,
+  tolerance: 0.035,
   positionTolerance: 0.005,
 }
 
@@ -112,6 +117,32 @@ export function targetWidth(
   const { referenceCm, referenceWidth, exponent, minWidth, maxWidth } = options.scale
   const width = referenceWidth * (estimate.diameterCm / referenceCm) ** exponent
   return Math.min(maxWidth, Math.max(minWidth, width))
+}
+
+/**
+ * The image as the vision call should see it: the rim scaled to the
+ * reference width and centred, whatever the vessel. The model's size estimate
+ * leans on how big the vessel looks in the frame as well as on the food, so
+ * an image estimated after a fit came back a few centimetres different from
+ * the same drawing before it, and a refit rerun moved a third of the images
+ * by a few percent. Shown every vessel at one width, it has only the food to
+ * go on, and the estimate no longer depends on what the fit did last time.
+ * Falls back to the image as given when there is nothing to measure.
+ */
+export async function canonicalForEstimate(
+  bytes: Uint8Array,
+  mediaType: string,
+  options: FootprintOptions = DEFAULT_FOOTPRINT_OPTIONS,
+): Promise<{ bytes: Uint8Array; mediaType: string }> {
+  const reference = { vessel: 'plate', diameterCm: options.scale.referenceCm } as const
+  const fitted = await fitFootprint(bytes, mediaType, reference, {
+    ...options,
+    // Any width is canonical here, so a cropped or odd drawing is still sent.
+    minScale: 0.25,
+    maxScale: 4,
+    tolerance: 0,
+  })
+  return { bytes: fitted.bytes, mediaType: fitted.mediaType }
 }
 
 /** The vessel and its food in pixels, edges inclusive. */
@@ -265,7 +296,9 @@ export function planFit(
   if (scale < options.minScale || scale > options.maxScale) {
     return { action: 'skip', reason: 'scale out of range' }
   }
-  const { dx, dy } = rimOffset(footprint, scale, options)
+  // "Already fitted" is judged as drawn: a rim at the anchor would still
+  // move by its centre times (1 - scale) if the near-1 scale were applied.
+  const { dx, dy } = rimOffset(footprint, 1, options)
   if (
     Math.abs(scale - 1) <= options.tolerance &&
     Math.abs(dx) <= options.positionTolerance * footprint.frameWidth &&

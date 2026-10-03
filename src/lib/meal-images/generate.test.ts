@@ -29,6 +29,10 @@ vi.mock('@ai-sdk/anthropic', () => ({
 // The fit is sharp over real pixels, tested in footprint.test.ts; here it is a
 // stub that returns the bytes as they are unless a test says otherwise.
 vi.mock('./footprint', () => ({
+  canonicalForEstimate: vi.fn(async (bytes: Uint8Array, mediaType: string) => ({
+    bytes,
+    mediaType,
+  })),
   fitFootprint: vi.fn(
     async (
       bytes: Uint8Array,
@@ -52,11 +56,12 @@ vi.mock('./footprint', () => ({
 }))
 
 import { APICallError, generateImage, generateObject, RetryError } from 'ai'
-import { fitFootprint } from './footprint'
+import { canonicalForEstimate, fitFootprint } from './footprint'
 import {
   classifyVessel,
   generateMealImage,
   IMAGE_FALLBACK_USD,
+  VESSEL_SAMPLES,
   MealImageUnavailableError,
   RATE_LIMIT_BACKOFF_MS,
   rateLimitDelayMs,
@@ -173,7 +178,7 @@ describe('generateMealImage', () => {
       bytes: new Uint8Array([7, 8]),
       mediaType: 'image/png',
       attempts: 1,
-      totalUsd: IMAGE_USD + JUDGE_USD + VESSEL_USD,
+      totalUsd: IMAGE_USD + JUDGE_USD + VESSEL_SAMPLES * VESSEL_USD,
       verdict: expect.objectContaining({ pass: true, strictPass: true }),
       vessel: { vessel: 'plate', diameterCm: 27 },
       fit: expect.objectContaining({ vessel: 'plate', action: 'keep' }),
@@ -254,14 +259,14 @@ describe('generateMealImage', () => {
     })
   })
 
-  it('reports the image, the judge and the vessel call as separate usage rows', async () => {
+  it('reports the image, the judge and each vessel sample as separate usage rows', async () => {
     mockGenerateImage.mockResolvedValue(imageResult())
     answers([clean])
     const onUsage = vi.fn()
 
     await generateMealImage(meal, { onUsage })
 
-    expect(onUsage).toHaveBeenCalledTimes(3)
+    expect(onUsage).toHaveBeenCalledTimes(2 + VESSEL_SAMPLES)
     expect(onUsage).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -305,7 +310,9 @@ describe('generateMealImage', () => {
       1,
       expect.objectContaining({ usageMissing: true, fallbackCostUsd: IMAGE_FALLBACK_USD }),
     )
-    expect(result.totalUsd).toBeCloseTo(IMAGE_FALLBACK_USD + JUDGE_USD + VESSEL_USD)
+    expect(result.totalUsd).toBeCloseTo(
+      IMAGE_FALLBACK_USD + JUDGE_USD + VESSEL_SAMPLES * VESSEL_USD,
+    )
   })
 
   it('keeps the image when the judge call fails', async () => {
@@ -384,7 +391,7 @@ describe('generateMealImage', () => {
       pass: false,
       filtered: { extraIngredients: ['olives'] },
     })
-    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + JUDGE_USD + VESSEL_USD)
+    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + JUDGE_USD + VESSEL_SAMPLES * VESSEL_USD)
   })
 
   it("makes no judge call in 'off' mode, but still fits the image", async () => {
@@ -394,9 +401,9 @@ describe('generateMealImage', () => {
     const result = await generateMealImage(meal, { judge: 'off' })
 
     expect(judgeCalls()).toBe(0)
-    expect(vesselCalls()).toBe(1)
+    expect(vesselCalls()).toBe(VESSEL_SAMPLES)
     expect(result).toMatchObject({ attempts: 1, verdict: null, vessel: estimateOf('plate') })
-    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + VESSEL_USD)
+    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + VESSEL_SAMPLES * VESSEL_USD)
   })
 
   describe('vessel fit (HON-1024)', () => {
@@ -435,7 +442,7 @@ describe('generateMealImage', () => {
 
       await generateMealImage(meal)
 
-      expect(vesselCalls()).toBe(2)
+      expect(vesselCalls()).toBe(2 * VESSEL_SAMPLES)
       expect(mockFit).toHaveBeenCalledTimes(1)
       expect(mockFit).toHaveBeenCalledWith(new Uint8Array([2]), 'image/png', estimateOf('plate'))
     })
@@ -464,7 +471,7 @@ describe('generateMealImage', () => {
 
       expect(mockFit).not.toHaveBeenCalled()
       expect(result).toMatchObject({ vessel: null, fit: null })
-      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('nothing known'))
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('named nothing known'))
 
       vi.clearAllMocks()
       mockGenerateImage.mockResolvedValue(imageResult([5]))
@@ -510,9 +517,13 @@ describe('generateMealImage', () => {
   })
 
   describe('classifyVessel', () => {
-    it('asks REVIEW_MODEL with the image and the vessel prompt, and reports the usage', async () => {
+    it('shows REVIEW_MODEL the image at the canonical width with the vessel prompt, and reports the usage', async () => {
       answers([], 'glass')
       const onUsage = vi.fn()
+      vi.mocked(canonicalForEstimate).mockResolvedValueOnce({
+        bytes: new Uint8Array([1, 1]),
+        mediaType: 'image/png',
+      })
 
       const vessel = await classifyVessel(
         { bytes: new Uint8Array([1]), mediaType: 'image/png' },
@@ -520,6 +531,7 @@ describe('generateMealImage', () => {
       )
 
       expect(vessel).toEqual({ vessel: 'glass', diameterCm: 27 })
+      expect(canonicalForEstimate).toHaveBeenCalledWith(new Uint8Array([1]), 'image/png')
       expect(mockGenerateObject).toHaveBeenCalledWith(
         expect.objectContaining({
           model: { languageModelId: 'claude-sonnet-5-5' },
@@ -528,7 +540,7 @@ describe('generateMealImage', () => {
             {
               role: 'user',
               content: [
-                { type: 'file', data: new Uint8Array([1]), mediaType: 'image/png' },
+                { type: 'file', data: new Uint8Array([1, 1]), mediaType: 'image/png' },
                 { type: 'text', text: expect.stringContaining('Which single vessel') },
               ],
             },
@@ -537,6 +549,28 @@ describe('generateMealImage', () => {
       )
       expect(onUsage).toHaveBeenCalledWith(
         expect.objectContaining({ model: 'claude-sonnet-5-5', inputTokens: 2_500 }),
+      )
+    })
+
+    it('classifies the image as given when it cannot be canonicalised', async () => {
+      answers([], 'bowl')
+      vi.mocked(canonicalForEstimate).mockRejectedValueOnce(new Error('unsupported image format'))
+
+      const vessel = await classifyVessel({ bytes: new Uint8Array([3]), mediaType: 'image/png' })
+
+      expect(vessel).toEqual({ vessel: 'bowl', diameterCm: 16 })
+      expect(mockGenerateObject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'file', data: new Uint8Array([3]), mediaType: 'image/png' },
+                expect.anything(),
+              ],
+            },
+          ],
+        }),
       )
     })
 
@@ -640,7 +674,7 @@ describe('generateMealImage on a 429 (HON-742)', () => {
     expect(mockGenerateImage).toHaveBeenCalledTimes(2)
     expect(result.bytes).toEqual(new Uint8Array([9]))
     // The rejected call was never billed; the vessel call on the kept image was.
-    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + VESSEL_USD)
+    expect(result.totalUsd).toBeCloseTo(IMAGE_USD + VESSEL_SAMPLES * VESSEL_USD)
   })
 
   it('backs off 15 s, 30 s, 60 s without a named delay, then gives up', async () => {

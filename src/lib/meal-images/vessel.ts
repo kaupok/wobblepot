@@ -24,7 +24,8 @@ export const vesselSchema = z.object({
     .number()
     .int()
     .describe("The rim's diameter in centimetres, judged from the real size of the food on it"),
-  reason: z.string().describe('One short sentence on what makes it that vessel and that size'),
+  // No free-text reason: it is never read, and a long one ran past the output
+  // limit and cut the JSON off (2 of 52 images on one run).
 })
 
 export type VesselFindings = z.infer<typeof vesselSchema>
@@ -57,6 +58,28 @@ export function asVesselEstimate(value: unknown): VesselEstimate | null {
 }
 
 /**
+ * One estimate from several samples of the same image: the vessel most
+ * often named, and the median diameter among the samples that named it.
+ * One sample moved by 2 cm between runs on a fifth of the images, at
+ * temperature 0 as much as at 1; the median of three settles most of them.
+ * Null when there are no samples.
+ */
+export function vesselConsensus(samples: readonly VesselEstimate[]): VesselEstimate | null {
+  if (samples.length === 0) return null
+  const counts = new Map<Vessel, number>()
+  for (const s of samples) counts.set(s.vessel, (counts.get(s.vessel) ?? 0) + 1)
+  let vessel = samples[0]!.vessel
+  for (const [v, n] of counts) if (n > (counts.get(vessel) ?? 0)) vessel = v
+  const cms = samples
+    .filter((s) => s.vessel === vessel)
+    .map((s) => s.diameterCm)
+    .sort((a, b) => a - b)
+  const mid = Math.floor(cms.length / 2)
+  const diameterCm = cms.length % 2 === 1 ? cms[mid]! : Math.round((cms[mid - 1]! + cms[mid]!) / 2)
+  return { vessel, diameterCm }
+}
+
+/**
  * The classification prompt. A pasta plate is a plate: what matters for the
  * footprint is the rim that sets the width, not how much it holds. The size
  * anchors are what made two runs agree: without them the model has nothing
@@ -68,4 +91,4 @@ export const VESSEL_PROMPT = `Which single vessel holds the food in this illustr
 - glass: a glass, jar, cup or mug.
 - board: a board, slate, basket, tray or paper.
 - other: anything else, including a pan, skillet or baking dish.
-Estimate the rim's diameter in centimetres from the real size of the food on it: a bagel or a slice of toast is about 10 cm across, an egg 6 cm, a croissant 12 cm long, a chicken thigh 10 cm. For reference, a dinner plate is 26–28 cm, a side plate 18–21 cm, a pasta bowl 22–24 cm, a cereal bowl 14–16 cm. Answer with the vessel, the diameter and one short reason.`
+Estimate the rim's diameter in centimetres from the real size of the food on it: a bagel or a slice of toast is about 10 cm across, an egg 6 cm, a croissant 12 cm long, a chicken thigh 10 cm. For reference, a dinner plate is 26–28 cm, a side plate 18–21 cm, a pasta bowl 22–24 cm, a cereal bowl 14–16 cm. Answer with the vessel and the diameter.`

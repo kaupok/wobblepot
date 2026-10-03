@@ -1,6 +1,7 @@
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
 import {
+  canonicalForEstimate,
   DEFAULT_FOOTPRINT_OPTIONS,
   elevationDeg,
   fitFootprint,
@@ -170,7 +171,10 @@ describe('HON-1024: target width', () => {
 
 describe('HON-1024: fit plan', () => {
   it('scales the rim to the width its size calls for', () => {
-    expect(planFit(fp(), dinnerPlate)).toEqual({ action: 'fit', scale: 0.58 / 0.6 })
+    expect(planFit(fp(), sidePlate)).toEqual({
+      action: 'fit',
+      scale: targetWidth(sidePlate)! / 0.6,
+    })
     expect(planFit(fp(), { vessel: 'bowl', diameterCm: 22 })).toEqual({
       action: 'fit',
       scale: targetWidth({ vessel: 'bowl', diameterCm: 22 })! / 0.6,
@@ -186,11 +190,17 @@ describe('HON-1024: fit plan', () => {
     }
   })
 
-  it('keeps an image whose rim is within 1% of the target width and on the centre line', () => {
-    // 174 px = 0.58 exactly; 175 px is 0.6% off.
+  it('keeps an image whose rim is within 3.5% of the target width and on the centre line', () => {
+    // 174 px = 0.58 exactly; 175 px is 0.6% off and 180 px 3.4%, a 1 cm move of the estimate.
     expect(planFit(fp({ left: 63, right: 237, rimLeft: 63, rimRight: 237 }), dinnerPlate)).toEqual({
       action: 'keep',
       reason: 'already fitted',
+    })
+    expect(planFit(fp(), dinnerPlate)).toEqual({ action: 'keep', reason: 'already fitted' })
+    // 186 px is 6.9% off, a 2 cm move: refit.
+    expect(planFit(fp({ left: 57, right: 242, rimLeft: 57, rimRight: 242 }), dinnerPlate)).toEqual({
+      action: 'fit',
+      scale: 0.58 / 0.62,
     })
   })
 
@@ -215,6 +225,28 @@ describe('HON-1024: fit plan', () => {
       planFit(fp({ left: 100, right: 129, rimLeft: 100, rimRight: 129 }), dinnerPlate),
     ).toEqual({ action: 'skip', reason: 'scale out of range' })
     expect(DEFAULT_FOOTPRINT_OPTIONS.maxScale).toBeLessThan(5.8)
+  })
+})
+
+describe('HON-1024: canonicalForEstimate', () => {
+  it('shows any vessel at the reference width, centred, and passes a blank frame through', async () => {
+    const wide = await frameWith({ left: 20, top: 30, width: 210, height: 100 })
+    const shown = await canonicalForEstimate(wide, 'image/png')
+    const f = await measureFootprint(shown.bytes)
+    expect(rimWidth(f!)).toBeCloseTo(0.58, 2)
+    expect(rimCentre(f!).x).toBeCloseTo(0.5, 2)
+    // A 60 px rim (0.20) needs ×2.9, outside the fit's range but not this one's.
+    const small = await frameWith({ left: 120, top: 80, width: 60, height: 40 })
+    expect(
+      rimWidth((await measureFootprint((await canonicalForEstimate(small, 'image/png')).bytes))!),
+    ).toBeCloseTo(0.58, 2)
+
+    const blank = new Uint8Array(
+      await sharp({ create: { width: W, height: H, channels: 3, background: '#fff' } })
+        .png()
+        .toBuffer(),
+    )
+    expect((await canonicalForEstimate(blank, 'image/png')).bytes).toBe(blank)
   })
 })
 

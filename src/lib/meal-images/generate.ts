@@ -7,10 +7,16 @@ import { MEAL_IMAGE_MODEL, REVIEW_MODEL } from '@/lib/ai/models'
 import { estimateCostUsd } from '@/lib/ai/pricing'
 import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from '@/lib/ai/usage'
 import { serverEnv } from '@/lib/env'
-import { fitFootprint, type FootprintFit } from './footprint'
+import { canonicalForEstimate, fitFootprint, type FootprintFit } from './footprint'
 import { applyJudgeFilters, buildJudgeV2Prompt, judgeV2Schema, type JudgeVerdict } from './judge'
 import { buildMealImagePrompt, type MealImageMeal } from './prompt'
-import { asVesselEstimate, VESSEL_PROMPT, vesselSchema, type VesselEstimate } from './vessel'
+import {
+  asVesselEstimate,
+  VESSEL_PROMPT,
+  vesselConsensus,
+  vesselSchema,
+  type VesselEstimate,
+} from './vessel'
 
 /**
  * Generate a meal illustration with the HON-726 recipe: one image, one vision
@@ -156,28 +162,47 @@ export interface GeneratedMealImage {
 
 export interface ClassifyVesselOptions {
   abortSignal?: AbortSignal
+  /** How many times to ask; default `VESSEL_SAMPLES`. */
+  samples?: number
   onUsage?: (usage: MealImageUsage) => void | Promise<void>
   /** For log lines only. */
   mealId?: string
 }
 
 /**
+ * Samples of the size estimate per image, taken side by side and settled by
+ * `vesselConsensus`. One sample moved by 2 cm between runs on a fifth of the
+ * images, at temperature 0 as much as at 1; three cost about $0.018 per
+ * image, against $0.042 for the drawing.
+ */
+export const VESSEL_SAMPLES = 3
+
+/**
  * Which vessel the image serves its food in and how wide it is in life, by
- * one short `REVIEW_MODEL` vision call (HON-1024). `null` when the call
- * failed, timed out, named nothing known or gave a size no dishware comes
- * in: the image is kept as drawn either way, so this never throws.
- * Shared with the backfill (`scripts/refit-meal-images.ts`).
+ * a few short `REVIEW_MODEL` vision calls settled to one answer (HON-1024).
+ * `null` when every call failed, timed out, named nothing known or gave a
+ * size no dishware comes in: the image is kept as drawn either way, so this
+ * never throws. Shared with the backfill (`scripts/refit-meal-images.ts`).
  */
 export async function classifyVessel(
   image: { bytes: Uint8Array; mediaType: string },
   options: ClassifyVesselOptions = {},
 ): Promise<VesselEstimate | null> {
-  const { abortSignal, mealId } = options
+  const { abortSignal, mealId, samples = VESSEL_SAMPLES } = options
   const report = async (usage: MealImageUsage) => {
     await options.onUsage?.(usage)
   }
-  try {
-    const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
+  // Every vessel at one width, so the size is read from the food alone.
+  const shown = await canonicalForEstimate(image.bytes, image.mediaType).catch((error) => {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[meal-image] could not canonicalise the image for meal ${mealId}; classifying it as given`,
+      error,
+    )
+    return image
+  })
+  const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
+  const ask = async (): Promise<VesselEstimate | null> => {
     const startedAt = Date.now()
     const result = await withUsageOnFailure(REVIEW_MODEL, report, () =>
       generateObject({
@@ -187,7 +212,7 @@ export async function classifyVessel(
           {
             role: 'user',
             content: [
-              { type: 'file', data: image.bytes, mediaType: image.mediaType },
+              { type: 'file', data: shown.bytes, mediaType: shown.mediaType },
               { type: 'text', text: VESSEL_PROMPT },
             ],
           },
@@ -198,22 +223,27 @@ export async function classifyVessel(
       }),
     )
     await report(toAiUsageStats(REVIEW_MODEL, result.usage, Date.now() - startedAt))
-    const vessel = asVesselEstimate(result.object)
-    if (!vessel) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[meal-image] vessel call for meal ${mealId} named nothing known; keeping the image as drawn`,
-      )
-    }
-    return vessel
-  } catch (error) {
+    return asVesselEstimate(result.object)
+  }
+  // Side by side, so the samples add no time to the request.
+  const settled = await Promise.allSettled(Array.from({ length: samples }, ask))
+  const estimates: VesselEstimate[] = []
+  let failed = 0
+  let unknown = 0
+  for (const s of settled) {
+    if (s.status === 'rejected') failed += 1
+    else if (s.value === null) unknown += 1
+    else estimates.push(s.value)
+  }
+  if (failed > 0 || unknown > 0) {
     // eslint-disable-next-line no-console
     console.warn(
-      `[meal-image] vessel call failed for meal ${mealId}; keeping the image as drawn`,
-      error,
+      `[meal-image] vessel call for meal ${mealId}: ${failed} of ${samples} failed, ${unknown} named nothing known` +
+        (estimates.length === 0 ? '; keeping the image as drawn' : ''),
+      ...settled.flatMap((s) => (s.status === 'rejected' ? [s.reason] : [])),
     )
-    return null
   }
+  return vesselConsensus(estimates)
 }
 
 function imageUsageStats(usage: ImageModelUsage | undefined, durationMs: number): MealImageUsage {
