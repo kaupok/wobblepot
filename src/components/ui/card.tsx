@@ -13,7 +13,11 @@ import { cn } from '@/lib/utils'
 // inside it marked `data-slot="card-target"`, and the card draws that
 // control's focus ring around itself, so the keyboard user sees the target the
 // mouse user gets. The control drops its own ring. `group/card` lets the
-// target's label react to a hover anywhere on the card.
+// target's label react to a hover anywhere on the card. The hover edge is the
+// card's own `--border` at 2px: the 1px border plus a 1px ring outside it, so
+// nothing moves. Inside `[data-meal-surface]` that is the meal's chip colour,
+// the colour of its badges (HON-1027). The focus ring's `has-[…]` selector
+// outweighs `:hover`, so a focused card shows the focus ring when hovered.
 const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl border', {
   variants: {
     size: {
@@ -21,7 +25,7 @@ const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl 
       sm: 'gap-2 py-2',
     },
     interactive: {
-      true: 'group/card cursor-pointer transition-[border-color,box-shadow] duration-150 ease-out hover:border-muted-foreground has-[[data-slot=card-target]:focus-visible]:border-ring has-[[data-slot=card-target]:focus-visible]:ring-[3px] has-[[data-slot=card-target]:focus-visible]:ring-ring/50',
+      true: 'group/card cursor-pointer transition-[border-color,box-shadow] duration-150 ease-out hover:border-border hover:ring-1 hover:ring-border has-[[data-slot=card-target]:focus-visible]:border-ring has-[[data-slot=card-target]:focus-visible]:ring-[3px] has-[[data-slot=card-target]:focus-visible]:ring-ring/50',
       false: '',
     },
   },

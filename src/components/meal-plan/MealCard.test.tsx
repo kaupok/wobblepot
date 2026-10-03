@@ -576,7 +576,12 @@ describe('MealCard card click (HON-1010)', () => {
     renderCard({ meal })
     const name = screen.getByRole('button', { name: meal.name })
 
-    expect(card()).toHaveClass('group/card', 'cursor-pointer', 'hover:border-muted-foreground')
+    expect(card()).toHaveClass(
+      'group/card',
+      'cursor-pointer',
+      'hover:border-border',
+      'hover:ring-1',
+    )
     expect(card()).not.toHaveAttribute('tabindex')
     expect(card()).not.toHaveAttribute('role')
     expect(name).toHaveAttribute('data-slot', 'card-target')
