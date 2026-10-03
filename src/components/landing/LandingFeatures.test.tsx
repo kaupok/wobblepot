@@ -58,6 +58,27 @@ describe('LandingFeatures', () => {
     expect(within(section).getAllByRole('figure')).toHaveLength(4)
   })
 
+  it('sets each point title above the headings this component draws in its vignettes', () => {
+    renderFeatures()
+    const section = screen.getByRole('region', { name: 'Made for family kitchens' })
+    for (const title of within(section).getAllByRole('heading', { level: 3 })) {
+      // Title (h4) beside the vignette, not Section.
+      expect(title).toHaveClass('text-xl')
+      expect(title).not.toHaveClass('text-base')
+    }
+    // The cook vignette's own "Steps" heading is Section.
+    expect(within(drawing('cook')).getByText('Steps')).toHaveClass('text-base')
+  })
+
+  it('tints the vignettes yellow, pink, neutral, yellow: the salmon, the acai bowl, none, the salmon', () => {
+    renderFeatures()
+    const hues = POINTS.map((point) => {
+      const surface = drawing(point).querySelector('[data-meal-surface]')
+      return surface instanceof HTMLElement ? surface.style.getPropertyValue('--meal-hue') : null
+    })
+    expect(hues).toEqual(['88', '32', null, '88'])
+  })
+
   it('makes every vignette inert, with a caption outside the inert part', () => {
     renderFeatures()
     for (const point of POINTS) {
@@ -91,19 +112,25 @@ describe('LandingFeatures', () => {
     expect(within(pantry).getByText('360g')).toBeInTheDocument()
   })
 
-  it('shows a pasted link and the planner card marked as an own recipe', () => {
+  it('shows a pasted link and the acai bowl on the planner, marked as an own recipe', () => {
     renderFeatures()
     const recipes = drawing('recipes')
     const input = within(recipes).getByRole('textbox', { name: 'Recipe link' })
     expect(input).toHaveAttribute('readonly')
-    expect(input).toHaveValue('https://example.com/baked-salmon-with-asparagus')
-    expect(within(recipes).getByText('Baked salmon with asparagus')).toBeInTheDocument()
+    expect(input).toHaveValue('https://example.com/acai-bowl')
+    expect(within(recipes).getByText('Acai bowl')).toBeInTheDocument()
+    expect(within(recipes).getByText('Breakfast')).toBeInTheDocument()
     expect(within(recipes).getByRole('button', { name: 'My recipe' })).toBeInTheDocument()
+    expect(within(recipes).queryByText('Fish')).not.toBeInTheDocument()
   })
 
   it("scales the salmon by the members' portions: 120 g × (1.5 + 1 + 0.5)", () => {
     renderFeatures()
     const portions = drawing('kids')
+    expect(within(portions).getByText('Mia (2)')).toBeInTheDocument()
+    // Household admin is not the claim: no role or account badges.
+    expect(within(portions).queryByText('Owner')).not.toBeInTheDocument()
+    expect(within(portions).queryByText('No account')).not.toBeInTheDocument()
     expect(within(portions).getByText('Large 1.5×')).toBeInTheDocument()
     expect(within(portions).getByText('Regular 1×')).toBeInTheDocument()
     expect(within(portions).getByText('Custom 0.5×')).toBeInTheDocument()
@@ -127,8 +154,8 @@ describe('LandingFeatures', () => {
     renderFeatures()
     const images = screen.getAllByRole('img')
     expect(images).toHaveLength(1)
-    expect(images[0]).toHaveAttribute('alt', 'Baked salmon with asparagus')
-    expect(images[0]?.getAttribute('src')).toContain('baked-salmon-asparagus.jpg')
+    expect(images[0]).toHaveAttribute('alt', 'Acai bowl')
+    expect(images[0]?.getAttribute('src')).toContain('acai-bowl.jpg')
   })
 
   it('renders in Estonian', () => {
@@ -140,6 +167,8 @@ describe('LandingFeatures', () => {
       ),
     ).toBeInTheDocument()
     expect(within(drawing('pantry')).getByText('Lõhefilee')).toBeInTheDocument()
+    expect(within(drawing('recipes')).getByText('Acai kauss')).toBeInTheDocument()
+    expect(within(drawing('kids')).getByText('Mia (2)')).toBeInTheDocument()
     expect(within(drawing('kids')).getByText('Suur 1,5×')).toBeInTheDocument()
   })
 })

@@ -686,9 +686,11 @@
         "title": "Your recipes join the plan",
         "body": "Paste a link or a recipe, and your own dishes get planned alongside the rest.",
         "vignette": {
-          "caption": "A pasted recipe link, and below it the same dish on the planner as baked salmon with asparagus, marked as your own recipe.",
+          "caption": "A pasted recipe link, and below it the same dish on the planner: an acai bowl for breakfast, marked as your own recipe.",
           "linkLabel": "Recipe link",
-          "link": "https://example.com/baked-salmon-with-asparagus"
+          "link": "https://example.com/acai-bowl",
+          "name": "Acai bowl",
+          "description": "Frozen acai with banana, granola and fresh fruit"
         }
       },
       "kids": {
@@ -698,7 +700,7 @@
           "caption": "Three household members: one adult at a large portion, one at a regular portion and a toddler at half a portion. The meal serves 3, so it calls for {quantity} of salmon.",
           "adult1": "Anna",
           "adult2": "Tom",
-          "toddler": "Mia"
+          "toddler": "Mia (2)"
         }
       },
       "cook": {
