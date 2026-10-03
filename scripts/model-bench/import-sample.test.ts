@@ -19,7 +19,8 @@ import { loadCases } from './load-cases'
 /**
  * One sample per call site, shaped as each passes `input` to `logAiSample`:
  * `generate-plan.ts`, `imagine-meal.ts`, `parse-recipe.ts`,
- * `review-quantities.ts` and the preparation-tips route.
+ * `review-quantities.ts`, the preparation-tips route and the cook-question
+ * route.
  */
 const SAMPLES = {
   'generate-plan': {
@@ -110,6 +111,15 @@ const SAMPLES = {
     },
     output: { pitfalls: ['p'], tip: 't' },
   },
+  'cook-question': {
+    type: 'ai_sample',
+    timestamp: '2026-10-03T12:00:00.000Z',
+    callSite: 'cook-question',
+    locale: 'et',
+    sampleRate: 1,
+    input: { mealName: 'Wokinuudlid', subject: { kind: 'equipment', index: 1 }, source: 'cached' },
+    output: { answer: 'Kasuta suurt praepanni ja prae kahes osas.' },
+  },
 } as const
 
 const sample = (callSite: keyof typeof SAMPLES) => SAMPLES[callSite] as unknown as AiSample
@@ -152,12 +162,20 @@ describe('parseCaseId', () => {
     })
   })
 
-  it.each(['imagine', 'meals/en-x', 'imagine/En-x', 'imagine/en_x', 'imagine/en-x.json'])(
-    'refuses "%s"',
-    (id) => {
-      expect(() => parseCaseId(id)).toThrow(ImportSampleError)
-    },
-  )
+  it('takes a hyphenated task', () => {
+    expect(parseCaseId('cook-question/et-wok')).toEqual({ task: 'cook-question', slug: 'et-wok' })
+  })
+
+  it.each([
+    'imagine',
+    'meals/en-x',
+    'cook-/en-x',
+    'imagine/En-x',
+    'imagine/en_x',
+    'imagine/en-x.json',
+  ])('refuses "%s"', (id) => {
+    expect(() => parseCaseId(id)).toThrow(ImportSampleError)
+  })
 })
 
 describe('draftFromSample', () => {
@@ -306,6 +324,55 @@ describe('draftFromSample', () => {
     }
     const text = draftFromSample(plain).missingInput.join('\n')
     expect(text).not.toMatch(/restrictions|pantryIngredients/)
+  })
+
+  it('maps a cook-question sample to its meal and subject, and lists the question as missing', () => {
+    const draft = draftFromSample(sample('cook-question'))
+    expect(draft.task).toBe('cook-question')
+    expect(draft.draft).toMatchObject({
+      mealName: 'Wokinuudlid',
+      subject: { kind: 'equipment', index: 1 },
+      question: '',
+      steps: [],
+      equipment: [],
+      locale: 'et',
+      expected: {},
+      source: 'ai-sample',
+    })
+    const missing = draft.missingInput.join('\n')
+    expect(missing).toMatch(
+      /question: the sample logs no question, only that it was about equipment item 2/,
+    )
+    expect(missing).toMatch(/pitfalls, tip: the entry had cached tips/)
+    expect(draft.expectations.join('\n')).toMatch(/expected\.mentionsAny/)
+  })
+
+  it('says an uncached cook-question sample sent no pitfalls or tip', () => {
+    const uncached = {
+      ...sample('cook-question'),
+      input: { mealName: 'Pannkoogid', subject: { kind: 'step', index: 0 }, source: 'uncached' },
+    }
+    expect(draftFromSample(uncached).missingInput.join('\n')).toMatch(
+      /question: .*about step 1;[\s\S]*the entry had no cached tips, so the request sent none/,
+    )
+  })
+
+  it('makes a cook-question draft that validates once it is filled in', () => {
+    const {
+      sampleInput: _i,
+      sampleOutput: _o,
+      ...draft
+    } = draftFromSample(sample('cook-question')).draft
+    expect(CASE_SCHEMAS['cook-question'].safeParse(draft).success).toBe(false)
+    const filled = {
+      ...draft,
+      servings: 2,
+      components: [{ name: 'noodles', quantityPerServing: 100, defaultUnit: 'g' }],
+      steps: ['Boil the noodles.', 'Stir-fry everything in the wok.'],
+      equipment: ['Pot', 'Wok'],
+      question: 'Mul pole wokki. Mida kasutada?',
+    }
+    expect(CASE_SCHEMAS['cook-question'].safeParse(filled).success).toBe(true)
   })
 
   it('makes a draft that validates once its expectation is written and the sample keys go', () => {

@@ -1,0 +1,62 @@
+{
+  "mealName": "Ahjukartulid kanakoibadega",
+  "servings": 5,
+  "timeMinutes": 60,
+  "components": [
+    {
+      "name": "Kanakoib",
+      "quantityPerServing": 1,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "Kartul",
+      "quantityPerServing": 250,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Punane sibul",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "Rapsiõli",
+      "quantityPerServing": 10,
+      "defaultUnit": "ml"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Kuumuta ahi 200 °C-ni.",
+    "Lõika kartulid sektoriteks ja sega õli ja soolaga.",
+    "Laota kartulid ja kanakoivad ühe kihina ahjuplaadile.",
+    "Küpseta 45 minutit, kuni kana sisetemperatuur on 75 °C ja kartulid on pruunid."
+  ],
+  "equipment": ["Suur ahjuplaat", "Lõikelaud"],
+  "subject": {
+    "kind": "equipment",
+    "index": 0
+  },
+  "pitfalls": ["Kui plaat on liiga täis, kartulid aurustuvad ega pruunistu."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "Sool",
+      "isStaple": true
+    },
+    {
+      "name": "Rapsiõli",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "Kas suurus on oluline? Mu ahjuplaat on väike.",
+  "locale": "et",
+  "expected": {
+    "mentionsAny": ["samm"]
+  }
+}

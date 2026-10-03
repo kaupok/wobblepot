@@ -1,0 +1,84 @@
+{
+  "mealName": "Beef stroganoff with rice",
+  "servings": 4,
+  "timeMinutes": 40,
+  "components": [
+    {
+      "name": "beef sirloin",
+      "quantityPerServing": 125,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "chestnut mushrooms",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "sour cream",
+      "quantityPerServing": 50,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "basmati rice",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "butter",
+      "quantityPerServing": 5,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Cook the rice in salted water for 12 minutes, then drain.",
+    "Fry the sliced beef in butter over high heat for 2 minutes, then set it aside.",
+    "Soften the onion and mushrooms in the same pan for 6 minutes.",
+    "Take the pan off the heat, stir in the sour cream and the beef, and warm through gently."
+  ],
+  "equipment": ["Large frying pan", "Saucepan", "Chopping board"],
+  "subject": {
+    "kind": "step",
+    "index": 3
+  },
+  "pitfalls": ["Sour cream splits if it boils: keep the heat low once it is in."],
+  "tip": "Slice the beef across the grain so it stays tender.",
+  "pantry": [
+    {
+      "name": "Greek yogurt",
+      "isStaple": false
+    },
+    {
+      "name": "cheddar",
+      "isStaple": false
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    },
+    {
+      "name": "olive oil",
+      "isStaple": true
+    },
+    {
+      "name": "butter",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "What can I substitute here?",
+  "locale": "en",
+  "expected": {
+    "mentionsAny": ["yogurt", "yoghurt"]
+  }
+}

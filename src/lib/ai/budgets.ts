@@ -122,11 +122,15 @@ export const REVIEW_AI_BUDGET_MS = 45_000
 export const TIPS_AI_BUDGET_MS = 45_000
 
 /**
- * `/api/meal-plans/[id]/entries/[entryId]/cook-question` (HON-969). Not
- * measured yet. Sized at two thirds of `TIPS_AI_BUDGET_MS` because the answer
- * is a quarter of the tips' size: a 600-token ceiling against 2000. That leaves
- * 30s under the 60s `maxDuration` for the entry, pantry and preferences reads
- * before the call and the usage write after it. The first benchmark run should
- * confirm the value or trim it.
+ * `/api/meal-plans/[id]/entries/[entryId]/cook-question` (HON-969). Covers the
+ * whole streamed answer, not just its first word. Measured on Sonnet 5.5
+ * (HON-972, `scripts/model-bench/results/2026-10-03-check-production.md`,
+ * 27 calls): p50 3.2s, max 13.3s, no retries. The slow calls are Estonian
+ * answers with adaptive thinking (up to 725 reasoning tokens, 986 output in
+ * all); English answers did not think and finished within 6s. Kept at 30s
+ * rather than trimmed: the 1200-token `maxOutputTokens` takes about 22s at the
+ * slowest rate measured (55 tokens/s), so a trimmed budget would abort a long
+ * answer mid-stream. That leaves 30s under the 60s `maxDuration` for the entry,
+ * pantry and preferences reads before the call and the usage write after it.
  */
 export const COOK_QUESTION_AI_BUDGET_MS = 30_000

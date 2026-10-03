@@ -1,0 +1,927 @@
+{
+  "task": "cook-question",
+  "model": "claude-sonnet-5-5",
+  "recordedAt": "2026-10-03",
+  "commit": "0180a82d",
+  "runs": 3,
+  "cases": {
+    "cook-question/en-equipment-no-wok": {
+      "promptHash": "08e13e51b58c878e8d98f7063bdcda29f59d4d883c15121ce19a4fb1c3c98359",
+      "requestHash": "99d56304346c76fc7d7e762ef7adac750c163204ea8eec6756a86469a24715bd",
+      "calls": [
+        {
+          "caseId": "cook-question/en-equipment-no-wok",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2746.792209,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 697,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 206,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003454,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use your largest frying pan or, if you don't have one, the saucepan you're cooking the rice in (once the rice is done). The wok is used in steps 2 and 3, and a pan has less surface area, so cook the chicken in 2 batches over high heat, about 5 minutes total, so it browns rather than steams. Add a splash of your vegetable oil (the household has it) for each batch, then cook the broccoli and pepper in step 3 in the same pan, probably needing an extra minute or so, and add the soy sauce at the end. Keep the first batch of chicken warm on the chopping board or a plate while you finish the rest.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-equipment-no-wok",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3970.7989579999994,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 697,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 212,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003514,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use your largest frying pan or, if you don't have one, the saucepan you're cooking the rice in once the rice is done. The wok is used in steps 2 and 3. A pan has less surface area, so cook the chicken in 2 batches of about 250g each over high heat, allowing a minute or two extra per batch so it browns instead of steaming. Add a little of your vegetable oil (the household has it) to each batch, then return all the chicken to the pan before adding the broccoli and pepper in step 3, and expect that step to take about 1 minute longer. Keep the vegetables moving so they don't stew, and add the soy sauce at the end as usual.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-equipment-no-wok",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 5698.814541999993,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 697,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 246,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003854,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use your largest, widest frying pan or a heavy sauté pan in place of the wok. It's needed in steps 2 and 3. If you don't have one, the saucepan is a last resort, but it's too deep and small to brown well. Because a flat pan holds less, cook the chicken in 2 batches over high heat in step 2, adding a little of your vegetable oil (you have it in the pantry) for each batch, and set the first batch aside so the pan doesn't crowd and steam the meat. In step 3, stir-fry the broccoli and pepper for about 3-4 minutes, then return the chicken and add the soy sauce. Batching will add roughly 3-4 minutes in total, which still fits your 25 minutes if the rice is already cooking.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/en-follow-up-previous-answer": {
+      "promptHash": "ac4f4dc7e48425bda603c3cd059244674e8ca0f5e355e1997f0b18c9f6376086",
+      "requestHash": "707df2893e444a70f877cfb51d064fc72f75d023653f56fbab451b2e52af8b73",
+      "calls": [
+        {
+          "caseId": "cook-question/en-follow-up-previous-answer",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2233.9815420000004,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 869,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 130,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003038,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "The household has white wine vinegar, so use that for the acidity. Mix about 1 teaspoon (5 ml) of it into a ladle of hot chicken stock (about 100 ml), so it's gentler than neat vinegar, and add that to the rice. Stir until it's absorbed. The vinegar is sharper than wine, so don't add more, and taste at the end before adding any extra salt.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-follow-up-previous-answer",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2681.3470000000016,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 869,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 144,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003178,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use the white wine vinegar your household has. Stir in just 1 to 2 teaspoons (5-10 ml) along with a ladle of the hot chicken stock, since vinegar is much sharper than wine. It gives the same bright acidity, and the smell cooks off within a minute or so. Stir until the liquid is absorbed, then carry on with the stock as normal. Taste at the end and add a pinch of salt if it needs it.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-follow-up-previous-answer",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2613.5741659999912,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 869,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 148,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003218,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use the white wine vinegar the household already has. Stir in just 1 to 2 teaspoons (5-10 ml) along with the extra ladle of hot stock, since vinegar is much sharper than wine. Taste after it's absorbed, and if it's too sharp, the butter and parmesan at the end will mellow it. If you'd rather skip acidity altogether, the hot stock alone still works, and the risotto will just taste slightly less bright.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/en-nut-allergy-crunch": {
+      "promptHash": "b7952274fb04f9c488970e9d11e93cb3d6026f0d74e2432d38665ff43da4226b",
+      "requestHash": "7e11e8ae95fe884b66f70ea0c23766ecec5c620ca4b9e636a4f72ec6a5aa4b57",
+      "calls": [
+        {
+          "caseId": "cook-question/en-nut-allergy-crunch",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3053.3823330000005,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 679,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 204,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003398,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Sunflower seeds are a good choice, and your household has them. They're seeds, not nuts, so they fit your nut and peanut restriction. Check the packet label for \"may contain nuts\" warnings, since some brands process them alongside nuts. Sprinkle about 2 tablespoons (roughly 20 g) over the bowl just before serving so they stay crisp, and toasting them in a dry pan for 2-3 minutes beforehand adds extra flavor.\n\nRice crackers are also in your pantry. Crush about 3-4 of them into small pieces for a lighter crunch, again checking the label for nut traces.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "mentionsExpected": null
+          }
+        },
+        {
+          "caseId": "cook-question/en-nut-allergy-crunch",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3203.448083999996,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 679,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 173,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003088,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Sunflower seeds are a good choice, and your household has them. Use about 2 tablespoons (roughly 20 g), and toast them in a dry pan over medium heat for 2-3 minutes if you want more flavor. Rice crackers, which you also have, work too. Crush about 3-4 of them into coarse pieces with your hands or the back of a spoon. Sprinkle either one on at the last moment so it stays crisp, and check the packaging to make sure it has no nut or peanut traces, since your household must avoid those.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "mentionsExpected": null
+          }
+        },
+        {
+          "caseId": "cook-question/en-nut-allergy-crunch",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3005.954958999995,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 679,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 215,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003508,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Sunflower seeds are a good choice, and your household has them. Sprinkle about 2 tablespoons (roughly 20 g) over the top just before serving so they stay crisp. Toasting them in a dry pan over medium heat for 2-3 minutes brings out more flavor. Rice crackers, which you also have, work too: crush them into rough pieces of about 1 cm and scatter them on at the last moment so they don't go soft.\n\nSince nuts and peanuts must be avoided, check that the packaging on the sunflower seeds and rice crackers doesn't mention nut or peanut traces or shared facilities. Some brands are processed alongside them.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "mentionsExpected": null
+          }
+        }
+      ]
+    },
+    "cook-question/en-off-topic-football": {
+      "promptHash": "c3d51c992a4b6a4a5db3d0906bf250348123099359e44bb7ed54c57c0f2ef286",
+      "requestHash": "367501d2bb8afe8af74cef7154cd30d28f8fe71e2f9dd6cd836f66de94aea278",
+      "calls": [
+        {
+          "caseId": "cook-question/en-off-topic-football",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4918.567959,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 612,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 56,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.001784,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "I can only help with this chicken tikka masala, so I can't answer that one. If you have a question about step 3, such as sauce thickness or timing, I'm happy to help.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": null,
+            "offTopicDeclined": 1,
+            "avoidsForbidden": 1,
+            "mentionsExpected": null
+          }
+        },
+        {
+          "caseId": "cook-question/en-off-topic-football",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2485.139332999999,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 612,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 65,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.001874,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "I can only help with questions about this chicken tikka masala, so I can't answer that one. If you have a question about step 3, such as the sauce thickness or when the chicken is done, I'm happy to help.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": null,
+            "offTopicDeclined": 1,
+            "avoidsForbidden": 1,
+            "mentionsExpected": null
+          }
+        },
+        {
+          "caseId": "cook-question/en-off-topic-football",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1605.0722090000054,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 612,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 59,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.001814,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "I can only help with questions about this chicken tikka masala, so I can't answer that one. If you have a question about step 3, such as sauce thickness or timing, I'm happy to help.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": null,
+            "offTopicDeclined": 1,
+            "avoidsForbidden": 1,
+            "mentionsExpected": null
+          }
+        }
+      ]
+    },
+    "cook-question/en-salmon-how-do-i-know-done": {
+      "promptHash": "a3de196069a3a04e1f6074aa8fee81734d42283fd5e2c1893f849e8e618176d4",
+      "requestHash": "01ce5f99034c68eaeaddfc8d8ef4a8293fe35e1a731fb15b4553b8aa3d1a5f8d",
+      "calls": [
+        {
+          "caseId": "cook-question/en-salmon-how-do-i-know-done",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2751.436334,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 645,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 164,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.00293,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Look at the side of the fillet as it cooks: the flesh turns from translucent pink to opaque, and by the time you flip it, the opaque band should have crept about two-thirds of the way up. After the second side, press the thickest part with the fish slice or a fork. It should flake easily and look just slightly translucent in the very centre, which means about 52-55°C inside if you have a thermometer. The skin should be crisp and release from the pan without tugging, which is also your sign it's ready to turn without tearing.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-salmon-how-do-i-know-done",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3176.621417000002,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 645,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 181,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.0031,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Look at the side of the fillet: the opaque, paler cooked color should have climbed almost all the way up, with just a thin translucent band left at the top. Then press the thickest part gently with the fish slice. It should flake into firm layers and feel springy, not squishy. If you want to be exact, the thickest part should read about 52-55°C on a probe thermometer for moist, just-cooked salmon (it will rise a few degrees as it rests). Don't try to flip it until the skin releases easily from the pan, since that's also your sign that it's crisped properly.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-salmon-how-do-i-know-done",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3225.6425000000017,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 645,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 202,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.00331,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Look at the side of the fillet: the opaque, paler cooked colour should have crept up from the skin about three-quarters of the way, with a strip of deeper pink still showing at the top. After you turn it, the flesh should feel springy rather than soft and squishy when pressed gently with the fish slice. For certainty, push the tip of a knife into the thickest part. The flesh should flake easily and look just slightly translucent in the centre, or read about 52-55°C on a thermometer if you have one. It will keep cooking a little as it rests on the plate, so it's fine to take it off while the very middle is still a touch glossy.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/en-substitute-pantry-match": {
+      "promptHash": "48efde339fa356aa53be558a578915f359ba49645ece5677fc4e971d651ef556",
+      "requestHash": "5e3b0a2b8332188fa1963a5f7bd376aa40c7ca2a131c1be9a337ae849b557a44",
+      "calls": [
+        {
+          "caseId": "cook-question/en-substitute-pantry-match",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2530.7026250000017,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 707,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 153,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.002944,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "If you're short on sour cream, the household has Greek yogurt, which works well here. Use about 200g, and let it sit out of the fridge for a few minutes first so it's not cold. Keep the heat very low, or off, because yogurt splits even more easily than sour cream. Stir it in a spoonful at a time and warm it only until the beef is hot. If the sauce tastes sharper than you'd like, a small knob of butter stirred in (you have it) will round it off.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-substitute-pantry-match",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3168.3361670000013,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 707,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 206,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003474,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "The best swap for the sour cream is the Greek yogurt your household has. Use about 200g, and let it sit out for a few minutes first so it isn't fridge-cold. Full-fat yogurt works best because low-fat curdles more easily. Yogurt splits even more readily than sour cream, so keep the pan off the heat or on its lowest setting, and stir it in a spoonful at a time. If it looks a little thick, loosen it with a splash of the rice cooking water or a spoonful of water. The cheddar isn't a good substitute here, since it would turn the sauce stringy and greasy rather than creamy and tangy.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-substitute-pantry-match",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2340.909249999997,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 707,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 157,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.002984,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "If you're short on sour cream, your household has Greek yogurt, which works well here. Use the same amount (about 200g), but make sure the pan is off the heat and let it cool for a minute first. Greek yogurt splits more easily than sour cream, so stir it in gently and keep the heat very low. Stirring in a spoonful of the hot pan juices first will also help prevent curdling. The cheddar isn't a good swap here, as it would turn the sauce stringy and heavy.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/et-equipment-pan-size": {
+      "promptHash": "8b620d5014a6d3e524791f02a0b41bcf018c6ae2adfd4b79a541af70884ef0e3",
+      "requestHash": "69904b58908ccce7f4d46da47ea07cf7b17618633db769779e8fd39c107186ee",
+      "calls": [
+        {
+          "caseId": "cook-question/et-equipment-pan-size",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4780.335999999999,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1827,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 326,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.006914,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Jah, suurus on oluline: 1250 g kartulit ja 5 kanakoiba ei mahu väikesele plaadile ühe kihina ning samm 3 ei tööta. Kui plaat on liiga täis, kartulid aurustuvad ega pruunistu. Küpseta kõik kahes partiis ehk kaks väikest plaati järjest, või pane kartulid ja kanakoib eraldi plaatidele, kui sul on veel üks ahjuvorm või ahjukindel pann. Samm 4 venib seetõttu: partii kohta jäta 45 minutit ja 200 °C, nii et kokku kulub umbes 90 minutit, mis ületab 60 minuti piiri. Hoia esimene partii alumiiniumfooliumi all soojas, sega kartulid rapsiõli ja soolaga (need on sul olemas) ning kontrolli kana sisetemperatuuri 75 °C-ni.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/et-equipment-pan-size",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 10038.189874999996,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1827,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 986,
+            "usageMissing": false
+          },
+          "reasoningTokens": 725,
+          "costUsd": 0.013514,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Jah, suurus on oluline: 1250 g kartulit ja 5 kanakoiba ühe kihina (sammud 3 ja 4) vajavad palju ruumi ning väikesel plaadil kartulid aurustuvad ega pruunistu. Jaga kõik kahe väikese plaadi või madala ahjuvormi vahele ja küpseta neid korraga ahju eri restidel. Vaheta need poolel ajal (umbes 20 minuti pärast) omavahel, et mõlemad pruunistuksid ühtlaselt. Rapsiõli on sul olemas, määri sellega teine vorm kergelt. Partiidena ei küpseta, sest kaks korda 45 minutit ei mahu 60 minuti sisse.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/et-equipment-pan-size",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 9965.481083000006,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1827,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 943,
+            "usageMissing": false
+          },
+          "reasoningTokens": 661,
+          "costUsd": 0.013084,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Jah, suurus on oluline: 1250 g kartuleid ja 5 kanakoiba ei mahu väikesele plaadile ühe kihina ning kartulid hakkavad aurama, mitte pruunistuma (sammud 3 ja 4). Jaga kõik kahe väikese plaadi või ahjuvormi vahel ja pane need ahju kahele tasemele. Vaheta need poolel ajal omavahel, et mõlemad pruunistuksid, ja arvesta, et kartulid võivad vajada 5–10 minutit lisaaega, kana peab olema sees 75 °C. Partiidena küpsetada ei tasu, sest kaks 45-minutilist vooru ei mahu 60 minuti sisse; rapsiõli on sul olemas, määri sellega vormi põhi.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/et-hakklihakaste-substitute": {
+      "promptHash": "5778022f87bcc4cd52ea508ab416e2f4ca999c489afffe907f61aed2d9729860",
+      "requestHash": "51389e89c7a9ad28891f64b9acf2bf2c820fd9dabcb7d4e088062cae755244ed",
+      "calls": [
+        {
+          "caseId": "cook-question/et-hakklihakaste-substitute",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3559.3824590000004,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1767,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 186,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.005394,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Asenda hapukoor Kreeka jogurtiga, see on sul kodus olemas. Võta sama kogus, 160 g. Tõsta pann enne jogurti lisamist tasasele tulele ja sega jogurt kastmesse aeglaselt sisse. Ära lase kastmel keema minna, sest kuum kaste võib jogurti kokku tõmmata ja see hakkab kokku kärssama. Jogurt on hapukoorest kergem, aga 10 minutiga pakseneb kaste ikka hästi.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/et-hakklihakaste-substitute",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3110.4138329999987,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1767,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 135,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004884,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Asenda hapukoor Kreeka jogurtiga, seda sul kodus on. Võta sama kogus, 160 g. Tõsta pann enne jogurti lisamist tulelt kõrvale ja sega jogurt aeglaselt sisse. Hauta siis väga tasasel tulel, ära lase keema tõusta, sest kuum jogurt võib kalgenduda.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/et-hakklihakaste-substitute",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2859.282999999996,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1767,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 138,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004914,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Asenda hapukoor Kreeka jogurtiga, see on sul kodus olemas. Võta sama kogus, 160 g. Tõsta pann enne jogurti lisamist tulelt eemale ja sega jogurt kastmesse aeglaselt, siis ei lähe see kuumuse käes kokku. Hauta kastet tasasel tulel ja ära lase keema tõusta.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/et-time-pressure-lasanje": {
+      "promptHash": "7f48e29c8b222a790d4152a1cb08c18026aee4af6978636a958727628a785e09",
+      "requestHash": "0e578fb167ee02dd36e73f40b947ab66a07d83bd874959f39c2591f2ba984d31",
+      "calls": [
+        {
+          "caseId": "cook-question/et-time-pressure-lasanje",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 6823.407000000003,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1837,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 605,
+            "usageMissing": false
+          },
+          "reasoningTokens": 394,
+          "costUsd": 0.009724,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Täis lasanje 25 minutiga valmis ei saa: plaadid vajavad hauduvas kastmes küpsemiseks aega. Kiireim turvaline variant on küpsetada 200 °C juures, esimesed 20 minutit kinni kaetuna fooliumiga (see sul kodus on), siis eemaldada foolium ja küpsetada veel 10 minutit, et pealt kuldub. Nii oled laua taga umbes 35 minuti pärast. Seismisaega ära päris nulli lõika, anna vähemalt 5 minutit, muidu libisevad kihid laiali.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": null
+          }
+        },
+        {
+          "caseId": "cook-question/et-time-pressure-lasanje",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 13285.990540999992,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1837,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 732,
+            "usageMissing": false
+          },
+          "reasoningTokens": 484,
+          "costUsd": 0.010994,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "25 minuti peale seda ei saa kindlalt kiirendada: lasanjeplaadid vajavad pehmenemiseks aega ja ainuüksi seismine võtab 10 minutit. Kiireim mõistlik variant on kuumutada ahi 200 °C-ni ja katta vorm esimeseks 25 minutiks fooliumiga (see on teil kodus olemas), sest aur pehmendab plaadid kiiremini. Siis võta foolium ära ja küpseta veel 10 minutit, kuni pealt on kuldne. Lase enne lõikamist vähemalt 5 minutit seista, siis söök on laual umbes 40 minuti pärast ja kihid ei libise laiali.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": null
+          }
+        },
+        {
+          "caseId": "cook-question/et-time-pressure-lasanje",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 8289.538832999999,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1837,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 674,
+            "usageMissing": false
+          },
+          "reasoningTokens": 447,
+          "costUsd": 0.010414,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "25 minutiga ei jõua: lasanjeplaadid vajavad pehmenemiseks aega ja toorena jäävad need kõvaks. Kiirem variant on tõsta ahi 200 °C-le ja katta vorm fooliumiga (see on sul kodus olemas), siis aur pehmendab plaadid kiiremini. Küpseta umbes 30 minutit, võta foolium viimaseks 5 minutiks maha, et mozzarella saaks kuldseks. Lase pärast vähemalt 5 minutit seista, muidu libisevad kihid laiali, nii et söögini läheb kokku umbes 35–40 minutit.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "mentionsExpected": null
+          }
+        }
+      ]
+    }
+  }
+}

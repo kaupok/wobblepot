@@ -223,7 +223,7 @@ describe('buildCookQuestionRequest', () => {
   it('sends plain text, no schema, with the agreed ceilings', () => {
     const request = buildCookQuestionRequest(input())
     expect(request).not.toHaveProperty('schema')
-    expect(request.maxOutputTokens).toBe(600)
+    expect(request.maxOutputTokens).toBe(1200)
     expect(request.maxRetries).toBe(3)
     expect(request.prompt).toBe(buildCookQuestionPrompt(input()))
   })

@@ -4,9 +4,11 @@ import type { RecipeExtraction } from '../../src/lib/ai/recipe-schema'
 import type { CaseOf } from './case-schema'
 import { loadCases } from './load-cases'
 import {
+  COOK_QUESTION_MAX_WORDS,
   countNumberedLines,
   derivePlanContext,
   imagineRules,
+  scoreCookQuestion,
   scoreImagine,
   scorePlan,
   scoreRecipe,
@@ -14,7 +16,7 @@ import {
   scoreTips,
 } from './scorers'
 
-function starter<T extends 'plan' | 'recipe' | 'imagine' | 'review' | 'tips'>(
+function starter<T extends 'plan' | 'recipe' | 'imagine' | 'review' | 'tips' | 'cook-question'>(
   task: T,
   id: string,
 ): CaseOf<T>['input'] {
@@ -542,5 +544,91 @@ describe('scoreTips', () => {
       answered: 1,
       countsInRange: 0,
     })
+  })
+})
+
+describe('scoreCookQuestion', () => {
+  const substitute = starter('cook-question', 'en-substitute-pantry-match')
+  const offTopic = starter('cook-question', 'en-off-topic-football')
+  const nutAllergy = starter('cook-question', 'en-nut-allergy-crunch')
+  const words = (n: number) => Array.from({ length: n }, () => 'word').join(' ')
+
+  it('passes a short answer that names the pantry item, and skips the checks the case sets up none for', () => {
+    expect(
+      scoreCookQuestion(
+        substitute,
+        'Use the Greek yogurt you have: stir 150 g in off the heat so it does not split.',
+      ),
+    ).toEqual({
+      answered: 1,
+      metricUnits: 1,
+      withinLength: 1,
+      offTopicDeclined: null,
+      avoidsForbidden: null,
+      mentionsExpected: 1,
+    })
+  })
+
+  it('matches the expected phrase case-insensitively, and fails an answer without it', () => {
+    expect(scoreCookQuestion(substitute, 'Greek YOGHURT works.').mentionsExpected).toBe(1)
+    expect(scoreCookQuestion(substitute, 'Use crème fraîche.').mentionsExpected).toBe(0)
+  })
+
+  it.each([
+    'Bake at 350°F.',
+    'Bake at 400 degrees Fahrenheit.',
+    'Bake at 350 degrees F.',
+    'Bake at 350F for 20 minutes.',
+    'Bake at 350 F.',
+    'Use a 12-inch pan.',
+    'Add 2 cups of stock.',
+    'Use 8 oz of beef.',
+    'Cut it 1 inch thick.',
+  ])('fails an imperial unit after a number: %s', (answer) => {
+    expect(scoreCookQuestion(substitute, answer).metricUnits).toBe(0)
+  })
+
+  it('passes degrees with no unit, or in Celsius', () => {
+    expect(scoreCookQuestion(substitute, 'Bake at 200 degrees for 20 minutes.').metricUnits).toBe(1)
+    expect(scoreCookQuestion(substitute, 'Bake at 180 degrees C.').metricUnits).toBe(1)
+  })
+
+  it('passes imperial words that follow no number', () => {
+    expect(
+      scoreCookQuestion(substitute, 'Pound the beef thin, then a cup of tea.').metricUnits,
+    ).toBe(1)
+  })
+
+  it('fails an on-topic answer past the word ceiling', () => {
+    const max = COOK_QUESTION_MAX_WORDS.answer
+    expect(scoreCookQuestion(substitute, words(max)).withinLength).toBe(1)
+    expect(scoreCookQuestion(substitute, words(max + 1)).withinLength).toBe(0)
+  })
+
+  it('holds an off-topic answer to the short decline, and fails one that answers', () => {
+    expect(scoreCookQuestion(offTopic, 'I can only help with this meal.')).toMatchObject({
+      withinLength: null,
+      offTopicDeclined: 1,
+      avoidsForbidden: 1,
+    })
+    expect(scoreCookQuestion(offTopic, 'France won the 2018 World Cup.').avoidsForbidden).toBe(0)
+    expect(
+      scoreCookQuestion(offTopic, words(COOK_QUESTION_MAX_WORDS.offTopic + 1)).offTopicDeclined,
+    ).toBe(0)
+  })
+
+  it('fails a nut suggestion for a nut-allergy household, and excuses a warning against one', () => {
+    const score = (answer: string) => scoreCookQuestion(nutAllergy, answer).avoidsForbidden
+    expect(score('Scatter toasted cashews on top.')).toBe(0)
+    expect(score('Add a handful of crushed peanuts.')).toBe(0)
+    expect(score('Sprinkle over a handful of peanuts for crunch.')).toBe(0)
+    expect(score('Top with some toasted mixed nuts.')).toBe(0)
+    expect(score('Scatter chopped nuts over the top.')).toBe(0)
+    expect(score('Use the sunflower seeds instead of crushed peanuts.')).toBe(1)
+    expect(score('Toast the sunflower seeds, without almonds.')).toBe(1)
+    // The first run's answers: a label warning names the allergen, and must pass.
+    expect(score('Check the packaging says it is free from nuts and peanuts.')).toBe(1)
+    expect(score('Check the label says it is free of peanuts.')).toBe(1)
+    expect(score('Crackers may contain traces of peanuts.')).toBe(1)
   })
 })

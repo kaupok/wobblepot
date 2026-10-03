@@ -11,6 +11,7 @@ const CANDIDATE = 'claude-sonnet-5-5'
 
 const reviewCases = loadStarterCases(['review'])
 const tipsCases = loadStarterCases(['tips'])
+const cookQuestionCases = loadStarterCases(['cook-question'])
 
 /** A clock that advances 1000 ms per reading, so every call measures 1000 ms. */
 function steppingClock() {
@@ -294,6 +295,56 @@ describe('runCheck', () => {
     })
     expect(result.partial).toBe(true)
     expect(result.calls).toHaveLength(2)
+  })
+})
+
+describe('the cook-question task', () => {
+  it('sends the production request as plain text and records the answer as the output', async () => {
+    const answer = 'Use the Greek yogurt you have, stirred in off the heat.'
+    const { factory, calls } = mockModelFactory(() => ({ text: answer }))
+    const result = await runCheck({
+      cases: cookQuestionCases.slice(0, 1),
+      modelFor: () => CANDIDATE,
+      runs: 1,
+      maxUsd: 10,
+      modelFactory: factory,
+    })
+
+    expect(calls[0]!.options.abortSignal).toBeUndefined()
+    expect(calls[0]!.options.maxOutputTokens).toBe(1200)
+    // No schema: the answer streams to the cook as plain text.
+    expect(calls[0]!.options.responseFormat).toBeUndefined()
+    expect(result.calls[0]).toMatchObject({
+      errorName: null,
+      output: answer,
+      scores: { answered: 1, mentionsExpected: 1 },
+    })
+  })
+
+  it('counts a cut-off answer as an error, as production does, and still counts its tokens', async () => {
+    const { factory } = mockModelFactory(() => ({
+      text: 'Use the Greek yogurt you have, and stir it in',
+      finishReason: 'length',
+      outputTokens: 600,
+    }))
+    const result = await runCheck({
+      cases: cookQuestionCases.slice(0, 1),
+      modelFor: () => CANDIDATE,
+      runs: 1,
+      maxUsd: 10,
+      modelFactory: factory,
+    })
+
+    const [first] = result.calls
+    expect(first).toMatchObject({
+      finishReason: 'length',
+      errorName: 'AI_NoObjectGeneratedError',
+      errorMessage: 'Cook question answer was cut off at maxOutputTokens',
+      output: 'Use the Greek yogurt you have, and stir it in',
+      usage: { outputTokens: 600 },
+      scores: errorScores(cookQuestionCases[0]!),
+    })
+    expect(first!.costUsd).toBeGreaterThan(0)
   })
 })
 
