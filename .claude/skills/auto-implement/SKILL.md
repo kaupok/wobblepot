@@ -282,7 +282,7 @@ Using Read, Grep, and Glob tools:
 - Find existing patterns to follow
 - Note related components or APIs
 
-Focus on files directly relevant to the issue (2-5 files max).
+Read the files the plan depends on, not the whole codebase.
 
 **If the issue changes a shared primitive's geometry** (a size/height/padding/radius default under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper default): run the coupling scan from `/plan-issue` step 7b — this skill inlines its own planning phase, so 7b does not otherwise fire here — and record the result as a `## Coupled callsites` section in the 2.7 plan, grouped Mirror / Override / Deliberate. Write an explicit `none — no callsite hardcodes the changed <property>` if it found nothing.
 
@@ -552,7 +552,7 @@ Stop here with failure details.
 
 If the plan was batched (Phase 3.3) and every batch is already committed and pushed, there may be nothing left to stage — verify with `git status --porcelain` and skip to 5.3.
 
-List changed/untracked files and stage them by name. Do NOT use `git add -A` or `git add .`.
+List changed/untracked files and stage them by name. Do NOT stage with a catch-all (`git add` with `-A` or `.`).
 
 ```bash
 git status --porcelain
@@ -576,8 +576,7 @@ type(scope): Subject line
 
 Body explaining what and why.
 
-Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
-Claude-Session: <session URL from the harness instructions, if provided>
+<attribution trailer from the harness instructions>
 EOF
 )"
 ```
@@ -913,8 +912,7 @@ git add [changed files]
 git commit -m "$(cat <<'EOF'
 fix: Address review feedback
 
-Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
-Claude-Session: <session URL from the harness instructions, if provided>
+<attribution trailer from the harness instructions>
 EOF
 )"
 git push

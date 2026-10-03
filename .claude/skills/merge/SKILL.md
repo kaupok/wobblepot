@@ -62,7 +62,7 @@ If PR is already MERGED, skip to Step 6 (local cleanup only).
 
 ### Step 2: Wait for CI Checks
 
-Before merging, ensure all CI checks have passed. CI takes 12–45 min; Bash's 600 s foreground cap cannot cover it, so never watch checks in the foreground. Poll in the background (CLAUDE.md → Working style), then verify in the foreground:
+Before merging, ensure all CI checks have passed. CI takes 12–45 min; Bash's 600 s foreground cap cannot cover it, so never watch checks in the foreground. Interactive `/merge` runs with a TTY, so it may poll with `run_in_background: true` and act on the completion notification. A headless worker has no session to receive that notification, so it must wait in foreground wait-chunks (CLAUDE.md → Working style); that rule belongs to `/auto-implement` 6.1, which has its own copy of this loop. Poll, then verify in the foreground:
 
 ```bash
 # Run with run_in_background: true — emits one completion notification when the loop exits.

@@ -84,7 +84,7 @@ Once the idea's direction is clear from initial discussion, scan the codebase fo
 - What patterns and infrastructure are in place
 - What would need to be built from scratch vs. extended
 
-Keep this focused (3-5 files max). The goal is feasibility context, not a full plan. Share relevant findings with the user.
+Read only what the feasibility question depends on. The goal is feasibility context, not a full plan. Share relevant findings with the user.
 
 ### Step 6: Iterate
 

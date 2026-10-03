@@ -60,17 +60,17 @@ Find the next unblocked issue and return a concise implementation summary.
    **`autoMode` false** — Todo, then Queued, then Backlog:
 
    ```
-   mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 20 })
-   mcp__linear-server__list_issues({ state: "Queued",  assignee: "null", limit: 20 })
-   mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 20 })
+   mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 100 })
+   mcp__linear-server__list_issues({ state: "Queued",  assignee: "null", limit: 100 })
+   mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 100 })
    ```
 
    **`autoMode` true** — Queued, then Todo, then Backlog:
 
    ```
-   mcp__linear-server__list_issues({ state: "Queued",  assignee: "null", limit: 20 })
-   mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 20 })
-   mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 20 })
+   mcp__linear-server__list_issues({ state: "Queued",  assignee: "null", limit: 100 })
+   mcp__linear-server__list_issues({ state: "Todo",    assignee: "null", limit: 100 })
+   mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 100 })
    ```
 
 3. **MANDATORY: Verify every candidate with `includeRelations: true`**
@@ -118,7 +118,7 @@ Find the next unblocked issue and return a concise implementation summary.
    Read key files mentioned in the issue description to identify:
    - Files to modify
    - Existing patterns to follow
-     Only read 2-3 most relevant files, not the entire codebase.
+     Read the files the candidate depends on, not the entire codebase.
 
 ## Output Format
 

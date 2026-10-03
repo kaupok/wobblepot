@@ -21,7 +21,7 @@ List **`Queued` only**. Queued is the unattended queue: an issue lands there onl
 Always pass `assignee: "null"` — In Progress / In Review / Done / Canceled issues are already claimed or complete and must never be picked up by an autonomous cycle, and an assigned Queued issue has been taken by a human.
 
 ```
-mcp__linear-server__list_issues({ state: "Queued", assignee: "null", limit: 20 })
+mcp__linear-server__list_issues({ state: "Queued", assignee: "null", limit: 100 })
 ```
 
 ### 1.3 MANDATORY: Verify every candidate with `includeRelations: true`

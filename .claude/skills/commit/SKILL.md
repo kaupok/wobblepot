@@ -50,9 +50,16 @@ If no changes (staged or unstaged), inform the user and stop.
 
 ### 4. Stage changes
 
+List changed/untracked files and stage them by name. Do NOT stage with a catch-all (`git add` with `-A` or `.`).
+
 ```bash
-git add -A
-git status
+git status --porcelain
+```
+
+Stage specific files (example):
+
+```bash
+git add src/components/MyComponent.tsx src/components/MyComponent.test.tsx
 ```
 
 Review what will be committed. If there are files that shouldn't be committed (secrets, generated files, etc.), warn the user.
@@ -85,8 +92,7 @@ type(scope): Subject line
 
 Optional body explaining what and why.
 
-Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
-Claude-Session: <session URL from the harness instructions, if provided>
+<attribution trailer from the harness instructions>
 EOF
 )"
 ```
