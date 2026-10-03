@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
-import { BookOpen, CookingPot, Refrigerator, Users } from 'lucide-react'
 import { Body, Heading } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { LandingDemo } from '@/components/landing/LandingDemo'
+import { LandingFeatures } from '@/components/landing/LandingFeatures'
 import { LandingShowcase } from '@/components/landing/LandingShowcase'
 import { formatDayLong } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
@@ -12,13 +12,6 @@ import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support'
 
 const STEPS = ['table', 'week', 'shop'] as const
-
-const DIFFERENCES = [
-  { key: 'pantry', Icon: Refrigerator },
-  { key: 'recipes', Icon: BookOpen },
-  { key: 'kids', Icon: Users },
-  { key: 'cook', Icon: CookingPot },
-] as const
 
 interface LandingPageProps {
   /** `invite_code_required`: sign-up needs a code, so the call to action says so. */
@@ -36,9 +29,9 @@ interface LandingPageProps {
  * The signed-out home page. One page, read top to bottom: the problem and the
  * promise, today's three meals drawn with the planner's own cards (each one
  * opening the cook view), how it works in three steps, and who it is for and
- * what makes it different. The call to action is in the hero only: from `md`
- * the floating header keeps "Sign up" on screen, and below `md` it is in the
- * header's Account sheet.
+ * what makes it different, each point shown with the app's own components.
+ * The call to action is in the hero only: from `md` the floating header keeps
+ * "Sign up" on screen, and below `md` it is in the header's Account sheet.
  *
  * Not `<main>`: the root layout's `<main id="main-content">` is the page
  * landmark (HON-820). Left-aligned and capped at the page width like the app,
@@ -117,29 +110,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
           </ol>
         </section>
 
-        <section aria-labelledby="landing-why" className="flex flex-col gap-8">
-          <div className="flex flex-col gap-4 text-balance">
-            <Heading variant="h3" as="h2" id="landing-why">
-              {t('why.title')}
-            </Heading>
-            <Body variant="muted">{t('why.lead')}</Body>
-          </div>
-          <ul role="list" className="grid list-none gap-8 md:grid-cols-2">
-            {DIFFERENCES.map(({ key, Icon }) => (
-              <li key={key}>
-                <div className="flex gap-3">
-                  <Icon aria-hidden="true" className="mt-1 size-5 shrink-0" />
-                  <div className="flex flex-col gap-2">
-                    <Heading variant="section" as="h3">
-                      {t(`why.${key}.title`)}
-                    </Heading>
-                    <Body variant="muted">{t(`why.${key}.body`)}</Body>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <LandingFeatures />
       </div>
     </div>
   )

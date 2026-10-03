@@ -293,7 +293,8 @@ describe('Home page component', () => {
 
   it('renders an example day drawn with the planner card', async () => {
     await renderLanding()
-    const figure = screen.getByRole('figure')
+    // The hero's day comes first; the differences' vignettes are figures too.
+    const figure = screen.getAllByRole('figure')[0]!
     expect(within(figure).getByText(/An example day in Wobblepot/)).toBeInTheDocument()
     expect(within(figure).getByText('Thursday')).toBeInTheDocument()
     for (const name of [
@@ -335,7 +336,8 @@ describe('Home page component', () => {
     await renderLanding()
 
     expect(loadDemoDay).toHaveBeenCalledWith({ locale: 'en', date: expect.any(String) })
-    const figure = screen.getByRole('figure')
+    // The hero's day comes first; the differences' vignettes are figures too.
+    const figure = screen.getAllByRole('figure')[0]!
     // 2026-10-01 is a Thursday.
     expect(within(figure).getByText('Thursday')).toBeInTheDocument()
     expect(within(figure).getByRole('button', { name: 'Avocado toast' })).toBeInTheDocument()
@@ -385,11 +387,9 @@ describe('Home page component', () => {
       screen.getByRole('heading', { level: 1, name: 'Õhtusöök otsustatud. Terveks nädalaks.' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Kuidas see töötab' })).toBeInTheDocument()
-    expect(
-      within(screen.getByRole('region', { name: 'Tehtud pereköökidele' })).getByText(
-        'Teinud lapsevanem oma kolmeliikmelisele perele. Sinu andmed on Euroopa Liidus ja reklaame ei ole.',
-      ),
-    ).toBeInTheDocument()
+    // "Made for family kitchens" is a client component, which this file's
+    // next-intl mock renders in English: LandingFeatures.test.tsx renders it in
+    // Estonian.
   })
 
   it('renders first-time setup when authenticated with household but no entries', async () => {
