@@ -21,9 +21,10 @@
  * those databases, so the manifest is keyed by the slug of the English name,
  * and publish refuses any meal whose prompt no longer matches the one drawn.
  *
- * COSTS REAL MONEY with `--confirm` (~$0.042 per image, ~$0.008 more per
- * image with `--judge`). Spend is printed, never ledgered: no household owns
- * it, so `recordAiUsage` is not called.
+ * COSTS REAL MONEY with `--confirm` (~$0.06 per image: the drawing and the
+ * vessel samples that set its footprint, HON-1024; ~$0.008 more per image with
+ * `--judge`). Spend is printed, never ledgered: no household owns it, so
+ * `recordAiUsage` is not called.
  *
  * Usage: pnpm meal-images:global --help (flags, and why `--concurrency` defaults to 1)
  *
@@ -38,6 +39,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { Prisma, PrismaClient } from '../src/generated/prisma/client'
 import { MealType } from '../src/generated/prisma/enums'
 import { extractHue } from '../src/lib/meal-images/colour'
+import type { FootprintFit } from '../src/lib/meal-images/footprint'
+import type { VesselEstimate } from '../src/lib/meal-images/vessel'
 import type { GeneratedMealImage, GenerateMealImageOptions } from '../src/lib/meal-images/generate'
 import type { JudgeVerdict } from '../src/lib/meal-images/judge'
 import {
@@ -63,6 +66,8 @@ import {
 export const IMAGE_EST_USD = 0.0422
 /** HON-733's measured judge call (`REVIEW_MODEL` vision). */
 export const JUDGE_EST_USD = 0.0075
+/** The three vessel samples that set each image's footprint (HON-1024): ~2,500 input tokens each on REVIEW_MODEL. */
+export const VESSEL_EST_USD = 0.018
 /**
  * One image at a time. The OpenAI tier allows 5 images per minute, and one
  * image takes ~18 s, so a single lane already runs close to the limit; four
@@ -315,7 +320,7 @@ export function toMealImageMeal(meal: GlobalMeal): MealImageMeal {
 }
 
 export function estimateUsd(count: number, judge: boolean): number {
-  return count * (IMAGE_EST_USD + (judge ? JUDGE_EST_USD : 0))
+  return count * (IMAGE_EST_USD + VESSEL_EST_USD + (judge ? JUDGE_EST_USD : 0))
 }
 
 // ============================================
@@ -337,6 +342,10 @@ export interface ManifestEntry {
   verdict?: JudgeVerdict | null
   /** The card hue the route would store (HON-744); null when the image carries no colour. */
   hue?: number | null
+  /** The vessel the image was classified as, and its size (HON-1024); null when the call failed. */
+  vessel?: VesselEstimate | null
+  /** What `fitFootprint` did to the stored file (HON-1024); null when it was not run. */
+  fit?: FootprintFit | null
   error?: string
 }
 
@@ -493,6 +502,8 @@ export async function runGenerate(
         latencyMs: performance.now() - t0,
         verdict: image.verdict,
         hue: await hueOf(image.bytes, slug, deps.log),
+        vessel: image.vessel,
+        fit: image.fit,
       }
     } catch (error) {
       entry = { ...base, latencyMs: performance.now() - t0, error: messageOf(error) }

@@ -7,13 +7,24 @@ import { MEAL_IMAGE_MODEL, REVIEW_MODEL } from '@/lib/ai/models'
 import { estimateCostUsd } from '@/lib/ai/pricing'
 import { toAiUsageStats, withUsageOnFailure, type AiUsageStats } from '@/lib/ai/usage'
 import { serverEnv } from '@/lib/env'
+import { canonicalForEstimate, fitFootprint, type FootprintFit } from './footprint'
 import { applyJudgeFilters, buildJudgeV2Prompt, judgeV2Schema, type JudgeVerdict } from './judge'
 import { buildMealImagePrompt, type MealImageMeal } from './prompt'
+import {
+  asVesselEstimate,
+  VESSEL_PROMPT,
+  vesselConsensus,
+  vesselSchema,
+  type VesselEstimate,
+} from './vessel'
 
 /**
  * Generate a meal illustration with the HON-726 recipe: one image, one vision
  * judge, and at most one regeneration when the judge finds something serious
- * (an added ingredient, or props and cookware beside the dish).
+ * (an added ingredient, or props and cookware beside the dish). The image that
+ * is kept is then fitted (HON-1024): a second, cheaper vision call names the
+ * vessel, and `fitFootprint` scales the drawing so every plate is one width
+ * and every bowl another.
  */
 
 /** Flat price for an image whose result carries no token usage — the spike's `estPerImageUsd`. */
@@ -126,6 +137,12 @@ export interface GenerateMealImageOptions {
   rateLimitRetries?: number
   /** A 429 asking for a longer wait than this is given up on at once. */
   maxRateLimitWaitMs?: number
+  /**
+   * Classify the vessel and scale the footprint to its target width
+   * (HON-1024). Default true; `false` returns the image as drawn, for a spike
+   * that wants to see the raw output.
+   */
+  fit?: boolean
 }
 
 export interface GeneratedMealImage {
@@ -133,10 +150,100 @@ export interface GeneratedMealImage {
   mediaType: string
   /** Images generated: 1, or 2 after a regeneration. */
   attempts: number
-  /** Images and judge calls together, in USD. */
+  /** Images, judge calls and the vessel call together, in USD. */
   totalUsd: number
   /** The judge's verdict on the returned image; `null` when not judged or the judge call failed. */
   verdict: JudgeVerdict | null
+  /** The vessel the returned image serves its food in and its size; `null` when not classified or the call failed. */
+  vessel: VesselEstimate | null
+  /** What `fitFootprint` did to the returned image; `null` when it was not run or failed. */
+  fit: FootprintFit | null
+}
+
+export interface ClassifyVesselOptions {
+  abortSignal?: AbortSignal
+  /** How many times to ask; default `VESSEL_SAMPLES`. */
+  samples?: number
+  onUsage?: (usage: MealImageUsage) => void | Promise<void>
+  /** For log lines only. */
+  mealId?: string
+}
+
+/**
+ * Samples of the size estimate per image, taken side by side and settled by
+ * `vesselConsensus`. One sample moved by 2 cm between runs on a fifth of the
+ * images, at temperature 0 as much as at 1; three cost about $0.018 per
+ * image, against $0.042 for the drawing.
+ */
+export const VESSEL_SAMPLES = 3
+
+/**
+ * Which vessel the image serves its food in and how wide it is in life, by
+ * a few short `REVIEW_MODEL` vision calls settled to one answer (HON-1024).
+ * `null` when every call failed, timed out, named nothing known or gave a
+ * size no dishware comes in: the image is kept as drawn either way, so this
+ * never throws. Shared with the backfill (`scripts/refit-meal-images.ts`).
+ */
+export async function classifyVessel(
+  image: { bytes: Uint8Array; mediaType: string },
+  options: ClassifyVesselOptions = {},
+): Promise<VesselEstimate | null> {
+  const { abortSignal, mealId, samples = VESSEL_SAMPLES } = options
+  const report = async (usage: MealImageUsage) => {
+    await options.onUsage?.(usage)
+  }
+  // Every vessel at one width, so the size is read from the food alone.
+  const shown = await canonicalForEstimate(image.bytes, image.mediaType).catch((error) => {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[meal-image] could not canonicalise the image for meal ${mealId}; classifying it as given`,
+      error,
+    )
+    return image
+  })
+  const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
+  const ask = async (): Promise<VesselEstimate | null> => {
+    const startedAt = Date.now()
+    const result = await withUsageOnFailure(REVIEW_MODEL, report, () =>
+      generateObject({
+        model: anthropic(REVIEW_MODEL),
+        schema: vesselSchema,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'file', data: shown.bytes, mediaType: shown.mediaType },
+              { type: 'text', text: VESSEL_PROMPT },
+            ],
+          },
+        ],
+        maxOutputTokens: 200,
+        maxRetries: 2,
+        abortSignal,
+      }),
+    )
+    await report(toAiUsageStats(REVIEW_MODEL, result.usage, Date.now() - startedAt))
+    return asVesselEstimate(result.object)
+  }
+  // Side by side, so the samples add no time to the request.
+  const settled = await Promise.allSettled(Array.from({ length: samples }, ask))
+  const estimates: VesselEstimate[] = []
+  let failed = 0
+  let unknown = 0
+  for (const s of settled) {
+    if (s.status === 'rejected') failed += 1
+    else if (s.value === null) unknown += 1
+    else estimates.push(s.value)
+  }
+  if (failed > 0 || unknown > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[meal-image] vessel call for meal ${mealId}: ${failed} of ${samples} failed, ${unknown} named nothing known` +
+        (estimates.length === 0 ? '; keeping the image as drawn' : ''),
+      ...settled.flatMap((s) => (s.status === 'rejected' ? [s.reason] : [])),
+    )
+  }
+  return vesselConsensus(estimates)
 }
 
 function imageUsageStats(usage: ImageModelUsage | undefined, durationMs: number): MealImageUsage {
@@ -295,12 +402,48 @@ export async function generateMealImage(
     }
   }
 
+  /** The vessel, or null without a fit: never a throw, as with the judge. */
+  const classify = (image: {
+    bytes: Uint8Array
+    mediaType: string
+  }): Promise<VesselEstimate | null> =>
+    options.fit === false
+      ? Promise.resolve(null)
+      : classifyVessel(image, { abortSignal, onUsage: report, mealId })
+
+  /**
+   * The kept image at its vessel's width (HON-1024). A failure here is logged
+   * and the image returned as drawn: it is paid for, and a plate 5% too wide
+   * is better than no plate.
+   */
+  const fitted = async (
+    image: { bytes: Uint8Array; mediaType: string },
+    vessel: VesselEstimate | null,
+  ): Promise<Pick<GeneratedMealImage, 'bytes' | 'mediaType' | 'vessel' | 'fit'>> => {
+    if (!vessel) return { ...image, vessel, fit: null }
+    try {
+      const result = await fitFootprint(image.bytes, image.mediaType, vessel)
+      // eslint-disable-next-line no-console
+      console.info('[meal-image] fit', JSON.stringify({ mealId, ...result.fit }))
+      return { bytes: result.bytes, mediaType: result.mediaType, vessel, fit: result.fit }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(`[meal-image] fit failed for meal ${mealId}; keeping the image as drawn`, error)
+      return { ...image, vessel, fit: null }
+    }
+  }
+
   let image = await draw(rateLimitRetries)
   let attempts = 1
-  if (judgeMode === 'off') return { ...image, attempts, totalUsd, verdict: null }
+  if (judgeMode === 'off') {
+    const vessel = await classify(image)
+    return { ...(await fitted(image, vessel)), attempts, totalUsd, verdict: null }
+  }
 
-  const first = await judge(image, attempts)
+  // The vessel call runs beside the judge, so it adds no time to the request.
+  const [first, firstVessel] = await Promise.all([judge(image, attempts), classify(image)])
   let verdict = first
+  let vessel = firstVessel
 
   if (judgeMode === 'gate' && first && !first.pass) {
     const remaining = remainingMs()
@@ -315,7 +458,8 @@ export async function generateMealImage(
         const second = await draw(0)
         image = second
         attempts = 2
-        verdict = await judge(second, attempts)
+        // The second image is a new drawing, so it is classified afresh.
+        ;[verdict, vessel] = await Promise.all([judge(second, attempts), classify(second)])
         if (verdict && !verdict.pass) {
           // 0 of 36 spike images had a real serious finding, so a second fail is
           // most likely a judge false positive. Keep it rather than show nothing.
@@ -337,5 +481,5 @@ export async function generateMealImage(
     }
   }
 
-  return { ...image, attempts, totalUsd, verdict }
+  return { ...(await fitted(image, vessel)), attempts, totalUsd, verdict }
 }
