@@ -1,6 +1,6 @@
 ---
 name: next-issue
-description: Find the next unblocked Linear issue to work on. Use when the user asks what to work on next or says 'continue implementation'. Pass `--auto` for the no-human-input filters.
+description: Find the next unblocked Linear issue to work on. Use when the user asks what to work on next or says 'continue implementation'. Pass `--auto` only when the user typed `--auto`; never infer it from prose.
 argument-hint: '[--auto]'
 context: fork
 agent: general-purpose
