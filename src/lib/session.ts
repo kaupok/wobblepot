@@ -10,7 +10,8 @@ export const getSession = cache(async () => auth.api.getSession({ headers: await
  *
  * The root layout, the header, and the locale resolver each need a different
  * fact about the same row (does it exist / its `householdId` / its household's
- * locale). Selecting all three here and routing every caller through one
+ * locale / its household's timezone, which the header's past-meals count
+ * needs). Selecting them all here and routing every caller through one
  * `cache()` entry means React dedupes them into a single query per request —
  * previously they issued three separate `findFirst`/`count` calls, and the
  * layout's two-stage `Promise.all` made two of them strictly serial.
@@ -21,7 +22,7 @@ export const getSession = cache(async () => auth.api.getSession({ headers: await
 export const getCachedMembership = cache(async (userId: string) =>
   prisma.householdMember.findFirst({
     where: { userId },
-    select: { householdId: true, household: { select: { locale: true } } },
+    select: { householdId: true, household: { select: { locale: true, timezone: true } } },
   }),
 )
 

@@ -384,10 +384,6 @@
       "gramsQuantity": "{count}g",
       "someQuantity": "some"
     },
-    "past": {
-      "notice": "{count, plural, one {# past meal is not marked yet.} other {# past meals are not marked yet.}}",
-      "noticeLink": "Mark past meals"
-    },
     "day": {
       "noMealsPlanned": "No meals planned"
     }
@@ -734,9 +730,11 @@
     },
     "actions": {
       "userMenu": "User menu",
+      "userMenuWithPastMeals": "User menu, past meals to mark",
       "account": "Account",
       "accountMenu": "Account menu",
       "pastMeals": "Past meals",
+      "pastMealsToMark": "(to mark)",
       "profile": "Profile",
       "signIn": "Sign in",
       "signUp": "Sign up",

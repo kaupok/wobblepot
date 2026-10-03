@@ -97,6 +97,44 @@ describe('HeaderActions', () => {
     })
   })
 
+  // HON-1028: a red dot on the account icon and on "Past meals" while past
+  // meals are still to mark. The dot is aria-hidden, so the names say it.
+  describe('past meals to mark', () => {
+    const dots = (root: ParentNode = document) =>
+      root.querySelectorAll('[data-slot="attention-dot"]')
+
+    it('dots the icon and the row and names both when the count is above 0', async () => {
+      const user = userEvent.setup()
+      render(<HeaderActions session={mockSession} hasHousehold={true} pastMealsToMark={3} />)
+
+      const trigger = screen.getByRole('button', { name: 'User menu, past meals to mark' })
+      expect(dots(trigger)).toHaveLength(1)
+      expect(dots(trigger)[0]).toHaveAttribute('aria-hidden', 'true')
+
+      await user.click(trigger)
+
+      const row = screen.getByRole('menuitem', { name: /^Past meals\s*\(to mark\)$/ })
+      expect(dots(row)).toHaveLength(1)
+    })
+
+    it('shows no dot and the plain name when the count is 0', async () => {
+      const user = userEvent.setup()
+      render(<HeaderActions session={mockSession} hasHousehold={true} pastMealsToMark={0} />)
+
+      await user.click(screen.getByRole('button', { name: 'User menu' }))
+
+      expect(screen.getByRole('menuitem', { name: 'Past meals' })).toBeInTheDocument()
+      expect(dots()).toHaveLength(0)
+    })
+
+    it('shows no dot without a household', () => {
+      render(<HeaderActions session={mockSession} hasHousehold={false} pastMealsToMark={3} />)
+
+      expect(screen.getByRole('button', { name: 'User menu' })).toBeInTheDocument()
+      expect(dots()).toHaveLength(0)
+    })
+  })
+
   describe('rendering with session and household', () => {
     it('renders user menu button', () => {
       render(<HeaderActions session={mockSession} hasHousehold={true} />)

@@ -384,10 +384,6 @@
       "gramsQuantity": "{count}g",
       "someQuantity": "veidi"
     },
-    "past": {
-      "notice": "{count, plural, one {# möödunud toit on märkimata.} other {# möödunud toitu on märkimata.}}",
-      "noticeLink": "Märgi möödunud toidud"
-    },
     "day": {
       "noMealsPlanned": "Toite pole planeeritud"
     }
@@ -734,9 +730,11 @@
     },
     "actions": {
       "userMenu": "Kasutajamenüü",
+      "userMenuWithPastMeals": "Kasutajamenüü, möödunud toidud märkimata",
       "account": "Konto",
       "accountMenu": "Konto menüü",
       "pastMeals": "Möödunud toidud",
+      "pastMealsToMark": "(märkimata)",
       "profile": "Profiil",
       "signIn": "Logi sisse",
       "signUp": "Loo konto",

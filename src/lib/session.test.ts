@@ -30,7 +30,7 @@ type Membership = Awaited<ReturnType<typeof getCachedMembership>>
 
 const MEMBERSHIP = {
   householdId: 'household-1',
-  household: { locale: 'et' },
+  household: { locale: 'et', timezone: 'Europe/Tallinn' },
 } as unknown as NonNullable<Membership>
 
 /**
@@ -47,7 +47,7 @@ describe('session household accessors', () => {
     vi.clearAllMocks()
   })
 
-  it('reads householdId and household locale in one query', async () => {
+  it('reads householdId, household locale and timezone in one query', async () => {
     resolveMembership(MEMBERSHIP)
 
     await getCachedMembership('user-1')
@@ -57,7 +57,7 @@ describe('session household accessors', () => {
     expect(mockFindFirst).toHaveBeenCalledTimes(1)
     expect(mockFindFirst).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
-      select: { householdId: true, household: { select: { locale: true } } },
+      select: { householdId: true, household: { select: { locale: true, timezone: true } } },
     })
   })
 

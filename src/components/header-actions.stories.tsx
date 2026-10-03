@@ -21,7 +21,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Right-side header chrome — desktop only (`hidden md:flex` at the component root, hidden below `md:`). Shows sign-in/up CTAs when logged out, a user-menu dropdown (Past meals, Profile, Sign out, theme toggle) when logged in. The Past meals and Profile items are suppressed during onboarding (authenticated but no household yet).',
+          'Right-side header chrome — desktop only (`hidden md:flex` at the component root, hidden below `md:`). Shows sign-in/up CTAs when logged out, a user-menu dropdown (Past meals, Profile, Sign out, theme toggle) when logged in. The Past meals and Profile items are suppressed during onboarding (authenticated but no household yet). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row, and both accessible names say so (HON-1028).',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -86,6 +86,35 @@ export const MenuOpensOnClick: Story = {
     )
     expect(body.getByRole('menuitem', { name: 'Profile' })).toBeInTheDocument()
     expect(body.getByRole('menuitem', { name: /sign out/i })).toBeInTheDocument()
+    // Nothing to mark (the default 0): no dot anywhere.
+    expect(document.querySelector('[data-slot="attention-dot"]')).toBeNull()
+  },
+}
+
+export const PastMealsToMark: Story = {
+  args: { session: authedSession, hasHousehold: true, pastMealsToMark: 3 },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Past meals are still to mark: a red dot on the account icon and on the Past meals row. The dot is `aria-hidden`; the trigger is named "User menu, past meals to mark" and the row adds "(to mark)" for screen readers.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole('button', { name: 'User menu, past meals to mark' })
+    await expect(trigger.querySelector('[data-slot="attention-dot"]')).toBeVisible()
+
+    await userEvent.click(trigger)
+
+    const body = within(document.body)
+    const row = await body.findByRole('menuitem', { name: /^Past meals\s*\(to mark\)$/ })
+    await expect(row.querySelector('[data-slot="attention-dot"]')).toBeVisible()
+    // Only the Past meals row carries it.
+    await expect(
+      body.getByRole('menuitem', { name: 'Profile' }).querySelector('[data-slot="attention-dot"]'),
+    ).toBeNull()
   },
 }
 

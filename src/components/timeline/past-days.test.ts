@@ -1,31 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { buildPastDays, countPastCatchUp } from './past-days'
+import { buildPastDays } from './past-days'
 import { createMeal, createPlanEntry } from '@/stories/fixtures'
 
 const today = '2026-04-15'
-
-describe('countPastCatchUp', () => {
-  it('counts past entries that are still planned and have a meal', () => {
-    const entries = [
-      createPlanEntry({ id: 'a', date: '2026-04-14', status: 'planned' }),
-      createPlanEntry({ id: 'b', date: '2026-04-13', status: 'planned' }),
-      createPlanEntry({ id: 'c', date: '2026-04-12', status: 'completed' }),
-      createPlanEntry({ id: 'd', date: '2026-04-11', status: 'skipped' }),
-      createPlanEntry({ id: 'e', date: '2026-04-10', status: 'planned', meal: null }),
-    ]
-
-    expect(countPastCatchUp(entries, today)).toBe(2)
-  })
-
-  it('ignores today and future entries', () => {
-    const entries = [
-      createPlanEntry({ id: 'a', date: today, status: 'planned' }),
-      createPlanEntry({ id: 'b', date: '2026-04-16', status: 'planned' }),
-    ]
-
-    expect(countPastCatchUp(entries, today)).toBe(0)
-  })
-})
 
 describe('buildPastDays', () => {
   it('returns past days with entries, newest first', () => {

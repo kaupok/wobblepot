@@ -47,10 +47,8 @@ export default async function Home() {
   const todayDate = getTodayInTimezone(household.timezone)
   const todayParsed = parseLocalDate(todayDate)
 
-  // Compute date range: -7 to +14 from today. Today renders no past day; the
-  // past 7 feed only the count on its past-meals notice (HON-1007).
-  const sevenDaysAgo = new Date(todayParsed)
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  // Compute date range: today to +14. Past days have their own page
+  // (`/past-meals`), and the header counts the ones still to mark (HON-1028).
   const fourteenDaysAhead = new Date(todayParsed)
   fourteenDaysAhead.setDate(fourteenDaysAhead.getDate() + 15) // +15 because endDate is exclusive
 
@@ -63,7 +61,7 @@ export default async function Home() {
   // pantry or shopping list were empty, and a failed entries load can never be
   // mistaken for a first-time household.
   const [{ entries, planId }, pantry, shoppingList] = await Promise.all([
-    loadPlanEntries(household, { startDate: sevenDaysAgo, endDate: fourteenDaysAhead }),
+    loadPlanEntries(household, { startDate: todayParsed, endDate: fourteenDaysAhead }),
     loadPantry(household, { days: null }),
     loadShoppingList(household, { days: 7 }),
   ])

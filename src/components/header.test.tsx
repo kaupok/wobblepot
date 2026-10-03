@@ -20,13 +20,30 @@ vi.mock('next-intl/server', () => ({
 // Mock the cached session module
 vi.mock('@/lib/session', () => ({
   getSession: vi.fn(),
-  getHasHousehold: vi.fn(),
+  getCachedMembership: vi.fn(),
 }))
+
+vi.mock('@/lib/meal-planning/past-meals', () => ({
+  countPastMealsToMark: vi.fn(),
+}))
+
+const MEMBERSHIP = {
+  householdId: 'household-1',
+  household: { locale: 'en', timezone: 'Europe/Tallinn' },
+}
 
 // Mock HeaderActions component
 vi.mock('./header-actions', () => ({
-  HeaderActions: ({ session, hasHousehold }: { session: unknown; hasHousehold: boolean }) => (
-    <div data-testid="header-actions">
+  HeaderActions: ({
+    session,
+    hasHousehold,
+    pastMealsToMark,
+  }: {
+    session: unknown
+    hasHousehold: boolean
+    pastMealsToMark: number
+  }) => (
+    <div data-testid="header-actions" data-past-meals={pastMealsToMark}>
       {session ? 'authenticated' : 'unauthenticated'}
       {hasHousehold ? '-with-household' : '-no-household'}
     </div>
@@ -61,8 +78,16 @@ vi.mock('./navigation', () => ({
 
 // Mock MobileNav component
 vi.mock('./mobile-nav', () => ({
-  MobileNav: ({ session, hasHousehold }: { session: unknown; hasHousehold: boolean }) => (
-    <div data-testid="mobile-nav">
+  MobileNav: ({
+    session,
+    hasHousehold,
+    pastMealsToMark,
+  }: {
+    session: unknown
+    hasHousehold: boolean
+    pastMealsToMark: number
+  }) => (
+    <div data-testid="mobile-nav" data-past-meals={pastMealsToMark}>
       {session ? 'authenticated-mobile' : 'unauthenticated-mobile'}
       {hasHousehold ? '-with-household' : '-no-household'}
     </div>
@@ -109,7 +134,7 @@ describe('Header component', () => {
   })
 
   it('fetches session and passes to HeaderActions when authenticated with household', async () => {
-    const { getSession, getHasHousehold } = await import('@/lib/session')
+    const { getSession, getCachedMembership } = await import('@/lib/session')
     const now = new Date()
     vi.mocked(getSession).mockResolvedValue({
       session: {
@@ -132,7 +157,7 @@ describe('Header component', () => {
         updatedAt: now,
       },
     })
-    vi.mocked(getHasHousehold).mockResolvedValue(true)
+    vi.mocked(getCachedMembership).mockResolvedValue(MEMBERSHIP as never)
 
     const component = await Header()
     render(component)
@@ -144,7 +169,7 @@ describe('Header component', () => {
   })
 
   it('hides navigation when authenticated without household (onboarding)', async () => {
-    const { getSession, getHasHousehold } = await import('@/lib/session')
+    const { getSession, getCachedMembership } = await import('@/lib/session')
     const now = new Date()
     vi.mocked(getSession).mockResolvedValue({
       session: {
@@ -167,7 +192,7 @@ describe('Header component', () => {
         updatedAt: now,
       },
     })
-    vi.mocked(getHasHousehold).mockResolvedValue(false)
+    vi.mocked(getCachedMembership).mockResolvedValue(null)
 
     const component = await Header()
     render(component)
@@ -175,6 +200,76 @@ describe('Header component', () => {
     expect(screen.getByTestId('header-actions')).toHaveTextContent('authenticated-no-household')
     expect(screen.getByTestId('navigation-left')).toHaveTextContent('hidden-nav-left')
     expect(screen.getByTestId('navigation-right')).toHaveTextContent('hidden-nav-right')
+  })
+
+  // HON-1028: the account menu's dot is a count the server half runs.
+  describe('past meals to mark', () => {
+    async function mockSignedIn() {
+      const { getSession } = await import('@/lib/session')
+      const now = new Date()
+      vi.mocked(getSession).mockResolvedValue({
+        session: {
+          id: 'session-123',
+          userId: '123',
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+          token: 'test-token',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+          createdAt: now,
+          updatedAt: now,
+        },
+        user: {
+          id: '123',
+          email: 'test@example.com',
+          name: 'Test User',
+          emailVerified: false,
+          image: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      })
+    }
+
+    it('counts for the household in its timezone and passes the count to both menus', async () => {
+      const { getCachedMembership } = await import('@/lib/session')
+      const { countPastMealsToMark } = await import('@/lib/meal-planning/past-meals')
+      await mockSignedIn()
+      vi.mocked(getCachedMembership).mockResolvedValue(MEMBERSHIP as never)
+      vi.mocked(countPastMealsToMark).mockResolvedValue(3)
+
+      render(await Header())
+
+      expect(countPastMealsToMark).toHaveBeenCalledTimes(1)
+      expect(countPastMealsToMark).toHaveBeenCalledWith({
+        id: 'household-1',
+        timezone: 'Europe/Tallinn',
+      })
+      expect(screen.getByTestId('header-actions')).toHaveAttribute('data-past-meals', '3')
+      expect(screen.getByTestId('mobile-nav')).toHaveAttribute('data-past-meals', '3')
+    })
+
+    it('runs no count for a signed-out user', async () => {
+      const { getSession } = await import('@/lib/session')
+      const { countPastMealsToMark } = await import('@/lib/meal-planning/past-meals')
+      vi.mocked(getSession).mockResolvedValue(null)
+
+      render(await Header())
+
+      expect(countPastMealsToMark).not.toHaveBeenCalled()
+      expect(screen.getByTestId('header-actions')).toHaveAttribute('data-past-meals', '0')
+    })
+
+    it('runs no count for a user with no household', async () => {
+      const { getCachedMembership } = await import('@/lib/session')
+      const { countPastMealsToMark } = await import('@/lib/meal-planning/past-meals')
+      await mockSignedIn()
+      vi.mocked(getCachedMembership).mockResolvedValue(null)
+
+      render(await Header())
+
+      expect(countPastMealsToMark).not.toHaveBeenCalled()
+      expect(screen.getByTestId('mobile-nav')).toHaveAttribute('data-past-meals', '0')
+    })
   })
 
   it('floats: the fixed bar is transparent and lets clicks through, the pill does not', async () => {

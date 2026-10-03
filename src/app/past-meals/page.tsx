@@ -5,18 +5,15 @@ import { getSession } from '@/lib/session'
 import { getHouseholdMembership } from '@/lib/household'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
-import { getTodayInTimezone, parseLocalDate } from '@/lib/meal-planning/dates'
+import { getPastMealsRange } from '@/lib/meal-planning/past-meals'
 import { PastMealsList } from '@/components/timeline'
 import { Body, Heading } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 
-/** How far back the page reaches. An archive beyond this is out of scope. */
-const PAST_DAYS = 7
-
 /**
  * The past seven days, newest first, where the household marks meals cooked or
- * skipped. Moved off Today so reviewing them never pushes Today off screen;
- * Today keeps a notice with the count that links here (HON-1007).
+ * skipped. Moved off Today so reviewing them never pushes Today off screen
+ * (HON-1007); a dot on the account menu says when some need marking (HON-1028).
  */
 export default async function PastMealsPage() {
   const session = await getSession()
@@ -39,15 +36,12 @@ export default async function PastMealsPage() {
   const { household } = membership
 
   // The household's day, as on Today, so "yesterday" is theirs and not the
-  // server's.
-  const todayDate = getTodayInTimezone(household.timezone)
-  const todayParsed = parseLocalDate(todayDate)
-  const startDate = new Date(todayParsed)
-  startDate.setDate(startDate.getDate() - PAST_DAYS)
+  // server's. The same range the account menu's dot counts.
+  const { todayDate, startDate, endDate } = getPastMealsRange(household.timezone)
 
   const [{ entries, planId }, pantry] = await Promise.all([
     // `endDate` is exclusive, so today is not included.
-    loadPlanEntries(household, { startDate, endDate: todayParsed }),
+    loadPlanEntries(household, { startDate, endDate }),
     loadPantry(household, { days: null }),
   ])
   // A slot with only a note has nothing to mark, so it is not a row. Filtered

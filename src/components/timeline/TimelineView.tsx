@@ -4,8 +4,6 @@ import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { TimelineDayCard } from './TimelineDayCard'
-import { TimelinePastNotice } from './TimelinePastNotice'
-import { countPastCatchUp } from './past-days'
 import { FillDaysAction } from './FillDaysAction'
 import { UrgentShopping } from './UrgentShopping'
 import { Heading } from '@/components/ui/typography'
@@ -94,7 +92,8 @@ export function TimelineView({
     const tomorrowDate = toDateString(tomorrowParsed)
 
     // Build date range: today to +14. Past days have their own page
-    // (`/past-meals`); Today only counts the ones still to mark (HON-1007).
+    // (`/past-meals`, HON-1007), and the account menu's dot says when some
+    // are still to mark (HON-1028).
     const endParsed = new Date(todayParsed)
     endParsed.setDate(endParsed.getDate() + 14)
 
@@ -173,10 +172,8 @@ export function TimelineView({
   const plannedDays = fillStartDate ? futureDays.filter((d) => d.date < fillStartDate) : futureDays
   const emptyDays = fillStartDate ? futureDays.filter((d) => d.date >= fillStartDate) : []
 
-  const catchUpCount = countPastCatchUp(entries, todayDate)
-
   function renderDay(day: TimelineDay) {
-    const card = (
+    return (
       <TimelineDayCard
         key={day.date}
         day={day}
@@ -186,15 +183,6 @@ export function TimelineView({
         pantryItems={pantryItems}
         onEntryUpdated={handleEntryUpdated}
       />
-    )
-    // Today can land in either plannedDays or emptyDays, so the notice is
-    // attached to its card rather than placed at a fixed point in the list.
-    if (!day.isToday || catchUpCount === 0) return card
-    return (
-      <div key={day.date} className="flex flex-col gap-4">
-        <TimelinePastNotice count={catchUpCount} />
-        {card}
-      </div>
     )
   }
 

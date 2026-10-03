@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { AttentionDot } from '@/components/attention-dot'
 import { useThemeToggle } from '@/hooks/use-theme-toggle'
 import type { Session } from '@/lib/auth'
 import { getLoadedPostHog } from '@/lib/posthog-client-state'
@@ -15,15 +16,19 @@ import { getLoadedPostHog } from '@/lib/posthog-client-state'
 interface MobileNavProps {
   session: Session | null
   hasHousehold: boolean
+  /** Past meals still to mark; above 0, the icon and the row show a dot. */
+  pastMealsToMark?: number
 }
 
-export function MobileNav({ session, hasHousehold }: MobileNavProps) {
+export function MobileNav({ session, hasHousehold, pastMealsToMark = 0 }: MobileNavProps) {
   const router = useRouter()
   const t = useTranslations('nav.actions')
   const tSettings = useTranslations('nav.settings')
   const theme = useThemeToggle()
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  // Past meals live behind a household, so without one there is no dot.
+  const showsDot = Boolean(session) && hasHousehold && pastMealsToMark > 0
 
   const handleSignOut = async () => {
     setIsLoading(true)
@@ -51,7 +56,7 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
   // Every row clears the 44px touch floor (docs/DESIGN.md → Spacing, HON-783);
   // the rows sit flush as a list, so the target is the whole row, not the text.
   const linkClass =
-    'hover:text-primary flex min-h-touch items-center text-sm font-medium transition-colors'
+    'hover:text-primary flex min-h-touch items-center gap-2 text-sm font-medium transition-colors'
 
   const themeRow = (
     <button
@@ -70,8 +75,13 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
         {/* `icon` for the full touch target, `pill` so its hover disc sits
             inside the header pill's curve. */}
         <Button variant="ghost" size="icon" shape="pill" className="md:hidden">
-          <User className="size-5" />
-          <span className="sr-only">{t('userMenu')}</span>
+          {/* The dot sits inside the icon's box, so the 48px disc the pill
+              draws in to when scrolled never clips it. */}
+          <span className="relative flex">
+            <User className="size-5" />
+            {showsDot && <AttentionDot className="absolute -top-0.5 -right-0.5" />}
+          </span>
+          <span className="sr-only">{showsDot ? t('userMenuWithPastMeals') : t('userMenu')}</span>
         </Button>
       </SheetTrigger>
       {/* `SheetContent`'s close button is a 32px `icon-sm` target at
@@ -89,6 +99,12 @@ export function MobileNav({ session, hasHousehold }: MobileNavProps) {
                 <>
                   <Link href="/past-meals" className={linkClass} onClick={() => setOpen(false)}>
                     {t('pastMeals')}
+                    {showsDot && (
+                      <>
+                        <AttentionDot />
+                        <span className="sr-only">{t('pastMealsToMark')}</span>
+                      </>
+                    )}
                   </Link>
                   <Link href="/household" className={linkClass} onClick={() => setOpen(false)}>
                     {tSettings('household')}

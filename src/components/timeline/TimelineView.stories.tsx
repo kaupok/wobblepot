@@ -141,7 +141,7 @@ export const DinnersPlannedBreakfastsEmpty: Story = {
   },
 }
 
-export const PastMealsNotice: Story = {
+export const PastMealsNotOnToday: Story = {
   args: {
     entries: baseEntries,
   },
@@ -149,27 +149,14 @@ export const PastMealsNotice: Story = {
     docs: {
       description: {
         story:
-          'One past dinner is still planned, so an info callout above the Today card states the count and links to `/past-meals`. Past days themselves are not rendered on Today.',
+          'One past dinner is still planned. Today renders neither the past day nor a notice about it: past meals have their own page (`/past-meals`), and a red dot on the account menu says when some are still to mark (HON-1028).',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const notice = canvas
-      .getByText(/1 past meal is not marked yet/i)
-      .closest('[data-slot="callout"]')
-    await expect(notice).toHaveAttribute('data-tone', 'info')
-    await expect(
-      within(notice as HTMLElement).getByRole('link', { name: 'Mark past meals' }),
-    ).toHaveAttribute('href', '/past-meals')
-
-    // The notice sits above the Today heading.
-    const today = canvas.getByRole('heading', { name: 'Today' })
-    await expect(
-      (notice as HTMLElement).compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-
-    // No past day and no ⋯ menu on Today.
+    await expect(canvasElement.querySelector('[data-slot="callout"]')).not.toBeInTheDocument()
+    await expect(canvas.queryByRole('link', { name: /past meals/i })).not.toBeInTheDocument()
     await expect(canvas.queryByRole('heading', { name: /tuesday.*14/i })).not.toBeInTheDocument()
     await expect(
       canvas.queryByRole('button', { name: /timeline options/i }),
@@ -185,7 +172,7 @@ export const AllEmpty: Story = {
     docs: {
       description: {
         story:
-          'No entries at all — the fill-days action shows up immediately, followed by the full 14-day empty window. With nothing to mark there is no past-meals notice.',
+          'No entries at all — the fill-days action shows up immediately, followed by the full 14-day empty window.',
       },
     },
   },

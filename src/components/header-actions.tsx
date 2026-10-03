@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { AttentionDot } from '@/components/attention-dot'
 import { useThemeToggle } from '@/hooks/use-theme-toggle'
 import type { Session } from '@/lib/auth'
 import { getLoadedPostHog } from '@/lib/posthog-client-state'
@@ -22,13 +23,17 @@ import { getLoadedPostHog } from '@/lib/posthog-client-state'
 interface HeaderActionsProps {
   session: Session | null
   hasHousehold: boolean
+  /** Past meals still to mark; above 0, the icon and the row show a dot. */
+  pastMealsToMark?: number
 }
 
-export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
+export function HeaderActions({ session, hasHousehold, pastMealsToMark = 0 }: HeaderActionsProps) {
   const router = useRouter()
   const t = useTranslations('nav.actions')
   const [isLoading, setIsLoading] = useState(false)
   const theme = useThemeToggle()
+  // Past meals live behind a household, so without one there is no dot.
+  const showsDot = hasHousehold && pastMealsToMark > 0
 
   const handleSignOut = async () => {
     setIsLoading(true)
@@ -61,15 +66,28 @@ export function HeaderActions({ session, hasHousehold }: HeaderActionsProps) {
           <DropdownMenuTrigger asChild>
             {/* `pill`: the hover disc sits inside the header pill's curve. */}
             <Button variant="ghost" size="icon" shape="pill">
-              <User className="size-5" />
-              <span className="sr-only">{t('userMenu')}</span>
+              <span className="relative flex">
+                <User className="size-5" />
+                {showsDot && <AttentionDot className="absolute -top-0.5 -right-0.5" />}
+              </span>
+              <span className="sr-only">
+                {showsDot ? t('userMenuWithPastMeals') : t('userMenu')}
+              </span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {hasHousehold && (
               <>
                 <DropdownMenuItem asChild>
-                  <Link href="/past-meals">{t('pastMeals')}</Link>
+                  <Link href="/past-meals">
+                    {t('pastMeals')}
+                    {showsDot && (
+                      <>
+                        <AttentionDot />
+                        <span className="sr-only">{t('pastMealsToMark')}</span>
+                      </>
+                    )}
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/profile">{t('profile')}</Link>
