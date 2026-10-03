@@ -16,7 +16,6 @@ import {
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { MyRecipeIcon } from '@/components/meal-plan/MyRecipeIcon'
 import { PreparationSteps, type CookQuestionControls } from '@/components/meal-plan/PreparationTips'
-import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
 import { ServingControl } from '@/components/meal-plan/ServingControl'
 import type { MealComponent, PantryIngredient } from '@/components/meal-plan/types'
 import { formatWeight } from '@/lib/i18n/format-shopping-quantity'
@@ -25,23 +24,37 @@ import { cn } from '@/lib/utils'
 import type { Member, MemberPreferences } from '@/types/member'
 
 /**
- * Every vignette shows the showcase dinner (`LandingShowcase`): its committed
- * illustration and the hue `extractHue` returns for it, so the section tells
- * one story, from the pantry to the stove.
+ * The pantry, portions and cook vignettes show the showcase dinner
+ * (`LandingShowcase`), so the section tells one story from the pantry to the
+ * stove. The pantry and cook vignettes sit on its tint, the hue `extractHue`
+ * returns for its committed illustration.
  */
-const MEAL_IMAGE_URL = '/landing/baked-salmon-asparagus.jpg'
-const MEAL_HUE = 88
+const SALMON_HUE = 88
+
+/**
+ * The recipes vignette shows a different meal, the library's Acai Bowl
+ * (`prisma/seed-expansion.ts`), so the rows alternate tints from `md`: yellow,
+ * pink, neutral, yellow (HON-1042). Its illustration is a copy of the meal's
+ * generated image and its hue is what `extractHue` returns for that file, as
+ * for `LandingShowcase`; the name and description are in the catalog.
+ */
+const ACAI_BOWL = {
+  imageUrl: '/landing/acai-bowl.jpg',
+  imageHue: 32,
+  mealType: 'breakfast',
+} as const
 
 /**
  * Three members whose portions add up to the meal's 3 servings: 1.5 + 1 + 0.5.
  * The app scales a meal by its servings (`getEffectiveServings`), so with this
  * household the salmon reads the same here, in the pantry vignette and in the
- * real cook view: per serving × the portions' sum.
+ * real cook view: per serving × the portions' sum. The catalog names the
+ * toddler with her age, since nothing else in the row says she is one.
  */
 const MEMBERS = [
-  { key: 'adult1', role: 'owner', hasAccount: true, portionMultiplier: 1.5 },
-  { key: 'adult2', role: 'member', hasAccount: true, portionMultiplier: 1 },
-  { key: 'toddler', role: 'member', hasAccount: false, portionMultiplier: 0.5 },
+  { key: 'adult1', portionMultiplier: 1.5 },
+  { key: 'adult2', portionMultiplier: 1 },
+  { key: 'toddler', portionMultiplier: 0.5 },
 ] as const
 
 const SERVINGS = MEMBERS.reduce((sum, member) => sum + member.portionMultiplier, 0)
@@ -109,7 +122,10 @@ export function LandingFeatures() {
           return (
             <li key={point} className="grid items-center gap-6 md:grid-cols-2 md:gap-12">
               <div className="flex flex-col gap-2">
-                <Heading variant="section" as="h3">
+                {/* Title, a step above the Section headings this file draws
+                    in the vignettes, so the claim leads and the vignette reads
+                    as its proof. `IngredientList` keeps its own heading. */}
+                <Heading variant="h4" as="h3">
                   {t(`${point}.title`)}
                 </Heading>
                 <Body variant="muted">{t(`${point}.body`)}</Body>
@@ -134,14 +150,17 @@ export function LandingFeatures() {
   )
 }
 
-/** A card on the meal's tint, as the cook view's panel is. */
-function MealSurface({ children }: { children: ReactNode }) {
+/**
+ * A card on a meal's tint, as the cook view's panel is, or with no `hue` on
+ * the app's neutral card, as the household page's member rows are.
+ */
+function VignetteSurface({ hue, children }: { hue?: number; children: ReactNode }) {
   return (
     <Card
       size="sm"
-      data-meal-surface=""
+      data-meal-surface={hue === undefined ? undefined : ''}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
-      style={mealHueStyle(MEAL_HUE)}
+      style={hue === undefined ? undefined : mealHueStyle(hue)}
     >
       <CardContent className="py-4">{children}</CardContent>
     </Card>
@@ -169,7 +188,7 @@ function PantryVignette() {
   )
 
   return (
-    <MealSurface>
+    <VignetteSurface hue={SALMON_HUE}>
       <IngredientList
         components={components}
         servings={SERVINGS}
@@ -181,31 +200,35 @@ function PantryVignette() {
           missingIngredients: missing.map((c) => c.ingredient.name),
         }}
       />
-    </MealSurface>
+    </VignetteSurface>
   )
 }
 
 /** A pasted link, and the same dish on the planner, marked as the household's own. */
 function RecipesVignette() {
   const t = useTranslations('landing.why.recipes.vignette')
-  const tMeal = useTranslations('landing.showcase.dinner')
-  const name = tMeal('name')
+  const name = t('name')
 
   return (
     <div className="flex flex-col gap-3">
       <Input readOnly value={t('link')} aria-label={t('linkLabel')} />
       <MealImageCard
-        meal={{ name, imageUrl: MEAL_IMAGE_URL, imageStatus: 'ready', imageHue: MEAL_HUE }}
+        meal={{
+          name,
+          imageUrl: ACAI_BOWL.imageUrl,
+          imageStatus: 'ready',
+          imageHue: ACAI_BOWL.imageHue,
+        }}
         size="sm"
         // The planner card's head, as `LandingShowcase` draws it, with the
-        // own-recipe mark after the name (`MealCard`).
+        // own-recipe mark after the name (`MealCard`). No protein badge: the
+        // meal's protein is `none`, for which `ProteinBadge` draws nothing.
         head={
           <CardHeader className="px-4 pt-1 pb-1">
             <div className="flex min-h-8 items-center">
               <div className="flex flex-wrap items-center gap-1.5">
-                <MealTypeBadge mealType="dinner" />
+                <MealTypeBadge mealType={ACAI_BOWL.mealType} />
                 <KidFriendlyBadge compact />
-                <ProteinBadge proteinType="fish" />
               </div>
             </div>
             <div className={cn('flex min-w-0 flex-col', mealImageTitleWidth())}>
@@ -217,7 +240,7 @@ function RecipesVignette() {
                 </Heading>
               </div>
               <div className="hidden md:line-clamp-2">
-                <Body variant="muted">{tMeal('description')}</Body>
+                <Body variant="muted">{t('description')}</Body>
               </div>
             </div>
           </CardHeader>
@@ -227,13 +250,12 @@ function RecipesVignette() {
   )
 }
 
-function member(
-  key: string,
-  name: string,
-  role: Member['role'],
-  hasAccount: boolean,
-  portionMultiplier: number,
-): Member {
+/**
+ * A member with an account and no admin role, so `MemberRow` draws no
+ * "Owner" or "No account" badge: household admin is not what the vignette
+ * shows.
+ */
+function member(key: string, name: string, portionMultiplier: number): Member {
   const preferences: MemberPreferences = {
     displayName: name,
     portionMultiplier,
@@ -249,29 +271,32 @@ function member(
   }
   return {
     id: key,
-    userId: hasAccount ? key : null,
+    userId: key,
     name,
-    role,
+    role: 'member',
     joinedAt: '2026-01-01T00:00:00.000Z',
-    user: null,
+    user: { id: key, name, email: `${key}@example.com`, image: null },
     preferences,
     invite: null,
   }
 }
 
-/** The household page's member rows, then the meal's Serves and its salmon. */
+/**
+ * The household page's member rows, then the meal's Serves and its salmon, on
+ * the neutral card the member rows sit on in the app.
+ */
 function PortionsVignette() {
   const t = useTranslations('landing.why.kids.vignette')
   const [salmon] = useIngredients()
 
   return (
-    <MealSurface>
+    <VignetteSurface>
       <div className="flex flex-col gap-4">
         <ul className="flex flex-col divide-y">
-          {MEMBERS.map(({ key, role, hasAccount, portionMultiplier }) => (
+          {MEMBERS.map(({ key, portionMultiplier }) => (
             <MemberRow
               key={key}
-              member={member(key, t(key), role, hasAccount, portionMultiplier)}
+              member={member(key, t(key), portionMultiplier)}
               canEdit={false}
               canRemove={false}
               canInvite={false}
@@ -293,7 +318,7 @@ function PortionsVignette() {
         </div>
         {salmon && <IngredientList components={[salmon]} servings={SERVINGS} />}
       </div>
-    </MealSurface>
+    </VignetteSurface>
   )
 }
 
@@ -329,9 +354,11 @@ function CookVignette() {
   const tAsk = useTranslations('meal-plan.cookQuestion')
 
   return (
-    <MealSurface>
+    <VignetteSurface hue={SALMON_HUE}>
       <div className="flex flex-col gap-3">
-        <Heading variant="h4" as="p">
+        {/* Section, not the cook view's Title: the point title beside the
+            vignette leads. */}
+        <Heading variant="section" as="p">
           {tSteps('steps')}
         </Heading>
         <PreparationSteps
@@ -353,6 +380,6 @@ function CookVignette() {
           </div>
         </div>
       </div>
-    </MealSurface>
+    </VignetteSurface>
   )
 }

@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "\"Made for family kitchens\" on the signed-out landing page: the heading and trust line, then one row per point with a static vignette built from the app's own components (the cook view's ingredients, the planner card, the household's member rows, a cooking step). All four show the showcase dinner on its tint. Each vignette is `inert` with an `sr-only` caption; from `md` the vignette swaps sides on rows 2 and 4.",
+          "\"Made for family kitchens\" on the signed-out landing page: the heading and trust line, then one row per point with a static vignette built from the app's own components (the cook view's ingredients, the planner card, the household's member rows, a cooking step). From `md` their surfaces alternate: the salmon's yellow tint, the acai bowl's pink, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption; from `md` the vignette swaps sides on rows 2 and 4.",
       },
     },
   },
@@ -27,7 +27,11 @@ type Story = StoryObj<typeof meta>
 const play: Story['play'] = async ({ canvasElement }) => {
   const canvas = within(canvasElement)
   await expect(canvas.getAllByRole('figure')).toHaveLength(4)
-  await expect(canvasElement.querySelectorAll('[data-meal-surface]')).toHaveLength(4)
+  // Pantry, recipes and cook are tinted; portions sits on the neutral card.
+  await expect(canvasElement.querySelectorAll('[data-meal-surface]')).toHaveLength(3)
+  await expect(
+    canvas.getByTestId('landing-vignette-kids').querySelector('[data-meal-surface]'),
+  ).toBeNull()
 
   const drawings = Array.from(canvasElement.querySelectorAll('[inert]'))
   await expect(drawings).toHaveLength(4)
