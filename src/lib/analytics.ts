@@ -123,6 +123,7 @@ export type Source =
   | 'pantry_inline'
   | 'shopping_list'
   | 'cook_view'
+  | 'past_meals'
 
 /** Meal-type literal union. Mirrors `@/generated/prisma/enums.MealType` but kept local so the analytics module has no DB import. */
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'

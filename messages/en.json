@@ -214,9 +214,6 @@
       "directionUp": "thumbs up",
       "directionDown": "thumbs down"
     },
-    "status": {
-      "ariaLabel": "Meal status"
-    },
     "alternative": {
       "select": "Select",
       "selecting": "Selecting…",
@@ -398,7 +395,12 @@
     "title": "Past meals",
     "description": "The last 7 days. Mark each meal as cooked or skipped.",
     "empty": "Nothing was planned in the last 7 days.",
-    "backToPlan": "Back to the meal plan"
+    "backToPlan": "Back to the meal plan",
+    "row": {
+      "cooked": "Cooked",
+      "skipped": "Skipped",
+      "undo": "Undo: {mealName}"
+    }
   },
   "recipes": {
     "mealCount": "{count, plural, =0 {No recipes} one {# recipe} other {# recipes}}",

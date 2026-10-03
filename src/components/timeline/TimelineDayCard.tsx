@@ -48,9 +48,6 @@ export function TimelineDayCard({
     })),
   ].sort((a, b) => a.order - b.order)
 
-  // A past day is drawn at full opacity: its cards are what the past-meals
-  // notice asks the user to act on, so their text keeps its measured contrast
-  // (HON-805). Its own section and card layout already set it apart.
   return (
     <div className="flex flex-col gap-2">
       <Heading variant="section" as="h2" className={day.isToday ? 'text-primary' : undefined}>
@@ -70,8 +67,6 @@ export function TimelineDayCard({
       ) : (
         <div className="flex flex-col gap-2">
           {slots.map((slot) => {
-            if (slot.type === 'empty' && day.isPast) return null
-
             // The slot's label (Dinner, Lunch) is the card's own first row:
             // `MealCard` and `TimelineEmptySlot` render `MealTypeBadge`.
             return (
@@ -85,7 +80,6 @@ export function TimelineDayCard({
                     status={slot.entry.status}
                     rating={slot.entry.rating}
                     householdSize={householdSize}
-                    isPast={day.isPast}
                     pantryIngredients={pantryIngredients}
                     pantryItems={pantryItems}
                     note={slot.entry.note}

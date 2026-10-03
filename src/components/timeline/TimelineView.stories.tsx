@@ -149,7 +149,7 @@ export const PastMealsNotice: Story = {
     docs: {
       description: {
         story:
-          'One past dinner is still planned, so a warning callout above the Today card states the count and links to `/past-meals`. Past days themselves are not rendered on Today.',
+          'One past dinner is still planned, so an info callout above the Today card states the count and links to `/past-meals`. Past days themselves are not rendered on Today.',
       },
     },
   },
@@ -158,7 +158,7 @@ export const PastMealsNotice: Story = {
     const notice = canvas
       .getByText(/1 past meal is not marked yet/i)
       .closest('[data-slot="callout"]')
-    await expect(notice).toHaveAttribute('data-tone', 'warning')
+    await expect(notice).toHaveAttribute('data-tone', 'info')
     await expect(
       within(notice as HTMLElement).getByRole('link', { name: 'Mark past meals' }),
     ).toHaveAttribute('href', '/past-meals')

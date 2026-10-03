@@ -9,11 +9,11 @@ describe('TimelinePastNotice', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('states the count in a warning callout and links to /past-meals', () => {
+  it('states the count in an info callout and links to /past-meals', () => {
     const { container } = render(<TimelinePastNotice count={3} />)
 
     const callout = container.querySelector('[data-slot="callout"]')
-    expect(callout).toHaveAttribute('data-tone', 'warning')
+    expect(callout).toHaveAttribute('data-tone', 'info')
     expect(callout).toHaveTextContent('3 past meals are not marked yet.')
     expect(screen.getByRole('link', { name: 'Mark past meals' })).toHaveAttribute(
       'href',

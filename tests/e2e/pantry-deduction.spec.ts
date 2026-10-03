@@ -163,8 +163,8 @@ test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
     expect(patchedPantry.quantity).toBe(STARTING_QUANTITY)
 
     // Mark the meal completed with pantry deduction. We hit the API directly
-    // because MealCard's StatusSelect is only rendered for `isPast` days
-    // (see src/components/meal-plan/MealCard.tsx), and "today" is not past —
+    // because the one-click Cooked button is only on `/past-meals`
+    // (src/components/timeline/PastMealRow.tsx), and "today" is not past —
     // so the UI path can't complete a freshly generated plan. The PATCH
     // endpoint is where the deduction logic lives; disabling it would still
     // be caught by the assertion below.

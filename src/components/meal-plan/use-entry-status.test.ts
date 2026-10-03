@@ -1,0 +1,180 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { createQueryWrapper } from '@/test/query-wrapper'
+import { createMeal } from '@/stories/fixtures'
+import type { MealStatus } from './types'
+
+const refresh = vi.fn()
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }))
+vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
+
+import { toast } from 'sonner'
+import { track } from '@/lib/analytics'
+import { useEntryStatus } from './use-entry-status'
+
+const meal = createMeal()
+const fetchMock = vi.fn()
+
+function respond(status: number, body: object = {}) {
+  fetchMock.mockResolvedValueOnce(
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  )
+}
+
+function patchBodies() {
+  return fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string))
+}
+
+function renderStatusHook(
+  options: {
+    initialStatus?: MealStatus
+    pantryDeducted?: boolean
+    onCompleted?: () => void
+    onLeaveCompleted?: () => void
+  } = {},
+) {
+  const { wrapper } = createQueryWrapper()
+  return renderHook(
+    () =>
+      useEntryStatus({
+        planId: 'plan-1',
+        entryId: 'entry-1',
+        meal,
+        initialStatus: options.initialStatus ?? 'planned',
+        pantryDeducted: options.pantryDeducted,
+        source: 'past_meals',
+        onCompleted: options.onCompleted,
+        onLeaveCompleted: options.onLeaveCompleted,
+      }),
+    { wrapper },
+  )
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.stubGlobal('fetch', fetchMock)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('useEntryStatus', () => {
+  it('previews the deduction for an uncharged entry and changes nothing until confirm', async () => {
+    const onCompleted = vi.fn()
+    const { result } = renderStatusHook({ onCompleted })
+
+    act(() => result.current.handleStatusChange('completed'))
+
+    expect(result.current.isDeductionModalOpen).toBe(true)
+    expect(result.current.status).toBe('planned')
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    respond(200, { pantryDeducted: true })
+    act(() => result.current.handleDeductionConfirm())
+
+    await waitFor(() => expect(result.current.isDeductionModalOpen).toBe(false))
+    expect(result.current.status).toBe('completed')
+    expect(patchBodies()).toEqual([{ status: 'completed', deductPantry: true }])
+    expect(onCompleted).toHaveBeenCalledTimes(1)
+    expect(refresh).toHaveBeenCalled()
+    expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {
+      plan_id: 'plan-1',
+      meal_id: meal.id,
+      source: 'past_meals',
+    })
+  })
+
+  it('completes an already-charged entry directly, with no deduction (HON-651)', async () => {
+    const onCompleted = vi.fn()
+    const { result } = renderStatusHook({ pantryDeducted: true, onCompleted })
+
+    respond(200)
+    act(() => result.current.handleStatusChange('completed'))
+
+    expect(result.current.isDeductionModalOpen).toBe(false)
+    await waitFor(() => expect(onCompleted).toHaveBeenCalledTimes(1))
+    expect(result.current.status).toBe('completed')
+    expect(patchBodies()).toEqual([{ status: 'completed', deductPantry: false }])
+  })
+
+  it('does not preview a second deduction after a revert in the same session', async () => {
+    const { result } = renderStatusHook()
+
+    act(() => result.current.handleStatusChange('completed'))
+    respond(200, { pantryDeducted: true })
+    act(() => result.current.handleDeductionConfirm())
+    await waitFor(() => expect(result.current.isUpdating).toBe(false))
+
+    respond(200)
+    act(() => result.current.handleStatusChange('planned'))
+    await waitFor(() => expect(result.current.status).toBe('planned'))
+    await waitFor(() => expect(result.current.isUpdating).toBe(false))
+
+    respond(200)
+    act(() => result.current.handleStatusChange('completed'))
+    expect(result.current.isDeductionModalOpen).toBe(false)
+    await waitFor(() => expect(result.current.status).toBe('completed'))
+  })
+
+  it('skips with the source it was given', async () => {
+    const { result } = renderStatusHook()
+
+    respond(200)
+    act(() => result.current.handleStatusChange('skipped'))
+
+    expect(result.current.status).toBe('skipped')
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('meal_plan:meal_skipped', {
+        plan_id: 'plan-1',
+        meal_id: meal.id,
+        source: 'past_meals',
+      }),
+    )
+  })
+
+  it('lets a call name its own source', async () => {
+    const { result } = renderStatusHook({ pantryDeducted: true })
+
+    respond(200)
+    act(() => result.current.handleStatusChange('completed', 'cook_view'))
+
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith(
+        'meal_plan:meal_completed',
+        expect.objectContaining({ source: 'cook_view' }),
+      ),
+    )
+  })
+
+  it('reverts and shows the toast when the request fails', async () => {
+    const { result } = renderStatusHook()
+
+    respond(500, { error: 'Nope' })
+    act(() => result.current.handleStatusChange('skipped'))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Failed to update status. Please try again.'),
+    )
+    expect(result.current.status).toBe('planned')
+    expect(track).not.toHaveBeenCalled()
+  })
+
+  it('calls onLeaveCompleted only on the way out of completed', async () => {
+    const onLeaveCompleted = vi.fn()
+    const { result } = renderStatusHook({ initialStatus: 'completed', onLeaveCompleted })
+
+    respond(200)
+    act(() => result.current.handleStatusChange('planned'))
+    await waitFor(() => expect(onLeaveCompleted).toHaveBeenCalledTimes(1))
+
+    respond(200)
+    act(() => result.current.handleStatusChange('skipped'))
+    await waitFor(() => expect(result.current.isUpdating).toBe(false))
+    expect(onLeaveCompleted).toHaveBeenCalledTimes(1)
+  })
+})

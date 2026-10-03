@@ -2,13 +2,11 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
-  createMeal,
   createPlanEntry,
   createTimelineDay,
   lemonGarlicChickenPantry,
   lemonGarlicChickenPantryItems,
 } from '@/stories/fixtures'
-import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { slowCreateEntryHandlers } from '@/stories/msw-handlers'
 import { TimelineDayCard } from './TimelineDayCard'
 
@@ -161,78 +159,6 @@ export const NoMealsExpected: Story = {
           '`expectedMealTypes` is empty for this day, so no slots render — "No meals planned" copy fills the card.',
       },
     },
-  },
-}
-
-// Past days render at full opacity and without a `color-contrast` waiver: their
-// cards are what "N to catch up" asks the user to act on, so axe measures them
-// like any other card (HON-805).
-export const PastCompleted: Story = {
-  args: {
-    day: createTimelineDay({
-      date: '2026-04-14',
-      label: 'Tuesday Apr 14',
-      isToday: false,
-      isPast: true,
-      entries: [
-        createPlanEntry({
-          id: 'entry-past',
-          date: '2026-04-14',
-          status: 'completed',
-          rating: 'up',
-        }),
-      ],
-    }),
-  },
-  parameters: {
-    docs: {
-      description: {
-        story: 'Past day — empty slots are hidden and each card shows its status control.',
-      },
-    },
-  },
-}
-
-export const PastWithImage: Story = {
-  args: {
-    day: createTimelineDay({
-      date: '2026-04-14',
-      label: 'Tuesday Apr 14',
-      isToday: false,
-      isPast: true,
-      entries: [
-        createPlanEntry({
-          id: 'entry-past-image',
-          date: '2026-04-14',
-          status: 'completed',
-          rating: 'up',
-          note: 'Kids asked for seconds. Use less garlic next time.',
-          meal: createMeal({
-            imageStatus: 'ready',
-            imageUrl: mealIllustration.src,
-            imageHue: 52,
-          }),
-        }),
-      ],
-    }),
-  },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Past day whose card has an image and a hue tint. The image is confined to the title band, and the status, rating and note sit on the tint at full contrast.',
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    // Nothing between the day and the page may fade it (HON-805).
-    let node: Element | null = within(canvasElement).getByRole('heading', {
-      name: /tuesday apr 14/i,
-    })
-    while (node && node !== canvasElement) {
-      await expect(getComputedStyle(node).opacity).toBe('1')
-      node = node.parentElement
-    }
   },
 }
 

@@ -751,7 +751,7 @@ export const SavedPlaceKeepsMenuClear: Story = {
   },
 }
 
-const PAST_NOTE = 'Swapped the rice for couscous — do that again.'
+const COOKED_NOTE = 'Swapped the rice for couscous — do that again.'
 
 /**
  * Asserts the image runs from the card's top edge (inside its border) past the
@@ -768,10 +768,9 @@ async function assertImageBoundedByHead(card: HTMLElement) {
 }
 
 /**
- * A past day with everything below the title: the status control and the
- * rating prompt (opened from the rating badge) are rows below the head, and
- * the image runs the head's height (HON-927), so neither sits on the dish
- * (HON-755). The note is not a row: its slip lies over the head's bottom-right
+ * A cooked meal with everything below the title: the rating prompt (opened
+ * from the rating badge) is a row below the head, and the image runs the
+ * head's height (HON-927), so it does not sit on the dish (HON-755). The note is not a row: its slip lies over the head's bottom-right
  * corner, on the plate and off the rows below (HON-974).
  */
 async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
@@ -780,7 +779,6 @@ async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
   await userEvent.click(canvas.getByRole('button', { name: /^rating:/i }))
   await document.fonts.ready
   const rows = [
-    canvas.getByRole('combobox', { name: /meal status/i }),
     await canvas.findByText('How was it?'),
     canvas.getByRole('button', { name: /^thumbs up$/i }),
     canvas.getByRole('button', { name: /^thumbs down$/i }),
@@ -790,7 +788,7 @@ async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
   for (const row of rows) {
     await expect(row.getBoundingClientRect().top).toBeGreaterThanOrEqual(box.bottom)
   }
-  const slip = canvas.getByText(PAST_NOTE).closest<HTMLElement>('[data-surface="sticky"]')!
+  const slip = canvas.getByText(COOKED_NOTE).closest<HTMLElement>('[data-surface="sticky"]')!
   const slipBox = slip.getBoundingClientRect()
   await expect(slipBox.top).toBeGreaterThanOrEqual(card.getBoundingClientRect().top)
   await expect(slipBox.bottom).toBeLessThanOrEqual(box.bottom)
@@ -801,22 +799,21 @@ async function assertLowerRowsOnTint(canvasElement: HTMLElement) {
   await expect(overlaps(slipBox, title)).toBe(false)
 }
 
-export const PastWithImagePhone: Story = {
-  name: 'Past with image, note and rating (phone)',
+export const CompletedWithImagePhone: Story = {
+  name: 'Completed with image, note and rating (phone)',
   args: {
     meal: { ...mealFixture, imageStatus: 'ready', imageUrl: mealIllustration.src, imageHue: 52 },
     status: 'completed',
     rating: 'up',
-    isPast: true,
-    note: PAST_NOTE,
+    note: COOKED_NOTE,
   },
   parameters: { cardWidth: 'phone' },
   play: async ({ canvasElement }) => assertLowerRowsOnTint(canvasElement),
 }
 
-export const PastWithImageDesktop: Story = {
-  ...PastWithImagePhone,
-  name: 'Past with image, note and rating (desktop)',
+export const CompletedWithImageDesktop: Story = {
+  ...CompletedWithImagePhone,
+  name: 'Completed with image, note and rating (desktop)',
   parameters: { cardWidth: 'desktop' },
 }
 
@@ -918,43 +915,54 @@ export const NoteFromMenuKeyboard: Story = {
     }),
 }
 
+// Opening a planned meal generates its steps on open.
+const cookViewTipsHandlers = [
+  http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () =>
+    HttpResponse.json({
+      tips: {
+        equipment: ['A roasting tin'],
+        steps: ['Preheat while you prep', 'Roast for 35 minutes'],
+        pitfalls: [],
+      },
+    }),
+  ),
+]
+
 export const PlannedAlreadyCharged: Story = {
   args: {
     meal: mealFixture,
     status: 'planned',
     pantryDeducted: true,
-    // The status control only renders on past days.
-    isPast: true,
   },
   parameters: {
     docs: {
       description: {
         story:
-          'Completed once, then reverted to planned. The pantry was already charged and the server never charges an entry twice (HON-651), so completing again skips the deduction preview.',
+          'Completed once, then reverted to planned. The pantry was already charged and the server never charges an entry twice (HON-651), so "Done cooking" skips the deduction preview.',
       },
     },
+    msw: { handlers: { tips: cookViewTipsHandlers } },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const body = within(document.body)
 
-    await userEvent.click(canvas.getByRole('combobox', { name: /meal status/i }))
-    await userEvent.click(await body.findByRole('option', { name: /completed/i }))
+    await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
+    const cookView = await body.findByRole('dialog', { name: mealFixture.name })
+    await userEvent.click(
+      await within(cookView).findByRole('button', { name: 'Done cooking' }, ROUND_TRIP),
+    )
+    await awaitDialogClosed(ROUND_TRIP.timeout)
 
     // The status did change — so the missing dialog below is not a click that
     // never landed.
-    await waitFor(() =>
-      expect(canvas.getByRole('combobox', { name: /meal status/i })).toHaveTextContent(
-        /completed/i,
-      ),
-    )
+    await expect(await canvas.findByText('How was it?', {}, ROUND_TRIP)).toBeInTheDocument()
     await expect(body.queryByRole('dialog')).not.toBeInTheDocument()
   },
 }
 
 /**
- * "Done cooking" in the cook view runs the same completion as the status
- * select (HON-933): the view closes first, then the pantry deduction opens —
+ * "Done cooking" in the cook view runs the completion (HON-933): the view closes first, then the pantry deduction opens —
  * never stacked on it — and confirming shows the rating prompt, with focus
  * back on the meal's name rather than the page body.
  */
@@ -964,22 +972,7 @@ export const DoneCookingFromCookView: Story = {
     status: 'planned',
   },
   parameters: {
-    msw: {
-      handlers: {
-        // Opening a planned meal generates its steps on open.
-        tips: [
-          http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () =>
-            HttpResponse.json({
-              tips: {
-                equipment: ['A roasting tin'],
-                steps: ['Preheat while you prep', 'Roast for 35 minutes'],
-                pitfalls: [],
-              },
-            }),
-          ),
-        ],
-      },
-    },
+    msw: { handlers: { tips: cookViewTipsHandlers } },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -1001,7 +994,7 @@ export const DoneCookingFromCookView: Story = {
     await expect(await canvas.findByText('How was it?')).toBeInTheDocument()
     await waitFor(() => expect(name).toHaveFocus())
 
-    // Today's card has no status select, so the menu carries the way back.
+    // The card has no status control, so the menu carries the way back.
     await openMoreActions(canvasElement)
     await userEvent.click(await body.findByRole('menuitem', { name: 'Not cooked yet' }))
     await waitFor(() => expect(canvas.queryByText('How was it?')).not.toBeInTheDocument())
@@ -1493,45 +1486,35 @@ export const Skipped: Story = {
   },
 }
 
-export const PastCompleted: Story = {
+export const CompletedReadonly: Story = {
   args: {
     meal: mealFixture,
     status: 'completed',
     rating: 'up',
-    isPast: true,
-  },
-}
-
-export const PastReadonly: Story = {
-  args: {
-    meal: mealFixture,
-    status: 'completed',
-    rating: 'up',
-    isPast: true,
     isReadOnly: true,
   },
 }
 
-/** A past card's note is the same slip, read-only: tilted, not a button. */
-export const PastWithNote: Story = {
+/** A read-only card's note is the same slip, inert: tilted, not a button. */
+export const ReadonlyWithNote: Story = {
   args: {
     meal: mealFixture,
     status: 'completed',
     rating: 'up',
-    isPast: true,
-    note: PAST_NOTE,
+    isReadOnly: true,
+    note: COOKED_NOTE,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const slip = canvas.getByText(PAST_NOTE).closest('[data-surface="sticky"]')
+    const slip = canvas.getByText(COOKED_NOTE).closest('[data-surface="sticky"]')
     await expect(slip).toHaveAttribute('data-variant', 'static')
-    await expect(canvas.queryByRole('button', { name: PAST_NOTE })).toBeNull()
+    await expect(canvas.queryByRole('button', { name: COOKED_NOTE })).toBeNull()
   },
 }
 
-export const PastWithNoteDark: Story = {
-  ...PastWithNote,
-  name: 'Past with note (dark)',
+export const ReadonlyWithNoteDark: Story = {
+  ...ReadonlyWithNote,
+  name: 'Read-only with note (dark)',
   globals: { theme: 'dark' },
 }
 

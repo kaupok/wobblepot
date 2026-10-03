@@ -356,13 +356,13 @@ describe('TimelineView', () => {
       expect(screen.queryByRole('button')).not.toBeInTheDocument()
     })
 
-    it('shows one warning notice above Today with the count and a link', () => {
+    it('shows one info notice above Today with the count and a link', () => {
       const { container } = renderInLocale(<TimelineView {...defaultProps} entries={pastEntries} />)
 
       const notices = container.querySelectorAll('[data-slot="callout"]')
       expect(notices).toHaveLength(1)
       const notice = notices[0] as HTMLElement
-      expect(notice).toHaveAttribute('data-tone', 'warning')
+      expect(notice).toHaveAttribute('data-tone', 'info')
       // Planned with a meal only: the completed and the meal-less entries do not count.
       expect(notice).toHaveTextContent('2 past meals are not marked yet.')
       expect(within(notice).getByRole('link', { name: 'Mark past meals' })).toHaveAttribute(

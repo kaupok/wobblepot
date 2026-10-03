@@ -20,8 +20,7 @@ import {
   type CookQuestionControls,
 } from './PreparationTips'
 import { ServingControl } from './ServingControl'
-import type { MealStatus } from './StatusSelect'
-import type { MealData, PantryIngredient, StructuredTips } from './types'
+import type { MealData, MealStatus, PantryIngredient, StructuredTips } from './types'
 
 interface MealDetailProps {
   meal: MealData

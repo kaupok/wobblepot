@@ -68,7 +68,6 @@ const baseDay: TimelineDay = {
   label: 'Today',
   isToday: true,
   isTomorrow: false,
-  isPast: false,
   entries: [],
   emptySlots: ['dinner'],
 }
@@ -127,34 +126,6 @@ describe('TimelineDayCard', () => {
     const slot = screen.getByTestId('empty-slot-dinner')
     if (relativeDay) expect(slot).toHaveAttribute('data-relative-day', relativeDay)
     else expect(slot).not.toHaveAttribute('data-relative-day')
-  })
-
-  it('does not render empty slots for past days', () => {
-    const pastDay: TimelineDay = {
-      ...baseDay,
-      label: 'Friday Mar 27',
-      isToday: false,
-      isPast: true,
-    }
-    render(<TimelineDayCard day={pastDay} {...defaultProps} />)
-    expect(screen.queryByTestId('empty-slot-dinner')).not.toBeInTheDocument()
-  })
-
-  // Past cards are the ones "N to catch up" asks the user to act on, so an
-  // opacity on their wrapper would fade actionable text below AA (HON-805).
-  it('does not fade a past day', () => {
-    const pastDay: TimelineDay = {
-      ...baseDay,
-      label: 'Friday Mar 27',
-      isToday: false,
-      isPast: true,
-    }
-    render(<TimelineDayCard day={pastDay} {...defaultProps} />)
-    let node: HTMLElement | null = screen.getByRole('heading', { name: 'Friday Mar 27' })
-    while (node && node !== document.body) {
-      expect(node.className).not.toMatch(/(^|\s)opacity-/)
-      node = node.parentElement
-    }
   })
 
   it('renders meal cards for entries', () => {

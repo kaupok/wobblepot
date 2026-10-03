@@ -43,7 +43,6 @@ export function buildPastDays(
         dateLabel: formatAbsoluteDate(date, locale),
         isToday: false,
         isTomorrow: false,
-        isPast: true,
         entries: (entriesByDate.get(dateStr) ?? []).sort(
           (a, b) => (mealTypeOrder[a.mealType] ?? 3) - (mealTypeOrder[b.mealType] ?? 3),
         ),

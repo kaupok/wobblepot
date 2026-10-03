@@ -1,4 +1,3 @@
-import type { MealStatus } from './StatusSelect'
 import type { MealImageFields } from './MealImageCard'
 import type { MealImageStatus, MealType } from '@/generated/prisma/enums'
 import type { RatingSignal } from '@/lib/meal-planning/candidate-score'
@@ -52,6 +51,8 @@ export interface StructuredTips {
 }
 
 export type EntryRating = 'up' | 'down'
+
+export type MealStatus = 'planned' | 'completed' | 'skipped'
 
 export interface PlanEntry {
   id: string
@@ -183,7 +184,6 @@ export interface TimelineDay {
   dateLabel?: string
   isToday: boolean
   isTomorrow: boolean
-  isPast: boolean
   entries: PlanEntry[]
   emptySlots: MealType[]
 }

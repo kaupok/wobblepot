@@ -51,11 +51,6 @@ export default async function PastMealsPage() {
     loadPantry(household, { days: null }),
   ])
 
-  const pantryIngredients = pantry.items.map((item) => ({
-    ingredientId: item.ingredient.id,
-    isStaple: item.isStaple,
-  }))
-
   return (
     <div className="w-full px-4 py-8">
       {/* A list page: the title on the page background and the list at full
@@ -80,7 +75,6 @@ export default async function PastMealsPage() {
             entries={entries}
             planId={planId}
             householdSize={household._count.members}
-            pantryIngredients={pantryIngredients}
             pantryItems={pantry.items}
             todayDate={todayDate}
           />

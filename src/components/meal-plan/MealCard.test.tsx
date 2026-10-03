@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach, onTestFinished } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
@@ -42,7 +42,7 @@ function renderCard(props: {
   meal: typeof meal | null
   status?: 'planned' | 'completed' | 'skipped'
   rating?: 'up' | 'down' | null
-  isPast?: boolean
+  isReadOnly?: boolean
   pantryIngredients?: PantryIngredient[]
   pantryDeducted?: boolean
   preparationTips?: StructuredTips | null
@@ -494,7 +494,7 @@ describe('MealCard note placement (HON-975)', () => {
     expect(await screen.findByRole('textbox', { name: 'Meal note' })).toBeInTheDocument()
   })
 
-  it("leaves a past card's slip inert, at its scatter", () => {
+  it("leaves a read-only card's slip inert, at its scatter", () => {
     const { wrapper: Wrapper } = createQueryWrapper()
     render(
       <Wrapper>
@@ -505,7 +505,7 @@ describe('MealCard note placement (HON-975)', () => {
           mealType="dinner"
           status="planned"
           householdSize={4}
-          isPast
+          isReadOnly
           note="Leftovers"
         />
       </Wrapper>,
@@ -564,9 +564,9 @@ describe('MealCard card click (HON-1010)', () => {
     expect(screen.getByRole('button', { name: meal.name })).toHaveFocus()
   })
 
-  it('opens the cook view from a past card', async () => {
+  it('opens the cook view from a read-only card', async () => {
     const user = userEvent.setup()
-    renderCard({ meal: imageMeal, isPast: true, preparationTips: tips })
+    renderCard({ meal: imageMeal, isReadOnly: true, preparationTips: tips })
 
     await user.click(screen.getByTestId('meal-card-image'))
     expect(await screen.findByRole('dialog', { name: meal.name })).toBeInTheDocument()
@@ -635,33 +635,6 @@ describe('MealCard card click (HON-1010)', () => {
     expect(cookView()).not.toBeInTheDocument()
   })
 
-  it("leaves a past card's status control to itself", async () => {
-    // Radix Select reads the pointer-capture and scroll APIs jsdom lacks.
-    // Defined on the instances' prototype for this test only: the note-drag
-    // tests above rely on `setPointerCapture` being absent.
-    const proto = Element.prototype as Partial<Element>
-    const stubs = {
-      hasPointerCapture: () => false,
-      setPointerCapture: () => {},
-      releasePointerCapture: () => {},
-      scrollIntoView: () => {},
-    }
-    const missing = Object.entries(stubs).filter(([key]) => !(key in proto))
-    for (const [key, fn] of missing) {
-      Object.defineProperty(proto, key, { value: fn, configurable: true, writable: true })
-    }
-    onTestFinished(() => {
-      for (const [key] of missing) delete (proto as Record<string, unknown>)[key]
-    })
-    const user = userEvent.setup()
-    renderCard({ meal, isPast: true })
-
-    await user.click(screen.getByRole('combobox', { name: 'Meal status' }))
-    await user.click(await screen.findByRole('option', { name: /skipped/i }))
-
-    expect(cookView()).not.toBeInTheDocument()
-  })
-
   it('opens the note editor from the slip, not the cook view', async () => {
     const user = userEvent.setup()
     renderCard({ meal: imageMeal, note: 'Leftovers' })
@@ -685,9 +658,9 @@ describe('MealCard card click (HON-1010)', () => {
     expect(cookView()).not.toBeInTheDocument()
   })
 
-  it("opens the cook view from a past card's read-only slip", async () => {
+  it("opens the cook view from a read-only card's slip", async () => {
     const user = userEvent.setup()
-    renderCard({ meal, isPast: true, note: 'Leftovers', preparationTips: tips })
+    renderCard({ meal, isReadOnly: true, note: 'Leftovers', preparationTips: tips })
 
     await user.click(screen.getByText('Leftovers'))
 
