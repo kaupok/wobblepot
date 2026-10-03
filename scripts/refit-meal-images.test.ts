@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { FittedImage } from '../src/lib/meal-images/footprint'
-import type { Vessel } from '../src/lib/meal-images/vessel'
+import type { Vessel, VesselEstimate } from '../src/lib/meal-images/vessel'
 import {
   fileNameFor,
   mediaTypeOf,
@@ -25,7 +25,7 @@ const meal = (
 ) => ({ id, name, imageUrl, updatedAt: UPDATED }) satisfies RefitMeal
 
 /** What the stub fit does to each URL: scale by this factor, or leave it (1). */
-type Plan = Record<string, { vessel: Vessel; scale: number; measured?: number }>
+type Plan = Record<string, { vessel: Vessel; scale: number; measured?: number; cm?: number }>
 
 function deps(meals: RefitMeal[], plan: Plan, overrides: Partial<RunDeps> = {}) {
   const updateMany = vi.fn(async () => ({ count: 1 }))
@@ -39,39 +39,29 @@ function deps(meals: RefitMeal[], plan: Plan, overrides: Partial<RunDeps> = {}) 
       if (!(url in plan)) throw new Error('HTTP 404')
       return new TextEncoder().encode(url)
     }),
-    classify: vi.fn(async ({ bytes }) => plan[new TextDecoder().decode(bytes)]?.vessel ?? null),
-    fit: vi.fn(async (bytes, mediaType, vessel): Promise<FittedImage> => {
+    classify: vi.fn(async ({ bytes }): Promise<VesselEstimate | null> => {
+      const p = plan[new TextDecoder().decode(bytes)]
+      return p?.vessel
+        ? { vessel: p.vessel, diameterCm: p.cm ?? (p.vessel === 'bowl' ? 16 : 27) }
+        : null
+    }),
+    fit: vi.fn(async (bytes, mediaType, estimate): Promise<FittedImage> => {
       const { scale, measured = 0.64 } = plan[new TextDecoder().decode(bytes)]!
-      const target = vessel === 'plate' ? 0.58 : vessel === 'bowl' ? 0.42 : null
+      const { vessel, diameterCm } = estimate
+      const target = vessel === 'plate' ? 0.58 : vessel === 'bowl' ? 0.4 : null
+      const fit = {
+        vessel,
+        diameterCm,
+        measuredWidth: measured,
+        targetWidth: target,
+        elevationDeg: vessel === 'plate' ? 40 : null,
+      }
       return scale === 1
-        ? {
-            bytes,
-            mediaType,
-            fit: {
-              vessel,
-              shape: vessel,
-              depth: null,
-              measuredWidth: measured,
-              targetWidth: target,
-              elevationDeg: vessel === 'plate' ? 40 : null,
-              scale: 1,
-              action: 'keep',
-              reason: 'already at the target width',
-            },
-          }
+        ? { bytes, mediaType, fit: { ...fit, scale: 1, action: 'keep', reason: 'already fitted' } }
         : {
             bytes: new Uint8Array([...bytes, 0]),
             mediaType: 'image/png',
-            fit: {
-              vessel,
-              shape: vessel,
-              depth: null,
-              measuredWidth: measured,
-              targetWidth: target,
-              elevationDeg: vessel === 'plate' ? 40 : null,
-              scale,
-              action: 'fit',
-            },
+            fit: { ...fit, scale, action: 'fit' },
           }
     }),
     put,
@@ -116,10 +106,12 @@ describe('HON-1024: meal footprint backfill', () => {
     const images = await refit(meals, d)
 
     expect(d.fetchImage).toHaveBeenCalledTimes(3)
-    expect(images.map((i) => [i.url, i.meals.length, i.vessel, i.fitted?.fit.action])).toEqual([
+    expect(
+      images.map((i) => [i.url, i.meals.length, i.vessel?.vessel, i.fitted?.fit.action]),
+    ).toEqual([
       [shared, 2, 'plate', 'fit'],
-      ['https://blob/c.png', 1, null, undefined],
-      ['https://blob/d.png', 1, null, undefined],
+      ['https://blob/c.png', 1, undefined, undefined],
+      ['https://blob/d.png', 1, undefined, undefined],
     ])
     expect(lines.join('\n')).toContain('Meal c: skipped, could not read')
     expect(lines.join('\n')).toContain('Meal d: left as drawn, the vessel could not be classified')
@@ -137,9 +129,11 @@ describe('HON-1024: meal footprint backfill', () => {
     )
     const summary = renderSummary(images)
     expect(summary).toContain(
-      'plate       2 image(s), width 0.58–0.64 as drawn, camera 40–40°, target 0.58, 1 to refit',
+      'plate    2 image(s), 27–27 cm, width 0.58–0.64 as drawn, camera 40–40°, 1 to refit',
     )
-    expect(summary).toContain('glass       1 image(s), width 0.30–0.30 as drawn, left as drawn')
+    expect(summary).toContain(
+      'glass    1 image(s), 27–27 cm, width 0.30–0.30 as drawn, left as drawn',
+    )
   })
 
   it('writes the sheet and the fitted files, and nothing to the database or Blob, on a dry run', async () => {
@@ -159,7 +153,7 @@ describe('HON-1024: meal footprint backfill', () => {
     const html = readFileSync(join(d.outRoot, dir ?? '', 'index.html'), 'utf8')
     expect(html).toContain('fitted ×0.92 → 0.58')
     expect(html).toContain('src="eggs-benedict-a.png"')
-    expect(html).toContain('unchanged: already at the target width')
+    expect(html).toContain('unchanged: already fitted')
     expect(html).toContain('--t:58.0%')
     expect(lines.join('\n')).toContain('1 of 2 stored image(s) refit.')
     expect(lines.join('\n')).toContain('Dry run')
@@ -245,7 +239,7 @@ describe('HON-1024: meal footprint backfill', () => {
       fileNameFor({
         url: 'u',
         meals: [meal('a', 'u', 'Eggs Benedict (brunch)')],
-        vessel: 'plate',
+        vessel: { vessel: 'plate', diameterCm: 27 },
         fitted: null,
       }),
     ).toBe('eggs-benedict-brunch-a.png')

@@ -2,10 +2,11 @@
  * Meal footprint backfill — operator script (HON-1024)
  *
  * `generateMealImage` now fits every image it keeps: a vision call names the
- * vessel and `src/lib/meal-images/footprint.ts` scales the drawing so every
- * plate is 0.58 of the frame width and every bowl 0.50. Images stored before
- * that, or before a change to the targets, keep the width they were drawn
- * at until this script refits them from the stored file. Nothing is
+ * vessel and its size, and `src/lib/meal-images/footprint.ts` scales the
+ * drawing so a 27 cm plate is 0.58 of the frame width and a smaller vessel
+ * narrower by its diameter. Images stored before that, or before a change
+ * to the scale, keep the width they were drawn at until this script refits
+ * them from the stored file. Nothing is
  * regenerated: the only AI spend is the vessel call, about $0.006 per image.
  *
  *   - Dry run (default) — fetches every ready image, classifies its vessel,
@@ -29,12 +30,8 @@ import { join, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { PrismaClient } from '../src/generated/prisma/client'
-import {
-  FOOTPRINT_CLASSES,
-  FOOTPRINT_TARGETS,
-  type FittedImage,
-} from '../src/lib/meal-images/footprint'
-import type { Vessel } from '../src/lib/meal-images/vessel'
+import type { FittedImage } from '../src/lib/meal-images/footprint'
+import { VESSELS, type VesselEstimate } from '../src/lib/meal-images/vessel'
 import {
   checkBlobCredentials,
   confirmHost,
@@ -57,7 +54,7 @@ Usage:
   --yes=<db host>    Confirm the target database host without the prompt.
 
 Every mode reads meals with imageStatus = ready and an imageUrl, fetches each
-distinct stored image once, and classifies its vessel with REVIEW_MODEL (about
+distinct stored image once, and asks REVIEW_MODEL for its vessel and size (about
 $0.006 per image, needs ANTHROPIC_API_KEY). No image is regenerated.
 
 Procedure: docs/DEPLOYMENT.md § "Meal footprint backfill".`
@@ -117,7 +114,8 @@ export async function selectMeals(db: Db): Promise<RefitMeal[]> {
 export interface RefitImage {
   url: string
   meals: RefitMeal[]
-  vessel: Vessel | null
+  /** The vessel and its size in life, as the vision call estimated them from the food. */
+  vessel: VesselEstimate | null
   /** The fitted image, or null when it could not be read or classified. */
   fitted: FittedImage | null
   error?: string
@@ -135,8 +133,8 @@ export function mediaTypeOf(url: string): string {
 
 export interface RefitDeps {
   fetchImage: (url: string) => Promise<Uint8Array>
-  classify: (image: { bytes: Uint8Array; mediaType: string }) => Promise<Vessel | null>
-  fit: (bytes: Uint8Array, mediaType: string, vessel: Vessel) => Promise<FittedImage>
+  classify: (image: { bytes: Uint8Array; mediaType: string }) => Promise<VesselEstimate | null>
+  fit: (bytes: Uint8Array, mediaType: string, estimate: VesselEstimate) => Promise<FittedImage>
   log: (line: string) => void
   concurrency?: number
 }
@@ -191,11 +189,11 @@ export async function refit(meals: RefitMeal[], deps: RefitDeps): Promise<RefitI
 export const rescaled = (images: RefitImage[]): RefitImage[] =>
   images.filter((i) => i.fitted?.fit.action === 'fit')
 
-/** Per class: how many images, the width range as drawn, the target, and how many move. */
+/** Per vessel: how many images, their sizes, the width range as drawn, and how many move. */
 export function renderSummary(images: RefitImage[]): string {
   const lines: string[] = []
-  for (const shape of FOOTPRINT_CLASSES) {
-    const of = images.filter((i) => i.fitted?.fit.shape === shape)
+  for (const vessel of VESSELS) {
+    const of = images.filter((i) => i.fitted?.fit.vessel === vessel)
     if (of.length === 0) continue
     const widths = of
       .map((i) => i.fitted?.fit.measuredWidth)
@@ -205,7 +203,9 @@ export function renderSummary(images: RefitImage[]): string {
       widths.length > 0
         ? `width ${widths[0]!.toFixed(2)}–${widths[widths.length - 1]!.toFixed(2)} as drawn`
         : 'nothing drawn'
-    const target = FOOTPRINT_TARGETS[shape]
+    const cms = of.map((i) => i.fitted!.fit.diameterCm).sort((a, b) => a - b)
+    const sizes = `${cms[0]}–${cms[cms.length - 1]} cm`
+    const fitted = of.some((i) => i.fitted!.fit.targetWidth !== null)
     const moves = of.filter((i) => i.fitted?.fit.action === 'fit').length
     const elevations = of
       .map((i) => i.fitted?.fit.elevationDeg)
@@ -217,7 +217,7 @@ export function renderSummary(images: RefitImage[]): string {
         ? `, camera ${elevations[0]!.toFixed(0)}–${elevations[elevations.length - 1]!.toFixed(0)}°`
         : ''
     lines.push(
-      `${shape.padEnd(9)} ${String(of.length).padStart(3)} image(s), ${range}${elevation}, ${target === null ? 'left as drawn' : `target ${target.toFixed(2)}, ${moves} to refit`}`,
+      `${vessel.padEnd(6)} ${String(of.length).padStart(3)} image(s), ${sizes}, ${range}${elevation}, ${fitted ? `${moves} to refit` : 'left as drawn'}`,
     )
   }
   const unread = images.filter((i) => !i.fitted).length
@@ -247,8 +247,8 @@ export const fileNameFor = (image: RefitImage): string => {
 
 /**
  * Every image as a before/after pair, each under dashed guides at the
- * vessel's target width and the rim's centre line, so a plate that still
- * misses them is seen at once. The "after" of an image left as drawn is the stored URL again.
+ * width its vessel's size calls for and the rim's centre line, so a plate
+ * that still misses them is seen at once. The "after" of an image left as drawn is the stored URL again.
  */
 export function renderSheet(
   images: RefitImage[],
@@ -272,7 +272,7 @@ export function renderSheet(
         ? `fitted ×${fit.scale.toFixed(2)} → ${fit.targetWidth?.toFixed(2)}`
         : `unchanged: ${fit.reason ?? fit.action}`
       return `<section class="${moved ? 'moved' : ''}">
-<h2>${esc(names)} <small>${esc(fit.shape)}${fit.depth === null ? '' : `, depth ${fit.depth.toFixed(2)}`}</small></h2>
+<h2>${esc(names)} <small>${esc(fit.vessel)}, ${fit.diameterCm} cm</small></h2>
 <div class="pair">${card(i.url, fit.targetWidth, before)}${card(moved ? afterSrc(i) : i.url, fit.targetWidth, after)}</div>
 </section>`
     })
@@ -296,7 +296,7 @@ figcaption{font-size:12px;color:#555;padding:4px 0 0}
 pre{background:#fff;border:1px solid #ddd;padding:12px;display:inline-block}
 </style></head><body>
 <h1>Meal footprints — as drawn and fitted</h1>
-<p>Run ${esc(meta.startedAt)}. ${images.length} stored image(s); ${rescaled(images).length} refit; ${failed.length} could not be read or classified. Dashed guides mark the target width and the rim's centre line.</p>
+<p>Run ${esc(meta.startedAt)}. ${images.length} stored image(s); ${rescaled(images).length} refit; ${failed.length} could not be read or classified. Dashed guides mark the width each vessel's size calls for, and the rim's centre line.</p>
 <pre>${esc(meta.summary)}</pre>
 ${failed.length > 0 ? `<p>Not fitted: ${failed.map((i) => esc(i.meals.map((m) => m.name).join(', '))).join('; ')}</p>` : ''}
 <div class="grid">

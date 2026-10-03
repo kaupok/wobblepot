@@ -1,20 +1,23 @@
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
 import {
-  bowlDepth,
   DEFAULT_FOOTPRINT_OPTIONS,
   elevationDeg,
   fitFootprint,
-  footprintClass,
   footprintOfPixels,
   measureFootprint,
   planFit,
   rimWidth,
+  targetWidth,
   type Footprint,
 } from './footprint'
 
 const W = 300
 const H = 200
+
+const dinnerPlate = { vessel: 'plate', diameterCm: 27 } as const
+const sidePlate = { vessel: 'plate', diameterCm: 20 } as const
+const cerealBowl = { vessel: 'bowl', diameterCm: 15 } as const
 
 type Rect = { left: number; top: number; width: number; height: number }
 
@@ -147,36 +150,45 @@ describe('HON-1024: footprint measurement', () => {
   })
 })
 
-describe('HON-1024: bowl depth', () => {
-  it('tells a wide bowl from a deep one by what shows below the rim', () => {
-    expect(bowlDepth(fp())).toBeCloseTo(49 / 90)
-    expect(footprintClass(fp(), 'bowl')).toBe('wide-bowl')
-    expect(footprintClass(fp({ bottom: 180 }), 'bowl')).toBe('bowl')
-    // Only a bowl is split; a plate's front edge is not a depth.
-    expect(footprintClass(fp(), 'plate')).toBe('plate')
-    expect(footprintClass(null, 'bowl')).toBe('bowl')
-    expect(DEFAULT_FOOTPRINT_OPTIONS.wideBowlDepth).toBe(0.8)
+describe('HON-1024: target width', () => {
+  it('gives a 27 cm plate 0.58 of the frame and a smaller vessel less, by its diameter to the power 0.7', () => {
+    expect(targetWidth(dinnerPlate)).toBeCloseTo(0.58)
+    expect(targetWidth(sidePlate)).toBeCloseTo(0.58 * (20 / 27) ** 0.7)
+    expect(targetWidth(sidePlate)).toBeCloseTo(0.47, 2)
+    expect(targetWidth(cerealBowl)).toBeCloseTo(0.38, 2)
+    expect(targetWidth({ vessel: 'bowl', diameterCm: 22 })).toBeCloseTo(0.5, 2)
+  })
+
+  it('keeps the width within bounds and leaves a glass, board or anything else as drawn', () => {
+    expect(targetWidth({ vessel: 'plate', diameterCm: 40 })).toBe(0.62)
+    expect(targetWidth({ vessel: 'bowl', diameterCm: 10 })).toBe(0.33)
+    for (const vessel of ['glass', 'board', 'other'] as const) {
+      expect(targetWidth({ vessel, diameterCm: 20 })).toBeNull()
+    }
   })
 })
 
 describe('HON-1024: fit plan', () => {
-  it('scales a plate to 0.58, a wide bowl to 0.50 and a deep bowl to 0.42 of the frame width', () => {
-    expect(planFit(fp(), 'plate')).toEqual({ action: 'fit', scale: 0.58 / 0.6 })
-    // 49 px below the rim over a 90 px half-width: 0.54, a wide bowl.
-    expect(planFit(fp(), 'bowl')).toEqual({ action: 'fit', scale: 0.5 / 0.6 })
-    // 80 px below the rim: 0.89, a deep bowl.
-    expect(planFit(fp({ bottom: 180 }), 'bowl')).toEqual({ action: 'fit', scale: 0.42 / 0.6 })
+  it('scales the rim to the width its size calls for', () => {
+    expect(planFit(fp(), dinnerPlate)).toEqual({ action: 'fit', scale: 0.58 / 0.6 })
+    expect(planFit(fp(), { vessel: 'bowl', diameterCm: 22 })).toEqual({
+      action: 'fit',
+      scale: targetWidth({ vessel: 'bowl', diameterCm: 22 })! / 0.6,
+    })
   })
 
   it('leaves a glass, a board and an unknown vessel as drawn', () => {
     for (const vessel of ['glass', 'board', 'other'] as const) {
-      expect(planFit(fp(), vessel)).toEqual({ action: 'keep', reason: 'no target for the vessel' })
+      expect(planFit(fp(), { vessel, diameterCm: 20 })).toEqual({
+        action: 'keep',
+        reason: 'no target for the vessel',
+      })
     }
   })
 
   it('keeps an image whose rim is within 1% of the target width and on the centre line', () => {
     // 174 px = 0.58 exactly; 175 px is 0.6% off.
-    expect(planFit(fp({ left: 63, right: 237, rimLeft: 63, rimRight: 237 }), 'plate')).toEqual({
+    expect(planFit(fp({ left: 63, right: 237, rimLeft: 63, rimRight: 237 }), dinnerPlate)).toEqual({
       action: 'keep',
       reason: 'already fitted',
     })
@@ -185,38 +197,38 @@ describe('HON-1024: fit plan', () => {
   it('moves a rim at the right width that sits off the centre line', () => {
     // Right width, but the rim is at 45% of the frame height.
     const off = fp({ left: 63, right: 237, rimLeft: 63, rimRight: 237, rimRow: 90, top: 40 })
-    expect(planFit(off, 'plate')).toEqual({ action: 'fit', scale: 0.58 / 0.5833333333333334 })
+    expect(planFit(off, dinnerPlate)).toEqual({ action: 'fit', scale: 0.58 / 0.5833333333333334 })
   })
 
   it('skips a blank frame, a cropped vessel and a scale out of range', () => {
-    expect(planFit(null, 'plate')).toEqual({ action: 'skip', reason: 'nothing drawn' })
-    expect(planFit(fp({ left: 0 }), 'plate')).toEqual({
+    expect(planFit(null, dinnerPlate)).toEqual({ action: 'skip', reason: 'nothing drawn' })
+    expect(planFit(fp({ left: 0 }), dinnerPlate)).toEqual({
       action: 'skip',
       reason: 'the footprint touches the frame edge',
     })
-    expect(planFit(fp({ bottom: H - 1 }), 'plate')).toEqual({
+    expect(planFit(fp({ bottom: H - 1 }), dinnerPlate)).toEqual({
       action: 'skip',
       reason: 'the footprint touches the frame edge',
     })
     // A 30 px wide rim would need ×5.8.
-    expect(planFit(fp({ left: 100, right: 129, rimLeft: 100, rimRight: 129 }), 'plate')).toEqual({
-      action: 'skip',
-      reason: 'scale out of range',
-    })
+    expect(
+      planFit(fp({ left: 100, right: 129, rimLeft: 100, rimRight: 129 }), dinnerPlate),
+    ).toEqual({ action: 'skip', reason: 'scale out of range' })
     expect(DEFAULT_FOOTPRINT_OPTIONS.maxScale).toBeLessThan(5.8)
   })
 })
 
 describe('HON-1024: fitFootprint', () => {
-  it('shrinks a wide plate to the target width, its rim on the centre line, on a white frame of the same size', async () => {
+  it('shrinks a wide plate to its width, its rim on the centre line, on a white frame of the same size', async () => {
     // 210 px = 0.70, off-centre to the left and the top.
     const bytes = await frameWith({ left: 20, top: 30, width: 210, height: 100 })
 
-    const fitted = await fitFootprint(bytes, 'image/png', 'plate')
+    const fitted = await fitFootprint(bytes, 'image/png', dinnerPlate)
 
     expect(fitted.mediaType).toBe('image/png')
     expect(fitted.fit).toMatchObject({
       vessel: 'plate',
+      diameterCm: 27,
       measuredWidth: 0.7,
       targetWidth: 0.58,
       action: 'fit',
@@ -236,6 +248,17 @@ describe('HON-1024: fitFootprint', () => {
     expect([data[0], data[1], data[2]]).toEqual([255, 255, 255])
   })
 
+  it('draws a side plate narrower than a dinner plate from the same drawing', async () => {
+    // 150 px = 0.50: ×1.16 for the dinner plate, ×0.94 for the side plate, both in range.
+    const bytes = await frameWith({ left: 50, top: 30, width: 150, height: 100 })
+
+    const dinner = await fitFootprint(bytes, 'image/png', dinnerPlate)
+    const side = await fitFootprint(bytes, 'image/png', sidePlate)
+
+    expect(rimWidth((await measureFootprint(dinner.bytes))!)).toBeCloseTo(0.58, 2)
+    expect(rimWidth((await measureFootprint(side.bytes))!)).toBeCloseTo(0.47, 2)
+  })
+
   it('anchors a tall dish by its rim, so the food rises above the centre line', async () => {
     // A stack 100 px tall on a 20 px plate: as drawn, the box is centred and the plate sits low.
     const bytes = await frameWith(
@@ -243,7 +266,7 @@ describe('HON-1024: fitFootprint', () => {
       { left: 60, top: 140, width: 180, height: 20 },
     )
 
-    const fitted = await fitFootprint(bytes, 'image/png', 'plate')
+    const fitted = await fitFootprint(bytes, 'image/png', dinnerPlate)
 
     const after = await measureFootprint(fitted.bytes)
     // Within 1% of the frame: a 20 px rim anchors on its middle row, give or take a pixel.
@@ -252,18 +275,18 @@ describe('HON-1024: fitFootprint', () => {
   })
 
   it('enlarges a narrow bowl, cutting what overhangs the frame', async () => {
-    // 105 px = 0.35 wide, so ×1.2 to reach 0.42; its 180 px height becomes 216 > 200.
+    // 105 px = 0.35 wide; a 22 cm bowl is 0.50, so ×1.43 would be out of range — a 17 cm one is 0.42, ×1.2.
     const bytes = await frameWith({ left: 97, top: 10, width: 105, height: 180 })
+    const bowl = { vessel: 'bowl', diameterCm: 17 } as const
 
-    const fitted = await fitFootprint(bytes, 'image/png', 'bowl')
+    const fitted = await fitFootprint(bytes, 'image/png', bowl)
 
-    expect(fitted.fit.scale).toBeCloseTo(0.42 / 0.35)
-    expect(fitted.fit).toMatchObject({ shape: 'bowl', elevationDeg: null })
-    expect(fitted.fit.depth).toBeGreaterThan(1)
+    expect(fitted.fit.scale).toBeCloseTo(targetWidth(bowl)! / 0.35)
+    expect(fitted.fit).toMatchObject({ vessel: 'bowl', diameterCm: 17, elevationDeg: null })
     const meta = await sharp(fitted.bytes).metadata()
     expect([meta.width, meta.height]).toEqual([W, H])
     const after = await measureFootprint(fitted.bytes)
-    expect(rimWidth(after!)).toBeCloseTo(0.42, 2)
+    expect(rimWidth(after!)).toBeCloseTo(targetWidth(bowl)!, 2)
     // Taller than the frame now, so it runs edge to edge vertically.
     expect(after).toMatchObject({ top: 0, bottom: H - 1 })
   })
@@ -271,12 +294,11 @@ describe('HON-1024: fitFootprint', () => {
   it('returns the bytes untouched when the image is left as drawn', async () => {
     const bytes = await frameWith({ left: 60, top: 50, width: 180, height: 100 })
 
-    const glass = await fitFootprint(bytes, 'image/png', 'glass')
+    const glass = await fitFootprint(bytes, 'image/png', { vessel: 'glass', diameterCm: 8 })
     expect(glass.bytes).toBe(bytes)
     expect(glass.fit).toEqual({
       vessel: 'glass',
-      shape: 'glass',
-      depth: null,
+      diameterCm: 8,
       measuredWidth: 0.6,
       targetWidth: null,
       elevationDeg: null,
@@ -288,7 +310,7 @@ describe('HON-1024: fitFootprint', () => {
     const atEdge = await fitFootprint(
       await frameWith({ left: 0, top: 50, width: 180, height: 100 }),
       'image/jpeg',
-      'plate',
+      dinnerPlate,
     )
     expect(atEdge.mediaType).toBe('image/jpeg')
     expect(atEdge.fit).toMatchObject({
@@ -299,8 +321,8 @@ describe('HON-1024: fitFootprint', () => {
 
   it('is idempotent: a fitted image is kept on a second pass', async () => {
     const bytes = await frameWith({ left: 20, top: 30, width: 210, height: 100 })
-    const once = await fitFootprint(bytes, 'image/png', 'plate')
-    const twice = await fitFootprint(once.bytes, 'image/png', 'plate')
+    const once = await fitFootprint(bytes, 'image/png', dinnerPlate)
+    const twice = await fitFootprint(once.bytes, 'image/png', dinnerPlate)
     expect(twice.fit).toMatchObject({ action: 'keep', reason: 'already fitted' })
     expect(twice.bytes).toBe(once.bytes)
   })

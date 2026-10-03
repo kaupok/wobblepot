@@ -1,22 +1,28 @@
 import 'server-only'
 import sharp from 'sharp'
-import type { Vessel } from './vessel'
+import type { Vessel, VesselEstimate } from './vessel'
 
 /**
- * One footprint per vessel (HON-1024).
+ * Dishware to one scale (HON-1024).
  *
  * The V4 prompt asks for a plate "about half the width of the frame", and the
  * model treats that as a hint: over the first 45 images a plate ran from 0.50
- * to 0.68 of the frame width, a bowl from 0.46 to 0.55, so two plates side by
- * side looked different sizes. The surface is pure white by design (HON-744),
- * so the image can be rescaled about the vessel's rim and padded with white
- * after generation, with no seam. A bowl stays narrower than a plate, as in
- * life: the same vessel gets the same width, not every vessel.
+ * to 0.68 of the frame width, so two plates side by side looked different
+ * sizes. Scaling every rim to one width fixed that and broke something
+ * else: the side plate under a bagel came out as wide as the dinner plate
+ * under a shakshuka, and the bagel with it. So the rim is scaled to the
+ * vessel's real size, estimated by the vision call in `vessel.ts` from the
+ * food on it: a 27 cm dinner plate is 0.58 of the frame, and a smaller
+ * vessel narrower by its diameter to the power 0.7. True scale (power 1)
+ * made a 15 cm cereal bowl 0.32 of the frame, too small on a card; power
+ * 0.7 keeps the plate, side plate and bowl in order at 0.58, 0.50 and 0.40.
  *
- * The rim is the anchor, not the drawing's bounding box: the widest row of
- * ink is the rim's horizontal diameter, and it is placed on the frame's
- * centre line, so a tall stack of pancakes rises from the same table level
- * as a flat omelette instead of pushing its plate down the frame.
+ * The surface is pure white by design (HON-744), so the image can be
+ * rescaled about the vessel's rim and padded with white after generation,
+ * with no seam. The rim is the anchor, not the drawing's bounding box: the
+ * widest row of ink is the rim's horizontal diameter, and it is placed on
+ * the frame's centre line, so a tall stack of pancakes rises from the same
+ * table level as a flat omelette.
  *
  * The camera's elevation is measured from the rim's front half-ellipse and
  * reported, not corrected: the model picks it per dish (a sandwich is drawn
@@ -27,22 +33,17 @@ import type { Vessel } from './vessel'
  * backfill all produce the same result from the same image.
  */
 
-/**
- * What a target is set for: the vision classes, plus the wide shallow bowl
- * (bibimbap, a grain bowl) that `footprintClass` tells from a deep one by how
- * much of it shows below the rim. Dishware in life: a wide bowl is nearly a
- * pasta plate, a deep bowl is a cereal bowl.
- */
-export type FootprintClass = Vessel | 'wide-bowl'
-
-export const FOOTPRINT_CLASSES: readonly FootprintClass[] = [
-  'plate',
-  'wide-bowl',
-  'bowl',
-  'glass',
-  'board',
-  'other',
-]
+export interface FootprintScale {
+  /** The vessel every other is sized against: a dinner plate. */
+  referenceCm: number
+  /** Its rim width as a fraction of the frame width. */
+  referenceWidth: number
+  /** How fast the width falls with the diameter: 1 is true scale, 0 is one size. */
+  exponent: number
+  /** Bounds for the width, whatever the estimate. */
+  minWidth: number
+  maxWidth: number
+}
 
 export interface FootprintOptions {
   /**
@@ -57,15 +58,9 @@ export interface FootprintOptions {
    * of the frame's shorter side, so a stray speck never widens the footprint.
    */
   minRun: number
-  /** Width of the rim per class, as a fraction of the frame width; null leaves the image as drawn. */
-  targets: Record<FootprintClass, number | null>
-  /**
-   * A bowl that shows less than this of its half-width below the rim is a
-   * wide bowl. The four wide bowls measured 0.77–0.78, the seven deep ones
-   * 0.83–0.96; the ratio does not change with scale, so the class is stable
-   * across passes.
-   */
-  wideBowlDepth: number
+  scale: FootprintScale
+  /** The vessels that are fitted; any other is left as drawn. */
+  fitted: readonly Vessel[]
   /** Where the rim's horizontal diameter sits, as a fraction of the frame height. */
   anchorY: number
   /**
@@ -82,34 +77,41 @@ export interface FootprintOptions {
 }
 
 /**
- * Plate 0.58: the median of the 36 plates (0.59) measured on 2026-10-03,
- * rounded towards the prompt's "about half". Bowl 0.42: the bowls' own
- * median (0.51) made a yogurt bowl read as a large portion beside a plate; at
- * 0.42 it reads as a bowl, and 0.46 still looked big. Wide bowl 0.50: a
- * bibimbap or grain bowl is as wide as a pasta plate in life, and at 0.50 it
- * sits between the deep bowl and the plate on a contact sheet. Changing a
- * target changes every stored image, through the backfill in
- * docs/DEPLOYMENT.md § "Meal footprint backfill".
+ * 0.58 for a 27 cm plate: the median of the 36 plates (0.59) measured on
+ * 2026-10-03, rounded towards the prompt's "about half". The bounds cover
+ * a 12 cm ramekin and a 32 cm pizza plate. Changing any of this changes
+ * every stored image, through the backfill in docs/DEPLOYMENT.md § "Meal
+ * footprint backfill".
  */
-export const FOOTPRINT_TARGETS: Record<FootprintClass, number | null> = {
-  plate: 0.58,
-  'wide-bowl': 0.5,
-  bowl: 0.42,
-  glass: null,
-  board: null,
-  other: null,
+export const FOOTPRINT_SCALE: FootprintScale = {
+  referenceCm: 27,
+  referenceWidth: 0.58,
+  exponent: 0.7,
+  minWidth: 0.33,
+  maxWidth: 0.62,
 }
 
 export const DEFAULT_FOOTPRINT_OPTIONS: FootprintOptions = {
   inkThreshold: 200,
   minRun: 0.005,
-  targets: FOOTPRINT_TARGETS,
-  wideBowlDepth: 0.8,
+  scale: FOOTPRINT_SCALE,
+  fitted: ['plate', 'bowl'],
   anchorY: 0.5,
   minScale: 0.7,
   maxScale: 1.2,
   tolerance: 0.01,
   positionTolerance: 0.005,
+}
+
+/** The rim width a vessel of this size gets, as a fraction of the frame width; null for a vessel left as drawn. */
+export function targetWidth(
+  estimate: VesselEstimate,
+  options: Pick<FootprintOptions, 'scale' | 'fitted'> = DEFAULT_FOOTPRINT_OPTIONS,
+): number | null {
+  if (!options.fitted.includes(estimate.vessel)) return null
+  const { referenceCm, referenceWidth, exponent, minWidth, maxWidth } = options.scale
+  const width = referenceWidth * (estimate.diameterCm / referenceCm) ** exponent
+  return Math.min(maxWidth, Math.max(minWidth, width))
 }
 
 /** The vessel and its food in pixels, edges inclusive. */
@@ -145,24 +147,6 @@ export function elevationDeg(fp: Footprint): number {
   const halfHeight = fp.bottom - fp.rimRow
   if (halfWidth <= 0) return 0
   return (Math.asin(Math.min(1, Math.max(0, halfHeight / halfWidth))) * 180) / Math.PI
-}
-
-/**
- * How much of the vessel shows below its rim, as a fraction of the rim's
- * half-width: a plate's front edge alone, a bowl's front edge plus its wall.
- */
-export function bowlDepth(fp: Footprint): number {
-  const halfWidth = (fp.rimRight - fp.rimLeft + 1) / 2
-  return halfWidth <= 0 ? 0 : (fp.bottom - fp.rimRow) / halfWidth
-}
-
-/** The class a target is read for: the vessel, or a wide bowl by its depth. */
-export function footprintClass(
-  fp: Footprint | null,
-  vessel: Vessel,
-  options: Pick<FootprintOptions, 'wideBowlDepth'> = DEFAULT_FOOTPRINT_OPTIONS,
-): FootprintClass {
-  return vessel === 'bowl' && fp && bowlDepth(fp) < options.wideBowlDepth ? 'wide-bowl' : vessel
 }
 
 /**
@@ -259,13 +243,13 @@ function rimOffset(fp: Footprint, scale: number, options: FootprintOptions) {
   return { dx, dy }
 }
 
-/** What to do with an image, from its footprint and vessel. Pure, so it is unit-tested on numbers. */
+/** What to do with an image, from its footprint and the vessel estimate. Pure, so it is unit-tested on numbers. */
 export function planFit(
   footprint: Footprint | null,
-  vessel: Vessel,
+  estimate: VesselEstimate,
   options: FootprintOptions = DEFAULT_FOOTPRINT_OPTIONS,
 ): FitDecision {
-  const target = options.targets[footprintClass(footprint, vessel, options)]
+  const target = targetWidth(estimate, options)
   if (target === null) return { action: 'keep', reason: 'no target for the vessel' }
   if (!footprint) return { action: 'skip', reason: 'nothing drawn' }
   if (
@@ -295,10 +279,8 @@ export function planFit(
 /** What `fitFootprint` did to an image, stored on the batch manifest and logged by the route. */
 export interface FootprintFit {
   vessel: Vessel
-  /** The class the target was read for: the vessel, or `wide-bowl` for a shallow bowl. */
-  shape: FootprintClass
-  /** How much of a bowl shows below its rim, over its half-width; null for any other vessel. */
-  depth: number | null
+  /** The rim's diameter in life, as the vision call estimated it from the food. */
+  diameterCm: number
   /** The rim as drawn, as a fraction of the frame width; null when nothing was drawn. */
   measuredWidth: number | null
   targetWidth: number | null
@@ -318,23 +300,23 @@ export interface FittedImage {
 }
 
 /**
- * Scale the image about its rim so the rim is the vessel's target width, and
- * place the rim's centre on the frame's centre line, on a white canvas of
- * the original size. The result is a PNG whatever came in. An image that is
- * left as drawn comes back as it was, bytes and media type both.
+ * Scale the image about its rim so the rim is the width its vessel's size
+ * calls for, and place the rim's centre on the frame's centre line, on a
+ * white canvas of the original size. The result is a PNG whatever came in.
+ * An image that is left as drawn comes back as it was, bytes and media type
+ * both.
  */
 export async function fitFootprint(
   bytes: Uint8Array,
   mediaType: string,
-  vessel: Vessel,
+  estimate: VesselEstimate,
   options: FootprintOptions = DEFAULT_FOOTPRINT_OPTIONS,
 ): Promise<FittedImage> {
   const footprint = await measureFootprint(bytes, options)
-  const decision = planFit(footprint, vessel, options)
+  const decision = planFit(footprint, estimate, options)
+  const { vessel, diameterCm } = estimate
   const measuredWidth = footprint ? rimWidth(footprint) : null
-  const shape = footprintClass(footprint, vessel, options)
-  const depth = footprint && vessel === 'bowl' ? Math.round(bowlDepth(footprint) * 100) / 100 : null
-  const targetWidth = options.targets[shape]
+  const target = targetWidth(estimate, options)
   const elevation =
     footprint && vessel === 'plate' ? Math.round(elevationDeg(footprint) * 10) / 10 : null
 
@@ -344,10 +326,9 @@ export async function fitFootprint(
       mediaType,
       fit: {
         vessel,
-        shape,
-        depth,
+        diameterCm,
         measuredWidth,
-        targetWidth,
+        targetWidth: target,
         elevationDeg: elevation,
         scale: 1,
         action: decision.action,
@@ -388,10 +369,9 @@ export async function fitFootprint(
     mediaType: 'image/png',
     fit: {
       vessel,
-      shape,
-      depth,
+      diameterCm,
       measuredWidth,
-      targetWidth,
+      targetWidth: target,
       elevationDeg: elevation,
       scale,
       action: 'fit',

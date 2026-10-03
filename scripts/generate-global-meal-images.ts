@@ -40,7 +40,7 @@ import type { Prisma, PrismaClient } from '../src/generated/prisma/client'
 import { MealType } from '../src/generated/prisma/enums'
 import { extractHue } from '../src/lib/meal-images/colour'
 import type { FootprintFit } from '../src/lib/meal-images/footprint'
-import type { Vessel } from '../src/lib/meal-images/vessel'
+import type { VesselEstimate } from '../src/lib/meal-images/vessel'
 import type { GeneratedMealImage, GenerateMealImageOptions } from '../src/lib/meal-images/generate'
 import type { JudgeVerdict } from '../src/lib/meal-images/judge'
 import {
@@ -342,8 +342,8 @@ export interface ManifestEntry {
   verdict?: JudgeVerdict | null
   /** The card hue the route would store (HON-744); null when the image carries no colour. */
   hue?: number | null
-  /** The vessel the image was classified as (HON-1024); null when the call failed. */
-  vessel?: Vessel | null
+  /** The vessel the image was classified as, and its size (HON-1024); null when the call failed. */
+  vessel?: VesselEstimate | null
   /** What `fitFootprint` did to the stored file (HON-1024); null when it was not run. */
   fit?: FootprintFit | null
   error?: string

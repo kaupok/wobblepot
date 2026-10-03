@@ -29,21 +29,26 @@ vi.mock('@ai-sdk/anthropic', () => ({
 // The fit is sharp over real pixels, tested in footprint.test.ts; here it is a
 // stub that returns the bytes as they are unless a test says otherwise.
 vi.mock('./footprint', () => ({
-  fitFootprint: vi.fn(async (bytes: Uint8Array, mediaType: string, vessel: Vessel) => ({
-    bytes,
-    mediaType,
-    fit: {
-      vessel,
-      shape: vessel,
-      depth: null,
-      measuredWidth: 0.58,
-      targetWidth: 0.58,
-      elevationDeg: 40,
-      scale: 1,
-      action: 'keep',
-      reason: 'already at the target width',
-    },
-  })),
+  fitFootprint: vi.fn(
+    async (
+      bytes: Uint8Array,
+      mediaType: string,
+      estimate: { vessel: Vessel; diameterCm: number },
+    ) => ({
+      bytes,
+      mediaType,
+      fit: {
+        vessel: estimate.vessel,
+        diameterCm: estimate.diameterCm,
+        measuredWidth: 0.58,
+        targetWidth: 0.58,
+        elevationDeg: 40,
+        scale: 1,
+        action: 'keep',
+        reason: 'already fitted',
+      },
+    }),
+  ),
 }))
 
 import { APICallError, generateImage, generateObject, RetryError } from 'ai'
@@ -95,9 +100,11 @@ const judgeResult = (object: JudgeV2Findings) =>
     },
   }) as never
 
-const vesselResult = (vessel: string = 'plate') =>
+const estimateOf = (vessel: string) => ({ vessel, diameterCm: vessel === 'bowl' ? 16 : 27 })
+
+const vesselResult = (vessel: string = 'plate', diameterCm = estimateOf(vessel).diameterCm) =>
   ({
-    object: { vessel, reason: 'a shallow dish with a wide rim' },
+    object: { vessel, diameterCm, reason: 'a shallow dish with a wide rim' },
     usage: {
       inputTokens: 2_500,
       outputTokens: 40,
@@ -168,7 +175,7 @@ describe('generateMealImage', () => {
       attempts: 1,
       totalUsd: IMAGE_USD + JUDGE_USD + VESSEL_USD,
       verdict: expect.objectContaining({ pass: true, strictPass: true }),
-      vessel: 'plate',
+      vessel: { vessel: 'plate', diameterCm: 27 },
       fit: expect.objectContaining({ vessel: 'plate', action: 'keep' }),
     })
   })
@@ -388,7 +395,7 @@ describe('generateMealImage', () => {
 
     expect(judgeCalls()).toBe(0)
     expect(vesselCalls()).toBe(1)
-    expect(result).toMatchObject({ attempts: 1, verdict: null, vessel: 'plate' })
+    expect(result).toMatchObject({ attempts: 1, verdict: null, vessel: estimateOf('plate') })
     expect(result.totalUsd).toBeCloseTo(IMAGE_USD + VESSEL_USD)
   })
 
@@ -401,22 +408,21 @@ describe('generateMealImage', () => {
         mediaType: 'image/png',
         fit: {
           vessel: 'bowl',
-          shape: 'bowl',
-          depth: 0.9,
+          diameterCm: 16,
           measuredWidth: 0.46,
-          targetWidth: 0.42,
+          targetWidth: 0.4,
           elevationDeg: null,
-          scale: 0.42 / 0.46,
+          scale: 0.4 / 0.46,
           action: 'fit',
         },
       })
 
       const result = await generateMealImage(meal, { mealId: 'meal-1' })
 
-      expect(mockFit).toHaveBeenCalledWith(new Uint8Array([1, 2]), 'image/png', 'bowl')
+      expect(mockFit).toHaveBeenCalledWith(new Uint8Array([1, 2]), 'image/png', estimateOf('bowl'))
       expect(result.bytes).toEqual(new Uint8Array([9, 9, 9]))
-      expect(result.vessel).toBe('bowl')
-      expect(result.fit).toMatchObject({ action: 'fit', targetWidth: 0.42 })
+      expect(result.vessel).toEqual({ vessel: 'bowl', diameterCm: 16 })
+      expect(result.fit).toMatchObject({ action: 'fit', targetWidth: 0.4 })
       const fitLog = vi.mocked(console.info).mock.calls.find(([l]) => l === '[meal-image] fit')
       expect(JSON.parse(fitLog![1] as string)).toMatchObject({ mealId: 'meal-1', vessel: 'bowl' })
     })
@@ -431,7 +437,7 @@ describe('generateMealImage', () => {
 
       expect(vesselCalls()).toBe(2)
       expect(mockFit).toHaveBeenCalledTimes(1)
-      expect(mockFit).toHaveBeenCalledWith(new Uint8Array([2]), 'image/png', 'plate')
+      expect(mockFit).toHaveBeenCalledWith(new Uint8Array([2]), 'image/png', estimateOf('plate'))
     })
 
     it('keeps the image as drawn when the vessel call fails', async () => {
@@ -450,7 +456,7 @@ describe('generateMealImage', () => {
       expect(result.totalUsd).toBeCloseTo(IMAGE_USD + JUDGE_USD)
     })
 
-    it('keeps the image as drawn when the model names no known vessel', async () => {
+    it('keeps the image as drawn when the model names no known vessel or no dishware size', async () => {
       mockGenerateImage.mockResolvedValue(imageResult([5]))
       answers([clean], 'tureen')
 
@@ -459,6 +465,17 @@ describe('generateMealImage', () => {
       expect(mockFit).not.toHaveBeenCalled()
       expect(result).toMatchObject({ vessel: null, fit: null })
       expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('nothing known'))
+
+      vi.clearAllMocks()
+      mockGenerateImage.mockResolvedValue(imageResult([5]))
+      mockGenerateObject.mockImplementation(async (opts) =>
+        (opts as ObjectCall).schema === vesselSchema
+          ? vesselResult('plate', 300)
+          : judgeResult(clean),
+      )
+
+      expect(await generateMealImage(meal)).toMatchObject({ vessel: null, fit: null })
+      expect(mockFit).not.toHaveBeenCalled()
     })
 
     it('keeps the image as drawn when the fit itself fails', async () => {
@@ -468,7 +485,11 @@ describe('generateMealImage', () => {
 
       const result = await generateMealImage(meal)
 
-      expect(result).toMatchObject({ bytes: new Uint8Array([6]), vessel: 'plate', fit: null })
+      expect(result).toMatchObject({
+        bytes: new Uint8Array([6]),
+        vessel: estimateOf('plate'),
+        fit: null,
+      })
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringContaining('fit failed'),
         expect.any(Error),
@@ -498,7 +519,7 @@ describe('generateMealImage', () => {
         { onUsage },
       )
 
-      expect(vessel).toBe('glass')
+      expect(vessel).toEqual({ vessel: 'glass', diameterCm: 27 })
       expect(mockGenerateObject).toHaveBeenCalledWith(
         expect.objectContaining({
           model: { languageModelId: 'claude-sonnet-5-5' },

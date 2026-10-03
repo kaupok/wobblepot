@@ -10,7 +10,7 @@ import { serverEnv } from '@/lib/env'
 import { fitFootprint, type FootprintFit } from './footprint'
 import { applyJudgeFilters, buildJudgeV2Prompt, judgeV2Schema, type JudgeVerdict } from './judge'
 import { buildMealImagePrompt, type MealImageMeal } from './prompt'
-import { asVessel, VESSEL_PROMPT, vesselSchema, type Vessel } from './vessel'
+import { asVesselEstimate, VESSEL_PROMPT, vesselSchema, type VesselEstimate } from './vessel'
 
 /**
  * Generate a meal illustration with the HON-726 recipe: one image, one vision
@@ -148,8 +148,8 @@ export interface GeneratedMealImage {
   totalUsd: number
   /** The judge's verdict on the returned image; `null` when not judged or the judge call failed. */
   verdict: JudgeVerdict | null
-  /** The vessel the returned image serves its food in; `null` when not classified or the call failed. */
-  vessel: Vessel | null
+  /** The vessel the returned image serves its food in and its size; `null` when not classified or the call failed. */
+  vessel: VesselEstimate | null
   /** What `fitFootprint` did to the returned image; `null` when it was not run or failed. */
   fit: FootprintFit | null
 }
@@ -162,15 +162,16 @@ export interface ClassifyVesselOptions {
 }
 
 /**
- * Which vessel the image serves its food in, by one short `REVIEW_MODEL`
- * vision call (HON-1024). `null` when the call failed, timed out or named
- * nothing known: the image is kept as drawn either way, so this never throws.
+ * Which vessel the image serves its food in and how wide it is in life, by
+ * one short `REVIEW_MODEL` vision call (HON-1024). `null` when the call
+ * failed, timed out, named nothing known or gave a size no dishware comes
+ * in: the image is kept as drawn either way, so this never throws.
  * Shared with the backfill (`scripts/refit-meal-images.ts`).
  */
 export async function classifyVessel(
   image: { bytes: Uint8Array; mediaType: string },
   options: ClassifyVesselOptions = {},
-): Promise<Vessel | null> {
+): Promise<VesselEstimate | null> {
   const { abortSignal, mealId } = options
   const report = async (usage: MealImageUsage) => {
     await options.onUsage?.(usage)
@@ -197,7 +198,7 @@ export async function classifyVessel(
       }),
     )
     await report(toAiUsageStats(REVIEW_MODEL, result.usage, Date.now() - startedAt))
-    const vessel = asVessel(result.object?.vessel)
+    const vessel = asVesselEstimate(result.object)
     if (!vessel) {
       // eslint-disable-next-line no-console
       console.warn(
@@ -372,7 +373,10 @@ export async function generateMealImage(
   }
 
   /** The vessel, or null without a fit: never a throw, as with the judge. */
-  const classify = (image: { bytes: Uint8Array; mediaType: string }): Promise<Vessel | null> =>
+  const classify = (image: {
+    bytes: Uint8Array
+    mediaType: string
+  }): Promise<VesselEstimate | null> =>
     options.fit === false
       ? Promise.resolve(null)
       : classifyVessel(image, { abortSignal, onUsage: report, mealId })
@@ -384,7 +388,7 @@ export async function generateMealImage(
    */
   const fitted = async (
     image: { bytes: Uint8Array; mediaType: string },
-    vessel: Vessel | null,
+    vessel: VesselEstimate | null,
   ): Promise<Pick<GeneratedMealImage, 'bytes' | 'mediaType' | 'vessel' | 'fit'>> => {
     if (!vessel) return { ...image, vessel, fit: null }
     try {
