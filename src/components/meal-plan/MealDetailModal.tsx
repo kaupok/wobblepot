@@ -26,6 +26,7 @@ import { useWakeLock } from '@/hooks/use-wake-lock'
 import { cn } from '@/lib/utils'
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
+import { MyRecipeIcon } from './MyRecipeIcon'
 import { mealHueStyle, mealTintHue } from './MealImageCard'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import type { MealData, MealStatus, PantryIngredient, StructuredTips } from './types'
@@ -481,12 +482,21 @@ export function MealDetailModal({
               />
             ) : null
           }
+          // "My recipe" follows the name, as on the cards (HON-1023), so the
+          // dialog's title is the span inside the heading: the icon's label
+          // stays out of the dialog's accessible name.
           title={
-            <DialogTitle asChild>
-              <Heading ref={setTitleEl} variant="display">
-                {meal.name}
-              </Heading>
-            </DialogTitle>
+            <Heading ref={setTitleEl} variant="display">
+              <DialogTitle asChild>
+                <span>{meal.name}</span>
+              </DialogTitle>
+              {meal.isCustom && (
+                <>
+                  {'\u00a0'}
+                  <MyRecipeIcon size="lg" />
+                </>
+              )}
+            </Heading>
           }
           // Actions on the meal sit on its title row (docs/DESIGN.md). `icon-lg`,
           // not the cards' `icon-sm`: every target in the cook view is 44px.

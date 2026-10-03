@@ -10,7 +10,7 @@ import { getIngredientAvailabilitySets, hasPantryData } from './AvailabilityIndi
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 import { mealImageTitleWidth, type MealImageFields } from './MealImageCard'
 import { MealTypeBadge } from './MealTypeBadge'
-import { MyRecipeIcon } from './MyRecipeBadge'
+import { MyRecipeIcon } from './MyRecipeIcon'
 import { ProteinBadge } from './ProteinBadge'
 import { NutritionSummary } from './NutritionSummary'
 import type { MealComponent, NutritionData, PantryIngredient } from './types'

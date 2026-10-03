@@ -51,6 +51,13 @@ const buttonVariants = cva(
         // 16px box keeps the line its own height, and the `::after` reaches 4px
         // past it on every side, so the target is 24px (WCAG 2.5.8).
         'icon-xs': 'relative size-4 after:absolute after:-inset-1',
+        // The same pattern for an icon inside a `display` heading (the cook
+        // view's "My recipe" after the meal name, HON-1023): a 24px box keeps
+        // the title's line height, and the `::after` reaches 10px past it, so
+        // the target is the cook view's 44px floor. The icon grows with the
+        // title, 20px then 24px from `lg`.
+        'icon-display':
+          "relative size-6 after:absolute after:-inset-2.5 [&_svg:not([class*='size-'])]:size-5 lg:[&_svg:not([class*='size-'])]:size-6",
         'icon-lg': 'size-12 md:size-11',
         // `icon-lg` below `lg`, then as wide as its text: a control whose label
         // shows only from `lg` (`hidden lg:inline`), with the icon alone on a
