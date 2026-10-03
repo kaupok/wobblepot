@@ -100,7 +100,10 @@ export function NavigationLeft({ isAuthenticated, hasHousehold }: NavigationProp
 
   return (
     <nav aria-label={t('ariaLabel')} className="hidden items-center md:flex">
-      <NavLink href="/">{t('mealPlan')}</NavLink>
+      {/* `/past-meals` is the plan's history, reached from the account menu. */}
+      <NavLink href="/" alsoActiveOn={['/past-meals']}>
+        {t('mealPlan')}
+      </NavLink>
       {/* From `md` up `/pantry` is the same two-column page as `/shopping`;
           they only differ on a phone, where each is its own tab (HON-776). */}
       <NavLink href="/shopping" alsoActiveOn={['/pantry']}>

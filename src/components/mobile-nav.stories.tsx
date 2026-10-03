@@ -83,7 +83,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Household, Profile, the labelled theme row and Sign out, in that order (HON-775); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783).',
+          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Past meals, Household, Profile, the labelled theme row and Sign out, in that order (HON-775, HON-1007); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783).',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -117,7 +117,7 @@ export const ClosedOnboarding: Story = {
     docs: {
       description: {
         story:
-          'Authenticated but no household. The Household and Profile links are suppressed (same rule as `HeaderActions`) — the theme row and Sign out remain so the user can escape onboarding.',
+          'Authenticated but no household. The Past meals, Household and Profile links are suppressed (same rule as `HeaderActions`) — the theme row and Sign out remain so the user can escape onboarding.',
       },
     },
   },
@@ -146,7 +146,7 @@ export const SignedInWithHousehold: Story = {
     const body = within(document.body)
 
     expect(body.getByRole('heading', { name: 'Account' })).toBeInTheDocument()
-    expect(rowNames(nav)).toEqual(['Household', 'Profile', 'Dark mode', 'Sign out'])
+    expect(rowNames(nav)).toEqual(['Past meals', 'Household', 'Profile', 'Dark mode', 'Sign out'])
     expect(within(nav).getByRole('link', { name: 'Household' })).toHaveAttribute(
       'href',
       '/household',
@@ -185,7 +185,7 @@ export const DarkThemeLabel: Story = {
   play: async ({ canvasElement }) => {
     const nav = await openSheet(canvasElement)
 
-    expect(rowNames(nav)).toEqual(['Household', 'Profile', 'Light mode', 'Sign out'])
+    expect(rowNames(nav)).toEqual(['Past meals', 'Household', 'Profile', 'Light mode', 'Sign out'])
   },
 }
 

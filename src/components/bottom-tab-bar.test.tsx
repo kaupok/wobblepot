@@ -102,6 +102,20 @@ describe('BottomTabBar', () => {
     expect(shoppingLink).toHaveClass('text-muted-foreground')
   })
 
+  // Past meals is the plan's history, opened from the account sheet (HON-1007).
+  it('highlights Plan tab on /past-meals', async () => {
+    const { usePathname } = await import('next/navigation')
+    vi.mocked(usePathname).mockReturnValue('/past-meals')
+
+    render(<BottomTabBar session={mockSession} hasHousehold={true} />)
+
+    const current = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page')
+    expect(current).toHaveLength(1)
+    expect(current[0]).toHaveAccessibleName('Plan')
+  })
+
   it('highlights Shopping tab when on shopping path', async () => {
     const { usePathname } = await import('next/navigation')
     vi.mocked(usePathname).mockReturnValue('/shopping')

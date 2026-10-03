@@ -19,6 +19,7 @@ function renderBoth() {
 describe('active page', () => {
   it.each([
     ['/', 'Meal plan'],
+    ['/past-meals', 'Meal plan'],
     ['/shopping', 'Pantry & shopping'],
     ['/pantry', 'Pantry & shopping'],
     ['/recipes', 'My recipes'],

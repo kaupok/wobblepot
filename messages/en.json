@@ -387,15 +387,18 @@
       "someQuantity": "some"
     },
     "past": {
-      "show": "Show past meals",
-      "hide": "Hide past meals",
-      "catchUp": "{count, plural, one {# to catch up} other {# to catch up}}",
-      "menuLabel": "Timeline options",
-      "menuLabelWithCatchUp": "Timeline options, {count, plural, one {# past meal} other {# past meals}} to catch up"
+      "notice": "{count, plural, one {# past meal is not marked yet.} other {# past meals are not marked yet.}}",
+      "noticeLink": "Mark past meals"
     },
     "day": {
       "noMealsPlanned": "No meals planned"
     }
+  },
+  "pastMeals": {
+    "title": "Past meals",
+    "description": "The last 7 days. Mark each meal as cooked or skipped.",
+    "empty": "Nothing was planned in the last 7 days.",
+    "backToPlan": "Back to the meal plan"
   },
   "recipes": {
     "mealCount": "{count, plural, =0 {No recipes} one {# recipe} other {# recipes}}",
@@ -730,6 +733,7 @@
       "userMenu": "User menu",
       "account": "Account",
       "accountMenu": "Account menu",
+      "pastMeals": "Past meals",
       "profile": "Profile",
       "signIn": "Sign in",
       "signUp": "Sign up",

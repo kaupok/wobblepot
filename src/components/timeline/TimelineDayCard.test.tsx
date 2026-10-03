@@ -271,8 +271,8 @@ describe('TimelineDayCard', () => {
  * wordmark is not a heading (HON-806), so the day labels open the page's
  * outline. They are `h2` — the level they keep if the route later gains an
  * `h1` — and the tag is fixed in the component rather than passed per consumer
- * because both mount points (`TimelineView`'s `renderDay` and
- * `TimelinePastSection`) sit under `src/app/page.tsx` alone.
+ * because both mount points sit one level under a page `h1`: `TimelineView`'s
+ * `renderDay` under `/` (a hidden h1), and `PastMealsList` under `/past-meals`.
  *
  * Until HON-806 the wordmark was an `<h4>` and these labels were `h5`, one
  * below it (HON-619). The real `Header` is still rendered here so that a

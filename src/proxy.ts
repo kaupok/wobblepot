@@ -36,6 +36,7 @@ import { isPostHogProxyPath, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
  */
 export const PROTECTED_PREFIXES = [
   '/profile',
+  '/past-meals',
   '/recipes',
   '/household',
   '/shopping',

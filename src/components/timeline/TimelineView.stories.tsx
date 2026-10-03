@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, userEvent, waitFor, within } from 'storybook/test'
+import { expect, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
   createExpectedMealTypes,
@@ -9,7 +9,6 @@ import {
   timelineTodayDate,
   urgentShoppingItems,
 } from '@/stories/fixtures'
-import { pressEscape } from '@/stories/a11y-helpers'
 import { TimelineView } from './TimelineView'
 
 const baseEntries = [
@@ -142,7 +141,7 @@ export const DinnersPlannedBreakfastsEmpty: Story = {
   },
 }
 
-export const ShowPastMeals: Story = {
+export const PastMealsNotice: Story = {
   args: {
     entries: baseEntries,
   },
@@ -150,40 +149,31 @@ export const ShowPastMeals: Story = {
     docs: {
       description: {
         story:
-          'The ⋯ menu on the Today heading reveals past days above Today and scrolls the first one into view. One past dinner is still planned, so the trigger carries a warning dot and the count.',
+          'One past dinner is still planned, so a warning callout above the Today card states the count and links to `/past-meals`. Past days themselves are not rendered on Today.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const body = within(document.body)
-    const trigger = canvas.getByRole('button', {
-      name: 'Timeline options, 1 past meal to catch up',
-    })
+    const notice = canvas
+      .getByText(/1 past meal is not marked yet/i)
+      .closest('[data-slot="callout"]')
+    await expect(notice).toHaveAttribute('data-tone', 'warning')
+    await expect(
+      within(notice as HTMLElement).getByRole('link', { name: 'Mark past meals' }),
+    ).toHaveAttribute('href', '/past-meals')
 
-    // Collapsed: no past day is on the page.
+    // The notice sits above the Today heading.
+    const today = canvas.getByRole('heading', { name: 'Today' })
+    await expect(
+      (notice as HTMLElement).compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    // No past day and no ⋯ menu on Today.
     await expect(canvas.queryByRole('heading', { name: /tuesday.*14/i })).not.toBeInTheDocument()
-
-    // Escape closes the menu without revealing anything.
-    await userEvent.click(trigger)
-    await expect(await body.findByRole('menu')).toBeInTheDocument()
-    await pressEscape()
-    await waitFor(() => expect(body.queryByRole('menu')).not.toBeInTheDocument())
-    await expect(canvas.queryByRole('heading', { name: /tuesday.*14/i })).not.toBeInTheDocument()
-
-    await userEvent.click(trigger)
-    await userEvent.click(
-      await body.findByRole('menuitem', { name: 'Show past meals · 1 to catch up' }),
-    )
-    await expect(await canvas.findByRole('heading', { name: /tuesday.*14/i })).toBeInTheDocument()
-    await expect(canvas.getByRole('heading', { name: /monday.*13/i })).toBeInTheDocument()
-
-    // The item now reads "Hide", and hiding removes the past days again.
-    await userEvent.click(trigger)
-    await userEvent.click(await body.findByRole('menuitem', { name: /hide past meals/i }))
-    await waitFor(() =>
-      expect(canvas.queryByRole('heading', { name: /tuesday.*14/i })).not.toBeInTheDocument(),
-    )
+    await expect(
+      canvas.queryByRole('button', { name: /timeline options/i }),
+    ).not.toBeInTheDocument()
   },
 }
 
@@ -195,14 +185,12 @@ export const AllEmpty: Story = {
     docs: {
       description: {
         story:
-          'No entries at all — the fill-days action shows up immediately, followed by the full 14-day empty window. With no past days there is no ⋯ menu on Today.',
+          'No entries at all — the fill-days action shows up immediately, followed by the full 14-day empty window. With nothing to mark there is no past-meals notice.',
       },
     },
   },
   play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).queryByRole('button', { name: /timeline options/i }),
-    ).not.toBeInTheDocument()
+    await expect(within(canvasElement).queryByText(/not marked yet/i)).not.toBeInTheDocument()
   },
 }
 
@@ -251,7 +239,7 @@ export const PastOnly: Story = {
     docs: {
       description: {
         story:
-          'Only past entries — future section is fully empty and the fill-days action shows immediately.',
+          'Only past entries — future section is fully empty and the fill-days action shows immediately. The notice still sits above Today, which is below the fill bar.',
       },
     },
   },

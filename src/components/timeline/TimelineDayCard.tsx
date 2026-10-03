@@ -1,6 +1,5 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import { MealCard } from '@/components/meal-plan/MealCard'
 import { Body, Heading } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
@@ -16,8 +15,6 @@ interface TimelineDayCardProps {
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   onEntryUpdated: () => void
-  /** Rendered at the end of the heading row, e.g. the Today overflow menu. */
-  headerAction?: ReactNode
 }
 
 export function TimelineDayCard({
@@ -27,7 +24,6 @@ export function TimelineDayCard({
   pantryIngredients,
   pantryItems,
   onEntryUpdated: _onEntryUpdated,
-  headerAction,
 }: TimelineDayCardProps) {
   const tDay = useTranslations('meal-plan.day')
   // The heading's text as one string — "Saturday Oct 3", or just "Tomorrow" —
@@ -52,26 +48,23 @@ export function TimelineDayCard({
     })),
   ].sort((a, b) => a.order - b.order)
 
-  // A past day is drawn at full opacity: its cards are what "N to catch up"
-  // asks the user to act on, so their text keeps its measured contrast
+  // A past day is drawn at full opacity: its cards are what the past-meals
+  // notice asks the user to act on, so their text keeps its measured contrast
   // (HON-805). Its own section and card layout already set it apart.
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <Heading variant="section" as="h2" className={day.isToday ? 'text-primary' : undefined}>
-          {day.label}
-          {day.dateLabel && (
-            <>
-              {' '}
-              {/* The date is a detail beside the weekday: dimmed and at normal
-                  weight, in the same heading so the outline still reads
-                  "Saturday Sep 26". A plain space, not a formatter's (HON-777). */}
-              <span className="text-muted-foreground font-normal">{day.dateLabel}</span>
-            </>
-          )}
-        </Heading>
-        {headerAction && <div className="shrink-0">{headerAction}</div>}
-      </div>
+      <Heading variant="section" as="h2" className={day.isToday ? 'text-primary' : undefined}>
+        {day.label}
+        {day.dateLabel && (
+          <>
+            {' '}
+            {/* The date is a detail beside the weekday: dimmed and at normal
+                weight, in the same heading so the outline still reads
+                "Saturday Sep 26". A plain space, not a formatter's (HON-777). */}
+            <span className="text-muted-foreground font-normal">{day.dateLabel}</span>
+          </>
+        )}
+      </Heading>
       {slots.length === 0 ? (
         <Body variant="muted">{tDay('noMealsPlanned')}</Body>
       ) : (
