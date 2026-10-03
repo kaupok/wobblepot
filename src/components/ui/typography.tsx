@@ -4,6 +4,7 @@ import React from 'react'
 
 // Variant type exports for type reusability
 export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'display' | 'section' | 'caption'
+export type HeadingFace = 'default' | 'brand'
 export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div'
 export type BodyVariant =
   'default' | 'lead' | 'large' | 'small' | 'paragraph' | 'muted' | 'caption' | 'step'
@@ -44,9 +45,22 @@ const headingVariants = cva('scroll-m-20 tracking-tight', {
       // `tracking-tight` through tailwind-merge.
       caption: 'text-xs font-medium text-muted-foreground tracking-wide uppercase',
     },
+    // The typeface. `brand` is Bricolage Grotesque, the wordmark's face, for
+    // the landing page's own headings only (HON-1043, a trial). In-app
+    // headings stay `default` (Geist). It is a variant because
+    // `shadcn/no-restyle` forbids a `font-*` class at a `Heading` callsite.
+    face: {
+      default: '',
+      brand: 'font-display',
+    },
   },
+  compoundVariants: [
+    // Extrabold reads heavy in a display face; 700 sits near the wordmark's 640.
+    { variant: 'h1', face: 'brand', class: 'font-bold' },
+  ],
   defaultVariants: {
     variant: 'h1',
+    face: 'default',
   },
 })
 
@@ -73,7 +87,7 @@ const tagMap = {
 } as const satisfies Record<HeadingVariant, HeadingTag>
 
 export const Heading = React.forwardRef<HTMLElement, HeadingProps>(
-  ({ className, variant, as, ...props }, ref) => {
+  ({ className, variant, face, as, ...props }, ref) => {
     const effectiveVariant = variant ?? 'h1'
     const Tag = as ?? tagMap[effectiveVariant]
     return React.createElement(Tag, {
@@ -81,7 +95,7 @@ export const Heading = React.forwardRef<HTMLElement, HeadingProps>(
       // Lets a check tell the levels apart without parsing classes: the
       // `title-scale` design rule exempts `display` (src/stories/design-rules.ts).
       'data-variant': effectiveVariant,
-      className: cn(headingVariants({ variant: effectiveVariant }), className),
+      className: cn(headingVariants({ variant: effectiveVariant, face }), className),
       ...props,
     })
   },

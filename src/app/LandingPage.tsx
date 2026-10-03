@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button'
 import { LandingDemo } from '@/components/landing/LandingDemo'
 import { LandingFeatures } from '@/components/landing/LandingFeatures'
 import { LandingShowcase } from '@/components/landing/LandingShowcase'
+import { displayFont } from '@/components/landing/display-font'
 import { formatDayLong } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import type { DemoDay } from '@/lib/landing/load-demo-day'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support'
+import { cn } from '@/lib/utils'
 
 const STEPS = ['table', 'week', 'shop'] as const
 
@@ -36,6 +38,9 @@ interface LandingPageProps {
  * Not `<main>`: the root layout's `<main id="main-content">` is the page
  * landmark (HON-820). Left-aligned and capped at the page width like the app,
  * so the landing reads as the first screen of the product, not a brochure.
+ *
+ * The page's own headings are set in the display face (`face="brand"`, HON-1043);
+ * the app components it draws keep Geist, because they show the product.
  */
 export async function LandingPage({ inviteRequired, locale, demo }: LandingPageProps) {
   const [t, tSignUp] = await Promise.all([
@@ -44,7 +49,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
   ])
 
   return (
-    <div className="w-full px-4 py-8 md:py-12">
+    <div className={cn('w-full px-4 py-8 md:py-12', displayFont.variable)}>
       <div className="flex flex-col gap-16 md:gap-24">
         {/* Hero: the promise on the left, the product on the right from lg. The
             demo is capped at the planner card's width at every size: an uncapped
@@ -52,7 +57,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
         <section className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-4 text-balance">
-              <Heading>{t('headline')}</Heading>
+              <Heading face="brand">{t('headline')}</Heading>
               <Body variant="lead">{t('sub')}</Body>
             </div>
             <div className="flex flex-col gap-3">
@@ -89,7 +94,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
         </section>
 
         <section aria-labelledby="landing-how" className="flex flex-col gap-8">
-          <Heading variant="h3" as="h2" id="landing-how">
+          <Heading variant="h3" as="h2" face="brand" id="landing-how">
             {t('how.title')}
           </Heading>
           {/* WebKit drops list semantics from a `list-style: none` list, so the role
@@ -100,7 +105,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
               <li key={step}>
                 <div className="flex flex-col gap-2">
                   <Body variant="caption">{t('how.step', { number: index + 1 })}</Body>
-                  <Heading variant="section" as="h3">
+                  <Heading variant="section" as="h3" face="brand">
                     {t(`how.${step}.title`)}
                   </Heading>
                   <Body variant="muted">{t(`how.${step}.body`)}</Body>

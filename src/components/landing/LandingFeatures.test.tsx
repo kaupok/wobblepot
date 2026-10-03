@@ -70,6 +70,24 @@ describe('LandingFeatures', () => {
     expect(within(drawing('cook')).getByText('Steps')).toHaveClass('text-base')
   })
 
+  it('sets the section heading and point titles in the display face, and nothing in the vignettes', () => {
+    renderFeatures()
+    const section = screen.getByRole('region', { name: 'Made for family kitchens' })
+    expect(within(section).getByRole('heading', { level: 2 })).toHaveClass('font-display')
+    for (const name of [
+      'It knows your pantry',
+      'Your recipes join the plan',
+      'Portions follow the people',
+      'Cooking help on the counter',
+    ]) {
+      expect(within(section).getByRole('heading', { level: 3, name })).toHaveClass('font-display')
+    }
+    // The vignettes show the product, so they keep the product's face.
+    for (const point of POINTS) {
+      expect(drawing(point).querySelector('.font-display')).toBeNull()
+    }
+  })
+
   it('tints the vignettes yellow, pink, neutral, yellow: the salmon, the acai bowl, none, the salmon', () => {
     renderFeatures()
     const hues = POINTS.map((point) => {

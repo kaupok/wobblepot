@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { expect, within } from 'storybook/test'
+import { displayFont } from '@/components/landing/display-font'
 import { Blockquote, Body, Code, Heading, Li, Ol, Pre, Ul } from './typography'
 
 const meta: Meta = {
@@ -34,6 +36,53 @@ export const Headings: Story = {
       description: {
         story:
           'Each variant rendered at its natural tag. `display` is the cook view’s meal name (24px, 30px from `lg`; HON-932), the one in-app level above Title, and defaults to an `h2`. `section` is the Section level of the type scale and defaults to an `h2`; `caption` is the Caption level as a heading and defaults to an `h3`.',
+      },
+    },
+  },
+}
+
+export const BrandFace: Story = {
+  name: 'Brand face (`face="brand"`)',
+  render: () => (
+    // The font variable sits on the landing page's root in the app; here the
+    // story's wrapper carries it. Tags ascend so the outline stays valid.
+    <div className={`flex flex-col gap-4 ${displayFont.variable}`}>
+      <Heading face="brand">Dinner, decided. For the whole week.</Heading>
+      <Heading variant="h3" as="h2" face="brand">
+        How it works
+      </Heading>
+      <Heading variant="h4" as="h3" face="brand">
+        Portions follow the people
+      </Heading>
+      <Heading variant="section" as="h3" face="brand">
+        Get a week of meals
+      </Heading>
+      <Heading variant="h4" as="h3" face="brand">
+        Õhtusöök otsustatud: šokolaad, žele, äädikas, üks
+      </Heading>
+      <Heading variant="h4" as="h3">
+        Portions follow the people (default face, for comparison)
+      </Heading>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const family = (el: HTMLElement) => getComputedStyle(el).fontFamily
+    const brand = canvas.getByRole('heading', { level: 1 })
+    const plain = canvas.getByRole('heading', { name: /default face/ })
+    await expect(family(brand)).toMatch(/Bricolage Grotesque/)
+    await expect(family(plain)).not.toMatch(/Bricolage Grotesque/)
+    // A face whose unicode-range covers the Estonian letters loads, so they
+    // render in Bricolage rather than a fallback.
+    const [primary] = family(brand).split(',')
+    const loaded = await document.fonts.load(`700 36px ${primary}`, 'õäöüšž')
+    await expect(loaded.length).toBeGreaterThan(0)
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Bricolage Grotesque, the wordmark’s face, at each level the landing page uses it: the hero `h1` (700), the section headings (`h3` size), the point titles (`h4`) and the step titles (`section`). A trial from 2026-10-03 (HON-1043), for the landing page’s own headings only; in-app headings stay Geist. The Estonian line checks õ, ä, ö, ü, š and ž render in the face.',
       },
     },
   },

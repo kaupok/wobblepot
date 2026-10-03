@@ -39,6 +39,31 @@ describe('Typography Components', () => {
       expect(heading).toHaveClass('text-xl', 'font-semibold')
     })
 
+    it('sets no typeface class by default', () => {
+      render(<Heading variant="h3">Heading</Heading>)
+      expect(screen.getByRole('heading', { level: 3 })).not.toHaveClass('font-display')
+    })
+
+    it('sets the display face with face="brand" and keeps the level weight', () => {
+      render(
+        <Heading variant="h3" face="brand">
+          Heading
+        </Heading>,
+      )
+      expect(screen.getByRole('heading', { level: 3 })).toHaveClass(
+        'font-display',
+        'text-2xl',
+        'font-semibold',
+      )
+    })
+
+    it('sets the brand h1 in bold rather than extrabold', () => {
+      render(<Heading face="brand">Hero</Heading>)
+      const heading = screen.getByRole('heading', { level: 1 })
+      expect(heading).toHaveClass('font-display', 'font-bold')
+      expect(heading).not.toHaveClass('font-extrabold')
+    })
+
     it('accepts custom className', () => {
       render(<Heading className="custom-class">Heading</Heading>)
       const heading = screen.getByRole('heading', { level: 1 })
