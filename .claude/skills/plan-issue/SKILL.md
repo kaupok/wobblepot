@@ -112,7 +112,7 @@ Using Read, Grep, and Glob tools:
 - Find existing patterns to follow
 - Note related components or APIs
 
-Focus on files directly relevant to the issue (2-5 files max).
+Read the files the plan depends on, not the whole codebase.
 
 **If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` so you actually see what the sibling changed. The file tree alone doesn't tell you which lines are new; without the diff you risk searching for a pattern, not finding it, and duplicating it.
 

@@ -136,7 +136,7 @@ Display:
 
 ### Step 7b: Add implementation guidance
 
-For issues that involve code changes, do a focused codebase scan (2-5 files) to add an **Implementation guidance** section to the description: key files to modify/study, patterns to follow, and any non-obvious integration points. For non-coding issues, still point to relevant existing code or UI when it grounds the issue (e.g., "see current onboarding flow in `src/app/onboarding/`").
+For issues that involve code changes, do a focused codebase scan of the files the issue depends on to add an **Implementation guidance** section to the description: key files to modify/study, patterns to follow, and any non-obvious integration points. For non-coding issues, still point to relevant existing code or UI when it grounds the issue (e.g., "see current onboarding flow in `src/app/onboarding/`").
 
 ### Step 8: Update or create
 
