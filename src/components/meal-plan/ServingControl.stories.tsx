@@ -45,6 +45,8 @@ export const Default: Story = {
     await expect(height).toBe(BADGE_PX)
     await expect(target).toBeGreaterThanOrEqual(FLOOR_PX)
     await expect(pencil(button)).toHaveAttribute('aria-hidden', 'true')
+    // A pointer says it is an action, unlike the time pill beside it (HON-1032).
+    await expect(getComputedStyle(button).cursor).toBe('pointer')
   },
 }
 
@@ -112,5 +114,7 @@ export const Disabled: Story = {
     const button = within(canvasElement).getByRole('button', { name: 'Serves 4. Click to edit.' })
     await expect(button).toBeDisabled()
     await expect(pencil(canvasElement)).not.toBeInTheDocument()
+    // No pointer while it cannot be used, as while a change is saving (HON-1032).
+    await expect(getComputedStyle(button).cursor).toBe('default')
   },
 }
