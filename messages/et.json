@@ -1071,9 +1071,10 @@
       "extraLarge": "Eriti suur",
       "short": "{label} {multiplier, number}×",
       "shortCustom": "Kohandatud {multiplier, number}×",
-      "preset": "{label} ({multiplier, number}x)",
+      "preset": "{label} ({multiplier, number}×)",
+      "custom": "Kohandatud",
       "size": "Portsjoni suurus",
-      "helper": "x tavaline portsjon",
+      "helper": "× tavaline portsjon",
       "invalid": "Portsjoni suurus peab olema vahemikus 0,5 kuni 3,0",
       "aria": "Portsjoni kordaja"
     },
@@ -1082,10 +1083,7 @@
       "title": "Lisa leibkonna liige",
       "description": "Lisa pereliige, kellel pole oma kontot, näiteks laps.",
       "nameLabel": "Nimi",
-      "namePlaceholder": "Sisesta nimi",
-      "displayNameLabel": "Hüüdnimi (vabatahtlik)",
-      "displayNamePlaceholder": "nt põnn, väikseke",
-      "displayNameHelper": "Kuidas seda liiget leibkonnas kuvada",
+      "namePlaceholder": "nt Mia",
       "cancel": "Tühista",
       "submit": "Lisa liige",
       "submitting": "Lisan…",
@@ -1099,9 +1097,9 @@
     },
     "editMember": {
       "title": "Muuda „{name}\" eelistusi",
-      "description": "Uuenda selle liikme portsjoni suurust.",
+      "description": "Muuda, kuidas see liige leibkonnas paistab ja kui suur on tema portsjon.",
       "nameLabel": "Nimi",
-      "namePlaceholder": "Sisesta nimi",
+      "namePlaceholder": "nt Mia",
       "displayNameOptionalLabel": "Hüüdnimi (vabatahtlik)",
       "displayNamePlaceholder": "nt Ema, Isa, Aleks",
       "displayNameHelper": "Kuidas seda liiget leibkonnas kuvada",
@@ -1111,7 +1109,8 @@
       "savedToast": "Eelistused salvestatud",
       "fallbackName": "liige",
       "errors": {
-        "saveFailed": "Eelistuste salvestamine ebaõnnestus"
+        "saveFailed": "Eelistuste salvestamine ebaõnnestus",
+        "nameRequired": "Nimi on kohustuslik"
       }
     },
     "invite": {

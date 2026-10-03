@@ -22,7 +22,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Dialog for adding a manual household member (typically a child). Trigger lives inline; click "Add member" to open. Submission posts to `/api/households/me/members` via MSW in stories.',
+          'Dialog for adding a manual household member (typically a child): one Name field and the shared `PortionSizeField`. Trigger lives inline; click "Add member" to open. Submission posts to `/api/households/me/members` via MSW in stories.',
       },
     },
   },
@@ -134,13 +134,13 @@ export const SubmitInvokesCallback: Story = {
     const body = within(document.body)
     await body.findByRole('dialog')
 
+    // A member without an account has one name field (HON-1021).
+    await expect(body.queryByLabelText(/display name/i)).toBeNull()
     const nameInput = await body.findByLabelText('Name')
+    await expect(nameInput).toHaveAttribute('placeholder', 'e.g., Mia')
     await userEvent.type(nameInput, 'Kiddo')
 
-    const displayNameInput = await body.findByLabelText(/display name/i)
-    await userEvent.type(displayNameInput, 'kid')
-
-    const smallPortion = await body.findByRole('radio', { name: /small \(0\.75x\)/i })
+    const smallPortion = await body.findByRole('radio', { name: /small \(0\.75×\)/i })
     await userEvent.click(smallPortion)
     await expect(smallPortion).toHaveAttribute('aria-checked', 'true')
 
@@ -152,12 +152,59 @@ export const SubmitInvokesCallback: Story = {
         expect.objectContaining({
           name: 'Kiddo',
           preferences: expect.objectContaining({
-            displayName: 'kid',
+            displayName: null,
             portionMultiplier: 0.75,
           }),
         }),
       ),
     )
+  },
+}
+
+// Custom portion: the input shows only after Custom is picked, and the typed
+// value is what gets posted.
+export const SubmitCustomPortion: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: /add member/i }))
+    const body = within(document.body)
+    await body.findByRole('dialog')
+
+    await userEvent.type(await body.findByLabelText('Name'), 'Kiddo')
+    await expect(body.queryByRole('textbox', { name: /portion multiplier/i })).toBeNull()
+    await userEvent.click(body.getByRole('radio', { name: /custom/i }))
+    const portionInput = body.getByRole('textbox', { name: /portion multiplier/i })
+    await userEvent.clear(portionInput)
+    await userEvent.type(portionInput, '1.25')
+
+    await userEvent.click(body.getByRole('button', { name: /^add member$/i }))
+    await waitFor(() =>
+      expect(args.onMemberAdded).toHaveBeenCalledWith(
+        expect.objectContaining({
+          preferences: expect.objectContaining({ portionMultiplier: 1.25 }),
+        }),
+      ),
+    )
+  },
+}
+
+// An out-of-range custom value blocks the submit with the range message.
+export const InvalidCustomPortion: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: /add member/i }))
+    const body = within(document.body)
+    await body.findByRole('dialog')
+
+    await userEvent.type(await body.findByLabelText('Name'), 'Kiddo')
+    await userEvent.click(body.getByRole('radio', { name: /custom/i }))
+    const portionInput = body.getByRole('textbox', { name: /portion multiplier/i })
+    await userEvent.clear(portionInput)
+    await userEvent.type(portionInput, '4')
+    await userEvent.click(body.getByRole('button', { name: /^add member$/i }))
+
+    await body.findByText('Portion size must be between 0.5 and 3.0')
+    await expect(args.onMemberAdded).not.toHaveBeenCalled()
   },
 }
 

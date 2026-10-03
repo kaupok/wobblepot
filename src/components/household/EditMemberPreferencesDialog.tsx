@@ -5,9 +5,7 @@ import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { ChoiceChips } from '@/components/ui/choice-chips'
 import { Input } from '@/components/ui/input'
-import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Body } from '@/components/ui/typography'
 import {
@@ -21,14 +19,13 @@ import {
 import type { Member } from '@/types/member'
 import { FieldError } from '@/components/FieldError'
 import { ApiError, apiFetch } from '@/lib/api'
+import { PortionSizeField, isValidPortion } from './PortionSizeField'
 
-const PORTION_PRESETS: Array<{ key: 'small' | 'regular' | 'large' | 'extraLarge'; value: number }> =
-  [
-    { key: 'small', value: 0.75 },
-    { key: 'regular', value: 1.0 },
-    { key: 'large', value: 1.5 },
-    { key: 'extraLarge', value: 2.0 },
-  ]
+// A member without an account has one name: a display name set before
+// HON-1021 is shown in the Name field and folded into it on save.
+function initialName(member: Member | null) {
+  return member?.preferences?.displayName || member?.name || ''
+}
 
 interface EditMemberPreferencesDialogProps {
   member: Member | null
@@ -52,11 +49,11 @@ export function EditMemberPreferencesDialog({
   const tPortion = useTranslations('household.portion')
 
   // Member name (only for manual members)
-  const [name, setName] = useState(member?.name || '')
+  const [name, setName] = useState(initialName(member))
 
-  // Preferences state
+  // Preferences state (display name only for account members)
   const [displayName, setDisplayName] = useState(member?.preferences?.displayName || '')
-  const [portionMultiplier, setPortionMultiplier] = useState(
+  const [portionMultiplier, setPortionMultiplier] = useState<number | null>(
     member?.preferences?.portionMultiplier || 1.0,
   )
   const [portionError, setPortionError] = useState<string | null>(null)
@@ -100,7 +97,7 @@ export function EditMemberPreferencesDialog({
   if (member !== formMember) {
     setFormMember(member)
     if (member) {
-      setName(member.name || '')
+      setName(initialName(member))
       setDisplayName(member.preferences?.displayName || '')
       setPortionMultiplier(member.preferences?.portionMultiplier || 1.0)
       setError('')
@@ -114,38 +111,31 @@ export function EditMemberPreferencesDialog({
 
     setError('')
 
-    if (portionMultiplier < 0.5 || portionMultiplier > 3.0) {
+    const trimmedName = name.trim()
+    if (isManualMember && !trimmedName) {
+      setError(t('errors.nameRequired'))
+      return
+    }
+
+    if (!isValidPortion(portionMultiplier)) {
       setPortionError(tPortion('invalid'))
       return
     }
 
-    const payload: Record<string, unknown> = {
-      preferences: {
-        displayName: displayName.trim() || null,
-        portionMultiplier,
-      },
-    }
-
-    // Only include name for manual members
-    const trimmedName = name.trim()
-    if (isManualMember && trimmedName) {
-      payload.name = trimmedName
-    }
+    // A manual member's typed name replaces both `name` and any old display
+    // name. An account member keeps a separate display name, because their
+    // account name is fixed.
+    const payload: Record<string, unknown> = isManualMember
+      ? { name: trimmedName, preferences: { displayName: null, portionMultiplier } }
+      : { preferences: { displayName: displayName.trim() || null, portionMultiplier } }
 
     saveMember.mutate({ memberId: member.id, payload })
   }
 
-  const handlePortionInputChange = (value: number | null) => {
-    if (value === null) {
-      setPortionError(null)
-      return
-    }
-    if (value < 0.5 || value > 3.0) {
-      setPortionError(tPortion('invalid'))
-      return
-    }
-    setPortionError(null)
+  const handlePortionChange = (value: number | null) => {
     setPortionMultiplier(value)
+    // An empty input is not flagged while typing; submit catches it.
+    setPortionError(value === null || isValidPortion(value) ? null : tPortion('invalid'))
   }
 
   const memberDisplayName =
@@ -161,8 +151,9 @@ export function EditMemberPreferencesDialog({
           </DialogHeader>
 
           <div className="flex flex-col gap-6 py-4">
-            {/* Member name (only for manual members) */}
-            {isManualMember && (
+            {/* A manual member has one name; an account member's name is fixed,
+                so the household can give them a display name instead. */}
+            {isManualMember ? (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="name">{t('nameLabel')}</Label>
                 <Input
@@ -173,61 +164,32 @@ export function EditMemberPreferencesDialog({
                   maxLength={100}
                   placeholder={t('namePlaceholder')}
                   disabled={isLoading}
+                  required
                 />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="displayName">{t('displayNameOptionalLabel')}</Label>
+                <Input
+                  id="displayName"
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  maxLength={50}
+                  placeholder={t('displayNamePlaceholder')}
+                  disabled={isLoading}
+                />
+                <Body variant="muted">{t('displayNameHelper')}</Body>
               </div>
             )}
 
-            {/* Display name */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="displayName">{t('displayNameOptionalLabel')}</Label>
-              <Input
-                id="displayName"
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                maxLength={50}
-                placeholder={t('displayNamePlaceholder')}
-                disabled={isLoading}
-              />
-              <Body variant="muted">{t('displayNameHelper')}</Body>
-            </div>
-
-            {/* Portion size */}
-            <div className="flex flex-col gap-2">
-              <Label id="edit-member-portion-label">{tPortion('size')}</Label>
-              <ChoiceChips
-                aria-labelledby="edit-member-portion-label"
-                size="sm"
-                // A custom multiplier from the input below can match no preset:
-                // then no chip is checked.
-                value={
-                  PORTION_PRESETS.some((preset) => preset.value === portionMultiplier)
-                    ? String(portionMultiplier)
-                    : undefined
-                }
-                onValueChange={(v) => setPortionMultiplier(Number(v))}
-                options={PORTION_PRESETS.map((preset) => ({
-                  value: String(preset.value),
-                  label: tPortion('preset', {
-                    label: tPortion(preset.key),
-                    multiplier: preset.value,
-                  }),
-                }))}
-                disabled={isLoading}
-              />
-              <div className="flex items-center gap-2">
-                <NumberInput
-                  value={portionMultiplier}
-                  onValueChange={handlePortionInputChange}
-                  className="w-24"
-                  disabled={isLoading}
-                  aria-invalid={!!portionError}
-                  aria-label={tPortion('aria')}
-                />
-                <Body variant="muted">{tPortion('helper')}</Body>
-              </div>
-              {portionError && <FieldError>{portionError}</FieldError>}
-            </div>
+            <PortionSizeField
+              labelId="edit-member-portion-label"
+              value={portionMultiplier}
+              onValueChange={handlePortionChange}
+              disabled={isLoading}
+              error={portionError}
+            />
 
             {error && <FieldError>{error}</FieldError>}
           </div>

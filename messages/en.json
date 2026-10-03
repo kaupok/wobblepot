@@ -1071,9 +1071,10 @@
       "extraLarge": "Extra large",
       "short": "{label} {multiplier, number}×",
       "shortCustom": "Custom {multiplier, number}×",
-      "preset": "{label} ({multiplier, number}x)",
+      "preset": "{label} ({multiplier, number}×)",
+      "custom": "Custom",
       "size": "Portion size",
-      "helper": "x standard portion",
+      "helper": "× standard portion",
       "invalid": "Portion size must be between 0.5 and 3.0",
       "aria": "Portion multiplier"
     },
@@ -1082,10 +1083,7 @@
       "title": "Add household member",
       "description": "Add a family member who doesn't have an account, such as a child.",
       "nameLabel": "Name",
-      "namePlaceholder": "Enter name",
-      "displayNameLabel": "Display name (optional)",
-      "displayNamePlaceholder": "e.g., kiddo, little one",
-      "displayNameHelper": "How this member appears in the household",
+      "namePlaceholder": "e.g., Mia",
       "cancel": "Cancel",
       "submit": "Add member",
       "submitting": "Adding…",
@@ -1099,9 +1097,9 @@
     },
     "editMember": {
       "title": "Edit preferences for {name}",
-      "description": "Update portion size for this member.",
+      "description": "Change how this member appears and how big their portion is.",
       "nameLabel": "Name",
-      "namePlaceholder": "Enter name",
+      "namePlaceholder": "e.g., Mia",
       "displayNameOptionalLabel": "Display name (optional)",
       "displayNamePlaceholder": "e.g., Mom, Dad, Alex",
       "displayNameHelper": "How this member appears in the household",
@@ -1111,7 +1109,8 @@
       "savedToast": "Preferences saved",
       "fallbackName": "member",
       "errors": {
-        "saveFailed": "Failed to save preferences"
+        "saveFailed": "Failed to save preferences",
+        "nameRequired": "Name is required"
       }
     },
     "invite": {
