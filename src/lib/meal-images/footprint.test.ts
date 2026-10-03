@@ -183,12 +183,12 @@ describe('HON-1024: fitFootprint', () => {
   })
 
   it('enlarges a narrow bowl, cutting what overhangs the frame', async () => {
-    // 120 px = 0.40 wide, so ×1.25 to reach 0.50; its 180 px height becomes 225 > 200.
-    const bytes = await frameWith({ left: 90, top: 10, width: 120, height: 180 })
+    // 126 px = 0.42 wide, so ×1.19 to reach 0.50; its 180 px height becomes 214 > 200.
+    const bytes = await frameWith({ left: 87, top: 10, width: 126, height: 180 })
 
     const fitted = await fitFootprint(bytes, 'image/png', 'bowl')
 
-    expect(fitted.fit.scale).toBeCloseTo(1.25)
+    expect(fitted.fit.scale).toBeCloseTo(0.5 / 0.42)
     const meta = await sharp(fitted.bytes).metadata()
     expect([meta.width, meta.height]).toEqual([W, H])
     const after = await measureFootprint(fitted.bytes)

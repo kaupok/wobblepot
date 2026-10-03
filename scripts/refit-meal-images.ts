@@ -219,12 +219,18 @@ export function renderSummary(images: RefitImage[]): string {
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-/** A file name for the fitted image, from the first meal's name. */
-export const fileNameFor = (image: RefitImage): string =>
-  `${(image.meals[0]?.name ?? 'image')
+/**
+ * A file name for the fitted image: the first meal's name, then its id, since
+ * two households can each own a "Beef Bibimbap" with different images.
+ */
+export const fileNameFor = (image: RefitImage): string => {
+  const first = image.meals[0]
+  const slug = (first?.name ?? 'image')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')}.png`
+    .replace(/^-|-$/g, '')
+  return `${slug}-${first?.id ?? 'image'}.png`
+}
 
 /**
  * Every image as a before/after pair, each under a pair of dashed guides at

@@ -143,10 +143,10 @@ describe('HON-1024: meal footprint backfill', () => {
     expect(put).not.toHaveBeenCalled()
     const [dir] = readdirSync(d.outRoot)
     const files = readdirSync(join(d.outRoot, dir ?? ''))
-    expect(files.sort()).toEqual(['eggs-benedict.png', 'index.html'])
+    expect(files.sort()).toEqual(['eggs-benedict-a.png', 'index.html'])
     const html = readFileSync(join(d.outRoot, dir ?? '', 'index.html'), 'utf8')
     expect(html).toContain('fitted ×0.92 → 0.58')
-    expect(html).toContain('src="eggs-benedict.png"')
+    expect(html).toContain('src="eggs-benedict-a.png"')
     expect(html).toContain('unchanged: already at the target width')
     expect(html).toContain('--t:58.0%')
     expect(lines.join('\n')).toContain('1 of 2 stored image(s) rescale.')
@@ -228,7 +228,7 @@ describe('HON-1024: meal footprint backfill', () => {
     )
   })
 
-  it('names the fitted file after the first meal', () => {
+  it('names the fitted file after the first meal and its id, so two same-named meals never collide', () => {
     expect(
       fileNameFor({
         url: 'u',
@@ -236,6 +236,6 @@ describe('HON-1024: meal footprint backfill', () => {
         vessel: 'plate',
         fitted: null,
       }),
-    ).toBe('eggs-benedict-brunch.png')
+    ).toBe('eggs-benedict-brunch-a.png')
   })
 })

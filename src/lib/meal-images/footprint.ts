@@ -32,7 +32,11 @@ export interface FootprintOptions {
   minRun: number
   /** Width of the footprint per vessel, as a fraction of the frame width; null leaves the image as drawn. */
   targets: Record<Vessel, number | null>
-  /** A scale outside this range says the footprint is not the vessel; the image is left as drawn. */
+  /**
+   * A scale outside this range says the footprint is not the vessel: a rim
+   * too pale to count would measure only the food and ask for ×1.4 or more.
+   * The 45 measured images needed ×0.86 to ×1.17. The image is left as drawn.
+   */
   minScale: number
   maxScale: number
   /** A scale this close to 1 is not worth a resample. */
@@ -58,7 +62,7 @@ export const DEFAULT_FOOTPRINT_OPTIONS: FootprintOptions = {
   minRun: 0.005,
   targets: FOOTPRINT_TARGETS,
   minScale: 0.7,
-  maxScale: 1.4,
+  maxScale: 1.2,
   tolerance: 0.01,
 }
 
