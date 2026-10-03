@@ -212,7 +212,7 @@ function RecipesVignette() {
               <div className="flex min-h-8 items-center">
                 <Heading variant="section" as="p">
                   {name}
-                  {' '}
+                  {'\u00a0'}
                   <MyRecipeIcon />
                 </Heading>
               </div>
