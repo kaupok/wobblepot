@@ -1101,6 +1101,70 @@ export const AskStreamsAnswer: Story = {
   },
 }
 
+/** The bodies the cook-question route received, newest last (HON-983). */
+const cookQuestionBodies: unknown[] = []
+
+/**
+ * Ask about an item in "You'll need" (HON-983): opening its panel closes an
+ * open step panel, and a chip sends the item as the subject, with the
+ * equipment and the steps on screen.
+ */
+export const AskAboutEquipment: Story = {
+  name: 'Planned: ask about an item in You’ll need',
+  args: { ...plannedArgs, initialTips: tips },
+  parameters: {
+    msw: {
+      handlers: {
+        cookQuestion: [
+          http.post(
+            '/api/meal-plans/:planId/entries/:entryId/cook-question',
+            async ({ request }) => {
+              cookQuestionBodies.push(await request.json())
+              return HttpResponse.text(
+                'A heavy chopping board and a serrated bread knife will do for step 2.',
+              )
+            },
+          ),
+        ],
+      },
+    },
+  },
+  play: async () => {
+    cookQuestionBodies.length = 0
+    await findDialog()
+    const list = body().getByRole('list', { name: "You'll need" })
+    for (const item of tips.equipment!) {
+      await expect(within(list).getByRole('button', { name: `Ask about ${item}` })).toBeVisible()
+    }
+
+    await userEvent.click(body().getByRole('button', { name: 'Ask about step 2' }))
+    await expect(body().getByRole('group', { name: 'Ask about step 2' })).toBeVisible()
+
+    const knife = within(list).getByRole('button', { name: 'Ask about Sharp knife' })
+    await userEvent.click(knife)
+    await expect(body().queryByRole('group', { name: 'Ask about step 2' })).toBeNull()
+    await expect(body().getByRole('button', { name: 'Ask about step 2' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    const panel = body().getByRole('group', { name: 'Ask about Sharp knife' })
+    await userEvent.click(within(panel).getByRole('button', { name: 'What can I use instead?' }))
+    await within(panel).findByText(
+      'A heavy chopping board and a serrated bread knife will do for step 2.',
+    )
+    await expect(cookQuestionBodies).toHaveLength(1)
+    await expect(cookQuestionBodies[0]).toEqual({
+      subject: { kind: 'equipment', index: 1 },
+      steps: tips.steps,
+      equipment: tips.equipment,
+      question: 'What can I use instead?',
+    })
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
+    await expect(knife).toHaveFocus()
+  },
+}
+
 /** A completed entry gets no Ask buttons: nobody is cooking it. */
 export const CompletedHasNoAsk: Story = {
   name: 'Completed: no Ask buttons',

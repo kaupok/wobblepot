@@ -311,14 +311,21 @@
     },
     "cookQuestion": {
       "askAboutStep": "Ask about step {n}",
+      "askAboutItem": "Ask about {item}",
       "ask": "Ask",
       "chips": {
         "done": "How do I know it's done?",
         "substitute": "What can I substitute here?",
         "time": "I'm short on time"
       },
+      "equipmentChips": {
+        "instead": "What can I use instead?",
+        "size": "Does the size matter?",
+        "skip": "Can I skip it?"
+      },
       "questionLabel": "Your question",
       "placeholder": "Ask about this step",
+      "equipmentPlaceholder": "Ask about this item",
       "send": "Send",
       "thinking": "Thinking…",
       "youAsked": "You asked: {question}",

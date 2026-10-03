@@ -181,7 +181,9 @@ export type EventPayload = {
   'cook_view:question_asked': {
     plan_id: string
     meal_id: string
-    step_index: number
+    /** A step, or an item in "You'll need" (HON-983) */
+    subject: 'step' | 'equipment'
+    subject_index: number
     source: 'chip' | 'text'
     has_previous: boolean
   }

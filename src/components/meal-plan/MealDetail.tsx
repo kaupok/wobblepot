@@ -72,7 +72,10 @@ interface MealDetailProps {
   doneSteps?: ReadonlySet<number>
   /** Makes each generated step a done / not-done toggle (HON-933) */
   onToggleStep?: (index: number) => void
-  /** An Ask button beside each step toggle (HON-969); see `PreparationSteps` */
+  /**
+   * An Ask button beside each step toggle (HON-969) and each item in "You'll
+   * need" (HON-983); see `PreparationSteps` and `PreparationEquipment`
+   */
   cookQuestion?: CookQuestionControls
   /**
    * Renders "Done cooking" after the steps, Watch out and Tip. The caller
@@ -296,7 +299,13 @@ export function MealDetail({
             >
               {/* What to set out before step 1. Nothing while the steps generate:
                   there is no equipment yet, and no skeleton stands in for it. */}
-              {showTips && <PreparationEquipment equipment={tips?.equipment} />}
+              {showTips && (
+                <PreparationEquipment
+                  equipment={tips?.equipment}
+                  steps={tips?.steps}
+                  cookQuestion={cookQuestion}
+                />
+              )}
               <Heading variant="h4" as="h3">
                 {tTips('steps')}
               </Heading>

@@ -311,14 +311,21 @@
     },
     "cookQuestion": {
       "askAboutStep": "Küsi sammu {n} kohta",
+      "askAboutItem": "Küsi vahendi kohta: {item}",
       "ask": "Küsi",
       "chips": {
         "done": "Kuidas ma tean, et see on valmis?",
         "substitute": "Millega saan siin asendada?",
         "time": "Mul on vähe aega"
       },
+      "equipmentChips": {
+        "instead": "Millega saan selle asendada?",
+        "size": "Kas suurus on oluline?",
+        "skip": "Kas saan ilma selleta hakkama?"
+      },
       "questionLabel": "Sinu küsimus",
       "placeholder": "Küsi selle sammu kohta",
+      "equipmentPlaceholder": "Küsi selle vahendi kohta",
       "send": "Saada",
       "thinking": "Mõtlen…",
       "youAsked": "Küsisid: {question}",

@@ -19,11 +19,15 @@ global.fetch = mockFetch
 const options = { planId: 'plan-1', entryId: 'entry-1', mealId: 'meal-1' }
 
 const STEPS = ['Boil the pasta.', 'Stir in the cream.']
+const EQUIPMENT = ['Large pot', 'Frying pan']
+
+const STEP_1 = { kind: 'step', index: 1 } as const
 
 function question(overrides: Partial<CookQuestionAskInput> = {}): CookQuestionAskInput {
   return {
-    stepIndex: 1,
+    subject: STEP_1,
     steps: STEPS,
+    equipment: EQUIPMENT,
     question: 'What can I substitute here?',
     source: 'chip',
     ...overrides,
@@ -73,7 +77,7 @@ describe('useCookQuestion', () => {
     vi.restoreAllMocks()
   })
 
-  it('posts the step, the steps and the question, and shows the answer', async () => {
+  it('posts the subject, the steps, the equipment and the question, and shows the answer', async () => {
     mockFetch.mockResolvedValue(ok('Use the yoghurt you have.'))
     const { result } = renderHook(() => useCookQuestion(options), { wrapper })
 
@@ -86,14 +90,15 @@ describe('useCookQuestion', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          stepIndex: 1,
+          subject: STEP_1,
           steps: STEPS,
+          equipment: EQUIPMENT,
           question: 'What can I substitute here?',
         }),
       }),
     )
     expect(result.current.active).toEqual({
-      stepIndex: 1,
+      subject: STEP_1,
       question: 'What can I substitute here?',
       answer: 'Use the yoghurt you have.',
     })
@@ -106,17 +111,60 @@ describe('useCookQuestion', () => {
     const { result } = renderHook(() => useCookQuestion(options), { wrapper })
 
     await act(async () => {
-      await result.current.ask(question({ source: 'text', stepIndex: 0 }))
+      await result.current.ask(question({ source: 'text', subject: { kind: 'step', index: 0 } }))
     })
 
     expect(track).toHaveBeenCalledTimes(1)
     expect(track).toHaveBeenCalledWith('cook_view:question_asked', {
       plan_id: 'plan-1',
       meal_id: 'meal-1',
-      step_index: 0,
+      subject: 'step',
+      subject_index: 0,
       source: 'text',
       has_previous: false,
     })
+  })
+
+  it('asks about an item in "You\'ll need" (HON-983)', async () => {
+    mockFetch.mockResolvedValue(ok('A deep frying pan works.'))
+    const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+    const pan = { kind: 'equipment', index: 1 } as const
+
+    await act(async () => {
+      await result.current.ask(question({ subject: pan, question: 'What can I use instead?' }))
+    })
+
+    expect(JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string)).toEqual({
+      subject: pan,
+      steps: STEPS,
+      equipment: EQUIPMENT,
+      question: 'What can I use instead?',
+    })
+    expect(track).toHaveBeenCalledWith(
+      'cook_view:question_asked',
+      expect.objectContaining({ subject: 'equipment', subject_index: 1 }),
+    )
+    expect(result.current.active).toEqual({
+      subject: pan,
+      question: 'What can I use instead?',
+      answer: 'A deep frying pan works.',
+    })
+  })
+
+  it("does not carry a step's answer to an item with the same index", async () => {
+    mockFetch.mockResolvedValueOnce(ok('First'))
+    const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+    await act(async () => {
+      await result.current.ask(question())
+    })
+
+    mockFetch.mockImplementationOnce(() => new Promise(() => {}))
+    act(() => {
+      void result.current.ask(question({ subject: { kind: 'equipment', index: 1 } }))
+    })
+
+    expect(result.current.isPending).toBe(true)
+    expect(result.current.previous).toBeNull()
   })
 
   it('replaces the answer with a second question on the same step', async () => {
@@ -131,7 +179,7 @@ describe('useCookQuestion', () => {
     })
 
     expect(result.current.active).toEqual({
-      stepIndex: 1,
+      subject: STEP_1,
       question: "I'm short on time",
       answer: 'Second',
     })
@@ -170,12 +218,12 @@ describe('useCookQuestion', () => {
 
       expect(result.current.isPending).toBe(true)
       expect(result.current.active).toEqual({
-        stepIndex: 1,
+        subject: STEP_1,
         question: "I'm short on time",
         answer: null,
       })
       expect(result.current.previous).toEqual({
-        stepIndex: 1,
+        subject: STEP_1,
         question: 'What can I substitute here?',
         answer: 'First',
       })
@@ -228,7 +276,7 @@ describe('useCookQuestion', () => {
 
       deferredFetch()
       act(() => {
-        void result.current.ask(question({ stepIndex: 0 }))
+        void result.current.ask(question({ subject: { kind: 'step', index: 0 } }))
       })
 
       expect(result.current.isPending).toBe(true)
@@ -271,22 +319,25 @@ describe('useCookQuestion', () => {
 
       expect(bodyOf(0)).not.toHaveProperty('previous')
       expect(bodyOf(1)).toEqual({
-        stepIndex: 1,
+        subject: STEP_1,
         steps: STEPS,
+        equipment: EQUIPMENT,
         question: 'And if I have no oil?',
         previous: FIRST,
       })
       expect(track).toHaveBeenNthCalledWith(1, 'cook_view:question_asked', {
         plan_id: 'plan-1',
         meal_id: 'meal-1',
-        step_index: 1,
+        subject: 'step',
+        subject_index: 1,
         source: 'chip',
         has_previous: false,
       })
       expect(track).toHaveBeenNthCalledWith(2, 'cook_view:question_asked', {
         plan_id: 'plan-1',
         meal_id: 'meal-1',
-        step_index: 1,
+        subject: 'step',
+        subject_index: 1,
         source: 'text',
         has_previous: true,
       })
@@ -326,13 +377,30 @@ describe('useCookQuestion', () => {
     it('the first question on another step sends no previous', async () => {
       const { result } = renderHook(() => useCookQuestion(options), { wrapper })
       await askAndAnswer(result, { question: FIRST.question }, FIRST.answer)
-      await askAndAnswer(result, { stepIndex: 0 }, 'About step one.')
+      await askAndAnswer(result, { subject: { kind: 'step', index: 0 } }, 'About step one.')
 
       expect(bodyOf(1)).not.toHaveProperty('previous')
       expect(track).toHaveBeenLastCalledWith(
         'cook_view:question_asked',
-        expect.objectContaining({ step_index: 0, has_previous: false }),
+        expect.objectContaining({ subject: 'step', subject_index: 0, has_previous: false }),
       )
+    })
+
+    it('an item with the same index as the step sends no previous (HON-983)', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      await askAndAnswer(result, { question: FIRST.question }, FIRST.answer)
+      await askAndAnswer(result, { subject: { kind: 'equipment', index: 1 } }, 'Use a pot.')
+
+      expect(bodyOf(1)).not.toHaveProperty('previous')
+    })
+
+    it('a second question on the same item sends the first one (HON-983)', async () => {
+      const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+      const pan = { kind: 'equipment', index: 1 } as const
+      await askAndAnswer(result, { subject: pan, question: FIRST.question }, FIRST.answer)
+      await askAndAnswer(result, { subject: pan, question: 'Does the size matter?' }, 'A bit.')
+
+      expect(bodyOf(1).previous).toEqual(FIRST)
     })
 
     it('the first question after reset sends no previous', async () => {
