@@ -21,8 +21,8 @@
  * those databases, so the manifest is keyed by the slug of the English name,
  * and publish refuses any meal whose prompt no longer matches the one drawn.
  *
- * COSTS REAL MONEY with `--confirm` (~$0.048 per image: the drawing and the
- * vessel call that sets its footprint, HON-1024; ~$0.008 more per image with
+ * COSTS REAL MONEY with `--confirm` (~$0.06 per image: the drawing and the
+ * vessel samples that set its footprint, HON-1024; ~$0.008 more per image with
  * `--judge`). Spend is printed, never ledgered: no household owns it, so
  * `recordAiUsage` is not called.
  *
@@ -66,8 +66,8 @@ import {
 export const IMAGE_EST_USD = 0.0422
 /** HON-733's measured judge call (`REVIEW_MODEL` vision). */
 export const JUDGE_EST_USD = 0.0075
-/** The vessel call that sets each image's footprint (HON-1024): ~2,500 input tokens on REVIEW_MODEL. */
-export const VESSEL_EST_USD = 0.006
+/** The three vessel samples that set each image's footprint (HON-1024): ~2,500 input tokens each on REVIEW_MODEL. */
+export const VESSEL_EST_USD = 0.018
 /**
  * One image at a time. The OpenAI tier allows 5 images per minute, and one
  * image takes ~18 s, so a single lane already runs close to the limit; four

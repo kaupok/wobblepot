@@ -7,7 +7,7 @@
  * narrower by its diameter. Images stored before that, or before a change
  * to the scale, keep the width they were drawn at until this script refits
  * them from the stored file. Nothing is
- * regenerated: the only AI spend is the vessel call, about $0.006 per image.
+ * regenerated: the only AI spend is the vessel samples, about $0.018 per image.
  *
  *   - Dry run (default) — fetches every ready image, classifies its vessel,
  *     fits it, and writes a before/after contact sheet (`index.html`) with
@@ -54,8 +54,8 @@ Usage:
   --yes=<db host>    Confirm the target database host without the prompt.
 
 Every mode reads meals with imageStatus = ready and an imageUrl, fetches each
-distinct stored image once, and asks REVIEW_MODEL for its vessel and size (about
-$0.006 per image, needs ANTHROPIC_API_KEY). No image is regenerated.
+distinct stored image once, and asks REVIEW_MODEL for its vessel and size three
+times (about $0.018 per image, needs ANTHROPIC_API_KEY). No image is regenerated.
 
 Procedure: docs/DEPLOYMENT.md § "Meal footprint backfill".`
 
