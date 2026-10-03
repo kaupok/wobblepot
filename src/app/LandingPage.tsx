@@ -36,8 +36,9 @@ interface LandingPageProps {
  * The signed-out home page. One page, read top to bottom: the problem and the
  * promise, today's three meals drawn with the planner's own cards (each one
  * opening the cook view), how it works in three steps, and who it is for and
- * what makes it different. The floating header keeps "Sign up" on screen at
- * every scroll position, so the page does not repeat the call to action.
+ * what makes it different. The call to action is in the hero only: from `md`
+ * the floating header keeps "Sign up" on screen, and below `md` it is in the
+ * header's Account sheet.
  *
  * Not `<main>`: the root layout's `<main id="main-content">` is the page
  * landmark (HON-820). Left-aligned and capped at the page width like the app,
