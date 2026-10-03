@@ -50,6 +50,9 @@ export default async function PastMealsPage() {
     loadPlanEntries(household, { startDate, endDate: todayParsed }),
     loadPantry(household, { days: null }),
   ])
+  // A slot with only a note has nothing to mark, so it is not a row. Filtered
+  // here so the empty state and the list agree on what counts (HON-1018).
+  const mealEntries = entries.filter((entry) => entry.meal)
 
   return (
     <div className="w-full px-4 py-8">
@@ -63,7 +66,7 @@ export default async function PastMealsPage() {
           <Body variant="muted">{t('description')}</Body>
         </div>
 
-        {entries.length === 0 || !planId ? (
+        {mealEntries.length === 0 || !planId ? (
           <div className="flex flex-col items-start gap-4">
             <Body variant="muted">{t('empty')}</Body>
             <Button asChild>
@@ -72,7 +75,7 @@ export default async function PastMealsPage() {
           </div>
         ) : (
           <PastMealsList
-            entries={entries}
+            entries={mealEntries}
             planId={planId}
             householdSize={household._count.members}
             pantryItems={pantry.items}

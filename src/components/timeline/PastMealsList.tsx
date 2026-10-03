@@ -21,8 +21,8 @@ interface PastMealsListProps {
  * The past days on `/past-meals`, newest first. Each day is its heading and
  * one `RowGroup` of `PastMealRow`s, breakfast to dinner: the page is a task
  * list, so a meal is a row with one-click Cooked and Skipped, not a Today card
- * (HON-1018). An entry with no meal has nothing to mark, so it has no row, and
- * a day with no rows is left out.
+ * (HON-1018). The page passes only entries with a meal; one without is
+ * skipped here too, as there is nothing to mark.
  */
 export function PastMealsList({
   entries,
@@ -33,12 +33,7 @@ export function PastMealsList({
 }: PastMealsListProps) {
   const locale = useLocale() as Locale
   const days = useMemo(
-    () =>
-      buildPastDays(
-        entries.filter((entry) => entry.meal),
-        todayDate,
-        locale,
-      ),
+    () => buildPastDays(entries, todayDate, locale),
     [entries, todayDate, locale],
   )
 
