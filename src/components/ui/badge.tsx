@@ -4,11 +4,14 @@ import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
 
+const surfaceButton =
+  '[button&]:enabled:cursor-pointer [button&]:enabled:hover:bg-accent [button&]:enabled:hover:text-accent-foreground dark:[button&]:enabled:hover:bg-accent/50'
+
 const badgeVariants = cva(
   // The floor is the text badge's height — the `text-xs` line, `py-0.5` and
   // the border — so an icon-only badge, whose 14px icon sets no line box,
   // stands as tall as the text badges beside it.
-  'inline-flex items-center justify-center rounded-full border min-h-[calc(var(--text-xs--line-height)+--spacing(1)+2px)] px-2.5 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3.5 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden',
+  'inline-flex items-center justify-center rounded-full border min-h-[calc(var(--text-xs--line-height)+--spacing(1)+2px)] px-2.5 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3.5 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,background-color,box-shadow] overflow-hidden',
   {
     variants: {
       variant: {
@@ -29,9 +32,16 @@ const badgeVariants = cva(
         // neutral card the ring from `--border` is what makes it a pill at all.
         // The border colour is deliberately not set here: a utility would beat
         // that scope's `border-color: transparent`.
-        surface: 'bg-background text-foreground',
-        'surface-success': 'bg-background text-success',
-        'surface-warning': 'bg-background text-warning',
+        //
+        // A surface badge that is a button (the cook view's Serves, HON-1032)
+        // takes the `ghost` Button's hover and a pointer, so it reads as the one
+        // action beside the time and Kid-friendly pills, which look the same and
+        // are not. On a tint `--accent` is the meal's chip colour, the hover of
+        // the ⋯ button in the same view. `[button&]` leaves the span badges as
+        // they are; `enabled:` drops both while the button is disabled.
+        surface: `bg-background text-foreground ${surfaceButton}`,
+        'surface-success': `bg-background text-success ${surfaceButton}`,
+        'surface-warning': `bg-background text-warning ${surfaceButton}`,
       },
       size: {
         default: '',

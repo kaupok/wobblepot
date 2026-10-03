@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { CheckIcon, Clock } from 'lucide-react'
-import { expect, within } from 'storybook/test'
+import { CheckIcon, Clock, Pencil } from 'lucide-react'
+import { expect, userEvent, within } from 'storybook/test'
 import { Badge } from './badge'
 
 const meta = {
@@ -117,6 +117,116 @@ export const SurfaceOnTintedSurface: Story = {
 
 export const SurfaceOnTintedSurfaceDark: Story = {
   ...SurfaceOnTintedSurface,
+  globals: { theme: 'dark' },
+}
+
+/**
+ * A surface badge that is a button, the cook view's Serves (HON-1032): a
+ * pointer and the `ghost` Button's accent hover while it is enabled, neither
+ * while it is disabled. The time badge beside it is a span and keeps the
+ * default cursor. A synthetic hover does not reach CSS `:hover`, so the hover
+ * classes are asserted in badge.test.tsx and the hover look is measured by axe
+ * in `SurfaceButtonHoverLook`.
+ */
+function SurfaceButtonRow({ surface }: { surface: 'tinted' | 'neutral' }) {
+  return (
+    <div
+      {...(surface === 'tinted' ? { 'data-meal-surface': '' } : {})}
+      style={surface === 'tinted' ? ({ '--meal-hue': 52 } as CSSProperties) : undefined}
+      className="bg-card flex flex-wrap items-center gap-1.5 rounded-xl border p-4"
+    >
+      <Badge variant="surface" size="lg">
+        <Clock />
+        30 min
+      </Badge>
+      <Badge asChild variant="surface" size="lg" hitArea="touch">
+        <button type="button">
+          Serves 4
+          <Pencil aria-hidden="true" />
+        </button>
+      </Badge>
+      <Badge asChild variant="surface" size="lg" hitArea="touch">
+        <button type="button" disabled>
+          Serves 2
+        </button>
+      </Badge>
+    </div>
+  )
+}
+
+const surfaceButtonPlay: Story['play'] = async ({ canvasElement }) => {
+  const canvas = within(canvasElement)
+  const enabled = canvas.getByRole('button', { name: 'Serves 4' })
+  const disabled = canvas.getByRole('button', { name: 'Serves 2' })
+  await expect(getComputedStyle(enabled).cursor).toBe('pointer')
+  await expect(getComputedStyle(disabled).cursor).toBe('default')
+  await expect(getComputedStyle(canvas.getByText('30 min')).cursor).toBe('auto')
+  await expect(getComputedStyle(enabled).transitionProperty).toContain('background-color')
+  // Keyboard focus still draws the ring.
+  await userEvent.tab()
+  await expect(enabled).toHaveFocus()
+  await expect(getComputedStyle(enabled).boxShadow).not.toBe('none')
+}
+
+export const SurfaceButtonOnTintedSurface: Story = {
+  render: () => <SurfaceButtonRow surface="tinted" />,
+  play: surfaceButtonPlay,
+}
+
+export const SurfaceButtonOnTintedSurfaceDark: Story = {
+  ...SurfaceButtonOnTintedSurface,
+  globals: { theme: 'dark' },
+}
+
+export const SurfaceButtonOnNeutralCard: Story = {
+  render: () => <SurfaceButtonRow surface="neutral" />,
+  play: surfaceButtonPlay,
+}
+
+export const SurfaceButtonOnNeutralCardDark: Story = {
+  ...SurfaceButtonOnNeutralCard,
+  globals: { theme: 'dark' },
+}
+
+/**
+ * The hover look drawn at rest, so axe measures it: axe cannot see `:hover`.
+ * The overridden Serves count keeps its `text-info` span on the accent, which
+ * is the pairing this checks, on a tint and on the neutral card.
+ */
+function HoverLookRow() {
+  const hover = 'bg-accent text-accent-foreground dark:bg-accent/50'
+  return (
+    <div className="flex flex-col gap-3">
+      <div
+        data-meal-surface=""
+        style={{ '--meal-hue': 52 } as CSSProperties}
+        className="flex items-center gap-1.5 rounded-xl p-4"
+      >
+        <Badge variant="surface" size="lg" className={hover}>
+          Serves 4
+        </Badge>
+        <Badge variant="surface" size="lg" className={hover}>
+          <span className="text-info">Serves 6 (custom)</span>
+        </Badge>
+      </div>
+      <div className="bg-card flex items-center gap-1.5 rounded-xl border p-4">
+        <Badge variant="surface" size="lg" className={hover}>
+          Serves 4
+        </Badge>
+        <Badge variant="surface" size="lg" className={hover}>
+          <span className="text-info">Serves 6 (custom)</span>
+        </Badge>
+      </div>
+    </div>
+  )
+}
+
+export const SurfaceButtonHoverLook: Story = {
+  render: () => <HoverLookRow />,
+}
+
+export const SurfaceButtonHoverLookDark: Story = {
+  render: () => <HoverLookRow />,
   globals: { theme: 'dark' },
 }
 
