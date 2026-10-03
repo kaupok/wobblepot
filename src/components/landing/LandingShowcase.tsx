@@ -16,8 +16,8 @@ import type { MealType, ProteinType } from '@/generated/prisma/enums'
  *
  * The three illustrations are copies of generated meal images, committed under
  * `public/landing/` so the page never depends on a household's data or a blob
- * store. Their hues are the ones the generator extracted, so the cards tint
- * exactly as they do in the app. Names and descriptions come from the catalog,
+ * store. Their hues are what `extractHue` returns for these files (re-extracted
+ * for HON-1009's rule), so the cards tint exactly as they do in the app. Names and descriptions come from the catalog,
  * so an Estonian visitor reads an Estonian day.
  */
 const SHOWCASE_MEALS: ReadonlyArray<{
@@ -32,21 +32,21 @@ const SHOWCASE_MEALS: ReadonlyArray<{
     mealType: 'breakfast',
     proteinType: 'eggs',
     imageUrl: '/landing/avocado-toast-poached-egg.jpg',
-    imageHue: 93,
+    imageHue: 104,
   },
   {
     key: 'lunch',
     mealType: 'lunch',
     proteinType: 'beef',
     imageUrl: '/landing/beef-bibimbap.jpg',
-    imageHue: 51,
+    imageHue: 89,
   },
   {
     key: 'dinner',
     mealType: 'dinner',
     proteinType: 'fish',
     imageUrl: '/landing/baked-salmon-asparagus.jpg',
-    imageHue: 66,
+    imageHue: 88,
   },
 ]
 

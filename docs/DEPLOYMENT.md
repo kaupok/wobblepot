@@ -13,6 +13,7 @@ Complete guide for deploying Wobblepot to staging and production environments.
   - [Security incidents and data breaches](#security-incidents-and-data-breaches)
   - [Scheduled jobs (cron)](#scheduled-jobs-cron)
   - [Global meal illustrations](#global-meal-illustrations)
+  - [Meal hue backfill](#meal-hue-backfill)
   - [Library preparation steps](#library-preparation-steps)
 
 ## CI Pipeline
@@ -266,6 +267,32 @@ It prints what it will skip and why, then the database host and Blob store, and 
 Because generation does not depend on the environment, publish the **same run directory** to staging, check it on `wobblepot.dev`, then publish it to production. Meals are matched by the slug of their English name (ids differ between databases). A meal is skipped if it is already `ready` at the current version, so publishing twice is a no-op. It is also skipped if its prompt no longer matches the one drawn, meaning the meal changed since: regenerate it. Publish uses the route's claim columns (`imageClaimedAt`), so two concurrent publishes cannot both attach an image, and an edit mid-upload discards the upload.
 
 **5. Rejected meals.** An excluded meal stays without an image and is selected again by the next `--confirm` run. Repeat steps 2–4 for just those, with `--meal=` or a fresh full run.
+
+### Meal hue backfill
+
+A meal's card tint comes from `Meal.imageHue`, which is extracted from its image once, when the image is stored ([DESIGN.md → Imagery](DESIGN.md#imagery)). When the rule in `src/lib/meal-images/colour.ts` changes (HON-1009 made it pick the most distinctive colour against `HUE_BASELINE`), stored meals keep their old hue until `scripts/backfill-meal-hues.ts` re-extracts it. It fetches each stored image and regenerates nothing, so it costs no AI spend. It reads every meal with `imageStatus = ready` and an `imageUrl`; a household's copy of a global meal shares that meal's image, so each distinct image is fetched once. An image that cannot be fetched is logged and its meals are skipped.
+
+**When to run it:** after a change to the hue rule or to `HUE_BASELINE`, on staging and then production. Meals drawn after the change already get the new rule.
+
+**1. Dry run (writes nothing).** Writes a contact sheet to `.temp/meal-hues/<timestamp>/index.html` (each meal's image on a card in its old tint and its new tint, with both hues) and prints a 20° histogram of the old and new hues.
+
+```bash
+pnpm meal-images:rehue
+```
+
+**2. Review.** Open the sheet. A tint should come from the food: a green dish green, a tomato dish red, a brown stew still orange.
+
+**3. Write, on staging and then production.** Point `DATABASE_URL` at the target and confirm. It asks for the database host to be typed back (`--yes=<host>` does the same non-interactively) and then writes `imageHue` for each meal whose hue changed. Nothing else changes: `updatedAt` is pinned, as in the image route, and a meal whose image or content changed since it was read is skipped and picked up by a rerun.
+
+```bash
+pnpm meal-images:rehue --confirm
+```
+
+**Regenerating `HUE_BASELINE`.** `pnpm meal-images:rehue --baseline` prints the mean hue-bin shares over the distinct stored images as a ready-to-paste `HUE_BASELINE`, and writes nothing. The constant is checked in, so a new one lands in a PR (update the date and source in its comment) before the backfill runs. Regenerate it when the image style changes, such as a `MEAL_IMAGE_PROMPT_VERSION` bump or HON-971. The 2026-10-03 constant came from the 25 distinct images in a fork of staging; one taken from the full production catalogue is more representative.
+
+**The landing page is not in the database.** `src/components/landing/LandingShowcase.tsx` hardcodes the hues of the three illustrations in `public/landing/`, so the backfill does not reach them. After a rule or baseline change, re-extract them with `extractHue` and update the three values in the same PR.
+
+`pnpm meal-images:rehue --help` lists every flag.
 
 ### Library preparation steps
 
