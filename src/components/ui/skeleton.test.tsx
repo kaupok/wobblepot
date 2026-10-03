@@ -33,6 +33,19 @@ describe('Skeleton', () => {
     expect(skeleton).toHaveAttribute('data-shape', shape ?? 'default')
   })
 
+  // HON-1016: inside the shopping note the accent is the dividers' colour, so
+  // the bars there take half of it.
+  it.each([
+    [undefined, 'bg-accent'],
+    ['soft', 'bg-accent/50'],
+  ] as const)('renders tone %s as %s', (tone, bg) => {
+    render(<Skeleton tone={tone} className="size-4" />)
+
+    const skeleton = screen.getByRole('status')
+    expect(skeleton).toHaveClass(bg)
+    expect(skeleton).toHaveAttribute('data-tone', tone ?? 'default')
+  })
+
   // HON-582: this `role="status"` is shared with every success banner in the
   // app, so an unscoped `getByRole('status')` in a Playwright spec matches each
   // loader on screen and fails strict mode instead of waiting for the banner.

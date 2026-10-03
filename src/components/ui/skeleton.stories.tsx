@@ -1,5 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
+// Aliased: `Card` is the name of a story below.
+import { Card as CardPrimitive, CardContent } from './card'
+import { RowGroup } from './row-group'
 import { Skeleton } from './skeleton'
 
 const meta = {
@@ -9,6 +12,7 @@ const meta = {
   parameters: { layout: 'centered' },
   argTypes: {
     shape: { control: 'select', options: ['default', 'card', 'circle', 'checkbox', 'flush'] },
+    tone: { control: 'inline-radio', options: ['default', 'soft'] },
   },
 } satisfies Meta<typeof Skeleton>
 
@@ -95,6 +99,38 @@ export const ListShape: Story = {
       ))}
     </div>
   ),
+}
+
+// Inside the shopping list's note sheet the bars take `tone="soft"`: the
+// note's accent is the colour of its dividers, so a default bar is as loud as
+// a rule (HON-1016). Default and soft side by side on the sheet, over ruled rows.
+export const SoftOnNote: Story = {
+  render: () => (
+    <div className="w-80">
+      <CardPrimitive data-surface="note">
+        <CardContent>
+          <div className="flex flex-col gap-4">
+            <Skeleton data-testid="default" className="h-4 w-48" />
+            <RowGroup variant="ruled">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-3 p-3">
+                  <Skeleton aria-hidden tone="soft" shape="checkbox" className="size-5" />
+                  <Skeleton aria-hidden tone="soft" className="h-5 w-32" />
+                </div>
+              ))}
+            </RowGroup>
+          </div>
+        </CardContent>
+      </CardPrimitive>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByTestId('default')).toHaveClass('bg-accent')
+    const soft = canvasElement.querySelectorAll('[data-tone="soft"]')
+    await expect(soft).toHaveLength(6)
+    for (const bar of soft) await expect(bar).toHaveClass('bg-accent/50')
+  },
 }
 
 // The status label comes from `common.loading`, so every loading screen

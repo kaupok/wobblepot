@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
 import { shoppingItemsByUrgency } from '@/stories/fixtures'
+import { Card, CardContent } from '@/components/ui/card'
 import { UrgencyGroup } from './UrgencyGroup'
 
 // WHY: Purchased items within a group intentionally render dimmer text to
@@ -26,10 +27,15 @@ const meta = {
   args: {
     onToggleItem: fn(),
   },
+  // The group lives on the shopping note's sheet, ruled rather than boxed (HON-1016).
   decorators: [
     (Story) => (
       <div className="max-w-md">
-        <Story />
+        <Card data-surface="note">
+          <CardContent>
+            <Story />
+          </CardContent>
+        </Card>
       </div>
     ),
   ],

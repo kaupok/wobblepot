@@ -197,6 +197,18 @@ const CHECKS: Record<DesignRule, (root: HTMLElement) => void> = {
         nested,
       )
     }
+    // A boxed `RowGroup` is a card by another name: inside a Card, the group
+    // keeps only its dividers (`variant="ruled"`, HON-1016).
+    const boxedGroup = root.querySelector(
+      '[data-slot="card"] [data-slot="row-group"]:not([data-variant="ruled"])',
+    )
+    if (boxedGroup) {
+      throw violation(
+        'no-nested-cards',
+        'a bordered RowGroup is rendered inside a Card — use RowGroup variant="ruled" there',
+        boxedGroup,
+      )
+    }
   },
 
   // Keys on the heading tag, so a `Heading` that renders a non-heading tag

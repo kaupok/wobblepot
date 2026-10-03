@@ -44,7 +44,7 @@ export function CustomShoppingItem({
       className={cn(
         'min-h-touch flex items-center justify-between gap-3 p-3 transition-colors',
         // `accent`, not `muted`: the shopping note re-maps `--accent` to its
-        // chip, so the wash stays yellow on the paper (HON-1012).
+        // chip, so the wash stays yellow on the sheet (HON-1012).
         'hover:bg-accent/50',
         item.checked && 'bg-accent/30',
         disabled && 'pointer-events-none opacity-50',

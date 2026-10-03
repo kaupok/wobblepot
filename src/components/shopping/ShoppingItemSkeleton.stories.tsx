@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, within } from 'storybook/test'
 import { createCustomItem, createShoppingItem } from '@/stories/fixtures'
+import { Card, CardContent } from '@/components/ui/card'
 import { RowGroup } from '@/components/ui/row-group'
 import { CustomShoppingItem } from './CustomShoppingItem'
 import { ShoppingItem } from './ShoppingItem'
@@ -24,10 +25,15 @@ const meta = {
       },
     },
   },
+  // The rows live on the shopping note's sheet, ruled rather than boxed (HON-1016).
   decorators: [
     (Story) => (
       <div className="max-w-md">
-        <Story />
+        <Card data-surface="note">
+          <CardContent>
+            <Story />
+          </CardContent>
+        </Card>
       </div>
     ),
   ],
@@ -38,7 +44,7 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   render: () => (
-    <RowGroup>
+    <RowGroup variant="ruled">
       <ShoppingItemSkeleton />
       <ShoppingItemSkeleton />
       <ShoppingItemSkeleton />
@@ -49,13 +55,13 @@ export const Default: Story = {
 export const AgainstLiveRows: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
-      <RowGroup data-testid="skeleton">
+      <RowGroup variant="ruled" data-testid="skeleton">
         <ShoppingItemSkeleton />
       </RowGroup>
-      <RowGroup data-testid="shopping-item">
+      <RowGroup variant="ruled" data-testid="shopping-item">
         <ShoppingItem item={createShoppingItem()} onToggle={fn()} />
       </RowGroup>
-      <RowGroup data-testid="custom-item">
+      <RowGroup variant="ruled" data-testid="custom-item">
         <CustomShoppingItem
           item={createCustomItem()}
           onToggle={fn()}

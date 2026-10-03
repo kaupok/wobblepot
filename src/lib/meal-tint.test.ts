@@ -135,7 +135,7 @@ describe.each([
 
 /**
  * The shopping note (`[data-surface='note']`): Today's `UrgentShopping` and the
- * list half of Pantry & shopping (HON-1012). One hue, 95, its own surface
+ * list's sheet on Pantry & shopping (HON-1016). One hue, 95, its own surface
  * lightness and chroma, and the meal tint's text, muted and chip values. The
  * dark sheet is lighter than a dark meal tint, so "paler only gains contrast"
  * holds in the light theme alone; this measures both.

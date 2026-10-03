@@ -7,6 +7,7 @@ import {
   proteinShoppingItems,
   produceShoppingItems,
 } from '@/stories/fixtures'
+import { Card, CardContent } from '@/components/ui/card'
 import { CategoryGroup } from './CategoryGroup'
 
 // WHY: Purchased / checked custom items within a group intentionally render
@@ -35,10 +36,15 @@ const meta = {
     onUnlinkCustomItem: fn(),
     onDeleteCustomItem: fn(),
   },
+  // The group lives on the shopping note's sheet, ruled rather than boxed (HON-1016).
   decorators: [
     (Story) => (
       <div className="max-w-md">
-        <Story />
+        <Card data-surface="note">
+          <CardContent>
+            <Story />
+          </CardContent>
+        </Card>
       </div>
     ),
   ],

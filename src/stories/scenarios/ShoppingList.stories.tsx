@@ -6,7 +6,9 @@ import { CategoryGroup, CUSTOM_ITEMS_EMOJI } from '@/components/shopping/Categor
 import { CustomShoppingItem } from '@/components/shopping/CustomShoppingItem'
 import { UrgencyGroup } from '@/components/shopping/UrgencyGroup'
 import { GroupHeading } from '@/components/inventory/GroupHeading'
+import { Card, CardContent } from '@/components/ui/card'
 import { RowGroup } from '@/components/ui/row-group'
+import { CustomItemInput, type CustomItemData } from '@/components/shopping/CustomItemInput'
 import { ShoppingEmptyState } from '@/components/inventory/ShoppingEmptyState'
 import { ShoppingListHeader } from '@/components/inventory/ShoppingListHeader'
 import { WINDOW_STORAGE_KEY } from '@/components/inventory/use-shopping-window'
@@ -73,14 +75,15 @@ interface ShoppingListScreenProps {
   onToggleCustomItem: (id: string, checked: boolean) => void
   onUnlinkCustomItem: (id: string) => void
   onDeleteCustomItem: (id: string) => void
+  onCustomItemAdded: (item: CustomItemData) => void
 }
 
 /**
  * The `/shopping` list with items on it, composed the way
  * `src/components/inventory/ShoppingSection.tsx` composes it: the shared
- * `ShoppingListHeader` — page title, summary line, window picker — then grouped
- * rows. Data is fixed, so the only thing that moves between runs is the layout
- * under review. The section's own copy/clear/sort controls are left out: they
+ * `ShoppingListHeader` — page title, summary line, window picker — on the page,
+ * then the note sheet holding the Add field and the ruled groups. Data is
+ * fixed, so the only thing that moves between runs is the layout under review. The section's own copy/clear/sort controls are left out: they
  * belong to `ShoppingSection`'s state, and `Feature/Inventory/ShoppingListHeader`
  * already shows the header at its most crowded.
  */
@@ -90,6 +93,7 @@ function ShoppingListScreen({
   onToggleCustomItem,
   onUnlinkCustomItem,
   onDeleteCustomItem,
+  onCustomItemAdded,
 }: ShoppingListScreenProps) {
   const tShopping = useTranslations('shopping')
 
@@ -114,95 +118,100 @@ function ShoppingListScreen({
           </>
         }
       />
-      <div className="flex flex-col gap-6">
-        {sort === 'urgency' ? (
-          <>
-            {/* Urgency mode has no per-item date for custom items, so it
+      <Card data-surface="note">
+        <CardContent>
+          <div className="flex flex-col gap-6">
+            <CustomItemInput onItemAdded={onCustomItemAdded} />
+            {sort === 'urgency' ? (
+              <>
+                {/* Urgency mode has no per-item date for custom items, so it
                   collapses all of them into one group, ahead of the buckets. */}
-            <div className="flex flex-col gap-2">
-              <GroupHeading
-                emoji={CUSTOM_ITEMS_EMOJI}
-                label={tShopping('customItemsSectionTitle')}
-                total={customShoppingItems.length}
-                count={`${checkedCustomCount}/${customShoppingItems.length}`}
-              />
-              <RowGroup>
-                {customShoppingItems.map((item) => (
-                  <CustomShoppingItem
-                    key={item.id}
-                    item={item}
-                    onToggle={onToggleCustomItem}
-                    onUnlink={onUnlinkCustomItem}
-                    onDelete={onDeleteCustomItem}
+                <div className="flex flex-col gap-2">
+                  <GroupHeading
+                    emoji={CUSTOM_ITEMS_EMOJI}
+                    label={tShopping('customItemsSectionTitle')}
+                    total={customShoppingItems.length}
+                    count={`${checkedCustomCount}/${customShoppingItems.length}`}
+                  />
+                  <RowGroup variant="ruled">
+                    {customShoppingItems.map((item) => (
+                      <CustomShoppingItem
+                        key={item.id}
+                        item={item}
+                        onToggle={onToggleCustomItem}
+                        onUnlink={onUnlinkCustomItem}
+                        onDelete={onDeleteCustomItem}
+                      />
+                    ))}
+                  </RowGroup>
+                </div>
+                {URGENCY_BUCKETS.map((bucket) => (
+                  <UrgencyGroup
+                    key={bucket}
+                    bucket={bucket}
+                    items={shoppingItemsByUrgency[bucket]}
+                    onToggleItem={onToggleItem}
                   />
                 ))}
-              </RowGroup>
-            </div>
-            {URGENCY_BUCKETS.map((bucket) => (
-              <UrgencyGroup
-                key={bucket}
-                bucket={bucket}
-                items={shoppingItemsByUrgency[bucket]}
-                onToggleItem={onToggleItem}
-              />
-            ))}
-          </>
-        ) : (
-          <>
-            {CATEGORY_GROUPS.map((group) => (
-              <CategoryGroup
-                key={group.category}
-                category={group.category}
-                items={group.items}
-                customItems={customShoppingItems.filter(
-                  (item) => item.ingredientCategory === group.category,
-                )}
-                onToggleItem={onToggleItem}
-                onToggleCustomItem={onToggleCustomItem}
-                onUnlinkCustomItem={onUnlinkCustomItem}
-                onDeleteCustomItem={onDeleteCustomItem}
-              />
-            ))}
-            {customOnlyCategories.map((category) => (
-              <CategoryGroup
-                key={category}
-                category={category}
-                items={[]}
-                customItems={customShoppingItems.filter(
-                  (item) => item.ingredientCategory === category,
-                )}
-                onToggleItem={onToggleItem}
-                onToggleCustomItem={onToggleCustomItem}
-                onUnlinkCustomItem={onUnlinkCustomItem}
-                onDeleteCustomItem={onDeleteCustomItem}
-              />
-            ))}
-            {/* Custom items with no ingredient have no category to sit in. */}
-            <div className="flex flex-col gap-2">
-              <GroupHeading
-                emoji={CUSTOM_ITEMS_EMOJI}
-                label={tShopping('otherSectionTitle')}
-                total={unlinkedCustomItems.length}
-                count={
-                  checkedUnlinkedCount > 0 &&
-                  `${checkedUnlinkedCount}/${unlinkedCustomItems.length}`
-                }
-              />
-              <RowGroup>
-                {unlinkedCustomItems.map((item) => (
-                  <CustomShoppingItem
-                    key={item.id}
-                    item={item}
-                    onToggle={onToggleCustomItem}
-                    onUnlink={onUnlinkCustomItem}
-                    onDelete={onDeleteCustomItem}
+              </>
+            ) : (
+              <>
+                {CATEGORY_GROUPS.map((group) => (
+                  <CategoryGroup
+                    key={group.category}
+                    category={group.category}
+                    items={group.items}
+                    customItems={customShoppingItems.filter(
+                      (item) => item.ingredientCategory === group.category,
+                    )}
+                    onToggleItem={onToggleItem}
+                    onToggleCustomItem={onToggleCustomItem}
+                    onUnlinkCustomItem={onUnlinkCustomItem}
+                    onDeleteCustomItem={onDeleteCustomItem}
                   />
                 ))}
-              </RowGroup>
-            </div>
-          </>
-        )}
-      </div>
+                {customOnlyCategories.map((category) => (
+                  <CategoryGroup
+                    key={category}
+                    category={category}
+                    items={[]}
+                    customItems={customShoppingItems.filter(
+                      (item) => item.ingredientCategory === category,
+                    )}
+                    onToggleItem={onToggleItem}
+                    onToggleCustomItem={onToggleCustomItem}
+                    onUnlinkCustomItem={onUnlinkCustomItem}
+                    onDeleteCustomItem={onDeleteCustomItem}
+                  />
+                ))}
+                {/* Custom items with no ingredient have no category to sit in. */}
+                <div className="flex flex-col gap-2">
+                  <GroupHeading
+                    emoji={CUSTOM_ITEMS_EMOJI}
+                    label={tShopping('otherSectionTitle')}
+                    total={unlinkedCustomItems.length}
+                    count={
+                      checkedUnlinkedCount > 0 &&
+                      `${checkedUnlinkedCount}/${unlinkedCustomItems.length}`
+                    }
+                  />
+                  <RowGroup variant="ruled">
+                    {unlinkedCustomItems.map((item) => (
+                      <CustomShoppingItem
+                        key={item.id}
+                        item={item}
+                        onToggle={onToggleCustomItem}
+                        onUnlink={onUnlinkCustomItem}
+                        onDelete={onDeleteCustomItem}
+                      />
+                    ))}
+                  </RowGroup>
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </section>
   )
 }
@@ -216,7 +225,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The `/shopping` screen as a whole, not a single component. Makes the composition rules visible: the column title and its group headings sit on the page background, each group is one bordered `RowGroup` with a divider between its rows, every row clears the 44px touch floor, and the title stays at the Title level. Props are fixed — see `.storybook/README.md` → "Scenario stories".',
+          'The `/shopping` screen as a whole, not a single component. Makes the composition rules visible: the column title and controls sit on the page background, the list is one note sheet (the paper of the shopping note on Today) holding the Add field and the groups, each group is a ruled `RowGroup` with a divider between its rows and no box of its own, every row clears the 44px touch floor, and the title stays at the Title level. Props are fixed — see `.storybook/README.md` → "Scenario stories".',
       },
     },
   },
@@ -234,16 +243,8 @@ const meta = {
     onToggleCustomItem: fn(),
     onUnlinkCustomItem: fn(),
     onDeleteCustomItem: fn(),
+    onCustomItemAdded: fn(),
   },
-  // The list half of Pantry & shopping is the shopping note's paper
-  // (HON-1012), so the a11y gate measures this column's text on it.
-  decorators: [
-    (Story) => (
-      <div data-surface="note" className="p-4">
-        <Story />
-      </div>
-    ),
-  ],
 } satisfies Meta<typeof ShoppingListScreen>
 
 export default meta
@@ -306,13 +307,13 @@ export const Empty: Story = {
   },
 }
 
-/** `Populated` on the note's dark sheet, so the a11y gate measures both themes (HON-1012). */
+/** `Populated` in the dark theme: the note's dark sheet, so the a11y gate measures both themes. */
 export const PopulatedDark: Story = {
   ...Populated,
   globals: { theme: 'dark' },
 }
 
-/** `Empty` on the note's dark sheet: the CTA and muted lines on the dark paper. */
+/** `Empty` in the dark theme: no sheet, the CTA and muted lines on the page background (HON-1016). */
 export const EmptyDark: Story = {
   ...Empty,
   globals: { theme: 'dark' },
