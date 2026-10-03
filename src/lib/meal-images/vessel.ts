@@ -4,7 +4,10 @@ import { z } from 'zod'
  * The vessel a meal illustration serves its food in (HON-1024). Classified
  * once per image by a vision call, so `footprint.ts` can scale every plate to
  * one width and every bowl to another: the prompt's "about half the width of
- * the frame" came out anywhere from 0.50 to 0.68 for a plate.
+ * the frame" came out anywhere from 0.50 to 0.68 for a plate. A wide shallow
+ * bowl is told from a small deep one in `footprint.ts`, by geometry, not
+ * here: asked for the two classes, the model put the same yogurt bowl in
+ * either from one call to the next.
  *
  * Deliberately free of `server-only`, like `judge.ts`: the model call lives
  * in `generate.ts`, and the backfill script shares the prompt and the schema.

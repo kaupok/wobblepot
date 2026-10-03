@@ -49,6 +49,8 @@ function deps(meals: RefitMeal[], plan: Plan, overrides: Partial<RunDeps> = {}) 
             mediaType,
             fit: {
               vessel,
+              shape: vessel,
+              depth: null,
               measuredWidth: measured,
               targetWidth: target,
               elevationDeg: vessel === 'plate' ? 40 : null,
@@ -62,6 +64,8 @@ function deps(meals: RefitMeal[], plan: Plan, overrides: Partial<RunDeps> = {}) 
             mediaType: 'image/png',
             fit: {
               vessel,
+              shape: vessel,
+              depth: null,
               measuredWidth: measured,
               targetWidth: target,
               elevationDeg: vessel === 'plate' ? 40 : null,
@@ -133,9 +137,9 @@ describe('HON-1024: meal footprint backfill', () => {
     )
     const summary = renderSummary(images)
     expect(summary).toContain(
-      'plate    2 image(s), width 0.58–0.64 as drawn, camera 40–40°, target 0.58, 1 to refit',
+      'plate       2 image(s), width 0.58–0.64 as drawn, camera 40–40°, target 0.58, 1 to refit',
     )
-    expect(summary).toContain('glass    1 image(s), width 0.30–0.30 as drawn, left as drawn')
+    expect(summary).toContain('glass       1 image(s), width 0.30–0.30 as drawn, left as drawn')
   })
 
   it('writes the sheet and the fitted files, and nothing to the database or Blob, on a dry run', async () => {

@@ -1,9 +1,11 @@
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
 import {
+  bowlDepth,
   DEFAULT_FOOTPRINT_OPTIONS,
   elevationDeg,
   fitFootprint,
+  footprintClass,
   footprintOfPixels,
   measureFootprint,
   planFit,
@@ -145,10 +147,25 @@ describe('HON-1024: footprint measurement', () => {
   })
 })
 
+describe('HON-1024: bowl depth', () => {
+  it('tells a wide bowl from a deep one by what shows below the rim', () => {
+    expect(bowlDepth(fp())).toBeCloseTo(49 / 90)
+    expect(footprintClass(fp(), 'bowl')).toBe('wide-bowl')
+    expect(footprintClass(fp({ bottom: 180 }), 'bowl')).toBe('bowl')
+    // Only a bowl is split; a plate's front edge is not a depth.
+    expect(footprintClass(fp(), 'plate')).toBe('plate')
+    expect(footprintClass(null, 'bowl')).toBe('bowl')
+    expect(DEFAULT_FOOTPRINT_OPTIONS.wideBowlDepth).toBe(0.8)
+  })
+})
+
 describe('HON-1024: fit plan', () => {
-  it('scales a plate to 0.58 and a bowl to 0.42 of the frame width', () => {
+  it('scales a plate to 0.58, a wide bowl to 0.50 and a deep bowl to 0.42 of the frame width', () => {
     expect(planFit(fp(), 'plate')).toEqual({ action: 'fit', scale: 0.58 / 0.6 })
-    expect(planFit(fp(), 'bowl')).toEqual({ action: 'fit', scale: 0.42 / 0.6 })
+    // 49 px below the rim over a 90 px half-width: 0.54, a wide bowl.
+    expect(planFit(fp(), 'bowl')).toEqual({ action: 'fit', scale: 0.5 / 0.6 })
+    // 80 px below the rim: 0.89, a deep bowl.
+    expect(planFit(fp({ bottom: 180 }), 'bowl')).toEqual({ action: 'fit', scale: 0.42 / 0.6 })
   })
 
   it('leaves a glass, a board and an unknown vessel as drawn', () => {
@@ -241,7 +258,8 @@ describe('HON-1024: fitFootprint', () => {
     const fitted = await fitFootprint(bytes, 'image/png', 'bowl')
 
     expect(fitted.fit.scale).toBeCloseTo(0.42 / 0.35)
-    expect(fitted.fit.elevationDeg).toBeNull()
+    expect(fitted.fit).toMatchObject({ shape: 'bowl', elevationDeg: null })
+    expect(fitted.fit.depth).toBeGreaterThan(1)
     const meta = await sharp(fitted.bytes).metadata()
     expect([meta.width, meta.height]).toEqual([W, H])
     const after = await measureFootprint(fitted.bytes)
@@ -257,6 +275,8 @@ describe('HON-1024: fitFootprint', () => {
     expect(glass.bytes).toBe(bytes)
     expect(glass.fit).toEqual({
       vessel: 'glass',
+      shape: 'glass',
+      depth: null,
       measuredWidth: 0.6,
       targetWidth: null,
       elevationDeg: null,

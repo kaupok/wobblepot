@@ -29,8 +29,12 @@ import { join, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { PrismaClient } from '../src/generated/prisma/client'
-import { FOOTPRINT_TARGETS, type FittedImage } from '../src/lib/meal-images/footprint'
-import { VESSELS, type Vessel } from '../src/lib/meal-images/vessel'
+import {
+  FOOTPRINT_CLASSES,
+  FOOTPRINT_TARGETS,
+  type FittedImage,
+} from '../src/lib/meal-images/footprint'
+import type { Vessel } from '../src/lib/meal-images/vessel'
 import {
   checkBlobCredentials,
   confirmHost,
@@ -187,11 +191,11 @@ export async function refit(meals: RefitMeal[], deps: RefitDeps): Promise<RefitI
 export const rescaled = (images: RefitImage[]): RefitImage[] =>
   images.filter((i) => i.fitted?.fit.action === 'fit')
 
-/** Per vessel: how many images, the width range as drawn, the target, and how many move. */
+/** Per class: how many images, the width range as drawn, the target, and how many move. */
 export function renderSummary(images: RefitImage[]): string {
   const lines: string[] = []
-  for (const vessel of VESSELS) {
-    const of = images.filter((i) => i.vessel === vessel && i.fitted)
+  for (const shape of FOOTPRINT_CLASSES) {
+    const of = images.filter((i) => i.fitted?.fit.shape === shape)
     if (of.length === 0) continue
     const widths = of
       .map((i) => i.fitted?.fit.measuredWidth)
@@ -201,7 +205,7 @@ export function renderSummary(images: RefitImage[]): string {
       widths.length > 0
         ? `width ${widths[0]!.toFixed(2)}–${widths[widths.length - 1]!.toFixed(2)} as drawn`
         : 'nothing drawn'
-    const target = FOOTPRINT_TARGETS[vessel]
+    const target = FOOTPRINT_TARGETS[shape]
     const moves = of.filter((i) => i.fitted?.fit.action === 'fit').length
     const elevations = of
       .map((i) => i.fitted?.fit.elevationDeg)
@@ -213,7 +217,7 @@ export function renderSummary(images: RefitImage[]): string {
         ? `, camera ${elevations[0]!.toFixed(0)}–${elevations[elevations.length - 1]!.toFixed(0)}°`
         : ''
     lines.push(
-      `${vessel.padEnd(6)} ${String(of.length).padStart(3)} image(s), ${range}${elevation}, ${target === null ? 'left as drawn' : `target ${target.toFixed(2)}, ${moves} to refit`}`,
+      `${shape.padEnd(9)} ${String(of.length).padStart(3)} image(s), ${range}${elevation}, ${target === null ? 'left as drawn' : `target ${target.toFixed(2)}, ${moves} to refit`}`,
     )
   }
   const unread = images.filter((i) => !i.fitted).length
@@ -268,7 +272,7 @@ export function renderSheet(
         ? `fitted ×${fit.scale.toFixed(2)} → ${fit.targetWidth?.toFixed(2)}`
         : `unchanged: ${fit.reason ?? fit.action}`
       return `<section class="${moved ? 'moved' : ''}">
-<h2>${esc(names)} <small>${esc(i.vessel ?? '?')}</small></h2>
+<h2>${esc(names)} <small>${esc(fit.shape)}${fit.depth === null ? '' : `, depth ${fit.depth.toFixed(2)}`}</small></h2>
 <div class="pair">${card(i.url, fit.targetWidth, before)}${card(moved ? afterSrc(i) : i.url, fit.targetWidth, after)}</div>
 </section>`
     })

@@ -27,6 +27,23 @@ import type { Vessel } from './vessel'
  * backfill all produce the same result from the same image.
  */
 
+/**
+ * What a target is set for: the vision classes, plus the wide shallow bowl
+ * (bibimbap, a grain bowl) that `footprintClass` tells from a deep one by how
+ * much of it shows below the rim. Dishware in life: a wide bowl is nearly a
+ * pasta plate, a deep bowl is a cereal bowl.
+ */
+export type FootprintClass = Vessel | 'wide-bowl'
+
+export const FOOTPRINT_CLASSES: readonly FootprintClass[] = [
+  'plate',
+  'wide-bowl',
+  'bowl',
+  'glass',
+  'board',
+  'other',
+]
+
 export interface FootprintOptions {
   /**
    * A pixel whose darkest channel is below this is the vessel or the food.
@@ -40,8 +57,15 @@ export interface FootprintOptions {
    * of the frame's shorter side, so a stray speck never widens the footprint.
    */
   minRun: number
-  /** Width of the rim per vessel, as a fraction of the frame width; null leaves the image as drawn. */
-  targets: Record<Vessel, number | null>
+  /** Width of the rim per class, as a fraction of the frame width; null leaves the image as drawn. */
+  targets: Record<FootprintClass, number | null>
+  /**
+   * A bowl that shows less than this of its half-width below the rim is a
+   * wide bowl. The four wide bowls measured 0.77–0.78, the seven deep ones
+   * 0.83–0.96; the ratio does not change with scale, so the class is stable
+   * across passes.
+   */
+  wideBowlDepth: number
   /** Where the rim's horizontal diameter sits, as a fraction of the frame height. */
   anchorY: number
   /**
@@ -60,13 +84,16 @@ export interface FootprintOptions {
 /**
  * Plate 0.58: the median of the 36 plates (0.59) measured on 2026-10-03,
  * rounded towards the prompt's "about half". Bowl 0.42: the bowls' own
- * median (0.51) made a bowl read as a large portion beside a plate; at 0.42
- * it reads as a bowl, and 0.46 still looked big. Changing a target changes
- * every stored image, through the backfill in docs/DEPLOYMENT.md § "Meal
- * footprint backfill".
+ * median (0.51) made a yogurt bowl read as a large portion beside a plate; at
+ * 0.42 it reads as a bowl, and 0.46 still looked big. Wide bowl 0.50: a
+ * bibimbap or grain bowl is as wide as a pasta plate in life, and at 0.50 it
+ * sits between the deep bowl and the plate on a contact sheet. Changing a
+ * target changes every stored image, through the backfill in
+ * docs/DEPLOYMENT.md § "Meal footprint backfill".
  */
-export const FOOTPRINT_TARGETS: Record<Vessel, number | null> = {
+export const FOOTPRINT_TARGETS: Record<FootprintClass, number | null> = {
   plate: 0.58,
+  'wide-bowl': 0.5,
   bowl: 0.42,
   glass: null,
   board: null,
@@ -77,6 +104,7 @@ export const DEFAULT_FOOTPRINT_OPTIONS: FootprintOptions = {
   inkThreshold: 200,
   minRun: 0.005,
   targets: FOOTPRINT_TARGETS,
+  wideBowlDepth: 0.8,
   anchorY: 0.5,
   minScale: 0.7,
   maxScale: 1.2,
@@ -117,6 +145,24 @@ export function elevationDeg(fp: Footprint): number {
   const halfHeight = fp.bottom - fp.rimRow
   if (halfWidth <= 0) return 0
   return (Math.asin(Math.min(1, Math.max(0, halfHeight / halfWidth))) * 180) / Math.PI
+}
+
+/**
+ * How much of the vessel shows below its rim, as a fraction of the rim's
+ * half-width: a plate's front edge alone, a bowl's front edge plus its wall.
+ */
+export function bowlDepth(fp: Footprint): number {
+  const halfWidth = (fp.rimRight - fp.rimLeft + 1) / 2
+  return halfWidth <= 0 ? 0 : (fp.bottom - fp.rimRow) / halfWidth
+}
+
+/** The class a target is read for: the vessel, or a wide bowl by its depth. */
+export function footprintClass(
+  fp: Footprint | null,
+  vessel: Vessel,
+  options: Pick<FootprintOptions, 'wideBowlDepth'> = DEFAULT_FOOTPRINT_OPTIONS,
+): FootprintClass {
+  return vessel === 'bowl' && fp && bowlDepth(fp) < options.wideBowlDepth ? 'wide-bowl' : vessel
 }
 
 /**
@@ -219,7 +265,7 @@ export function planFit(
   vessel: Vessel,
   options: FootprintOptions = DEFAULT_FOOTPRINT_OPTIONS,
 ): FitDecision {
-  const target = options.targets[vessel]
+  const target = options.targets[footprintClass(footprint, vessel, options)]
   if (target === null) return { action: 'keep', reason: 'no target for the vessel' }
   if (!footprint) return { action: 'skip', reason: 'nothing drawn' }
   if (
@@ -249,6 +295,10 @@ export function planFit(
 /** What `fitFootprint` did to an image, stored on the batch manifest and logged by the route. */
 export interface FootprintFit {
   vessel: Vessel
+  /** The class the target was read for: the vessel, or `wide-bowl` for a shallow bowl. */
+  shape: FootprintClass
+  /** How much of a bowl shows below its rim, over its half-width; null for any other vessel. */
+  depth: number | null
   /** The rim as drawn, as a fraction of the frame width; null when nothing was drawn. */
   measuredWidth: number | null
   targetWidth: number | null
@@ -282,7 +332,9 @@ export async function fitFootprint(
   const footprint = await measureFootprint(bytes, options)
   const decision = planFit(footprint, vessel, options)
   const measuredWidth = footprint ? rimWidth(footprint) : null
-  const targetWidth = options.targets[vessel]
+  const shape = footprintClass(footprint, vessel, options)
+  const depth = footprint && vessel === 'bowl' ? Math.round(bowlDepth(footprint) * 100) / 100 : null
+  const targetWidth = options.targets[shape]
   const elevation =
     footprint && vessel === 'plate' ? Math.round(elevationDeg(footprint) * 10) / 10 : null
 
@@ -292,6 +344,8 @@ export async function fitFootprint(
       mediaType,
       fit: {
         vessel,
+        shape,
+        depth,
         measuredWidth,
         targetWidth,
         elevationDeg: elevation,
@@ -332,6 +386,15 @@ export async function fitFootprint(
   return {
     bytes: new Uint8Array(out),
     mediaType: 'image/png',
-    fit: { vessel, measuredWidth, targetWidth, elevationDeg: elevation, scale, action: 'fit' },
+    fit: {
+      vessel,
+      shape,
+      depth,
+      measuredWidth,
+      targetWidth,
+      elevationDeg: elevation,
+      scale,
+      action: 'fit',
+    },
   }
 }

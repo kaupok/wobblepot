@@ -34,6 +34,8 @@ vi.mock('./footprint', () => ({
     mediaType,
     fit: {
       vessel,
+      shape: vessel,
+      depth: null,
       measuredWidth: 0.58,
       targetWidth: 0.58,
       elevationDeg: 40,
@@ -399,6 +401,8 @@ describe('generateMealImage', () => {
         mediaType: 'image/png',
         fit: {
           vessel: 'bowl',
+          shape: 'bowl',
+          depth: 0.9,
           measuredWidth: 0.46,
           targetWidth: 0.42,
           elevationDeg: null,
