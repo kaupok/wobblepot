@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { MyRecipeIcon } from './MyRecipeIcon'
 
@@ -20,5 +20,17 @@ describe('MyRecipeIcon', () => {
     expect(trigger).toHaveAttribute('data-size', 'icon-display')
     // The variant sizes the icon, so the card's 14px class is not on it.
     expect(trigger.querySelector('svg')).not.toHaveClass('size-3.5')
+  })
+
+  it.each([
+    ['lg', true],
+    ['default', false],
+  ] as const)('a tap at %s opens the label: %s', (size, opens) => {
+    render(<MyRecipeIcon size={size} />)
+    const trigger = screen.getByRole('button', { name: 'My recipe' })
+    fireEvent.pointerDown(trigger, { pointerType: 'touch' })
+    fireEvent.pointerUp(trigger, { pointerType: 'touch' })
+    fireEvent.click(trigger)
+    expect(trigger).toHaveAttribute('data-state', opens ? 'instant-open' : 'closed')
   })
 })

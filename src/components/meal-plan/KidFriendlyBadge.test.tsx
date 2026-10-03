@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { KidFriendlyBadge } from './KidFriendlyBadge'
 
@@ -20,5 +20,15 @@ describe('KidFriendlyBadge', () => {
     expect(badge).toHaveAttribute('data-state', 'closed')
     expect(screen.getByText('Kid-friendly')).toHaveClass('sr-only')
     expect(badge?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('opens the label on a tap in the cook view (compact, lg)', () => {
+    const { container } = render(<KidFriendlyBadge compact size="lg" />)
+    const badge = container.querySelector<HTMLElement>('[data-slot="badge"]')!
+    fireEvent.pointerDown(badge, { pointerType: 'touch' })
+    fireEvent.pointerUp(badge, { pointerType: 'touch' })
+    fireEvent.click(badge)
+    expect(badge).toHaveAttribute('data-state', 'instant-open')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Kid-friendly')
   })
 })

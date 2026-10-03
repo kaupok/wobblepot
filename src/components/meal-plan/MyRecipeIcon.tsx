@@ -2,12 +2,13 @@ import { BookOpen } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useTapTooltip } from '@/hooks/use-tap-tooltip'
 
 interface MyRecipeIconProps {
   /**
    * `lg` after the cook view's `display` title (HON-1023): the `icon-display`
    * button, a 20px icon (24px from `lg`) in a 24px box with a 44px target, and
-   * the cook view's `lg` tooltip.
+   * the cook view's `lg` tooltip, which a tap also opens.
    */
   size?: 'default' | 'lg'
 }
@@ -30,9 +31,12 @@ export function MyRecipeIcon({ size = 'default' }: MyRecipeIconProps) {
   const t = useTranslations('meal-plan.card')
   const label = t('myRecipe')
   const lg = size === 'lg'
+  // A phone has no hover, so in the cook view a tap opens the label too. The
+  // cards keep Radix's hover and focus only.
+  const tap = useTapTooltip(lg)
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <Tooltip {...tap.rootProps}>
+      <TooltipTrigger asChild {...tap.triggerProps}>
         <Button
           variant="quiet"
           size={lg ? 'icon-display' : 'icon-xs'}

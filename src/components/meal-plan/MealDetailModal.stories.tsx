@@ -406,7 +406,19 @@ export const IconMarksPhone: Story = {
   name: 'Kid-friendly and My recipe icons (phone)',
   args: { meal: tintedMeal },
   globals: { viewport: PHONE },
-  play: () => assertIconMarks(20),
+  play: async () => {
+    await assertIconMarks(20)
+    // A phone has no hover: a tap opens each label.
+    const dialog = await findDialog()
+    const pill = within(dialog)
+      .getByText('Kid-friendly')
+      .closest<HTMLElement>('[data-slot="badge"]')!
+    await userEvent.pointer({ keys: '[TouchA]', target: pill })
+    await waitFor(() => expect(body().getByRole('tooltip')).toHaveTextContent('Kid-friendly'))
+    const icon = within(titleOf(dialog)).getByRole('button', { name: 'My recipe' })
+    await userEvent.pointer({ keys: '[TouchA]', target: icon })
+    await waitFor(() => expect(body().getByRole('tooltip')).toHaveTextContent('My recipe'))
+  },
 }
 
 export const IconMarksLaptop: Story = {

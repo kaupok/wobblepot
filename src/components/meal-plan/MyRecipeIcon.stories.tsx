@@ -148,8 +148,13 @@ export const CookViewTitlePhone: Story = {
   play: async ({ canvasElement }) => {
     await expectCookViewTitles(canvasElement, 20)
     const trigger = within(within(canvasElement).getByTestId('with-icon')).getByRole('button')
-    await userEvent.hover(trigger)
+    // A phone has no hover: a tap opens the label, and a second tap closes it.
+    await userEvent.pointer({ keys: '[TouchA]', target: trigger })
     await expectTooltip()
+    await userEvent.pointer({ keys: '[TouchA]', target: trigger })
+    await waitFor(() =>
+      expect(within(document.body).queryByRole('tooltip')).not.toBeInTheDocument(),
+    )
   },
 }
 
