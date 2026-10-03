@@ -61,8 +61,7 @@ export function PantryColumnSkeleton() {
  * selects and Copy list, all `h-8`, wrapping as the real row does so a 390px
  * column reserves the second line) on the page, then the note sheet holding
  * the add-item input, a group heading and the ruled rows. The bars on the
- * sheet are `tone="soft"`, so they sit under its dividers rather than over
- * them (HON-1016).
+ * sheet are `tone="soft"`, as quiet as the rows' hover wash (HON-1016).
  */
 export function ShoppingColumnSkeleton() {
   return (

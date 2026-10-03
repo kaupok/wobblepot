@@ -12,6 +12,15 @@ function rowHeight(element: HTMLElement): number {
   return Math.round(element.getBoundingClientRect().height)
 }
 
+/**
+ * The row is 36px with a mouse and 44px on touch (HON-1017). The CI browser has
+ * a fine pointer, so CI measures the 36px box; a touch-emulated browser
+ * (`hasTouch`) measures the 44px one against the same assertion.
+ */
+function expectedRowHeight(): number {
+  return window.matchMedia('(pointer: fine)').matches ? 36 : 44
+}
+
 const meta = {
   title: 'Feature/Shopping/ShoppingItemSkeleton',
   component: ShoppingItemSkeleton,
@@ -75,7 +84,7 @@ export const AgainstLiveRows: Story = {
     docs: {
       description: {
         story:
-          'The skeleton above the two row types it replaces. `ShoppingItem` and `CustomShoppingItem` share the same `min-h-touch … p-3` box inside a `RowGroup`, so one skeleton covers both — the play function holds all three to the same height rather than to a hardcoded number, so a deliberate row redesign keeps the guard while a one-sided change breaks it.',
+          'The skeleton above the two row types it replaces. `ShoppingItem` and `CustomShoppingItem` share the same `min-h-touch px-3 py-2 pointer-fine:min-h-9 pointer-fine:py-1` box inside a ruled `RowGroup`, so one skeleton covers both. The play function holds all three to the same height, so a one-sided change breaks it, and to the height for the pointer type: 36px with a mouse, 44px on touch (HON-1017).',
       },
     },
   },
@@ -83,7 +92,8 @@ export const AgainstLiveRows: Story = {
     const canvas = within(canvasElement)
     const skeleton = rowHeight(canvas.getByTestId('skeleton'))
 
-    expect(skeleton).toBe(rowHeight(canvas.getByTestId('shopping-item')))
-    expect(skeleton).toBe(rowHeight(canvas.getByTestId('custom-item')))
+    await expect(skeleton).toBe(expectedRowHeight())
+    await expect(rowHeight(canvas.getByTestId('shopping-item'))).toBe(skeleton)
+    await expect(rowHeight(canvas.getByTestId('custom-item'))).toBe(skeleton)
   },
 }

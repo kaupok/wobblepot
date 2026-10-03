@@ -51,7 +51,11 @@ export function ShoppingItem({
   return (
     <label
       className={cn(
-        'min-h-touch flex cursor-pointer items-center justify-between gap-3 p-3 transition-colors',
+        // 44px on touch (the `leading-7` name line plus `py-2`), 36px with a
+        // mouse, where the hover wash shows the row under the pointer. The
+        // pointer type, not the width: a touch tablet at `md` keeps 44px
+        // (HON-1017, docs/DESIGN.md → Spacing, radius, elevation).
+        'min-h-touch flex cursor-pointer items-center justify-between gap-3 px-3 py-2 transition-colors pointer-fine:min-h-9 pointer-fine:py-1',
         // `accent`, not `muted`: the shopping note re-maps `--accent` to its
         // chip, so the wash stays yellow on the sheet (HON-1012).
         'hover:bg-accent/50',
