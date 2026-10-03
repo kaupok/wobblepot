@@ -229,7 +229,7 @@ export function IngredientList({
           )
         })}
       </Ul>
-      {staplesLine && <Body variant="muted">{staplesLine}</Body>}
+      {staplesLine && <Body variant="paragraph">{staplesLine}</Body>}
     </div>
   )
 }
