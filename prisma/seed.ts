@@ -3849,10 +3849,12 @@ async function seedMealTranslationsEt() {
   console.log('Seeding meal translations (et)...')
 
   // Index translations by their English meal name. Meal names are matched
-  // EXACTLY (not normalized like ingredient keys): "Shepherd's Pie" (beef, in
-  // seed.ts) and "Shepherd s Pie" (lamb, in seed-expansion.ts) are deliberately
-  // distinct meals that normalization would wrongly collapse. A duplicate
-  // enName is therefore a hard error.
+  // EXACTLY (not normalized like ingredient keys): the name is the seed's
+  // identity for a meal, and two meals such as "Shepherd's Pie" (beef, in
+  // seed.ts) and "Lamb Shepherd's Pie" (lamb, in seed-expansion.ts) must never
+  // share a key. Until HON-1046 the lamb one differed from the beef one only
+  // by punctuation; `pnpm db:validate` now rejects names that share a slug. A
+  // duplicate enName is therefore a hard error.
   const byName = new Map<string, MealTranslationEt['et']>()
   for (const entry of mealTranslationsEt) {
     if (byName.has(entry.enName)) {
