@@ -800,7 +800,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     enName: 'Acai Bowl',
     et: {
       name: 'Acai kauss',
-      description: 'Külmutatud acai banaani, granola ja värskte puuviljadega.',
+      description: 'Külmutatud acai banaani, granola ja värskete puuviljadega.',
     },
   },
   {
