@@ -48,7 +48,7 @@ const setupMswWorker = async () => {
   return worker
 }
 
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
+const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin', 'latin-ext'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
 function FontDecorator({ children }: { children: React.ReactNode }) {

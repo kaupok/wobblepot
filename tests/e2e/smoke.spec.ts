@@ -38,6 +38,17 @@ async function signInSmokeUser(page: Page): Promise<string> {
   return email!
 }
 
+/**
+ * The app font reaches `body`. With the `next/font` variable classes on `body`
+ * rather than `html`, Tailwind's `:root` font stack resolved to the system
+ * fonts, so no page rendered in Geist and jsdom could not see it (HON-1045).
+ * `Geist` alone, so `Geist Mono` or `Geist Fallback` first does not pass.
+ */
+async function expectBodyInGeist(page: Page) {
+  const fontFamily = await page.evaluate(() => getComputedStyle(document.body).fontFamily)
+  expect(fontFamily).toMatch(/^["']?Geist["']?(,|$)/)
+}
+
 test.describe('Smoke', { tag: '@smoke' }, () => {
   test('home renders with heading', async ({ page }) => {
     await page.goto('/')
@@ -45,6 +56,7 @@ test.describe('Smoke', { tag: '@smoke' }, () => {
       page.getByRole('main').getByRole('heading', { name: 'Dinner, decided. For the whole week.' }),
     ).toBeVisible()
     await expect(page.getByRole('banner').getByRole('link', { name: 'Wobblepot' })).toBeVisible()
+    await expectBodyInGeist(page)
   })
 
   test('seeded smoke user signs in and views profile', async ({ page }) => {
@@ -91,5 +103,6 @@ test.describe('Smoke', { tag: '@smoke' }, () => {
     await expect(fillLabel).not.toHaveText(before ?? '')
 
     expect(hydrationErrors).toEqual([])
+    await expectBodyInGeist(page)
   })
 })

@@ -193,6 +193,27 @@ describe('RootLayout', () => {
     })
   })
 
+  // Tailwind resolves the font variable at `:root`. Set only on `body`, it
+  // left `html` on the system font stack, and every page inherited it (HON-1045).
+  it('defines the font variables on html, not on body', async () => {
+    const element = await RootLayout({ children: null })
+
+    const html = element as ReactElement<{ className?: string; children?: ReactNode }>
+    expect(html.type).toBe('html')
+    const htmlClasses = (html.props.className ?? '').split(' ')
+    expect(htmlClasses).toEqual(expect.arrayContaining(['--font-geist-sans', '--font-geist-mono']))
+
+    const body = ([] as ReactNode[])
+      .concat(html.props.children)
+      .find((child): child is ReactElement<{ className?: string }> => {
+        return isValidElement(child) && child.type === 'body'
+      })
+    const bodyClasses = (body?.props.className ?? '').split(' ')
+    expect(bodyClasses).toContain('antialiased')
+    expect(bodyClasses).not.toContain('--font-geist-sans')
+    expect(bodyClasses).not.toContain('--font-geist-mono')
+  })
+
   // Without these, Sonner announces its English defaults ("Notifications",
   // "Close toast") to every household (HON-914).
   it('labels the toaster from the catalog', async () => {
