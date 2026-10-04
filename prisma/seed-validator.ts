@@ -2,8 +2,9 @@
  * Seed Data Validation Script
  *
  * Validates seed data before database seeding to catch:
- * - Hard errors: duplicates, invalid references, unit mismatches, piece counts
- *   written as grams, missing fields, missing or orphaned et translations
+ * - Hard errors: duplicates, meal names that share a slug, invalid references,
+ *   unit mismatches, piece counts written as grams, missing fields, missing or
+ *   orphaned et translations
  * - Warnings: nutritional outliers, fiber > carbs, shared et ingredient names
  * - Naming conventions: lowercase, trimmed, no punctuation
  * - Nutritional plausibility: Atwater formula cross-check
@@ -19,6 +20,7 @@ import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
 import { mealTranslationsEt, type MealTranslationEt } from './seed-meal-translations-et'
+import { checkMealSlugCollisions } from './seed-meal-slugs'
 import {
   ingredientTranslationsEt,
   type IngredientTranslationEt,
@@ -766,6 +768,7 @@ async function main() {
     // Duplicate detection
     checkDuplicateIngredientsMulti(ingredientSources),
     checkDuplicateMealsMulti(mealSources),
+    { errors: checkMealSlugCollisions(allMeals), warnings: [] },
     checkNearDuplicateNames(allIngredients),
 
     // Reference integrity

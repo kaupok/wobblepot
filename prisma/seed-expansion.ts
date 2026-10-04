@@ -5382,7 +5382,7 @@ export const newMeals = [
     ],
   },
   {
-    name: 'Shepherd s Pie',
+    name: "Lamb Shepherd's Pie",
     description: 'Lamb mince topped with mashed potato',
     timeMinutes: 50,
     kidFriendly: true,

@@ -1624,7 +1624,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Shepherd s Pie',
+    enName: "Lamb Shepherd's Pie",
     et: {
       name: 'Lambakarjusepirukas',
       description: 'Lambalihahakkliha kartulipüreekattega.',
