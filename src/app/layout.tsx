@@ -19,9 +19,13 @@ import Providers from '@/app/providers'
 import '@/lib/env'
 import { getServerBaseURL } from '@/lib/env'
 
+// The variable classes go on `<html>`, not `<body>`: Tailwind resolves
+// `--default-font-family: var(--font-geist-sans)` at `:root`, so a variable
+// defined only on `body` leaves `html` on the system font stack, and `body`
+// inherits it (HON-1045). `latin-ext` carries the Estonian š and ž.
 const geistSans = Geist({
   variable: '--font-geist-sans',
-  subsets: ['latin'],
+  subsets: ['latin', 'latin-ext'],
 })
 
 const geistMono = Geist_Mono({
@@ -131,11 +135,15 @@ export default async function RootLayout({
   const clientMessages = { ...messages, meta: clientMeta }
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html
+      lang={locale}
+      className={`${geistSans.variable} ${geistMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <meta name="x-server-base-url" content={baseURL} />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className="antialiased">
         <NextIntlClientProvider locale={locale} messages={clientMessages}>
           <ThemeProvider
             attribute="class"
