@@ -31,6 +31,16 @@ export const POSTHOG_INIT_OPTIONS = {
     capture_unhandled_rejections: true,
     capture_console_errors: false,
   },
+  // Makes opt_out_capturing() delete the stored identity (HON-1002). Without
+  // it, opt-out only stops capture and the ph_* cookie and localStorage entry
+  // keep the distinct id. posthog-js 1.435.8: opt_out_capturing() calls
+  // _sync_opt_out_with_persistence() (lib/src/posthog-core.js:4152), which
+  // disables persistence only when _is_persistence_disabled() is true
+  // (posthog-core.js:4143-4151: opted out and this option set), and
+  // set_disabled(true) removes the cookie, localStorage and sessionStorage
+  // entries (lib/src/posthog-persistence.js:1706). An opted-in client persists
+  // as before.
+  opt_out_persistence_by_default: true,
   defaults: '2026-01-30',
   before_send: postHogBeforeSend,
   ...POSTHOG_URL_MASKING,
