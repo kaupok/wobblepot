@@ -315,7 +315,7 @@ export function renderContactSheet(
 </style></head>
 <body>
 <h1>Meal colour spike (HON-743) <code>${meta.startedAt}</code></h1>
-<p style="font-size:12px;max-width:80ch">Opaque illustrations as shipped, faded into a card tinted with their hue. Hue rule: centre crop ${meta.options.cropFraction}, ${meta.options.size}×${meta.options.size} sample, chroma floor ${meta.options.chromaFloor}, ${meta.options.bins} bins weighted by chroma; the winner is the bin with at least ${meta.options.minShare} of the mass that most exceeds HUE_BASELINE (floored at ${meta.options.baselineFloor}), and the hue is the circular mean inside it. Only hue varies per meal; the sliders are the tokens that would be fixed for all meals.</p>
+<p style="font-size:12px;max-width:80ch">Opaque illustrations as shipped, faded into a card tinted with their hue. Hue rule: centre crop ${meta.options.cropFraction}, ${meta.options.size}×${meta.options.size} sample, chroma floor ${meta.options.chromaFloor}, ${meta.options.bins} bins weighted by chroma; the winner is the bin with at least ${meta.options.minShare} of the mass (or that much across ±${meta.options.window} bins, where it is the peak) that most exceeds HUE_BASELINE (floored at ${meta.options.baselineFloor}), and the hue is the circular mean inside it. Only hue varies per meal; the sliders are the tokens that would be fixed for all meals.</p>
 <form class="controls" oninput="apply()">
   <label>light L <input type="range" min="0.85" max="0.99" step="0.005" name="l-light" value="0.95"><output></output></label>
   <label>light C <input type="range" min="0" max="0.12" step="0.005" name="c-light" value="0.035"><output></output></label>
