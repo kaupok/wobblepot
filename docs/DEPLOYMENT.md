@@ -287,7 +287,7 @@ Because generation does not depend on the environment, publish the **same run di
 
 ### Meal hue backfill
 
-A meal's card tint comes from `Meal.imageHue`, which is extracted from its image once, when the image is stored ([DESIGN.md → Imagery](DESIGN.md#imagery)). When the rule in `src/lib/meal-images/colour.ts` changes (HON-1009 made it pick the most distinctive colour against `HUE_BASELINE`), stored meals keep their old hue until `scripts/backfill-meal-hues.ts` re-extracts it. It fetches each stored image and regenerates nothing, so it costs no AI spend. It reads every meal with `imageStatus = ready` and an `imageUrl`; a household's copy of a global meal shares that meal's image, so each distinct image is fetched once. An image that cannot be fetched is logged and its meals are skipped.
+A meal's card tint comes from `Meal.imageHue`, which is extracted from its image once, when the image is stored ([DESIGN.md → Imagery](DESIGN.md#imagery)). When the rule in `src/lib/meal-images/colour.ts` changes (HON-1009 made it pick the most distinctive colour against `HUE_BASELINE`; HON-1014 let a colour split across a bin edge qualify), stored meals keep their old hue until `scripts/backfill-meal-hues.ts` re-extracts it. It fetches each stored image and regenerates nothing, so it costs no AI spend. It reads every meal with `imageStatus = ready` and an `imageUrl`; a household's copy of a global meal shares that meal's image, so each distinct image is fetched once. An image that cannot be fetched is logged and its meals are skipped.
 
 **When to run it:** after a change to the hue rule or to `HUE_BASELINE`, on staging and then production. Meals drawn after the change already get the new rule.
 
