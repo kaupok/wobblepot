@@ -82,7 +82,7 @@ export const BrandFace: Story = {
     docs: {
       description: {
         story:
-          'Bricolage Grotesque, the wordmark’s face, at each level the landing page uses it: the hero `h1` (700), the section headings (`h3` size), the point titles (`h4`) and the step titles (`section`). A trial from 2026-10-03 (HON-1043), for the landing page’s own headings only; in-app headings stay Geist. The Estonian line checks õ, ä, ö, ü, š and ž render in the face.',
+          'Bricolage Grotesque, the wordmark’s face, at each level the landing page uses it: the hero `h1` (700), the section headings (`h3` size), the point titles (`h4`) and the step titles (`section`). Set in HON-1043, for the landing page’s own headings only; in-app headings stay Geist. The Estonian line checks õ, ä, ö, ü, š and ž render in the face.',
       },
     },
   },
