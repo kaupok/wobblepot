@@ -310,7 +310,7 @@ Write the plan directly in your response using this structure:
 
 ## Follow-ups
 
-[One line per step this issue needs that does not ship in this PR: `- HON-NNN — <the step> (Queued | Todo)`. Draft it as `- to file: <the step> (Queued | Todo)`; 2.8 files it and swaps in the ID. Write `None` when every step ships in this PR. Every "not in this PR" row in Design Decisions has a line here.]
+[One line per step this issue needs that does not ship in this PR: `- HON-NNN — <the step> (Queued | Todo)`. Draft it as `- to file: <the step> (Queued | Todo)`; 2.8 files it and swaps in the ID. Write `None` when every step ships in this PR. Every "not in this PR" row in Design Decisions has a line here, unless the row says why the step is not needed at all: a deliberate scope cut is not a follow-up, and filing one Queued would skip the `[AUTO DRAFT]` review.]
 
 ## Files to Create
 
