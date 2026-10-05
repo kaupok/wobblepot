@@ -417,7 +417,7 @@ export function scoreTips(
  * Word ceilings for the answer. The off-topic one is from the first run
  * (HON-972): a decline ran 31 to 40 words because it offers help with the
  * step. The answer one is from HON-1003, after the prompt gained "never more
- * than 4" sentences and "under 80 words": over two runs of 24 on-topic
+ * than 4" sentences and "under 80 words": over three runs of 24 on-topic
  * answers each, they measured 33 to 90 words, the longest an equipment
  * answer. So it fails an answer the cook cannot read at a glance, not a few
  * words over the prompt's 80.
