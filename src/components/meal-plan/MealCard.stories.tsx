@@ -500,6 +500,12 @@ export const ScatteredNotes: Story = {
   },
 }
 
+// For waits that sit behind an MSW response. On a loaded CI runner a response
+// can land after `waitFor`'s and `findBy`'s default 1 s even though the request
+// succeeded: the swap stories' renders (HON-857), and the note's position saves
+// (HON-1008).
+const ROUND_TRIP = { timeout: 3000 }
+
 /** The PATCH bodies the note stories' entry handler received. */
 let notePatches: Record<string, unknown>[] = []
 
@@ -593,7 +599,7 @@ export const DragNote: Story = {
     await expect(canvas.queryByRole('textbox')).not.toBeInTheDocument()
     // A drag is not a card click (HON-1010).
     await expect(within(document.body).queryByRole('dialog')).not.toBeInTheDocument()
-    await waitFor(() => expect(notePositionPatches()).toHaveLength(1))
+    await waitFor(() => expect(notePositionPatches()).toHaveLength(1), ROUND_TRIP)
     const saved = notePositionPatches()[0] as { noteX: number; noteY: number }
     for (const value of [saved.noteX, saved.noteY]) {
       await expect(value).toBeGreaterThanOrEqual(0)
@@ -623,9 +629,17 @@ export const DragNoteIsClamped: Story = {
     await document.fonts.ready
     const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
     const slip = canvas.getByRole('button', { name: NOTE })
+    const before = slipInCard(card)
 
     await dragSlip(slip, -2000, -2000)
 
+    // The drag registered: the slip moved up and left, to a place of its own.
+    // Without this a press that never started a drag would pass the clamp
+    // checks below, and fail only as a missing PATCH (HON-1008).
+    const after = slipInCard(card)
+    await expect(after.left).toBeLessThan(before.left)
+    await expect(after.top).toBeLessThanOrEqual(before.top)
+    await expect(noteOverlay(card)).toHaveAttribute('data-placed')
     const slipBox = slip.getBoundingClientRect()
     const cardBox = card.getBoundingClientRect()
     await expect(slipBox.left).toBeGreaterThanOrEqual(cardBox.left)
@@ -636,7 +650,7 @@ export const DragNoteIsClamped: Story = {
       .getBoundingClientRect()
     await expect(overlaps(slipBox, menu)).toBe(false)
     await expect(overlaps(slipBox, slotBadge)).toBe(false)
-    await waitFor(() => expect(notePositionPatches()).toHaveLength(1))
+    await waitFor(() => expect(notePositionPatches()).toHaveLength(1), ROUND_TRIP)
   },
 }
 
@@ -665,7 +679,7 @@ export const KeyboardMoveNote: Story = {
     await expect(after.left - before.left).toBeCloseTo(-8, 0)
     await expect(after.top).toBeCloseTo(before.top, 0)
     await expect(notePositionPatches()).toHaveLength(0)
-    await waitFor(() => expect(notePositionPatches()).toHaveLength(1))
+    await waitFor(() => expect(notePositionPatches()).toHaveLength(1), ROUND_TRIP)
     await expect(slip).toHaveFocus()
 
     await userEvent.keyboard('{Enter}')
@@ -689,8 +703,9 @@ export const DragNoteFailedSave: Story = {
 
     await dragSlip(slip, -60, -20)
 
-    await waitFor(() => expect(notePositionPatches()).toHaveLength(1))
-    await waitFor(() => expect(noteOverlay(card)).not.toHaveAttribute('data-placed'))
+    await waitFor(() => expect(notePositionPatches()).toHaveLength(1), ROUND_TRIP)
+    // The slip goes back on the 500, which can land after the PATCH is recorded.
+    await waitFor(() => expect(noteOverlay(card)).not.toHaveAttribute('data-placed'), ROUND_TRIP)
     const after = slipInCard(card)
     await expect(after.left).toBeCloseTo(before.left, 0)
     await expect(after.top).toBeCloseTo(before.top, 0)
@@ -1000,11 +1015,6 @@ export const DoneCookingFromCookView: Story = {
     await waitFor(() => expect(canvas.queryByText('How was it?')).not.toBeInTheDocument())
   },
 }
-
-// For waits that sit behind an MSW response. The swap stories chain several
-// dialogs and round-trips, and on a loaded CI runner a render can land after
-// `findBy`'s default 1 s even though the request succeeded (HON-857).
-const ROUND_TRIP = { timeout: 3000 }
 
 // Counts the POSTs the story's handlers serve, so a second one can be proven to
 // be a real re-fetch rather than a replay of cached state.
