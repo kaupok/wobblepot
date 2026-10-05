@@ -19,6 +19,9 @@ export default async function CreateRecipePage() {
     redirect('/')
   }
 
+  // The member count, not the portions' sum (`sumPortions`), on purpose: a
+  // recipe's `servings` is an integer. Its quantities are stored per serving,
+  // so the household's portions still scale it when it is cooked (HON-1040).
   const memberCount = membership.household._count.members
 
   return <CreateRecipeClient defaultServings={memberCount} />

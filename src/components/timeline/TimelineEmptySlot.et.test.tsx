@@ -38,7 +38,7 @@ function renderSlot() {
           date="2026-04-16"
           dayLabel="Neljapäev"
           mealType="dinner"
-          householdSize={2}
+          householdServings={2}
         />
       </NextIntlClientProvider>
     </QueryWrapper>,

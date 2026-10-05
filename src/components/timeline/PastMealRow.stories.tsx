@@ -20,7 +20,7 @@ const meta = {
     mealType: MealType.dinner,
     status: 'planned',
     rating: null,
-    householdSize: 4,
+    householdServings: 4,
     pantryItems: lemonGarlicChickenPantryItems,
   },
   // The row always sits in its day's `RowGroup`, which draws the box.

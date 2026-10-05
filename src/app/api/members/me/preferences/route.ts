@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
+import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
 import { captureApiError } from '@/lib/errors'
 
 const updatePreferencesSchema = z.object({
@@ -93,13 +94,37 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    const preferences = await prisma.memberPreferences.upsert({
-      where: { memberId: membership.id },
-      create: {
-        memberId: membership.id,
-        ...parsed.data,
-      },
-      update: parsed.data,
+    const { portionMultiplier } = parsed.data
+    const preferences = await prisma.$transaction(async (tx) => {
+      const stored =
+        portionMultiplier === undefined
+          ? null
+          : await tx.memberPreferences.findUnique({
+              where: { memberId: membership.id },
+              select: { portionMultiplier: true },
+            })
+      // A missing preferences row is the column default, 1×.
+      const portionChanged =
+        portionMultiplier !== undefined && portionMultiplier !== (stored?.portionMultiplier ?? 1)
+
+      const saved = await tx.memberPreferences.upsert({
+        where: { memberId: membership.id },
+        create: {
+          memberId: membership.id,
+          ...parsed.data,
+        },
+        update: parsed.data,
+      })
+
+      // A portion size is summed into the household's servings, which price
+      // the cached prep tips on every entry without a `servingOverride`
+      // (HON-1040). Clear them only when the portion actually moved, because
+      // a needless invalidation costs a paid regeneration per entry (HON-684).
+      if (portionChanged) {
+        await invalidateFutureEntryTips(tx, membership.householdId, membership.household.timezone)
+      }
+
+      return saved
     })
 
     return NextResponse.json(preferences)

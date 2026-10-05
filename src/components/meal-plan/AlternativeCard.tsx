@@ -17,7 +17,7 @@ import type { AlternativeMeal, PantryIngredient } from './types'
 
 interface AlternativeCardProps {
   meal: AlternativeMeal
-  householdSize: number
+  householdServings: number
   onSelect: (mealId: string) => void
   isSelecting: boolean
   pantryIngredients?: PantryIngredient[]

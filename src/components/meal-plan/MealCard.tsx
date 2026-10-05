@@ -62,7 +62,7 @@ interface MealCardProps {
   mealType: MealType
   status: MealStatus
   rating?: EntryRating | null
-  householdSize: number
+  householdServings: number
   isReadOnly?: boolean
   pantryIngredients?: PantryIngredient[]
   pantryItems?: PantryItemFull[]
@@ -84,7 +84,7 @@ export function MealCard({
   mealType,
   status: initialStatus,
   rating: initialRating,
-  householdSize,
+  householdServings,
   isReadOnly,
   pantryIngredients = [],
   pantryItems = [],
@@ -111,8 +111,8 @@ export function MealCard({
   const noteRequestedRef = useRef(false)
   const noteEditorRef = useRef<NoteEditorHandle>(null)
 
-  const effectiveServings = servingOverride ?? householdSize
-  const hasServingOverride = servingOverride !== null && servingOverride !== householdSize
+  const effectiveServings = servingOverride ?? householdServings
+  const hasServingOverride = servingOverride !== null && servingOverride !== householdServings
 
   const detailModalRef = useRef<MealDetailModalHandle>(null)
   // The meal name opens the cook view, and is where focus comes back to once
@@ -372,7 +372,7 @@ export function MealCard({
             planId={planId}
             entryId={entryId}
             mealType={mealType}
-            householdSize={householdSize}
+            householdServings={householdServings}
             onSwapComplete={handleSwapComplete}
             onCloseAutoFocus={focusAddMealOnClose}
             mode="add"
@@ -610,7 +610,7 @@ export function MealCard({
       <MealDetailModal
         ref={detailModalRef}
         meal={meal}
-        householdSize={householdSize}
+        householdServings={householdServings}
         status={status}
         open={isDetailModalOpen}
         onOpenChange={setIsDetailModalOpen}
@@ -637,7 +637,7 @@ export function MealCard({
         planId={planId}
         entryId={entryId}
         mealType={mealType}
-        householdSize={householdSize}
+        householdServings={householdServings}
         currentMealName={meal?.name}
         currentMealId={meal?.id}
         onSwapComplete={handleSwapComplete}
@@ -650,7 +650,7 @@ export function MealCard({
         onOpenChange={setIsDeductionModalOpen}
         mealName={meal.name}
         components={meal.components}
-        householdSize={effectiveServings}
+        householdServings={effectiveServings}
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}
         isLoading={isUpdating}

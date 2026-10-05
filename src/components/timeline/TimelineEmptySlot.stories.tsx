@@ -20,7 +20,7 @@ const meta = {
     date: '2026-04-16',
     dayLabel: 'Thursday Apr 16',
     mealType: MealType.dinner,
-    householdSize: 4,
+    householdServings: 4,
     pantryIngredients: lemonGarlicChickenPantry,
   },
   decorators: [

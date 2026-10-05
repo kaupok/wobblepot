@@ -183,6 +183,7 @@ async function mockAuthedHouseholdSession(
       createdAt: now,
       preferences,
       _count: { members: 2 },
+      members: [{ preferences: null }, { preferences: null }],
     },
   } as never)
 }
@@ -451,8 +452,9 @@ describe('Home page component', () => {
         timezone: 'Europe/Tallinn',
         createdAt: now,
         preferences: null,
-        // The page reads the household size off this `_count` (HON-596).
         _count: { members: 2 },
+        // The page reads the household servings off the members' portions (HON-1040).
+        members: [{ preferences: null }, { preferences: null }],
       },
     } as never)
 
@@ -501,8 +503,9 @@ describe('Home page component', () => {
         timezone: 'Europe/Tallinn',
         createdAt: now,
         preferences: null,
-        // The page reads the household size off this `_count` (HON-596).
         _count: { members: 2 },
+        // The page reads the household servings off the members' portions (HON-1040).
+        members: [{ preferences: null }, { preferences: null }],
       },
     } as never)
 

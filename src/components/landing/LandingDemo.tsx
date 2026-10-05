@@ -127,7 +127,7 @@ export function LandingDemo({ day, dayLabel }: LandingDemoProps) {
         <MealDetailModal
           key={active.meal.id}
           meal={active.meal}
-          householdSize={active.servings}
+          householdServings={active.servings}
           initialTips={active.steps}
           open={open}
           onOpenChange={setOpen}

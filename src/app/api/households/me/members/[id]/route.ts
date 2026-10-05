@@ -132,6 +132,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const member = await prisma.householdMember.findUnique({
       where: { id: memberId },
+      include: { preferences: { select: { portionMultiplier: true } } },
     })
 
     if (!member || member.householdId !== householdMembership.householdId) {
@@ -165,6 +166,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (name !== undefined && member.userId !== null) {
       return NextResponse.json({ error: 'Cannot update name for linked members' }, { status: 400 })
     }
+
+    // A missing preferences row is the column default, 1×.
+    const portionChanged =
+      preferences?.portionMultiplier !== undefined &&
+      preferences.portionMultiplier !== (member.preferences?.portionMultiplier ?? 1)
 
     const updatedMember = await prisma.$transaction(async (tx) => {
       // Update member name if provided and it's a manual member
@@ -207,6 +213,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             excludedIngredientIds: preferences.excludedIngredientIds,
           },
         })
+      }
+
+      // A portion size is summed into the household's servings, which price
+      // the cached prep tips on every entry without a `servingOverride`
+      // (HON-1040). Clear them only when the portion actually moved: the
+      // member dialogs send `portionMultiplier` on every save, and a needless
+      // invalidation costs a paid regeneration per entry (HON-684).
+      if (portionChanged) {
+        await invalidateFutureEntryTips(
+          tx,
+          householdMembership.householdId,
+          householdMembership.household.timezone,
+        )
       }
 
       return tx.householdMember.findUnique({

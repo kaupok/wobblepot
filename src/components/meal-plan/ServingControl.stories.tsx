@@ -35,7 +35,7 @@ function measure(badge: HTMLElement): { height: number; target: number } {
 export const Default: Story = {
   args: {
     servings: 4,
-    householdSize: 4,
+    householdServings: 4,
   },
   play: async ({ canvasElement }) => {
     const button = within(canvasElement).getByRole('button', { name: 'Serves 4. Click to edit.' })
@@ -53,7 +53,7 @@ export const Default: Story = {
 export const Overridden: Story = {
   args: {
     servings: 6,
-    householdSize: 4,
+    householdServings: 4,
   },
   play: async ({ canvasElement }) => {
     const button = within(canvasElement).getByRole('button', { name: 'Serves 6. Click to edit.' })
@@ -65,10 +65,30 @@ export const Overridden: Story = {
   },
 }
 
+// Two adults and a toddler at 0.5×: the household cooks for 2.5 servings, so
+// the badge shows the fraction, and a typed whole number is an override
+// (HON-1040).
+export const FractionalHouseholdServings: Story = {
+  args: {
+    servings: 2.5,
+    householdServings: 2.5,
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    const button = canvas.getByRole('button', { name: 'Serves 2.5. Click to edit.' })
+    await expect(button).toHaveTextContent(/^Serves 2\.5$/)
+    await userEvent.click(button)
+    const input = canvas.getByRole('textbox', { name: 'Number of servings' })
+    await userEvent.clear(input)
+    await userEvent.type(input, '3{Enter}')
+    await expect(args.onServingsChange).toHaveBeenCalledWith(3)
+  },
+}
+
 export const Editing: Story = {
   args: {
     servings: 4,
-    householdSize: 4,
+    householdServings: 4,
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
@@ -92,7 +112,7 @@ export const EditingEscape: Story = {
   name: 'Editing, Escape cancels',
   args: {
     servings: 4,
-    householdSize: 4,
+    householdServings: 4,
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
@@ -107,7 +127,7 @@ export const EditingEscape: Story = {
 export const Disabled: Story = {
   args: {
     servings: 4,
-    householdSize: 4,
+    householdServings: 4,
     disabled: true,
   },
   play: async ({ canvasElement }) => {

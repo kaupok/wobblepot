@@ -99,7 +99,7 @@ describe('locale rollback', () => {
       },
     ] as never)
 
-    const { items } = await loadPantry({ ...ROLLED_BACK, _count: { members: 2 } }, { days: null })
+    const { items } = await loadPantry({ ...ROLLED_BACK, members: [] }, { days: null })
 
     expect(items.map((i) => i.ingredient.name)).toEqual(['onion'])
     const select = vi.mocked(prisma.pantryItem.findMany).mock.calls[0]![0]!.include!.ingredient as {

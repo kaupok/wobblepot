@@ -72,9 +72,11 @@ const mockHousehold = {
   timezone: 'Europe/Tallinn',
   locale: 'en',
   preferences: null,
-  // The route reads the household size off this `_count` (HON-596) rather than
-  // issuing a second `household_member` count.
   _count: { members: 2 },
+  // The route reads the household servings off the members' portions, which
+  // ride along on the membership query (HON-596, HON-1040), rather than
+  // issuing a second `household_member` read.
+  members: [{ preferences: { portionMultiplier: 1 } }, { preferences: { portionMultiplier: 1 } }],
 }
 
 const mockMembership = {

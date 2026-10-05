@@ -77,7 +77,7 @@ const meta = {
   },
   args: {
     meal: mealFixture,
-    householdSize: 4,
+    householdServings: 4,
     open: true,
     onOpenChange: fn(),
     planId: 'plan-1',

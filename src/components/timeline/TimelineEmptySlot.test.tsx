@@ -91,7 +91,7 @@ function renderSlot() {
         date="2026-04-16"
         dayLabel="Thursday Apr 16"
         mealType="dinner"
-        householdSize={4}
+        householdServings={4}
       />
     </Wrapper>,
   )

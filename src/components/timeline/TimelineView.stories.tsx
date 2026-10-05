@@ -49,7 +49,7 @@ const meta = {
   parameters: { layout: 'fullscreen' },
   args: {
     planId: 'plan-1',
-    householdSize: 4,
+    householdServings: 4,
     expectedMealTypes: createExpectedMealTypes(),
     pantryIngredients: lemonGarlicChickenPantry,
     pantryItems: lemonGarlicChickenPantryItems,

@@ -19,7 +19,7 @@ interface PantryDeductionModalProps {
   onOpenChange: (open: boolean) => void
   mealName: string
   components: MealComponent[]
-  householdSize: number
+  householdServings: number
   pantryItems: PantryItemFull[]
   onConfirm: () => void
   isLoading?: boolean
@@ -33,7 +33,7 @@ interface PantryDeductionModalProps {
 
 export function computeDeductions(
   components: MealComponent[],
-  householdSize: number,
+  servings: number,
   pantryItems: PantryItemFull[],
 ): PantryDeductionItem[] {
   const pantryMap = new Map(pantryItems.map((item) => [item.ingredientId, item]))
@@ -49,7 +49,7 @@ export function computeDeductions(
     // Skip staples (never deduct)
     if (pantryItem.isStaple) continue
 
-    const deductionAmount = component.quantityPerServing * householdSize
+    const deductionAmount = component.quantityPerServing * servings
     const currentQuantity = pantryItem.quantity
 
     // If quantity is null, treat as "will be fully consumed"
@@ -89,7 +89,7 @@ export function PantryDeductionModal({
   onOpenChange,
   mealName,
   components,
-  householdSize,
+  householdServings,
   pantryItems,
   onConfirm,
   isLoading = false,
@@ -107,8 +107,8 @@ export function PantryDeductionModal({
   }
 
   const deductions = useMemo(
-    () => computeDeductions(components, householdSize, pantryItems),
-    [components, householdSize, pantryItems],
+    () => computeDeductions(components, householdServings, pantryItems),
+    [components, householdServings, pantryItems],
   )
 
   const hasDeductions = deductions.length > 0

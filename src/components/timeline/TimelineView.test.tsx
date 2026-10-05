@@ -52,7 +52,7 @@ const defaultProps = {
     weekdayMealTypes: ['dinner'],
     weekendMealTypes: ['dinner'],
   } as ExpectedMealTypes,
-  householdSize: 3,
+  householdServings: 3,
   pantryIngredients: [],
   pantryItems: [],
   shoppingItems: [],

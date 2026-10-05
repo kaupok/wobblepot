@@ -56,7 +56,7 @@ interface MealSelectorModalProps {
   date?: string
   /** Set when `date` is today or tomorrow: the title says the word, not the date. */
   relativeDay?: 'today' | 'tomorrow'
-  householdSize: number
+  householdServings: number
   currentMealName?: string
   /** Current meal id when `mode === 'swap'`. Used as `from_meal_id` on `meal_plan:meal_swapped`. */
   currentMealId?: string
@@ -90,7 +90,7 @@ export function MealSelectorModal({
   mealType,
   date,
   relativeDay,
-  householdSize,
+  householdServings,
   currentMealName,
   currentMealId,
   onSwapComplete,
@@ -406,7 +406,7 @@ export function MealSelectorModal({
               error={error}
               header={header}
               emptyState={emptyState}
-              householdSize={householdSize}
+              householdServings={householdServings}
               selectingId={selectingId}
               onSelect={handleSelect}
               pantryIngredients={pantryIngredients}

@@ -36,10 +36,10 @@ interface MealDetailProps {
   titleActions?: ReactNode
   /** The plan entry's note (`NoteEditor`), below the meta row */
   note?: ReactNode
-  householdSize: number
+  householdServings: number
   /** Status of the plan entry this meal belongs to */
   status?: MealStatus
-  /** Current effective servings (servingOverride or householdSize) */
+  /** Current effective servings (servingOverride or householdServings) */
   servings?: number
   /** Handler for serving count changes. Ignored for a completed entry. */
   onServingsChange?: (servings: number | null) => Promise<boolean>
@@ -125,7 +125,7 @@ export function MealDetail({
   title,
   titleActions,
   note,
-  householdSize,
+  householdServings,
   status,
   servings,
   onServingsChange,
@@ -149,8 +149,8 @@ export function MealDetail({
   const tDetail = useTranslations('meal-plan.detail')
   const tServing = useTranslations('meal-plan.serving')
   const tTips = useTranslations('meal-plan.tips')
-  // Effective servings: use explicit prop if provided, otherwise householdSize
-  const effectiveServings = servings ?? householdSize
+  // Effective servings: use explicit prop if provided, otherwise householdServings
+  const effectiveServings = servings ?? householdServings
 
   const effectivePantry = useMemo(
     () => withOverrides(pantryIngredients, optimisticOverrides),
@@ -228,7 +228,7 @@ export function MealDetail({
             {showServingControl ? (
               <ServingControl
                 servings={effectiveServings}
-                householdSize={householdSize}
+                householdServings={householdServings}
                 onServingsChange={onServingsChange}
                 disabled={hideAvailability}
               />
@@ -245,7 +245,7 @@ export function MealDetail({
             <IngredientList
               components={meal.components}
               servings={effectiveServings}
-              householdSize={householdSize}
+              householdServings={householdServings}
               pantryIngredients={pantryIngredients}
               onToggleAvailability={hideAvailability ? undefined : onToggleAvailability}
               togglingIds={togglingIds}

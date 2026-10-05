@@ -34,7 +34,7 @@ interface TimelineViewProps {
   entries: PlanEntry[]
   planId: string
   expectedMealTypes: ExpectedMealTypes
-  householdSize: number
+  householdServings: number
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   shoppingItems: ShoppingItem[]
@@ -73,7 +73,7 @@ export function TimelineView({
   entries,
   planId,
   expectedMealTypes,
-  householdSize,
+  householdServings,
   pantryIngredients,
   pantryItems,
   shoppingItems,
@@ -178,7 +178,7 @@ export function TimelineView({
         key={day.date}
         day={day}
         planId={planId}
-        householdSize={householdSize}
+        householdServings={householdServings}
         pantryIngredients={pantryIngredients}
         pantryItems={pantryItems}
         onEntryUpdated={handleEntryUpdated}

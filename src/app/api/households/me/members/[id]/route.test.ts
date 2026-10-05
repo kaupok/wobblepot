@@ -86,7 +86,12 @@ describe('GET /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-123',
       role: 'owner',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     mockFindUnique.mockResolvedValue(null)
@@ -111,7 +116,12 @@ describe('GET /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-123',
       role: 'owner',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     mockFindUnique.mockResolvedValue({
@@ -176,7 +186,12 @@ describe('PATCH /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-456',
       role: 'member', // Not owner
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     // Target member is different from requester
@@ -213,7 +228,12 @@ describe('PATCH /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-456',
       role: 'member', // Not owner
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     // Target member is the same as requester
@@ -253,6 +273,7 @@ describe('PATCH /api/households/me/members/[id]', () => {
         memberPreferences: {
           upsert: vi.fn().mockResolvedValue({}),
         },
+        mealPlanEntry: { updateMany: mockEntryUpdateMany },
       }
       return fn(tx as never)
     })
@@ -273,9 +294,9 @@ describe('PATCH /api/households/me/members/[id]', () => {
     expect(data.preferences.portionMultiplier).toBe(1.25)
   })
 
-  // A rename or a preferences edit leaves `_count.members` where it was, so the
-  // cached prep tips are still priced correctly and must not be thrown away —
-  // every needless invalidation costs a paid regeneration (HON-684).
+  // A rename leaves the household's servings where they were, so the cached
+  // prep tips are still priced correctly and must not be thrown away — every
+  // needless invalidation costs a paid regeneration (HON-684).
   it('leaves preparation tips alone on a member PATCH', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
@@ -330,6 +351,88 @@ describe('PATCH /api/households/me/members/[id]', () => {
     expect(mockEntryUpdateMany).not.toHaveBeenCalled()
   })
 
+  describe('a portion size change', () => {
+    const patchPortion = async (stored: number | null, sent: number) => {
+      mockGetSession.mockResolvedValue({
+        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+        session: { id: 'session-123' },
+      } as never)
+      mockFindFirst.mockResolvedValue({
+        id: 'member-123',
+        householdId: 'household-123',
+        userId: 'user-123',
+        role: 'owner',
+        household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' },
+      } as never)
+      mockFindUnique.mockResolvedValue({
+        id: 'member-manual',
+        householdId: 'household-123',
+        userId: null,
+        name: 'Mia',
+        role: 'member',
+        preferences: stored === null ? null : { portionMultiplier: stored },
+      } as never)
+      mockTransaction.mockImplementation(async (fn) =>
+        (fn as (tx: unknown) => never)({
+          householdMember: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: 'member-manual',
+              userId: null,
+              name: 'Mia',
+              role: 'member',
+              joinedAt: new Date(),
+              user: null,
+              preferences: null,
+            }),
+          },
+          memberPreferences: { upsert: vi.fn().mockResolvedValue({}) },
+          mealPlanEntry: { updateMany: mockEntryUpdateMany },
+        }),
+      )
+
+      return PATCH(
+        new Request('http://localhost', {
+          method: 'PATCH',
+          body: JSON.stringify({ preferences: { portionMultiplier: sent } }),
+        }),
+        { params: Promise.resolve({ id: 'member-manual' }) },
+      )
+    }
+
+    // The portion size is summed into the household's servings, which price
+    // the tips on every entry without a `servingOverride` (HON-1040).
+    it('clears cached preparation tips on the household future entries', async () => {
+      const response = await patchPortion(1, 0.5)
+
+      expect(response.status).toBe(200)
+      expect(mockTransaction).toHaveBeenCalledTimes(1)
+      expect(mockEntryUpdateMany).toHaveBeenCalledWith({
+        where: {
+          plan: { householdId: 'household-123' },
+          servingOverride: null,
+          preparationTips: { not: null },
+          status: { not: 'completed' },
+          date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
+        },
+        data: { preparationTips: null },
+      })
+    })
+
+    it('counts a member without a preferences row as 1×', async () => {
+      await patchPortion(null, 1)
+
+      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+    })
+
+    // The member dialogs send `portionMultiplier` on every save.
+    it('leaves the tips alone when the portion size is saved unchanged', async () => {
+      const response = await patchPortion(0.5, 0.5)
+
+      expect(response.status).toBe(200)
+      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+    })
+  })
+
   it('returns 400 when trying to update name of linked member', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
@@ -341,7 +444,12 @@ describe('PATCH /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-123',
       role: 'owner',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     // Member with userId (linked member)
@@ -378,7 +486,12 @@ describe('PATCH /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-123',
       role: 'owner',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     // Manual member (no userId)
@@ -416,6 +529,7 @@ describe('PATCH /api/households/me/members/[id]', () => {
         memberPreferences: {
           upsert: vi.fn().mockResolvedValue({}),
         },
+        mealPlanEntry: { updateMany: mockEntryUpdateMany },
       }
       return fn(tx as never)
     })
@@ -453,7 +567,12 @@ describe('PATCH /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-123',
       role: 'owner',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     // Manual member (no userId)
@@ -488,6 +607,7 @@ describe('PATCH /api/households/me/members/[id]', () => {
           }),
         },
         memberPreferences: { upsert },
+        mealPlanEntry: { updateMany: mockEntryUpdateMany },
       }
       return fn(tx as never)
     })
@@ -526,7 +646,12 @@ describe('PATCH /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-123',
       role: 'owner',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     mockFindUnique.mockResolvedValue({
@@ -566,7 +691,12 @@ describe('PATCH /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-123',
       role: 'owner',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     mockFindUnique.mockResolvedValue({
@@ -616,7 +746,12 @@ describe('DELETE /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-456',
       role: 'member',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     const response = await DELETE(new Request('http://localhost'), {
@@ -639,7 +774,12 @@ describe('DELETE /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-123',
       role: 'owner',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     // Owner's own member record
@@ -671,7 +811,12 @@ describe('DELETE /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-123',
       role: 'owner',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     mockFindUnique.mockResolvedValue({
@@ -793,7 +938,12 @@ describe('DELETE /api/households/me/members/[id]', () => {
       householdId: 'household-123',
       userId: 'user-123',
       role: 'owner',
-      household: { id: 'household-123', name: 'Test', preferences: null },
+      household: {
+        id: 'household-123',
+        name: 'Test',
+        preferences: null,
+        timezone: 'Europe/Tallinn',
+      },
     } as never)
 
     mockFindUnique.mockResolvedValue({

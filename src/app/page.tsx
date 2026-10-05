@@ -5,6 +5,7 @@ import { getServerFlag } from '@/lib/feature-flags'
 import { getHouseholdMembership } from '@/lib/household'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
+import { sumPortions } from '@/lib/meal-planning/servings'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 import { getTodayInTimezone, getUrgencyBucket, parseLocalDate } from '@/lib/meal-planning/dates'
 import { getLocale } from '@/lib/i18n/get-locale'
@@ -52,8 +53,9 @@ export default async function Home() {
   const fourteenDaysAhead = new Date(todayParsed)
   fourteenDaysAhead.setDate(fourteenDaysAhead.getDate() + 15) // +15 because endDate is exclusive
 
-  // Rode along on the membership query's `_count` — no round-trip of its own.
-  const householdSize = household._count.members
+  // The members' portions rode along on the membership query — no round-trip
+  // of their own. Servings, not the member count: a toddler is half (HON-1040).
+  const householdServings = sumPortions(household.members)
 
   // Read straight from the loaders the API routes wrap, not over HTTP into our
   // own deployment (HON-789). A loader that throws is not caught here: it
@@ -110,7 +112,7 @@ export default async function Home() {
       entries={entries}
       planId={planId ?? ''}
       expectedMealTypes={expectedMealTypes}
-      householdSize={householdSize}
+      householdServings={householdServings}
       pantryIngredients={pantryIngredients}
       pantryItems={pantryItems}
       shoppingItems={shoppingItems}

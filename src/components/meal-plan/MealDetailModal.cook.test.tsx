@@ -73,7 +73,7 @@ function renderModal(props: Props = {}) {
     <MealDetailModal
       ref={ref}
       meal={meal}
-      householdSize={4}
+      householdServings={4}
       status="planned"
       open
       onOpenChange={vi.fn()}
@@ -257,7 +257,7 @@ describe('MealDetailModal Done cooking (HON-933)', () => {
     return (
       <MealDetailModal
         meal={meal}
-        householdSize={4}
+        householdServings={4}
         status="planned"
         open={open}
         onOpenChange={setOpen}

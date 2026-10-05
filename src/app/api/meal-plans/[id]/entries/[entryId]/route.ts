@@ -6,7 +6,7 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
-import { getEffectiveServings } from '@/lib/meal-planning/servings'
+import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
 
 /**
@@ -220,7 +220,7 @@ export async function PATCH(
             household: {
               select: {
                 members: {
-                  select: { id: true },
+                  select: { preferences: { select: { portionMultiplier: true } } },
                 },
               },
             },
@@ -307,9 +307,10 @@ export async function PATCH(
       // `status: { not: 'completed' }` because nulling the tips on a dinner
       // already eaten only buys a paid regeneration nobody reads (HON-684).
       // That trade holds only while the entry stays completed. Come back to a
-      // cookable status and the cached tips may be priced at a member count the
-      // household no longer has, with nothing left to clear them — the next
-      // membership change is the rare event this whole invalidation is about.
+      // cookable status and the cached tips may be priced at household servings
+      // the household no longer has, with nothing left to clear them — the next
+      // membership or portion change is the rare event this whole invalidation
+      // is about.
       // So drop them on the way out of `completed`, the same shape as the swap
       // and `servingOverride` writers below.
       if (entry.status === MealPlanEntryStatus.completed && parsed.data.status !== 'completed') {
@@ -486,7 +487,9 @@ export async function PATCH(
       componentsToDeduct.length > 0
 
     if (shouldDeductPantry) {
-      const householdSize = entry.plan.household.members.length
+      // The members' portions, not their count: a toddler at 0.5× eats half
+      // of what an adult does, so the pantry loses half as much (HON-1040).
+      const householdServings = sumPortions(entry.plan.household.members)
       // Scale by what this request persists, not by the row read at the top:
       // `updateEntrySchema` accepts `servingOverride` alongside
       // `status: 'completed'` + `deductPantry`, and a meal swap resets the
@@ -496,7 +499,7 @@ export async function PATCH(
         'servingOverride' in updateData
           ? { servingOverride: updateData.servingOverride ?? null }
           : entry,
-        householdSize,
+        householdServings,
       )
       // How much of each ingredient this meal consumes. The database applies
       // these as relative decrements — nothing here reads a pantry quantity,

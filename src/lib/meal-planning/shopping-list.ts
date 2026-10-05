@@ -4,6 +4,7 @@ import { getStartOfTodayInTimezone, toDateString } from './dates'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 import { getEffectiveServings } from './servings'
+import { loadHouseholdServings } from '@/lib/household'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
 
@@ -22,11 +23,6 @@ export const categoryConfig: Record<IngredientCategory, { label: string; order: 
   condiment: { label: 'Condiments', order: 8 },
   spice: { label: 'Spices & seasonings', order: 9 },
 }
-
-/**
- * Default household size when no household preferences exist.
- */
-const DEFAULT_HOUSEHOLD_SIZE = 2
 
 /**
  * An individual item on the shopping list.
@@ -74,17 +70,6 @@ interface NeededIngredient {
   earliestNeededDate: Date
   isVague: boolean // True if any component was vague
   originalPhrase: string | null // First vague phrase encountered
-}
-
-/**
- * Get household size from member count.
- * Returns default size if no household found or no members.
- */
-async function getHouseholdSize(householdId: string): Promise<number> {
-  const memberCount = await prisma.householdMember.count({
-    where: { householdId },
-  })
-  return memberCount > 0 ? memberCount : DEFAULT_HOUSEHOLD_SIZE
 }
 
 /**
@@ -196,8 +181,8 @@ export async function computeShoppingList(
     },
   })
 
-  // 2. Get household size for quantity calculation
-  const householdSize = await getHouseholdSize(householdId)
+  // 2. Get the household's servings (its members' portions) for the quantities
+  const householdServings = await loadHouseholdServings(householdId)
 
   // 3. Aggregate quantities per ingredient
   const needed = new Map<string, NeededIngredient>()
@@ -206,7 +191,7 @@ export async function computeShoppingList(
     // Skip entries without a meal (e.g., eating_out entries before status change)
     if (!entry.meal) continue
 
-    const effectiveServings = getEffectiveServings(entry, householdSize)
+    const effectiveServings = getEffectiveServings(entry, householdServings)
 
     for (const component of entry.meal.components) {
       const ingredientId = component.ingredientId
@@ -407,8 +392,8 @@ export async function computeRollingWindowShoppingList(
     }
   }
 
-  // 2. Get household size for quantity calculation
-  const householdSize = await getHouseholdSize(householdId)
+  // 2. Get the household's servings (its members' portions) for the quantities
+  const householdServings = await loadHouseholdServings(householdId)
 
   // 3. Aggregate quantities per ingredient
   const needed = new Map<string, NeededIngredient>()
@@ -417,7 +402,7 @@ export async function computeRollingWindowShoppingList(
     // Skip entries without a meal (e.g., eating_out entries before status change)
     if (!entry.meal) continue
 
-    const effectiveServings = getEffectiveServings(entry, householdSize)
+    const effectiveServings = getEffectiveServings(entry, householdServings)
 
     for (const component of entry.meal.components) {
       const ingredientId = component.ingredientId

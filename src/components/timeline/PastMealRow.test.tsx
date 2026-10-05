@@ -35,7 +35,7 @@ function renderRow(props: { status?: MealStatus; pantryDeducted?: boolean } = {}
         meal={meal}
         mealType="dinner"
         status="planned"
-        householdSize={4}
+        householdServings={4}
         {...props}
       />
     </Wrapper>,

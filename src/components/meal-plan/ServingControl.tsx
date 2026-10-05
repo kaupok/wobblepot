@@ -1,15 +1,21 @@
 'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
+import { formatQuantity } from '@/lib/i18n/format-number'
+import type { Locale } from '@/lib/i18n/locales'
 
 interface ServingControlProps {
   servings: number
-  householdSize: number
+  /**
+   * The servings the household cooks for without an override: its members'
+   * portions summed, so it can be a fraction such as 2.5 (HON-1040).
+   */
+  householdServings: number
   onServingsChange: (servings: number | null) => Promise<boolean>
   disabled?: boolean
 }
@@ -22,17 +28,24 @@ const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffec
 
 export function ServingControl({
   servings,
-  householdSize,
+  householdServings,
   onServingsChange,
   disabled = false,
 }: ServingControlProps) {
   const t = useTranslations('meal-plan.serving')
+  const locale = useLocale() as Locale
+  // "2,5" in Estonian. The field takes whole numbers only, so opening it on
+  // 2.5 and leaving it unchanged fails the parse and reverts, saving nothing.
+  const formatted = formatQuantity(servings, locale)
   const [isEditing, setIsEditing] = useState(false)
-  const [inputValue, setInputValue] = useState(String(servings))
+  const [inputValue, setInputValue] = useState(formatted)
   const [isUpdating, setIsUpdating] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const isOverridden = servings !== householdSize
+  // A typed override is a whole number, so it only equals fractional
+  // household servings when the household's own value is whole — which is
+  // exactly when clearing the override is right.
+  const isOverridden = servings !== householdServings
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -45,13 +58,13 @@ export function ServingControl({
   // Uses useLayoutEffect to avoid visual flash
   useIsomorphicLayoutEffect(() => {
     if (!isEditing) {
-      setInputValue(String(servings))
+      setInputValue(formatted)
     }
-  }, [servings])
+  }, [formatted])
 
   function handleClick() {
     if (disabled || isUpdating) return
-    setInputValue(String(servings))
+    setInputValue(formatted)
     setIsEditing(true)
   }
 
@@ -60,7 +73,7 @@ export function ServingControl({
 
     // Validate
     if (newValue === null || newValue < MIN_SERVINGS || newValue > MAX_SERVINGS) {
-      setInputValue(String(servings))
+      setInputValue(formatted)
       setIsEditing(false)
       return
     }
@@ -73,8 +86,8 @@ export function ServingControl({
 
     setIsUpdating(true)
 
-    // If setting back to household size, pass null to clear the override
-    const valueToSave = newValue === householdSize ? null : newValue
+    // If setting back to the household servings, pass null to clear the override
+    const valueToSave = newValue === householdServings ? null : newValue
     const success = await onServingsChange(valueToSave)
 
     setIsUpdating(false)
@@ -83,7 +96,7 @@ export function ServingControl({
       setIsEditing(false)
     } else {
       // Revert on error
-      setInputValue(String(servings))
+      setInputValue(formatted)
     }
   }
 
@@ -92,7 +105,7 @@ export function ServingControl({
       e.preventDefault()
       handleSubmit()
     } else if (e.key === 'Escape') {
-      setInputValue(String(servings))
+      setInputValue(formatted)
       setIsEditing(false)
     }
   }

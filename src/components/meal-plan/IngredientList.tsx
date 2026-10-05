@@ -16,8 +16,8 @@ interface IngredientListProps {
   components: MealComponent[]
   /** Number of servings to calculate quantities for */
   servings: number
-  /** Household size (for display label reference) */
-  householdSize?: number
+  /** Household servings, the members' portions summed (for display label reference) */
+  householdServings?: number
   pantryIngredients?: PantryIngredient[]
   /** If provided, renders checkboxes to toggle ingredient availability */
   onToggleAvailability?: (ingredientId: string, hasIt: boolean) => void
@@ -48,7 +48,7 @@ interface IngredientListProps {
  */
 function formatQuantity(
   quantityPerServing: number,
-  householdSize: number,
+  servings: number,
   unit: 'g' | 'piece',
   locale: Locale,
   isVague: boolean | undefined,
@@ -61,7 +61,7 @@ function formatQuantity(
     return vaguePhrase(originalPhrase)
   }
 
-  const totalQuantity = quantityPerServing * householdSize
+  const totalQuantity = quantityPerServing * servings
 
   if (unit === 'piece') {
     // Quantity is already in pieces. Locale-aware so `et` renders "1,5" not
@@ -80,7 +80,7 @@ function formatQuantity(
 export function IngredientList({
   components,
   servings,
-  householdSize: _householdSize,
+  householdServings: _householdServings,
   pantryIngredients,
   onToggleAvailability,
   togglingIds,

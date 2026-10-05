@@ -44,7 +44,7 @@ const meta = {
   },
   args: {
     meal: mealFixture,
-    householdSize: 4,
+    householdServings: 4,
     title: <Heading variant="display">{mealFixture.name}</Heading>,
   },
   decorators: [
@@ -659,7 +659,7 @@ export const NarrowColumnCompleted: Story = {
 export const NarrowColumnCustomServingsEstonian: Story = {
   name: 'Narrow ingredients column (Estonian, custom servings)',
   globals: { locale: 'et' },
-  args: { ...narrowColumnArgs, servings: 4, householdSize: 3 },
+  args: { ...narrowColumnArgs, servings: 4, householdServings: 3 },
   decorators: narrowColumnDecorator,
   parameters: {
     docs: {

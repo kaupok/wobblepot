@@ -48,7 +48,7 @@ describe('AlternativeCard', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
-          householdSize={3}
+          householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
         />,
@@ -61,7 +61,7 @@ describe('AlternativeCard', () => {
       render(
         <AlternativeCard
           meal={{ ...mockMeal, suitableFor: ['breakfast', 'dinner'] }}
-          householdSize={3}
+          householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
         />,
@@ -76,7 +76,7 @@ describe('AlternativeCard', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
-          householdSize={3}
+          householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
         />,
@@ -89,7 +89,7 @@ describe('AlternativeCard', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
-          householdSize={3}
+          householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
         />,
@@ -104,7 +104,7 @@ describe('AlternativeCard', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
-          householdSize={3}
+          householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
         />,
@@ -116,7 +116,12 @@ describe('AlternativeCard', () => {
     it('does not render kid-friendly badge when false', () => {
       const meal = { ...mockMeal, kidFriendly: false }
       render(
-        <AlternativeCard meal={meal} householdSize={3} onSelect={vi.fn()} isSelecting={false} />,
+        <AlternativeCard
+          meal={meal}
+          householdServings={3}
+          onSelect={vi.fn()}
+          isSelecting={false}
+        />,
       )
 
       expect(screen.queryByText('Kid-friendly')).not.toBeInTheDocument()
@@ -126,7 +131,7 @@ describe('AlternativeCard', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
-          householdSize={3}
+          householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
         />,
@@ -139,7 +144,7 @@ describe('AlternativeCard', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
-          householdSize={3}
+          householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
         />,
@@ -154,7 +159,7 @@ describe('AlternativeCard', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
-          householdSize={3}
+          householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
         />,
@@ -171,7 +176,7 @@ describe('AlternativeCard', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
-          householdSize={3}
+          householdServings={3}
           onSelect={onSelect}
           isSelecting={false}
         />,
@@ -184,7 +189,12 @@ describe('AlternativeCard', () => {
 
     it('shows Selecting… when isSelecting is true', () => {
       render(
-        <AlternativeCard meal={mockMeal} householdSize={3} onSelect={vi.fn()} isSelecting={true} />,
+        <AlternativeCard
+          meal={mockMeal}
+          householdServings={3}
+          onSelect={vi.fn()}
+          isSelecting={true}
+        />,
       )
 
       expect(screen.getByRole('button', { name: 'Selecting…' })).toBeInTheDocument()
@@ -192,7 +202,12 @@ describe('AlternativeCard', () => {
 
     it('disables Select button when isSelecting is true', () => {
       render(
-        <AlternativeCard meal={mockMeal} householdSize={3} onSelect={vi.fn()} isSelecting={true} />,
+        <AlternativeCard
+          meal={mockMeal}
+          householdServings={3}
+          onSelect={vi.fn()}
+          isSelecting={true}
+        />,
       )
 
       expect(screen.getByRole('button', { name: 'Selecting…' })).toBeDisabled()
@@ -210,7 +225,7 @@ describe('AlternativeCard', () => {
             imageUrl: 'https://store.public.blob.vercel-storage.com/meals/meal-1.png',
             imageHue: 40,
           }}
-          householdSize={3}
+          householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
         />,
@@ -229,7 +244,12 @@ describe('AlternativeCard', () => {
   describe('rating reason', () => {
     const renderWith = (meal: AlternativeMeal) =>
       render(
-        <AlternativeCard meal={meal} householdSize={3} onSelect={vi.fn()} isSelecting={false} />,
+        <AlternativeCard
+          meal={meal}
+          householdServings={3}
+          onSelect={vi.fn()}
+          isSelecting={false}
+        />,
       )
 
     it('says the household rated a liked meal up', () => {
@@ -253,7 +273,7 @@ describe('AlternativeCard', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
-          householdSize={3}
+          householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
           pantryIngredients={pantryIngredients}

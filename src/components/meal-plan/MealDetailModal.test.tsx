@@ -73,7 +73,7 @@ function renderModal(onServingOverrideChange = vi.fn(), open = true, mealData = 
   render(
     <MealDetailModal
       meal={mealData}
-      householdSize={4}
+      householdServings={4}
       open={open}
       onOpenChange={vi.fn()}
       planId="plan-1"
@@ -283,7 +283,7 @@ describe('MealDetailModal focus (HON-932)', () => {
         <button type="button">Lentil soup card</button>
         <MealDetailModal
           meal={meal}
-          householdSize={4}
+          householdServings={4}
           open={open}
           onOpenChange={vi.fn()}
           planId="plan-1"

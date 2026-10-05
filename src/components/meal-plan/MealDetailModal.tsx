@@ -46,7 +46,7 @@ export interface MealDetailModalHandle {
 
 interface MealDetailModalProps {
   meal: MealData
-  householdSize: number
+  householdServings: number
   /** Status of the plan entry; a completed entry shows its servings read-only */
   status?: MealStatus
   open: boolean
@@ -109,7 +109,7 @@ function isTextField(target: EventTarget | null): boolean {
 
 export function MealDetailModal({
   meal,
-  householdSize,
+  householdServings,
   status,
   open,
   onOpenChange,
@@ -130,7 +130,7 @@ export function MealDetailModal({
   const tDetail = useTranslations('meal-plan.detail')
   const tServing = useTranslations('meal-plan.serving')
   const tNote = useTranslations('meal-plan.noteEditor')
-  const [localServings, setLocalServings] = useState(servingOverride ?? householdSize)
+  const [localServings, setLocalServings] = useState(servingOverride ?? householdServings)
   const { togglingIngredientIds, optimisticOverrides, handleToggleAvailability } =
     useIngredientAvailability({
       onRefresh: () => router.refresh(),
@@ -308,7 +308,7 @@ export function MealDetailModal({
   }, [titleEl])
 
   // Sync local state when prop changes
-  const effectiveServings = servingOverride ?? householdSize
+  const effectiveServings = servingOverride ?? householdServings
   if (localServings !== effectiveServings && !open) {
     setLocalServings(effectiveServings)
   }
@@ -323,7 +323,7 @@ export function MealDetailModal({
     onMutate: (newServings) => {
       const previousServings = localServings
       // Optimistic update
-      setLocalServings(newServings ?? householdSize)
+      setLocalServings(newServings ?? householdServings)
       return { previousServings }
     },
     onSuccess: (_data, newServings) => {
@@ -385,8 +385,8 @@ export function MealDetailModal({
         // The sync above only runs while the modal is closed, which is the
         // usual case — the Swap control lives on the card behind this dialog.
         // Resetting here keeps the count right if a swap ever lands while it
-        // is open, since the server reverted the entry to the household size.
-        setLocalServings(householdSize)
+        // is open, since the server reverted the entry to the household servings.
+        setLocalServings(householdServings)
       },
       // Leaving `completed` nulls the entry's cached tips server-side: they
       // may be priced for a member count the household no longer has, since
@@ -395,7 +395,7 @@ export function MealDetailModal({
       // would never ask again.
       dropTips: cancelTips,
     }),
-    [cancelTips, cancelImage, householdSize],
+    [cancelTips, cancelImage, householdServings],
   )
 
   return (
@@ -557,7 +557,7 @@ export function MealDetailModal({
               />
             )
           }
-          householdSize={householdSize}
+          householdServings={householdServings}
           status={status}
           servings={localServings}
           onServingsChange={readOnly ? undefined : handleServingsChange}

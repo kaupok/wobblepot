@@ -13,7 +13,7 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
   args: {
-    householdSize: 4,
+    householdServings: 4,
     onSelect: fn(),
     isSelecting: false,
   },

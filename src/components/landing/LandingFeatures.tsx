@@ -19,6 +19,7 @@ import { PreparationSteps, type CookQuestionControls } from '@/components/meal-p
 import { ServingControl } from '@/components/meal-plan/ServingControl'
 import type { MealComponent, PantryIngredient } from '@/components/meal-plan/types'
 import { formatWeight } from '@/lib/i18n/format-shopping-quantity'
+import { sumPortions } from '@/lib/meal-planning/servings'
 import type { Locale } from '@/lib/i18n/locales'
 import { cn } from '@/lib/utils'
 import type { Member, MemberPreferences } from '@/types/member'
@@ -45,19 +46,23 @@ const ACAI_BOWL = {
 } as const
 
 /**
- * Three members whose portions add up to the meal's 3 servings: 1.5 + 1 + 0.5.
- * The app scales a meal by its servings (`getEffectiveServings`), so with this
- * household the salmon reads the same here, in the pantry vignette and in the
- * real cook view: per serving × the portions' sum. The catalog names the
- * toddler with her age, since nothing else in the row says she is one.
+ * A typical household: two adults at a regular portion and a toddler at half
+ * of one, so the meal serves 1 + 1 + 0.5 = 2.5, not 3. The app sums the
+ * portions the same way (`sumPortions`), so the salmon reads the same here, in
+ * the pantry vignette and in the real cook view: per serving × the portions'
+ * sum (HON-1040). The catalog names the toddler with her age, since nothing
+ * else in the row says she is one. Her 0.5× is not a preset (Small is 0.75×),
+ * so her row reads "Custom".
  */
 const MEMBERS = [
-  { key: 'adult1', portionMultiplier: 1.5 },
+  { key: 'adult1', portionMultiplier: 1 },
   { key: 'adult2', portionMultiplier: 1 },
   { key: 'toddler', portionMultiplier: 0.5 },
 ] as const
 
-const SERVINGS = MEMBERS.reduce((sum, member) => sum + member.portionMultiplier, 0)
+const SERVINGS = sumPortions(
+  MEMBERS.map(({ portionMultiplier }) => ({ preferences: { portionMultiplier } })),
+)
 
 /** Grams of salmon per serving; the cook view shows it × `SERVINGS`. */
 const SALMON_GRAMS_PER_SERVING = 120
@@ -73,7 +78,8 @@ const INGREDIENTS = [
   },
   { key: 'asparagus', category: 'vegetable', unit: 'g', quantityPerServing: 100, inPantry: true },
   { key: 'oliveOil', category: 'fat', unit: 'g', quantityPerServing: 10, inPantry: true },
-  { key: 'lemon', category: 'fruit', unit: 'piece', quantityPerServing: 1 / 3, inPantry: false },
+  // 0.4 × 2.5 servings is one whole lemon.
+  { key: 'lemon', category: 'fruit', unit: 'piece', quantityPerServing: 0.4, inPantry: false },
 ] as const
 
 const POINTS = ['pantry', 'recipes', 'kids', 'cook'] as const
@@ -313,7 +319,7 @@ function PortionsVignette() {
         <div className="flex">
           <ServingControl
             servings={SERVINGS}
-            householdSize={SERVINGS}
+            householdServings={SERVINGS}
             onServingsChange={async () => false}
             disabled
           />

@@ -49,7 +49,7 @@ function renderModal({ note = null, open = true }: { note?: string | null; open?
   const onNoteChange = vi.fn()
   const props = {
     meal,
-    householdSize: 4,
+    householdServings: 4,
     status: 'planned' as const,
     onOpenChange: vi.fn(),
     planId: 'plan-1',

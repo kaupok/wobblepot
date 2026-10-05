@@ -32,7 +32,7 @@ import {
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
-import { getEffectiveServings } from '@/lib/meal-planning/servings'
+import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
@@ -60,7 +60,7 @@ function abortReason(signal: AbortSignal): unknown {
 
 /**
  * The steps and the equipment come from the client because the entry may hold
- * none: the tips route serves them uncached when the member count moved,
+ * none: the tips route serves them uncached when the household's servings moved,
  * during a locale rollback, or when its guarded write matched nothing
  * (HON-681, HON-683, HON-921). Bounded so a request cannot grow the prompt
  * without limit.
@@ -232,7 +232,7 @@ async function handlePOST(
 
     const aiRequest = buildCookQuestionRequest({
       mealName,
-      servings: getEffectiveServings(entry, household._count.members),
+      servings: getEffectiveServings(entry, sumPortions(household.members)),
       timeMinutes: entry.meal.timeMinutes,
       components: entry.meal.components.map((comp) => ({
         name: translateIngredient(comp.ingredient, locale).name,

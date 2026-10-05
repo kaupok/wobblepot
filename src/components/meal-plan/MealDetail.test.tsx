@@ -13,7 +13,7 @@ function renderDetail(props: {
   optimisticOverrides?: Map<string, boolean>
 }) {
   return render(
-    <MealDetail meal={meal} householdSize={4} onToggleAvailability={vi.fn()} {...props} />,
+    <MealDetail meal={meal} householdServings={4} onToggleAvailability={vi.fn()} {...props} />,
   )
 }
 
@@ -59,7 +59,7 @@ describe('MealDetail availability', () => {
     rerender(
       <MealDetail
         meal={meal}
-        householdSize={4}
+        householdServings={4}
         onToggleAvailability={vi.fn()}
         pantryIngredients={staplesOnly}
         optimisticOverrides={new Map([['chicken-thigh', true]])}
@@ -98,7 +98,7 @@ describe('MealDetail prep time', () => {
       render(
         <MealDetail
           meal={{ ...meal, timeMinutes }}
-          householdSize={4}
+          householdServings={4}
           pantryIngredients={[]}
           onToggleAvailability={vi.fn()}
         />,
@@ -116,7 +116,7 @@ describe('MealDetail badge row icons (HON-1023)', () => {
     return render(
       <MealDetail
         meal={{ ...meal, ...overrides }}
-        householdSize={4}
+        householdServings={4}
         pantryIngredients={[]}
         onToggleAvailability={vi.fn()}
       />,
@@ -157,7 +157,7 @@ describe('MealDetail Serves badge (HON-1025)', () => {
     render(
       <MealDetail
         meal={{ ...meal, kidFriendly: true }}
-        householdSize={4}
+        householdServings={4}
         servings={4}
         onServingsChange={vi.fn(async () => true)}
       />,
@@ -176,7 +176,7 @@ describe('MealDetail Serves badge (HON-1025)', () => {
     render(
       <MealDetail
         meal={meal}
-        householdSize={4}
+        householdServings={4}
         status="completed"
         servings={6}
         onServingsChange={onServingsChange}
@@ -192,6 +192,24 @@ describe('MealDetail Serves badge (HON-1025)', () => {
   })
 })
 
+// Two adults and a toddler at 0.5× cook for 2.5 servings, not 3 (HON-1040).
+describe('MealDetail with fractional household servings', () => {
+  it('shows Serves 2.5 and scales the ingredients by 2.5', () => {
+    render(
+      <MealDetail
+        meal={meal}
+        householdServings={2.5}
+        servings={2.5}
+        onServingsChange={vi.fn(async () => true)}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Serves 2.5. Click to edit.' })).toBeInTheDocument()
+    const chicken = ingredientRows().find((row) => row.textContent?.includes('Chicken thigh'))
+    expect(chicken).toHaveTextContent('375g') // 150g × 2.5
+  })
+})
+
 describe('MealDetail cook view layout (HON-932)', () => {
   const nutritionMeal = {
     ...meal,
@@ -204,7 +222,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
     render(
       <MealDetail
         meal={nutritionMeal}
-        householdSize={4}
+        householdServings={4}
         title={<h2>Lemon chicken</h2>}
         onHowToPrepare={vi.fn()}
       />,
@@ -227,7 +245,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
 
   it('shows the How to prepare button until tips are asked for', () => {
     const onHowToPrepare = vi.fn()
-    render(<MealDetail meal={meal} householdSize={4} onHowToPrepare={onHowToPrepare} />)
+    render(<MealDetail meal={meal} householdServings={4} onHowToPrepare={onHowToPrepare} />)
 
     screen.getByRole('button', { name: 'How to prepare' }).click()
     expect(onHowToPrepare).toHaveBeenCalledOnce()
@@ -238,7 +256,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
     render(
       <MealDetail
         meal={meal}
-        householdSize={4}
+        householdServings={4}
         onHowToPrepare={vi.fn()}
         isTipsExpanded
         tips={{ equipment: ['Sheet pan', 'Tongs'], steps: ['Roast it'], pitfalls: [] }}
@@ -262,7 +280,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
     render(
       <MealDetail
         meal={meal}
-        householdSize={4}
+        householdServings={4}
         onHowToPrepare={vi.fn()}
         isTipsExpanded
         isLoadingTips
@@ -277,7 +295,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
     render(
       <MealDetail
         meal={meal}
-        householdSize={4}
+        householdServings={4}
         image={<div role="img" aria-label="Lemon chicken" />}
         title={<h2>Lemon chicken</h2>}
         onHowToPrepare={vi.fn()}
@@ -299,7 +317,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
   })
 
   it('pads the steps to the title line without a hero (HON-951)', () => {
-    render(<MealDetail meal={meal} householdSize={4} onHowToPrepare={vi.fn()} />)
+    render(<MealDetail meal={meal} householdServings={4} onHowToPrepare={vi.fn()} />)
 
     expect(screen.getByTestId('cook-view-steps-body')).toHaveClass('lg:pt-8')
   })
@@ -308,7 +326,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
     render(
       <MealDetail
         meal={meal}
-        householdSize={4}
+        householdServings={4}
         image={<div role="img" aria-label="Lemon chicken" />}
       />,
     )
@@ -321,7 +339,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
     render(
       <MealDetail
         meal={meal}
-        householdSize={4}
+        householdServings={4}
         title={<h2>Lemon chicken</h2>}
         titleActions={<button type="button">More actions: Lemon chicken</button>}
       />,
@@ -339,7 +357,7 @@ describe('MealDetail cook view layout (HON-932)', () => {
     render(
       <MealDetail
         meal={{ ...meal, preparationNotes: 'Broil the last two minutes' }}
-        householdSize={4}
+        householdServings={4}
         onHowToPrepare={vi.fn()}
       />,
     )
@@ -356,7 +374,7 @@ describe('MealDetail ingredient rows (HON-932)', () => {
     render(
       <MealDetail
         meal={meal}
-        householdSize={4}
+        householdServings={4}
         pantryIngredients={[{ ingredientId: 'chicken-thigh', isStaple: false }]}
         onToggleAvailability={onToggleAvailability}
       />,
@@ -368,7 +386,7 @@ describe('MealDetail ingredient rows (HON-932)', () => {
   })
 
   it('puts the quantity before the name', () => {
-    render(<MealDetail meal={meal} householdSize={4} pantryIngredients={[]} />)
+    render(<MealDetail meal={meal} householdServings={4} pantryIngredients={[]} />)
     const row = ingredientRows()[0]!
     expect(row.textContent).toMatch(/^\d[\d,.]*\s?(g|\b)/)
   })
@@ -378,14 +396,14 @@ describe('MealDetail Done cooking (HON-933)', () => {
   it('renders Done cooking only when the caller passes the handler', async () => {
     const onDoneCooking = vi.fn()
     const { rerender } = render(
-      <MealDetail meal={meal} householdSize={4} onHowToPrepare={vi.fn()} />,
+      <MealDetail meal={meal} householdServings={4} onHowToPrepare={vi.fn()} />,
     )
     expect(screen.queryByRole('button', { name: 'Done cooking' })).not.toBeInTheDocument()
 
     rerender(
       <MealDetail
         meal={meal}
-        householdSize={4}
+        householdServings={4}
         onHowToPrepare={vi.fn()}
         onDoneCooking={onDoneCooking}
       />,

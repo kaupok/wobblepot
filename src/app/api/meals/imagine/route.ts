@@ -214,6 +214,10 @@ async function handlePOST(request: Request) {
   }
 
   const preferences = household.preferences
+  // The member count, not the portions' sum (`sumPortions`), on purpose: the
+  // prompt asks for "a household of N people", and a new meal's `servings` is
+  // an integer. The meal is scaled to the household's portions when it is
+  // planned and cooked (HON-1040).
   const householdSize = household._count.members
 
   try {

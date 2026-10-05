@@ -24,17 +24,24 @@ vi.mock('@/lib/prisma', () => ({
       create: vi.fn(),
       upsert: vi.fn(),
     },
+    mealPlanEntry: {
+      updateMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
   },
 }))
 
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockFindUnique = vi.mocked(prisma.memberPreferences.findUnique)
 const mockCreate = vi.mocked(prisma.memberPreferences.create)
 const mockUpsert = vi.mocked(prisma.memberPreferences.upsert)
+const mockEntryUpdateMany = vi.mocked(prisma.mealPlanEntry.updateMany)
+const mockTransaction = vi.mocked(prisma.$transaction)
 
 const mockMemberPreferences = {
   id: 'member-prefs-123',
@@ -139,6 +146,9 @@ describe('GET /api/members/me/preferences', () => {
 describe('PATCH /api/members/me/preferences', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // The write runs in a transaction on the same mock, so `tx.*` are the
+    // spies the assertions read.
+    mockTransaction.mockImplementation(async (fn) => (fn as (tx: unknown) => never)(prisma))
   })
 
   const createRequest = (body: object) =>
@@ -432,5 +442,66 @@ describe('PATCH /api/members/me/preferences', () => {
 
     expect(response.status).toBe(200)
     expect(data.excludedIngredients).toEqual(['olives', 'anchovies'])
+  })
+
+  describe('cached preparation tips', () => {
+    const signedIn = () => {
+      mockGetSession.mockResolvedValue({
+        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+        session: { id: 'session-123' },
+      } as never)
+      mockFindFirst.mockResolvedValue(mockMembership as never)
+      mockUpsert.mockResolvedValue(mockMemberPreferences as never)
+    }
+
+    // The portion size is summed into the household's servings, which price
+    // the tips on every entry without a `servingOverride` (HON-1040).
+    it('clears them on future entries when the portion size changes', async () => {
+      signedIn()
+      mockFindUnique.mockResolvedValue({ portionMultiplier: 1 } as never)
+
+      const response = await PATCH(createRequest({ portionMultiplier: 0.5 }))
+
+      expect(response.status).toBe(200)
+      expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
+      expect(mockEntryUpdateMany).toHaveBeenCalledWith({
+        where: {
+          plan: { householdId: 'household-123' },
+          servingOverride: null,
+          preparationTips: { not: null },
+          status: { not: 'completed' },
+          date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
+        },
+        data: { preparationTips: null },
+      })
+    })
+
+    it('clears them when a member without a preferences row leaves 1×', async () => {
+      signedIn()
+      mockFindUnique.mockResolvedValue(null)
+
+      await PATCH(createRequest({ portionMultiplier: 1.5 }))
+
+      expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
+    })
+
+    it('leaves them alone when the portion size is saved unchanged', async () => {
+      signedIn()
+      mockFindUnique.mockResolvedValue({ portionMultiplier: 1.5 } as never)
+
+      const response = await PATCH(createRequest({ portionMultiplier: 1.5, displayName: 'Dad' }))
+
+      expect(response.status).toBe(200)
+      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+    })
+
+    it('leaves them alone when the edit has no portion size', async () => {
+      signedIn()
+
+      await PATCH(createRequest({ dietaryType: 'vegan' }))
+
+      expect(mockFindUnique).not.toHaveBeenCalled()
+      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+    })
   })
 })

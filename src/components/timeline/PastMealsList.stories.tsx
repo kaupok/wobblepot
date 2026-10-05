@@ -16,7 +16,7 @@ const meta = {
   parameters: { layout: 'padded' },
   args: {
     planId: 'plan-1',
-    householdSize: 4,
+    householdServings: 4,
     pantryItems: lemonGarlicChickenPantryItems,
     todayDate: timelineTodayDate,
     entries: [
