@@ -147,7 +147,7 @@ export const PastMealsToMark: Story = {
     docs: {
       description: {
         story:
-          'Past meals are still to mark (HON-1028): a red dot at the top-right of the account icon, and the trigger is named "User menu, past meals to mark". Scrolled, the phone pill draws in to the 48px disc around the icon, and the dot stays whole inside it. The play measures the dot inside the trigger and inside the pill, at rest and scrolled.',
+          'Past meals are still to mark (HON-1028): a red dot at the top-right of the account icon, and the trigger is named "User menu, past meals to mark". Scrolled, the phone pill draws in to the 56px disc around the icon, and the dot stays whole inside it. The play measures the dot inside the trigger and inside the pill, at rest and scrolled.',
       },
     },
   },
@@ -163,8 +163,8 @@ export const PastMealsToMark: Story = {
 
     window.scrollTo(0, 400)
     await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
-    // Wait for the pill to finish drawing in to the 48px disc.
-    await waitFor(() => expect(Math.round(box(pill).width)).toBe(48), { timeout: 1500 })
+    // Wait for the pill to finish drawing in to the 56px disc.
+    await waitFor(() => expect(Math.round(box(pill).width)).toBe(56), { timeout: 1500 })
     await expect(dot).toBeVisible()
     await expect(contains(box(pill), box(dot))).toBe(true)
 
@@ -220,7 +220,7 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          'Desktop layout — the phone pill dissolves into two: logo and daily views left, settings views and account menu right. Exercises the `md:` breakpoint where layout branches. The space between links is the links’ own padding, not a gap, so neighbours share an edge; the play measures that the labels still sit 24px apart and 20px in from the pill’s edge (HON-922).',
+          'Desktop layout — the phone pill dissolves into two: logo and daily views left, settings views and account menu right. Exercises the `md:` breakpoint where layout branches. The space between links is the links’ own padding, not a gap, so neighbours share an edge; the play measures that the labels still sit 24px apart and 28px in from the pill’s edge (HON-922).',
       },
     },
   },
@@ -236,11 +236,11 @@ export const Desktop: Story = {
     const recipes = within(settings).getByRole('link', { name: 'My recipes' })
     const household = within(settings).getByRole('link', { name: 'Household' })
 
-    // 20px padding inside a 1px border, at both ends of the left pill and
+    // 28px padding inside a 1px border, at both ends of the left pill and
     // the start of the right one.
-    await expectNear(logo.left - leftPill.left, 21)
-    await expectNear(leftPill.right - textBox(pantry).right, 21)
-    await expectNear(textBox(recipes).left - rightPill.left, 21)
+    await expectNear(logo.left - leftPill.left, 29)
+    await expectNear(leftPill.right - textBox(pantry).right, 29)
+    await expectNear(textBox(recipes).left - rightPill.left, 29)
     // 24px between labels, as when it was a `gap-6`.
     await expectNear(textBox(mealPlan).left - logo.right, 24)
     await expectNear(textBox(pantry).left - textBox(mealPlan).right, 24)
@@ -318,6 +318,17 @@ export const DesktopScrolled: Story = {
     await expectNear(
       glyph(account).left - glyph(household).right,
       glyph(household).left - glyph(recipes).right,
+    )
+    // Folded, the pill pads both ends alike: the first icon box sits as far
+    // in from the left edge as the account disc does from the right.
+    const settingsPill = settingsNav.parentElement!
+    await waitFor(
+      () =>
+        expectNear(
+          box(recipes).left - box(settingsPill).left,
+          box(settingsPill).right - box(account).right,
+        ),
+      { timeout: 1500 },
     )
 
     // The logo folded away cleanly: the daily views sit centred in their pill.
@@ -439,7 +450,7 @@ export const DesktopLoggedOut: Story = {
     docs: {
       description: {
         story:
-          'Desktop, no session — the right pill holds the sign-in / sign-up buttons and the theme toggle, the left one just the logo. With no nav links, the pill’s 4px meets the Sign in button’s own box, so its hover pill sits as far in from the left edge as the theme disc does from the right (HON-939); the play measures both ends.',
+          'Desktop, no session — the right pill holds the sign-in / sign-up buttons and the theme toggle, the left one just the logo. With no nav links, the pill’s 8px meets the Sign in button’s own box, so its hover pill sits as far in from the left edge as the theme disc does from the right (HON-939); the play measures both ends.',
       },
     },
   },
@@ -448,9 +459,9 @@ export const DesktopLoggedOut: Story = {
     const signIn = within(banner).getByRole('link', { name: 'Sign in' })
     const theme = within(banner).getByRole('button', { name: 'Toggle theme' })
     const pill = box(signIn.closest('.md\\:rounded-full')!)
-    // 4px padding inside a 1px border, the same at both ends.
-    await expectNear(box(signIn).left - pill.left, 5)
-    await expectNear(pill.right - box(theme).right, 5)
+    // 8px padding inside a 1px border, the same at both ends.
+    await expectNear(box(signIn).left - pill.left, 9)
+    await expectNear(pill.right - box(theme).right, 9)
   },
 }
 
@@ -463,7 +474,7 @@ export const DesktopOnboarding: Story = {
     docs: {
       description: {
         story:
-          'Desktop, signed in without a household — the right pill holds only the account disc. The pill’s 4px meets the disc’s box at both ends, so it sits centred in the pill (HON-939); the play measures it.',
+          'Desktop, signed in without a household — the right pill holds only the account disc. The pill’s 8px meets the disc’s box at both ends, so it sits centred in the pill (HON-939); the play measures it.',
       },
     },
   },
@@ -471,8 +482,8 @@ export const DesktopOnboarding: Story = {
     const banner = within(canvasElement).getByRole('banner')
     const account = within(banner).getByRole('button', { name: 'User menu' })
     const pill = box(account.closest('.md\\:rounded-full')!)
-    // 4px padding inside a 1px border, the same at both ends.
-    await expectNear(box(account).left - pill.left, 5)
-    await expectNear(pill.right - box(account).right, 5)
+    // 8px padding inside a 1px border, the same at both ends.
+    await expectNear(box(account).left - pill.left, 9)
+    await expectNear(pill.right - box(account).right, 9)
   },
 }

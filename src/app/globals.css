@@ -38,8 +38,9 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   /* The landing page's display face, read through `Heading face="brand"`. The
-     variable is set only under the landing page (src/components/landing/
-     display-font.ts), so anywhere else it falls back to Geist (HON-1043). */
+     variable is set only under the landing page and the cook view
+     (src/components/landing/display-font.ts), so anywhere else it falls back
+     to Geist (HON-1043). */
   --font-display: var(--font-bricolage, var(--font-geist-sans));
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -94,6 +95,13 @@
      read it as a shadow colour. Registered with tailwind-merge through
      CUSTOM_SHADOW_VALUES in src/lib/utils.ts. */
   --shadow-float: 0 0 24px 0 rgb(0 0 0 / 0.06);
+  /* The lift under modal overlays (dialog, alert dialog, sheet). Three layers,
+     a tight contact shadow, a mid one and a wide soft one, so the panel reads
+     as high above the page. On the light overlay the shadow is the panel's
+     edge, so it is stronger than `shadow-lg`. Registered as `shadow-float` is. */
+  --shadow-modal:
+    0 1px 3px 0 rgb(0 0 0 / 0.05), 0 12px 24px -6px rgb(0 0 0 / 0.08),
+    0 32px 64px -12px rgb(0 0 0 / 0.18);
 }
 
 /* Values that no Tailwind token or scale value can express, declared once here
@@ -108,28 +116,28 @@
    cn('max-h-dialog', 'max-h-96') the way it resolved cn('max-h-[85vh]', …).
    Adding one here without adding it there fails utils.test.ts. */
 
-/* Fills the viewport below the fixed header. The 4rem is the header's own
-   band — its pt-4 offset plus the h-12 pill (src/components/header-chrome.tsx);
+/* Fills the viewport below the fixed header. The 4.5rem is the header's own
+   band — its pt-4 offset plus the h-14 pill (src/components/header-chrome.tsx);
    its safe-area top padding sits outside this, exactly as the 25 hand-written
    copies had it. */
 @utility min-h-screen-below-header {
-  min-height: calc(100vh - 4rem);
+  min-height: calc(100vh - 4.5rem);
 }
 
 /* As above, but also minus the `py-8` gutters of the page wrapper it sits on
    (`w-full px-4 py-8`: 2rem top + 2rem bottom), so a centred card fills the
    page without scrolling. */
 @utility min-h-screen-below-header-gutters {
-  min-height: calc(100vh - 8rem);
+  min-height: calc(100vh - 8.5rem);
 }
 
 /* Clears the fixed header when an element is scrolled to with
-   `scrollIntoView({ block: 'start' })`: the header's 4rem band (pt-4 offset plus
-   the h-12 pill), its safe-area top padding, and 1rem of breathing room so the
+   `scrollIntoView({ block: 'start' })`: the header's 4.5rem band (pt-4 offset plus
+   the h-14 pill), its safe-area top padding, and 1rem of breathing room so the
    target's heading is not flush against the pill. Used by the timeline's past
    days (HON-691). */
 @utility scroll-mt-below-header {
-  scroll-margin-top: calc(5rem + env(safe-area-inset-top, 0px));
+  scroll-margin-top: calc(5.5rem + env(safe-area-inset-top, 0px));
 }
 
 /* Lifts fixed chrome clear of the bottom tab bar: its h-16 band, 1rem of

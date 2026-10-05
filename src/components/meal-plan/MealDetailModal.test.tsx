@@ -251,8 +251,10 @@ describe('MealDetailModal sticky title bar (HON-932)', () => {
 
   it('measures the title against the scroll region, which starts under the safe-area inset', () => {
     renderModal()
-    const scroller = screen.getByRole('heading', { name: 'Lentil soup' }).parentElement
-    expect(scroller).toHaveAttribute('data-slot', 'cook-view-scroll')
+    const scroller = screen
+      .getByRole('heading', { name: 'Lentil soup' })
+      .closest('[data-slot="cook-view-scroll"]')
+    expect(scroller).not.toBeNull()
     expect(observers.at(-1)?.options).toEqual({
       root: scroller,
       rootMargin: '-60px 0px 0px 0px',

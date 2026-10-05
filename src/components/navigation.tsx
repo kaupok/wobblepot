@@ -57,7 +57,7 @@ function NavLink({
       href={href}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'group/link flex h-12 items-center text-base font-medium transition-colors',
+        'group/link flex h-14 items-center text-base font-medium transition-colors',
         // 12px a side keeps labels 24px apart. A folding link is 10px a side,
         // so folded it is the account button's 40px box (`size-10`) and the
         // three icons sit evenly; the label carries the other 2px at rest.

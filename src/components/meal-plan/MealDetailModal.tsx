@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Heading } from '@/components/ui/typography'
+import { displayFont } from '@/components/landing/display-font'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
 import { useMealTips } from '@/hooks/use-meal-tips'
 import { useCookQuestion } from '@/hooks/use-cook-question'
@@ -454,7 +455,7 @@ export function MealDetailModal({
           data-testid="cook-view-bar"
           data-title-hidden={titleHidden ? '' : undefined}
           className={cn(
-            'absolute inset-x-0 top-0 z-10 flex h-15 items-center pr-16 pl-5 transition-colors duration-200 ease-out md:pl-8 lg:hidden',
+            'absolute inset-x-0 top-0 z-10 flex h-15 items-center pr-20 pl-5 transition-colors duration-200 ease-out md:pr-24 md:pl-8 lg:hidden',
             titleHidden ? 'bg-card' : 'pointer-events-none bg-transparent',
           )}
         >
@@ -485,18 +486,22 @@ export function MealDetailModal({
           // "My recipe" follows the name, as on the cards (HON-1023), so the
           // dialog's title is the span inside the heading: the icon's label
           // stays out of the dialog's accessible name.
+          // The wrapper sets `--font-bricolage` for the brand face: the dialog
+          // portals to <body>, outside any element that sets it.
           title={
-            <Heading ref={setTitleEl} variant="display">
-              <DialogTitle asChild>
-                <span>{meal.name}</span>
-              </DialogTitle>
-              {meal.isCustom && (
-                <>
-                  {'\u00a0'}
-                  <MyRecipeIcon size="lg" />
-                </>
-              )}
-            </Heading>
+            <div className={displayFont.variable}>
+              <Heading ref={setTitleEl} variant="display" face="brand">
+                <DialogTitle asChild>
+                  <span>{meal.name}</span>
+                </DialogTitle>
+                {meal.isCustom && (
+                  <>
+                    {'\u00a0'}
+                    <MyRecipeIcon size="lg" />
+                  </>
+                )}
+              </Heading>
+            </div>
           }
           // Actions on the meal sit on its title row (docs/DESIGN.md). `icon-lg`,
           // not the cards' `icon-sm`: every target in the cook view is 44px.

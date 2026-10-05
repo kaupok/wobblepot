@@ -46,8 +46,8 @@ const headingVariants = cva('scroll-m-20 tracking-tight', {
       caption: 'text-xs font-medium text-muted-foreground tracking-wide uppercase',
     },
     // The typeface. `brand` is Bricolage Grotesque, the wordmark's face, for
-    // the landing page's own headings only (HON-1043). In-app
-    // headings stay `default` (Geist). It is a variant because
+    // the landing page's own headings (HON-1043) and the cook view's meal
+    // name. Other in-app headings stay `default` (Geist). It is a variant because
     // `shadcn/no-restyle` forbids a `font-*` class at a `Heading` callsite.
     face: {
       default: '',

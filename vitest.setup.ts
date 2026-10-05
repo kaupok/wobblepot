@@ -108,6 +108,13 @@ vi.mock('next-intl', async () => {
   }
 })
 
+// `next/font/google` is a build-time SWC transform; calling the real loader in
+// Vitest throws. The landing page and the cook view only read `.variable` off
+// the result (src/components/landing/display-font.ts).
+vi.mock('next/font/google', () => ({
+  Bricolage_Grotesque: () => ({ variable: 'bricolage-variable' }),
+}))
+
 // Mock ResizeObserver for Radix UI components
 class ResizeObserver {
   observe() {}

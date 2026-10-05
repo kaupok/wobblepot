@@ -33,7 +33,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50 duration-200 ease-out',
+        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 bg-background/70 fixed inset-0 z-50 duration-200 ease-out',
         className,
       )}
       {...props}
@@ -42,12 +42,12 @@ function DialogOverlay({
 }
 
 const dialogContentVariants = cva(
-  'group/dialog data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 shadow-lg duration-200 ease-out outline-none',
+  'group/dialog data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 shadow-modal duration-200 ease-out outline-none',
   {
     variants: {
       size: {
         default:
-          'bg-background top-[50%] left-[50%] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 sm:max-w-lg',
+          'bg-background top-[50%] left-[50%] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border p-6 sm:max-w-lg',
         // The cook view (docs/DESIGN.md → "Cook view", HON-932). Below `lg` it
         // is the viewport, padded by the safe-area insets so nothing sits under
         // a notch or the home indicator; from `lg` it is a panel 24px inside
@@ -79,13 +79,15 @@ function DialogContent({
     <DialogPrimitive.Close data-slot="dialog-close" asChild>
       {fullscreen ? (
         // On the chip token, so it reads over the hero image and on the tint
-        // alike, and 44px+ (`icon-lg`): a cook taps it with a knuckle. Its
-        // top offset centres it in the 60px band a callsite's own top bar
-        // takes (the cook view's sticky title bar).
+        // alike, and 44px+ (`icon-lg`): a cook taps it with a knuckle. Below
+        // `lg` its top offset centres it in the 60px band a callsite's own top
+        // bar takes (the cook view's sticky title bar). Its right offset is
+        // 20px or more, so it clears a classic scrollbar on the frame's right
+        // edge (about 15px).
         <Button
           variant="secondary"
           size="icon-lg"
-          className="absolute top-1.5 right-2 z-20 md:top-2"
+          className="absolute top-1.5 right-5 z-20 md:top-2 md:right-8 lg:top-6 lg:right-6"
         >
           <XIcon />
           <span className="sr-only">{t('close')}</span>

@@ -310,16 +310,16 @@ describe('MealDetail cook view layout (HON-932)', () => {
     expect(steps.firstElementChild).toHaveClass('order-first', 'lg:order-none')
     // From `lg` the title starts its column; with a hero, "Steps" needs no
     // top padding of its own.
-    expect(screen.getByTestId('cook-view-steps-body')).not.toHaveClass('lg:pt-8')
+    expect(screen.getByTestId('cook-view-steps-body')).not.toHaveClass('lg:pt-10')
     expect(
-      screen.getByRole('heading', { name: 'Lemon chicken' }).closest('.lg\\:pt-8'),
+      screen.getByRole('heading', { name: 'Lemon chicken' }).closest('.lg\\:pt-10'),
     ).not.toBeNull()
   })
 
   it('pads the steps to the title line without a hero (HON-951)', () => {
     render(<MealDetail meal={meal} householdServings={4} onHowToPrepare={vi.fn()} />)
 
-    expect(screen.getByTestId('cook-view-steps-body')).toHaveClass('lg:pt-8')
+    expect(screen.getByTestId('cook-view-steps-body')).toHaveClass('lg:pt-10')
   })
 
   it('keeps the hero without a steps area', () => {

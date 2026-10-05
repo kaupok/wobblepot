@@ -45,9 +45,9 @@ interface HeaderChromeProps {
  * empty ring. The transitions name their properties and run at 300ms on the
  * house curve; a reduced-motion preference snaps them.
  *
- * Geometry: `pt-4` offset plus the `h-12` pill is the same 4rem the old
- * full-width bar took, so `main`'s top padding and the
- * `*-below-header` utilities in `globals.css` are unchanged.
+ * Geometry: `pt-4` offset plus the `h-14` pill is a 4.5rem band. `main`'s
+ * top padding (`src/app/layout.tsx`) and the `*-below-header` utilities in
+ * `globals.css` hold a copy of that height: change them with it.
  */
 export function HeaderChrome({
   session,
@@ -76,13 +76,13 @@ export function HeaderChrome({
             two groups inside become pills of their own. Each pill is opaque
             and bordered, with the faint `shadow-float` lift that DESIGN.md →
             Elevation allows floating chrome and nothing else in the page.
-            Scrolled, the phone pill draws in from the left to the 48px disc
-            the account icon needs: `max-w-full` → `max-w-12`, its left
+            Scrolled, the phone pill draws in from the left to the 56px disc
+            around the account icon: `max-w-full` → `max-w-14`, its left
             padding closing to match the right. */}
-        <div className="bg-background shadow-float pointer-events-auto ml-auto flex h-12 w-full max-w-full items-center justify-between rounded-full border pr-0.5 pl-4 transition-[max-width,padding,margin,opacity,visibility] duration-300 ease-out group-data-scrolled:max-w-12 group-data-scrolled:pl-0.5 motion-reduce:transition-none md:contents">
+        <div className="bg-background shadow-float pointer-events-auto ml-auto flex h-14 w-full max-w-full items-center justify-between rounded-full border pr-1.25 pl-5 transition-[max-width,padding,margin,opacity,visibility] duration-300 ease-out group-data-scrolled:max-w-14 group-data-scrolled:pl-1.25 motion-reduce:transition-none md:contents">
           <div
             className={cn(
-              'md:bg-background md:shadow-float flex items-center md:h-12 md:rounded-full md:border md:px-2',
+              'md:bg-background md:shadow-float flex items-center md:h-14 md:rounded-full md:border md:px-4',
               !showsNav &&
                 'transition-opacity duration-300 ease-out group-data-scrolled:pointer-events-none group-data-scrolled:opacity-0 motion-reduce:transition-none',
             )}
@@ -90,10 +90,10 @@ export function HeaderChrome({
             {/* The fold. `max-w-32` clears the wordmark at rest; scrolled, the
                 box narrows to nothing behind `overflow-hidden` while the text
                 fades, and its margin closes with it so the nav meets the
-                pill's padding. The pill's padding is 8px because the nav
-                links carry 12px of their own (`NavLink`); the logo's 12px
-                margin is the same top-up, putting it 20px in from the edge
-                and 24px from Meal plan. `invisible` at the end takes the hidden
+                pill's padding. The pill's padding is 16px, and the nav links
+                carry 12px of their own (`NavLink`); the logo's 12px margin is
+                the same top-up, putting it 28px in from the edge and 24px
+                from Meal plan. `invisible` at the end takes the hidden
                 link out of the tab order; visibility only flips once the
                 transition ends, so it is not seen. The link's own focus
                 outline is inset for the same clipping reason. */}
@@ -113,15 +113,20 @@ export function HeaderChrome({
             <NavigationLeft isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
           </div>
           {/* No gap: the last nav link meets the account button. With the
-              nav present, the pill's 8px plus the first link's own 12px
-              (`NavLink`) put its label 20px in. Without it (signed out,
+              nav present, the pill's 16px plus the first link's own 12px
+              (`NavLink`) put its label 28px in. Without it (signed out,
               onboarding) the first control is a button whose box carries its
-              own padding, so the pill's 4px meets that box, the same as the
+              own padding, so the pill's 8px meets that box, the same as the
               right end meets the last disc. */}
           <div
             className={cn(
-              'md:bg-background md:shadow-float flex items-center md:h-12 md:rounded-full md:border md:pr-1',
-              showsNav ? 'md:pl-2' : 'md:pl-1',
+              'md:bg-background md:shadow-float flex items-center md:h-14 md:rounded-full md:border md:pr-2',
+              // Folded to icons (scrolled, and below `lg` at rest, as in
+              // `NavLink`), the first link is an icon box like the account
+              // disc, so the left padding drops to the right's 8px.
+              showsNav
+                ? 'transition-[max-width,padding,margin,opacity,visibility] duration-300 ease-out motion-reduce:transition-none md:pl-4 md:group-data-scrolled:pl-2 md:max-lg:pl-2'
+                : 'md:pl-2',
             )}
           >
             <NavigationRight isAuthenticated={Boolean(session)} hasHousehold={hasHousehold} />
