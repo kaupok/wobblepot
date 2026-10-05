@@ -125,14 +125,16 @@ export function ServingControl({
     // input is the badge's 24px `text-sm` line, so the badge stays 34px and the
     // badge row does not grow (HON-1025). `text-sm` is 16px here, which also
     // keeps iOS from zooming in on focus. `hitArea="touch"` is for its
-    // `overflow-visible`, so the input's focus ring is not clipped.
+    // `overflow-visible`, so the input's focus ring is not clipped. The
+    // keypad is `decimal`, not `numeric`: a phone's numeric keypad has no
+    // separator, and typing the household's 2,5 is how an override is cleared.
     return (
       <Badge variant="surface" size="lg" hitArea="touch">
         <span>{t('label')}</span>
         <input
           ref={inputRef}
           type="text"
-          inputMode="numeric"
+          inputMode="decimal"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}

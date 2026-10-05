@@ -130,6 +130,14 @@ describe('ServingControl', () => {
       expect(onServingsChange).toHaveBeenCalledWith(null)
     })
 
+    // A phone's `numeric` keypad has no separator, so `2,5` could not be typed.
+    it('opens the decimal keypad, so a phone can type the separator', async () => {
+      const user = userEvent.setup()
+      renderControl({ servings: 4, householdServings: 2.5 })
+      await user.click(screen.getByRole('button', { name: 'Serves 4. Click to edit.' }))
+      expect(screen.getByRole('textbox')).toHaveAttribute('inputmode', 'decimal')
+    })
+
     it('rejects any other fraction, because an override is whole', async () => {
       const user = userEvent.setup()
       const { onServingsChange } = renderControl({ servings: 4, householdServings: 2.5 })
