@@ -100,15 +100,18 @@ needs-merge: yes | no
 mcp__linear-server__save_issue({
   team: "Wobblebot",
   title: "<sentence-case step, no prefix>",
-  description: "<## Problem, ## What, ## Acceptance criteria, ## Context — name HON-XX and the PR>",
+  description: "Follow-up to HON-XX, filed by /auto-implement <2.8 | 3.2 | 6.8>.
+
+  <## Problem, ## What, ## Acceptance criteria, ## Context — name HON-XX and the PR>",
   state: "Queued",            // or "Todo" when a human must act (credentials, spend approval, a judgment call)
   blockedBy: ["HON-XX"],      // needs-merge: yes — use relatedTo: ["HON-XX"] instead when it does not
   priority: <the parent's priority>,
-  labels: [<the parent's labels>],
+  addLabels: ["Follow-up", <the parent's labels>],
 })
 ```
 
 - **No `[AUTO DRAFT]` prefix.** Only findings take it.
+- **The `Follow-up` label and the first description line** mark the origin, because an issue with no prefix reads as human-written in a list view (CLAUDE.md → "Linear title prefixes"). The first line names the phase that filed it.
 - **`blockedBy` the parent in this same call** when the step needs the parent's change on `main`. The orchestrator picks up a Queued issue within a minute, so without the relation it runs before the parent merges (HON-902 for the same-call rule, HON-1053 for the incident).
 - **Unassigned.** A human picks up a Todo follow-up; the orchestrator picks up a Queued one.
 - The body clears "Writing for Agents" in CLAUDE.md: the agent that picks it up has none of this session's context.

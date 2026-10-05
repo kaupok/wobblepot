@@ -318,6 +318,7 @@ See [`.storybook/README.md`](./.storybook/README.md) for the play-function patte
 - **`[DRAFT]`** — filed by a human, or by an agent in a session a human is driving (conversation, research, `/ideate`, `/refine-backlog`, `/chrome-review`), whose spec is not yet ready to implement. It means "unrefined", not "unreviewed". Cleared by `/refine-backlog` (no args) once the spec is written up.
 - **`[AUTO DRAFT]`** — filed **only** by `/auto-implement` 6.8, for a review finding the unattended cycle deferred. No human saw it at birth; the prefix is the gate that stops the cycle implementing work it generated for itself. Cleared only by `/refine-backlog --auto-drafts` after a human judges the finding real and current.
 - **No prefix** — ready for pickup. An issue a human reviewed as it was created (e.g. a `/branch-review` proposal the user approved) needs no prefix.
+- **`Follow-up` label** — not a prefix, and it gates nothing: the state says who acts. It marks an issue an agent filed as a follow-up to another issue (see "A follow-up is an issue" below), and the description's first line names the parent and the skill that filed it. A label rather than a prefix, because both prefixes gate unattended pickup and a prefix leaks into `gitBranchName`.
 
 If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, even when the issue is agent-written, well-specced, or related to existing `[AUTO DRAFT]` issues. Full rules live in `.claude/skills/refine-backlog/SKILL.md` and `.claude/skills/auto-implement/deferral.md` (`/auto-implement` 6.8).
 
@@ -330,7 +331,8 @@ If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, 
 **A follow-up is an issue.** A step the work needs but this PR does not ship (a golden re-record, a backfill, a manual check) becomes a Linear issue before the parent issue closes. A note on the parent, a "Not verified" line or a hand-off comment does not count, because nobody reads a Done issue again.
 
 - **State:** Queued if an agent can finish it alone, Todo if a human must act. Filing it Queued is not a new queueing decision, because a human queued or approved the parent.
-- **Link it to the parent in the same `save_issue` call:** `blockedBy` when it needs the parent's change on `main` first, so no worker picks it up early; `relatedTo` otherwise. Name the parent in the description.
+- **Link it to the parent in the same `save_issue` call:** `blockedBy` when it needs the parent's change on `main` first, so no worker picks it up early; `relatedTo` otherwise.
+- **Mark its origin**, because an issue with no prefix reads as human-written in a list view: `addLabels: ["Follow-up"]`, and a first description line `Follow-up to HON-NNN, filed by /merge.` that names the parent and the skill (and phase) that filed it, so the origin survives if the label is removed. HON-1052 is the reference example.
 - **Who files it:** `/plan-issue` and `/auto-implement` file plan-time follow-ups before they post the plan, and the plan's `## Follow-ups` section lists the IDs. A follow-up found later is filed before the skill that found it ends. The PR body and the `/merge` summary list IDs, never free text.
 - **Not a review finding.** A finding the unattended cycle defers stays `[AUTO DRAFT]` in Backlog (`/auto-implement` 6.8). A follow-up is a step that a doc rule or the parent's acceptance criteria require (HON-1053).
 

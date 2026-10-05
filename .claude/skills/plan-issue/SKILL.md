@@ -287,19 +287,23 @@ If the user wants changes, revise the plan and ask again.
 
 ### 10. File follow-ups, then post plan to Linear
 
-**First file every `to file:` line in `## Follow-ups`.** Approval in step 9 covers these, because the user saw each line. An earlier run of this skill can have filed one already, so re-fetch the issue with `get_issue({ id: "HON-XX", includeRelations: true })` and skip a line whose title is already in `relations.blocks` or `relations.relatedTo`. File the rest:
+**First file every `to file:` line in `## Follow-ups`.** Approval in step 9 covers these, because the user saw each line. Under `--auto` no one approves the plan, but a human queued or approved the parent, so the follow-ups still take the state CLAUDE.md gives them. An earlier run of this skill can have filed one already, so re-fetch the issue with `get_issue({ id: "HON-XX", includeRelations: true })` and skip a line whose title is already in `relations.blocks` or `relations.relatedTo`. File the rest:
 
 ```
 mcp__linear-server__save_issue({
   team: "Wobblebot",
   title: "<sentence-case step>",
-  description: "<## Problem, ## What, ## Acceptance criteria, ## Context — name HON-XX>",
+  description: "Follow-up to HON-XX, filed by /plan-issue.
+
+  <## Problem, ## What, ## Acceptance criteria, ## Context — name HON-XX>",
   state: "Queued",          // or "Todo" when a human must act
   blockedBy: ["HON-XX"],    // when it needs this issue's change on main; otherwise relatedTo: ["HON-XX"]
   priority: <HON-XX's priority>,
-  labels: [<HON-XX's labels>],
+  addLabels: ["Follow-up", <HON-XX's labels>],
 })
 ```
+
+Other skills reuse this call. Each one names itself in the first line (`filed by /implement-issue.`, `filed by /create-pr.`, `filed by /merge.`). The `Follow-up` label and that line mark the origin, because an issue with no prefix reads as human-written in a list view (CLAUDE.md → "Linear title prefixes").
 
 `blockedBy` goes in this same call: the orchestrator picks up a Queued issue within a minute, so without the relation a worker runs the step before this issue's change is on `main` (HON-902). No `[DRAFT]` prefix: the step is specified by this plan. Leave it unassigned.
 
