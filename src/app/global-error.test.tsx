@@ -21,6 +21,12 @@ const { posthogMock, envMock, consentMock, markPostHogLoadedMock } = vi.hoisted(
   },
 }))
 
+// `next/font/google` is a build-time SWC transform; calling the real loader in
+// Vitest throws. The screen only reads `.variable` off the result.
+vi.mock('next/font/google', () => ({
+  Geist: () => ({ variable: '--font-geist-sans' }),
+  Geist_Mono: () => ({ variable: '--font-geist-mono' }),
+}))
 vi.mock('posthog-js', () => ({ default: posthogMock }))
 vi.mock('@/lib/env', () => ({ clientEnv: envMock, serverEnv: envMock }))
 vi.mock('@/lib/posthog-client-state', () => ({ markPostHogLoaded: markPostHogLoadedMock }))
@@ -34,6 +40,7 @@ beforeEach(() => {
   // document root; start every test from a bare one.
   document.documentElement.removeAttribute('lang')
   document.documentElement.removeAttribute('data-global-error')
+  document.documentElement.removeAttribute('class')
   vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['en-US'])
   posthogMock.__loaded = false
   envMock.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
@@ -142,6 +149,15 @@ describe('GlobalError', () => {
 
     const link = screen.getByRole('link', { name: /support@wobblepot\.com/i })
     expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com')
+  })
+
+  // This document replaces the root layout, so the layout's font classes never
+  // reach it; without its own the screen renders in the system font (HON-1047).
+  it('defines the Geist font variables on html', () => {
+    consentMock.read.mockReturnValue(null)
+    render(<GlobalError error={makeError()} reset={reset} />)
+
+    expect(document.documentElement).toHaveClass('--font-geist-sans', '--font-geist-mono')
   })
 
   describe('locale (HON-919)', () => {

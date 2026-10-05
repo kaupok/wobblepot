@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
 import { headers } from 'next/headers'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
@@ -15,23 +14,10 @@ import { readConsentCookieServer } from '@/lib/consent.server'
 import { getLocale } from '@/lib/i18n/get-locale'
 import { toOgLocale } from '@/lib/i18n/og-locale'
 import { bootstrapFlags } from '@/lib/feature-flags'
+import { geistMono, geistSans } from '@/lib/fonts'
 import Providers from '@/app/providers'
 import '@/lib/env'
 import { getServerBaseURL } from '@/lib/env'
-
-// The variable classes go on `<html>`, not `<body>`: Tailwind resolves
-// `--default-font-family: var(--font-geist-sans)` at `:root`, so a variable
-// defined only on `body` leaves `html` on the system font stack, and `body`
-// inherits it (HON-1045). `latin-ext` carries the Estonian š and ž.
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin', 'latin-ext'],
-})
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
 
 export const viewport: Viewport = {
   width: 'device-width',
