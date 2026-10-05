@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
+import { sumPortions } from '@/lib/meal-planning/servings'
 import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
 import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
@@ -217,10 +218,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       // A portion size is summed into the household's servings, which price
       // the cached prep tips on every entry without a `servingOverride`
-      // (HON-1040). Clear them only when the portion actually moved: the
-      // member dialogs send `portionMultiplier` on every save, and a needless
+      // (HON-1040). Clear them only when those servings moved: the member
+      // dialogs send `portionMultiplier` on every save, and the sum is rounded
+      // to 0.5, so 1.5 + 0.75 and 1.5 + 1 both price 2.5. A needless
       // invalidation costs a paid regeneration per entry (HON-684).
-      if (portionChanged) {
+      // `portionChanged` is the cheap guard that skips the re-read.
+      if (
+        portionChanged &&
+        (await loadHouseholdServings(householdMembership.householdId, tx)) !==
+          sumPortions(householdMembership.household.members)
+      ) {
         await invalidateFutureEntryTips(
           tx,
           householdMembership.householdId,

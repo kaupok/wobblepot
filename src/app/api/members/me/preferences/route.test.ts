@@ -18,6 +18,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     householdMember: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
     memberPreferences: {
       findUnique: vi.fn(),
@@ -41,6 +42,7 @@ const mockFindUnique = vi.mocked(prisma.memberPreferences.findUnique)
 const mockCreate = vi.mocked(prisma.memberPreferences.create)
 const mockUpsert = vi.mocked(prisma.memberPreferences.upsert)
 const mockEntryUpdateMany = vi.mocked(prisma.mealPlanEntry.updateMany)
+const mockMembersAfter = vi.mocked(prisma.householdMember.findMany)
 const mockTransaction = vi.mocked(prisma.$transaction)
 
 const mockMemberPreferences = {
@@ -71,6 +73,8 @@ const mockMembership = {
     timezone: 'Europe/Tallinn',
     createdAt: new Date('2024-01-01'),
     preferences: {},
+    // Each member's portion as the membership query reads it (HON-1040).
+    members: [{ preferences: { portionMultiplier: 1 } }, { preferences: { portionMultiplier: 1 } }],
   },
 }
 
@@ -149,6 +153,9 @@ describe('PATCH /api/members/me/preferences', () => {
     // The write runs in a transaction on the same mock, so `tx.*` are the
     // spies the assertions read.
     mockTransaction.mockImplementation(async (fn) => (fn as (tx: unknown) => never)(prisma))
+    // The household-servings re-read after a portion change: the household as
+    // `mockMembership` holds it, so the servings stay put by default.
+    mockMembersAfter.mockResolvedValue(mockMembership.household.members as never)
   })
 
   const createRequest = (body: object) =>
@@ -445,24 +452,33 @@ describe('PATCH /api/members/me/preferences', () => {
   })
 
   describe('cached preparation tips', () => {
-    const signedIn = () => {
+    const asMembers = (portions: number[]) =>
+      portions.map((portionMultiplier) => ({ preferences: { portionMultiplier } }))
+
+    /** Signed in; `after` is what the re-read inside the transaction sees. */
+    const signedIn = (after: number[] = [1, 1]) => {
       mockGetSession.mockResolvedValue({
         user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
         session: { id: 'session-123' },
       } as never)
       mockFindFirst.mockResolvedValue(mockMembership as never)
       mockUpsert.mockResolvedValue(mockMemberPreferences as never)
+      mockMembersAfter.mockResolvedValue(asMembers(after) as never)
     }
 
-    // The portion size is summed into the household's servings, which price
-    // the tips on every entry without a `servingOverride` (HON-1040).
-    it('clears them on future entries when the portion size changes', async () => {
-      signedIn()
+    // The portions are summed into the household's servings, which price the
+    // tips on every entry without a `servingOverride` (HON-1040).
+    it('clears them on future entries when the household servings move', async () => {
+      signedIn([0.5, 1])
       mockFindUnique.mockResolvedValue({ portionMultiplier: 1 } as never)
 
       const response = await PATCH(createRequest({ portionMultiplier: 0.5 }))
 
       expect(response.status).toBe(200)
+      expect(mockMembersAfter).toHaveBeenCalledWith({
+        where: { householdId: 'household-123' },
+        select: { preferences: { select: { portionMultiplier: true } } },
+      })
       expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
       expect(mockEntryUpdateMany).toHaveBeenCalledWith({
         where: {
@@ -477,7 +493,7 @@ describe('PATCH /api/members/me/preferences', () => {
     })
 
     it('clears them when a member without a preferences row leaves 1×', async () => {
-      signedIn()
+      signedIn([1.5, 1])
       mockFindUnique.mockResolvedValue(null)
 
       await PATCH(createRequest({ portionMultiplier: 1.5 }))
@@ -485,13 +501,27 @@ describe('PATCH /api/members/me/preferences', () => {
       expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
     })
 
-    it('leaves them alone when the portion size is saved unchanged', async () => {
+    // 1 + 1 = 2 and 1.2 + 1 = 2.2 both round to 2 servings, so the prompt is
+    // unchanged and a regeneration would be a paid call for nothing.
+    it('leaves them alone when the rounded servings do not move', async () => {
+      signedIn([1.2, 1])
+      mockFindUnique.mockResolvedValue({ portionMultiplier: 1 } as never)
+
+      const response = await PATCH(createRequest({ portionMultiplier: 1.2 }))
+
+      expect(response.status).toBe(200)
+      expect(mockMembersAfter).toHaveBeenCalledTimes(1)
+      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+    })
+
+    it('skips the re-read when the portion size is saved unchanged', async () => {
       signedIn()
       mockFindUnique.mockResolvedValue({ portionMultiplier: 1.5 } as never)
 
       const response = await PATCH(createRequest({ portionMultiplier: 1.5, displayName: 'Dad' }))
 
       expect(response.status).toBe(200)
+      expect(mockMembersAfter).not.toHaveBeenCalled()
       expect(mockEntryUpdateMany).not.toHaveBeenCalled()
     })
 
@@ -501,6 +531,7 @@ describe('PATCH /api/members/me/preferences', () => {
       await PATCH(createRequest({ dietaryType: 'vegan' }))
 
       expect(mockFindUnique).not.toHaveBeenCalled()
+      expect(mockMembersAfter).not.toHaveBeenCalled()
       expect(mockEntryUpdateMany).not.toHaveBeenCalled()
     })
   })

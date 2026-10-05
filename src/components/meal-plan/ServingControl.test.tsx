@@ -120,6 +120,27 @@ describe('ServingControl', () => {
       expect(onServingsChange).toHaveBeenCalledWith(3)
     })
 
+    it('clears an override when the household value is typed back, fraction included', async () => {
+      const user = userEvent.setup()
+      const { onServingsChange } = renderControl({ servings: 4, householdServings: 2.5 }, 'et')
+      await user.click(screen.getByRole('button', { name: /^4 portsjonit/ }))
+      const input = screen.getByRole('textbox')
+      await user.clear(input)
+      await user.type(input, '2,5{Enter}')
+      expect(onServingsChange).toHaveBeenCalledWith(null)
+    })
+
+    it('rejects any other fraction, because an override is whole', async () => {
+      const user = userEvent.setup()
+      const { onServingsChange } = renderControl({ servings: 4, householdServings: 2.5 })
+      await user.click(screen.getByRole('button', { name: 'Serves 4. Click to edit.' }))
+      const input = screen.getByRole('textbox', { name: 'Number of servings' })
+      await user.clear(input)
+      await user.type(input, '3.5{Enter}')
+      expect(onServingsChange).not.toHaveBeenCalled()
+      expect(await screen.findByRole('button', { name: 'Serves 4. Click to edit.' })).toBeVisible()
+    })
+
     it('saves nothing when the field is left on the fraction', async () => {
       const user = userEvent.setup()
       const { onServingsChange } = renderControl(household)

@@ -3,7 +3,8 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getHouseholdMembership } from '@/lib/household'
+import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
+import { sumPortions } from '@/lib/meal-planning/servings'
 import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
 import { captureApiError } from '@/lib/errors'
 
@@ -118,9 +119,15 @@ export async function PATCH(request: Request) {
 
       // A portion size is summed into the household's servings, which price
       // the cached prep tips on every entry without a `servingOverride`
-      // (HON-1040). Clear them only when the portion actually moved, because
-      // a needless invalidation costs a paid regeneration per entry (HON-684).
-      if (portionChanged) {
+      // (HON-1040). Clear them only when those servings moved: the sum is
+      // rounded to 0.5, so 1.5 + 0.75 and 1.5 + 1 both price 2.5, and a
+      // needless invalidation costs a paid regeneration per entry (HON-684).
+      // `portionChanged` is the cheap guard that skips the re-read.
+      if (
+        portionChanged &&
+        (await loadHouseholdServings(membership.householdId, tx)) !==
+          sumPortions(membership.household.members)
+      ) {
         await invalidateFutureEntryTips(tx, membership.householdId, membership.household.timezone)
       }
 

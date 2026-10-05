@@ -34,17 +34,15 @@ export function ServingControl({
 }: ServingControlProps) {
   const t = useTranslations('meal-plan.serving')
   const locale = useLocale() as Locale
-  // "2,5" in Estonian. The field takes whole numbers only, so opening it on
-  // 2.5 and leaving it unchanged fails the parse and reverts, saving nothing.
+  // "2,5" in Estonian, so the field opens on what the badge shows.
   const formatted = formatQuantity(servings, locale)
   const [isEditing, setIsEditing] = useState(false)
   const [inputValue, setInputValue] = useState(formatted)
   const [isUpdating, setIsUpdating] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // A typed override is a whole number, so it only equals fractional
-  // household servings when the household's own value is whole — which is
-  // exactly when clearing the override is right.
+  // An override is a whole number (the server takes `int().min(1).max(20)`),
+  // while the household's servings can be a fraction such as 2.5 (HON-1040).
   const isOverridden = servings !== householdServings
 
   useEffect(() => {
@@ -69,10 +67,18 @@ export function ServingControl({
   }
 
   async function handleSubmit() {
-    const newValue = parseLocalizedNumber(inputValue, { integer: true })
+    const newValue = parseLocalizedNumber(inputValue)
+    // Typing the household's own value clears the override, a fraction such
+    // as 2,5 included: an override can only be whole, so without this a
+    // household at 2.5 could never get back to following its portions.
+    const isHouseholdValue = newValue === householdServings
 
     // Validate
-    if (newValue === null || newValue < MIN_SERVINGS || newValue > MAX_SERVINGS) {
+    if (
+      newValue === null ||
+      (!isHouseholdValue &&
+        (!Number.isInteger(newValue) || newValue < MIN_SERVINGS || newValue > MAX_SERVINGS))
+    ) {
       setInputValue(formatted)
       setIsEditing(false)
       return
@@ -87,7 +93,7 @@ export function ServingControl({
     setIsUpdating(true)
 
     // If setting back to the household servings, pass null to clear the override
-    const valueToSave = newValue === householdServings ? null : newValue
+    const valueToSave = isHouseholdValue ? null : newValue
     const success = await onServingsChange(valueToSave)
 
     setIsUpdating(false)
