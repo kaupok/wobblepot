@@ -19,7 +19,7 @@ import {
   COOK_QUESTION_MAX_LENGTH,
   COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH,
 } from '@/lib/ai/cook-question-limits'
-import { parseStoredTips } from '@/lib/tips'
+import { parseCachedTips } from '@/lib/tips'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
 import { logAiSample } from '@/lib/ai/sampling'
@@ -227,12 +227,19 @@ async function handlePOST(
     const mealName = shownMeal.name
     // The cached tips give Watch out and Tip when the entry holds them. The
     // steps never come from here: the request carries the ones on screen.
-    const cachedTips = entry.preparationTips ? parseStoredTips(entry.preparationTips) : null
+    const servings = getEffectiveServings(entry, sumPortions(household.members))
+    // Only tips priced at these servings, as the tips route serves them.
+    const cachedTips = entry.preparationTips
+      ? parseCachedTips(entry.preparationTips, {
+          servings,
+          legacyServings: entry.servingOverride ?? household._count.members,
+        })
+      : null
     const preferences = household.preferences
 
     const aiRequest = buildCookQuestionRequest({
       mealName,
-      servings: getEffectiveServings(entry, sumPortions(household.members)),
+      servings,
       timeMinutes: entry.meal.timeMinutes,
       components: entry.meal.components.map((comp) => ({
         name: translateIngredient(comp.ingredient, locale).name,

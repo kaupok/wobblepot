@@ -11,7 +11,7 @@ import { serverEnv } from '@/lib/env'
 import { TIPS_MODEL } from '@/lib/ai/models'
 import { TIPS_AI_BUDGET_MS } from '@/lib/ai/budgets'
 import { buildFullTipsRequest, buildSupplementaryTipsRequest } from '@/lib/ai/preparation-tips'
-import { parseStoredTips } from '@/lib/tips'
+import { parseCachedTips, serializeTips } from '@/lib/tips'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
 import { logAiSample } from '@/lib/ai/sampling'
@@ -109,13 +109,26 @@ async function handlePOST(
       })
     }
 
-    // Return cached tips if available and valid JSON
+    // Scale by the entry's own serving count, not the raw member count: the
+    // tips are cached onto the entry, so a dinner with `servingOverride: 6` in
+    // a household of 2 would otherwise get timings and pan sizes for a third
+    // of the food the card, pantry and shopping list all agree on (HON-614).
+    // Without an override it is the members' portions summed (HON-1040).
+    const servingsWhenPriced = sumPortions(household.members)
+    const effectiveServings = getEffectiveServings(entry, servingsWhenPriced)
+
+    // Return cached tips if available, valid JSON and priced at these servings.
+    // Tips priced at other servings are regenerated, which also catches tips
+    // the pre-HON-1040 code cached at the member count (`parseCachedTips`).
     if (entry.preparationTips) {
-      const cached = parseStoredTips(entry.preparationTips)
+      const cached = parseCachedTips(entry.preparationTips, {
+        servings: effectiveServings,
+        legacyServings: entry.servingOverride ?? household._count.members,
+      })
       if (cached) {
         return NextResponse.json({ tips: cached }, { status: 200 })
       }
-      // Old format — fall through to regenerate
+      // Old format or other servings — fall through to regenerate
     }
 
     // Gate after the cache hit: cached reads shouldn't burn rate-limit tokens,
@@ -155,13 +168,6 @@ async function handlePOST(
       throw error
     }
 
-    // Scale by the entry's own serving count, not the raw member count: the
-    // tips are cached onto the entry, so a dinner with `servingOverride: 6` in
-    // a household of 2 would otherwise get timings and pan sizes for a third
-    // of the food the card, pantry and shopping list all agree on (HON-614).
-    // Without an override it is the members' portions summed (HON-1040).
-    const servingsWhenPriced = sumPortions(household.members)
-    const effectiveServings = getEffectiveServings(entry, servingsWhenPriced)
     // The prompt reads the household's names and notes, not the English ones:
     // given English inputs the model translates them itself, and its ingredient
     // names then differ from the Estonian ones the same modal shows, while the
@@ -359,7 +365,7 @@ async function handlePOST(
         // regenerates.
         meal: { is: { updatedAt: entry.meal.updatedAt } },
       },
-      data: { preparationTips: JSON.stringify(tips) },
+      data: { preparationTips: serializeTips(tips, effectiveServings) },
     })
 
     return NextResponse.json({ tips }, { status: 200 })

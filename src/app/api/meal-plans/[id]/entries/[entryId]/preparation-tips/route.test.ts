@@ -352,6 +352,71 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     })
   })
 
+  // Tips priced at other servings than the entry cooks for now are stale,
+  // whether the cache says so or predates HON-1040 and was priced at the
+  // member count — as the old code cached them between the production
+  // migration and this code going live.
+  describe('cached tips priced at other servings', () => {
+    const cached = { equipment: ['Pan'], steps: ['Heat'], pitfalls: ['Burn it'], tip: 'Go slow' }
+    const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
+    // Three members, two adults and a toddler at 0.5×: 2.5 servings.
+    const toddlerHousehold = () => {
+      const membership = buildMembership()
+      return {
+        ...membership,
+        household: {
+          ...membership.household,
+          _count: { members: 3 },
+          members: [1, 1, 0.5].map((portionMultiplier) => ({ preferences: { portionMultiplier } })),
+        },
+      }
+    }
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+      mockGetMembership.mockResolvedValue(toddlerHousehold() as never)
+      mockServingsNow.mockResolvedValue(2.5)
+      mockGenerateObject.mockResolvedValue({ object: fresh } as never)
+    })
+
+    it('regenerates legacy tips priced at the member count', async () => {
+      mockEntryFindFirst.mockResolvedValue(
+        sampleEntry({ preparationTips: JSON.stringify(cached) }) as never,
+      )
+
+      const data = await (await callPost()).json()
+
+      expect(data.tips).toEqual(fresh)
+      expect(mockEntryCacheWrite).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { preparationTips: JSON.stringify({ ...fresh, servings: 2.5 }) },
+        }),
+      )
+    })
+
+    it('regenerates tips that record other servings', async () => {
+      mockEntryFindFirst.mockResolvedValue(
+        sampleEntry({ preparationTips: JSON.stringify({ ...cached, servings: 3 }) }) as never,
+      )
+
+      const data = await (await callPost()).json()
+
+      expect(data.tips).toEqual(fresh)
+      expect(mockGenerateObject).toHaveBeenCalledTimes(1)
+    })
+
+    it('serves tips that record these servings, without the servings', async () => {
+      mockEntryFindFirst.mockResolvedValue(
+        sampleEntry({ preparationTips: JSON.stringify({ ...cached, servings: 2.5 }) }) as never,
+      )
+
+      const data = await (await callPost()).json()
+
+      expect(data.tips).toEqual(cached)
+      expect(mockGenerateObject).not.toHaveBeenCalled()
+    })
+  })
+
   it('regenerates when cached tips are in legacy format and persists new cache', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
@@ -379,7 +444,8 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
         plan: { household: { locale: 'en' } },
         meal: { is: { updatedAt: MEAL_UPDATED_AT } },
       },
-      data: { preparationTips: JSON.stringify(fresh) },
+      // The servings the prompt was priced at ride along (HON-1040).
+      data: { preparationTips: JSON.stringify({ ...fresh, servings: 4 }) },
     })
   })
 
@@ -407,7 +473,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
         plan: { household: { locale: 'et' } },
         meal: { is: { updatedAt: MEAL_UPDATED_AT } },
       },
-      data: { preparationTips: JSON.stringify(fresh) },
+      data: { preparationTips: JSON.stringify({ ...fresh, servings: 6 }) },
     })
   })
 

@@ -61,6 +61,12 @@ import { getStartOfTodayInTimezone } from './dates'
  * next to the `mealId` / `servingOverride` / `locale` / `meal.updatedAt`
  * filters already pinned there.
  *
+ * Since HON-1040 the cache also records the servings it was priced at, and
+ * every read drops tips priced at other servings (`parseCachedTips` in
+ * `src/lib/tips.ts`). That read check is the backstop for what this function
+ * cannot reach, such as tips the pre-HON-1040 code cached at the member count;
+ * clearing here still matters, because it keeps a stale row from being read.
+ *
  * The cost is real and accepted: a membership change now triggers a
  * regeneration burst across the remaining plan, each one a paid AI call
  * against the household's cap. Bounding it to future entries is what makes
