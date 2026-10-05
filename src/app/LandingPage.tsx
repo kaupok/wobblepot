@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Heart } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
 import { Body, Heading } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
@@ -30,14 +31,17 @@ interface LandingPageProps {
 /**
  * The signed-out home page. One page, read top to bottom: the problem and the
  * promise, today's three meals drawn with the planner's own cards (each one
- * opening the cook view), how it works in three steps, and who it is for and
- * what makes it different, each point shown with the app's own components.
+ * opening the cook view), how it works in three steps, who it is for and
+ * what makes it different, each point shown with the app's own components,
+ * and one closing line on who made it.
  * The call to action is in the hero only: from `md` the floating header keeps
  * "Sign up" on screen, and below `md` it is in the header's Account sheet.
  *
  * Not `<main>`: the root layout's `<main id="main-content">` is the page
- * landmark (HON-820). Left-aligned and capped at the page width like the app,
- * so the landing reads as the first screen of the product, not a brochure.
+ * landmark (HON-820). Capped at the page width like the app, so the landing
+ * reads as the first screen of the product, not a brochure. The hero is
+ * left-aligned beside the demo; each section below it opens with a centred
+ * statement at the hero's size, and its content stays left-aligned.
  *
  * The page's own headings are set in the display face (`face="brand"`, HON-1043);
  * the app components it draws keep Geist, because they show the product.
@@ -50,7 +54,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
 
   return (
     <div className={cn('w-full px-4 py-8 md:py-12', displayFont.variable)}>
-      <div className="flex flex-col gap-16 md:gap-24">
+      <div className="flex flex-col gap-20 md:gap-32">
         {/* Hero: the promise on the left, the product on the right from lg. The
             demo is capped at the planner card's width at every size: an uncapped
             card below lg is wide and short, and its cover image crops the plate. */}
@@ -93,22 +97,25 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
           </div>
         </section>
 
-        <section aria-labelledby="landing-how" className="flex flex-col gap-8">
-          <Heading variant="h3" as="h2" face="brand" id="landing-how">
-            {t('how.title')}
-          </Heading>
+        <section aria-labelledby="landing-how" className="flex flex-col gap-12 md:gap-16">
+          {/* A statement at the hero's size, as on "Made for family kitchens". */}
+          <div className="mx-auto max-w-3xl text-center text-balance">
+            <Heading variant="h1" as="h2" face="brand" id="landing-how">
+              {t('how.title')}
+            </Heading>
+          </div>
           {/* WebKit drops list semantics from a `list-style: none` list, so the role
               restores "list, 3 items" (as `Ol variant="plain"` does). A raw list
               because the grid's gap is the layout here, which `Ol` owns. */}
-          <ol role="list" className="grid list-none gap-8 md:grid-cols-3">
+          <ol role="list" className="grid list-none gap-10 md:grid-cols-3 md:gap-12">
             {STEPS.map((step, index) => (
               <li key={step}>
                 <div className="flex flex-col gap-2">
                   <Body variant="caption">{t('how.step', { number: index + 1 })}</Body>
-                  <Heading variant="section" as="h3" face="brand">
+                  <Heading variant="h4" as="h3" face="brand">
                     {t(`how.${step}.title`)}
                   </Heading>
-                  <Body variant="muted">{t(`how.${step}.body`)}</Body>
+                  <Body tone="muted">{t(`how.${step}.body`)}</Body>
                 </div>
               </li>
             ))}
@@ -116,6 +123,25 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
         </section>
 
         <LandingFeatures />
+
+        {/* The ending: one line on who made it, as a statement. No second
+            call to action (HON-1037). The bottom padding keeps the footer off
+            the last line. */}
+        <section aria-labelledby="landing-note" className="pb-8 md:pb-16">
+          <div className="mx-auto max-w-3xl text-center text-balance">
+            <Heading variant="h1" as="h2" face="brand" id="landing-note">
+              {/* Two lines by design: the catalog string carries the break. */}
+              {t.rich('note.title', { br: () => <br /> })}
+              {/* Decoration, in the heading's own ink: the no-break space keeps
+                  it on the line of the last word. */}
+              {'\u00a0'}
+              <Heart
+                aria-hidden="true"
+                className="inline-block size-7 fill-current align-baseline lg:size-9"
+              />
+            </Heading>
+          </div>
+        </section>
       </div>
     </div>
   )

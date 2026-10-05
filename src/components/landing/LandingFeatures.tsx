@@ -92,13 +92,23 @@ const VIGNETTES: Record<Point, ComponentType> = {
   cook: CookVignette,
 }
 
+// A slight tilt on each vignette, in a different direction and amount, so the
+// column reads as things laid on a table rather than a grid. Whole degrees
+// only, which the rotate scale has.
+const TILTS: Record<Point, string> = {
+  pantry: 'rotate-1',
+  recipes: '-rotate-2',
+  kids: 'rotate-2',
+  cook: '-rotate-1',
+}
+
 // The vignettes are pictures of the app, not controls: `inert` takes their
 // checkboxes, field and buttons out of the tab order and the pointer's reach.
 const noop = () => {}
 
 /**
  * "Made for family kitchens" on the signed-out home page (HON-1038): the
- * heading and the trust line, then one row per point, each with a vignette
+ * heading, then one row per point, each with a vignette
  * built from the app's own components in a fixed state, so the page proves
  * each claim with the product rather than a picture of it (docs/DESIGN.md →
  * Reject list). Nothing fetches and nothing saves.
@@ -113,36 +123,36 @@ export function LandingFeatures() {
   const salmon = useScaledSalmon()
 
   return (
-    <section aria-labelledby="landing-why" className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4 text-balance">
-        <Heading variant="h3" as="h2" face="brand" id="landing-why">
+    <section aria-labelledby="landing-why" className="flex flex-col gap-12 md:gap-16">
+      {/* A statement, not a section label: the hero's size, centred. */}
+      <div className="mx-auto max-w-3xl text-center text-balance">
+        <Heading variant="h1" as="h2" face="brand" id="landing-why">
           {t('title')}
         </Heading>
-        <Body variant="muted">{t('lead')}</Body>
       </div>
       {/* WebKit drops list semantics from a `list-style: none` list, so the
           role restores them, as on "How it works". */}
-      <ul role="list" className="flex list-none flex-col gap-12 md:gap-16">
+      <ul role="list" className="flex list-none flex-col gap-16 md:gap-24">
         {POINTS.map((point, index) => {
           const Vignette = VIGNETTES[point]
           return (
-            <li key={point} className="grid items-center gap-6 md:grid-cols-2 md:gap-12">
-              <div className="flex flex-col gap-2">
-                {/* Title, a step above the Section headings this file draws
-                    in the vignettes, so the claim leads and the vignette reads
-                    as its proof. `IngredientList` keeps its own heading. The
-                    title is the page's voice, so it takes the display face; the
-                    vignette is the product, so it keeps Geist. */}
-                <Heading variant="h4" as="h3" face="brand">
+            <li key={point} className="grid items-center gap-6 md:grid-cols-2 md:gap-16">
+              <div className="flex flex-col gap-3 text-balance">
+                {/* Two steps above the Section headings this file draws in the
+                    vignettes, so the claim leads and the vignette reads as its
+                    proof. `IngredientList` keeps its own heading. The title is
+                    the page's voice, so it takes the display face; the vignette
+                    is the product, so it keeps Geist. */}
+                <Heading variant="h3" face="brand">
                   {t(`${point}.title`)}
                 </Heading>
-                <Body variant="muted">{t(`${point}.body`)}</Body>
+                <Body tone="muted">{t(`${point}.body`)}</Body>
               </div>
               <figure
                 data-testid={`landing-vignette-${point}`}
                 className={cn('min-w-0', index % 2 === 1 && 'md:order-first')}
               >
-                <div inert>
+                <div inert className={TILTS[point]}>
                   <Vignette />
                 </div>
                 {/* Outside the inert part, which assistive tech skips. */}

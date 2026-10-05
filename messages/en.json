@@ -653,7 +653,7 @@
       }
     },
     "how": {
-      "title": "How it works",
+      "title": "Three steps to a planned week",
       "step": "Step {number}",
       "table": {
         "title": "Tell it who's at the table",
@@ -668,9 +668,11 @@
         "body": "One list of what you're missing, grouped by aisle. At the stove, the steps are on your phone, and you can ask about any of them."
       }
     },
+    "note": {
+      "title": "Made by a dad, <br></br>for a family of four"
+    },
     "why": {
       "title": "Made for family kitchens",
-      "lead": "Made by a parent, for a family of three. Your data lives in the EU, and there are no ads.",
       "pantry": {
         "title": "It knows your pantry",
         "body": "Tick what you have. The shopping list only shows what's missing, and the pantry updates when you mark a meal cooked.",
