@@ -684,13 +684,12 @@
           "lemon": "Sidrun"
         }
       },
-      "recipes": {
-        "title": "Sinu retseptid on plaanis",
-        "body": "Kleebi link või retsept ja sinu enda toidud planeeritakse koos ülejäänutega.",
+      "imagine": {
+        "title": "Mõtle välja toit",
+        "body": "Ütle, mida sooviksid süüa, või tee foto. Saad kolm retsepti salvestamiseks ja need lähevad plaani koos ülejäänutega.",
         "vignette": {
-          "caption": "Kleebitud retseptilink ja selle all sama toit plaanis hommikusöögiks: acai kauss, märgitud sinu enda retseptiks.",
-          "linkLabel": "Retsepti link",
-          "link": "https://example.com/acai-kauss",
+          "caption": "Väljale „Mõtle välja toit“ kirjutatud kirjeldus ja selle all toit, mille see andis, plaanis hommikusöögiks: acai kauss, märgitud sinu enda retseptiks.",
+          "prompt": "Midagi külma ja puuviljast hommikusöögiks, granolaga",
           "name": "Acai kauss",
           "description": "Külmutatud acai banaani, granola ja värskete puuviljadega"
         }
