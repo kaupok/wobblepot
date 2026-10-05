@@ -2,7 +2,7 @@ import { Bricolage_Grotesque } from 'next/font/google'
 
 /**
  * Bricolage Grotesque, the wordmark's face, as the landing page's display face
- * (docs/DESIGN.md → Primitives, Fonts; a trial from 2026-10-03, HON-1043). Read
+ * (docs/DESIGN.md → Primitives, Fonts; HON-1043). Read
  * through `Heading face="brand"`, which sets `font-display`; the app's own
  * headings stay Geist.
  *
