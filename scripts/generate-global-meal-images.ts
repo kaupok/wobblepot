@@ -747,11 +747,14 @@ export function databaseHost(databaseUrl: string | undefined): string {
   }
 }
 
-const REFRESH_HINT = `Refresh it from the Vercel environment that matches the database you publish to:
+// A pulled OIDC token always carries `environment: development`, whatever
+// `--environment` names, so it only reaches the staging store (HON-1050).
+const REFRESH_HINT = `Staging: refresh it from the Vercel environment that matches the database you publish to:
   vercel env pull --environment=<env> /tmp/wobblepot-blob.env
   grep -E '^(VERCEL_OIDC_TOKEN|BLOB_STORE_ID)=' /tmp/wobblepot-blob.env   # copy both lines into .env
   rm /tmp/wobblepot-blob.env
-Never run a bare \`vercel env pull\`: it writes .env.local. A static BLOB_READ_WRITE_TOKEN for the store also works.`
+Never run a bare \`vercel env pull\`: it writes .env.local.
+Production: a pulled OIDC token is refused. Export the store connection's BLOB_READ_WRITE_TOKEN (Sensitive off) and \`export VERCEL_OIDC_TOKEN=\` (empty, so dotenv does not refill it from .env); see docs/DEPLOYMENT.md.`
 
 /** Seconds since the epoch at which a JWT expires, or `undefined` if it cannot be read. */
 function jwtExpiry(token: string): number | undefined {

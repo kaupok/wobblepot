@@ -801,6 +801,27 @@ describe('environment checks', () => {
     ).toThrow(/expired[\s\S]*vercel env pull --environment=/)
   })
 
+  it('names the production path in the hint: a read-write token and an empty OIDC token', () => {
+    const expired = jwt(NOW.getTime() / 1000 - 60)
+    for (const env of [
+      { BLOB_STORE_ID: 's', VERCEL_OIDC_TOKEN: expired },
+      { BLOB_STORE_ID: 's' },
+    ]) {
+      expect(() => checkBlobCredentials(env, NOW)).toThrow(
+        /Production:.*BLOB_READ_WRITE_TOKEN.*export VERCEL_OIDC_TOKEN=/,
+      )
+    }
+  })
+
+  it('treats an empty OIDC token as absent and falls through to the read-write token', () => {
+    expect(
+      checkBlobCredentials(
+        { BLOB_STORE_ID: 's', VERCEL_OIDC_TOKEN: '', BLOB_READ_WRITE_TOKEN: 't' },
+        NOW,
+      ),
+    ).toBe('BLOB_READ_WRITE_TOKEN')
+  })
+
   it('prefers OIDC over a static token, as @vercel/blob does, and still checks its expiry', () => {
     const live = jwt(NOW.getTime() / 1000 + 3600)
     expect(

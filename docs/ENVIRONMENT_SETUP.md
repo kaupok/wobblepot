@@ -209,9 +209,9 @@ Not env-configurable; see [EMAIL_SETUP.md](./EMAIL_SETUP.md) for the rationale.
 
 ## Vercel Blob (meal images)
 
-Generated meal illustrations (HON-726) are stored in Vercel Blob by [`src/lib/meal-images/storage.ts`](../src/lib/meal-images/storage.ts). Since `@vercel/blob` 2.x the SDK authenticates with Vercel OIDC: it reads `VERCEL_OIDC_TOKEN` and `BLOB_STORE_ID` from the environment itself, so our code never passes credentials in. A static `BLOB_READ_WRITE_TOKEN` also works, but Vercel no longer creates one when a store is connected.
+Generated meal illustrations (HON-726) are stored in Vercel Blob by [`src/lib/meal-images/storage.ts`](../src/lib/meal-images/storage.ts). Since `@vercel/blob` 2.x the SDK authenticates with Vercel OIDC: it reads `VERCEL_OIDC_TOKEN` and `BLOB_STORE_ID` from the environment itself, so our code never passes credentials in. A static `BLOB_READ_WRITE_TOKEN` also works. Vercel creates one only when you tick the option on the store connection (see [Publishing to production from a laptop](#publishing-to-production-from-a-laptop)).
 
-**Deployed environments need nothing by hand.** Two stores are connected to the `honkadori` project: one serves Preview, Development and staging, the other Production only. Each connection writes `BLOB_STORE_ID` and `BLOB_WEBHOOK_PUBLIC_KEY` into its environments, and Vercel injects `VERCEL_OIDC_TOKEN` at runtime. We register no Blob webhooks, so `BLOB_WEBHOOK_PUBLIC_KEY` is unread and listed in `INTEGRATION_MANAGED` in `scripts/env-audit.ts`.
+**Deployed environments need nothing by hand.** Two stores are connected to the `honkadori` project: one serves Preview, Development and staging, the other Production only. Each connection writes `BLOB_STORE_ID` and `BLOB_WEBHOOK_PUBLIC_KEY` into its environments, and Vercel injects `VERCEL_OIDC_TOKEN` at runtime. We register no Blob webhooks, so `BLOB_WEBHOOK_PUBLIC_KEY` is unread and listed in `INTEGRATION_MANAGED` in `scripts/env-audit.ts`. The production connection also writes `BLOB_READ_WRITE_TOKEN`, for the operator scripts only: the deployed app ignores it, because `@vercel/blob` prefers OIDC when both are set.
 
 **Local dev** only needs this to upload images; the app boots and every test passes with both unset. Put `BLOB_STORE_ID` and a fresh `VERCEL_OIDC_TOKEN` in `.env`. The token expires after about a day, so refresh it by pulling into a temp file and copying the one line across:
 
@@ -222,6 +222,22 @@ rm /tmp/vercel.env
 ```
 
 **Never run a bare `vercel env pull`.** It writes `.env.local`, which Next.js loads ahead of `.env`, so its `DATABASE_URL` silently overrides your Neon branch.
+
+### Publishing to production from a laptop
+
+The pulled OIDC token above only reaches the staging store. A token from `vercel env pull` carries the claim `environment: development`, even with `--environment=production`, and the production store is connected to Production only, so it refuses every upload (HON-1050). The meal-image scripts (`pnpm meal-images:global --publish`, `pnpm meal-images:refit --confirm`) need the store's static read-write token for production:
+
+1. Once: in the Vercel dashboard, open the production Blob store (`wobblepot-images-prod`) → Projects → **Configure honkadori**, and tick **Add a read-write token env var to this connection** with **Sensitive off**. A sensitive variable can never be read back, so with Sensitive on the pull below returns an empty value.
+2. Each session: export the token and blank the OIDC token. The scripts load `.env` through `dotenv/config`, which fills in any variable that is not already set, so `unset VERCEL_OIDC_TOKEN` brings the stale `.env` token back. An empty value counts as absent.
+
+```bash
+vercel env pull --environment=production /tmp/wobblepot-prod.env
+export BLOB_READ_WRITE_TOKEN="$(grep '^BLOB_READ_WRITE_TOKEN=' /tmp/wobblepot-prod.env | cut -d= -f2- | tr -d '"')"
+export VERCEL_OIDC_TOKEN=   # empty, not unset
+rm /tmp/wobblepot-prod.env
+```
+
+The full publish flow is in [DEPLOYMENT.md → Global meal illustrations](DEPLOYMENT.md#global-meal-illustrations).
 
 Public blob URLs are served from `https://<store id>.public.blob.vercel-storage.com`. That wildcard host is allowed in both `images.remotePatterns` (`next.config.ts`) and the CSP `img-src` (`src/proxy.ts`). Keep the two in sync.
 

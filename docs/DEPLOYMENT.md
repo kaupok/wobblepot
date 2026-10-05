@@ -258,7 +258,21 @@ pnpm meal-images:global --confirm [--judge]
 
 **3. Review.** Open `index.html` and note the slug of every image to reject. The images are drawn from the English name and description and shared by every locale. Each file is already fitted: `generateMealImage` classifies the vessel and scales every vessel to its size, a 27 cm plate at 0.58 of the frame width, before the batch writes it (HON-1024), so the sheet shows what will be published. The manifest records the `vessel` and the `fit` per image.
 
-**4. Publish to staging, then to production.** Point the environment at the target — its `DATABASE_URL`, plus Blob credentials for the **same** environment, since staging and production use different Blob stores (see [ENVIRONMENT_SETUP.md § Vercel Blob](ENVIRONMENT_SETUP.md#vercel-blob-meal-images)). Blob authenticates with `BLOB_STORE_ID` plus `VERCEL_OIDC_TOKEN`, and the token expires after about a day. The script checks it before uploading and prints the refresh steps; `vercel env pull --environment=<env> /tmp/<file>` gives you a fresh one (never a bare `vercel env pull`, which writes `.env.local`). A static `BLOB_READ_WRITE_TOKEN` for the store also works.
+**4. Publish to staging, then to production.** Point the environment at the target — its `DATABASE_URL`, plus Blob credentials for the **same** environment, since staging and production use different Blob stores (see [ENVIRONMENT_SETUP.md § Vercel Blob](ENVIRONMENT_SETUP.md#vercel-blob-meal-images)). The script checks the credentials before uploading and prints these steps when they are missing or expired.
+
+- **Staging** authenticates with `BLOB_STORE_ID` plus `VERCEL_OIDC_TOKEN`. The token expires after about a day; `vercel env pull --environment=<env> /tmp/<file>` gives you a fresh one (never a bare `vercel env pull`, which writes `.env.local`).
+- **Production refuses a pulled OIDC token.** A token from `vercel env pull` carries the claim `environment: development`, whatever `--environment` names, and the production store is connected to Production only, so every upload fails with `OIDC is enabled for this project, but not for the "development" environment` (HON-1050). Use the store's static read-write token instead:
+  1. In the Vercel dashboard, open the production Blob store (`wobblepot-images-prod`) → Projects → **Configure honkadori**. Tick **Add a read-write token env var to this connection**, with **Sensitive off**. Vercel writes `BLOB_READ_WRITE_TOKEN` into Production. A sensitive variable can never be read back, so with Sensitive on the pull below returns an empty value. The deployed app is unaffected, because `@vercel/blob` prefers OIDC when both are set. Do this once.
+  2. Export the token in the shell and blank the OIDC token. The scripts load `.env` through `dotenv/config`, which fills in any variable that is not already set, so `unset VERCEL_OIDC_TOKEN` brings the stale `.env` token back and the script reports it as expired. An empty value counts as absent, and the script falls through to `BLOB_READ_WRITE_TOKEN`:
+
+```bash
+vercel env pull --environment=production /tmp/wobblepot-prod.env
+export BLOB_READ_WRITE_TOKEN="$(grep '^BLOB_READ_WRITE_TOKEN=' /tmp/wobblepot-prod.env | cut -d= -f2- | tr -d '"')"
+export VERCEL_OIDC_TOKEN=   # empty, not unset: dotenv would refill it from .env
+rm /tmp/wobblepot-prod.env
+```
+
+On this path the script names `BLOB_READ_WRITE_TOKEN` as its Blob source before it asks for the host. Then publish:
 
 ```bash
 pnpm meal-images:global --publish=.temp/global-meal-images/<timestamp> --exclude=slug-one,slug-two
