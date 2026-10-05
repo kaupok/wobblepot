@@ -259,6 +259,12 @@ async function assertColumns(): Promise<void> {
   await expect(box(hero).bottom).toBeLessThanOrEqual(box(equipment).top)
   await expect(box(equipment).bottom).toBeLessThanOrEqual(box(stepsHeading).top)
   await assertStepsClearOfClose(dialog)
+  // The close button sits clear of the steps column's scrollbar: inside its
+  // content box, where a classic scrollbar (about 15px) never reaches, and
+  // 20px+ in from the edge where scrollbars overlay.
+  const close = within(dialog).getByRole('button', { name: 'Close' })
+  await expect(box(close).right).toBeLessThanOrEqual(box(steps).left + steps.clientWidth)
+  await expect(box(steps).right - box(close).right).toBeGreaterThanOrEqual(20)
   await assertNoSmallText(dialog)
   await assertDisclaimerUnderMacros(dialog)
 }
