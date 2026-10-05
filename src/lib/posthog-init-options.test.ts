@@ -40,6 +40,12 @@ describe('POSTHOG_INIT_OPTIONS', () => {
     expect(POSTHOG_INIT_OPTIONS.custom_personal_data_properties).toEqual(['token', 'returnUrl'])
   })
 
+  // HON-1002: without it, opt_out_capturing() leaves the distinct id in the
+  // ph_* cookie and localStorage entry.
+  it('deletes the stored identity on opt-out', () => {
+    expect(POSTHOG_INIT_OPTIONS.opt_out_persistence_by_default).toBe(true)
+  })
+
   it('does not opt out by default: init only runs after consent', () => {
     expect(POSTHOG_INIT_OPTIONS).not.toHaveProperty('opt_out_capturing_by_default')
   })

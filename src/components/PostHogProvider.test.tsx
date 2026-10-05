@@ -380,8 +380,11 @@ describe('PostHogProvider', () => {
     )
     await waitFor(() => expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(1))
     // The SDK was already loaded when consent was granted; opt_out stops
-    // events and clears ph_* cookies but does not re-init.
+    // events and, with opt_out_persistence_by_default, deletes the stored
+    // identity (PostHogProvider.storage.test.tsx), but does not re-init.
     expect(posthogMock.init).toHaveBeenCalledTimes(1)
+    // reset() here would clear the consent state and undo the opt-out.
+    expect(posthogMock.reset).not.toHaveBeenCalled()
   })
 
   it('opts back in without a $opt_in event when consent is granted again', async () => {
@@ -417,6 +420,50 @@ describe('PostHogProvider', () => {
     await waitFor(() => expect(posthogMock.opt_in_capturing).toHaveBeenCalledTimes(1))
     expect(posthogMock.opt_in_capturing).toHaveBeenCalledWith({ captureEventName: false })
     expect(posthogMock.init).toHaveBeenCalledTimes(1)
+  })
+
+  // HON-1002: opt_in_capturing() re-enables persistence and writes the
+  // in-memory properties, so without a reset first the old distinct id
+  // comes back.
+  it('resets before opting back in, then identifies the signed-in user', async () => {
+    const { rerender } = render(
+      wrap(
+        makeConsent(true),
+        <PostHogProvider userId="user-1" householdId="hh-1">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.identify).toHaveBeenCalledTimes(1))
+
+    rerender(
+      wrap(
+        makeConsent(false),
+        <PostHogProvider userId="user-1" householdId="hh-1">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(1))
+    posthogMock.has_opted_out_capturing.mockReturnValue(true)
+
+    rerender(
+      wrap(
+        makeConsent(true),
+        <PostHogProvider userId="user-1" householdId="hh-1">
+          <p>child</p>
+        </PostHogProvider>,
+      ),
+    )
+    await waitFor(() => expect(posthogMock.identify).toHaveBeenCalledTimes(2))
+    expect(posthogMock.reset).toHaveBeenCalledTimes(1)
+    expect(posthogMock.reset).toHaveBeenCalledWith({ resetDeviceID: true })
+    const resetAt = posthogMock.reset.mock.invocationCallOrder[0] ?? Infinity
+    const optInAt = posthogMock.opt_in_capturing.mock.invocationCallOrder[0] ?? -Infinity
+    const identifyAt = posthogMock.identify.mock.invocationCallOrder[1] ?? -Infinity
+    expect(resetAt).toBeLessThan(optInAt)
+    expect(optInAt).toBeLessThan(identifyAt)
+    expect(posthogMock.identify).toHaveBeenLastCalledWith('user-1', { household_id: 'hh-1' })
   })
 
   it('forwards the bootstrap prop to posthog.init for flicker-free flag reads', async () => {

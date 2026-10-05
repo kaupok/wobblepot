@@ -85,16 +85,28 @@ export function PostHogProvider({
     }
   }, [client, granted, bootstrap])
 
-  // Mirror consent state to PostHog's opt-in/out. posthog-js clears its own
-  // ph_* cookies when opt_out_capturing() runs, so we don't need a manual
-  // cookie sweep here.
+  // Mirror consent state to PostHog's opt-in/out.
+  //
+  // On withdrawal, opt_out_capturing() deletes the ph_* cookie, localStorage
+  // and sessionStorage entries only because POSTHOG_INIT_OPTIONS sets
+  // `opt_out_persistence_by_default` (the source lines are cited there). The
+  // previous identity stays in memory only, and capture is off.
+  //
   // The client is set on every document load after consent, and each
   // opt_in_capturing() call sends a billable `$opt_in` event. So opt in only to
   // undo an opt-out (a withdraw, then a grant), and without the event.
+  // reset() runs first so the grant starts a fresh anonymous identity:
+  // opt_in_capturing() re-enables persistence and writes the in-memory
+  // properties, which would bring back the old distinct id. `resetDeviceID`
+  // replaces `$device_id` too, which reset() otherwise keeps and which links
+  // the new identity to the old one. reset() cannot run on withdrawal instead,
+  // because it also clears the consent state (posthog-core.js:3292), which
+  // undoes the opt-out.
   useEffect(() => {
     if (!client) return
     if (granted === true) {
       if (client.has_opted_out_capturing()) {
+        client.reset({ resetDeviceID: true })
         client.opt_in_capturing({ captureEventName: false })
       }
     } else if (granted === false) {
