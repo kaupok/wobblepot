@@ -203,7 +203,7 @@ export function RecipeImportClient() {
     const prefilledData = convertToPrefilledData(recipe)
     sessionStorage.setItem(
       'prefilled-meal',
-      JSON.stringify({ ...prefilledData, originalRecipeText: recipeText }),
+      JSON.stringify({ ...prefilledData, originalRecipeText: recipeText, origin: 'import' }),
     )
     router.push('/recipes/create?prefilled=true')
   }

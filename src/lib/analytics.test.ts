@@ -70,6 +70,13 @@ describe('track()', () => {
     })
   })
 
+  it('captures recipe:created with the create_page source (HON-1063)', async () => {
+    await track('recipe:created', { source: 'create_page' })
+
+    expect(posthogMock.capture).toHaveBeenCalledTimes(1)
+    expect(posthogMock.capture).toHaveBeenCalledWith('recipe:created', { source: 'create_page' })
+  })
+
   it('does not attach household_id when person properties are missing', async () => {
     await track('pantry:item_added', { source: 'pantry_inline' })
 
@@ -254,6 +261,8 @@ describe('track()', () => {
     track('meal_plan:plan_generated', {})
     // @ts-expect-error — out-of-set `source` literal
     track('recipe:imported', { source: 'invalid_source' })
+    // @ts-expect-error — missing required `source`
+    track('recipe:created', {})
     // @ts-expect-error — extraneous prop on a Record<string, never> event
     track('auth:sign_up', { unexpected: 'prop' })
 

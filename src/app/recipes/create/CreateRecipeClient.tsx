@@ -29,6 +29,12 @@ interface EnhancedPrefilledData {
    * `/recipes` fallback.
    */
   returnTo?: string | null
+  /**
+   * Which flow wrote the stash, so a save fires that flow's event (HON-1063).
+   * Absent means the blank form. `originalRecipeText` is a form field, not an
+   * analytics marker.
+   */
+  origin?: 'import' | 'imagine'
 }
 
 /**
@@ -83,13 +89,18 @@ export function CreateRecipeClient({ defaultServings }: CreateRecipeClientProps)
     loadPrefilled()
   }, [prefilled])
 
-  const handleSuccess = () => {
-    // `originalRecipeText` is set only by the import flow (RecipeImportClient
-    // → navigateToCreate); the imagine flow's "Edit details" path does not
-    // set it. Firing here means we count saves, not parses — abandoned
-    // parses no longer inflate the activation metric.
-    if (prefilledData?.originalRecipeText) {
+  const handleSuccess = (meal: { id: string }) => {
+    // One event per path that adds a recipe (HON-1063). Firing on save, not on
+    // the parse or the generation, means abandoned attempts are not counted.
+    const origin = prefilledData?.origin
+    if (origin === 'import') {
       void track('recipe:imported', { source: 'import_page' })
+    } else if (origin === 'imagine') {
+      // The same event the review dialog's Select fires, so the imagine funnel
+      // counts both ways out of the dialog.
+      void track('meal:imagined', { meal_id: meal.id, source: 'imagine_page' })
+    } else {
+      void track('recipe:created', { source: 'create_page' })
     }
     // The imagine stash is deliberately left alone: saving one of the three
     // suggestions does not invalidate the other two, and the stash has to keep

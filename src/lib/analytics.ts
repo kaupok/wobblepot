@@ -120,6 +120,8 @@ export type Source =
   | 'meal_selector'
   | 'imagine_page'
   | 'import_page'
+  /** The blank `/recipes/create` form, reached without an import or imagine stash. */
+  | 'create_page'
   | 'pantry_inline'
   | 'shopping_list'
   | 'cook_view'
@@ -170,6 +172,13 @@ export type EventPayload = {
   'meal_plan:meal_skipped': { plan_id: string; meal_id: string; source: Source }
   'meal:imagined': { meal_id: string; source: Source }
   'recipe:imported': { source: Source }
+  /**
+   * A recipe saved from the blank create form (HON-1063). Fires only when the
+   * form was not prefilled: an import save fires `recipe:imported`, and an
+   * imagine "Edit details" save fires `meal:imagined`. Together the three
+   * count every path that adds a recipe to the library.
+   */
+  'recipe:created': { source: Source }
   'pantry:item_added': { source: Source }
   /** `item_count` is the number of lines written to the clipboard — a count, never item names. */
   'shopping:list_copied': { source: Source; item_count: number }

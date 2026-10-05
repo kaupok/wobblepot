@@ -29,7 +29,8 @@ export interface UseMealFormOptions {
   meal?: MealFormData
   /** Household default, used for the servings field when creating from scratch. */
   defaultServings?: number
-  onSuccess: () => void
+  /** Receives the saved meal, so a caller can attach its id to an event (HON-1063). */
+  onSuccess: (meal: { id: string }) => void
 }
 
 /**
@@ -376,7 +377,7 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
 
   const saveMeal = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
-      apiFetch(
+      apiFetch<{ id: string }>(
         isEditing ? `/api/households/me/meals/${meal.id}` : '/api/households/me/meals',
         {
           method: isEditing ? 'PATCH' : 'POST',
@@ -385,9 +386,9 @@ export function useMealForm({ meal, defaultServings, onSuccess }: UseMealFormOpt
         },
         isEditing ? t('errors.updateFailed') : t('errors.createFailed'),
       ),
-    onSuccess: () => {
+    onSuccess: (savedMeal) => {
       toast.success(isEditing ? t('successUpdated') : t('successCreated'))
-      onSuccess()
+      onSuccess(savedMeal)
     },
     onError: (err) => {
       // Both meal routes set an English `error` on every failure branch, and a
