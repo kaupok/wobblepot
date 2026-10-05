@@ -39,14 +39,9 @@ function drawing(point: (typeof POINTS)[number]) {
 }
 
 describe('LandingFeatures', () => {
-  it('renders the heading, the trust line and one row per point', () => {
+  it('renders the heading and one row per point', () => {
     renderFeatures()
     const section = screen.getByRole('region', { name: 'Made for family kitchens' })
-    expect(
-      within(section).getByText(
-        'Made by a parent, for a family of three. Your data lives in the EU, and there are no ads.',
-      ),
-    ).toBeInTheDocument()
     for (const title of [
       'It knows your pantry',
       'Your recipes join the plan',
@@ -61,10 +56,18 @@ describe('LandingFeatures', () => {
   it('sets each point title above the headings this component draws in its vignettes', () => {
     renderFeatures()
     const section = screen.getByRole('region', { name: 'Made for family kitchens' })
-    for (const title of within(section).getAllByRole('heading', { level: 3 })) {
-      // Title (h4) beside the vignette, not Section.
-      expect(title).toHaveClass('text-xl')
-      expect(title).not.toHaveClass('text-base')
+    for (const name of [
+      'It knows your pantry',
+      'Your recipes join the plan',
+      'Portions follow the people',
+      'Cooking help on the counter',
+    ]) {
+      // `h3` beside the vignette: above Section, and above the Title-level
+      // "Ingredients" heading `IngredientList` draws inside two vignettes.
+      expect(within(section).getByRole('heading', { level: 3, name })).toHaveClass('text-2xl')
+    }
+    for (const heading of within(section).getAllByRole('heading', { level: 3 })) {
+      expect(heading).not.toHaveClass('text-base')
     }
     // The cook vignette's own "Steps" heading is Section.
     expect(within(drawing('cook')).getByText('Steps')).toHaveClass('text-base')
@@ -182,12 +185,7 @@ describe('LandingFeatures', () => {
 
   it('renders in Estonian', () => {
     renderFeatures('et')
-    const section = screen.getByRole('region', { name: 'Tehtud pereköökidele' })
-    expect(
-      within(section).getByText(
-        'Teinud lapsevanem oma kolmeliikmelisele perele. Sinu andmed on Euroopa Liidus ja reklaame ei ole.',
-      ),
-    ).toBeInTheDocument()
+    screen.getByRole('region', { name: 'Tehtud pereköökidele' })
     expect(within(drawing('pantry')).getByText('Lõhefilee')).toBeInTheDocument()
     expect(within(drawing('recipes')).getByText('Acai kauss')).toBeInTheDocument()
     expect(within(drawing('kids')).getByText('Mia (2)')).toBeInTheDocument()

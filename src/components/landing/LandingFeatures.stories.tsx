@@ -20,7 +20,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "\"Made for family kitchens\" on the signed-out landing page: the heading and trust line, then one row per point with a static vignette built from the app's own components (the cook view's ingredients, the planner card, the household's member rows, a cooking step). From `md` their surfaces alternate: the salmon's yellow tint, the acai bowl's pink, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption; from `md` the vignette swaps sides on rows 2 and 4.",
+          "\"Made for family kitchens\" on the signed-out landing page: the heading, then one row per point with a static vignette built from the app's own components (the cook view's ingredients, the planner card, the household's member rows, a cooking step). From `md` their surfaces alternate: the salmon's yellow tint, the acai bowl's pink, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption; from `md` the vignette swaps sides on rows 2 and 4.",
       },
     },
   },
@@ -70,13 +70,21 @@ const play: Story['play'] = async ({ canvasElement }) => {
   }
 
   // The answer starts where the step text does, as in the cook view's panel.
-  const stepText = canvasElement.querySelector('[aria-pressed] p')
+  // Measured in layout coordinates: the vignette is tilted, and a tilt moves
+  // the two bounding boxes apart although the text still lines up.
+  const stepText = canvasElement.querySelector<HTMLElement>('[aria-pressed] p')
   const answer = canvas.getByText(/Press the thickest part/)
+  const cook = canvas.getByTestId('landing-vignette-cook')
+  const layoutLeft = (el: HTMLElement) => {
+    let left = 0
+    for (let node: Element | null = el; node instanceof HTMLElement && cook.contains(node);) {
+      left += node.offsetLeft
+      node = node.offsetParent
+    }
+    return left
+  }
   await expect(stepText).not.toBeNull()
-  await expect(answer.getBoundingClientRect().left).toBeCloseTo(
-    stepText!.getBoundingClientRect().left,
-    0,
-  )
+  await expect(layoutLeft(answer)).toBeCloseTo(layoutLeft(stepText!), 0)
 }
 
 /** Phone (390 px): each row is the text, then its vignette. */

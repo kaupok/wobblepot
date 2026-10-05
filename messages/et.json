@@ -653,7 +653,7 @@
       }
     },
     "how": {
-      "title": "Kuidas see töötab",
+      "title": "Kolm sammu planeeritud nädalani",
       "step": "{number}. samm",
       "table": {
         "title": "Ütle, kes on laua ääres",
@@ -668,9 +668,11 @@
         "body": "Üks nimekiri sellest, mis on puudu, rühmitatud riiulite kaupa. Pliidi juures on sammud telefonis ja iga sammu kohta saab küsida."
       }
     },
+    "note": {
+      "title": "Teinud isa <br></br>oma neljaliikmelisele perele"
+    },
     "why": {
       "title": "Tehtud pereköökidele",
-      "lead": "Teinud lapsevanem oma kolmeliikmelisele perele. Sinu andmed on Euroopa Liidus ja reklaame ei ole.",
       "pantry": {
         "title": "Ta teab sinu sahvrit",
         "body": "Märgi, mis sul olemas on. Poenimekirjas on ainult see, mis on puudu, ja sahver uueneb, kui märgid toidu valmistatuks.",

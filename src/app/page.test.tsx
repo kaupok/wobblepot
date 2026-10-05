@@ -353,7 +353,9 @@ describe('Home page component', () => {
 
   it('renders the three steps and the differences as sections', async () => {
     await renderLanding()
-    expect(screen.getByRole('heading', { level: 2, name: 'How it works' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Three steps to a planned week' }),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { level: 3, name: "Tell it who's at the table" }),
     ).toBeInTheDocument()
@@ -375,7 +377,7 @@ describe('Home page component', () => {
     await renderLanding()
     const brand = [
       screen.getByRole('heading', { level: 1 }),
-      screen.getByRole('heading', { level: 2, name: 'How it works' }),
+      screen.getByRole('heading', { level: 2, name: 'Three steps to a planned week' }),
       screen.getByRole('heading', { level: 3, name: "Tell it who's at the table" }),
       screen.getByRole('heading', { level: 3, name: 'Get a week of meals' }),
       screen.getByRole('heading', { level: 3, name: 'Shop once, then cook' }),
@@ -388,19 +390,19 @@ describe('Home page component', () => {
     }
   })
 
-  it('puts the trust line under the differences heading and ends the page there', async () => {
+  it('ends the page with the line on who made it', async () => {
     await renderLanding()
-    const why = screen.getByRole('region', { name: 'Made for family kitchens' })
+    const note = screen.getByRole('region', { name: 'Made by a dad, for a family of four' })
     expect(
-      within(why).getByText(
-        'Made by a parent, for a family of three. Your data lives in the EU, and there are no ads.',
-      ),
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('heading', { name: "Start with this week's dinners" }),
-    ).not.toBeInTheDocument()
+      within(note).getByRole('heading', {
+        level: 2,
+        name: 'Made by a dad, for a family of four',
+      }),
+    ).toHaveClass('font-display')
+    // A line only: no second call to action (HON-1037).
+    expect(within(note).queryByRole('link')).not.toBeInTheDocument()
     const sections = screen.getAllByRole('region')
-    expect(sections[sections.length - 1]).toBe(why)
+    expect(sections[sections.length - 1]).toBe(note)
   })
 
   it('renders the landing page in Estonian', async () => {
@@ -409,7 +411,9 @@ describe('Home page component', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Õhtusöök otsustatud. Terveks nädalaks.' }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: 'Kuidas see töötab' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Kolm sammu planeeritud nädalani' }),
+    ).toBeInTheDocument()
     // "Made for family kitchens" is a client component, which this file's
     // next-intl mock renders in English: LandingFeatures.test.tsx renders it in
     // Estonian.
