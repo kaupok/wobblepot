@@ -24,7 +24,7 @@ const meta = {
     onOpenChange: fn(),
     planId: 'plan-1',
     entryId: 'entry-1',
-    householdSize: 4,
+    householdServings: 4,
     mealType: MealType.dinner,
     onSwapComplete: fn(),
   },

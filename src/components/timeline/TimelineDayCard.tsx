@@ -11,7 +11,7 @@ const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 } as const
 interface TimelineDayCardProps {
   day: TimelineDay
   planId: string
-  householdSize: number
+  householdServings: number
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   onEntryUpdated: () => void
@@ -20,7 +20,7 @@ interface TimelineDayCardProps {
 export function TimelineDayCard({
   day,
   planId,
-  householdSize,
+  householdServings,
   pantryIngredients,
   pantryItems,
   onEntryUpdated: _onEntryUpdated,
@@ -79,7 +79,7 @@ export function TimelineDayCard({
                     mealType={slot.entry.mealType}
                     status={slot.entry.status}
                     rating={slot.entry.rating}
-                    householdSize={householdSize}
+                    householdServings={householdServings}
                     pantryIngredients={pantryIngredients}
                     pantryItems={pantryItems}
                     note={slot.entry.note}
@@ -96,7 +96,7 @@ export function TimelineDayCard({
                     dayLabel={dayLabel}
                     relativeDay={relativeDay}
                     mealType={slot.mealType}
-                    householdSize={householdSize}
+                    householdServings={householdServings}
                     pantryIngredients={pantryIngredients}
                   />
                 )}

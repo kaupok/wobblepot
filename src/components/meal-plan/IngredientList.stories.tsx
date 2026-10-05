@@ -35,7 +35,7 @@ const meta = {
   args: {
     components: componentsWithVagueSalt,
     servings: 4,
-    householdSize: 4,
+    householdServings: 4,
   },
   decorators: [
     (Story) => (
@@ -187,7 +187,7 @@ export const HideAvailability: Story = {
 }
 
 export const LargerServings: Story = {
-  args: { servings: 8, householdSize: 4 },
+  args: { servings: 8, householdServings: 4 },
 }
 
 /**
@@ -200,7 +200,7 @@ export const LargerServings: Story = {
 export const EstonianLocale: Story = {
   name: 'Estonian (comma decimals)',
   globals: { locale: 'et' },
-  args: { servings: 3, householdSize: 3 },
+  args: { servings: 3, householdServings: 3 },
   // The salt's stored "to taste" renders through `enums.VaguePhrase` (HON-917).
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -215,7 +215,7 @@ export const EstonianLocale: Story = {
 
 const narrowArgs = {
   servings: 4,
-  householdSize: 4,
+  householdServings: 4,
   availability: { isReady: false, missingCount: 2, missingIngredients: ['Potato', 'Lemon'] },
 } satisfies Partial<Story['args']>
 

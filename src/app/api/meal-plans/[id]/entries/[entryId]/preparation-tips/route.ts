@@ -5,13 +5,13 @@ import { generateObject } from 'ai'
 import { isAiBudgetTimeout } from '@/lib/ai/timeout'
 import { aiErrorStatusCode } from '@/lib/ai/error-status'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { TIPS_MODEL } from '@/lib/ai/models'
 import { TIPS_AI_BUDGET_MS } from '@/lib/ai/budgets'
 import { buildFullTipsRequest, buildSupplementaryTipsRequest } from '@/lib/ai/preparation-tips'
-import { parseStoredTips } from '@/lib/tips'
+import { parseCachedTips, serializeTips } from '@/lib/tips'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
 import { logAiSample } from '@/lib/ai/sampling'
@@ -25,7 +25,7 @@ import {
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
-import { getEffectiveServings } from '@/lib/meal-planning/servings'
+import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
@@ -109,13 +109,26 @@ async function handlePOST(
       })
     }
 
-    // Return cached tips if available and valid JSON
+    // Scale by the entry's own serving count, not the raw member count: the
+    // tips are cached onto the entry, so a dinner with `servingOverride: 6` in
+    // a household of 2 would otherwise get timings and pan sizes for a third
+    // of the food the card, pantry and shopping list all agree on (HON-614).
+    // Without an override it is the members' portions summed (HON-1040).
+    const servingsWhenPriced = sumPortions(household.members)
+    const effectiveServings = getEffectiveServings(entry, servingsWhenPriced)
+
+    // Return cached tips if available, valid JSON and priced at these servings.
+    // Tips priced at other servings are regenerated, which also catches tips
+    // the pre-HON-1040 code cached at the member count (`parseCachedTips`).
     if (entry.preparationTips) {
-      const cached = parseStoredTips(entry.preparationTips)
+      const cached = parseCachedTips(entry.preparationTips, {
+        servings: effectiveServings,
+        legacyServings: entry.servingOverride ?? household._count.members,
+      })
       if (cached) {
         return NextResponse.json({ tips: cached }, { status: 200 })
       }
-      // Old format — fall through to regenerate
+      // Old format or other servings — fall through to regenerate
     }
 
     // Gate after the cache hit: cached reads shouldn't burn rate-limit tokens,
@@ -155,11 +168,6 @@ async function handlePOST(
       throw error
     }
 
-    // Scale by the entry's own serving count, not the raw member count: the
-    // tips are cached onto the entry, so a dinner with `servingOverride: 6` in
-    // a household of 2 would otherwise get timings and pan sizes for a third
-    // of the food the card, pantry and shopping list all agree on (HON-614).
-    const effectiveServings = getEffectiveServings(entry, household._count.members)
     // The prompt reads the household's names and notes, not the English ones:
     // given English inputs the model translates them itself, and its ingredient
     // names then differ from the Estonian ones the same modal shows, while the
@@ -298,30 +306,31 @@ async function handlePOST(
     // `updateMany` matches nothing when an input moved, and writes nothing.
     // The caller still gets the tips it asked for — only the cache is guarded.
     //
-    // The household's member count is a further priced-from input, because
-    // `getEffectiveServings` above falls back to it whenever the entry carries
-    // no `servingOverride` — the default state of an entry. It cannot join the
-    // `where` below: Prisma has no filter for a relation `_count`. And the
-    // membership invalidation cannot cover this gap from its side either — a
-    // row that is mid-generation holds `preparationTips: null`, which is
+    // The household's servings are a further priced-from input, because
+    // `getEffectiveServings` above falls back to them whenever the entry
+    // carries no `servingOverride` — the default state of an entry. They are
+    // the members' portions summed, so a member joining or leaving and a
+    // portion change both move them (HON-1040). They cannot join the `where`
+    // below: Prisma has no filter for an aggregate over a relation. And the
+    // invalidation on those writes cannot cover this gap from its side either —
+    // a row that is mid-generation holds `preparationTips: null`, which is
     // exactly what `invalidateFutureEntryTips`'s `preparationTips: { not: null }`
     // clause excludes, so its `updateMany` matches zero rows and this write
-    // would then put tips for the old household size back permanently
-    // (HON-684). So re-read the count and skip the write if it moved.
+    // would then put tips for the old household servings back permanently
+    // (HON-684). So re-read the servings and skip the write if they moved.
     //
-    // This closes the 45s window to the microseconds between the count and the
+    // This closes the 45s window to the microseconds between the read and the
     // write, which is the same residual exposure every input pinned in the
     // `where` below carries — parity with them is the bar, not elimination.
     // HON-681 recorded the one-request window as accepted.
-    const membersWhenPriced = household._count.members
-    const membersNow =
+    const servingsNow =
       entry.servingOverride !== null
-        ? // An override priced the prompt, so the member count never entered it
-          // and there is nothing to re-check.
-          membersWhenPriced
-        : await prisma.householdMember.count({ where: { householdId: household.id } })
+        ? // An override priced the prompt, so the household's servings never
+          // entered it and there is nothing to re-check.
+          servingsWhenPriced
+        : await loadHouseholdServings(household.id)
 
-    if (membersNow !== membersWhenPriced) {
+    if (servingsNow !== servingsWhenPriced) {
       return NextResponse.json({ tips }, { status: 200 })
     }
 
@@ -356,7 +365,7 @@ async function handlePOST(
         // regenerates.
         meal: { is: { updatedAt: entry.meal.updatedAt } },
       },
-      data: { preparationTips: JSON.stringify(tips) },
+      data: { preparationTips: serializeTips(tips, effectiveServings) },
     })
 
     return NextResponse.json({ tips }, { status: 200 })

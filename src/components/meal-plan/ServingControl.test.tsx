@@ -6,15 +6,19 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
+import etMessages from '../../../messages/et.json'
 import { ServingControl } from './ServingControl'
 
-function renderControl(props: Partial<React.ComponentProps<typeof ServingControl>> = {}) {
+function renderControl(
+  props: Partial<React.ComponentProps<typeof ServingControl>> = {},
+  locale: 'en' | 'et' = 'en',
+) {
   const onServingsChange = vi.fn(async () => true)
   const utils = render(
-    <NextIntlClientProvider locale="en" messages={enMessages}>
+    <NextIntlClientProvider locale={locale} messages={locale === 'en' ? enMessages : etMessages}>
       <ServingControl
         servings={4}
-        householdSize={4}
+        householdServings={4}
         onServingsChange={onServingsChange}
         {...props}
       />
@@ -62,7 +66,7 @@ describe('ServingControl', () => {
     expect(await screen.findByRole('button', { name: 'Serves 4. Click to edit.' })).toBeVisible()
   })
 
-  it('clears the override when set back to the household size', async () => {
+  it('clears the override when set back to the household servings', async () => {
     const user = userEvent.setup()
     const { onServingsChange } = renderControl({ servings: 6 })
     await user.click(screen.getByRole('button', { name: 'Serves 6. Click to edit.' }))
@@ -79,5 +83,81 @@ describe('ServingControl', () => {
     await user.type(screen.getByRole('textbox', { name: 'Number of servings' }), '9{Escape}')
     expect(onServingsChange).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Serves 4. Click to edit.' })).toBeInTheDocument()
+  })
+
+  // Two adults and a toddler at 0.5× cook for 2.5 servings (HON-1040).
+  describe('with fractional household servings', () => {
+    const household = { servings: 2.5, householdServings: 2.5 }
+
+    it('shows the fraction, not the member count', () => {
+      renderControl(household)
+      expect(screen.getByRole('button', { name: 'Serves 2.5. Click to edit.' })).toHaveTextContent(
+        /^Serves 2\.5$/,
+      )
+    })
+
+    it('shows an Estonian decimal comma', () => {
+      renderControl(household, 'et')
+      expect(
+        screen.getByRole('button', { name: '2,5 portsjonit. Klõpsa, et muuta.' }),
+      ).toHaveTextContent(/^2,5 portsjonit$/)
+    })
+
+    it('opens the field on the locale-formatted value', async () => {
+      const user = userEvent.setup()
+      renderControl(household, 'et')
+      await user.click(screen.getByRole('button', { name: '2,5 portsjonit. Klõpsa, et muuta.' }))
+      expect(screen.getByRole('textbox')).toHaveValue('2,5')
+    })
+
+    it('saves a typed whole number as an override', async () => {
+      const user = userEvent.setup()
+      const { onServingsChange } = renderControl(household)
+      await user.click(screen.getByRole('button', { name: 'Serves 2.5. Click to edit.' }))
+      const input = screen.getByRole('textbox', { name: 'Number of servings' })
+      await user.clear(input)
+      await user.type(input, '3{Enter}')
+      expect(onServingsChange).toHaveBeenCalledWith(3)
+    })
+
+    it('clears an override when the household value is typed back, fraction included', async () => {
+      const user = userEvent.setup()
+      const { onServingsChange } = renderControl({ servings: 4, householdServings: 2.5 }, 'et')
+      await user.click(screen.getByRole('button', { name: /^4 portsjonit/ }))
+      const input = screen.getByRole('textbox')
+      await user.clear(input)
+      await user.type(input, '2,5{Enter}')
+      expect(onServingsChange).toHaveBeenCalledWith(null)
+    })
+
+    // A phone's `numeric` keypad has no separator, so `2,5` could not be typed.
+    it('opens the decimal keypad, so a phone can type the separator', async () => {
+      const user = userEvent.setup()
+      renderControl({ servings: 4, householdServings: 2.5 })
+      await user.click(screen.getByRole('button', { name: 'Serves 4. Click to edit.' }))
+      expect(screen.getByRole('textbox')).toHaveAttribute('inputmode', 'decimal')
+    })
+
+    it('rejects any other fraction, because an override is whole', async () => {
+      const user = userEvent.setup()
+      const { onServingsChange } = renderControl({ servings: 4, householdServings: 2.5 })
+      await user.click(screen.getByRole('button', { name: 'Serves 4. Click to edit.' }))
+      const input = screen.getByRole('textbox', { name: 'Number of servings' })
+      await user.clear(input)
+      await user.type(input, '3.5{Enter}')
+      expect(onServingsChange).not.toHaveBeenCalled()
+      expect(await screen.findByRole('button', { name: 'Serves 4. Click to edit.' })).toBeVisible()
+    })
+
+    it('saves nothing when the field is left on the fraction', async () => {
+      const user = userEvent.setup()
+      const { onServingsChange } = renderControl(household)
+      await user.click(screen.getByRole('button', { name: 'Serves 2.5. Click to edit.' }))
+      await user.keyboard('{Enter}')
+      expect(onServingsChange).not.toHaveBeenCalled()
+      expect(
+        await screen.findByRole('button', { name: 'Serves 2.5. Click to edit.' }),
+      ).toBeVisible()
+    })
   })
 })

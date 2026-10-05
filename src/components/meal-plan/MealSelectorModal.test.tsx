@@ -89,7 +89,7 @@ function renderModal(
         planId="plan-1"
         entryId="entry-1"
         mealType="dinner"
-        householdSize={4}
+        householdServings={4}
         onSwapComplete={vi.fn()}
         mode="add"
         {...props}

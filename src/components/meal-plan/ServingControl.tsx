@@ -1,15 +1,21 @@
 'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
+import { formatQuantity } from '@/lib/i18n/format-number'
+import type { Locale } from '@/lib/i18n/locales'
 
 interface ServingControlProps {
   servings: number
-  householdSize: number
+  /**
+   * The servings the household cooks for without an override: its members'
+   * portions summed, so it can be a fraction such as 2.5 (HON-1040).
+   */
+  householdServings: number
   onServingsChange: (servings: number | null) => Promise<boolean>
   disabled?: boolean
 }
@@ -22,17 +28,22 @@ const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffec
 
 export function ServingControl({
   servings,
-  householdSize,
+  householdServings,
   onServingsChange,
   disabled = false,
 }: ServingControlProps) {
   const t = useTranslations('meal-plan.serving')
+  const locale = useLocale() as Locale
+  // "2,5" in Estonian, so the field opens on what the badge shows.
+  const formatted = formatQuantity(servings, locale)
   const [isEditing, setIsEditing] = useState(false)
-  const [inputValue, setInputValue] = useState(String(servings))
+  const [inputValue, setInputValue] = useState(formatted)
   const [isUpdating, setIsUpdating] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const isOverridden = servings !== householdSize
+  // An override is a whole number (the server takes `int().min(1).max(20)`),
+  // while the household's servings can be a fraction such as 2.5 (HON-1040).
+  const isOverridden = servings !== householdServings
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -45,22 +56,30 @@ export function ServingControl({
   // Uses useLayoutEffect to avoid visual flash
   useIsomorphicLayoutEffect(() => {
     if (!isEditing) {
-      setInputValue(String(servings))
+      setInputValue(formatted)
     }
-  }, [servings])
+  }, [formatted])
 
   function handleClick() {
     if (disabled || isUpdating) return
-    setInputValue(String(servings))
+    setInputValue(formatted)
     setIsEditing(true)
   }
 
   async function handleSubmit() {
-    const newValue = parseLocalizedNumber(inputValue, { integer: true })
+    const newValue = parseLocalizedNumber(inputValue)
+    // Typing the household's own value clears the override, a fraction such
+    // as 2,5 included: an override can only be whole, so without this a
+    // household at 2.5 could never get back to following its portions.
+    const isHouseholdValue = newValue === householdServings
 
     // Validate
-    if (newValue === null || newValue < MIN_SERVINGS || newValue > MAX_SERVINGS) {
-      setInputValue(String(servings))
+    if (
+      newValue === null ||
+      (!isHouseholdValue &&
+        (!Number.isInteger(newValue) || newValue < MIN_SERVINGS || newValue > MAX_SERVINGS))
+    ) {
+      setInputValue(formatted)
       setIsEditing(false)
       return
     }
@@ -73,8 +92,8 @@ export function ServingControl({
 
     setIsUpdating(true)
 
-    // If setting back to household size, pass null to clear the override
-    const valueToSave = newValue === householdSize ? null : newValue
+    // If setting back to the household servings, pass null to clear the override
+    const valueToSave = isHouseholdValue ? null : newValue
     const success = await onServingsChange(valueToSave)
 
     setIsUpdating(false)
@@ -83,7 +102,7 @@ export function ServingControl({
       setIsEditing(false)
     } else {
       // Revert on error
-      setInputValue(String(servings))
+      setInputValue(formatted)
     }
   }
 
@@ -92,7 +111,7 @@ export function ServingControl({
       e.preventDefault()
       handleSubmit()
     } else if (e.key === 'Escape') {
-      setInputValue(String(servings))
+      setInputValue(formatted)
       setIsEditing(false)
     }
   }
@@ -106,14 +125,16 @@ export function ServingControl({
     // input is the badge's 24px `text-sm` line, so the badge stays 34px and the
     // badge row does not grow (HON-1025). `text-sm` is 16px here, which also
     // keeps iOS from zooming in on focus. `hitArea="touch"` is for its
-    // `overflow-visible`, so the input's focus ring is not clipped.
+    // `overflow-visible`, so the input's focus ring is not clipped. The
+    // keypad is `decimal`, not `numeric`: a phone's numeric keypad has no
+    // separator, and typing the household's 2,5 is how an override is cleared.
     return (
       <Badge variant="surface" size="lg" hitArea="touch">
         <span>{t('label')}</span>
         <input
           ref={inputRef}
           type="text"
-          inputMode="numeric"
+          inputMode="decimal"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}

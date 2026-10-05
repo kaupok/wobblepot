@@ -53,6 +53,9 @@ const mockMembership = {
     name: 'Test Household',
     timezone: 'Europe/Tallinn',
     preferences: null,
+    // Read to tell which cached tips still fit the entry (HON-1040).
+    _count: { members: 2 },
+    members: [{ preferences: null }, { preferences: null }],
   },
 }
 
@@ -466,6 +469,49 @@ describe('GET /api/entries', () => {
     expect(response.status).toBe(200)
     expect(data.entries[0].preparationTips).toEqual(tips)
     expect(data.entries[0].meal).toBeNull()
+  })
+
+  // The cook view shows these tips without asking the tips route, so tips
+  // priced at other servings must not reach it either (HON-1040).
+  it('drops stored preparationTips priced at other servings', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue({
+      ...mockMembership,
+      household: {
+        ...mockMembership.household,
+        // Two adults and a toddler at 0.5×: 2.5 servings, 3 members.
+        _count: { members: 3 },
+        members: [1, 1, 0.5].map((portionMultiplier) => ({ preferences: { portionMultiplier } })),
+      },
+    } as never)
+    mockPlanFindUnique.mockResolvedValue({ id: 'plan-1', householdId: 'household-123' } as never)
+
+    const tips = { pitfalls: ['Over-salt'], tip: 'Stir often' }
+    const entry = (id: string, preparationTips: string) => ({
+      id,
+      date: new Date('2026-02-03T00:00:00'),
+      mealType: 'dinner',
+      status: 'planned',
+      rating: null,
+      preparationTips,
+      note: null,
+      servingOverride: null,
+      meal: null,
+    })
+    mockEntriesFindMany.mockResolvedValue([
+      // Cached before HON-1040: priced at the 3 members.
+      entry('legacy', JSON.stringify(tips)),
+      entry('priced-at-3', JSON.stringify({ ...tips, servings: 3 })),
+      entry('priced-at-2.5', JSON.stringify({ ...tips, servings: 2.5 })),
+    ] as never)
+
+    const data = await (await GET(createRequest())).json()
+
+    expect(data.entries.map((e: { preparationTips: unknown }) => e.preparationTips)).toEqual([
+      null,
+      null,
+      tips,
+    ])
   })
 
   it('handles entries with no meal assigned', async () => {

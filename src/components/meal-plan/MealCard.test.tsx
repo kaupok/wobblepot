@@ -58,7 +58,7 @@ function renderCard(props: {
         planId="plan-1"
         mealType="dinner"
         status="planned"
-        householdSize={4}
+        householdServings={4}
         {...props}
       />
     </Wrapper>,
@@ -504,7 +504,7 @@ describe('MealCard note placement (HON-975)', () => {
           meal={meal}
           mealType="dinner"
           status="planned"
-          householdSize={4}
+          householdServings={4}
           isReadOnly
           note="Leftovers"
         />

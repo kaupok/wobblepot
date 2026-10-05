@@ -12,7 +12,7 @@ import type { PlanEntry, PantryItemFull } from '@/components/meal-plan/types'
 interface PastMealsListProps {
   entries: PlanEntry[]
   planId: string
-  householdSize: number
+  householdServings: number
   pantryItems: PantryItemFull[]
   todayDate: string // YYYY-MM-DD
 }
@@ -27,7 +27,7 @@ interface PastMealsListProps {
 export function PastMealsList({
   entries,
   planId,
-  householdSize,
+  householdServings,
   pantryItems,
   todayDate,
 }: PastMealsListProps) {
@@ -66,7 +66,7 @@ export function PastMealsList({
                     mealType={entry.mealType}
                     status={entry.status}
                     rating={entry.rating}
-                    householdSize={householdSize}
+                    householdServings={householdServings}
                     servingOverride={entry.servingOverride}
                     pantryDeducted={entry.pantryDeducted}
                     pantryItems={pantryItems}

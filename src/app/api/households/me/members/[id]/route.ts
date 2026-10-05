@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership } from '@/lib/household'
+import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
+import { sumPortions } from '@/lib/meal-planning/servings'
 import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
 import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
@@ -132,6 +133,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const member = await prisma.householdMember.findUnique({
       where: { id: memberId },
+      include: { preferences: { select: { portionMultiplier: true } } },
     })
 
     if (!member || member.householdId !== householdMembership.householdId) {
@@ -165,6 +167,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (name !== undefined && member.userId !== null) {
       return NextResponse.json({ error: 'Cannot update name for linked members' }, { status: 400 })
     }
+
+    // A missing preferences row is the column default, 1×.
+    const portionChanged =
+      preferences?.portionMultiplier !== undefined &&
+      preferences.portionMultiplier !== (member.preferences?.portionMultiplier ?? 1)
 
     const updatedMember = await prisma.$transaction(async (tx) => {
       // Update member name if provided and it's a manual member
@@ -207,6 +214,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             excludedIngredientIds: preferences.excludedIngredientIds,
           },
         })
+      }
+
+      // A portion size is summed into the household's servings, which price
+      // the cached prep tips on every entry without a `servingOverride`
+      // (HON-1040). Clear them only when those servings moved: the member
+      // dialogs send `portionMultiplier` on every save, and the sum is rounded
+      // to 0.5, so 1.5 + 0.75 and 1.5 + 1 both price 2.5. A needless
+      // invalidation costs a paid regeneration per entry (HON-684).
+      // `portionChanged` is the cheap guard that skips the re-read.
+      if (
+        portionChanged &&
+        (await loadHouseholdServings(householdMembership.householdId, tx)) !==
+          sumPortions(householdMembership.household.members)
+      ) {
+        await invalidateFutureEntryTips(
+          tx,
+          householdMembership.householdId,
+          householdMembership.household.timezone,
+        )
       }
 
       return tx.householdMember.findUnique({

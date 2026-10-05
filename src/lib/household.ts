@@ -1,5 +1,6 @@
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { getServerBaseURL } from '@/lib/env'
+import { sumPortions } from '@/lib/meal-planning/servings'
 
 /**
  * Most members, owner included, a household can hold. `POST /api/households`
@@ -12,11 +13,22 @@ import { getServerBaseURL } from '@/lib/env'
 export const MAX_HOUSEHOLD_MEMBERS = 30
 
 /**
+ * Each member's portion size, in the shape `sumPortions` reads. It rides along
+ * on the membership query for the same reason the member count does: every
+ * site that scales a meal already holds the membership row (HON-1040).
+ */
+const PORTIONS_SELECT = {
+  select: { preferences: { select: { portionMultiplier: true } } },
+} as const
+
+/**
  * Get household membership for a user.
  * Returns null if user has no household membership.
  *
- * The member count rides along on `household._count.members`. Prisma folds a
- * relation `_count` into this same round-trip, so every caller that needs the
+ * The member count rides along on `household._count.members`, and each
+ * member's portion size on `household.members` (pass them to `sumPortions` for
+ * the household's servings, HON-1040). Prisma folds a relation `_count` into
+ * this same round-trip, so every caller that needs the
  * household size gets it without a second `household_member` read. This
  * replaced the former `getHouseholdMemberCount` helper outright (HON-596).
  * Every site that needed a household size already held the membership row — the
@@ -32,10 +44,28 @@ export async function getHouseholdMembership(userId: string) {
         include: {
           preferences: true,
           _count: { select: { members: true } },
+          members: PORTIONS_SELECT,
         },
       },
     },
   })
+}
+
+/**
+ * A household's servings (`sumPortions`), read on its own, for the sites that
+ * hold only a household id: the shopping list, and the prep-tips cache write
+ * that re-checks the servings it priced from. Pass a transaction client to read
+ * inside one.
+ */
+export async function loadHouseholdServings(
+  householdId: string,
+  client: Pick<PrismaClientType, 'householdMember'> = prisma,
+): Promise<number> {
+  const members = await client.householdMember.findMany({
+    where: { householdId },
+    ...PORTIONS_SELECT,
+  })
+  return sumPortions(members)
 }
 
 /**

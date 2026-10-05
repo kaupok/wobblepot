@@ -24,7 +24,7 @@ interface PastMealRowProps {
   mealType: MealType
   status: MealStatus
   rating?: EntryRating | null
-  householdSize: number
+  householdServings: number
   servingOverride?: number | null
   /** The pantry was already charged for this entry — see `PlanEntry.pantryDeducted`. */
   pantryDeducted?: boolean
@@ -46,7 +46,7 @@ export function PastMealRow({
   mealType,
   status: initialStatus,
   rating: initialRating,
-  householdSize,
+  householdServings,
   servingOverride,
   pantryDeducted = false,
   pantryItems = [],
@@ -185,7 +185,7 @@ export function PastMealRow({
         onOpenChange={setIsDeductionModalOpen}
         mealName={meal.name}
         components={meal.components}
-        householdSize={servingOverride ?? householdSize}
+        householdServings={servingOverride ?? householdServings}
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}
         isLoading={isUpdating}

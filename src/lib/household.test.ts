@@ -18,6 +18,7 @@ vi.mock('@/lib/env', () => ({
 import { prisma } from '@/lib/prisma'
 import {
   getHouseholdMembership,
+  loadHouseholdServings,
   isUserSoleOwnerWithOtherMembers,
   countAccountHoldingMembers,
   listHouseholdMembers,
@@ -32,13 +33,14 @@ describe('getHouseholdMembership', () => {
     vi.clearAllMocks()
   })
 
-  it('loads the household preferences and member count in one query', async () => {
+  it('loads the household preferences, member count and portions in one call', async () => {
     mockFindFirst.mockResolvedValue(null)
 
     await getHouseholdMembership('user-123')
 
     // The `_count` is what lets `/profile` skip a second `household_member`
-    // read (HON-596); Prisma folds it into this same round-trip.
+    // read (HON-596); the members' portions give every servings site its
+    // `sumPortions` input from the same call (HON-1040).
     expect(mockFindFirst).toHaveBeenCalledTimes(1)
     expect(mockFindFirst).toHaveBeenCalledWith({
       where: { userId: 'user-123' },
@@ -47,6 +49,7 @@ describe('getHouseholdMembership', () => {
           include: {
             preferences: true,
             _count: { select: { members: true } },
+            members: { select: { preferences: { select: { portionMultiplier: true } } } },
           },
         },
       },
@@ -58,6 +61,26 @@ describe('getHouseholdMembership', () => {
     mockFindFirst.mockResolvedValue(null)
 
     await expect(getHouseholdMembership('user-123')).resolves.toBeNull()
+  })
+})
+
+describe('loadHouseholdServings', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("sums the household members' portions", async () => {
+    mockFindMany.mockResolvedValue([
+      { preferences: { portionMultiplier: 1 } },
+      { preferences: { portionMultiplier: 1 } },
+      { preferences: { portionMultiplier: 0.5 } },
+    ] as never)
+
+    await expect(loadHouseholdServings('household-123')).resolves.toBe(2.5)
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { householdId: 'household-123' },
+      select: { preferences: { select: { portionMultiplier: true } } },
+    })
   })
 })
 

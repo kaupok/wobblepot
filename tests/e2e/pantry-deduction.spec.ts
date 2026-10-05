@@ -1,8 +1,9 @@
 // ROUTES: /, /shopping · COMPONENTS: FirstTimeSetup, TimelineView, MealCard, PantrySection, InlineAddItem
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
+import { sumPortions } from '../../src/lib/meal-planning/servings'
 
-// WHY: Large enough that `quantityPerServing × householdSize` can never deplete
+// WHY: Large enough that `quantityPerServing × householdServings` can never deplete
 // it to 0, so the row survives the post-decrement `deleteMany` cleanup the
 // deduction runs (HON-625) and the assertion is a simple subtraction.
 const STARTING_QUANTITY = 10000
@@ -33,7 +34,7 @@ interface Entry {
 test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
   test.setTimeout(90_000)
 
-  test('marking a meal completed decrements pantry by quantityPerServing × householdSize', async ({
+  test('marking a meal completed decrements pantry by quantityPerServing × householdServings', async ({
     page,
   }) => {
     await signUpWithHousehold(page)
@@ -109,13 +110,16 @@ test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
     const ingredientName = component.ingredient.name
     const quantityPerServing = component.quantityPerServing
 
-    // Fetch household size from the members endpoint so the test survives
-    // changes to the default household-creation helper.
+    // Fetch the household's servings from the members endpoint so the test
+    // survives changes to the default household-creation helper. The members'
+    // portions summed, not their count: a child at 0.5× is half (HON-1040).
     const membersResponse = await page.request.get('/api/households/me/members')
     expect(membersResponse.ok()).toBe(true)
-    const { members } = (await membersResponse.json()) as { members: unknown[] }
-    const householdSize = members.length
-    expect(householdSize).toBeGreaterThan(0)
+    const { members } = (await membersResponse.json()) as {
+      members: { preferences: { portionMultiplier: number } | null }[]
+    }
+    expect(members.length).toBeGreaterThan(0)
+    const householdServings = sumPortions(members)
 
     // Add the ingredient to the pantry via the UI on /shopping.
     await page.goto('/shopping')
@@ -195,7 +199,7 @@ test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
     }
     const after = items.find((item) => item.ingredient.id === ingredientId)
     expect(after, `pantry item ${ingredientName} missing after completion`).toBeDefined()
-    expect(after!.quantity).toBe(STARTING_QUANTITY - quantityPerServing * householdSize)
+    expect(after!.quantity).toBe(STARTING_QUANTITY - quantityPerServing * householdServings)
   })
 })
 

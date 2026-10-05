@@ -127,7 +127,8 @@ describe('LandingFeatures', () => {
       expect(within(pantry).getByRole('checkbox', { name: new RegExp(name) })).toBeChecked()
     }
     expect(within(pantry).getByRole('checkbox', { name: /Lemon/ })).not.toBeChecked()
-    expect(within(pantry).getByText('360g')).toBeInTheDocument()
+    expect(within(pantry).getByText('300g')).toBeInTheDocument()
+    expect(within(pantry).getByText('1 pc')).toBeInTheDocument()
   })
 
   it('shows a pasted link and the acai bowl on the planner, marked as an own recipe', () => {
@@ -142,19 +143,22 @@ describe('LandingFeatures', () => {
     expect(within(recipes).queryByText('Fish')).not.toBeInTheDocument()
   })
 
-  it("scales the salmon by the members' portions: 120 g × (1.5 + 1 + 0.5)", () => {
+  it("scales the salmon by the members' portions: 120 g × (1 + 1 + 0.5)", () => {
     renderFeatures()
     const portions = drawing('kids')
     expect(within(portions).getByText('Mia (2)')).toBeInTheDocument()
     // Household admin is not the claim: no role or account badges.
     expect(within(portions).queryByText('Owner')).not.toBeInTheDocument()
     expect(within(portions).queryByText('No account')).not.toBeInTheDocument()
-    expect(within(portions).getByText('Large 1.5×')).toBeInTheDocument()
-    expect(within(portions).getByText('Regular 1×')).toBeInTheDocument()
+    expect(within(portions).getAllByText('Regular 1×')).toHaveLength(2)
     expect(within(portions).getByText('Custom 0.5×')).toBeInTheDocument()
-    expect(within(portions).getByRole('button', { name: /Serves 3/ })).toBeDisabled()
-    expect(within(portions).getByText(`${120 * (1.5 + 1 + 0.5)}g`)).toBeInTheDocument()
-    expect(within(vignette('kids')).getByText(/calls for 360g of salmon/)).toBeInTheDocument()
+    // The toddler is half an adult, so the meal serves 2.5, not the 3 members
+    // (HON-1040).
+    expect(within(portions).getByRole('button', { name: /Serves 2\.5\./ })).toBeDisabled()
+    expect(within(portions).getByText(`${120 * (1 + 1 + 0.5)}g`)).toBeInTheDocument()
+    expect(
+      within(vignette('kids')).getByText(/serves 2\.5, so it calls for 300g of salmon/),
+    ).toBeInTheDocument()
   })
 
   it('shows one step with its Ask button and the answer under it', () => {
@@ -187,6 +191,8 @@ describe('LandingFeatures', () => {
     expect(within(drawing('pantry')).getByText('Lõhefilee')).toBeInTheDocument()
     expect(within(drawing('recipes')).getByText('Acai kauss')).toBeInTheDocument()
     expect(within(drawing('kids')).getByText('Mia (2)')).toBeInTheDocument()
-    expect(within(drawing('kids')).getByText('Suur 1,5×')).toBeInTheDocument()
+    expect(within(drawing('kids')).getAllByText('Tavaline 1×')).toHaveLength(2)
+    expect(within(drawing('kids')).getByRole('button', { name: /^2,5 portsjonit/ })).toBeDisabled()
+    expect(within(vignette('kids')).getByText(/Toit on 2,5 portsjonile/)).toBeInTheDocument()
   })
 })

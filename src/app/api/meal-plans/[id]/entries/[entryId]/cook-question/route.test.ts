@@ -165,6 +165,7 @@ function buildMembership(preferences: Record<string, unknown> | null = null) {
       locale: 'en',
       preferences,
       _count: { members: 4 },
+      members: Array.from({ length: 4 }, () => ({ preferences: { portionMultiplier: 1 } })),
     },
   }
 }

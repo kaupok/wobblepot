@@ -2,7 +2,8 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { toDateString } from '@/lib/meal-planning/dates'
-import { parseStoredTips } from '@/lib/tips'
+import { parseCachedTips } from '@/lib/tips'
+import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
@@ -16,6 +17,9 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 export interface PlanEntriesHousehold {
   id: string
   locale: string
+  /** Read with `members` to tell which cached tips still fit (`parseCachedTips`). */
+  _count: { members: number }
+  members: readonly { preferences: { portionMultiplier: number } | null }[]
 }
 
 export interface PlanEntriesQuery {
@@ -70,6 +74,8 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
     orderBy: [{ date: 'asc' }, { mealType: 'asc' }],
   })
 
+  const householdServings = sumPortions(household.members)
+
   const formattedEntries = entries.map((entry) => {
     // Coalesce the locale's MealTranslation over the canonical English fields
     // (per-field fallback). For en this returns the meal unchanged.
@@ -81,7 +87,14 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       mealType: entry.mealType,
       status: entry.status,
       rating: entry.rating,
-      preparationTips: entry.preparationTips ? parseStoredTips(entry.preparationTips) : null,
+      // Tips priced at other servings are dropped here as the tips route drops
+      // them, so the cook view asks for fresh ones instead of showing these.
+      preparationTips: entry.preparationTips
+        ? parseCachedTips(entry.preparationTips, {
+            servings: getEffectiveServings(entry, householdServings),
+            legacyServings: entry.servingOverride ?? household._count.members,
+          })
+        : null,
       note: entry.note,
       noteX: entry.noteX,
       noteY: entry.noteY,

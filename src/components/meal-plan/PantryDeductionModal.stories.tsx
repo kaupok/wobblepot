@@ -37,7 +37,7 @@ const meta = {
     onConfirm: fn(),
     mealName: 'Lemon-garlic roast chicken',
     components: lemonGarlicChickenComponents,
-    householdSize: 4,
+    householdServings: 4,
     pantryItems,
   },
 } satisfies Meta<typeof PantryDeductionModal>
@@ -49,7 +49,7 @@ export const WithDeductions: Story = {}
 
 export const SomeItemsRemoved: Story = {
   args: {
-    householdSize: 8,
+    householdServings: 8,
   },
   parameters: {
     docs: {

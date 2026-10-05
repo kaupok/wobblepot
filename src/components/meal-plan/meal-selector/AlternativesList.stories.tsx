@@ -27,7 +27,7 @@ const meta = {
   args: {
     meals,
     isLoading: false,
-    householdSize: 4,
+    householdServings: 4,
     onSelect: fn(),
     header: 'Suggested for you',
   },

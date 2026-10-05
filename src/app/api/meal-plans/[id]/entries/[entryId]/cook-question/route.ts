@@ -19,7 +19,7 @@ import {
   COOK_QUESTION_MAX_LENGTH,
   COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH,
 } from '@/lib/ai/cook-question-limits'
-import { parseStoredTips } from '@/lib/tips'
+import { parseCachedTips } from '@/lib/tips'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
 import { logAiSample } from '@/lib/ai/sampling'
@@ -32,7 +32,7 @@ import {
 } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
-import { getEffectiveServings } from '@/lib/meal-planning/servings'
+import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import {
   ingredientTranslationsInclude,
   mealTranslationsInclude,
@@ -60,7 +60,7 @@ function abortReason(signal: AbortSignal): unknown {
 
 /**
  * The steps and the equipment come from the client because the entry may hold
- * none: the tips route serves them uncached when the member count moved,
+ * none: the tips route serves them uncached when the household's servings moved,
  * during a locale rollback, or when its guarded write matched nothing
  * (HON-681, HON-683, HON-921). Bounded so a request cannot grow the prompt
  * without limit.
@@ -227,12 +227,19 @@ async function handlePOST(
     const mealName = shownMeal.name
     // The cached tips give Watch out and Tip when the entry holds them. The
     // steps never come from here: the request carries the ones on screen.
-    const cachedTips = entry.preparationTips ? parseStoredTips(entry.preparationTips) : null
+    const servings = getEffectiveServings(entry, sumPortions(household.members))
+    // Only tips priced at these servings, as the tips route serves them.
+    const cachedTips = entry.preparationTips
+      ? parseCachedTips(entry.preparationTips, {
+          servings,
+          legacyServings: entry.servingOverride ?? household._count.members,
+        })
+      : null
     const preferences = household.preferences
 
     const aiRequest = buildCookQuestionRequest({
       mealName,
-      servings: getEffectiveServings(entry, household._count.members),
+      servings,
       timeMinutes: entry.meal.timeMinutes,
       components: entry.meal.components.map((comp) => ({
         name: translateIngredient(comp.ingredient, locale).name,

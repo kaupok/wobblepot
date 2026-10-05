@@ -23,7 +23,7 @@ interface TimelineEmptySlotProps {
   /** Set on Today and Tomorrow, whose selector title says the word rather than the date. */
   relativeDay?: 'today' | 'tomorrow'
   mealType: MealType
-  householdSize: number
+  householdServings: number
   pantryIngredients?: PantryIngredient[]
 }
 
@@ -33,7 +33,7 @@ export function TimelineEmptySlot({
   dayLabel,
   relativeDay,
   mealType,
-  householdSize,
+  householdServings,
   pantryIngredients = [],
 }: TimelineEmptySlotProps) {
   const router = useRouter()
@@ -169,7 +169,7 @@ export function TimelineEmptySlot({
           mealType={mealType}
           date={date}
           relativeDay={relativeDay}
-          householdSize={householdSize}
+          householdServings={householdServings}
           onSwapComplete={handleSwapComplete}
           mode="add"
           pantryIngredients={pantryIngredients}

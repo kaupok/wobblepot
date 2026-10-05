@@ -1,6 +1,7 @@
 // ROUTES: /sign-up, /onboarding, /, /shopping, /recipes/imagine, /api/meal-plans/[id]/entries, /api/meals, /api/ingredients, /api/pantry · COMPONENTS: SignUpForm, FirstTimeSetup, TimelineView, MealCard, MealDetailModal, MealSelectorModal, IngredientList, ShoppingSection, CategoryGroup, PantrySection, InlineAddItem, ImagineClient
 import { test, expect } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
+import { sumPortions } from '../../src/lib/meal-planning/servings'
 import { mealTranslationsEt } from '../../prisma/seed-meal-translations-et'
 import { ingredientTranslationsEt } from '../../prisma/seed-ingredient-translations-et'
 
@@ -204,8 +205,11 @@ test.describe(
       expect(planId, 'plan generation should have created a meal plan').toBeTruthy()
       const membersResponse = await page.request.get('/api/households/me/members')
       expect(membersResponse.ok()).toBe(true)
-      const { members } = (await membersResponse.json()) as { members: unknown[] }
-      const householdSize = members.length
+      const { members } = (await membersResponse.json()) as {
+        members: { preferences: { portionMultiplier: number } | null }[]
+      }
+      // The members' portions summed, as the cook view scales (HON-1040).
+      const householdServings = sumPortions(members)
 
       // A meal already in the plan would put two cards with the same name on the
       // timeline, so the fixture is limited to meals the model did not pick.
@@ -226,14 +230,14 @@ test.describe(
             (c) =>
               c.ingredient.defaultUnit === 'piece' &&
               !c.isVague &&
-              !Number.isInteger(c.quantityPerServing * householdSize) &&
-              fmtEtQty(c.quantityPerServing * householdSize).includes(','),
+              !Number.isInteger(c.quantityPerServing * householdServings) &&
+              fmtEtQty(c.quantityPerServing * householdServings).includes(','),
           )
           if (comp) {
             commaTarget = {
               mealId: meal.id,
               name: meal.name,
-              expected: fmtEtPieces(comp.quantityPerServing * householdSize),
+              expected: fmtEtPieces(comp.quantityPerServing * householdServings),
             }
             break
           }
@@ -242,8 +246,8 @@ test.describe(
       }
       expect(
         commaTarget,
-        `No seeded system meal has an Estonian name and a piece component whose quantity for ${householdSize} ` +
-          'member(s) renders with a decimal comma (e.g. avocado 0.5 in prisma/seed-expansion.ts). ' +
+        `No seeded system meal has an Estonian name and a piece component whose quantity for ${householdServings} ` +
+          'serving(s) renders with a decimal comma (e.g. avocado 0.5 in prisma/seed-expansion.ts). ' +
           'Check the seed data and the et meal translations.',
       ).toBeTruthy()
 

@@ -697,7 +697,7 @@
         "title": "Portsjonid käivad inimeste järgi",
         "body": "Igal liikmel on oma portsjoni suurus, nii et väikelast ei arvestata täiskasvanuna. Lastesõbralikud toidud on märgitud.",
         "vignette": {
-          "caption": "Kolm pereliiget: üks täiskasvanu suure portsjoniga, teine tavalisega ja väikelaps poole portsjoniga. Toit on 3 portsjonile, nii et lõhet kulub {quantity}.",
+          "caption": "Kolm pereliiget: kaks täiskasvanut tavalise portsjoniga ja väikelaps poole portsjoniga. Toit on 2,5 portsjonile, nii et lõhet kulub {quantity}.",
           "adult1": "Kadri",
           "adult2": "Mart",
           "toddler": "Mia (2)"

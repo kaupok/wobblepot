@@ -697,7 +697,7 @@
         "title": "Portions follow the people",
         "body": "Each member has a portion size, so a toddler isn't counted as an adult. Kid-friendly meals are marked.",
         "vignette": {
-          "caption": "Three household members: one adult at a large portion, one at a regular portion and a toddler at half a portion. The meal serves 3, so it calls for {quantity} of salmon.",
+          "caption": "Three household members: two adults at a regular portion and a toddler at half a portion. The meal serves 2.5, so it calls for {quantity} of salmon.",
           "adult1": "Anna",
           "adult2": "Tom",
           "toddler": "Mia (2)"

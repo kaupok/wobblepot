@@ -31,17 +31,17 @@ vi.mock('@/components/timeline', () => ({
   PastMealsList: ({
     entries,
     todayDate,
-    householdSize,
+    householdServings,
   }: {
     entries: { id: string }[]
     todayDate: string
-    householdSize: number
+    householdServings: number
   }) => (
     <div
       data-testid="past-meals-list"
       data-entries={entries.map((e) => e.id).join(',')}
       data-today={todayDate}
-      data-household-size={String(householdSize)}
+      data-household-servings={String(householdServings)}
     />
   ),
 }))
@@ -55,6 +55,12 @@ const membership = {
     timezone: 'Europe/Tallinn',
     locale: 'en',
     _count: { members: 3 },
+    // Two adults and a toddler: the list scales by 2.5 servings, not 3 (HON-1040).
+    members: [
+      { preferences: { portionMultiplier: 1 } },
+      { preferences: { portionMultiplier: 1 } },
+      { preferences: { portionMultiplier: 0.5 } },
+    ],
   },
 }
 
@@ -117,7 +123,7 @@ describe('PastMealsPage', () => {
     const list = screen.getByTestId('past-meals-list')
     expect(list).toHaveAttribute('data-entries', 'e1,e2')
     expect(list).toHaveAttribute('data-today', getTodayInTimezone('Europe/Tallinn'))
-    expect(list).toHaveAttribute('data-household-size', '3')
+    expect(list).toHaveAttribute('data-household-servings', '2.5')
     expect(screen.queryByRole('link', { name: 'Back to the meal plan' })).not.toBeInTheDocument()
   })
 

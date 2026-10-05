@@ -52,7 +52,7 @@ function renderModal() {
   render(
     <MealDetailModal
       meal={meal}
-      householdSize={4}
+      householdServings={4}
       status="planned"
       open
       onOpenChange={onOpenChange}

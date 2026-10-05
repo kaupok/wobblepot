@@ -71,7 +71,7 @@ function OverTimeline() {
     <>
       <TimelineView
         planId="plan-1"
-        householdSize={4}
+        householdServings={4}
         entries={plannedEntries}
         expectedMealTypes={createExpectedMealTypes()}
         pantryIngredients={lemonGarlicChickenPantry}

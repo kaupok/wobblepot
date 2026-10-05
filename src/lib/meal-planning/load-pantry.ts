@@ -2,7 +2,7 @@ import 'server-only'
 import { getTranslations } from 'next-intl/server'
 import { prisma } from '@/lib/prisma'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
-import { getEffectiveServings } from '@/lib/meal-planning/servings'
+import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
@@ -14,7 +14,7 @@ export interface PantryHousehold {
   id: string
   locale: string
   timezone: string
-  _count: { members: number }
+  members: readonly { preferences: { portionMultiplier: number } | null }[]
 }
 
 export type PantryResult = Awaited<ReturnType<typeof loadPantry>>
@@ -99,17 +99,17 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
       },
     })
 
-    // Rides along on the membership query's `_count` (HON-596). The old
-    // `memberCount > 0 ? memberCount : 2` fallback is dropped with it: the
-    // requesting user's own row is in this household, so the count is >= 1.
-    const householdSize = household._count.members
+    // The members' portions ride along on the membership query (HON-596,
+    // HON-1040). `sumPortions` is at least 1, and the requesting user's own
+    // row is in this household anyway.
+    const householdServings = sumPortions(household.members)
 
     // Aggregate quantities per ingredient, tracking vague status
     for (const entry of planEntries) {
       if (!entry.meal) continue
       // Same rule the shopping list and pantry deduction use, so the two
       // numbers /shopping renders side by side agree (HON-614).
-      const effectiveServings = getEffectiveServings(entry, householdSize)
+      const effectiveServings = getEffectiveServings(entry, householdServings)
       for (const component of entry.meal.components) {
         const qty = component.quantityPerServing * effectiveServings
         const existing = neededQuantities.get(component.ingredientId)

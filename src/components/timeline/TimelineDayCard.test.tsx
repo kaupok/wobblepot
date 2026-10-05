@@ -74,7 +74,7 @@ const baseDay: TimelineDay = {
 
 const defaultProps = {
   planId: 'plan-1',
-  householdSize: 3,
+  householdServings: 3,
   pantryIngredients: [],
   pantryItems: [],
   onEntryUpdated: vi.fn(),

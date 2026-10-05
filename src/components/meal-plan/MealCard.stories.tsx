@@ -35,7 +35,7 @@ const meta = {
     entryId: 'entry-1',
     planId: 'plan-1',
     mealType: MealType.dinner,
-    householdSize: 4,
+    householdServings: 4,
     pantryIngredients: lemonGarlicChickenPantry,
     pantryItems: lemonGarlicChickenPantryItems,
   },
@@ -1192,7 +1192,7 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
     meal: mealFixture,
     status: 'planned',
     // Household is 4, so this renders a "6 servings" badge — and the badge is
-    // the assertion, since a reset would drop it back to the household size.
+    // the assertion, since a reset would drop it back to the household servings.
     servingOverride: 6,
   },
   parameters: {

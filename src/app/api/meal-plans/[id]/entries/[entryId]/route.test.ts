@@ -502,7 +502,51 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId]', () => {
     expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 400)) // 100 × 4
   })
 
-  it('deducts using the household size when a meal swap resets the override', async () => {
+  // Two adults and a toddler at 0.5× eat 2.5 servings, not 3 (HON-1040).
+  it("deducts by the members' portions, not their count", async () => {
+    mockFindFirstEntry.mockResolvedValue({
+      id: 'entry-123',
+      mealId: 'meal-123',
+      servingOverride: null,
+      pantryDeductedAt: null,
+      plan: {
+        household: {
+          members: [1, 1, 0.5].map((portionMultiplier) => ({ preferences: { portionMultiplier } })),
+        },
+      },
+      meal: {
+        components: [{ ingredientId: 'ing-1', quantityPerServing: 100 }],
+      },
+    } as never)
+
+    mockDeductionTransaction()
+
+    const response = await PATCH(createPatchRequest({ status: 'completed', deductPantry: true }), {
+      params: createParams(),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockPantryUpdateMany).toHaveBeenCalledWith(decrementOf('ing-1', 250)) // 100 × 2.5
+    expect(mockFindFirstEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          plan: {
+            select: {
+              household: {
+                select: {
+                  members: {
+                    select: { preferences: { select: { portionMultiplier: true } } },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      }),
+    )
+  })
+
+  it('deducts using the household servings when a meal swap resets the override', async () => {
     // A swap sets `servingOverride: null` in the same update, so the stored
     // override must not survive into the deduction.
     mockFindFirstEntry.mockResolvedValue({

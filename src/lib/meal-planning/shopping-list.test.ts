@@ -18,7 +18,7 @@ vi.mock('@/lib/prisma', () => ({
       count: vi.fn(),
     },
     householdMember: {
-      count: vi.fn(),
+      findMany: vi.fn(),
     },
     pantryItem: {
       findMany: vi.fn(),
@@ -41,7 +41,19 @@ import { getStartOfTodayInTimezone } from './dates'
 
 const mockFindManyEntries = vi.mocked(prisma.mealPlanEntry.findMany)
 const mockCountEntries = vi.mocked(prisma.mealPlanEntry.count)
-const mockCountMembers = vi.mocked(prisma.householdMember.count)
+const mockFindManyMembers = vi.mocked(prisma.householdMember.findMany)
+
+/**
+ * The household's members, as `loadHouseholdServings` reads them: a number is
+ * that many members at the default 1× portion, an array lists each member's
+ * `portionMultiplier`.
+ */
+function mockMembers(members: number | number[]) {
+  const portions = typeof members === 'number' ? Array<number>(members).fill(1) : members
+  mockFindManyMembers.mockResolvedValue(
+    portions.map((portionMultiplier) => ({ preferences: { portionMultiplier } })) as never,
+  )
+}
 const mockFindManyPantry = vi.mocked(prisma.pantryItem.findMany)
 const mockGetStartOfToday = vi.mocked(getStartOfTodayInTimezone)
 
@@ -226,7 +238,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
@@ -235,6 +247,38 @@ describe('computeShoppingList', () => {
     expect(result[0]!.items[0]!.shoppingQuantity).toBe(300) // 150g * 2 people
     expect(result[0]!.items[0]!.neededQuantity).toBe(300)
     expect(result[0]!.items[0]!.pantryQuantity).toBeNull()
+  })
+
+  // Two adults and a toddler at 0.5× cook for 2.5 servings, not 3 (HON-1040).
+  it("scales by the members' portions, not their count", async () => {
+    mockFindManyEntries.mockResolvedValue([
+      {
+        id: 'entry-1',
+        planId: 'plan-1',
+        mealId: 'meal-1',
+        date: new Date(),
+        mealType: 'dinner',
+        status: 'planned',
+        servingOverride: null,
+        meal: {
+          id: 'meal-1',
+          name: 'Chicken Stir Fry',
+          components: [
+            {
+              ingredientId: 'ing-1',
+              quantityPerServing: 150,
+              ingredient: createIngredient(),
+            },
+          ],
+        },
+      },
+    ] as never)
+    mockMembers([1, 1, 0.5])
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
+
+    expect(result[0]!.items[0]!.neededQuantity).toBe(375) // 150g × 2.5
   })
 
   it('skips staple items entirely', async () => {
@@ -270,7 +314,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([
       {
         id: 'pantry-1',
@@ -321,7 +365,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([
       {
         id: 'pantry-1',
@@ -372,7 +416,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([
       {
         id: 'pantry-1',
@@ -425,7 +469,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([
       {
         id: 'pantry-1',
@@ -480,7 +524,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([
       {
         id: 'pantry-1',
@@ -561,7 +605,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
@@ -607,7 +651,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
@@ -629,7 +673,7 @@ describe('computeShoppingList', () => {
 
   it('returns empty result for empty plan', async () => {
     mockFindManyEntries.mockResolvedValue([])
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
@@ -670,13 +714,13 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(0) // No members
+    mockMembers(0)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
 
-    // Default size is 2, so 100 * 2 = 200g
-    expect(result[0]!.items[0]!.neededQuantity).toBe(200)
+    // `sumPortions` never goes below one serving, so 100 * 1 = 100g
+    expect(result[0]!.items[0]!.neededQuantity).toBe(100)
   })
 
   it('handles entries without a meal (null meal)', async () => {
@@ -721,7 +765,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
@@ -765,7 +809,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
@@ -839,7 +883,7 @@ describe('computeShoppingList', () => {
       },
     ] as never)
 
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeShoppingList('plan-1', 'household-1', TEST_TIMEZONE)
@@ -853,7 +897,7 @@ describe('computeShoppingList', () => {
 
   it('passes the timezone to getStartOfTodayInTimezone', async () => {
     mockFindManyEntries.mockResolvedValue([])
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     await computeShoppingList('plan-1', 'household-1', 'America/New_York')
@@ -929,7 +973,7 @@ describe('computeRollingWindowShoppingList', () => {
   it('returns empty groups and correct metadata when no entries exist', async () => {
     mockFindManyEntries.mockResolvedValue([])
     mockCountEntries.mockResolvedValue(0)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
@@ -949,7 +993,7 @@ describe('computeRollingWindowShoppingList', () => {
   it('reports hasAnyPlan when every entry falls outside the window', async () => {
     mockFindManyEntries.mockResolvedValue([])
     mockCountEntries.mockResolvedValue(5)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
@@ -963,7 +1007,7 @@ describe('computeRollingWindowShoppingList', () => {
   // the lower bound a household whose plan lapsed would never see `no-plan` again.
   it('counts entries for hasAnyPlan from today on, with no status or window bound', async () => {
     mockFindManyEntries.mockResolvedValue([])
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
@@ -980,7 +1024,7 @@ describe('computeRollingWindowShoppingList', () => {
     mockFindManyEntries.mockResolvedValue([])
     // The date-bounded count finds nothing: the household's entries all predate today
     mockCountEntries.mockResolvedValue(0)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
@@ -990,7 +1034,7 @@ describe('computeRollingWindowShoppingList', () => {
 
   it('queries entries scoped to the household and date window', async () => {
     mockFindManyEntries.mockResolvedValue([])
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     await computeRollingWindowShoppingList('household-1', 14, TEST_TIMEZONE)
@@ -1023,7 +1067,7 @@ describe('computeRollingWindowShoppingList', () => {
         planCreatedAt: new Date('2026-01-15T00:00:00Z'),
       }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
@@ -1045,7 +1089,7 @@ describe('computeRollingWindowShoppingList', () => {
         servingOverride: 5,
       }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2) // Normally 2, but override = 5
+    mockMembers(2) // Normally 2, but override = 5
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
@@ -1074,7 +1118,7 @@ describe('computeRollingWindowShoppingList', () => {
         ],
       }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
@@ -1094,24 +1138,42 @@ describe('computeRollingWindowShoppingList', () => {
     ).toBe('8\u00a0pc')
   })
 
-  it('falls back to default household size when no members exist', async () => {
+  it('falls back to one serving when no members exist', async () => {
     mockFindManyEntries.mockResolvedValue([
       rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
     ] as never)
-    mockCountMembers.mockResolvedValue(0)
+    mockMembers(0)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
 
-    // Default household size is 2 → 150 × 2 = 300
-    expect(result.groups[0]!.items[0]!.neededQuantity).toBe(300)
+    // `sumPortions` never goes below one serving → 150 × 1 = 150
+    expect(result.groups[0]!.items[0]!.neededQuantity).toBe(150)
+  })
+
+  // Two adults and a toddler at 0.5× cook for 2.5 servings, not 3 (HON-1040).
+  it("scales by the members' portions, not their count", async () => {
+    mockFindManyEntries.mockResolvedValue([
+      rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
+    ] as never)
+    mockMembers([1, 1, 0.5])
+    mockFindManyPantry.mockResolvedValue([])
+
+    const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
+
+    // 150 × 2.5 = 375
+    expect(result.groups[0]!.items[0]!.neededQuantity).toBe(375)
+    expect(mockFindManyMembers).toHaveBeenCalledWith({
+      where: { householdId: 'household-1' },
+      select: { preferences: { select: { portionMultiplier: true } } },
+    })
   })
 
   it('skips staple pantry items entirely', async () => {
     mockFindManyEntries.mockResolvedValue([
       rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([
       {
         id: 'pantry-1',
@@ -1168,7 +1230,7 @@ describe('computeRollingWindowShoppingList', () => {
         ],
       }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue(
       created.map((row, i) => ({
         id: `pantry-${i}`,
@@ -1191,7 +1253,7 @@ describe('computeRollingWindowShoppingList', () => {
     mockFindManyEntries.mockResolvedValue([
       rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([
       {
         id: 'pantry-1',
@@ -1212,7 +1274,7 @@ describe('computeRollingWindowShoppingList', () => {
     mockFindManyEntries.mockResolvedValue([
       rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([
       {
         id: 'pantry-1',
@@ -1234,7 +1296,7 @@ describe('computeRollingWindowShoppingList', () => {
     mockFindManyEntries.mockResolvedValue([
       rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-20') }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([
       {
         id: 'pantry-1',
@@ -1257,7 +1319,7 @@ describe('computeRollingWindowShoppingList', () => {
       rollingEntry({ mealId: null, date: new Date('2026-01-20') }),
       rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-21') }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
@@ -1272,7 +1334,7 @@ describe('computeRollingWindowShoppingList', () => {
       rollingEntry({ mealId: 'meal-a', date: new Date('2026-01-25') }),
       rollingEntry({ mealId: 'meal-b', date: new Date('2026-01-21') }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
@@ -1321,7 +1383,7 @@ describe('computeRollingWindowShoppingList', () => {
         ],
       }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)
@@ -1373,7 +1435,7 @@ describe('computeRollingWindowShoppingList', () => {
         ],
       }),
     ] as never)
-    mockCountMembers.mockResolvedValue(2)
+    mockMembers(2)
     mockFindManyPantry.mockResolvedValue([])
 
     const result = await computeRollingWindowShoppingList('household-1', 7, TEST_TIMEZONE)

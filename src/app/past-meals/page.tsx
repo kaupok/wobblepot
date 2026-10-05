@@ -5,6 +5,7 @@ import { getSession } from '@/lib/session'
 import { getHouseholdMembership } from '@/lib/household'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
+import { sumPortions } from '@/lib/meal-planning/servings'
 import { getPastMealsRange } from '@/lib/meal-planning/past-meals'
 import { PastMealsList } from '@/components/timeline'
 import { Body, Heading } from '@/components/ui/typography'
@@ -71,7 +72,7 @@ export default async function PastMealsPage() {
           <PastMealsList
             entries={mealEntries}
             planId={planId}
-            householdSize={household._count.members}
+            householdServings={sumPortions(household.members)}
             pantryItems={pantry.items}
             todayDate={todayDate}
           />

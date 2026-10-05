@@ -54,7 +54,7 @@ export interface AlternativesListProps {
   header?: ReactNode
   /** Rendered in place of the grid when `meals` is empty. Caller picks the copy. */
   emptyState?: ReactNode
-  householdSize: number
+  householdServings: number
   /** Id of the meal whose select request is in flight, if any. */
   selectingId?: string | null
   onSelect: (mealId: string) => void
@@ -78,7 +78,7 @@ export function AlternativesList({
   error,
   header,
   emptyState,
-  householdSize,
+  householdServings,
   selectingId,
   onSelect,
   pantryIngredients,
@@ -121,7 +121,7 @@ export function AlternativesList({
               <AlternativeCard
                 key={meal.id}
                 meal={meal}
-                householdSize={householdSize}
+                householdServings={householdServings}
                 onSelect={onSelect}
                 isSelecting={selectingId === meal.id}
                 pantryIngredients={pantryIngredients}

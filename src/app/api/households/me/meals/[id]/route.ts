@@ -466,7 +466,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       //
       // `Meal.servings` has no clause of its own, for the same reason: the
       // prompt scales by the entry's effective servings
-      // (`getEffectiveServings`, household members or the entry override),
+      // (`getEffectiveServings`, the members' portions or the entry override),
       // never by the meal's. It reaches the prompt only through
       // `quantityPerServing`: through `componentsChanged` when the edit comes
       // with components, and through the rows restated above when it comes
