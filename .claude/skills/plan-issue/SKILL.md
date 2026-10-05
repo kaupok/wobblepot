@@ -219,6 +219,10 @@ Write the plan directly in your response (not to a file). Use this structure:
 | -------------- | ------------- | --------- |
 | [Key decision] | [Your choice] | [Why]     |
 
+## Follow-ups
+
+[One line per step this issue needs that does not ship in this PR: `- HON-NNN — <the step> (Queued | Todo)`. Draft it as `- to file: <the step> (Queued | Todo)`; step 10 files it and swaps in the ID. Write `None` when every step ships in this PR.]
+
 ## Files to Create
 
 - `src/path/to/new/file.tsx` - [Purpose]
@@ -255,6 +259,8 @@ Write the plan directly in your response (not to a file). Use this structure:
 - [Edge cases, and the test that covers each]
 ```
 
+`## Follow-ups` holds issues, not intentions. A step the issue needs but this PR does not ship (a golden re-record after a prompt change, a backfill after a migration) is a Linear issue before the plan is posted, per CLAUDE.md → "A follow-up is an issue". "Filed as a follow-up" with no ID is the HON-1053 defect: nothing files it later. Every "not in this PR" row in Design Decisions needs a line here, unless the row says why the step is not needed at all.
+
 `## Verification` is a plain list, not checkboxes, of what the implementing agent will run. It becomes the PR's "Verified" list (`/create-pr` step 6), so a step only a human could perform does not belong here; if a criterion cannot be checked by the agent, say so, and it goes under "Not verified".
 
 ### 9. Get approval (or skip if --auto)
@@ -279,9 +285,27 @@ AskUserQuestion({
 
 If the user wants changes, revise the plan and ask again.
 
-### 10. Post plan to Linear
+### 10. File follow-ups, then post plan to Linear
 
-Once approved, post the plan you wrote in step 8 to Linear:
+**First file every `to file:` line in `## Follow-ups`.** Approval in step 9 covers these, because the user saw each line. An earlier run of this skill can have filed one already, so re-fetch the issue with `get_issue({ id: "HON-XX", includeRelations: true })` and skip a line whose title is already in `relations.blocks` or `relations.relatedTo`. File the rest:
+
+```
+mcp__linear-server__save_issue({
+  team: "Wobblebot",
+  title: "<sentence-case step>",
+  description: "<## Problem, ## What, ## Acceptance criteria, ## Context — name HON-XX>",
+  state: "Queued",          // or "Todo" when a human must act
+  blockedBy: ["HON-XX"],    // when it needs this issue's change on main; otherwise relatedTo: ["HON-XX"]
+  priority: <HON-XX's priority>,
+  labels: [<HON-XX's labels>],
+})
+```
+
+`blockedBy` goes in this same call: the orchestrator picks up a Queued issue within a minute, so without the relation a worker runs the step before this issue's change is on `main` (HON-902). No `[DRAFT]` prefix: the step is specified by this plan. Leave it unassigned.
+
+Replace each `to file:` with the new ID. If a filing fails twice, do not post the plan; report the error and stop, because a posted plan with a `to file:` line is the note this step exists to prevent.
+
+Then post the plan you wrote in step 8 to Linear:
 
 ```
 mcp__linear-server__save_comment({
@@ -327,6 +351,8 @@ Output the completion marker:
 [plan-issue:complete] Plan posted to HON-XX
 ```
 
+If step 10 filed follow-ups, list them on the next line: `Follow-ups filed: HON-AA (Queued, blocked by HON-XX), HON-BB (Todo)`.
+
 **If `--auto` flag was NOT used:** Also output:
 
 ```
@@ -345,4 +371,5 @@ Then STOP. Do not proceed to implementation, do not offer next steps, do not ask
 - Order implementation steps by dependency
 - Include verification steps that can be checked after implementation
 - If the issue has acceptance criteria, map them to verification steps
+- Every "not in this PR" decision in Design Decisions has a line in `## Follow-ups`, and every line there has an issue ID before the plan is posted
 - **Never suggest or prompt to start implementation** - the skill ends after posting to Linear

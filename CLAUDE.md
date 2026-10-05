@@ -327,6 +327,13 @@ If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, 
 - **Queueing issues that touch the same files.** Workers branch from the same `origin/main` and run in parallel, so two Queued issues that edit the same file produce conflicting PRs. Before queueing a batch, compare the files each issue names. Where two overlap, add a `blockedBy` between them and say in the blocked issue that the relation is for sequencing only.
 - **Set `blockedBy` in the call that queues the issue.** The orchestrator sees a Queued issue within a minute, so a `blockedBy` added after the move to Queued can arrive too late: the issue is picked up, fails the blocker check and comes back `Gated`. Create or move the issue with its relation in one `save_issue` call (HON-902).
 
+**A follow-up is an issue.** A step the work needs but this PR does not ship (a golden re-record, a backfill, a manual check) becomes a Linear issue before the parent issue closes. A note on the parent, a "Not verified" line or a hand-off comment does not count, because nobody reads a Done issue again.
+
+- **State:** Queued if an agent can finish it alone, Todo if a human must act. Filing it Queued is not a new queueing decision, because a human queued or approved the parent.
+- **Link it to the parent in the same `save_issue` call:** `blockedBy` when it needs the parent's change on `main` first, so no worker picks it up early; `relatedTo` otherwise. Name the parent in the description.
+- **Who files it:** `/plan-issue` and `/auto-implement` file plan-time follow-ups before they post the plan, and the plan's `## Follow-ups` section lists the IDs. A follow-up found later is filed before the skill that found it ends. The PR body and the `/merge` summary list IDs, never free text.
+- **Not a review finding.** A finding the unattended cycle defers stays `[AUTO DRAFT]` in Backlog (`/auto-implement` 6.8). A follow-up is a step that a doc rule or the parent's acceptance criteria require (HON-1053).
+
 **Before committing:** Run `pnpm lint && pnpm type-check && pnpm test`
 
 **Pre-commit hook:** Husky + lint-staged runs type-check, ESLint, and Prettier on staged files.

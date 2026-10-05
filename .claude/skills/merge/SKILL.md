@@ -319,7 +319,12 @@ mcp__linear-server__save_comment({
 
 ### Review feedback addressed
 - [summary of review comments that were addressed, or "No review feedback" if none]
+
+### Follow-ups
+- [One issue ID per line: HON-NNN. Or "None".]
 ```
+
+**Follow-ups hold issue IDs only.** Collect them from the plan comment's `## Follow-ups`, the PR body's **Follow-ups** line, and the issue's `relations.blocks` (`get_issue` with `includeRelations: true`). If you know of a step this issue still needs that has no issue (a plan line marked `to file:`, a hand-off comment, a "Not verified" line that names a post-merge step), file it first with the `save_issue` call in `/plan-issue` step 10, then list its ID. Never write the step as text under this heading or anywhere else in the comment: this issue is Done once the comment posts, and nobody reads a Done issue again (CLAUDE.md → "A follow-up is an issue", HON-1053). A follow-up filed here needs no `blockedBy`, because the change is already on `main`: use `relatedTo`.
 
 **After posting**, print the summary to the terminal as well so the user can see it inline.
 

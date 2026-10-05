@@ -42,7 +42,7 @@ Rarely-taken branches live next to this file, in `.claude/skills/auto-implement/
 | `recovery.md`   | Retry context is present, the 2.1 gate stops, CI fails or reports no checks, a review does not post |
 | `batched.md`    | The plan is split into batches, or a verification outruns the 600 s cap                          |
 | `review-cap.md` | Review `ROUND` ≥ 3: the materiality bar, `not actioned:` notes, the 6.7 hand-off                 |
-| `deferral.md`   | 6.8 finds deferred findings to file as `[AUTO DRAFT]` issues                                     |
+| `deferral.md`   | 6.8 finds deferred findings or follow-ups to file; 2.8 or 3.2 has a follow-up to file            |
 | `history.md`    | Before changing or disputing a rule — the incidents behind them. Never needed to run a cycle     |
 
 ## Argument Parsing
@@ -308,6 +308,10 @@ Write the plan directly in your response using this structure:
 | -------------- | ------------- | --------- |
 | [Key decision] | [Your choice] | [Why]     |
 
+## Follow-ups
+
+[One line per step this issue needs that does not ship in this PR: `- HON-NNN — <the step> (Queued | Todo)`. Draft it as `- to file: <the step> (Queued | Todo)`; 2.8 files it and swaps in the ID. Write `None` when every step ships in this PR. Every "not in this PR" row in Design Decisions has a line here.]
+
 ## Files to Create
 
 - `src/path/to/new/file.tsx` - [Purpose]
@@ -338,9 +342,11 @@ Write the plan directly in your response using this structure:
 
 `## Verification` is a plain list, not checkboxes, of what **you** will run. It becomes the PR's "Verified" list in 5.4, so a step only a human could perform does not belong here; if a criterion cannot be checked from this session, say so, and it goes under "Not verified".
 
-### 2.8 Post plan to Linear
+### 2.8 File follow-ups, then post plan to Linear
 
-Post the plan directly to Linear (no approval needed in auto mode):
+**First file every `to file:` line in the plan's `## Follow-ups`**, by `deferral.md` → Follow-ups: the duplicate check against the parent's relations, then one `save_issue` each, with `blockedBy: ["HON-XX"]` when the step needs this PR on `main`. Replace each `to file:` with the new ID. A plan that says "filed as a follow-up" with no ID is the HON-1053 defect: the plan is posted only once every line has an ID. If filing fails twice, stop with the error below.
+
+Then post the plan directly to Linear (no approval needed in auto mode):
 
 ```
 mcp__linear-server__save_comment({
@@ -353,6 +359,12 @@ mcp__linear-server__save_comment({
 
 ```
 [auto-implement] ✗ Error: Failed to post plan to Linear. Cannot proceed without documented plan.
+```
+
+The same stop applies when a follow-up from `## Follow-ups` cannot be filed:
+
+```
+[auto-implement] ✗ Error: Failed to file follow-up "<the step>" in Linear. Plan not posted.
 ```
 
 On success:
@@ -413,6 +425,7 @@ For each implementation step in the plan:
 4. Follow patterns from CLAUDE.md
 5. If `src/components/**` changed → create/update the colocated `.stories.tsx` (CLAUDE.md Storybook rule) and run `pnpm test-storybook:ci`
 6. If the 2.7 plan has a `## Coupled callsites` section, work it like the implementation steps — it is a sibling of `## Implementation Steps`, not a member, so nothing else will pick it up. Every **Mirror** must be edited in this phase; leaving them for the 4.3 review bullet reproduces the find-it-in-review failure this scan exists to prevent
+7. If the implementation shows a step this issue needs that the PR cannot ship (a golden re-record after a prompt change, a backfill after a migration), file it now by `deferral.md` → Follow-ups and keep the ID for the 5.4 PR body. Do not append it to the deferrals file: 4.4 truncates that file after this phase
 
 ### 3.3 Batched plans: commit and push per batch
 
@@ -497,6 +510,8 @@ DEFERRALS=/tmp/auto-implement-deferrals-HON-XX.md
 ```
 
 Write one `##`-headed block per item, carrying enough for 6.8 to file it without this conversation: the finding, the file and line, and why it was out of scope.
+
+A step this issue needs after merge that triage surfaces (the review notices the golden must be re-recorded) is not a Defer item. Append it as a `kind: follow-up` block in the format `deferral.md` → Follow-ups gives, with the `why:` line naming the rule or criterion that requires it. 6.8 files it without the `[AUTO DRAFT]` prefix. A block that cannot name one is a finding.
 
 This file is the **single sink for every deferral in the run** — 6.4 appends to it each round as well. Phase 5, the CI waits and up to three review rounds sit between here and 6.8, so do not rely on in-context state to carry deferrals across that span.
 
@@ -610,6 +625,7 @@ gh pr create --title "type(scope): Subject" --body "$(cat <<'EOF'
 ## Summary
 
 - [Bullet points describing changes]
+- **Follow-ups:** [IDs of the issues filed for steps this PR does not ship, from the plan's `## Follow-ups` and 3.2: `HON-NNN (Queued, blocked by HON-XX)`. Omit the line if there are none.]
 
 ## Verified
 
@@ -629,7 +645,7 @@ EOF
 1. A line goes under "Verified" only if you ran it and saw the result. Intent is not verification.
 2. Do not write a step for a human to perform. If a fact can be asserted, assert it in a test or a story play function and cite that under "Verified". If it cannot be checked at all, it goes under "Not verified" with the reason.
 3. "Not verified" is not a to-do list and creates no follow-up by itself. It is a statement of remaining risk.
-4. A step that must happen after merge (restart a process, run a workflow) is not a PR line at all: the merge step performs it, or it is a Todo issue assigned to a human, per CLAUDE.md → "Queued is the queue".
+4. A step that must happen after merge (restart a process, run a workflow, re-record a golden) is not a "Verified" or "Not verified" line. The merge step performs it, or it is an issue, filed before this PR merges, with its ID on the Summary's **Follow-ups** line (CLAUDE.md → "A follow-up is an issue"). One with no issue yet is filed now, by `deferral.md` → Follow-ups.
 
 Extract PR URL from output.
 
@@ -880,7 +896,7 @@ The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
 
 **From ROUND 3 on, read `review-cap.md` → Materiality bar before triaging.** The bar rises: only correctness and safety defects are actioned, and every finding it drops gets a `not actioned:` note in 6.5. On rounds 1 and 2 every substantive finding is an Address Now item, per the rules above.
 
-**Append every Defer item to `/tmp/auto-implement-deferrals-HON-XX.md`** — the same file 4.4 truncated and started — in the same `##`-headed block format, as you triage each round. Do not plan to re-read them from the PR at 6.8: the summary fetch above ends in `| last` by design, so a summary-only deferral from round 1 or 2 is unreadable once round 3 has posted, and `scripts/pr-review.sh` puts out-of-diff findings and anything past its 5-comment inline cap in the summary alone. Appending each round is what makes those survive to 6.8.
+**Append every Defer item to `/tmp/auto-implement-deferrals-HON-XX.md`** — the same file 4.4 truncated and started — in the same `##`-headed block format, as you triage each round. A required post-merge step the review surfaces goes in as a `kind: follow-up` block, as in 4.4. Do not plan to re-read them from the PR at 6.8: the summary fetch above ends in `| last` by design, so a summary-only deferral from round 1 or 2 is unreadable once round 3 has posted, and `scripts/pr-review.sh` puts out-of-diff findings and anything past its 5-comment inline cap in the summary alone. Appending each round is what makes those survive to 6.8.
 
 ### 6.5 Address review comments
 
@@ -951,7 +967,7 @@ Print the block below on branch B, or on branch C with everything resolved. Bran
 
 Reached only from 6.6 branch C, when a **correctness or safety finding is still unresolved** at the cap. **Read `review-cap.md` → 6.7 hand-off and follow it:** run 6.8 first, post the hand-off comment on the PR and on the issue, leave the Linear state alone, print the hand-off markers and stop. Do not proceed to Phase 7.
 
-### 6.8 File deferred findings as `[AUTO DRAFT]` issues
+### 6.8 File deferred findings and follow-ups
 
 Runs on every exit from Phase 6: 6.4's clean-review exit, 6.6 branch B, 6.6 branch C with everything resolved, and the 6.7 hand-off, which comes here before posting its comment. 4.4's deferrals reach every one of those paths, so a clean PR review alone does not make this a no-op. When 6.8 is reached via 6.6, do not print 6.6's markers again.
 
@@ -960,7 +976,7 @@ cat /tmp/auto-implement-deferrals-HON-XX.md 2>/dev/null || echo "(no deferrals)"
 ```
 
 - **Nothing deferred** → print `[auto-implement] No deferred findings to file` and leave by the exit below.
-- **Anything deferred** → read `deferral.md` and file per its rules: the `[AUTO DRAFT]` prefix, `Backlog`, a duplicate check first, at most 3 issues per cycle. A filing failure never blocks the merge.
+- **Anything deferred** → read `deferral.md` and file per its rules. A finding gets the `[AUTO DRAFT]` prefix, `Backlog`, a duplicate check first, at most 3 issues per cycle. A `kind: follow-up` block gets no prefix, the state its block names, `blockedBy` this issue when it needs the merge, no cap, and its ID added to the PR body. A filing failure never blocks the merge.
 
 **Then leave by the door you came in.** Entered from 6.7 → go back to 6.7, post the hand-off with the filed IDs, print its markers and stop; **do not continue to Phase 7**. Entered from any other path → continue to Phase 7 and merge.
 
@@ -1078,11 +1094,15 @@ mcp__linear-server__save_comment({
 
 ### Review feedback addressed
 - [summary of review comments that were addressed, or "No review feedback" if none]
+
+### Follow-ups
+- [One issue ID per line: HON-NNN. Or "None".]
 ```
 
 **After posting**, print the summary to the terminal as well so the user can see it inline.
 
 **Rules:**
+- `### Follow-ups` holds issue IDs only, from 2.8, 3.2 and 6.8. A post-merge step with no issue is never written there as text: it was filed at 6.8, or 6.8 failed and the 7.6 report says so.
 - If Linear API calls fail, still print the summary to terminal — don't block the merge flow
 - Keep the summary concise — list files and stats, don't dump full diffs
 
@@ -1104,16 +1124,20 @@ Cannot fetch into main (already checked out in parent worktree). Skip local clea
 
 ### 7.6 Report completion
 
-If 6.8 filed anything, skipped a duplicate, hit the 3-issue cap, or failed to file, say so before the mode-specific block — this is the only place the operator sees it without opening Linear:
+If the run filed a follow-up (2.8, 3.2 or 6.8), or 6.8 filed anything, skipped a duplicate, hit the 3-issue cap, or failed to file, say so before the mode-specific block — this is the only place the operator sees it without opening Linear. Omit either list when it is empty:
 
 ```
+Follow-ups:
+- Filed: HON-DD (Queued, blocked by HON-XX)
+- Not filed: [one line per follow-up whose filing failed — it has no issue, so the operator must file it]
+
 Deferred findings:
 - Filed: HON-AA, HON-BB
 - Already tracked: HON-CC (skipped as duplicate)
 - Not filed (over cap): [one line per remaining finding]
 ```
 
-Omit the block entirely only when 6.8 had nothing to file — a clean PR review is not sufficient, since 4.4's deferrals reach 6.8 on that path too.
+Omit the block entirely only when the run filed no follow-up and 6.8 had nothing to file — a clean PR review is not sufficient, since 4.4's deferrals reach 6.8 on that path too.
 
 **Regular repo mode:**
 
