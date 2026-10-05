@@ -78,12 +78,6 @@ vi.mock('@/lib/landing/load-demo-day', () => ({
 vi.mock('@/lib/i18n/get-locale', () => ({
   getLocale: vi.fn(async () => translationLocale),
 }))
-// `next/font/google` is a build-time SWC transform; calling the real loader in
-// Vitest throws. The landing page only reads `.variable` off the result.
-vi.mock('next/font/google', () => ({
-  Bricolage_Grotesque: () => ({ variable: 'bricolage-variable' }),
-}))
-
 // Nothing on this page may call back into our own API over HTTP (HON-789).
 const mockFetch = vi.fn()
 global.fetch = mockFetch

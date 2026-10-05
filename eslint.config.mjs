@@ -123,17 +123,20 @@ const config = defineConfig([
         'error',
         {
           allow: [
-            // `--shadow-float` is a box-shadow token in globals.css (the
-            // header pills' lift, docs/DESIGN.md → Elevation), not a colour.
+            // `--shadow-float` and `--shadow-modal` are box-shadow tokens in
+            // globals.css (the header pills' lift and the modal overlays'
+            // lift, docs/DESIGN.md → Elevation), not colours.
             // The rule reads any `shadow-<name>` it does not know as a shadow
             // colour and does not consult `--shadow-*` tokens. Two entries
             // because a glob's `*` matches one character or more, so
             // `*shadow-float` alone misses the bare class. tailwind-merge does
-            // know the token, through CUSTOM_SHADOW_VALUES in src/lib/utils.ts.
+            // know the tokens, through CUSTOM_SHADOW_VALUES in src/lib/utils.ts.
             // REMOVE WHEN: @shadcn/lint's `no-raw-colors` reads custom
             // `--shadow-*` tokens from globals.css (checked against 0.1.0).
             'shadow-float',
             '*:shadow-float',
+            'shadow-modal',
+            '*:shadow-modal',
           ],
         },
       ],

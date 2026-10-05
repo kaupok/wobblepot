@@ -188,12 +188,12 @@ export function MealDetail({
       <div
         data-testid="cook-view-left"
         tabIndex={0}
-        className="contents lg:col-span-2 lg:flex lg:flex-col lg:gap-8 lg:overflow-y-auto lg:pb-8"
+        className="contents lg:col-span-2 lg:flex lg:flex-col lg:gap-8 lg:overflow-y-auto lg:pb-10"
       >
         <div
           className={cn(
             // From `lg` the title is always first in its column.
-            'flex flex-col gap-6 px-5 md:px-8 lg:px-6 lg:pt-8',
+            'flex flex-col gap-6 px-5 md:px-8 lg:px-10 lg:pt-10',
             // Without a hero the title is the first thing in the view, and
             // the close button sits in the top-right corner over it.
             !hasImage && 'pt-16',
@@ -264,7 +264,7 @@ export function MealDetail({
         {meal.nutrition && (
           <div
             data-testid="cook-view-nutrition"
-            className="flex flex-col gap-1 px-5 md:px-8 lg:px-6"
+            className="flex flex-col gap-1 px-5 md:px-8 lg:px-10"
           >
             <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
             <NutritionDisclaimer />
@@ -274,7 +274,7 @@ export function MealDetail({
 
       {/* The hero tops this column from `lg`, under the close button (HON-966).
           Below `lg` the column is `contents` and the hero `order-first`, so it
-          still opens the view. Without a hero, `lg:pt-8` is the title's own
+          still opens the view. Without a hero, `lg:pt-10` is the title's own
           top, so the first heading lines up with the meal name (HON-951). */}
       {(showPreparationSection || hasImage) && (
         <section
@@ -287,8 +287,8 @@ export function MealDetail({
             <div
               data-testid="cook-view-steps-body"
               className={cn(
-                'flex flex-col gap-6 px-5 pb-8 md:px-8 lg:px-10',
-                !hasImage && 'lg:pt-8',
+                'flex flex-col gap-6 px-5 pb-8 md:px-8 lg:px-12 lg:pb-10',
+                !hasImage && 'lg:pt-10',
               )}
             >
               {/* What to set out before step 1. Nothing while the steps generate:

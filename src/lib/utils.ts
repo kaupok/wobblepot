@@ -32,7 +32,7 @@ export const CUSTOM_SPACING_VALUES = ['touch'] as const
  * `cn('shadow-float', 'shadow-md')`. Must stay in sync with `globals.css`;
  * `utils.test.ts` fails if the two drift.
  */
-export const CUSTOM_SHADOW_VALUES = ['float'] as const
+export const CUSTOM_SHADOW_VALUES = ['float', 'modal'] as const
 
 /**
  * Every custom `@utility` declared in `src/app/globals.css`, mapped to the
