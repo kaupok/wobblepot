@@ -1,5 +1,5 @@
 import { formatIngredientsList, type TipsComponent } from './preparation-tips'
-import { localeInstruction, estonianVoiceForPrepTips } from './prompts'
+import { localeInstruction, estonianVoiceForPrepTips, isEstonian } from './prompts'
 import type { CookQuestionSubject } from './cook-question-subject'
 
 export interface CookQuestionPantryItem {
@@ -120,11 +120,16 @@ export function buildCookQuestionPrompt(input: CookQuestionRequestInput): string
   const scopeRule = isStep
     ? `Answer only about this meal and step ${stepNumber}.`
     : 'Answer only about this meal and this piece of equipment.'
+  // The rule names steps in English; one Estonian answer wrote "steppides"
+  // for "sammudes" under it (HON-1003).
+  const stepWord = isEstonian(locale)
+    ? ' In Estonian a step is "samm": "sammus 3", "sammudes 3 ja 4".'
+    : ''
   const equipmentRules = isStep
     ? ''
     : `
-- Name the steps that use this piece of equipment, by number.
-- When you suggest a substitute for it, pick something most kitchens have, and say what changes in those steps: time, heat, or cooking in batches.
+- Name the steps that use this piece of equipment, by number.${stepWord}
+- When you suggest a substitute for it, pick something most kitchens have, and say what changes in those steps (time, heat, or cooking in batches) in the same sentence that names them.
 - Do not suggest buying anything.`
   const notes = preparationNotes?.trim()
     ? `\n\nThe household's own notes on this meal:\n${preparationNotes.trim()}`
@@ -180,7 +185,7 @@ Rules:
 - ${scopeRule}${equipmentRules}
 - When you suggest a substitute, prefer an ingredient from the pantry above, and say that the household has it. Only call an ingredient available if it is in the pantry.
 - Never suggest a food the household restrictions exclude.
-- 2 to 4 sentences. Practical and specific.
+- 2 or 3 short sentences, never more than 4, and under 80 words, in one paragraph. Give the one best suggestion, not a list of options, then stop: no side notes. Practical and specific.
 - Metric units only: °C, g, kg, ml, L, cm.
 - Do not repeat the step text.${previousRule}
 - If the question is not about this meal, answer with one sentence that says you can only help with this meal.${localeInstruction(locale)}${estonianVoiceForPrepTips(locale)}`
@@ -195,7 +200,7 @@ Rules:
 export function buildCookQuestionRequest(input: CookQuestionRequestInput) {
   return {
     prompt: buildCookQuestionPrompt(input),
-    // The answer is 2-4 sentences, about 300 tokens in Estonian; the rest is
+    // The answer is at most 4 sentences, about 300 tokens in Estonian; the rest is
     // headroom for adaptive thinking, which bills as output (HON-693). 600 cut
     // off 4 of 27 benchmark answers, all Estonian; 2 of them spent all 600 on
     // thinking and had no text at all (HON-972).

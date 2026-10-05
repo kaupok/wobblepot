@@ -75,6 +75,14 @@ describe('buildCookQuestionPrompt', () => {
     expect(section(prompt, 'PANTRY')).not.toContain('tree_nuts')
   })
 
+  it('caps the answer at 4 short sentences and 80 words, in one paragraph', () => {
+    // English answers ran 65 to 141 words in 5 or 6 sentences under "2 to 4
+    // sentences" alone (HON-1003).
+    expect(section(buildCookQuestionPrompt(input()), 'Rules:')).toContain(
+      '- 2 or 3 short sentences, never more than 4, and under 80 words, in one paragraph. Give the one best suggestion, not a list of options, then stop: no side notes.',
+    )
+  })
+
   it('tells the model to call only pantry ingredients available', () => {
     expect(buildCookQuestionPrompt(input())).toContain(
       'Only call an ingredient available if it is in the pantry.',
@@ -120,8 +128,18 @@ describe('buildCookQuestionPrompt', () => {
       const rules = section(buildCookQuestionPrompt(equipmentQuestion), 'Rules:')
       expect(rules).toContain('- Answer only about this meal and this piece of equipment.')
       expect(rules).toContain('- Name the steps that use this piece of equipment, by number.')
-      expect(rules).toContain('say what changes in those steps: time, heat, or cooking in batches.')
+      // One sentence for the steps and the changes, so the length rule holds (HON-1003).
+      expect(rules).toContain(
+        'say what changes in those steps (time, heat, or cooking in batches) in the same sentence that names them.',
+      )
       expect(rules).toContain('- Do not suggest buying anything.')
+    })
+
+    it('gives the Estonian word for a step only in an Estonian prompt', () => {
+      const rule = (locale: string) =>
+        section(buildCookQuestionPrompt({ ...equipmentQuestion, locale }), 'Rules:')
+      expect(rule('et')).toContain('In Estonian a step is "samm"')
+      expect(rule('en')).not.toContain('samm')
     })
 
     it('keeps the step rules for a step question', () => {

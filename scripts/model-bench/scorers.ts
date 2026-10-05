@@ -414,14 +414,18 @@ export function scoreTips(
 // ---------------------------------------------------------------------------
 
 /**
- * Word ceilings for the answer, set from the first run (HON-972). The prompt
- * asks for 2 to 4 sentences, and one for a question not about the meal, but
- * English answers ran 65 to 141 words, often in 5 or 6 sentences, and a
- * decline ran 31 to 40 words because it offers help with the step. So the
- * ceilings catch a runaway answer or a decline that answers anyway, not a
- * fifth sentence.
+ * Word ceilings for the answer. The off-topic one is from the first run
+ * (HON-972): a decline ran 31 to 40 words because it offers help with the
+ * step. The answer one is from HON-1003, after the prompt gained "never more
+ * than 4" sentences and "under 80 words": over two runs of 24 on-topic
+ * answers each, they measured 33 to 90 words, the longest an equipment
+ * answer. So it fails an answer the cook cannot read at a glance, not a few
+ * words over the prompt's 80.
  */
-export const COOK_QUESTION_MAX_WORDS = { answer: 150, offTopic: 50 }
+export const COOK_QUESTION_MAX_WORDS = { answer: 100, offTopic: 50 }
+
+/** The prompt's "never more than 4" sentences (HON-1003). */
+export const COOK_QUESTION_MAX_SENTENCES = 4
 
 /**
  * An imperial unit right after a number: "350°F", "350F", "400 degrees
@@ -432,6 +436,16 @@ const IMPERIAL_UNIT =
   /\d\s*(?:°\s*f\b|f\b|degrees?\s+f(?:ahrenheit)?\b|fahrenheit|cups?\b|oz\b|ounces?\b|lbs?\b|pounds?\b|-?inch(?:es)?\b|fl\.?\s*oz)/iu
 
 const wordCount = (text: string) => text.split(/\s+/u).filter(Boolean).length
+
+/**
+ * Sentences in a plain-text answer: a run of text ended by `.`, `!`, `?` or
+ * `…` before whitespace, or by a line break, so a second paragraph or a list
+ * line counts too. A decimal ("2.5 cm") or "°C." mid-text does not split,
+ * since no whitespace follows the point. Exported for tests.
+ */
+export function sentenceCount(text: string): number {
+  return text.split(/(?<=[.!?…])\s+|\n+/u).filter((part) => /[\p{L}\p{N}]/u.test(part)).length
+}
 
 /**
  * Scores the plain-text answer. `answered` is always 1 here: an empty or
@@ -446,6 +460,7 @@ export function scoreCookQuestion(input: CookQuestionCase, output: string): Scor
     answered: 1,
     metricUnits: pass(!IMPERIAL_UNIT.test(output)),
     withinLength: offTopic ? null : pass(words <= COOK_QUESTION_MAX_WORDS.answer),
+    withinSentences: offTopic ? null : pass(sentenceCount(output) <= COOK_QUESTION_MAX_SENTENCES),
     offTopicDeclined: offTopic ? pass(words <= COOK_QUESTION_MAX_WORDS.offTopic) : null,
     avoidsForbidden: forbiddenKeywords
       ? pass(
