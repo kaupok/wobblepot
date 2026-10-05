@@ -754,7 +754,7 @@ const REFRESH_HINT = `Staging: refresh it from the Vercel environment that match
   grep -E '^(VERCEL_OIDC_TOKEN|BLOB_STORE_ID)=' /tmp/wobblepot-blob.env   # copy both lines into .env
   rm /tmp/wobblepot-blob.env
 Never run a bare \`vercel env pull\`: it writes .env.local.
-Production: a pulled OIDC token is refused. Export the store connection's BLOB_READ_WRITE_TOKEN (Sensitive off) and \`export VERCEL_OIDC_TOKEN=\` (empty, so dotenv does not refill it from .env); see docs/DEPLOYMENT.md.`
+Production: a pulled OIDC token is refused. Export the store connection's BLOB_READ_WRITE_TOKEN (Sensitive off), then \`export VERCEL_OIDC_TOKEN=\` and \`export BLOB_STORE_ID=\` (empty, so dotenv does not refill them from .env); see docs/DEPLOYMENT.md.`
 
 /** Seconds since the epoch at which a JWT expires, or `undefined` if it cannot be read. */
 function jwtExpiry(token: string): number | undefined {
@@ -782,7 +782,18 @@ export function checkBlobCredentials(env: Env, now: Date): string {
     }
     return `BLOB_STORE_ID ${env.BLOB_STORE_ID} via VERCEL_OIDC_TOKEN`
   }
-  if (env.BLOB_READ_WRITE_TOKEN) return 'BLOB_READ_WRITE_TOKEN'
+  if (env.BLOB_READ_WRITE_TOKEN) {
+    // With no OIDC token in the environment, `@vercel/blob` asks `@vercel/oidc`
+    // to refresh one from the linked project. If that succeeds, a set store id
+    // wins over the read-write token and the upload goes to that store — the
+    // staging one, from .env — while this check reported the read-write token.
+    if (env.BLOB_STORE_ID?.trim()) {
+      throw new Error(
+        `BLOB_READ_WRITE_TOKEN is set without VERCEL_OIDC_TOKEN, but BLOB_STORE_ID is still set, so @vercel/blob may refresh an OIDC token and upload to store ${env.BLOB_STORE_ID} instead. Set BLOB_STORE_ID to empty.\n${REFRESH_HINT}`,
+      )
+    }
+    return 'BLOB_READ_WRITE_TOKEN'
+  }
   throw new Error(
     `Blob needs BLOB_STORE_ID and VERCEL_OIDC_TOKEN (or BLOB_READ_WRITE_TOKEN).\n${REFRESH_HINT}`,
   )

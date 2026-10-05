@@ -263,12 +263,13 @@ pnpm meal-images:global --confirm [--judge]
 - **Staging** authenticates with `BLOB_STORE_ID` plus `VERCEL_OIDC_TOKEN`. The token expires after about a day; `vercel env pull --environment=<env> /tmp/<file>` gives you a fresh one (never a bare `vercel env pull`, which writes `.env.local`).
 - **Production refuses a pulled OIDC token.** A token from `vercel env pull` carries the claim `environment: development`, whatever `--environment` names, and the production store is connected to Production only, so every upload fails with `OIDC is enabled for this project, but not for the "development" environment` (HON-1050). Use the store's static read-write token instead:
   1. In the Vercel dashboard, open the production Blob store (`wobblepot-images-prod`) → Projects → **Configure honkadori**. Tick **Add a read-write token env var to this connection**, with **Sensitive off**. Vercel writes `BLOB_READ_WRITE_TOKEN` into Production. A sensitive variable can never be read back, so with Sensitive on the pull below returns an empty value. The deployed app is unaffected, because `@vercel/blob` prefers OIDC when both are set. Do this once.
-  2. Export the token in the shell and blank the OIDC token. The scripts load `.env` through `dotenv/config`, which fills in any variable that is not already set, so `unset VERCEL_OIDC_TOKEN` brings the stale `.env` token back and the script reports it as expired. An empty value counts as absent, and the script falls through to `BLOB_READ_WRITE_TOKEN`:
+  2. Export the token in the shell, and blank both the OIDC token and the store id. The scripts load `.env` through `dotenv/config`, which fills in any variable that is not already set, so `unset VERCEL_OIDC_TOKEN` brings the stale `.env` token back and the script reports it as expired. An empty value counts as absent. The store id must be blank too: with no OIDC token, `@vercel/blob` tries to refresh one from the linked Vercel project, and if that works, a set `BLOB_STORE_ID` wins over the read-write token and the upload goes to the staging store from `.env`. The script refuses that combination. The read-write token carries its own store id:
 
 ```bash
 vercel env pull --environment=production /tmp/wobblepot-prod.env
 export BLOB_READ_WRITE_TOKEN="$(grep '^BLOB_READ_WRITE_TOKEN=' /tmp/wobblepot-prod.env | cut -d= -f2- | tr -d '"')"
 export VERCEL_OIDC_TOKEN=   # empty, not unset: dotenv would refill it from .env
+export BLOB_STORE_ID=       # empty too, so a refreshed OIDC token cannot pick the staging store
 rm /tmp/wobblepot-prod.env
 ```
 

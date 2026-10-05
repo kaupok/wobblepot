@@ -228,12 +228,13 @@ rm /tmp/vercel.env
 The pulled OIDC token above only reaches the staging store. A token from `vercel env pull` carries the claim `environment: development`, even with `--environment=production`, and the production store is connected to Production only, so it refuses every upload (HON-1050). The meal-image scripts (`pnpm meal-images:global --publish`, `pnpm meal-images:refit --confirm`) need the store's static read-write token for production:
 
 1. Once: in the Vercel dashboard, open the production Blob store (`wobblepot-images-prod`) → Projects → **Configure honkadori**, and tick **Add a read-write token env var to this connection** with **Sensitive off**. A sensitive variable can never be read back, so with Sensitive on the pull below returns an empty value.
-2. Each session: export the token and blank the OIDC token. The scripts load `.env` through `dotenv/config`, which fills in any variable that is not already set, so `unset VERCEL_OIDC_TOKEN` brings the stale `.env` token back. An empty value counts as absent.
+2. Each session: export the token, and blank both the OIDC token and the store id. The scripts load `.env` through `dotenv/config`, which fills in any variable that is not already set, so `unset VERCEL_OIDC_TOKEN` brings the stale `.env` token back. An empty value counts as absent. Blank `BLOB_STORE_ID` too: with no OIDC token, `@vercel/blob` tries to refresh one, and a set store id then wins over the read-write token and sends the upload to the staging store.
 
 ```bash
 vercel env pull --environment=production /tmp/wobblepot-prod.env
 export BLOB_READ_WRITE_TOKEN="$(grep '^BLOB_READ_WRITE_TOKEN=' /tmp/wobblepot-prod.env | cut -d= -f2- | tr -d '"')"
 export VERCEL_OIDC_TOKEN=   # empty, not unset
+export BLOB_STORE_ID=       # empty too
 rm /tmp/wobblepot-prod.env
 ```
 
