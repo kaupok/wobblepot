@@ -4,6 +4,7 @@ import type { RecipeExtraction } from '../../src/lib/ai/recipe-schema'
 import type { CaseOf } from './case-schema'
 import { loadCases } from './load-cases'
 import {
+  COOK_QUESTION_MAX_SENTENCES,
   COOK_QUESTION_MAX_WORDS,
   countNumberedLines,
   derivePlanContext,
@@ -14,6 +15,7 @@ import {
   scoreRecipe,
   scoreReview,
   scoreTips,
+  sentenceCount,
 } from './scorers'
 
 function starter<T extends 'plan' | 'recipe' | 'imagine' | 'review' | 'tips' | 'cook-question'>(
@@ -547,6 +549,33 @@ describe('scoreTips', () => {
   })
 })
 
+describe('sentenceCount', () => {
+  it('splits on a sentence end before whitespace, in English and Estonian', () => {
+    expect(sentenceCount('Stir it. Then wait! Done? Yes… Ok')).toBe(5)
+    expect(sentenceCount('Sega läbi. Oota 2 minutit.')).toBe(2)
+  })
+
+  it('does not split an Estonian ordinal or an abbreviation', () => {
+    expect(sentenceCount('Jaga kartulid kahele plaadile 3. ja 4. sammus ning vaheta neid.')).toBe(1)
+    expect(sentenceCount('Küpseta 3. ja 4. sammus kauem. Vaheta plaadid.')).toBe(2)
+    expect(sentenceCount('Use oat yoghurt, e.g. oat milk, in step 3.')).toBe(1)
+  })
+
+  it('does not split a decimal, a temperature or a time', () => {
+    expect(sentenceCount('Cut it 2.5 cm thick and bake at 180 °C for 1.5 hours.')).toBe(1)
+  })
+
+  it('counts a second paragraph or a list line as its own sentence', () => {
+    expect(sentenceCount('It is done when it flakes\n\nRest it for 2 minutes.')).toBe(2)
+    expect(sentenceCount('Two options:\n- yoghurt\n- sour cream')).toBe(3)
+  })
+
+  it('ignores trailing whitespace and stray punctuation', () => {
+    expect(sentenceCount('  Stir it.  \n')).toBe(1)
+    expect(sentenceCount('Stir it. — ')).toBe(1)
+  })
+})
+
 describe('scoreCookQuestion', () => {
   const substitute = starter('cook-question', 'en-substitute-pantry-match')
   const offTopic = starter('cook-question', 'en-off-topic-football')
@@ -563,6 +592,7 @@ describe('scoreCookQuestion', () => {
       answered: 1,
       metricUnits: 1,
       withinLength: 1,
+      withinSentences: 1,
       offTopicDeclined: null,
       avoidsForbidden: null,
       mentionsExpected: 1,
@@ -605,9 +635,20 @@ describe('scoreCookQuestion', () => {
     expect(scoreCookQuestion(substitute, words(max + 1)).withinLength).toBe(0)
   })
 
+  it('fails an on-topic answer past the sentence ceiling', () => {
+    const sentences = (n: number) => Array.from({ length: n }, () => 'Stir it.').join(' ')
+    expect(
+      scoreCookQuestion(substitute, sentences(COOK_QUESTION_MAX_SENTENCES)).withinSentences,
+    ).toBe(1)
+    expect(
+      scoreCookQuestion(substitute, sentences(COOK_QUESTION_MAX_SENTENCES + 1)).withinSentences,
+    ).toBe(0)
+  })
+
   it('holds an off-topic answer to the short decline, and fails one that answers', () => {
     expect(scoreCookQuestion(offTopic, 'I can only help with this meal.')).toMatchObject({
       withinLength: null,
+      withinSentences: null,
       offTopicDeclined: 1,
       avoidsForbidden: 1,
     })

@@ -39,7 +39,7 @@ const ESTONIAN = 'et'
 
 // `isKnownLocale` too, so removing `et` from `KNOWN_LOCALES` switches the voice
 // blocks off even for a caller that passed the raw household locale (HON-921).
-function isEstonian(locale: string | null | undefined): boolean {
+export function isEstonian(locale: string | null | undefined): boolean {
   return locale === ESTONIAN && isKnownLocale(locale)
 }
 

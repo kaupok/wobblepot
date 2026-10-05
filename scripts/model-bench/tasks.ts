@@ -54,6 +54,7 @@ import {
   scoreRecipe,
   scoreReview,
   scoreTips,
+  COOK_QUESTION_MAX_SENTENCES,
   COOK_QUESTION_MAX_WORDS,
   type Scores,
 } from './scorers'
@@ -478,8 +479,17 @@ const cookQuestion: TaskSpec<'cook-question'> = {
       label: `≤ ${COOK_QUESTION_MAX_WORDS.answer} words`,
       format: 'percent',
       onError: null,
-      // "2 to 4 sentences" is a prompt instruction nothing enforces, as the
-      // tips counts are (HON-929): one long answer must not fail the record.
+      // The length is a prompt instruction nothing enforces, as the tips
+      // counts are (HON-929): one long answer must not fail the record.
+      gate: { min: 0.9 },
+    },
+    {
+      key: 'withinSentences',
+      label: `≤ ${COOK_QUESTION_MAX_SENTENCES} sentences`,
+      format: 'percent',
+      onError: null,
+      // As the word ceiling: a prompt instruction, so one fifth sentence must
+      // not fail the record (HON-1003).
       gate: { min: 0.9 },
     },
     {
