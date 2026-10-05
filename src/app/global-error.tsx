@@ -1,5 +1,9 @@
 'use client'
 
+// This document replaces the root layout, so the layout's `globals.css` import
+// does not cover it. The failing route's CSS usually loads anyway, but the
+// prerendered `_global-error` page carries only what this file imports (HON-1047).
+import './globals.css'
 import { Button } from '@/components/ui/button'
 import { Heading, Body } from '@/components/ui/typography'
 import { useEffect, useSyncExternalStore } from 'react'
@@ -11,6 +15,7 @@ import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
 import { markPostHogLoaded } from '@/lib/posthog-client-state'
 import { SUPPORT_EMAIL, SUPPORT_EMAIL_HREF } from '@/lib/support'
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales'
+import { geistMono, geistSans } from '@/lib/fonts'
 import { detectClientLocale, globalErrorTranslator } from '@/lib/i18n/global-error-messages'
 
 // Nothing to subscribe to: the locale is read once per render from the DOM and
@@ -64,9 +69,14 @@ export default function GlobalError({
 
   return (
     // `data-global-error` tells `detectClientLocale` whether this `lang` was detected
-    // in the browser or is only the server default.
-    <html lang={locale} data-global-error={rendered}>
-      <body>
+    // in the browser or is only the server default. The root layout's font
+    // classes do not reach this document, so it sets its own (HON-1047).
+    <html
+      lang={locale}
+      data-global-error={rendered}
+      className={`${geistSans.variable} ${geistMono.variable}`}
+    >
+      <body className="antialiased">
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
           <div className="max-w-md text-center">
             <div className="flex flex-col gap-3">
