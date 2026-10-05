@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // the global mock always answers from English, which would make the Estonian
 // assertions below pass whether or not the leak is fixed (HON-700).
 vi.unmock('next-intl')
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../../messages/en.json'
@@ -330,5 +330,56 @@ describe('RecipeImportClient paste field name', () => {
       'placeholder',
       messages.recipes.import.placeholder,
     )
+  })
+})
+
+// The create page decides which event a save fires from the stash's `origin`,
+// not from `originalRecipeText` (HON-1063).
+describe('RecipeImportClient stash origin', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("marks the prefilled-meal stash with origin 'import'", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            success: true,
+            confidenceTier: 'high',
+            recipe: {
+              name: 'Lentil stew',
+              description: null,
+              preparationNotes: null,
+              sourceUrl: null,
+              timeMinutes: 25,
+              servings: 4,
+              mealTypes: ['dinner'],
+              kidFriendly: true,
+              ingredients: [],
+              allMatched: true,
+            },
+          }),
+      }),
+    )
+    renderInLocale(<RecipeImportClient />, 'en')
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Lentil stew\n- 200g lentils' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /import recipe/i }))
+
+    await waitFor(() => expect(sessionStorage.getItem('prefilled-meal')).not.toBeNull())
+    expect(JSON.parse(sessionStorage.getItem('prefilled-meal')!)).toMatchObject({
+      name: 'Lentil stew',
+      origin: 'import',
+      originalRecipeText: 'Lentil stew\n- 200g lentils',
+    })
   })
 })

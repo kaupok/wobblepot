@@ -1,8 +1,10 @@
 import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import { createQueryWrapper } from '@/test/query-wrapper'
+import { track } from '@/lib/analytics'
 import { EditRecipeClient } from './EditRecipeClient'
 
 const push = vi.fn()
@@ -10,11 +12,22 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
 }))
 
+vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
+
 // The form is exercised by its own suite; here it only has to prove that the
-// loaded meal reached it.
+// loaded meal reached it, and give Save a handle.
 vi.mock('@/components/household/MealForm', () => ({
-  MealForm: ({ meal }: { meal?: { name: string } }) => (
-    <div data-testid="meal-form">{meal?.name}</div>
+  MealForm: ({
+    meal,
+    onSuccess,
+  }: {
+    meal?: { name: string }
+    onSuccess: (meal: { id: string }) => void
+  }) => (
+    <div>
+      <div data-testid="meal-form">{meal?.name}</div>
+      <button onClick={() => onSuccess({ id: 'meal-1' })}>Save</button>
+    </div>
   ),
 }))
 
@@ -58,6 +71,18 @@ describe('EditRecipeClient', () => {
     expect(screen.queryByTestId('meal-form')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Back to recipes' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('status', { name: 'Loading…' }).length).toBeGreaterThan(0)
+  })
+
+  // Only the create page counts a new recipe; an edit is not one (HON-1063).
+  it('fires no recipe event when the edit is saved', async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(mealResponse) })
+    renderClient()
+    await screen.findByTestId('meal-form')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(push).toHaveBeenCalledWith('/recipes')
+    expect(track).not.toHaveBeenCalled()
   })
 
   it('requests the meal by id and renders the form with the mapped data', async () => {

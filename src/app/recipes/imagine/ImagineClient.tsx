@@ -133,6 +133,7 @@ export function ImagineClient() {
         ...reviewMeal,
         prefilledIngredients: currentIngredients,
         returnTo: IMAGINE_ROUTE,
+        origin: 'imagine',
       }),
     )
     router.push('/recipes/create?prefilled=true')

@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { MealFormData } from '@/components/household/MealForm'
+import { track } from '@/lib/analytics'
 import { CreateRecipeClient } from './CreateRecipeClient'
 
 const push = vi.fn()
@@ -23,7 +24,7 @@ vi.mock('@/components/household/MealForm', () => ({
     onCancel,
   }: {
     meal?: MealFormData
-    onSuccess: () => void
+    onSuccess: (meal: { id: string }) => void
     onCancel: () => void
   }) => (
     <div>
@@ -34,7 +35,7 @@ vi.mock('@/components/household/MealForm', () => ({
         ))}
       </ul>
       <button onClick={onCancel}>Cancel</button>
-      <button onClick={onSuccess}>Save</button>
+      <button onClick={() => onSuccess({ id: 'meal-1' })}>Save</button>
     </div>
   ),
 }))
@@ -140,6 +141,57 @@ describe('CreateRecipeClient routing', () => {
 
     await waitFor(() => expect(push).toHaveBeenCalledWith('/recipes'))
     expect(sessionStorage.getItem('imagined-meals')).not.toBeNull()
+  })
+})
+
+// One event per path that adds a recipe, decided by the stash's `origin`
+// (HON-1063). `originalRecipeText` is a form field and must not decide it.
+describe('CreateRecipeClient save events', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    push.mockClear()
+    vi.mocked(track).mockClear()
+  })
+
+  async function save() {
+    await renderLoaded()
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/recipes'))
+  }
+
+  it('fires recipe:created, and no other recipe event, for the blank form', async () => {
+    await save()
+
+    expect(track).toHaveBeenCalledTimes(1)
+    expect(track).toHaveBeenCalledWith('recipe:created', { source: 'create_page' })
+    expect(track).not.toHaveBeenCalledWith('recipe:imported', expect.anything())
+  })
+
+  it('fires recipe:imported for a stash the import flow wrote', async () => {
+    seedPrefilled({ origin: 'import', originalRecipeText: 'Lentil stew\n- 200g lentils' })
+    await save()
+
+    expect(track).toHaveBeenCalledTimes(1)
+    expect(track).toHaveBeenCalledWith('recipe:imported', { source: 'import_page' })
+  })
+
+  it("fires meal:imagined with the saved meal's id for imagine's Edit details", async () => {
+    seedPrefilled({ origin: 'imagine', returnTo: '/recipes/imagine' })
+    await save()
+
+    expect(track).toHaveBeenCalledTimes(1)
+    expect(track).toHaveBeenCalledWith('meal:imagined', {
+      meal_id: 'meal-1',
+      source: 'imagine_page',
+    })
+  })
+
+  it('does not read originalRecipeText as the import marker', async () => {
+    seedPrefilled({ originalRecipeText: 'Lentil stew\n- 200g lentils' })
+    await save()
+
+    expect(track).toHaveBeenCalledTimes(1)
+    expect(track).toHaveBeenCalledWith('recipe:created', { source: 'create_page' })
   })
 })
 

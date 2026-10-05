@@ -11,6 +11,8 @@ import etMessages from '../../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
 import { ImagineClient } from './ImagineClient'
+import { saveImagineSession } from './imagine-session'
+import type { ImaginedMealResponse } from '@/lib/imagine-utils'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -227,5 +229,54 @@ describe('ImagineClient prep time (HON-891)', () => {
     expect(screen.getByText('13 min')).toBeInTheDocument()
     expect(screen.queryByText('12.5 min')).not.toBeInTheDocument()
     expect(screen.queryByText('600 min')).not.toBeInTheDocument()
+  })
+})
+
+// The create page decides which event a save fires from the stash's `origin`
+// (HON-1063): an "Edit details" save fires `meal:imagined`.
+describe('ImagineClient Edit details stash', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it("marks the prefilled-meal stash with origin 'imagine'", async () => {
+    saveImagineSession({
+      prompt: 'something with lentils',
+      meals: [
+        {
+          id: 'im-1',
+          name: 'Lentil soup',
+          description: null,
+          timeMinutes: 25,
+          servings: 4,
+          suitableFor: ['dinner'],
+          kidFriendly: false,
+          primaryProteinType: 'legume',
+          components: [],
+          nutrition: { calories: 480, protein: 24, carbs: 62, fat: 12 },
+          ingredients: [],
+          allMatched: true,
+        } as unknown as ImaginedMealResponse,
+      ],
+    })
+    // The quantity review degrades to the unreviewed meal on failure, which is
+    // all this test needs to reach the dialog.
+    respondWith({ error: 'Review failed' }, 500)
+    renderInLocale(<ImagineClient />, 'en')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Select' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit details' }))
+
+    expect(JSON.parse(sessionStorage.getItem('prefilled-meal')!)).toMatchObject({
+      name: 'Lentil soup',
+      origin: 'imagine',
+      returnTo: '/recipes/imagine',
+    })
   })
 })
