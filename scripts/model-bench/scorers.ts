@@ -439,12 +439,17 @@ const wordCount = (text: string) => text.split(/\s+/u).filter(Boolean).length
 
 /**
  * Sentences in a plain-text answer: a run of text ended by `.`, `!`, `?` or
- * `…` before whitespace, or by a line break, so a second paragraph or a list
- * line counts too. A decimal ("2.5 cm") or "°C." mid-text does not split,
- * since no whitespace follows the point. Exported for tests.
+ * `…` before whitespace and a capital letter or a digit, or by a line break,
+ * so a second paragraph or a list line counts too. A decimal ("2.5 cm") or
+ * "°C." mid-text does not split, since no whitespace follows the point. An
+ * Estonian ordinal ("3. ja 4. sammus", "in steps 3 and 4") or an abbreviation
+ * ("e.g. oat milk") does not split either, because a lowercase word follows.
+ * Exported for tests.
  */
 export function sentenceCount(text: string): number {
-  return text.split(/(?<=[.!?…])\s+|\n+/u).filter((part) => /[\p{L}\p{N}]/u.test(part)).length
+  return text
+    .split(/(?<=[.!?…])\s+(?=[\p{Lu}\p{N}])|\n+/u)
+    .filter((part) => /[\p{L}\p{N}]/u.test(part)).length
 }
 
 /**

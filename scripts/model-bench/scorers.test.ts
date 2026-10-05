@@ -551,8 +551,14 @@ describe('scoreTips', () => {
 
 describe('sentenceCount', () => {
   it('splits on a sentence end before whitespace, in English and Estonian', () => {
-    expect(sentenceCount('Stir it. Then wait! Done? Yes… ok')).toBe(5)
+    expect(sentenceCount('Stir it. Then wait! Done? Yes… Ok')).toBe(5)
     expect(sentenceCount('Sega läbi. Oota 2 minutit.')).toBe(2)
+  })
+
+  it('does not split an Estonian ordinal or an abbreviation', () => {
+    expect(sentenceCount('Jaga kartulid kahele plaadile 3. ja 4. sammus ning vaheta neid.')).toBe(1)
+    expect(sentenceCount('Küpseta 3. ja 4. sammus kauem. Vaheta plaadid.')).toBe(2)
+    expect(sentenceCount('Use oat yoghurt, e.g. oat milk, in step 3.')).toBe(1)
   })
 
   it('does not split a decimal, a temperature or a time', () => {
