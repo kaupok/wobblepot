@@ -167,7 +167,7 @@ pnpm ai-eval --record --task imagine   # re-record imagine.json only
 
 `--record` is a `--check` (same flags, same report) that also writes one golden file per task it ran: the model, the date, the short commit, the run count, and for each case two sha256 hashes, `requestHash` (prompt text and output schema) and `promptHash` (prompt text alone), and every call record, output included. A run that fails a gate writes nothing and exits 1, since the golden is what later changes are measured against; `--force` records it anyway, and the exit code still reports the failed gates. A run `--max-usd` stopped never records, with or without `--force`.
 
-The committed golden is Sonnet 5.5 on every task. Four tasks were recorded 2026-10-01 from `main` at `ef94fbf1` (HON-905); `tips.json` was re-recorded 2026-10-02 at `c5eaa840` after the English voice rules merged (HON-963); `cook-question.json` was recorded 2026-10-03 on the HON-972 branch, whose commit field is the `main` it branched from (`0180a82d`) plus the 1200-token ceiling. Each file's header says its own model, date and commit.
+The committed golden is Sonnet 5.5 on every task. Four tasks were recorded 2026-10-01 from `main` at `ef94fbf1` (HON-905); `tips.json` was re-recorded 2026-10-02 at `c5eaa840` after the English voice rules merged (HON-963); `cook-question.json` was re-recorded 2026-10-05 at `3d4afd93` after the length rule merged (HON-1003). Each file's header says its own model, date and commit.
 
 Record from a session that will not judge afterwards. A session that has read the golden's outputs knows which answers are the recorded ones, so it must not run `/bench-judge` on a comparison against them.
 
