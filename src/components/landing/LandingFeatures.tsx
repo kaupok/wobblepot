@@ -1,9 +1,11 @@
 'use client'
 
 import type { ComponentType, ReactNode } from 'react'
+import { Sparkles } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Body, Heading } from '@/components/ui/typography'
 import { MemberRow } from '@/components/household/MemberRow'
 import { IngredientList } from '@/components/meal-plan/IngredientList'
@@ -33,8 +35,9 @@ import type { Member, MemberPreferences } from '@/types/member'
 const SALMON_HUE = 88
 
 /**
- * The recipes vignette shows a different meal, the library's Acai Bowl
- * (`prisma/seed-expansion.ts`), so the rows alternate tints from `md`: yellow,
+ * The imagine vignette shows a different meal, the library's Acai Bowl
+ * (`prisma/seed-expansion.ts`), as the dish Imagine a meal produced from the
+ * household's description, so the rows alternate tints from `md`: yellow,
  * pink, neutral, yellow (HON-1042). Its illustration is a copy of the meal's
  * generated image and its hue is what `extractHue` returns for that file, as
  * for `LandingShowcase`; the name and description are in the catalog.
@@ -82,12 +85,12 @@ const INGREDIENTS = [
   { key: 'lemon', category: 'fruit', unit: 'piece', quantityPerServing: 0.4, inPantry: false },
 ] as const
 
-const POINTS = ['pantry', 'recipes', 'kids', 'cook'] as const
+const POINTS = ['pantry', 'imagine', 'kids', 'cook'] as const
 type Point = (typeof POINTS)[number]
 
 const VIGNETTES: Record<Point, ComponentType> = {
   pantry: PantryVignette,
-  recipes: RecipesVignette,
+  imagine: ImagineVignette,
   kids: PortionsVignette,
   cook: CookVignette,
 }
@@ -97,7 +100,7 @@ const VIGNETTES: Record<Point, ComponentType> = {
 // only, which the rotate scale has.
 const TILTS: Record<Point, string> = {
   pantry: 'rotate-1',
-  recipes: '-rotate-2',
+  imagine: '-rotate-2',
   kids: 'rotate-2',
   cook: '-rotate-1',
 }
@@ -222,14 +225,31 @@ function PantryVignette() {
   )
 }
 
-/** A pasted link, and the same dish on the planner, marked as the household's own. */
-function RecipesVignette() {
-  const t = useTranslations('landing.why.recipes.vignette')
+/**
+ * The imagine page's prompt field with the household's description and its
+ * Imagine button, then the dish it produced on the planner, marked as the
+ * household's own. No photo control: at this size it is a second control that
+ * says nothing.
+ */
+function ImagineVignette() {
+  const t = useTranslations('landing.why.imagine.vignette')
+  const tImagine = useTranslations('recipes.imagine')
   const name = t('name')
 
   return (
     <div className="flex flex-col gap-3">
-      <Input readOnly value={t('link')} aria-label={t('linkLabel')} />
+      <Textarea
+        readOnly
+        value={t('prompt')}
+        aria-label={tImagine('promptAria')}
+        rows={2}
+        className="resize-none"
+      />
+      {/* The page's button as it draws it from `md`. */}
+      <Button className="self-start">
+        <Sparkles className="mr-2 h-4 w-4" />
+        {tImagine('generate')}
+      </Button>
       <MealImageCard
         meal={{
           name,

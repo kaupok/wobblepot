@@ -684,13 +684,12 @@
           "lemon": "Lemon"
         }
       },
-      "recipes": {
-        "title": "Your recipes join the plan",
-        "body": "Paste a link or a recipe, and your own dishes get planned alongside the rest.",
+      "imagine": {
+        "title": "Imagine a meal",
+        "body": "Say what you're in the mood for, or snap a photo. You get three recipes to save, and they join the plan with the rest.",
         "vignette": {
-          "caption": "A pasted recipe link, and below it the same dish on the planner: an acai bowl for breakfast, marked as your own recipe.",
-          "linkLabel": "Recipe link",
-          "link": "https://example.com/acai-bowl",
+          "caption": "A description typed into Imagine a meal, and below it the dish it produced on the planner: an acai bowl for breakfast, marked as your own recipe.",
+          "prompt": "Something cold and fruity for breakfast, with granola",
           "name": "Acai bowl",
           "description": "Frozen acai with banana, granola and fresh fruit"
         }

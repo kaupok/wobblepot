@@ -25,7 +25,7 @@ function renderFeatures(locale: 'en' | 'et' = 'en') {
   return render(<LandingFeatures />, { wrapper: Wrapper })
 }
 
-const POINTS = ['pantry', 'recipes', 'kids', 'cook'] as const
+const POINTS = ['pantry', 'imagine', 'kids', 'cook'] as const
 
 function vignette(point: (typeof POINTS)[number]) {
   return screen.getByTestId(`landing-vignette-${point}`)
@@ -44,7 +44,7 @@ describe('LandingFeatures', () => {
     const section = screen.getByRole('region', { name: 'Made for family kitchens' })
     for (const title of [
       'It knows your pantry',
-      'Your recipes join the plan',
+      'Imagine a meal',
       'Portions follow the people',
       'Cooking help on the counter',
     ]) {
@@ -58,7 +58,7 @@ describe('LandingFeatures', () => {
     const section = screen.getByRole('region', { name: 'Made for family kitchens' })
     for (const name of [
       'It knows your pantry',
-      'Your recipes join the plan',
+      'Imagine a meal',
       'Portions follow the people',
       'Cooking help on the counter',
     ]) {
@@ -79,7 +79,7 @@ describe('LandingFeatures', () => {
     expect(within(section).getByRole('heading', { level: 2 })).toHaveClass('font-display')
     for (const name of [
       'It knows your pantry',
-      'Your recipes join the plan',
+      'Imagine a meal',
       'Portions follow the people',
       'Cooking help on the counter',
     ]) {
@@ -134,16 +134,19 @@ describe('LandingFeatures', () => {
     expect(within(pantry).getByText('1 pc')).toBeInTheDocument()
   })
 
-  it('shows a pasted link and the acai bowl on the planner, marked as an own recipe', () => {
+  it('shows a description in Imagine a meal and the acai bowl it produced on the planner, marked as an own recipe', () => {
     renderFeatures()
-    const recipes = drawing('recipes')
-    const input = within(recipes).getByRole('textbox', { name: 'Recipe link' })
-    expect(input).toHaveAttribute('readonly')
-    expect(input).toHaveValue('https://example.com/acai-bowl')
-    expect(within(recipes).getByText('Acai bowl')).toBeInTheDocument()
-    expect(within(recipes).getByText('Breakfast')).toBeInTheDocument()
-    expect(within(recipes).getByRole('button', { name: 'My recipe' })).toBeInTheDocument()
-    expect(within(recipes).queryByText('Fish')).not.toBeInTheDocument()
+    const imagine = drawing('imagine')
+    const prompt = within(imagine).getByRole('textbox', {
+      name: "Describe the meal you're in the mood for",
+    })
+    expect(prompt).toHaveAttribute('readonly')
+    expect(prompt).toHaveValue('Something cold and fruity for breakfast, with granola')
+    expect(within(imagine).getByRole('button', { name: 'Imagine meals' })).toBeInTheDocument()
+    expect(within(imagine).getByText('Acai bowl')).toBeInTheDocument()
+    expect(within(imagine).getByText('Breakfast')).toBeInTheDocument()
+    expect(within(imagine).getByRole('button', { name: 'My recipe' })).toBeInTheDocument()
+    expect(within(imagine).queryByText('Fish')).not.toBeInTheDocument()
   })
 
   it("scales the salmon by the members' portions: 120 g × (1 + 1 + 0.5)", () => {
@@ -187,7 +190,10 @@ describe('LandingFeatures', () => {
     renderFeatures('et')
     screen.getByRole('region', { name: 'Tehtud pereköökidele' })
     expect(within(drawing('pantry')).getByText('Lõhefilee')).toBeInTheDocument()
-    expect(within(drawing('recipes')).getByText('Acai kauss')).toBeInTheDocument()
+    expect(within(drawing('imagine')).getByText('Acai kauss')).toBeInTheDocument()
+    expect(
+      within(drawing('imagine')).getByRole('button', { name: 'Mõtle toidud välja' }),
+    ).toBeInTheDocument()
     expect(within(drawing('kids')).getByText('Mia (2)')).toBeInTheDocument()
     expect(within(drawing('kids')).getAllByText('Tavaline 1×')).toHaveLength(2)
     expect(within(drawing('kids')).getByRole('button', { name: /^2,5 portsjonit/ })).toBeDisabled()
