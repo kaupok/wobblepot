@@ -95,7 +95,7 @@ export const Populated: Story = {
   },
 }
 
-/** The "Imagine a meal" and "Add recipe" links, in their row order. */
+/** The "Imagine a meal" and "Import recipe" links, in their row order. */
 function actionLinks(canvasElement: HTMLElement) {
   const links = ['/recipes/imagine', '/recipes/import'].map((href) =>
     canvasElement.querySelector<HTMLAnchorElement>(`a[href="${href}"]`),
@@ -110,11 +110,11 @@ function actionLinks(canvasElement: HTMLElement) {
 async function expectActionsTwoUp(canvasElement: HTMLElement) {
   const links = actionLinks(canvasElement)
   await expect(links).toHaveLength(2)
-  const [imagine, add] = links.map((link) => link.getBoundingClientRect())
+  const [imagine, importLink] = links.map((link) => link.getBoundingClientRect())
   const row = links[0]!.parentElement!.getBoundingClientRect()
-  await expect(imagine!.top).toBe(add!.top)
+  await expect(imagine!.top).toBe(importLink!.top)
   await expect(imagine!.left).toBeCloseTo(row.left, 0)
-  await expect(add!.right).toBeCloseTo(row.right, 0)
+  await expect(importLink!.right).toBeCloseTo(row.right, 0)
   for (const link of links) {
     await expect(link.scrollWidth).toBeLessThanOrEqual(link.clientWidth)
   }

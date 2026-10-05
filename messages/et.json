@@ -410,7 +410,7 @@
       "searchAria": "Otsi retsepte",
       "loading": "Laen…",
       "imagineButton": "Mõtle välja toit",
-      "addButton": "Lisa retsept",
+      "importButton": "Impordi retsept",
       "loadMore": "Lae rohkem",
       "loadingMore": "Laen…",
       "emptySearch": "Päringule „{query}\" vastavaid retsepte ei leitud",

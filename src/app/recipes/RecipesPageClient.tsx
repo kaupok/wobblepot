@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Sparkles } from 'lucide-react'
+import { Download, Sparkles } from 'lucide-react'
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -136,8 +136,8 @@ export function RecipesPageClient() {
           </Button>
           <Button asChild>
             <Link href="/recipes/import">
-              <Plus />
-              {tLibrary('addButton')}
+              <Download />
+              {tLibrary('importButton')}
             </Link>
           </Button>
         </div>

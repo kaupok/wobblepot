@@ -410,7 +410,7 @@
       "searchAria": "Search recipes",
       "loading": "Loading…",
       "imagineButton": "Imagine a meal",
-      "addButton": "Add recipe",
+      "importButton": "Import recipe",
       "loadMore": "Load more",
       "loadingMore": "Loading…",
       "emptySearch": "No recipes found matching \"{query}\"",
