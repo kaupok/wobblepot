@@ -10,7 +10,7 @@ import sharp from 'sharp'
  * the meal owns most against `HUE_BASELINE`, not the biggest one (HON-1009):
  * cooked food under a warm gouache palette is mostly orange, so the biggest
  * bin gave almost every meal the same amber card. A colour that lies across a
- * bin edge passes the share gate through its window (HON-1014), so a green
+ * bin edge passes the share gate through its other half (HON-1014), so a green
  * split 10/10 between two bins is not lost as two halves under 15%. The hue
  * is extracted once, when the image is stored, onto `Meal.imageHue`; the card
  * tints itself with `oklch(L C hue)` from fixed tokens, so hue is the only
@@ -88,12 +88,12 @@ export interface HueOptions {
   /** Expected share per bin, one entry per bin: see `HUE_BASELINE`. */
   baseline: readonly number[]
   /**
-   * Bins on each side that make up a bin's window. A bin under `minShare` is
-   * still eligible when its window holds `minShare` and it is the window's
-   * peak, so a colour split 10/10 across a bin edge counts. It scores on its
-   * own share, as every bin does. 0 judges each bin alone (the HON-1009 rule).
+   * Let a bin under `minShare` qualify with its split partner: an adjacent bin
+   * no larger than it, the two together holding `minShare`. So a colour split
+   * 10/10 across a bin edge counts. The bin still scores on its own share.
+   * false judges each bin alone (the HON-1009 rule).
    */
-  window: number
+  splitEdges: boolean
 }
 
 export const DEFAULT_HUE_OPTIONS: HueOptions = {
@@ -107,7 +107,7 @@ export const DEFAULT_HUE_OPTIONS: HueOptions = {
   minShare: 0.15,
   baselineFloor: 0.01,
   baseline: HUE_BASELINE,
-  window: 1,
+  splitEdges: true,
 }
 
 export interface HueResult {
@@ -123,22 +123,14 @@ export interface HueResult {
   bins: number[]
 }
 
-/** The bins `window` either side of `centre`, wrapping round the hue circle. */
-function windowBins(centre: number, options: Pick<HueOptions, 'bins' | 'window'>): number[] {
-  const out: number[] = []
-  for (let d = -options.window; d <= options.window; d++) {
-    out.push((((centre + d) % options.bins) + options.bins) % options.bins)
-  }
-  return out
-}
-
 /**
  * The winning bin: among eligible bins, the one whose share most exceeds the
  * baseline's. A bin is eligible with at least `minShare` of the chroma mass on
- * its own, or with `minShare` across its window when it is the window's peak:
+ * its own, or together with an adjacent bin no larger than it (`splitEdges`):
  * a colour split 10/10 across a bin edge then still counts, through its larger
- * half, while a small accent beside a big bin never peaks and stays out. With
- * no eligible bin, the largest. -1 when there is no chroma at all.
+ * half, whatever lies on the far side, while a small accent beside a bigger
+ * bin has no partner and stays out. With no eligible bin, the largest. -1 when
+ * there is no chroma at all.
  */
 export function winningBin(bins: ArrayLike<number>, options: HueOptions): number {
   let sum = 0
@@ -152,13 +144,15 @@ export function winningBin(bins: ArrayLike<number>, options: HueOptions): number
     const share = mass / sum
     if (mass > (bins[largest] ?? 0)) largest = b
     if (share < options.minShare) {
-      let windowMass = 0
-      let peak = true
-      for (const w of windowBins(b, { bins: bins.length, window: options.window })) {
-        windowMass += bins[w] ?? 0
-        if ((bins[w] ?? 0) > mass) peak = false
-      }
-      if (!peak || windowMass / sum < options.minShare) continue
+      // The partner is the other half of a split colour, so it is compared
+      // alone: a bigger bin of another colour on the far side cannot block it.
+      const split =
+        options.splitEdges &&
+        [-1, 1].some((d) => {
+          const partner = bins[(b + d + bins.length) % bins.length] ?? 0
+          return partner <= mass && (mass + partner) / sum >= options.minShare
+        })
+      if (!split) continue
     }
     const score = share / Math.max(options.baseline[b] ?? 0, options.baselineFloor)
     if (score > best) {
@@ -179,13 +173,6 @@ export function hueFromPixels(
     throw new Error(
       `The hue baseline has ${options.baseline.length} bins, the options ${options.bins}`,
     )
-  }
-  if (
-    !Number.isInteger(options.window) ||
-    options.window < 0 ||
-    2 * options.window + 1 > options.bins
-  ) {
-    throw new Error(`A hue window of ${options.window} does not fit ${options.bins} bins`)
   }
   // Typed arrays index without `undefined` under noUncheckedIndexedAccess.
   const bins = new Float64Array(options.bins)

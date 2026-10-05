@@ -85,7 +85,7 @@ describe('hueFromPixels', () => {
     expect(hue).toBeGreaterThanOrEqual(120)
     expect(hue).toBeLessThan(160)
     // Judged bin by bin (the HON-1009 rule), neither half qualifies.
-    const perBin = hueFromPixels(data, 4, { ...DEFAULT_HUE_OPTIONS, window: 0 })
+    const perBin = hueFromPixels(data, 4, { ...DEFAULT_HUE_OPTIONS, splitEdges: false })
     expect(Math.abs((perBin.hue ?? 0) - srgbToOklch(...ORANGE).h)).toBeLessThanOrEqual(1)
   })
 
@@ -95,11 +95,6 @@ describe('hueFromPixels', () => {
     const total = bins.reduce((a, b) => a + b, 0)
     expect((bins[4] ?? 0) / total).toBeLessThan(0.1)
     expect(Math.abs((hue ?? 0) - srgbToOklch(...ORANGE).h)).toBeLessThanOrEqual(1)
-  })
-
-  it('rejects a window wider than the bins', () => {
-    const options = { ...DEFAULT_HUE_OPTIONS, window: 9 }
-    expect(() => hueFromPixels(pixels([ORANGE, 1]), 4, options)).toThrow('window')
   })
 
   it('reproduces the largest-bin rule under a uniform baseline', () => {
@@ -123,7 +118,7 @@ describe('winningBin', () => {
   })
 
   it('falls back to the largest bin when none holds the minimum share', () => {
-    expect(winningBin([5, 2, 3], { ...options, minShare: 0.6, window: 0 })).toBe(0)
+    expect(winningBin([5, 2, 3], { ...options, minShare: 0.6, splitEdges: false })).toBe(0)
   })
 
   it('floors a near-empty baseline bin so it scores on its share, not on noise', () => {
@@ -132,14 +127,14 @@ describe('winningBin', () => {
     expect(winningBin([4, 2, 4], floored)).toBe(0)
   })
 
-  it('admits a bin under the minimum share when its window holds it and it peaks there', () => {
+  it('admits a bin under the minimum share with an adjacent partner no larger than it', () => {
     const orange = new Array(18).fill(0)
     orange[3] = 80
     orange[6] = 10
     orange[7] = 10
     // Bin 7 (140–159°) scores 0.1 / 0.0101 against orange's 0.8 / 0.387.
     expect(winningBin(orange, DEFAULT_HUE_OPTIONS)).toBe(7)
-    expect(winningBin(orange, { ...DEFAULT_HUE_OPTIONS, window: 0 })).toBe(3)
+    expect(winningBin(orange, { ...DEFAULT_HUE_OPTIONS, splitEdges: false })).toBe(3)
   })
 
   it('does not let an accent under 10% win through a bigger neighbour', () => {
@@ -147,9 +142,25 @@ describe('winningBin', () => {
     meal[3] = 60
     meal[5] = 31
     meal[6] = 9
-    // Bin 6 would score 0.09 / 0.0101 against bin 5's 0.31 / 0.0566, but bin 5
-    // outweighs it inside its own window, so only bin 5 is eligible.
+    // Bin 6 would score 0.09 / 0.0101 against bin 5's 0.31 / 0.0566, but its
+    // only partner under it is bin 7 (empty), so it never reaches 15%.
     expect(winningBin(meal, DEFAULT_HUE_OPTIONS)).toBe(5)
+  })
+
+  it('gives a split colour the same answer whichever side of the edge holds more', () => {
+    // 18% green split across the 120° edge, beside a 12% yellow bin. The
+    // larger half must not be blocked by the yellow on its far side.
+    const meal = (b5: number, b6: number) => {
+      const bins = new Array(18).fill(0)
+      bins[2] = 15
+      bins[3] = 55
+      bins[4] = 12
+      bins[5] = b5
+      bins[6] = b6
+      return bins
+    }
+    expect(winningBin(meal(10, 8), DEFAULT_HUE_OPTIONS)).toBe(5)
+    expect(winningBin(meal(8, 10), DEFAULT_HUE_OPTIONS)).toBe(6)
   })
 
   it('returns -1 when no bin carries chroma', () => {
