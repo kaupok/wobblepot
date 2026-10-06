@@ -112,7 +112,14 @@ function addWorktree(branch: string): string {
   return dir
 }
 
-function runDone(cwd: string, opts: { ghFails?: boolean } = {}) {
+function neonDeletes(): string[] {
+  return fs
+    .readFileSync(path.join(stubDir, 'calls'), 'utf8')
+    .split('\n')
+    .filter((line) => line.startsWith('pnpm ') && line.includes('branches delete'))
+}
+
+function runDone(cwd: string, opts: { ghFails?: boolean; neon?: boolean } = {}) {
   const r = spawnSync('/bin/bash', ['-c', 'source "$1"; cmd_done', 'bash', worktreeClaude], {
     cwd,
     encoding: 'utf8',
@@ -122,6 +129,8 @@ function runDone(cwd: string, opts: { ghFails?: boolean } = {}) {
       PATH: `${stubDir}:${process.env.PATH}`,
       STUB_DIR: stubDir,
       STUB_GH_FAILS: opts.ghFails ? '1' : '0',
+      // Dummy values switch neon_enabled on; the pnpm stub records the delete.
+      ...(opts.neon ? { NEON_API_KEY: 'test-key', NEON_PROJECT_ID: 'test-project' } : {}),
     },
   })
   return { status: r.status, out: `${r.stdout}${r.stderr}` }
@@ -309,6 +318,23 @@ describe('wt done worktrees (HON-1066)', () => {
     expect(r.out).toContain('kaupo/hon-12-k: tip differs from the head of merged PR #12')
   })
 
+  it('deletes the Neon branch of a removed worktree only', () => {
+    const merged = squashMerged('kaupo/hon-15-n', 't.txt')
+    const stale = squashMerged('kaupo/hon-16-o', 'u.txt')
+    writePrs([
+      { number: 15, headRefName: 'kaupo/hon-15-n', headRefOid: merged },
+      { number: 16, headRefName: 'kaupo/hon-16-o', headRefOid: stale },
+    ])
+    addWorktree('kaupo/hon-15-n')
+    commit(addWorktree('kaupo/hon-16-o'), 'u-late.txt')
+
+    const r = runDone(main, { neon: true })
+
+    expect(r.status, r.out).toBe(0)
+    expect(neonDeletes()).toHaveLength(1)
+    expect(neonDeletes()[0]).toContain('branches delete kaupo--hon-15-n ')
+  })
+
   it('keeps every worktree when gh fails', () => {
     const tip = squashMerged('kaupo/hon-13-l', 'r.txt')
     writePrs([{ number: 13, headRefName: 'kaupo/hon-13-l', headRefOid: tip }])
@@ -389,6 +415,23 @@ describe('wt done worktrees (HON-1066)', () => {
     expect(fs.existsSync(dir)).toBe(false)
     expect(branches()).toEqual(['main'])
     expect(r.out).toContain(`cd ${main}`)
+  })
+
+  it('from a subdirectory of the main checkout runs as from its root', () => {
+    const tip = squashMerged('kaupo/hon-17-p', 'v.txt')
+    writePrs([{ number: 17, headRefName: 'kaupo/hon-17-p', headRefOid: tip }])
+    const sub = path.join(main, 'sub')
+    fs.mkdirSync(sub)
+    fs.writeFileSync(path.join(sub, 'keep.txt'), 'x')
+    git(main, 'add', 'sub/keep.txt')
+    git(main, 'commit', '-q', '-m', 'add sub')
+    git(main, 'push', '-q', 'origin', 'main')
+
+    const r = runDone(sub)
+
+    expect(r.status, r.out).toBe(0)
+    expect(branches()).toEqual(['main'])
+    expect(r.out).not.toContain('cd ')
   })
 
   it('stops before removing anything when the main checkout is dirty', () => {

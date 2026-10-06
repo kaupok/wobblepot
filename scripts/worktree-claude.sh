@@ -1898,9 +1898,14 @@ cmd_done() {
   fi
 
   # From inside a worktree: check everything before anything is removed.
+  # Compares top-level paths, not is_in_worktree: in a subdirectory of the main
+  # checkout `--git-common-dir` is relative and `--git-dir` absolute, so that
+  # string compare would take the main checkout for a worktree.
   local here_path="" here_branch=""
-  if is_in_worktree; then
-    here_path=$(git rev-parse --show-toplevel)
+  here_path=$(git rev-parse --show-toplevel)
+  if [ "$here_path" = "$main_repo" ]; then
+    here_path=""
+  else
     here_branch=$(git branch --show-current)
     if [ -z "$here_branch" ]; then
       echo -e "${RED}Error: This worktree has a detached HEAD — nothing removed${NC}"
