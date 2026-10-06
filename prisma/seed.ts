@@ -7,6 +7,7 @@ import type { IngredientInput } from './seed-types'
 import { newIngredients, newMeals } from './seed-expansion'
 import { comprehensiveIngredients } from './seed-comprehensive'
 import { importCoverageIngredients } from './seed-import-coverage'
+import { isMeasuredByVolume } from './measured-by-volume'
 import { mealTranslationsEt, type MealTranslationEt } from './seed-meal-translations-et'
 import { ingredientTranslationsEt } from './seed-ingredient-translations-et'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
@@ -2038,6 +2039,8 @@ async function seedIngredients() {
         data: {
           // Update gramsPerPiece if it's defined in the seed data
           gramsPerPiece: 'gramsPerPiece' in ingredient ? ingredient.gramsPerPiece : undefined,
+          // Always re-derived, so a re-seed corrects a drifted row
+          measuredByVolume: isMeasuredByVolume(ingredient),
         },
       })
     } else {
@@ -2056,6 +2059,7 @@ async function seedIngredients() {
           fiber: ingredient.fiber,
           gramsPerPiece: ingredient.gramsPerPiece ?? null,
           densityGPerMl: ingredient.densityGPerMl ?? null,
+          measuredByVolume: isMeasuredByVolume(ingredient),
         },
       })
     }
