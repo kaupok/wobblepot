@@ -66,6 +66,11 @@ WORKER_LOGS=()
 WORKER_START_TIMES=()
 WORKER_RETRIED=()
 WORKER_TITLES=()
+# When report_worker_status last wrote each worker's row, and the phase/commit
+# signature it wrote. Read with `:-` defaults: the test harness sets
+# WORKER_PIDS on its own (HON-1068).
+WORKER_REPORTED_AT=()
+WORKER_REPORTED_SIG=()
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -118,6 +123,10 @@ TRIAGE_TIMEOUT="${ORCHESTRATOR_TRIAGE_TIMEOUT:-120}"
 # arrived. Shorter than POLL_INTERVAL because nothing is polled from Linear then:
 # the loop only waits for workers to exit (HON-1067).
 SHUTDOWN_POLL_INTERVAL=5
+# report_worker_status writes a worker's row when its phase or commit count
+# changes, and otherwise at most this often. Every poll was ~25k rows a day
+# that buried the [OUTCOME] and WARN lines (HON-1068).
+WORKER_REPORT_INTERVAL=600
 # Log retention. The main log is append-only and each worker writes its own
 # file, so unbounded growth eventually trips check_disk_space's 1GB guard and
 # reads as an infrastructure fault (HON-578).
@@ -310,6 +319,9 @@ release_lock() {
 
 mkdir -p "$LOG_DIR"
 MAIN_LOG="$LOG_DIR/orchestrator.log"
+# Where `wt start` (cmd_start) sends this process's stdout/stderr. Nothing here
+# writes it by name; rotate_logs only caps its size.
+CONSOLE_LOG="$LOG_DIR/orchestrator-console.log"
 
 log() {
   local level="$1"; shift
@@ -322,11 +334,17 @@ log() {
     ERROR) color="$RED" ;;
     DEBUG) color="$DIM" ;;
   esac
-  # Two destinations, deliberately: a colored line on stderr for whoever is
-  # watching, and a clean line in $MAIN_LOG. `log` is the ONLY writer of
-  # $MAIN_LOG — cmd_start must not fold stderr back into the same file, or
-  # every line is stored twice and one copy carries raw ANSI escapes (HON-572).
-  printf "${DIM}%s${NC} ${color}%-5s${NC} %s\n" "$ts" "$level" "$*" >&2
+  # A clean line in $MAIN_LOG always, and a colored copy on stderr only when a
+  # terminal is there to read it. `log` is the ONLY writer of $MAIN_LOG —
+  # cmd_start must not fold stderr back into the same file, or every line is
+  # stored twice and one copy carries raw ANSI escapes (HON-572). Under `wt
+  # start`, stderr is orchestrator-console.log, and an unconditional copy filled
+  # it with every line again, escape-wrapped (8.7 MB on 2026-10-06). It is meant
+  # to hold only what never reaches log(): crashes, set -e aborts and stray
+  # command errors (HON-1068).
+  if [ -t 2 ]; then
+    printf "${DIM}%s${NC} ${color}%-5s${NC} %s\n" "$ts" "$level" "$*" >&2
+  fi
   printf "%s %-5s %s\n" "$ts" "$level" "$*" >> "$MAIN_LOG"
 }
 
@@ -449,6 +467,22 @@ rotate_logs() {
     if [[ "$size" =~ ^[0-9]+$ ]] && [ "$size" -ge "$MAIN_LOG_MAX_BYTES" ]; then
       mv -f "$MAIN_LOG" "${MAIN_LOG}.1" 2>/dev/null || true
       log INFO "Rotated orchestrator.log at ${size} bytes (cap ${MAIN_LOG_MAX_BYTES})"
+    fi
+  fi
+
+  # The console log, under the same cap. Copy and truncate rather than move:
+  # this process already holds the file open as its stdout/stderr (cmd_start's
+  # `nohup … >>`), and after a move it would go on writing into the .1 copy
+  # while the live name stayed empty. The descriptor is in append mode, so after
+  # the truncation its next write lands at the start of the live file (HON-1068).
+  if [ -f "$CONSOLE_LOG" ]; then
+    local console_size
+    console_size=$(wc -c < "$CONSOLE_LOG" 2>/dev/null | tr -d ' ') || console_size=0
+    if [[ "$console_size" =~ ^[0-9]+$ ]] && [ "$console_size" -ge "$MAIN_LOG_MAX_BYTES" ]; then
+      if cp -f "$CONSOLE_LOG" "${CONSOLE_LOG}.1" 2>/dev/null; then
+        { : > "$CONSOLE_LOG"; } 2>/dev/null || true
+        log INFO "Rotated orchestrator-console.log at ${console_size} bytes (cap ${MAIN_LOG_MAX_BYTES})"
+      fi
     fi
   fi
 
@@ -924,6 +958,10 @@ spawn_worker() {
   WORKER_START_TIMES+=("$(date +%s)")
   WORKER_RETRIED+=("$is_retry")
   WORKER_TITLES+=("$title")
+  # By index, not +=: the two arrays can lag WORKER_PIDS where a test set it alone.
+  local new_idx=$(( ${#WORKER_PIDS[@]} - 1 ))
+  WORKER_REPORTED_AT[$new_idx]=0
+  WORKER_REPORTED_SIG[$new_idx]=""
 
   log INFO "Worker started (PID $pid)"
   write_status_file
@@ -1024,7 +1062,10 @@ report_worker_status() {
   local now
   now=$(date +%s)
 
-  log DEBUG "── Active workers: $count/$MAX_WORKERS ──"
+  # A row is due when the worker's phase or commit count differs from the last
+  # row written for it, or WORKER_REPORT_INTERVAL has passed since. The header
+  # is written only above due rows, so a quiet poll writes nothing (HON-1068).
+  local rows=()
 
   local i=0
   while [ $i -lt $count ]; do
@@ -1032,23 +1073,40 @@ report_worker_status() {
     local branch="${WORKER_BRANCHES[$i]}"
     local start_time="${WORKER_START_TIMES[$i]}"
 
+    local wt_path
+    wt_path=$(get_worktree_path "$branch")
+    local has_worktree=false
+    { [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; } && has_worktree=true
+
+    # Commits this worker has produced — see commits_ahead for why the base
+    # ref is origin/main and not the operator's local main.
+    local ahead=0
+    if [ "$has_worktree" = true ]; then
+      ahead=$(commits_ahead "$wt_path") || true
+      # Empty on failure, and `[ "" -gt 0 ]` is a hard error — see detect_phase.
+      [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
+    fi
+    local phase
+    phase=$(detect_phase "${WORKER_LOGS[$i]:-}" "$branch") || phase="unknown"
+
+    local sig="$phase:$ahead"
+    local reported_at="${WORKER_REPORTED_AT[$i]:-0}"
+    [[ "$reported_at" =~ ^[0-9]+$ ]] || reported_at=0
+    if [ "$sig" = "${WORKER_REPORTED_SIG[$i]:-}" ] &&
+       [ $(( now - reported_at )) -lt "$WORKER_REPORT_INTERVAL" ]; then
+      i=$((i + 1))
+      continue
+    fi
+    WORKER_REPORTED_AT[$i]="$now"
+    WORKER_REPORTED_SIG[$i]="$sig"
+
     local elapsed=$(( now - start_time ))
     local mins=$(( elapsed / 60 ))
     local secs=$(( elapsed % 60 ))
 
     # Check git activity in the worktree for real progress signal
     local status=""
-    local wt_path
-    wt_path=$(get_worktree_path "$branch")
-
-    if [ -d "$wt_path/.git" ] || [ -f "$wt_path/.git" ]; then
-      # Commits this worker has produced — see commits_ahead for why the base
-      # ref is origin/main and not the operator's local main.
-      local ahead=0
-      ahead=$(commits_ahead "$wt_path") || true
-      # Empty on failure, and `[ "" -gt 0 ]` is a hard error — see detect_phase.
-      [[ "$ahead" =~ ^[0-9]+$ ]] || ahead=0
-
+    if [ "$has_worktree" = true ]; then
       # Last commit message (if any commits made)
       local last_msg=""
       if [ "$ahead" -gt 0 ]; then
@@ -1074,12 +1132,20 @@ report_worker_status() {
       status="worktree initializing"
     fi
 
-    # log DEBUG already writes this row to stderr AND to $MAIN_LOG. A second
-    # printf to stderr made every row land twice (three times once cmd_start's
-    # `2>&1` folded stderr back into the same file) — HON-572.
-    log DEBUG "  $(printf '%-8s %3dm%02ds  %s' "$issue_id" "$mins" "$secs" "$status")"
+    rows+=("$(printf '%-8s %3dm%02ds  %-12s  %s' "$issue_id" "$mins" "$secs" "$phase" "$status")")
 
     i=$((i + 1))
+  done
+
+  [ ${#rows[@]} -eq 0 ] && return 0
+
+  # log DEBUG is the only writer of these rows. A second printf to stderr made
+  # every row land twice (three times once cmd_start's `2>&1` folded stderr
+  # back into the same file) — HON-572.
+  log DEBUG "── Active workers: $count/$MAX_WORKERS ──"
+  local row
+  for row in "${rows[@]}"; do
+    log DEBUG "  $row"
   done
 }
 
@@ -1087,6 +1153,7 @@ remove_worker() {
   local idx="$1"
   local new_pids=() new_issues=() new_uuids=() new_branches=()
   local new_logs=() new_starts=() new_retried=() new_titles=()
+  local new_reported_at=() new_reported_sig=()
 
   local i=0
   while [ $i -lt ${#WORKER_PIDS[@]} ]; do
@@ -1099,6 +1166,8 @@ remove_worker() {
       new_starts+=("${WORKER_START_TIMES[$i]}")
       new_retried+=("${WORKER_RETRIED[$i]}")
       new_titles+=("${WORKER_TITLES[$i]}")
+      new_reported_at+=("${WORKER_REPORTED_AT[$i]:-0}")
+      new_reported_sig+=("${WORKER_REPORTED_SIG[$i]:-}")
     fi
     i=$((i + 1))
   done
@@ -1112,6 +1181,8 @@ remove_worker() {
     WORKER_START_TIMES=("${new_starts[@]}")
     WORKER_RETRIED=("${new_retried[@]}")
     WORKER_TITLES=("${new_titles[@]}")
+    WORKER_REPORTED_AT=("${new_reported_at[@]}")
+    WORKER_REPORTED_SIG=("${new_reported_sig[@]}")
   else
     WORKER_PIDS=()
     WORKER_ISSUES=()
@@ -1121,6 +1192,8 @@ remove_worker() {
     WORKER_START_TIMES=()
     WORKER_RETRIED=()
     WORKER_TITLES=()
+    WORKER_REPORTED_AT=()
+    WORKER_REPORTED_SIG=()
   fi
 
   write_status_file
@@ -3127,6 +3200,31 @@ check_checkout_behind() {
   return 0
 }
 
+# ─── Poll summary ────────────────────────────────────────────────────────────
+# The last poll's "<active>/<max> <outcome>", or empty after a loop pass that
+# did not poll Linear. The main loop clears it on such a pass.
+LAST_POLL_SUMMARY=""
+
+# Log a poll only when its summary differs from the last poll's. An idle
+# orchestrator polls every minute, and two DEBUG lines per poll were ~80k of
+# the ~110k lines in orchestrator.log on 2026-10-06, burying the [OUTCOME],
+# [SKIP], Claimed and WARN lines (HON-1068). Liveness does not depend on these
+# lines: `wt watch` reads last_poll from the status file, which write_status_file
+# stamps on every pass.
+#
+# $1 = active worker count; $2 = eligible | none | fetch-failed.
+log_poll_summary() {
+  local active="$1" outcome="$2"
+  local summary="$active/$MAX_WORKERS $outcome"
+  [ "$summary" = "$LAST_POLL_SUMMARY" ] && return 0
+  LAST_POLL_SUMMARY="$summary"
+  log DEBUG "Polling: $active/$MAX_WORKERS workers active"
+  if [ "$outcome" = "none" ]; then
+    log DEBUG "No eligible issues found"
+  fi
+  return 0
+}
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 main() {
@@ -3224,6 +3322,7 @@ main() {
 
     # Spawn new worker if slots available
     local active=${#WORKER_PIDS[@]}
+    local polled=false
 
     if [ "$active" -lt "$MAX_WORKERS" ] && [ "$SHUTTING_DOWN" = false ]; then
       # Circuit breaker: pause spawning after consecutive failures
@@ -3249,13 +3348,14 @@ main() {
       elif [ "$RUN_ONCE" = true ] && [ "$ONCE_SPAWNED" = true ]; then
         : # Already spawned in --once mode
       elif [ "$disk_ok" = true ]; then
-        log DEBUG "Polling: $active/$MAX_WORKERS workers active"
+        polled=true
 
         local response=""
         response=$(fetch_queued_issues 2>/dev/null) || {
           log WARN "Failed to fetch issues from Linear"
           response=""
         }
+        [ -n "$response" ] || log_poll_summary "$active" fetch-failed
 
         if [ -n "$response" ]; then
           # Before the pick, so an [UNGATE] reads ahead of the Selected and
@@ -3272,6 +3372,7 @@ main() {
             branch=$(printf '%s' "$candidate" | cut -f3)
             title=$(printf '%s' "$candidate" | cut -f4-)
 
+            log_poll_summary "$active" eligible
             log INFO "Selected: $issue_id — $title"
 
             # The handler returns now, so a signal that arrived during the
@@ -3291,13 +3392,17 @@ main() {
               log WARN "Failed to claim $issue_id, skipping"
             fi
           else
-            log DEBUG "No eligible issues found"
+            log_poll_summary "$active" none
           fi
         fi
       else
         log WARN "Pausing: low disk space"
       fi
     fi
+    # A pass that did not poll (slots full, circuit breaker, reload pending, low
+    # disk) clears the summary, so the next poll logs a Polling line and the log
+    # shows that polling resumed.
+    [ "$polled" = true ] || LAST_POLL_SUMMARY=""
 
     # --once mode: exit when no workers remain
     if [ "$RUN_ONCE" = true ] && [ ${#WORKER_PIDS[@]} -eq 0 ] && [ "$ONCE_SPAWNED" = true ]; then

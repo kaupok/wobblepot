@@ -794,12 +794,14 @@ describe('orchestrator.sh', () => {
   })
 
   // ─── HON-572 finding 3: duplicated log lines ──────────────────────────────
-  // log() writes a colored line to stderr AND a clean line to $MAIN_LOG.
-  // cmd_start pointed the orchestrator's stderr at the same file, so every line
-  // was stored twice — one copy carrying raw ANSI escapes — and
-  // `grep '[OUTCOME]' orchestrator.log` returned every outcome twice.
+  // log() writes a clean line to $MAIN_LOG and, for a terminal, a colored copy
+  // to stderr. cmd_start pointed the orchestrator's stderr at the same file, so
+  // every line was stored twice — one copy carrying raw ANSI escapes — and
+  // `grep '[OUTCOME]' orchestrator.log` returned every outcome twice. Once
+  // stderr moved to orchestrator-console.log, that file got the copy instead,
+  // so the copy is now written only to a terminal (HON-1068).
   describe('orchestrator.log is written once', () => {
-    it('log() adds exactly one clean line to MAIN_LOG and one to stderr', () => {
+    it('log() adds one clean line to MAIN_LOG and nothing to a stderr that is not a terminal', () => {
       const run = spawnSync('bash', [harness, 'log-once'], {
         encoding: 'utf8',
         timeout: 30_000,
@@ -810,9 +812,27 @@ describe('orchestrator.sh', () => {
       expect(run.stdout).toContain('FILE_LINES:1')
       expect(run.stdout).toContain('FILE_MARKERS:1')
       expect(run.stdout).toContain('FILE_ESCAPES:0')
-      // The console copy is a separate stream, and it is the colored one.
-      expect(run.stderr).toContain('harness-marker')
-      expect(run.stderr).toContain('\u001b[')
+      expect(run.stderr).toBe('')
+    })
+
+    it('log() still writes the colored copy when stderr is a terminal', () => {
+      // `script` gives the harness a pseudo-terminal. Its arguments differ:
+      // util-linux (CI) takes the command as a string, BSD (macOS) as argv.
+      const args =
+        process.platform === 'darwin'
+          ? ['-q', '/dev/null', 'bash', harness, 'log-once']
+          : ['-qec', `bash '${harness}' log-once`, '/dev/null']
+      const run = spawnSync('script', args, {
+        encoding: 'utf8',
+        timeout: 30_000,
+        env: harnessEnv(),
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+
+      expect(run.status).toBe(0)
+      expect(run.stdout).toMatch(/\u001b\[[0-9;]*m\s*harness-marker/)
+      expect(run.stdout).toContain('FILE_LINES:1')
+      expect(run.stdout).toContain('FILE_ESCAPES:0')
     })
 
     it('cmd_start does not fold the orchestrator stderr back into orchestrator.log', () => {
@@ -828,6 +848,110 @@ describe('orchestrator.sh', () => {
 
       expect(body).not.toMatch(/printf .*>&2/)
       expect(body).toContain('log DEBUG')
+    })
+  })
+
+  // ─── HON-1068: idle polls and worker rows logged on change ────────────────
+  // Two DEBUG lines per idle poll were ~80k of the ~110k lines in
+  // orchestrator.log on 2026-10-06, and the per-poll worker rows another ~25k.
+  describe('quiet polls', () => {
+    const pollLog = (steps: string[]) =>
+      stripTimestamps(runHarness('poll-summary', steps.join(',')))
+    const count = (out: string, text: string) =>
+      out.split('\n').filter((l) => l.includes(text)).length
+
+    it('logs ten idle polls with an unchanged queue once', () => {
+      const out = pollLog(Array(10).fill('0:none'))
+
+      expect(count(out, 'Polling: 0/3 workers active')).toBe(1)
+      expect(count(out, 'No eligible issues found')).toBe(1)
+    })
+
+    it('logs a new Polling line when the worker count or the outcome changes', () => {
+      const out = pollLog(['0:none', '0:none', '0:eligible', '1:none', '1:none', '0:none'])
+
+      expect(out.split('\n').filter((l) => l.startsWith('DEBUG Polling'))).toEqual([
+        'DEBUG Polling: 0/3 workers active',
+        'DEBUG Polling: 0/3 workers active',
+        'DEBUG Polling: 1/3 workers active',
+        'DEBUG Polling: 0/3 workers active',
+      ])
+      // `eligible` is followed by a Selected line, not by "No eligible".
+      expect(count(out, 'No eligible issues found')).toBe(3)
+    })
+
+    it('logs the first poll after a pass that did not poll Linear', () => {
+      const out = pollLog(['0:none', '-', '0:none'])
+
+      expect(count(out, 'Polling: 0/3 workers active')).toBe(2)
+    })
+
+    it('main routes both idle-poll lines through log_poll_summary', () => {
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'main')
+
+      expect(body).not.toContain('log DEBUG "Polling')
+      expect(body).not.toContain('log DEBUG "No eligible')
+      expect(body).toContain('log_poll_summary "$active" none')
+      expect(body).toContain('log_poll_summary "$active" eligible')
+      expect(body).toContain('[ "$polled" = true ] || LAST_POLL_SUMMARY=""')
+    })
+
+    it('main still stamps last_poll on every pass, outside the poll gate', () => {
+      // write_status_file stamps last_poll, and `wt watch` judges liveness by
+      // it. It must run before the spawn gate, not only when a Polling line does.
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'main')
+      const loop = body.slice(body.indexOf('while true'))
+      const stamp = loop.indexOf('LAST_LOOP_AT="$(date')
+      const gate = loop.indexOf('if [ "$active" -lt "$MAX_WORKERS" ]')
+
+      expect(stamp).toBeGreaterThan(-1)
+      expect(gate).toBeGreaterThan(stamp)
+      expect(loop.slice(stamp, gate)).toContain('write_status_file')
+      expect(
+        shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'write_status_file'),
+      ).toContain('--arg last_poll "$(date')
+    })
+
+    const reportLog = (steps: string[]) =>
+      stripTimestamps(runHarness('worker-report', steps.join(',')))
+        .split('STEP:')
+        .slice(1)
+        .map((chunk) => chunk.split('\n').slice(1).filter(Boolean))
+
+    it('writes a worker row once while its phase and commit count hold, within 10 minutes', () => {
+      const steps = reportLog(['0;planning:0', '60;planning:0', '540;planning:0'])
+
+      expect(steps[0]).toEqual([
+        'DEBUG ── Active workers: 1/3 ──',
+        'DEBUG   HON-1      0m00s  planning      no commits yet',
+      ])
+      // No header either: a quiet poll writes nothing.
+      expect(steps[1]).toEqual([])
+      expect(steps[2]).toEqual([])
+    })
+
+    it('writes a row when the phase changes, and when the commit count changes', () => {
+      const steps = reportLog(['0;planning:0', '60;implementing:0', '120;implementing:1'])
+
+      expect(steps[1]).toContain('DEBUG   HON-1      1m00s  implementing  no commits yet')
+      expect(steps[2]).toHaveLength(2)
+      expect(steps[2]?.[1]).toMatch(/^DEBUG {3}HON-1 {6}2m00s {2}implementing {2}1 commit\(s\)/)
+    })
+
+    it('writes an unchanged row again after 10 minutes', () => {
+      const steps = reportLog(['0;planning:0', '599;planning:0', '600;planning:0'])
+
+      expect(steps[1]).toEqual([])
+      expect(steps[2]).toContain('DEBUG   HON-1     10m00s  planning      no commits yet')
+    })
+
+    it('writes only the rows that are due, under one header', () => {
+      const steps = reportLog(['0;planning:0;planning:0', '60;planning:0;implementing:0'])
+
+      expect(steps[1]).toEqual([
+        'DEBUG ── Active workers: 2/3 ──',
+        'DEBUG   HON-2      1m00s  implementing  no commits yet',
+      ])
     })
   })
 
@@ -1903,6 +2027,42 @@ describe('orchestrator.sh', () => {
 
       expect(out).toContain('ROTATED_EXISTS:no')
       expect(fs.existsSync(path.join(dir, 'orchestrator.log.1'))).toBe(false)
+    })
+
+    it('rotates the console log to .1 once it passes the size cap', () => {
+      const dir = makeDir()
+      const consoleLog = path.join(dir, 'orchestrator-console.log')
+      fs.writeFileSync(consoleLog, 'y'.repeat(2000))
+      const out = rotate(dir, { ORCHESTRATOR_LOG_MAX_BYTES: '1000' })
+
+      expect(out).toContain('CONSOLE_ROTATED_EXISTS:yes')
+      expect(fs.readFileSync(`${consoleLog}.1`, 'utf8')).toBe('y'.repeat(2000))
+      expect(fs.readFileSync(consoleLog, 'utf8')).toBe('')
+      expect(fs.readFileSync(path.join(dir, 'orchestrator.log'), 'utf8')).toContain(
+        'Rotated orchestrator-console.log at 2000 bytes (cap 1000)',
+      )
+    })
+
+    it('keeps a console log descriptor held across the rotation writing to the live file', () => {
+      // cmd_start's nohup holds the console log open in append mode. A move
+      // would leave that descriptor writing into .1.
+      const dir = makeDir()
+      const consoleLog = path.join(dir, 'orchestrator-console.log')
+      fs.writeFileSync(consoleLog, 'y'.repeat(2000))
+      rotate(dir, { ORCHESTRATOR_LOG_MAX_BYTES: '1000', HARNESS_CONSOLE_HELD: '1' })
+
+      expect(fs.readFileSync(consoleLog, 'utf8')).toBe('after-rotate\n')
+      expect(fs.readFileSync(`${consoleLog}.1`, 'utf8')).toBe('y'.repeat(2000))
+    })
+
+    it('leaves a console log under the cap in place', () => {
+      const dir = makeDir()
+      const consoleLog = path.join(dir, 'orchestrator-console.log')
+      fs.writeFileSync(consoleLog, 'y'.repeat(100))
+      const out = rotate(dir, { ORCHESTRATOR_LOG_MAX_BYTES: '1000' })
+
+      expect(out).toContain('CONSOLE_ROTATED_EXISTS:no')
+      expect(fs.readFileSync(consoleLog, 'utf8')).toBe('y'.repeat(100))
     })
 
     it('prunes worker logs past the retention window but keeps recent ones', () => {
