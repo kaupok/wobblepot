@@ -200,6 +200,23 @@ async function renderLanding() {
   return render(await Home(), { wrapper })
 }
 
+// The price line under the hero button, word for word: it is a promise to beta
+// households (HON-1061), so the test pins the exact sentence.
+const PRICE_EN =
+  "Free while we're in beta. Paid plans come later. You hear 30 days before, and beta families get a lower price."
+const PRICE_ET =
+  'Beeta ajal tasuta. Tasulised paketid tulevad hiljem. Anname sellest 30 päeva ette teada ja beetapered saavad soodsama hinna.'
+const TRUST_EN = 'Your data lives in the EU, and there are no ads.'
+
+/** Asserts that each element comes after the one before it in document order. */
+function expectInOrder(...elements: HTMLElement[]) {
+  for (let i = 1; i < elements.length; i++) {
+    expect(
+      elements[i - 1]!.compareDocumentPosition(elements[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  }
+}
+
 /** Every link on the rendered page that goes to the sign-up form. */
 function signUpLinks() {
   return screen.getAllByRole('link').filter((link) => link.getAttribute('href') === '/sign-up')
@@ -241,9 +258,17 @@ describe('Home page component', () => {
       )
       // Once, under the hero: the header's Sign up covers the rest of the page.
       expect(signUpLinks()).toHaveLength(1)
-      expect(
-        screen.getByText('Your data lives in the EU, and there are no ads.'),
-      ).toBeInTheDocument()
+      expect(screen.getByText(TRUST_EN)).toBeInTheDocument()
+    })
+
+    it('says what it costs between the notice and the data line while invites are required (HON-1061)', async () => {
+      await renderLanding()
+
+      expectInOrder(
+        screen.getByRole('note', { name: 'Private beta notice' }),
+        screen.getByText(PRICE_EN),
+        screen.getByText(TRUST_EN),
+      )
     })
 
     it('renders no notice when invites are not required', async () => {
@@ -259,10 +284,7 @@ describe('Home page component', () => {
         '/sign-up',
       )
       expect(signUpLinks()).toHaveLength(1)
-      expect(screen.getByText("Free while we're in beta.")).toBeInTheDocument()
-      expect(
-        screen.getByText('Your data lives in the EU, and there are no ads.'),
-      ).toBeInTheDocument()
+      expectInOrder(screen.getByText(PRICE_EN), screen.getByText(TRUST_EN))
     })
 
     it('translates the notice and its link', async () => {
@@ -277,6 +299,7 @@ describe('Home page component', () => {
         'href',
         '/request-invite',
       )
+      expectInOrder(notice, screen.getByText(PRICE_ET))
     })
   })
 
