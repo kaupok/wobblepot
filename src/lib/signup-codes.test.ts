@@ -16,6 +16,9 @@ interface MockDb {
   waitlistRequest: {
     deleteMany: ReturnType<typeof vi.fn>
   }
+  user: {
+    findUnique: ReturnType<typeof vi.fn>
+  }
 }
 
 const makeDb = (
@@ -24,6 +27,7 @@ const makeDb = (
 ): MockDb => ({
   signupCode: { updateMany },
   waitlistRequest: { deleteMany },
+  user: { findUnique: vi.fn().mockResolvedValue({ email: 'Anna@Example.com' }) },
 })
 
 beforeEach(() => {
@@ -206,7 +210,40 @@ describe('linkUsedBy', () => {
 
     await linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never })
 
-    expect(deleteMany).toHaveBeenCalledWith({ where: { signupCode: { code: 'good' } } })
+    expect(db.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'user_1' },
+      select: { email: true },
+    })
+    // By the email too: a Send again that moved the link to a new code during
+    // this sign-up, or a sign-up with some other code, still clears the request.
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { OR: [{ signupCode: { code: 'good' } }, { email: 'anna@example.com' }] },
+    })
+  })
+
+  it("expires an unused code still linked to the address's request before deleting it", async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 })
+    const db = makeDb(updateMany, vi.fn().mockResolvedValue({ count: 1 }))
+
+    await linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never })
+
+    expect(updateMany).toHaveBeenLastCalledWith({
+      where: { usedAt: null, waitlistRequest: { is: { email: 'anna@example.com' } } },
+      data: { expiresAt: expect.any(Date) },
+    })
+    expect(updateMany.mock.invocationCallOrder.at(-1)!).toBeLessThan(
+      db.waitlistRequest.deleteMany.mock.invocationCallOrder[0]!,
+    )
+  })
+
+  it('deletes by the code alone when the user row cannot be read', async () => {
+    const deleteMany = vi.fn().mockResolvedValue({ count: 1 })
+    const db = makeDb(vi.fn().mockResolvedValue({ count: 1 }), deleteMany)
+    db.user.findUnique.mockResolvedValue(null)
+
+    await linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never })
+
+    expect(deleteMany).toHaveBeenCalledWith({ where: { OR: [{ signupCode: { code: 'good' } }] } })
   })
 
   it('deletes no waitlist request when the link matched no code', async () => {

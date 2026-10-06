@@ -94,9 +94,26 @@ export async function linkUsedBy(
 
   // A waitlist request whose invite code was just used has done its job:
   // delete it now rather than at the end of its retention (HON-970, the
-  // "earlier when the code is used" promise in the privacy policy).
+  // "earlier when the code is used" promise in the privacy policy). Matched by
+  // the new user's email as well as by the code: a Send again that commits
+  // between this sign-up's claim and this hook moves the request's link to a
+  // new code, and a waitlist person may sign up with some other code. An
+  // address with an account needs no waitlist request either way.
   try {
-    await db.waitlistRequest.deleteMany({ where: { signupCode: { code } } })
+    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true } })
+    // Stored trimmed and lowercased, like `normalizeWaitlistEmail`.
+    const email = user?.email.trim().toLowerCase()
+    if (email) {
+      // A code sent to this address that is still unused (the Send again
+      // case above) has nobody left to serve, so it must not stay passable.
+      await db.signupCode.updateMany({
+        where: { usedAt: null, waitlistRequest: { is: { email } } },
+        data: { expiresAt: new Date() },
+      })
+    }
+    await db.waitlistRequest.deleteMany({
+      where: { OR: [{ signupCode: { code } }, ...(email ? [{ email }] : [])] },
+    })
   } catch (err) {
     console.warn('[signup-code] failed to delete the waitlist request for a used code', {
       code,
