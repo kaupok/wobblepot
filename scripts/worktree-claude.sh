@@ -14,6 +14,7 @@
 #   ./scripts/worktree-claude.sh sync-all               # Sync permissions from all worktrees
 #   ./scripts/worktree-claude.sh cleanup <branch-name>  # Remove worktree (auto-syncs)
 #   ./scripts/worktree-claude.sh cleanup-all            # Remove all parallel worktrees (auto-syncs)
+#   ./scripts/worktree-claude.sh done                   # Post-merge cleanup: merged worktrees and branches
 #
 # Worktrees are created in ~/.worktrees/wobblepot/<branch-name>
 
@@ -559,6 +560,7 @@ print_usage() {
   echo "  sync-all               Sync permissions from all worktrees"
   echo "  cleanup <branch-name>  Remove a specific worktree (auto-syncs permissions)"
   echo "  cleanup-all            Remove all parallel worktrees (auto-syncs permissions)"
+  echo "  done                   After a merge: pull main, remove merged worktrees, delete merged branches"
   echo ""
   echo "Examples:"
   echo "  $0 new feat/api-caching"
@@ -1416,24 +1418,44 @@ cmd_cleanup() {
     fi
   fi
 
-  # Sync permissions back to main repo before cleanup
-  sync_permissions "$worktree_path"
-
-  # Remove the worktree
-  git -C "$REPO_ROOT" worktree remove "$worktree_path" --force
-
-  # Delete the paired Neon branch (no-op if Neon branching disabled)
-  neon_delete_branch_for_worktree "$branch"
-
-  # Optionally delete the branch if it wasn't pushed
+  # Both questions are asked before anything is removed, so the removal itself
+  # runs through the same non-interactive path as `wt done`.
+  local delete_git_branch=0
   echo ""
   read -p "Delete the branch '$branch' as well? (y/N) " -n 1 -r
   echo ""
   if [[ $REPLY =~ ^[Yy]$ ]]; then
-    git -C "$REPO_ROOT" branch -D "$branch" 2>/dev/null || echo "Branch already deleted or doesn't exist"
+    delete_git_branch=1
   fi
 
+  remove_worktree_artifacts "$worktree_path" "$branch" "$delete_git_branch" || exit 1
+
   echo -e "${GREEN}Cleanup complete${NC}"
+}
+
+# Remove one worktree and what belongs to it, without prompting: sync its
+# permissions to the main checkout, remove the worktree, delete its Neon
+# branch, and with $3=1 delete the git branch too. The one removal path for
+# `wt cleanup` and `wt done` (HON-1066): `bdone` answered cmd_cleanup's prompts
+# through a here-string, which answered only the first.
+# Returns 1 when the worktree could not be removed; the Neon branch is kept then.
+# Usage: remove_worktree_artifacts <worktree_path> <branch> [delete_git_branch]
+remove_worktree_artifacts() {
+  local worktree_path="$1" branch="$2" delete_git_branch="${3:-0}"
+
+  sync_permissions "$worktree_path"
+
+  if ! git -C "$REPO_ROOT" worktree remove "$worktree_path" --force; then
+    echo -e "${YELLOW}Worktree remove failed for $worktree_path — keeping Neon branch${NC}" >&2
+    return 1
+  fi
+
+  # No-op when Neon branching is not configured.
+  neon_delete_branch_for_worktree "$branch"
+
+  if [ "$delete_git_branch" = 1 ]; then
+    git -C "$REPO_ROOT" branch -D "$branch" 2>/dev/null || echo "Branch already deleted or doesn't exist"
+  fi
 }
 
 # Detect if we're in a worktree (returns 0 if in worktree, 1 if in main repo)
@@ -1715,6 +1737,235 @@ cmd_cleanup_all() {
   git -C "$REPO_ROOT" worktree prune
 
   echo -e "${GREEN}Cleanup complete${NC}"
+}
+
+# ─── wt done ────────────────────────────────────────────────────────────────
+# Post-merge cleanup (HON-1066): removes merged worktrees and deletes merged
+# local branches, squash merges included. Replaces the machine-local `bdone`.
+
+# Branches the orchestrator owns, one per line, from its status file. Read even
+# when the file is stale, because skipping a branch is the safe side.
+done_orchestrator_branches() {
+  local status_file="$WORKTREE_BASE/orchestrator-status.json"
+  [ -f "$status_file" ] || return 0
+  jq -r '.workers[]?.branch // empty' "$status_file" 2>/dev/null || true
+}
+
+# Every worktree of the repo at $1, one `<path><TAB><branch>` line each. The
+# branch is empty for a detached HEAD. Porcelain output, so a path with spaces
+# survives.
+done_list_worktrees() {
+  git -C "$1" worktree list --porcelain | awk '
+    /^worktree / { if (p != "") print p "\t" b; p = substr($0, 10); b = "" }
+    /^branch refs\/heads\// { b = substr($0, 19) }
+    END { if (p != "") print p "\t" b }'
+}
+
+# The merged PRs as a JSON array, from one `gh` call. Fails when `gh` is
+# missing, the call fails or the output is not an array: the caller must see a
+# failure, because an empty list would read as "nothing merged".
+done_fetch_merged_prs() {
+  local repo="$1" out
+  command -v gh > /dev/null 2>&1 || return 1
+  out=$(cd "$repo" && gh pr list --state merged --limit 200 \
+    --json number,headRefName,headRefOid 2> /dev/null) || return 1
+  printf '%s' "$out" | jq -e 'type == "array"' > /dev/null 2>&1 || return 1
+  printf '%s\n' "$out"
+}
+
+# Decide which local branches of the repo at $1 `wt done` deletes. Changes
+# nothing. One tab-separated line per decision:
+#   delete <branch> merged       in `git branch --merged main`
+#   delete <branch> squash #<N>  its tip equals merged PR N's headRefOid
+#   keep   <branch> <reason>     a merged PR exists, but the tip moved on
+# A branch with no merge and no merged PR prints nothing.
+# $2 is the merged-PR JSON array, or "" when it could not be fetched; then only
+# regular merges are selected. A `pr<N>` branch (from `gh pr checkout`) that no
+# PR names as its head matches PR N. $3 lists branches never to touch, one per
+# line; `main` is always protected.
+done_select_branches() {
+  local repo="$1" prs_json="$2" protected="$3"
+  local regular name tip verdict
+  regular=$(git -C "$repo" branch --merged main --format='%(refname:short)' 2> /dev/null) || regular=""
+
+  while read -r name tip; do
+    [ -n "$name" ] || continue
+    [ "$name" = main ] && continue
+    printf '%s\n' "$protected" | grep -qxF -- "$name" && continue
+
+    if printf '%s\n' "$regular" | grep -qxF -- "$name"; then
+      printf 'delete\t%s\tmerged\n' "$name"
+      continue
+    fi
+
+    [ -n "$prs_json" ] || continue
+    # Any matching PR whose head is the local tip proves the commits landed. A
+    # name can be reused across PRs, so a tip that matches none of them keeps
+    # the branch: those commits are not in main.
+    verdict=$(printf '%s' "$prs_json" | jq -r --arg n "$name" --arg t "$tip" '
+      [.[] | select(.headRefName == $n)] as $by_name
+      | (if ($by_name | length) > 0 then $by_name
+         elif ($n | test("^pr[0-9]+$")) then [.[] | select(.number == ($n[2:] | tonumber))]
+         else [] end) as $m
+      | ([$m[] | select(.headRefOid == $t)] | first) as $hit
+      | if ($m | length) == 0 then "none"
+        elif $hit then "squash #\($hit.number)"
+        else "stale #\($m[0].number)" end' 2> /dev/null) || verdict=""
+
+    case "$verdict" in
+      squash*) printf 'delete\t%s\t%s\n' "$name" "$verdict" ;;
+      stale*) printf 'keep\t%s\thas commits after merged PR %s\n' "$name" "${verdict#stale }" ;;
+    esac
+  done < <(git -C "$repo" for-each-ref --format='%(refname:short) %(objectname)' refs/heads)
+}
+
+# Print one summary section; nothing when the list is empty.
+# Usage: done_print_section <title> [item...]
+done_print_section() {
+  local title="$1"
+  shift
+  [ "$#" -gt 0 ] || return 0
+  echo "$title:"
+  local item
+  for item in "$@"; do
+    echo "  $item"
+  done
+}
+
+cmd_done() {
+  local main_repo
+  main_repo=$(get_main_repo_path)
+  if [ -z "$main_repo" ]; then
+    echo -e "${RED}Error: Not inside a git repository${NC}"
+    exit 1
+  fi
+  # Every helper below reads REPO_ROOT. A worktree's own copy of this script
+  # sets it to that worktree, so point it at the main checkout.
+  REPO_ROOT="$main_repo"
+
+  local orch_branches
+  orch_branches=$(done_orchestrator_branches)
+
+  # From inside a worktree: check everything before anything is removed.
+  local here_path="" here_branch=""
+  if is_in_worktree; then
+    here_path=$(git rev-parse --show-toplevel)
+    here_branch=$(git branch --show-current)
+    if [ -z "$here_branch" ]; then
+      echo -e "${RED}Error: This worktree has a detached HEAD — nothing removed${NC}"
+      exit 1
+    fi
+    if printf '%s\n' "$orch_branches" | grep -qxF -- "$here_branch"; then
+      echo -e "${RED}Error: '$here_branch' is an orchestrator worker, and the orchestrator cleans it up — nothing removed${NC}"
+      exit 1
+    fi
+    if has_uncommitted_changes "$here_path"; then
+      echo -e "${RED}Error: This worktree has uncommitted changes — nothing removed${NC}"
+      exit 1
+    fi
+    if ! is_branch_merged "$here_path"; then
+      echo -e "${RED}Error: Branch '$here_branch' is not merged into main — nothing removed${NC}"
+      exit 1
+    fi
+  fi
+
+  if has_uncommitted_changes "$main_repo"; then
+    echo -e "${RED}Error: The main checkout ($main_repo) has uncommitted changes — nothing removed${NC}"
+    exit 1
+  fi
+
+  local removed=() deleted=() kept=()
+  local cd_hint=""
+
+  if [ -n "$here_path" ]; then
+    # cmd_cleanup refuses to remove the worktree you stand in. Keep that rule:
+    # leave it, and remove it from the main checkout. The parent shell cannot
+    # follow, so the summary ends with a `cd`.
+    cd "$main_repo"
+    echo "Removing the current worktree: $here_path"
+    remove_worktree_artifacts "$here_path" "$here_branch" 0 < /dev/null || exit 1
+    removed+=("$here_branch")
+    cd_hint="$main_repo"
+  fi
+
+  if ! git -C "$main_repo" checkout -q main || ! git -C "$main_repo" pull --rebase --prune; then
+    echo -e "${RED}Error: Could not update main in $main_repo — stopped before pruning${NC}"
+    [ -z "$cd_hint" ] || echo "Run: cd $cd_hint"
+    exit 1
+  fi
+
+  # Merged, clean worktrees under $WORKTREE_BASE. The branch is not deleted
+  # here: is_branch_merged accepts any merged PR for the name, so the branch
+  # goes through the tip check below with every other branch. fd 3, so nothing
+  # in the loop body can drain the worktree list from stdin.
+  local wt_path wt_branch
+  while IFS=$'\t' read -r -u 3 wt_path wt_branch; do
+    [[ "$wt_path" == "$WORKTREE_BASE"/* ]] || continue
+    if [ -z "$wt_branch" ]; then
+      kept+=("$wt_path: detached HEAD")
+    elif printf '%s\n' "$orch_branches" | grep -qxF -- "$wt_branch"; then
+      kept+=("$wt_branch: orchestrator worker")
+    elif has_uncommitted_changes "$wt_path"; then
+      kept+=("$wt_branch: uncommitted changes")
+    elif ! is_branch_merged "$wt_path"; then
+      kept+=("$wt_branch: not merged")
+    elif remove_worktree_artifacts "$wt_path" "$wt_branch" 0 < /dev/null; then
+      removed+=("$wt_branch")
+    else
+      kept+=("$wt_branch: worktree remove failed")
+    fi
+  done 3< <(done_list_worktrees "$main_repo")
+
+  local prs_json
+  if ! prs_json=$(done_fetch_merged_prs "$main_repo"); then
+    prs_json=""
+    echo -e "${YELLOW}WARN: Could not list merged PRs with gh — squash-merged branches are not checked${NC}"
+  fi
+
+  # Never touch main, the checked-out branch, a branch in any remaining
+  # worktree, or an orchestrator worker's branch.
+  local protected
+  protected=$(
+    echo main
+    git -C "$main_repo" branch --show-current
+    printf '%s\n' "$orch_branches"
+    done_list_worktrees "$main_repo" | cut -f2
+  )
+
+  local action name detail flag
+  while IFS=$'\t' read -r -u 3 action name detail; do
+    if [ "$action" = keep ]; then
+      echo -e "${YELLOW}WARN: Keeping '$name': $detail${NC}"
+      kept+=("$name: $detail")
+      continue
+    fi
+    # `-d` re-checks a regular merge. A squash merge is never an ancestor of
+    # main, and its tip was matched to the PR head above, so it needs `-D`.
+    flag=-D
+    [ "$detail" = merged ] && flag=-d
+    if git -C "$main_repo" branch "$flag" "$name" > /dev/null 2>&1; then
+      deleted+=("$name ($detail)")
+    else
+      kept+=("$name: git branch $flag failed")
+    fi
+  done 3< <(done_select_branches "$main_repo" "$prs_json" "$protected")
+
+  git -C "$main_repo" worktree prune
+
+  echo ""
+  echo -e "${BLUE}wt done${NC}"
+  if [ ${#removed[@]} -eq 0 ] && [ ${#deleted[@]} -eq 0 ] && [ ${#kept[@]} -eq 0 ]; then
+    echo "Nothing to clean up."
+  fi
+  done_print_section "Worktrees removed" "${removed[@]}"
+  done_print_section "Branches deleted" "${deleted[@]}"
+  done_print_section "Kept" "${kept[@]}"
+
+  if [ -n "$cd_hint" ]; then
+    echo ""
+    echo "Your shell is still in the removed worktree. Run:"
+    echo "  cd $cd_hint"
+  fi
 }
 
 # Sync permissions from a specific worktree
@@ -3680,6 +3931,9 @@ case "${1:-}" in
     ;;
   cleanup-all)
     cmd_cleanup_all
+    ;;
+  done)
+    cmd_done
     ;;
   neon-delete)
     # Non-interactive Neon-branch delete for external callers (e.g. orchestrator).

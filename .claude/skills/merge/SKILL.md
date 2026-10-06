@@ -408,7 +408,7 @@ To clean up, exit this directory and run:
   cd {MAIN_REPO} && ./scripts/worktree-claude.sh cleanup {BRANCH_NAME}
 
 Or if you have `wt` alias: wt cleanup {BRANCH_NAME}
-Or if you have `git bdone`: git bdone
+Or run `wt done` from this worktree: it removes this worktree, then every other merged worktree and branch
 
 [merge:complete] PR #{number} merged
 ```
