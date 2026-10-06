@@ -3,9 +3,9 @@
     "root": {
       "title": "Wobblepot",
       "titleTemplate": "%s · Wobblepot",
-      "description": "Tehisintellekti abil loodud nädalased söögiplaanid peredele",
+      "description": "Õhtusöök otsustatud, terveks nädalaks. Wobblepot koostab pere söögiplaani selle järgi, kes sööb, mida välditakse ja mis on sahvris.",
       "ogTitle": "Wobblepot",
-      "ogDescription": "Tehisintellekti abil loodud nädalased söögiplaanid peredele"
+      "ogDescription": "Õhtusöök otsustatud. Terveks nädalaks."
     },
     "bot": {
       "title": "Wobblepot-Bot",
@@ -21,7 +21,7 @@
       }
     },
     "manifest": {
-      "description": "Tehisintellekti abil loodud nädalased söögiplaanid peredele"
+      "description": "Õhtusöök otsustatud, terveks nädalaks. Wobblepot koostab pere söögiplaani selle järgi, kes sööb, mida välditakse ja mis on sahvris."
     }
   },
   "dates": {
@@ -629,9 +629,9 @@
   "landing": {
     "headline": "Õhtusöök otsustatud. Terveks nädalaks.",
     "sub": "Wobblepot koostab pere söögiplaani selle järgi, kes sööb, mida välditakse ja mis on juba sahvris olemas. Siis kirjutab ta poenimekirja ja on pliidi juures sinuga.",
-    "cta": "Alusta",
-    "ctaWithCode": "Registreeru kutsekoodiga",
+    "cta": "Planeeri selle nädala õhtusöögid",
     "free": "Beeta ajal tasuta.",
+    "trust": "Sinu andmed on Euroopa Liidus ja reklaame ei ole.",
     "privateBeta": "Oleme suletud beetas, seega on registreerumiseks vaja kutsekoodi.",
     "demo": {
       "hint": "Ava toit, et näha seda nii, nagu pliidi ääres.",

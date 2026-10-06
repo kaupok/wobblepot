@@ -3,9 +3,9 @@
     "root": {
       "title": "Wobblepot",
       "titleTemplate": "%s · Wobblepot",
-      "description": "AI-powered weekly meal planning for families",
+      "description": "Dinner, decided, for the whole week. Wobblepot plans your family's meals around who's eating, what they avoid and what's in the pantry.",
       "ogTitle": "Wobblepot",
-      "ogDescription": "AI-powered weekly meal planning for families"
+      "ogDescription": "Dinner, decided. For the whole week."
     },
     "bot": {
       "title": "Wobblepot-Bot",
@@ -21,7 +21,7 @@
       }
     },
     "manifest": {
-      "description": "AI-powered weekly meal planning for families"
+      "description": "Dinner, decided, for the whole week. Wobblepot plans your family's meals around who's eating, what they avoid and what's in the pantry."
     }
   },
   "dates": {
@@ -629,9 +629,9 @@
   "landing": {
     "headline": "Dinner, decided. For the whole week.",
     "sub": "Wobblepot plans your family's meals around who's eating, what they avoid and what's already in the pantry. Then it writes the shopping list and stays with you at the stove.",
-    "cta": "Get started",
-    "ctaWithCode": "Sign up with your invite code",
+    "cta": "Plan this week's dinners",
     "free": "Free while we're in beta.",
+    "trust": "Your data lives in the EU, and there are no ads.",
     "privateBeta": "We're in private beta, so sign-up needs an invite code.",
     "demo": {
       "hint": "Open a meal to see it the way you would at the stove.",

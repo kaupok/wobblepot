@@ -66,7 +66,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
             </div>
             <div className="flex flex-col gap-3">
               <Button asChild size="lg" className="w-full md:w-auto md:self-start">
-                <Link href="/sign-up">{inviteRequired ? t('ctaWithCode') : t('cta')}</Link>
+                <Link href="/sign-up">{t('cta')}</Link>
               </Button>
               {inviteRequired ? (
                 <Body variant="muted" role="note" aria-label={tSignUp('privateBetaNoticeLabel')}>
@@ -86,6 +86,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
               ) : (
                 <Body variant="muted">{t('free')}</Body>
               )}
+              <Body variant="muted">{t('trust')}</Body>
             </div>
           </div>
           <div className="w-full max-w-md lg:justify-self-end">
