@@ -4,7 +4,7 @@ Read a section when `SKILL.md` points to it. Each one names where the cycle goes
 
 ## Retry context
 
-When `scripts/orchestrator.sh` triages a failed worker as `RETRY` (or hits the Neon-cap one-retry) it respawns `wt auto` with a note appended to this prompt: the phase and failure type the previous attempt died in, its duration and commit count, and the last 40 lines of its log (redacted by `sanitize_log`; progress markers rewritten from `[x:complete]` to `(x:complete)` so they are not read as this run's progress). It is present only on a retry (HON-728).
+When `scripts/orchestrator.sh` triages a failed worker as `RETRY`, hits the Neon-cap one-retry, or gives a stranded run its one finish attempt (HON-1065), it respawns `wt auto` with a note appended to this prompt: the phase and failure type the previous attempt died in, its duration and commit count, and the last 40 lines of its log (redacted by `sanitize_log`; progress markers rewritten from `[x:complete]` to `(x:complete)` so they are not read as this run's progress). It is present only on a retry (HON-728).
 
 **If it is present, read it before anything else** and treat it as the first finding of this run: the previous attempt already paid for that failure once. `wt auto` has checked out the kept branch as-is, so pushed work is on disk. Establish where the previous attempt got to, in this order:
 

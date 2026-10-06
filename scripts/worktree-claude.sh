@@ -2042,7 +2042,9 @@ watch_relative_age() {
 # log has not yet answered (HON-938). The tallies stay the run's history; these
 # decide whether that history still needs the operator. A GATED outcome is
 # answered by a later `[UNGATE]`, `Claimed` or `[OUTCOME]` line for the same
-# issue, and a STRANDED one by a later `[OUTCOME]` or `Claimed`. STRANDED_OPEN is
+# issue, and a STRANDED one by a later `[OUTCOME]` or `Claimed`. A STRANDED line
+# carrying `triage=FINISH` is never open: the orchestrator respawned that run for
+# its one automatic finish attempt (HON-1065). STRANDED_OPEN is
 # `<id>:<pr number|none>:<branch>`, and the caller checks the PR and the
 # worktree, which the log cannot see (watch_resolve_stranded).
 #
@@ -2120,7 +2122,10 @@ watch_scan_log() {
           delete gated_open[oid]
           delete stranded_pr[oid]
           if (f[n] == "GATED") gated_open[oid] = 1
-          if (f[n] == "STRANDED") {
+          # triage=FINISH: the orchestrator respawned the run for one automatic
+          # finish attempt (HON-1065), so the strand is tallied but waits on
+          # that worker, not the operator. Its own outcome line answers it.
+          if (f[n] == "STRANDED" && $0 !~ / triage=FINISH/) {
             pr = "none"
             if (match($0, / pr=#[0-9]+/)) pr = substr($0, RSTART + 5, RLENGTH - 5)
             stranded_pr[oid] = pr
