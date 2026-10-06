@@ -184,6 +184,7 @@ The finish attempt runs only when all of these hold. Otherwise the strand is rec
 - The PR probe ran, so `gh` answered.
 - The PR is `OPEN`, or there is no PR and the branch has commits. A `CLOSED` PR does not qualify, because someone may have closed it on purpose.
 - The worktree has no uncommitted changes. The cleanup runs `git worktree remove --force`, which would lose them.
+- The worker did not stop at `/auto-implement`'s 6.7 review-round cap hand-off. That stop leaves the PR for a human on purpose, because a correctness finding is unresolved. The orchestrator reads the hand-off line in the worker log.
 
 If no PR could be resolved at all — none was opened, or `gh` is missing or unauthenticated — Linear never moved the issue anywhere, so it is still `In Progress` and assigned where `claim_issue` left it. That path returns the issue to Queued and clears the assignee (as the gated path does), leaving the `Stranded` label as the gate. A PR in any other state is left alone: `In Review` is the accurate state when a PR exists. A `CLOSED`-but-unmerged PR is reported as such and told to reopen rather than merge — `gh pr merge` on a closed PR fails.
 

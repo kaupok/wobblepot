@@ -3009,6 +3009,27 @@ describe('orchestrator.sh', () => {
       expectRecordedForHuman(strand(mode, 'OPEN', { HARNESS_SHUTTING_DOWN: 'true' }))
     })
 
+    // /auto-implement 6.7 stops at the review-round cap on purpose, leaving the
+    // PR for a human because a correctness finding is unresolved. A finish
+    // worker told to merge would bypass that.
+    const HANDOFF = [
+      '[auto-implement] ⚠ Review-round cap reached (3/3) — handing off',
+      '[auto-implement] PR left open with a hand-off comment; not merged',
+      '[auto-implement] ✗ Autonomous implementation cycle stopped at Phase 6 (review-round cap)',
+    ].join('\n')
+
+    it.each(MODES)('does not respawn a 6.7 review-cap hand-off on the %s path', (mode) => {
+      expectRecordedForHuman(strand(mode, 'OPEN', { HARNESS_LOG_TAIL: HANDOFF }))
+    })
+
+    it('still respawns when the log only carries a defanged hand-off line', () => {
+      // A retry note rewrites `[auto-implement]` to `(auto-implement)`, so
+      // attempt 1's hand-off quoted in a prompt is not attempt 2's hand-off.
+      const defanged = '(auto-implement) ⚠ Review-round cap reached (3/3) — handing off'
+
+      expect(strand('outcome', 'OPEN', { HARNESS_LOG_TAIL: defanged })).toContain('triage=FINISH')
+    })
+
     describe('uncommitted changes in the worktree', () => {
       let repo: string
       beforeAll(() => {

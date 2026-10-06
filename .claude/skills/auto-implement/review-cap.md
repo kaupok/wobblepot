@@ -81,7 +81,7 @@ Post the same summary as a Linear comment on the issue, then stop:
 mcp__linear-server__save_comment({ issueId: "HON-XX", body: "[the same hand-off summary]" })
 ```
 
-**Do not change the issue's Linear state.** Linear moved it to `In Review` when the PR opened, which is accurate — a PR is open and unmerged — and `strand_worker` deliberately leaves that state alone when a PR exists (`scripts/orchestrator.sh`, the comment above its `restore_queue_if_in_progress` call). The `Stranded` label is what flags the issue for pickup, and the orchestrator adds it on a clean worker exit as well as a timeout, so reaching 6.7 and stopping is enough to get it.
+**Do not change the issue's Linear state.** Linear moved it to `In Review` when the PR opened, which is accurate — a PR is open and unmerged — and `strand_worker` deliberately leaves that state alone when a PR exists (`scripts/orchestrator.sh`, the comment above its `restore_queue_if_in_progress` call). The `Stranded` label is what flags the issue for pickup, and the orchestrator adds it on a clean worker exit as well as a timeout, so reaching 6.7 and stopping is enough to get it. The orchestrator gives most first strands one automatic finish attempt instead (HON-1065), but it skips that attempt when the worker log carries the `Review-round cap reached` marker below, so print it exactly.
 
 ```
 [auto-implement] ⚠ Review-round cap reached (3/3) — handing off

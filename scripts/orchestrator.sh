@@ -1480,16 +1480,34 @@ worktree_has_uncommitted() {
 #   PR open, or no PR   → a CLOSED PR may have been closed on purpose.
 #   with commits
 #   worktree clean      → cleanup_worker_worktree runs `worktree remove --force`.
+#   no 6.7 hand-off     → /auto-implement stops at the review-round cap on
+#                         purpose, leaving the PR for a human because a
+#                         correctness finding is unresolved. A finish worker
+#                         told to merge would bypass that judgment.
 # Assumes probe_worker_pr has already run for this branch.
 finish_attempt_eligible() {
-  local retried="$1" branch="$2" commits="$3"
+  local retried="$1" branch="$2" commits="$3" log_file="$4"
   [ "$retried" = "0" ] || return 1
   [ "$SHUTTING_DOWN" = false ] || return 1
   [ "$WORKER_PR_PROBE_OK" = true ] || return 1
   if [ "$WORKER_PR_STATE" != "OPEN" ]; then
     [ -z "$WORKER_PR_NUMBER" ] && [ "${commits:-0}" -gt 0 ] || return 1
   fi
+  ! worker_handed_off "$log_file" || return 1
   ! worktree_has_uncommitted "$branch"
+}
+
+# Whether the worker ended at /auto-implement's 6.7 review-round cap hand-off
+# (`.claude/skills/auto-implement/review-cap.md`). Two reasons this cannot
+# misfire in the costly direction: a false positive only withholds the finish
+# attempt, which is the behaviour before HON-1065; and the previous attempt's
+# hand-off line cannot reach a retry worker's log through its prompt, because
+# defang_log_markers rewrites `[auto-implement]` to `(auto-implement)`.
+HANDOFF_MARKER='[auto-implement] ⚠ Review-round cap reached'
+worker_handed_off() {
+  local log_file="$1"
+  [ -n "$log_file" ] && [ -f "$log_file" ] || return 1
+  grep -qF "$HANDOFF_MARKER" "$log_file" 2>/dev/null
 }
 
 # Record a run that produced commits but never merged. Assumes probe_worker_pr
@@ -1511,7 +1529,7 @@ strand_worker() {
   local ci_state
   ci_state=$(pr_ci_state "$WORKER_PR_NUMBER")
 
-  if finish_attempt_eligible "$retried" "$branch" "$commits"; then
+  if finish_attempt_eligible "$retried" "$branch" "$commits" "$log_file"; then
     # Still a STRANDED outcome, so the wt watch tallies and the swap-test
     # numbers count it; triage=FINISH tells watch_scan_log the strand is not
     # waiting on the operator.

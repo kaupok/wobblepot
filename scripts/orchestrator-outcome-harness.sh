@@ -38,7 +38,8 @@
 #   and end with WT_CALL / WT_CONTEXT lines per `wt auto` call, WORKER_RETRIED
 #   and CONSECUTIVE_FAILURES. Environment: HARNESS_RETRIED (default 1, a second
 #   strand, so no respawn), HARNESS_SHUTTING_DOWN (default false) and
-#   HARNESS_WT_PATH (the worktree the dirty check reads; default absent).
+#   HARNESS_WT_PATH (the worktree the dirty check reads; default absent) and
+#   HARNESS_LOG_TAIL (lines appended to the worker log).
 #
 #   worktree-dirty <wt_path>                                        (HON-1065)
 #     The REAL worktree_has_uncommitted against a fixture directory. Prints
@@ -559,6 +560,9 @@ EOF
       echo "Authorization: token=hrn-fake+Tok3n/with.regex*chars"
       echo "CI is re-running — I will merge once it settles"
     } > "$WORKER_LOG"
+    # HARNESS_LOG_TAIL (env) appends these lines to the worker log, for the
+    # 6.7 hand-off marker and its defanged form.
+    [ -n "${HARNESS_LOG_TAIL:-}" ] && printf '%s\n' "$HARNESS_LOG_TAIL" >> "$WORKER_LOG"
 
     # After the function under test: every `wt auto` call the stub recorded
     # (spawn_worker backgrounds it, so wait first), then the breaker.
