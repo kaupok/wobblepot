@@ -141,7 +141,7 @@ describe('purgeExpiredWaitlistRequests', () => {
     vi.clearAllMocks()
   })
 
-  it('deletes unconfirmed rows past 7 days and confirmed rows past 6 months, and counts each', async () => {
+  it('deletes unconfirmed rows past 7 days and confirmed rows past 6 months with no live link, and counts each', async () => {
     mockDeleteMany.mockResolvedValueOnce({ count: 4 }).mockResolvedValueOnce({ count: 1 })
 
     const result = await purgeExpiredWaitlistRequests(NOW)
@@ -151,7 +151,11 @@ describe('purgeExpiredWaitlistRequests', () => {
       where: { confirmedAt: null, createdAt: { lt: new Date('2026-09-29T12:00:00.000Z') } },
     })
     expect(mockDeleteMany).toHaveBeenNthCalledWith(2, {
-      where: { confirmedAt: { lt: new Date('2026-04-06T12:00:00.000Z') } },
+      where: {
+        confirmedAt: { lt: new Date('2026-04-06T12:00:00.000Z') },
+        // A confirmed row with a link sent in the last 7 days waits for it to expire.
+        createdAt: { lt: new Date('2026-09-29T12:00:00.000Z') },
+      },
     })
   })
 })

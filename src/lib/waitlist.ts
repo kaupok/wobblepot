@@ -171,8 +171,8 @@ async function sendConfirmationEmail(to: string, token: string, locale: Locale):
 /**
  * Deletes the requests past retention: unconfirmed ones made more than
  * {@link WAITLIST_TOKEN_TTL_DAYS} ago, and confirmed ones confirmed more than
- * {@link WAITLIST_CONFIRMED_RETENTION_MONTHS} ago. Run daily by
- * `/api/cron/purge-deleted-users`.
+ * {@link WAITLIST_CONFIRMED_RETENTION_MONTHS} ago and whose latest link has
+ * also expired. Run daily by `/api/cron/purge-deleted-users`.
  */
 export async function purgeExpiredWaitlistRequests(
   now: Date = new Date(),
@@ -180,8 +180,13 @@ export async function purgeExpiredWaitlistRequests(
   const unconfirmed = await prisma.waitlistRequest.deleteMany({
     where: { confirmedAt: null, createdAt: { lt: unconfirmedCutoff(now) } },
   })
+  // A confirmed row whose person asked again in the last 7 days has a live
+  // link that would restart its retention; let that link expire first.
   const confirmed = await prisma.waitlistRequest.deleteMany({
-    where: { confirmedAt: { lt: confirmedCutoff(now) } },
+    where: {
+      confirmedAt: { lt: confirmedCutoff(now) },
+      createdAt: { lt: unconfirmedCutoff(now) },
+    },
   })
   return { unconfirmed: unconfirmed.count, confirmed: confirmed.count }
 }
