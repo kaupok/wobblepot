@@ -71,6 +71,10 @@ WORKER_TITLES=()
 # WORKER_PIDS on its own (HON-1068).
 WORKER_REPORTED_AT=()
 WORKER_REPORTED_SIG=()
+# 1 for a worker strand_worker spawned as an issue's automatic finish attempt
+# (HON-1065), so a force drain can record the strand it interrupts (HON-1077).
+# Read with `:-0`, like the two above.
+WORKER_FINISHING=()
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -911,7 +915,7 @@ claim_issue() {
 
 spawn_worker() {
   local issue_uuid="$1" issue_id="$2" branch="$3" title="$4"
-  local is_retry="${5:-0}" retry_context="${6:-}"
+  local is_retry="${5:-0}" retry_context="${6:-}" is_finish="${7:-0}"
   local ts
   ts=$(date '+%Y%m%d-%H%M%S')
   local log_file="$LOG_DIR/worker-${issue_id}-${ts}.log"
@@ -962,6 +966,7 @@ spawn_worker() {
   local new_idx=$(( ${#WORKER_PIDS[@]} - 1 ))
   WORKER_REPORTED_AT[$new_idx]=0
   WORKER_REPORTED_SIG[$new_idx]=""
+  WORKER_FINISHING[$new_idx]="$is_finish"
 
   log INFO "Worker started (PID $pid)"
   write_status_file
@@ -1153,7 +1158,7 @@ remove_worker() {
   local idx="$1"
   local new_pids=() new_issues=() new_uuids=() new_branches=()
   local new_logs=() new_starts=() new_retried=() new_titles=()
-  local new_reported_at=() new_reported_sig=()
+  local new_reported_at=() new_reported_sig=() new_finishing=()
 
   local i=0
   while [ $i -lt ${#WORKER_PIDS[@]} ]; do
@@ -1168,6 +1173,7 @@ remove_worker() {
       new_titles+=("${WORKER_TITLES[$i]}")
       new_reported_at+=("${WORKER_REPORTED_AT[$i]:-0}")
       new_reported_sig+=("${WORKER_REPORTED_SIG[$i]:-}")
+      new_finishing+=("${WORKER_FINISHING[$i]:-0}")
     fi
     i=$((i + 1))
   done
@@ -1183,6 +1189,7 @@ remove_worker() {
     WORKER_TITLES=("${new_titles[@]}")
     WORKER_REPORTED_AT=("${new_reported_at[@]}")
     WORKER_REPORTED_SIG=("${new_reported_sig[@]}")
+    WORKER_FINISHING=("${new_finishing[@]}")
   else
     WORKER_PIDS=()
     WORKER_ISSUES=()
@@ -1194,6 +1201,7 @@ remove_worker() {
     WORKER_TITLES=()
     WORKER_REPORTED_AT=()
     WORKER_REPORTED_SIG=()
+    WORKER_FINISHING=()
   fi
 
   write_status_file
@@ -1350,6 +1358,14 @@ commits_ahead() {
   git -C "$1" rev-list --count refs/remotes/origin/main..HEAD 2>/dev/null
 }
 
+# The same count for a branch with no worktree, read from a checkout that holds
+# its ref (HON-1077). Same base ref, same empty-on-failure contract.
+#
+# Usage: branch_commits_ahead <repo> <branch>
+branch_commits_ahead() {
+  git -C "$1" rev-list --count "refs/remotes/origin/main..refs/heads/$2" 2>/dev/null
+}
+
 # Count commits ahead of origin/main in a worktree, resolved by branch name.
 #
 # Prints -1 when the base ref is missing, NOT 0. The four display sites can
@@ -1366,9 +1382,14 @@ commits_ahead() {
 # `-1-commits` in the [OUTCOME] line beside the WARN that explains it. Nothing
 # does arithmetic on this value — the gates are `-eq 0` and the rest is display.
 #
-# A missing worktree still answers 0: that is a resolved question (the worktree
-# was cleaned up, e.g. after a merge), not an unanswerable one, and
-# handle_success's merged-PR probe runs before the gate.
+# A missing worktree does not mean a missing branch (HON-1077). RETRY and the
+# finish attempt both remove the worktree, keep the branch, and respawn; a
+# respawn that dies before `git worktree add` leaves exactly that state, and a
+# 0 here sent it to handle_failure, whose retried=1 arms run `git branch -D`.
+# Worktrees share refs with the main checkout, so the kept branch is counted
+# from $REPO_ROOT. Only when the branch is gone too is the answer 0: that is a
+# resolved question (cleaned up, e.g. after a merge), and handle_success's
+# merged-PR probe runs before the gate.
 count_commits() {
   local branch="$1"
   local wt_path
@@ -1379,7 +1400,14 @@ count_commits() {
       echo -1
       return
     fi
-    commits_ahead "$wt_path" || echo 0
+    commits_ahead "$wt_path" || echo -1
+  elif [ -n "$branch" ] && git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch"; then
+    if ! git -C "$REPO_ROOT" show-ref --verify --quiet refs/remotes/origin/main; then
+      log WARN "refs/remotes/origin/main missing in $REPO_ROOT — commit count unavailable for $branch"
+      echo -1
+      return
+    fi
+    branch_commits_ahead "$REPO_ROOT" "$branch" || echo -1
   else
     echo 0
   fi
@@ -1663,7 +1691,8 @@ strand_worker() {
     # keep_branch=true: the respawn resumes the pushed branch and its open PR.
     cleanup_worker_worktree "$branch" true
     spawn_worker "$issue_uuid" "$issue_id" "$branch" "$title" "1" \
-      "$(build_retry_context "$phase" "$failure_type; the cycle must finish: $next_step" "$duration_str" "$commits" "$retry_tail")"
+      "$(build_retry_context "$phase" "$failure_type; the cycle must finish: $next_step" "$duration_str" "$commits" "$retry_tail")" \
+      "1"
     return 0
   fi
 
@@ -1994,6 +2023,8 @@ record_stranded() {
     how=$(printf 'The worker was **killed at `WORKER_TIMEOUT`** before it could merge, so the cycle is incomplete — the work itself may well be finished. If this keeps happening on long issues, raise `ORCHESTRATOR_WORKER_TIMEOUT`.')
   elif [ "$kill_reason" = "error" ]; then
     how=$(printf 'The worker **exited with error code %s** before it merged, so the cycle is incomplete. Read the worker log for the cause before resuming.' "${exit_code:-unknown}")
+  elif [ "$kill_reason" = "stopped" ]; then
+    how="The orchestrator was **force-stopped during the automatic finish attempt** and killed the worker before it merged, so the cycle is incomplete. Read the worker log to see how far it got before resuming."
   fi
 
   local body
@@ -2654,9 +2685,36 @@ sync_permissions() {
 
 # ─── Shutdown ────────────────────────────────────────────────────────────────
 
+# A force drain that kills an issue's automatic finish attempt (HON-1077). The
+# first strand logged triage=FINISH and skipped the label and comment because
+# this worker owned the issue; killing it without a record left an open PR with
+# no Stranded label and no open [OUTCOME] line, so `wt watch` showed nothing to
+# act on. Record it as strand_worker records a second strand: retried=1 makes
+# finish_attempt_eligible say no, so this never respawns, and the worktree is
+# preserved like every other strand's — the comment says so, and `wt watch`
+# reads the directory to decide whether a strand is still open.
+#
+# Returns 1 for a merged PR: the work shipped before the kill, so the caller's
+# normal drain applies.
+drain_finish_attempt() {
+  local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4" title="$5"
+
+  probe_worker_pr "$branch"
+  [ "$WORKER_PR_MERGED" = true ] && return 1
+
+  local commits phase duration_str
+  commits=$(count_commits "$branch")
+  phase=$(detect_phase "$log_file" "$branch")
+  duration_str=$(format_duration "$(worker_duration_secs "$issue_id")")
+  strand_worker "$issue_id" "$issue_uuid" "$branch" "$log_file" "1" "$title" \
+    "$phase" "$commits" "$duration_str" "stopped"
+  return 0
+}
+
 # Force shutdown kills workers mid-flight. Return each in-flight issue to Queued
 # and clear the assignee so a future run can pick it up — otherwise it stays In
-# Progress and assigned, which select_next_issue skips forever.
+# Progress and assigned, which select_next_issue skips forever. A finish attempt
+# is recorded as a strand instead: see drain_finish_attempt.
 drain_workers_to_queue() {
   local i=0
   while [ $i -lt ${#WORKER_PIDS[@]} ]; do
@@ -2665,6 +2723,12 @@ drain_workers_to_queue() {
     # claude/pnpm tree lets it re-create the directory. Wait for the exit
     # (bounded), then escalate to SIGKILL.
     wait_for_exit "${WORKER_PIDS[$i]}" 20 || kill_process_tree "${WORKER_PIDS[$i]}" KILL
+    if [ "${WORKER_FINISHING[$i]:-0}" = 1 ] && [ "$DRY_RUN" = false ] &&
+       drain_finish_attempt "${WORKER_ISSUES[$i]}" "${WORKER_ISSUE_UUIDS[$i]}" \
+         "${WORKER_BRANCHES[$i]}" "${WORKER_LOGS[$i]}" "${WORKER_TITLES[$i]}"; then
+      i=$((i + 1))
+      continue
+    fi
     # Remove the worktree but keep the git branch and its Neon branch (same
     # contract as RETRY). A leftover worktree directory would make the next
     # run's `wt auto` exit 1 with "Worktree already exists" instead of
