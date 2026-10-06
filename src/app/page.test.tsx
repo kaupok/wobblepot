@@ -397,6 +397,12 @@ describe('Home page component', () => {
     expect(
       screen.getByRole('heading', { level: 3, name: 'Get a week of meals' }),
     ).toBeInTheDocument()
+    // A new household's plan is dinner only (HON-1088).
+    expect(
+      screen.getByText(
+        "Dinner for every day, with prep times. Add breakfast and lunch when you want them. Swap any meal you don't like.",
+      ),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { level: 3, name: 'Shop once, then cook' }),
     ).toBeInTheDocument()
@@ -448,6 +454,11 @@ describe('Home page component', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { level: 2, name: 'Kolm sammu planeeritud nädalani' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Õhtusöök igaks päevaks koos valmistusajaga. Lisa hommikusöök ja lõuna, kui soovid. Vaheta iga toit, mis ei meeldi.',
+      ),
     ).toBeInTheDocument()
     // "Made for family kitchens" is a client component, which this file's
     // next-intl mock renders in English: LandingFeatures.test.tsx renders it in
