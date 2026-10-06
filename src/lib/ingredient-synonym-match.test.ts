@@ -38,6 +38,16 @@ describe('findSynonymMatches', () => {
     ])
   })
 
+  // HON-1097: the pantry quick-add offers "prawns (shrimp)" for "shrimp".
+  it('finds a merged row by its American name', () => {
+    expect(findSynonymMatches('shrimp')).toEqual([
+      { target: 'prawns', synonym: 'shrimp', strong: true },
+    ])
+    expect(findSynonymMatches('heavy cr')).toEqual([
+      { target: 'double cream', synonym: 'heavy cream', strong: true },
+    ])
+  })
+
   it('does not match the middle of a word', () => {
     expect(findSynonymMatches('lour')).toEqual([])
   })

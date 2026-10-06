@@ -137,7 +137,9 @@ describe('GET /api/ingredients', () => {
 
     await GET(createMockRequest('http://localhost/api/ingredients?search=chicken'))
 
-    const { sql, values } = lastQuery()
+    // The name search is the first query; "chicken" also runs the synonym
+    // query ("ground chicken"), which reads global rows only.
+    const { sql, values } = queryAt(0)
     expect(sql).toMatch(/\(i\."householdId" IS NULL OR i\."householdId" = \?::text\)/)
     expect(values).toContain('household-123')
   })
@@ -150,7 +152,7 @@ describe('GET /api/ingredients', () => {
     const response = await GET(createMockRequest('http://localhost/api/ingredients?search=chicken'))
 
     expect(response.status).toBe(200)
-    const { sql, values } = lastQuery()
+    const { sql, values } = queryAt(0)
     expect(sql).toMatch(/\(i\."householdId" IS NULL OR i\."householdId" = \?::text\)/)
     // `= NULL` matches no row, which leaves the `IS NULL` half: globals only.
     expect(values).toContain(null)

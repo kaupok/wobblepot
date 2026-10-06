@@ -3070,19 +3070,6 @@ export const comprehensiveIngredients = [
   // LEGUMES (8)
   // ============================================
   {
-    name: 'lima beans',
-    category: 'legume',
-    subcategory: 'bean',
-    proteinType: 'legume',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 115,
-    protein: 7.8,
-    carbs: 21,
-    fat: 0.4,
-    fiber: 7,
-  },
-  {
     name: 'great northern beans',
     category: 'legume',
     subcategory: 'bean',

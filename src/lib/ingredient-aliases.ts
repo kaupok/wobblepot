@@ -27,7 +27,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   pasta: 'spaghetti', // DB has spaghetti
 
   // Dairy - expand to specific variants that exist in DB
-  cream: 'heavy cream', // DB has heavy cream
+  cream: 'double cream', // DB has double cream
 
   // Oils and fats - expand to DB names
   oil: 'vegetable oil', // DB has vegetable oil
@@ -79,8 +79,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   cornmeal: 'corn meal', // DB has corn meal
   'self raising flour': 'self-raising flour', // Without hyphen
   mangetout: 'snap peas', // British term
-  'coriander leaves': 'cilantro', // Explicit leaf reference
-  'fresh coriander': 'cilantro', // Common British recipe phrasing
+  'coriander leaves': 'fresh coriander', // Explicit leaf reference
   prawn: 'prawns', // Singular form
   sultanas: 'raisins', // British term
 
@@ -105,8 +104,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   // Meat / protein aliases
   mince: 'beef mince', // Most common "mince" meaning
   'minced beef': 'beef mince lean', // DB has beef mince lean
-  'minced pork': 'ground pork', // DB has ground pork
-  // stewing beef / beef stew meat: now direct ingredients in seed-import-coverage.ts
+  'minced pork': 'pork mince', // DB has pork mince
 
   // Oil aliases
   'extra virgin olive oil': 'olive oil', // DB has olive oil
@@ -280,6 +278,25 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   'navy beans': 'haricot beans',
   'canned tuna': 'tinned tuna',
   'goat cheese': "goat's cheese",
+
+  // American rows merged into their British twin (HON-1097)
+  shrimp: 'prawns',
+  'pork tenderloin': 'pork fillet',
+  'heavy cream': 'double cream',
+  'ground lamb': 'lamb mince',
+  'ground pork': 'pork mince',
+  'ground turkey': 'turkey mince',
+  'ground chicken': 'chicken mince',
+  cilantro: 'fresh coriander',
+  'fresh cilantro': 'fresh coriander',
+  beet: 'beetroot',
+  'lima beans': 'butter beans',
+  'chicken broth': 'chicken stock',
+  'beef broth': 'beef stock',
+  'vegetable broth': 'vegetable stock',
+  'green chili pepper': 'green chilli',
+  'red chili pepper': 'red chilli',
+  'beef stew meat': 'stewing beef',
 }
 
 /**

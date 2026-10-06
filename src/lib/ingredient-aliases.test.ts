@@ -12,7 +12,7 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['pepper']).toBe('black pepper')
     expect(INGREDIENT_ALIASES['oil']).toBe('vegetable oil')
     expect(INGREDIENT_ALIASES['rice']).toBe('white rice')
-    expect(INGREDIENT_ALIASES['cream']).toBe('heavy cream')
+    expect(INGREDIENT_ALIASES['cream']).toBe('double cream')
     expect(INGREDIENT_ALIASES['lettuce']).toBe('romaine lettuce')
   })
 
@@ -163,6 +163,23 @@ describe('INGREDIENT_SYNONYMS', () => {
     expect(applyIngredientAlias('eggplant')).toBe('aubergine')
     expect(applyIngredientAlias('tomato sauce')).toBe('passata')
     expect(applyIngredientAlias('goat cheese')).toBe("goat's cheese")
+  })
+
+  // HON-1097: a pasted American recipe matches the British row it merged into.
+  it('resolves the American name of a merged row to its British twin', () => {
+    expect(applyIngredientAlias('shrimp')).toBe('prawns')
+    expect(applyIngredientAlias('Ground Lamb')).toBe('lamb mince')
+    expect(applyIngredientAlias('heavy cream')).toBe('double cream')
+    expect(applyIngredientAlias('cilantro')).toBe('fresh coriander')
+    expect(applyIngredientAlias('red chili pepper')).toBe('red chilli')
+    expect(applyIngredientAlias('chicken broth')).toBe('chicken stock')
+  })
+
+  it('points the aliases of a merged row at its British twin', () => {
+    expect(applyIngredientAlias('cream')).toBe('double cream')
+    expect(applyIngredientAlias('minced pork')).toBe('pork mince')
+    expect(applyIngredientAlias('coriander leaves')).toBe('fresh coriander')
+    expect(hasIngredientAlias('fresh coriander')).toBe(false)
   })
 
   it('does not send the British name of a renamed row to another row', () => {
