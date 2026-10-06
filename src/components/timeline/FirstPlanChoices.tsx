@@ -16,13 +16,20 @@ interface FirstPlanChoicesProps {
   disabled?: boolean
   /** One level under the screen's title: `h3` under Today's `h2`, `h2` under onboarding's `h1`. */
   headingAs?: 'h2' | 'h3'
+  /**
+   * The line that the first plan is dinners only. Only where that is known to
+   * hold: onboarding's step 3, just after household creation wrote the
+   * dinner-only defaults. Today's `FirstTimeSetup` can be reached after the
+   * household set meals, a diet or allergies, and the plan uses them.
+   */
+  showDefaultsNote?: boolean
 }
 
 /**
- * The first plan's two choices, start day and length, and the line that says
- * what the plan holds before any preference is set: dinners, with no diet or
- * allergy filter (docs/PROJECT_SPEC.md → Onboarding). The line is there so a
- * family is not surprised by the first plan, and knows where to change it.
+ * The first plan's two choices, start day and length, and optionally the line
+ * that says what the plan holds before any preference is set: dinners, with no
+ * diet or allergy filter (docs/PROJECT_SPEC.md → Onboarding). The line is there
+ * so a family is not surprised by the first plan, and knows where to change it.
  * Used by the last onboarding step and by Today's `FirstTimeSetup`; state and
  * the request live in `useGenerateFirstPlan`.
  */
@@ -35,6 +42,7 @@ export function FirstPlanChoices({
   onDaysCountChange,
   disabled,
   headingAs = 'h3',
+  showDefaultsNote = false,
 }: FirstPlanChoicesProps) {
   const t = useTranslations('meal-plan.firstTime')
   const startFromId = useId()
@@ -76,7 +84,7 @@ export function FirstPlanChoices({
         />
       </section>
 
-      <Body variant="muted">{t('defaultsNote')}</Body>
+      {showDefaultsNote && <Body variant="muted">{t('defaultsNote')}</Body>}
     </div>
   )
 }

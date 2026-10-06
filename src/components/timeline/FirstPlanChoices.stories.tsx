@@ -20,7 +20,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The first plan's start day and length, with the line that says the first plan is dinners only. Shared by onboarding's last step and Today's `FirstTimeSetup`.",
+          "The first plan's start day and length, and on onboarding's step 3 the line that says the first plan is dinners only. Shared by onboarding's last step and Today's `FirstTimeSetup`.",
       },
     },
   },
@@ -60,6 +60,10 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   play: async ({ canvasElement, args }) => {
+    // Today's `FirstTimeSetup` cannot know the household is still on the
+    // dinner-only defaults, so the line is off unless a screen asks for it.
+    await expect(within(canvasElement).queryByText(/we start with dinners/i)).toBeNull()
+
     const canvas = within(canvasElement)
     const daysCount = within(canvas.getByRole('radiogroup', { name: 'How many days' }))
 
@@ -70,7 +74,6 @@ export const Default: Story = {
       'aria-checked',
       'true',
     )
-    await expect(canvas.getByText(/we start with dinners/i)).toBeVisible()
   },
 }
 
@@ -78,17 +81,19 @@ export const Disabled: Story = {
   args: { disabled: true },
 }
 
-export const UnderAPageTitle: Story = {
-  args: { headingAs: 'h2' },
+export const OnboardingStep: Story = {
+  args: { headingAs: 'h2', showDefaultsNote: true },
   parameters: {
     docs: {
       description: {
-        story: "Onboarding's step 3, where the group headings sit directly under the page `h1`.",
+        story:
+          "Onboarding's step 3: the group headings sit directly under the page `h1`, and the line says the first plan is dinners only, which holds just after the household is created.",
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByRole('heading', { level: 2, name: 'Start from' })).toBeVisible()
+    await expect(canvas.getByText(/we start with dinners/i)).toBeVisible()
   },
 }

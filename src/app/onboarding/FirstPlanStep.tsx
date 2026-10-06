@@ -47,6 +47,7 @@ export function FirstPlanStep() {
           onDaysCountChange={plan.setDaysCount}
           disabled={plan.isGenerating}
           headingAs="h2"
+          showDefaultsNote
         />
         {plan.error && (
           <div className="mt-4">
