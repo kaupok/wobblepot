@@ -4,19 +4,19 @@ import { findSynonymMatches } from './ingredient-synonym-match'
 describe('findSynonymMatches', () => {
   it('matches a key that starts with the term', () => {
     expect(findSynonymMatches('plain fl')).toEqual([
-      { target: 'all-purpose flour', synonym: 'plain flour', byKeyStart: true },
+      { target: 'all-purpose flour', synonym: 'plain flour', strong: true },
     ])
   })
 
   it('matches a later word of the key', () => {
     expect(findSynonymMatches('artich')).toEqual([
-      { target: 'sunchoke', synonym: 'jerusalem artichoke', byKeyStart: false },
+      { target: 'sunchoke', synonym: 'jerusalem artichoke', strong: false },
     ])
   })
 
   it('ignores case and surrounding whitespace', () => {
     expect(findSynonymMatches('  ICING ')).toEqual([
-      { target: 'powdered sugar', synonym: 'icing sugar', byKeyStart: true },
+      { target: 'powdered sugar', synonym: 'icing sugar', strong: false },
     ])
   })
 
@@ -24,7 +24,7 @@ describe('findSynonymMatches', () => {
     expect(findSynonymMatches('sw')).toEqual([])
     expect(findSynonymMatches('swe').map((m) => m.synonym)).toEqual(['swede', 'sweet pepper'])
     expect(findSynonymMatches('swed')).toEqual([
-      { target: 'rutabaga', synonym: 'swede', byKeyStart: true },
+      { target: 'rutabaga', synonym: 'swede', strong: true },
     ])
   })
 
@@ -32,14 +32,29 @@ describe('findSynonymMatches', () => {
     expect(findSynonymMatches('lour')).toEqual([])
   })
 
-  it('returns one match per target, preferring a key that starts with the term', () => {
+  // HON-1100 review: a generic first word must not outrank the rows named by it.
+  it('is strong only when the term picks out the synonym', () => {
+    const strongOf = (term: string) =>
+      Object.fromEntries(findSynonymMatches(term).map((m) => [m.synonym, m.strong]))
+
+    expect(strongOf('zucc')).toEqual({})
+    expect(strongOf('swed')).toEqual({ swede: true })
+    expect(strongOf('plain')).toEqual({ 'plain flour': false })
+    expect(strongOf('pla')).toEqual({ 'plain flour': false })
+    expect(strongOf('plain f')).toEqual({ 'plain flour': true })
+    expect(strongOf('sweet')).toEqual({ 'sweet pepper': false })
+    expect(strongOf('red pep')).toEqual({ 'red pepper': true })
+    expect(strongOf('pepper')['red pepper']).toBe(false)
+  })
+
+  it('returns one match per target, preferring a strong match', () => {
     // "scallion" and "green onion" both point at spring onion; "bicarbonate of
     // soda" and "bicarb" both point at baking soda.
     expect(findSynonymMatches('bicarb')).toEqual([
-      { target: 'baking soda', synonym: 'bicarbonate of soda', byKeyStart: true },
+      { target: 'baking soda', synonym: 'bicarb', strong: true },
     ])
     const onion = findSynonymMatches('onion')
-    expect(onion).toEqual([{ target: 'spring onion', synonym: 'green onion', byKeyStart: false }])
+    expect(onion).toEqual([{ target: 'spring onion', synonym: 'green onion', strong: false }])
   })
 
   it('returns every distinct target a term matches', () => {

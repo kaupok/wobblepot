@@ -21,15 +21,16 @@ const MAX_LIMIT = 50
  */
 const SIMILARITY_THRESHOLD = 0.3
 /**
- * Score for a row found by another English name that starts with the term
- * (HON-1100). Such a hit is an exact, curated match, but the row's own name can
- * share almost no trigrams with the term ("plain fl" vs "all-purpose flour"),
- * so it gets a fixed score: above any partial name hit, below an exact name hit
- * (similarity 1). Typing "plain fl" then lists all-purpose flour first, and
- * typing a row's full name still puts that row on top.
+ * Score for a strong synonym hit (HON-1100): the term picks out one other
+ * English name, "zucc" or "plain f" (`SynonymMatch.strong`). Such a hit is an
+ * exact, curated match, but the row's own name can share almost no trigrams
+ * with the term ("plain fl" vs "all-purpose flour"), so it gets a fixed score:
+ * above any partial name hit, below an exact name hit (similarity 1). Typing
+ * "plain fl" then lists all-purpose flour first, and typing a row's full name
+ * still puts that row on top.
  *
- * A term that only starts a later word of the synonym ("pepper" in "red
- * pepper") is a generic word, not that kind of match, so the row keeps its own
+ * A term that is only a generic word of the synonym ("plain", "sweet", or
+ * "pepper" in "red pepper") is not that kind of match, so the row keeps its own
  * name score and falls into the normal order.
  */
 const SYNONYM_SCORE = 0.9
@@ -151,7 +152,7 @@ export async function GET(request: NextRequest) {
         const hit = synonymByTarget.get(poolName)
         return {
           ...row,
-          similarity: hit?.byKeyStart ? SYNONYM_SCORE : similarity,
+          similarity: hit?.strong ? SYNONYM_SCORE : similarity,
           matchedAs: hit?.synonym,
         }
       })

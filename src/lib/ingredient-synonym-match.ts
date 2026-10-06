@@ -9,11 +9,13 @@ export interface SynonymMatch {
   /** The other English name the search term matched. */
   synonym: string
   /**
-   * True when the whole synonym starts with the term ("plain fl"), false when
-   * only a later word does ("pepper" in "red pepper"). The search route ranks
-   * only the first kind as a strong hit.
+   * True when the term picks out this synonym rather than a generic word in
+   * it: it starts a one-word synonym ("zucc", "swed"), or it reaches past the
+   * first word of a longer one ("plain f"). False when it is only the first
+   * word or part of it ("plain", "sweet") or starts a later word ("pepper" in
+   * "red pepper"). The search route ranks only a strong hit above name hits.
    */
-  byKeyStart: boolean
+  strong: boolean
 }
 
 /**
@@ -21,25 +23,32 @@ export interface SynonymMatch {
  *
  * A key matches when it, or one of its words, starts with the term
  * (case-insensitive): "plain fl" and "flo" both match "plain flour". When
- * several keys point at one row, a key that starts with the term wins over a
- * key whose later word does, then table order decides.
+ * several keys point at one row, a strong match wins, then a key that starts
+ * with the term, then a key whose later word does; table order breaks ties.
  */
 export function findSynonymMatches(search: string): SynonymMatch[] {
   const term = search.trim().toLowerCase()
   if (term.length < MIN_SYNONYM_TERM_LENGTH) return []
 
+  const strong: SynonymMatch[] = []
   const byKeyStart: SynonymMatch[] = []
   const byWordStart: SynonymMatch[] = []
   for (const [synonym, target] of Object.entries(INGREDIENT_SYNONYMS)) {
+    const words = synonym.split(/\s+/)
+    const firstWord = words[0] ?? synonym
     if (synonym.startsWith(term)) {
-      byKeyStart.push({ target, synonym, byKeyStart: true })
-    } else if (synonym.split(/\s+/).some((word) => word.startsWith(term))) {
-      byWordStart.push({ target, synonym, byKeyStart: false })
+      if (words.length === 1 || term.length > firstWord.length) {
+        strong.push({ target, synonym, strong: true })
+      } else {
+        byKeyStart.push({ target, synonym, strong: false })
+      }
+    } else if (words.some((word) => word.startsWith(term))) {
+      byWordStart.push({ target, synonym, strong: false })
     }
   }
 
   const matches = new Map<string, SynonymMatch>()
-  for (const match of [...byKeyStart, ...byWordStart]) {
+  for (const match of [...strong, ...byKeyStart, ...byWordStart]) {
     if (!matches.has(match.target)) matches.set(match.target, match)
   }
   return [...matches.values()]
