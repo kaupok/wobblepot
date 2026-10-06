@@ -57,6 +57,16 @@ describe('file tools', () => {
     expect(verdict.blocked ? verdict.reason : '').toMatch(/EnterWorktree/)
   })
 
+  // EnterWorktree rejects a name over 64 characters, and most Linear branch
+  // names are longer, so the guard asks for the short ID (HON-1094).
+  it('tells Claude to pass the short issue ID and names the length limit', () => {
+    const verdict = checkFileWrite('src/app/page.tsx', ctx())
+    const reason = verdict.blocked ? verdict.reason : ''
+    expect(reason).toContain('`hon-123`')
+    expect(reason).toMatch(/64 characters/)
+    expect(reason).not.toMatch(/gitBranchName/)
+  })
+
   it('allows everything when the session opted in', () => {
     expect(
       checkFileWrite('src/app/page.tsx', ctx({ env: { [MAIN_CHECKOUT_OPT_IN]: '1' } })).blocked,
