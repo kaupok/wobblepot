@@ -212,22 +212,22 @@ describe('Home page component', () => {
     vi.mocked(getServerFlag).mockResolvedValue(true)
   })
 
-  describe('private-beta notice (HON-847)', () => {
+  describe('private-beta notice (HON-847, HON-846)', () => {
     beforeEach(async () => {
       const { auth } = await import('@/lib/auth')
       vi.mocked(auth.api.getSession).mockResolvedValue(null)
     })
 
-    it('renders the notice with a link to ask support for an invite when invites are required', async () => {
+    it('renders the notice with a link to the invite-request page when invites are required (HON-846)', async () => {
       await renderLanding()
 
       expect(getServerFlag).toHaveBeenCalledWith('invite_code_required', 'anonymous')
       const notice = screen.getByRole('note', { name: 'Private beta notice' })
       expect(notice).toHaveTextContent(
-        "We're in private beta, so sign-up needs an invite code. Don't have one? Ask for an invite at support@wobblepot.com.",
+        "We're in private beta, so sign-up needs an invite code. Don't have one? Ask for an invite.",
       )
       const link = within(notice).getByRole('link', { name: 'Ask for an invite' })
-      expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com?subject=Invite%20request')
+      expect(link).toHaveAttribute('href', '/request-invite')
     })
 
     it('names the call to action after its value while invites are required', async () => {
@@ -265,16 +265,17 @@ describe('Home page component', () => {
       ).toBeInTheDocument()
     })
 
-    it('translates the notice label and the mail subject', async () => {
+    it('translates the notice and its link', async () => {
       translationLocale = 'et'
 
       await renderLanding()
 
       const notice = screen.getByRole('note', { name: 'Suletud beeta märguanne' })
       expect(screen.queryByRole('note', { name: 'Private beta notice' })).not.toBeInTheDocument()
+      expect(notice).toHaveTextContent(/Sul pole koodi\? Küsi kutset\.$/)
       expect(within(notice).getByRole('link', { name: 'Küsi kutset' })).toHaveAttribute(
         'href',
-        'mailto:support@wobblepot.com?subject=Soovin%20kutset',
+        '/request-invite',
       )
     })
   })

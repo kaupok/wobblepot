@@ -27,7 +27,7 @@ This is not a customer-service playbook for general feature questions; it is the
 
 ## Support inbox
 
-- **Address:** `support@wobblepot.com` — general support, invite requests, outage reports, and security reports. Not a DSR intake; see "Routing" above for DSRs that arrive here.
+- **Address:** `support@wobblepot.com` — general support, outage reports, and security reports. Invite requests go through the waitlist at `/request-invite` (HON-846), not this inbox. Not a DSR intake; see "Routing" above for DSRs that arrive here.
 - **Routing:** mail is delivered to the data-controller's monitored mailbox. Configuration lives outside the repository (DNS / mail provider). See "Re-creating the auto-reply" below if the provider is changed.
 - **Surfaces that publish this address:**
   - `src/components/footer.tsx` — every page (authed + public)
@@ -35,8 +35,6 @@ This is not a customer-service playbook for general feature questions; it is the
   - `src/app/global-error.tsx` — root error boundary (hardcoded English; renders outside the i18n provider)
   - `src/app/status/page.tsx` — public `/status`
   - `src/app/(legal)/terms/page.tsx` — the Terms contact
-  - `src/app/page.tsx` — the landing page's invite-request link (pre-filled subject via `supportMailtoHref`; HON-847)
-  - `src/app/sign-up/SignUpForm.tsx` — the same invite-request link on the sign-up form (HON-847)
   - `LICENSE` (HON-604) — the licensing-questions line in the root notice
   - `README.md` — twice: the intro paragraph, for general questions (HON-603), and the Security section, for vulnerability reports
   - `docs/RUNBOOKS/status-page.md` — canonical incident-banner copy, pasted verbatim into a user-facing banner
@@ -45,7 +43,7 @@ This is not a customer-service playbook for general feature questions; it is the
   - This runbook — the **Address** line above
   - _Not_ the privacy policy: it publishes `privacy@wobblepot.com` and rotates with `PRIVACY_EMAIL` — see "DSR inbox" above.
 - **Regenerate this list; do not trust it.** It has been wrong three times. The authoritative pair is `git grep -n 'support@wobblepot.com' -- ':!pnpm-lock.yaml'` and `git grep -ln SUPPORT_EMAIL -- 'src/**'`; run both before a rotation and reconcile against the entries above.
-- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL`, `SUPPORT_EMAIL_HREF` and `supportMailtoHref`. Every `.tsx` entry above imports them, so app code is one edit. The `LICENSE`, `README.md`, and `docs/**` entries hardcode the literal and need hand edits — static files and runbook copy have no import mechanism. `src/lib/resend.ts` names the constant in a comment only. Nine tests and stories carry the literal (`src/app/error.test.tsx`, `src/app/global-error.test.tsx`, `src/app/page.test.tsx`, `src/app/sign-up/page.test.tsx`, `src/app/status/page.test.tsx`, `src/components/footer.test.tsx`, `src/components/footer.stories.tsx`, `src/components/ui/callout.stories.tsx`, `src/lib/support.test.ts`) — the assertions among them fail loudly on a rotation, which is the backstop for anything this list still misses.
+- **One source of truth:** `src/lib/support.ts` exports `SUPPORT_EMAIL` and `SUPPORT_EMAIL_HREF`. Every `.tsx` entry above imports them, so app code is one edit. The `LICENSE`, `README.md`, and `docs/**` entries hardcode the literal and need hand edits — static files and runbook copy have no import mechanism. `src/lib/resend.ts` names the constant in a comment only. Five tests and stories carry the literal (`src/app/error.test.tsx`, `src/app/global-error.test.tsx`, `src/app/status/page.test.tsx`, `src/components/footer.test.tsx`, `src/components/footer.stories.tsx`) — the assertions among them fail loudly on a rotation, which is the backstop for anything this list still misses.
 
 ## SLAs
 
@@ -61,7 +59,7 @@ The 24-hour and 3-working-day commitments are softer than the GDPR clock and app
 
 ## DSR types
 
-A DSR is any user-initiated request to exercise rights under GDPR. The DSR inbox accepts all four; the user does not need to know which type to file under.
+A DSR is any user-initiated request to exercise rights under GDPR. The DSR inbox accepts every type below; the user does not need to know which type to file under.
 
 | Type                  | Right (GDPR Art.)                       | What we do                                                                                                                                                                                                                                                                                                                                                                                                         |
 | --------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -69,6 +67,7 @@ A DSR is any user-initiated request to exercise rights under GDPR. The DSR inbox
 | Deletion / erasure    | Art. 17                                 | Direct user to Profile → "Delete account" to start the 30-day grace window (shipped, HON-481). Recovery and purge steps: [`gdpr-deletion.md`](gdpr-deletion.md). User cannot sign in or is blocked as sole owner: [Operator-initiated deletion](gdpr-deletion.md#operator-initiated-deletion). User waives the grace window in writing: [Immediate erasure](gdpr-deletion.md#immediate-erasure-on-written-request) |
 | Rectification         | Art. 16                                 | Edit in-app where possible; manual update otherwise. Record it on the `privacy@` thread (triage step 4)                                                                                                                                                                                                                                                                                                            |
 | Complaint / objection | Art. 21, recital 141                    | Acknowledge; remind the user they may complain to their local supervisory authority (AKI for Estonia). Do not treat as adversarial — investigate and respond                                                                                                                                                                                                                                                       |
+| Waitlist removal      | Art. 7(3) (withdraw consent), Art. 17   | Delete the person's `waitlist_request` row. Until HON-970 ships the admin Remove action, do it in Prisma Studio. Unconfirmed rows also expire on their own after 7 days, confirmed rows 6 months after confirmation (HON-846)                                                                                                                                                                                      |
 
 If a request is ambiguous ("delete my data"), default to the strictest interpretation (full erasure) and confirm with the user before acting irreversibly.
 

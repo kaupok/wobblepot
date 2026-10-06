@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { purgeUser } from '@/lib/auth/purge-user'
+import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
 import { captureApiError } from '@/lib/errors'
 
 export const dynamic = 'force-dynamic'
@@ -20,6 +21,12 @@ export const dynamic = 'force-dynamic'
  *
  * Each user is purged in its own transaction (via `purgeUser`), so one failure
  * is logged and skipped rather than aborting the whole batch.
+ *
+ * The same run enforces the waitlist retention (HON-846): unconfirmed invite
+ * requests older than 7 days and confirmed ones older than 6 months are
+ * deleted (`purgeExpiredWaitlistRequests`). It lives here rather than in a
+ * cron of its own because `vercel.json` schedules this one cron, and this
+ * route already owns the published retention promises.
  */
 export async function GET(request: Request) {
   const cronSecret = serverEnv.CRON_SECRET
@@ -61,7 +68,9 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({ purged, scanned: expired.length })
+    const waitlist = await purgeExpiredWaitlistRequests(now)
+
+    return NextResponse.json({ purged, scanned: expired.length, waitlist })
   } catch (error) {
     captureApiError(error, { route: '/api/cron/purge-deleted-users' })
     return NextResponse.json({ error: 'Purge failed' }, { status: 500 })

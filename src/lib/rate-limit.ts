@@ -71,6 +71,7 @@ export type RateLimitFeature =
   | 'sign-up'
   | 'sign-in'
   | 'forgot-password'
+  | 'waitlist'
   | 'data-export'
 
 type Dimension = 'household' | 'ip' | 'user'
@@ -120,6 +121,14 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
     window: '1 h',
     dimension: 'ip',
     daily: { limit: 5, window: '1 d' },
+  },
+  // The public invite-request form (HON-846). Each allowed request can send an
+  // email to any address, so it sits at the forgot-password bucket.
+  waitlist: {
+    limit: 3,
+    window: '1 h',
+    dimension: 'ip',
+    daily: { limit: 10, window: '1 d' },
   },
   'data-export': { limit: 3, window: '1 d', dimension: 'user' },
 }

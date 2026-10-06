@@ -24,7 +24,7 @@ export const CURRENT_TERMS_VERSION = 1
  * of those routes. Bump on any wording change; material changes also
  * bump CURRENT_TERMS_VERSION above.
  */
-export const POLICY_LAST_UPDATED = '2026-06-06'
+export const POLICY_LAST_UPDATED = '2026-10-06'
 
 /** Human-readable form of POLICY_LAST_UPDATED, e.g. "3 June 2026". */
 export const POLICY_LAST_UPDATED_DISPLAY = new Date(POLICY_LAST_UPDATED).toLocaleDateString(

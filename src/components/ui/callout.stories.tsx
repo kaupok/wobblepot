@@ -45,10 +45,10 @@ export const WrappingWithLink: Story = {
     children: (
       <>
         Private beta — sign-up is by invite code only. Don&apos;t have one?{' '}
-        <a href="mailto:support@wobblepot.com?subject=Invite%20request" className="underline">
+        <a href="/request-invite" className="underline">
           Ask for an invite
-        </a>{' '}
-        at support@wobblepot.com.
+        </a>
+        .
       </>
     ),
   },

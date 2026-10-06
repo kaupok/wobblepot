@@ -810,12 +810,29 @@
       "signInLink": "Sign in",
       "privateBetaBanner": "Private beta — sign-up is by invite code only.",
       "privateBetaNoticeLabel": "Private beta notice",
-      "requestInvite": "Don't have one? <link>Ask for an invite</link> at {email}.",
-      "requestInviteSubject": "Invite request",
+      "requestInvite": "Don't have one? <link>Ask for an invite</link>.",
       "inviteCodeLabel": "Invite code",
       "inviteCodeHint": "Paste the code from your invitation.",
       "slowRequest": "This is taking longer than expected. Please wait…",
       "navigationFailed": "Account created successfully, but navigation failed. Please refresh the page."
+    },
+    "requestInvite": {
+      "metaTitle": "Ask for an invite",
+      "title": "Ask for an invite",
+      "description": "We're in private beta. Leave your email, and we send you an invite code when a place opens.",
+      "emailLabel": "Email",
+      "submit": "Ask for an invite",
+      "submitting": "Sending…",
+      "privacy": "We keep your address only to send the invite. See the <link>privacy policy</link>.",
+      "householdInvitee": "Joining someone's household? Use the link they sent you.",
+      "sent": "Check your email. We sent a confirmation link to {email}. Click it within 7 days to join the list.",
+      "tooManyRequests": "Too many tries. Try again in an hour.",
+      "failed": "We couldn't send your request. Try again.",
+      "confirmMetaTitle": "Invite request",
+      "confirmedTitle": "You're on the list",
+      "confirmedBody": "We email an invite when a place opens.",
+      "expiredTitle": "This link has expired or was used",
+      "askAgain": "Ask again"
     },
     "forgotPassword": {
       "metaTitle": "Forgot password",
@@ -888,6 +905,16 @@
       "cta": "Reset password",
       "expiry": "This link will expire in 1 hour for security reasons.",
       "ignore": "If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged."
+    },
+    "waitlistConfirm": {
+      "subject": "Confirm your {appName} invite request",
+      "heading": "Confirm your invite request",
+      "intro": "Someone asked for a {appName} invite with this email address.",
+      "instructionHtml": "Click the button below to join the invite list:",
+      "instructionText": "Open the link below to join the invite list:",
+      "cta": "Join the list",
+      "expiry": "The link works for 7 days.",
+      "ignore": "If this was not you, ignore this email. The request is deleted after 7 days."
     },
     "accountDeletionRequested": {
       "subject": "Your {appName} account will be deleted on {date}",

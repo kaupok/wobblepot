@@ -6,7 +6,16 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/privacy', '/terms', '/sign-in', '/sign-up', '/bot', '/status'],
+        allow: [
+          '/',
+          '/privacy',
+          '/terms',
+          '/sign-in',
+          '/sign-up',
+          '/request-invite',
+          '/bot',
+          '/status',
+        ],
         disallow: [
           '/api',
           '/profile',
@@ -17,6 +26,8 @@ export default function robots(): MetadataRoute.Robots {
           '/onboarding',
           '/reset-password',
           '/forgot-password',
+          // Its URL carries a single-use token (HON-846).
+          '/request-invite/confirm',
           '/invite',
           '/recipes',
           '/admin',

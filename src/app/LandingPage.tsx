@@ -11,7 +11,6 @@ import { formatDayLong } from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import type { DemoDay } from '@/lib/landing/load-demo-day'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
-import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support'
 import { cn } from '@/lib/utils'
 
 const STEPS = ['table', 'week', 'shop'] as const
@@ -72,14 +71,13 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
                 <Body variant="muted" role="note" aria-label={tSignUp('privateBetaNoticeLabel')}>
                   {t('privateBeta')}{' '}
                   {tSignUp.rich('requestInvite', {
-                    email: SUPPORT_EMAIL,
                     link: (chunks) => (
-                      <a
-                        href={supportMailtoHref(tSignUp('requestInviteSubject'))}
+                      <Link
+                        href="/request-invite"
                         className="text-foreground underline underline-offset-2"
                       >
                         {chunks}
-                      </a>
+                      </Link>
                     ),
                   })}
                 </Body>

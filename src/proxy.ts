@@ -66,6 +66,11 @@ export const PUBLIC_ROUTES = [
   { path: '/sign-up', reason: 'Auth flow' },
   { path: '/forgot-password', reason: 'Auth flow' },
   { path: '/reset-password', reason: 'Auth flow' },
+  {
+    path: '/request-invite',
+    reason:
+      'A visitor without an account asks for an invite and confirms it from an emailed link (HON-846)',
+  },
   { path: '/privacy', reason: 'Legal page, served from the (legal) route group' },
   { path: '/terms', reason: 'Legal page, served from the (legal) route group' },
   { path: '/status', reason: 'Public status page' },
