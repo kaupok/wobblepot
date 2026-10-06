@@ -28,6 +28,7 @@ export interface MatchedIngredient {
     subcategory: string | null
     defaultUnit: Unit
     gramsPerPiece: number | null
+    measuredByVolume: boolean
     calories: number
     protein: number
     carbs: number
@@ -56,6 +57,7 @@ export interface MatchedIngredient {
     name: string
     category: IngredientCategory
     defaultUnit: Unit
+    measuredByVolume: boolean
     similarity: number
   }>
 }
@@ -203,6 +205,7 @@ export async function matchIngredients(
             name: m.name,
             category: m.category,
             defaultUnit: m.defaultUnit,
+            measuredByVolume: m.measuredByVolume,
             similarity: m.similarity,
           }))
         : undefined
@@ -272,6 +275,7 @@ export async function matchIngredients(
           category: match.category,
           subcategory: match.subcategory,
           defaultUnit: match.defaultUnit,
+          measuredByVolume: match.measuredByVolume,
           gramsPerPiece: match.gramsPerPiece,
           calories: match.calories,
           protein: match.protein,

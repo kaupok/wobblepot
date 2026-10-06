@@ -105,6 +105,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                       name: translatedIngredient.name,
                       category: translatedIngredient.category,
                       defaultUnit: translatedIngredient.defaultUnit,
+                      measuredByVolume: translatedIngredient.measuredByVolume,
                       gramsPerPiece: translatedIngredient.gramsPerPiece,
                     },
                   }

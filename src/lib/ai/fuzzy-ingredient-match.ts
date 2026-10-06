@@ -17,6 +17,7 @@ export type FuzzyIngredientMatch = {
   subcategory: string | null
   defaultUnit: Unit
   gramsPerPiece: number | null
+  measuredByVolume: boolean
   calories: number
   protein: number
   carbs: number
@@ -102,6 +103,7 @@ export async function fuzzySearchIngredient(
         subcategory,
         "defaultUnit",
         "gramsPerPiece",
+        "measuredByVolume",
         calories,
         protein,
         carbs,
@@ -122,6 +124,7 @@ export async function fuzzySearchIngredient(
         subcategory,
         "defaultUnit",
         "gramsPerPiece",
+        "measuredByVolume",
         calories,
         protein,
         carbs,
@@ -142,6 +145,7 @@ export async function fuzzySearchIngredient(
         i.subcategory,
         i."defaultUnit",
         i."gramsPerPiece",
+        i."measuredByVolume",
         i.calories,
         i.protein,
         i.carbs,

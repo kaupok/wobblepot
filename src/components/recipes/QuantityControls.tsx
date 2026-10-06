@@ -57,9 +57,7 @@ export function QuantityControls({
           disabled={disabled}
         />
         {unitLabel && (
-          <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
-            {unitLabel}
-          </span>
+          <span className="text-foreground bg-muted border-l px-2 py-1.5 text-sm">{unitLabel}</span>
         )}
       </div>
       <Button type="button" variant="outline" size="sm" onClick={onMarkAsVague} disabled={disabled}>

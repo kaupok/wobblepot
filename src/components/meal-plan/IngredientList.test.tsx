@@ -50,7 +50,41 @@ describe('IngredientList quantities', () => {
         pantryIngredients={[{ ingredientId: 'olive-oil', isStaple: true }]}
       />,
     )
-    expect(screen.getByText(/Olive oil \(1\.2kg\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Olive oil \(1\.2l\)/)).toBeInTheDocument()
+  })
+})
+
+// A liquid shows its stored grams as millilitres, 1:1 (HON-1054).
+describe('IngredientList liquid quantities', () => {
+  it('renders a measured-by-volume ingredient in ml', () => {
+    renderInLocale(<IngredientList components={[oil, chicken]} servings={2} />)
+    expect(row('Olive oil')).toHaveTextContent('120ml')
+    expect(row('Chicken thigh')).toHaveTextContent('300g')
+  })
+
+  it('renders litres with the locale decimal separator', () => {
+    renderInLocale(<IngredientList components={[oil]} servings={25} />)
+    expect(row('Olive oil')).toHaveTextContent('1.5l')
+  })
+
+  it('renders Estonian litres with a decimal comma', () => {
+    renderInLocale(<IngredientList components={[oil]} servings={25} />, 'et')
+    expect(row('Olive oil')).toHaveTextContent('1,5l')
+  })
+
+  it('keeps grams for an ingredient without the flag', () => {
+    const paste = createMealComponent({
+      ingredientId: 'anchovy-paste',
+      quantityPerServing: 10,
+      ingredient: {
+        id: 'anchovy-paste',
+        name: 'Anchovy paste',
+        category: 'condiment',
+        defaultUnit: 'g',
+      },
+    })
+    renderInLocale(<IngredientList components={[paste]} servings={2} />)
+    expect(row('Anchovy paste')).toHaveTextContent('20g')
   })
 })
 

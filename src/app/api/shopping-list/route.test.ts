@@ -201,6 +201,7 @@ describe('GET /api/shopping-list', () => {
                 name: 'Chicken breast',
                 category: 'protein',
                 defaultUnit: 'g',
+                measuredByVolume: false,
                 gramsPerPiece: null,
               },
               neededQuantity: 600,
@@ -257,6 +258,7 @@ describe('GET /api/shopping-list', () => {
         name: id,
         category: 'protein' as const,
         defaultUnit: 'g' as const,
+        measuredByVolume: false,
         gramsPerPiece: null,
       })
       const row = (id: string, date: string) => ({
@@ -325,6 +327,7 @@ describe('GET /api/shopping-list', () => {
                 name: 'Chicken breast',
                 category: 'protein',
                 defaultUnit: 'g',
+                measuredByVolume: false,
                 gramsPerPiece: null,
               },
               neededQuantity: 600,
@@ -410,6 +413,7 @@ describe('GET /api/shopping-list', () => {
                 name: 'Eggs',
                 category: 'protein',
                 defaultUnit: 'piece',
+                measuredByVolume: false,
                 gramsPerPiece: 60,
               },
               neededQuantity: 6,
@@ -454,6 +458,7 @@ describe('GET /api/shopping-list', () => {
                 name: 'Rice',
                 category: 'carb' as const,
                 defaultUnit: 'g' as const,
+                measuredByVolume: false,
                 gramsPerPiece: null,
               },
               neededQuantity: 1500,
@@ -518,6 +523,65 @@ describe('GET /api/shopping-list', () => {
     expect(mockGetLocale).not.toHaveBeenCalled()
   })
 
+  // A liquid shows its stored grams as millilitres, 1:1, and the raw
+  // `quantity` stays in grams (HON-1054).
+  it('formats a measured-by-volume ingredient in ml and l', async () => {
+    const buildResult = (name: string, shoppingQuantity: number) => ({
+      groups: [
+        {
+          category: 'condiment' as const,
+          categoryLabel: 'Condiments',
+          items: [
+            {
+              ingredientId: 'ing-liquid',
+              ingredient: {
+                id: 'ing-liquid',
+                name,
+                category: 'condiment' as const,
+                defaultUnit: 'g' as const,
+                measuredByVolume: true,
+                gramsPerPiece: null,
+              },
+              neededQuantity: shoppingQuantity,
+              pantryQuantity: null,
+              shoppingQuantity,
+              mealCount: 1,
+              earliestNeededDate: new Date('2026-02-01'),
+              isVague: false,
+              originalPhrase: null,
+            },
+          ],
+        },
+      ],
+      startDate: '2026-01-31',
+      endDate: '2026-02-06',
+      windowDays: 7 as const,
+      earliestPlanCreatedAt: null,
+      hasAnyPlan: false,
+    })
+
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockPantryFindMany.mockResolvedValue([])
+
+    mockComputeShoppingList.mockResolvedValue(buildResult('Red wine', 120))
+    const wine = (await (await GET(createMockRequest())).json()).groups[0].items[0]
+    expect(wine.displayQuantity).toBe('120ml')
+    expect(wine.quantity).toBe(120)
+
+    mockComputeShoppingList.mockResolvedValue(buildResult('Milk', 1500))
+    const enData = await (await GET(createMockRequest())).json()
+    expect(enData.groups[0].items[0].displayQuantity).toBe('1.5l')
+
+    mockFindFirst.mockResolvedValue({
+      ...mockMembership,
+      household: { ...mockHousehold, locale: 'et' },
+    } as never)
+    mockComputeShoppingList.mockResolvedValue(buildResult('Piim', 1500))
+    const etData = await (await GET(createMockRequest())).json()
+    expect(etData.groups[0].items[0].displayQuantity).toBe('1,5l')
+  })
+
   it("renders a vague phrase in the household's locale (HON-917)", async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockFindFirst.mockResolvedValue({
@@ -538,6 +602,7 @@ describe('GET /api/shopping-list', () => {
                 name: 'Sool',
                 category: 'spice' as const,
                 defaultUnit: 'g' as const,
+                measuredByVolume: false,
                 gramsPerPiece: null,
               },
               neededQuantity: 4,

@@ -8,7 +8,11 @@ import {
   openViaTrigger,
   pressEscape,
 } from '@/stories/a11y-helpers'
-import { createPantryItem, lemonGarlicChickenComponents } from '@/stories/fixtures'
+import {
+  createPantryItem,
+  lemonGarlicChickenComponents,
+  lemonGarlicChickenComponentsFull,
+} from '@/stories/fixtures'
 import { PantryDeductionModal } from './PantryDeductionModal'
 
 const pantryItems = [
@@ -58,6 +62,29 @@ export const SomeItemsRemoved: Story = {
           'Doubling the serving size exhausts several pantry items — they’ll be removed after.',
       },
     },
+  },
+}
+
+export const WithLiquid: Story = {
+  args: {
+    components: lemonGarlicChickenComponentsFull,
+    pantryItems: [
+      ...pantryItems,
+      createPantryItem({ ingredientId: 'olive-oil', quantity: 500, isStaple: false }),
+    ],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A liquid reads in ml: 500ml of olive oil less 60ml leaves 440ml. The pantry still stores grams, 1 g = 1 ml (HON-1054).',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await expect(await body.findByText('500ml → 440ml')).toBeInTheDocument()
+    await expect(body.getByText('800g → 200g')).toBeInTheDocument()
   },
 }
 

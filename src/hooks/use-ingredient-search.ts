@@ -16,6 +16,8 @@ export interface IngredientResult {
   category: IngredientCategory
   defaultUnit: Unit
   gramsPerPiece?: number | null
+  /** Shown in millilitres, 1 g = 1 ml (HON-1054). Absent reads as grams. */
+  measuredByVolume?: boolean
   calories?: number
   protein?: number
   carbs?: number

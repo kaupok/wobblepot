@@ -46,6 +46,7 @@ export interface MealData extends MealImageFields {
       category: IngredientCategory
       defaultUnit: Unit
       gramsPerPiece?: number | null
+      measuredByVolume?: boolean
     }
   }[]
   nutrition: {

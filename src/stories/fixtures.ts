@@ -107,6 +107,8 @@ export const ingredients = {
     category: 'pantry',
     defaultUnit: 'g',
     gramsPerPiece: null,
+    // A liquid: the cook view shows it in ml (HON-1054).
+    measuredByVolume: true,
   },
   'salmon-fillet': {
     id: 'salmon-fillet',
@@ -863,6 +865,7 @@ export const ingredientResults = {
     category: 'fat',
     defaultUnit: 'g',
     gramsPerPiece: null,
+    measuredByVolume: true,
     calories: 884,
     protein: 0,
     carbs: 0,

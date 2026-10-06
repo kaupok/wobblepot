@@ -383,6 +383,7 @@
       "updating": "Updating…",
       "pieceQuantity": "{count, plural, =0 {0 pieces} one {# piece} other {# pieces}}",
       "gramsQuantity": "{count}g",
+      "millilitresQuantity": "{count}ml",
       "someQuantity": "some"
     },
     "day": {

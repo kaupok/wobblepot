@@ -116,6 +116,32 @@ export const Populated: Story = {
   },
 }
 
+export const WithLiquid: Story = {
+  args: {
+    components: [
+      ...standardComponents,
+      createMealFormComponent({
+        ingredient: createIngredientResult({ id: 'olive-oil' }),
+        totalQuantity: 60,
+      }),
+    ],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A liquid reads in ml, in the summary and beside the quantity field. The stored number does not change, because 1 g = 1 ml (HON-1054).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('15ml per serving')).toBeInTheDocument()
+    await expect(canvas.getByText('ml')).toBeInTheDocument()
+    await expect(canvas.getByLabelText('Total quantity for Olive oil')).toHaveValue('60')
+  },
+}
+
 export const WithVague: Story = {
   args: { components: componentsWithVague },
   parameters: {

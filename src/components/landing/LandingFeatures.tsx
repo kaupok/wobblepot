@@ -73,7 +73,7 @@ const SERVINGS = sumPortions(
 /** Grams of salmon per serving; the cook view shows it × `SERVINGS`. */
 const SALMON_GRAMS_PER_SERVING = 120
 
-// Quantities per serving, in grams or (the lemon) pieces.
+// Quantities per serving, in grams (millilitres for the oil) or (the lemon) pieces.
 const INGREDIENTS = [
   {
     key: 'salmon',
@@ -83,7 +83,15 @@ const INGREDIENTS = [
     inPantry: true,
   },
   { key: 'asparagus', category: 'vegetable', unit: 'g', quantityPerServing: 100, inPantry: true },
-  { key: 'oliveOil', category: 'fat', unit: 'g', quantityPerServing: 10, inPantry: true },
+  // A liquid: the cook view shows it in ml (HON-1054).
+  {
+    key: 'oliveOil',
+    category: 'fat',
+    unit: 'g',
+    measuredByVolume: true,
+    quantityPerServing: 10,
+    inPantry: true,
+  },
   // 0.4 × 2.5 servings is one whole lemon.
   { key: 'lemon', category: 'fruit', unit: 'piece', quantityPerServing: 0.4, inPantry: false },
 ] as const
@@ -193,10 +201,16 @@ function VignetteSurface({ hue, children }: { hue?: number; children: ReactNode 
 
 function useIngredients(): MealComponent[] {
   const t = useTranslations('landing.why.pantry.vignette')
-  return INGREDIENTS.map(({ key, category, unit, quantityPerServing }) => ({
-    ingredientId: key,
-    quantityPerServing,
-    ingredient: { id: key, name: t(key), category, defaultUnit: unit },
+  return INGREDIENTS.map((item) => ({
+    ingredientId: item.key,
+    quantityPerServing: item.quantityPerServing,
+    ingredient: {
+      id: item.key,
+      name: t(item.key),
+      category: item.category,
+      defaultUnit: item.unit,
+      measuredByVolume: 'measuredByVolume' in item && item.measuredByVolume,
+    },
   }))
 }
 

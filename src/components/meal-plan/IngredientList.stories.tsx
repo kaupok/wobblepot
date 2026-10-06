@@ -191,6 +191,36 @@ export const LargerServings: Story = {
 }
 
 /**
+ * A liquid shows its stored grams as millilitres, 1 g = 1 ml (HON-1054): the
+ * olive oil (15g per serving) reads "60ml" at 4 servings, and the red wine
+ * (300g per serving) crosses into litres, "1.2l". The chicken stays in grams.
+ */
+export const LiquidsInMillilitres: Story = {
+  args: {
+    components: [
+      ...lemonGarlicChickenComponentsFull,
+      createMealComponent({
+        ingredientId: 'red-wine',
+        quantityPerServing: 300,
+        ingredient: {
+          id: 'red-wine',
+          name: 'Red wine',
+          category: 'condiment',
+          defaultUnit: 'g',
+          measuredByVolume: true,
+        },
+      }),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('60ml')).toBeInTheDocument()
+    await expect(canvas.getByText('1.2l')).toBeInTheDocument()
+    await expect(canvas.getByText('600g')).toBeInTheDocument()
+  },
+}
+
+/**
  * Estonian locale: piece quantities use a comma decimal separator and the
  * Estonian piece label. At 3 servings the lemon (0.5 per serving) renders as
  * "1,5 tk" — not "1.5 pc" — exercising the locale-aware `formatQuantity` path

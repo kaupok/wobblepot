@@ -446,6 +446,7 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
             category: 'spice',
             subcategory: null,
             defaultUnit: 'g',
+            measuredByVolume: false,
             gramsPerPiece: null,
             calories: 0,
             protein: 0,
@@ -463,6 +464,7 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
               name: 'black pepper',
               category: 'spice',
               defaultUnit: 'g',
+              measuredByVolume: false,
               similarity: 0.5,
             },
             {
@@ -470,6 +472,7 @@ describe('POST /api/recipes/parse locale threading (gate retired in HON-506)', (
               name: 'white pepper',
               category: 'spice',
               defaultUnit: 'g',
+              measuredByVolume: false,
               similarity: 0.4,
             },
           ],

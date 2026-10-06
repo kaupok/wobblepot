@@ -271,6 +271,7 @@ async function handlePOST(
               name: translatedIngredient.name,
               category: translatedIngredient.category,
               defaultUnit: translatedIngredient.defaultUnit as 'g' | 'piece',
+              measuredByVolume: translatedIngredient.measuredByVolume,
               gramsPerPiece: translatedIngredient.gramsPerPiece,
             },
           }
