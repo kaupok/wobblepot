@@ -204,6 +204,16 @@
 #     `<active>:<outcome>`, or `-` for a loop pass that did not poll (which
 #     clears LAST_POLL_SUMMARY as the main loop does). Prints $MAIN_LOG.
 #
+#   reload-drain <steps>                                           (HON-1078)
+#     Calls the REAL log_reload_drain once per comma-separated step, each an
+#     `<active>` worker count, or `-` for a loop pass that did not take the drain
+#     branch (which clears LAST_DRAIN_COUNT as the main loop does). Prints $MAIN_LOG.
+#
+#   breaker-pause <steps>                                          (HON-1078)
+#     Calls the REAL log_breaker_pause once per comma-separated step, each
+#     `<now>:<paused_until>` in epoch seconds; PAUSED_UNTIL is set from the step
+#     and the remaining time computed as the main loop does. Prints $MAIN_LOG.
+#
 #   worker-report <steps>                                          (HON-1068)
 #     Calls the REAL report_worker_status once per comma-separated step, each
 #     `<now>;<phase>:<ahead>[;<phase>:<ahead>…]` — the clock, then one field per
@@ -981,6 +991,30 @@ EOF
       else
         log_poll_summary "${_step%%:*}" "${_step#*:}"
       fi
+    done
+    cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  # ─── Reload drain and breaker pause lines on change (HON-1078) ─────────────
+  reload-drain)
+    IFS=',' read -r -a _steps <<< "$A1"
+    for _step in "${_steps[@]}"; do
+      if [ "$_step" = "-" ]; then
+        LAST_DRAIN_COUNT=""
+      else
+        log_reload_drain "$_step"
+      fi
+    done
+    cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  breaker-pause)
+    IFS=',' read -r -a _steps <<< "$A1"
+    for _step in "${_steps[@]}"; do
+      PAUSED_UNTIL="${_step#*:}"
+      log_breaker_pause "${_step%%:*}" "$(( PAUSED_UNTIL - ${_step%%:*} ))"
     done
     cat "$MAIN_LOG"
     exit 0
