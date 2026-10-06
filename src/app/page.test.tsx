@@ -200,6 +200,11 @@ async function renderLanding() {
   return render(await Home(), { wrapper })
 }
 
+/** Every link on the rendered page that goes to the sign-up form. */
+function signUpLinks() {
+  return screen.getAllByRole('link').filter((link) => link.getAttribute('href') === '/sign-up')
+}
+
 describe('Home page component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -225,15 +230,20 @@ describe('Home page component', () => {
       expect(link).toHaveAttribute('href', 'mailto:support@wobblepot.com?subject=Invite%20request')
     })
 
-    it('names the call to action after the code while invites are required', async () => {
+    it('names the call to action after its value while invites are required', async () => {
       await renderLanding()
 
-      // Once, under the hero: the header's Sign up covers the rest of the page.
-      expect(screen.getByRole('link', { name: 'Sign up with your invite code' })).toHaveAttribute(
+      // The note under the button carries the invite-code hurdle, so the button
+      // does not (HON-1056).
+      expect(screen.getByRole('link', { name: "Plan this week's dinners" })).toHaveAttribute(
         'href',
         '/sign-up',
       )
-      expect(screen.queryByRole('link', { name: 'Get started' })).not.toBeInTheDocument()
+      // Once, under the hero: the header's Sign up covers the rest of the page.
+      expect(signUpLinks()).toHaveLength(1)
+      expect(
+        screen.getByText('Your data lives in the EU, and there are no ads.'),
+      ).toBeInTheDocument()
     })
 
     it('renders no notice when invites are not required', async () => {
@@ -244,8 +254,15 @@ describe('Home page component', () => {
       expect(screen.queryByRole('note')).not.toBeInTheDocument()
       expect(screen.queryByText(/private beta/i)).not.toBeInTheDocument()
       expect(screen.queryByRole('link', { name: 'Ask for an invite' })).not.toBeInTheDocument()
-      expect(screen.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/sign-up')
+      expect(screen.getByRole('link', { name: "Plan this week's dinners" })).toHaveAttribute(
+        'href',
+        '/sign-up',
+      )
+      expect(signUpLinks()).toHaveLength(1)
       expect(screen.getByText("Free while we're in beta.")).toBeInTheDocument()
+      expect(
+        screen.getByText('Your data lives in the EU, and there are no ads.'),
+      ).toBeInTheDocument()
     })
 
     it('translates the notice label and the mail subject', async () => {

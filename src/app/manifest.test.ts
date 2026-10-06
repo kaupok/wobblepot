@@ -28,7 +28,9 @@ describe('manifest', () => {
     const result = await manifest()
 
     expect(result.name).toBe('Wobblepot')
-    expect(result.description).toBe('AI-powered weekly meal planning for families')
+    expect(result.description).toBe(
+      "Dinner, decided, for the whole week. Wobblepot plans your family's meals around who's eating, what they avoid and what's in the pantry.",
+    )
   })
 
   it('describes the app in Estonian for an et request', async () => {
@@ -36,6 +38,8 @@ describe('manifest', () => {
 
     const result = await manifest()
 
-    expect(result.description).toBe('Tehisintellekti abil loodud nädalased söögiplaanid peredele')
+    expect(result.description).toBe(
+      'Õhtusöök otsustatud, terveks nädalaks. Wobblepot koostab pere söögiplaani selle järgi, kes sööb, mida välditakse ja mis on sahvris.',
+    )
   })
 })

@@ -68,8 +68,8 @@ test.describe('Authentication flows', () => {
     await signOut(page)
 
     // Should be on home page with sign in option. Scoped to the header and
-    // exact: the landing page's own CTA reads "Sign up with your invite code",
-    // which a substring match would also find.
+    // exact: the landing page's own CTA is a link to /sign-up too, and a later
+    // wording that contains "Sign up" would match a substring query.
     await expect(page).toHaveURL('/')
     const header = page.getByRole('banner')
     await expect(header.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible()
