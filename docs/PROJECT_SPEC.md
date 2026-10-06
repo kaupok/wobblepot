@@ -98,9 +98,9 @@ An ingredient with `measuredByVolume` shows its quantity in millilitres, with 1 
 ### New User Setup
 
 1. `/sign-up`: name, email, password, an invite code while `invite_code_required` is on, and the terms consent
-2. `/onboarding` step 1: household name
-3. `/onboarding` step 2: how many people, a name for each, adult or child
-4. `/`: the first-plan screen asks for a start date and a number of days, then generates
+2. `/onboarding` step 1 of 3: the welcome, and the household name
+3. `/onboarding` step 2 of 3: who eats at the table, as Adults (the user first) and Children, each added with its own button; names are optional. Leaving this step creates the household
+4. `/onboarding` step 3 of 3: the first plan, a start date and a number of days, then it generates and lands on `/`. The step says the first plan is dinners only and where to change that. A household that leaves before generating gets the same choices on `/` (`FirstTimeSetup`)
 
 Preferences (dietary type, allergens, meal types) are set on `/household` after onboarding, not during it. See "Onboarding" under Key Decisions.
 

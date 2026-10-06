@@ -16,8 +16,8 @@ import { seedDefaultStaples } from '@/lib/meal-planning/default-staples'
  * once per retry — so an unbounded array is an unbounded transaction, paid up
  * to `MAX_CLAIM_ATTEMPTS` times.
  *
- * 20 is well clear of anything a legitimate client sends: `CreateHouseholdForm`
- * clamps total household size to 10 and disables the `+` control there, so the
+ * 20 is well clear of anything a legitimate client sends: `OnboardingFlow`
+ * stops its Add buttons at a household of 10 (`MAX_MEMBERS`), so the
  * onboarding screen can produce at most 9. It is generous for the family
  * household the product targets while still bounding the write.
  */
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
     // `isMembershipConflict`: the unique index on `household_member."userId"`
     // rejected the owner row — a concurrent create or join committed a
     // membership for this user first (HON-696). Same answer as the pre-check,
-    // because `CreateHouseholdForm` branches on this exact `error` string.
+    // because `OnboardingFlow` branches on this exact `error` string.
     if (
       (error instanceof Error && error.message === 'already_in_household') ||
       isMembershipConflict(error)
@@ -182,7 +182,7 @@ export async function POST(request: Request) {
     }
 
     // Answer in JSON rather than rethrowing. A rethrow is rendered by Next as
-    // an HTML error page, which reaches `CreateHouseholdForm` with no `error`
+    // an HTML error page, which reaches `OnboardingFlow` with no `error`
     // or `message` to branch on, and nothing is reported.
     // `runHouseholdClaim` makes this reachable for a persistent `P2034`, but
     // any unexpected database error lands here the same way.
