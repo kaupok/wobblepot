@@ -67,7 +67,9 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
               <Button asChild size="lg" className="w-full md:w-auto md:self-start">
                 <Link href="/sign-up">{t('cta')}</Link>
               </Button>
-              {inviteRequired ? (
+              {/* The notice explains the button above it; the price line shows in
+                  both modes (HON-1061), and the data line stays last. */}
+              {inviteRequired && (
                 <Body variant="muted" role="note" aria-label={tSignUp('privateBetaNoticeLabel')}>
                   {t('privateBeta')}{' '}
                   {tSignUp.rich('requestInvite', {
@@ -81,9 +83,8 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
                     ),
                   })}
                 </Body>
-              ) : (
-                <Body variant="muted">{t('free')}</Body>
               )}
+              <Body variant="muted">{t('free')}</Body>
               <Body variant="muted">{t('trust')}</Body>
             </div>
           </div>
