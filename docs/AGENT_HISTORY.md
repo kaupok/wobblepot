@@ -61,5 +61,6 @@ Entries are grouped by the `CLAUDE.md` section they belong to.
 
 ## Working style
 
+- **2026-10-06, no issue — go-to-market content and the public repository.** A planning session drafted a paragraph for `docs/PROJECT_SPEC.md` that recorded a go-to-market decision, because the issue's own acceptance criteria asked for it there. The user stopped it before the commit: the repository is public, and that content belongs in Linear documents. The `/gtm` skill and the `CLAUDE.md` rule came out of it.
 - **HON-573 — headless workers and background work.** In the orchestrator's headless spawn (`wt auto` → `claude "$prompt"`, no TTY) the process exits when the turn ends. Workers that backgrounded their CI wait left PRs #650 and #651 open and unmerged while the orchestrator logged SUCCESS.
 - **HON-529 — a "just in case" wake-up.** A `ScheduleWakeup` set as a fallback re-fired `/auto-implement 529` about 9 minutes after the PR had already merged, and the skill ran again on stale state.
