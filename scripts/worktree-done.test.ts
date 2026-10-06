@@ -20,9 +20,10 @@ const worktreeClaude = path.join(scriptsDir, 'worktree-claude.sh')
 
 type MergedPr = { number: number; headRefName: string; headRefOid: string }
 
-// `gh pr list --state merged --limit 200 --json …` returns the fixture.
-// `gh pr list --head <b> --state merged --json state --jq '.[0].state'` (from
-// is_branch_merged) prints MERGED when a fixture PR has that head.
+// `gh pr list --state merged --limit 200 --json …` returns the fixture. The
+// `--head <b>` form (is_branch_merged, which `wt done` no longer calls) prints
+// MERGED when a fixture PR has that head, so a regression back to it still
+// sees a realistic answer.
 const GH_STUB = `#!/usr/bin/env bash
 echo "gh $*" >> "$STUB_DIR/calls"
 [ "$STUB_GH_FAILS" = 1 ] && { echo "gh: HTTP 502" >&2; exit 1; }
@@ -294,6 +295,32 @@ describe('wt done worktrees (HON-1066)', () => {
     expect(r.out).toContain('feat/fresh: not merged')
   })
 
+  it('keeps the worktree of a branch with a commit after its squash merge', () => {
+    const tip = squashMerged('kaupo/hon-12-k', 'q.txt')
+    writePrs([{ number: 12, headRefName: 'kaupo/hon-12-k', headRefOid: tip }])
+    const dir = addWorktree('kaupo/hon-12-k')
+    commit(dir, 'q-late.txt')
+
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(fs.existsSync(dir)).toBe(true)
+    expect(branches()).toEqual(['kaupo/hon-12-k', 'main'])
+    expect(r.out).toContain('kaupo/hon-12-k: tip differs from the head of merged PR #12')
+  })
+
+  it('keeps every worktree when gh fails', () => {
+    const tip = squashMerged('kaupo/hon-13-l', 'r.txt')
+    writePrs([{ number: 13, headRefName: 'kaupo/hon-13-l', headRefOid: tip }])
+    const dir = addWorktree('kaupo/hon-13-l')
+
+    const r = runDone(main, { ghFails: true })
+
+    expect(r.status, r.out).toBe(0)
+    expect(fs.existsSync(dir)).toBe(true)
+    expect(r.out).toContain('kaupo/hon-13-l: merged PRs could not be listed')
+  })
+
   it('keeps a merged worktree that has uncommitted changes, and its branch', () => {
     const tip = squashMerged('kaupo/hon-6-f', 'j.txt')
     writePrs([{ number: 6, headRefName: 'kaupo/hon-6-f', headRefOid: tip }])
@@ -334,6 +361,21 @@ describe('wt done worktrees (HON-1066)', () => {
     expect(fs.existsSync(dir)).toBe(true)
     // It stopped before the prune, so even the merged branch elsewhere stays.
     expect(branches()).toEqual(['feat/unmerged', 'kaupo/hon-8-g', 'main'])
+  })
+
+  it('inside a worktree with a commit after its squash merge removes nothing', () => {
+    const tip = squashMerged('kaupo/hon-14-m', 's.txt')
+    writePrs([{ number: 14, headRefName: 'kaupo/hon-14-m', headRefOid: tip }])
+    const dir = addWorktree('kaupo/hon-14-m')
+    commit(dir, 's-late.txt')
+
+    const r = runDone(dir)
+
+    expect(r.status).toBe(1)
+    expect(r.out).toContain(
+      "Keeping 'kaupo/hon-14-m': tip differs from the head of merged PR #14 — nothing removed",
+    )
+    expect(fs.existsSync(dir)).toBe(true)
   })
 
   it('inside a merged worktree removes it from the main checkout and prints the cd', () => {

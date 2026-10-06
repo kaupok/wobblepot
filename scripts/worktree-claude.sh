@@ -1773,6 +1773,27 @@ done_fetch_merged_prs() {
   printf '%s\n' "$out"
 }
 
+# The merged-PR verdict for one branch: `squash #N` when a matching merged PR's
+# head is the tip $2, `stale #N` when matching PRs exist but none has that head,
+# `none` otherwise. A PR matches by headRefName; a `pr<N>` branch (from
+# `gh pr checkout`) that no PR names as its head matches PR N. Any matching
+# head proves the commits landed. A name can be reused across PRs, so a tip that
+# matches none of them means commits that are not in main.
+# Usage: done_pr_verdict <branch> <tip> <prs_json>
+done_pr_verdict() {
+  local name="$1" tip="$2" prs_json="$3" verdict
+  verdict=$(printf '%s' "$prs_json" | jq -r --arg n "$name" --arg t "$tip" '
+    [.[] | select(.headRefName == $n)] as $by_name
+    | (if ($by_name | length) > 0 then $by_name
+       elif ($n | test("^pr[0-9]+$")) then [.[] | select(.number == ($n[2:] | tonumber))]
+       else [] end) as $m
+    | ([$m[] | select(.headRefOid == $t)] | first) as $hit
+    | if ($m | length) == 0 then "none"
+      elif $hit then "squash #\($hit.number)"
+      else "stale #\($m[0].number)" end' 2> /dev/null) || verdict=none
+  echo "${verdict:-none}"
+}
+
 # Decide which local branches of the repo at $1 `wt done` deletes. Changes
 # nothing. One tab-separated line per decision:
 #   delete <branch> merged       in `git branch --merged main`
@@ -1780,9 +1801,8 @@ done_fetch_merged_prs() {
 #   keep   <branch> <reason>     a merged PR exists, but the tip moved on
 # A branch with no merge and no merged PR prints nothing.
 # $2 is the merged-PR JSON array, or "" when it could not be fetched; then only
-# regular merges are selected. A `pr<N>` branch (from `gh pr checkout`) that no
-# PR names as its head matches PR N. $3 lists branches never to touch, one per
-# line; `main` is always protected.
+# regular merges are selected. $3 lists branches never to touch, one per line;
+# `main` is always protected.
 done_select_branches() {
   local repo="$1" prs_json="$2" protected="$3"
   local regular name tip verdict
@@ -1799,19 +1819,7 @@ done_select_branches() {
     fi
 
     [ -n "$prs_json" ] || continue
-    # Any matching PR whose head is the local tip proves the commits landed. A
-    # name can be reused across PRs, so a tip that matches none of them keeps
-    # the branch: those commits are not in main.
-    verdict=$(printf '%s' "$prs_json" | jq -r --arg n "$name" --arg t "$tip" '
-      [.[] | select(.headRefName == $n)] as $by_name
-      | (if ($by_name | length) > 0 then $by_name
-         elif ($n | test("^pr[0-9]+$")) then [.[] | select(.number == ($n[2:] | tonumber))]
-         else [] end) as $m
-      | ([$m[] | select(.headRefOid == $t)] | first) as $hit
-      | if ($m | length) == 0 then "none"
-        elif $hit then "squash #\($hit.number)"
-        else "stale #\($m[0].number)" end' 2> /dev/null) || verdict=""
-
+    verdict=$(done_pr_verdict "$name" "$tip" "$prs_json")
     case "$verdict" in
       squash*) printf 'delete\t%s\t%s\n' "$name" "$verdict" ;;
       stale*) printf 'keep\t%s\ttip differs from the head of merged PR %s\n' "$name" "${verdict#stale }" ;;
@@ -1819,20 +1827,40 @@ done_select_branches() {
   done < <(git -C "$repo" for-each-ref --format='%(refname:short) %(objectname)' refs/heads)
 }
 
-# Is the branch checked out at $1 merged? is_branch_merged, plus one case it
-# cannot see: once main is pulled, a branch merged with a merge commit or a
-# fast-forward has no commits ahead of main, which is_branch_merged reads as a
-# fresh branch. An ancestor of main that a merged PR ($2, the JSON array) names
-# as its head is merged; a fresh branch was never a PR head, so the guard holds.
-# Usage: done_branch_merged <worktree_path> <prs_json>
-done_branch_merged() {
-  local path="$1" prs_json="$2" branch
-  is_branch_merged "$path" && return 0
-  [ -n "$prs_json" ] || return 1
+# May `wt done` remove the worktree at $1? Prints `merged`, or the reason to
+# keep it. The same tip rule as the branch selection, because removing a
+# worktree also drops its Neon branch and its ignored files (.env): a branch
+# with commits after its squash merge keeps its worktree as well as its branch.
+# is_branch_merged is not enough here: it accepts any merged PR for the name,
+# and once main is pulled it reads a merge-commit merge as a fresh branch.
+# $2 is the merged-PR JSON array, or "" when it could not be fetched; then
+# nothing counts as merged.
+# Usage: done_worktree_state <worktree_path> <prs_json>
+done_worktree_state() {
+  local path="$1" prs_json="$2" branch tip verdict
+  if [ -z "$prs_json" ]; then
+    echo "merged PRs could not be listed"
+    return 0
+  fi
   branch=$(git -C "$path" branch --show-current 2> /dev/null)
-  [ -n "$branch" ] || return 1
-  git -C "$REPO_ROOT" merge-base --is-ancestor "$branch" main 2> /dev/null || return 1
-  printf '%s' "$prs_json" | jq -e --arg n "$branch" 'any(.[]; .headRefName == $n)' > /dev/null 2>&1
+  tip=$(git -C "$path" rev-parse HEAD 2> /dev/null)
+  verdict=$(done_pr_verdict "$branch" "$tip" "$prs_json")
+
+  # A tip already in main loses nothing. It still needs a merged PR, because a
+  # fresh branch with no commits of its own is also in main.
+  if git -C "$REPO_ROOT" merge-base --is-ancestor "$tip" main 2> /dev/null; then
+    case "$verdict" in
+      none) echo "not merged" ;;
+      *) echo merged ;;
+    esac
+    return 0
+  fi
+
+  case "$verdict" in
+    squash*) echo merged ;;
+    stale*) echo "tip differs from the head of merged PR ${verdict#stale }" ;;
+    *) echo "not merged" ;;
+  esac
 }
 
 # Print one summary section; nothing when the list is empty.
@@ -1886,8 +1914,13 @@ cmd_done() {
       echo -e "${RED}Error: This worktree has uncommitted changes — nothing removed${NC}"
       exit 1
     fi
-    if ! done_branch_merged "$here_path" "$prs_json"; then
+    local here_state
+    here_state=$(done_worktree_state "$here_path" "$prs_json")
+    if [ "$here_state" = "not merged" ]; then
       echo -e "${RED}Error: Branch '$here_branch' is not merged into main — nothing removed${NC}"
+      exit 1
+    elif [ "$here_state" != merged ]; then
+      echo -e "${RED}Error: Keeping '$here_branch': $here_state — nothing removed${NC}"
       exit 1
     fi
   fi
@@ -1918,10 +1951,9 @@ cmd_done() {
   fi
 
   # Merged, clean worktrees under $WORKTREE_BASE. The branch is not deleted
-  # here: is_branch_merged accepts any merged PR for the name, so the branch
-  # goes through the tip check below with every other branch. fd 3, so nothing
-  # in the loop body can drain the worktree list from stdin.
-  local wt_path wt_branch
+  # here; it goes through the branch selection below with every other branch.
+  # fd 3, so nothing in the loop body can drain the worktree list from stdin.
+  local wt_path wt_branch wt_state
   while IFS=$'\t' read -r -u 3 wt_path wt_branch; do
     [[ "$wt_path" == "$WORKTREE_BASE"/* ]] || continue
     if [ -z "$wt_branch" ]; then
@@ -1930,8 +1962,8 @@ cmd_done() {
       kept+=("$wt_branch: orchestrator worker")
     elif has_uncommitted_changes "$wt_path"; then
       kept+=("$wt_branch: uncommitted changes")
-    elif ! done_branch_merged "$wt_path" "$prs_json"; then
-      kept+=("$wt_branch: not merged")
+    elif wt_state=$(done_worktree_state "$wt_path" "$prs_json") && [ "$wt_state" != merged ]; then
+      kept+=("$wt_branch: $wt_state")
     elif remove_worktree_artifacts "$wt_path" "$wt_branch" 0 < /dev/null; then
       removed+=("$wt_branch")
     else
