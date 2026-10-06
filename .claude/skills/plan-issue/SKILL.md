@@ -299,13 +299,13 @@ mcp__linear-server__save_issue({
   state: "Queued",          // or "Todo" when a human must act
   blockedBy: ["HON-XX"],    // when it needs this issue's change on main; otherwise relatedTo: ["HON-XX"]
   priority: <HON-XX's priority>,
-  addLabels: ["Follow-up", <HON-XX's labels>],
+  addLabels: ["Follow-up", <HON-XX's labels, minus Gated, Stranded and Needs attention>],
 })
 ```
 
 Other skills reuse this call. Each one names itself in the first line (`filed by /implement-issue.`, `filed by /create-pr.`, `filed by /merge.`). The `Follow-up` label and that line mark the origin, because an issue with no prefix reads as human-written in a list view (CLAUDE.md → "Linear title prefixes").
 
-`blockedBy` goes in this same call: the orchestrator picks up a Queued issue within a minute, so without the relation a worker runs the step before this issue's change is on `main` (HON-902). No `[DRAFT]` prefix: the step is specified by this plan. Leave it unassigned.
+`blockedBy` goes in this same call: the orchestrator picks up a Queued issue within a minute, so without the relation a worker runs the step before this issue's change is on `main` (HON-902). No `[DRAFT]` prefix: the step is specified by this plan. Leave it unassigned. Do not copy the run-state labels `Gated`, `Stranded` and `Needs attention`: they describe the parent's run, and the orchestrator skips a Queued issue that carries `Gated` or `Stranded`, so the follow-up would never run.
 
 Replace each `to file:` with the new ID. If a filing fails twice, do not post the plan; report the error and stop, because a posted plan with a `to file:` line is the note this step exists to prevent.
 

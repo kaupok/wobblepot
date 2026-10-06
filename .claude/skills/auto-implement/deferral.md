@@ -106,7 +106,7 @@ mcp__linear-server__save_issue({
   state: "Queued",            // or "Todo" when a human must act (credentials, spend approval, a judgment call)
   blockedBy: ["HON-XX"],      // needs-merge: yes — use relatedTo: ["HON-XX"] instead when it does not
   priority: <the parent's priority>,
-  addLabels: ["Follow-up", <the parent's labels>],
+  addLabels: ["Follow-up", <the parent's labels, minus Gated, Stranded and Needs attention>],
 })
 ```
 
@@ -114,6 +114,7 @@ mcp__linear-server__save_issue({
 - **The `Follow-up` label and the first description line** mark the origin, because an issue with no prefix reads as human-written in a list view (CLAUDE.md → "Linear title prefixes"). The first line names the phase that filed it.
 - **`blockedBy` the parent in this same call** when the step needs the parent's change on `main`. The orchestrator picks up a Queued issue within a minute, so without the relation it runs before the parent merges (HON-902 for the same-call rule, HON-1053 for the incident).
 - **Unassigned.** A human picks up a Todo follow-up; the orchestrator picks up a Queued one.
+- **No run-state labels.** `Gated`, `Stranded` and `Needs attention` describe the parent's run. The orchestrator skips a Queued issue labelled `Gated` or `Stranded`, so a copied label strands the follow-up.
 - The body clears "Writing for Agents" in CLAUDE.md: the agent that picks it up has none of this session's context.
 
 **Put the ID in the PR body.** 2.8 and 3.2 filings reach the PR at 5.4. A follow-up filed here at 6.8 is after 5.4, so add it to the Summary's `**Follow-ups:**` line with `gh pr edit <PR_NUMBER> --body-file <file>`. On the 6.7 hand-off path, also list it in the hand-off comment.
