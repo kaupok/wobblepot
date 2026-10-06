@@ -2,19 +2,20 @@ import 'server-only'
 
 /**
  * The admin pages the account menus link to, desktop and mobile alike
- * (HON-1092). Each `labelKey` is a key under `nav.admin` in both catalogs.
+ * (HON-1092). The labels are inline English: the admin pages are an
+ * English-only operator console and stay out of the catalogs (HON-1093,
+ * `scripts/check-admin-untranslated.ts`).
  *
- * Server-only on purpose, like the `nav.admin` labels, which the root layout
- * keeps out of the client catalog: an `/admin` href or label in a non-admin
- * page's HTML or bundle names the hidden admin route (HON-830). `Header`
- * resolves these to `AdminMenuLink`s only for the admin session.
+ * Server-only on purpose: an `/admin` href or label in a non-admin page's HTML
+ * or bundle names the hidden admin route (HON-830). `Header` passes these to
+ * the client menus only for the admin session.
  */
-export const ADMIN_LINKS = [
-  { href: '/admin/signup-codes', labelKey: 'signupCodes' },
-  { href: '/admin/waitlist', labelKey: 'waitlist' },
-] as const
+export const ADMIN_LINKS: readonly AdminMenuLink[] = [
+  { href: '/admin/signup-codes', label: 'Signup codes' },
+  { href: '/admin/waitlist', label: 'Waitlist' },
+]
 
-/** An admin link with its label resolved, as the client menus receive it. */
+/** An admin link, as the client menus receive it. */
 export interface AdminMenuLink {
   href: string
   label: string

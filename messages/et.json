@@ -15,11 +15,6 @@
       "title": "Olek",
       "description": "Wobblepoti teenuste reaalajas olek"
     },
-    "admin": {
-      "signupCodes": {
-        "title": "Registreerumiskoodid"
-      }
-    },
     "manifest": {
       "description": "Õhtusöök otsustatud, terveks nädalaks. Wobblepot koostab pere söögiplaani selle järgi, kes sööb, mida välditakse ja mis on sahvris."
     }
@@ -770,10 +765,6 @@
       "lightMode": "Hele režiim",
       "darkMode": "Tume režiim",
       "toggleTheme": "Vaheta teemat"
-    },
-    "admin": {
-      "signupCodes": "Registreerimiskoodid",
-      "waitlist": "Ootenimekiri"
     }
   },
   "footer": {

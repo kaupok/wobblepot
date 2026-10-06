@@ -15,11 +15,6 @@
       "title": "Status",
       "description": "Live system status for Wobblepot"
     },
-    "admin": {
-      "signupCodes": {
-        "title": "Signup codes"
-      }
-    },
     "manifest": {
       "description": "Dinner, decided, for the whole week. Wobblepot plans your family's meals around who's eating, what they avoid and what's in the pantry."
     }
@@ -770,10 +765,6 @@
       "lightMode": "Light mode",
       "darkMode": "Dark mode",
       "toggleTheme": "Toggle theme"
-    },
-    "admin": {
-      "signupCodes": "Signup codes",
-      "waitlist": "Waitlist"
     }
   },
   "footer": {

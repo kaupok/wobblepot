@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getTranslations } from 'next-intl/server'
 import { getSession } from '@/lib/session'
 import { isAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
@@ -14,9 +13,8 @@ export async function generateMetadata(): Promise<Metadata> {
   // title (HON-830). `notFound()` here resolves the not-found metadata instead.
   if (!isAdmin(await getSession())) notFound()
 
-  const t = await getTranslations('meta.admin.signupCodes')
   return {
-    title: t('title'),
+    title: 'Signup codes',
     robots: { index: false, follow: false },
   }
 }

@@ -43,6 +43,7 @@
     "agent-cost": "npx tsx scripts/agent-cost-per-pr.ts",
     "stories:check": "npx tsx scripts/check-colocated-stories.ts",
     "i18n:prose-check": "npx tsx scripts/check-server-prose.ts",
+    "i18n:admin-check": "npx tsx scripts/check-admin-untranslated.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test-storybook": "vitest --project=storybook",

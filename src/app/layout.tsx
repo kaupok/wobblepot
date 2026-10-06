@@ -114,14 +114,6 @@ export default async function RootLayout({
   ])
   const hasHousehold = householdId !== null
 
-  // `meta.admin` is read only by the admin pages' server-side `generateMetadata`,
-  // and `nav.admin` only by `Header`, which resolves the admin menu links on the
-  // server. Left in the client catalog, either would ship in every page's HTML
-  // — 404s included — and name the hidden admin route (HON-830, HON-1092).
-  const { admin: _adminMeta, ...clientMeta } = messages.meta ?? {}
-  const { admin: _adminNav, ...clientNav } = messages.nav ?? {}
-  const clientMessages = { ...messages, meta: clientMeta, nav: clientNav }
-
   return (
     <html
       lang={locale}
@@ -132,7 +124,7 @@ export default async function RootLayout({
         <meta name="x-server-base-url" content={baseURL} />
       </head>
       <body className="antialiased">
-        <NextIntlClientProvider locale={locale} messages={clientMessages}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"

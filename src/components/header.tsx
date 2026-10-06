@@ -24,7 +24,7 @@ export async function Header() {
   const membership = session ? await getCachedMembership(session.user.id) : null
   const hasHousehold = membership !== null
   const isAdmin = isAdminIfConfigured(session)
-  const [pastMealsToMark, t, tAdmin] = await Promise.all([
+  const [pastMealsToMark, t] = await Promise.all([
     membership
       ? countPastMealsToMark({
           id: membership.householdId,
@@ -32,11 +32,8 @@ export async function Header() {
         })
       : 0,
     getTranslations('nav'),
-    getTranslations('nav.admin'),
   ])
-  const adminLinks = isAdmin
-    ? ADMIN_LINKS.map((link) => ({ href: link.href, label: tAdmin(link.labelKey) }))
-    : []
+  const adminLinks = isAdmin ? [...ADMIN_LINKS] : []
 
   return (
     <HeaderChrome
