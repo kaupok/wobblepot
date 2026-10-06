@@ -1578,7 +1578,8 @@ describe('orchestrator.sh', () => {
     // advances, while every merge advances origin/main.
     describe('a local main the operator has not pulled', () => {
       /** orchestrator.sh's count_commits — the number handle_success gates on. */
-      const countCommits = (f: Fixture) => runHarness('count-commits', f.wt, f.branch).trim()
+      const countCommits = (f: Fixture) =>
+        runHarness('count-commits', f.wt, f.branch, f.repo).trim()
 
       /** worktree-claude.sh's commits_ahead — what both display loops feed in. */
       const commitsAhead = (f: Fixture) => runHarness('wt-commits-ahead', f.wt).trim()
@@ -1639,17 +1640,34 @@ describe('orchestrator.sh', () => {
         expect(commitsAhead(makeFixture({ originAhead: 2, commits: 3 }))).toBe('3')
       })
 
-      it('still answers 0 for a worktree that is not there', () => {
-        // A resolved question, not an unanswerable one: the worktree was
-        // cleaned up. handle_success's merged-PR probe runs before the gate.
-        const f = makeFixture({ originAhead: 2 })
+      // HON-1077: RETRY and the finish attempt remove the worktree and keep
+      // the branch. A respawn that dies before `git worktree add` leaves that
+      // state, and a 0 here sent it to handle_failure's `git branch -D`.
+      it('counts a kept branch from the main checkout when its worktree is gone', () => {
+        const f = makeFixture({ originAhead: 2, commits: 2 })
+        git(f.repo, 'worktree', 'remove', '--force', f.wt)
 
-        expect(
-          runHarness('count-commits', path.join(f.repo, 'no-such-worktree'), f.branch).trim(),
-        ).toBe('0')
-        expect(runHarness('wt-commits-ahead', path.join(f.repo, 'no-such-worktree')).trim()).toBe(
-          '',
-        )
+        expect(fs.existsSync(f.wt)).toBe(false)
+        expect(countCommits(f)).toBe('2')
+      })
+
+      it('answers 0 when the worktree and the branch are both gone', () => {
+        // A resolved question, not an unanswerable one: the run was cleaned
+        // up. handle_success's merged-PR probe runs before the gate.
+        const f = makeFixture({ originAhead: 2, commits: 2 })
+        git(f.repo, 'worktree', 'remove', '--force', f.wt)
+        git(f.repo, 'branch', '-D', f.branch)
+
+        expect(countCommits(f)).toBe('0')
+        expect(runHarness('wt-commits-ahead', f.wt).trim()).toBe('')
+      })
+
+      it('reports a kept branch with no base ref as -1', () => {
+        const f = makeFixture({ originAhead: 2, commits: 2 })
+        git(f.repo, 'worktree', 'remove', '--force', f.wt)
+        git(f.repo, 'update-ref', '-d', 'refs/remotes/origin/main')
+
+        expect(countCommits(f)).toBe('-1')
       })
 
       // The old base ref, refs/heads/main, is always present in the checkout the
@@ -1763,6 +1781,12 @@ describe('orchestrator.sh', () => {
         }
         expect(shellFunctionBody(source, 'commits_ahead')).toContain(
           'rev-list --count refs/remotes/origin/main..HEAD',
+        )
+        // HON-1077: a branch whose worktree is gone is counted from the main
+        // checkout, against the same base ref.
+        expect(shellFunctionBody(source, 'count_commits')).toContain('branch_commits_ahead "')
+        expect(shellFunctionBody(source, 'branch_commits_ahead')).toContain(
+          'rev-list --count "refs/remotes/origin/main..refs/heads/$2"',
         )
       })
 
@@ -3275,6 +3299,8 @@ describe('orchestrator.sh', () => {
       expect(out).toContain('WT_CALL:1:auto')
       expect(out).not.toContain('WT_CALL:2:')
       expect(out).toContain('WORKER_RETRIED:1')
+      // What a force drain reads to record the strand it interrupts (HON-1077).
+      expect(out).toContain('WORKER_FINISHING:1')
     })
 
     it('logs the outcome, then removes the worktree, then spawns', () => {
@@ -3464,6 +3490,161 @@ describe('orchestrator.sh', () => {
       expect(shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'monitor_workers')).toContain(
         'handle_success "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title"',
       )
+    })
+  })
+
+  // HON-1077: two holes the finish attempt (HON-1065) left behind.
+  describe('a respawned branch and a drained finish attempt', () => {
+    // A respawn that dies before `git worktree add` succeeds: the worktree is
+    // gone, the branch is kept, and count_commits must still see its commits.
+    describe('a retried worker that exits before its worktree exists', () => {
+      let repo: string
+      beforeAll(() => {
+        repo = fs.mkdtempSync(path.join(os.tmpdir(), 'orchestrator-respawn-'))
+        const git = (...args: string[]) =>
+          execFileSync('git', ['-C', repo, ...args], {
+            encoding: 'utf8',
+            env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' },
+          })
+        git('init', '-q', '-b', 'main')
+        git('config', 'user.email', 'test@example.com')
+        git('config', 'user.name', 'Test')
+        fs.writeFileSync(path.join(repo, 'seed.txt'), 'seed\n')
+        git('add', 'seed.txt')
+        git('commit', '-qm', 'seed')
+        git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        git('checkout', '-q', '-b', 'test-branch')
+        for (const n of [1, 2]) {
+          fs.writeFileSync(path.join(repo, `work-${n}.txt`), `${n}\n`)
+          git('add', `work-${n}.txt`)
+          git('commit', '-qm', `work ${n}`)
+        }
+        git('checkout', '-q', 'main')
+      })
+      afterAll(() => {
+        fs.rmSync(repo, { recursive: true, force: true })
+        fs.rmSync(`${repo}-wt`, { recursive: true, force: true })
+      })
+
+      // Where get_worktree_path points. Absent at the start of every run: the
+      // respawn died before `git worktree add`.
+      const wt = () => `${repo}-wt`
+      const respawnDies = () => {
+        fs.rmSync(wt(), { recursive: true, force: true })
+        execFileSync('git', ['-C', repo, 'worktree', 'prune'])
+        return stripTimestamps(
+          runHarnessEnv(
+            { HARNESS_RETRIED: '1', HARNESS_COUNT_REPO: repo, HARNESS_WT_PATH: wt() },
+            'error',
+            '0',
+            'initializing',
+            'NONE',
+            'unknown',
+          ),
+        )
+      }
+
+      it('strands with the branch’s commits instead of reaching handle_failure', () => {
+        const out = respawnDies()
+
+        expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+        expect(out).toContain('2-commits')
+        expect(out).toContain('exit=error')
+        expect(out).not.toContain('HANDLE_FAILURE:')
+      })
+
+      it('keeps the git branch and the Neon branch', () => {
+        const out = respawnDies()
+
+        // Every deletion goes through cleanup_worker_worktree.
+        expect(out).not.toContain('CLEANUP:')
+        expect(out).toContain('LABEL:Stranded')
+        expect(out).toContain('Preserved worktree and branch for HON-999')
+      })
+
+      // The strand comment says `wt resume` then `wt cleanup`, and `wt watch`
+      // reads a missing directory as resolved. All three need the worktree.
+      it('re-creates the worktree from the kept branch so the strand can be resumed and released', () => {
+        const out = respawnDies()
+
+        expect(out).toContain('Re-created a bare worktree for test-branch')
+        // It is only a checkout, so the comment must not promise a ready one.
+        expect(out).toMatch(/COMMENT:.*re-created a \*\*bare\*\* one from the branch/)
+        expect(
+          execFileSync('git', ['-C', wt(), 'branch', '--show-current'], {
+            encoding: 'utf8',
+          }).trim(),
+        ).toBe('test-branch')
+        expect(fs.existsSync(path.join(wt(), 'work-2.txt'))).toBe(true)
+      })
+    })
+
+    // A force stop during the finish attempt. The first strand logged
+    // triage=FINISH and added no label, so the drain is the last chance to
+    // leave the operator something to act on.
+    describe('force drain', () => {
+      const drain = (pr: PrState, finishing: boolean) =>
+        stripTimestamps(
+          runHarnessEnv(
+            { HARNESS_FINISHING: finishing ? '1' : '0' },
+            'drain',
+            '3',
+            'pr-review',
+            pr,
+            'green',
+          ),
+        )
+
+      it('records a finish attempt with an open PR as a strand for a human', () => {
+        const out = drain('OPEN', true)
+
+        expect(out).toMatch(/\[OUTCOME\] HON-999 STRANDED .* pr=#650 ci=green exit=stopped$/m)
+        expect(out).not.toContain('triage=FINISH')
+        expect(out).toContain('LABEL:Stranded')
+        expect(out).toMatch(/COMMENT:.*force-stopped during the automatic finish attempt/)
+        // In Review is the accurate state with a PR, and the worktree is
+        // preserved like any strand's: `wt watch` reads it to keep the strand open.
+        expect(out).not.toContain('RESTORE_QUEUED')
+        expect(out).not.toContain('CLEANUP:')
+        // Never a second finish attempt.
+        expect(out).not.toContain('WT_CALL:')
+      })
+
+      it('returns a finish attempt with no PR to Queued, behind the Stranded label', () => {
+        const out = drain('NONE', true)
+
+        expect(out).toContain('exit=stopped')
+        expect(out).toContain('LABEL:Stranded')
+        expect(out).toContain('RESTORE_QUEUED:HON-999')
+        expect(out).not.toContain('CLEANUP:')
+      })
+
+      it('drains a finish attempt whose PR merged before the kill as before', () => {
+        const out = drain('MERGED', true)
+
+        expect(out).not.toContain('[OUTCOME]')
+        expect(out).not.toContain('LABEL:')
+        expect(out).toContain('CLEANUP:test-branch:true')
+        expect(out).toContain('RESTORE_QUEUED:HON-999')
+      })
+
+      it('leaves a first-attempt worker’s drain unchanged', () => {
+        const out = drain('OPEN', false)
+
+        expect(out).not.toContain('[OUTCOME]')
+        expect(out).not.toContain('LABEL:')
+        expect(out).not.toContain('COMMENT:')
+        expect(out).toContain('CLEANUP:test-branch:true')
+        expect(out).toContain('RESTORE_QUEUED:HON-999')
+      })
+    })
+
+    it('does not mark a RETRY respawn as a finish attempt', () => {
+      // A triage retry gets the normal drain: its issue goes back to Queued.
+      const out = stripTimestamps(runHarness('failure-spawn', 'RETRY'))
+
+      expect(out.match(/^WT_CALL:/gm)).toHaveLength(2)
+      expect(out).toContain('WORKER_FINISHING:0 0')
     })
   })
 

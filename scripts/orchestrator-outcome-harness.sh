@@ -33,13 +33,21 @@
 #     gives the run a worker log that ends in a genuine Neon cap death, so the
 #     REAL worker_hit_neon_cap check ahead of the probe is under test.
 #
-#   The three modes above also drive strand_worker's finish attempt (HON-1065)
+#   drain <commits> <phase> <pr_state> <ci_state>                   (HON-1077)
+#     Same stubs again, but registers one live stub worker on test-branch and
+#     runs the REAL drain_workers_to_queue, as a force stop does.
+#     HARNESS_FINISHING=1 marks that worker as an automatic finish attempt.
+#
+#   The modes above also drive strand_worker's finish attempt (HON-1065)
 #   with the REAL spawn_worker against a recording worktree-claude.sh stub,
-#   and end with WT_CALL / WT_CONTEXT lines per `wt auto` call, WORKER_RETRIED
-#   and CONSECUTIVE_FAILURES. Environment: HARNESS_RETRIED (default 1, a second
-#   strand, so no respawn), HARNESS_SHUTTING_DOWN (default false) and
-#   HARNESS_WT_PATH (the worktree the dirty check reads; default absent) and
-#   HARNESS_LOG_TAIL (lines appended to the worker log).
+#   and end with WT_CALL / WT_CONTEXT lines per `wt auto` call, WORKER_RETRIED,
+#   WORKER_FINISHING and CONSECUTIVE_FAILURES. Environment: HARNESS_RETRIED
+#   (default 1, a second strand, so no respawn), HARNESS_SHUTTING_DOWN (default
+#   false), HARNESS_WT_PATH (the worktree the dirty check reads; default
+#   absent), HARNESS_LOG_TAIL (lines appended to the worker log) and
+#   HARNESS_COUNT_REPO (HON-1077): a fixture checkout that replaces <commits>
+#   with the REAL count_commits, which reads `test-branch` there when the
+#   worktree is absent.
 #
 #   worktree-dirty <wt_path>                                        (HON-1065)
 #     The REAL worktree_has_uncommitted against a fixture directory. Prints
@@ -310,12 +318,13 @@
 #     ${#s} counts CHARACTERS, so a cell holding `…` or `↻` skews every column to
 #     its right; these modes let a test assert the visible width is exact.
 #
-#   count-commits <wt_path> <branch>                                (HON-601)
+#   count-commits <wt_path> <branch> <repo_root>           (HON-601, HON-1077)
 #     Runs the REAL count_commits with get_worktree_path stubbed to <wt_path> —
-#     the same one-stub pattern as detect-phase. The base ref is what is under
-#     test: a fixture whose local `main` lags origin/main must still report only
-#     the worker's own commits, because this number is what gates GATED vs
-#     STRANDED in handle_success.
+#     the same one-stub pattern as detect-phase — and REPO_ROOT at the fixture
+#     checkout, which is where a branch whose worktree is gone is counted. The
+#     base ref is what is under test: a fixture whose local `main` lags
+#     origin/main must still report only the worker's own commits, because this
+#     number is what gates GATED vs STRANDED in handle_success.
 #
 #   wt-commits-ahead <wt_path>                                      (HON-601)
 #     The same number on the display path: sources worktree-claude.sh and prints
@@ -527,10 +536,12 @@ case "$MODE" in
     ;;
 
   # ─── handle_success / handle_timeout / handle_error_exit classification ────
-  outcome | timeout | error)
+  outcome | timeout | error | drain)
     COMMITS="$A1"; PHASE="$A2"; PR_STATE="$A3"; CI_STATE="$A4"
 
-    count_commits() { echo "$COMMITS"; }
+    if [ -z "${HARNESS_COUNT_REPO:-}" ]; then
+      count_commits() { echo "$COMMITS"; }
+    fi
     detect_phase() { echo "$PHASE"; }
     pr_ci_state() { echo "$CI_STATE"; }
 
@@ -591,6 +602,12 @@ case "$MODE" in
     mkdir -p "$SPAWN_DIR/repo" "$SPAWN_DIR/scripts" "$SPAWN_DIR/logs" "$SPAWN_DIR/calls"
     echo 'HARNESS_FAKE_TOKEN="hrn-fake+Tok3n/with.regex*chars"' > "$SPAWN_DIR/repo/.env"
     REPO_ROOT="$SPAWN_DIR/repo"
+    # The real count_commits reads the kept branch from REPO_ROOT. The fixture
+    # .env goes there too, so redaction still has its value to find.
+    if [ -n "${HARNESS_COUNT_REPO:-}" ]; then
+      cp "$SPAWN_DIR/repo/.env" "$HARNESS_COUNT_REPO/.env"
+      REPO_ROOT="$HARNESS_COUNT_REPO"
+    fi
     SCRIPT_DIR="$SPAWN_DIR/scripts"
     LOG_DIR="$SPAWN_DIR/logs"
     STATUS_FILE="$SPAWN_DIR/status.json"
@@ -626,6 +643,7 @@ EOF
         n=$((n + 1))
       done
       echo "WORKER_RETRIED:${WORKER_RETRIED[*]}" >> "$MAIN_LOG"
+      echo "WORKER_FINISHING:${WORKER_FINISHING[*]}" >> "$MAIN_LOG"
       echo "CONSECUTIVE_FAILURES:$CONSECUTIVE_FAILURES" >> "$MAIN_LOG"
     }
 
@@ -642,6 +660,23 @@ EOF
     if [ "$MODE" = "outcome" ]; then
       handle_success HON-999 uuid-999 test-branch "$WORKER_LOG" \
         "$RETRIED" "Fixture title" 2>/dev/null
+    elif [ "$MODE" = "drain" ]; then
+      # One live worker, registered the way spawn_worker registers it, that
+      # dies on the drain's SIGTERM. Built here rather than by spawn_worker so
+      # no WT_CALL line is recorded for it: any WT_CALL is a respawn.
+      sleep 30 &
+      WORKER_PIDS=("$!")
+      WORKER_ISSUES=(HON-999)
+      WORKER_ISSUE_UUIDS=(uuid-999)
+      WORKER_BRANCHES=(test-branch)
+      WORKER_LOGS=("$WORKER_LOG")
+      WORKER_START_TIMES=("$(date +%s)")
+      WORKER_RETRIED=("${HARNESS_FINISHING:-0}")
+      WORKER_TITLES=("Fixture title")
+      WORKER_FINISHING=("${HARNESS_FINISHING:-0}")
+      SHUTTING_DOWN=true
+      FORCE_SHUTDOWN=true
+      drain_workers_to_queue 2>/dev/null
     elif [ "$MODE" = "error" ]; then
       # A fixture title and exit code 1 — the shape monitor_workers passes when
       # a worker exits non-zero. The `cap` flavour writes the same terminal
@@ -901,6 +936,7 @@ EOF
         echo "WT_CONTEXT:$n:$(tr '\n' ' ' < "$SPAWN_DIR/calls/$n.ctx")" >> "$MAIN_LOG"
         n=$((n + 1))
       done
+      echo "WORKER_FINISHING:${WORKER_FINISHING[*]}" >> "$MAIN_LOG"
     fi
 
     # Flatten to one line: what the triage CLI actually received across all steps.
@@ -1038,11 +1074,11 @@ EOF
 
   # ─── commit count base ref (HON-601) ───────────────────────────────────────
   count-commits)
-    WT_PATH="$A1"; BRANCH="$A2"
+    WT_PATH="$A1"; BRANCH="$A2"; REPO_ROOT="$A3"
     # The only stub, as in detect-phase: count_commits resolves the worktree
     # through the real ~/.worktrees layout, and the fixture lives in a temp dir.
-    # A path that does not exist is a real case — count_commits must still
-    # answer 0 rather than fail.
+    # A path that does not exist is a real case — count_commits then reads the
+    # branch from REPO_ROOT, so that must be the fixture, never this checkout.
     get_worktree_path() { echo "$WT_PATH"; }
     count_commits "$BRANCH"
     exit 0

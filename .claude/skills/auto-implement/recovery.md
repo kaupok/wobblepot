@@ -17,7 +17,7 @@ gh pr list --head "$(git branch --show-current)" --state open --json number,url
 - **Commits, no PR** → run Phases 0–2.1 as normal, then look for the plan comment the previous attempt posted in 2.8 (`list_comments`). If there is one, reuse it instead of re-planning and do not post a second; continue Phase 3 from the first step the commits do not cover.
 - **No commits** → run the full cycle.
 
-On every path, fix the failure the note describes before redoing work that already landed. A retry is only ever issued for a failure triage judged transient (or the Neon cap), so a note describing an infrastructure fault is not by itself a reason to stop — the fault may have cleared. Stop with an error naming it only if the same fault recurs in this run.
+On every path, fix the failure the note describes before redoing work that already landed. A retry has three sources: a failure triage judged transient, the Neon cap, and the one finish attempt after a strand (HON-1065), which gets no triage at all. So a note describing an infrastructure fault is not by itself a reason to stop — the fault may have cleared. Stop with an error naming it only if the same fault recurs in this run.
 
 ## Gate stops (2.1)
 
