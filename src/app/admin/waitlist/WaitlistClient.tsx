@@ -78,7 +78,9 @@ export function WaitlistClient({ initialRequests }: WaitlistClientProps) {
     <>
       <Card>
         <CardHeader>
-          <Heading variant="h4">Confirmed requests</Heading>
+          <Heading variant="section" as="h2">
+            Confirmed requests
+          </Heading>
           <Body variant="muted">
             Newest confirmation first. An invite code works for 14 days and once.
           </Body>

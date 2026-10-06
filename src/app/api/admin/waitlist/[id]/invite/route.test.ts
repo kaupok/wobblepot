@@ -26,8 +26,8 @@ vi.mock('@/lib/resend', () => ({
 }))
 vi.mock('@/lib/prisma', () => {
   const prisma = {
-    waitlistRequest: { findFirst: vi.fn(), update: vi.fn() },
-    signupCode: { create: vi.fn(), updateMany: vi.fn() },
+    waitlistRequest: { findFirst: vi.fn(), updateMany: vi.fn() },
+    signupCode: { create: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
     $transaction: vi.fn(),
   }
   return { prisma }
@@ -42,9 +42,10 @@ import { POST } from './route'
 type MockFn = ReturnType<typeof vi.fn>
 const getSession = vi.mocked(auth.api.getSession)
 const findFirst = prisma.waitlistRequest.findFirst as unknown as MockFn
-const updateRequest = prisma.waitlistRequest.update as unknown as MockFn
+const updateRequest = prisma.waitlistRequest.updateMany as unknown as MockFn
 const createCode = prisma.signupCode.create as unknown as MockFn
 const expireCodes = prisma.signupCode.updateMany as unknown as MockFn
+const deleteCode = prisma.signupCode.delete as unknown as MockFn
 const transaction = prisma.$transaction as unknown as MockFn
 
 const adminSession = { user: { id: 'admin_1', email: 'admin@example.com' } } as never
@@ -66,9 +67,7 @@ beforeEach(() => {
   transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma))
   createCode.mockResolvedValue({ id: 'code_new' })
   expireCodes.mockResolvedValue({ count: 1 })
-  updateRequest.mockImplementation(async ({ data }: { data: { invitedAt?: Date } }) => ({
-    invitedAt: data.invitedAt ?? null,
-  }))
+  updateRequest.mockResolvedValue({ count: 1 })
   send.mockResolvedValue({ data: { id: 'email_1' }, error: null })
   findFirst.mockResolvedValue({ email: 'anna@example.com', locale: 'et', signupCodeId: null })
 })
@@ -100,7 +99,7 @@ describe('POST /api/admin/waitlist/[id]/invite', () => {
     expect(createCode).not.toHaveBeenCalled()
   })
 
-  it('mints a 14-day waitlist code, links it, and emails it once in the request locale', async () => {
+  it('mints a 14-day waitlist code, emails it once in the request locale, then links it', async () => {
     const res = await call('w1')
 
     expect(res.status).toBe(200)
@@ -113,11 +112,6 @@ describe('POST /api/admin/waitlist/[id]/invite', () => {
       },
       select: { id: true },
     })
-    expect(updateRequest).toHaveBeenCalledWith({
-      where: { id: 'w1' },
-      data: { signupCodeId: 'code_new' },
-    })
-    expect(expireCodes).not.toHaveBeenCalled()
 
     expect(send).toHaveBeenCalledTimes(1)
     const email = send.mock.calls[0]![0]
@@ -127,9 +121,16 @@ describe('POST /api/admin/waitlist/[id]/invite', () => {
     expect(email.text).toContain('NEWCODE12345')
     expect(email.text).toContain('https://wobblepot.com/sign-up')
 
-    expect(updateRequest).toHaveBeenLastCalledWith(
-      expect.objectContaining({ where: { id: 'w1' }, data: { invitedAt: NOW } }),
+    // The link is written only after the send, together with invitedAt.
+    expect(updateRequest).toHaveBeenCalledTimes(1)
+    expect(updateRequest).toHaveBeenCalledWith({
+      where: { id: 'w1' },
+      data: { invitedAt: NOW, signupCodeId: 'code_new' },
+    })
+    expect(send.mock.invocationCallOrder[0]!).toBeLessThan(
+      updateRequest.mock.invocationCallOrder[0]!,
     )
+    expect(expireCodes).not.toHaveBeenCalled()
     expect(await res.json()).toEqual({ invitedAt: NOW.toISOString() })
   })
 
@@ -158,7 +159,7 @@ describe('POST /api/admin/waitlist/[id]/invite', () => {
     expect(send.mock.calls[0]![0].subject).toBe('Your Wobblepot invite code')
   })
 
-  it('returns 502 and undoes the new code when Resend reports an error', async () => {
+  it('returns 502, deletes the unsent code and leaves the request alone when Resend reports an error', async () => {
     findFirst.mockResolvedValue({
       email: 'anna@example.com',
       locale: 'en',
@@ -170,20 +171,22 @@ describe('POST /api/admin/waitlist/[id]/invite', () => {
 
     expect(res.status).toBe(502)
     expect(captureApiError).toHaveBeenCalled()
-    // The unsent code is expired and the request points at the code the
-    // person already has, which stays valid.
-    expect(expireCodes).toHaveBeenCalledTimes(1)
-    expect(expireCodes).toHaveBeenCalledWith({
-      where: { code: 'NEWCODE12345' },
-      data: { expiresAt: NOW },
+    expect(deleteCode).toHaveBeenCalledWith({ where: { id: 'code_new' } })
+    // The previous code stays valid and linked; invitedAt is untouched.
+    expect(expireCodes).not.toHaveBeenCalled()
+    expect(updateRequest).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 when the request is deleted while the email is sent', async () => {
+    findFirst.mockResolvedValue({
+      email: 'anna@example.com',
+      locale: 'en',
+      signupCodeId: 'code_old',
     })
-    expect(updateRequest).toHaveBeenLastCalledWith({
-      where: { id: 'w1' },
-      data: { signupCodeId: 'code_old' },
-    })
-    expect(updateRequest).not.toHaveBeenCalledWith(
-      expect.objectContaining({ data: { invitedAt: expect.anything() } }),
-    )
+    updateRequest.mockResolvedValue({ count: 0 })
+
+    expect((await call('w1')).status).toBe(404)
+    expect(expireCodes).not.toHaveBeenCalled()
   })
 
   it('returns 502 when the send throws', async () => {

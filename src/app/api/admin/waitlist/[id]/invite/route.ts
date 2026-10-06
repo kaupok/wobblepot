@@ -14,13 +14,14 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 /**
  * Send invite / Send again on `/admin/waitlist` (HON-970). Mints a fresh
- * single-use code, links it to the request, emails it in the request's
- * locale, and only then expires the code sent before (if it is still unused)
- * and sets `invitedAt`.
+ * single-use code and emails it in the request's locale. Only once the email
+ * is accepted does it link the new code to the request, expire the code sent
+ * before (if it is still unused) and set `invitedAt`.
  *
- * A failed send is undone: the new code is expired and the request points at
- * its previous code again, so the recipient keeps the code they already have
- * and `invitedAt` still means "an invite went out".
+ * Linking last keeps the previous code's link intact while the email is in
+ * flight, so a sign-up with that code meanwhile still deletes the request
+ * (`linkUsedBy`). A failed send deletes the unsent code and changes nothing
+ * else, so `invitedAt` always means "an invite went out".
  */
 export async function POST(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
@@ -44,18 +45,14 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
 
     const now = new Date()
     const code = nanoid(12)
-    const previousCodeId = request.signupCodeId
-    await prisma.$transaction(async (tx) => {
-      const created = await tx.signupCode.create({
-        data: {
-          code,
-          expiresAt: new Date(now.getTime() + WAITLIST_INVITE_TTL_DAYS * DAY_MS),
-          note: 'waitlist',
-          createdById: session.user.id,
-        },
-        select: { id: true },
-      })
-      await tx.waitlistRequest.update({ where: { id }, data: { signupCodeId: created.id } })
+    const created = await prisma.signupCode.create({
+      data: {
+        code,
+        expiresAt: new Date(now.getTime() + WAITLIST_INVITE_TTL_DAYS * DAY_MS),
+        note: 'waitlist',
+        createdById: session.user.id,
+      },
+      select: { id: true },
     })
 
     const locale = isKnownLocale(request.locale) ? request.locale : DEFAULT_LOCALE
@@ -82,10 +79,7 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
     if (sendError) {
       captureApiError(sendError, { route: ROUTE, userId: session.user.id })
       try {
-        await prisma.$transaction(async (tx) => {
-          await tx.signupCode.updateMany({ where: { code }, data: { expiresAt: now } })
-          await tx.waitlistRequest.update({ where: { id }, data: { signupCodeId: previousCodeId } })
-        })
+        await prisma.signupCode.delete({ where: { id: created.id } })
       } catch (error) {
         captureApiError(error, { route: ROUTE, userId: session.user.id })
       }
@@ -93,20 +87,26 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
     }
 
     const invitedAt = await prisma.$transaction(async (tx) => {
-      if (previousCodeId) {
+      // `updateMany` so a request deleted during the send (Remove, or a
+      // sign-up with the previous code) reads as a count of 0, not a throw.
+      const { count } = await tx.waitlistRequest.updateMany({
+        where: { id },
+        data: { invitedAt: now, signupCodeId: created.id },
+      })
+      if (count === 0) return null
+      if (request.signupCodeId) {
         await tx.signupCode.updateMany({
-          where: { id: previousCodeId, usedAt: null },
+          where: { id: request.signupCodeId, usedAt: null },
           data: { expiresAt: now },
         })
       }
-      const updated = await tx.waitlistRequest.update({
-        where: { id },
-        data: { invitedAt: now },
-        select: { invitedAt: true },
-      })
-      return updated.invitedAt
+      return now
     })
-    return NextResponse.json({ invitedAt: invitedAt?.toISOString() ?? null })
+    if (!invitedAt) {
+      // The email went out, but the request is gone; nothing is left to record.
+      return NextResponse.json({ error: 'Request not found' }, { status: 404 })
+    }
+    return NextResponse.json({ invitedAt: invitedAt.toISOString() })
   } catch (error) {
     captureApiError(error, { route: ROUTE, userId: session.user.id })
     return NextResponse.json({ error: 'Failed to send the invite' }, { status: 500 })

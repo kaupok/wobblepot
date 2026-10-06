@@ -31,7 +31,9 @@ export default async function AdminWaitlistPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <div className="flex flex-col gap-2">
-        <Heading variant="h2">Waitlist</Heading>
+        <Heading variant="h4" as="h1">
+          Waitlist
+        </Heading>
         <Body variant="muted">
           People who asked for an invite and confirmed their email. Send invite emails them a new
           code. Remove deletes the request, for example when someone withdraws.
