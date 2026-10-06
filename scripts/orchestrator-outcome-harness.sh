@@ -49,6 +49,22 @@
 #   with the REAL count_commits, which reads `test-branch` there when the
 #   worktree is absent.
 #
+#   lost-branch <outcome> <commits> <local> <remote> <pr_state>     (HON-1095)
+#     The REAL check_lost_branch against a fixture checkout whose origin is a
+#     local bare repo, so show-ref and ls-remote are real git. <local> and
+#     <remote> are yes | no | error: yes holds test-branch there, no does not,
+#     and error makes the call fail (REPO_ROOT is not a repo; origin is a
+#     missing path). pr_state as `outcome`; every PR lookup logs PROBE:<branch>,
+#     so a test can tell a skipped check from one that asked. Ends with DONE.
+#
+#   monitor-lost <exit0 | exit1 | timeout | running>                (HON-1095)
+#     The REAL monitor_workers over one stub worker in that state, with the
+#     three outcome handlers stubbed to log HANDLER:<path> and publish
+#     HARNESS_OUTCOME / HARNESS_COMMITS (env) through the REAL note_outcome.
+#     check_lost_branch is stubbed to log LOST_CHECK:<its four arguments>.
+#     A previous worker's STRANDED / 7 is left in the globals first, so a test
+#     can see that monitor_workers clears them. Ends with DONE.
+#
 #   worktree-dirty <wt_path>                                        (HON-1065)
 #     The REAL worktree_has_uncommitted against a fixture directory. Prints
 #     DIRTY or CLEAN.
@@ -1917,6 +1933,90 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     printf '[%s]\n' "$(checkout_behind_notice "$A1")"
+    exit 0
+    ;;
+
+  # ─── check_lost_branch (HON-1095) ─────────────────────────────────────────
+  lost-branch)
+    OUTCOME="$A1"; COMMITS="$A2"; LOCAL="$A3"; REMOTE="$A4"; PR_STATE="$A5"
+    FIXTURE=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-harness-lost.XXXXXXXX")
+    trap 'cat "$MAIN_LOG"; rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$FIXTURE"' EXIT
+    export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+    fgit() { git -C "$FIXTURE/repo" -c user.email=t@example.com -c user.name=T "$@" >/dev/null 2>&1; }
+    git init -q --bare "$FIXTURE/origin.git"
+    git init -q -b main "$FIXTURE/repo"
+    fgit commit -q --allow-empty -m seed
+    if [ "$REMOTE" = "error" ]; then
+      fgit remote add origin "$FIXTURE/no-such-origin.git"
+    else
+      fgit remote add origin "$FIXTURE/origin.git"
+    fi
+    fgit branch test-branch
+    [ "$REMOTE" = "yes" ] && fgit push -q origin test-branch
+    [ "$LOCAL" = "yes" ] || fgit branch -D test-branch
+    REPO_ROOT="$FIXTURE/repo"
+    if [ "$LOCAL" = "error" ]; then
+      mkdir "$FIXTURE/not-a-repo"
+      REPO_ROOT="$FIXTURE/not-a-repo"
+    fi
+
+    # PROBE shows whether the check got as far as asking GitHub.
+    pr_for_branch() {
+      echo "PROBE:$1" >> "$MAIN_LOG"
+      [ "$PR_STATE" = "ERROR" ] && return 1
+      [ "$PR_STATE" = "NONE" ] && return 0
+      printf '%s\t%s\t%s\n' "$PR_STATE" "650" "https://github.com/kaupok/wobblepot/pull/650"
+    }
+    notify() { :; }
+    check_lost_branch HON-999 test-branch "$OUTCOME" "$COMMITS"
+    echo "DONE" >> "$MAIN_LOG"
+    exit 0
+    ;;
+
+  # ─── monitor_workers → check_lost_branch wiring (HON-1095) ────────────────
+  monitor-lost)
+    # <how> = exit0 | exit1 | timeout | running. The handlers are stubbed to
+    # record that they ran and to publish HARNESS_OUTCOME / HARNESS_COMMITS
+    # through the REAL note_outcome; check_lost_branch records its arguments.
+    HOW="$A1"
+    STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-status.XXXXXXXX")
+    trap 'cat "$MAIN_LOG"; rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$STATUS_FILE"' EXIT
+    publish() {
+      [ -n "${HARNESS_OUTCOME:-}" ] && note_outcome "$HARNESS_OUTCOME" "${HARNESS_COMMITS:-0}"
+      return 0
+    }
+    handle_success() { echo "HANDLER:success" >> "$MAIN_LOG"; publish; }
+    handle_error_exit() { echo "HANDLER:error:$7" >> "$MAIN_LOG"; publish; }
+    handle_timeout() { echo "HANDLER:timeout" >> "$MAIN_LOG"; publish; }
+    check_lost_branch() { echo "LOST_CHECK:$1|$2|$3|$4" >> "$MAIN_LOG"; }
+    wait_for_exit() { wait "$1" 2>/dev/null || true; return 0; }
+
+    case "$HOW" in
+      exit0) true & ;;
+      exit1) false & ;;
+      *) sleep 30 & ;;
+    esac
+    WORKER_PIDS=("$!")
+    # Let an exiting stub exit before monitor_workers looks at it.
+    [ "$HOW" = "exit0" ] || [ "$HOW" = "exit1" ] && sleep 0.2
+    WORKER_ISSUES=(HON-999)
+    WORKER_ISSUE_UUIDS=(uuid-999)
+    WORKER_BRANCHES=(test-branch)
+    WORKER_LOGS=(/nonexistent/worker.log)
+    WORKER_RETRIED=(0)
+    WORKER_TITLES=("Fixture title")
+    WORKER_FINISHING=(0)
+    if [ "$HOW" = "timeout" ]; then
+      WORKER_START_TIMES=("$(( $(date +%s) - WORKER_TIMEOUT - 1 ))")
+    else
+      WORKER_START_TIMES=("$(date +%s)")
+    fi
+    # A previous worker's verdict, which must not reach this one's check.
+    LAST_OUTCOME=STRANDED
+    LAST_OUTCOME_COMMITS=7
+    monitor_workers 2>/dev/null
+    [ "$HOW" = "running" ] && kill "${WORKER_PIDS[0]}" 2>/dev/null
+    echo "DONE" >> "$MAIN_LOG"
     exit 0
     ;;
 
