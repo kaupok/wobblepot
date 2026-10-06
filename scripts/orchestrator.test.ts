@@ -3710,6 +3710,141 @@ describe('orchestrator.sh', () => {
     })
   })
 
+  // HON-1064, HON-1065 and HON-1077 keep a branch that holds work, but none of
+  // their paths had run on a live worker when they landed. If one still loses
+  // a branch, the orchestrator has to say so: the 2026-09-07 losses were found
+  // by reading the log weeks later.
+  describe('a run whose commits are gone (HON-1095)', () => {
+    type Where = 'yes' | 'no' | 'error'
+    const check = (outcome: string, commits: number, local: Where, remote: Where, pr: PrState) =>
+      stripTimestamps(runHarness('lost-branch', outcome, String(commits), local, remote, pr))
+    const LOST =
+      'WARN  [LOST-BRANCH] HON-999 test-branch: 2 commit(s) and no merged PR, but the branch is gone locally and on origin'
+
+    it.each(['FAILED', 'STRANDED', 'TIMEOUT'])(
+      'warns once for a %s run with commits, no branch anywhere and no PR',
+      (outcome) => {
+        const out = check(outcome, 2, 'no', 'no', 'NONE')
+
+        expect(out.split('\n').filter((l) => l.includes('[LOST-BRANCH]'))).toEqual([LOST])
+        expect(out).toContain('DONE')
+      },
+    )
+
+    it('warns when the PR was closed without a merge', () => {
+      expect(check('STRANDED', 2, 'no', 'no', 'CLOSED')).toContain(LOST)
+    })
+
+    it('says nothing while the local branch holds the commits', () => {
+      const out = check('STRANDED', 2, 'yes', 'no', 'NONE')
+
+      expect(out).not.toContain('[LOST-BRANCH]')
+      expect(out).not.toContain('PROBE:')
+    })
+
+    it('says nothing while only origin holds the commits', () => {
+      const out = check('FAILED', 2, 'no', 'yes', 'NONE')
+
+      expect(out).not.toContain('[LOST-BRANCH]')
+      expect(out).not.toContain('PROBE:')
+    })
+
+    it('says nothing when the PR merged', () => {
+      const out = check('STRANDED', 2, 'no', 'no', 'MERGED')
+
+      expect(out).toContain('PROBE:test-branch')
+      expect(out).not.toContain('[LOST-BRANCH]')
+    })
+
+    // SUCCESS cleaned the branch up on purpose, and GATED had nothing to lose.
+    it.each(['SUCCESS', 'GATED', ''])('never runs the check for outcome "%s"', (outcome) => {
+      const out = check(outcome, 2, 'no', 'no', 'NONE')
+
+      expect(out).not.toContain('[LOST-BRANCH]')
+      expect(out).not.toContain('PROBE:')
+      expect(out).not.toContain('Lost-branch check')
+    })
+
+    // -1 is count_commits' "could not count", not work that was lost.
+    it.each([0, -1])('never runs the check with %i commits', (commits) => {
+      const out = check('STRANDED', commits, 'no', 'no', 'NONE')
+
+      expect(out).not.toContain('[LOST-BRANCH]')
+      expect(out).not.toContain('PROBE:')
+      expect(out).not.toContain('Lost-branch check')
+    })
+
+    // A failed call is not evidence that the branch is gone. A false alarm
+    // teaches the operator to ignore the real one.
+    it('skips with a DEBUG line when the PR lookup fails', () => {
+      const out = check('STRANDED', 2, 'no', 'no', 'ERROR')
+
+      expect(out).toContain('DEBUG Lost-branch check skipped for HON-999: the PR lookup failed')
+      expect(out).not.toContain('[LOST-BRANCH]')
+    })
+
+    it('skips with a DEBUG line when origin cannot be asked', () => {
+      const out = check('STRANDED', 2, 'no', 'error', 'NONE')
+
+      expect(out).toMatch(/DEBUG Lost-branch check skipped for HON-999: git ls-remote exited \d+/)
+      expect(out).not.toContain('[LOST-BRANCH]')
+      expect(out).not.toContain('PROBE:')
+    })
+
+    it('skips with a DEBUG line when the main checkout cannot be read', () => {
+      const out = check('STRANDED', 2, 'error', 'no', 'NONE')
+
+      expect(out).toMatch(/DEBUG Lost-branch check skipped for HON-999: git show-ref exited \d+/)
+      expect(out).not.toContain('[LOST-BRANCH]')
+    })
+
+    describe('monitor_workers runs it once per finished worker', () => {
+      const monitor = (how: string, env: Record<string, string> = {}) =>
+        stripTimestamps(runHarnessEnv(env, 'monitor-lost', how))
+      const FAILED_2 = { HARNESS_OUTCOME: 'FAILED', HARNESS_COMMITS: '2' }
+
+      it.each([
+        ['exit0', 'HANDLER:success'],
+        ['exit1', 'HANDLER:error:1'],
+        ['timeout', 'HANDLER:timeout'],
+      ])('after the handler, on the %s path', (how, handler) => {
+        const lines = monitor(how, FAILED_2).split('\n')
+        const check = 'LOST_CHECK:HON-999|test-branch|FAILED|2'
+
+        expect(lines.filter((l) => l.startsWith('LOST_CHECK:'))).toEqual([check])
+        expect(lines.indexOf(handler)).toBeGreaterThan(-1)
+        expect(lines.indexOf(check)).toBeGreaterThan(lines.indexOf(handler))
+      })
+
+      it('not for a worker that is still running', () => {
+        const out = monitor('running', FAILED_2)
+
+        expect(out).not.toContain('LOST_CHECK:')
+        expect(out).toContain('DONE')
+      })
+
+      it('with this worker’s outcome, never the previous worker’s', () => {
+        // The harness leaves STRANDED / 7 in the globals first. A handler that
+        // logged no outcome must not inherit it.
+        expect(monitor('exit0')).toContain('LOST_CHECK:HON-999|test-branch||')
+      })
+    })
+
+    // The check reads the verdict from note_outcome, so an [OUTCOME] line
+    // without one would never be checked.
+    it('pairs every [OUTCOME] line with a note_outcome call', () => {
+      const lines = fs.readFileSync(orchestrator, 'utf8').split('\n')
+      const outcomeSites = lines
+        .map((l, i) => [l, i] as const)
+        .filter(([l]) => /^\s*log (INFO|WARN) "\[OUTCOME\]/.test(l))
+
+      expect(outcomeSites.length).toBeGreaterThanOrEqual(5)
+      for (const [line, i] of outcomeSites) {
+        expect(lines[i + 1], `no note_outcome after: ${line.trim()}`).toMatch(/^\s*note_outcome /)
+      }
+    })
+  })
+
   // HON-573 made workers wait for CI in-turn; CI here runs 8-12 min and the
   // budget was never raised to absorb it, so every run needing more than an
   // hour died at the cap in pr-review. 10800 is the value the one successful
@@ -4961,6 +5096,47 @@ describe('orchestrator.sh', () => {
 
         expect(scan(lines, '', '2026-09-21 00:02:00').ALERT).toBe('Pausing: low disk space')
         expect(scan(lines, '', '2026-09-21 00:04:00').ALERT).toBeUndefined()
+      })
+    })
+
+    // Logged once, so the five-minute age-out would drop it before anyone
+    // looked, and no later claim recovers the commits (HON-1095).
+    describe('holds a [LOST-BRANCH] warning for the whole run', () => {
+      const LOST =
+        '[LOST-BRANCH] HON-702 kaupo/hon-702-x: 2 commit(s) and no merged PR, but the branch is gone locally and on origin'
+      const LINES = [
+        `2026-09-20 10:00:00 WARN  ${LOST}`,
+        '2026-09-20 10:30:00 INFO  Selected: HON-706 — a later claim',
+        '2026-09-20 10:40:00 INFO  [OUTCOME] HON-706 SUCCESS 9m0s 1-commits phase=done',
+      ]
+
+      it('shows it as the alert in both slot states, past the age-out and a later claim', () => {
+        const r = scan(LINES, '', '2026-09-20 12:00:00')
+
+        expect(r.ALERT).toBe(LOST)
+        expect(r.ALERT_AT).toBe('10:00')
+        expect(r.ALERT_FULL).toBe(LOST)
+        expect(r.ALERT_FULL_AT).toBe('10:00')
+      })
+
+      it('yields the line to a live operational alert', () => {
+        const r = scan(
+          [...LINES, '2026-09-20 11:58:00 WARN  Failed to fetch issues from Linear'],
+          '',
+          '2026-09-20 12:00:00',
+        )
+
+        expect(r.ALERT).toBe('Failed to fetch issues from Linear')
+        // The Linear blocker only explains a free slot, so a full orchestrator
+        // still shows the lost branch.
+        expect(r.ALERT_FULL).toBe(LOST)
+      })
+
+      it('belongs to the run that logged it', () => {
+        const r = scan(LINES, '2026-09-20 10:15:00', '2026-09-20 12:00:00')
+
+        expect(r.ALERT).toBeUndefined()
+        expect(r.ALERT_FULL).toBeUndefined()
       })
     })
 

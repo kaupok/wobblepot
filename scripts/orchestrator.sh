@@ -202,6 +202,11 @@ GATED_ISSUES=""
 # positive proof the project has branches again, so there is no reason to wait
 # out the cooldown. A restart clears it too, same contract as GATED_ISSUES.
 CAP_REQUEUED_ISSUES=""
+# The verdict and commit count of the last [OUTCOME] line, set by note_outcome
+# beside each one. monitor_workers clears both before it hands a worker to its
+# outcome handler and reads them after, for check_lost_branch (HON-1095).
+LAST_OUTCOME=""
+LAST_OUTCOME_COMMITS=""
 # Long enough that a still-full project is not retried every poll, short enough
 # that a hand-freed branch is picked up without an operator wondering why
 # nothing happens. Well clear of the 600s circuit-breaker pause.
@@ -986,6 +991,9 @@ monitor_workers() {
     [ "$FORCE_SHUTDOWN" = true ] && break
 
     local pid="${WORKER_PIDS[$i]}"
+    local finished=false
+    LAST_OUTCOME=""
+    LAST_OUTCOME_COMMITS=""
     local issue_id="${WORKER_ISSUES[$i]}"
     local issue_uuid="${WORKER_ISSUE_UUIDS[$i]}"
     local branch="${WORKER_BRANCHES[$i]}"
@@ -1028,6 +1036,7 @@ monitor_workers() {
         # isn't one — see its header for the routing.
         handle_timeout "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$elapsed"
         to_remove+=("$i")
+        finished=true
       fi
     else
       # Process exited
@@ -1045,6 +1054,13 @@ monitor_workers() {
         handle_error_exit "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$exit_code"
       fi
       to_remove+=("$i")
+      finished=true
+    fi
+
+    # After the handler, not inside it, so the check sees what the handler left
+    # behind: the cleanup, the kept branch or the respawn (HON-1095).
+    if [ "$finished" = true ]; then
+      check_lost_branch "$issue_id" "$branch" "$LAST_OUTCOME" "$LAST_OUTCOME_COMMITS"
     fi
 
     i=$((i + 1))
@@ -1548,6 +1564,71 @@ probe_worker_pr() {
   return 0
 }
 
+# Publish the verdict and commit count an [OUTCOME] line just logged, for
+# check_lost_branch. Called beside every [OUTCOME] line; a static test pairs
+# the two.
+note_outcome() {
+  LAST_OUTCOME="$1"
+  LAST_OUTCOME_COMMITS="$2"
+}
+
+# HON-1095: HON-1064, HON-1065 and HON-1077 each keep a branch that holds work,
+# and tests cover each path, but none had run on a live worker when they
+# landed. If one still loses a branch, the [OUTCOME] line says FAILED or
+# STRANDED and the branch is simply gone: the 2026-09-07 losses (HON-611,
+# HON-362) were found by reading the log weeks later. So after every outcome
+# that did not ship and did not gate, check the branch the run worked on, and
+# say so when commits were made and nothing holds them any more.
+#
+# Lost means all three: no local branch in the main checkout, none on origin,
+# and no merged PR. Every check that cannot answer skips the warning with a
+# DEBUG line. A false alarm here teaches the operator to ignore the real one.
+#
+# `-1` commits is an unknown count (see count_commits), not work, so it skips.
+#
+# Usage: check_lost_branch <issue_id> <branch> <outcome> <commits>
+check_lost_branch() {
+  local issue_id="$1" branch="$2" outcome="$3" commits="$4"
+  case "$outcome" in ''|SUCCESS|GATED) return 0 ;; esac
+  [ -n "$branch" ] || return 0
+  case "$commits" in ''|*[!0-9]*) return 0 ;; esac
+  [ "$commits" -gt 0 ] || return 0
+
+  local rc=0
+  git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null || rc=$?
+  [ "$rc" -eq 0 ] && return 0
+  if [ "$rc" -ne 1 ]; then
+    log DEBUG "Lost-branch check skipped for $issue_id: git show-ref exited $rc"
+    return 0
+  fi
+
+  # ls-remote rather than `git fetch`: it asks origin directly and moves no
+  # local ref. --exit-code makes 2 the "no such ref" answer, so every other
+  # status is a call that failed. Bounded, and no prompt of either kind, for
+  # the reasons check_checkout_behind gives: nobody is there to answer one.
+  rc=0
+  run_with_timeout 30 env GIT_TERMINAL_PROMPT=0 \
+    GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh} -o BatchMode=yes" \
+    git -C "$REPO_ROOT" ls-remote --exit-code --heads origin "refs/heads/$branch" \
+    >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] && return 0
+  if [ "$rc" -ne 2 ]; then
+    log DEBUG "Lost-branch check skipped for $issue_id: git ls-remote exited $rc"
+    return 0
+  fi
+
+  probe_worker_pr "$branch"
+  if [ "$WORKER_PR_PROBE_OK" != true ]; then
+    log DEBUG "Lost-branch check skipped for $issue_id: the PR lookup failed"
+    return 0
+  fi
+  [ "$WORKER_PR_MERGED" = true ] && return 0
+
+  log WARN "[LOST-BRANCH] $issue_id $branch: $commits commit(s) and no merged PR, but the branch is gone locally and on origin"
+  notify "Honkadori" "$issue_id: $commits commit(s) lost — $branch is gone"
+  return 0
+}
+
 # Record a run that shipped: reset the circuit breaker, log SUCCESS, and clean
 # up the worktree, local branch and Neon branch. Reached from a clean exit at
 # phase=done, or from any path once the PR is confirmed MERGED.
@@ -1570,6 +1651,7 @@ record_success() {
   fi
 
   log INFO "[OUTCOME] $issue_id SUCCESS ${duration_str} ${commits}-commits phase=$phase"
+  note_outcome SUCCESS "$commits"
   notify "Honkadori" "$issue_id completed ($commits commits, $duration_str)"
 
   # Track success for --once exit code
@@ -1688,6 +1770,7 @@ strand_worker() {
     # numbers count it; triage=FINISH tells watch_scan_log the strand is not
     # waiting on the operator.
     log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${WORKER_PR_REF} ci=${ci_state} exit=${kill_reason} triage=FINISH"
+    note_outcome STRANDED "$commits"
     notify "Honkadori" "$issue_id stranded at $phase — one automatic finish attempt"
 
     # No Stranded label, no comment, and no restore_queue_if_in_progress: the
@@ -1721,6 +1804,7 @@ strand_worker() {
   fi
 
   log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${WORKER_PR_REF} ci=${ci_state} exit=${kill_reason}"
+  note_outcome STRANDED "$commits"
   notify "Honkadori" "$issue_id stranded at $phase — PR ${WORKER_PR_REF} not merged"
   local recreated=false
   restore_strand_worktree "$branch" && recreated=true
@@ -1817,6 +1901,7 @@ handle_success() {
   # automation moves its issue to Done.
   if [ "${commits:-0}" -eq 0 ] && [ "$phase" != "done" ] && [ "$WORKER_PR_MERGED" = false ]; then
     log WARN "[OUTCOME] $issue_id GATED ${duration_str} 0-commits phase=$phase"
+    note_outcome GATED 0
     notify "Honkadori" "$issue_id produced no commits — returned to Queued"
     gate_no_commit_success "$issue_uuid" "$issue_id" "$log_file"
     GATED_ISSUES="${GATED_ISSUES:+$GATED_ISSUES,}$issue_id:$issue_uuid"
@@ -2360,6 +2445,7 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
     *)       failure_label="FAILED" ;;
   esac
   log INFO "[OUTCOME] $issue_id $failure_label ${duration_str} ${commits}-commits phase=$phase triage=$triage"
+  note_outcome "$failure_label" "$commits"
   notify "Honkadori" "$issue_id failed in $phase phase ($failure_type, $duration_str)"
 
   # Track failure for --once exit code (may be overridden to 0 if retry succeeds)

@@ -2652,7 +2652,9 @@ watch_relative_age() {
 #
 # ALERT is the operational blocker to show while a worker slot is free;
 # ALERT_FULL is the subset of that which still applies when every slot is busy,
-# so the caller picks one by slot state rather than this scan guessing.
+# so the caller picks one by slot state rather than this scan guessing. When
+# neither has a live blocker, both carry the run's last `[LOST-BRANCH]` WARN,
+# which never ages out (HON-1095).
 #
 # `grace` is a second, later `YYYY-MM-DD HH:MM:SS` prefix used only for the
 # TALLY_TRUNCATED test. Without it, a log whose first line lands a second after
@@ -2825,7 +2827,13 @@ watch_scan_log() {
       if (!in_window($0)) next
       msg = $0
       sub(/^[0-9-]+ [0-9:]+ (ERROR|WARN) +/, "", msg)
-      if (msg ~ /^Pausing/ || msg ~ /^Low disk space/) {
+      # Not a blocker: a run whose commits are gone (HON-1095). Kept apart
+      # because the END block holds it on screen for the whole run.
+      if (msg ~ /^\[LOST-BRANCH\]/) {
+        alert_lost = msg
+        alert_lost_at = substr($0, 12, 5)
+      }
+      else if (msg ~ /^Pausing/ || msg ~ /^Low disk space/) {
         alert_any = msg
         alert_any_at = substr($0, 12, 5)
         alert_any_ts = ts($0)
@@ -2917,10 +2925,21 @@ watch_scan_log() {
       } else if (show_slot) {
         printf "ALERT=%s\n", alert_slot
         printf "ALERT_AT=%s\n", alert_slot_at
+      } else if (alert_lost != "") {
+        printf "ALERT=%s\n", alert_lost
+        printf "ALERT_AT=%s\n", alert_lost_at
       }
+      # A lost branch takes the line whenever no live blocker needs it, in
+      # either slot state, and neither clearing rule applies to it. It is
+      # logged once, so the age-out would drop it within five minutes, and no
+      # later claim recovers the commits. It stays until the window moves,
+      # that is, until the orchestrator restarts.
       if (show_any) {
         printf "ALERT_FULL=%s\n", alert_any
         printf "ALERT_FULL_AT=%s\n", alert_any_at
+      } else if (alert_lost != "") {
+        printf "ALERT_FULL=%s\n", alert_lost
+        printf "ALERT_FULL_AT=%s\n", alert_lost_at
       }
     }
   ' "$log_file" 2>/dev/null || true
