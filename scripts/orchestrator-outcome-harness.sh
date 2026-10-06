@@ -200,6 +200,12 @@
 #     Prints the REAL stop_wait_bound from worktree-claude.sh. [triage-timeout]
 #     stands in for the status file's triage_timeout.
 #
+#   wait-for-drain <bound-secs> <terms-to-exit>                    (HON-1067)
+#     Sources worktree-claude.sh and runs the REAL wait_for_drain, with
+#     STOP_RESEND_INTERVAL at 1 s, against a child that counts SIGTERMs and
+#     exits on the <terms-to-exit>th. Prints TERMS (how many it received),
+#     ALIVE (yes/no once the wait returns) and ELAPSED in whole seconds.
+#
 #   detect-phase <wt_path> <branch> <log-file>     (HON-576)
 #     Runs the REAL detect_phase with get_worktree_path stubbed to <wt_path>,
 #     so the git heuristics run against a fixture repo built in a temp dir.
@@ -1073,6 +1079,28 @@ EOF
     echo "EXIT:$status"
     echo "SHUTTING_DOWN:$SHUTTING_DOWN"
     rm -f "$out_file"
+    exit 0
+    ;;
+
+  wait-for-drain)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    STOP_RESEND_INTERVAL=1
+    count_file="$MAIN_LOG.terms"
+    : > "$count_file"
+    # Stands in for an orchestrator whose two signals were merged into one: it
+    # needs more SIGTERMs than cmd_stop sends before the wait starts.
+    bash -c '
+      trap "echo x >> \"\$1\"; [ \$(wc -l < \"\$1\") -ge \"\$2\" ] && exit 0" TERM
+      while :; do sleep 0.1; done' _ "$count_file" "$A2" &
+    target=$!
+    sleep 0.3  # let the child install its trap
+    start=$SECONDS
+    wait_for_drain "$target" "$A1"
+    echo "ELAPSED:$((SECONDS - start))"
+    echo "TERMS:$(wc -l < "$count_file" | tr -d ' ')"
+    if kill -0 "$target" 2>/dev/null; then echo "ALIVE:yes"; kill -KILL "$target"; else echo "ALIVE:no"; fi
+    rm -f "$count_file"
     exit 0
     ;;
 

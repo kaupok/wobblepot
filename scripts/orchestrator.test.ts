@@ -1018,6 +1018,23 @@ describe('orchestrator.sh', () => {
       expect(bound('3', '120', '300')).toBeGreaterThanOrEqual(300 + 15 * 3)
     })
 
+    it('re-sends SIGTERM while it waits, so two signals merged into one still force the drain', () => {
+      // Bash runs a trap once for any number of SIGTERMs that arrive during
+      // one foreground command. Both of cmd_stop's signals can land inside one
+      // triage call, and then only SHUTTING_DOWN is set (HON-1067).
+      const out = runHarness('wait-for-drain', '10', '3')
+
+      expect(out).toContain('ALIVE:no')
+      expect(out).toMatch(/^TERMS:3$/m)
+      expect(Number(out.match(/^ELAPSED:(\d+)$/m)?.[1])).toBeLessThan(10)
+    })
+
+    it('cmd_stop waits through wait_for_drain', () => {
+      const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_stop')
+
+      expect(body).toContain('wait_for_drain "$pid" "$bound"')
+    })
+
     it('cmd_stop passes the status file triage_timeout to stop_wait_bound', () => {
       const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_stop')
 

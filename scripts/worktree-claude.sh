@@ -3787,6 +3787,25 @@ stop_wait_bound() {
   echo $(( 10#$triage_whole + drain ))
 }
 
+# Wait up to $2 seconds for the orchestrator ($1) to exit, re-sending SIGTERM
+# every STOP_RESEND_INTERVAL seconds. Bash runs a trap once for any number of
+# the same signal that arrive during one foreground command, so when the first
+# and second SIGTERM both land inside one triage call (up to TRIAGE_TIMEOUT
+# long, against the 15s between them) the orchestrator sees only the first and
+# never drains. A re-sent signal reaches it once the call returns. Once
+# FORCE_SHUTDOWN is set, shutdown() ignores further signals (HON-1067).
+STOP_RESEND_INTERVAL=5
+wait_for_drain() {
+  local pid="$1" bound="$2" waited=0
+  while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$bound" ]; do
+    sleep 1
+    waited=$((waited + 1))
+    if [ $((waited % STOP_RESEND_INTERVAL)) -eq 0 ]; then
+      kill -TERM "$pid" 2>/dev/null || true
+    fi
+  done
+}
+
 cmd_stop() {
   local pid_file="$WORKTREE_BASE/orchestrator.pid"
   local status_file="$WORKTREE_BASE/orchestrator-status.json"
@@ -3842,11 +3861,7 @@ cmd_stop() {
     bound=$(stop_wait_bound "$worker_count" "$triage_timeout")
     echo -e "${DIM}Draining ${worker_count:-unknown} worker(s) — waiting up to ${bound}s before SIGKILL${NC}"
 
-    local drained=0
-    while kill -0 "$pid" 2>/dev/null && [ "$drained" -lt "$bound" ]; do
-      sleep 1
-      drained=$((drained + 1))
-    done
+    wait_for_drain "$pid" "$bound"
   fi
 
   if kill -0 "$pid" 2>/dev/null; then
