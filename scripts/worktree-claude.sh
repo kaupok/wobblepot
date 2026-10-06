@@ -1763,12 +1763,13 @@ done_list_worktrees() {
 
 # The merged PRs as a JSON array, from one `gh` call. Fails when `gh` is
 # missing, the call fails or the output is not an array: the caller must see a
-# failure, because an empty list would read as "nothing merged".
+# failure, because an empty list would read as "nothing merged". Every base is
+# listed; done_branch_verdict counts a PR only when its base is main.
 done_fetch_merged_prs() {
   local repo="$1" out
   command -v gh > /dev/null 2>&1 || return 1
   out=$(cd "$repo" && gh pr list --state merged --limit 200 \
-    --json number,headRefName,headRefOid 2> /dev/null) || return 1
+    --json number,headRefName,headRefOid,baseRefName 2> /dev/null) || return 1
   printf '%s' "$out" | jq -e 'type == "array"' > /dev/null 2>&1 || return 1
   printf '%s\n' "$out"
 }
@@ -1811,10 +1812,13 @@ done_match_heads() {
 #   squash #N      merged PR N's head is the tip
 #   behind #N      the tip is an ancestor of merged PR N's head
 #   ahead #N       PR N merged, but the tip has commits its head lacks
-#   open #N        PR N is open, and no PR for the branch merged
+#   open #N        PR N is open, and no PR for the branch merged into main
+#   elsewhere #N B PR N merged into base B, and no PR merged into main or is open
 #   closed #N      PR N closed unmerged, and no PR is open or merged
 #   none           no PR for the branch
 #   failed[: why]  a lookup failed, so nothing can be decided
+# Merged means merged into main: a stacked PR merged into a parent branch that
+# never reached main holds commits main lacks (HON-1079).
 # $4, the merged-PR JSON from done_fetch_merged_prs, is a fast path: a hit there
 # needs no further call. Every other branch is looked up on its own, because
 # that list holds only the last 200 merges (HON-1072). A PR matches by
@@ -1828,7 +1832,8 @@ done_branch_verdict() {
     | (if ($by_name | length) > 0 then $by_name
        elif ($n | test("^pr[0-9]+$")) then [.[] | select(.number == ($n[2:] | tonumber))]
        else [] end)
-    | .[] | "\(.number) \(.headRefOid)"' 2> /dev/null | done_match_heads "$repo" "$tip")
+    | .[] | select(.baseRefName == "main") | "\(.number) \(.headRefOid)"' 2> /dev/null \
+    | done_match_heads "$repo" "$tip")
   case "$hit" in
     squash* | behind*)
       echo "$hit"
@@ -1838,18 +1843,19 @@ done_branch_verdict() {
 
   if [[ "$name" =~ ^pr([0-9]+)$ ]]; then
     prs=$(cd "$repo" && gh pr view "${BASH_REMATCH[1]}" \
-      --json number,state,headRefOid < /dev/null 2> /dev/null) || ok=0
+      --json number,state,headRefOid,baseRefName < /dev/null 2> /dev/null) || ok=0
     prs="[$prs]"
   else
     prs=$(cd "$repo" && gh pr list --head "$name" --state all --limit 50 \
-      --json number,state,headRefOid < /dev/null 2> /dev/null) || ok=0
+      --json number,state,headRefOid,baseRefName < /dev/null 2> /dev/null) || ok=0
   fi
   if [ "$ok" = 0 ] || ! printf '%s' "$prs" | jq -e 'type == "array"' > /dev/null 2>&1; then
     echo failed
     return 0
   fi
 
-  hit=$(printf '%s' "$prs" | jq -r '.[] | select(.state == "MERGED") | "\(.number) \(.headRefOid)"' \
+  hit=$(printf '%s' "$prs" \
+    | jq -r '.[] | select(.state == "MERGED" and .baseRefName == "main") | "\(.number) \(.headRefOid)"' \
     | done_match_heads "$repo" "$tip")
   case "$hit" in
     squash* | behind*)
@@ -1862,11 +1868,13 @@ done_branch_verdict() {
       ;;
   esac
   printf '%s' "$prs" | jq -r '
-    ([.[] | select(.state == "MERGED")] | first) as $m
+    ([.[] | select(.state == "MERGED" and .baseRefName == "main")] | first) as $m
     | ([.[] | select(.state == "OPEN")] | first) as $o
+    | ([.[] | select(.state == "MERGED")] | first) as $e
     | ([.[] | select(.state == "CLOSED")] | first) as $c
     | if $m then "ahead #\($m.number)"
       elif $o then "open #\($o.number)"
+      elif $e then "elsewhere #\($e.number) \($e.baseRefName)"
       elif $c then "closed #\($c.number)"
       else "none" end'
 }
@@ -1878,6 +1886,10 @@ done_keep_reason() {
   case "$1" in
     ahead*) echo "commits after the merge of PR ${1#ahead }" ;;
     open*) echo "PR ${1#open } open" ;;
+    elsewhere*)
+      local pr_base="${1#elsewhere }"
+      echo "PR ${pr_base%% *} merged into ${pr_base#* }, not main"
+      ;;
     closed*) echo "PR ${1#closed } closed unmerged" ;;
     none) echo "no PR found" ;;
     *) echo "PR lookup failed${1#failed}" ;;
@@ -1890,7 +1902,7 @@ done_keep_reason() {
 #   delete <branch> squash #<N>  merged PR N's head holds every commit of the tip
 #   warn   <branch> <reason>     kept, and the operator should look: commits
 #                                after the merge, or a failed lookup
-#   keep   <branch> <reason>     kept: no PR, or none merged
+#   keep   <branch> <reason>     kept: no PR, or none merged into main
 #   skip   <branch> <reason>     protected, never looked up
 # $2 is the merged-PR JSON array, or "" when it could not be fetched; then only
 # regular merges are selected and no per-branch lookup runs. $3 lists the
@@ -1950,10 +1962,11 @@ done_worktree_state() {
   verdict=$(done_branch_verdict "$REPO_ROOT" "$branch" "$tip" "$prs_json")
 
   # A tip already in main loses nothing. It still needs a merged PR, because a
-  # fresh branch with no commits of its own is also in main.
+  # fresh branch with no commits of its own is also in main; a PR merged into
+  # another base is one too.
   if git -C "$REPO_ROOT" merge-base --is-ancestor "$tip" main 2> /dev/null; then
     case "$verdict" in
-      squash* | behind* | ahead*) echo merged ;;
+      squash* | behind* | ahead* | elsewhere*) echo merged ;;
       failed*) done_keep_reason "$verdict" ;;
       *) echo "not merged" ;;
     esac
@@ -1980,16 +1993,65 @@ done_print_section() {
   done
 }
 
+# Is a rebase in progress in the checkout at $1?
+done_rebase_in_progress() {
+  local dir
+  for dir in rebase-merge rebase-apply; do
+    [ -d "$(git -C "$1" rev-parse --path-format=absolute --git-path "$dir")" ] && return 0
+  done
+  return 1
+}
+
+# Stop `wt done` after a failed `git checkout main` or `git pull`. A pull that
+# stopped on a rebase conflict is aborted first, so the main checkout is not
+# left mid-rebase. cmd_done refuses to start while a rebase is in progress, so
+# the rebase aborted here is always the pull's own.
+# Usage: done_abort_update <main_repo>
+done_abort_update() {
+  local repo="$1"
+  if done_rebase_in_progress "$repo"; then
+    if git -C "$repo" rebase --abort > /dev/null 2>&1; then
+      echo -e "${RED}Error: Could not update main in $repo: local main conflicts with origin/main, so the pull rebase was aborted — nothing removed${NC}"
+      echo "Reconcile local main with origin/main, then run wt done again."
+    else
+      echo -e "${RED}Error: Could not update main in $repo, and git rebase --abort failed: the rebase is still in progress — nothing removed${NC}"
+    fi
+    exit 1
+  fi
+  echo -e "${RED}Error: Could not update main in $repo — nothing removed${NC}"
+  exit 1
+}
+
 cmd_done() {
+  # The checkout that holds this script, not the one the shell stands in: the
+  # `wt` alias runs the script by absolute path from any directory (HON-1079).
+  # A worktree's copy of the script resolves to the main checkout as well.
   local main_repo
-  main_repo=$(get_main_repo_path)
+  main_repo=$(done_list_worktrees "$SCRIPT_DIR" 2> /dev/null | head -1 | cut -f1)
   if [ -z "$main_repo" ]; then
-    echo -e "${RED}Error: Not inside a git repository${NC}"
+    echo -e "${RED}Error: Could not find the $REPO_NAME checkout that holds $SCRIPT_DIR${NC}"
     exit 1
   fi
   # Every helper below reads REPO_ROOT. A worktree's own copy of this script
   # sets it to that worktree, so point it at the main checkout.
   REPO_ROOT="$main_repo"
+
+  # The worktree the shell stands in, when it belongs to this repo. Compares
+  # top-level paths, not is_in_worktree: in a subdirectory of the main checkout
+  # `--git-common-dir` is relative and `--git-dir` absolute, so that string
+  # compare would take the main checkout for a worktree.
+  local here_path="" here_branch="" here_common main_common
+  main_common=$(git -C "$main_repo" rev-parse --path-format=absolute --git-common-dir)
+  here_common=$(git rev-parse --path-format=absolute --git-common-dir 2> /dev/null) || here_common=""
+  if [ "$here_common" != "$main_common" ]; then
+    echo -e "${BLUE}Acting on the $REPO_NAME checkout at $main_repo — the current directory is not in it${NC}"
+  else
+    here_path=$(git rev-parse --show-toplevel)
+    [ "$here_path" != "$main_repo" ] || here_path=""
+  fi
+  # sync_permissions finds the main checkout from the current directory, and
+  # neonctl runs in it.
+  cd "$main_repo"
 
   local orch_branches
   orch_branches=$(done_orchestrator_branches)
@@ -2002,15 +2064,8 @@ cmd_done() {
   fi
 
   # From inside a worktree: check everything before anything is removed.
-  # Compares top-level paths, not is_in_worktree: in a subdirectory of the main
-  # checkout `--git-common-dir` is relative and `--git-dir` absolute, so that
-  # string compare would take the main checkout for a worktree.
-  local here_path="" here_branch=""
-  here_path=$(git rev-parse --show-toplevel)
-  if [ "$here_path" = "$main_repo" ]; then
-    here_path=""
-  else
-    here_branch=$(git branch --show-current)
+  if [ -n "$here_path" ]; then
+    here_branch=$(git -C "$here_path" branch --show-current)
     if [ -z "$here_branch" ]; then
       echo -e "${RED}Error: This worktree has a detached HEAD — nothing removed${NC}"
       exit 1
@@ -2039,24 +2094,29 @@ cmd_done() {
     exit 1
   fi
 
+  # A rebase already in progress is the operator's: a failed pull must not
+  # abort it.
+  if done_rebase_in_progress "$main_repo"; then
+    echo -e "${RED}Error: A rebase is in progress in the main checkout ($main_repo) — nothing removed${NC}"
+    exit 1
+  fi
+
+  # Before any removal, so a failed pull leaves every worktree in place.
+  if ! git -C "$main_repo" checkout -q main || ! git -C "$main_repo" pull --rebase --prune; then
+    done_abort_update "$main_repo"
+  fi
+
   local removed=() deleted=() kept=()
   local cd_hint=""
 
   if [ -n "$here_path" ]; then
     # cmd_cleanup refuses to remove the worktree you stand in. Keep that rule:
-    # leave it, and remove it from the main checkout. The parent shell cannot
-    # follow, so the summary ends with a `cd`.
-    cd "$main_repo"
+    # remove it from the main checkout, where the shell already moved. The
+    # parent shell cannot follow, so the summary ends with a `cd`.
     echo "Removing the current worktree: $here_path"
     remove_worktree_artifacts "$here_path" "$here_branch" 0 < /dev/null || exit 1
     removed+=("$here_branch")
     cd_hint="$main_repo"
-  fi
-
-  if ! git -C "$main_repo" checkout -q main || ! git -C "$main_repo" pull --rebase --prune; then
-    echo -e "${RED}Error: Could not update main in $main_repo — stopped before pruning${NC}"
-    [ -z "$cd_hint" ] || echo "Run: cd $cd_hint"
-    exit 1
   fi
 
   # Merged, clean worktrees under $WORKTREE_BASE. The branch is not deleted
