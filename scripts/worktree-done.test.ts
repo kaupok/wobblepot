@@ -173,7 +173,9 @@ describe('wt done branch selection (HON-1066)', () => {
 
     expect(r.status, r.out).toBe(0)
     expect(branches()).toEqual(['kaupo/hon-2-b', 'main'])
-    expect(r.out).toMatch(/WARN: Keeping 'kaupo\/hon-2-b': has commits after merged PR #2/)
+    expect(r.out).toMatch(
+      /WARN: Keeping 'kaupo\/hon-2-b': tip differs from the head of merged PR #2/,
+    )
   })
 
   it('deletes a `gh pr checkout` branch pr<N> whose tip equals PR N head', () => {
@@ -257,6 +259,39 @@ describe('wt done worktrees (HON-1066)', () => {
     expect(fs.existsSync(dir)).toBe(false)
     expect(branches()).toEqual(['main'])
     expect(r.out).toMatch(/Worktrees removed:\n {2}kaupo\/hon-5-e/)
+  })
+
+  it('removes the worktree of a branch merged with a merge commit, then deletes the branch', () => {
+    git(main, 'checkout', '-q', '-b', 'kaupo/hon-11-j')
+    const tip = commit(main, 'p.txt')
+    git(main, 'checkout', '-q', 'main')
+    const dir = addWorktree('kaupo/hon-11-j')
+    // Merged on origin only, so the merge reaches the main checkout through
+    // wt done's own pull, as a GitHub "Create a merge commit" does.
+    const other = path.join(tmp, 'other')
+    git(tmp, 'clone', '-q', path.join(tmp, 'origin.git'), other)
+    git(other, 'fetch', '-q', main, 'kaupo/hon-11-j:kaupo/hon-11-j')
+    git(other, 'merge', '-q', '--no-ff', '-m', 'Merge PR #11', 'kaupo/hon-11-j')
+    git(other, 'push', '-q', 'origin', 'main')
+    writePrs([{ number: 11, headRefName: 'kaupo/hon-11-j', headRefOid: tip }])
+
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(fs.existsSync(dir)).toBe(false)
+    expect(branches()).toEqual(['main'])
+    expect(r.out).toContain('kaupo/hon-11-j (merged)')
+  })
+
+  it('keeps the worktree of a fresh branch with no commits and no PR', () => {
+    git(main, 'branch', 'feat/fresh')
+    const dir = addWorktree('feat/fresh')
+
+    const r = runDone(main)
+
+    expect(fs.existsSync(dir)).toBe(true)
+    expect(branches()).toEqual(['feat/fresh', 'main'])
+    expect(r.out).toContain('feat/fresh: not merged')
   })
 
   it('keeps a merged worktree that has uncommitted changes, and its branch', () => {

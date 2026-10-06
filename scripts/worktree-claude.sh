@@ -1814,9 +1814,25 @@ done_select_branches() {
 
     case "$verdict" in
       squash*) printf 'delete\t%s\t%s\n' "$name" "$verdict" ;;
-      stale*) printf 'keep\t%s\thas commits after merged PR %s\n' "$name" "${verdict#stale }" ;;
+      stale*) printf 'keep\t%s\ttip differs from the head of merged PR %s\n' "$name" "${verdict#stale }" ;;
     esac
   done < <(git -C "$repo" for-each-ref --format='%(refname:short) %(objectname)' refs/heads)
+}
+
+# Is the branch checked out at $1 merged? is_branch_merged, plus one case it
+# cannot see: once main is pulled, a branch merged with a merge commit or a
+# fast-forward has no commits ahead of main, which is_branch_merged reads as a
+# fresh branch. An ancestor of main that a merged PR ($2, the JSON array) names
+# as its head is merged; a fresh branch was never a PR head, so the guard holds.
+# Usage: done_branch_merged <worktree_path> <prs_json>
+done_branch_merged() {
+  local path="$1" prs_json="$2" branch
+  is_branch_merged "$path" && return 0
+  [ -n "$prs_json" ] || return 1
+  branch=$(git -C "$path" branch --show-current 2> /dev/null)
+  [ -n "$branch" ] || return 1
+  git -C "$REPO_ROOT" merge-base --is-ancestor "$branch" main 2> /dev/null || return 1
+  printf '%s' "$prs_json" | jq -e --arg n "$branch" 'any(.[]; .headRefName == $n)' > /dev/null 2>&1
 }
 
 # Print one summary section; nothing when the list is empty.
@@ -1846,6 +1862,13 @@ cmd_done() {
   local orch_branches
   orch_branches=$(done_orchestrator_branches)
 
+  # One gh call serves the worktree checks and the branch selection.
+  local prs_json
+  if ! prs_json=$(done_fetch_merged_prs "$main_repo"); then
+    prs_json=""
+    echo -e "${YELLOW}WARN: Could not list merged PRs with gh — squash-merged branches are not checked${NC}"
+  fi
+
   # From inside a worktree: check everything before anything is removed.
   local here_path="" here_branch=""
   if is_in_worktree; then
@@ -1863,7 +1886,7 @@ cmd_done() {
       echo -e "${RED}Error: This worktree has uncommitted changes — nothing removed${NC}"
       exit 1
     fi
-    if ! is_branch_merged "$here_path"; then
+    if ! done_branch_merged "$here_path" "$prs_json"; then
       echo -e "${RED}Error: Branch '$here_branch' is not merged into main — nothing removed${NC}"
       exit 1
     fi
@@ -1907,7 +1930,7 @@ cmd_done() {
       kept+=("$wt_branch: orchestrator worker")
     elif has_uncommitted_changes "$wt_path"; then
       kept+=("$wt_branch: uncommitted changes")
-    elif ! is_branch_merged "$wt_path"; then
+    elif ! done_branch_merged "$wt_path" "$prs_json"; then
       kept+=("$wt_branch: not merged")
     elif remove_worktree_artifacts "$wt_path" "$wt_branch" 0 < /dev/null; then
       removed+=("$wt_branch")
@@ -1915,12 +1938,6 @@ cmd_done() {
       kept+=("$wt_branch: worktree remove failed")
     fi
   done 3< <(done_list_worktrees "$main_repo")
-
-  local prs_json
-  if ! prs_json=$(done_fetch_merged_prs "$main_repo"); then
-    prs_json=""
-    echo -e "${YELLOW}WARN: Could not list merged PRs with gh — squash-merged branches are not checked${NC}"
-  fi
 
   # Never touch main, the checked-out branch, a branch in any remaining
   # worktree, or an orchestrator worker's branch.
