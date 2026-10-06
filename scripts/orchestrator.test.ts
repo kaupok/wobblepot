@@ -951,7 +951,10 @@ describe('orchestrator.sh', () => {
   // orphans `claude` processes and leaves their issues In Progress + assigned,
   // the state select_next_issue skips forever.
   describe('stop_wait_bound', () => {
-    const bound = (workers: string) => Number(runHarness('stop-wait-bound', workers).trim())
+    const bound = (workers: string, triage = '') =>
+      Number(
+        runHarnessEnv({ ORCHESTRATOR_TRIAGE_TIMEOUT: triage }, 'stop-wait-bound', workers).trim(),
+      )
 
     it.each([
       ['0 workers', '0'],
@@ -969,6 +972,26 @@ describe('orchestrator.sh', () => {
       const bounds = [0, 1, 2, 3, 4, 5, 10].map((n) => bound(String(n)))
 
       expect(bounds).toEqual([...bounds].sort((a, b) => a - b))
+    })
+
+    // The drain runs in the main loop now, so a second signal that lands during
+    // a triage call waits for that call before the drain starts (HON-1067).
+    it.each([0, 1, 3, 5])(
+      'covers one default 120s triage call plus 15s per worker for %i worker(s)',
+      (n) => {
+        expect(bound(String(n))).toBeGreaterThanOrEqual(120 + 15 * n)
+      },
+    )
+
+    it.each([
+      ['300', 300],
+      ['1.5', 2],
+    ])('follows ORCHESTRATOR_TRIAGE_TIMEOUT=%s', (triage, seconds) => {
+      expect(bound('3', triage)).toBeGreaterThanOrEqual(seconds + 15 * 3)
+    })
+
+    it('falls back to the 120s default for an unreadable triage timeout', () => {
+      expect(bound('3', 'abc')).toBe(bound('3'))
     })
 
     it('honours the first SIGTERM without waiting out the poll interval', () => {
@@ -997,6 +1020,93 @@ describe('orchestrator.sh', () => {
       expect(killIndex).toBeGreaterThan(pollIndex)
     })
   })
+  // ─── HON-1067: the second signal reaches the force drain ──────────────────
+  // shutdown() ran the graceful wait loop inside the trap handler. Bash does not
+  // re-enter a handler that is still running, so the second SIGTERM `wt stop`
+  // sends was dropped, drain_workers_to_queue never ran, and SIGKILL left
+  // orphaned workers and issues In Progress and assigned. The harness runs the
+  // REAL main loop and trap with stub workers and real signals; against the old
+  // handler, `force` and `triage` never exit.
+  describe('shutdown signals', () => {
+    function runShutdown(scenario: 'graceful' | 'force' | 'triage') {
+      const run = spawnSync('bash', [harness, 'shutdown', scenario], {
+        encoding: 'utf8',
+        timeout: 30_000,
+        env: harnessEnv(),
+      })
+      const out = stripTimestamps(run.stdout)
+      const pids = Object.fromEntries(
+        [...out.matchAll(/^WORKER_PID:(HON-\d+):(\d+)$/gm)].map((m) => [m[1], Number(m[2])]),
+      )
+      return { status: run.status, out, pids }
+    }
+
+    const isAlive = (pid: number) => {
+      try {
+        process.kill(pid, 0)
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    it('one signal: spawns nothing and exits 0 once the worker exits', { timeout: 30_000 }, () => {
+      const { status, out } = runShutdown('graceful')
+
+      expect(status).toBe(0)
+      expect(out).toContain(
+        'Shutting down — waiting for 1 worker(s); send the signal again to force',
+      )
+      // The signal landed during the Linear fetch; the handler returns now, so
+      // the pick that follows must not claim or spawn.
+      expect(out).toContain('Shutdown requested — not claiming HON-9')
+      expect(out).not.toMatch(/^(CLAIM|SPAWN):/m)
+      expect(out).toContain('HANDLED:HON-1:success')
+      expect(out).toContain('All workers finished, exiting')
+      expect(out).not.toContain('Force shutdown')
+      expect(out).not.toMatch(/^RESTORE_QUEUED:/m)
+    })
+
+    it('two signals: drains a worker that ignores SIGTERM and exits 1', { timeout: 30_000 }, () => {
+      const { status, out, pids } = runShutdown('force')
+
+      expect(status).toBe(1)
+      // Sent from the shutdown wait loop — where the old handler dropped it.
+      expect(out.indexOf('SIGNAL:second')).toBeGreaterThan(out.indexOf('Shutting down'))
+      expect(out).toContain('Second signal — force draining')
+      expect(out).toContain('Force shutdown — killing 1 worker(s)')
+      expect(out).toContain('CLEANUP:auto/HON-1')
+      expect(out).toContain('RESTORE_QUEUED:HON-1')
+      expect(out).not.toMatch(/^(CLAIM|SPAWN):/m)
+      expect(isAlive(pids['HON-1'])).toBe(false)
+    })
+
+    it(
+      'a second signal during a triage call reaches the drain once the call returns',
+      { timeout: 30_000 },
+      () => {
+        const { status, out, pids } = runShutdown('triage')
+
+        expect(status).toBe(1)
+        const triageEnd = out.indexOf('TRIAGE_END:HON-1')
+        const drain = out.indexOf('Force shutdown — killing 1 worker(s)')
+        expect(out.indexOf('TRIAGE_START:HON-1')).toBeGreaterThan(-1)
+        expect(triageEnd).toBeGreaterThan(-1)
+        expect(drain).toBeGreaterThan(triageEnd)
+        // HON-1 exited on its own and was handled; only HON-2 is drained.
+        expect(out).toContain('RESTORE_QUEUED:HON-2')
+        expect(out).not.toContain('RESTORE_QUEUED:HON-1')
+        expect(isAlive(pids['HON-2'])).toBe(false)
+      },
+    )
+
+    it('the trap handler only sets flags', () => {
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'shutdown')
+
+      expect(body).not.toMatch(/\b(exit|drain_workers_to_queue|monitor_workers|sleep)\b/)
+    })
+  })
+
   // ─── HON-576: phase detection vs. the branch's upstream ───────────────────
   // e8960e6 started creating autonomous worktrees from an explicit `origin/main`
   // start ref. git's branch.autoSetupMerge turns a remote-tracking start ref
@@ -1677,6 +1787,18 @@ describe('orchestrator.sh', () => {
       // off; without the explicit re-attach the triage CLI would be handed an
       // empty log and asked to diagnose it.
       expect(out).toContain('OUT:piped-stdin')
+    })
+
+    it('keeps waiting when a signal handler interrupts its wait', () => {
+      // shutdown() now returns (HON-1067), and a trap that returns cuts `wait`
+      // short with 128+signal. check_checkout_behind calls this in the main
+      // shell, so a `wt stop` landing mid-fetch read as a timeout (124) and left
+      // the command running.
+      const out = runHarness('bash-timeout-signal')
+
+      expect(out).toContain('SHUTTING_DOWN:true')
+      expect(out).toContain('OUT:finished')
+      expect(out).toContain('EXIT:0')
     })
 
     it('returns promptly when the command finishes well inside the bound', () => {

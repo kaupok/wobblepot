@@ -131,6 +131,29 @@
 #     ELAPSED in whole seconds. The watchdog's poll interval is paid on every
 #     call, so this is what shows it stays small.
 #
+#   bash-timeout-signal                                             (HON-1067)
+#     The REAL bash_timeout in the main shell, with the REAL shutdown trap
+#     installed, over a command that sends this shell SIGTERM while bash_timeout
+#     waits on it. The handler returns, which interrupts `wait`; OUT and EXIT
+#     show the command was still waited for rather than read as a timeout.
+#     SHUTTING_DOWN shows the signal was handled.
+#
+#   shutdown <graceful|force|triage>                                (HON-1067)
+#     Runs the REAL main loop and shutdown trap with every startup, Linear, git
+#     and status-file collaborator stubbed, and stub workers as real child
+#     processes. Signals are real SIGTERMs to this process:
+#       graceful — the first arrives during the Linear fetch; the worker exits
+#                  0 once it lands. A claim or spawn after it is the bug.
+#       force    — the second is sent from the shutdown wait loop, where the
+#                  old in-handler loop dropped it; the worker ignores SIGTERM.
+#       triage   — two workers. The second signal arrives during a stubbed
+#                  foreground triage call for the first, which exits 1; the
+#                  second ignores SIGTERM and must still be drained.
+#     Prints WORKER_PID:<issue>:<pid> per worker, then the log with one line per
+#     side effect (CLAIM / SPAWN / HANDLED / TRIAGE_START / TRIAGE_END /
+#     CLEANUP / RESTORE_QUEUED) in order. The exit status is main's own.
+#     wait_for_exit is bounded to 1 s so the SIGKILL escalation stays fast.
+#
 #   failure-seq <triage:retried:shutting_down,...>        (HON-572, finding 2)
 #     Same stubs, but replays a SEQUENCE of different failures in one process.
 #     This is what models a systemic fault sweeping the queue: every issue fails
@@ -1031,6 +1054,120 @@ EOF
     done
     echo "ELAPSED:$((SECONDS - start))"
     exit 0
+    ;;
+
+  bash-timeout-signal)
+    # Output goes to a file, not $(...): a command substitution would run
+    # bash_timeout in a subshell, and the signal would wait for it to finish
+    # instead of interrupting the `wait` under test. The command signals this
+    # shell itself, so the TERM lands while bash_timeout is waiting on it.
+    out_file="$MAIN_LOG.out"
+    status=0
+    bash_timeout 5 sh -c 'sleep 0.2; kill -TERM "$1"; sleep 1; echo finished' _ "$$" \
+      > "$out_file" || status=$?
+    echo "OUT:$(cat "$out_file")"
+    echo "EXIT:$status"
+    echo "SHUTTING_DOWN:$SHUTTING_DOWN"
+    rm -f "$out_file"
+    exit 0
+    ;;
+
+  # ─── Signal handling in the main loop (HON-1067) ───────────────────────────
+  shutdown)
+    SCENARIO="$A1"
+    SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-shutdown.XXXXXXXX")
+    HARNESS_PID=$$
+    POLL_INTERVAL=1
+    SHUTDOWN_POLL_INTERVAL=1
+    MAX_WORKERS=3
+
+    # Startup and per-poll collaborators that would take the lock, call Linear,
+    # git or the Neon API, or write the real status file.
+    acquire_lock() { :; }
+    code_fingerprint() { echo harness; }
+    rotate_logs() { :; }
+    restore_reload_state() { :; }
+    check_branch_budget() { :; }
+    validate_environment() { :; }
+    fetch_team_uuid() { :; }
+    reload_if_code_changed() { :; }
+    check_checkout_behind() { :; }
+    check_disk_space() { return 0; }
+    report_worker_status() { :; }
+    reconcile_gated_issues() { :; }
+    cleanup_status_file() { :; }
+    # main's EXIT trap calls release_lock, so it is the last code this process
+    # runs on every exit path: print the log there.
+    release_lock() { cat "$MAIN_LOG"; rm -rf "$MAIN_LOG" "$SCRATCH"; }
+
+    # Side effects go into $MAIN_LOG beside the log lines, so their order
+    # against "Second signal" and the drain is visible.
+    record() { printf '%s\n' "$1" >> "$MAIN_LOG"; }
+    select_next_issue() { printf 'uuid-HON-9\tHON-9\tauto/hon-9\tNew work\n'; }
+    claim_issue() { record "CLAIM:$2"; }
+    spawn_worker() { record "SPAWN:$2"; }
+    restore_queue_if_in_progress() { record "RESTORE_QUEUED:$2"; }
+    cleanup_worker_worktree() { record "CLEANUP:$1"; }
+    handle_success() { record "HANDLED:$1:success"; }
+    handle_error_exit() {
+      record "TRIAGE_START:$1"
+      # Foreground, as the real triage call is: bash runs the trap only once
+      # this returns.
+      bash -c 'kill -TERM "$1"; sleep 1' _ "$HARNESS_PID"
+      record "TRIAGE_END:$1"
+    }
+    eval "real_$(declare -f wait_for_exit)"
+    wait_for_exit() { real_wait_for_exit "$1" 2; }
+
+    # The first signal arrives during the Linear fetch, a foreground call, and
+    # releases the workers that wait for it. Runs in $(...), so $$ would also
+    # name this process; HARNESS_PID says so explicitly.
+    fetch_queued_issues() {
+      if [ ! -e "$SCRATCH/first" ]; then
+        touch "$SCRATCH/first"
+        kill -TERM "$HARNESS_PID"
+        touch "$SCRATCH/release"
+      fi
+      echo '{}'
+    }
+    write_status_file() {
+      if [ "$SCENARIO" = force ] && [ "$SHUTTING_DOWN" = true ] && [ ! -e "$SCRATCH/second" ]; then
+        touch "$SCRATCH/second"
+        record "SIGNAL:second"
+        kill -TERM "$HARNESS_PID"
+      fi
+    }
+
+    start_worker() {
+      local issue="$1"; shift
+      "$@" &
+      WORKER_PIDS+=("$!")
+      WORKER_ISSUES+=("$issue")
+      WORKER_ISSUE_UUIDS+=("uuid-$issue")
+      WORKER_BRANCHES+=("auto/$issue")
+      WORKER_LOGS+=("$SCRATCH/$issue.log")
+      WORKER_START_TIMES+=("$(date +%s)")
+      WORKER_RETRIED+=(0)
+      WORKER_TITLES+=("$issue")
+      echo "WORKER_PID:$issue:$!"
+    }
+    # Exits with $2 once the first signal has landed.
+    released_worker() {
+      start_worker "$1" bash -c 'while [ ! -e "$1" ]; do sleep 0.05; done; exit "$2"' _ "$SCRATCH/release" "$2"
+    }
+    # Ignores SIGTERM, as a worker mid-command can; only the SIGKILL ends it.
+    stubborn_worker() {
+      start_worker "$1" bash -c 'trap "" TERM; sleep 30; exit 0'
+    }
+
+    case "$SCENARIO" in
+      graceful) released_worker HON-1 0 ;;
+      force)    stubborn_worker HON-1 ;;
+      triage)   released_worker HON-1 1; stubborn_worker HON-2 ;;
+      *) echo "Unknown shutdown scenario: $SCENARIO" >&2; exit 64 ;;
+    esac
+
+    main
     ;;
 
   # ─── Workflow-state UUID validation (HON-578) ──────────────────────────────

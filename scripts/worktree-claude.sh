@@ -3756,20 +3756,34 @@ cmd_start() {
 }
 
 # How long `wt stop` waits for the force-shutdown drain before SIGKILL, in
-# seconds. Pure so it can be asserted without a live orchestrator: max(60,
-# 15 * workers). 15s/worker is the drain's own budget (10s wait_for_exit plus
-# cleanup and a Linear round-trip); the 60s floor covers a missing, empty or
-# unparseable status file, where the count is unknown and guessing low is the
-# failure mode that stranded issues in the first place.
+# seconds. Pure so it can be asserted without a live orchestrator:
+# triage + max(60, 15 * workers).
+#
+# The drain runs in the orchestrator's main loop, not in its trap handler, so a
+# second signal that lands during a triage call is acted on only when that call
+# returns, up to ORCHESTRATOR_TRIAGE_TIMEOUT later (HON-1067). 15s/worker is the
+# drain's own budget (10s wait_for_exit plus cleanup and a Linear round-trip);
+# the 60s floor covers a missing, empty or unparseable status file, where the
+# count is unknown and guessing low is the failure mode that stranded issues in
+# the first place.
 stop_wait_bound() {
   local workers="${1:-}"
   local floor=60 per_worker=15
+  # Same default as TRIAGE_TIMEOUT in orchestrator.sh. A fractional value (GNU
+  # timeout accepts `1.5`) rounds up; anything unreadable takes the default.
+  local triage="${ORCHESTRATOR_TRIAGE_TIMEOUT:-120}"
+  local triage_whole="${triage%%[!0-9]*}"
+  if [ -z "$triage_whole" ]; then
+    triage_whole=120
+  elif [ "$triage_whole" != "$triage" ]; then
+    triage_whole=$(( 10#$triage_whole + 1 ))
+  fi
 
   [[ "$workers" =~ ^[0-9]+$ ]] || workers=0
 
-  local bound=$(( workers * per_worker ))
-  [ "$bound" -lt "$floor" ] && bound=$floor
-  echo "$bound"
+  local drain=$(( 10#$workers * per_worker ))
+  [ "$drain" -lt "$floor" ] && drain=$floor
+  echo $(( 10#$triage_whole + drain ))
 }
 
 cmd_stop() {
@@ -3814,10 +3828,11 @@ cmd_stop() {
     # The force path runs drain_workers_to_queue, which per worker does
     # kill_process_tree -> wait_for_exit (up to 10s) -> SIGKILL ->
     # cleanup_worker_worktree -> a Linear round-trip. With 3-5 workers that is
-    # 30-50s. The old flat `sleep 3` killed the orchestrator mid-drain, orphaning
-    # `claude` processes and leaving their issues In Progress + assigned — the
-    # exact state select_next_issue skips forever (HON-572). Scale the wait with
-    # the work instead.
+    # 30-50s, and it can start only after a triage call in flight returns
+    # (HON-1067). The old flat `sleep 3` killed the orchestrator mid-drain,
+    # orphaning `claude` processes and leaving their issues In Progress +
+    # assigned — the exact state select_next_issue skips forever (HON-572).
+    # Scale the wait with the work instead.
     local worker_count bound
     worker_count=$(jq -r '.workers | length' "$status_file" 2>/dev/null) || worker_count=""
     bound=$(stop_wait_bound "$worker_count")
