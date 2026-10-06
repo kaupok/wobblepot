@@ -24,6 +24,13 @@ export const WAITLIST_TOKEN_TTL_DAYS = 7
 /** Months a confirmed request is kept after confirmation. */
 export const WAITLIST_CONFIRMED_RETENTION_MONTHS = 6
 
+/**
+ * Minimum gap between two confirmation emails to one address. The route's
+ * limit is per IP, so without this a caller with many IPs could mail one
+ * inbox without bound from the sender that password resets also use.
+ */
+export const WAITLIST_RESEND_COOLDOWN_MS = 10 * 60 * 1000
+
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /** Requests made (or reissued) before this instant are expired. */
@@ -45,15 +52,21 @@ export function normalizeWaitlistEmail(email: string): string {
 
 /**
  * Confirms the request that owns `token`, if the token exists and is within
- * {@link WAITLIST_TOKEN_TTL_DAYS} of being issued. Clears the token, so a used
- * link reads as expired from then on.
+ * {@link WAITLIST_TOKEN_TTL_DAYS} of being issued.
  *
- * An already-confirmed row keeps its original `confirmedAt`: a resubmit
- * reissues a token to a confirmed row, and confirming that one again must not
- * restart the 6-month retention clock.
+ * The token is not cleared on confirmation. Mail security gateways (Safe
+ * Links and the like) open every link in an email before the person does, so
+ * a single-use token would show the person "expired" for a request that just
+ * succeeded. A second open of the same link is therefore a no-op that still
+ * reads as confirmed. The token stops working when a resubmit replaces it or
+ * when it is 7 days old.
  *
- * @returns true when the request is now confirmed, false for a missing,
- * unknown, expired or used token.
+ * A click on a reissued token (a confirmed person asked again) is new
+ * consent, so it moves `confirmedAt` to now and restarts the 6-month
+ * retention.
+ *
+ * @returns true when the request is confirmed, false for a missing, unknown,
+ * expired or replaced token.
  */
 export async function confirmWaitlistToken(
   token: string | undefined,
@@ -67,10 +80,14 @@ export async function confirmWaitlistToken(
   })
   if (!request || request.createdAt < unconfirmedCutoff(now)) return false
 
-  // Keyed on the token as well as the id, so two concurrent clicks confirm once.
+  // Confirmed after this token was issued: this link already did its work.
+  if (request.confirmedAt && request.confirmedAt >= request.createdAt) return true
+
+  // Keyed on the token as well as the id, so a resubmit that replaced the
+  // token since the read above is not confirmed by the old link.
   const { count } = await prisma.waitlistRequest.updateMany({
     where: { id: request.id, confirmToken: token },
-    data: { confirmedAt: request.confirmedAt ?? now, confirmToken: null },
+    data: { confirmedAt: now },
   })
   return count > 0
 }
@@ -81,9 +98,12 @@ export async function confirmWaitlistToken(
  * whichever case runs here and reveals nothing about the address.
  *
  * - An address with an account: nothing. The sign-in page is its answer.
+ * - An address emailed less than {@link WAITLIST_RESEND_COOLDOWN_MS} ago:
+ *   nothing. Its last link still works.
  * - Any other address (new, unconfirmed or confirmed): a new token,
  *   `createdAt` reset to now, and the confirmation email. A confirmed row
- *   keeps its `confirmedAt`; see {@link confirmWaitlistToken}.
+ *   keeps its `confirmedAt` until the new link is clicked; see
+ *   {@link confirmWaitlistToken}.
  *
  * Never throws: every failure is logged, because nobody is left to answer.
  */
@@ -98,8 +118,16 @@ export async function processWaitlistRequest({
     const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
     if (user) return
 
-    const confirmToken = nanoid(32)
     const now = new Date()
+    const existing = await prisma.waitlistRequest.findUnique({
+      where: { email },
+      select: { createdAt: true },
+    })
+    if (existing && now.getTime() - existing.createdAt.getTime() < WAITLIST_RESEND_COOLDOWN_MS) {
+      return
+    }
+
+    const confirmToken = nanoid(32)
     await prisma.waitlistRequest.upsert({
       where: { email },
       create: { email, locale, confirmToken, createdAt: now },

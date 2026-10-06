@@ -19,7 +19,9 @@ interface ConfirmPageProps {
 /**
  * `/request-invite/confirm?token=…`: the double opt-in link from the
  * confirmation email (HON-846). A token issued within the last 7 days confirms
- * the request and is cleared; any other token, or none, reads as expired.
+ * the request, and opening it again still reads as confirmed (a mail scanner
+ * may have opened it first). A replaced or older token, or none, reads as
+ * expired.
  */
 export default async function ConfirmInviteRequestPage({ searchParams }: ConfirmPageProps) {
   const { token } = await searchParams

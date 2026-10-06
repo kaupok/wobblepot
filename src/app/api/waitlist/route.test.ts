@@ -27,7 +27,7 @@ vi.mock('@/lib/feature-flags', () => ({
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     user: { findUnique: vi.fn() },
-    waitlistRequest: { upsert: vi.fn() },
+    waitlistRequest: { findUnique: vi.fn(), upsert: vi.fn() },
   },
 }))
 
@@ -52,6 +52,7 @@ import { captureApiError } from '@/lib/errors'
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockGetServerFlag = vi.mocked(getServerFlag)
 const mockFindUser = vi.mocked(prisma.user.findUnique)
+const mockFindRequest = vi.mocked(prisma.waitlistRequest.findUnique)
 const mockUpsert = vi.mocked(prisma.waitlistRequest.upsert)
 const mockSend = vi.mocked(resend!.emails.send)
 
@@ -77,6 +78,7 @@ describe('POST /api/waitlist', () => {
     mockCheckRateLimit.mockResolvedValue(ALLOWED)
     mockGetServerFlag.mockResolvedValue(true)
     mockFindUser.mockResolvedValue(null)
+    mockFindRequest.mockResolvedValue(null)
     mockUpsert.mockResolvedValue({} as never)
     mockSend.mockResolvedValue({ data: { id: 'email-1' }, error: null } as never)
   })
@@ -169,6 +171,11 @@ describe('POST /api/waitlist', () => {
     })
 
     it('reissues the token on a repeat, so an unconfirmed or confirmed address gets a fresh link', async () => {
+      // The last email went out 11 minutes ago, past the per-address cooldown.
+      mockFindRequest.mockResolvedValue({
+        createdAt: new Date(Date.now() - 11 * 60 * 1000),
+      } as never)
+
       await POST(req({ email: 'listed@example.com', locale: 'en' }))
       await POST(req({ email: 'listed@example.com', locale: 'en' }))
       await runAfter()
@@ -180,6 +187,26 @@ describe('POST /api/waitlist', () => {
       // `confirmedAt` is never part of the update: a confirmed row stays confirmed.
       expect(mockUpsert.mock.calls[1]![0].update).not.toHaveProperty('confirmedAt')
       expect(mockSend).toHaveBeenCalledTimes(2)
+    })
+
+    it('sends nothing to an address emailed less than 10 minutes ago, whatever the IP', async () => {
+      mockFindRequest.mockResolvedValue({
+        createdAt: new Date(Date.now() - 9 * 60 * 1000),
+      } as never)
+
+      const response = await POST(
+        req({ email: 'victim@example.com', locale: 'en' }, { 'x-forwarded-for': '198.51.100.9' }),
+      )
+      await runAfter()
+
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ ok: true })
+      expect(mockFindRequest).toHaveBeenCalledWith({
+        where: { email: 'victim@example.com' },
+        select: { createdAt: true },
+      })
+      expect(mockUpsert).not.toHaveBeenCalled()
+      expect(mockSend).not.toHaveBeenCalled()
     })
 
     it('does nothing for an address with an account', async () => {

@@ -68,7 +68,7 @@ describe('confirmWaitlistToken', () => {
     expect(mockUpdateMany).not.toHaveBeenCalled()
   })
 
-  it('confirms a token within 7 days and clears it', async () => {
+  it('confirms a token within 7 days and keeps it, so the link still works', async () => {
     mockFindUnique.mockResolvedValue({
       id: 'w1',
       createdAt: new Date(NOW.getTime() - 7 * DAY_MS + 1000),
@@ -82,7 +82,7 @@ describe('confirmWaitlistToken', () => {
     })
     expect(mockUpdateMany).toHaveBeenCalledWith({
       where: { id: 'w1', confirmToken: 'tok' },
-      data: { confirmedAt: NOW, confirmToken: null },
+      data: { confirmedAt: NOW },
     })
   })
 
@@ -97,22 +97,34 @@ describe('confirmWaitlistToken', () => {
     expect(mockUpdateMany).not.toHaveBeenCalled()
   })
 
-  it('keeps the original confirmedAt when a confirmed row confirms a reissued token', async () => {
-    const firstConfirmed = new Date('2026-08-01T09:00:00.000Z')
+  it('reads a second open of the same link as confirmed and writes nothing', async () => {
+    // A mail scanner opened the link at 10:00; the person clicks at 12:00.
+    mockFindUnique.mockResolvedValue({
+      id: 'w1',
+      createdAt: new Date('2026-10-06T09:00:00.000Z'),
+      confirmedAt: new Date('2026-10-06T10:00:00.000Z'),
+    } as never)
+
+    expect(await confirmWaitlistToken('tok', NOW)).toBe(true)
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('restarts retention when a confirmed person confirms a reissued token', async () => {
+    // Confirmed in April, asked again yesterday: the new click is new consent.
     mockFindUnique.mockResolvedValue({
       id: 'w1',
       createdAt: new Date(NOW.getTime() - DAY_MS),
-      confirmedAt: firstConfirmed,
+      confirmedAt: new Date('2026-04-08T09:00:00.000Z'),
     } as never)
 
     expect(await confirmWaitlistToken('tok', NOW)).toBe(true)
     expect(mockUpdateMany).toHaveBeenCalledWith({
       where: { id: 'w1', confirmToken: 'tok' },
-      data: { confirmedAt: firstConfirmed, confirmToken: null },
+      data: { confirmedAt: NOW },
     })
   })
 
-  it('returns false when a concurrent click already used the token', async () => {
+  it('returns false when a resubmit replaced the token after it was read', async () => {
     mockFindUnique.mockResolvedValue({
       id: 'w1',
       createdAt: new Date(NOW.getTime() - DAY_MS),

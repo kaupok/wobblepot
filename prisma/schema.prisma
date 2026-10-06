@@ -233,7 +233,9 @@ model WaitlistRequest {
   email        String    @unique
   /// The page locale when the request was made; the invite email uses it.
   locale       String
-  /// `nanoid(32)` from the confirmation email; cleared on confirmation.
+  /// `nanoid(32)` from the confirmation email. Kept after confirmation, so a
+  /// second open of the link (a mail scanner opened it first) still works;
+  /// replaced on a resubmit and dead 7 days after `createdAt`.
   confirmToken String?   @unique
   /// Reset whenever a token is reissued, so the 7-day link window and the
   /// unconfirmed purge both count from the latest email.
