@@ -3567,7 +3567,9 @@ describe('orchestrator.sh', () => {
       it('re-creates the worktree from the kept branch so the strand can be resumed and released', () => {
         const out = respawnDies()
 
-        expect(out).toContain('Re-created the worktree for test-branch')
+        expect(out).toContain('Re-created a bare worktree for test-branch')
+        // It is only a checkout, so the comment must not promise a ready one.
+        expect(out).toMatch(/COMMENT:.*re-created a \*\*bare\*\* one from the branch/)
         expect(
           execFileSync('git', ['-C', wt(), 'branch', '--show-current'], {
             encoding: 'utf8',

@@ -1644,21 +1644,24 @@ worker_handed_off() {
 # to `wt resume` and then `wt cleanup` it, and `wt watch` reads a missing
 # directory as "resolved". A respawn that died before `git worktree add`, or a
 # finish attempt drained in that window, has only the kept branch (HON-1077).
-# Re-create the worktree from it, as `wt auto` does on a reused branch, so all
-# three hold. Without it `wt cleanup` stops at "Worktree not found" and the
-# Neon branch is never released.
+# Re-create the worktree from it so `wt cleanup` can release the Neon branch
+# and `wt watch` keeps the strand open. Only the checkout: `wt auto`'s setup
+# (.env, pnpm install, DATABASE_URL at the kept Neon branch) is not repeated,
+# so the worktree is bare, and record_stranded says so before `wt resume`.
+#
+# Returns 0 only when it re-created the worktree.
 restore_strand_worktree() {
   local branch="$1"
   local wt_path
   wt_path=$(get_worktree_path "$branch")
-  [ -n "$branch" ] && [ ! -d "$wt_path" ] || return 0
-  git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch" || return 0
+  [ -n "$branch" ] && [ ! -d "$wt_path" ] || return 1
+  git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch" || return 1
   if git -C "$REPO_ROOT" worktree add "$wt_path" "$branch" >/dev/null 2>&1; then
-    log INFO "Re-created the worktree for $branch from the kept branch, so the strand can be resumed and released"
-  else
-    log WARN "Could not re-create the worktree for $branch — release by hand: wt neon-delete $branch && git branch -D $branch"
+    log WARN "Re-created a bare worktree for $branch from the kept branch (no .env, no node_modules, DATABASE_URL not at its Neon branch) — set it up before wt resume; release with wt cleanup $branch"
+    return 0
   fi
-  return 0
+  log WARN "Could not re-create the worktree for $branch — release by hand: wt neon-delete $branch && git branch -D $branch"
+  return 1
 }
 
 # Record a run that produced commits but never merged. Assumes probe_worker_pr
@@ -1719,9 +1722,11 @@ strand_worker() {
 
   log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${WORKER_PR_REF} ci=${ci_state} exit=${kill_reason}"
   notify "Honkadori" "$issue_id stranded at $phase — PR ${WORKER_PR_REF} not merged"
-  restore_strand_worktree "$branch"
+  local recreated=false
+  restore_strand_worktree "$branch" && recreated=true
   record_stranded "$issue_uuid" "$issue_id" "$branch" "$log_file" \
-    "$WORKER_PR_URL" "$WORKER_PR_REF" "$WORKER_PR_STATE" "$ci_state" "$phase" "$kill_reason" "$exit_code"
+    "$WORKER_PR_URL" "$WORKER_PR_REF" "$WORKER_PR_STATE" "$ci_state" "$phase" "$kill_reason" "$exit_code" \
+    "$recreated"
 
   # With a PR, In Review is the accurate state and record_stranded leaves it
   # alone. With no PR — none opened, or gh missing/unauthenticated, which
@@ -2002,7 +2007,7 @@ gate_no_commit_success() {
 record_stranded() {
   local issue_uuid="$1" issue_id="$2" branch="$3" log_file="$4"
   local pr_url="$5" pr_ref="$6" pr_state="$7" ci_state="$8" phase="$9"
-  local kill_reason="${10:-clean}" exit_code="${11:-}"
+  local kill_reason="${10:-clean}" exit_code="${11:-}" recreated="${12:-false}"
 
   # pr_ref is "#650" — the shape the outcome log line wants. Every operator
   # instruction below needs the bare number instead: `gh pr merge` rejects a
@@ -2046,12 +2051,20 @@ record_stranded() {
   elif [ "$kill_reason" = "error" ]; then
     how=$(printf 'The worker **exited with error code %s** before it merged, so the cycle is incomplete. Read the worker log for the cause before resuming.' "${exit_code:-unknown}")
   elif [ "$kill_reason" = "stopped" ]; then
-    how="The orchestrator was **force-stopped during the automatic finish attempt** and killed the worker before it merged, so the cycle is incomplete. Read the worker log to see how far it got before resuming."
+    how="The orchestrator was **force-stopped during the automatic finish attempt**, before the attempt merged, so the cycle is incomplete. Read the worker log to see how far it got before resuming."
+  fi
+
+  local preserved
+  preserved=$(printf '**Preserved for resume:** the worktree, local branch `%s` and its Neon branch were *not* cleaned up. Resume with `wt resume %s`, and release them with `wt cleanup %s` once the run is finished — nothing else reclaims them.' \
+    "$branch" "$branch" "$branch")
+  if [ "$recreated" = true ]; then
+    preserved=$(printf '**Preserved for resume:** local branch `%s` and its Neon branch were *not* cleaned up. The worker had no worktree, so the orchestrator re-created a **bare** one from the branch: it has no `.env` or `node_modules`, and `DATABASE_URL` does not point at the Neon branch. Set those up before `wt resume %s`. Release everything with `wt cleanup %s` once the run is finished — nothing else reclaims them.' \
+      "$branch" "$branch" "$branch")
   fi
 
   local body
-  body=$(printf '## Auto-implementation stranded at `%s`\n\n%s %s%s\n\n**Preserved for resume:** the worktree, local branch `%s` and its Neon branch were *not* cleaned up. Resume with `wt resume %s`, and release them with `wt cleanup %s` once the run is finished — nothing else reclaims them.\n\n%s' \
-    "$phase" "$how" "$pr_note" "$log_path_note" "$branch" "$branch" "$branch" "$next_step")
+  body=$(printf '## Auto-implementation stranded at `%s`\n\n%s %s%s\n\n%s\n\n%s' \
+    "$phase" "$how" "$pr_note" "$log_path_note" "$preserved" "$next_step")
 
   local vars
   vars=$(jq -n --arg id "$issue_uuid" --arg body "$body" '{issueId: $id, body: $body}')
