@@ -1660,10 +1660,10 @@ handle_timeout() {
 #
 # Same routing as handle_timeout, for the same reasons:
 #   merged PR              → SUCCESS. The work shipped before the crash.
-#   no PR and no commits   → handle_failure with exit:<code>, unchanged. A Neon
-#                            cap death dies before Claude runs, so it has no PR
-#                            and no commits: with a working gh it lands here and
-#                            still reaches the CAP arm.
+#   no PR and no commits   → handle_failure with exit:<code>, unchanged.
+#   Neon cap death         → handle_failure too, even when gh cannot answer. It
+#                            dies before Claude runs, so it has no PR and no
+#                            commits, and it must still reach the CAP arm.
 #   anything else          → STRANDED exit=error: artifacts preserved.
 # A crash with commits no longer gets an automatic RETRY. That is deliberate:
 # both cases on record triaged NEEDS_HUMAN, so the RETRY never ran.
@@ -1679,8 +1679,15 @@ handle_error_exit() {
   duration_str=$(format_duration "$(worker_duration_secs "$issue_id")")
 
   # The only route out of here that destroys anything. See handle_timeout for
-  # why each of the three conditions is load-bearing.
-  if [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ] && [ "${commits:-0}" -eq 0 ]; then
+  # why each of the three conditions is load-bearing. A Neon cap death is the
+  # one exception to the probe condition: it dies before Claude runs, so it
+  # cannot have opened a PR, and its CAP verdict must not depend on gh
+  # answering. Stranding it would add the sticky Stranded label and leak the
+  # worktree, which is the outcome the CAP arm exists to prevent (HON-616).
+  if [ "${commits:-0}" -eq 0 ] && {
+    worker_hit_neon_cap "$log_file" ||
+      { [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ]; }
+  }; then
     handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
     return 0
   fi

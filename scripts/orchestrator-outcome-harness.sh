@@ -26,10 +26,12 @@
 #     commits). Everything else is genuine, including record_stranded's comment
 #     body and the cleanup decision.
 #
-#   error <commits> <phase> <pr_state> <ci_state>                  (HON-1064)
+#   error <commits> <phase> <pr_state> <ci_state> [log-flavour]   (HON-1064)
 #     Same stubs as `timeout`, but drives handle_error_exit with exit code 1 —
 #     the path taken when a worker exits non-zero. The routes match `timeout`;
-#     the fallback marker reads HANDLE_FAILURE:exit:1.
+#     the fallback marker reads HANDLE_FAILURE:exit:1. `log-flavour` = `cap`
+#     gives the run a worker log that ends in a genuine Neon cap death, so the
+#     REAL worker_hit_neon_cap check ahead of the probe is under test.
 #
 #   worker-timeout                                                  (HON-583)
 #     Prints WORKER_TIMEOUT as orchestrator.sh resolved it at source time, so
@@ -507,8 +509,19 @@ case "$MODE" in
       handle_success HON-999 uuid-999 test-branch /tmp/harness-worker.log 2>/dev/null
     elif [ "$MODE" = "error" ]; then
       # retried=0, a fixture title, and exit code 1 — the shape monitor_workers
-      # passes when a worker exits non-zero.
-      handle_error_exit HON-999 uuid-999 test-branch /tmp/harness-worker.log \
+      # passes when a worker exits non-zero. The `cap` flavour writes the same
+      # terminal lines `wt auto` prints when it dies at the Neon branch cap.
+      ERROR_LOG=/tmp/harness-worker.log
+      if [ "${A5:-}" = "cap" ]; then
+        ERROR_LOG=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-errlog.XXXXXXXX")
+        {
+          echo "Setting up worktree for HON-999..."
+          echo "Error: Neon branch cap still exceeded after orphan GC."
+          echo "ERROR: branches limit exceeded"
+        } > "$ERROR_LOG"
+        trap 'cat "$MAIN_LOG"; rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$ERROR_LOG"' EXIT
+      fi
+      handle_error_exit HON-999 uuid-999 test-branch "$ERROR_LOG" \
         0 "Fixture title" 1 2>/dev/null
     else
       # retried=0, a fixture title, and 3600s elapsed — the shape monitor_workers

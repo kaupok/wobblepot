@@ -2737,6 +2737,31 @@ describe('orchestrator.sh', () => {
       },
     )
 
+    // A cap death dies in worktree setup, before Claude runs, so it cannot have
+    // a PR. Its CAP verdict comes from the log alone and must not depend on gh:
+    // stranding it would add the sticky Stranded label and leak the worktree,
+    // which the CAP arm exists to prevent (HON-616).
+    it.each(['NONE', 'ERROR'] as PrState[])(
+      'sends a Neon cap death to triage even when the probe reads %s',
+      (pr) => {
+        const out = stripTimestamps(runHarness('error', '0', 'planning', pr, 'unknown', 'cap'))
+
+        expect(out).toContain('HANDLE_FAILURE:exit:1')
+        expect(out).not.toContain('STRANDED')
+        expect(out).not.toContain('LABEL:')
+      },
+    )
+
+    it('strands a cap-marked log that has commits rather than force-deleting them', () => {
+      // The cap check only waives the probe condition, never the commit one.
+      const out = stripTimestamps(
+        runHarness('error', '2', 'implementing', 'ERROR', 'unknown', 'cap'),
+      )
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).not.toContain('HANDLE_FAILURE')
+    })
+
     it('strands a closed-but-unmerged PR rather than triaging it', () => {
       const out = classifyError(3, 'pr-review', 'CLOSED', 'unknown')
 
@@ -2747,7 +2772,7 @@ describe('orchestrator.sh', () => {
 
     it('triages as before when the probe ran, found no PR, and nothing was committed', () => {
       // The only route that reaches triage and deletes artifacts. A Neon cap
-      // death dies before Claude runs, so with a working gh it lands here too.
+      // death lands here too; see the cap cases above.
       const out = classifyError(0, 'planning', 'NONE', 'unknown')
 
       expect(out).toContain('HANDLE_FAILURE:exit:1')
