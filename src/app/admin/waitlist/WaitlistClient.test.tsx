@@ -146,7 +146,30 @@ describe('WaitlistClient', () => {
       '/api/admin/waitlist/w1',
       expect.objectContaining({ method: 'DELETE' }),
     )
-    await waitFor(() => expect(screen.queryByText('anna@example.com')).not.toBeInTheDocument())
+    expect(screen.queryByText('anna@example.com')).not.toBeInTheDocument()
+    // The Remove button left with its row, so focus goes to the list heading,
+    // not to <body>.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Confirmed requests' })).toHaveFocus(),
+    )
+  })
+
+  it.each([
+    ['ACCOUNT_EXISTS', 'This address already has an account. Remove the request instead.'],
+    [
+      'INVITE_CONFLICT',
+      'Another invite to this address was sent at the same time. Only that one counts.',
+    ],
+  ])('explains a 409 with code %s', async (code, message) => {
+    mockFetch(
+      (url) => (url.endsWith('/invite') ? json({ error: 'x', code }, 409) : undefined),
+      [notInvited, invited],
+    )
+    const user = renderClient()
+
+    await user.click(screen.getByRole('button', { name: 'Send invite to anna@example.com' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(message))
   })
 
   it('sends no DELETE when the dialog is cancelled, and returns focus to Remove', async () => {

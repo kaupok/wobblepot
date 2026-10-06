@@ -22,6 +22,10 @@ const DAY_MS = 24 * 60 * 60 * 1000
  * flight, so a sign-up with that code meanwhile still deletes the request
  * (`linkUsedBy`). A failed send deletes the unsent code and changes nothing
  * else, so `invitedAt` always means "an invite went out".
+ *
+ * Error `code`s the client branches on: `ACCOUNT_EXISTS` (409, the address
+ * already signed up) and `INVITE_CONFLICT` (409, another send linked its
+ * code during this one's send).
  */
 export async function POST(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
@@ -41,6 +45,19 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
     })
     if (!request) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 })
+    }
+
+    // Like `processWaitlistRequest`: an address with an account needs no code,
+    // and one sent anyway could only be passed on to someone else.
+    const user = await prisma.user.findUnique({
+      where: { email: request.email },
+      select: { id: true },
+    })
+    if (user) {
+      return NextResponse.json(
+        { error: 'This address already has an account', code: 'ACCOUNT_EXISTS' },
+        { status: 409 },
+      )
     }
 
     const now = new Date()
@@ -86,27 +103,45 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: 'Failed to send the invite email' }, { status: 502 })
     }
 
-    const invitedAt = await prisma.$transaction(async (tx) => {
-      // `updateMany` so a request deleted during the send (Remove, or a
-      // sign-up with the previous code) reads as a count of 0, not a throw.
+    const linked = await prisma.$transaction(async (tx) => {
+      // Keyed on the code read before the send as well as the id: if another
+      // send linked its code meanwhile, or the request was deleted, this
+      // matches nothing. Postgres re-checks the predicate after waiting on a
+      // concurrent update of the row, so two overlapping sends cannot both
+      // win and leave one code valid but linked to nothing.
       const { count } = await tx.waitlistRequest.updateMany({
-        where: { id },
+        where: { id, signupCodeId: request.signupCodeId },
         data: { invitedAt: now, signupCodeId: created.id },
       })
-      if (count === 0) return null
+      if (count === 0) return false
       if (request.signupCodeId) {
         await tx.signupCode.updateMany({
           where: { id: request.signupCodeId, usedAt: null },
           data: { expiresAt: now },
         })
       }
-      return now
+      return true
     })
-    if (!invitedAt) {
-      // The email went out, but the request is gone; nothing is left to record.
-      return NextResponse.json({ error: 'Request not found' }, { status: 404 })
+
+    if (!linked) {
+      // This code went out but is linked to nothing, so a sign-up with it
+      // would not delete the request. Expire it.
+      await prisma.signupCode.updateMany({
+        where: { id: created.id, usedAt: null },
+        data: { expiresAt: now },
+      })
+      const stillThere = await prisma.waitlistRequest.findUnique({
+        where: { id },
+        select: { id: true },
+      })
+      return stillThere
+        ? NextResponse.json(
+            { error: 'Another invite was sent at the same time', code: 'INVITE_CONFLICT' },
+            { status: 409 },
+          )
+        : NextResponse.json({ error: 'Request not found' }, { status: 404 })
     }
-    return NextResponse.json({ invitedAt: invitedAt.toISOString() })
+    return NextResponse.json({ invitedAt: now.toISOString() })
   } catch (error) {
     captureApiError(error, { route: ROUTE, userId: session.user.id })
     return NextResponse.json({ error: 'Failed to send the invite' }, { status: 500 })

@@ -26,7 +26,8 @@ vi.mock('@/lib/resend', () => ({
 }))
 vi.mock('@/lib/prisma', () => {
   const prisma = {
-    waitlistRequest: { findFirst: vi.fn(), updateMany: vi.fn() },
+    waitlistRequest: { findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
+    user: { findUnique: vi.fn() },
     signupCode: { create: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
     $transaction: vi.fn(),
   }
@@ -46,6 +47,8 @@ const updateRequest = prisma.waitlistRequest.updateMany as unknown as MockFn
 const createCode = prisma.signupCode.create as unknown as MockFn
 const expireCodes = prisma.signupCode.updateMany as unknown as MockFn
 const deleteCode = prisma.signupCode.delete as unknown as MockFn
+const findRequest = prisma.waitlistRequest.findUnique as unknown as MockFn
+const findUser = prisma.user.findUnique as unknown as MockFn
 const transaction = prisma.$transaction as unknown as MockFn
 
 const adminSession = { user: { id: 'admin_1', email: 'admin@example.com' } } as never
@@ -70,6 +73,8 @@ beforeEach(() => {
   updateRequest.mockResolvedValue({ count: 1 })
   send.mockResolvedValue({ data: { id: 'email_1' }, error: null })
   findFirst.mockResolvedValue({ email: 'anna@example.com', locale: 'et', signupCodeId: null })
+  findUser.mockResolvedValue(null)
+  findRequest.mockResolvedValue({ id: 'w1' })
 })
 
 afterEach(() => {
@@ -124,7 +129,7 @@ describe('POST /api/admin/waitlist/[id]/invite', () => {
     // The link is written only after the send, together with invitedAt.
     expect(updateRequest).toHaveBeenCalledTimes(1)
     expect(updateRequest).toHaveBeenCalledWith({
-      where: { id: 'w1' },
+      where: { id: 'w1', signupCodeId: null },
       data: { invitedAt: NOW, signupCodeId: 'code_new' },
     })
     expect(send.mock.invocationCallOrder[0]!).toBeLessThan(
@@ -177,16 +182,61 @@ describe('POST /api/admin/waitlist/[id]/invite', () => {
     expect(updateRequest).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when the request is deleted while the email is sent', async () => {
+  it('returns 404 and expires the sent code when the request is deleted during the send', async () => {
     findFirst.mockResolvedValue({
       email: 'anna@example.com',
       locale: 'en',
       signupCodeId: 'code_old',
     })
     updateRequest.mockResolvedValue({ count: 0 })
+    findRequest.mockResolvedValue(null)
 
     expect((await call('w1')).status).toBe(404)
-    expect(expireCodes).not.toHaveBeenCalled()
+    expect(expireCodes).toHaveBeenCalledTimes(1)
+    expect(expireCodes).toHaveBeenCalledWith({
+      where: { id: 'code_new', usedAt: null },
+      data: { expiresAt: NOW },
+    })
+  })
+
+  it('returns 409 INVITE_CONFLICT and expires its own code when another send linked first', async () => {
+    findFirst.mockResolvedValue({
+      email: 'anna@example.com',
+      locale: 'en',
+      signupCodeId: 'code_old',
+    })
+    // A concurrent send replaced `code_old` between the read and the link.
+    updateRequest.mockResolvedValue({ count: 0 })
+
+    const res = await call('w1')
+
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('INVITE_CONFLICT')
+    expect(updateRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'w1', signupCodeId: 'code_old' } }),
+    )
+    // Only this send's code is expired; the winner's code and `code_old`
+    // (which the winner expired) are left alone.
+    expect(expireCodes).toHaveBeenCalledTimes(1)
+    expect(expireCodes).toHaveBeenCalledWith({
+      where: { id: 'code_new', usedAt: null },
+      data: { expiresAt: NOW },
+    })
+  })
+
+  it('returns 409 ACCOUNT_EXISTS before minting when the address has an account', async () => {
+    findUser.mockResolvedValue({ id: 'user_9' })
+
+    const res = await call('w1')
+
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('ACCOUNT_EXISTS')
+    expect(findUser).toHaveBeenCalledWith({
+      where: { email: 'anna@example.com' },
+      select: { id: true },
+    })
+    expect(createCode).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
   })
 
   it('returns 502 when the send throws', async () => {

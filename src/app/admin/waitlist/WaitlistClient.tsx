@@ -23,6 +23,12 @@ function formatAt(iso: string): string {
 }
 
 function inviteErrorMessage(err: Error): string {
+  if (err instanceof ApiError && err.code === 'ACCOUNT_EXISTS') {
+    return 'This address already has an account. Remove the request instead.'
+  }
+  if (err instanceof ApiError && err.code === 'INVITE_CONFLICT') {
+    return 'Another invite to this address was sent at the same time. Only that one counts.'
+  }
   if (err instanceof ApiError && err.status === 503) return 'Email is not configured here.'
   if (err instanceof ApiError && err.status === 502) {
     return 'The invite email did not send. Try again.'
@@ -40,6 +46,9 @@ export function WaitlistClient({ initialRequests }: WaitlistClientProps) {
   const [removing, setRemoving] = useState<WaitlistRow | null>(null)
   // The Remove button that opened the dialog, for focus on close.
   const removeTriggerRef = useRef<HTMLElement | null>(null)
+  // Focus target once a Remove took its row, and with it the trigger, away.
+  const listHeadingRef = useRef<HTMLElement | null>(null)
+  const removedRef = useRef(false)
 
   const { data } = useQuery<WaitlistResponse>({
     queryKey: QUERY_KEY,
@@ -65,6 +74,12 @@ export function WaitlistClient({ initialRequests }: WaitlistClientProps) {
         method: 'DELETE',
       }),
     onSuccess: (_data, row) => {
+      // Drop the row now rather than on the refetch, so the list and focus do
+      // not depend on its timing.
+      queryClient.setQueryData<WaitlistResponse>(QUERY_KEY, (old) =>
+        old ? { requests: old.requests.filter((r) => r.id !== row.id) } : old,
+      )
+      removedRef.current = true
       setRemoving(null)
       toast.success(`Removed ${row.email}`)
     },
@@ -78,7 +93,7 @@ export function WaitlistClient({ initialRequests }: WaitlistClientProps) {
     <>
       <Card>
         <CardHeader>
-          <Heading variant="section" as="h2">
+          <Heading variant="section" as="h2" ref={listHeadingRef} tabIndex={-1}>
             Confirmed requests
           </Heading>
           <Body variant="muted">
@@ -159,12 +174,17 @@ export function WaitlistClient({ initialRequests }: WaitlistClientProps) {
           if (removing) removeMutation.mutate(removing)
         }}
         onCloseAutoFocus={(event) => {
-          // After a Remove the button is gone with its row; let Radix decide then.
+          // Opened from state, so Radix has no trigger to return focus to, and
+          // after a Remove the button is gone with its row (CLAUDE.md → Focus
+          // management). Pick the target here every time.
+          event.preventDefault()
           const trigger = removeTriggerRef.current
-          if (trigger?.isConnected) {
-            event.preventDefault()
+          if (!removedRef.current && trigger?.isConnected) {
             trigger.focus()
+          } else {
+            listHeadingRef.current?.focus()
           }
+          removedRef.current = false
         }}
       />
     </>
