@@ -519,12 +519,13 @@ case "$MODE" in
 
     # The finish attempt (HON-1065). strand_worker respawns a first strand, so
     # these modes model a SECOND strand unless told otherwise: HARNESS_RETRIED
-    # defaults to 1, which keeps every record-for-a-human assertion on the path
-    # it was written for. HARNESS_RETRIED=0 is the shape monitor_workers passes
-    # for a first attempt. HARNESS_SHUTTING_DOWN seeds SHUTTING_DOWN, and
+    # defaults to 1 when unset (an explicitly empty value stays empty, which is
+    # the forgotten-argument case under test), keeping every record-for-a-human
+    # assertion on the path it was written for. HARNESS_RETRIED=0 is the shape
+    # monitor_workers passes for a first attempt. HARNESS_SHUTTING_DOWN seeds SHUTTING_DOWN, and
     # HARNESS_WT_PATH is the worktree the REAL worktree_has_uncommitted reads
     # (default: a path that does not exist, which is clean).
-    RETRIED="${HARNESS_RETRIED:-1}"
+    RETRIED="${HARNESS_RETRIED-1}"
     SHUTTING_DOWN="${HARNESS_SHUTTING_DOWN:-false}"
     get_worktree_path() { echo "${HARNESS_WT_PATH:-/nonexistent/orchestrator-harness-worktree}"; }
 
