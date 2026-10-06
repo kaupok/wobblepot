@@ -83,7 +83,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Past meals, Household, Profile, the labelled theme row and Sign out, in that order (HON-775, HON-1007); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row (HON-1028).',
+          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Past meals, Household, Profile, the labelled theme row and Sign out, in that order (HON-775, HON-1007); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row (HON-1028). For the beta admin (`isAdmin`), the admin pages come after the household links and before the theme row, with or without a household (HON-1092).',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -191,6 +191,46 @@ export const SignedInWithoutHousehold: Story = {
 
     expect(rowNames(nav)).toEqual(['Dark mode', 'Sign out'])
     expect(within(nav).queryByRole('link', { name: 'Household' })).not.toBeInTheDocument()
+  },
+}
+
+export const SignedInAsAdmin: Story = {
+  globals: { theme: 'light' },
+  args: { session: authedSession, hasHousehold: true, isAdmin: true },
+  play: async ({ canvasElement }) => {
+    const nav = await openSheet(canvasElement)
+
+    expect(rowNames(nav)).toEqual([
+      'Past meals',
+      'Household',
+      'Profile',
+      'Signup codes',
+      'Dark mode',
+      'Sign out',
+    ])
+    expect(within(nav).getByRole('link', { name: 'Signup codes' })).toHaveAttribute(
+      'href',
+      '/admin/signup-codes',
+    )
+    assertTouchTargets(nav)
+  },
+}
+
+export const SignedInAsAdminWithoutHousehold: Story = {
+  globals: { theme: 'light' },
+  args: { session: authedSession, hasHousehold: false, isAdmin: true },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The admin pages need no household, so the admin link shows during onboarding too (HON-1092).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const nav = await openSheet(canvasElement)
+
+    expect(rowNames(nav)).toEqual(['Signup codes', 'Dark mode', 'Sign out'])
   },
 }
 

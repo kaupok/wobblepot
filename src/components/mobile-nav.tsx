@@ -11,16 +11,24 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { AttentionDot } from '@/components/attention-dot'
 import { useThemeToggle } from '@/hooks/use-theme-toggle'
 import type { Session } from '@/lib/auth'
+import { ADMIN_LINKS } from '@/lib/admin-links'
 import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
 interface MobileNavProps {
   session: Session | null
   hasHousehold: boolean
+  /** True adds the admin pages to the sheet, household or not (HON-1092). */
+  isAdmin?: boolean
   /** Past meals still to mark; above 0, the icon and the row show a dot. */
   pastMealsToMark?: number
 }
 
-export function MobileNav({ session, hasHousehold, pastMealsToMark = 0 }: MobileNavProps) {
+export function MobileNav({
+  session,
+  hasHousehold,
+  isAdmin = false,
+  pastMealsToMark = 0,
+}: MobileNavProps) {
   const router = useRouter()
   const t = useTranslations('nav.actions')
   const tSettings = useTranslations('nav.settings')
@@ -114,6 +122,17 @@ export function MobileNav({ session, hasHousehold, pastMealsToMark = 0 }: Mobile
                   </Link>
                 </>
               )}
+              {isAdmin &&
+                ADMIN_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={linkClass}
+                    onClick={() => setOpen(false)}
+                  >
+                    {t(link.labelKey)}
+                  </Link>
+                ))}
               {themeRow}
               <button
                 type="button"

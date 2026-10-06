@@ -211,6 +211,40 @@ describe('HeaderActions', () => {
     })
   })
 
+  // HON-1092: the admin pages, for the session the server resolved as admin.
+  describe('admin links', () => {
+    it('shows Signup codes for the admin with a household', async () => {
+      const user = userEvent.setup()
+      render(<HeaderActions session={mockSession} hasHousehold={true} isAdmin={true} />)
+
+      await user.click(screen.getByRole('button', { name: 'User menu' }))
+
+      expect(screen.getByRole('menuitem', { name: 'Signup codes' })).toHaveAttribute(
+        'href',
+        '/admin/signup-codes',
+      )
+    })
+
+    it('shows Signup codes for the admin without a household', async () => {
+      const user = userEvent.setup()
+      render(<HeaderActions session={mockSession} hasHousehold={false} isAdmin={true} />)
+
+      await user.click(screen.getByRole('button', { name: 'User menu' }))
+
+      expect(screen.getByRole('menuitem', { name: 'Signup codes' })).toBeInTheDocument()
+    })
+
+    it('renders no admin link and no /admin href for anyone else', async () => {
+      const user = userEvent.setup()
+      render(<HeaderActions session={mockSession} hasHousehold={true} />)
+
+      await user.click(screen.getByRole('button', { name: 'User menu' }))
+
+      expect(screen.queryByRole('menuitem', { name: 'Signup codes' })).not.toBeInTheDocument()
+      expect(document.querySelector('a[href^="/admin"]')).toBeNull()
+    })
+  })
+
   describe('sign-out functionality', () => {
     it('calls authClient.signOut when sign-out is clicked', async () => {
       const user = userEvent.setup()

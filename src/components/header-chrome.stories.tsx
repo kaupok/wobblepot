@@ -78,6 +78,7 @@ const meta = {
   args: {
     session: null,
     hasHousehold: false,
+    isAdmin: false,
     pastMealsToMark: 0,
     skipToContentLabel: 'Skip to content',
   },
@@ -485,5 +486,31 @@ export const DesktopOnboarding: Story = {
     // 8px padding inside a 1px border, the same at both ends.
     await expectNear(box(account).left - pill.left, 9)
     await expectNear(pill.right - box(account).right, 9)
+  },
+}
+
+export const DesktopAdmin: Story = {
+  args: { session: authedSession, hasHousehold: true, isAdmin: true },
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Desktop, signed in as the beta admin. `Header` resolves `isAdmin` on the server and passes only the boolean down; the account menu then lists the admin pages (`ADMIN_LINKS`) between the household group and Sign out (HON-1092).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const banner = within(canvasElement).getByRole('banner')
+    await userEvent.click(within(banner).getByRole('button', { name: 'User menu' }))
+
+    const body = within(document.body)
+    await body.findByRole('menu')
+    await expect(body.getByRole('menuitem', { name: 'Signup codes' })).toHaveAttribute(
+      'href',
+      '/admin/signup-codes',
+    )
   },
 }

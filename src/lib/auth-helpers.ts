@@ -13,3 +13,22 @@ export function isAdmin(session: Session | null | undefined): boolean {
   if (!email) return false
   return email.toLowerCase() === serverEnv.ADMIN_EMAIL.toLowerCase()
 }
+
+/**
+ * `isAdmin` for surfaces that render on every page, such as the header's
+ * account menus (HON-1092). An unset or invalid `ADMIN_EMAIL` means "not
+ * admin" here rather than a throw, because local dev and the E2E Neon
+ * branches run without it. The `/admin` gate keeps `isAdmin`, which throws on
+ * a missing value on purpose (docs/ENVIRONMENT_SETUP.md → Admin email).
+ *
+ * The presence check comes first so an unset variable skips `serverEnv`, whose
+ * failed validation logs an error on every page load.
+ */
+export function isAdminIfConfigured(session: Session | null | undefined): boolean {
+  if (!process.env.ADMIN_EMAIL) return false
+  try {
+    return isAdmin(session)
+  } catch {
+    return false
+  }
+}

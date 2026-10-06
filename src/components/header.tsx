@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server'
 import { getSession, getCachedMembership } from '@/lib/session'
+import { isAdminIfConfigured } from '@/lib/auth-helpers'
 import { countPastMealsToMark } from '@/lib/meal-planning/past-meals'
 import { HeaderChrome } from './header-chrome'
 
@@ -12,11 +13,15 @@ import { HeaderChrome } from './header-chrome'
  * It also counts the past meals still to mark, for the account menu's dot
  * (HON-1028). It lives in the layout, so the `router.refresh()` after a status
  * change re-runs the count and the dot clears without a client query.
+ *
+ * Admin status is resolved here too, so only a boolean reaches the client and
+ * neither `ADMIN_EMAIL` nor the comparison does (HON-1092).
  */
 export async function Header() {
   const session = await getSession()
   const membership = session ? await getCachedMembership(session.user.id) : null
   const hasHousehold = membership !== null
+  const isAdmin = isAdminIfConfigured(session)
   const [pastMealsToMark, t] = await Promise.all([
     membership
       ? countPastMealsToMark({
@@ -31,6 +36,7 @@ export async function Header() {
     <HeaderChrome
       session={session}
       hasHousehold={hasHousehold}
+      isAdmin={isAdmin}
       pastMealsToMark={pastMealsToMark}
       skipToContentLabel={t('skipToContent')}
     />

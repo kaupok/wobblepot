@@ -13,6 +13,11 @@ interface HeaderChromeProps {
   session: Session | null
   hasHousehold: boolean
   /**
+   * Whether the session is the beta admin, resolved by the server half. True
+   * adds the admin pages to both account menus (HON-1092).
+   */
+  isAdmin: boolean
+  /**
    * Past meals still to mark (`countPastMealsToMark`). Above 0, the account
    * icon and its "Past meals" row show a red dot (HON-1028).
    */
@@ -52,6 +57,7 @@ interface HeaderChromeProps {
 export function HeaderChrome({
   session,
   hasHousehold,
+  isAdmin,
   pastMealsToMark,
   skipToContentLabel,
 }: HeaderChromeProps) {
@@ -133,11 +139,13 @@ export function HeaderChrome({
             <HeaderActions
               session={session}
               hasHousehold={hasHousehold}
+              isAdmin={isAdmin}
               pastMealsToMark={pastMealsToMark}
             />
             <MobileNav
               session={session}
               hasHousehold={hasHousehold}
+              isAdmin={isAdmin}
               pastMealsToMark={pastMealsToMark}
             />
           </div>

@@ -37,13 +37,19 @@ vi.mock('./header-actions', () => ({
   HeaderActions: ({
     session,
     hasHousehold,
+    isAdmin,
     pastMealsToMark,
   }: {
     session: unknown
     hasHousehold: boolean
+    isAdmin: boolean
     pastMealsToMark: number
   }) => (
-    <div data-testid="header-actions" data-past-meals={pastMealsToMark}>
+    <div
+      data-testid="header-actions"
+      data-past-meals={pastMealsToMark}
+      data-is-admin={String(isAdmin)}
+    >
       {session ? 'authenticated' : 'unauthenticated'}
       {hasHousehold ? '-with-household' : '-no-household'}
     </div>
@@ -81,13 +87,15 @@ vi.mock('./mobile-nav', () => ({
   MobileNav: ({
     session,
     hasHousehold,
+    isAdmin,
     pastMealsToMark,
   }: {
     session: unknown
     hasHousehold: boolean
+    isAdmin: boolean
     pastMealsToMark: number
   }) => (
-    <div data-testid="mobile-nav" data-past-meals={pastMealsToMark}>
+    <div data-testid="mobile-nav" data-past-meals={pastMealsToMark} data-is-admin={String(isAdmin)}>
       {session ? 'authenticated-mobile' : 'unauthenticated-mobile'}
       {hasHousehold ? '-with-household' : '-no-household'}
     </div>
@@ -269,6 +277,80 @@ describe('Header component', () => {
 
       expect(countPastMealsToMark).not.toHaveBeenCalled()
       expect(screen.getByTestId('mobile-nav')).toHaveAttribute('data-past-meals', '0')
+    })
+  })
+
+  // HON-1092: admin status is resolved here; only the boolean reaches the menus.
+  // ADMIN_EMAIL is admin@example.com via vitest.config.ts.
+  describe('admin status', () => {
+    async function mockSignedInAs(email: string) {
+      const { getSession, getCachedMembership } = await import('@/lib/session')
+      const now = new Date()
+      vi.mocked(getSession).mockResolvedValue({
+        session: {
+          id: 'session-123',
+          userId: '123',
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+          token: 'test-token',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+          createdAt: now,
+          updatedAt: now,
+        },
+        user: {
+          id: '123',
+          email,
+          name: 'Test User',
+          emailVerified: false,
+          image: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      })
+      vi.mocked(getCachedMembership).mockResolvedValue(null)
+    }
+
+    const isAdminProps = () => [
+      screen.getByTestId('header-actions').getAttribute('data-is-admin'),
+      screen.getByTestId('mobile-nav').getAttribute('data-is-admin'),
+    ]
+
+    it('passes isAdmin true to both menus for the admin session', async () => {
+      await mockSignedInAs('admin@example.com')
+
+      render(await Header())
+
+      expect(isAdminProps()).toEqual(['true', 'true'])
+    })
+
+    it('passes isAdmin false for another session', async () => {
+      await mockSignedInAs('test@example.com')
+
+      render(await Header())
+
+      expect(isAdminProps()).toEqual(['false', 'false'])
+    })
+
+    it('passes isAdmin false with no session', async () => {
+      const { getSession } = await import('@/lib/session')
+      vi.mocked(getSession).mockResolvedValue(null)
+
+      render(await Header())
+
+      expect(isAdminProps()).toEqual(['false', 'false'])
+    })
+
+    it('renders, with isAdmin false, when ADMIN_EMAIL is unset', async () => {
+      vi.stubEnv('ADMIN_EMAIL', '')
+      try {
+        await mockSignedInAs('admin@example.com')
+
+        render(await Header())
+
+        expect(isAdminProps()).toEqual(['false', 'false'])
+      } finally {
+        vi.unstubAllEnvs()
+      }
     })
   })
 

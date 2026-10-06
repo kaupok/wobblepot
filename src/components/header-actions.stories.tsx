@@ -21,7 +21,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Right-side header chrome — desktop only (`hidden md:flex` at the component root, hidden below `md:`). Shows sign-in/up CTAs when logged out, a user-menu dropdown (Past meals, Profile, Sign out, theme toggle) when logged in. The Past meals and Profile items are suppressed during onboarding (authenticated but no household yet). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row, and both accessible names say so (HON-1028).',
+          'Right-side header chrome — desktop only (`hidden md:flex` at the component root, hidden below `md:`). Shows sign-in/up CTAs when logged out, a user-menu dropdown (Past meals, Profile, Sign out, theme toggle) when logged in. The Past meals and Profile items are suppressed during onboarding (authenticated but no household yet). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row, and both accessible names say so (HON-1028). For the beta admin (`isAdmin`), the admin pages (`ADMIN_LINKS`) sit between the household group and Sign out, with or without a household (HON-1092).',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -168,5 +168,41 @@ export const MenuOpensViaKeyboard: Story = {
     const body = within(document.body)
     const menu = await body.findByRole('menu')
     expect(menu).toBeInTheDocument()
+  },
+}
+
+export const Admin: Story = {
+  args: { session: authedSession, hasHousehold: true, isAdmin: true },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'User menu' }))
+
+    const body = within(document.body)
+    await body.findByRole('menu')
+    const names = body.getAllByRole('menuitem').map((item) => item.textContent?.trim())
+    await expect(names).toEqual(['Past meals', 'Profile', 'Signup codes', 'Sign out', 'Dark mode'])
+    await expect(body.getByRole('menuitem', { name: 'Signup codes' })).toHaveAttribute(
+      'href',
+      '/admin/signup-codes',
+    )
+  },
+}
+
+export const AdminNoHousehold: Story = {
+  args: { session: authedSession, hasHousehold: false, isAdmin: true },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The admin pages need no household, so the admin link shows during onboarding too (HON-1092).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'User menu' }))
+
+    const body = within(document.body)
+    await body.findByRole('menu')
+    const names = body.getAllByRole('menuitem').map((item) => item.textContent?.trim())
+    await expect(names).toEqual(['Signup codes', 'Sign out', 'Dark mode'])
   },
 }

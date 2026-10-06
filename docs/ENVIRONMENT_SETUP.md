@@ -410,7 +410,9 @@ Add `CRON_SECRET` (≥32 chars, e.g. `openssl rand -base64 32`) to **Project Set
 
 ## Admin email
 
-`ADMIN_EMAIL` is the one account allowed into `/admin/signup-codes` and its API routes (HON-488). `isAdmin(session)` in `src/lib/auth-helpers.ts` compares the signed-in user's email against it, case-insensitively. Nothing else reads it, so the app boots without it; the admin route throws a validation error instead of returning 404 if it is unset.
+`ADMIN_EMAIL` is the one account allowed into `/admin/signup-codes` and its API routes (HON-488). `isAdmin(session)` in `src/lib/auth-helpers.ts` compares the signed-in user's email against it, case-insensitively. The app boots without it; the admin route throws a validation error instead of returning 404 if it is unset.
+
+The header reads it too, through `isAdminIfConfigured(session)`, to add the admin pages to the account menus (HON-1092). That helper treats an unset or invalid value as "not admin" instead of throwing, because the header renders on every page.
 
 It is deliberately a single email rather than a role: the invite-only beta has one operator. Switch to a role-based check before opening admin access to anyone else.
 
