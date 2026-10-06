@@ -555,6 +555,8 @@ print_usage() {
   echo "  new <branch-name>      Create new worktree and start Claude Code"
   echo "  auto [issue-id|branch] Create worktree and run /auto-implement autonomously"
   echo "  resume <branch-name>   Open Claude Code in existing worktree"
+  echo "  prepare <branch-name>  Create a worktree without Neon or Claude; prints its path (WorktreeCreate hook)"
+  echo "  release <path>         Remove a worktree only if it has no changes or commits (WorktreeRemove hook)"
   echo "  list                   List all active worktrees"
   echo "  sync <branch-name>     Sync permissions from worktree to main repo"
   echo "  sync-all               Sync permissions from all worktrees"
@@ -737,6 +739,83 @@ cmd_new() {
   # Start Claude Code in the worktree
   # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits
   exec env -u ANTHROPIC_API_KEY claude
+}
+
+# Non-interactive worktree for a session that is already running. The
+# WorktreeCreate hook (.claude/hooks/worktree-create.sh) calls this when Claude
+# moves a main-checkout session into a worktree (EnterWorktree, `claude -w`, a
+# subagent with isolation: worktree). Same layout and setup as `wt new`, with
+# three differences:
+#   - it branches from origin/main, because the main checkout can be on any branch;
+#   - it creates no Neon branch: a session that starts as a chat makes small
+#     changes on the shared DB, and bigger work starts with `wt new`;
+#   - it starts no Claude, because the session moves itself in.
+# Progress goes to stderr. Stdout carries only the worktree path: that is the
+# hook's contract with Claude Code.
+cmd_prepare() {
+  local branch="$1"
+  if [ -z "$branch" ]; then
+    echo "Error: Branch name required" >&2
+    exit 1
+  fi
+
+  local worktree_path
+  worktree_path=$(get_worktree_path "$branch")
+  if [ -d "$worktree_path" ]; then
+    echo "Reusing existing worktree $worktree_path" >&2
+    echo "$worktree_path"
+    return 0
+  fi
+
+  {
+    mkdir -p "$WORKTREE_BASE"
+    git -C "$REPO_ROOT" fetch --quiet origin main
+    if git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch" \
+      || git -C "$REPO_ROOT" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+      # An existing branch (a Linear branch pushed earlier): check it out as is.
+      git -C "$REPO_ROOT" worktree add "$worktree_path" "$branch"
+    else
+      git -C "$REPO_ROOT" worktree add --no-track -b "$branch" "$worktree_path" origin/main
+    fi
+
+    cd "$worktree_path"
+    copy_untracked_files "$worktree_path"
+    if command -v pnpm &> /dev/null; then
+      pnpm install --frozen-lockfile
+      pnpm db:generate
+    else
+      echo -e "${YELLOW}Warning: pnpm not found, skipping dependency installation${NC}"
+    fi
+  } >&2
+
+  echo "$worktree_path"
+}
+
+# The WorktreeRemove hook's half (.claude/hooks/worktree-remove.sh). Claude Code
+# fires it when a session or subagent leaves a worktree it created. Removes the
+# worktree and its branch only when nothing happened there: no uncommitted
+# changes and no commits past origin/main. Anything else stays for `wt done`
+# after the merge, because a hook cannot ask before it deletes work.
+cmd_release() {
+  local worktree_path="$1"
+  [ -n "$worktree_path" ] && [ -d "$worktree_path" ] || return 0
+  case "$worktree_path" in
+    "$WORKTREE_BASE"/*) ;;
+    *)
+      echo "Not under $WORKTREE_BASE, leaving $worktree_path in place" >&2
+      return 0 ;;
+  esac
+
+  local branch
+  branch=$(git -C "$worktree_path" branch --show-current)
+  # commits_ahead prints nothing on a git error, which also reads as "keep".
+  if [ -n "$(git -C "$worktree_path" status --porcelain)" ] \
+    || [ "$(commits_ahead "$worktree_path")" != "0" ] || [ -z "$branch" ]; then
+    echo "Kept $worktree_path: it has changes or commits. Run \`wt done\` after the merge, or \`wt cleanup $branch\`." >&2
+    return 0
+  fi
+
+  remove_worktree_artifacts "$worktree_path" "$branch" 1 >&2
 }
 
 # The /auto-implement prompt, with the orchestrator's retry note appended when
@@ -4185,6 +4264,12 @@ case "${1:-}" in
     ;;
   resume)
     cmd_resume "$2"
+    ;;
+  prepare)
+    cmd_prepare "$2"
+    ;;
+  release)
+    cmd_release "$2"
     ;;
   list)
     cmd_list
