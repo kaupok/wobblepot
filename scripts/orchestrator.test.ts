@@ -991,12 +991,14 @@ describe('orchestrator.sh', () => {
       expect(bounds).toEqual([...bounds].sort((a, b) => a - b))
     })
 
-    // The drain runs in the main loop now, so a second signal that lands during
-    // a triage call waits for that call before the drain starts (HON-1067).
+    // The drain runs in the main loop now, so a signal that lands during a
+    // triage call waits for that call. Both signals can land in one call and
+    // count as one, and the next failed worker's call can start before a
+    // re-sent signal arrives, so the bound allows for two (HON-1067).
     it.each([0, 1, 3, 5])(
-      'covers one default 120s triage call plus 15s per worker for %i worker(s)',
+      'covers two default 120s triage calls plus 15s per worker for %i worker(s)',
       (n) => {
-        expect(bound(String(n))).toBeGreaterThanOrEqual(120 + 15 * n)
+        expect(bound(String(n))).toBeGreaterThanOrEqual(2 * 120 + 15 * n)
       },
     )
 
@@ -1004,7 +1006,7 @@ describe('orchestrator.sh', () => {
       ['300', 300],
       ['1.5', 2],
     ])('follows ORCHESTRATOR_TRIAGE_TIMEOUT=%s', (triage, seconds) => {
-      expect(bound('3', triage)).toBeGreaterThanOrEqual(seconds + 15 * 3)
+      expect(bound('3', triage)).toBeGreaterThanOrEqual(2 * seconds + 15 * 3)
     })
 
     it('falls back to the 120s default for an unreadable triage timeout', () => {
@@ -1014,8 +1016,8 @@ describe('orchestrator.sh', () => {
     it("prefers the orchestrator's triage timeout from its status file", () => {
       // ORCHESTRATOR_TRIAGE_TIMEOUT exported only into `wt start` is not in the
       // shell that runs `wt stop`.
-      expect(bound('3', '', '300')).toBeGreaterThanOrEqual(300 + 15 * 3)
-      expect(bound('3', '120', '300')).toBeGreaterThanOrEqual(300 + 15 * 3)
+      expect(bound('3', '', '300')).toBeGreaterThanOrEqual(2 * 300 + 15 * 3)
+      expect(bound('3', '120', '300')).toBeGreaterThanOrEqual(2 * 300 + 15 * 3)
     })
 
     it('re-sends SIGTERM while it waits, so two signals merged into one still force the drain', () => {

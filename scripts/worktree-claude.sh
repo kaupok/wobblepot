@@ -3757,12 +3757,15 @@ cmd_start() {
 
 # How long `wt stop` waits for the force-shutdown drain before SIGKILL, in
 # seconds. Pure so it can be asserted without a live orchestrator:
-# triage + max(60, 15 * workers). $2 is the orchestrator's triage timeout from
-# its status file; without it, ORCHESTRATOR_TRIAGE_TIMEOUT from this shell.
+# 2 * triage + max(60, 15 * workers). $2 is the orchestrator's triage timeout
+# from its status file; without it, ORCHESTRATOR_TRIAGE_TIMEOUT from this shell.
 #
 # The drain runs in the orchestrator's main loop, not in its trap handler, so a
-# second signal that lands during a triage call is acted on only when that call
-# returns, up to ORCHESTRATOR_TRIAGE_TIMEOUT later (HON-1067). 15s/worker is the
+# signal that lands during a triage call is acted on only when that call
+# returns (HON-1067). Two calls, because both of this command's signals can
+# land in one call and count as one: the next failed worker's triage can then
+# start before a re-sent signal (wait_for_drain) sets FORCE_SHUTDOWN. After
+# that, monitor_workers triages nothing more. 15s/worker is the
 # drain's own budget (10s wait_for_exit plus cleanup and a Linear round-trip);
 # the 60s floor covers a missing, empty or unparseable status file, where the
 # count is unknown and guessing low is the failure mode that stranded issues in
@@ -3784,7 +3787,7 @@ stop_wait_bound() {
 
   local drain=$(( 10#$workers * per_worker ))
   [ "$drain" -lt "$floor" ] && drain=$floor
-  echo $(( 10#$triage_whole + drain ))
+  echo $(( 2 * 10#$triage_whole + drain ))
 }
 
 # Wait up to $2 seconds for the orchestrator ($1) to exit, re-sending SIGTERM

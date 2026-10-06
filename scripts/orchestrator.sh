@@ -939,7 +939,7 @@ monitor_workers() {
     # A second signal that landed while an earlier worker was handled (its
     # triage call can take TRIAGE_TIMEOUT) leaves the rest to the drain.
     # Handling them first could cost one triage call per exited worker, and
-    # stop_wait_bound allows for one (HON-1067).
+    # stop_wait_bound allows for two (HON-1067).
     [ "$FORCE_SHUTDOWN" = true ] && break
 
     local pid="${WORKER_PIDS[$i]}"
