@@ -968,7 +968,7 @@ monitor_workers() {
 
       if [ "$exit_code" -eq 0 ]; then
         log INFO "Worker $issue_id (PID $pid) exited cleanly (exit 0)"
-        handle_success "$issue_id" "$issue_uuid" "$branch" "$log_file"
+        handle_success "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title"
       else
         log WARN "Worker $issue_id (PID $pid) failed (exit $exit_code)"
         # NOT handle_failure directly (HON-1064), for the same reason as the
@@ -1455,19 +1455,98 @@ record_success() {
   return 0
 }
 
+# Whether the branch's worktree holds anything a `worktree remove --force`
+# would destroy. A missing directory holds nothing, so it is clean. A directory
+# git cannot read is NOT: an unreadable status is not evidence of a clean tree,
+# and the caller's answer to "dirty" is the one that keeps the artifacts.
+worktree_has_uncommitted() {
+  local branch="$1"
+  local worktree_path status_out
+  worktree_path=$(get_worktree_path "$branch")
+  [ -d "$worktree_path" ] || return 1
+  status_out=$(git -C "$worktree_path" status --porcelain 2>/dev/null) || return 0
+  [ -n "$status_out" ]
+}
+
+# HON-1065: most strands are one merge from done (6 of the 12 between
+# 2026-09-02 and 2026-10-05 had ci=green), and the usual cause is a worker
+# that ended its turn early. A second, focused worker finishes most of them,
+# so strand_worker respawns once before it asks a human. Every condition is a
+# reason the respawn could lose work or second-guess someone:
+#   retried = 0         → one finish attempt per issue. Exactly "0": an empty
+#                         value from a caller that forgot to pass it says no.
+#   not shutting down   → same rule as handle_failure's RETRY arm.
+#   probe ran           → silence from gh says nothing about the PR's state.
+#   PR open, or no PR   → a CLOSED PR may have been closed on purpose.
+#   with commits
+#   worktree clean      → cleanup_worker_worktree runs `worktree remove --force`.
+# Assumes probe_worker_pr has already run for this branch.
+finish_attempt_eligible() {
+  local retried="$1" branch="$2" commits="$3"
+  [ "$retried" = "0" ] || return 1
+  [ "$SHUTTING_DOWN" = false ] || return 1
+  [ "$WORKER_PR_PROBE_OK" = true ] || return 1
+  if [ "$WORKER_PR_STATE" != "OPEN" ]; then
+    [ -z "$WORKER_PR_NUMBER" ] && [ "${commits:-0}" -gt 0 ] || return 1
+  fi
+  ! worktree_has_uncommitted "$branch"
+}
+
 # Record a run that produced commits but never merged. Assumes probe_worker_pr
 # has already run for this branch. kill_reason ∈ clean | timeout | error, and is
 # both logged and threaded into the Linear comment: "exited cleanly but never
 # merged" is a lie about a worker the orchestrator killed or that crashed, and
 # the difference is what tells an operator whether to re-check WORKER_TIMEOUT or
 # read the worker log. exit_code is only meaningful for kill_reason=error.
+#
+# A first strand that finish_attempt_eligible accepts is respawned instead
+# (HON-1065); a second strand of the same issue, or one it refuses, is recorded
+# for a human as below.
 strand_worker() {
   local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
-  local phase="$5" commits="$6" duration_str="$7" kill_reason="$8"
-  local exit_code="${9:-}"
+  local retried="$5" title="$6"
+  local phase="$7" commits="$8" duration_str="$9" kill_reason="${10}"
+  local exit_code="${11:-}"
 
   local ci_state
   ci_state=$(pr_ci_state "$WORKER_PR_NUMBER")
+
+  if finish_attempt_eligible "$retried" "$branch" "$commits"; then
+    # Still a STRANDED outcome, so the wt watch tallies and the swap-test
+    # numbers count it; triage=FINISH tells watch_scan_log the strand is not
+    # waiting on the operator.
+    log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${WORKER_PR_REF} ci=${ci_state} exit=${kill_reason} triage=FINISH"
+    notify "Honkadori" "$issue_id stranded at $phase — one automatic finish attempt"
+
+    # No Stranded label, no comment, and no restore_queue_if_in_progress: the
+    # issue stays where the run left it (In Review with a PR, In Progress and
+    # assigned without one) while the finish worker owns it. Back in Queued
+    # with no label, the picker would claim it a second time.
+    note_consecutive_failure
+    [ "$RUN_ONCE" = true ] && ONCE_EXIT_CODE=1
+
+    local failure_type next_step retry_tail="(no log)"
+    if [ -n "$WORKER_PR_NUMBER" ]; then
+      failure_type="stranded with PR ${WORKER_PR_REF} and CI ${ci_state}, exit=${kill_reason}"
+      next_step="fix CI if it fails, then merge"
+    else
+      failure_type="stranded with no PR, exit=${kill_reason}"
+      next_step="open the PR, fix CI if it fails, then merge"
+    fi
+    # Sanitized at capture, as handle_failure does: the note reaches the retry
+    # worker's prompt and from there its log (HON-577, HON-728).
+    if [ -f "$log_file" ]; then
+      retry_tail=$(sanitize_log "$(tail -40 "$log_file" 2>/dev/null || echo "(log not readable)")")
+    fi
+
+    log INFO "Finishing $issue_id: one automatic attempt on $branch"
+    # keep_branch=true: the respawn resumes the pushed branch and its open PR.
+    cleanup_worker_worktree "$branch" true
+    spawn_worker "$issue_uuid" "$issue_id" "$branch" "$title" "1" \
+      "$(build_retry_context "$phase" "$failure_type; the cycle must finish: $next_step" "$duration_str" "$commits" "$retry_tail")"
+    return 0
+  fi
+
   log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${WORKER_PR_REF} ci=${ci_state} exit=${kill_reason}"
   notify "Honkadori" "$issue_id stranded at $phase — PR ${WORKER_PR_REF} not merged"
   record_stranded "$issue_uuid" "$issue_id" "$branch" "$log_file" \
@@ -1520,6 +1599,9 @@ worker_duration_secs() {
 
 handle_success() {
   local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
+  # Empty when a caller omits them, which makes finish_attempt_eligible say no:
+  # a forgotten argument gets today's strand, never an unasked-for respawn.
+  local retried="${5:-}" title="${6:-}"
 
   # Compute outcome details
   local commits duration_str phase duration_secs
@@ -1584,7 +1666,7 @@ handle_success() {
   # (handle_timeout answers the unknowable case differently — see the comment
   # there; a kill is evidence of a stall in a way a clean exit is not.)
   if [ "$phase" != "done" ] && [ "$WORKER_PR_MERGED" = false ]; then
-    strand_worker "$issue_id" "$issue_uuid" "$branch" "$log_file" \
+    strand_worker "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" \
       "$phase" "$commits" "$duration_str" "clean"
     return
   fi
@@ -1647,7 +1729,7 @@ handle_timeout() {
     return 0
   fi
 
-  strand_worker "$issue_id" "$issue_uuid" "$branch" "$log_file" \
+  strand_worker "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" \
     "$phase" "$commits" "$duration_str" "timeout"
   return 0
 }
@@ -1665,8 +1747,10 @@ handle_timeout() {
 #                            dies before Claude runs, so it has no PR and no
 #                            commits, and it must still reach the CAP arm.
 #   anything else          → STRANDED exit=error: artifacts preserved.
-# A crash with commits no longer gets an automatic RETRY. That is deliberate:
-# both cases on record triaged NEEDS_HUMAN, so the RETRY never ran.
+# A crash with commits no longer gets a RETRY triage. That is deliberate:
+# both cases on record triaged NEEDS_HUMAN, so the RETRY never ran. Like any
+# first strand, it gets strand_worker's one finish attempt instead (HON-1065),
+# which keeps the branch where RETRY's siblings would delete it.
 handle_error_exit() {
   local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
   local retried="$5" title="$6" exit_code="$7"
@@ -1698,7 +1782,7 @@ handle_error_exit() {
     return 0
   fi
 
-  strand_worker "$issue_id" "$issue_uuid" "$branch" "$log_file" \
+  strand_worker "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" \
     "$phase" "$commits" "$duration_str" "error" "$exit_code"
   return 0
 }

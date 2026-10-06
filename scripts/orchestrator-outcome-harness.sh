@@ -33,6 +33,17 @@
 #     gives the run a worker log that ends in a genuine Neon cap death, so the
 #     REAL worker_hit_neon_cap check ahead of the probe is under test.
 #
+#   The three modes above also drive strand_worker's finish attempt (HON-1065)
+#   with the REAL spawn_worker against a recording worktree-claude.sh stub,
+#   and end with WT_CALL / WT_CONTEXT lines per `wt auto` call, WORKER_RETRIED
+#   and CONSECUTIVE_FAILURES. Environment: HARNESS_RETRIED (default 1, a second
+#   strand, so no respawn), HARNESS_SHUTTING_DOWN (default false) and
+#   HARNESS_WT_PATH (the worktree the dirty check reads; default absent).
+#
+#   worktree-dirty <wt_path>                                        (HON-1065)
+#     The REAL worktree_has_uncommitted against a fixture directory. Prints
+#     DIRTY or CLEAN.
+#
 #   worker-timeout                                                  (HON-583)
 #     Prints WORKER_TIMEOUT as orchestrator.sh resolved it at source time, so
 #     both the default and the ORCHESTRATOR_WORKER_TIMEOUT override are under
@@ -452,6 +463,17 @@ case "$MODE" in
     exit 0
     ;;
 
+  # ─── worktree_has_uncommitted (HON-1065) ───────────────────────────────────
+  #   worktree-dirty <wt_path>
+  # The REAL helper with get_worktree_path pointed at <wt_path>. Prints DIRTY or
+  # CLEAN.
+  worktree-dirty)
+    WT_FIXTURE="$A1"
+    get_worktree_path() { echo "$WT_FIXTURE"; }
+    if worktree_has_uncommitted test-branch; then echo DIRTY; else echo CLEAN; fi
+    exit 0
+    ;;
+
   # ─── handle_success / handle_timeout / handle_error_exit classification ────
   outcome | timeout | error)
     COMMITS="$A1"; PHASE="$A2"; PR_STATE="$A3"; CI_STATE="$A4"
@@ -495,6 +517,62 @@ case "$MODE" in
     # two routes, so record that it ran and with which failure type.
     handle_failure() { echo "HANDLE_FAILURE:${6}" >> "$MAIN_LOG"; }
 
+    # The finish attempt (HON-1065). strand_worker respawns a first strand, so
+    # these modes model a SECOND strand unless told otherwise: HARNESS_RETRIED
+    # defaults to 1, which keeps every record-for-a-human assertion on the path
+    # it was written for. HARNESS_RETRIED=0 is the shape monitor_workers passes
+    # for a first attempt. HARNESS_SHUTTING_DOWN seeds SHUTTING_DOWN, and
+    # HARNESS_WT_PATH is the worktree the REAL worktree_has_uncommitted reads
+    # (default: a path that does not exist, which is clean).
+    RETRIED="${HARNESS_RETRIED:-1}"
+    SHUTTING_DOWN="${HARNESS_SHUTTING_DOWN:-false}"
+    get_worktree_path() { echo "${HARNESS_WT_PATH:-/nonexistent/orchestrator-harness-worktree}"; }
+
+    # The REAL spawn_worker runs, against the same recording worktree-claude.sh
+    # stub failure-spawn uses, so the arguments and ORCHESTRATOR_RETRY_CONTEXT
+    # that reach `wt auto` are under test, and its "Spawning worker" line lands
+    # in the log in order. REPO_ROOT holds a fixture .env whose value is also
+    # planted in the worker log, beside attempt-1 progress markers, so the
+    # finish note's redaction and marker defanging are asserted too.
+    SPAWN_DIR=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-harness-spawn.XXXXXXXX")
+    mkdir -p "$SPAWN_DIR/repo" "$SPAWN_DIR/scripts" "$SPAWN_DIR/logs" "$SPAWN_DIR/calls"
+    echo 'HARNESS_FAKE_TOKEN="hrn-fake+Tok3n/with.regex*chars"' > "$SPAWN_DIR/repo/.env"
+    REPO_ROOT="$SPAWN_DIR/repo"
+    SCRIPT_DIR="$SPAWN_DIR/scripts"
+    LOG_DIR="$SPAWN_DIR/logs"
+    STATUS_FILE="$SPAWN_DIR/status.json"
+    DRY_RUN=false
+    cat > "$SCRIPT_DIR/worktree-claude.sh" <<EOF
+#!/bin/sh
+n=\$(ls "$SPAWN_DIR/calls" | grep -c '\.args\$')
+n=\$((n + 1))
+printf '%s' "\$*" > "$SPAWN_DIR/calls/\$n.ctx.tmp"
+printf '%s' "\$ORCHESTRATOR_RETRY_CONTEXT" > "$SPAWN_DIR/calls/\$n.ctx"
+mv "$SPAWN_DIR/calls/\$n.ctx.tmp" "$SPAWN_DIR/calls/\$n.args"
+EOF
+    chmod +x "$SCRIPT_DIR/worktree-claude.sh"
+    WORKER_LOG="$SPAWN_DIR/worker.log"
+    {
+      echo "[review-pr:complete]"
+      echo "[auto-implement] Phase 6/7: Addressing reviews"
+      echo "Authorization: token=hrn-fake+Tok3n/with.regex*chars"
+      echo "CI is re-running — I will merge once it settles"
+    } > "$WORKER_LOG"
+
+    # After the function under test: every `wt auto` call the stub recorded
+    # (spawn_worker backgrounds it, so wait first), then the breaker.
+    report_spawns() {
+      local pid n=1
+      for pid in "${WORKER_PIDS[@]}"; do wait "$pid" 2>/dev/null || true; done
+      while [ -f "$SPAWN_DIR/calls/$n.args" ]; do
+        echo "WT_CALL:$n:$(cat "$SPAWN_DIR/calls/$n.args")" >> "$MAIN_LOG"
+        echo "WT_CONTEXT:$n:$(tr '\n' ' ' < "$SPAWN_DIR/calls/$n.ctx")" >> "$MAIN_LOG"
+        n=$((n + 1))
+      done
+      echo "WORKER_RETRIED:${WORKER_RETRIED[*]}" >> "$MAIN_LOG"
+      echo "CONSECUTIVE_FAILURES:$CONSECUTIVE_FAILURES" >> "$MAIN_LOG"
+    }
+
     # Print the captured log however the function under test ends. With errexit
     # left on (above), a stray non-zero statement aborts the script mid-function,
     # and the EXIT trap is then the only thing that still runs — so the
@@ -504,31 +582,30 @@ case "$MODE" in
     # precisely the semantics this harness exists to stop hiding.
     # No explicit `exit` here: bash exits with the status that was in effect
     # before the trap ran, so an errexit abort still surfaces as a non-zero exit.
-    trap 'cat "$MAIN_LOG"; rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
+    trap 'cat "$MAIN_LOG"; rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$SPAWN_DIR"' EXIT
     if [ "$MODE" = "outcome" ]; then
-      handle_success HON-999 uuid-999 test-branch /tmp/harness-worker.log 2>/dev/null
+      handle_success HON-999 uuid-999 test-branch "$WORKER_LOG" \
+        "$RETRIED" "Fixture title" 2>/dev/null
     elif [ "$MODE" = "error" ]; then
-      # retried=0, a fixture title, and exit code 1 — the shape monitor_workers
-      # passes when a worker exits non-zero. The `cap` flavour writes the same
-      # terminal lines `wt auto` prints when it dies at the Neon branch cap.
-      ERROR_LOG=/tmp/harness-worker.log
+      # A fixture title and exit code 1 — the shape monitor_workers passes when
+      # a worker exits non-zero. The `cap` flavour writes the same terminal
+      # lines `wt auto` prints when it dies at the Neon branch cap.
       if [ "${A5:-}" = "cap" ]; then
-        ERROR_LOG=$(mktemp "${TMPDIR:-/tmp}/orchestrator-harness-errlog.XXXXXXXX")
         {
           echo "Setting up worktree for HON-999..."
           echo "Error: Neon branch cap still exceeded after orphan GC."
           echo "ERROR: branches limit exceeded"
-        } > "$ERROR_LOG"
-        trap 'cat "$MAIN_LOG"; rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$ERROR_LOG"' EXIT
+        } > "$WORKER_LOG"
       fi
-      handle_error_exit HON-999 uuid-999 test-branch "$ERROR_LOG" \
-        0 "Fixture title" 1 2>/dev/null
+      handle_error_exit HON-999 uuid-999 test-branch "$WORKER_LOG" \
+        "$RETRIED" "Fixture title" 1 2>/dev/null
     else
-      # retried=0, a fixture title, and 3600s elapsed — the shape monitor_workers
-      # passes when the kill fires.
-      handle_timeout HON-999 uuid-999 test-branch /tmp/harness-worker.log \
-        0 "Fixture title" 3600 2>/dev/null
+      # A fixture title and 3600s elapsed — the shape monitor_workers passes
+      # when the kill fires.
+      handle_timeout HON-999 uuid-999 test-branch "$WORKER_LOG" \
+        "$RETRIED" "Fixture title" 3600 2>/dev/null
     fi
+    report_spawns
     exit 0
     ;;
 

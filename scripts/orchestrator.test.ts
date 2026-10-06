@@ -2897,6 +2897,194 @@ describe('orchestrator.sh', () => {
     })
   })
 
+  // HON-1065: most strands are one merge from done, so strand_worker respawns a
+  // first strand once, on the same branch with retry context, before it asks a
+  // human. The harness models a second strand by default (HARNESS_RETRIED=1),
+  // which is why the stranding tests above still see the label and comment.
+  describe('a stranded run gets one automatic finish attempt', () => {
+    type Mode = 'outcome' | 'timeout' | 'error'
+    const MODES: Mode[] = ['outcome', 'timeout', 'error']
+
+    function strand(
+      mode: Mode,
+      pr: PrState,
+      env: Record<string, string> = {},
+      commits = 3,
+      ci: CiState = 'green',
+    ): string {
+      return stripTimestamps(
+        runHarnessEnv({ HARNESS_RETRIED: '0', ...env }, mode, String(commits), 'pr-review', pr, ci),
+      )
+    }
+
+    /** Everything that says a human was asked: today's strand, unchanged. */
+    function expectRecordedForHuman(out: string) {
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).not.toContain('triage=FINISH')
+      expect(out).toContain('LABEL:Stranded')
+      expect(out).toContain('COMMENT:')
+      expect(out).not.toContain('CLEANUP:')
+      expect(out).not.toContain('Spawning worker')
+      expect(out).not.toContain('WT_CALL:')
+    }
+
+    it.each(MODES)('respawns a first strand with an open PR on the %s path', (mode) => {
+      const out = strand(mode, 'OPEN')
+
+      expect(out).toMatch(/\[OUTCOME\] HON-999 STRANDED .* pr=#650 ci=green exit=\w+ triage=FINISH/)
+      expect(out).not.toContain('LABEL:Stranded')
+      expect(out).not.toContain('COMMENT:')
+      expect(out).not.toContain('RESTORE_QUEUED')
+      // keep_branch=true: the git branch and the Neon branch survive.
+      expect(out).toContain('CLEANUP:test-branch:true')
+      expect(out).toContain('WT_CALL:1:auto')
+      expect(out).not.toContain('WT_CALL:2:')
+      expect(out).toContain('WORKER_RETRIED:1')
+    })
+
+    it('logs the outcome, then removes the worktree, then spawns', () => {
+      const out = strand('outcome', 'OPEN')
+      const outcome = out.indexOf('triage=FINISH')
+      const cleanup = out.indexOf('CLEANUP:test-branch:true')
+      const spawn = out.indexOf('Spawning worker for HON-999: Fixture title')
+
+      expect(outcome).toBeGreaterThanOrEqual(0)
+      expect(cleanup).toBeGreaterThan(outcome)
+      expect(spawn).toBeGreaterThan(cleanup)
+    })
+
+    it('names the PR number and CI state in the retry context', () => {
+      const context = strand('outcome', 'OPEN', {}, 3, 'failing').match(/^WT_CONTEXT:1:(.*)$/m)?.[1]
+
+      expect(context).toMatch(/^Retry context: /)
+      expect(context).toContain('PR #650 and CI failing')
+      expect(context).toContain('the cycle must finish: fix CI if it fails, then merge')
+    })
+
+    it('redacts the log tail and defangs attempt-1 markers in the context', () => {
+      const context = strand('outcome', 'OPEN').match(/^WT_CONTEXT:1:(.*)$/m)?.[1] ?? ''
+
+      expect(context).not.toContain('hrn-fake+Tok3n')
+      expect(context).toContain('[REDACTED]')
+      expect(context).not.toContain('[review-pr:complete]')
+      expect(context).toContain('(review-pr:complete)')
+    })
+
+    it.each(MODES)('respawns a first strand with commits and no PR on the %s path', (mode) => {
+      const out = strand(mode, 'NONE', {}, 2, 'unknown')
+
+      expect(out).toContain('pr=none ci=unknown')
+      expect(out).toContain('triage=FINISH')
+      expect(out).toContain('CLEANUP:test-branch:true')
+      // The issue stays In Progress and assigned while the finish worker owns
+      // it; back in Queued with no Stranded label the picker would claim it again.
+      expect(out).not.toContain('RESTORE_QUEUED')
+      expect(out).not.toContain('LABEL:Stranded')
+      expect(out).toMatch(/WT_CONTEXT:1:.*stranded with no PR.*open the PR, fix CI if it fails/)
+    })
+
+    it('counts the finish attempt toward the circuit breaker', () => {
+      expect(strand('outcome', 'OPEN')).toContain('CONSECUTIVE_FAILURES:1')
+    })
+
+    it.each(MODES)('records a second strand for a human on the %s path', (mode) => {
+      expectRecordedForHuman(strand(mode, 'OPEN', { HARNESS_RETRIED: '1' }))
+    })
+
+    it('does not respawn when the caller passed no retried value', () => {
+      // handle_success defaults a missing argument to empty, which must read as
+      // "no", never as a first attempt.
+      expectRecordedForHuman(strand('outcome', 'OPEN', { HARNESS_RETRIED: '' }))
+    })
+
+    it.each(MODES)('does not respawn a closed PR on the %s path', (mode) => {
+      expectRecordedForHuman(strand(mode, 'CLOSED', {}, 3, 'unknown'))
+    })
+
+    it.each(MODES)('does not respawn when the PR probe failed on the %s path', (mode) => {
+      expectRecordedForHuman(strand(mode, 'ERROR', {}, 3, 'unknown'))
+    })
+
+    it.each(MODES)('does not respawn during shutdown on the %s path', (mode) => {
+      expectRecordedForHuman(strand(mode, 'OPEN', { HARNESS_SHUTTING_DOWN: 'true' }))
+    })
+
+    describe('uncommitted changes in the worktree', () => {
+      let repo: string
+      beforeAll(() => {
+        repo = fs.mkdtempSync(path.join(os.tmpdir(), 'orchestrator-finish-wt-'))
+        const git = (...args: string[]) =>
+          execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' })
+        git('init', '-q')
+        git('config', 'user.email', 'test@example.com')
+        git('config', 'user.name', 'Test')
+        fs.writeFileSync(path.join(repo, 'tracked.txt'), 'one\n')
+        git('add', 'tracked.txt')
+        git('commit', '-q', '-m', 'init')
+      })
+      afterAll(() => fs.rmSync(repo, { recursive: true, force: true }))
+      beforeEach(() => {
+        fs.writeFileSync(path.join(repo, 'tracked.txt'), 'one\n')
+        fs.rmSync(path.join(repo, 'untracked.txt'), { force: true })
+      })
+
+      const dirty = (wt: string) => runHarness('worktree-dirty', wt).trim()
+
+      it('reads a clean worktree as clean', () => {
+        expect(dirty(repo)).toBe('CLEAN')
+      })
+
+      it('reads a modified tracked file as dirty', () => {
+        fs.writeFileSync(path.join(repo, 'tracked.txt'), 'two\n')
+        expect(dirty(repo)).toBe('DIRTY')
+      })
+
+      it('reads an untracked file as dirty', () => {
+        fs.writeFileSync(path.join(repo, 'untracked.txt'), 'new\n')
+        expect(dirty(repo)).toBe('DIRTY')
+      })
+
+      it('reads a missing worktree as clean, since there is nothing to lose', () => {
+        expect(dirty(path.join(repo, 'no-such-dir'))).toBe('CLEAN')
+      })
+
+      it('reads a directory git cannot read as dirty', () => {
+        // An unreadable status is not evidence of a clean tree, and the answer
+        // "dirty" is the one that keeps the artifacts.
+        const notRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'orchestrator-finish-norepo-'))
+        try {
+          expect(
+            runHarnessEnv(
+              { GIT_CEILING_DIRECTORIES: os.tmpdir() },
+              'worktree-dirty',
+              notRepo,
+            ).trim(),
+          ).toBe('DIRTY')
+        } finally {
+          fs.rmSync(notRepo, { recursive: true, force: true })
+        }
+      })
+
+      it.each(MODES)('does not respawn a strand with a dirty worktree on the %s path', (mode) => {
+        fs.writeFileSync(path.join(repo, 'untracked.txt'), 'new\n')
+        expectRecordedForHuman(strand(mode, 'OPEN', { HARNESS_WT_PATH: repo }))
+      })
+
+      it('respawns when the worktree exists and is clean', () => {
+        expect(strand('outcome', 'OPEN', { HARNESS_WT_PATH: repo })).toContain('triage=FINISH')
+      })
+    })
+
+    it('passes retried and title from monitor_workers to handle_success', () => {
+      // The behaviour tests call handle_success directly, so only this guard
+      // sees the wiring. Without it every exit-0 strand reads as "no retried
+      // value" and the finish attempt silently never runs on that path.
+      expect(shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'monitor_workers')).toContain(
+        'handle_success "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title"',
+      )
+    })
+  })
+
   // HON-573 made workers wait for CI in-turn; CI here runs 8-12 min and the
   // budget was never raised to absorb it, so every run needing more than an
   // hour died at the cap in pr-review. 10800 is the value the one successful
@@ -4282,6 +4470,35 @@ describe('orchestrator.sh', () => {
         // the strand yellow again for the whole re-run.
         expect(
           strandedOpen([...STRANDED, '2026-09-20 11:00:00 INFO  Claimed HON-702 → In Progress']),
+        ).toEqual([])
+      })
+
+      // HON-1065: a first strand is respawned for one automatic finish attempt.
+      // It is still a strand for the tally, but the operator has nothing to do
+      // until the finish worker logs its own outcome.
+      it('tallies a triage=FINISH strand but does not hand it to the operator', () => {
+        const finish =
+          '2026-09-20 10:20:00 WARN  [OUTCOME] HON-702 STRANDED 3h0m 16-commits phase=pr-review pr=#707 ci=green exit=clean triage=FINISH'
+
+        expect(scan([finish]).TALLY_STRANDED).toBe('1')
+        expect(strandedOpen([finish])).toEqual([])
+      })
+
+      it('opens the second strand that follows a finish attempt', () => {
+        const open = strandedOpen([
+          '2026-09-20 10:20:00 WARN  [OUTCOME] HON-702 STRANDED 3h0m 16-commits phase=pr-review pr=#707 ci=green exit=clean triage=FINISH',
+          ...STRANDED.map((l) => l.replace('10:20:00', '11:20:00')),
+        ])
+
+        expect(open).toEqual(['HON-702:707:auto/hon-702-thing'])
+      })
+
+      it('lets a finish attempt answer an earlier open strand of the same issue', () => {
+        expect(
+          strandedOpen([
+            ...STRANDED,
+            '2026-09-20 11:20:00 WARN  [OUTCOME] HON-702 STRANDED 1h0m 16-commits phase=pr-review pr=#707 ci=green exit=clean triage=FINISH',
+          ]),
         ).toEqual([])
       })
 
