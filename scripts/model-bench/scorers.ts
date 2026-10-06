@@ -35,7 +35,7 @@ import {
   type ForbiddenFoodRule,
 } from '../../src/lib/ai/forbidden-foods'
 import type { ReviewedIngredients } from '../../src/lib/ai/review-request'
-import type { fullTipsSchema, supplementaryTipsSchema } from '../../src/lib/ai/preparation-tips'
+import type { fullStepsSchema, supplementaryStepsSchema } from '../../src/lib/ai/preparation-steps'
 import type {
   CookQuestionCase,
   ImagineCase,
@@ -371,8 +371,8 @@ export function scoreReview(input: ReviewCase, output: ReviewedIngredients): Sco
 
 /**
  * The item counts the tips prompts ask for. They exist only as `.describe()`
- * text on `fullTipsSchema` / `supplementaryTipsSchema` and in the prompt body
- * (`src/lib/ai/preparation-tips.ts`) — Anthropic's structured output cannot
+ * text on `fullStepsSchema` / `supplementaryStepsSchema` and in the prompt body
+ * (`src/lib/ai/preparation-steps.ts`) — Anthropic's structured output cannot
  * enforce array lengths — so they are copied here. Update both together.
  */
 export const TIPS_RANGES = {
@@ -384,10 +384,10 @@ const inRange = (n: number, [min, max]: readonly [number, number]) => n >= min &
 
 export function scoreTips(
   input: TipsCase,
-  output: z.infer<typeof fullTipsSchema> | z.infer<typeof supplementaryTipsSchema>,
+  output: z.infer<typeof fullStepsSchema> | z.infer<typeof supplementaryStepsSchema>,
 ): Scores {
   if (input.kind === 'full') {
-    const full = output as z.infer<typeof fullTipsSchema>
+    const full = output as z.infer<typeof fullStepsSchema>
     const r = TIPS_RANGES.full
     return {
       answered: 1,
@@ -399,7 +399,7 @@ export function scoreTips(
     }
   }
 
-  const supplementary = output as z.infer<typeof supplementaryTipsSchema>
+  const supplementary = output as z.infer<typeof supplementaryStepsSchema>
   return {
     answered: 1,
     countsInRange: pass(

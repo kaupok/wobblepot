@@ -19,7 +19,7 @@ import {
 import { Heading } from '@/components/ui/typography'
 import { displayFont } from '@/components/landing/display-font'
 import { useIngredientAvailability } from '@/hooks/use-ingredient-availability'
-import { useMealTips } from '@/hooks/use-meal-tips'
+import { useMealSteps } from '@/hooks/use-meal-steps'
 import { useCookQuestion } from '@/hooks/use-cook-question'
 import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 import { useMealImage } from '@/hooks/use-meal-image'
@@ -30,7 +30,7 @@ import { MealImage } from './MealImage'
 import { MyRecipeIcon } from './MyRecipeIcon'
 import { mealHueStyle, mealTintHue } from './MealImageCard'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
-import type { MealData, MealStatus, PantryIngredient, StructuredTips } from './types'
+import type { MealData, MealStatus, PantryIngredient, PreparationSteps } from './types'
 
 export interface MealDetailModalHandle {
   /**
@@ -42,7 +42,7 @@ export interface MealDetailModalHandle {
    * Drop the tips the server just nulled when this entry left `completed`
    * (the entry PATCH route). Called by `MealCard` on that status change.
    */
-  dropTips: () => void
+  dropSteps: () => void
 }
 
 interface MealDetailModalProps {
@@ -65,7 +65,7 @@ interface MealDetailModalProps {
    * first render so a cached entry needs no request. Read once: a later
    * `router.refresh()` cannot bring back tips a swap or serving change dropped.
    */
-  initialTips?: StructuredTips | null
+  initialSteps?: PreparationSteps | null
   /**
    * Generate the steps when the view opens, rather than behind "How to
    * prepare" — for a planned entry somebody is about to cook (HON-933).
@@ -79,7 +79,7 @@ interface MealDetailModalProps {
   /**
    * The view as a demonstration, outside any plan: the signed-out home page.
    * Nothing writes and nothing is fetched: no note, no serving control, no
-   * pantry toggles, no Ask and no "Done cooking". The steps are `initialTips`,
+   * pantry toggles, no Ask and no "Done cooking". The steps are `initialSteps`,
    * shown at once as for a planned entry; ticking them stays on the page.
    */
   readOnly?: boolean
@@ -121,7 +121,7 @@ export function MealDetailModal({
   onNoteChange,
   servingOverride,
   onServingOverrideChange,
-  initialTips = null,
+  initialSteps = null,
   generateOnOpen = false,
   onDoneCooking,
   readOnly = false,
@@ -137,14 +137,14 @@ export function MealDetailModal({
       onRefresh: () => router.refresh(),
     })
   const {
-    tips,
-    isLoadingTips,
-    tipsError,
-    isTipsExpanded,
-    fetchTips,
+    steps,
+    isLoadingSteps,
+    stepsError,
+    isStepsExpanded,
+    fetchSteps,
     handleHowToPrepare,
-    cancelTips,
-  } = useMealTips({ planId, entryId, initialTips })
+    cancelSteps,
+  } = useMealSteps({ planId, entryId, initialSteps })
   const { status: imageStatus, imageUrl, imageHue, cancelImage } = useMealImage({ meal, open })
   // A URL that no longer resolves is an absent image: the hero renders
   // nothing, and the panel drops the tint that came with it (as
@@ -156,10 +156,10 @@ export function MealDetailModal({
   // failure stays until the user taps Retry, so reopening never loops on it.
   // Tips dropped while the view is open — a serving change — come back for
   // the new count the same way.
-  const needsTips = generateOnOpen && !tips && !tipsError
+  const needsSteps = generateOnOpen && !steps && !stepsError
   useEffect(() => {
-    if (open && needsTips && !isLoadingTips) void fetchTips()
-  }, [open, needsTips, isLoadingTips, fetchTips])
+    if (open && needsSteps && !isLoadingSteps) void fetchSteps()
+  }, [open, needsSteps, isLoadingSteps, fetchSteps])
 
   // The step (HON-969) or the item in "You'll need" (HON-983) whose question
   // panel is open, one at a time across both. Opening or closing a panel drops
@@ -195,9 +195,9 @@ export function MealDetailModal({
   // the tips object it was ticked against: new steps (a serving change, a
   // swap) start unticked.
   const [doneSteps, setDoneSteps] = useState<ReadonlySet<number>>(() => new Set())
-  const [doneStepsFor, setDoneStepsFor] = useState(tips)
-  if (doneStepsFor !== tips) {
-    setDoneStepsFor(tips)
+  const [doneStepsFor, setDoneStepsFor] = useState(steps)
+  if (doneStepsFor !== steps) {
+    setDoneStepsFor(steps)
     setDoneSteps(new Set())
     // An open question panel points at a step or an item of the old lists.
     setQuestionSubject(null)
@@ -334,14 +334,14 @@ export function MealDetailModal({
       // The PATCH just nulled this entry's cached `preparationTips`, because
       // the prompt scales by the serving count (HON-681). This component is
       // rendered unconditionally by `MealCard`, so it never unmounts and the
-      // hook's `tips` survives a close and reopen — and `handleHowToPrepare`
-      // short-circuits on a non-null `tips`, so without dropping it here the
+      // hook's `steps` survives a close and reopen — and `handleHowToPrepare`
+      // short-circuits on a non-null `steps`, so without dropping it here the
       // panel keeps showing pan sizes for the old count and never re-POSTs.
       //
-      // `cancelTips` rather than clearing the state, because a generation
+      // `cancelSteps` rather than clearing the state, because a generation
       // started before this change is still running and would otherwise
       // resolve into the state we just emptied.
-      cancelTips()
+      cancelSteps()
     },
     onError: (_err, _newServings, context) => {
       if (context) setLocalServings(context.previousServings)
@@ -364,12 +364,12 @@ export function MealDetailModal({
   // A swap repoints this entry at a different meal, and the same PATCH nulls
   // the entry's cached `preparationTips` and resets its `servingOverride`
   // server-side. `MealCard` renders this component unconditionally — `open` is
-  // a prop, not a mount guard — so the `useMealTips` instance above survives
+  // a prop, not a mount guard — so the `useMealSteps` instance above survives
   // the swap holding the previous meal's tips, and `entryId` does not change,
   // so nothing remounts it. `router.refresh()` re-renders the server tree but
   // cannot reach either piece of client state (HON-682).
   //
-  // `cancelTips` rather than clearing the state: a generation started before
+  // `cancelSteps` rather than clearing the state: a generation started before
   // the swap runs for up to 45s and would otherwise resolve into the state we
   // just emptied, after which `handleHowToPrepare` short-circuits on it and
   // never re-POSTs for the meal now on screen.
@@ -377,7 +377,7 @@ export function MealDetailModal({
     ref,
     () => ({
       resetForSwap: () => {
-        cancelTips()
+        cancelSteps()
         setDoneSteps(new Set())
         // Same trap for the image: its request is keyed by the old meal's id,
         // so it can never show under the new one, but it should not keep
@@ -392,11 +392,11 @@ export function MealDetailModal({
       // Leaving `completed` nulls the entry's cached tips server-side: they
       // may be priced for a member count the household no longer has, since
       // membership changes skip completed entries. The copy seeded from
-      // `initialTips` would otherwise survive here, and generate-on-open
+      // `initialSteps` would otherwise survive here, and generate-on-open
       // would never ask again.
-      dropTips: cancelTips,
+      dropSteps: cancelSteps,
     }),
-    [cancelTips, cancelImage, householdServings],
+    [cancelSteps, cancelImage, householdServings],
   )
 
   return (
@@ -570,13 +570,13 @@ export function MealDetailModal({
           onToggleAvailability={readOnly ? undefined : handleToggleAvailability}
           togglingIds={togglingIngredientIds}
           optimisticOverrides={optimisticOverrides}
-          tips={tips}
+          steps={steps}
           // Skeletons from the first frame, not once the effect above has
           // started the request: a planned entry never flashes "How to prepare".
-          isLoadingTips={isLoadingTips || needsTips}
-          tipsError={tipsError}
-          onRetryTips={readOnly ? undefined : fetchTips}
-          isTipsExpanded={generateOnOpen || readOnly || isTipsExpanded}
+          isLoadingSteps={isLoadingSteps || needsSteps}
+          stepsError={stepsError}
+          onRetrySteps={readOnly ? undefined : fetchSteps}
+          isStepsExpanded={generateOnOpen || readOnly || isStepsExpanded}
           onHowToPrepare={readOnly ? noop : handleHowToPrepare}
           doneSteps={doneSteps}
           onToggleStep={handleToggleStep}

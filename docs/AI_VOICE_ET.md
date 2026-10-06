@@ -157,11 +157,11 @@ The first part of a compound takes the genitive, and for many nouns the genitive
 
 Three helpers in `src/lib/ai/prompts.ts` distil this document into a prompt suffix, each appended after `localeInstruction(locale)` and each returning an empty string for every locale but `et`, so English prompts stay byte-identical:
 
-| Helper                        | Call site                                                 | Fields covered                                               |
-| ----------------------------- | --------------------------------------------------------- | ------------------------------------------------------------ |
-| `estonianVoiceForImagineMeal` | `src/lib/ai/imagine-request.ts`                           | `name`, `description`, ingredient `name` vs. `originalText`  |
-| `estonianVoiceForRecipeParse` | `src/lib/ai/recipe-prompt.ts`                             | `name`, `description`, `preparationNotes`, ingredient `name` |
-| `estonianVoiceForPrepTips`    | `src/lib/ai/preparation-tips.ts` (full and supplementary) | `equipment`, `steps`, `pitfalls`, `tip`                      |
+| Helper                        | Call site                                                  | Fields covered                                               |
+| ----------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------ |
+| `estonianVoiceForImagineMeal` | `src/lib/ai/imagine-request.ts`                            | `name`, `description`, ingredient `name` vs. `originalText`  |
+| `estonianVoiceForRecipeParse` | `src/lib/ai/recipe-prompt.ts`                              | `name`, `description`, `preparationNotes`, ingredient `name` |
+| `estonianVoiceForPrepSteps`   | `src/lib/ai/preparation-steps.ts` (full and supplementary) | `equipment`, `steps`, `pitfalls`, `tip`                      |
 
 Each helper carries a short rules block and three to five few-shot pairs (English-shaped input → idiomatic Estonian output). The pairs are what the model actually imitates; the rules are there so a future tuner knows _why_ the pairs look the way they do. When tuning, change a pair before adding a rule.
 

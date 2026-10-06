@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MODEL_PRICES } from '../../src/lib/ai/pricing'
-import { IMAGINE_MODEL, TIPS_MODEL } from '../../src/lib/ai/models'
+import { IMAGINE_MODEL, STEPS_MODEL } from '../../src/lib/ai/models'
 import { CASES_DIR } from './load-cases'
 import { main, type MainDeps } from './run'
 import { mockModelFactory, starterCasesDir, type MockCall, type MockResponse } from './test-utils'
@@ -23,12 +23,12 @@ import { mockModelFactory, starterCasesDir, type MockCall, type MockResponse } f
  * nothing else changes: the shape of a schema-only prompt PR (HON-931).
  */
 const tipsSchemaEdit = vi.hoisted(() => ({ on: false }))
-vi.mock('../../src/lib/ai/preparation-tips', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('../../src/lib/ai/preparation-tips')>()
+vi.mock('../../src/lib/ai/preparation-steps', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../src/lib/ai/preparation-steps')>()
   return {
     ...mod,
-    buildFullTipsRequest: (input: Parameters<typeof mod.buildFullTipsRequest>[0]) => {
-      const request = mod.buildFullTipsRequest(input)
+    buildFullStepsRequest: (input: Parameters<typeof mod.buildFullStepsRequest>[0]) => {
+      const request = mod.buildFullStepsRequest(input)
       if (!tipsSchemaEdit.on) return request
       const { pitfalls } = request.schema.shape
       return {
@@ -383,10 +383,10 @@ describe('main', () => {
 
       expect(code).toBe(0)
       // 2 tips starter cases × 2 runs, one model.
-      expect(calls.map((c) => c.modelId)).toEqual(Array(4).fill(TIPS_MODEL))
+      expect(calls.map((c) => c.modelId)).toEqual(Array(4).fill(STEPS_MODEL))
       const md = readFileSync(join(outDir, `${CHECK_STEM}.md`), 'utf8')
       expect(md).toContain('# AI eval check: production configuration')
-      expect(md).toContain(`Models: tips \`${TIPS_MODEL}\``)
+      expect(md).toContain(`Models: tips \`${STEPS_MODEL}\``)
       expect(md).toContain('| tips | Item counts in range | 100.0% | ≥ 90.0% | pass |')
       expect(out.join('\n')).toContain('**Pass.** All 3 gates hold.')
       const json = JSON.parse(readFileSync(join(outDir, `${CHECK_STEM}.json`), 'utf8'))
@@ -468,7 +468,7 @@ describe('main', () => {
       expect(code).toBe(0)
       const text = out.join('\n')
       expect(text).toContain('Checking production configuration:')
-      expect(text).toContain(`  tips: ${TIPS_MODEL}`)
+      expect(text).toContain(`  tips: ${STEPS_MODEL}`)
       // 12 starter cases × 3 runs, one model.
       expect(text).toContain('Total calls: 36')
       expect(text).toMatch(/Estimated cost: ~\$\d+\.\d\d/)
@@ -538,7 +538,7 @@ describe('main', () => {
       const golden = goldenFile('tips')
       expect(golden).toMatchObject({
         task: 'tips',
-        model: TIPS_MODEL,
+        model: STEPS_MODEL,
         recordedAt: '2026-10-01',
         commit: 'abc1234',
         runs: 2,
@@ -552,7 +552,7 @@ describe('main', () => {
       expect(bolognese.calls.map((c: { run: number }) => c.run)).toEqual([1, 2])
       expect(bolognese.calls[0]).toMatchObject({
         caseId: 'tips/en-full-bolognese',
-        model: TIPS_MODEL,
+        model: STEPS_MODEL,
         output: { equipment: ['a', 'b', 'c'] },
       })
       expect(out.join('\n')).toContain(

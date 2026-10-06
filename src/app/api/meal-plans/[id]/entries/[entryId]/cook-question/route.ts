@@ -19,7 +19,7 @@ import {
   COOK_QUESTION_MAX_LENGTH,
   COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH,
 } from '@/lib/ai/cook-question-limits'
-import { parseCachedTips } from '@/lib/tips'
+import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
 import { logAiSample } from '@/lib/ai/sampling'
@@ -230,7 +230,7 @@ async function handlePOST(
     const servings = getEffectiveServings(entry, sumPortions(household.members))
     // Only tips priced at these servings, as the tips route serves them.
     const cachedTips = entry.preparationTips
-      ? parseCachedTips(entry.preparationTips, {
+      ? parseCachedPreparationSteps(entry.preparationTips, {
           servings,
           legacyServings: entry.servingOverride ?? household._count.members,
         })

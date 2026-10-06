@@ -6,11 +6,11 @@ import {
   COOK_QUESTION_ERROR_KEYS,
   IMAGINE_ERROR_KEYS,
   MEAL_PLAN_GENERATE_ERROR_KEYS,
-  PREPARATION_TIPS_ERROR_KEYS,
+  PREPARATION_STEPS_ERROR_KEYS,
   RECIPE_IMPORT_ERROR_KEYS,
   cookQuestionFallbackKey,
   mealPlanGenerateFallbackKey,
-  preparationTipsFallbackKey,
+  preparationStepsFallbackKey,
   translateErrorCode,
 } from './error-codes'
 
@@ -44,10 +44,10 @@ const surfaces = [
     fallback: 'generationFailed',
   },
   {
-    name: 'meal-plan.tips.errors',
-    keys: PREPARATION_TIPS_ERROR_KEYS,
-    en: enMessages['meal-plan'].tips.errors as Record<string, unknown>,
-    et: etMessages['meal-plan'].tips.errors as Record<string, unknown>,
+    name: 'meal-plan.steps.errors',
+    keys: PREPARATION_STEPS_ERROR_KEYS,
+    en: enMessages['meal-plan'].steps.errors as Record<string, unknown>,
+    et: etMessages['meal-plan'].steps.errors as Record<string, unknown>,
     fallback: 'tipsFailed',
   },
   {
@@ -147,20 +147,20 @@ describe('mealPlanGenerateFallbackKey', () => {
   })
 })
 
-describe('preparationTipsFallbackKey', () => {
+describe('preparationStepsFallbackKey', () => {
   it('keeps the timeout copy for a codeless 504 and is generic otherwise', () => {
-    expect(preparationTipsFallbackKey(504)).toBe('tipsTimeout')
-    expect(preparationTipsFallbackKey(500)).toBe('tipsFailed')
-    expect(preparationTipsFallbackKey(429)).toBe('tipsFailed')
+    expect(preparationStepsFallbackKey(504)).toBe('tipsTimeout')
+    expect(preparationStepsFallbackKey(500)).toBe('tipsFailed')
+    expect(preparationStepsFallbackKey(429)).toBe('tipsFailed')
   })
 
   it('returns keys present in both catalogs', () => {
     for (const status of [504, 500]) {
-      const key = preparationTipsFallbackKey(
+      const key = preparationStepsFallbackKey(
         status,
-      ) as keyof (typeof enMessages)['meal-plan']['tips']['errors']
-      expect(typeof enMessages['meal-plan'].tips.errors[key]).toBe('string')
-      expect(typeof etMessages['meal-plan'].tips.errors[key]).toBe('string')
+      ) as keyof (typeof enMessages)['meal-plan']['steps']['errors']
+      expect(typeof enMessages['meal-plan'].steps.errors[key]).toBe('string')
+      expect(typeof etMessages['meal-plan'].steps.errors[key]).toBe('string')
     }
   })
 })

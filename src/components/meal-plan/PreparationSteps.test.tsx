@@ -6,12 +6,12 @@ import {
   PreparationEquipment,
   PreparationSteps,
   type CookQuestionControls,
-} from './PreparationTips'
-import type { StructuredTips } from '@/components/meal-plan/types'
+} from './PreparationSteps'
+import type { PreparationSteps as PreparationStepsData } from '@/components/meal-plan/types'
 import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 import type { CookQuestionActive } from '@/hooks/use-cook-question'
 
-const sampleTips: StructuredTips = {
+const sampleTips: PreparationStepsData = {
   equipment: ['Large pan', 'Cutting board'],
   steps: ['Chop vegetables', 'Heat oil in pan', 'Cook for 10 minutes'],
   pitfalls: ['Do not overcook the chicken', 'Season before cooking'],
@@ -42,7 +42,7 @@ describe('PreparationEquipment', () => {
 describe('PreparationSteps', () => {
   describe('loading state', () => {
     it('renders the step skeleton and the Watch out heading', () => {
-      render(<PreparationSteps tips={null} isLoading={true} error={null} onRetry={vi.fn()} />)
+      render(<PreparationSteps steps={null} isLoading={true} error={null} onRetry={vi.fn()} />)
       expect(screen.getByTestId('preparation-steps-loading')).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: 'Watch out' })).toBeInTheDocument()
     })
@@ -50,7 +50,7 @@ describe('PreparationSteps', () => {
     it('shows user notes above the skeleton when notes exist', () => {
       render(
         <PreparationSteps
-          tips={null}
+          steps={null}
           isLoading={true}
           error={null}
           onRetry={vi.fn()}
@@ -70,7 +70,7 @@ describe('PreparationSteps', () => {
     it('renders the error message with a retry button', () => {
       render(
         <PreparationSteps
-          tips={null}
+          steps={null}
           isLoading={false}
           error="Failed to load tips"
           onRetry={vi.fn()}
@@ -84,7 +84,12 @@ describe('PreparationSteps', () => {
       const user = userEvent.setup()
       const onRetry = vi.fn()
       render(
-        <PreparationSteps tips={null} isLoading={false} error="Failed to load" onRetry={onRetry} />,
+        <PreparationSteps
+          steps={null}
+          isLoading={false}
+          error="Failed to load"
+          onRetry={onRetry}
+        />,
       )
 
       await user.click(screen.getByRole('button', { name: 'Retry' }))
@@ -94,7 +99,7 @@ describe('PreparationSteps', () => {
     it('shows user notes alongside the error when notes exist', () => {
       render(
         <PreparationSteps
-          tips={null}
+          steps={null}
           isLoading={false}
           error="Failed to load"
           onRetry={vi.fn()}
@@ -109,7 +114,7 @@ describe('PreparationSteps', () => {
   describe('loaded state', () => {
     it('returns null when no tips and no notes', () => {
       const { container } = render(
-        <PreparationSteps tips={null} isLoading={false} error={null} onRetry={vi.fn()} />,
+        <PreparationSteps steps={null} isLoading={false} error={null} onRetry={vi.fn()} />,
       )
       expect(container.firstChild).toBeNull()
     })
@@ -117,7 +122,7 @@ describe('PreparationSteps', () => {
     it('shows only user notes when tips are null but notes exist', () => {
       render(
         <PreparationSteps
-          tips={null}
+          steps={null}
           isLoading={false}
           error={null}
           onRetry={vi.fn()}
@@ -130,14 +135,14 @@ describe('PreparationSteps', () => {
 
     it('leaves the equipment to PreparationEquipment', () => {
       render(
-        <PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
+        <PreparationSteps steps={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
       )
       expect(screen.queryByText(/Large pan/)).not.toBeInTheDocument()
     })
 
     it('renders the steps as an ordered list, in order', () => {
       render(
-        <PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
+        <PreparationSteps steps={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
       )
       const list = screen.getAllByRole('list')[0]!
       expect(list.tagName).toBe('OL')
@@ -151,7 +156,7 @@ describe('PreparationSteps', () => {
 
     it('renders pitfalls under Watch out', () => {
       render(
-        <PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
+        <PreparationSteps steps={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
       )
       expect(screen.getByRole('heading', { name: 'Watch out' })).toBeInTheDocument()
       expect(screen.getByText('Do not overcook the chicken')).toBeInTheDocument()
@@ -160,7 +165,7 @@ describe('PreparationSteps', () => {
 
     it('renders the tip under Tip', () => {
       render(
-        <PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
+        <PreparationSteps steps={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />,
       )
       expect(screen.getByRole('heading', { name: 'Tip' })).toBeInTheDocument()
       expect(
@@ -171,7 +176,7 @@ describe('PreparationSteps', () => {
     it('puts the household notes ahead of the generated steps', () => {
       render(
         <PreparationSteps
-          tips={sampleTips}
+          steps={sampleTips}
           isLoading={false}
           error={null}
           onRetry={vi.fn()}
@@ -187,11 +192,11 @@ describe('PreparationSteps', () => {
     })
 
     it('hides sections when they are empty', () => {
-      const minimalTips: StructuredTips = {
+      const minimalTips: PreparationStepsData = {
         pitfalls: ['Watch the heat'],
       }
       const { container } = render(
-        <PreparationSteps tips={minimalTips} isLoading={false} error={null} onRetry={vi.fn()} />,
+        <PreparationSteps steps={minimalTips} isLoading={false} error={null} onRetry={vi.fn()} />,
       )
       expect(screen.queryByRole('heading', { name: 'Tip' })).not.toBeInTheDocument()
       expect(container.querySelector('ol')).toBeNull()
@@ -206,7 +211,7 @@ describe('PreparationSteps progress', () => {
   function renderSteps(doneSteps: Set<number>, onToggleStep = vi.fn()) {
     render(
       <PreparationSteps
-        tips={sampleTips}
+        steps={sampleTips}
         isLoading={false}
         error={null}
         onRetry={vi.fn()}
@@ -238,7 +243,7 @@ describe('PreparationSteps progress', () => {
   it('highlights nothing once every step is done', () => {
     const { container } = render(
       <PreparationSteps
-        tips={sampleTips}
+        steps={sampleTips}
         isLoading={false}
         error={null}
         onRetry={vi.fn()}
@@ -258,7 +263,7 @@ describe('PreparationSteps progress', () => {
   it('keeps the household’s own notes as plain text', () => {
     render(
       <PreparationSteps
-        tips={sampleTips}
+        steps={sampleTips}
         isLoading={false}
         error={null}
         onRetry={vi.fn()}
@@ -271,7 +276,7 @@ describe('PreparationSteps progress', () => {
   })
 
   it('says the steps are being written while loading', () => {
-    render(<PreparationSteps tips={null} isLoading={true} error={null} onRetry={vi.fn()} />)
+    render(<PreparationSteps steps={null} isLoading={true} error={null} onRetry={vi.fn()} />)
     expect(screen.getByText('Writing the steps…')).toBeInTheDocument()
   })
 })
@@ -298,7 +303,7 @@ describe('PreparationSteps cook question', () => {
     const [openSubject, setOpenSubject] = useState<CookQuestionSubject | null>(null)
     return (
       <PreparationSteps
-        tips={sampleTips}
+        steps={sampleTips}
         isLoading={false}
         error={null}
         onRetry={vi.fn()}
@@ -330,7 +335,7 @@ describe('PreparationSteps cook question', () => {
 
     render(
       <PreparationSteps
-        tips={sampleTips}
+        steps={sampleTips}
         isLoading={false}
         error={null}
         onRetry={vi.fn()}
@@ -348,7 +353,7 @@ describe('PreparationSteps cook question', () => {
   })
 
   it('shows no Ask button on the static numbered list', () => {
-    render(<PreparationSteps tips={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />)
+    render(<PreparationSteps steps={sampleTips} isLoading={false} error={null} onRetry={vi.fn()} />)
     expect(screen.queryByRole('button', { name: /^Ask about step/ })).toBeNull()
   })
 
@@ -730,7 +735,7 @@ describe('PreparationSteps cook question', () => {
         const [active, setActive] = useState<CookQuestionActive | null>(null)
         return (
           <PreparationSteps
-            tips={sampleTips}
+            steps={sampleTips}
             isLoading={false}
             error={null}
             onRetry={vi.fn()}
@@ -905,7 +910,7 @@ describe('PreparationEquipment cook question (HON-983)', () => {
           cookQuestion={cookQuestion}
         />
         <PreparationSteps
-          tips={sampleTips}
+          steps={sampleTips}
           isLoading={false}
           error={null}
           onRetry={vi.fn()}

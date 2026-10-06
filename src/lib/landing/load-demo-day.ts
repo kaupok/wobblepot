@@ -1,9 +1,9 @@
 import 'server-only'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
-import type { MealData, StructuredTips } from '@/components/meal-plan/types'
+import type { MealData, PreparationSteps } from '@/components/meal-plan/types'
 import { prisma } from '@/lib/prisma'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { parseStoredTips } from '@/lib/tips'
+import { parsePreparationSteps } from '@/lib/preparation-steps'
 import { presentMealImage } from '@/lib/meal-images/present'
 import {
   ingredientTranslationsInclude,
@@ -32,7 +32,7 @@ export interface DemoMeal {
   mealType: MealType
   meal: MealData
   /** The library's steps for `servings`, from `MealPreparationSteps`. */
-  steps: StructuredTips
+  steps: PreparationSteps
   servings: number
 }
 
@@ -148,7 +148,7 @@ export async function loadDemoDay({
     }
     const row = freshRow(locale) ?? freshRow(DEFAULT_LOCALE)
     if (!row) return []
-    const steps = parseStoredTips(row.steps)
+    const steps = parsePreparationSteps(row.steps)
     if (!steps) return []
     return [
       {

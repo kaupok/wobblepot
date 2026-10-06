@@ -9,7 +9,7 @@ import {
 } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
-import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
+import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
 
 const createManualMemberSchema = z.object({
   name: z.string().min(1).max(100),
@@ -176,7 +176,7 @@ export async function POST(request: Request) {
       // the membership write and let the next open of the modal regenerate
       // through the existing rate-limited path. See
       // `docs/LOCALIZATION.md` → "AI surfaces (Tier 1)" (HON-684).
-      await invalidateFutureEntryTips(
+      await invalidateFutureEntrySteps(
         tx,
         householdMembership.householdId,
         householdMembership.household.timezone,

@@ -5,7 +5,7 @@ import { createQueryWrapper } from '@/test/query-wrapper'
 import { createMeal } from '@/stories/fixtures'
 import { track } from '@/lib/analytics'
 import { MealCard } from './MealCard'
-import type { PantryIngredient, StructuredTips } from './types'
+import type { PantryIngredient, PreparationSteps } from './types'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -45,7 +45,7 @@ function renderCard(props: {
   isReadOnly?: boolean
   pantryIngredients?: PantryIngredient[]
   pantryDeducted?: boolean
-  preparationTips?: StructuredTips | null
+  preparationTips?: PreparationSteps | null
   note?: string | null
   noteX?: number | null
   noteY?: number | null
@@ -234,7 +234,7 @@ describe('MealCard availability badge', () => {
 // deduction preview (or a direct completion when already charged), then the
 // rating prompt, with focus back on the card (HON-933).
 describe('MealCard Done cooking', () => {
-  const tips: StructuredTips = {
+  const tips: PreparationSteps = {
     equipment: [],
     steps: ['Roast the chicken'],
     pitfalls: [],
@@ -292,7 +292,7 @@ describe('MealCard Done cooking', () => {
 
   it('can be undone from the card menu on a day that is not past', async () => {
     const tipsUrl = '/api/meal-plans/plan-1/entries/entry-1/preparation-tips'
-    const fresh: StructuredTips = {
+    const fresh: PreparationSteps = {
       equipment: [],
       steps: ['Roast the chicken again'],
       pitfalls: [],
@@ -517,7 +517,7 @@ describe('MealCard note placement (HON-975)', () => {
 })
 
 describe('MealCard card click (HON-1010)', () => {
-  const tips: StructuredTips = { equipment: [], steps: ['Roast the chicken'], pitfalls: [] }
+  const tips: PreparationSteps = { equipment: [], steps: ['Roast the chicken'], pitfalls: [] }
   const description = 'Crisp skin, soft potatoes.'
   const imageMeal = {
     ...meal,

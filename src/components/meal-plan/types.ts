@@ -43,7 +43,7 @@ export interface MealData {
   imageHue?: number | null
 }
 
-export interface StructuredTips {
+export interface PreparationSteps {
   equipment?: string[]
   steps?: string[]
   pitfalls: string[]
@@ -61,7 +61,7 @@ export interface PlanEntry {
   status: MealStatus
   rating: EntryRating | null
   meal: MealData | null
-  preparationTips: StructuredTips | null
+  preparationTips: PreparationSteps | null
   note: string | null
   /**
    * Where the note's slip lies on the planner card, as fractions of the room it

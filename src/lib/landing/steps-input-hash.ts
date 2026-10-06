@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import type { TipsRequestInput } from '@/lib/ai/preparation-tips'
+import type { StepsRequestInput } from '@/lib/ai/preparation-steps'
 
 /**
  * Bump when the steps prompt changes in a way that should rewrite every
@@ -17,7 +17,7 @@ export const LIBRARY_STEPS_VERSION = 1
  * without changing the meal, and because a component or translation edit
  * changes the prompt without touching the meal row at all.
  */
-export function stepsInputHash(input: TipsRequestInput): string {
+export function stepsInputHash(input: StepsRequestInput): string {
   const hash = createHash('sha256')
   hash.update(
     JSON.stringify({

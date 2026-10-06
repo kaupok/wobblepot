@@ -303,7 +303,7 @@ export async function PATCH(
       updateData.status = parsed.data.status as MealPlanEntryStatus
 
       // Leaving `completed` re-opens an entry the membership invalidation
-      // deliberately skipped: `invalidateFutureEntryTips` carries
+      // deliberately skipped: `invalidateFutureEntrySteps` carries
       // `status: { not: 'completed' }` because nulling the tips on a dinner
       // already eaten only buys a paid regeneration nobody reads (HON-684).
       // That trade holds only while the entry stays completed. Come back to a

@@ -285,7 +285,7 @@
       "moreActions": "More actions: {name}",
       "ariaDetailsFor": "Details for {mealName}"
     },
-    "tips": {
+    "steps": {
       "equipment": "You'll need",
       "steps": "Steps",
       "pitfalls": "Watch out",

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn, prefersReducedMotion } from '@/lib/utils'
-import type { StructuredTips } from '@/components/meal-plan/types'
+import type { PreparationSteps as PreparationStepsData } from '@/components/meal-plan/types'
 import type {
   CookQuestionActive,
   CookQuestionAskInput,
@@ -51,7 +51,7 @@ export function PreparationEquipment({
   steps,
   cookQuestion,
 }: PreparationEquipmentProps) {
-  const t = useTranslations('meal-plan.tips')
+  const t = useTranslations('meal-plan.steps')
   const tAsk = useTranslations('meal-plan.cookQuestion')
   const headingId = useId()
   const panels = useAskPanels(cookQuestion, 'equipment')
@@ -94,7 +94,7 @@ export function PreparationEquipment({
 }
 
 interface PreparationStepsProps {
-  tips: StructuredTips | null
+  steps: PreparationStepsData | null
   isLoading: boolean
   error: string | null
   onRetry: () => void
@@ -151,7 +151,7 @@ function StepsSection({ title, children }: { title: string; children: React.Reac
 }
 
 function UserNotes({ notes }: { notes: string }) {
-  const t = useTranslations('meal-plan.tips')
+  const t = useTranslations('meal-plan.steps')
   return (
     <div className="flex flex-col gap-2">
       <Heading variant="section" as="h4">
@@ -719,10 +719,10 @@ function StepSkeleton() {
  * where their placeholders were.
  */
 function StepsSkeleton() {
-  const t = useTranslations('meal-plan.tips')
+  const t = useTranslations('meal-plan.steps')
   return (
     <div className="flex flex-col gap-6" data-testid="preparation-steps-loading">
-      {/* A generation can take up to 45s (`TIPS_AI_BUDGET_MS`): say that
+      {/* A generation can take up to 45s (`STEPS_AI_BUDGET_MS`): say that
           something is happening, not only show shapes (HON-933). */}
       <div role="status">
         <Body variant="step" tone="muted">
@@ -751,7 +751,7 @@ function StepsSkeleton() {
  * caller keeps the "How to prepare" call to action beside it until tips load.
  */
 export function PreparationSteps({
-  tips,
+  steps,
   isLoading,
   error,
   onRetry,
@@ -760,10 +760,10 @@ export function PreparationSteps({
   onToggleStep,
   cookQuestion,
 }: PreparationStepsProps) {
-  const t = useTranslations('meal-plan.tips')
+  const t = useTranslations('meal-plan.steps')
   const notes = preparationNotes?.trim() ? preparationNotes : null
   // The first step not done yet; none once every step is (-1 matches no index).
-  const currentStep = tips?.steps?.findIndex((_, i) => !doneSteps?.has(i)) ?? -1
+  const currentStep = steps?.steps?.findIndex((_, i) => !doneSteps?.has(i)) ?? -1
 
   let generated: React.ReactNode = null
   if (isLoading) {
@@ -777,14 +777,14 @@ export function PreparationSteps({
         </Button>
       </div>
     )
-  } else if (tips) {
+  } else if (steps) {
     generated = (
       <>
-        {!!tips.steps?.length &&
+        {!!steps.steps?.length &&
           (onToggleStep ? (
             <ToggleSteps
-              steps={tips.steps}
-              equipment={tips.equipment ?? []}
+              steps={steps.steps}
+              equipment={steps.equipment ?? []}
               doneSteps={doneSteps}
               currentStep={currentStep}
               onToggleStep={onToggleStep}
@@ -792,7 +792,7 @@ export function PreparationSteps({
             />
           ) : (
             <Ol variant="steps">
-              {tips.steps.map((step, i) => (
+              {steps.steps.map((step, i) => (
                 <Li key={i} className="flex items-start gap-3">
                   <StepNumber n={i + 1} />
                   <Body variant="step">{step}</Body>
@@ -800,10 +800,10 @@ export function PreparationSteps({
               ))}
             </Ol>
           ))}
-        {tips.pitfalls.length > 0 && (
+        {steps.pitfalls.length > 0 && (
           <StepsSection title={t('pitfalls')}>
             <Ul variant="plain">
-              {tips.pitfalls.map((pitfall, i) => (
+              {steps.pitfalls.map((pitfall, i) => (
                 <Li key={i}>
                   <Body variant="step">{pitfall}</Body>
                 </Li>
@@ -811,9 +811,9 @@ export function PreparationSteps({
             </Ul>
           </StepsSection>
         )}
-        {tips.tip && (
+        {steps.tip && (
           <StepsSection title={t('tip')}>
-            <Body variant="step">{tips.tip}</Body>
+            <Body variant="step">{steps.tip}</Body>
           </StepsSection>
         )}
       </>

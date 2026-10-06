@@ -6,7 +6,7 @@ import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
 import { sumPortions } from '@/lib/meal-planning/servings'
 import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
-import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
+import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
 
 const updateMemberSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -228,7 +228,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         (await loadHouseholdServings(householdMembership.householdId, tx)) !==
           sumPortions(householdMembership.household.members)
       ) {
-        await invalidateFutureEntryTips(
+        await invalidateFutureEntrySteps(
           tx,
           householdMembership.householdId,
           householdMembership.household.timezone,
@@ -339,7 +339,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       // membership write and let the next open of the modal regenerate through
       // the existing rate-limited path. See `docs/LOCALIZATION.md` → "AI
       // surfaces (Tier 1)" (HON-684).
-      await invalidateFutureEntryTips(
+      await invalidateFutureEntrySteps(
         tx,
         householdMembership.householdId,
         householdMembership.household.timezone,

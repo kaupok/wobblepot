@@ -7,29 +7,29 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import etMessages from '../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { useMealTips } from '@/hooks/use-meal-tips'
-import { PreparationEquipment, PreparationSteps } from './PreparationTips'
+import { useMealSteps } from '@/hooks/use-meal-steps'
+import { PreparationEquipment, PreparationSteps } from './PreparationSteps'
 
 /** The English prose the tips route puts in `data.error` on an entry 404. */
 const SERVER_PROSE = 'Entry not found'
 
 /** The hook and the component as `MealDetailModal` wires them. */
-function TipsHarness() {
-  const { tips, isLoadingTips, tipsError, fetchTips } = useMealTips({
+function StepsHarness() {
+  const { steps, isLoadingSteps, stepsError, fetchSteps } = useMealSteps({
     planId: 'plan-1',
     entryId: 'entry-1',
   })
   return (
     <>
-      <button type="button" onClick={fetchTips}>
+      <button type="button" onClick={fetchSteps}>
         load
       </button>
-      <PreparationEquipment equipment={tips?.equipment} />
+      <PreparationEquipment equipment={steps?.equipment} />
       <PreparationSteps
-        tips={tips}
-        isLoading={isLoadingTips}
-        error={tipsError}
-        onRetry={fetchTips}
+        steps={steps}
+        isLoading={isLoadingSteps}
+        error={stepsError}
+        onRetry={fetchSteps}
       />
     </>
   )
@@ -40,13 +40,13 @@ function renderInEstonian() {
   return render(
     <QueryWrapper>
       <NextIntlClientProvider locale="et" messages={etMessages}>
-        <TipsHarness />
+        <StepsHarness />
       </NextIntlClientProvider>
     </QueryWrapper>,
   )
 }
 
-describe('PreparationTips in an Estonian household (HON-888)', () => {
+describe('PreparationSteps in an Estonian household (HON-888)', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
@@ -70,11 +70,11 @@ describe('PreparationTips in an Estonian household (HON-888)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'load' }))
 
     expect(
-      await screen.findByText(etMessages['meal-plan'].tips.errors.entryNotFound),
+      await screen.findByText(etMessages['meal-plan'].steps.errors.entryNotFound),
     ).toBeInTheDocument()
     expect(screen.queryByText(SERVER_PROSE)).not.toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: etMessages['meal-plan'].tips.retry }),
+      screen.getByRole('button', { name: etMessages['meal-plan'].steps.retry }),
     ).toBeInTheDocument()
   })
 
@@ -85,7 +85,7 @@ describe('PreparationTips in an Estonian household (HON-888)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'load' }))
 
     expect(
-      await screen.findByText(etMessages['meal-plan'].tips.errors.tipsFailed),
+      await screen.findByText(etMessages['meal-plan'].steps.errors.tipsFailed),
     ).toBeInTheDocument()
     expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument()
   })

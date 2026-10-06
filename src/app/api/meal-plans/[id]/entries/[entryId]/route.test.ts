@@ -1546,7 +1546,7 @@ describe('PATCH /api/meal-plans/[id]/entries/[entryId] - servings on a completed
     )
   })
 
-  // `invalidateFutureEntryTips` carries `status: { not: 'completed' }`, so a
+  // `invalidateFutureEntrySteps` carries `status: { not: 'completed' }`, so a
   // membership change deliberately leaves a completed entry's tips alone —
   // nulling a dinner already eaten would only buy a paid regeneration. That
   // trade holds only while the entry stays completed, so leaving `completed`

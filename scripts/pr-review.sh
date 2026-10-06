@@ -422,7 +422,7 @@ GEOMETRY_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/components/ui/[^/]*\
 # The eval spends money, so CI cannot run it, and HON-794 changed `models.ts` with no
 # run at all (HON-859 ran it after the fact). Drafts are gitignored and never loaded,
 # and the README is prose, so neither changes what the eval measures.
-AI_EVAL_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/lib/ai/(models|budgets|prompts|recipe-prompt|recipe-schema|types|imagine-request|review-request|preparation-tips|cook-question)\.ts|src/lib/vague-quantities\.ts|scripts/model-bench/cases/.*\.json)$' | grep -vE '\.(test\.ts|draft\.json)$' || true)
+AI_EVAL_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/lib/ai/(models|budgets|prompts|recipe-prompt|recipe-schema|types|imagine-request|review-request|preparation-steps|cook-question)\.ts|src/lib/vague-quantities\.ts|scripts/model-bench/cases/.*\.json)$' | grep -vE '\.(test\.ts|draft\.json)$' || true)
 
 if [ -n "$E2E_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
   echo -e "${GREEN}Pages, components or copy changed — adding the E2E-drift check.${NC}"

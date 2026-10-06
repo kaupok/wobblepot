@@ -5,21 +5,21 @@ import { createQueryWrapper } from '@/test/query-wrapper'
 import { MealDetailModal } from './MealDetailModal'
 import type { MealData } from './types'
 
-const cancelTips = vi.fn()
+const cancelSteps = vi.fn()
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
-vi.mock('@/hooks/use-meal-tips', () => ({
-  useMealTips: () => ({
+vi.mock('@/hooks/use-meal-steps', () => ({
+  useMealSteps: () => ({
     tips: null,
-    isLoadingTips: false,
-    tipsError: null,
-    isTipsExpanded: false,
-    fetchTips: vi.fn(),
+    isLoadingSteps: false,
+    stepsError: null,
+    isStepsExpanded: false,
+    fetchSteps: vi.fn(),
     handleHowToPrepare: vi.fn(),
-    cancelTips,
+    cancelSteps,
   }),
 }))
 let imageState: { status: string; imageUrl: string | null; imageHue: number | null } = {
@@ -99,7 +99,7 @@ function respondWith(status: number, body: unknown = {}) {
 describe('MealDetailModal servings update', () => {
   beforeEach(() => {
     onServingsChange = undefined
-    cancelTips.mockClear()
+    cancelSteps.mockClear()
     vi.mocked(toast.error).mockClear()
   })
 
@@ -130,7 +130,7 @@ describe('MealDetailModal servings update', () => {
     expect(screen.getByLabelText('servings')).toHaveTextContent('4')
     expect(toast.error).toHaveBeenCalledWith('Failed to update servings')
     expect(onServingOverrideChange).not.toHaveBeenCalled()
-    expect(cancelTips).not.toHaveBeenCalled()
+    expect(cancelSteps).not.toHaveBeenCalled()
   })
 
   it('keeps the new count, notifies the parent and drops stale tips on success', async () => {
@@ -148,7 +148,7 @@ describe('MealDetailModal servings update', () => {
 
     expect(screen.getByLabelText('servings')).toHaveTextContent('6')
     expect(onServingOverrideChange).toHaveBeenCalledWith(6)
-    expect(cancelTips).toHaveBeenCalledTimes(1)
+    expect(cancelSteps).toHaveBeenCalledTimes(1)
     expect(toast.error).not.toHaveBeenCalled()
   })
 })

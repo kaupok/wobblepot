@@ -4,8 +4,8 @@ import {
   localeInstruction,
   estonianVoiceForImagineMeal,
   estonianVoiceForRecipeParse,
-  estonianVoiceForPrepTips,
-  englishVoiceForPrepTips,
+  estonianVoiceForPrepSteps,
+  englishVoiceForPrepSteps,
 } from './prompts'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { PromptInput } from './types'
@@ -489,7 +489,7 @@ describe('Estonian voice helpers', () => {
       fn: estonianVoiceForRecipeParse,
       anchor: 'Karjusepirukas',
     },
-    { name: 'estonianVoiceForPrepTips', fn: estonianVoiceForPrepTips, anchor: 'Kuumuta ahi' },
+    { name: 'estonianVoiceForPrepSteps', fn: estonianVoiceForPrepSteps, anchor: 'Kuumuta ahi' },
   ] as const
 
   describe.each(helpers)('$name', ({ fn, anchor }) => {
@@ -537,19 +537,19 @@ describe('Estonian voice helpers', () => {
 
   it('forbids teie-form and tuleb-constructions in the step-producing blocks', () => {
     expect(estonianVoiceForRecipeParse('et')).toContain('Never teie-form')
-    expect(estonianVoiceForPrepTips('et')).toContain('Never teie-form')
+    expect(estonianVoiceForPrepSteps('et')).toContain('Never teie-form')
   })
 })
 
-describe('englishVoiceForPrepTips', () => {
+describe('englishVoiceForPrepSteps', () => {
   it('returns empty for "et", the one locale with its own voice block', () => {
-    expect(englishVoiceForPrepTips('et')).toBe('')
+    expect(englishVoiceForPrepSteps('et')).toBe('')
   })
 
   it('returns the block for the default locale, null, undefined, and unknown locales', () => {
     // An unknown locale gets English output (HON-921), so it gets the English rules too.
     for (const locale of ['en', null, undefined, 'fi']) {
-      const block = englishVoiceForPrepTips(locale)
+      const block = englishVoiceForPrepSteps(locale)
       expect(block).toContain('ENGLISH VOICE')
       expect(block).toContain('ENGLISH EXAMPLES')
     }
@@ -557,12 +557,12 @@ describe('englishVoiceForPrepTips', () => {
 
   it('is non-empty for exactly the locales where the Estonian block is empty', () => {
     for (const locale of ['en', 'et', null, undefined, 'fi']) {
-      expect(englishVoiceForPrepTips(locale) === '').toBe(estonianVoiceForPrepTips(locale) !== '')
+      expect(englishVoiceForPrepSteps(locale) === '').toBe(estonianVoiceForPrepSteps(locale) !== '')
     }
   })
 
   it('names the rules for equipment, steps, pitfalls, the tip, and punctuation', () => {
-    const block = englishVoiceForPrepTips('en')
+    const block = englishVoiceForPrepSteps('en')
     expect(block).toContain('equipment: 3–5 short noun phrases of 2–5 words each')
     expect(block).toContain('No reasons and no brackets')
     expect(block).toContain('steps: start with the verb')
@@ -574,7 +574,7 @@ describe('englishVoiceForPrepTips', () => {
   })
 
   it('shows the long equipment item and the run-on step rewritten', () => {
-    const block = englishVoiceForPrepTips('en')
+    const block = englishVoiceForPrepSteps('en')
     expect(block).toContain('→ "Two large woks"')
     expect(block).toContain(
       '→ "Sear the beef in 4–5 batches, 60–90 seconds each, so the wok stays hot."',
@@ -582,6 +582,6 @@ describe('englishVoiceForPrepTips', () => {
   })
 
   it('starts with a blank line so it appends cleanly after the prompt body', () => {
-    expect(englishVoiceForPrepTips('en').startsWith('\n\n')).toBe(true)
+    expect(englishVoiceForPrepSteps('en').startsWith('\n\n')).toBe(true)
   })
 })

@@ -69,8 +69,8 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
 import { logAiSample } from '@/lib/ai/sampling'
 import { getServerFlag } from '@/lib/feature-flags'
-import { TIPS_MODEL } from '@/lib/ai/models'
-import { buildFullTipsRequest, buildSupplementaryTipsRequest } from '@/lib/ai/preparation-tips'
+import { STEPS_MODEL } from '@/lib/ai/models'
+import { buildFullStepsRequest, buildSupplementaryStepsRequest } from '@/lib/ai/preparation-steps'
 import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from '@/lib/ai/usage-fixture'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
@@ -300,8 +300,8 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(mockEntryCacheWrite).not.toHaveBeenCalled()
   })
 
-  // `useMealTips` renders from `code`, so the shared cap response must carry the
-  // one `PREPARATION_TIPS_ERROR_KEYS` maps (HON-888).
+  // `useMealSteps` renders from `code`, so the shared cap response must carry the
+  // one `PREPARATION_STEPS_ERROR_KEYS` maps (HON-888).
   it('returns 429 with code ai_cap_exceeded when the household is over its AI cap', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
@@ -679,7 +679,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     // The model benchmark (HON-795) sends the builder's output. If the route
     // adds an argument, or builds any of these inline, the two drift apart.
-    it('sends exactly the request buildFullTipsRequest builds, plus model and signal', async () => {
+    it('sends exactly the request buildFullStepsRequest builds, plus model and signal', async () => {
       mockEntryFindFirst.mockResolvedValue(
         sampleEntry({ meal: { ...sampleEntry().meal, components } }) as never,
       )
@@ -690,13 +690,13 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
       await callPost()
 
       expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
-        ...buildFullTipsRequest(builderInput),
-        model: { modelId: TIPS_MODEL },
+        ...buildFullStepsRequest(builderInput),
+        model: { modelId: STEPS_MODEL },
         abortSignal: expect.any(AbortSignal),
       })
     })
 
-    it('sends exactly the request buildSupplementaryTipsRequest builds, plus model and signal', async () => {
+    it('sends exactly the request buildSupplementaryStepsRequest builds, plus model and signal', async () => {
       const preparationNotes = 'Sear the chicken first, then simmer.'
       mockEntryFindFirst.mockResolvedValue(
         sampleEntry({ meal: { ...sampleEntry().meal, components, preparationNotes } }) as never,
@@ -706,8 +706,8 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
       await callPost()
 
       expect(mockGenerateObject.mock.calls[0]![0]).toEqual({
-        ...buildSupplementaryTipsRequest({ ...builderInput, preparationNotes }),
-        model: { modelId: TIPS_MODEL },
+        ...buildSupplementaryStepsRequest({ ...builderInput, preparationNotes }),
+        model: { modelId: STEPS_MODEL },
         abortSignal: expect.any(AbortSignal),
       })
     })
@@ -728,7 +728,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(mockRecordAiUsage).toHaveBeenCalledWith({
       householdId: mockMembership.household.id,
       feature: 'entry_preparation_tips',
-      ...expectedUsageStats(TIPS_MODEL),
+      ...expectedUsageStats(STEPS_MODEL),
     })
   })
 
@@ -751,7 +751,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(mockRecordAiUsage).toHaveBeenCalledWith({
       householdId: mockMembership.household.id,
       feature: 'entry_preparation_tips',
-      ...expectedUsageStats(TIPS_MODEL),
+      ...expectedUsageStats(STEPS_MODEL),
     })
   })
 
@@ -769,7 +769,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(mockRecordAiUsage).toHaveBeenCalledWith({
       householdId: mockMembership.household.id,
       feature: 'entry_preparation_tips',
-      ...expectedUsageStats(TIPS_MODEL),
+      ...expectedUsageStats(STEPS_MODEL),
       success: false,
     })
   })
@@ -791,7 +791,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(mockRecordAiUsage).toHaveBeenCalledWith({
       householdId: mockMembership.household.id,
       feature: 'entry_preparation_tips',
-      ...expectedUsageStats(TIPS_MODEL),
+      ...expectedUsageStats(STEPS_MODEL),
       success: false,
     })
   })

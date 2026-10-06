@@ -6,11 +6,11 @@ import {
   PreparationEquipment,
   PreparationSteps,
   type CookQuestionControls,
-} from './PreparationTips'
-import type { StructuredTips } from './types'
+} from './PreparationSteps'
+import type { PreparationSteps as PreparationStepsData } from './types'
 import type { CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 
-const fullTips: StructuredTips = {
+const fullTips: PreparationStepsData = {
   equipment: ['Sheet pan', 'Sharp chef’s knife', 'Instant-read thermometer'],
   steps: [
     'Preheat oven to 220°C (425°F).',
@@ -26,7 +26,7 @@ const fullTips: StructuredTips = {
 }
 
 const meta = {
-  title: 'Meal plan/PreparationTips',
+  title: 'Meal plan/PreparationSteps',
   component: PreparationSteps,
   tags: ['autodocs'],
   parameters: {
@@ -54,9 +54,9 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const FullTips: Story = {
+export const FullSteps: Story = {
   args: {
-    tips: fullTips,
+    steps: fullTips,
     isLoading: false,
     error: null,
   },
@@ -71,7 +71,7 @@ export const FullTips: Story = {
 
 /** One row per item at the ingredient rows' 18px, under a Section heading (HON-952). */
 export const Equipment: Story = {
-  args: { tips: null, isLoading: false, error: null },
+  args: { steps: null, isLoading: false, error: null },
   render: () => <PreparationEquipment equipment={fullTips.equipment} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -90,7 +90,7 @@ const longEquipment = [
 ]
 
 export const EquipmentLongItems: Story = {
-  args: { tips: null, isLoading: false, error: null },
+  args: { steps: null, isLoading: false, error: null },
   render: () => <PreparationEquipment equipment={longEquipment} />,
   play: async ({ canvasElement }) => {
     const items = within(within(canvasElement).getByRole('list')).getAllByRole('listitem')
@@ -100,7 +100,7 @@ export const EquipmentLongItems: Story = {
 
 export const Loading: Story = {
   args: {
-    tips: null,
+    steps: null,
     isLoading: true,
     error: null,
   },
@@ -116,7 +116,7 @@ export const Loading: Story = {
  */
 export const WithProgress: Story = {
   args: {
-    tips: fullTips,
+    steps: fullTips,
     isLoading: false,
     error: null,
     doneSteps: new Set([0, 1]),
@@ -140,7 +140,7 @@ export const WithProgressDark: Story = {
 
 export const Error: Story = {
   args: {
-    tips: null,
+    steps: null,
     isLoading: false,
     error: 'Failed to load preparation tips.',
   },
@@ -148,16 +148,16 @@ export const Error: Story = {
 
 export const UserNotesOnly: Story = {
   args: {
-    tips: null,
+    steps: null,
     isLoading: false,
     error: null,
     preparationNotes: 'We usually skip the lemon and add chili flakes. Kids ate seconds last time.',
   },
 }
 
-export const UserNotesWithTips: Story = {
+export const UserNotesWithSteps: Story = {
   args: {
-    tips: fullTips,
+    steps: fullTips,
     isLoading: false,
     error: null,
     preparationNotes: 'Double the garlic. Serve with couscous instead of rice.',
@@ -166,7 +166,7 @@ export const UserNotesWithTips: Story = {
 
 export const PitfallsOnly: Story = {
   args: {
-    tips: {
+    steps: {
       pitfalls: ['Overcooking the garlic will turn it bitter — pull it once it’s golden.'],
     },
     isLoading: false,
@@ -194,7 +194,7 @@ function cookQuestion(overrides: Partial<CookQuestionControls> = {}): CookQuesti
 }
 
 const askButtonsArgs = {
-  tips: fullTips,
+  steps: fullTips,
   isLoading: false,
   error: null,
   doneSteps: new Set([0]),
@@ -657,7 +657,7 @@ export const EquipmentWithAskButtons: Story = {
 
 /** An item's panel answered: no numeral to indent past, so it starts at the item text. */
 export const EquipmentAskAnswered: Story = {
-  args: { tips: null, isLoading: false, error: null },
+  args: { steps: null, isLoading: false, error: null },
   render: () => (
     <PreparationEquipment
       equipment={fullTips.equipment}

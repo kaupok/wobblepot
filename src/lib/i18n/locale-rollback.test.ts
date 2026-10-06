@@ -4,8 +4,8 @@ import { getSession, getCachedMembership } from '@/lib/session'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import {
-  englishVoiceForPrepTips,
-  estonianVoiceForPrepTips,
+  englishVoiceForPrepSteps,
+  estonianVoiceForPrepSteps,
   localeInstruction,
 } from '@/lib/ai/prompts'
 import { getLocale } from './get-locale'
@@ -177,12 +177,12 @@ describe('locale rollback', () => {
   it('builds English AI prompts: no locale instruction and no Estonian voice', () => {
     const locale = resolveHouseholdLocale(ROLLED_BACK)
     expect(localeInstruction(locale)).toBe('')
-    expect(estonianVoiceForPrepTips(locale)).toBe('')
+    expect(estonianVoiceForPrepSteps(locale)).toBe('')
     // A caller that skipped the helper and passed the stored 'et' still gets
     // English: both helpers check KNOWN_LOCALES themselves.
     expect(localeInstruction(ROLLED_BACK.locale)).toBe('')
-    expect(estonianVoiceForPrepTips(ROLLED_BACK.locale)).toBe('')
+    expect(estonianVoiceForPrepSteps(ROLLED_BACK.locale)).toBe('')
     // English output gets the English voice rules (HON-963).
-    expect(englishVoiceForPrepTips(ROLLED_BACK.locale)).toContain('ENGLISH VOICE')
+    expect(englishVoiceForPrepSteps(ROLLED_BACK.locale)).toContain('ENGLISH VOICE')
   })
 })

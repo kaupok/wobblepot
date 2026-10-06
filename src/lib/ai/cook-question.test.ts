@@ -4,7 +4,7 @@ import {
   buildCookQuestionRequest,
   type CookQuestionRequestInput,
 } from './cook-question'
-import { estonianVoiceForPrepTips, localeInstruction } from './prompts'
+import { estonianVoiceForPrepSteps, localeInstruction } from './prompts'
 
 function input(overrides: Partial<CookQuestionRequestInput> = {}): CookQuestionRequestInput {
   return {
@@ -228,7 +228,7 @@ describe('buildCookQuestionPrompt', () => {
 
   it('ends with the locale instruction and the Estonian voice for an Estonian household', () => {
     const prompt = buildCookQuestionPrompt(input({ locale: 'et' }))
-    expect(prompt.endsWith(localeInstruction('et') + estonianVoiceForPrepTips('et'))).toBe(true)
+    expect(prompt.endsWith(localeInstruction('et') + estonianVoiceForPrepSteps('et'))).toBe(true)
     expect(localeInstruction('et')).toContain('LOCALE:')
   })
 

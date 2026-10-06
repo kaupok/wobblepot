@@ -114,7 +114,7 @@ ESTONIAN EXAMPLES (source text → what to output):
  * equipment, steps, pitfalls, tip — all in sina-form imperative. Empty for
  * every other locale.
  */
-export function estonianVoiceForPrepTips(locale: string | null | undefined): string {
+export function estonianVoiceForPrepSteps(locale: string | null | undefined): string {
   if (!isEstonian(locale)) return ''
   return `
 
@@ -134,11 +134,11 @@ ESTONIAN EXAMPLES (draft → what to output):
 
 /**
  * English voice block for preparation tips (full and supplementary): the
- * counterpart of `estonianVoiceForPrepTips`, so a step can be read at a glance
+ * counterpart of `estonianVoiceForPrepSteps`, so a step can be read at a glance
  * from across the counter (HON-963). Empty for Estonian, so exactly one of the
  * two blocks is non-empty for a locale and the Estonian prompt is unchanged.
  */
-export function englishVoiceForPrepTips(locale: string | null | undefined): string {
+export function englishVoiceForPrepSteps(locale: string | null | undefined): string {
   if (isEstonian(locale)) return ''
   return `
 

@@ -12,7 +12,7 @@ export const PLANNING_MODEL = 'claude-sonnet-5-5'
 export const RECIPE_MODEL = 'claude-sonnet-5-5'
 
 /** Model for preparation tips generation (fast/cheap). */
-export const TIPS_MODEL = 'claude-sonnet-5-5'
+export const STEPS_MODEL = 'claude-sonnet-5-5'
 
 /** Model for "Imagine a meal" freeform meal generation. */
 export const IMAGINE_MODEL = 'claude-sonnet-5-5'
