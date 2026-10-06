@@ -13,17 +13,23 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
  * stub. HOME points at the temp dir, so WORKTREE_BASE and the orchestrator
  * status file are the test's own. The script is sourced, not executed, so its
  * dispatcher and `.env` load never run, and no NEON_* variable reaches it.
+ *
+ * `wt done` acts on the checkout that holds the script (HON-1079), so each test
+ * commits a copy of it into the temp repository and sources that copy. Sourcing
+ * the real one would point `wt done` at this checkout.
  */
 
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url))
 const worktreeClaude = path.join(scriptsDir, 'worktree-claude.sh')
 
-// `state` defaults to MERGED. `old` drops a merged PR from the bulk list, as
-// GitHub does once more than 200 PRs merged after it (HON-1072).
+// `state` defaults to MERGED and `baseRefName` to main. `old` drops a merged PR
+// from the bulk list, as GitHub does once more than 200 PRs merged after it
+// (HON-1072).
 type Pr = {
   number: number
   headRefName: string
   headRefOid: string
+  baseRefName?: string
   state?: 'MERGED' | 'OPEN' | 'CLOSED'
   old?: boolean
 }
@@ -37,7 +43,7 @@ const GH_STUB = `#!/usr/bin/env bash
 echo "gh $*" >> "$STUB_DIR/calls"
 [ "$STUB_GH_FAILS" = 1 ] && { echo "gh: HTTP 502" >&2; exit 1; }
 prs="$STUB_DIR/prs.json"
-pick='{number, headRefOid, state: (.state // "MERGED")}'
+pick='{number, headRefOid, baseRefName, state: (.state // "MERGED")}'
 if [ "$1 $2" = "pr view" ]; then
   [ "$STUB_GH_LOOKUP_FAILS" = 1 ] && { echo "gh: HTTP 502" >&2; exit 1; }
   out=$(jq -c --argjson n "$3" "map(select(.number == \\$n)) | first | select(.) | $pick" "$prs")
@@ -114,7 +120,35 @@ function branches(): string[] {
 }
 
 function writePrs(prs: Pr[]): void {
-  fs.writeFileSync(path.join(stubDir, 'prs.json'), JSON.stringify(prs))
+  const withBase = prs.map((pr) => ({ baseRefName: 'main', ...pr }))
+  fs.writeFileSync(path.join(stubDir, 'prs.json'), JSON.stringify(withBase))
+}
+
+/** A branch with one commit that never reaches main, as a stacked PR merged into its parent. Returns the tip. */
+function unmergedBranch(branch: string, file: string): string {
+  git(main, 'checkout', '-q', '-b', branch, 'main')
+  const tip = commit(main, file)
+  git(main, 'checkout', '-q', 'main')
+  return tip
+}
+
+/** A clone of origin, to make commits that reach the main checkout only through its pull. */
+function cloneOrigin(): string {
+  const other = path.join(tmp, 'other')
+  git(tmp, 'clone', '-q', path.join(tmp, 'origin.git'), other)
+  return other
+}
+
+/** Local main and origin/main both change README.md, so `git pull --rebase` stops on a conflict. */
+function conflictMainWithOrigin(): void {
+  const other = cloneOrigin()
+  commit(other, 'README.md', 'origin edit')
+  git(other, 'push', '-q', 'origin', 'main')
+  commit(main, 'README.md', 'local edit')
+}
+
+function rebaseInProgress(): boolean {
+  return ['rebase-merge', 'rebase-apply'].some((dir) => fs.existsSync(path.join(main, '.git', dir)))
 }
 
 function writeOrchestratorStatus(workerBranches: string[]): void {
@@ -149,7 +183,8 @@ function runDone(
   cwd: string,
   opts: { ghFails?: boolean; lookupFails?: boolean; neon?: boolean } = {},
 ) {
-  const r = spawnSync('/bin/bash', ['-c', 'source "$1"; cmd_done', 'bash', worktreeClaude], {
+  const script = path.join(main, 'scripts', 'worktree-claude.sh')
+  const r = spawnSync('/bin/bash', ['-c', 'source "$1"; cmd_done', 'bash', script], {
     cwd,
     encoding: 'utf8',
     timeout: 60_000,
@@ -182,6 +217,10 @@ beforeEach(() => {
   main = path.join(tmp, 'main')
   git(tmp, 'init', '-q', '-b', 'main', main)
   commit(main, 'README.md')
+  fs.mkdirSync(path.join(main, 'scripts'))
+  fs.copyFileSync(worktreeClaude, path.join(main, 'scripts', 'worktree-claude.sh'))
+  git(main, 'add', 'scripts/worktree-claude.sh')
+  git(main, 'commit', '-q', '-m', 'add wt')
   git(main, 'remote', 'add', 'origin', origin)
   git(main, 'push', '-q', '-u', 'origin', 'main')
 })
@@ -326,8 +365,7 @@ describe('wt done per-branch PR lookup (HON-1072)', () => {
   it('deletes pr<N> whose tip is an ancestor of PR N head, fetching the head from origin', () => {
     const tip = squashMerged('pr688', 'w2.txt')
     // The PR got a commit after `gh pr checkout`; it exists only on origin.
-    const other = path.join(tmp, 'other')
-    git(tmp, 'clone', '-q', path.join(tmp, 'origin.git'), other)
+    const other = cloneOrigin()
     git(other, 'fetch', '-q', main, 'pr688')
     git(other, 'checkout', '-q', '-b', 'pr-head', 'FETCH_HEAD')
     const head = commit(other, 'w2-late.txt')
@@ -405,6 +443,187 @@ describe('wt done per-branch PR lookup (HON-1072)', () => {
   })
 })
 
+describe('wt done counts only PRs merged into main (HON-1079)', () => {
+  it('keeps a branch whose PR merged into another base, from the bulk list', () => {
+    const tip = unmergedBranch('kaupo/hon-40-child', 'x1.txt')
+    writePrs([
+      {
+        number: 40,
+        headRefName: 'kaupo/hon-40-child',
+        headRefOid: tip,
+        baseRefName: 'feat/parent',
+      },
+    ])
+
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(branches()).toEqual(['kaupo/hon-40-child', 'main'])
+    expect(r.out).toMatch(
+      /Kept:\n {2}kaupo\/hon-40-child: PR #40 merged into feat\/parent, not main/,
+    )
+  })
+
+  it('keeps a branch whose old PR merged into another base, from its own lookup', () => {
+    const tip = unmergedBranch('kaupo/hon-41-child', 'x2.txt')
+    writePrs([
+      {
+        number: 41,
+        headRefName: 'kaupo/hon-41-child',
+        headRefOid: tip,
+        baseRefName: 'feat/parent',
+        old: true,
+      },
+    ])
+
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(branches()).toEqual(['kaupo/hon-41-child', 'main'])
+    expect(r.out).toContain('kaupo/hon-41-child: PR #41 merged into feat/parent, not main')
+    expect(ghCalls()).toContainEqual(expect.stringContaining('--head kaupo/hon-41-child'))
+  })
+
+  it('keeps pr<N> when PR N merged into another base', () => {
+    const tip = unmergedBranch('pr742', 'x3.txt')
+    writePrs([
+      { number: 742, headRefName: 'kaupo/hon-742', headRefOid: tip, baseRefName: 'feat/parent' },
+    ])
+
+    const r = runDone(main)
+
+    expect(branches()).toEqual(['main', 'pr742'])
+    expect(r.out).toContain('pr742: PR #742 merged into feat/parent, not main')
+  })
+
+  it('keeps the worktree of a branch whose PR merged into another base', () => {
+    const tip = unmergedBranch('kaupo/hon-42-child', 'x4.txt')
+    writePrs([
+      {
+        number: 42,
+        headRefName: 'kaupo/hon-42-child',
+        headRefOid: tip,
+        baseRefName: 'feat/parent',
+      },
+    ])
+    const dir = addWorktree('kaupo/hon-42-child')
+
+    const r = runDone(main, { neon: true })
+
+    expect(r.status, r.out).toBe(0)
+    expect(fs.existsSync(dir)).toBe(true)
+    expect(neonDeletes()).toHaveLength(0)
+    expect(r.out).toContain('kaupo/hon-42-child: PR #42 merged into feat/parent, not main')
+  })
+
+  it('inside a worktree whose PR merged into another base removes nothing', () => {
+    const tip = unmergedBranch('kaupo/hon-43-child', 'x5.txt')
+    writePrs([
+      {
+        number: 43,
+        headRefName: 'kaupo/hon-43-child',
+        headRefOid: tip,
+        baseRefName: 'feat/parent',
+      },
+    ])
+    const dir = addWorktree('kaupo/hon-43-child')
+
+    const r = runDone(dir)
+
+    expect(r.status).toBe(1)
+    expect(r.out).toContain(
+      "Keeping 'kaupo/hon-43-child': PR #43 merged into feat/parent, not main — nothing removed",
+    )
+    expect(fs.existsSync(dir)).toBe(true)
+  })
+})
+
+describe('wt done from another repository (HON-1079)', () => {
+  it('acts on the checkout that holds the script, says so, and leaves the current repo alone', () => {
+    const tip = squashMerged('kaupo/hon-44-a', 'y1.txt')
+    writePrs([{ number: 44, headRefName: 'kaupo/hon-44-a', headRefOid: tip }])
+    const elsewhere = path.join(tmp, 'elsewhere')
+    git(tmp, 'init', '-q', '-b', 'main', elsewhere)
+    commit(elsewhere, 'other.txt')
+    git(elsewhere, 'branch', 'merged-here')
+    git(elsewhere, 'checkout', '-q', '-b', 'feat/elsewhere')
+
+    const r = runDone(elsewhere)
+
+    expect(r.status, r.out).toBe(0)
+    expect(r.out).toContain(
+      `Acting on the wobblepot checkout at ${main} — the current directory is not in it`,
+    )
+    expect(branches()).toEqual(['main'])
+    expect(r.out).toContain('kaupo/hon-44-a (squash #44)')
+    expect(git(elsewhere, 'branch', '--show-current')).toBe('feat/elsewhere')
+    expect(
+      git(elsewhere, 'for-each-ref', '--format=%(refname:short)', 'refs/heads').split('\n').sort(),
+    ).toEqual(['feat/elsewhere', 'main', 'merged-here'])
+  })
+
+  it('from inside the repository says nothing about acting elsewhere', () => {
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(r.out).not.toContain('Acting on the wobblepot checkout')
+  })
+})
+
+describe('wt done failed pull (HON-1079)', () => {
+  it('aborts the rebase and removes nothing when local main conflicts with origin', () => {
+    const tip = squashMerged('kaupo/hon-45-a', 'z1.txt')
+    writePrs([{ number: 45, headRefName: 'kaupo/hon-45-a', headRefOid: tip }])
+    const dir = addWorktree('kaupo/hon-45-a')
+    conflictMainWithOrigin()
+
+    const r = runDone(main, { neon: true })
+
+    expect(r.status).toBe(1)
+    expect(r.out).toContain('the pull rebase was aborted — nothing removed')
+    expect(rebaseInProgress()).toBe(false)
+    expect(git(main, 'branch', '--show-current')).toBe('main')
+    expect(fs.existsSync(dir)).toBe(true)
+    expect(branches()).toEqual(['kaupo/hon-45-a', 'main'])
+    expect(neonDeletes()).toHaveLength(0)
+  })
+
+  it('from inside a merged worktree keeps that worktree when the pull fails', () => {
+    const tip = squashMerged('kaupo/hon-46-a', 'z2.txt')
+    writePrs([{ number: 46, headRefName: 'kaupo/hon-46-a', headRefOid: tip }])
+    const dir = addWorktree('kaupo/hon-46-a')
+    conflictMainWithOrigin()
+
+    const r = runDone(dir)
+
+    expect(r.status).toBe(1)
+    expect(r.out).toContain('the pull rebase was aborted — nothing removed')
+    expect(rebaseInProgress()).toBe(false)
+    expect(fs.existsSync(dir)).toBe(true)
+    expect(branches()).toEqual(['kaupo/hon-46-a', 'main'])
+  })
+
+  it('stops without touching a rebase already in progress in the main checkout', () => {
+    const tip = squashMerged('kaupo/hon-47-a', 'z3.txt')
+    writePrs([{ number: 47, headRefName: 'kaupo/hon-47-a', headRefOid: tip }])
+    commit(main, 'z3-local.txt')
+    // Stops at an `edit` step, so the working tree is clean and only the
+    // rebase state marks it.
+    execFileSync('git', ['rebase', '-q', '-i', 'HEAD~1'], {
+      cwd: main,
+      env: { ...gitEnv(), GIT_SEQUENCE_EDITOR: 'sed -i.bak 1s/^pick/edit/' },
+    })
+    expect(rebaseInProgress()).toBe(true)
+
+    const r = runDone(main)
+
+    expect(r.status).toBe(1)
+    expect(r.out).toContain('A rebase is in progress in the main checkout')
+    expect(rebaseInProgress()).toBe(true)
+    expect(branches()).toEqual(['kaupo/hon-47-a', 'main'])
+  })
+})
+
 describe('wt done worktrees (HON-1066)', () => {
   it('removes a merged, clean worktree and then deletes its branch', () => {
     const tip = squashMerged('kaupo/hon-5-e', 'i.txt')
@@ -426,8 +645,7 @@ describe('wt done worktrees (HON-1066)', () => {
     const dir = addWorktree('kaupo/hon-11-j')
     // Merged on origin only, so the merge reaches the main checkout through
     // wt done's own pull, as a GitHub "Create a merge commit" does.
-    const other = path.join(tmp, 'other')
-    git(tmp, 'clone', '-q', path.join(tmp, 'origin.git'), other)
+    const other = cloneOrigin()
     git(other, 'fetch', '-q', main, 'kaupo/hon-11-j:kaupo/hon-11-j')
     git(other, 'merge', '-q', '--no-ff', '-m', 'Merge PR #11', 'kaupo/hon-11-j')
     git(other, 'push', '-q', 'origin', 'main')
