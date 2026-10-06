@@ -1773,58 +1773,161 @@ done_fetch_merged_prs() {
   printf '%s\n' "$out"
 }
 
-# The merged-PR verdict for one branch: `squash #N` when a matching merged PR's
-# head is the tip $2, `stale #N` when matching PRs exist but none has that head,
-# `none` otherwise. A PR matches by headRefName; a `pr<N>` branch (from
-# `gh pr checkout`) that no PR names as its head matches PR N. Any matching
-# head proves the commits landed. A name can be reused across PRs, so a tip that
-# matches none of them means commits that are not in main.
-# Usage: done_pr_verdict <branch> <tip> <prs_json>
-done_pr_verdict() {
-  local name="$1" tip="$2" prs_json="$3" verdict
-  verdict=$(printf '%s' "$prs_json" | jq -r --arg n "$name" --arg t "$tip" '
+# Match the tip $2 against merged PR heads, one `<number> <headRefOid>` line
+# each on stdin. Prints `squash #N` when a head is the tip, `behind #N` when the
+# tip is an ancestor of a head (the PR got commits after the branch stopped, so
+# the branch holds nothing the PR lacks), `unfetched #N` when nothing matched
+# and a head could not be fetched to check, and nothing otherwise. A head that
+# is missing locally is fetched from origin's pull/<N>/head.
+# Usage: done_match_heads <repo> <tip> < <lines>
+done_match_heads() {
+  local repo="$1" tip="$2" heads number oid unfetched=""
+  heads=$(cat)
+  [ -n "$heads" ] || return 0
+  while read -r number oid; do
+    if [ -n "$oid" ] && [ "$oid" = "$tip" ]; then
+      echo "squash #$number"
+      return 0
+    fi
+  done <<< "$heads"
+  while read -r number oid; do
+    [ -n "$oid" ] || continue
+    if ! git -C "$repo" cat-file -e "$oid^{commit}" 2> /dev/null; then
+      git -C "$repo" fetch -q origin "pull/$number/head" < /dev/null > /dev/null 2>&1
+      if ! git -C "$repo" cat-file -e "$oid^{commit}" 2> /dev/null; then
+        unfetched="${unfetched:-$number}"
+        continue
+      fi
+    fi
+    if git -C "$repo" merge-base --is-ancestor "$tip" "$oid" 2> /dev/null; then
+      echo "behind #$number"
+      return 0
+    fi
+  done <<< "$heads"
+  [ -z "$unfetched" ] || echo "unfetched #$unfetched"
+}
+
+# The PR verdict for local branch $2 at tip $3, one of:
+#   squash #N      merged PR N's head is the tip
+#   behind #N      the tip is an ancestor of merged PR N's head
+#   ahead #N       PR N merged, but the tip has commits its head lacks
+#   open #N        PR N is open, and no PR for the branch merged
+#   closed #N      PR N closed unmerged, and no PR is open or merged
+#   none           no PR for the branch
+#   failed[: why]  a lookup failed, so nothing can be decided
+# $4, the merged-PR JSON from done_fetch_merged_prs, is a fast path: a hit there
+# needs no further call. Every other branch is looked up on its own, because
+# that list holds only the last 200 merges (HON-1072). A PR matches by
+# headRefName; a `pr<N>` branch (from `gh pr checkout`) is PR N. A name can be
+# reused across PRs, so any merged head can prove the commits landed.
+# Usage: done_branch_verdict <repo> <branch> <tip> <prs_json>
+done_branch_verdict() {
+  local repo="$1" name="$2" tip="$3" prs_json="$4" hit prs ok=1
+  hit=$(printf '%s' "$prs_json" | jq -r --arg n "$name" '
     [.[] | select(.headRefName == $n)] as $by_name
     | (if ($by_name | length) > 0 then $by_name
        elif ($n | test("^pr[0-9]+$")) then [.[] | select(.number == ($n[2:] | tonumber))]
-       else [] end) as $m
-    | ([$m[] | select(.headRefOid == $t)] | first) as $hit
-    | if ($m | length) == 0 then "none"
-      elif $hit then "squash #\($hit.number)"
-      else "stale #\($m[0].number)" end' 2> /dev/null) || verdict=none
-  echo "${verdict:-none}"
+       else [] end)
+    | .[] | "\(.number) \(.headRefOid)"' 2> /dev/null | done_match_heads "$repo" "$tip")
+  case "$hit" in
+    squash* | behind*)
+      echo "$hit"
+      return 0
+      ;;
+  esac
+
+  if [[ "$name" =~ ^pr([0-9]+)$ ]]; then
+    prs=$(cd "$repo" && gh pr view "${BASH_REMATCH[1]}" \
+      --json number,state,headRefOid < /dev/null 2> /dev/null) || ok=0
+    prs="[$prs]"
+  else
+    prs=$(cd "$repo" && gh pr list --head "$name" --state all --limit 50 \
+      --json number,state,headRefOid < /dev/null 2> /dev/null) || ok=0
+  fi
+  if [ "$ok" = 0 ] || ! printf '%s' "$prs" | jq -e 'type == "array"' > /dev/null 2>&1; then
+    echo failed
+    return 0
+  fi
+
+  hit=$(printf '%s' "$prs" | jq -r '.[] | select(.state == "MERGED") | "\(.number) \(.headRefOid)"' \
+    | done_match_heads "$repo" "$tip")
+  case "$hit" in
+    squash* | behind*)
+      echo "$hit"
+      return 0
+      ;;
+    unfetched*)
+      echo "failed: could not fetch the head of PR ${hit#unfetched }"
+      return 0
+      ;;
+  esac
+  printf '%s' "$prs" | jq -r '
+    ([.[] | select(.state == "MERGED")] | first) as $m
+    | ([.[] | select(.state == "OPEN")] | first) as $o
+    | ([.[] | select(.state == "CLOSED")] | first) as $c
+    | if $m then "ahead #\($m.number)"
+      elif $o then "open #\($o.number)"
+      elif $c then "closed #\($c.number)"
+      else "none" end'
 }
 
-# Decide which local branches of the repo at $1 `wt done` deletes. Changes
-# nothing. One tab-separated line per decision:
+# The reason a branch stays, for a done_branch_verdict verdict that deletes
+# nothing.
+# Usage: done_keep_reason <verdict>
+done_keep_reason() {
+  case "$1" in
+    ahead*) echo "commits after the merge of PR ${1#ahead }" ;;
+    open*) echo "PR ${1#open } open" ;;
+    closed*) echo "PR ${1#closed } closed unmerged" ;;
+    none) echo "no PR found" ;;
+    *) echo "PR lookup failed${1#failed}" ;;
+  esac
+}
+
+# Decide what `wt done` does with each local branch of the repo at $1 but
+# `main`. Changes nothing. One tab-separated line per branch:
 #   delete <branch> merged       in `git branch --merged main`
-#   delete <branch> squash #<N>  its tip equals merged PR N's headRefOid
-#   keep   <branch> <reason>     a merged PR exists, but the tip moved on
-# A branch with no merge and no merged PR prints nothing.
+#   delete <branch> squash #<N>  merged PR N's head holds every commit of the tip
+#   warn   <branch> <reason>     kept, and the operator should look: commits
+#                                after the merge, or a failed lookup
+#   keep   <branch> <reason>     kept: no PR, or none merged
+#   skip   <branch> <reason>     protected, never looked up
 # $2 is the merged-PR JSON array, or "" when it could not be fetched; then only
-# regular merges are selected. $3 lists branches never to touch, one per line;
-# `main` is always protected.
+# regular merges are selected and no per-branch lookup runs. $3 lists the
+# protected branches, one `<branch><TAB><reason>` line each; a branch's first
+# line gives its reason.
 done_select_branches() {
   local repo="$1" prs_json="$2" protected="$3"
-  local regular name tip verdict
+  local regular name tip reason verdict
   regular=$(git -C "$repo" branch --merged main --format='%(refname:short)' 2> /dev/null) || regular=""
 
-  while read -r name tip; do
+  # fd 3, so a git fetch or gh call in the loop body cannot drain the list.
+  while read -r -u 3 name tip; do
     [ -n "$name" ] || continue
     [ "$name" = main ] && continue
-    printf '%s\n' "$protected" | grep -qxF -- "$name" && continue
+    reason=$(printf '%s\n' "$protected" | awk -F'\t' -v n="$name" '$1 == n { print $2; exit }')
+    if [ -n "$reason" ]; then
+      printf 'skip\t%s\t%s\n' "$name" "$reason"
+      continue
+    fi
 
     if printf '%s\n' "$regular" | grep -qxF -- "$name"; then
       printf 'delete\t%s\tmerged\n' "$name"
       continue
     fi
 
-    [ -n "$prs_json" ] || continue
-    verdict=$(done_pr_verdict "$name" "$tip" "$prs_json")
+    if [ -z "$prs_json" ]; then
+      printf 'keep\t%s\tmerged PRs could not be listed\n' "$name"
+      continue
+    fi
+    verdict=$(done_branch_verdict "$repo" "$name" "$tip" "$prs_json")
     case "$verdict" in
       squash*) printf 'delete\t%s\t%s\n' "$name" "$verdict" ;;
-      stale*) printf 'keep\t%s\ttip differs from the head of merged PR %s\n' "$name" "${verdict#stale }" ;;
+      behind*) printf 'delete\t%s\tsquash %s, PR had later commits\n' "$name" "${verdict#behind }" ;;
+      ahead* | failed*) printf 'warn\t%s\t%s\n' "$name" "$(done_keep_reason "$verdict")" ;;
+      *) printf 'keep\t%s\t%s\n' "$name" "$(done_keep_reason "$verdict")" ;;
     esac
-  done < <(git -C "$repo" for-each-ref --format='%(refname:short) %(objectname)' refs/heads)
+  done 3< <(git -C "$repo" for-each-ref --format='%(refname:short) %(objectname)' refs/heads)
 }
 
 # May `wt done` remove the worktree at $1? Prints `merged`, or the reason to
@@ -1844,22 +1947,23 @@ done_worktree_state() {
   fi
   branch=$(git -C "$path" branch --show-current 2> /dev/null)
   tip=$(git -C "$path" rev-parse HEAD 2> /dev/null)
-  verdict=$(done_pr_verdict "$branch" "$tip" "$prs_json")
+  verdict=$(done_branch_verdict "$REPO_ROOT" "$branch" "$tip" "$prs_json")
 
   # A tip already in main loses nothing. It still needs a merged PR, because a
   # fresh branch with no commits of its own is also in main.
   if git -C "$REPO_ROOT" merge-base --is-ancestor "$tip" main 2> /dev/null; then
     case "$verdict" in
-      none) echo "not merged" ;;
-      *) echo merged ;;
+      squash* | behind* | ahead*) echo merged ;;
+      failed*) done_keep_reason "$verdict" ;;
+      *) echo "not merged" ;;
     esac
     return 0
   fi
 
   case "$verdict" in
-    squash*) echo merged ;;
-    stale*) echo "tip differs from the head of merged PR ${verdict#stale }" ;;
-    *) echo "not merged" ;;
+    squash* | behind*) echo merged ;;
+    none) echo "not merged" ;;
+    *) done_keep_reason "$verdict" ;;
   esac
 }
 
@@ -1958,11 +2062,13 @@ cmd_done() {
   # Merged, clean worktrees under $WORKTREE_BASE. The branch is not deleted
   # here; it goes through the branch selection below with every other branch.
   # fd 3, so nothing in the loop body can drain the worktree list from stdin.
-  local wt_path wt_branch wt_state
+  # `reported` holds the branches of kept worktrees, already in the summary.
+  local wt_path wt_branch wt_state reported=""
   while IFS=$'\t' read -r -u 3 wt_path wt_branch; do
     [[ "$wt_path" == "$WORKTREE_BASE"/* ]] || continue
     if [ -z "$wt_branch" ]; then
       kept+=("$wt_path: detached HEAD")
+      continue
     elif printf '%s\n' "$orch_branches" | grep -qxF -- "$wt_branch"; then
       kept+=("$wt_branch: orchestrator worker")
     elif has_uncommitted_changes "$wt_path"; then
@@ -1971,30 +2077,43 @@ cmd_done() {
       kept+=("$wt_branch: $wt_state")
     elif remove_worktree_artifacts "$wt_path" "$wt_branch" 0 < /dev/null; then
       removed+=("$wt_branch")
+      continue
     else
       kept+=("$wt_branch: worktree remove failed")
     fi
+    reported="$reported$wt_branch"$'\n'
   done 3< <(done_list_worktrees "$main_repo")
 
-  # Never touch main, the checked-out branch, a branch in any remaining
-  # worktree, or an orchestrator worker's branch.
+  # Never touch the checked-out branch, a branch in any remaining worktree, or
+  # an orchestrator worker's branch. Each still goes in the summary, so
+  # "Nothing to clean up" means only main is left.
   local protected
   protected=$(
-    echo main
-    git -C "$main_repo" branch --show-current
-    printf '%s\n' "$orch_branches"
-    done_list_worktrees "$main_repo" | cut -f2
+    printf '%s\n' "$orch_branches" | awk 'NF { print $0 "\torchestrator worker" }'
+    done_list_worktrees "$main_repo" | cut -f2 | awk 'NF { print $0 "\tchecked out in a worktree" }'
+    git -C "$main_repo" branch --show-current | awk 'NF { print $0 "\tchecked out" }'
   )
 
   local action name detail flag
   while IFS=$'\t' read -r -u 3 action name detail; do
-    if [ "$action" = keep ]; then
-      echo -e "${YELLOW}WARN: Keeping '$name': $detail${NC}"
-      kept+=("$name: $detail")
-      continue
-    fi
+    case "$action" in
+      skip)
+        printf '%s' "$reported" | grep -qxF -- "$name" || kept+=("$name: $detail")
+        continue
+        ;;
+      warn)
+        echo -e "${YELLOW}WARN: Keeping '$name': $detail${NC}"
+        kept+=("$name: $detail")
+        continue
+        ;;
+      keep)
+        kept+=("$name: $detail")
+        continue
+        ;;
+    esac
     # `-d` re-checks a regular merge. A squash merge is never an ancestor of
-    # main, and its tip was matched to the PR head above, so it needs `-D`.
+    # main, and its tip was matched to (or found inside) the PR head above, so
+    # it needs `-D`.
     flag=-D
     [ "$detail" = merged ] && flag=-d
     if git -C "$main_repo" branch "$flag" "$name" > /dev/null 2>&1; then

@@ -18,15 +18,33 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url))
 const worktreeClaude = path.join(scriptsDir, 'worktree-claude.sh')
 
-type MergedPr = { number: number; headRefName: string; headRefOid: string }
+// `state` defaults to MERGED. `old` drops a merged PR from the bulk list, as
+// GitHub does once more than 200 PRs merged after it (HON-1072).
+type Pr = {
+  number: number
+  headRefName: string
+  headRefOid: string
+  state?: 'MERGED' | 'OPEN' | 'CLOSED'
+  old?: boolean
+}
 
-// `gh pr list --state merged --limit 200 --json …` returns the fixture. The
-// `--head <b>` form (is_branch_merged, which `wt done` no longer calls) prints
-// MERGED when a fixture PR has that head, so a regression back to it still
-// sees a realistic answer.
+// Serves the three calls `wt done` makes from the fixture:
+// - `gh pr list --state merged --limit 200 --json …`: the merged PRs not `old`
+// - `gh pr list --head <b> --state all --json …`: every PR with that head
+// - `gh pr view <N> --json …`: PR N, or exit 1 when there is none
+// STUB_GH_FAILS fails every call; STUB_GH_LOOKUP_FAILS fails the last two only.
 const GH_STUB = `#!/usr/bin/env bash
 echo "gh $*" >> "$STUB_DIR/calls"
 [ "$STUB_GH_FAILS" = 1 ] && { echo "gh: HTTP 502" >&2; exit 1; }
+prs="$STUB_DIR/prs.json"
+pick='{number, headRefOid, state: (.state // "MERGED")}'
+if [ "$1 $2" = "pr view" ]; then
+  [ "$STUB_GH_LOOKUP_FAILS" = 1 ] && { echo "gh: HTTP 502" >&2; exit 1; }
+  out=$(jq -c --argjson n "$3" "map(select(.number == \\$n)) | first | select(.) | $pick" "$prs")
+  [ -n "$out" ] || { echo "no pull requests found" >&2; exit 1; }
+  echo "$out"
+  exit 0
+fi
 head=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -35,9 +53,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 if [ -n "$head" ]; then
-  jq -r --arg h "$head" 'if any(.[]; .headRefName == $h) then "MERGED" else empty end' "$STUB_DIR/prs.json"
+  [ "$STUB_GH_LOOKUP_FAILS" = 1 ] && { echo "gh: HTTP 502" >&2; exit 1; }
+  jq -c --arg h "$head" "map(select(.headRefName == \\$h) | $pick)" "$prs"
 else
-  cat "$STUB_DIR/prs.json"
+  jq -c 'map(select((.state // "MERGED") == "MERGED" and (.old | not)))' "$prs"
 fi
 `
 
@@ -94,7 +113,7 @@ function branches(): string[] {
   return git(main, 'for-each-ref', '--format=%(refname:short)', 'refs/heads').split('\n').sort()
 }
 
-function writePrs(prs: MergedPr[]): void {
+function writePrs(prs: Pr[]): void {
   fs.writeFileSync(path.join(stubDir, 'prs.json'), JSON.stringify(prs))
 }
 
@@ -119,7 +138,17 @@ function neonDeletes(): string[] {
     .filter((line) => line.startsWith('pnpm ') && line.includes('branches delete'))
 }
 
-function runDone(cwd: string, opts: { ghFails?: boolean; neon?: boolean } = {}) {
+function ghCalls(): string[] {
+  return fs
+    .readFileSync(path.join(stubDir, 'calls'), 'utf8')
+    .split('\n')
+    .filter((line) => line.startsWith('gh '))
+}
+
+function runDone(
+  cwd: string,
+  opts: { ghFails?: boolean; lookupFails?: boolean; neon?: boolean } = {},
+) {
   const r = spawnSync('/bin/bash', ['-c', 'source "$1"; cmd_done', 'bash', worktreeClaude], {
     cwd,
     encoding: 'utf8',
@@ -129,6 +158,7 @@ function runDone(cwd: string, opts: { ghFails?: boolean; neon?: boolean } = {}) 
       PATH: `${stubDir}:${process.env.PATH}`,
       STUB_DIR: stubDir,
       STUB_GH_FAILS: opts.ghFails ? '1' : '0',
+      STUB_GH_LOOKUP_FAILS: opts.lookupFails ? '1' : '0',
       // Dummy values switch neon_enabled on; the pnpm stub records the delete.
       ...(opts.neon ? { NEON_API_KEY: 'test-key', NEON_PROJECT_ID: 'test-project' } : {}),
     },
@@ -183,9 +213,7 @@ describe('wt done branch selection (HON-1066)', () => {
 
     expect(r.status, r.out).toBe(0)
     expect(branches()).toEqual(['kaupo/hon-2-b', 'main'])
-    expect(r.out).toMatch(
-      /WARN: Keeping 'kaupo\/hon-2-b': tip differs from the head of merged PR #2/,
-    )
+    expect(r.out).toContain("WARN: Keeping 'kaupo/hon-2-b': commits after the merge of PR #2")
   })
 
   it('deletes a `gh pr checkout` branch pr<N> whose tip equals PR N head', () => {
@@ -199,14 +227,16 @@ describe('wt done branch selection (HON-1066)', () => {
     expect(r.out).toContain('pr707 (squash #707)')
   })
 
-  it('keeps pr<N> when its tip is not the PR head', () => {
+  it('keeps pr<N>, with a WARN, when the PR head cannot be fetched to compare', () => {
     squashMerged('pr708', 'd.txt')
     writePrs([{ number: 708, headRefName: 'someone/else', headRefOid: 'f'.repeat(40) }])
 
     const r = runDone(main)
 
     expect(branches()).toEqual(['main', 'pr708'])
-    expect(r.out).toContain("WARN: Keeping 'pr708'")
+    expect(r.out).toContain(
+      "WARN: Keeping 'pr708': PR lookup failed: could not fetch the head of PR #708",
+    )
   })
 
   it('deletes a regular-merged branch', () => {
@@ -223,15 +253,18 @@ describe('wt done branch selection (HON-1066)', () => {
     expect(r.out).toContain('feat/regular (merged)')
   })
 
-  it('leaves an unmerged branch with no PR alone, and silent', () => {
+  it('keeps an unmerged branch with no PR, and names it in the summary', () => {
     git(main, 'checkout', '-q', '-b', 'feat/wip')
     commit(main, 'f.txt')
     git(main, 'checkout', '-q', 'main')
 
     const r = runDone(main)
 
+    expect(r.status, r.out).toBe(0)
     expect(branches()).toEqual(['feat/wip', 'main'])
-    expect(r.out).not.toContain('feat/wip')
+    expect(r.out).toMatch(/Kept:\n {2}feat\/wip: no PR found/)
+    expect(r.out).not.toContain('WARN')
+    expect(r.out).not.toContain('Nothing to clean up')
   })
 
   it('deletes no squash-merged branch when gh fails, and says so', () => {
@@ -243,6 +276,7 @@ describe('wt done branch selection (HON-1066)', () => {
     expect(r.status, r.out).toBe(0)
     expect(branches()).toEqual(['kaupo/hon-3-c', 'main'])
     expect(r.out).toContain('WARN: Could not list merged PRs with gh')
+    expect(r.out).toContain('kaupo/hon-3-c: merged PRs could not be listed')
   })
 
   it('does not touch a branch listed as an orchestrator worker', () => {
@@ -254,6 +288,120 @@ describe('wt done branch selection (HON-1066)', () => {
 
     expect(r.status, r.out).toBe(0)
     expect(branches()).toEqual(['auto/hon-4', 'main'])
+    expect(r.out).toContain('auto/hon-4: orchestrator worker')
+    expect(ghCalls().join('\n')).not.toContain('auto/hon-4')
+  })
+
+  it('names a branch checked out in a worktree outside the worktree base', () => {
+    git(main, 'branch', 'feat/elsewhere')
+    git(main, 'worktree', 'add', '-q', path.join(tmp, 'elsewhere'), 'feat/elsewhere')
+
+    const r = runDone(main)
+
+    expect(branches()).toEqual(['feat/elsewhere', 'main'])
+    expect(r.out).toContain('feat/elsewhere: checked out in a worktree')
+  })
+
+  it('prints "Nothing to clean up" when only main remains', () => {
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(r.out).toContain('Nothing to clean up.')
+  })
+})
+
+describe('wt done per-branch PR lookup (HON-1072)', () => {
+  it('deletes a branch whose merged PR is older than the bulk window, tip equal to its head', () => {
+    const tip = squashMerged('kaupo/hon-627-scan', 'w1.txt')
+    writePrs([{ number: 707, headRefName: 'kaupo/hon-627-scan', headRefOid: tip, old: true }])
+
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(branches()).toEqual(['main'])
+    expect(r.out).toContain('kaupo/hon-627-scan (squash #707)')
+    expect(ghCalls()).toContainEqual(expect.stringContaining('--head kaupo/hon-627-scan'))
+  })
+
+  it('deletes pr<N> whose tip is an ancestor of PR N head, fetching the head from origin', () => {
+    const tip = squashMerged('pr688', 'w2.txt')
+    // The PR got a commit after `gh pr checkout`; it exists only on origin.
+    const other = path.join(tmp, 'other')
+    git(tmp, 'clone', '-q', path.join(tmp, 'origin.git'), other)
+    git(other, 'fetch', '-q', main, 'pr688')
+    git(other, 'checkout', '-q', '-b', 'pr-head', 'FETCH_HEAD')
+    const head = commit(other, 'w2-late.txt')
+    git(other, 'push', '-q', 'origin', 'HEAD:refs/pull/688/head')
+    writePrs([{ number: 688, headRefName: 'kaupo/hon-688', headRefOid: head, old: true }])
+    expect(tip).not.toBe(head)
+
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(branches()).toEqual(['main'])
+    expect(r.out).toContain('pr688 (squash #688, PR had later commits)')
+    expect(ghCalls()).toContainEqual(expect.stringContaining('gh pr view 688'))
+  })
+
+  it('deletes a recent pr<N> behind its PR head from the bulk list alone', () => {
+    squashMerged('pr768', 'w3.txt')
+    git(main, 'checkout', '-q', '-b', 'pr-head', 'pr768')
+    const head = commit(main, 'w3-late.txt')
+    git(main, 'checkout', '-q', 'main')
+    git(main, 'branch', '-q', '-D', 'pr-head')
+    writePrs([{ number: 768, headRefName: 'kaupo/hon-768', headRefOid: head }])
+
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(branches()).toEqual(['main'])
+    expect(r.out).toContain('pr768 (squash #768, PR had later commits)')
+    expect(ghCalls()).not.toContainEqual(expect.stringContaining('gh pr view'))
+  })
+
+  it('keeps a branch with a commit its old merged PR lacks, with "commits after the merge"', () => {
+    const tip = squashMerged('kaupo/hon-20-t', 'w4.txt')
+    writePrs([{ number: 20, headRefName: 'kaupo/hon-20-t', headRefOid: tip, old: true }])
+    git(main, 'checkout', '-q', 'kaupo/hon-20-t')
+    commit(main, 'w4-late.txt')
+    git(main, 'checkout', '-q', 'main')
+
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(branches()).toEqual(['kaupo/hon-20-t', 'main'])
+    expect(r.out).toContain("WARN: Keeping 'kaupo/hon-20-t': commits after the merge of PR #20")
+    expect(r.out).toMatch(/Kept:\n {2}kaupo\/hon-20-t: commits after the merge of PR #20/)
+  })
+
+  it('keeps branches whose PR is open or closed unmerged, and names the reason', () => {
+    git(main, 'checkout', '-q', '-b', 'feat/open')
+    const open = commit(main, 'w5.txt')
+    git(main, 'checkout', '-q', '-b', 'feat/closed', 'main')
+    const closed = commit(main, 'w6.txt')
+    git(main, 'checkout', '-q', 'main')
+    writePrs([
+      { number: 30, headRefName: 'feat/open', headRefOid: open, state: 'OPEN' },
+      { number: 31, headRefName: 'feat/closed', headRefOid: closed, state: 'CLOSED' },
+    ])
+
+    const r = runDone(main)
+
+    expect(r.status, r.out).toBe(0)
+    expect(branches()).toEqual(['feat/closed', 'feat/open', 'main'])
+    expect(r.out).toContain('feat/open: PR #30 open')
+    expect(r.out).toContain('feat/closed: PR #31 closed unmerged')
+  })
+
+  it('keeps a branch with a WARN when its own lookup fails', () => {
+    const tip = squashMerged('kaupo/hon-21-u', 'w7.txt')
+    writePrs([{ number: 21, headRefName: 'kaupo/hon-21-u', headRefOid: tip, old: true }])
+
+    const r = runDone(main, { lookupFails: true })
+
+    expect(r.status, r.out).toBe(0)
+    expect(branches()).toEqual(['kaupo/hon-21-u', 'main'])
+    expect(r.out).toContain("WARN: Keeping 'kaupo/hon-21-u': PR lookup failed")
   })
 })
 
@@ -315,7 +463,7 @@ describe('wt done worktrees (HON-1066)', () => {
     expect(r.status, r.out).toBe(0)
     expect(fs.existsSync(dir)).toBe(true)
     expect(branches()).toEqual(['kaupo/hon-12-k', 'main'])
-    expect(r.out).toContain('kaupo/hon-12-k: tip differs from the head of merged PR #12')
+    expect(r.out).toContain('kaupo/hon-12-k: commits after the merge of PR #12')
   })
 
   it('deletes the Neon branch of a removed worktree only', () => {
@@ -399,7 +547,7 @@ describe('wt done worktrees (HON-1066)', () => {
 
     expect(r.status).toBe(1)
     expect(r.out).toContain(
-      "Keeping 'kaupo/hon-14-m': tip differs from the head of merged PR #14 — nothing removed",
+      "Keeping 'kaupo/hon-14-m': commits after the merge of PR #14 — nothing removed",
     )
     expect(fs.existsSync(dir)).toBe(true)
   })
