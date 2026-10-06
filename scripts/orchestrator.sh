@@ -1497,17 +1497,21 @@ finish_attempt_eligible() {
   ! worktree_has_uncommitted "$branch"
 }
 
-# Whether the worker ended at /auto-implement's 6.7 review-round cap hand-off
-# (`.claude/skills/auto-implement/review-cap.md`). Two reasons this cannot
-# misfire in the costly direction: a false positive only withholds the finish
+# Whether the worker deliberately left its PR for a human: /auto-implement's
+# 6.7 review-round cap hand-off (`.claude/skills/auto-implement/review-cap.md`)
+# or a stop like it. Matched broadly, because workers paraphrase the first
+# marker line: none of 316 worker logs on 2026-10-06 held review-cap.md's exact
+# wording, while both real hand-offs printed `[auto-implement] PR left open`
+# (HON-794: "PR left open, not merged"; HON-963: "… with a hand-off comment").
+# Broad is safe for two reasons: a false positive only withholds the finish
 # attempt, which is the behaviour before HON-1065; and the previous attempt's
 # hand-off line cannot reach a retry worker's log through its prompt, because
 # defang_log_markers rewrites `[auto-implement]` to `(auto-implement)`.
-HANDOFF_MARKER='[auto-implement] ⚠ Review-round cap reached'
+HANDOFF_MARKER_RE='\[auto-implement\] (PR left open|⚠ .*(Review-round cap reached|handing off))'
 worker_handed_off() {
   local log_file="$1"
   [ -n "$log_file" ] && [ -f "$log_file" ] || return 1
-  grep -qF "$HANDOFF_MARKER" "$log_file" 2>/dev/null
+  grep -qE "$HANDOFF_MARKER_RE" "$log_file" 2>/dev/null
 }
 
 # Record a run that produced commits but never merged. Assumes probe_worker_pr

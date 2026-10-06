@@ -3022,10 +3022,36 @@ describe('orchestrator.sh', () => {
       expectRecordedForHuman(strand(mode, 'OPEN', { HARNESS_LOG_TAIL: HANDOFF }))
     })
 
+    // Workers paraphrase the marker. These are the two real hand-offs in the
+    // worker logs on 2026-10-06; neither printed review-cap.md's exact first line.
+    it.each([
+      [
+        'HON-794',
+        '[auto-implement] ⚠ Stopped before Phase 7: this PR needs your live pass before merge\n[auto-implement] PR left open, not merged',
+      ],
+      [
+        'HON-963',
+        '[auto-implement] ⚠ Unresolved finding at round 1: judged eval under its gate — handing off\n[auto-implement] PR left open with a hand-off comment; not merged',
+      ],
+    ])('does not respawn the paraphrased hand-off %s printed', (_issue, tail) => {
+      expectRecordedForHuman(strand('outcome', 'OPEN', { HARNESS_LOG_TAIL: tail }))
+    })
+
+    it.each([
+      '[auto-implement] PR left open, not merged',
+      '[auto-implement] ⚠ Unresolved finding at round 2 — handing off',
+      '[auto-implement] ⚠ Review-round cap reached (3/3) — handing off',
+    ])('reads any one hand-off line on its own: %s', (line) => {
+      expectRecordedForHuman(strand('outcome', 'OPEN', { HARNESS_LOG_TAIL: line }))
+    })
+
     it('still respawns when the log only carries a defanged hand-off line', () => {
       // A retry note rewrites `[auto-implement]` to `(auto-implement)`, so
       // attempt 1's hand-off quoted in a prompt is not attempt 2's hand-off.
-      const defanged = '(auto-implement) ⚠ Review-round cap reached (3/3) — handing off'
+      const defanged = [
+        '(auto-implement) ⚠ Review-round cap reached (3/3) — handing off',
+        '(auto-implement) PR left open with a hand-off comment; not merged',
+      ].join('\n')
 
       expect(strand('outcome', 'OPEN', { HARNESS_LOG_TAIL: defanged })).toContain('triage=FINISH')
     })
