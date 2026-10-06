@@ -1,7 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { createUnmatchedIngredientRowData, ingredientResults } from '@/stories/fixtures'
-import { emptyIngredientsHandlers, loadingIngredientsHandlers } from '@/stories/msw-handlers'
+import {
+  emptyIngredientsHandlers,
+  loadingIngredientsHandlers,
+  synonymIngredientsHandlers,
+} from '@/stories/msw-handlers'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 
 const meta = {
@@ -179,5 +183,36 @@ export const RemoveInvokesOnRemove: Story = {
     const remove = canvas.getByRole('button', { name: /drop/i })
     await userEvent.click(remove)
     await expect(args.onRemove).toHaveBeenCalledTimes(1)
+  },
+}
+
+export const MatchedByOtherName: Story = {
+  parameters: {
+    msw: { handlers: synonymIngredientsHandlers },
+    docs: {
+      description: {
+        story:
+          'A row found by another English name shows that name in brackets after the pool name, in the muted tone (HON-1100). Picking it passes the row without `matchedAs`, so the screens after the dropdown show the pool name only.',
+      },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByPlaceholderText(/search ingredients/i), 'plain fl')
+
+    const result = await canvas.findByRole(
+      'button',
+      { name: /all-purpose flour/i },
+      { timeout: 3000 },
+    )
+    await expect(result).toHaveTextContent('all-purpose flour(plain flour)')
+
+    await userEvent.click(result)
+    await waitFor(() =>
+      expect(args.onResolve).toHaveBeenCalledWith(
+        { id: 'all-purpose-flour', name: 'all-purpose flour', category: 'carb', defaultUnit: 'g' },
+        100,
+      ),
+    )
   },
 }

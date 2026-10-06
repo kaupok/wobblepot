@@ -1,6 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
-import { emptyIngredientsHandlers, loadingIngredientsHandlers } from '@/stories/msw-handlers'
+import {
+  emptyIngredientsHandlers,
+  loadingIngredientsHandlers,
+  synonymIngredientsHandlers,
+} from '@/stories/msw-handlers'
 import { IngredientSearch } from './IngredientSearch'
 
 const meta = {
@@ -125,6 +129,42 @@ export const SearchAndSelectInvokesCallback: Story = {
       expect(args.onAddIngredient).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'chicken-thigh', name: 'Chicken thigh' }),
       ),
+    )
+  },
+}
+
+export const MatchedByOtherName: Story = {
+  parameters: {
+    msw: { handlers: synonymIngredientsHandlers },
+    docs: {
+      description: {
+        story:
+          'A row found by another English name shows that name in brackets after the pool name, in the muted tone (HON-1100). Picking it passes the row without `matchedAs`, so the screens after the dropdown show the pool name only.',
+      },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByRole('combobox'), 'plain fl')
+
+    const option = await canvas.findByRole(
+      'option',
+      { name: /all-purpose flour/i },
+      { timeout: 3000 },
+    )
+    await expect(option).toHaveTextContent('all-purpose flour(plain flour)')
+    await expect(canvas.getByRole('option', { name: /flour tortilla/i })).not.toHaveTextContent(
+      '(plain flour)',
+    )
+
+    await userEvent.click(option)
+    await waitFor(() =>
+      expect(args.onAddIngredient).toHaveBeenCalledWith({
+        id: 'all-purpose-flour',
+        name: 'all-purpose flour',
+        category: 'carb',
+        defaultUnit: 'g',
+      }),
     )
   },
 }

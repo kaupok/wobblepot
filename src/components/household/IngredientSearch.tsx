@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { useIngredientSearch } from '@/hooks/use-ingredient-search'
+import { useIngredientSearch, withoutMatchedAs } from '@/hooks/use-ingredient-search'
 import { type IngredientResult } from './meal-form-types'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 
@@ -69,7 +69,7 @@ export function IngredientSearch({
 
   const handleAdd = useCallback(
     (ingredient: IngredientResult) => {
-      onAddIngredient(ingredient)
+      onAddIngredient(withoutMatchedAs(ingredient))
       setSearchQuery('')
       setIsDropdownDismissed(true)
       setHighlightedIndex(-1)
@@ -153,6 +153,7 @@ export function IngredientSearch({
               >
                 <div className="flex items-center gap-2">
                   <Body tone={isAdded ? 'muted' : 'default'}>{ingredient.name}</Body>
+                  {ingredient.matchedAs && <Body tone="muted">({ingredient.matchedAs})</Body>}
                   <CategoryHint category={ingredient.category} />
                 </div>
                 {isAdded ? (

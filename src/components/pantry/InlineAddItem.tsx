@@ -11,7 +11,11 @@ import { cn } from '@/lib/utils'
 import { apiFetch, ApiError } from '@/lib/api'
 import { track } from '@/lib/analytics'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { useIngredientSearch, type IngredientResult } from '@/hooks/use-ingredient-search'
+import {
+  useIngredientSearch,
+  withoutMatchedAs,
+  type IngredientResult,
+} from '@/hooks/use-ingredient-search'
 import type { PantryItemData } from './PantryItem'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 
@@ -97,7 +101,7 @@ export function InlineAddItem({
     },
   })
   const isAdding = addMutation.isPending
-  const addItem = (ingredient: IngredientResult) => addMutation.mutate(ingredient)
+  const addItem = (ingredient: IngredientResult) => addMutation.mutate(withoutMatchedAs(ingredient))
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
@@ -163,6 +167,7 @@ export function InlineAddItem({
               >
                 <div className="flex items-center gap-2">
                   <Body tone={isInPantry ? 'muted' : 'default'}>{ingredient.name}</Body>
+                  {ingredient.matchedAs && <Body tone="muted">({ingredient.matchedAs})</Body>}
                   <CategoryHint category={ingredient.category} />
                   {isInPantry && (
                     <span className="text-muted-foreground flex items-center gap-1 text-xs">

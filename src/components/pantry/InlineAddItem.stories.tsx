@@ -6,6 +6,7 @@ import {
   emptyIngredientsHandlers,
   errorPantryHandlers,
   loadingIngredientsHandlers,
+  synonymIngredientsHandlers,
 } from '@/stories/msw-handlers'
 import { InlineAddItem } from './InlineAddItem'
 
@@ -222,5 +223,31 @@ export const ServerError: Story = {
           'POST returns 500 — component surfaces an error toast (out-of-canvas) and leaves the input populated.',
       },
     },
+  },
+}
+
+export const MatchedByOtherName: Story = {
+  parameters: {
+    msw: { handlers: synonymIngredientsHandlers },
+    docs: {
+      description: {
+        story:
+          'Typing "plain fl" offers "all-purpose flour (plain flour)": the row found by another English name shows that name in brackets, in the muted tone (HON-1100). A row found by its own name has no bracket.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByPlaceholderText(/add ingredient to pantry/i), 'plain fl')
+
+    const option = await canvas.findByRole(
+      'button',
+      { name: /all-purpose flour/i },
+      { timeout: 3000 },
+    )
+    await expect(option).toHaveTextContent('all-purpose flour(plain flour)')
+    await expect(canvas.getByRole('button', { name: /flour tortilla/i })).not.toHaveTextContent(
+      '(plain flour)',
+    )
   },
 }

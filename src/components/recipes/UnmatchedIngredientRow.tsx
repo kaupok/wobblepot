@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
-import { useIngredientSearch } from '@/hooks/use-ingredient-search'
+import { useIngredientSearch, withoutMatchedAs } from '@/hooks/use-ingredient-search'
 import type { UnmatchedIngredientData, IngredientResult } from './IngredientRow'
 import type { IngredientCategory } from '@/generated/prisma/enums'
 
@@ -74,7 +74,7 @@ export function UnmatchedIngredientRow({
       const defaultQuantity = ingredient.defaultUnit === 'piece' ? 1 : 100
 
       if (onResolve) {
-        onResolve(ingredient, defaultQuantity)
+        onResolve(withoutMatchedAs(ingredient), defaultQuantity)
       }
 
       setSearchQuery('')
@@ -168,6 +168,7 @@ export function UnmatchedIngredientRow({
               >
                 <div className="flex items-center gap-2">
                   <Body>{ingredient.name}</Body>
+                  {ingredient.matchedAs && <Body tone="muted">({ingredient.matchedAs})</Body>}
                   <CategoryHint category={ingredient.category} />
                 </div>
               </button>

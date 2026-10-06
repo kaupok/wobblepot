@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { INGREDIENT_ALIASES, applyIngredientAlias, hasIngredientAlias } from './ingredient-aliases'
+import {
+  INGREDIENT_ALIASES,
+  INGREDIENT_SYNONYMS,
+  applyIngredientAlias,
+  hasIngredientAlias,
+} from './ingredient-aliases'
 
 describe('INGREDIENT_ALIASES', () => {
   it('contains expected common aliases', () => {
@@ -44,11 +49,7 @@ describe('INGREDIENT_ALIASES', () => {
   it('contains audit quick-win aliases', () => {
     expect(INGREDIENT_ALIASES['azuki beans']).toBe('adzuki beans')
     expect(INGREDIENT_ALIASES['sichuan peppercorn']).toBe('szechuan peppercorn')
-    expect(INGREDIENT_ALIASES['capsicum']).toBe('bell pepper')
-    expect(INGREDIENT_ALIASES['swede']).toBe('rutabaga')
     expect(INGREDIENT_ALIASES['sultanas']).toBe('raisins')
-    expect(INGREDIENT_ALIASES['bicarbonate of soda']).toBe('baking soda')
-    expect(INGREDIENT_ALIASES['icing sugar']).toBe('powdered sugar')
     expect(INGREDIENT_ALIASES['ginger powder']).toBe('ground ginger')
     expect(INGREDIENT_ALIASES['lemon juice']).toBe('lemon')
     expect(INGREDIENT_ALIASES['lime juice']).toBe('lime')
@@ -125,7 +126,6 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['parmigiano-reggiano']).toBe('parmesan')
     expect(INGREDIENT_ALIASES['parmigiano reggiano']).toBe('parmesan')
     expect(INGREDIENT_ALIASES['phyllo pastry']).toBe('phyllo dough')
-    expect(INGREDIENT_ALIASES['filo pastry']).toBe('phyllo dough')
     expect(INGREDIENT_ALIASES['filo dough']).toBe('phyllo dough')
     expect(INGREDIENT_ALIASES['filo']).toBe('phyllo dough')
     expect(INGREDIENT_ALIASES['french green beans']).toBe('haricots verts')
@@ -142,6 +142,29 @@ describe('INGREDIENT_ALIASES', () => {
     expect(INGREDIENT_ALIASES['milk']).toBeUndefined()
     expect(INGREDIENT_ALIASES['butter']).toBeUndefined()
     expect(INGREDIENT_ALIASES['basil']).toBeUndefined()
+  })
+})
+
+// HON-1100: other English names for the same row, shown next to it in search.
+describe('INGREDIENT_SYNONYMS', () => {
+  it('maps British and American names to the pool name', () => {
+    expect(INGREDIENT_SYNONYMS['plain flour']).toBe('all-purpose flour')
+    expect(INGREDIENT_SYNONYMS['icing sugar']).toBe('powdered sugar')
+    expect(INGREDIENT_SYNONYMS['cornflour']).toBe('cornstarch')
+    expect(INGREDIENT_SYNONYMS['swede']).toBe('rutabaga')
+    expect(INGREDIENT_SYNONYMS['capsicum']).toBe('bell pepper')
+    expect(INGREDIENT_SYNONYMS['garbanzo beans']).toBe('chickpeas')
+  })
+
+  it('has lowercase keys', () => {
+    for (const key of Object.keys(INGREDIENT_SYNONYMS)) {
+      expect(key).toBe(key.toLowerCase())
+    }
+  })
+
+  it('shares no key with INGREDIENT_ALIASES', () => {
+    const shared = Object.keys(INGREDIENT_SYNONYMS).filter((key) => key in INGREDIENT_ALIASES)
+    expect(shared).toEqual([])
   })
 })
 
@@ -183,6 +206,12 @@ describe('applyIngredientAlias', () => {
     expect(applyIngredientAlias('Bicarbonate of Soda')).toBe('baking soda')
     expect(applyIngredientAlias('extra virgin olive oil')).toBe('olive oil')
     expect(applyIngredientAlias('Lemon Juice')).toBe('lemon')
+  })
+
+  it('resolves another English name to the pool name', () => {
+    expect(applyIngredientAlias('Plain Flour')).toBe('all-purpose flour')
+    expect(applyIngredientAlias('icing sugar')).toBe('powdered sugar')
+    expect(hasIngredientAlias('plain flour')).toBe(true)
   })
 
   it('expands Japanese pantry aliases', () => {

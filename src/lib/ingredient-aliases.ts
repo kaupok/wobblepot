@@ -77,7 +77,6 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 
   // British English / alternate names (seed-import-coverage)
   cornmeal: 'corn meal', // DB has corn meal
-  'plain flour': 'all-purpose flour', // British term
   'self raising flour': 'self-raising flour', // Without hyphen
   aubergine: 'eggplant', // British term
   courgette: 'zucchini', // British term
@@ -86,15 +85,9 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'coriander leaves': 'cilantro', // Explicit leaf reference
   'fresh coriander': 'cilantro', // Common British recipe phrasing
   prawn: 'prawns', // Singular form
-  capsicum: 'bell pepper', // Australian/British term
-  swede: 'rutabaga', // British term
   sultanas: 'raisins', // British term
-  'bicarbonate of soda': 'baking soda', // British term
-  'icing sugar': 'powdered sugar', // British term
 
-  // Onion / scallion aliases
-  scallion: 'spring onion', // DB has spring onion
-  'green onion': 'spring onion', // DB has spring onion
+  // Onion aliases
   'spring onions': 'spring onion', // Plural form
 
   // Alternate spellings
@@ -121,16 +114,12 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   // stewing beef / beef stew meat: now direct ingredients in seed-import-coverage.ts
 
   // Oil aliases
-  'rapeseed oil': 'canola oil', // DB has canola oil (seed-import-coverage)
   'extra virgin olive oil': 'olive oil', // DB has olive oil
 
   // Juice-to-base aliases
   'lemon juice': 'lemon', // DB has lemon
   'lime juice': 'lime', // DB has lime
   'tomato juice': 'tomato', // DB has tomato
-
-  // Dairy aliases
-  'natural yogurt': 'plain yogurt', // British term
 
   // Cross-cuisine aliases (HON-411)
   'tamarind paste': 'tamarind puree', // DB has tamarind puree
@@ -213,7 +202,6 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'parmigiano-reggiano': 'parmesan', // DB has parmesan
   'parmigiano reggiano': 'parmesan', // DB has parmesan
   'phyllo pastry': 'phyllo dough', // DB has phyllo dough
-  'filo pastry': 'phyllo dough', // DB has phyllo dough
   'filo dough': 'phyllo dough', // DB has phyllo dough
   filo: 'phyllo dough', // DB has phyllo dough
   'french green beans': 'haricots verts', // DB has haricots verts
@@ -225,23 +213,82 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 }
 
 /**
- * Apply ingredient alias expansion.
+ * Other English names for a global ingredient: the same thing under another
+ * name, usually the British or American word for the pool's name (HON-1100).
  *
- * @param name - The ingredient name extracted by AI
- * @returns The expanded name if an alias exists, otherwise the original name
+ * Kept apart from `INGREDIENT_ALIASES` because the ingredient search shows a
+ * synonym next to the row it found ("all-purpose flour (plain flour)"), and an
+ * alias is an expansion to a more specific row, so "chicken breast (chicken)"
+ * would be wrong there. The AI recipe matcher reads both tables.
+ *
+ * Rules (checked by `pnpm db:validate`):
+ * - Keys are lowercase and are not themselves the name of a global ingredient
+ * - A key is in this table or in `INGREDIENT_ALIASES`, never both
+ * - Values match a global ingredient name exactly
  */
-export function applyIngredientAlias(name: string): string {
-  const normalized = name.toLowerCase().trim()
-  return INGREDIENT_ALIASES[normalized] ?? name
+export const INGREDIENT_SYNONYMS: Record<string, string> = {
+  // Baking
+  'plain flour': 'all-purpose flour',
+  'wholemeal flour': 'whole wheat flour',
+  'icing sugar': 'powdered sugar',
+  'confectioners sugar': 'powdered sugar',
+  'superfine sugar': 'caster sugar',
+  cornflour: 'cornstarch',
+  'bicarbonate of soda': 'baking soda',
+  bicarb: 'baking soda',
+  'filo pastry': 'phyllo dough',
+  'vanilla pod': 'vanilla bean',
+
+  // Dairy
+  'single cream': 'half and half',
+  'natural yogurt': 'plain yogurt',
+  'natural yoghurt': 'plain yogurt',
+  'greek yoghurt': 'greek yogurt',
+
+  // Oils, seeds and legumes
+  'rapeseed oil': 'canola oil',
+  'pumpkin seeds': 'pepitas',
+  'broad beans': 'fava beans',
+  'borlotti beans': 'cranberry beans',
+  'garbanzo beans': 'chickpeas',
+
+  // Vegetables
+  'chestnut mushroom': 'cremini mushroom',
+  'chinese leaf': 'napa cabbage',
+  swede: 'rutabaga',
+  'plum tomato': 'roma tomato',
+  'jerusalem artichoke': 'sunchoke',
+  'vine leaves': 'grape leaves',
+  'wild garlic': 'ramp',
+  'red pepper': 'red bell pepper',
+  'green pepper': 'green bell pepper',
+  'yellow pepper': 'yellow bell pepper',
+  capsicum: 'bell pepper',
+  'sweet pepper': 'bell pepper',
+  scallion: 'spring onion',
+  'green onion': 'spring onion',
 }
 
 /**
- * Check if a name is an ambiguous term that has an alias.
+ * Apply ingredient alias expansion, or resolve another English name to the
+ * pool's name.
+ *
+ * @param name - The ingredient name extracted by AI
+ * @returns The expanded or pool name if the name is in either table, otherwise the original name
+ */
+export function applyIngredientAlias(name: string): string {
+  const normalized = name.toLowerCase().trim()
+  return INGREDIENT_ALIASES[normalized] ?? INGREDIENT_SYNONYMS[normalized] ?? name
+}
+
+/**
+ * Check if a name is an ambiguous term that has an alias, or another English
+ * name for a pool ingredient.
  *
  * @param name - The ingredient name to check
- * @returns True if the name has an alias expansion
+ * @returns True if `applyIngredientAlias` would change the name
  */
 export function hasIngredientAlias(name: string): boolean {
   const normalized = name.toLowerCase().trim()
-  return normalized in INGREDIENT_ALIASES
+  return normalized in INGREDIENT_ALIASES || normalized in INGREDIENT_SYNONYMS
 }

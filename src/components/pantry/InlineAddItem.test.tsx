@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { InlineAddItem } from './InlineAddItem'
 
@@ -17,5 +18,57 @@ describe('InlineAddItem field name', () => {
       'placeholder',
       'Add ingredient to pantry…',
     )
+  })
+})
+
+// HON-1100: a row found by another English name shows that name in brackets.
+describe('InlineAddItem other English name', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('offers "all-purpose flour (plain flour)" for "plain fl" and adds the pool row', async () => {
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ id: 'pantry-1', ingredientId: 'flour' }),
+        })
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            ingredients: [
+              {
+                id: 'flour',
+                name: 'all-purpose flour',
+                category: 'carb',
+                defaultUnit: 'g',
+                matchedAs: 'plain flour',
+              },
+            ],
+          }),
+      })
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+    const onItemAdded = vi.fn()
+    const user = userEvent.setup()
+    const { wrapper } = createQueryWrapper()
+    render(<InlineAddItem onItemAdded={onItemAdded} />, { wrapper })
+
+    await user.type(screen.getByLabelText('Add ingredient to pantry'), 'plain fl')
+    const option = await screen.findByRole(
+      'button',
+      { name: /all-purpose flour/ },
+      { timeout: 2000 },
+    )
+    expect(option).toHaveTextContent('all-purpose flour(plain flour)')
+
+    await user.click(option)
+
+    await waitFor(() => expect(onItemAdded).toHaveBeenCalled())
+    const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
+    expect(JSON.parse(String(post?.[1]?.body))).toEqual({ ingredientId: 'flour', isStaple: false })
   })
 })

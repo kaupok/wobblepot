@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { UnmatchedIngredientRow } from './UnmatchedIngredientRow'
 import type { UnmatchedIngredientData } from './IngredientRow'
@@ -77,5 +78,53 @@ describe('UnmatchedIngredientRow vague phrase', () => {
     )
 
     expect(screen.getByText('a pinch')).toBeInTheDocument()
+  })
+})
+
+// HON-1100: a row found by another English name shows that name in brackets.
+describe('UnmatchedIngredientRow other English name', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('shows the typed name in brackets and resolves to the row without it', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          ingredients: [
+            {
+              id: 'sugar',
+              name: 'powdered sugar',
+              category: 'carb',
+              defaultUnit: 'g',
+              matchedAs: 'icing sugar',
+            },
+          ],
+        }),
+    })
+    const onResolve = vi.fn()
+    const user = userEvent.setup()
+    const { wrapper } = createQueryWrapper()
+    render(
+      <UnmatchedIngredientRow
+        data={data('icing sugar')}
+        disabled={false}
+        onRemove={vi.fn()}
+        onResolve={onResolve}
+      />,
+      { wrapper },
+    )
+
+    await user.type(screen.getByRole('textbox'), 'icing')
+    const option = await screen.findByRole('button', { name: /powdered sugar/ }, { timeout: 2000 })
+    expect(option).toHaveTextContent('powdered sugar(icing sugar)')
+
+    await user.click(option)
+
+    expect(onResolve).toHaveBeenCalledWith(
+      { id: 'sugar', name: 'powdered sugar', category: 'carb', defaultUnit: 'g' },
+      100,
+    )
   })
 })
