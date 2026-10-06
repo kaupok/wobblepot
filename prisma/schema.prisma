@@ -214,11 +214,39 @@ model SignupCode {
   expiresAt   DateTime?
   note        String?
 
-  createdBy User? @relation("SignupCodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  usedBy    User? @relation("SignupCodeUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+  createdBy       User?            @relation("SignupCodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  usedBy          User?            @relation("SignupCodeUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+  waitlistRequest WaitlistRequest?
 
   @@index([createdById])
   @@map("signup_code")
+}
+
+/// A visitor without an invite code asking for one (HON-846). Consent-based
+/// (GDPR Art. 6(1)(a)) with double opt-in: the row counts only once
+/// `confirmedAt` is set from the emailed link. Retention is enforced by
+/// `/api/cron/purge-deleted-users`: unconfirmed rows go 7 days after
+/// `createdAt`, confirmed rows 6 months after `confirmedAt`.
+model WaitlistRequest {
+  id           String    @id @default(cuid())
+  /// Trimmed and lowercased before it is stored.
+  email        String    @unique
+  /// The page locale when the request was made; the invite email uses it.
+  locale       String
+  /// `nanoid(32)` from the confirmation email; cleared on confirmation.
+  confirmToken String?   @unique
+  /// Reset whenever a token is reissued, so the 7-day link window and the
+  /// unconfirmed purge both count from the latest email.
+  createdAt    DateTime  @default(now())
+  confirmedAt  DateTime?
+  /// Written by the admin invite flow (HON-970).
+  invitedAt    DateTime?
+  /// The code sent to this address (HON-970).
+  signupCodeId String?   @unique
+
+  signupCode SignupCode? @relation(fields: [signupCodeId], references: [id], onDelete: SetNull)
+
+  @@map("waitlist_request")
 }
 
 // ============================================

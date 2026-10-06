@@ -807,12 +807,29 @@
       "signInLink": "Logi sisse",
       "privateBetaBanner": "Suletud beeta – registreerumiseks on vaja kutsekoodi.",
       "privateBetaNoticeLabel": "Suletud beeta märguanne",
-      "requestInvite": "Sul pole koodi? <link>Küsi kutset</link> aadressil {email}.",
-      "requestInviteSubject": "Soovin kutset",
+      "requestInvite": "Sul pole koodi? <link>Küsi kutset</link>.",
       "inviteCodeLabel": "Kutsekood",
       "inviteCodeHint": "Sisesta kutses saadud kood.",
       "slowRequest": "See võtab oodatust kauem aega. Palun oota…",
       "navigationFailed": "Konto loomine õnnestus, aga lehe avamine ebaõnnestus. Värskenda lehte."
+    },
+    "requestInvite": {
+      "metaTitle": "Küsi kutset",
+      "title": "Küsi kutset",
+      "description": "Oleme suletud beetas. Jäta oma e-posti aadress ja me saadame sulle kutsekoodi, kui koht vabaneb.",
+      "emailLabel": "E-post",
+      "submit": "Küsi kutset",
+      "submitting": "Saadan…",
+      "privacy": "Hoiame sinu aadressi ainult kutse saatmiseks. Vaata <link>privaatsuspoliitikat</link>.",
+      "householdInvitee": "Liitud kellegi leibkonnaga? Kasuta linki, mille ta sulle saatis.",
+      "sent": "Vaata oma postkasti. Saatsime kinnituslingi aadressile {email}. Klõpsa sellel 7 päeva jooksul, et nimekirja pääseda.",
+      "tooManyRequests": "Liiga palju katseid. Proovi tunni aja pärast uuesti.",
+      "failed": "Sinu soovi ei õnnestunud saata. Proovi uuesti.",
+      "confirmMetaTitle": "Kutsesoov",
+      "confirmedTitle": "Oled nimekirjas",
+      "confirmedBody": "Saadame kutse e-postiga, kui koht vabaneb.",
+      "expiredTitle": "See link on aegunud või juba kasutatud",
+      "askAgain": "Küsi uuesti"
     },
     "forgotPassword": {
       "metaTitle": "Unustasid parooli",
@@ -885,6 +902,16 @@
       "cta": "Lähtesta parool",
       "expiry": "Turvalisuse huvides aegub see link ühe tunni pärast.",
       "ignore": "Kui sa ei taotlenud parooli lähtestamist, võid selle kirja rahulikult eirata. Sinu parool jääb muutumatuks."
+    },
+    "waitlistConfirm": {
+      "subject": "Kinnita oma {appName} kutsesoov",
+      "heading": "Kinnita kutsesoov",
+      "intro": "Keegi küsis selle e-posti aadressiga {appName} kutset.",
+      "instructionHtml": "Kutsenimekirja pääsemiseks klõpsa allolevat nuppu:",
+      "instructionText": "Kutsenimekirja pääsemiseks ava allolev link:",
+      "cta": "Liitu nimekirjaga",
+      "expiry": "Link kehtib 7 päeva.",
+      "ignore": "Kui see polnud sina, eira seda kirja. Soov kustutatakse 7 päeva pärast."
     },
     "accountDeletionRequested": {
       "subject": "Sinu {appName} konto kustutatakse kuupäeval {date}",

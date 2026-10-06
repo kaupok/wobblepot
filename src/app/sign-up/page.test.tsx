@@ -8,6 +8,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
+import etMessages from '../../../messages/et.json'
 import { SignUpForm } from './SignUpForm'
 import { dropFocusToBody } from '@/test/focus'
 
@@ -154,16 +155,31 @@ describe('SignUpForm', () => {
       expect(screen.getByText(/private beta — sign-up is by invite code only/i)).toBeInTheDocument()
     })
 
-    it('ends the banner with a link to ask support for an invite (HON-847)', () => {
+    it('ends the banner with a link to the invite-request page (HON-846)', () => {
       renderForm({ inviteRequired: true })
 
       const notice = screen.getByRole('note', { name: 'Private beta notice' })
       expect(notice).toHaveTextContent(
-        "Private beta — sign-up is by invite code only. Don't have one? Ask for an invite at support@wobblepot.com.",
+        "Private beta — sign-up is by invite code only. Don't have one? Ask for an invite.",
       )
       expect(within(notice).getByRole('link', { name: 'Ask for an invite' })).toHaveAttribute(
         'href',
-        'mailto:support@wobblepot.com?subject=Invite%20request',
+        '/request-invite',
+      )
+    })
+
+    it('translates the banner and its link', () => {
+      render(
+        <NextIntlClientProvider locale="et" messages={etMessages}>
+          <SignUpForm {...FORM_PROPS} inviteRequired />
+        </NextIntlClientProvider>,
+      )
+
+      const notice = screen.getByRole('note', { name: 'Suletud beeta märguanne' })
+      expect(notice).toHaveTextContent(/Sul pole koodi\? Küsi kutset\.$/)
+      expect(within(notice).getByRole('link', { name: 'Küsi kutset' })).toHaveAttribute(
+        'href',
+        '/request-invite',
       )
     })
 

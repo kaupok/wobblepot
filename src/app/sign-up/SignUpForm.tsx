@@ -8,7 +8,6 @@ import { authClient } from '@/lib/auth-client'
 import { useAuthErrorMessage } from '@/lib/auth-errors-client'
 import { getValidReturnUrl } from '@/lib/utils'
 import { track } from '@/lib/analytics'
-import { SUPPORT_EMAIL, supportMailtoHref } from '@/lib/support'
 import { Button } from '@/components/ui/button'
 import { Callout } from '@/components/ui/callout'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -131,11 +130,10 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
               <Callout role="note" aria-label={t('privateBetaNoticeLabel')}>
                 {t('privateBetaBanner')}{' '}
                 {t.rich('requestInvite', {
-                  email: SUPPORT_EMAIL,
                   link: (chunks) => (
-                    <a href={supportMailtoHref(t('requestInviteSubject'))} className="underline">
+                    <Link href="/request-invite" className="underline">
                       {chunks}
-                    </a>
+                    </Link>
                   ),
                 })}
               </Callout>

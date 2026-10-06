@@ -22,6 +22,10 @@ vi.mock('@/lib/auth/purge-user', () => ({
   purgeUser: vi.fn(),
 }))
 
+vi.mock('@/lib/waitlist', () => ({
+  purgeExpiredWaitlistRequests: vi.fn(),
+}))
+
 vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
@@ -30,9 +34,11 @@ import { GET } from './route'
 import { serverEnv } from '@/lib/env'
 import { prisma } from '@/lib/prisma'
 import { purgeUser } from '@/lib/auth/purge-user'
+import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
 
 const mockFindMany = vi.mocked(prisma.user.findMany)
 const mockPurgeUser = vi.mocked(purgeUser)
+const mockPurgeWaitlist = vi.mocked(purgeExpiredWaitlistRequests)
 // Mutable mock env so individual tests can flip CRON_SECRET / app env.
 const env = serverEnv as unknown as { CRON_SECRET?: string; NEXT_PUBLIC_APP_ENV: string }
 
@@ -48,6 +54,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
     env.CRON_SECRET = VALID_SECRET
     env.NEXT_PUBLIC_APP_ENV = 'test'
     mockFindMany.mockResolvedValue([] as never)
+    mockPurgeWaitlist.mockResolvedValue({ unconfirmed: 0, confirmed: 0 })
   })
 
   it('returns 401 when the Authorization header is missing', async () => {
@@ -85,7 +92,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data).toEqual({ purged: 2, scanned: 2 })
+    expect(data).toEqual({ purged: 2, scanned: 2, waitlist: { unconfirmed: 0, confirmed: 0 } })
     expect(mockPurgeUser).toHaveBeenCalledTimes(2)
     expect(mockPurgeUser).toHaveBeenCalledWith('u1')
     expect(mockPurgeUser).toHaveBeenCalledWith('u2')
@@ -110,5 +117,35 @@ describe('GET /api/cron/purge-deleted-users', () => {
     expect(response.status).toBe(200)
     expect(data.purged).toBe(1)
     expect(data.scanned).toBe(2)
+  })
+
+  describe('waitlist retention (HON-846)', () => {
+    it('purges expired waitlist requests in the same run and reports both counts', async () => {
+      mockPurgeWaitlist.mockResolvedValue({ unconfirmed: 3, confirmed: 1 })
+
+      const response = await GET(req(`Bearer ${VALID_SECRET}`))
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.waitlist).toEqual({ unconfirmed: 3, confirmed: 1 })
+      // The same instant as the user purge, so both read one clock.
+      expect(mockPurgeWaitlist).toHaveBeenCalledWith(
+        (mockFindMany.mock.calls[0]![0]!.where!.purgeScheduledFor as { lt: Date }).lt,
+      )
+    })
+
+    it('does not purge the waitlist on an unauthorized call', async () => {
+      await GET(req('Bearer wrong-secret'))
+
+      expect(mockPurgeWaitlist).not.toHaveBeenCalled()
+    })
+
+    it('answers 500 when the waitlist purge fails', async () => {
+      mockPurgeWaitlist.mockRejectedValue(new Error('db down'))
+
+      const response = await GET(req(`Bearer ${VALID_SECRET}`))
+
+      expect(response.status).toBe(500)
+    })
   })
 })

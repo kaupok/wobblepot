@@ -12,7 +12,16 @@ describe('robots', () => {
     expect(result.rules).toEqual([
       {
         userAgent: '*',
-        allow: ['/', '/privacy', '/terms', '/sign-in', '/sign-up', '/bot', '/status'],
+        allow: [
+          '/',
+          '/privacy',
+          '/terms',
+          '/sign-in',
+          '/sign-up',
+          '/request-invite',
+          '/bot',
+          '/status',
+        ],
         disallow: [
           '/api',
           '/profile',
@@ -23,6 +32,7 @@ describe('robots', () => {
           '/onboarding',
           '/reset-password',
           '/forgot-password',
+          '/request-invite/confirm',
           '/invite',
           '/recipes',
           '/admin',

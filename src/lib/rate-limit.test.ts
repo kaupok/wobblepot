@@ -79,6 +79,7 @@ describe('rate-limit', () => {
         'recipe-parse',
         'sign-in',
         'sign-up',
+        'waitlist',
       ])
     })
 
@@ -131,6 +132,12 @@ describe('rate-limit', () => {
         window: '1 h',
         dimension: 'ip',
         daily: { limit: 5, window: '1 d' },
+      })
+      expect(RATE_LIMIT_CONFIG.waitlist).toEqual({
+        limit: 3,
+        window: '1 h',
+        dimension: 'ip',
+        daily: { limit: 10, window: '1 d' },
       })
     })
   })

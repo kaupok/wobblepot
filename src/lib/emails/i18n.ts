@@ -31,7 +31,8 @@ const CATALOGUES: Record<Locale, Messages> = {
 }
 
 /** Namespaces under `emails` in the catalog — one per template. */
-export type EmailNamespace = 'resetPassword' | 'accountDeletionRequested' | 'breachNotification'
+export type EmailNamespace =
+  'resetPassword' | 'accountDeletionRequested' | 'breachNotification' | 'waitlistConfirm'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

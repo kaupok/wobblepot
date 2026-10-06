@@ -113,6 +113,12 @@ export default function PrivacyPage() {
           </Li>
           <Li>
             <Body>
+              Invite requests: the email address and language you give us when you ask for an
+              invite.
+            </Body>
+          </Li>
+          <Li>
+            <Body>
               Usage analytics and error reports — only if you accept analytics cookies (see{' '}
               <a className="underline" href="#cookies">
                 Cookies
@@ -135,8 +141,13 @@ export default function PrivacyPage() {
           <Li>
             <Body>
               <strong>Consent</strong> (Art. 6(1)(a)): product analytics and error tracking, which
-              stay off until you accept analytics cookies. You can withdraw at any time from the
-              cookie settings in the footer.
+              stay off until you accept analytics cookies, and keeping your place on the invite list
+              after you confirm your email. You can withdraw analytics consent at any time from the
+              cookie settings in the footer, and leave the invite list by emailing{' '}
+              <a className="underline" href={PRIVACY_EMAIL_HREF}>
+                {PRIVACY_EMAIL}
+              </a>
+              .
             </Body>
           </Li>
           <Li>
@@ -192,6 +203,13 @@ export default function PrivacyPage() {
                 {PRIVACY_EMAIL}
               </a>
               .
+            </Body>
+          </Li>
+          <Li>
+            <Body>
+              Invite requests: an unconfirmed request is deleted after 7 days. A confirmed request
+              is deleted 6 months after confirmation, or sooner when you sign up with the code we
+              send or ask us to remove it.
             </Body>
           </Li>
           <Li>

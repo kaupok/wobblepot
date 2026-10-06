@@ -26,6 +26,17 @@ describe('PrivacyPage', () => {
     expect(text).toContain('PostHog, Inc.')
   })
 
+  it('discloses invite requests: the data, the consent basis and both retention windows (HON-846)', () => {
+    const text = renderedText().replace(/\s+/g, ' ')
+    expect(text).toContain(
+      'Invite requests: the email address and language you give us when you ask for an invite.',
+    )
+    expect(text).toContain('and keeping your place on the invite list after you confirm your email')
+    expect(text).toContain(
+      'Invite requests: an unconfirmed request is deleted after 7 days. A confirmed request is deleted 6 months after confirmation, or sooner when you sign up with the code we send or ask us to remove it.',
+    )
+  })
+
   it('links to the dedicated subprocessors page (HON-543)', () => {
     render(<PrivacyPage />)
     expect(screen.getByRole('link', { name: 'subprocessors page' })).toHaveAttribute(
