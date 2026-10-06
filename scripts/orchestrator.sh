@@ -114,6 +114,10 @@ WORKER_TIMEOUT="${ORCHESTRATOR_WORKER_TIMEOUT:-10800}"  # 3h. HON-583: 1h no lon
 # stops reaping workers and polling issues while every status file still reads
 # healthy (HON-578).
 TRIAGE_TIMEOUT="${ORCHESTRATOR_TRIAGE_TIMEOUT:-120}"
+# How often the main loop re-checks its workers once a shutdown signal has
+# arrived. Shorter than POLL_INTERVAL because nothing is polled from Linear then:
+# the loop only waits for workers to exit (HON-1067).
+SHUTDOWN_POLL_INTERVAL=5
 # Log retention. The main log is append-only and each worker writes its own
 # file, so unbounded growth eventually trips check_disk_space's 1GB guard and
 # reads as an infrastructure fault (HON-578).
@@ -409,8 +413,20 @@ bash_timeout() {
   ) &
   watchdog_pid=$!
 
-  wait "$cmd_pid" 2>/dev/null || status=$?
-  wait "$watchdog_pid" 2>/dev/null || true
+  # A trap that returns interrupts `wait` with 128+signal while the command is
+  # still running. shutdown() sets flags and returns (HON-1067), and
+  # check_checkout_behind calls this in the main shell, so a `wt stop` landing
+  # here would read as a timeout and leave the command behind. Wait again while
+  # it is alive; a command the watchdog killed is gone and ends the loop.
+  while :; do
+    status=0
+    wait "$cmd_pid" 2>/dev/null || status=$?
+    [ "$status" -gt 128 ] && kill -0 "$cmd_pid" 2>/dev/null && continue
+    break
+  done
+  while kill -0 "$watchdog_pid" 2>/dev/null; do
+    wait "$watchdog_pid" 2>/dev/null || true
+  done
 
   # A command the watchdog killed exits 143 (128+SIGTERM) or 137 (128+SIGKILL).
   # Report both as 124 so the caller has one "bound hit" code across all hosts.
@@ -493,7 +509,9 @@ write_status_file() {
 
   # poll_interval goes in as a string and is converted inside jq: it is never
   # validated, so `--argjson` on a value like "1m" would fail the whole write.
-  # `wt watch` reads it to size the alert age-out (watch_scan_log).
+  # `wt watch` reads it to size the alert age-out (watch_scan_log). The same
+  # goes for triage_timeout, which `wt stop` reads to size its wait: it can come
+  # from the environment of `wt start`, which `wt stop` does not see (HON-1067).
   local tmp_file="${STATUS_FILE}.tmp.$$"
   jq -n \
     --argjson pid "$$" \
@@ -501,6 +519,7 @@ write_status_file() {
     --arg last_poll "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
     --argjson max_workers "$MAX_WORKERS" \
     --arg poll_interval "$POLL_INTERVAL" \
+    --arg triage_timeout "$TRIAGE_TIMEOUT" \
     --arg last_loop "$LAST_LOOP_AT" \
     --argjson circuit_breaker "$(jq -n \
       --argjson consecutive_failures "$CONSECUTIVE_FAILURES" \
@@ -509,7 +528,7 @@ write_status_file() {
        else {consecutive_failures: $consecutive_failures, paused_until: $paused_until} end')" \
     --argjson workers "$workers_json" \
     --argjson checkout "$checkout_json" \
-    '{pid: $pid, started_at: $started_at, last_poll: $last_poll, last_loop: (if $last_loop == "" then null else $last_loop end), max_workers: $max_workers, poll_interval: ($poll_interval | tonumber? // null), circuit_breaker: $circuit_breaker, checkout: $checkout, workers: $workers}' \
+    '{pid: $pid, started_at: $started_at, last_poll: $last_poll, last_loop: (if $last_loop == "" then null else $last_loop end), max_workers: $max_workers, poll_interval: ($poll_interval | tonumber? // null), triage_timeout: ($triage_timeout | tonumber? // null), circuit_breaker: $circuit_breaker, checkout: $checkout, workers: $workers}' \
     > "$tmp_file" 2>/dev/null && mv "$tmp_file" "$STATUS_FILE" || rm -f "$tmp_file"
 }
 
@@ -917,6 +936,12 @@ monitor_workers() {
   local to_remove=()
 
   while [ $i -lt ${#WORKER_PIDS[@]} ]; do
+    # A second signal that landed while an earlier worker was handled (its
+    # triage call can take TRIAGE_TIMEOUT) leaves the rest to the drain.
+    # Handling them first could cost one triage call per exited worker, and
+    # stop_wait_bound allows for two (HON-1067).
+    [ "$FORCE_SHUTDOWN" = true ] && break
+
     local pid="${WORKER_PIDS[$i]}"
     local issue_id="${WORKER_ISSUES[$i]}"
     local issue_uuid="${WORKER_ISSUE_UUIDS[$i]}"
@@ -2579,32 +2604,34 @@ drain_workers_to_queue() {
   done
 }
 
+# The SIGINT/SIGTERM handler sets flags and returns; the main loop acts on them.
+# It used to run the graceful wait loop itself, and bash does not re-enter a
+# handler for a signal whose handler is still running, so the second signal
+# `wt stop` sends was dropped: FORCE_SHUTDOWN was never set,
+# drain_workers_to_queue never ran, and cmd_stop ended it with SIGKILL, leaving
+# orphaned workers and issues In Progress and assigned (HON-1067).
+#
+# A signal that arrives during a foreground command (a Linear call, the triage
+# call) runs this handler when that command returns, so the drain can start up
+# to TRIAGE_TIMEOUT late. stop_wait_bound in worktree-claude.sh allows for that.
 shutdown() {
-  if [ "$FORCE_SHUTDOWN" = true ]; then
-    log WARN "Force shutdown — killing all workers"
-    drain_workers_to_queue
-    exit 1
-  fi
-
-  if [ "$SHUTTING_DOWN" = true ]; then
+  if [ "$SHUTTING_DOWN" = false ]; then
+    SHUTTING_DOWN=true
+    log INFO "Shutting down — waiting for ${#WORKER_PIDS[@]} worker(s); send the signal again to force"
+  elif [ "$FORCE_SHUTDOWN" = false ]; then
     FORCE_SHUTDOWN=true
-    log WARN "Second signal — force killing workers"
-    drain_workers_to_queue
-    exit 1
+    log WARN "Second signal — force draining"
   fi
+}
 
-  SHUTTING_DOWN=true
-  log INFO "Shutting down — waiting for ${#WORKER_PIDS[@]} worker(s)"
-  log INFO "Send signal again to force kill"
-
-  while [ ${#WORKER_PIDS[@]} -gt 0 ]; do
-    monitor_workers
-    write_status_file
-    sleep 5
-  done
-
-  log INFO "All workers finished, exiting"
-  exit 0
+# Called by the main loop at the top of each iteration and after each
+# monitor_workers call, never from the trap handler.
+drain_if_forced() {
+  [ "$FORCE_SHUTDOWN" = true ] || return 0
+  log WARN "Force shutdown — killing ${#WORKER_PIDS[@]} worker(s) and returning their issues to Queued"
+  drain_workers_to_queue
+  log INFO "═══ Orchestrator stopped (forced) ═══"
+  exit 1
 }
 
 trap shutdown SIGINT SIGTERM
@@ -2615,17 +2642,6 @@ trap shutdown SIGINT SIGTERM
 # orchestrator routinely had not even begun shutting down by the time the second
 # signal was sent. Backgrounding the sleep and `wait`-ing on it makes the trap
 # fire within a second, because `wait` IS interruptible (HON-572).
-#
-# KNOWN RESIDUAL — the force escalation is still not delivered. Bash also
-# refuses to re-enter a trap handler for a signal whose handler is already
-# running, so the second SIGTERM `cmd_stop` sends while shutdown()'s graceful
-# wait loop is executing is dropped. FORCE_SHUTDOWN is never set,
-# drain_workers_to_queue never runs, and cmd_stop eventually SIGKILLs. Fixing it
-# means restructuring shutdown() to only set flags and letting the main loop
-# perform the drain; that changes shutdown semantics for both Ctrl-C and
-# `wt stop`, so it is deliberately NOT done here — HON-572's execution
-# constraints forbid the live orchestrator run that would validate it. HON-575
-# owns the live `wt stop` verification and this reproduction.
 interruptible_sleep() {
   local pid
   sleep "$1" &
@@ -2971,6 +2987,11 @@ reload_if_code_changed() {
   settled_fp=$(code_fingerprint) || settled_fp=""
   [ "$settled_fp" = "$new_fp" ] || return 0
 
+  # The check at the top ran before the fingerprint and `bash -n` calls, and a
+  # signal that lands during them only sets the flag. The new image starts with
+  # it cleared, so exec'ing now would lose the signal (HON-1067).
+  [ "$SHUTTING_DOWN" = true ] && return 0
+
   log INFO "Orchestrator code changed on disk ($CODE_FINGERPRINT -> $new_fp); reloading in place (PID $$)"
 
   export ORCHESTRATOR_RELOAD_FINGERPRINT="$CODE_FINGERPRINT"
@@ -3032,6 +3053,12 @@ wait_for_environment() {
   while true; do
     log WARN "Reloaded code failed environment validation; retrying in ${POLL_INTERVAL}s instead of exiting"
     interruptible_sleep "$POLL_INTERVAL"
+    # A reload only happens with no worker running, so there is nothing to wait
+    # for or drain: a signal here ends the run.
+    if [ "$SHUTTING_DOWN" = true ]; then
+      log INFO "═══ Orchestrator stopped ═══"
+      exit 0
+    fi
     validate_environment && return 0
   done
 }
@@ -3151,11 +3178,28 @@ main() {
   write_status_file
 
   while true; do
-    [ "$SHUTTING_DOWN" = true ] && break
+    drain_if_forced
+
+    # After the first signal: spawn nothing, poll nothing, wait for the running
+    # workers to exit. A second signal sets FORCE_SHUTDOWN, and the
+    # drain_if_forced calls here act on it (HON-1067).
+    if [ "$SHUTTING_DOWN" = true ]; then
+      if [ ${#WORKER_PIDS[@]} -eq 0 ]; then
+        log INFO "All workers finished, exiting"
+        log INFO "═══ Orchestrator stopped ═══"
+        exit 0
+      fi
+      monitor_workers
+      drain_if_forced
+      write_status_file
+      [ ${#WORKER_PIDS[@]} -gt 0 ] && interruptible_sleep "$SHUTDOWN_POLL_INTERVAL"
+      continue
+    fi
 
     # Monitor running workers
     if [ ${#WORKER_PIDS[@]} -gt 0 ]; then
       monitor_workers
+      drain_if_forced
       report_worker_status
     fi
 
@@ -3230,9 +3274,19 @@ main() {
 
             log INFO "Selected: $issue_id — $title"
 
-            if claim_issue "$issue_uuid" "$issue_id"; then
-              spawn_worker "$issue_uuid" "$issue_id" "$branch" "$title"
-              ONCE_SPAWNED=true
+            # The handler returns now, so a signal that arrived during the
+            # fetch or the claim (both foreground Linear calls) is only seen
+            # here. Do not start a worker the shutdown would then wait for.
+            if [ "$SHUTTING_DOWN" = true ]; then
+              log INFO "Shutdown requested — not claiming $issue_id"
+            elif claim_issue "$issue_uuid" "$issue_id"; then
+              if [ "$SHUTTING_DOWN" = true ]; then
+                log INFO "Shutdown requested during the claim — returning $issue_id to Queued"
+                [ "$DRY_RUN" = true ] || restore_queue_if_in_progress "$issue_uuid" "$issue_id"
+              else
+                spawn_worker "$issue_uuid" "$issue_id" "$branch" "$title"
+                ONCE_SPAWNED=true
+              fi
             else
               log WARN "Failed to claim $issue_id, skipping"
             fi

@@ -131,6 +131,31 @@
 #     ELAPSED in whole seconds. The watchdog's poll interval is paid on every
 #     call, so this is what shows it stays small.
 #
+#   bash-timeout-signal                                             (HON-1067)
+#     The REAL bash_timeout in the main shell, with the REAL shutdown trap
+#     installed, over a command that sends this shell SIGTERM while bash_timeout
+#     waits on it. The handler returns, which interrupts `wait`; OUT and EXIT
+#     show the command was still waited for rather than read as a timeout.
+#     SHUTTING_DOWN shows the signal was handled.
+#
+#   shutdown <graceful|force|triage>                                (HON-1067)
+#     Runs the REAL main loop and shutdown trap with every startup, Linear, git
+#     and status-file collaborator stubbed, and stub workers as real child
+#     processes. Signals are real SIGTERMs to this process:
+#       graceful — the first arrives during the Linear fetch; the worker exits
+#                  0 once it lands. A claim or spawn after it is the bug.
+#       force    — the second is sent from the shutdown wait loop, where the
+#                  old in-handler loop dropped it; the worker ignores SIGTERM.
+#       triage   — three workers. HON-1 and HON-3 exit 1 once the first
+#                  signal lands; HON-2 ignores SIGTERM. The second signal
+#                  arrives during the first stubbed foreground triage call.
+#                  The other failed worker must not get a triage call of its
+#                  own: it is drained with HON-2.
+#     Prints WORKER_PID:<issue>:<pid> per worker, then the log with one line per
+#     side effect (CLAIM / SPAWN / HANDLED / TRIAGE_START / TRIAGE_END /
+#     CLEANUP / RESTORE_QUEUED) in order. The exit status is main's own.
+#     wait_for_exit is bounded to 1 s so the SIGKILL escalation stays fast.
+#
 #   failure-seq <triage:retried:shutting_down,...>        (HON-572, finding 2)
 #     Same stubs, but replays a SEQUENCE of different failures in one process.
 #     This is what models a systemic fault sweeping the queue: every issue fails
@@ -171,8 +196,15 @@
 #     live-worktree and is_protected_neon_branch filters — over fixture data.
 #     NEON_USER_PREFIX is read from the environment.
 #
-#   stop-wait-bound <worker-count>                 (HON-572, finding 5)
-#     Prints the REAL stop_wait_bound from worktree-claude.sh.
+#   stop-wait-bound <worker-count> [triage-timeout]  (HON-572 finding 5, HON-1067)
+#     Prints the REAL stop_wait_bound from worktree-claude.sh. [triage-timeout]
+#     stands in for the status file's triage_timeout.
+#
+#   wait-for-drain <bound-secs> <terms-to-exit>                    (HON-1067)
+#     Sources worktree-claude.sh and runs the REAL wait_for_drain, with
+#     STOP_RESEND_INTERVAL at 1 s, against a child that counts SIGTERMs and
+#     exits on the <terms-to-exit>th. Prints TERMS (how many it received),
+#     ALIVE (yes/no once the wait returns) and ELAPSED in whole seconds.
 #
 #   detect-phase <wt_path> <branch> <log-file>     (HON-576)
 #     Runs the REAL detect_phase with get_worktree_path stubbed to <wt_path>,
@@ -334,7 +366,7 @@
 #     repo, and each change is committed unless the scenario says otherwise.
 #     Scenarios: changed, unchanged, worker (a tracked PID throughout),
 #     worker-drains (the worker finishes before poll 3), once (--once),
-#     shutdown, syntax (the change fails bash -n), uncommitted (edited, not
+#     shutdown, shutdown-mid (the signal lands during poll 1's checks), syntax (the change fails bash -n), uncommitted (edited, not
 #     committed), branch (committed on a branch other than main), exec-fails
 #     (reload_exec returns 126) and round-trip, which performs a REAL exec into
 #     `reload-restored` with [state-dir] as its scratch dir. Every poll prints
@@ -870,6 +902,7 @@ EOF
     # What `wt watch` sizes the alert age-out from (HON-937).
     echo "STATUS_POLL:$(jq -c '.poll_interval' "$STATUS_FILE")" >> "$MAIN_LOG"
     echo "STATUS_LOOP:$(jq -c '.last_loop' "$STATUS_FILE")" >> "$MAIN_LOG"
+    echo "STATUS_TRIAGE:$(jq -c '.triage_timeout' "$STATUS_FILE")" >> "$MAIN_LOG"
     exit 0
     ;;
 
@@ -909,7 +942,7 @@ EOF
   stop-wait-bound)
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
-    stop_wait_bound "$A1"
+    stop_wait_bound "$A1" "$A2"
     exit 0
     ;;
 
@@ -1031,6 +1064,147 @@ EOF
     done
     echo "ELAPSED:$((SECONDS - start))"
     exit 0
+    ;;
+
+  bash-timeout-signal)
+    # Output goes to a file, not $(...): a command substitution would run
+    # bash_timeout in a subshell, and the signal would wait for it to finish
+    # instead of interrupting the `wait` under test. The command signals this
+    # shell itself, so the TERM lands while bash_timeout is waiting on it.
+    out_file="$MAIN_LOG.out"
+    status=0
+    bash_timeout 5 sh -c 'sleep 0.2; kill -TERM "$1"; sleep 1; echo finished' _ "$$" \
+      > "$out_file" || status=$?
+    echo "OUT:$(cat "$out_file")"
+    echo "EXIT:$status"
+    echo "SHUTTING_DOWN:$SHUTTING_DOWN"
+    rm -f "$out_file"
+    exit 0
+    ;;
+
+  wait-for-drain)
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    STOP_RESEND_INTERVAL=1
+    count_file="$MAIN_LOG.terms"
+    : > "$count_file"
+    # Stands in for an orchestrator whose two signals were merged into one: it
+    # needs more SIGTERMs than cmd_stop sends before the wait starts.
+    bash -c '
+      trap "echo x >> \"\$1\"; [ \$(wc -l < \"\$1\") -ge \"\$2\" ] && exit 0" TERM
+      while :; do sleep 0.1; done' _ "$count_file" "$A2" &
+    target=$!
+    sleep 0.3  # let the child install its trap
+    start=$SECONDS
+    wait_for_drain "$target" "$A1"
+    echo "ELAPSED:$((SECONDS - start))"
+    echo "TERMS:$(wc -l < "$count_file" | tr -d ' ')"
+    if kill -0 "$target" 2>/dev/null; then echo "ALIVE:yes"; kill -KILL "$target"; else echo "ALIVE:no"; fi
+    rm -f "$count_file"
+    exit 0
+    ;;
+
+  # ─── Signal handling in the main loop (HON-1067) ───────────────────────────
+  shutdown)
+    SCENARIO="$A1"
+    SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-shutdown.XXXXXXXX")
+    HARNESS_PID=$$
+    POLL_INTERVAL=1
+    SHUTDOWN_POLL_INTERVAL=1
+    # Above the stub worker count, so the spawn gate opens and the fetch that
+    # sends the first signal runs.
+    MAX_WORKERS=5
+
+    # Startup and per-poll collaborators that would take the lock, call Linear,
+    # git or the Neon API, or write the real status file.
+    acquire_lock() { :; }
+    code_fingerprint() { echo harness; }
+    rotate_logs() { :; }
+    restore_reload_state() { :; }
+    check_branch_budget() { :; }
+    validate_environment() { :; }
+    fetch_team_uuid() { :; }
+    reload_if_code_changed() { :; }
+    check_checkout_behind() { :; }
+    check_disk_space() { return 0; }
+    report_worker_status() { :; }
+    reconcile_gated_issues() { :; }
+    cleanup_status_file() { :; }
+    # main's EXIT trap calls release_lock, so it is the last code this process
+    # runs on every exit path: print the log there.
+    release_lock() { cat "$MAIN_LOG"; rm -rf "$MAIN_LOG" "$SCRATCH"; }
+
+    # Side effects go into $MAIN_LOG beside the log lines, so their order
+    # against "Second signal" and the drain is visible.
+    record() { printf '%s\n' "$1" >> "$MAIN_LOG"; }
+    select_next_issue() { printf 'uuid-HON-9\tHON-9\tauto/hon-9\tNew work\n'; }
+    claim_issue() { record "CLAIM:$2"; }
+    spawn_worker() { record "SPAWN:$2"; }
+    restore_queue_if_in_progress() { record "RESTORE_QUEUED:$2"; }
+    cleanup_worker_worktree() { record "CLEANUP:$1"; }
+    handle_success() { record "HANDLED:$1:success"; }
+    handle_error_exit() {
+      record "TRIAGE_START:$1"
+      # Foreground, as the real triage call is: bash runs the trap only once
+      # this returns. Only the first triage signals.
+      if [ ! -e "$SCRATCH/second" ]; then
+        touch "$SCRATCH/second"
+        bash -c 'kill -TERM "$1"; sleep 1' _ "$HARNESS_PID"
+      fi
+      record "TRIAGE_END:$1"
+    }
+    eval "real_$(declare -f wait_for_exit)"
+    wait_for_exit() { real_wait_for_exit "$1" 2; }
+
+    # The first signal arrives during the Linear fetch, a foreground call, and
+    # releases the workers that wait for it. Runs in $(...), so $$ would also
+    # name this process; HARNESS_PID says so explicitly.
+    fetch_queued_issues() {
+      if [ ! -e "$SCRATCH/first" ]; then
+        touch "$SCRATCH/first"
+        kill -TERM "$HARNESS_PID"
+        touch "$SCRATCH/release"
+      fi
+      echo '{}'
+    }
+    write_status_file() {
+      if [ "$SCENARIO" = force ] && [ "$SHUTTING_DOWN" = true ] && [ ! -e "$SCRATCH/second" ]; then
+        touch "$SCRATCH/second"
+        record "SIGNAL:second"
+        kill -TERM "$HARNESS_PID"
+      fi
+    }
+
+    start_worker() {
+      local issue="$1"; shift
+      "$@" &
+      WORKER_PIDS+=("$!")
+      WORKER_ISSUES+=("$issue")
+      WORKER_ISSUE_UUIDS+=("uuid-$issue")
+      WORKER_BRANCHES+=("auto/$issue")
+      WORKER_LOGS+=("$SCRATCH/$issue.log")
+      WORKER_START_TIMES+=("$(date +%s)")
+      WORKER_RETRIED+=(0)
+      WORKER_TITLES+=("$issue")
+      echo "WORKER_PID:$issue:$!"
+    }
+    # Exits with $2 once the first signal has landed.
+    released_worker() {
+      start_worker "$1" bash -c 'while [ ! -e "$1" ]; do sleep 0.05; done; exit "$2"' _ "$SCRATCH/release" "$2"
+    }
+    # Ignores SIGTERM, as a worker mid-command can; only the SIGKILL ends it.
+    stubborn_worker() {
+      start_worker "$1" bash -c 'trap "" TERM; sleep 30; exit 0'
+    }
+
+    case "$SCENARIO" in
+      graceful) released_worker HON-1 0 ;;
+      force)    stubborn_worker HON-1 ;;
+      triage)   released_worker HON-1 1; stubborn_worker HON-2; released_worker HON-3 1 ;;
+      *) echo "Unknown shutdown scenario: $SCENARIO" >&2; exit 64 ;;
+    esac
+
+    main
     ;;
 
   # ─── Workflow-state UUID validation (HON-578) ──────────────────────────────
@@ -1453,6 +1627,7 @@ EOF
     fixture_git commit -qm v1
     ORCHESTRATOR_CODE_FILES=("$CODE_DIR/code.sh")
     CODE_FINGERPRINT=$(code_fingerprint)
+    HARNESS_RELOAD_PID=$$
     ORCHESTRATOR_ARGS=(--max-workers 2 --poll-interval 30)
     ORCHESTRATOR_START_TIME="2026-09-30T10:00:00Z"
     CONSECUTIVE_FAILURES=3
@@ -1487,6 +1662,20 @@ EOF
       worker|worker-drains) WORKER_PIDS=(12345); commit_change 'echo v2' ;;
       once)        RUN_ONCE=true; commit_change 'echo v2' ;;
       shutdown)    SHUTTING_DOWN=true; commit_change 'echo v2' ;;
+      shutdown-mid)
+        # The signal lands after the check at the top of
+        # reload_if_code_changed: during its first fingerprint call, which runs
+        # in $(...), so the trap fires when that call returns (HON-1067).
+        commit_change 'echo v2'
+        eval "real_$(declare -f code_fingerprint)"
+        code_fingerprint() {
+          if [ ! -e "$CODE_DIR/signalled" ]; then
+            touch "$CODE_DIR/signalled"
+            kill -TERM "$HARNESS_RELOAD_PID"
+          fi
+          real_code_fingerprint
+        }
+        ;;
       syntax)      commit_change 'if then fi (' ;;
       uncommitted) printf 'echo v2\n' >> "$CODE_DIR/code.sh" ;;
       branch)      fixture_git checkout -qb feature; commit_change 'echo v2' ;;

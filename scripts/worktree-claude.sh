@@ -3756,20 +3756,57 @@ cmd_start() {
 }
 
 # How long `wt stop` waits for the force-shutdown drain before SIGKILL, in
-# seconds. Pure so it can be asserted without a live orchestrator: max(60,
-# 15 * workers). 15s/worker is the drain's own budget (10s wait_for_exit plus
-# cleanup and a Linear round-trip); the 60s floor covers a missing, empty or
-# unparseable status file, where the count is unknown and guessing low is the
-# failure mode that stranded issues in the first place.
+# seconds. Pure so it can be asserted without a live orchestrator:
+# 2 * triage + max(60, 15 * workers). $2 is the orchestrator's triage timeout
+# from its status file; without it, ORCHESTRATOR_TRIAGE_TIMEOUT from this shell.
+#
+# The drain runs in the orchestrator's main loop, not in its trap handler, so a
+# signal that lands during a triage call is acted on only when that call
+# returns (HON-1067). Two calls, because both of this command's signals can
+# land in one call and count as one: the next failed worker's triage can then
+# start before a re-sent signal (wait_for_drain) sets FORCE_SHUTDOWN. After
+# that, monitor_workers triages nothing more. 15s/worker is the
+# drain's own budget (10s wait_for_exit plus cleanup and a Linear round-trip);
+# the 60s floor covers a missing, empty or unparseable status file, where the
+# count is unknown and guessing low is the failure mode that stranded issues in
+# the first place.
 stop_wait_bound() {
   local workers="${1:-}"
   local floor=60 per_worker=15
+  # Same default as TRIAGE_TIMEOUT in orchestrator.sh. A fractional value (GNU
+  # timeout accepts `1.5`) rounds up; anything unreadable takes the default.
+  local triage="${2:-${ORCHESTRATOR_TRIAGE_TIMEOUT:-120}}"
+  local triage_whole="${triage%%[!0-9]*}"
+  if [ -z "$triage_whole" ]; then
+    triage_whole=120
+  elif [ "$triage_whole" != "$triage" ]; then
+    triage_whole=$(( 10#$triage_whole + 1 ))
+  fi
 
   [[ "$workers" =~ ^[0-9]+$ ]] || workers=0
 
-  local bound=$(( workers * per_worker ))
-  [ "$bound" -lt "$floor" ] && bound=$floor
-  echo "$bound"
+  local drain=$(( 10#$workers * per_worker ))
+  [ "$drain" -lt "$floor" ] && drain=$floor
+  echo $(( 2 * 10#$triage_whole + drain ))
+}
+
+# Wait up to $2 seconds for the orchestrator ($1) to exit, re-sending SIGTERM
+# every STOP_RESEND_INTERVAL seconds. Bash runs a trap once for any number of
+# the same signal that arrive during one foreground command, so when the first
+# and second SIGTERM both land inside one triage call (up to TRIAGE_TIMEOUT
+# long, against the 15s between them) the orchestrator sees only the first and
+# never drains. A re-sent signal reaches it once the call returns. Once
+# FORCE_SHUTDOWN is set, shutdown() ignores further signals (HON-1067).
+STOP_RESEND_INTERVAL=5
+wait_for_drain() {
+  local pid="$1" bound="$2" waited=0
+  while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$bound" ]; do
+    sleep 1
+    waited=$((waited + 1))
+    if [ $((waited % STOP_RESEND_INTERVAL)) -eq 0 ]; then
+      kill -TERM "$pid" 2>/dev/null || true
+    fi
+  done
 }
 
 cmd_stop() {
@@ -3814,20 +3851,20 @@ cmd_stop() {
     # The force path runs drain_workers_to_queue, which per worker does
     # kill_process_tree -> wait_for_exit (up to 10s) -> SIGKILL ->
     # cleanup_worker_worktree -> a Linear round-trip. With 3-5 workers that is
-    # 30-50s. The old flat `sleep 3` killed the orchestrator mid-drain, orphaning
-    # `claude` processes and leaving their issues In Progress + assigned — the
-    # exact state select_next_issue skips forever (HON-572). Scale the wait with
-    # the work instead.
-    local worker_count bound
+    # 30-50s, and it can start only after a triage call in flight returns
+    # (HON-1067). The old flat `sleep 3` killed the orchestrator mid-drain,
+    # orphaning `claude` processes and leaving their issues In Progress +
+    # assigned — the exact state select_next_issue skips forever (HON-572).
+    # Scale the wait with the work instead.
+    local worker_count triage_timeout bound
     worker_count=$(jq -r '.workers | length' "$status_file" 2>/dev/null) || worker_count=""
-    bound=$(stop_wait_bound "$worker_count")
+    # The orchestrator's own value: an ORCHESTRATOR_TRIAGE_TIMEOUT exported
+    # only into `wt start` is not in this shell.
+    triage_timeout=$(jq -r '.triage_timeout // empty' "$status_file" 2>/dev/null) || triage_timeout=""
+    bound=$(stop_wait_bound "$worker_count" "$triage_timeout")
     echo -e "${DIM}Draining ${worker_count:-unknown} worker(s) — waiting up to ${bound}s before SIGKILL${NC}"
 
-    local drained=0
-    while kill -0 "$pid" 2>/dev/null && [ "$drained" -lt "$bound" ]; do
-      sleep 1
-      drained=$((drained + 1))
-    done
+    wait_for_drain "$pid" "$bound"
   fi
 
   if kill -0 "$pid" 2>/dev/null; then
