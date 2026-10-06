@@ -142,26 +142,34 @@ export async function GET(request: NextRequest) {
         : Promise.resolve([]),
     ])
 
-    // A row the trigram search already found by its own name keeps no
-    // `matchedAs`, and is not listed twice.
-    const foundIds = new Set(nameHits.map((row) => row.id))
     const synonymByTarget = new Map(synonymMatches.map((m) => [m.target, m]))
-    const synonymHits: IngredientSearchResult[] = synonymRows
-      .filter((row) => !foundIds.has(row.id))
-      .map(({ poolName, similarity, ...row }) => {
+    const synonymHits = new Map<string, IngredientSearchResult>(
+      synonymRows.map(({ poolName, similarity, ...row }) => {
         const hit = synonymByTarget.get(poolName)
-        return {
-          ...row,
-          similarity: hit?.strong ? SYNONYM_SCORE : similarity,
-          matchedAs: hit?.synonym,
-        }
-      })
+        const score = hit?.strong ? SYNONYM_SCORE : similarity
+        return [row.id, { ...row, similarity: score, matchedAs: hit?.synonym }]
+      }),
+    )
+
+    // A row is listed once. It keeps its name hit, without `matchedAs`, unless
+    // a strong synonym hit outranks that: typing "plain flour" scores
+    // all-purpose flour only about 0.3 by name, below the other flours.
+    let changed = false
+    const merged = nameHits.map((row) => {
+      const hit = synonymHits.get(row.id)
+      synonymHits.delete(row.id)
+      if (hit && hit.similarity > row.similarity) {
+        changed = true
+        return hit
+      }
+      return row
+    })
 
     // Without a synonym hit, keep the database's order untouched.
     const ingredients =
-      synonymHits.length === 0
+      !changed && synonymHits.size === 0
         ? nameHits
-        : [...nameHits, ...synonymHits]
+        : [...merged, ...synonymHits.values()]
             .sort((a, b) => b.similarity - a.similarity || a.name.localeCompare(b.name))
             .slice(0, limit)
 

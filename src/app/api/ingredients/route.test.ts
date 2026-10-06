@@ -304,6 +304,35 @@ describe('GET /api/ingredients', () => {
       expect(data.ingredients[0]).not.toHaveProperty('matchedAs')
     })
 
+    // Review round 3: the whole synonym scores the row only 0.304 by name,
+    // below the other flours, so the synonym hit must win.
+    it('ranks the row first with matchedAs when the whole synonym is typed', async () => {
+      mockQueryRaw
+        .mockResolvedValueOnce([
+          {
+            id: 'ing-rice',
+            name: 'rice flour',
+            category: 'carb',
+            defaultUnit: 'g',
+            similarity: 0.5,
+          },
+          { id: 'ing-00', name: '00 flour', category: 'carb', defaultUnit: 'g', similarity: 0.4 },
+          { ...flour, poolName: undefined, similarity: 0.304 },
+        ] as never)
+        .mockResolvedValueOnce([{ ...flour, similarity: 0.304 }] as never)
+
+      const { data } = await search('search=plain%20flour')
+
+      expect(data.ingredients.map((i: { id: string }) => i.id)).toEqual([
+        'ing-flour',
+        'ing-rice',
+        'ing-00',
+      ])
+      expect(data.ingredients[0]).toEqual(
+        expect.objectContaining({ similarity: 0.9, matchedAs: 'plain flour' }),
+      )
+    })
+
     it('applies the category filter to the synonym search', async () => {
       mockQueryRaw.mockResolvedValue([] as never)
 
