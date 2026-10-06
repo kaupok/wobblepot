@@ -18,7 +18,7 @@ describe('INGREDIENT_ALIASES', () => {
 
   it('contains protein aliases', () => {
     expect(INGREDIENT_ALIASES['chicken']).toBe('chicken breast')
-    expect(INGREDIENT_ALIASES['beef']).toBe('ground beef')
+    expect(INGREDIENT_ALIASES['beef']).toBe('beef mince')
     expect(INGREDIENT_ALIASES['pork']).toBe('pork loin')
     expect(INGREDIENT_ALIASES['fish']).toBe('salmon fillet')
   })
@@ -154,6 +154,23 @@ describe('INGREDIENT_SYNONYMS', () => {
     expect(INGREDIENT_SYNONYMS['swede']).toBe('rutabaga')
     expect(INGREDIENT_SYNONYMS['capsicum']).toBe('bell pepper')
     expect(INGREDIENT_SYNONYMS['garbanzo beans']).toBe('chickpeas')
+  })
+
+  // HON-1083: a pasted American recipe still matches the renamed seeded row.
+  it('resolves the American name of a renamed seeded row to its British name', () => {
+    expect(applyIngredientAlias('zucchini')).toBe('courgette')
+    expect(applyIngredientAlias('Ground Beef')).toBe('beef mince')
+    expect(applyIngredientAlias('eggplant')).toBe('aubergine')
+    expect(applyIngredientAlias('tomato sauce')).toBe('passata')
+    expect(applyIngredientAlias('goat cheese')).toBe("goat's cheese")
+  })
+
+  it('does not send the British name of a renamed row to another row', () => {
+    for (const name of ['courgette', 'aubergine', 'rocket', 'passata']) {
+      expect(hasIngredientAlias(name)).toBe(false)
+    }
+    expect(applyIngredientAlias('mince')).toBe('beef mince')
+    expect(applyIngredientAlias('red pepper flakes')).toBe('chilli flakes')
   })
 
   it('has lowercase keys', () => {

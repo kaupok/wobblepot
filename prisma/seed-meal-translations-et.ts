@@ -94,7 +94,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   // baseMeals — PORK
   // ============================================================
   {
-    enName: 'Pork Tenderloin with Vegetables',
+    enName: 'Pork Fillet with Vegetables',
     et: {
       name: 'Seafilee köögiviljadega',
       description: 'Ahjus küpsetatud seafileed hooajaliste köögiviljadega.',
@@ -170,7 +170,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Shrimp Stir-Fry',
+    enName: 'Prawn Stir-Fry',
     et: {
       name: 'Krevetid wokis',
       description: 'Kiiresti wokis praetud krevetid paprika ja suvikõrvitsaga.',
@@ -391,7 +391,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Stuffed Bell Peppers',
+    enName: 'Stuffed Peppers',
     et: {
       name: 'Täidetud paprikad',
       description: 'Paprikad täidetud riisi ja köögiviljadega.',
@@ -534,7 +534,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Navy Bean Stew',
+    enName: 'Haricot Bean Stew',
     et: {
       name: 'Valge oa hautis',
       description: 'Rammus valge oa hautis köögiviljadega.',
@@ -905,7 +905,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Apple Cinnamon Oatmeal',
+    enName: 'Apple Cinnamon Porridge',
     et: {
       name: 'Õuna-kaneeli kaerapuder',
       description: 'Soe kaerapuder õuna ja kaneeliga.',
@@ -1207,7 +1207,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   // newMeals — FISH & SEAFOOD (24 new)
   // ============================================================
   {
-    enName: 'Garlic Butter Shrimp',
+    enName: 'Garlic Butter Prawns',
     et: {
       name: 'Küüslaugu-või krevetid',
       description: 'Pannil praetud krevetid küüslaugu-võikastmega.',
@@ -1263,7 +1263,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Shrimp Pad Thai',
+    enName: 'Prawn Pad Thai',
     et: {
       name: 'Kreveti Pad Thai',
       description: 'Tai praetud nuudlid krevetitega.',
@@ -1315,7 +1315,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Three Bean Chili',
+    enName: 'Three Bean Chilli',
     et: {
       name: 'Kolme oa chili',
       description: 'Rammus taimetoitlane oa chili.',
@@ -1367,7 +1367,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Eggplant Parmesan',
+    enName: 'Aubergine Parmigiana',
     et: {
       name: 'Baklažaan parmesan',
       description: 'Paneeritud baklažaan marinara kastme ja juustuga.',
@@ -1388,7 +1388,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Goat Cheese Beet Salad',
+    enName: "Goat's Cheese and Beetroot Salad",
     et: {
       name: 'Kitsepiimajuustu-peedi salat',
       description: 'Röstitud peet kitsepiimajuustu ja kreeka pähklitega.',
@@ -1419,7 +1419,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Grilled Cheese Sandwich',
+    enName: 'Cheese Toastie',
     et: {
       name: 'Grillitud juustuvõileib',
       description: 'Krõbe võiga küpsetatud juustuvõileib.',
@@ -1506,7 +1506,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Shrimp Laksa',
+    enName: 'Prawn Laksa',
     et: {
       name: 'Kreveti laksa',
       description: 'Malaisia kookospiima karri nuudlisupina.',
@@ -1565,7 +1565,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Lamb Pita Pockets',
+    enName: 'Lamb Pitta Pockets',
     et: {
       name: 'Lambaliha pita taskud',
       description: 'Vürtsitatud lambaliha soojas pitas.',
@@ -1582,7 +1582,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   // newMeals — COMFORT FOOD (15 more)
   // ============================================================
   {
-    enName: 'Classic Lasagna',
+    enName: 'Classic Lasagne',
     et: {
       name: 'Klassikaline lasanje',
       description: 'Kihiline pasta lihakastme ja juustuga.',
@@ -1655,7 +1655,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
   // newMeals — MORE VARIETY (25 more)
   // ============================================================
   {
-    enName: 'Beef Chili',
+    enName: 'Beef Chilli',
     et: {
       name: 'Veiseliha chili',
       description: 'Rammus veiseliha chili ubadega.',
@@ -1683,7 +1683,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Coconut Shrimp',
+    enName: 'Coconut Prawns',
     et: {
       name: 'Kookoskrevetid',
       description: 'Krõbedad kookoshelveste kattega krevetid.',
@@ -1704,7 +1704,7 @@ export const mealTranslationsEt: MealTranslationEt[] = [
     },
   },
   {
-    enName: 'Vegetable Lasagna',
+    enName: 'Vegetable Lasagne',
     et: {
       name: 'Köögivilja lasanje',
       description: 'Kihiline pasta köögiviljadega.',

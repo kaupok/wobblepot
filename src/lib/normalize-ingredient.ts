@@ -16,6 +16,7 @@ const COOKING_MODIFIERS = new Set([
   'dry',
   'frozen',
   'canned',
+  'tinned',
   'raw',
   'cooked',
   'ripe',

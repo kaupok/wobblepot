@@ -81,6 +81,7 @@ describe('stripModifiers', () => {
     expect(stripModifiers('dried basil')).toBe('basil')
     expect(stripModifiers('frozen peas')).toBe('peas')
     expect(stripModifiers('canned tomatoes')).toBe('tomatoes')
+    expect(stripModifiers('tinned tomatoes')).toBe('tomatoes')
     expect(stripModifiers('smoked paprika')).toBe('paprika')
     expect(stripModifiers('ground cumin')).toBe('cumin')
   })
@@ -98,6 +99,7 @@ describe('stripModifiers', () => {
     expect(stripModifiers('green lentils')).toBe('green lentils')
     expect(stripModifiers('sweet potato')).toBe('sweet potato')
     expect(stripModifiers('sour cream')).toBe('sour cream')
+    expect(stripModifiers('soured cream')).toBe('soured cream')
   })
 
   it('preserves names with no modifiers', () => {

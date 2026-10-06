@@ -502,6 +502,7 @@ const GLUTEN: FoodGroup = {
     'farro',
     'tortilla',
     'pita',
+    'pitta',
     'naan',
     'crouton',
     'cracker',
