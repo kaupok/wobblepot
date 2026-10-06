@@ -53,8 +53,9 @@ const reason = (what: string, root: string) =>
   [
     `${what} would change the main checkout (${root}), which other Claude sessions share.`,
     'Move this session into its own worktree first: call the EnterWorktree tool (load it with ToolSearch if needed),',
-    "with the Linear issue's gitBranchName as the name when there is an issue, or `<prefix>/<short-slug>` otherwise",
-    '(the prefix of the branch names in `git branch`). Then retry the change there, with paths inside the worktree.',
+    'with name: the issue ID in lower case (`hon-123`) when there is an issue; `wt prepare` resolves it to the Linear branch.',
+    'Otherwise `<prefix>/<short-slug>`, 64 characters at most (the prefix of the branch names in `git branch`).',
+    'Then retry the change there, with paths inside the worktree.',
     `To work in the main checkout on purpose, the user starts Claude with ${MAIN_CHECKOUT_OPT_IN}=1.`,
   ].join(' ')
 

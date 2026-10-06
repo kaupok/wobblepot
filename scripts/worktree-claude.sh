@@ -556,6 +556,7 @@ print_usage() {
   echo "  auto [issue-id|branch] Create worktree and run /auto-implement autonomously"
   echo "  resume <branch-name>   Open Claude Code in existing worktree"
   echo "  prepare <branch-name>  Create a worktree without Neon or Claude; prints its path (WorktreeCreate hook)"
+  echo "                         An issue ID (hon-123) resolves to the issue's branch"
   echo "  release <path>         Remove a worktree only if it has no changes or commits (WorktreeRemove hook)"
   echo "  list                   List all active worktrees"
   echo "  sync <branch-name>     Sync permissions from worktree to main repo"
@@ -785,12 +786,100 @@ prepare_setup() {
   } >&2
 }
 
+# Branches whose name carries the issue ID, newest commit first: `hon-123`,
+# `hon-123-…` or `<prefix>/hon-123-…`. The `-` or end of name after the
+# number is the word boundary that keeps `hon-12` off `hon-123-…`.
+# Usage: prepare_branch_matches <refs/heads|refs/remotes/origin> <hon-NNN>
+prepare_branch_matches() {
+  local refs="$1" id="$2"
+  git -C "$REPO_ROOT" for-each-ref --sort=-committerdate --format='%(refname)' "$refs" \
+    | sed "s|^$refs/||" \
+    | grep -E "(^|/)$id(-|\$)" || true
+}
+
+# The issue's branchName from Linear. Prints it, or prints nothing and says why
+# on stderr. Usage: prepare_branch_from_linear <hon-NNN>
+prepare_branch_from_linear() {
+  local id="$1"
+  if [ -z "${LINEAR_API_KEY:-}" ]; then
+    echo "Could not ask Linear for the $id branch name: LINEAR_API_KEY is not set (check $REPO_ROOT/.env)" >&2
+    return 0
+  fi
+  local payload response name
+  payload=$(jq -nc --arg id "$(printf '%s' "$id" | tr '[:lower:]' '[:upper:]')" \
+    '{query: "query($id: String!) { issue(id: $id) { branchName } }", variables: {id: $id}}')
+  if ! response=$(curl -s --max-time 15 -X POST "https://api.linear.app/graphql" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: $LINEAR_API_KEY" \
+    -d "$payload"); then
+    echo "Could not ask Linear for the $id branch name: the API request failed" >&2
+    return 0
+  fi
+  name=$(printf '%s' "$response" | jq -r '.data.issue.branchName // empty' 2> /dev/null || true)
+  if [ -z "$name" ]; then
+    local msg
+    msg=$(printf '%s' "$response" | jq -r '.errors[0].message // empty' 2> /dev/null || true)
+    echo "Could not ask Linear for the $id branch name: ${msg:-no such issue}" >&2
+    return 0
+  fi
+  if ! git check-ref-format --branch "$name" > /dev/null 2>&1; then
+    echo "Could not use the $id branch name from Linear: '$name' is not a valid branch name" >&2
+    return 0
+  fi
+  echo "$name"
+}
+
+# EnterWorktree takes a name of 64 characters at most, and most Linear branch
+# names are longer, so the guard tells Claude to pass the issue ID (`hon-123`).
+# This turns that ID into the issue's branch: an existing local branch, then
+# one on origin, then Linear's branchName. Anything else, and an ID none of
+# those resolve, passes through unchanged: Linear still links a branch that
+# contains the ID. Prints the branch name only; progress goes to stderr.
+# Usage: resolve_prepare_branch <name>
+resolve_prepare_branch() {
+  local name="$1"
+  if ! [[ "$name" =~ ^[Hh][Oo][Nn]-[0-9]+$ ]]; then
+    echo "$name"
+    return 0
+  fi
+  local id hits
+  id=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
+
+  hits=$(prepare_branch_matches refs/heads "$id")
+  if [ -z "$hits" ]; then
+    # cmd_prepare fetches main only, so a branch pushed from elsewhere would be
+    # missed. A failed fetch still leaves the remote refs we already have.
+    git -C "$REPO_ROOT" fetch --quiet origin 1>&2 || true
+    hits=$(prepare_branch_matches refs/remotes/origin "$id")
+  fi
+  if [ -n "$hits" ]; then
+    if [ "$(printf '%s\n' "$hits" | wc -l | tr -d ' ')" -gt 1 ]; then
+      echo "Several branches carry $id; using the newest. All of them:" >&2
+      printf '%s\n' "$hits" | sed 's/^/  /' >&2
+    fi
+    printf '%s\n' "$hits" | head -n 1
+    return 0
+  fi
+
+  local linear
+  linear=$(prepare_branch_from_linear "$id")
+  if [ -n "$linear" ]; then
+    echo "$linear"
+    return 0
+  fi
+  echo "Using $id as the branch name" >&2
+  echo "$id"
+}
+
 cmd_prepare() {
   local branch="$1"
   if [ -z "$branch" ]; then
     echo "Error: Branch name required" >&2
     exit 1
   fi
+  local requested="$branch"
+  branch=$(resolve_prepare_branch "$requested")
+  [ "$branch" = "$requested" ] || echo "Resolved $requested to the branch $branch" >&2
 
   local worktree_path
   worktree_path=$(get_worktree_path "$branch")
