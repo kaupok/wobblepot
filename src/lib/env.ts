@@ -156,7 +156,7 @@ const serverOnlyEnvSchema = z.object({
     .string()
     .email('ADMIN_EMAIL must be a valid email address')
     .describe(
-      'Email of the single beta admin. Used by isAdmin(session) in src/lib/auth-helpers.ts to gate /admin/signup-codes (HON-488). One person for invite-only beta — switch to a role-based check before opening up admin access.',
+      'Email of the single beta admin. Used by isAdmin(session) in src/lib/auth-helpers.ts to gate /admin/signup-codes (HON-488), and by isAdminIfConfigured(session) to show the admin links in the account menus (HON-1092). One person for invite-only beta — switch to a role-based check before opening up admin access.',
     ),
 
   BLOB_STORE_ID: z

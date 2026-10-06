@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { isAdmin } from './auth-helpers'
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import { isAdmin, isAdminIfConfigured } from './auth-helpers'
 
 const sessionFor = (email: string | undefined): Parameters<typeof isAdmin>[0] =>
   ({ user: { email } }) as never
@@ -26,5 +26,32 @@ describe('isAdmin', () => {
   it('matches case-insensitively (email casing is not user-meaningful)', () => {
     expect(isAdmin(sessionFor('ADMIN@EXAMPLE.COM'))).toBe(true)
     expect(isAdmin(sessionFor('Admin@Example.com'))).toBe(true)
+  })
+})
+
+// HON-1092: the header calls this on every page, so it must not throw.
+describe('isAdminIfConfigured', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('returns false when ADMIN_EMAIL is unset, even for the admin email', () => {
+    vi.stubEnv('ADMIN_EMAIL', '')
+
+    expect(isAdminIfConfigured(sessionFor('admin@example.com'))).toBe(false)
+  })
+
+  it('returns false when there is no session', () => {
+    expect(isAdminIfConfigured(null)).toBe(false)
+    expect(isAdminIfConfigured(undefined)).toBe(false)
+  })
+
+  it('returns false for another email', () => {
+    expect(isAdminIfConfigured(sessionFor('not-admin@example.com'))).toBe(false)
+  })
+
+  it('matches ADMIN_EMAIL case-insensitively when set', () => {
+    expect(isAdminIfConfigured(sessionFor('admin@example.com'))).toBe(true)
+    expect(isAdminIfConfigured(sessionFor('Admin@Example.COM'))).toBe(true)
   })
 })

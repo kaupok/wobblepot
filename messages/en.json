@@ -769,6 +769,9 @@
       "lightMode": "Light mode",
       "darkMode": "Dark mode",
       "toggleTheme": "Toggle theme"
+    },
+    "admin": {
+      "signupCodes": "Signup codes"
     }
   },
   "footer": {

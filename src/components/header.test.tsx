@@ -37,13 +37,19 @@ vi.mock('./header-actions', () => ({
   HeaderActions: ({
     session,
     hasHousehold,
+    adminLinks,
     pastMealsToMark,
   }: {
     session: unknown
     hasHousehold: boolean
+    adminLinks: { href: string; label: string }[]
     pastMealsToMark: number
   }) => (
-    <div data-testid="header-actions" data-past-meals={pastMealsToMark}>
+    <div
+      data-testid="header-actions"
+      data-past-meals={pastMealsToMark}
+      data-admin-links={JSON.stringify(adminLinks)}
+    >
       {session ? 'authenticated' : 'unauthenticated'}
       {hasHousehold ? '-with-household' : '-no-household'}
     </div>
@@ -81,13 +87,19 @@ vi.mock('./mobile-nav', () => ({
   MobileNav: ({
     session,
     hasHousehold,
+    adminLinks,
     pastMealsToMark,
   }: {
     session: unknown
     hasHousehold: boolean
+    adminLinks: { href: string; label: string }[]
     pastMealsToMark: number
   }) => (
-    <div data-testid="mobile-nav" data-past-meals={pastMealsToMark}>
+    <div
+      data-testid="mobile-nav"
+      data-past-meals={pastMealsToMark}
+      data-admin-links={JSON.stringify(adminLinks)}
+    >
       {session ? 'authenticated-mobile' : 'unauthenticated-mobile'}
       {hasHousehold ? '-with-household' : '-no-household'}
     </div>
@@ -269,6 +281,81 @@ describe('Header component', () => {
 
       expect(countPastMealsToMark).not.toHaveBeenCalled()
       expect(screen.getByTestId('mobile-nav')).toHaveAttribute('data-past-meals', '0')
+    })
+  })
+
+  // HON-1092: the admin links are resolved here, labels included, and only for
+  // the admin. ADMIN_EMAIL is admin@example.com via vitest.config.ts.
+  describe('admin links', () => {
+    async function mockSignedInAs(email: string) {
+      const { getSession, getCachedMembership } = await import('@/lib/session')
+      const now = new Date()
+      vi.mocked(getSession).mockResolvedValue({
+        session: {
+          id: 'session-123',
+          userId: '123',
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+          token: 'test-token',
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+          createdAt: now,
+          updatedAt: now,
+        },
+        user: {
+          id: '123',
+          email,
+          name: 'Test User',
+          emailVerified: false,
+          image: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      })
+      vi.mocked(getCachedMembership).mockResolvedValue(null)
+    }
+
+    const adminLinksProps = () =>
+      ['header-actions', 'mobile-nav'].map((id) =>
+        JSON.parse(screen.getByTestId(id).getAttribute('data-admin-links') ?? 'null'),
+      )
+    const SIGNUP_CODES = [{ href: '/admin/signup-codes', label: 'Signup codes' }]
+
+    it('passes the labelled admin links to both menus for the admin session', async () => {
+      await mockSignedInAs('admin@example.com')
+
+      render(await Header())
+
+      expect(adminLinksProps()).toEqual([SIGNUP_CODES, SIGNUP_CODES])
+    })
+
+    it('passes no admin links for another session', async () => {
+      await mockSignedInAs('test@example.com')
+
+      render(await Header())
+
+      expect(adminLinksProps()).toEqual([[], []])
+    })
+
+    it('passes no admin links with no session', async () => {
+      const { getSession } = await import('@/lib/session')
+      vi.mocked(getSession).mockResolvedValue(null)
+
+      render(await Header())
+
+      expect(adminLinksProps()).toEqual([[], []])
+    })
+
+    it('renders, with no admin links, when ADMIN_EMAIL is unset', async () => {
+      vi.stubEnv('ADMIN_EMAIL', '')
+      try {
+        await mockSignedInAs('admin@example.com')
+
+        render(await Header())
+
+        expect(adminLinksProps()).toEqual([[], []])
+      } finally {
+        vi.unstubAllEnvs()
+      }
     })
   })
 

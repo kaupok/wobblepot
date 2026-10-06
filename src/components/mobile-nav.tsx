@@ -11,16 +11,27 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { AttentionDot } from '@/components/attention-dot'
 import { useThemeToggle } from '@/hooks/use-theme-toggle'
 import type { Session } from '@/lib/auth'
+import type { AdminMenuLink } from '@/lib/admin-links'
 import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
 interface MobileNavProps {
   session: Session | null
   hasHousehold: boolean
+  /**
+   * The admin pages, for the beta admin only (HON-1092). Shown household or
+   * not, because the admin pages need none.
+   */
+  adminLinks?: AdminMenuLink[]
   /** Past meals still to mark; above 0, the icon and the row show a dot. */
   pastMealsToMark?: number
 }
 
-export function MobileNav({ session, hasHousehold, pastMealsToMark = 0 }: MobileNavProps) {
+export function MobileNav({
+  session,
+  hasHousehold,
+  adminLinks = [],
+  pastMealsToMark = 0,
+}: MobileNavProps) {
   const router = useRouter()
   const t = useTranslations('nav.actions')
   const tSettings = useTranslations('nav.settings')
@@ -114,6 +125,16 @@ export function MobileNav({ session, hasHousehold, pastMealsToMark = 0 }: Mobile
                   </Link>
                 </>
               )}
+              {adminLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={linkClass}
+                  onClick={() => setOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
               {themeRow}
               <button
                 type="button"

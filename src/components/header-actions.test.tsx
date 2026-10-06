@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { HeaderActions } from './header-actions'
 import type { Session } from '@/lib/auth'
 
+const adminLinks = [{ href: '/admin/signup-codes', label: 'Signup codes' }]
+
 // Mock next/navigation
 const mockPush = vi.fn()
 const mockRefresh = vi.fn()
@@ -208,6 +210,40 @@ describe('HeaderActions', () => {
       expect(screen.queryByRole('menuitem', { name: 'Profile' })).not.toBeInTheDocument()
       expect(screen.queryByRole('menuitem', { name: 'Past meals' })).not.toBeInTheDocument()
       expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeInTheDocument()
+    })
+  })
+
+  // HON-1092: the admin pages, for the session the server resolved as admin.
+  describe('admin links', () => {
+    it('shows Signup codes for the admin with a household', async () => {
+      const user = userEvent.setup()
+      render(<HeaderActions session={mockSession} hasHousehold={true} adminLinks={adminLinks} />)
+
+      await user.click(screen.getByRole('button', { name: 'User menu' }))
+
+      expect(screen.getByRole('menuitem', { name: 'Signup codes' })).toHaveAttribute(
+        'href',
+        '/admin/signup-codes',
+      )
+    })
+
+    it('shows Signup codes for the admin without a household', async () => {
+      const user = userEvent.setup()
+      render(<HeaderActions session={mockSession} hasHousehold={false} adminLinks={adminLinks} />)
+
+      await user.click(screen.getByRole('button', { name: 'User menu' }))
+
+      expect(screen.getByRole('menuitem', { name: 'Signup codes' })).toBeInTheDocument()
+    })
+
+    it('renders no admin link and no /admin href for anyone else', async () => {
+      const user = userEvent.setup()
+      render(<HeaderActions session={mockSession} hasHousehold={true} />)
+
+      await user.click(screen.getByRole('button', { name: 'User menu' }))
+
+      expect(screen.queryByRole('menuitem', { name: 'Signup codes' })).not.toBeInTheDocument()
+      expect(document.querySelector('a[href^="/admin"]')).toBeNull()
     })
   })
 

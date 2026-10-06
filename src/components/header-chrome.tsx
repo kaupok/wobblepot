@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useScrolled } from '@/hooks/use-scrolled'
 import type { Session } from '@/lib/auth'
+import type { AdminMenuLink } from '@/lib/admin-links'
 import { cn } from '@/lib/utils'
 import { HeaderActions } from './header-actions'
 import { NavigationLeft, NavigationRight } from './navigation'
@@ -12,6 +13,11 @@ import { Wordmark } from './wordmark'
 interface HeaderChromeProps {
   session: Session | null
   hasHousehold: boolean
+  /**
+   * The admin pages, labels resolved, for the beta admin only; empty for
+   * everyone else. Non-empty adds them to both account menus (HON-1092).
+   */
+  adminLinks: AdminMenuLink[]
   /**
    * Past meals still to mark (`countPastMealsToMark`). Above 0, the account
    * icon and its "Past meals" row show a red dot (HON-1028).
@@ -52,6 +58,7 @@ interface HeaderChromeProps {
 export function HeaderChrome({
   session,
   hasHousehold,
+  adminLinks,
   pastMealsToMark,
   skipToContentLabel,
 }: HeaderChromeProps) {
@@ -133,11 +140,13 @@ export function HeaderChrome({
             <HeaderActions
               session={session}
               hasHousehold={hasHousehold}
+              adminLinks={adminLinks}
               pastMealsToMark={pastMealsToMark}
             />
             <MobileNav
               session={session}
               hasHousehold={hasHousehold}
+              adminLinks={adminLinks}
               pastMealsToMark={pastMealsToMark}
             />
           </div>

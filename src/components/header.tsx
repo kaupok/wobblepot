@@ -1,5 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { getSession, getCachedMembership } from '@/lib/session'
+import { isAdminIfConfigured } from '@/lib/auth-helpers'
+import { ADMIN_LINKS } from '@/lib/admin-links'
 import { countPastMealsToMark } from '@/lib/meal-planning/past-meals'
 import { HeaderChrome } from './header-chrome'
 
@@ -12,12 +14,17 @@ import { HeaderChrome } from './header-chrome'
  * It also counts the past meals still to mark, for the account menu's dot
  * (HON-1028). It lives in the layout, so the `router.refresh()` after a status
  * change re-runs the count and the dot clears without a client query.
+ *
+ * The admin menu links are resolved here too, labels included, and only for
+ * the admin. Neither `ADMIN_EMAIL` nor the comparison reaches the client, and a
+ * non-admin page carries no `/admin` href or label (HON-1092, HON-830).
  */
 export async function Header() {
   const session = await getSession()
   const membership = session ? await getCachedMembership(session.user.id) : null
   const hasHousehold = membership !== null
-  const [pastMealsToMark, t] = await Promise.all([
+  const isAdmin = isAdminIfConfigured(session)
+  const [pastMealsToMark, t, tAdmin] = await Promise.all([
     membership
       ? countPastMealsToMark({
           id: membership.householdId,
@@ -25,12 +32,17 @@ export async function Header() {
         })
       : 0,
     getTranslations('nav'),
+    getTranslations('nav.admin'),
   ])
+  const adminLinks = isAdmin
+    ? ADMIN_LINKS.map((link) => ({ href: link.href, label: tAdmin(link.labelKey) }))
+    : []
 
   return (
     <HeaderChrome
       session={session}
       hasHousehold={hasHousehold}
+      adminLinks={adminLinks}
       pastMealsToMark={pastMealsToMark}
       skipToContentLabel={t('skipToContent')}
     />
