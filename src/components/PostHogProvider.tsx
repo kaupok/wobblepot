@@ -10,6 +10,7 @@ import { clientEnv } from '@/lib/env'
 import { useAnalyticsConsent } from '@/components/ConsentProvider'
 import { POSTHOG_INIT_OPTIONS } from '@/lib/posthog-init-options'
 import { markPostHogLoaded } from '@/lib/posthog-client-state'
+import { clearStoredPostHogIdentity } from '@/lib/posthog-identity-sweep'
 import type { BootstrapData } from '@/lib/feature-flags'
 
 interface PostHogProviderProps {
@@ -102,8 +103,19 @@ export function PostHogProvider({
   // the new identity to the old one. reset() cannot run on withdrawal instead,
   // because it also clears the consent state (posthog-core.js:3292), which
   // undoes the opt-out.
+  //
+  // Without a client there is nothing to opt out, but storage can still hold an
+  // identity: written before HON-1002 shipped, or before a withdraw that beat
+  // the idle-callback init (the lazy-load effect's cleanup cancels that init).
+  // Loading the SDK to clear it would fetch from PostHog without consent
+  // (HON-999), so the sweep deletes it directly (HON-1051).
   useEffect(() => {
-    if (!client) return
+    if (!client) {
+      if (granted === false && clientEnv.NEXT_PUBLIC_POSTHOG_KEY) {
+        clearStoredPostHogIdentity(clientEnv.NEXT_PUBLIC_POSTHOG_KEY)
+      }
+      return
+    }
     if (granted === true) {
       if (client.has_opted_out_capturing()) {
         client.reset({ resetDeviceID: true })
