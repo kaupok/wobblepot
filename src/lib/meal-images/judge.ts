@@ -13,7 +13,7 @@ import { ingredientsByWeight, type MealImageMeal } from './prompt'
 // HON-732's judge flagged garlic and thyme as missing although its prompt said
 // to ignore them. Marking them in code means it is never asked about them.
 const INVISIBLE_WHEN_COOKED =
-  /garlic|ginger|stock|broth|\boil\b|butter|\bsalt\b|seasoning|powder|masala|cumin|paprika|cinnamon|turmeric|saffron|nutmeg|chili flakes|thyme|rosemary|oregano|\bsage\b|bay lea|miso|cream\b|yogurt|mayonnaise|vinegar|soy sauce|fish sauce|honey|syrup|sugar|flour|breadcrumbs|mustard|wine|tomato paste|lemon|lime/i
+  /garlic|ginger|stock|broth|\boil\b|butter|\bsalt\b|seasoning|powder|masala|cumin|paprika|cinnamon|turmeric|saffron|nutmeg|chill?i flakes|thyme|rosemary|oregano|\bsage\b|bay lea|miso|cream\b|yogurt|mayonnaise|vinegar|soy sauce|fish sauce|honey|syrup|sugar|flour|breadcrumbs|mustard|wine|tomato paste|lemon|lime/i
 
 /** `pepper` alone is the spice; `bell pepper` is a vegetable. */
 const isInvisible = (name: string): boolean =>

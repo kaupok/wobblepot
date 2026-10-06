@@ -83,7 +83,7 @@ export const WithTitleActions: Story = {
     meal: mealFixture,
     titleActions: (
       <>
-        <Button variant="ghost" size="sm" aria-label="Add to favorites">
+        <Button variant="ghost" size="sm" aria-label="Add to favourites">
           <Heart className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="sm" aria-label="Edit meal">

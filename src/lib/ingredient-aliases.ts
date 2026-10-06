@@ -35,7 +35,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 
   // Proteins - expand to specific cuts that exist in DB
   chicken: 'chicken breast', // DB has chicken breast
-  beef: 'ground beef', // DB has ground beef
+  beef: 'beef mince', // DB has beef mince
   pork: 'pork loin', // DB has pork loin
   fish: 'salmon fillet', // DB has salmon fillet
 
@@ -78,9 +78,6 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   // British English / alternate names (seed-import-coverage)
   cornmeal: 'corn meal', // DB has corn meal
   'self raising flour': 'self-raising flour', // Without hyphen
-  aubergine: 'eggplant', // British term
-  courgette: 'zucchini', // British term
-  rocket: 'arugula', // British term
   mangetout: 'snap peas', // British term
   'coriander leaves': 'cilantro', // Explicit leaf reference
   'fresh coriander': 'cilantro', // Common British recipe phrasing
@@ -95,8 +92,8 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'sichuan peppercorn': 'szechuan peppercorn', // DB has szechuan peppercorn
 
   // Chilli / pepper aliases
-  'red pepper flakes': 'chili flakes', // DB has chili flakes
-  'crushed red pepper': 'chili flakes', // DB has chili flakes
+  'red pepper flakes': 'chilli flakes', // DB has chilli flakes
+  'crushed red pepper': 'chilli flakes', // DB has chilli flakes
   'red chile pepper': 'red chilli', // DB has red chilli
   'green chile pepper': 'green chilli', // DB has green chilli
   'red chile': 'red chilli', // DB has red chilli
@@ -104,11 +101,9 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 
   // Canned / processed tomato aliases
   'chopped tomatoes': 'canned diced tomatoes', // DB has canned diced tomatoes
-  passata: 'tomato puree', // DB has tomato puree
-  'tomato passata': 'tomato puree', // DB has tomato puree
 
   // Meat / protein aliases
-  mince: 'ground beef', // Most common "mince" meaning
+  mince: 'beef mince', // Most common "mince" meaning
   'minced beef': 'beef mince lean', // DB has beef mince lean
   'minced pork': 'ground pork', // DB has ground pork
   // stewing beef / beef stew meat: now direct ingredients in seed-import-coverage.ts
@@ -267,6 +262,24 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   'sweet pepper': 'bell pepper',
   scallion: 'spring onion',
   'green onion': 'spring onion',
+
+  // Seeded rows renamed from the American word (HON-1083)
+  'tomato sauce': 'passata',
+  'tomato passata': 'passata',
+  'ground beef': 'beef mince',
+  'sour cream': 'soured cream',
+  'pita bread': 'pitta bread',
+  'chili flakes': 'chilli flakes',
+  zucchini: 'courgette',
+  'bok choy': 'pak choi',
+  corn: 'sweetcorn',
+  eggplant: 'aubergine',
+  arugula: 'rocket',
+  'chili powder': 'chilli powder',
+  'lasagna sheets': 'lasagne sheets',
+  'navy beans': 'haricot beans',
+  'canned tuna': 'tinned tuna',
+  'goat cheese': "goat's cheese",
 }
 
 /**

@@ -62,7 +62,7 @@ export const Populated: Story = {
 
     // Two controls on every title row: the heart and the ⋯ trigger, named
     // for its recipe. Edit and Delete live in the menu (HON-934).
-    expect(canvas.getAllByRole('button', { name: /favorites/i })).toHaveLength(names.length)
+    expect(canvas.getAllByRole('button', { name: /favourites/i })).toHaveLength(names.length)
     for (const meal of householdMealList) {
       expect(canvas.getByRole('button', { name: `More actions: ${meal.name}` })).toBeInTheDocument()
     }

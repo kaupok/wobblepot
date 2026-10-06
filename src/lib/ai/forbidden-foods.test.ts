@@ -251,6 +251,35 @@ describe('review round 2 gaps (PR #981)', () => {
   })
 })
 
+// HON-1083 renamed seeded rows to their British names. Each pair of words must
+// trip the same rule, so a pasted American recipe and a seeded meal agree.
+describe('British and American names of a renamed row', () => {
+  it.each([
+    [{ allergens: ['gluten'] }, 'pita bread'],
+    [{ allergens: ['gluten'] }, 'pitta bread'],
+    [{ allergens: ['gluten'] }, 'lasagna sheets'],
+    [{ allergens: ['gluten'] }, 'lasagne sheets'],
+    [{ allergens: ['dairy'] }, 'sour cream'],
+    [{ allergens: ['dairy'] }, 'soured cream'],
+    [{ allergens: ['dairy'] }, 'goat cheese'],
+    [{ allergens: ['dairy'] }, "goat's cheese"],
+    [{ allergens: ['fish'] }, 'canned tuna'],
+    [{ allergens: ['fish'] }, 'tinned tuna'],
+    [{ dietaryType: 'vegetarian' }, 'ground beef'],
+    [{ dietaryType: 'vegetarian' }, 'beef mince'],
+  ])('%o flags %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(true)
+  })
+
+  it.each([
+    [{ allergens: ['gluten'] }, "goat's cheese"],
+    [{ allergens: ['eggs'] }, 'eggplant'],
+    [{ allergens: ['eggs'] }, 'aubergine'],
+  ])('%o allows %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(false)
+  })
+})
+
 describe('review round 3 gaps (PR #981)', () => {
   it.each([
     [{ allergens: ['shellfish'] }, 'rannakarbid'],

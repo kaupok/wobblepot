@@ -28,6 +28,16 @@ describe('findSynonymMatches', () => {
     ])
   })
 
+  // HON-1083: the pantry quick-add offers "courgette (zucchini)" for "zucc".
+  it('finds a renamed seeded row by its American name', () => {
+    expect(findSynonymMatches('zucc')).toEqual([
+      { target: 'courgette', synonym: 'zucchini', strong: true },
+    ])
+    expect(findSynonymMatches('eggpl')).toEqual([
+      { target: 'aubergine', synonym: 'eggplant', strong: true },
+    ])
+  })
+
   it('does not match the middle of a word', () => {
     expect(findSynonymMatches('lour')).toEqual([])
   })
@@ -37,7 +47,7 @@ describe('findSynonymMatches', () => {
     const strongOf = (term: string) =>
       Object.fromEntries(findSynonymMatches(term).map((m) => [m.synonym, m.strong]))
 
-    expect(strongOf('zucc')).toEqual({})
+    expect(strongOf('zucc')).toEqual({ zucchini: true })
     expect(strongOf('swed')).toEqual({ swede: true })
     expect(strongOf('plain')).toEqual({ 'plain flour': false })
     expect(strongOf('pla')).toEqual({ 'plain flour': false })
