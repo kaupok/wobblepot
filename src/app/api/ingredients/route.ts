@@ -21,12 +21,16 @@ const MAX_LIMIT = 50
  */
 const SIMILARITY_THRESHOLD = 0.3
 /**
- * Score for a row found by another English name (HON-1100). A synonym hit is
- * an exact, curated match, but its own name can share almost no trigrams with
- * the term ("plain fl" vs "all-purpose flour"), so it gets a fixed score: above
- * any partial name hit, below an exact name hit (similarity 1). Typing "plain
- * fl" then lists all-purpose flour first, and typing a row's full name still
- * puts that row on top.
+ * Score for a row found by another English name that starts with the term
+ * (HON-1100). Such a hit is an exact, curated match, but the row's own name can
+ * share almost no trigrams with the term ("plain fl" vs "all-purpose flour"),
+ * so it gets a fixed score: above any partial name hit, below an exact name hit
+ * (similarity 1). Typing "plain fl" then lists all-purpose flour first, and
+ * typing a row's full name still puts that row on top.
+ *
+ * A term that only starts a later word of the synonym ("pepper" in "red
+ * pepper") is a generic word, not that kind of match, so the row keeps its own
+ * name score and falls into the normal order.
  */
 const SYNONYM_SCORE = 0.9
 
@@ -114,7 +118,7 @@ export async function GET(request: NextRequest) {
       // Synonyms name global rows only, by their English pool name, so this
       // matches `i.name` exactly and still returns the household's display name.
       synonymMatches.length > 0
-        ? prisma.$queryRaw<(Omit<IngredientSearchResult, 'similarity'> & { poolName: string })[]>`
+        ? prisma.$queryRaw<(IngredientSearchResult & { poolName: string })[]>`
             SELECT
               i.id,
               i.name as "poolName",
@@ -126,7 +130,8 @@ export async function GET(request: NextRequest) {
               i.calories,
               i.protein,
               i.carbs,
-              i.fat
+              i.fat,
+              ${match.score} as similarity
             FROM "ingredient" i
             ${match.join}
             WHERE i.name IN (${Prisma.join(synonymMatches.map((m) => m.target))})
@@ -139,14 +144,17 @@ export async function GET(request: NextRequest) {
     // A row the trigram search already found by its own name keeps no
     // `matchedAs`, and is not listed twice.
     const foundIds = new Set(nameHits.map((row) => row.id))
-    const synonymByTarget = new Map(synonymMatches.map((m) => [m.target, m.synonym]))
+    const synonymByTarget = new Map(synonymMatches.map((m) => [m.target, m]))
     const synonymHits: IngredientSearchResult[] = synonymRows
       .filter((row) => !foundIds.has(row.id))
-      .map(({ poolName, ...row }) => ({
-        ...row,
-        similarity: SYNONYM_SCORE,
-        matchedAs: synonymByTarget.get(poolName),
-      }))
+      .map(({ poolName, similarity, ...row }) => {
+        const hit = synonymByTarget.get(poolName)
+        return {
+          ...row,
+          similarity: hit?.byKeyStart ? SYNONYM_SCORE : similarity,
+          matchedAs: hit?.synonym,
+        }
+      })
 
     // Without a synonym hit, keep the database's order untouched.
     const ingredients =

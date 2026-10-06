@@ -314,7 +314,7 @@ describe('GET /api/ingredients', () => {
       expect(values).toContain('carb')
     })
 
-    it('ranks a synonym hit above partial name hits and holds the limit', async () => {
+    it('ranks a synonym that starts with the term above partial name hits and holds the limit', async () => {
       mockQueryRaw
         .mockResolvedValueOnce([
           {
@@ -333,18 +333,69 @@ describe('GET /api/ingredients', () => {
           },
         ] as never)
         .mockResolvedValueOnce([
-          { ...flour, id: 'ing-red', name: 'red bell pepper', poolName: 'red bell pepper' },
-          { ...flour, id: 'ing-green', name: 'green bell pepper', poolName: 'green bell pepper' },
+          {
+            ...flour,
+            id: 'ing-red',
+            name: 'red bell pepper',
+            poolName: 'red bell pepper',
+            similarity: 0.2,
+          },
+        ] as never)
+
+      const { data } = await search('search=red%20pep&limit=2')
+
+      expect(data.ingredients.map((i: { id: string }) => i.id)).toEqual(['ing-red', 'ing-a'])
+      expect(data.ingredients[0]).toEqual(
+        expect.objectContaining({ similarity: 0.9, matchedAs: 'red pepper' }),
+      )
+    })
+
+    // "pepper" only starts a later word of "red pepper": a generic word, so the
+    // row keeps its own name score rather than jumping to the top.
+    it('keeps the name score for a synonym whose later word starts with the term', async () => {
+      mockQueryRaw
+        .mockResolvedValueOnce([
+          {
+            id: 'ing-bell',
+            name: 'bell pepper',
+            category: 'vegetable',
+            defaultUnit: 'g',
+            similarity: 0.58,
+          },
+          {
+            id: 'ing-black',
+            name: 'black pepper',
+            category: 'spice',
+            defaultUnit: 'g',
+            similarity: 0.54,
+          },
+        ] as never)
+        .mockResolvedValueOnce([
+          {
+            ...flour,
+            id: 'ing-red',
+            name: 'red bell pepper',
+            poolName: 'red bell pepper',
+            similarity: 0.44,
+          },
+          {
+            ...flour,
+            id: 'ing-bell',
+            name: 'bell pepper',
+            poolName: 'bell pepper',
+            similarity: 0.58,
+          },
         ] as never)
 
       const { data } = await search('search=pepper&limit=3')
 
-      expect(data.ingredients.map((i: { id: string }) => i.id)).toEqual([
-        'ing-green',
-        'ing-red',
-        'ing-a',
+      expect(data.ingredients).toEqual([
+        expect.objectContaining({ id: 'ing-bell', similarity: 0.58 }),
+        expect.objectContaining({ id: 'ing-black', similarity: 0.54 }),
+        expect.objectContaining({ id: 'ing-red', similarity: 0.44, matchedAs: 'red pepper' }),
       ])
-      expect(data.ingredients[0].matchedAs).toBe('green pepper')
+      expect(data.ingredients[0]).not.toHaveProperty('matchedAs')
+      expect(queryAt(1).sql).toMatch(/similarity\(i\.name, \?\) as similarity/)
     })
 
     it('returns the Estonian display name with the English synonym', async () => {

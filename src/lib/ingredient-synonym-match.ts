@@ -8,6 +8,12 @@ export interface SynonymMatch {
   target: string
   /** The other English name the search term matched. */
   synonym: string
+  /**
+   * True when the whole synonym starts with the term ("plain fl"), false when
+   * only a later word does ("pepper" in "red pepper"). The search route ranks
+   * only the first kind as a strong hit.
+   */
+  byKeyStart: boolean
 }
 
 /**
@@ -26,9 +32,9 @@ export function findSynonymMatches(search: string): SynonymMatch[] {
   const byWordStart: SynonymMatch[] = []
   for (const [synonym, target] of Object.entries(INGREDIENT_SYNONYMS)) {
     if (synonym.startsWith(term)) {
-      byKeyStart.push({ target, synonym })
+      byKeyStart.push({ target, synonym, byKeyStart: true })
     } else if (synonym.split(/\s+/).some((word) => word.startsWith(term))) {
-      byWordStart.push({ target, synonym })
+      byWordStart.push({ target, synonym, byKeyStart: false })
     }
   }
 
