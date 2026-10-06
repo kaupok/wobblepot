@@ -2,10 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { getSession } from '@/lib/session'
 import { generateMetadata } from './page'
 
-vi.mock('next-intl/server', () => ({
-  getTranslations: vi.fn(async () => (key: string) => (key === 'title' ? 'Signup codes' : key)),
-}))
-
 vi.mock('@/lib/session', () => ({
   getSession: vi.fn(),
 }))
