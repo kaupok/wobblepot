@@ -1,3 +1,4 @@
+import { MealCardSkeleton } from '@/components/meal-plan/MealCardSkeleton'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export default function HomeLoading() {
@@ -11,8 +12,8 @@ export default function HomeLoading() {
 
           {/* Meal cards */}
           <div className="flex flex-col gap-4">
-            <Skeleton shape="card" className="h-28 w-full" />
-            <Skeleton shape="card" className="h-28 w-full" />
+            <MealCardSkeleton />
+            <MealCardSkeleton />
           </div>
 
           {/* Tomorrow preview heading */}
@@ -20,7 +21,7 @@ export default function HomeLoading() {
 
           {/* Tomorrow meal cards */}
           <div className="flex flex-col gap-4">
-            <Skeleton shape="card" className="h-28 w-full" />
+            <MealCardSkeleton />
           </div>
         </div>
 

@@ -31,8 +31,11 @@ export interface MealImageFields {
  * The widest side card is a planner row at the 1152px page width: 1fr beside
  * the 320px sidebar, ~776px. Its image is 5/8 of that, 485px; with trailing
  * actions it ends `right-12` (48px) earlier, 437px. Below `md` the card is
- * `100vw - 2rem` at most, so 5/8 of it stays under 62vw and the trailing box
- * under 55vw.
+ * `100vw - 2rem` at most, so 5/8 of it stays under 62vw. The trailing box
+ * starts at half a card narrower than 448px, which every card is below a 480px
+ * viewport: `(100vw - 2rem) / 2 - 48px`, under 37vw. From 480px the card may
+ * be wide enough for the 3/8 start (`@md/meal-image`), up to 54vw, so that
+ * band keeps 55vw (HON-1096).
  *
  * The bottom image spans the card. Two callsites: the alternatives grid (three
  * ~272px columns from `md` in the `max-w-4xl` add-meal dialog) and the recipe
@@ -46,7 +49,7 @@ export interface MealImageFields {
  */
 const SIZES = {
   default: '(min-width: 768px) 485px, 62vw',
-  trailingActions: '(min-width: 768px) 437px, 55vw',
+  trailingActions: '(min-width: 768px) 437px, (min-width: 480px) 55vw, 37vw',
   bottom: '(min-width: 768px) 364px, 100vw',
 } as const
 
@@ -56,9 +59,10 @@ const SIZES = {
  *
  * With trailing actions the image ends before the action column instead of
  * fading under it (HON-749). A right-end fade was the alternative, but a phone
- * card has room for the title, the actions and ~100px between them, not for an
- * image underneath the actions as well. `right-12` (48px) is the column — the
- * `icon-sm` menu, which holds Note as well as Swap and Clear —
+ * card has room for the title, the actions and the plate between them, not for
+ * an image underneath the actions as well. On a narrow card the box starts at
+ * half the card, where the title column ends (HON-1096). `right-12` (48px) is
+ * the column — the `icon-sm` menu, which holds Note as well as Swap and Clear —
  * plus the card's `px-4`. The inset box can be narrower than 3:2, so
  * `object-cover` may crop the plate at its right edge; the short right fade
  * keeps that from reading as a hard edge.
@@ -69,7 +73,7 @@ const SIZES = {
  */
 const IMAGE_BOX = {
   default: 'right-0 w-9/20 @md/meal-image:w-5/8',
-  trailingActions: 'right-12 left-1/3 @md/meal-image:left-3/8 mask-r-from-80%',
+  trailingActions: 'right-12 left-1/2 @md/meal-image:left-3/8 mask-r-from-80%',
 } as const
 
 /**
@@ -109,7 +113,7 @@ type ImageHeight = keyof typeof IMAGE_HEIGHT
  * without actions.
  *
  * The left edge is the width cap (`max-w-note-slip*` in globals.css). It is not
- * the trailing image box's: that starts at a third on a narrow card, under the
+ * the trailing image box's: that starts at half a narrow card, under the
  * badge row, where the availability badge runs to about 54% of a phone card in
  * Estonian ("Vaja osta 2 koostisosa", 177px of 356px). So the slip starts no
  * further left than 11/20 plus 8px, and half plus 8px on a wide card, where
@@ -193,7 +197,7 @@ const TITLE_WIDTH = {
   default:
     'group-data-meal-surface/meal-image:max-w-1/2 group-data-meal-overlay/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8 @md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
   trailingActions:
-    'group-data-meal-surface/meal-image:max-w-1/3 group-data-meal-overlay/meal-image:max-w-1/3 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8 @md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
+    'group-data-meal-surface/meal-image:max-w-1/2 group-data-meal-overlay/meal-image:max-w-1/2 @md/meal-image:group-data-meal-surface/meal-image:max-w-3/8 @md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
 } as const
 
 /** The `max-width` classes for a title inside a `MealImageCard`, matching its image box. */
@@ -375,10 +379,13 @@ export function MealImageCard({
       className={cn(
         hasImage && 'relative isolate overflow-hidden',
         // The named group and container drive the side image's geometry, the
-        // overlay's box and the title cap (`mealImageTitleWidth`). A bottom
-        // card leaves them off, so its title keeps the full row: nothing sits
-        // beside it.
-        (hasImage || hasOverlay) && layout === 'side' && 'group/meal-image @container/meal-image',
+        // overlay's box and the title cap (`mealImageTitleWidth`). A card with
+        // a head keeps them without an image too, so the head's own
+        // `@md/meal-image` rows (the planner card's fixed height, HON-1096)
+        // switch where an image card's do; the cap keys on the data attributes,
+        // so it stays off. A bottom card leaves them off, so its title keeps
+        // the full row: nothing sits beside it.
+        ((hasImage && layout === 'side') || hasHead) && 'group/meal-image @container/meal-image',
         className,
       )}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
