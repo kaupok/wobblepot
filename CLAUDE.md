@@ -22,6 +22,15 @@ Relax, when it carries meaning:
 
 Issue descriptions and acceptance criteria stay close to the full rule, one fact per line, but keep the why as its own line: see Writing for Agents. Chat takes the wiggle room.
 
+**Name the thing, not its number.** In chat, the user does not know what `HON-1056` or `#1151` is from the number, so a bare identifier tells them nothing.
+
+- Say what the thing is in plain words, every time: "the landing button wording", "the waitlist", "the first-cohort plan". Put the identifier after it in parentheses, and only where the user may want to open it: "the landing button wording (HON-1056)".
+- The same holds for a PR number, a document, a dashboard, and any label you coined in the session ("option A", "Phase 0", "the gate"). Say what it means when you bring it back; do not assume the user kept it from an earlier message.
+- A list of work names each item by what it does, not by a row of identifiers.
+- Before you send, check: can the user say what each thing is from this message alone?
+
+This is for text the user reads in chat. Linear text keeps plain `HON-123` references (see Git & Workflow Essentials), because Linear turns each one into a link that carries the issue title.
+
 ## Project Overview
 
 **Product:** AI-powered family meal planning app for households. The user-facing brand is **Wobblepot** (pronounced "WOB-bul-pot"). _Honkadori OÜ_ is the parent legal entity — used for vendor accounts, DPAs, subprocessor listings, AKI registration — and the name the package and the Linear workspace still carry. All user-facing copy and email lives on `wobblepot.com`; staging is on `wobblepot.dev`; legal-entity attribution appears in policy text only.

@@ -51,6 +51,10 @@ Entries are grouped by the `CLAUDE.md` section they belong to.
 - **`/branch-review` and `/code-review`.** The project skill was renamed to `/branch-review` when Claude Code shipped a built-in `/code-review` (around 2026-05), to avoid the name collision.
 - **HON-562 — Better Auth CLI.** `npx @better-auth/cli@latest generate` is deprecated (renamed to `auth`), and neither works here: the CLI loads `src/lib/auth.ts` through jiti, which cannot resolve the `server-only` import it pulls in transitively. HON-562 found the Better Auth 1.7 `Account.issuer` field by diffing `get-tables.mjs` against `prisma/schema.prisma` by hand.
 
+## Writing style
+
+- **2026-10-06, no issue — bare identifiers in chat.** In a long planning session the agent wrote chat lines such as "do HON-1056, HON-1081 and HON-1080" and "PR #1151 is open". The user said they do not know what an issue is from its number, and asked for a rule. The identifiers were correct and the messages were still unreadable, because only the agent had the titles in context.
+
 ## Writing for agents
 
 - **HON-617 — tables nested in list items.** Verified by round-trip on 2026-09-07 through both the MCP `save_issue` tool and the raw GraphQL API, so this is Linear's API rather than the MCP layer. A table only nests if it is indented at or past the item's content indent; once it does, the strip width is that content indent no matter how far it was indented (4 spaces under `1.` still loses exactly 3). A table indented 2 spaces under `1. ` is silently lifted out of the list but keeps its cells. Top-level tables and tables inside a blockquote survive. Comment bodies (`save_comment`) are not affected. Shape-by-shape results are on the issue.
