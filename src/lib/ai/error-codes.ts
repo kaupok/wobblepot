@@ -198,7 +198,7 @@ export function mealPlanGenerateFallbackKey(status: number): string {
 }
 
 /**
- * `PreparationStepsErrorCode` → message key under `meal-plan.tips.errors`, read
+ * `PreparationStepsErrorCode` → message key under `meal-plan.steps.errors`, read
  * by `useMealSteps` (HON-888).
  */
 export const PREPARATION_STEPS_ERROR_KEYS = {
