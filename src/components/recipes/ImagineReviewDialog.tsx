@@ -441,10 +441,7 @@ export function ImagineReviewDialog({
                           {row.isVague && row.originalPhrase ? (
                             <span className="italic">{vaguePhrase(row.originalPhrase)}</span>
                           ) : (
-                            <>
-                              {perServing}
-                              {unitLabel}/serving
-                            </>
+                            tRow('perServing', { quantity: perServing, unit: unitLabel })
                           )}
                         </Body>
                       </div>
