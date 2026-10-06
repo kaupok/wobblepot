@@ -3708,7 +3708,9 @@ cmd_start() {
   # orchestrator.sh's log() is the sole writer of $log_file. Its stdout/stderr
   # go to a separate console log so crash output (set -e aborts, bash errors,
   # stray tool noise) is still captured without storing every log line twice —
-  # once more with raw ANSI escapes (HON-572).
+  # once more with raw ANSI escapes (HON-572). log() writes its colored stderr
+  # copy only to a terminal, so the console log holds that crash output alone,
+  # and rotate_logs caps its size (HON-1068).
   local console_log="$log_dir/orchestrator-console.log"
 
   # Check if already running

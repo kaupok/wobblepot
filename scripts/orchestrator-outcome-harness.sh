@@ -188,7 +188,26 @@
 #     Calls the REAL log() once with MAIN_LOG on a temp file, then reports what
 #     the file holds. stderr carries log()'s own colored copy, so a test that
 #     captures the two streams separately can assert the file is written exactly
-#     once and carries no ANSI escapes.
+#     once and carries no ANSI escapes. log() writes that stderr copy only when
+#     stderr is a terminal (HON-1068), so run it under `script` to see it.
+#
+#   poll-summary <steps>                                           (HON-1068)
+#     Calls the REAL log_poll_summary once per comma-separated step, each
+#     `<active>:<outcome>`, or `-` for a loop pass that did not poll (which
+#     clears LAST_POLL_SUMMARY as the main loop does). Prints $MAIN_LOG.
+#
+#   worker-report <steps>                                          (HON-1068)
+#     Calls the REAL report_worker_status once per comma-separated step, each
+#     `<now>;<phase>:<ahead>[;<phase>:<ahead>…]` — the clock, then one field per
+#     worker (HON-1, HON-2, …). `date +%s`, detect_phase and commits_ahead are
+#     stubbed to answer from the step; each worker has a fixture worktree.
+#     Prints $MAIN_LOG with a STEP:<n> line before each step's output.
+#
+#   rotate-logs <log-dir>                                (HON-578, HON-1068)
+#     The REAL rotate_logs against a pre-populated log dir. Caps come from the
+#     environment. HARNESS_CONSOLE_HELD=1 holds the console log open on an
+#     append descriptor across the rotation, as cmd_start's nohup does, and
+#     writes `after-rotate` through it afterwards.
 #
 #   neon-gc-select <branches-json> <live-worktrees>  (HON-572, finding 4)
 #     Sources worktree-claude.sh (guarded: sourcing does not run its dispatcher)
@@ -917,6 +936,58 @@ EOF
     exit 0
     ;;
 
+  # ─── Idle polls logged on change only (HON-1068) ───────────────────────────
+  poll-summary)
+    IFS=',' read -r -a _steps <<< "$A1"
+    for _step in "${_steps[@]}"; do
+      if [ "$_step" = "-" ]; then
+        LAST_POLL_SUMMARY=""
+      else
+        log_poll_summary "${_step%%:*}" "${_step#*:}"
+      fi
+    done
+    cat "$MAIN_LOG"
+    exit 0
+    ;;
+
+  # ─── Worker rows at a slower rate (HON-1068) ───────────────────────────────
+  worker-report)
+    WT_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-report.XXXXXXXX")
+    trap 'rm -rf "$MAIN_LOG" "$SEEN_SKIPS_FILE" "$WT_ROOT"' EXIT
+    HARNESS_NOW=0
+    date() {
+      if [ "${1:-}" = "+%s" ]; then echo "$HARNESS_NOW"; else command date "$@"; fi
+    }
+    get_worktree_path() { echo "$WT_ROOT/$1"; }
+    # Branch `b<n>` is worker n; its answers come from the current step.
+    detect_phase() { local n="${2#b}"; local f="${_fields[$n]}"; echo "${f%%:*}"; }
+    commits_ahead() { local n="${1##*/b}"; local f="${_fields[$n]}"; echo "${f#*:}"; }
+    IFS=',' read -r -a _steps <<< "$A1"
+    _k=0
+    for _step in "${_steps[@]}"; do
+      _k=$((_k + 1))
+      IFS=';' read -r -a _fields <<< "$_step"
+      HARNESS_NOW="${_fields[0]}"
+      if [ "$_k" = 1 ]; then
+        _n=1
+        while [ "$_n" -lt "${#_fields[@]}" ]; do
+          mkdir -p "$WT_ROOT/b$_n"
+          : > "$WT_ROOT/b$_n/.git"
+          WORKER_PIDS+=("$((10000 + _n))")
+          WORKER_ISSUES+=("HON-$_n")
+          WORKER_BRANCHES+=("b$_n")
+          WORKER_LOGS+=("$WT_ROOT/worker-$_n.log")
+          WORKER_START_TIMES+=(0)
+          _n=$((_n + 1))
+        done
+      fi
+      echo "STEP:$_k" >> "$MAIN_LOG"
+      report_worker_status
+    done
+    cat "$MAIN_LOG"
+    exit 0
+    ;;
+
   # ─── Neon orphan GC selection (HON-572 finding 4) ──────────────────────────
   neon-gc-select)
     BRANCHES_JSON="$A1"; LIVE_WORKTREES="$A2"
@@ -1003,10 +1074,17 @@ EOF
     rm -f "$MAIN_LOG"
     LOG_DIR="$A1"
     MAIN_LOG="$LOG_DIR/orchestrator.log"
+    CONSOLE_LOG="$LOG_DIR/orchestrator-console.log"
     trap 'rm -f "$SEEN_SKIPS_FILE"' EXIT
+    [ "${HARNESS_CONSOLE_HELD:-}" = "1" ] && exec 9>>"$CONSOLE_LOG"
     rotate_logs
+    if [ "${HARNESS_CONSOLE_HELD:-}" = "1" ]; then
+      echo "after-rotate" >&9
+      exec 9>&-
+    fi
     echo "MAIN_EXISTS:$([ -f "$MAIN_LOG" ] && echo yes || echo no)"
     echo "ROTATED_EXISTS:$([ -f "${MAIN_LOG}.1" ] && echo yes || echo no)"
+    echo "CONSOLE_ROTATED_EXISTS:$([ -f "${CONSOLE_LOG}.1" ] && echo yes || echo no)"
     for f in "$LOG_DIR"/worker-*.log; do
       [ -e "$f" ] && echo "WORKER:$(basename "$f")"
     done

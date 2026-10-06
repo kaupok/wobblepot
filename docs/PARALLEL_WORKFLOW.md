@@ -26,7 +26,7 @@ wt start --max-workers 3
 wt stop
 ```
 
-`wt start` backgrounds the orchestrator, so there is no Ctrl+C to press: `wt stop` drains workers back to Queued and then shuts it down. Output lands in two files under `~/.worktrees/wobblepot/logs/` — `orchestrator.log` (the structured log) and `orchestrator-console.log` (stdout/stderr, which is where a start-up abort's reason actually is).
+`wt start` backgrounds the orchestrator, so there is no Ctrl+C to press: `wt stop` drains workers back to Queued and then shuts it down. Output lands in two files under `~/.worktrees/wobblepot/logs/` — `orchestrator.log` (the structured log) and `orchestrator-console.log` (crashes and start-up aborts only, which is where a start-up abort's reason actually is).
 
 ### How It Works
 
@@ -216,15 +216,19 @@ Filter with `grep '\[OUTCOME\]' ~/.worktrees/wobblepot/logs/orchestrator.log`.
 
 All logs are written to `~/.worktrees/wobblepot/logs/`:
 
-| File                          | Contents                                               |
-| ----------------------------- | ------------------------------------------------------ |
-| `orchestrator.log`            | Main loop activity, claims, triage, outcomes           |
-| `orchestrator-console.log`    | The orchestrator's raw stdout/stderr (crashes, aborts) |
-| `worker-HON-XX-TIMESTAMP.log` | Full output from each `wt auto` worker                 |
+| File                          | Contents                                           |
+| ----------------------------- | -------------------------------------------------- |
+| `orchestrator.log`            | Main loop activity, claims, triage, outcomes       |
+| `orchestrator-console.log`    | Output that never reaches `log()`: crashes, aborts |
+| `worker-HON-XX-TIMESTAMP.log` | Full output from each `wt auto` worker             |
 
 The machine-readable status that `wt status` reads, `orchestrator-status.json`, sits one level up, in `~/.worktrees/wobblepot/`.
 
-`orchestrator.log` has exactly one writer — the script's own `log()` — so each line appears once, clean, with no ANSI escapes. `wt start` sends the process's stdout/stderr to `orchestrator-console.log` instead of folding them back into the same file, which used to store every line twice, once escape-wrapped (HON-572). A start-up abort never reaches `log()`, so the console log is where to look when `wt start` reports a failure.
+`orchestrator.log` has exactly one writer — the script's own `log()` — so each line appears once, clean, with no ANSI escapes. `wt start` sends the process's stdout/stderr to `orchestrator-console.log` instead of folding them back into the same file, which used to store every line twice, once escape-wrapped (HON-572). `log()` writes its coloured copy to stderr only when stderr is a terminal, so under `wt start` the console log holds only output that never reaches `log()`: crashes, `set -e` aborts and stray command errors (HON-1068). A start-up abort is one of those, so the console log is where to look when `wt start` reports a failure.
+
+At start-up, `rotate_logs` moves a log past 50 MB (`ORCHESTRATOR_LOG_MAX_BYTES`) to `.1`, keeping one backup. `orchestrator.log` is renamed. `orchestrator-console.log` is copied and then emptied, because the running process holds it open and would otherwise keep writing into the `.1` copy. Worker logs older than 14 days are deleted.
+
+The orchestrator logs an idle poll only when it differs from the previous one: the `Polling: N/M workers active` line, and `No eligible issues found` after it, appear when the worker count or the poll's outcome changes, and again after a pass that did not poll (slots full, circuit breaker, low disk). An unchanged queue writes them once. The `── Active workers ──` rows follow the same rule per worker: a row is written when its phase or commit count changes, and otherwise every 10 minutes. Liveness does not depend on these lines: `wt watch` reads `last_poll` from `orchestrator-status.json`, which updates on every poll.
 
 ### Graceful Shutdown
 
