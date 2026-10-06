@@ -4,6 +4,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { MobileNav } from './mobile-nav'
 import type { Session } from '@/lib/auth'
 
+const adminLinks = [{ href: '/admin/signup-codes', label: 'Signup codes' }]
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }))
@@ -47,7 +49,7 @@ async function openSheet() {
 // HON-1092: the admin pages, for the session the server resolved as admin.
 describe('MobileNav admin links', () => {
   it('shows Signup codes for the admin with a household, and closes the sheet on click', async () => {
-    render(<MobileNav session={session} hasHousehold={true} isAdmin={true} />)
+    render(<MobileNav session={session} hasHousehold={true} adminLinks={adminLinks} />)
     const { user } = await openSheet()
 
     const link = screen.getByRole('link', { name: 'Signup codes' })
@@ -61,7 +63,7 @@ describe('MobileNav admin links', () => {
   })
 
   it('shows Signup codes for the admin without a household', async () => {
-    render(<MobileNav session={session} hasHousehold={false} isAdmin={true} />)
+    render(<MobileNav session={session} hasHousehold={false} adminLinks={adminLinks} />)
     await openSheet()
 
     expect(screen.getByRole('link', { name: 'Signup codes' })).toBeInTheDocument()

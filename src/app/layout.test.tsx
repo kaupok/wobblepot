@@ -177,11 +177,12 @@ describe('RootLayout', () => {
     expect(mockBootstrapFlags).toHaveBeenCalledWith('anonymous')
   })
 
-  // The admin title in the client catalog would put "Signup codes" in every
-  // page's HTML and give the hidden admin route away (HON-830).
-  it('keeps the admin page titles out of the client message catalog', async () => {
+  // The admin title or menu label in the client catalog would put "Signup
+  // codes" in every page's HTML and give the hidden admin route away (HON-830,
+  // HON-1092).
+  it('keeps the admin page titles and menu labels out of the client message catalog', async () => {
     mockGetMessages.mockResolvedValue({
-      nav: { home: 'Home' },
+      nav: { home: 'Home', admin: { signupCodes: 'Signup codes' } },
       meta: { root: { title: 'Wobblepot' }, admin: { signupCodes: { title: 'Signup codes' } } },
     })
 

@@ -11,14 +11,17 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { AttentionDot } from '@/components/attention-dot'
 import { useThemeToggle } from '@/hooks/use-theme-toggle'
 import type { Session } from '@/lib/auth'
-import { ADMIN_LINKS } from '@/lib/admin-links'
+import type { AdminMenuLink } from '@/lib/admin-links'
 import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
 interface MobileNavProps {
   session: Session | null
   hasHousehold: boolean
-  /** True adds the admin pages to the sheet, household or not (HON-1092). */
-  isAdmin?: boolean
+  /**
+   * The admin pages, for the beta admin only (HON-1092). Shown household or
+   * not, because the admin pages need none.
+   */
+  adminLinks?: AdminMenuLink[]
   /** Past meals still to mark; above 0, the icon and the row show a dot. */
   pastMealsToMark?: number
 }
@@ -26,7 +29,7 @@ interface MobileNavProps {
 export function MobileNav({
   session,
   hasHousehold,
-  isAdmin = false,
+  adminLinks = [],
   pastMealsToMark = 0,
 }: MobileNavProps) {
   const router = useRouter()
@@ -122,17 +125,16 @@ export function MobileNav({
                   </Link>
                 </>
               )}
-              {isAdmin &&
-                ADMIN_LINKS.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={linkClass}
-                    onClick={() => setOpen(false)}
-                  >
-                    {t(link.labelKey)}
-                  </Link>
-                ))}
+              {adminLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={linkClass}
+                  onClick={() => setOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
               {themeRow}
               <button
                 type="button"

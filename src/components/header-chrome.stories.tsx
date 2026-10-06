@@ -6,6 +6,7 @@ import { createSession } from '@/stories/fixtures'
 import { HeaderChrome } from './header-chrome'
 
 const authedSession = createSession()
+const adminLinks = [{ href: '/admin/signup-codes', label: 'Signup codes' }]
 
 // WHY: `authClient.signOut()` in `HeaderActions` / `MobileNav` posts to
 // `/api/auth/sign-out`. Provided so interactive exploration works.
@@ -78,7 +79,7 @@ const meta = {
   args: {
     session: null,
     hasHousehold: false,
-    isAdmin: false,
+    adminLinks: [],
     pastMealsToMark: 0,
     skipToContentLabel: 'Skip to content',
   },
@@ -490,7 +491,7 @@ export const DesktopOnboarding: Story = {
 }
 
 export const DesktopAdmin: Story = {
-  args: { session: authedSession, hasHousehold: true, isAdmin: true },
+  args: { session: authedSession, hasHousehold: true, adminLinks },
   globals: {
     viewport: { value: 'desktop', isRotated: false },
   },
@@ -498,7 +499,7 @@ export const DesktopAdmin: Story = {
     docs: {
       description: {
         story:
-          'Desktop, signed in as the beta admin. `Header` resolves `isAdmin` on the server and passes only the boolean down; the account menu then lists the admin pages (`ADMIN_LINKS`) between the household group and Sign out (HON-1092).',
+          'Desktop, signed in as the beta admin. `Header` resolves the admin links, labels included, on the server and only for the admin; the account menu then lists them between the household group and Sign out (HON-1092).',
       },
     },
   },

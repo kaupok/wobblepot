@@ -18,14 +18,17 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { AttentionDot } from '@/components/attention-dot'
 import { useThemeToggle } from '@/hooks/use-theme-toggle'
 import type { Session } from '@/lib/auth'
-import { ADMIN_LINKS } from '@/lib/admin-links'
+import type { AdminMenuLink } from '@/lib/admin-links'
 import { getLoadedPostHog } from '@/lib/posthog-client-state'
 
 interface HeaderActionsProps {
   session: Session | null
   hasHousehold: boolean
-  /** True adds the admin pages to the menu, household or not (HON-1092). */
-  isAdmin?: boolean
+  /**
+   * The admin pages, for the beta admin only (HON-1092). Shown household or
+   * not, because the admin pages need none.
+   */
+  adminLinks?: AdminMenuLink[]
   /** Past meals still to mark; above 0, the icon and the row show a dot. */
   pastMealsToMark?: number
 }
@@ -33,7 +36,7 @@ interface HeaderActionsProps {
 export function HeaderActions({
   session,
   hasHousehold,
-  isAdmin = false,
+  adminLinks = [],
   pastMealsToMark = 0,
 }: HeaderActionsProps) {
   const router = useRouter()
@@ -105,11 +108,11 @@ export function HeaderActions({
             )}
             {/* The admin pages need no household, so this group does not
                 wait for one. */}
-            {isAdmin && (
+            {adminLinks.length > 0 && (
               <>
-                {ADMIN_LINKS.map((link) => (
+                {adminLinks.map((link) => (
                   <DropdownMenuItem key={link.href} asChild>
-                    <Link href={link.href}>{t(link.labelKey)}</Link>
+                    <Link href={link.href}>{link.label}</Link>
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />

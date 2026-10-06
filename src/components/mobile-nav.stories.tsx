@@ -11,6 +11,7 @@ import { createSession } from '@/stories/fixtures'
 import { MobileNav } from './mobile-nav'
 
 const authedSession = createSession()
+const adminLinks = [{ href: '/admin/signup-codes', label: 'Signup codes' }]
 
 // WHY: `authClient.signOut()` posts to `/api/auth/sign-out`. We don't exercise
 // sign-out in any play function (that logic is covered in the .test.tsx), but
@@ -83,7 +84,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Past meals, Household, Profile, the labelled theme row and Sign out, in that order (HON-775, HON-1007); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row (HON-1028). For the beta admin (`isAdmin`), the admin pages come after the household links and before the theme row, with or without a household (HON-1092).',
+          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Past meals, Household, Profile, the labelled theme row and Sign out, in that order (HON-775, HON-1007); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row (HON-1028). For the beta admin (`adminLinks`, resolved by `Header`), the admin pages come after the household links and before the theme row, with or without a household (HON-1092).',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -196,7 +197,7 @@ export const SignedInWithoutHousehold: Story = {
 
 export const SignedInAsAdmin: Story = {
   globals: { theme: 'light' },
-  args: { session: authedSession, hasHousehold: true, isAdmin: true },
+  args: { session: authedSession, hasHousehold: true, adminLinks },
   play: async ({ canvasElement }) => {
     const nav = await openSheet(canvasElement)
 
@@ -218,7 +219,7 @@ export const SignedInAsAdmin: Story = {
 
 export const SignedInAsAdminWithoutHousehold: Story = {
   globals: { theme: 'light' },
-  args: { session: authedSession, hasHousehold: false, isAdmin: true },
+  args: { session: authedSession, hasHousehold: false, adminLinks },
   parameters: {
     docs: {
       description: {

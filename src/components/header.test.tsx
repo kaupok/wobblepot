@@ -37,18 +37,18 @@ vi.mock('./header-actions', () => ({
   HeaderActions: ({
     session,
     hasHousehold,
-    isAdmin,
+    adminLinks,
     pastMealsToMark,
   }: {
     session: unknown
     hasHousehold: boolean
-    isAdmin: boolean
+    adminLinks: { href: string; label: string }[]
     pastMealsToMark: number
   }) => (
     <div
       data-testid="header-actions"
       data-past-meals={pastMealsToMark}
-      data-is-admin={String(isAdmin)}
+      data-admin-links={JSON.stringify(adminLinks)}
     >
       {session ? 'authenticated' : 'unauthenticated'}
       {hasHousehold ? '-with-household' : '-no-household'}
@@ -87,15 +87,19 @@ vi.mock('./mobile-nav', () => ({
   MobileNav: ({
     session,
     hasHousehold,
-    isAdmin,
+    adminLinks,
     pastMealsToMark,
   }: {
     session: unknown
     hasHousehold: boolean
-    isAdmin: boolean
+    adminLinks: { href: string; label: string }[]
     pastMealsToMark: number
   }) => (
-    <div data-testid="mobile-nav" data-past-meals={pastMealsToMark} data-is-admin={String(isAdmin)}>
+    <div
+      data-testid="mobile-nav"
+      data-past-meals={pastMealsToMark}
+      data-admin-links={JSON.stringify(adminLinks)}
+    >
       {session ? 'authenticated-mobile' : 'unauthenticated-mobile'}
       {hasHousehold ? '-with-household' : '-no-household'}
     </div>
@@ -280,9 +284,9 @@ describe('Header component', () => {
     })
   })
 
-  // HON-1092: admin status is resolved here; only the boolean reaches the menus.
-  // ADMIN_EMAIL is admin@example.com via vitest.config.ts.
-  describe('admin status', () => {
+  // HON-1092: the admin links are resolved here, labels included, and only for
+  // the admin. ADMIN_EMAIL is admin@example.com via vitest.config.ts.
+  describe('admin links', () => {
     async function mockSignedInAs(email: string) {
       const { getSession, getCachedMembership } = await import('@/lib/session')
       const now = new Date()
@@ -310,44 +314,45 @@ describe('Header component', () => {
       vi.mocked(getCachedMembership).mockResolvedValue(null)
     }
 
-    const isAdminProps = () => [
-      screen.getByTestId('header-actions').getAttribute('data-is-admin'),
-      screen.getByTestId('mobile-nav').getAttribute('data-is-admin'),
-    ]
+    const adminLinksProps = () =>
+      ['header-actions', 'mobile-nav'].map((id) =>
+        JSON.parse(screen.getByTestId(id).getAttribute('data-admin-links') ?? 'null'),
+      )
+    const SIGNUP_CODES = [{ href: '/admin/signup-codes', label: 'Signup codes' }]
 
-    it('passes isAdmin true to both menus for the admin session', async () => {
+    it('passes the labelled admin links to both menus for the admin session', async () => {
       await mockSignedInAs('admin@example.com')
 
       render(await Header())
 
-      expect(isAdminProps()).toEqual(['true', 'true'])
+      expect(adminLinksProps()).toEqual([SIGNUP_CODES, SIGNUP_CODES])
     })
 
-    it('passes isAdmin false for another session', async () => {
+    it('passes no admin links for another session', async () => {
       await mockSignedInAs('test@example.com')
 
       render(await Header())
 
-      expect(isAdminProps()).toEqual(['false', 'false'])
+      expect(adminLinksProps()).toEqual([[], []])
     })
 
-    it('passes isAdmin false with no session', async () => {
+    it('passes no admin links with no session', async () => {
       const { getSession } = await import('@/lib/session')
       vi.mocked(getSession).mockResolvedValue(null)
 
       render(await Header())
 
-      expect(isAdminProps()).toEqual(['false', 'false'])
+      expect(adminLinksProps()).toEqual([[], []])
     })
 
-    it('renders, with isAdmin false, when ADMIN_EMAIL is unset', async () => {
+    it('renders, with no admin links, when ADMIN_EMAIL is unset', async () => {
       vi.stubEnv('ADMIN_EMAIL', '')
       try {
         await mockSignedInAs('admin@example.com')
 
         render(await Header())
 
-        expect(isAdminProps()).toEqual(['false', 'false'])
+        expect(adminLinksProps()).toEqual([[], []])
       } finally {
         vi.unstubAllEnvs()
       }

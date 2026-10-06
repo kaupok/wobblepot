@@ -762,7 +762,6 @@
       "pastMeals": "Past meals",
       "pastMealsToMark": "(to mark)",
       "profile": "Profile",
-      "adminSignupCodes": "Signup codes",
       "signIn": "Sign in",
       "signUp": "Sign up",
       "signOut": "Sign out",
@@ -770,6 +769,9 @@
       "lightMode": "Light mode",
       "darkMode": "Dark mode",
       "toggleTheme": "Toggle theme"
+    },
+    "admin": {
+      "signupCodes": "Signup codes"
     }
   },
   "footer": {

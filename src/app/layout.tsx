@@ -114,11 +114,13 @@ export default async function RootLayout({
   ])
   const hasHousehold = householdId !== null
 
-  // `meta.admin` is read only by the admin pages' server-side `generateMetadata`.
-  // Left in the client catalog, the admin page title would ship in every page's
-  // HTML — 404s included — and name the hidden admin route (HON-830).
+  // `meta.admin` is read only by the admin pages' server-side `generateMetadata`,
+  // and `nav.admin` only by `Header`, which resolves the admin menu links on the
+  // server. Left in the client catalog, either would ship in every page's HTML
+  // — 404s included — and name the hidden admin route (HON-830, HON-1092).
   const { admin: _adminMeta, ...clientMeta } = messages.meta ?? {}
-  const clientMessages = { ...messages, meta: clientMeta }
+  const { admin: _adminNav, ...clientNav } = messages.nav ?? {}
+  const clientMessages = { ...messages, meta: clientMeta, nav: clientNav }
 
   return (
     <html

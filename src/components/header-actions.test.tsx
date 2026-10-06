@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { HeaderActions } from './header-actions'
 import type { Session } from '@/lib/auth'
 
+const adminLinks = [{ href: '/admin/signup-codes', label: 'Signup codes' }]
+
 // Mock next/navigation
 const mockPush = vi.fn()
 const mockRefresh = vi.fn()
@@ -215,7 +217,7 @@ describe('HeaderActions', () => {
   describe('admin links', () => {
     it('shows Signup codes for the admin with a household', async () => {
       const user = userEvent.setup()
-      render(<HeaderActions session={mockSession} hasHousehold={true} isAdmin={true} />)
+      render(<HeaderActions session={mockSession} hasHousehold={true} adminLinks={adminLinks} />)
 
       await user.click(screen.getByRole('button', { name: 'User menu' }))
 
@@ -227,7 +229,7 @@ describe('HeaderActions', () => {
 
     it('shows Signup codes for the admin without a household', async () => {
       const user = userEvent.setup()
-      render(<HeaderActions session={mockSession} hasHousehold={false} isAdmin={true} />)
+      render(<HeaderActions session={mockSession} hasHousehold={false} adminLinks={adminLinks} />)
 
       await user.click(screen.getByRole('button', { name: 'User menu' }))
 
