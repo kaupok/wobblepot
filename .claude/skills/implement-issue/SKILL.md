@@ -142,7 +142,9 @@ The worktree branch becomes the working branch. Skip branch creation/switching.
 
 **Regular repo mode:**
 
-Check if branch already exists:
+This is the main checkout, which other sessions share, so do not switch branches here (`guard-main-checkout` blocks it). Call `EnterWorktree` with `name: "[gitBranchName]"`. The `WorktreeCreate` hook checks out the branch if it exists and creates it from `origin/main` if not. Then continue as in worktree mode.
+
+Only when the session runs with `WOBBLEPOT_ALLOW_MAIN_CHECKOUT=1` (the user chose the main checkout), switch branches in place. Check if branch already exists:
 
 ```bash
 git branch --list "[gitBranchName]"

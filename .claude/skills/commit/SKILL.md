@@ -38,6 +38,8 @@ If on `main`:
    Example: `chore/husky-precommit-hooks`, `fix/login-validation`, `feat/user-preferences`
 3. Continue with the commit workflow
 
+In the main checkout, `guard-main-checkout` blocks `git checkout -b`, because the branch switch would reach every session that shares the checkout. The changes are already there, so moving to a worktree would leave them behind. Stop and ask the user whether to run the branch creation with the `WOBBLEPOT_ALLOW_MAIN_CHECKOUT=1` inline prefix.
+
 ### 3. Check for changes
 
 ```bash
