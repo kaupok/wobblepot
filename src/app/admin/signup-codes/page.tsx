@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { getSession } from '@/lib/session'
@@ -59,6 +60,11 @@ export default async function AdminSignupCodesPage() {
         <Body variant="muted">
           Single-use invite codes for the private beta. Mint a code to share, revoke unused codes if
           you change your mind.
+        </Body>
+        <Body variant="small">
+          <Link href="/admin/waitlist" className="underline">
+            Waitlist
+          </Link>
         </Body>
       </div>
       <SignupCodesClient initialCodes={initialCodes} />

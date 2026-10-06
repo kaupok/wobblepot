@@ -1,6 +1,8 @@
 import 'server-only'
+import { NextResponse } from 'next/server'
+import { headers } from 'next/headers'
 import { serverEnv } from '@/lib/env'
-import type { Session } from '@/lib/auth'
+import { auth, type Session } from '@/lib/auth'
 
 /**
  * Beta admin gate. The launch ships with a single admin (one person on the
@@ -31,4 +33,20 @@ export function isAdminIfConfigured(session: Session | null | undefined): boolea
   } catch {
     return false
   }
+}
+
+/**
+ * The gate for `/api/admin/**` routes. Returns the admin session, or the
+ * response to send instead: 401 without a session, 404 (not 403) for anyone
+ * else, mirroring the `/admin` pages' `notFound()` so the route does not
+ * advertise that it exists.
+ */
+export async function requireAdmin(): Promise<
+  { session: Session; error?: never } | { session?: never; error: NextResponse }
+> {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+  if (!isAdmin(session))
+    return { error: NextResponse.json({ error: 'Not found' }, { status: 404 }) }
+  return { session }
 }

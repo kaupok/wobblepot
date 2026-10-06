@@ -771,7 +771,8 @@
       "toggleTheme": "Toggle theme"
     },
     "admin": {
-      "signupCodes": "Signup codes"
+      "signupCodes": "Signup codes",
+      "waitlist": "Waitlist"
     }
   },
   "footer": {
@@ -915,6 +916,16 @@
       "cta": "Join the list",
       "expiry": "The link works for 7 days.",
       "ignore": "If this was not you, ignore this email. The request is deleted after 7 days."
+    },
+    "waitlistInvite": {
+      "subject": "Your {appName} invite code",
+      "heading": "Your invite code is here",
+      "intro": "You asked for a {appName} invite. Here is your code:",
+      "instructionHtml": "Create your account with the button below and enter the code on the sign-up page.",
+      "instructionText": "Create your account at the link below and enter the code on the sign-up page:",
+      "cta": "Create your account",
+      "expiry": "The code works for {days} days and once.",
+      "ignore": "If you did not ask for this, ignore this email."
     },
     "accountDeletionRequested": {
       "subject": "Your {appName} account will be deleted on {date}",

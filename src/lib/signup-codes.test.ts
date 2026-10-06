@@ -13,10 +13,17 @@ interface MockDb {
   signupCode: {
     updateMany: ReturnType<typeof vi.fn>
   }
+  waitlistRequest: {
+    deleteMany: ReturnType<typeof vi.fn>
+  }
 }
 
-const makeDb = (updateMany: MockDb['signupCode']['updateMany'] = vi.fn()): MockDb => ({
+const makeDb = (
+  updateMany: MockDb['signupCode']['updateMany'] = vi.fn(),
+  deleteMany: MockDb['waitlistRequest']['deleteMany'] = vi.fn().mockResolvedValue({ count: 0 }),
+): MockDb => ({
   signupCode: { updateMany },
+  waitlistRequest: { deleteMany },
 })
 
 beforeEach(() => {
@@ -191,6 +198,44 @@ describe('linkUsedBy', () => {
       code: 'good',
       userId: 'user_1',
     })
+  })
+
+  it('deletes the waitlist request the linked code was sent to (HON-970)', async () => {
+    const deleteMany = vi.fn().mockResolvedValue({ count: 1 })
+    const db = makeDb(vi.fn().mockResolvedValue({ count: 1 }), deleteMany)
+
+    await linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never })
+
+    expect(deleteMany).toHaveBeenCalledWith({ where: { signupCode: { code: 'good' } } })
+  })
+
+  it('deletes no waitlist request when the link matched no code', async () => {
+    const db = makeDb(vi.fn().mockResolvedValue({ count: 0 }))
+
+    await linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never })
+
+    expect(db.waitlistRequest.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('deletes no waitlist request when the link failed', async () => {
+    const db = makeDb(vi.fn().mockRejectedValue(new Error('connection lost')))
+
+    await linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never })
+
+    expect(db.waitlistRequest.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('swallows a failed waitlist delete so sign-up still succeeds', async () => {
+    const error = new Error('connection lost')
+    const db = makeDb(vi.fn().mockResolvedValue({ count: 1 }), vi.fn().mockRejectedValue(error))
+
+    await expect(
+      linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never }),
+    ).resolves.toBeUndefined()
+    expect(console.warn).toHaveBeenCalledWith(
+      '[signup-code] failed to delete the waitlist request for a used code',
+      { code: 'good', err: error },
+    )
   })
 })
 

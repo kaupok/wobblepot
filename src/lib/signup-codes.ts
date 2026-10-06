@@ -61,7 +61,8 @@ export async function validateAndClaimInviteCode(
 }
 
 /**
- * Best-effort backfill of `usedById` after the user row has been created.
+ * Best-effort backfill of `usedById` after the user row has been created,
+ * then deletion of the waitlist request the code was sent to, if any.
  * The atomic claim already happened in {@link validateAndClaimInviteCode};
  * failing here doesn't fail sign-up — admin can backfill from logs if needed.
  */
@@ -84,9 +85,23 @@ export async function linkUsedBy(
       // atomic claim) or the row vanished. Either way, the failure is the
       // exact case admins want to know about — log enough to recover.
       console.warn('[signup-code] linkUsedBy matched zero rows', { code, userId })
+      return
     }
   } catch (err) {
     console.warn('[signup-code] failed to link usedById', { code, userId, err })
+    return
+  }
+
+  // A waitlist request whose invite code was just used has done its job:
+  // delete it now rather than at the end of its retention (HON-970, the
+  // "earlier when the code is used" promise in the privacy policy).
+  try {
+    await db.waitlistRequest.deleteMany({ where: { signupCode: { code } } })
+  } catch (err) {
+    console.warn('[signup-code] failed to delete the waitlist request for a used code', {
+      code,
+      err,
+    })
   }
 }
 

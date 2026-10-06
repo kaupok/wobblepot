@@ -771,7 +771,8 @@
       "toggleTheme": "Vaheta teemat"
     },
     "admin": {
-      "signupCodes": "Registreerimiskoodid"
+      "signupCodes": "Registreerimiskoodid",
+      "waitlist": "Ootenimekiri"
     }
   },
   "footer": {
@@ -915,6 +916,16 @@
       "cta": "Liitu nimekirjaga",
       "expiry": "Link kehtib 7 päeva.",
       "ignore": "Kui see polnud sina, eira seda kirja. Soov kustutatakse 7 päeva pärast."
+    },
+    "waitlistInvite": {
+      "subject": "Sinu {appName} kutsekood",
+      "heading": "Sinu kutsekood on käes",
+      "intro": "Küsisid {appName} kutset. Siin on sinu kood:",
+      "instructionHtml": "Loo konto alloleva nupuga ja sisesta kood registreerimislehel.",
+      "instructionText": "Loo konto alloleval lingil ja sisesta kood registreerimislehel:",
+      "cta": "Loo konto",
+      "expiry": "Kood kehtib {days} päeva ja ühe korra.",
+      "ignore": "Kui sa seda ei küsinud, eira seda kirja."
     },
     "accountDeletionRequested": {
       "subject": "Sinu {appName} konto kustutatakse kuupäeval {date}",

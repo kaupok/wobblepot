@@ -318,14 +318,17 @@ describe('Header component', () => {
       ['header-actions', 'mobile-nav'].map((id) =>
         JSON.parse(screen.getByTestId(id).getAttribute('data-admin-links') ?? 'null'),
       )
-    const SIGNUP_CODES = [{ href: '/admin/signup-codes', label: 'Signup codes' }]
+    const ADMIN_MENU = [
+      { href: '/admin/signup-codes', label: 'Signup codes' },
+      { href: '/admin/waitlist', label: 'Waitlist' },
+    ]
 
     it('passes the labelled admin links to both menus for the admin session', async () => {
       await mockSignedInAs('admin@example.com')
 
       render(await Header())
 
-      expect(adminLinksProps()).toEqual([SIGNUP_CODES, SIGNUP_CODES])
+      expect(adminLinksProps()).toEqual([ADMIN_MENU, ADMIN_MENU])
     })
 
     it('passes no admin links for another session', async () => {
