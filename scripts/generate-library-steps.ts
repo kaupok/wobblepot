@@ -30,8 +30,8 @@ import 'dotenv/config'
 import { pathToFileURL } from 'node:url'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
-import { TIPS_MODEL } from '../src/lib/ai/models'
-import { buildFullTipsRequest } from '../src/lib/ai/preparation-tips'
+import { STEPS_MODEL } from '../src/lib/ai/models'
+import { buildFullStepsRequest } from '../src/lib/ai/preparation-steps'
 import { estimateCostUsd } from '../src/lib/ai/pricing'
 import { translateIngredient, translateMeal } from '../src/lib/i18n/content'
 import { KNOWN_LOCALES, type Locale } from '../src/lib/i18n/locales'
@@ -179,7 +179,7 @@ async function main() {
     const meal = byId.get(job.mealId)
     if (!meal) continue
     const { input, inputHash } = requestFor(meal, job.locale)
-    const request = buildFullTipsRequest(input)
+    const request = buildFullStepsRequest(input)
     process.stdout.write(`${job.locale}  ${meal.name} … `)
     // One failed call (a timeout, an overloaded provider, a schema miss) is
     // reported and skipped: the rows before it stand, the ones after it still
@@ -188,7 +188,7 @@ async function main() {
     try {
       result = await generateObject({
         ...request,
-        model: anthropic(TIPS_MODEL),
+        model: anthropic(STEPS_MODEL),
         abortSignal: AbortSignal.timeout(60_000),
       })
     } catch (error) {
@@ -197,7 +197,7 @@ async function main() {
       continue
     }
     const cost = estimateCostUsd({
-      model: TIPS_MODEL,
+      model: STEPS_MODEL,
       inputTokens: result.usage.inputTokens ?? 0,
       outputTokens: result.usage.outputTokens ?? 0,
     })

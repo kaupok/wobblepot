@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { localeInstruction, estonianVoiceForPrepTips, englishVoiceForPrepTips } from './prompts'
+import { localeInstruction, estonianVoiceForPrepSteps, englishVoiceForPrepSteps } from './prompts'
 
-export const fullTipsSchema = z.object({
+export const fullStepsSchema = z.object({
   equipment: z
     .array(z.string())
     .describe('3-5 essential equipment items (pans, bowls, utensils) specific to this meal'),
@@ -14,7 +14,7 @@ export const fullTipsSchema = z.object({
   tip: z.string().describe('One helpful cooking tip').optional(),
 })
 
-export const supplementaryTipsSchema = z.object({
+export const supplementaryStepsSchema = z.object({
   pitfalls: z
     .array(z.string())
     .describe('2-3 common mistakes to avoid, focusing on pitfalls not covered in the user notes'),
@@ -28,7 +28,7 @@ const metricReminder = `IMPORTANT: Use metric units for ALL measurements:
 - Lengths: cm (e.g., "2cm")
 Never use Fahrenheit, cups, ounces, pounds, or inches.`
 
-export interface PrepTipsPromptInput {
+export interface PrepStepsPromptInput {
   mealName: string
   householdSize: number
   timeMinutes: number | null
@@ -37,11 +37,11 @@ export interface PrepTipsPromptInput {
   locale: string
 }
 
-export interface SupplementaryPrepTipsPromptInput extends PrepTipsPromptInput {
+export interface SupplementaryPrepStepsPromptInput extends PrepStepsPromptInput {
   preparationNotes: string
 }
 
-export function buildFullTipsPrompt(input: PrepTipsPromptInput): string {
+export function buildFullStepsPrompt(input: PrepStepsPromptInput): string {
   const { mealName, householdSize, timeMinutes, ingredientsList, locale } = input
 
   return `You are a helpful cooking assistant. Generate brief, actionable preparation guidance for the following meal.
@@ -61,10 +61,10 @@ Provide:
 
 ${metricReminder}
 
-Keep it brief and practical. Not a full recipe — just order of operations and key tips. Do not repeat ingredient quantities.${localeInstruction(locale)}${estonianVoiceForPrepTips(locale)}${englishVoiceForPrepTips(locale)}`
+Keep it brief and practical. Not a full recipe — just order of operations and key tips. Do not repeat ingredient quantities.${localeInstruction(locale)}${estonianVoiceForPrepSteps(locale)}${englishVoiceForPrepSteps(locale)}`
 }
 
-export function buildSupplementaryTipsPrompt(input: SupplementaryPrepTipsPromptInput): string {
+export function buildSupplementaryStepsPrompt(input: SupplementaryPrepStepsPromptInput): string {
   const { mealName, householdSize, timeMinutes, ingredientsList, preparationNotes, locale } = input
 
   return `You are a helpful cooking assistant. The user has their own preparation notes for this meal. Generate supplementary tips that ENHANCE their method — do NOT repeat what they already wrote.
@@ -87,26 +87,26 @@ Do NOT repeat or rephrase what the user already wrote. Only add new information.
 
 ${metricReminder}
 
-Keep it brief and practical.${localeInstruction(locale)}${estonianVoiceForPrepTips(locale)}${englishVoiceForPrepTips(locale)}`
+Keep it brief and practical.${localeInstruction(locale)}${estonianVoiceForPrepSteps(locale)}${englishVoiceForPrepSteps(locale)}`
 }
 
-export interface TipsComponent {
+export interface StepsComponent {
   name: string
   quantityPerServing: number
   defaultUnit: string
 }
 
-export interface TipsRequestInput {
+export interface StepsRequestInput {
   mealName: string
   /** The entry's effective servings; scales the ingredient quantities and the prompt's "Servings" line. */
   servings: number
   timeMinutes: number | null
-  components: TipsComponent[]
+  components: StepsComponent[]
   /** Household locale; threaded into the AI prompt so output fields come back in the household's language. */
   locale: string
 }
 
-export interface SupplementaryTipsRequestInput extends TipsRequestInput {
+export interface SupplementaryStepsRequestInput extends StepsRequestInput {
   preparationNotes: string
 }
 
@@ -114,7 +114,7 @@ export interface SupplementaryTipsRequestInput extends TipsRequestInput {
  * One line per component: total quantity for `servings`, rounded, with `piece`
  * shown as `pcs`. Shared with the cook-question prompt (HON-969).
  */
-export function formatIngredientsList(components: TipsComponent[], servings: number): string {
+export function formatIngredientsList(components: StepsComponent[], servings: number): string {
   return components
     .map((comp) => {
       const quantity = comp.quantityPerServing * servings
@@ -129,12 +129,12 @@ export function formatIngredientsList(components: TipsComponent[], servings: num
  * `model` and `abortSignal`. Pure, so the model benchmark (HON-795) sends the
  * request production sends, token ceiling included (HON-796).
  */
-export function buildFullTipsRequest(input: TipsRequestInput) {
+export function buildFullStepsRequest(input: StepsRequestInput) {
   const { mealName, servings, timeMinutes, components, locale } = input
 
   return {
-    schema: fullTipsSchema,
-    prompt: buildFullTipsPrompt({
+    schema: fullStepsSchema,
+    prompt: buildFullStepsPrompt({
       mealName,
       householdSize: servings,
       timeMinutes,
@@ -155,12 +155,12 @@ export function buildFullTipsRequest(input: TipsRequestInput) {
  * Every `generateObject` argument the supplementary preparation-tips call
  * (the meal has the user's own notes) sends except `model` and `abortSignal`.
  */
-export function buildSupplementaryTipsRequest(input: SupplementaryTipsRequestInput) {
+export function buildSupplementaryStepsRequest(input: SupplementaryStepsRequestInput) {
   const { mealName, servings, timeMinutes, components, preparationNotes, locale } = input
 
   return {
-    schema: supplementaryTipsSchema,
-    prompt: buildSupplementaryTipsPrompt({
+    schema: supplementaryStepsSchema,
+    prompt: buildSupplementaryStepsPrompt({
       mealName,
       householdSize: servings,
       timeMinutes,

@@ -69,7 +69,7 @@ export type MealPlanGenerateErrorCode =
   | 'generation_failed'
 
 /** Error codes returned by `POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips`. */
-export type PreparationTipsErrorCode =
+export type PreparationStepsErrorCode =
   | 'unauthorized'
   | 'no_household'
   | 'entry_not_found'
@@ -88,7 +88,7 @@ export type PreparationTipsErrorCode =
  * failure codes.
  */
 export type CookQuestionErrorCode =
-  | Exclude<PreparationTipsErrorCode, 'tips_timeout' | 'tips_failed'>
+  | Exclude<PreparationStepsErrorCode, 'tips_timeout' | 'tips_failed'>
   | 'invalid_question'
   | 'question_timeout'
   | 'question_failed'
@@ -198,10 +198,10 @@ export function mealPlanGenerateFallbackKey(status: number): string {
 }
 
 /**
- * `PreparationTipsErrorCode` → message key under `meal-plan.tips.errors`, read
- * by `useMealTips` (HON-888).
+ * `PreparationStepsErrorCode` → message key under `meal-plan.steps.errors`, read
+ * by `useMealSteps` (HON-888).
  */
-export const PREPARATION_TIPS_ERROR_KEYS = {
+export const PREPARATION_STEPS_ERROR_KEYS = {
   unauthorized: 'unauthorized',
   no_household: 'noHousehold',
   entry_not_found: 'entryNotFound',
@@ -215,14 +215,14 @@ export const PREPARATION_TIPS_ERROR_KEYS = {
   provider_unavailable: 'providerUnavailable',
   tips_timeout: 'tipsTimeout',
   tips_failed: 'tipsFailed',
-} as const satisfies Record<PreparationTipsErrorCode, string>
+} as const satisfies Record<PreparationStepsErrorCode, string>
 
 /**
  * Fallback key for a preparation-tips response with no usable `code`. The
  * platform kills the function at `maxDuration` with a 504 whose body we did not
  * write, and that still deserves the timeout copy rather than the generic one.
  */
-export function preparationTipsFallbackKey(status: number): string {
+export function preparationStepsFallbackKey(status: number): string {
   return status === 504 ? 'tipsTimeout' : 'tipsFailed'
 }
 
@@ -247,7 +247,7 @@ export const COOK_QUESTION_ERROR_KEYS = {
 
 /**
  * Fallback key for a cook-question response with no usable `code`: a platform
- * 504 still gets the timeout copy, as in `preparationTipsFallbackKey`.
+ * 504 still gets the timeout copy, as in `preparationStepsFallbackKey`.
  */
 export function cookQuestionFallbackKey(status: number): string {
   return status === 504 ? 'questionTimeout' : 'questionFailed'

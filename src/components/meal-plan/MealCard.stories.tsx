@@ -1018,7 +1018,7 @@ export const DoneCookingFromCookView: Story = {
 
 // Counts the POSTs the story's handlers serve, so a second one can be proven to
 // be a real re-fetch rather than a replay of cached state.
-let swapTipsRequests = 0
+let swapStepsRequests = 0
 let swapSuggestionRequests = 0
 
 /**
@@ -1050,7 +1050,7 @@ function swapAlternatives(call: number): AlternativeMeal[] {
  * cached `preparationTips` and resets its `servingOverride`. Neither reset
  * reaches the client on its own. The detail modal is rendered unconditionally
  * by this card
- * — `open` is a prop, not a mount guard — so its `useMealTips` instance never
+ * — `open` is a prop, not a mount guard — so its `useMealSteps` instance never
  * unmounts, and `entryId` does not change on a swap either; the serving count
  * is this card's own `useState`. Without the reset in `onSwapComplete`,
  * reopening the modal replays the previous meal's tips under the new meal's
@@ -1061,7 +1061,7 @@ function swapAlternatives(call: number): AlternativeMeal[] {
  * mock. That is fine — what this story pins is the client state the refresh
  * cannot reach.
  */
-export const SwapDropsCachedTips: Story = {
+export const SwapDropsCachedSteps: Story = {
   args: {
     meal: mealFixture,
     status: 'planned',
@@ -1088,11 +1088,11 @@ export const SwapDropsCachedTips: Story = {
         // Varies per call, so the second click can be told apart from a
         // replay of the first one's object.
         http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () => {
-          swapTipsRequests += 1
+          swapStepsRequests += 1
           return HttpResponse.json({
             tips: {
               equipment: [
-                swapTipsRequests === 1
+                swapStepsRequests === 1
                   ? 'A roasting tin for the chicken'
                   : 'A wok for the stir-fry',
               ],
@@ -1105,7 +1105,7 @@ export const SwapDropsCachedTips: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    swapTipsRequests = 0
+    swapStepsRequests = 0
     swapSuggestionRequests = 0
     const canvas = within(canvasElement)
     const body = within(document.body)
@@ -1139,11 +1139,11 @@ export const SwapDropsCachedTips: Story = {
 
     // ...and the view generates the new meal's tips with a real second POST
     // rather than replaying the previous meal's. This is the assertion that
-    // pins `cancelTips()`: with the stale object still in the hook, the view
+    // pins `cancelSteps()`: with the stale object still in the hook, the view
     // would show it and never ask, since it generates only when it has none.
     await body.findByText(/wok for the stir-fry/i, undefined, ROUND_TRIP)
     await expect(body.queryByText(/roasting tin/i)).not.toBeInTheDocument()
-    await expect(swapTipsRequests).toBe(2)
+    await expect(swapStepsRequests).toBe(2)
 
     // The suggestions list is stale for the same reason and at the same
     // callsite: its query key carries no meal id, it is held at
@@ -1166,7 +1166,7 @@ export const SwapDropsCachedTips: Story = {
 const planSuggestionRequests: Record<string, number> = {}
 
 // POSTs served while re-selecting the meal already on the entry.
-let reselectTipsRequests = 0
+let reselectStepsRequests = 0
 
 /**
  * Selecting a meal is not necessarily a *swap*. `/regenerate` filters the
@@ -1183,7 +1183,7 @@ let reselectTipsRequests = 0
  * unconditional reset would leave the card showing 4 servings against a row
  * that says 6 for the rest of the session.
  *
- * The counterpart to `SwapDropsCachedTips` above: same controls, same
+ * The counterpart to `SwapDropsCachedSteps` above: same controls, same
  * assertions, opposite expectations — which is what makes either story
  * meaningful.
  */
@@ -1226,7 +1226,7 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
           HttpResponse.json({ alternatives: swapAlternatives(1) }),
         ),
         http.post('/api/meal-plans/:planId/entries/:entryId/preparation-tips', () => {
-          reselectTipsRequests += 1
+          reselectStepsRequests += 1
           return HttpResponse.json({
             tips: {
               equipment: ['A roasting tin for the chicken'],
@@ -1239,7 +1239,7 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    reselectTipsRequests = 0
+    reselectStepsRequests = 0
     const canvas = within(canvasElement)
     const body = within(document.body)
 
@@ -1247,7 +1247,7 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
     await expect(canvas.getByText('6 servings')).toBeInTheDocument()
     await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
     await body.findByText(/roasting tin/i, undefined, ROUND_TRIP)
-    await expect(reselectTipsRequests).toBe(1)
+    await expect(reselectStepsRequests).toBe(1)
 
     await userEvent.keyboard('{Escape}')
     await awaitDialogClosed()
@@ -1269,12 +1269,12 @@ export const ReselectingThePlannedMealResetsNothing: Story = {
     await expect(canvas.getByText('6 servings')).toBeInTheDocument()
 
     // And the tips were not discarded: reopening shows them still expanded,
-    // and no second POST was issued. `SwapDropsCachedTips` asserts the exact
+    // and no second POST was issued. `SwapDropsCachedSteps` asserts the exact
     // opposite pair for a real swap.
     await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
     const reopened = await body.findByRole('dialog')
     await expect(within(reopened).getByText(/roasting tin/i)).toBeInTheDocument()
-    await expect(reselectTipsRequests).toBe(1)
+    await expect(reselectStepsRequests).toBe(1)
   },
 }
 

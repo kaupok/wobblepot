@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { useMealTips } from './use-meal-tips'
-import type { StructuredTips } from '@/components/meal-plan/types'
+import { useMealSteps } from './use-meal-steps'
+import type { PreparationSteps } from '@/components/meal-plan/types'
 import enMessages from '../../messages/en.json'
 
-const tipsErrors = enMessages['meal-plan'].tips.errors
+const stepsErrors = enMessages['meal-plan'].steps.errors
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
@@ -15,19 +15,19 @@ const defaultOptions = {
   entryId: 'entry-1',
 }
 
-const mockTips: StructuredTips = {
+const mockTips: PreparationSteps = {
   equipment: ['Large skillet', 'Cutting board'],
   steps: ['Heat oil in skillet', 'Cook chicken at 180°C for 25 minutes'],
   pitfalls: ["Don't overcook the chicken"],
   tip: 'Let the chicken rest for 5 minutes before slicing',
 }
 
-const mockSupplementaryTips: StructuredTips = {
+const mockSupplementaryTips: PreparationSteps = {
   pitfalls: ["Don't overcook the chicken"],
   tip: 'Let the chicken rest for 5 minutes before slicing',
 }
 
-describe('useMealTips', () => {
+describe('useMealSteps', () => {
   let wrapper: ReturnType<typeof createQueryWrapper>['wrapper']
 
   beforeEach(() => {
@@ -46,46 +46,46 @@ describe('useMealTips', () => {
   })
 
   describe('initial state', () => {
-    it('returns correct defaults with no initialTips', () => {
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+    it('returns correct defaults with no initialSteps', () => {
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
-      expect(result.current.tips).toBeNull()
-      expect(result.current.isLoadingTips).toBe(false)
-      expect(result.current.tipsError).toBeNull()
-      expect(result.current.isTipsExpanded).toBe(false)
+      expect(result.current.steps).toBeNull()
+      expect(result.current.isLoadingSteps).toBe(false)
+      expect(result.current.stepsError).toBeNull()
+      expect(result.current.isStepsExpanded).toBe(false)
     })
 
-    it('uses initialTips when provided', () => {
+    it('uses initialSteps when provided', () => {
       const { result } = renderHook(
-        () => useMealTips({ ...defaultOptions, initialTips: mockTips }),
+        () => useMealSteps({ ...defaultOptions, initialSteps: mockTips }),
         { wrapper },
       )
 
-      expect(result.current.tips).toEqual(mockTips)
+      expect(result.current.steps).toEqual(mockTips)
     })
   })
 
-  describe('fetchTips', () => {
+  describe('fetchSteps', () => {
     it('fetches tips and updates state on success', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ tips: mockTips }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/meal-plans/plan-1/entries/entry-1/preparation-tips',
         expect.objectContaining({ method: 'POST' }),
       )
-      expect(result.current.tips).toEqual(mockTips)
-      expect(result.current.isLoadingTips).toBe(false)
-      expect(result.current.isTipsExpanded).toBe(true)
-      expect(result.current.tipsError).toBeNull()
+      expect(result.current.steps).toEqual(mockTips)
+      expect(result.current.isLoadingSteps).toBe(false)
+      expect(result.current.isStepsExpanded).toBe(true)
+      expect(result.current.stepsError).toBeNull()
     })
 
     it('sets error state on API error', async () => {
@@ -95,40 +95,40 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ error: 'Rate limit exceeded', code: 'rate_limited' }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
-      expect(result.current.tips).toBeNull()
-      expect(result.current.tipsError).toBe(tipsErrors.rateLimited)
-      expect(result.current.isLoadingTips).toBe(false)
+      expect(result.current.steps).toBeNull()
+      expect(result.current.stepsError).toBe(stepsErrors.rateLimited)
+      expect(result.current.isLoadingSteps).toBe(false)
     })
 
     it('sets generic error message on network error', async () => {
       mockFetch.mockRejectedValue(new Error('Failed to fetch'))
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
-      expect(result.current.tipsError).toBe(tipsErrors.tipsFailed)
-      expect(result.current.isLoadingTips).toBe(false)
+      expect(result.current.stepsError).toBe(stepsErrors.tipsFailed)
+      expect(result.current.isLoadingSteps).toBe(false)
     })
 
     it('sets generic fallback when error is not an Error instance', async () => {
       mockFetch.mockRejectedValue('something went wrong')
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
-      expect(result.current.tipsError).toBe(tipsErrors.tipsFailed)
+      expect(result.current.stepsError).toBe(stepsErrors.tipsFailed)
     })
 
     it('sets loading state during fetch', async () => {
@@ -139,15 +139,15 @@ describe('useMealTips', () => {
         }),
       )
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       let fetchPromise: Promise<void>
       act(() => {
-        fetchPromise = result.current.fetchTips()
+        fetchPromise = result.current.fetchSteps()
       })
 
-      expect(result.current.isLoadingTips).toBe(true)
-      expect(result.current.isTipsExpanded).toBe(true)
+      expect(result.current.isLoadingSteps).toBe(true)
+      expect(result.current.isStepsExpanded).toBe(true)
 
       await act(async () => {
         resolvePromise!({
@@ -157,7 +157,7 @@ describe('useMealTips', () => {
         await fetchPromise
       })
 
-      expect(result.current.isLoadingTips).toBe(false)
+      expect(result.current.isLoadingSteps).toBe(false)
     })
 
     it('auto-retries once on 500 and succeeds', async () => {
@@ -172,17 +172,17 @@ describe('useMealTips', () => {
           json: () => Promise.resolve({ tips: mockTips }),
         })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        const promise = result.current.fetchTips()
+        const promise = result.current.fetchSteps()
         await vi.advanceTimersByTimeAsync(2000)
         await promise
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(2)
-      expect(result.current.tips).toEqual(mockTips)
-      expect(result.current.tipsError).toBeNull()
+      expect(result.current.steps).toEqual(mockTips)
+      expect(result.current.stepsError).toBeNull()
     })
 
     it('auto-retries once on 429 and shows error if retry also fails', async () => {
@@ -198,16 +198,16 @@ describe('useMealTips', () => {
           json: () => Promise.resolve({ error: 'AI service is busy', code: 'provider_busy' }),
         })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        const promise = result.current.fetchTips()
+        const promise = result.current.fetchSteps()
         await vi.advanceTimersByTimeAsync(2000)
         await promise
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(2)
-      expect(result.current.tipsError).toBe(tipsErrors.providerBusy)
+      expect(result.current.stepsError).toBe(stepsErrors.providerBusy)
     })
 
     it('auto-retries once on a codeless 429', async () => {
@@ -222,23 +222,23 @@ describe('useMealTips', () => {
           json: () => Promise.resolve({ tips: mockTips }),
         })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        const promise = result.current.fetchTips()
+        const promise = result.current.fetchSteps()
         await vi.advanceTimersByTimeAsync(2000)
         await promise
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(2)
-      expect(result.current.tips).toEqual(mockTips)
+      expect(result.current.steps).toEqual(mockTips)
     })
 
     // The household's own hourly limit and monthly AI cap will not clear in 2s,
     // and a cap retry would spend another hourly token (HON-893).
     it.each([
-      ['rate_limited', 'Rate limit exceeded', tipsErrors.rateLimited],
-      ['ai_cap_exceeded', 'AI usage cap exceeded', tipsErrors.aiCapExceeded],
+      ['rate_limited', 'Rate limit exceeded', stepsErrors.rateLimited],
+      ['ai_cap_exceeded', 'AI usage cap exceeded', stepsErrors.aiCapExceeded],
     ])('does not retry a %s 429', async (code, error, expected) => {
       mockFetch.mockResolvedValue({
         ok: false,
@@ -246,14 +246,14 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ error, code }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      expect(result.current.tipsError).toBe(expected)
+      expect(result.current.stepsError).toBe(expected)
     })
 
     it('auto-retries once on 502 and succeeds', async () => {
@@ -268,17 +268,17 @@ describe('useMealTips', () => {
           json: () => Promise.resolve({ tips: mockTips }),
         })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        const promise = result.current.fetchTips()
+        const promise = result.current.fetchSteps()
         await vi.advanceTimersByTimeAsync(2000)
         await promise
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(2)
-      expect(result.current.tips).toEqual(mockTips)
-      expect(result.current.tipsError).toBeNull()
+      expect(result.current.steps).toEqual(mockTips)
+      expect(result.current.stepsError).toBeNull()
     })
 
     it('does not retry on 404', async () => {
@@ -288,14 +288,14 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ error: 'Entry not found', code: 'entry_not_found' }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      expect(result.current.tipsError).toBe(tipsErrors.entryNotFound)
+      expect(result.current.stepsError).toBe(stepsErrors.entryNotFound)
     })
 
     // 504 is the one 5xx that must not retry: it means the route already spent
@@ -310,14 +310,14 @@ describe('useMealTips', () => {
           Promise.resolve({ error: 'Request timed out. Please try again.', code: 'tips_timeout' }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      expect(result.current.tipsError).toBe(tipsErrors.tipsTimeout)
+      expect(result.current.stepsError).toBe(stepsErrors.tipsTimeout)
     })
 
     it('does not retry the kill-switch 503, and shows catalog copy rather than the server prose (HON-868)', async () => {
@@ -331,14 +331,14 @@ describe('useMealTips', () => {
           }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      expect(result.current.tipsError).toBe(tipsErrors.generationDisabled)
+      expect(result.current.stepsError).toBe(stepsErrors.generationDisabled)
     })
 
     // The route's `error` is English on every branch; rendering it would show
@@ -352,17 +352,17 @@ describe('useMealTips', () => {
       }
       mockFetch.mockResolvedValueOnce(serverError).mockResolvedValueOnce(serverError)
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        const promise = result.current.fetchTips()
+        const promise = result.current.fetchSteps()
         await vi.advanceTimersByTimeAsync(2000)
         await promise
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(2)
-      expect(result.current.tipsError).toBe(tipsErrors.tipsFailed)
-      expect(result.current.tipsError).not.toBe("Couldn't generate tips. Try again.")
+      expect(result.current.stepsError).toBe(stepsErrors.tipsFailed)
+      expect(result.current.stepsError).not.toBe("Couldn't generate tips. Try again.")
       expect(console.error).toHaveBeenCalledWith(
         '[preparation-tips] request failed',
         expect.objectContaining({
@@ -380,13 +380,13 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ error: 'Something new', code: 'code_from_a_newer_deploy' }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
-      expect(result.current.tipsError).toBe(tipsErrors.tipsFailed)
+      expect(result.current.stepsError).toBe(stepsErrors.tipsFailed)
     })
 
     // The platform kills the function at `maxDuration` with a 504 whose body
@@ -399,14 +399,14 @@ describe('useMealTips', () => {
         json: () => Promise.reject(new SyntaxError('Unexpected token')),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      expect(result.current.tipsError).toBe(tipsErrors.tipsTimeout)
+      expect(result.current.stepsError).toBe(stepsErrors.tipsTimeout)
     })
 
     it('clears previous error on new fetch', async () => {
@@ -416,13 +416,13 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ error: 'Failed' }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
-      expect(result.current.tipsError).toBe(tipsErrors.tipsFailed)
+      expect(result.current.stepsError).toBe(stepsErrors.tipsFailed)
 
       // Second call succeeds
       mockFetch.mockResolvedValueOnce({
@@ -431,11 +431,11 @@ describe('useMealTips', () => {
       })
 
       await act(async () => {
-        await result.current.fetchTips()
+        await result.current.fetchSteps()
       })
 
-      expect(result.current.tipsError).toBeNull()
-      expect(result.current.tips).toEqual(mockTips)
+      expect(result.current.stepsError).toBeNull()
+      expect(result.current.steps).toEqual(mockTips)
     })
   })
 
@@ -446,20 +446,20 @@ describe('useMealTips', () => {
         json: () => Promise.resolve({ tips: mockTips }),
       })
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       await act(async () => {
         await result.current.handleHowToPrepare()
       })
 
       expect(mockFetch).toHaveBeenCalledOnce()
-      expect(result.current.tips).toEqual(mockTips)
-      expect(result.current.isTipsExpanded).toBe(true)
+      expect(result.current.steps).toEqual(mockTips)
+      expect(result.current.isStepsExpanded).toBe(true)
     })
 
     it('toggles expanded state when tips are already cached', async () => {
       const { result } = renderHook(
-        () => useMealTips({ ...defaultOptions, initialTips: mockTips }),
+        () => useMealSteps({ ...defaultOptions, initialSteps: mockTips }),
         { wrapper },
       )
 
@@ -468,7 +468,7 @@ describe('useMealTips', () => {
         result.current.handleHowToPrepare()
       })
 
-      expect(result.current.isTipsExpanded).toBe(true)
+      expect(result.current.isStepsExpanded).toBe(true)
       expect(mockFetch).not.toHaveBeenCalled()
 
       // Second call: collapse
@@ -476,32 +476,32 @@ describe('useMealTips', () => {
         result.current.handleHowToPrepare()
       })
 
-      expect(result.current.isTipsExpanded).toBe(false)
+      expect(result.current.isStepsExpanded).toBe(false)
     })
   })
 
   // For a caller that has just changed one of the inputs the tips were built
   // from — the entry's serving count — which the server answers by nulling the
   // cached copy (HON-681). Clearing the state is only half of it.
-  describe('cancelTips', () => {
+  describe('cancelSteps', () => {
     it('clears tips, error and expansion', () => {
       const { result } = renderHook(
-        () => useMealTips({ ...defaultOptions, initialTips: mockTips }),
+        () => useMealSteps({ ...defaultOptions, initialSteps: mockTips }),
         { wrapper },
       )
 
       act(() => {
         result.current.handleHowToPrepare()
       })
-      expect(result.current.isTipsExpanded).toBe(true)
+      expect(result.current.isStepsExpanded).toBe(true)
 
       act(() => {
-        result.current.cancelTips()
+        result.current.cancelSteps()
       })
 
-      expect(result.current.tips).toBeNull()
-      expect(result.current.tipsError).toBeNull()
-      expect(result.current.isTipsExpanded).toBe(false)
+      expect(result.current.steps).toBeNull()
+      expect(result.current.stepsError).toBeNull()
+      expect(result.current.isStepsExpanded).toBe(false)
     })
 
     it('aborts a generation in flight so it cannot repopulate the tips', async () => {
@@ -520,19 +520,19 @@ describe('useMealTips', () => {
           }),
       )
 
-      const { result } = renderHook(() => useMealTips(defaultOptions), { wrapper })
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
 
       let fetchPromise: Promise<void>
       act(() => {
-        fetchPromise = result.current.fetchTips()
+        fetchPromise = result.current.fetchSteps()
       })
-      expect(result.current.isLoadingTips).toBe(true)
+      expect(result.current.isLoadingSteps).toBe(true)
       // The mutation hands the request to `fetch` a few microtasks later; the
       // cancel must land while it is genuinely in flight.
       await waitFor(() => expect(mockFetch).toHaveBeenCalledOnce())
 
       act(() => {
-        result.current.cancelTips()
+        result.current.cancelSteps()
       })
 
       await act(async () => {
@@ -545,9 +545,9 @@ describe('useMealTips', () => {
         await fetchPromise
       })
 
-      expect(result.current.tips).toBeNull()
-      expect(result.current.tipsError).toBeNull()
-      expect(result.current.isTipsExpanded).toBe(false)
+      expect(result.current.steps).toBeNull()
+      expect(result.current.stepsError).toBeNull()
+      expect(result.current.isStepsExpanded).toBe(false)
     })
   })
 })

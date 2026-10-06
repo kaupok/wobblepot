@@ -79,7 +79,7 @@ interface UseMealImageOptions {
  *
  * Everything is keyed by meal id, never entry id: a swap keeps the entry id
  * (HON-682), so a response for the previous meal can only ever land in that
- * meal's cache entry. `cancelImage` additionally aborts it, like `cancelTips`.
+ * meal's cache entry. `cancelImage` additionally aborts it, like `cancelSteps`.
  *
  * Every failure is silent — the modal simply has no image. An image is
  * decoration and must never interrupt cooking.

@@ -119,7 +119,7 @@ export const REVIEW_AI_BUDGET_MS = 45_000
  * attempts plus ai@7's ~2s backoff (~45s), and leaves 15s under the 60s
  * `maxDuration` for the DB reads before the call and the writes after it.
  */
-export const TIPS_AI_BUDGET_MS = 45_000
+export const STEPS_AI_BUDGET_MS = 45_000
 
 /**
  * `/api/meal-plans/[id]/entries/[entryId]/cook-question` (HON-969). Covers the

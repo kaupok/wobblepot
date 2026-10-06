@@ -16,7 +16,7 @@ import {
 } from '@/stories/fixtures'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { MealDetailModal } from './MealDetailModal'
-import type { StructuredTips } from './types'
+import type { PreparationSteps } from './types'
 
 const mealFixture = createMeal({
   components: lemonGarlicChickenComponentsFull,
@@ -36,7 +36,7 @@ const tintedMeal = {
   imageHue: 52,
 }
 
-const tips: StructuredTips = {
+const tips: PreparationSteps = {
   equipment: ['Sheet pan', 'Sharp knife', 'Tongs'],
   steps: [
     'Heat the oven to 220°C with a rack in the upper third.',
@@ -541,7 +541,7 @@ export const ImageGenerating: Story = {
 
 // ── Tips states ────────────────────────────────────────────────────────────
 
-export const TipsNotLoaded: Story = {
+export const StepsNotLoaded: Story = {
   name: 'Tips not loaded',
   args: { meal: tintedMeal },
   parameters: {
@@ -560,7 +560,7 @@ export const TipsNotLoaded: Story = {
   },
 }
 
-export const TipsLoading: Story = {
+export const StepsLoading: Story = {
   name: 'Tips loading',
   args: { meal: tintedMeal },
   parameters: {
@@ -586,7 +586,7 @@ export const TipsLoading: Story = {
   },
 }
 
-export const TipsLoaded: Story = {
+export const StepsLoaded: Story = {
   name: 'Tips loaded',
   args: { meal: tintedMeal },
   globals: { viewport: PHONE },
@@ -607,7 +607,7 @@ export const TipsLoaded: Story = {
   },
 }
 
-export const TipsError: Story = {
+export const StepsError: Story = {
   name: 'Tips error',
   args: { meal: tintedMeal },
   parameters: {
@@ -708,11 +708,11 @@ async function loadTipsEt(): Promise<void> {
 // ── Cooking: steps on open, progress, Done cooking (HON-933) ───────────────
 
 // Counts the tips POSTs, to prove how many generations an open costs.
-let openTipsRequests = 0
+let openStepsRequests = 0
 const countedTipsHandler = http.post(
   '/api/meal-plans/:planId/entries/:entryId/preparation-tips',
   () => {
-    openTipsRequests += 1
+    openStepsRequests += 1
     return HttpResponse.json({ tips })
   },
 )
@@ -732,29 +732,29 @@ export const StepsLoadOnOpen: Story = {
   args: plannedArgs,
   parameters: { msw: { handlers: { tips: [countedTipsHandler] } } },
   beforeEach: () => {
-    openTipsRequests = 0
+    openStepsRequests = 0
   },
   play: async () => {
     const dialog = await findDialog()
     // No "How to prepare": the steps arrive by themselves, from one POST.
     await within(dialog).findByText(tips.steps![0]!)
     await expect(within(dialog).queryByRole('button', { name: 'How to prepare' })).toBeNull()
-    await expect(openTipsRequests).toBe(1)
+    await expect(openStepsRequests).toBe(1)
   },
 }
 
 export const StepsCached: Story = {
   name: 'Planned: cached steps, no request',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   parameters: { msw: { handlers: { tips: [countedTipsHandler] } } },
   beforeEach: () => {
-    openTipsRequests = 0
+    openStepsRequests = 0
   },
   play: async () => {
     const dialog = await findDialog()
     await expect(within(dialog).getByText(tips.steps![0]!)).toBeVisible()
     await expect(within(dialog).queryByTestId('preparation-steps-loading')).toBeNull()
-    await expect(openTipsRequests).toBe(0)
+    await expect(openStepsRequests).toBe(0)
   },
 }
 
@@ -785,7 +785,7 @@ export const StepsGenerating: Story = {
 
 export const TapStepToMarkDone: Story = {
   name: 'Planned: tap a step to mark it done',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   globals: { viewport: PHONE },
   play: async () => {
     await findDialog()
@@ -817,7 +817,7 @@ export const TapStepToMarkDone: Story = {
 
 export const TapStepToMarkDoneDark: Story = {
   name: 'Planned: step progress (dark)',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   globals: { viewport: PHONE, theme: 'dark' },
   play: async () => {
     await findDialog()
@@ -828,7 +828,7 @@ export const TapStepToMarkDoneDark: Story = {
 
 export const KeyboardTogglesStep: Story = {
   name: 'Planned: keyboard toggles a step',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   play: async () => {
     await findDialog()
     stepButton(1).focus()
@@ -852,7 +852,7 @@ export const KeyboardTogglesStep: Story = {
  */
 export const AskAboutStep: Story = {
   name: 'Planned: ask about a step',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   parameters: {
     msw: {
       handlers: {
@@ -917,14 +917,14 @@ async function assertAskColumnsAlign(): Promise<void> {
 
 export const AskColumnsAlignPhone: Story = {
   name: 'Planned: Ask columns share one edge (phone)',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   globals: { viewport: PHONE },
   play: assertAskColumnsAlign,
 }
 
 export const AskColumnsAlignLaptop: Story = {
   name: 'Planned: Ask columns share one edge (laptop)',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   globals: { viewport: LAPTOP },
   play: assertAskColumnsAlign,
 }
@@ -935,7 +935,7 @@ export const AskColumnsAlignLaptop: Story = {
  */
 export const AskClosesWhenStepDone: Story = {
   name: 'Planned: ticking the step closes its Ask panel',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   play: async () => {
     await findDialog()
     const ask = body().getByRole('button', { name: 'Ask about step 2' })
@@ -958,7 +958,7 @@ export const AskClosesWhenStepDone: Story = {
 /** Ticking a different step leaves the open panel as it is (HON-982). */
 export const AskStaysWhenOtherStepDone: Story = {
   name: 'Planned: ticking another step keeps the Ask panel',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   play: async () => {
     await findDialog()
     const ask = body().getByRole('button', { name: 'Ask about step 2' })
@@ -974,7 +974,7 @@ export const AskStaysWhenOtherStepDone: Story = {
 // ── Ask: the answer stays in view (HON-977) ──────────────────────────────
 
 /** Twelve long steps, so the last ones sit far below the fold. */
-const longTips: StructuredTips = {
+const longTips: PreparationSteps = {
   ...tips,
   steps: Array.from(
     { length: 12 },
@@ -1041,7 +1041,7 @@ async function assertAnswerKeptInView(scroller: HTMLElement): Promise<void> {
  */
 export const AskKeepsAnswerInView: Story = {
   name: 'Planned: ask keeps the answer in view',
-  args: { ...plannedArgs, initialTips: longTips },
+  args: { ...plannedArgs, initialSteps: longTips },
   globals: { viewport: LAPTOP },
   parameters: { msw: { handlers: { cookQuestion: [longAnswerHandler] } } },
   play: async () => {
@@ -1056,7 +1056,7 @@ export const AskKeepsAnswerInView: Story = {
  */
 export const AskKeepsAnswerInViewPhone: Story = {
   name: 'Planned: ask keeps the answer in view (phone, reduced motion)',
-  args: { ...plannedArgs, initialTips: longTips },
+  args: { ...plannedArgs, initialSteps: longTips },
   globals: { viewport: PHONE, reducedMotion: 'on' },
   parameters: { msw: { handlers: { cookQuestion: [longAnswerHandler] } } },
   play: async () => {
@@ -1073,7 +1073,7 @@ export const AskKeepsAnswerInViewPhone: Story = {
  */
 export const AskPanelInViewDoesNotMove: Story = {
   name: 'Planned: ask in view does not scroll',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   globals: { viewport: LAPTOP, reducedMotion: 'on' },
   parameters: {
     msw: {
@@ -1130,7 +1130,7 @@ const secondAnswerWaitsHandler = http.post(
  */
 export const AskKeepsOldAnswerWhilePending: Story = {
   name: 'Planned: ask keeps the old answer while the next one loads',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   globals: { viewport: LAPTOP, reducedMotion: 'on' },
   parameters: { msw: { handlers: { cookQuestion: [secondAnswerWaitsHandler] } } },
   play: async () => {
@@ -1204,7 +1204,7 @@ const streamedAnswerHandler = http.post(
  */
 export const AskStreamsAnswer: Story = {
   name: 'Planned: ask streams the answer in',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   parameters: { msw: { handlers: { cookQuestion: [streamedAnswerHandler] } } },
   play: async () => {
     await findDialog()
@@ -1239,7 +1239,7 @@ const cookQuestionBodies: unknown[] = []
  */
 export const AskAboutEquipment: Story = {
   name: 'Planned: ask about an item in You’ll need',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   parameters: {
     msw: {
       handlers: {
@@ -1296,7 +1296,7 @@ export const AskAboutEquipment: Story = {
 /** A completed entry gets no Ask buttons: nobody is cooking it. */
 export const CompletedHasNoAsk: Story = {
   name: 'Completed: no Ask buttons',
-  args: { meal: tintedMeal, status: 'completed', initialTips: tips },
+  args: { meal: tintedMeal, status: 'completed', initialSteps: tips },
   play: async () => {
     await findDialog()
     await userEvent.click(await body().findByRole('button', { name: 'How to prepare' }))
@@ -1307,7 +1307,7 @@ export const CompletedHasNoAsk: Story = {
 
 export const DoneCooking: Story = {
   name: 'Planned: Done cooking',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   render: (args) => {
     const [open, setOpen] = useState(args.open)
     return (
@@ -1344,7 +1344,7 @@ export const DoneCooking: Story = {
  */
 export const DoneCookingPhone: Story = {
   name: 'Planned: Done cooking ends the view (phone)',
-  args: { ...plannedArgs, initialTips: tips },
+  args: { ...plannedArgs, initialSteps: tips },
   globals: { viewport: PHONE },
   play: async () => {
     const dialog = await findDialog()
@@ -1380,13 +1380,13 @@ export const CompletedNoDoneCooking: Story = {
   args: { meal: tintedMeal, status: 'completed' },
   parameters: { msw: { handlers: { tips: [countedTipsHandler] } } },
   beforeEach: () => {
-    openTipsRequests = 0
+    openStepsRequests = 0
   },
   play: async () => {
     const dialog = await findDialog()
     await expect(within(dialog).getByRole('button', { name: 'How to prepare' })).toBeVisible()
     await expect(within(dialog).queryByRole('button', { name: 'Done cooking' })).toBeNull()
-    await expect(openTipsRequests).toBe(0)
+    await expect(openStepsRequests).toBe(0)
   },
 }
 
@@ -1567,7 +1567,7 @@ let tipsRequests = 0
 // the same success branch, the view keeps rendering the old count's pan sizes
 // through a close and reopen, and `handleHowToPrepare` short-circuits on the
 // stale object rather than re-fetching.
-export const ChangeServingDropsCachedTips: Story = {
+export const ChangeServingDropsCachedSteps: Story = {
   args: {
     servingOverride: 6,
   },
@@ -1612,9 +1612,9 @@ export const ChangeServingDropsCachedTips: Story = {
     // The six-portion tips are off screen and the prompt is back.
     await waitFor(() => expect(body().queryByText(/28cm skillet/i)).not.toBeInTheDocument())
 
-    // The assertion that pins `setTips(null)`: ask again. Collapsing the view
+    // The assertion that pins `setSteps(null)`: ask again. Collapsing the view
     // alone would satisfy everything above — `MealDetail` renders the prompt
-    // off `isTipsExpanded` and never looks at `tips` — but with the stale
+    // off `isStepsExpanded` and never looks at `tips` — but with the stale
     // object still in the hook, `handleHowToPrepare` just re-expands it and
     // never re-POSTs. A second request, and three-portion copy, is the proof.
     await userEvent.click(await body().findByRole('button', { name: /how to prepare/i }))

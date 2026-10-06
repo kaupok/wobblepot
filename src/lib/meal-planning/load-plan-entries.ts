@@ -2,7 +2,7 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { toDateString } from '@/lib/meal-planning/dates'
-import { parseCachedTips } from '@/lib/tips'
+import { parseCachedPreparationSteps } from '@/lib/preparation-steps'
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import {
   ingredientTranslationsInclude,
@@ -17,7 +17,7 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 export interface PlanEntriesHousehold {
   id: string
   locale: string
-  /** Read with `members` to tell which cached tips still fit (`parseCachedTips`). */
+  /** Read with `members` to tell which cached tips still fit (`parseCachedPreparationSteps`). */
   _count: { members: number }
   members: readonly { preferences: { portionMultiplier: number } | null }[]
 }
@@ -90,7 +90,7 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       // Tips priced at other servings are dropped here as the tips route drops
       // them, so the cook view asks for fresh ones instead of showing these.
       preparationTips: entry.preparationTips
-        ? parseCachedTips(entry.preparationTips, {
+        ? parseCachedPreparationSteps(entry.preparationTips, {
             servings: getEffectiveServings(entry, householdServings),
             legacyServings: entry.servingOverride ?? household._count.members,
           })

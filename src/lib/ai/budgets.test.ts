@@ -15,7 +15,7 @@ describe('AI budgets', () => {
       'RECIPE_PARSE_AFTER_URL_FETCH_AI_BUDGET_MS',
       'RECIPE_PARSE_AI_BUDGET_MS',
       'REVIEW_AI_BUDGET_MS',
-      'TIPS_AI_BUDGET_MS',
+      'STEPS_AI_BUDGET_MS',
     ])
   })
 

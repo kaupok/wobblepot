@@ -1,5 +1,5 @@
 import { prisma, type PrismaClientType } from '@/lib/prisma'
-import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
+import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { countAccountHoldingMembers } from '@/lib/household'
 import { deletePosthogPersons } from '@/lib/posthog-purge'
@@ -109,7 +109,11 @@ export async function purgeUser(userId: string, db: PrismaClientType = prisma): 
           await tx.householdMember.delete({
             where: { id: membership.id },
           })
-          await invalidateFutureEntryTips(tx, membership.householdId, membership.household.timezone)
+          await invalidateFutureEntrySteps(
+            tx,
+            membership.householdId,
+            membership.household.timezone,
+          )
         }
       } else {
         // Just remove the membership
@@ -122,7 +126,7 @@ export async function purgeUser(userId: string, db: PrismaClientType = prisma): 
         // needed on the sole-owner branch above, where the household row is
         // deleted and `onDelete: Cascade` takes its plans and entries with it
         // (HON-684).
-        await invalidateFutureEntryTips(tx, membership.householdId, membership.household.timezone)
+        await invalidateFutureEntrySteps(tx, membership.householdId, membership.household.timezone)
       }
     }
 

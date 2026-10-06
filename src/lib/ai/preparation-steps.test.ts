@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import {
-  buildFullTipsPrompt,
-  buildSupplementaryTipsPrompt,
-  type PrepTipsPromptInput,
-  type SupplementaryPrepTipsPromptInput,
-} from './preparation-tips'
-import { estonianVoiceForPrepTips, englishVoiceForPrepTips } from './prompts'
+  buildFullStepsPrompt,
+  buildSupplementaryStepsPrompt,
+  type PrepStepsPromptInput,
+  type SupplementaryPrepStepsPromptInput,
+} from './preparation-steps'
+import { estonianVoiceForPrepSteps, englishVoiceForPrepSteps } from './prompts'
 
-function fullInput(overrides: Partial<PrepTipsPromptInput> = {}): PrepTipsPromptInput {
+function fullInput(overrides: Partial<PrepStepsPromptInput> = {}): PrepStepsPromptInput {
   return {
     mealName: 'Chicken stir fry',
     householdSize: 4,
@@ -19,8 +19,8 @@ function fullInput(overrides: Partial<PrepTipsPromptInput> = {}): PrepTipsPrompt
 }
 
 function supplementaryInput(
-  overrides: Partial<SupplementaryPrepTipsPromptInput> = {},
-): SupplementaryPrepTipsPromptInput {
+  overrides: Partial<SupplementaryPrepStepsPromptInput> = {},
+): SupplementaryPrepStepsPromptInput {
   return {
     mealName: 'Chicken stir fry',
     householdSize: 4,
@@ -32,9 +32,9 @@ function supplementaryInput(
   }
 }
 
-describe('buildFullTipsPrompt', () => {
+describe('buildFullStepsPrompt', () => {
   it('includes meal name, servings, and ingredients', () => {
-    const result = buildFullTipsPrompt(fullInput())
+    const result = buildFullStepsPrompt(fullInput())
 
     expect(result).toContain('Meal: Chicken stir fry')
     expect(result).toContain('Servings: 4')
@@ -43,56 +43,56 @@ describe('buildFullTipsPrompt', () => {
   })
 
   it('omits the time-budget line when timeMinutes is null', () => {
-    const result = buildFullTipsPrompt(fullInput({ timeMinutes: null }))
+    const result = buildFullStepsPrompt(fullInput({ timeMinutes: null }))
 
     expect(result).not.toContain('Time budget')
   })
 
   it('does not reference user preparation notes', () => {
-    const result = buildFullTipsPrompt(fullInput())
+    const result = buildFullStepsPrompt(fullInput())
 
     expect(result).not.toContain("User's preparation notes")
   })
 
   it('omits the locale instruction block for the default (English) locale', () => {
-    const result = buildFullTipsPrompt(fullInput({ locale: 'en' }))
+    const result = buildFullStepsPrompt(fullInput({ locale: 'en' }))
 
     expect(result).not.toContain('LOCALE:')
   })
 
   it('injects the Estonian instruction when locale is "et"', () => {
-    const result = buildFullTipsPrompt(fullInput({ locale: 'et' }))
+    const result = buildFullStepsPrompt(fullInput({ locale: 'et' }))
 
     expect(result).toContain('LOCALE:')
     expect(result).toContain('Estonian')
   })
 
   it('appends the Estonian voice block after the locale instruction for "et" only', () => {
-    const et = buildFullTipsPrompt(fullInput({ locale: 'et' }))
+    const et = buildFullStepsPrompt(fullInput({ locale: 'et' }))
     expect(et).toContain('ESTONIAN VOICE')
     expect(et).toContain('Kuumuta ahi')
     expect(et.indexOf('LOCALE:')).toBeLessThan(et.indexOf('ESTONIAN VOICE'))
 
-    expect(buildFullTipsPrompt(fullInput({ locale: 'en' }))).not.toContain('ESTONIAN VOICE')
+    expect(buildFullStepsPrompt(fullInput({ locale: 'en' }))).not.toContain('ESTONIAN VOICE')
   })
 
   it('appends the English voice block for "en" only (HON-963)', () => {
-    const en = buildFullTipsPrompt(fullInput({ locale: 'en' }))
+    const en = buildFullStepsPrompt(fullInput({ locale: 'en' }))
     expect(en).toContain('ENGLISH VOICE')
-    expect(en.endsWith(englishVoiceForPrepTips('en'))).toBe(true)
+    expect(en.endsWith(englishVoiceForPrepSteps('en'))).toBe(true)
 
-    expect(buildFullTipsPrompt(fullInput({ locale: 'et' }))).not.toContain('ENGLISH VOICE')
+    expect(buildFullStepsPrompt(fullInput({ locale: 'et' }))).not.toContain('ENGLISH VOICE')
   })
 
   it('leaves the Estonian prompt ending on the Estonian voice block', () => {
-    const et = buildFullTipsPrompt(fullInput({ locale: 'et' }))
-    expect(et.endsWith(estonianVoiceForPrepTips('et'))).toBe(true)
+    const et = buildFullStepsPrompt(fullInput({ locale: 'et' }))
+    expect(et.endsWith(estonianVoiceForPrepSteps('et'))).toBe(true)
   })
 })
 
-describe('buildSupplementaryTipsPrompt', () => {
+describe('buildSupplementaryStepsPrompt', () => {
   it('includes meal name, servings, ingredients, and the user preparation notes', () => {
-    const result = buildSupplementaryTipsPrompt(supplementaryInput())
+    const result = buildSupplementaryStepsPrompt(supplementaryInput())
 
     expect(result).toContain('Meal: Chicken stir fry')
     expect(result).toContain('Servings: 4')
@@ -102,36 +102,36 @@ describe('buildSupplementaryTipsPrompt', () => {
   })
 
   it('omits the locale instruction block for the default (English) locale', () => {
-    const result = buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'en' }))
+    const result = buildSupplementaryStepsPrompt(supplementaryInput({ locale: 'en' }))
 
     expect(result).not.toContain('LOCALE:')
   })
 
   it('injects the Estonian instruction when locale is "et"', () => {
-    const result = buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'et' }))
+    const result = buildSupplementaryStepsPrompt(supplementaryInput({ locale: 'et' }))
 
     expect(result).toContain('LOCALE:')
     expect(result).toContain('Estonian')
   })
 
   it('appends the Estonian voice block after the locale instruction for "et" only', () => {
-    const et = buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'et' }))
+    const et = buildSupplementaryStepsPrompt(supplementaryInput({ locale: 'et' }))
     expect(et).toContain('ESTONIAN VOICE')
     expect(et).toContain('Kuumuta ahi')
     expect(et.indexOf('LOCALE:')).toBeLessThan(et.indexOf('ESTONIAN VOICE'))
 
-    expect(buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'en' }))).not.toContain(
+    expect(buildSupplementaryStepsPrompt(supplementaryInput({ locale: 'en' }))).not.toContain(
       'ESTONIAN VOICE',
     )
   })
 
   it('appends the English voice block for "en" only (HON-963)', () => {
-    const en = buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'en' }))
+    const en = buildSupplementaryStepsPrompt(supplementaryInput({ locale: 'en' }))
     expect(en).toContain('ENGLISH VOICE')
-    expect(en.endsWith(englishVoiceForPrepTips('en'))).toBe(true)
+    expect(en.endsWith(englishVoiceForPrepSteps('en'))).toBe(true)
 
-    const et = buildSupplementaryTipsPrompt(supplementaryInput({ locale: 'et' }))
+    const et = buildSupplementaryStepsPrompt(supplementaryInput({ locale: 'et' }))
     expect(et).not.toContain('ENGLISH VOICE')
-    expect(et.endsWith(estonianVoiceForPrepTips('et'))).toBe(true)
+    expect(et.endsWith(estonianVoiceForPrepSteps('et'))).toBe(true)
   })
 })

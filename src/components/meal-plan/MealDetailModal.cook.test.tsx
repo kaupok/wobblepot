@@ -4,9 +4,9 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { MealDetailModal, type MealDetailModalHandle } from './MealDetailModal'
-import type { MealData, StructuredTips } from './types'
+import type { MealData, PreparationSteps } from './types'
 
-// The cook view's behaviour with the real `useMealTips` and `MealDetail`
+// The cook view's behaviour with the real `useMealSteps` and `MealDetail`
 // (HON-933). `MealDetailModal.test.tsx` mocks both module-wide, so these live
 // in their own file.
 
@@ -28,12 +28,12 @@ const meal: MealData = {
   nutrition: {} as MealData['nutrition'],
 }
 
-const cachedTips: StructuredTips = {
+const cachedTips: PreparationSteps = {
   equipment: ['Soup pot'],
   steps: ['Rinse the lentils', 'Simmer for 25 minutes'],
   pitfalls: [],
 }
-const generatedTips: StructuredTips = {
+const generatedTips: PreparationSteps = {
   equipment: ['Soup pot'],
   steps: ['Soften the onion', 'Add the lentils and stock'],
   pitfalls: [],
@@ -100,7 +100,7 @@ describe('MealDetailModal steps on open (HON-933)', () => {
   })
 
   it('shows cached tips at once, with no request', () => {
-    renderModal({ initialTips: cachedTips })
+    renderModal({ initialSteps: cachedTips })
     expect(screen.getByText('Rinse the lentils')).toBeInTheDocument()
     expect(tipsPosts()).toBe(0)
   })
@@ -141,12 +141,12 @@ describe('MealDetailModal steps on open (HON-933)', () => {
     const { ref, rerender } = renderModal({
       open: false,
       generateOnOpen: false,
-      initialTips: cachedTips,
+      initialSteps: cachedTips,
     })
     act(() => ref.current!.resetForSwap())
     // `router.refresh()` hands the card fresh props; the hook reads them once.
-    rerender({ initialTips: { ...cachedTips, steps: ['Stale step'] } })
-    rerender({ open: true, initialTips: { ...cachedTips, steps: ['Stale step'] } })
+    rerender({ initialSteps: { ...cachedTips, steps: ['Stale step'] } })
+    rerender({ open: true, initialSteps: { ...cachedTips, steps: ['Stale step'] } })
 
     expect(await screen.findByRole('button', { name: 'How to prepare' })).toBeInTheDocument()
     expect(screen.queryByText('Rinse the lentils')).not.toBeInTheDocument()
@@ -156,7 +156,7 @@ describe('MealDetailModal steps on open (HON-933)', () => {
 
 describe('MealDetailModal step progress (HON-933)', () => {
   it('survives closing and reopening the view', async () => {
-    const { rerender } = renderModal({ initialTips: cachedTips })
+    const { rerender } = renderModal({ initialSteps: cachedTips })
     await userEvent.click(step('Rinse the lentils'))
     expect(step('Rinse the lentils')).toHaveAttribute('aria-pressed', 'true')
     expect(step('Simmer for 25 minutes')).toHaveAttribute('data-current')
@@ -170,7 +170,7 @@ describe('MealDetailModal step progress (HON-933)', () => {
   })
 
   it('resets on a swap', async () => {
-    const { ref } = renderModal({ initialTips: generatedTips })
+    const { ref } = renderModal({ initialSteps: generatedTips })
     await userEvent.click(step('Soften the onion'))
     expect(step('Soften the onion')).toHaveAttribute('aria-pressed', 'true')
 
@@ -184,7 +184,7 @@ describe('MealDetailModal step progress (HON-933)', () => {
   })
 
   it('resets when a serving change regenerates the steps', async () => {
-    renderModal({ initialTips: generatedTips })
+    renderModal({ initialSteps: generatedTips })
     await userEvent.click(step('Soften the onion'))
 
     await userEvent.click(screen.getByRole('button', { name: /serves 4/i }))
@@ -214,7 +214,7 @@ describe('MealDetailModal Ask panel and step progress (HON-982)', () => {
   })
 
   it('closes the panel when its step is ticked, and keeps focus on the toggle', async () => {
-    renderModal({ initialTips: cachedTips, onDoneCooking: vi.fn() })
+    renderModal({ initialSteps: cachedTips, onDoneCooking: vi.fn() })
     await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
     expect(askPanel(2)).toBeInTheDocument()
 
@@ -233,7 +233,7 @@ describe('MealDetailModal Ask panel and step progress (HON-982)', () => {
   })
 
   it('leaves the panel open when another step is ticked', async () => {
-    renderModal({ initialTips: cachedTips, onDoneCooking: vi.fn() })
+    renderModal({ initialSteps: cachedTips, onDoneCooking: vi.fn() })
     await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
 
     await userEvent.click(step('Rinse the lentils'))
@@ -242,7 +242,7 @@ describe('MealDetailModal Ask panel and step progress (HON-982)', () => {
   })
 
   it('keeps the panel when its step is un-ticked', async () => {
-    renderModal({ initialTips: cachedTips, onDoneCooking: vi.fn() })
+    renderModal({ initialSteps: cachedTips, onDoneCooking: vi.fn() })
     await userEvent.click(step('Simmer for 25 minutes'))
     await userEvent.click(screen.getByRole('button', { name: 'Ask about step 2' }))
     await userEvent.click(step('Simmer for 25 minutes'))
@@ -264,7 +264,7 @@ describe('MealDetailModal Done cooking (HON-933)', () => {
         planId="plan-1"
         entryId="entry-1"
         generateOnOpen
-        initialTips={cachedTips}
+        initialSteps={cachedTips}
         onDoneCooking={onDoneCooking}
       />
     )

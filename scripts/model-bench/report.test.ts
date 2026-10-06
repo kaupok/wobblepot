@@ -467,7 +467,7 @@ describe('buildReport', () => {
     const md = renderMarkdown(r)
     expect(md).toContain('| Errors | none | AI_NoObjectGeneratedError × 1 |')
     expect(md).toContain('| Truncated (`finishReason: length`) | 0 | 1 |')
-    expect(md).toContain('Latency max (budget 45.0s, `TIPS_AI_BUDGET_MS`)')
+    expect(md).toContain('Latency max (budget 45.0s, `STEPS_AI_BUDGET_MS`)')
   })
 
   it('marks a partial run', () => {
@@ -666,7 +666,7 @@ describe('buildCheckReport', () => {
       ['tips'],
     )
     expect(gate(r, 'Max latency')).toMatchObject({ status: 'fail', observed: '38.3s' })
-    expect(gate(r, 'Max latency')!.threshold).toContain('≤ 36.0s (80% of `TIPS_AI_BUDGET_MS`)')
+    expect(gate(r, 'Max latency')!.threshold).toContain('≤ 36.0s (80% of `STEPS_AI_BUDGET_MS`)')
   })
 
   it('fails a partial run even when every measured gate holds', () => {

@@ -40,13 +40,13 @@ import { google } from '@ai-sdk/google'
 import { openai } from '@ai-sdk/openai'
 import { generateImage, generateObject, type ImageModel, type ImageModelUsage } from 'ai'
 import { z } from 'zod'
-import { REVIEW_MODEL, TIPS_MODEL } from '../src/lib/ai/models'
+import { REVIEW_MODEL, STEPS_MODEL } from '../src/lib/ai/models'
 import {
-  buildFullTipsPrompt,
-  buildSupplementaryTipsPrompt,
-  fullTipsSchema,
-  supplementaryTipsSchema,
-} from '../src/lib/ai/preparation-tips'
+  buildFullStepsPrompt,
+  buildSupplementaryStepsPrompt,
+  fullStepsSchema,
+  supplementaryStepsSchema,
+} from '../src/lib/ai/preparation-steps'
 import { estimateCostUsd } from '../src/lib/ai/pricing'
 import {
   applyJudgeFilters,
@@ -1008,9 +1008,9 @@ async function generatePrepSample(anthropic: Anthropic, meal: SpikeMeal): Promis
     if (notes) {
       // Same token ceilings as the prep route (HON-693).
       const result = await generateObject({
-        model: anthropic(TIPS_MODEL),
-        schema: supplementaryTipsSchema,
-        prompt: buildSupplementaryTipsPrompt({ ...input, preparationNotes: notes }),
+        model: anthropic(STEPS_MODEL),
+        schema: supplementaryStepsSchema,
+        prompt: buildSupplementaryStepsPrompt({ ...input, preparationNotes: notes }),
         maxOutputTokens: 1200,
         maxRetries: 2,
       })
@@ -1022,13 +1022,13 @@ async function generatePrepSample(anthropic: Anthropic, meal: SpikeMeal): Promis
         pitfalls: result.object.pitfalls,
         tip: result.object.tip,
         latencyMs: performance.now() - t0,
-        usd: claudeUsd(TIPS_MODEL, result.usage),
+        usd: claudeUsd(STEPS_MODEL, result.usage),
       }
     }
     const result = await generateObject({
-      model: anthropic(TIPS_MODEL),
-      schema: fullTipsSchema,
-      prompt: buildFullTipsPrompt(input),
+      model: anthropic(STEPS_MODEL),
+      schema: fullStepsSchema,
+      prompt: buildFullStepsPrompt(input),
       maxOutputTokens: 2000,
       maxRetries: 2,
     })
@@ -1037,7 +1037,7 @@ async function generatePrepSample(anthropic: Anthropic, meal: SpikeMeal): Promis
       kind: 'full',
       ...result.object,
       latencyMs: performance.now() - t0,
-      usd: claudeUsd(TIPS_MODEL, result.usage),
+      usd: claudeUsd(STEPS_MODEL, result.usage),
     }
   } catch (error) {
     return {
@@ -1187,7 +1187,7 @@ async function main() {
   }
   if (args.judge) {
     line(`Judge (${REVIEW_MODEL})`, jobs.length, JUDGE_EST_USD)
-    line(`Prep sample (${TIPS_MODEL})`, prepMeals.length, PREP_EST_USD)
+    line(`Prep sample (${STEPS_MODEL})`, prepMeals.length, PREP_EST_USD)
   } else {
     console.log('  Judge and prep sample skipped (--no-judge)')
   }
@@ -1335,7 +1335,7 @@ async function main() {
     console.log(`\nJudge (${REVIEW_MODEL}) cost and latency:`)
     console.table([judgeSummary(results)])
     const prepUsd = prep.reduce((a, p) => a + p.usd, 0)
-    console.log(`Prep sample (${TIPS_MODEL}): ${prep.length} calls, $${prepUsd.toFixed(4)} total`)
+    console.log(`Prep sample (${STEPS_MODEL}): ${prep.length} calls, $${prepUsd.toFixed(4)} total`)
   }
   console.log(`\nContact sheet: ${pathToFileURL(sheet).href}`)
 

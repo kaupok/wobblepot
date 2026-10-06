@@ -62,8 +62,8 @@ import { getStartOfTodayInTimezone } from './dates'
  * filters already pinned there.
  *
  * Since HON-1040 the cache also records the servings it was priced at, and
- * every read drops tips priced at other servings (`parseCachedTips` in
- * `src/lib/tips.ts`). That read check is the backstop for what this function
+ * every read drops tips priced at other servings (`parseCachedPreparationSteps` in
+ * `src/lib/preparation-steps.ts`). That read check is the backstop for what this function
  * cannot reach, such as tips the pre-HON-1040 code cached at the member count;
  * clearing here still matters, because it keeps a stale row from being read.
  *
@@ -72,7 +72,7 @@ import { getStartOfTodayInTimezone } from './dates'
  * against the household's cap. Bounding it to future entries is what makes
  * that acceptable.
  */
-export async function invalidateFutureEntryTips(
+export async function invalidateFutureEntrySteps(
   tx: Prisma.TransactionClient,
   householdId: string,
   timezone: string,

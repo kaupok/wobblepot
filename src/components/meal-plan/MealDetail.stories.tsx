@@ -13,11 +13,11 @@ import { Button } from '@/components/ui/button'
 import { Heading } from '@/components/ui/typography'
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
-import type { PantryIngredient, StructuredTips } from './types'
+import type { PantryIngredient, PreparationSteps } from './types'
 
 const mealFixture = createMeal({ components: lemonGarlicChickenComponentsFull })
 
-const tips: StructuredTips = {
+const tips: PreparationSteps = {
   equipment: ['Sheet pan', 'Sharp knife', 'Tongs'],
   steps: [
     'Heat oven to 220°C.',
@@ -423,7 +423,7 @@ function follows(a: Node, b: Node): boolean {
   return !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 }
 
-export const TipsCollapsed: Story = {
+export const StepsCollapsed: Story = {
   args: {
     pantryIngredients: lemonGarlicChickenPantryWithOil,
     onHowToPrepare: fn(),
@@ -456,11 +456,11 @@ export const TipsCollapsed: Story = {
   },
 }
 
-export const TipsExpanded: Story = {
+export const StepsExpanded: Story = {
   args: {
     pantryIngredients: lemonGarlicChickenPantryWithOil,
-    tips,
-    isTipsExpanded: true,
+    steps: tips,
+    isStepsExpanded: true,
     onHowToPrepare: fn(),
   },
   parameters: {
@@ -490,22 +490,22 @@ export const TipsExpanded: Story = {
   },
 }
 
-export const TipsLoading: Story = {
+export const StepsLoading: Story = {
   args: {
     pantryIngredients: lemonGarlicChickenPantryWithOil,
-    isLoadingTips: true,
-    isTipsExpanded: true,
+    isLoadingSteps: true,
+    isStepsExpanded: true,
     onHowToPrepare: fn(),
   },
 }
 
-export const TipsError: Story = {
+export const StepsError: Story = {
   args: {
     pantryIngredients: lemonGarlicChickenPantryWithOil,
-    tipsError: 'Failed to load tips.',
-    isTipsExpanded: true,
+    stepsError: 'Failed to load tips.',
+    isStepsExpanded: true,
     onHowToPrepare: fn(),
-    onRetryTips: fn(),
+    onRetrySteps: fn(),
   },
 }
 
@@ -515,8 +515,8 @@ export const WithPreparationNotes: Story = {
       components: lemonGarlicChickenComponentsFull,
       preparationNotes: 'Add extra thyme. Kids prefer the skin crispy — broil last 2 min.',
     }),
-    tips,
-    isTipsExpanded: true,
+    steps: tips,
+    isStepsExpanded: true,
     onHowToPrepare: fn(),
   },
   play: async ({ canvasElement }) => {
@@ -561,8 +561,8 @@ const narrowColumnArgs = {
   pantryIngredients: lemonGarlicChickenPantryWithOil,
   servings: 4,
   onServingsChange: fn(async () => true),
-  tips,
-  isTipsExpanded: true,
+  steps: tips,
+  isStepsExpanded: true,
   onHowToPrepare: fn(),
 } satisfies Partial<Story['args']>
 

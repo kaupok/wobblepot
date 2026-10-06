@@ -17,9 +17,14 @@ import {
   PreparationEquipment,
   PreparationSteps,
   type CookQuestionControls,
-} from './PreparationTips'
+} from './PreparationSteps'
 import { ServingControl } from './ServingControl'
-import type { MealData, MealStatus, PantryIngredient, StructuredTips } from './types'
+import type {
+  MealData,
+  MealStatus,
+  PantryIngredient,
+  PreparationSteps as PreparationStepsData,
+} from './types'
 
 interface MealDetailProps {
   meal: MealData
@@ -55,15 +60,15 @@ interface MealDetailProps {
   /** If true, hides the availability badge on finished meals */
   hideAvailabilityBadge?: boolean
   /** Preparation tips content */
-  tips?: StructuredTips | null
+  steps?: PreparationStepsData | null
   /** Whether tips are currently loading */
-  isLoadingTips?: boolean
+  isLoadingSteps?: boolean
   /** Error message from loading tips */
-  tipsError?: string | null
+  stepsError?: string | null
   /** Retry handler for failed tips fetch */
-  onRetryTips?: () => void
+  onRetrySteps?: () => void
   /** Whether tips section is expanded */
-  isTipsExpanded?: boolean
+  isStepsExpanded?: boolean
   /** Handler for "How to prepare" button click */
   onHowToPrepare?: () => void
   /** Indices of the generated steps marked done */
@@ -135,11 +140,11 @@ export function MealDetail({
   optimisticOverrides,
   hideAvailability = false,
   hideAvailabilityBadge = false,
-  tips = null,
-  isLoadingTips = false,
-  tipsError = null,
-  onRetryTips,
-  isTipsExpanded = false,
+  steps = null,
+  isLoadingSteps = false,
+  stepsError = null,
+  onRetrySteps,
+  isStepsExpanded = false,
   onHowToPrepare,
   doneSteps,
   onToggleStep,
@@ -148,7 +153,7 @@ export function MealDetail({
 }: MealDetailProps) {
   const tDetail = useTranslations('meal-plan.detail')
   const tServing = useTranslations('meal-plan.serving')
-  const tTips = useTranslations('meal-plan.tips')
+  const tSteps = useTranslations('meal-plan.steps')
   // Effective servings: use explicit prop if provided, otherwise householdServings
   const effectiveServings = servings ?? householdServings
 
@@ -165,7 +170,7 @@ export function MealDetail({
   )
 
   const showPreparationSection = !!onHowToPrepare
-  const showTips = showPreparationSection && isTipsExpanded
+  const showSteps = showPreparationSection && isStepsExpanded
   // A completed entry's servings are what the pantry was charged for, and the
   // API refuses to change them (409, HON-652) — so show the count as a
   // static badge instead of offering an edit that can only fail.
@@ -293,21 +298,21 @@ export function MealDetail({
             >
               {/* What to set out before step 1. Nothing while the steps generate:
                   there is no equipment yet, and no skeleton stands in for it. */}
-              {showTips && (
+              {showSteps && (
                 <PreparationEquipment
-                  equipment={tips?.equipment}
-                  steps={tips?.steps}
+                  equipment={steps?.equipment}
+                  steps={steps?.steps}
                   cookQuestion={cookQuestion}
                 />
               )}
               <Heading variant="h4" as="h3">
-                {tTips('steps')}
+                {tSteps('steps')}
               </Heading>
               <PreparationSteps
-                tips={showTips ? tips : null}
-                isLoading={showTips && isLoadingTips}
-                error={showTips ? tipsError : null}
-                onRetry={onRetryTips ?? (() => {})}
+                steps={showSteps ? steps : null}
+                isLoading={showSteps && isLoadingSteps}
+                error={showSteps ? stepsError : null}
+                onRetry={onRetrySteps ?? (() => {})}
                 preparationNotes={meal.preparationNotes}
                 doneSteps={doneSteps}
                 onToggleStep={onToggleStep}
@@ -315,7 +320,7 @@ export function MealDetail({
               />
               {/* A planned entry generates its steps on open (HON-933); anything
                   else asks for them: full width on a phone, label-sized from `md`. */}
-              {!isTipsExpanded && (
+              {!isStepsExpanded && (
                 <Button
                   size="lg"
                   className="w-full md:w-auto md:self-start"

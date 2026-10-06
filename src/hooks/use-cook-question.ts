@@ -93,7 +93,7 @@ const NO_RETRY_BUTTON_CODES: ReadonlySet<string> = new Set([
 ] satisfies CookQuestionErrorCode[])
 
 /**
- * Auto-retry once after 2s, by the rules `useMealTips` documents: not a 504
+ * Auto-retry once after 2s, by the rules `useMealSteps` documents: not a 504
  * (the route already spent its whole budget), not the kill switch, and not the
  * household's own hourly limit or monthly cap (HON-693, HON-893).
  */

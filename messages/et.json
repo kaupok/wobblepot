@@ -285,7 +285,7 @@
       "moreActions": "Rohkem toiminguid: {name}",
       "ariaDetailsFor": "„{mealName}\" üksikasjad"
     },
-    "tips": {
+    "steps": {
       "equipment": "Vaja läheb",
       "steps": "Sammud",
       "pitfalls": "Tähelepanu",

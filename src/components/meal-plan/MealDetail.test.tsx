@@ -258,8 +258,8 @@ describe('MealDetail cook view layout (HON-932)', () => {
         meal={meal}
         householdServings={4}
         onHowToPrepare={vi.fn()}
-        isTipsExpanded
-        tips={{ equipment: ['Sheet pan', 'Tongs'], steps: ['Roast it'], pitfalls: [] }}
+        isStepsExpanded
+        steps={{ equipment: ['Sheet pan', 'Tongs'], steps: ['Roast it'], pitfalls: [] }}
       />,
     )
 
@@ -282,8 +282,8 @@ describe('MealDetail cook view layout (HON-932)', () => {
         meal={meal}
         householdServings={4}
         onHowToPrepare={vi.fn()}
-        isTipsExpanded
-        isLoadingTips
+        isStepsExpanded
+        isLoadingSteps
       />,
     )
 

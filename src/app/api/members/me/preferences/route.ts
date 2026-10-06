@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
 import { sumPortions } from '@/lib/meal-planning/servings'
-import { invalidateFutureEntryTips } from '@/lib/meal-planning/preparation-tips-cache'
+import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
 import { captureApiError } from '@/lib/errors'
 
 const updatePreferencesSchema = z.object({
@@ -128,7 +128,7 @@ export async function PATCH(request: Request) {
         (await loadHouseholdServings(membership.householdId, tx)) !==
           sumPortions(membership.household.members)
       ) {
-        await invalidateFutureEntryTips(tx, membership.householdId, membership.household.timezone)
+        await invalidateFutureEntrySteps(tx, membership.householdId, membership.household.timezone)
       }
 
       return saved

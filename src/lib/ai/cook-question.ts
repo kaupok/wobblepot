@@ -1,5 +1,5 @@
-import { formatIngredientsList, type TipsComponent } from './preparation-tips'
-import { localeInstruction, estonianVoiceForPrepTips, isEstonian } from './prompts'
+import { formatIngredientsList, type StepsComponent } from './preparation-steps'
+import { localeInstruction, estonianVoiceForPrepSteps, isEstonian } from './prompts'
 import type { CookQuestionSubject } from './cook-question-subject'
 
 export interface CookQuestionPantryItem {
@@ -28,7 +28,7 @@ export interface CookQuestionRequestInput {
   /** The entry's effective servings; scales the ingredient quantities. */
   servings: number
   timeMinutes: number | null
-  components: TipsComponent[]
+  components: StepsComponent[]
   /** The household's own notes on the meal, when it has any */
   preparationNotes: string | null
   /** The steps the cook sees, in order */
@@ -188,7 +188,7 @@ Rules:
 - 2 or 3 short sentences, never more than 4, and under 80 words, in one paragraph. Give the one best suggestion, not a list of options, then stop: no side notes. Practical and specific.
 - Metric units only: °C, g, kg, ml, L, cm.
 - Do not repeat the step text.${previousRule}
-- If the question is not about this meal, answer with one sentence that says you can only help with this meal.${localeInstruction(locale)}${estonianVoiceForPrepTips(locale)}`
+- If the question is not about this meal, answer with one sentence that says you can only help with this meal.${localeInstruction(locale)}${estonianVoiceForPrepSteps(locale)}`
 }
 
 /**

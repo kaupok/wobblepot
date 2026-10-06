@@ -25,9 +25,9 @@ import { buildRecipeRequest } from '../../src/lib/ai/recipe-prompt'
 import { buildImagineRequest } from '../../src/lib/ai/imagine-request'
 import { buildReviewRequest } from '../../src/lib/ai/review-request'
 import {
-  buildFullTipsRequest,
-  buildSupplementaryTipsRequest,
-} from '../../src/lib/ai/preparation-tips'
+  buildFullStepsRequest,
+  buildSupplementaryStepsRequest,
+} from '../../src/lib/ai/preparation-steps'
 import { buildCookQuestionRequest } from '../../src/lib/ai/cook-question'
 import {
   COOK_QUESTION_AI_BUDGET_MS,
@@ -35,7 +35,7 @@ import {
   PLAN_AI_BUDGET_MS,
   RECIPE_PARSE_AI_BUDGET_MS,
   REVIEW_AI_BUDGET_MS,
-  TIPS_AI_BUDGET_MS,
+  STEPS_AI_BUDGET_MS,
 } from '../../src/lib/ai/budgets'
 import {
   COOK_QUESTION_MODEL,
@@ -43,7 +43,7 @@ import {
   PLANNING_MODEL,
   RECIPE_MODEL,
   REVIEW_MODEL,
-  TIPS_MODEL,
+  STEPS_MODEL,
 } from '../../src/lib/ai/models'
 import type { BenchCase, CaseOf, Task } from './case-schema'
 import {
@@ -395,10 +395,10 @@ const review: TaskSpec<'review'> = {
 }
 
 const tips: TaskSpec<'tips'> = {
-  productionModel: TIPS_MODEL,
-  budgetMs: TIPS_AI_BUDGET_MS,
-  budgetLabel: 'TIPS_AI_BUDGET_MS',
-  // Both ceilings in `preparation-tips.ts` (2000 full, 1200 supplementary)
+  productionModel: STEPS_MODEL,
+  budgetMs: STEPS_AI_BUDGET_MS,
+  budgetLabel: 'STEPS_AI_BUDGET_MS',
+  // Both ceilings in `preparation-steps.ts` (2000 full, 1200 supplementary)
   // are upper bounds; this sits between them.
   dryRunOutputTokens: 1_500,
   metrics: [
@@ -433,14 +433,14 @@ const tips: TaskSpec<'tips'> = {
     const score = (object: unknown) => scoreTips(input, object as Parameters<typeof scoreTips>[1])
 
     if (input.kind === 'full') {
-      const request = buildFullTipsRequest(base)
+      const request = buildFullStepsRequest(base)
       return {
         ...requestTexts(request),
         generate: (model) => generateObject({ ...request, model }),
         score,
       }
     }
-    const request = buildSupplementaryTipsRequest({
+    const request = buildSupplementaryStepsRequest({
       ...base,
       preparationNotes: input.preparationNotes,
     })

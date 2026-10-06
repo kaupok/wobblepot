@@ -5,17 +5,17 @@ import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ApiError, apiFetch } from '@/lib/api'
 import {
-  PREPARATION_TIPS_ERROR_KEYS,
-  preparationTipsFallbackKey,
+  PREPARATION_STEPS_ERROR_KEYS,
+  preparationStepsFallbackKey,
   translateErrorCode,
-  type PreparationTipsErrorCode,
+  type PreparationStepsErrorCode,
 } from '@/lib/ai/error-codes'
-import type { StructuredTips } from '@/components/meal-plan/types'
+import type { PreparationSteps } from '@/components/meal-plan/types'
 
-interface UseMealTipsOptions {
+interface UseMealStepsOptions {
   planId: string
   entryId: string
-  initialTips?: StructuredTips | null
+  initialSteps?: PreparationSteps | null
 }
 
 // Conditions a retry 2s later would only hit again — see `isRetryable`.
@@ -23,7 +23,7 @@ const NON_RETRYABLE_CODES: ReadonlySet<string> = new Set([
   'generation_disabled',
   'rate_limited',
   'ai_cap_exceeded',
-] satisfies PreparationTipsErrorCode[])
+] satisfies PreparationStepsErrorCode[])
 
 /**
  * Auto-retry once after 2s for retryable server errors.
@@ -63,19 +63,19 @@ function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
-export function useMealTips({ planId, entryId, initialTips = null }: UseMealTipsOptions) {
-  const [tips, setTips] = useState<StructuredTips | null>(initialTips)
-  const [tipsError, setTipsError] = useState<string | null>(null)
-  const [isTipsExpanded, setIsTipsExpanded] = useState(false)
+export function useMealSteps({ planId, entryId, initialSteps = null }: UseMealStepsOptions) {
+  const [steps, setSteps] = useState<PreparationSteps | null>(initialSteps)
+  const [stepsError, setStepsError] = useState<string | null>(null)
+  const [isStepsExpanded, setIsStepsExpanded] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
-  const t = useTranslations('meal-plan.tips')
+  const t = useTranslations('meal-plan.steps')
 
   // A mutation, not a query: the POST runs a billed AI generation on demand,
-  // and the result lives in local state that callers can reset (`cancelTips`).
-  const { mutateAsync, isPending: isLoadingTips } = useMutation({
+  // and the result lives in local state that callers can reset (`cancelSteps`).
+  const { mutateAsync, isPending: isLoadingSteps } = useMutation({
     mutationFn: ({ signal }: AbortController) => {
       const request = () =>
-        apiFetch<{ tips: StructuredTips }>(
+        apiFetch<{ tips: PreparationSteps }>(
           `/api/meal-plans/${planId}/entries/${entryId}/preparation-tips`,
           { method: 'POST', signal },
           t('errors.tipsFailed'),
@@ -86,18 +86,18 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
         return request()
       })
     },
-    // An aborted request — superseded by a newer `fetchTips`, or dropped by
-    // `cancelTips` — must not write its result or its error into the state.
+    // An aborted request — superseded by a newer `fetchSteps`, or dropped by
+    // `cancelSteps` — must not write its result or its error into the state.
     onSuccess: (data, controller) => {
       if (controller.signal.aborted) return
-      setTips(data.tips)
+      setSteps(data.tips)
     },
     onError: (error, controller) => {
       if (controller.signal.aborted) return
       if (error instanceof DOMException && error.name === 'AbortError') return
       // A network failure never reached the route, so it has no code to read.
       if (!(error instanceof ApiError)) {
-        setTipsError(t('errors.tipsFailed'))
+        setStepsError(t('errors.tipsFailed'))
         return
       }
       // Never `error.message`: `apiFetch` fills it from the route's English
@@ -113,32 +113,32 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
       })
       const key = translateErrorCode(
         error.code,
-        PREPARATION_TIPS_ERROR_KEYS,
-        preparationTipsFallbackKey(error.status),
+        PREPARATION_STEPS_ERROR_KEYS,
+        preparationStepsFallbackKey(error.status),
       )
-      setTipsError(t(`errors.${key}`))
+      setStepsError(t(`errors.${key}`))
     },
   })
 
-  const fetchTips = useCallback(async () => {
+  const fetchSteps = useCallback(async () => {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
 
-    setTipsError(null)
-    setIsTipsExpanded(true)
+    setStepsError(null)
+    setIsStepsExpanded(true)
 
     // Failures are handled in `onError`; the rejection only needs swallowing.
     await mutateAsync(controller).catch(() => {})
   }, [mutateAsync])
 
   const handleHowToPrepare = useCallback(() => {
-    if (tips) {
-      setIsTipsExpanded((prev) => !prev)
+    if (steps) {
+      setIsStepsExpanded((prev) => !prev)
     } else {
-      fetchTips()
+      fetchSteps()
     }
-  }, [tips, fetchTips])
+  }, [steps, fetchSteps])
 
   /**
    * Drop the tips and stop any generation still running for them. For callers
@@ -147,29 +147,29 @@ export function useMealTips({ planId, entryId, initialTips = null }: UseMealTips
    * copy (HON-681).
    *
    * Clearing the state alone is not enough: a generation takes up to 45s, and
-   * the request in flight would resolve afterwards and `setTips` the stale
+   * the request in flight would resolve afterwards and `setSteps` the stale
    * object right back — after which `handleHowToPrepare` short-circuits on it
    * and never re-fetches, while the stored row is correctly null. Aborting
    * first makes the mutation's `onSuccess` / `onError` skip it instead.
    */
-  const cancelTips = useCallback(() => {
+  const cancelSteps = useCallback(() => {
     abortRef.current?.abort()
     abortRef.current = null
-    setTips(null)
-    setTipsError(null)
-    setIsTipsExpanded(false)
+    setSteps(null)
+    setStepsError(null)
+    setIsStepsExpanded(false)
   }, [])
 
   return {
-    tips,
-    isLoadingTips,
-    tipsError,
-    isTipsExpanded,
-    fetchTips,
+    steps,
+    isLoadingSteps,
+    stepsError,
+    isStepsExpanded,
+    fetchSteps,
     handleHowToPrepare,
-    cancelTips,
-    setTips,
-    setIsTipsExpanded,
-    setTipsError,
+    cancelSteps,
+    setSteps,
+    setIsStepsExpanded,
+    setStepsError,
   }
 }

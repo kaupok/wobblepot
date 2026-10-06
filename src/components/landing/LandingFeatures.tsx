@@ -17,7 +17,10 @@ import {
 } from '@/components/meal-plan/MealImageCard'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { MyRecipeIcon } from '@/components/meal-plan/MyRecipeIcon'
-import { PreparationSteps, type CookQuestionControls } from '@/components/meal-plan/PreparationTips'
+import {
+  PreparationSteps,
+  type CookQuestionControls,
+} from '@/components/meal-plan/PreparationSteps'
 import { ServingControl } from '@/components/meal-plan/ServingControl'
 import type { MealComponent, PantryIngredient } from '@/components/meal-plan/types'
 import { formatWeight } from '@/lib/i18n/format-shopping-quantity'
@@ -388,7 +391,7 @@ const COOK_QUESTION: CookQuestionControls = {
  */
 function CookVignette() {
   const t = useTranslations('landing.why.cook.vignette')
-  const tSteps = useTranslations('meal-plan.tips')
+  const tSteps = useTranslations('meal-plan.steps')
   const tAsk = useTranslations('meal-plan.cookQuestion')
 
   return (
@@ -400,7 +403,7 @@ function CookVignette() {
           {tSteps('steps')}
         </Heading>
         <PreparationSteps
-          tips={{ steps: [t('step')], pitfalls: [] }}
+          steps={{ steps: [t('step')], pitfalls: [] }}
           isLoading={false}
           error={null}
           onRetry={noop}

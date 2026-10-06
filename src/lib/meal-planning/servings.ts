@@ -43,7 +43,7 @@ export function sumPortions(
  * member count. It is the default path, which makes every member's portion
  * size an input to the prep-tips cache on almost every entry. Every membership
  * write and every portion change therefore has to clear that cache — see
- * `invalidateFutureEntryTips` in `./preparation-tips-cache.ts` (HON-684).
+ * `invalidateFutureEntrySteps` in `./preparation-steps-cache.ts` (HON-684).
  */
 export function getEffectiveServings(
   entry: { servingOverride: number | null },

@@ -128,7 +128,7 @@ export function LandingDemo({ day, dayLabel }: LandingDemoProps) {
           key={active.meal.id}
           meal={active.meal}
           householdServings={active.servings}
-          initialTips={active.steps}
+          initialSteps={active.steps}
           open={open}
           onOpenChange={setOpen}
           readOnly

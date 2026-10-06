@@ -3,7 +3,7 @@ import { estimateCostUsd, MODEL_PRICES } from './pricing'
 import {
   PLANNING_MODEL,
   RECIPE_MODEL,
-  TIPS_MODEL,
+  STEPS_MODEL,
   IMAGINE_MODEL,
   REVIEW_MODEL,
   COOK_QUESTION_MODEL,
@@ -69,7 +69,7 @@ describe('estimateCostUsd', () => {
   it.each([
     ['PLANNING_MODEL', PLANNING_MODEL],
     ['RECIPE_MODEL', RECIPE_MODEL],
-    ['TIPS_MODEL', TIPS_MODEL],
+    ['STEPS_MODEL', STEPS_MODEL],
     ['IMAGINE_MODEL', IMAGINE_MODEL],
     ['REVIEW_MODEL', REVIEW_MODEL],
     ['COOK_QUESTION_MODEL', COOK_QUESTION_MODEL],

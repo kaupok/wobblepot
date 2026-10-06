@@ -8,10 +8,10 @@ import { auth } from '@/lib/auth'
 import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
-import { TIPS_MODEL } from '@/lib/ai/models'
-import { TIPS_AI_BUDGET_MS } from '@/lib/ai/budgets'
-import { buildFullTipsRequest, buildSupplementaryTipsRequest } from '@/lib/ai/preparation-tips'
-import { parseCachedTips, serializeTips } from '@/lib/tips'
+import { STEPS_MODEL } from '@/lib/ai/models'
+import { STEPS_AI_BUDGET_MS } from '@/lib/ai/budgets'
+import { buildFullStepsRequest, buildSupplementaryStepsRequest } from '@/lib/ai/preparation-steps'
+import { parseCachedPreparationSteps, serializePreparationSteps } from '@/lib/preparation-steps'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
 import { logAiSample } from '@/lib/ai/sampling'
@@ -33,14 +33,14 @@ import {
   translateMeal,
 } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-import type { StructuredTips } from '@/components/meal-plan/types'
-import type { PreparationTipsErrorCode } from '@/lib/ai/error-codes'
+import type { PreparationSteps } from '@/components/meal-plan/types'
+import type { PreparationStepsErrorCode } from '@/lib/ai/error-codes'
 
 /**
- * `code` is what `useMealTips` renders from, via `PREPARATION_TIPS_ERROR_KEYS`;
+ * `code` is what `useMealSteps` renders from, via `PREPARATION_STEPS_ERROR_KEYS`;
  * `error` is English and stays in the body for logs only (HON-888).
  */
-function errorBody(error: string, code: PreparationTipsErrorCode) {
+function errorBody(error: string, code: PreparationStepsErrorCode) {
   return { error, code }
 }
 
@@ -119,9 +119,9 @@ async function handlePOST(
 
     // Return cached tips if available, valid JSON and priced at these servings.
     // Tips priced at other servings are regenerated, which also catches tips
-    // the pre-HON-1040 code cached at the member count (`parseCachedTips`).
+    // the pre-HON-1040 code cached at the member count (`parseCachedPreparationSteps`).
     if (entry.preparationTips) {
-      const cached = parseCachedTips(entry.preparationTips, {
+      const cached = parseCachedPreparationSteps(entry.preparationTips, {
         servings: effectiveServings,
         legacyServings: entry.servingOverride ?? household._count.members,
       })
@@ -150,7 +150,7 @@ async function handlePOST(
 
     // Kill-switch, placed as in `/api/meal-plans/generate`, and after the cache
     // hit above so stored tips are still served while it is off. `code` is what
-    // `useMealTips` keys on to skip its retry and show catalog copy.
+    // `useMealSteps` keys on to skip its retry and show catalog copy.
     const aiEnabled = await getServerFlag('ai_generation_enabled', session.user.id)
     if (!aiEnabled) {
       return NextResponse.json(
@@ -191,12 +191,12 @@ async function handlePOST(
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
     // One wall-clock budget for all AI time in this request, shared by the
     // initial attempt and every retry. Sized against `maxDuration` in `@/lib/ai/budgets`.
-    const timeout = AbortSignal.timeout(TIPS_AI_BUDGET_MS)
+    const timeout = AbortSignal.timeout(STEPS_AI_BUDGET_MS)
 
-    let tips: StructuredTips
+    let tips: PreparationSteps
 
     if (preparationNotes && preparationNotes.trim()) {
-      const request = buildSupplementaryTipsRequest({
+      const request = buildSupplementaryStepsRequest({
         mealName,
         servings: effectiveServings,
         timeMinutes,
@@ -207,7 +207,7 @@ async function handlePOST(
 
       const startedAt = Date.now()
       const result = await withUsageOnFailure(
-        TIPS_MODEL,
+        STEPS_MODEL,
         (stats) =>
           recordAiUsage({
             householdId: household.id,
@@ -217,7 +217,7 @@ async function handlePOST(
         () =>
           generateObject({
             ...request,
-            model: anthropic(TIPS_MODEL),
+            model: anthropic(STEPS_MODEL),
             abortSignal: timeout,
           }),
       )
@@ -225,7 +225,7 @@ async function handlePOST(
       await recordAiUsage({
         householdId: household.id,
         feature: 'entry_preparation_tips',
-        ...toAiUsageStats(TIPS_MODEL, result.usage, Date.now() - startedAt),
+        ...toAiUsageStats(STEPS_MODEL, result.usage, Date.now() - startedAt),
       })
 
       await logAiSample({
@@ -243,7 +243,7 @@ async function handlePOST(
 
       tips = result.object
     } else {
-      const request = buildFullTipsRequest({
+      const request = buildFullStepsRequest({
         mealName,
         servings: effectiveServings,
         timeMinutes,
@@ -253,7 +253,7 @@ async function handlePOST(
 
       const startedAt = Date.now()
       const result = await withUsageOnFailure(
-        TIPS_MODEL,
+        STEPS_MODEL,
         (stats) =>
           recordAiUsage({
             householdId: household.id,
@@ -263,7 +263,7 @@ async function handlePOST(
         () =>
           generateObject({
             ...request,
-            model: anthropic(TIPS_MODEL),
+            model: anthropic(STEPS_MODEL),
             abortSignal: timeout,
           }),
       )
@@ -271,7 +271,7 @@ async function handlePOST(
       await recordAiUsage({
         householdId: household.id,
         feature: 'entry_preparation_tips',
-        ...toAiUsageStats(TIPS_MODEL, result.usage, Date.now() - startedAt),
+        ...toAiUsageStats(STEPS_MODEL, result.usage, Date.now() - startedAt),
       })
 
       await logAiSample({
@@ -314,7 +314,7 @@ async function handlePOST(
     // below: Prisma has no filter for an aggregate over a relation. And the
     // invalidation on those writes cannot cover this gap from its side either —
     // a row that is mid-generation holds `preparationTips: null`, which is
-    // exactly what `invalidateFutureEntryTips`'s `preparationTips: { not: null }`
+    // exactly what `invalidateFutureEntrySteps`'s `preparationTips: { not: null }`
     // clause excludes, so its `updateMany` matches zero rows and this write
     // would then put tips for the old household servings back permanently
     // (HON-684). So re-read the servings and skip the write if they moved.
@@ -365,7 +365,7 @@ async function handlePOST(
         // regenerates.
         meal: { is: { updatedAt: entry.meal.updatedAt } },
       },
-      data: { preparationTips: serializeTips(tips, effectiveServings) },
+      data: { preparationTips: serializePreparationSteps(tips, effectiveServings) },
     })
 
     return NextResponse.json({ tips }, { status: 200 })

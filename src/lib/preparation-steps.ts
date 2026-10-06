@@ -1,14 +1,14 @@
-import type { StructuredTips } from '@/components/meal-plan/types'
+import type { PreparationSteps } from '@/components/meal-plan/types'
 
 /**
  * Parse a stored preparationTips string from the database.
  * Returns the structured tips object if valid JSON, or null for old plain text format.
  */
-export function parseStoredTips(stored: string): StructuredTips | null {
+export function parsePreparationSteps(stored: string): PreparationSteps | null {
   try {
     const parsed = JSON.parse(stored)
     if (parsed && typeof parsed === 'object' && Array.isArray(parsed.pitfalls)) {
-      return parsed as StructuredTips
+      return parsed as PreparationSteps
     }
     return null
   } catch {
@@ -21,7 +21,7 @@ export function parseStoredTips(stored: string): StructuredTips | null {
  * The tips as the entry caches them, with the servings their prompt was priced
  * at, so a read can tell whether they still match the entry (HON-1040).
  */
-export function serializeTips(tips: StructuredTips, servings: number): string {
+export function serializePreparationSteps(tips: PreparationSteps, servings: number): string {
   return JSON.stringify({ ...tips, servings })
 }
 
@@ -40,11 +40,11 @@ export function serializeTips(tips: StructuredTips, servings: number): string {
  * the member count in that gap. Checking on read closes that gap and any
  * future one.
  */
-export function parseCachedTips(
+export function parseCachedPreparationSteps(
   stored: string,
   { servings, legacyServings }: { servings: number; legacyServings: number },
-): StructuredTips | null {
-  const parsed = parseStoredTips(stored) as (StructuredTips & { servings?: unknown }) | null
+): PreparationSteps | null {
+  const parsed = parsePreparationSteps(stored) as (PreparationSteps & { servings?: unknown }) | null
   if (!parsed) return null
   const { servings: pricedAt, ...tips } = parsed
   const priced = typeof pricedAt === 'number' ? pricedAt : legacyServings

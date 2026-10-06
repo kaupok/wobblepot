@@ -40,7 +40,7 @@ import type {
   MealStatus,
   PantryIngredient,
   PantryItemFull,
-  StructuredTips,
+  PreparationSteps,
 } from './types'
 import type { MealType } from '@/generated/prisma/enums'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
@@ -74,7 +74,7 @@ interface MealCardProps {
   /** The pantry was already charged for this entry — see `PlanEntry.pantryDeducted`. */
   pantryDeducted?: boolean
   /** The entry's cached preparation tips — see `PlanEntry.preparationTips`. */
-  preparationTips?: StructuredTips | null
+  preparationTips?: PreparationSteps | null
 }
 
 export function MealCard({
@@ -138,7 +138,7 @@ export function MealCard({
     source: 'meal_card',
     // The server dropped the entry's cached tips on the way out of
     // `completed`; the cook view's copy has to go with them.
-    onLeaveCompleted: () => detailModalRef.current?.dropTips(),
+    onLeaveCompleted: () => detailModalRef.current?.dropSteps(),
     onCompleted: () => setShowRatingPrompt(true),
   })
 
@@ -147,7 +147,7 @@ export function MealCard({
   // `/api/meal-plans/[id]/entries/[entryId]`). Neither lives in the tree
   // `router.refresh()` re-renders: `servingOverride` is this card's own state,
   // and the detail modal below is rendered unconditionally, so its
-  // `useMealTips` instance survives the swap still holding the previous meal's
+  // `useMealSteps` instance survives the swap still holding the previous meal's
   // tips. Without resetting both here the card keeps showing the old serving
   // count and the modal replays the old meal's tips until a full reload
   // (HON-682).
@@ -621,7 +621,7 @@ export function MealCard({
         onNoteChange={handleNoteChange}
         servingOverride={servingOverride}
         onServingOverrideChange={setServingOverride}
-        initialTips={preparationTips}
+        initialSteps={preparationTips}
         // Steps generate on open only for a meal somebody is about to cook.
         generateOnOpen={status === 'planned' && !isReadOnly}
         // A read-only card cannot be marked cooked.

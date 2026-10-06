@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { invalidateFutureEntryTips } from './preparation-tips-cache'
+import { invalidateFutureEntrySteps } from './preparation-steps-cache'
 import { getStartOfTodayInTimezone } from './dates'
 
 /**
@@ -18,11 +18,11 @@ const whereOf = (updateMany: ReturnType<typeof vi.fn>) => {
   return args.where
 }
 
-describe('invalidateFutureEntryTips', () => {
+describe('invalidateFutureEntrySteps', () => {
   it('nulls preparationTips for the household in one updateMany', async () => {
     const { tx, updateMany } = fakeTx()
 
-    await invalidateFutureEntryTips(tx, 'household-123', 'Europe/Tallinn')
+    await invalidateFutureEntrySteps(tx, 'household-123', 'Europe/Tallinn')
 
     expect(updateMany).toHaveBeenCalledTimes(1)
     expect(updateMany).toHaveBeenCalledWith({
@@ -40,7 +40,7 @@ describe('invalidateFutureEntryTips', () => {
   it('scopes to another household when asked', async () => {
     const { tx, updateMany } = fakeTx()
 
-    await invalidateFutureEntryTips(tx, 'household-456', 'Europe/Tallinn')
+    await invalidateFutureEntrySteps(tx, 'household-456', 'Europe/Tallinn')
 
     expect(whereOf(updateMany).plan).toEqual({ householdId: 'household-456' })
   })
@@ -50,7 +50,7 @@ describe('invalidateFutureEntryTips', () => {
   it('excludes entries that carry a serving override', async () => {
     const { tx, updateMany } = fakeTx()
 
-    await invalidateFutureEntryTips(tx, 'household-123', 'Europe/Tallinn')
+    await invalidateFutureEntrySteps(tx, 'household-123', 'Europe/Tallinn')
 
     expect(whereOf(updateMany).servingOverride).toBeNull()
   })
@@ -60,7 +60,7 @@ describe('invalidateFutureEntryTips', () => {
   it('excludes entries dated before today', async () => {
     const { tx, updateMany } = fakeTx()
 
-    await invalidateFutureEntryTips(tx, 'household-123', 'Europe/Tallinn')
+    await invalidateFutureEntrySteps(tx, 'household-123', 'Europe/Tallinn')
 
     const { date } = whereOf(updateMany)
     expect(date).toEqual({ gte: getStartOfTodayInTimezone('Europe/Tallinn') })
@@ -82,10 +82,10 @@ describe('invalidateFutureEntryTips', () => {
       vi.setSystemTime(new Date('2026-09-20T22:30:00Z'))
 
       const tallinn = fakeTx()
-      await invalidateFutureEntryTips(tallinn.tx, 'household-123', 'Pacific/Auckland')
+      await invalidateFutureEntrySteps(tallinn.tx, 'household-123', 'Pacific/Auckland')
 
       const honolulu = fakeTx()
-      await invalidateFutureEntryTips(honolulu.tx, 'household-123', 'Pacific/Honolulu')
+      await invalidateFutureEntrySteps(honolulu.tx, 'household-123', 'Pacific/Honolulu')
 
       expect(whereOf(tallinn.updateMany).date.gte).not.toEqual(
         whereOf(honolulu.updateMany).date.gte,
@@ -101,7 +101,7 @@ describe('invalidateFutureEntryTips', () => {
   it('excludes entries that are already completed', async () => {
     const { tx, updateMany } = fakeTx()
 
-    await invalidateFutureEntryTips(tx, 'household-123', 'Europe/Tallinn')
+    await invalidateFutureEntrySteps(tx, 'household-123', 'Europe/Tallinn')
 
     expect(whereOf(updateMany).status).toEqual({ not: 'completed' })
   })
@@ -111,7 +111,7 @@ describe('invalidateFutureEntryTips', () => {
   it('still invalidates a skipped entry', async () => {
     const { tx, updateMany } = fakeTx()
 
-    await invalidateFutureEntryTips(tx, 'household-123', 'Europe/Tallinn')
+    await invalidateFutureEntrySteps(tx, 'household-123', 'Europe/Tallinn')
 
     expect(whereOf(updateMany).status).not.toEqual('planned')
     expect(whereOf(updateMany).status.not).toBe('completed')
@@ -120,7 +120,7 @@ describe('invalidateFutureEntryTips', () => {
   it('only touches rows that actually hold a cached value', async () => {
     const { tx, updateMany } = fakeTx()
 
-    await invalidateFutureEntryTips(tx, 'household-123', 'Europe/Tallinn')
+    await invalidateFutureEntrySteps(tx, 'household-123', 'Europe/Tallinn')
 
     expect(whereOf(updateMany).preparationTips).toEqual({ not: null })
   })

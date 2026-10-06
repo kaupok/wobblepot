@@ -136,7 +136,7 @@ describe('AI eval gate', () => {
       'src/lib/ai/types.ts',
       'src/lib/ai/imagine-request.ts',
       'src/lib/ai/review-request.ts',
-      'src/lib/ai/preparation-tips.ts',
+      'src/lib/ai/preparation-steps.ts',
       'src/lib/ai/cook-question.ts',
       'src/lib/vague-quantities.ts',
       'scripts/model-bench/cases/imagine/en-pasta-for-two.json',
