@@ -327,21 +327,24 @@ model MemberPreferences {
 // ============================================
 
 model Ingredient {
-  id            String             @id @default(cuid())
-  name          String
-  householdId   String?
-  category      IngredientCategory
-  subcategory   String?
-  proteinType   ProteinType?
-  defaultUnit   Unit
-  allergens     Allergen[]
-  calories      Float
-  protein       Float
-  carbs         Float
-  fat           Float
-  fiber         Float?
-  gramsPerPiece Float?
-  densityGPerMl Float?
+  id               String             @id @default(cuid())
+  name             String
+  householdId      String?
+  category         IngredientCategory
+  subcategory      String?
+  proteinType      ProteinType?
+  defaultUnit      Unit
+  allergens        Allergen[]
+  calories         Float
+  protein          Float
+  carbs            Float
+  fat              Float
+  fiber            Float?
+  gramsPerPiece    Float?
+  densityGPerMl    Float?
+  /// A cook measures it with a jug or a spoon, not a scale. Set on global
+  /// ingredients by the rule in prisma/measured-by-volume.ts (HON-1069).
+  measuredByVolume Boolean            @default(false)
 
   household           Household?              @relation(fields: [householdId], references: [id], onDelete: Cascade)
   components          MealComponent[]
