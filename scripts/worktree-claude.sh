@@ -752,6 +752,39 @@ cmd_new() {
 #   - it starts no Claude, because the session moves itself in.
 # Progress goes to stderr. Stdout carries only the worktree path: that is the
 # hook's contract with Claude Code.
+#
+# Two markers in the worktree's own git dir (.git/worktrees/<name>/, removed
+# with the worktree) record what prepare did:
+#   - WT_PREPARED_MARKER: prepare created this worktree, so `wt release` may
+#     remove it. A `wt new` worktree that prepare only reused has no marker,
+#     so release leaves it, and its Neon branch, alone.
+#   - WT_READY_MARKER: setup finished. Without it, a reuse reruns setup, so a
+#     failed `pnpm install` is repaired on the next EnterWorktree.
+WT_PREPARED_MARKER="wt-prepared"
+WT_READY_MARKER="wt-ready"
+
+# Path of a marker in the worktree's git dir. Usage: wt_marker <worktree_path> <name>
+wt_marker() {
+  echo "$(git -C "$1" rev-parse --absolute-git-dir)/$2"
+}
+
+# .env, dependencies and the Prisma client, then the ready marker. All output
+# goes to stderr. Usage: prepare_setup <worktree_path>
+prepare_setup() {
+  local worktree_path="$1"
+  {
+    cd "$worktree_path"
+    copy_untracked_files "$worktree_path"
+    if command -v pnpm &> /dev/null; then
+      pnpm install --frozen-lockfile
+      pnpm db:generate
+    else
+      echo -e "${YELLOW}Warning: pnpm not found, skipping dependency installation${NC}"
+    fi
+    touch "$(wt_marker "$worktree_path" "$WT_READY_MARKER")"
+  } >&2
+}
+
 cmd_prepare() {
   local branch="$1"
   if [ -z "$branch" ]; then
@@ -763,6 +796,13 @@ cmd_prepare() {
   worktree_path=$(get_worktree_path "$branch")
   if [ -d "$worktree_path" ]; then
     echo "Reusing existing worktree $worktree_path" >&2
+    # Only a worktree prepare created can be half set up: `wt new` finishes its
+    # own setup before it starts Claude.
+    if [ -f "$(wt_marker "$worktree_path" "$WT_PREPARED_MARKER")" ] \
+      && [ ! -f "$(wt_marker "$worktree_path" "$WT_READY_MARKER")" ]; then
+      echo "Setup did not finish last time; running it again" >&2
+      prepare_setup "$worktree_path"
+    fi
     echo "$worktree_path"
     return 0
   fi
@@ -777,25 +817,19 @@ cmd_prepare() {
     else
       git -C "$REPO_ROOT" worktree add --no-track -b "$branch" "$worktree_path" origin/main
     fi
-
-    cd "$worktree_path"
-    copy_untracked_files "$worktree_path"
-    if command -v pnpm &> /dev/null; then
-      pnpm install --frozen-lockfile
-      pnpm db:generate
-    else
-      echo -e "${YELLOW}Warning: pnpm not found, skipping dependency installation${NC}"
-    fi
   } >&2
+  touch "$(wt_marker "$worktree_path" "$WT_PREPARED_MARKER")"
 
+  prepare_setup "$worktree_path"
   echo "$worktree_path"
 }
 
 # The WorktreeRemove hook's half (.claude/hooks/worktree-remove.sh). Claude Code
-# fires it when a session or subagent leaves a worktree it created. Removes the
-# worktree and its branch only when nothing happened there: no uncommitted
-# changes and no commits past origin/main. Anything else stays for `wt done`
-# after the merge, because a hook cannot ask before it deletes work.
+# fires it when a session or subagent leaves a worktree it entered. Removes the
+# worktree and its branch only when `wt prepare` created it and nothing
+# happened there: no uncommitted changes and no commits past origin/main.
+# Anything else stays for `wt done` after the merge, because a hook cannot ask
+# before it deletes work.
 cmd_release() {
   local worktree_path="$1"
   [ -n "$worktree_path" ] && [ -d "$worktree_path" ] || return 0
@@ -805,6 +839,11 @@ cmd_release() {
       echo "Not under $WORKTREE_BASE, leaving $worktree_path in place" >&2
       return 0 ;;
   esac
+
+  if [ ! -f "$(wt_marker "$worktree_path" "$WT_PREPARED_MARKER")" ]; then
+    echo "Kept $worktree_path: \`wt prepare\` did not create it." >&2
+    return 0
+  fi
 
   local branch
   branch=$(git -C "$worktree_path" branch --show-current)
