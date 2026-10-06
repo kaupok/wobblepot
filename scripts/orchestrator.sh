@@ -3324,6 +3324,50 @@ log_poll_summary() {
   return 0
 }
 
+# ─── Reload drain and breaker pause lines ────────────────────────────────────
+# Two more lines the main loop wrote on every pass: the reload drain line was
+# written 160 times on 2026-10-06 while one worker finished (HON-1078). They are
+# gated like the poll summary, but each keeps its own state, so neither resets
+# or shares LAST_POLL_SUMMARY.
+
+# The worker count the last drain line named, or empty after a loop pass that
+# did not take the drain branch. The main loop clears it on such a pass.
+LAST_DRAIN_COUNT=""
+
+# Log the drain line when a reload starts to wait, and again only when the
+# running worker count changes. reload_if_code_changed logs the INFO line that
+# marks the start; this line reports each change of the count.
+#
+# $1 = active worker count.
+log_reload_drain() {
+  local active="$1"
+  [ "$active" = "$LAST_DRAIN_COUNT" ] && return 0
+  LAST_DRAIN_COUNT="$active"
+  log DEBUG "Code changed on disk; draining $active worker(s) before reloading"
+  return 0
+}
+
+# The PAUSED_UNTIL the last breaker line was written for, and when. A different
+# PAUSED_UNTIL is a new pause, or one that a further failure extended, so it
+# logs at once; the same pause logs again only after BREAKER_LOG_INTERVAL. The
+# trip itself is the WARN in note_consecutive_failure.
+BREAKER_LOG_INTERVAL=300
+BREAKER_LOGGED_UNTIL=0
+BREAKER_LOGGED_AT=0
+
+# $1 = now (epoch seconds); $2 = seconds remaining.
+log_breaker_pause() {
+  local now="$1" remaining="$2"
+  if [ "$PAUSED_UNTIL" = "$BREAKER_LOGGED_UNTIL" ] \
+     && [ $(( now - BREAKER_LOGGED_AT )) -lt "$BREAKER_LOG_INTERVAL" ]; then
+    return 0
+  fi
+  BREAKER_LOGGED_UNTIL="$PAUSED_UNTIL"
+  BREAKER_LOGGED_AT="$now"
+  log DEBUG "Circuit breaker active, ${remaining}s remaining"
+  return 0
+}
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 main() {
@@ -3422,6 +3466,7 @@ main() {
     # Spawn new worker if slots available
     local active=${#WORKER_PIDS[@]}
     local polled=false
+    local drained=false
 
     if [ "$active" -lt "$MAX_WORKERS" ] && [ "$SHUTTING_DOWN" = false ]; then
       # Circuit breaker: pause spawning after consecutive failures
@@ -3430,7 +3475,7 @@ main() {
         now=$(date +%s)
         if [ "$now" -lt "$PAUSED_UNTIL" ]; then
           local remaining=$(( PAUSED_UNTIL - now ))
-          log DEBUG "Circuit breaker active, ${remaining}s remaining"
+          log_breaker_pause "$now" "$remaining"
         else
           log INFO "Circuit breaker reset, resuming"
           PAUSED_UNTIL=0
@@ -3443,7 +3488,8 @@ main() {
       if [ "$PAUSED_UNTIL" -gt 0 ]; then
         : # Circuit breaker still active
       elif [ "$RELOAD_PENDING" = true ]; then
-        log DEBUG "Code changed on disk; draining $active worker(s) before reloading"
+        drained=true
+        log_reload_drain "$active"
       elif [ "$RUN_ONCE" = true ] && [ "$ONCE_SPAWNED" = true ]; then
         : # Already spawned in --once mode
       elif [ "$disk_ok" = true ]; then
@@ -3502,6 +3548,9 @@ main() {
     # disk) clears the summary, so the next poll logs a Polling line and the log
     # shows that polling resumed.
     [ "$polled" = true ] || LAST_POLL_SUMMARY=""
+    # Likewise a pass that did not take the drain branch clears the drain count,
+    # so the next drain pass logs its line again (HON-1078).
+    [ "$drained" = true ] || LAST_DRAIN_COUNT=""
 
     # --once mode: exit when no workers remain
     if [ "$RUN_ONCE" = true ] && [ ${#WORKER_PIDS[@]} -eq 0 ] && [ "$ONCE_SPAWNED" = true ]; then

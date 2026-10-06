@@ -912,6 +912,68 @@ describe('orchestrator.sh', () => {
       ).toContain('--arg last_poll "$(date')
     })
 
+    // HON-1078: the reload drain line was written 160 times on 2026-10-06 while
+    // one worker finished, and the breaker line repeats for a whole pause.
+    const drainLog = (steps: string[]) =>
+      stripTimestamps(runHarness('reload-drain', steps.join(',')))
+    const breakerLog = (steps: string[]) =>
+      stripTimestamps(runHarness('breaker-pause', steps.join(',')))
+    const drainLines = (out: string) => out.split('\n').filter((l) => l.includes('draining'))
+    const breakerLines = (out: string) =>
+      out.split('\n').filter((l) => l.includes('Circuit breaker active'))
+
+    it('logs ten reload-pending passes with an unchanged worker count once', () => {
+      expect(drainLines(drainLog(Array(10).fill('2')))).toEqual([
+        'DEBUG Code changed on disk; draining 2 worker(s) before reloading',
+      ])
+    })
+
+    it('logs a new drain line when the worker count drops from 2 to 1', () => {
+      expect(drainLines(drainLog(['2', '2', '1', '1']))).toEqual([
+        'DEBUG Code changed on disk; draining 2 worker(s) before reloading',
+        'DEBUG Code changed on disk; draining 1 worker(s) before reloading',
+      ])
+    })
+
+    it('logs the drain line again after a pass that did not take the drain branch', () => {
+      expect(drainLines(drainLog(['1', '-', '1']))).toHaveLength(2)
+    })
+
+    it('logs ten passes in a breaker pause shorter than 5 minutes once', () => {
+      const steps = Array.from({ length: 10 }, (_, i) => `${1000 + i * 25}:1250`)
+
+      expect(breakerLines(breakerLog(steps))).toEqual([
+        'DEBUG Circuit breaker active, 250s remaining',
+      ])
+    })
+
+    it('logs the same breaker pause again after 5 minutes', () => {
+      expect(breakerLines(breakerLog(['1000:1600', '1299:1600', '1300:1600']))).toEqual([
+        'DEBUG Circuit breaker active, 600s remaining',
+        'DEBUG Circuit breaker active, 300s remaining',
+      ])
+    })
+
+    it('logs at once when a further failure moves the end of the pause', () => {
+      expect(breakerLines(breakerLog(['1000:1600', '1060:1660']))).toHaveLength(2)
+    })
+
+    it('main routes the drain and breaker lines through their own gates', () => {
+      const body = shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), 'main')
+
+      expect(body).not.toContain('log DEBUG "Circuit breaker active')
+      expect(body).not.toContain('log DEBUG "Code changed on disk; draining')
+      expect(body).toContain('log_breaker_pause "$now" "$remaining"')
+      expect(body).toContain('log_reload_drain "$active"')
+      expect(body).toContain('[ "$drained" = true ] || LAST_DRAIN_COUNT=""')
+      // Neither gate may reset or share the idle-poll summary.
+      for (const name of ['log_reload_drain', 'log_breaker_pause']) {
+        expect(shellFunctionBody(fs.readFileSync(orchestrator, 'utf8'), name)).not.toContain(
+          'LAST_POLL_SUMMARY',
+        )
+      }
+    })
+
     const reportLog = (steps: string[]) =>
       stripTimestamps(runHarness('worker-report', steps.join(',')))
         .split('STEP:')
