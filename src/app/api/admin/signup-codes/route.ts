@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
-import { headers } from 'next/headers'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
-import { isAdmin } from '@/lib/auth-helpers'
+import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
 
@@ -51,16 +49,6 @@ function serialiseCode(row: PrismaSignupCodeRow) {
     note: row.note,
     usedByEmail: row.usedBy?.email ?? null,
   }
-}
-
-async function requireAdmin() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-  if (!isAdmin(session)) {
-    // Mirror /admin/signup-codes' notFound() — don't leak that the route exists.
-    return { error: NextResponse.json({ error: 'Not found' }, { status: 404 }) }
-  }
-  return { session }
 }
 
 export async function GET() {

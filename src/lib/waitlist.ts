@@ -24,6 +24,9 @@ export const WAITLIST_TOKEN_TTL_DAYS = 7
 /** Months a confirmed request is kept after confirmation. */
 export const WAITLIST_CONFIRMED_RETENTION_MONTHS = 6
 
+/** Days an invite code from `/admin/waitlist` works (HON-970). The email states it. */
+export const WAITLIST_INVITE_TTL_DAYS = 14
+
 /**
  * Minimum gap between two confirmation emails to one address. The route's
  * limit is per IP, so without this a caller with many IPs could mail one
@@ -188,4 +191,34 @@ export async function purgeExpiredWaitlistRequests(
     where: { confirmedAt: { lt: confirmedCutoff(now) } },
   })
   return { unconfirmed: unconfirmed.count, confirmed: confirmed.count }
+}
+
+/** A confirmed request as `/admin/waitlist` and its API send it to the client. */
+export interface WaitlistRow {
+  id: string
+  email: string
+  locale: string
+  confirmedAt: string
+  invitedAt: string | null
+}
+
+/**
+ * The confirmed requests, newest confirmation first, for `/admin/waitlist`
+ * (HON-970). Uncapped on purpose: Remove is how a withdrawal is honoured, so
+ * every row has to be reachable.
+ */
+export async function listConfirmedWaitlistRequests(): Promise<WaitlistRow[]> {
+  const rows = await prisma.waitlistRequest.findMany({
+    where: { confirmedAt: { not: null } },
+    orderBy: { confirmedAt: 'desc' },
+    select: { id: true, email: true, locale: true, confirmedAt: true, invitedAt: true },
+  })
+  return rows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    locale: row.locale,
+    // Non-null by the `where` above; Prisma does not narrow the type.
+    confirmedAt: (row.confirmedAt as Date).toISOString(),
+    invitedAt: row.invitedAt ? row.invitedAt.toISOString() : null,
+  }))
 }

@@ -9,7 +9,10 @@ import 'server-only'
  * page's HTML or bundle names the hidden admin route (HON-830). `Header`
  * resolves these to `AdminMenuLink`s only for the admin session.
  */
-export const ADMIN_LINKS = [{ href: '/admin/signup-codes', labelKey: 'signupCodes' }] as const
+export const ADMIN_LINKS = [
+  { href: '/admin/signup-codes', labelKey: 'signupCodes' },
+  { href: '/admin/waitlist', labelKey: 'waitlist' },
+] as const
 
 /** An admin link with its label resolved, as the client menus receive it. */
 export interface AdminMenuLink {
