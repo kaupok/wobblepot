@@ -3521,12 +3521,20 @@ describe('orchestrator.sh', () => {
         }
         git('checkout', '-q', 'main')
       })
-      afterAll(() => fs.rmSync(repo, { recursive: true, force: true }))
+      afterAll(() => {
+        fs.rmSync(repo, { recursive: true, force: true })
+        fs.rmSync(`${repo}-wt`, { recursive: true, force: true })
+      })
 
-      const respawnDies = () =>
-        stripTimestamps(
+      // Where get_worktree_path points. Absent at the start of every run: the
+      // respawn died before `git worktree add`.
+      const wt = () => `${repo}-wt`
+      const respawnDies = () => {
+        fs.rmSync(wt(), { recursive: true, force: true })
+        execFileSync('git', ['-C', repo, 'worktree', 'prune'])
+        return stripTimestamps(
           runHarnessEnv(
-            { HARNESS_RETRIED: '1', HARNESS_COUNT_REPO: repo },
+            { HARNESS_RETRIED: '1', HARNESS_COUNT_REPO: repo, HARNESS_WT_PATH: wt() },
             'error',
             '0',
             'initializing',
@@ -3534,6 +3542,7 @@ describe('orchestrator.sh', () => {
             'unknown',
           ),
         )
+      }
 
       it('strands with the branch’s commits instead of reaching handle_failure', () => {
         const out = respawnDies()
@@ -3551,6 +3560,20 @@ describe('orchestrator.sh', () => {
         expect(out).not.toContain('CLEANUP:')
         expect(out).toContain('LABEL:Stranded')
         expect(out).toContain('Preserved worktree and branch for HON-999')
+      })
+
+      // The strand comment says `wt resume` then `wt cleanup`, and `wt watch`
+      // reads a missing directory as resolved. All three need the worktree.
+      it('re-creates the worktree from the kept branch so the strand can be resumed and released', () => {
+        const out = respawnDies()
+
+        expect(out).toContain('Re-created the worktree for test-branch')
+        expect(
+          execFileSync('git', ['-C', wt(), 'branch', '--show-current'], {
+            encoding: 'utf8',
+          }).trim(),
+        ).toBe('test-branch')
+        expect(fs.existsSync(path.join(wt(), 'work-2.txt'))).toBe(true)
       })
     })
 

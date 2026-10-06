@@ -1640,6 +1640,27 @@ worker_handed_off() {
   grep -qE "$HANDOFF_MARKER_RE" "$log_file" 2>/dev/null
 }
 
+# A strand recorded for a human promises a preserved worktree: the comment says
+# to `wt resume` and then `wt cleanup` it, and `wt watch` reads a missing
+# directory as "resolved". A respawn that died before `git worktree add`, or a
+# finish attempt drained in that window, has only the kept branch (HON-1077).
+# Re-create the worktree from it, as `wt auto` does on a reused branch, so all
+# three hold. Without it `wt cleanup` stops at "Worktree not found" and the
+# Neon branch is never released.
+restore_strand_worktree() {
+  local branch="$1"
+  local wt_path
+  wt_path=$(get_worktree_path "$branch")
+  [ -n "$branch" ] && [ ! -d "$wt_path" ] || return 0
+  git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch" || return 0
+  if git -C "$REPO_ROOT" worktree add "$wt_path" "$branch" >/dev/null 2>&1; then
+    log INFO "Re-created the worktree for $branch from the kept branch, so the strand can be resumed and released"
+  else
+    log WARN "Could not re-create the worktree for $branch — release by hand: wt neon-delete $branch && git branch -D $branch"
+  fi
+  return 0
+}
+
 # Record a run that produced commits but never merged. Assumes probe_worker_pr
 # has already run for this branch. kill_reason ∈ clean | timeout | error, and is
 # both logged and threaded into the Linear comment: "exited cleanly but never
@@ -1698,6 +1719,7 @@ strand_worker() {
 
   log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${WORKER_PR_REF} ci=${ci_state} exit=${kill_reason}"
   notify "Honkadori" "$issue_id stranded at $phase — PR ${WORKER_PR_REF} not merged"
+  restore_strand_worktree "$branch"
   record_stranded "$issue_uuid" "$issue_id" "$branch" "$log_file" \
     "$WORKER_PR_URL" "$WORKER_PR_REF" "$WORKER_PR_STATE" "$ci_state" "$phase" "$kill_reason" "$exit_code"
 
