@@ -11,7 +11,8 @@
  *
  * - In an admin file (`ADMIN_PATHS`, tests and stories excluded): an import or
  *   re-export from `next-intl` or `next-intl/<subpath>`, a dynamic
- *   `import('next-intl…')`, or a call to `useEnumLabel`.
+ *   `import('next-intl…')`; and the same for `CATALOG_MODULES`, the app
+ *   modules that read the catalogs (`useEnumLabel`, `useVaguePhrase`).
  * - In `messages/en.json` and `messages/et.json`: a key named `admin` at any
  *   depth.
  *
@@ -49,8 +50,17 @@ export interface Violation {
   snippet: string
 }
 
-const isNextIntl = (specifier: string) =>
-  specifier === 'next-intl' || specifier.startsWith('next-intl/')
+/**
+ * App modules whose exports read the catalogs: `useEnumLabel` and
+ * `useVaguePhrase`. Matching the import rather than the call name also
+ * catches a sibling export and an aliased import.
+ */
+export const CATALOG_MODULES = ['@/lib/i18n/enum-label']
+
+const readsCatalog = (specifier: string) =>
+  specifier === 'next-intl' ||
+  specifier.startsWith('next-intl/') ||
+  CATALOG_MODULES.includes(specifier)
 
 /** Violations in one admin file's source text. `file` is only used for reporting. */
 export function findSourceViolations(file: string, source: string): Violation[] {
@@ -72,19 +82,17 @@ export function findSourceViolations(file: string, source: string): Violation[] 
       (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
       node.moduleSpecifier &&
       ts.isStringLiteral(node.moduleSpecifier) &&
-      isNextIntl(node.moduleSpecifier.text)
+      readsCatalog(node.moduleSpecifier.text)
     ) {
       report(node)
-    } else if (ts.isCallExpression(node)) {
-      const [firstArgument] = node.arguments
-      const isNextIntlImport =
-        node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-        firstArgument !== undefined &&
-        ts.isStringLiteralLike(firstArgument) &&
-        isNextIntl(firstArgument.text)
-      const isEnumLabel =
-        ts.isIdentifier(node.expression) && node.expression.text === 'useEnumLabel'
-      if (isNextIntlImport || isEnumLabel) report(node)
+    } else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments[0] !== undefined &&
+      ts.isStringLiteralLike(node.arguments[0]) &&
+      readsCatalog(node.arguments[0].text)
+    ) {
+      report(node)
     }
     ts.forEachChild(node, visit)
   }

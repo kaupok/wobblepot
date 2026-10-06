@@ -31,7 +31,10 @@ describe('findSourceViolations', () => {
     ['a namespace import', `import * as intl from 'next-intl'`],
     ['a re-export', `export { useTranslations } from 'next-intl'`],
     ['a dynamic import', `const { getTranslations } = await import('next-intl/server')`],
-    ['a useEnumLabel call', `const label = useEnumLabel('MealType')`],
+    ['useEnumLabel', `import { useEnumLabel } from '@/lib/i18n/enum-label'`],
+    ['useVaguePhrase', `import { useVaguePhrase } from '@/lib/i18n/enum-label'`],
+    ['an aliased useEnumLabel', `import { useEnumLabel as label } from '@/lib/i18n/enum-label'`],
+    ['a dynamic import of enum-label', `await import('@/lib/i18n/enum-label')`],
     [
       'an import split across lines',
       `import {\n  getTranslations,\n  getLocale,\n} from 'next-intl/server'`,
@@ -43,6 +46,7 @@ describe('findSourceViolations', () => {
   it.each([
     ['inline English', `const title = 'Signup codes'`],
     ['another i18n helper', `import { formatQuantity } from '@/lib/i18n/format-number'`],
+    ['a local function named like the hook', `const label = useEnumLabelLike('MealType')`],
     ['a package that only starts the same', `import x from 'next-intl-extra'`],
     ['a comment quoting the import', `// import { useTranslations } from 'next-intl'`],
     ['a string quoting the import', `const doc = "import { t } from 'next-intl'"`],
