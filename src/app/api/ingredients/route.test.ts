@@ -42,7 +42,12 @@ const mockGetMembership = vi.mocked(getHouseholdMembership)
  * with nested `Prisma.sql` fragments flattened in.
  */
 function lastQuery() {
-  const [strings, ...values] = mockQueryRaw.mock.lastCall as unknown as [
+  return queryAt(mockQueryRaw.mock.calls.length - 1)
+}
+
+/** The same as `lastQuery`, for the `index`-th `$queryRaw` call. */
+function queryAt(index: number) {
+  const [strings, ...values] = mockQueryRaw.mock.calls[index] as unknown as [
     TemplateStringsArray,
     ...unknown[],
   ]
@@ -213,6 +218,230 @@ describe('GET /api/ingredients', () => {
     expect(sql).not.toContain('ingredient_translation')
     expect(sql).toContain('WHERE similarity(i.name, ?) >= ?')
     expect(sql).toMatch(/i\.name as name/)
+  })
+
+  // HON-1100: a household that types another English name finds the row.
+  describe('by another English name', () => {
+    const flour = {
+      id: 'ing-flour',
+      name: 'all-purpose flour',
+      poolName: 'all-purpose flour',
+      category: 'carb',
+      defaultUnit: 'g',
+    }
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession as never)
+    })
+
+    async function search(query: string) {
+      const response = await GET(createMockRequest(`http://localhost/api/ingredients?${query}`))
+      return { status: response.status, data: await response.json() }
+    }
+
+    it('returns the row with matchedAs for a synonym prefix', async () => {
+      mockQueryRaw.mockResolvedValueOnce([] as never).mockResolvedValueOnce([flour] as never)
+
+      const { status, data } = await search('search=plain%20fl')
+
+      expect(status).toBe(200)
+      expect(data.ingredients).toEqual([
+        {
+          id: 'ing-flour',
+          name: 'all-purpose flour',
+          category: 'carb',
+          defaultUnit: 'g',
+          similarity: 0.9,
+          matchedAs: 'plain flour',
+        },
+      ])
+      const { sql, values } = queryAt(1)
+      expect(sql).toContain('WHERE i.name IN (?)')
+      expect(sql).toContain('i."householdId" IS NULL')
+      expect(values).toContain('all-purpose flour')
+    })
+
+    it('returns a row found by its own name without matchedAs', async () => {
+      mockQueryRaw.mockResolvedValueOnce([
+        { ...flour, poolName: undefined, similarity: 0.6 },
+      ] as never)
+
+      const { data } = await search('search=all-purpose')
+
+      // "all-purpose" is no synonym key, so only the name search runs.
+      expect(mockQueryRaw).toHaveBeenCalledTimes(1)
+      expect(data.ingredients).toHaveLength(1)
+      expect(data.ingredients[0]).not.toHaveProperty('matchedAs')
+    })
+
+    it('runs no synonym search for a two-letter term', async () => {
+      mockQueryRaw.mockResolvedValue([] as never)
+
+      await search('search=pl')
+
+      expect(mockQueryRaw).toHaveBeenCalledTimes(1)
+    })
+
+    it('lists a row found both ways once, without matchedAs', async () => {
+      mockQueryRaw
+        .mockResolvedValueOnce([
+          {
+            id: 'ing-flour',
+            name: 'all-purpose flour',
+            category: 'carb',
+            defaultUnit: 'g',
+            similarity: 0.35,
+          },
+        ] as never)
+        .mockResolvedValueOnce([flour] as never)
+
+      const { data } = await search('search=flour')
+
+      expect(data.ingredients).toHaveLength(1)
+      expect(data.ingredients[0]).toEqual(
+        expect.objectContaining({ id: 'ing-flour', similarity: 0.35 }),
+      )
+      expect(data.ingredients[0]).not.toHaveProperty('matchedAs')
+    })
+
+    // Review round 3: the whole synonym scores the row only 0.304 by name,
+    // below the other flours, so the synonym hit must win.
+    it('ranks the row first with matchedAs when the whole synonym is typed', async () => {
+      mockQueryRaw
+        .mockResolvedValueOnce([
+          {
+            id: 'ing-rice',
+            name: 'rice flour',
+            category: 'carb',
+            defaultUnit: 'g',
+            similarity: 0.5,
+          },
+          { id: 'ing-00', name: '00 flour', category: 'carb', defaultUnit: 'g', similarity: 0.4 },
+          { ...flour, poolName: undefined, similarity: 0.304 },
+        ] as never)
+        .mockResolvedValueOnce([{ ...flour, similarity: 0.304 }] as never)
+
+      const { data } = await search('search=plain%20flour')
+
+      expect(data.ingredients.map((i: { id: string }) => i.id)).toEqual([
+        'ing-flour',
+        'ing-rice',
+        'ing-00',
+      ])
+      expect(data.ingredients[0]).toEqual(
+        expect.objectContaining({ similarity: 0.9, matchedAs: 'plain flour' }),
+      )
+    })
+
+    it('applies the category filter to the synonym search', async () => {
+      mockQueryRaw.mockResolvedValue([] as never)
+
+      await search('search=plain%20fl&category=carb')
+
+      const { sql, values } = queryAt(1)
+      expect(sql).toContain('AND i.category = ?::"IngredientCategory"')
+      expect(values).toContain('carb')
+    })
+
+    it('ranks a synonym that starts with the term above partial name hits and holds the limit', async () => {
+      mockQueryRaw
+        .mockResolvedValueOnce([
+          {
+            id: 'ing-a',
+            name: 'pepper a',
+            category: 'vegetable',
+            defaultUnit: 'g',
+            similarity: 0.5,
+          },
+          {
+            id: 'ing-b',
+            name: 'pepper b',
+            category: 'vegetable',
+            defaultUnit: 'g',
+            similarity: 0.4,
+          },
+        ] as never)
+        .mockResolvedValueOnce([
+          {
+            ...flour,
+            id: 'ing-red',
+            name: 'red bell pepper',
+            poolName: 'red bell pepper',
+            similarity: 0.2,
+          },
+        ] as never)
+
+      const { data } = await search('search=red%20pep&limit=2')
+
+      expect(data.ingredients.map((i: { id: string }) => i.id)).toEqual(['ing-red', 'ing-a'])
+      expect(data.ingredients[0]).toEqual(
+        expect.objectContaining({ similarity: 0.9, matchedAs: 'red pepper' }),
+      )
+    })
+
+    // "pepper" only starts a later word of "red pepper": a generic word, so the
+    // row keeps its own name score rather than jumping to the top.
+    it('keeps the name score for a synonym whose later word starts with the term', async () => {
+      mockQueryRaw
+        .mockResolvedValueOnce([
+          {
+            id: 'ing-bell',
+            name: 'bell pepper',
+            category: 'vegetable',
+            defaultUnit: 'g',
+            similarity: 0.58,
+          },
+          {
+            id: 'ing-black',
+            name: 'black pepper',
+            category: 'spice',
+            defaultUnit: 'g',
+            similarity: 0.54,
+          },
+        ] as never)
+        .mockResolvedValueOnce([
+          {
+            ...flour,
+            id: 'ing-red',
+            name: 'red bell pepper',
+            poolName: 'red bell pepper',
+            similarity: 0.44,
+          },
+          {
+            ...flour,
+            id: 'ing-bell',
+            name: 'bell pepper',
+            poolName: 'bell pepper',
+            similarity: 0.58,
+          },
+        ] as never)
+
+      const { data } = await search('search=pepper&limit=3')
+
+      expect(data.ingredients).toEqual([
+        expect.objectContaining({ id: 'ing-bell', similarity: 0.58 }),
+        expect.objectContaining({ id: 'ing-black', similarity: 0.54 }),
+        expect.objectContaining({ id: 'ing-red', similarity: 0.44, matchedAs: 'red pepper' }),
+      ])
+      expect(data.ingredients[0]).not.toHaveProperty('matchedAs')
+      expect(queryAt(1).sql).toMatch(/similarity\(i\.name, \?\) as similarity/)
+    })
+
+    it('returns the Estonian display name with the English synonym', async () => {
+      mockGetMembership.mockResolvedValue(membershipWithLocale('et'))
+      mockQueryRaw
+        .mockResolvedValueOnce([] as never)
+        .mockResolvedValueOnce([{ ...flour, name: 'nisujahu' }] as never)
+
+      const { data } = await search('search=plain%20flour')
+
+      expect(data.ingredients[0]).toEqual(
+        expect.objectContaining({ name: 'nisujahu', matchedAs: 'plain flour' }),
+      )
+      const { sql } = queryAt(1)
+      expect(sql).toContain('LEFT JOIN "ingredient_translation" t')
+      expect(sql).toContain('COALESCE(t.name, i.name) as name')
+    })
   })
 
   it('returns 500 when query fails', async () => {

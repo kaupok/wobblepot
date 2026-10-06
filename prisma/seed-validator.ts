@@ -26,7 +26,8 @@ import {
   type IngredientTranslationEt,
 } from './seed-ingredient-translations-et'
 import { normalizeIngredientKey } from '../src/lib/i18n/ingredient-key'
-import { INGREDIENT_ALIASES } from '../src/lib/ingredient-aliases'
+import { INGREDIENT_ALIASES, INGREDIENT_SYNONYMS } from '../src/lib/ingredient-aliases'
+import { validateIngredientAliases } from './validate-ingredient-aliases'
 import type { IngredientInput } from './seed-types'
 
 // ============================================
@@ -336,22 +337,6 @@ function checkMealComponentCounts(meals: Meal[]): ValidationResult {
     if (count > THRESHOLDS.componentsMax) {
       warnings.push(
         `${meal.name}: has ${count} components (max recommended: ${THRESHOLDS.componentsMax})`,
-      )
-    }
-  }
-
-  return { errors, warnings }
-}
-
-function validateIngredientAliases(ingredientNames: Set<string>): ValidationResult {
-  const errors: string[] = []
-  const warnings: string[] = []
-
-  for (const [from, to] of Object.entries(INGREDIENT_ALIASES)) {
-    if (!ingredientNames.has(to)) {
-      errors.push(
-        `Ingredient alias "${from}" → "${to}" points to non-existent ingredient. ` +
-          `Either add "${to}" to seed data or remove this alias.`,
       )
     }
   }
@@ -751,7 +736,7 @@ async function main() {
     ingredientMap.set(ing.name, ing)
   }
 
-  // Build ingredient name set for alias validation
+  // Build ingredient name set for alias and synonym validation
   const ingredientNames = new Set(allIngredients.map((ing) => ing.name))
 
   // Run all validations
@@ -776,7 +761,7 @@ async function main() {
     checkPieceUnitQuantities(allMeals, ingredientMap),
     checkGramUnitQuantities(allMeals, ingredientMap),
     checkMealComponentCounts(allMeals),
-    validateIngredientAliases(ingredientNames),
+    validateIngredientAliases(ingredientNames, INGREDIENT_ALIASES, INGREDIENT_SYNONYMS),
 
     // Translation coverage
     validateMealTranslationCoverage(allMeals, mealTranslationsEt),
@@ -799,6 +784,7 @@ async function main() {
   console.log(`   ${allIngredients.length} ingredients (${sourceCounts})`)
   console.log(`   ${allMeals.length} meals (${mealCounts})`)
   console.log(`   ${Object.keys(INGREDIENT_ALIASES).length} ingredient aliases`)
+  console.log(`   ${Object.keys(INGREDIENT_SYNONYMS).length} ingredient synonyms`)
   console.log(`   ${mealTranslationsEt.length} et meal translations`)
   console.log(`   ${ingredientTranslationsEt.length} et ingredient translations`)
 

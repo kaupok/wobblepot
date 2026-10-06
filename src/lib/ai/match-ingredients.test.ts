@@ -417,6 +417,51 @@ describe('matchIngredients', () => {
     expect(matched.similarityScore).toBe(0.95)
   })
 
+  // HON-1100: another English name resolves to the pool row. The word-level
+  // check still sees "plain" vs "all-purpose", so the match is flagged for review.
+  describe('another English name', () => {
+    /** Answers a search for `target` with that row; any other search finds nothing. */
+    function answerSearchFor(target: string, id: string) {
+      mockQueryRaw.mockImplementation(((_strings: TemplateStringsArray, ...values: unknown[]) =>
+        Promise.resolve(
+          values.includes(target) ? [makeDbMatch({ id, name: target, similarity: 1 })] : [],
+        )) as never)
+    }
+
+    it('resolves "plain flour" to the all-purpose flour row', async () => {
+      answerSearchFor('all-purpose flour', 'ing-flour')
+
+      const [result] = await matchIngredients(
+        [makeExtracted({ name: 'plain flour', quantity: 200, unit: 'g' })],
+        4,
+      )
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          type: 'matched',
+          ingredient: expect.objectContaining({ id: 'ing-flour', name: 'all-purpose flour' }),
+          lowConfidence: true,
+        }),
+      )
+    })
+
+    it('resolves "icing sugar" to the powdered sugar row', async () => {
+      answerSearchFor('powdered sugar', 'ing-sugar')
+
+      const [result] = await matchIngredients(
+        [makeExtracted({ name: 'icing sugar', quantity: 50, unit: 'g' })],
+        4,
+      )
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          type: 'matched',
+          ingredient: expect.objectContaining({ id: 'ing-sugar', name: 'powdered sugar' }),
+        }),
+      )
+    })
+  })
+
   it('keeps direct match when alias does not improve', async () => {
     // Direct search returns good match
     // Alias search returns worse match

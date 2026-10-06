@@ -13,7 +13,7 @@
 
 import 'dotenv/config'
 import { prisma } from '../../src/lib/prisma'
-import { INGREDIENT_ALIASES } from '../../src/lib/ingredient-aliases'
+import { INGREDIENT_ALIASES, INGREDIENT_SYNONYMS } from '../../src/lib/ingredient-aliases'
 
 // ============================================
 // TYPES
@@ -675,8 +675,8 @@ function auditAllergens(
 }
 
 function auditAliases(allIngredientNames: Set<string>, findings: Finding[]) {
-  // Check all alias targets exist
-  for (const [alias, target] of Object.entries(INGREDIENT_ALIASES)) {
+  // Check all alias and synonym targets exist
+  for (const [alias, target] of Object.entries({ ...INGREDIENT_ALIASES, ...INGREDIENT_SYNONYMS })) {
     if (!allIngredientNames.has(target.toLowerCase())) {
       findings.push({
         severity: 'warning',
@@ -696,7 +696,11 @@ function auditAliases(allIngredientNames: Set<string>, findings: Finding[]) {
     // Items with "fresh" or "dried" prefix might need a base alias
     if (name.startsWith('fresh ')) {
       const base = name.replace('fresh ', '')
-      if (!allIngredientNames.has(base) && !(base in INGREDIENT_ALIASES)) {
+      if (
+        !allIngredientNames.has(base) &&
+        !(base in INGREDIENT_ALIASES) &&
+        !(base in INGREDIENT_SYNONYMS)
+      ) {
         // Only suggest if there's no other form
         const hasDried = allIngredientNames.has(`dried ${base}`)
         if (!hasDried) {

@@ -22,6 +22,24 @@ export interface IngredientResult {
   protein?: number
   carbs?: number
   fat?: number
+  /**
+   * The other English name the search term matched ("plain flour" for
+   * all-purpose flour), shown in brackets in the dropdown (HON-1100). Absent on
+   * a row found by its own name.
+   */
+  matchedAs?: string
+}
+
+/**
+ * The picked row without its search-only `matchedAs`, so every screen after
+ * the dropdown shows the pool name only and the field never reaches form state
+ * or a request body.
+ */
+export function withoutMatchedAs({
+  matchedAs: _matchedAs,
+  ...ingredient
+}: IngredientResult): IngredientResult {
+  return ingredient
 }
 
 const DEBOUNCE_MS = 300

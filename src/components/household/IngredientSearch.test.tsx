@@ -194,3 +194,47 @@ describe('IngredientSearch field name', () => {
     expect(input).toHaveAttribute('placeholder', 'Search to add ingredients…')
   })
 })
+
+// HON-1100: a row found by another English name shows that name in brackets.
+describe('IngredientSearch other English name', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('shows the typed name in brackets and adds the row without it', async () => {
+    mockFetchSuccess([
+      {
+        id: 'flour',
+        name: 'all-purpose flour',
+        category: 'carb',
+        defaultUnit: 'g',
+        matchedAs: 'plain flour',
+      },
+      { id: 'tomato', name: 'tomato', category: 'vegetable', defaultUnit: 'g' },
+    ])
+    const onAddIngredient = vi.fn()
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderSearch({ onAddIngredient })
+
+    await user.type(screen.getByRole('combobox'), 'plain fl')
+    await vi.advanceTimersByTimeAsync(350)
+
+    const options = await screen.findAllByRole('option')
+    expect(options[0]).toHaveTextContent('all-purpose flour(plain flour)')
+    expect(options[1]).not.toHaveTextContent('(plain flour)')
+
+    await user.click(options[0]!)
+
+    expect(onAddIngredient).toHaveBeenCalledWith({
+      id: 'flour',
+      name: 'all-purpose flour',
+      category: 'carb',
+      defaultUnit: 'g',
+    })
+  })
+})

@@ -236,7 +236,7 @@ So rename the row in place, in **one PR**:
 
    For a meal, the same statement on `"meal"`. A database that never had the old row (a fresh CI or Neon branch) updates nothing, and the seed then creates the row under its new name.
 
-4. **Other references.** Grep `src/`, `scripts/`, `tests/` and `prisma/seed*.ts` for the old name. `src/lib/ingredient-aliases.ts` is the usual hit; an alias from the old name to the new one keeps the matcher resolving text that still uses it. Leave the old name in applied migrations: they are immutable, and the rename migration runs after them.
+4. **Other references.** Grep `src/`, `scripts/`, `tests/` and `prisma/seed*.ts` for the old name. `src/lib/ingredient-aliases.ts` is the usual hit. Add the old name to `INGREDIENT_SYNONYMS` there, pointing at the new one: the matcher then still resolves text that uses it, and the ingredient search still finds the row by it and shows it in brackets (HON-1100). Move any `INGREDIENT_ALIASES` entry that targets the old name to the new name. Leave the old name in applied migrations: they are immutable, and the rename migration runs after them.
 5. **Check.** `pnpm db:validate` passes. To rehearse the deploy order, run `pnpm test:e2e:local`: it branches from staging, which still has the old row, then migrates and seeds.
 
 This works because every environment applies migrations before it seeds. `prisma migrate deploy` runs ahead of `pnpm db:seed` in `deploy-db-migrations-production.yml` and `deploy-db-migrations-staging.yml`, and in CI's E2E job, so by the time the seed looks for the new name the row already carries it. Staging re-seeds only when `prisma/seed*.ts` or the schema changed, which a rename PR always does.
