@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { CreateHouseholdForm } from './CreateHouseholdForm'
+import { OnboardingFlow } from './OnboardingFlow'
 
 export default async function OnboardingPage() {
   const session = await auth.api.getSession({
@@ -20,8 +20,10 @@ export default async function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen-below-header grid place-items-center p-4">
-      <CreateHouseholdForm userName={session.user.name} />
+    // Top-anchored, not centred: a centred card moves up by half of every row
+    // that step 2 adds, taking the button under the pointer with it.
+    <div className="min-h-screen-below-header flex items-start justify-center px-4 pt-4 pb-16 md:pt-12">
+      <OnboardingFlow userName={session.user.name} />
     </div>
   )
 }

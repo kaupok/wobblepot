@@ -156,7 +156,7 @@ describe('POST /api/households', () => {
     // A concurrent create or invite join committed a membership for this user
     // after the in-transaction check ran, and `household_member_userId_key`
     // rejected the owner insert (HON-696). `P2002` is not retried, so this is
-    // the first attempt's error. `CreateHouseholdForm` branches on the string.
+    // the first attempt's error. `OnboardingFlow` branches on the string.
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
       session: { id: 'session-123' },
@@ -213,7 +213,7 @@ describe('POST /api/households', () => {
     const data = await response.json()
 
     // Rethrowing would let Next render an HTML error page, and
-    // CreateHouseholdForm calls `response.json()` outside its network-error
+    // OnboardingFlow calls `response.json()` outside its network-error
     // try — so the user would see a raw SyntaxError and nothing would be
     // reported. A `P2034` that outlasts the retry budget makes this reachable.
     expect(response.status).toBe(500)

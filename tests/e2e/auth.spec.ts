@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /sign-in, /onboarding, /, /profile · COMPONENTS: SignUpForm (with HON-488 invite-code gate + HON-457 terms-consent checkbox), SignInForm, CreateHouseholdForm, Header (User menu)
+// ROUTES: /sign-up, /sign-in, /onboarding, /, /profile · COMPONENTS: SignUpForm (with HON-488 invite-code gate + HON-457 terms-consent checkbox), SignInForm, OnboardingFlow, Header (User menu)
 import { test, expect } from '@playwright/test'
 import {
   generateUniqueEmail,
@@ -19,11 +19,13 @@ test.describe('Authentication flows', () => {
     // Sign up
     await signUp(page, { email, name })
 
-    // Should redirect to onboarding (step 1 — household name)
+    // Should redirect to onboarding (step 1 — welcome and household name)
     await expect(page).toHaveURL('/onboarding')
-    await expect(page.getByRole('heading', { name: 'Create your household' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: `Welcome to Wobblepot, ${name}!` }),
+    ).toBeVisible()
 
-    // Complete the 2-step onboarding flow (name → members → submit)
+    // Create the household (name → members), then leave step 3 for Today
     const householdName = `${name}'s household`
     await createHousehold(page, householdName)
 

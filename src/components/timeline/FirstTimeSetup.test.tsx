@@ -62,7 +62,7 @@ describe('FirstTimeSetup error localization', () => {
     await screen.findByText(etErrors.insufficientCandidates)
     expect(screen.queryByText(prose)).not.toBeInTheDocument()
     expect(console.error).toHaveBeenCalledWith(
-      '[first-time-setup] request failed',
+      '[first-plan] request failed',
       expect.objectContaining({ code: 'insufficient_candidates' }),
     )
   })

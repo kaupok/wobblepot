@@ -102,8 +102,12 @@ export async function signUp(
 }
 
 /**
- * Creates a household during onboarding.
- * Onboarding is a 2-step flow: step 1 = household name, step 2 = members.
+ * Creates a household during onboarding, and leaves before the first plan.
+ * Onboarding is a 3-step flow: step 1 = welcome and household name, step 2 =
+ * members (the household is created on leaving it), step 3 = the first plan.
+ * The helper stops at step 3 and opens '/', where a household with no plan
+ * gets the same choices (`FirstTimeSetup`), so no spec pays for a generation
+ * it did not ask for.
  *
  * Locale-stable selectors: the onboarding form chrome is externalized
  * (HON-510), so label and button text vary by locale. The `@i18n platform
@@ -122,9 +126,9 @@ export async function createHousehold(page: Page, householdName?: string): Promi
   }
 
   // Step 1 → 2: advance past the household-name step. Step 1 contains exactly
-  // one button (Continue, `type="button"`); step 2 has many type-button
-  // buttons (Back, Adult, Child, +/-) plus the submit button, so this selector
-  // is only unambiguous in step 1.
+  // one button (Continue, `type="button"`); step 2 has several type-button
+  // buttons (Back, Add adult, Add child) plus the submit button, so this
+  // selector is only unambiguous in step 1.
   await page.locator('form button[type="button"]').click()
 
   // The form has a 100ms guard (`justTransitioned`) that ignores submissions
@@ -134,9 +138,18 @@ export async function createHousehold(page: Page, householdName?: string): Promi
   await expect(page.locator('form button[type="submit"]')).toBeVisible()
   await page.waitForTimeout(150)
 
-  // Step 2: submit with defaults (1 member)
-  await page.locator('form button[type="submit"]').click()
-  await page.waitForURL('/')
+  // Step 2 → 3: submit with defaults (the user alone), which creates the household.
+  const [created] = await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith('/api/households') && r.request().method() === 'POST',
+    ),
+    page.locator('form button[type="submit"]').click(),
+  ])
+  expect(created.ok()).toBe(true)
+
+  // Step 3 is the only step with radio groups (start day, number of days).
+  await expect(page.getByRole('radiogroup').first()).toBeVisible()
+  await page.goto('/')
 }
 
 /**
