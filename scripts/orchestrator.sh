@@ -971,7 +971,10 @@ monitor_workers() {
         handle_success "$issue_id" "$issue_uuid" "$branch" "$log_file"
       else
         log WARN "Worker $issue_id (PID $pid) failed (exit $exit_code)"
-        handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
+        # NOT handle_failure directly (HON-1064), for the same reason as the
+        # timeout kill above: a worker that crashed after it committed or opened
+        # a PR would lose its branch to handle_failure's cleanup.
+        handle_error_exit "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "$title" "$exit_code"
       fi
       to_remove+=("$i")
     fi
@@ -1365,9 +1368,9 @@ notify() {
 # ─── Circuit breaker ─────────────────────────────────────────────────────────
 # Called from every path that ends a run without shipping: all of handle_failure
 # (retry included — a retry is a failure that gets another chance), the gated
-# 0-commit path, and the stranded path — from both the exit-0 and the timeout
-# route. record_success holds the only reset on an outcome path, so the counter
-# means "consecutive runs that shipped nothing".
+# 0-commit path, and the stranded path — from the exit-0, the timeout and the
+# error-exit route. record_success holds the only reset on an outcome path, so
+# the counter means "consecutive runs that shipped nothing".
 
 note_consecutive_failure() {
   CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
@@ -1379,12 +1382,14 @@ note_consecutive_failure() {
 }
 
 # ─── Shared outcome helpers ──────────────────────────────────────────────────
-# Two paths end a worker run that may nevertheless have shipped a PR: the exit-0
-# path (handle_success) and the WORKER_TIMEOUT kill (handle_timeout). HON-583:
-# the timeout path used to go straight to handle_failure, so a worker that did
-# the whole job and was killed waiting on CI was triaged, retried and bounced to
-# Backlog while its green PR sat open. These three helpers are the shared
-# vocabulary the two paths speak, so they cannot drift apart again.
+# Three paths end a worker run that may nevertheless have shipped a PR: the
+# exit-0 path (handle_success), the WORKER_TIMEOUT kill (handle_timeout) and the
+# non-zero exit (handle_error_exit). HON-583: the timeout path used to go
+# straight to handle_failure, so a worker that did the whole job and was killed
+# waiting on CI was triaged, retried and bounced to Backlog while its green PR
+# sat open; HON-1064 found the non-zero exit doing the same. These three helpers
+# are the shared vocabulary the three paths speak, so they cannot drift apart
+# again.
 
 # Resolve the branch's PR once and publish it in globals. Bash cannot return a
 # record, and the callers each need four fields plus a derived verdict.
@@ -1419,7 +1424,7 @@ probe_worker_pr() {
 
 # Record a run that shipped: reset the circuit breaker, log SUCCESS, and clean
 # up the worktree, local branch and Neon branch. Reached from a clean exit at
-# phase=done, from either path once the PR is confirmed MERGED.
+# phase=done, or from any path once the PR is confirmed MERGED.
 record_success() {
   local issue_id="$1" branch="$2" phase="$3" commits="$4" duration_str="$5"
 
@@ -1451,20 +1456,22 @@ record_success() {
 }
 
 # Record a run that produced commits but never merged. Assumes probe_worker_pr
-# has already run for this branch. kill_reason ∈ clean | timeout, and is both
-# logged and threaded into the Linear comment: "exited cleanly but never merged"
-# is a lie about a worker the orchestrator killed, and the difference is what
-# tells an operator whether to re-check WORKER_TIMEOUT.
+# has already run for this branch. kill_reason ∈ clean | timeout | error, and is
+# both logged and threaded into the Linear comment: "exited cleanly but never
+# merged" is a lie about a worker the orchestrator killed or that crashed, and
+# the difference is what tells an operator whether to re-check WORKER_TIMEOUT or
+# read the worker log. exit_code is only meaningful for kill_reason=error.
 strand_worker() {
   local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
   local phase="$5" commits="$6" duration_str="$7" kill_reason="$8"
+  local exit_code="${9:-}"
 
   local ci_state
   ci_state=$(pr_ci_state "$WORKER_PR_NUMBER")
   log WARN "[OUTCOME] $issue_id STRANDED ${duration_str} ${commits}-commits phase=$phase pr=${WORKER_PR_REF} ci=${ci_state} exit=${kill_reason}"
   notify "Honkadori" "$issue_id stranded at $phase — PR ${WORKER_PR_REF} not merged"
   record_stranded "$issue_uuid" "$issue_id" "$branch" "$log_file" \
-    "$WORKER_PR_URL" "$WORKER_PR_REF" "$WORKER_PR_STATE" "$ci_state" "$phase" "$kill_reason"
+    "$WORKER_PR_URL" "$WORKER_PR_REF" "$WORKER_PR_STATE" "$ci_state" "$phase" "$kill_reason" "$exit_code"
 
   # With a PR, In Review is the accurate state and record_stranded leaves it
   # alone. With no PR — none opened, or gh missing/unauthenticated, which
@@ -1493,9 +1500,9 @@ strand_worker() {
   return 0
 }
 
-# Duration of the still-registered worker for an issue, in seconds. Both
-# handle_success and handle_timeout report it; the timeout path already knows
-# the elapsed time, so it passes its own rather than calling this.
+# Duration of the still-registered worker for an issue, in seconds. All three
+# outcome paths report it; the timeout path already knows the elapsed time, so
+# it passes its own rather than calling this.
 worker_duration_secs() {
   local issue_id="$1"
   local i=0
@@ -1645,6 +1652,57 @@ handle_timeout() {
   return 0
 }
 
+# ─── Handle a worker that exited non-zero ────────────────────────────────────
+# HON-1064: this path used to call handle_failure directly, exactly as the
+# timeout path did before HON-583. A worker that crashed after committing or
+# opening a PR then lost its branch to handle_failure's cleanup, and its issue
+# went to Backlog while the PR stayed open (HON-611, HON-362 on 2026-09-07).
+#
+# Same routing as handle_timeout, for the same reasons:
+#   merged PR              → SUCCESS. The work shipped before the crash.
+#   no PR and no commits   → handle_failure with exit:<code>, unchanged.
+#   Neon cap death         → handle_failure too, even when gh cannot answer. It
+#                            dies before Claude runs, so it has no PR and no
+#                            commits, and it must still reach the CAP arm.
+#   anything else          → STRANDED exit=error: artifacts preserved.
+# A crash with commits no longer gets an automatic RETRY. That is deliberate:
+# both cases on record triaged NEEDS_HUMAN, so the RETRY never ran.
+handle_error_exit() {
+  local issue_id="$1" issue_uuid="$2" branch="$3" log_file="$4"
+  local retried="$5" title="$6" exit_code="$7"
+
+  probe_worker_pr "$branch"
+
+  local commits phase duration_str
+  commits=$(count_commits "$branch")
+  phase=$(detect_phase "$log_file" "$branch")
+  duration_str=$(format_duration "$(worker_duration_secs "$issue_id")")
+
+  # The only route out of here that destroys anything. See handle_timeout for
+  # why each of the three conditions is load-bearing. A Neon cap death is the
+  # one exception to the probe condition: it dies before Claude runs, so it
+  # cannot have opened a PR, and its CAP verdict must not depend on gh
+  # answering. Stranding it would add the sticky Stranded label and leak the
+  # worktree, which is the outcome the CAP arm exists to prevent (HON-616).
+  if [ "${commits:-0}" -eq 0 ] && {
+    worker_hit_neon_cap "$log_file" ||
+      { [ "$WORKER_PR_PROBE_OK" = true ] && [ -z "$WORKER_PR_NUMBER" ]; }
+  }; then
+    handle_failure "$issue_id" "$issue_uuid" "$branch" "$log_file" "$retried" "exit:$exit_code" "$title"
+    return 0
+  fi
+
+  if [ "$WORKER_PR_MERGED" = true ]; then
+    log INFO "$issue_id: exited $exit_code in phase '$phase', but PR $WORKER_PR_REF is merged — treating as success"
+    record_success "$issue_id" "$branch" "$phase" "$commits" "$duration_str"
+    return 0
+  fi
+
+  strand_worker "$issue_id" "$issue_uuid" "$branch" "$log_file" \
+    "$phase" "$commits" "$duration_str" "error" "$exit_code"
+  return 0
+}
+
 # ─── Gate a no-commit "success" ──────────────────────────────────────────────
 # A worker can exit 0 without producing anything. Comment on the issue, then
 # return it to Queued and clear the assignee (reusing move_issue_unassigned) so a
@@ -1680,15 +1738,16 @@ gate_no_commit_success() {
 # Review and that is the accurate state. The no-PR case, where nothing moved the
 # issue at all, is handled by the caller.
 #
-# kill_reason ∈ clean | timeout. It changes only the opening sentence, but that
-# sentence is the operator's whole account of what happened: "exited cleanly" is
-# a lie about a worker the orchestrator killed, and it points the reader at the
-# skill's terminal-turn rule instead of at WORKER_TIMEOUT.
+# kill_reason ∈ clean | timeout | error. It changes only the opening sentence,
+# but that sentence is the operator's whole account of what happened: "exited
+# cleanly" is a lie about a worker the orchestrator killed or that crashed, and
+# it points the reader at the skill's terminal-turn rule instead of at
+# WORKER_TIMEOUT or the worker log.
 
 record_stranded() {
   local issue_uuid="$1" issue_id="$2" branch="$3" log_file="$4"
   local pr_url="$5" pr_ref="$6" pr_state="$7" ci_state="$8" phase="$9"
-  local kill_reason="${10:-clean}"
+  local kill_reason="${10:-clean}" exit_code="${11:-}"
 
   # pr_ref is "#650" — the shape the outcome log line wants. Every operator
   # instruction below needs the bare number instead: `gh pr merge` rejects a
@@ -1729,6 +1788,8 @@ record_stranded() {
   local how="The worker exited cleanly but never merged, so the cycle is incomplete."
   if [ "$kill_reason" = "timeout" ]; then
     how=$(printf 'The worker was **killed at `WORKER_TIMEOUT`** before it could merge, so the cycle is incomplete — the work itself may well be finished. If this keeps happening on long issues, raise `ORCHESTRATOR_WORKER_TIMEOUT`.')
+  elif [ "$kill_reason" = "error" ]; then
+    how=$(printf 'The worker **exited with error code %s** before it merged, so the cycle is incomplete. Read the worker log for the cause before resuming.' "${exit_code:-unknown}")
   fi
 
   local body
