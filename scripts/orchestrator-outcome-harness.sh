@@ -26,6 +26,11 @@
 #     commits). Everything else is genuine, including record_stranded's comment
 #     body and the cleanup decision.
 #
+#   error <commits> <phase> <pr_state> <ci_state>                  (HON-1064)
+#     Same stubs as `timeout`, but drives handle_error_exit with exit code 1 —
+#     the path taken when a worker exits non-zero. The routes match `timeout`;
+#     the fallback marker reads HANDLE_FAILURE:exit:1.
+#
 #   worker-timeout                                                  (HON-583)
 #     Prints WORKER_TIMEOUT as orchestrator.sh resolved it at source time, so
 #     both the default and the ORCHESTRATOR_WORKER_TIMEOUT override are under
@@ -445,8 +450,8 @@ case "$MODE" in
     exit 0
     ;;
 
-  # ─── handle_success / handle_timeout classification ────────────────────────
-  outcome | timeout)
+  # ─── handle_success / handle_timeout / handle_error_exit classification ────
+  outcome | timeout | error)
     COMMITS="$A1"; PHASE="$A2"; PR_STATE="$A3"; CI_STATE="$A4"
 
     count_commits() { echo "$COMMITS"; }
@@ -482,7 +487,7 @@ case "$MODE" in
     restore_queue_if_in_progress() { echo "RESTORE_QUEUED:$2" >> "$MAIN_LOG"; }
     cleanup_worker_worktree() { echo "CLEANUP:${1}:${2:-false}" >> "$MAIN_LOG"; }
 
-    # Only the timeout path can reach handle_failure, and its whole triage
+    # Only the timeout and error paths can reach handle_failure, and its triage
     # machinery (the Claude call, move_to_backlog, respawn) is covered by the
     # `failure` mode. Here it only needs to be distinguishable from the other
     # two routes, so record that it ran and with which failure type.
@@ -500,6 +505,11 @@ case "$MODE" in
     trap 'cat "$MAIN_LOG"; rm -f "$MAIN_LOG" "$SEEN_SKIPS_FILE"' EXIT
     if [ "$MODE" = "outcome" ]; then
       handle_success HON-999 uuid-999 test-branch /tmp/harness-worker.log 2>/dev/null
+    elif [ "$MODE" = "error" ]; then
+      # retried=0, a fixture title, and exit code 1 — the shape monitor_workers
+      # passes when a worker exits non-zero.
+      handle_error_exit HON-999 uuid-999 test-branch /tmp/harness-worker.log \
+        0 "Fixture title" 1 2>/dev/null
     else
       # retried=0, a fixture title, and 3600s elapsed — the shape monitor_workers
       # passes when the kill fires.

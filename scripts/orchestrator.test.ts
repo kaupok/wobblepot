@@ -82,6 +82,15 @@ function classifyTimeout(commits: number, phase: string, pr: PrState, ci: CiStat
   return stripTimestamps(runHarness('timeout', String(commits), phase, pr, ci))
 }
 
+/**
+ * Same fixtures, but through `handle_error_exit` with exit code 1 — the path
+ * monitor_workers takes when a worker exits non-zero (HON-1064). The
+ * `handle_failure` stub marker reads `HANDLE_FAILURE:exit:1`.
+ */
+function classifyError(commits: number, phase: string, pr: PrState, ci: CiState): string {
+  return stripTimestamps(runHarness('error', String(commits), phase, pr, ci))
+}
+
 function runHarness(...args: string[]): string {
   return execFileSync('bash', [harness, ...args], {
     encoding: 'utf8',
@@ -2673,24 +2682,125 @@ describe('orchestrator.sh', () => {
     })
   })
 
-  // One probe, one stranding, one success — called from both paths. Behaviour
+  // HON-1064: a non-zero exit went straight to handle_failure, exactly as the
+  // timeout kill did before HON-583. Its BACKLOG / NEEDS_HUMAN / already-retried
+  // arms run `git branch -D` and delete the Neon branch, so a worker that crashed
+  // after committing lost its work, and one with an open PR landed in Backlog
+  // (HON-611, HON-362 on 2026-09-07). handle_error_exit routes like
+  // handle_timeout.
+  describe('handle_error_exit outcome classification', () => {
+    it('strands an open PR, names the exit code, and keeps every artifact', () => {
+      const out = classifyError(3, 'pr-review', 'OPEN', 'green')
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).toContain('3-commits phase=pr-review pr=#650 ci=green exit=error')
+      expect(out).toContain('exited with error code 1')
+      expect(out).not.toContain('exited cleanly')
+      expect(out).not.toContain('killed at `WORKER_TIMEOUT`')
+      // No cleanup is what keeps the worktree, local branch and Neon branch.
+      expect(out).not.toContain('CLEANUP:')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).toContain('LABEL:Stranded')
+      // A PR moved the issue to In Review, which is accurate, so it stays.
+      expect(out).not.toContain('RESTORE_QUEUED')
+    })
+
+    it('strands commits with no PR and hands the issue back to Queued', () => {
+      const out = classifyError(2, 'implementing', 'NONE', 'unknown')
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).toContain('2-commits phase=implementing pr=none')
+      expect(out).toContain('exit=error')
+      expect(out).not.toContain('CLEANUP:')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).toContain('RESTORE_QUEUED:HON-999')
+      expect(out).toContain('LABEL:Stranded')
+    })
+
+    it('reports SUCCESS when the PR merged before the crash', () => {
+      const out = classifyError(3, 'pr-review', 'MERGED', 'green')
+
+      expect(out).toContain('[OUTCOME] HON-999 SUCCESS')
+      expect(out).not.toContain('STRANDED')
+      expect(out).not.toContain('HANDLE_FAILURE')
+      expect(out).toContain('CLEANUP:test-branch:false')
+    })
+
+    it.each([0, 3])(
+      'strands rather than fails when gh could not answer (%i commits)',
+      (commits) => {
+        const out = classifyError(commits, 'pr-review', 'ERROR', 'unknown')
+
+        expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+        expect(out).not.toContain('HANDLE_FAILURE')
+        expect(out).not.toContain('CLEANUP:')
+      },
+    )
+
+    it('strands a closed-but-unmerged PR rather than triaging it', () => {
+      const out = classifyError(3, 'pr-review', 'CLOSED', 'unknown')
+
+      expect(out).toContain('[OUTCOME] HON-999 STRANDED')
+      expect(out).toContain('CLOSED, never merged')
+      expect(out).not.toContain('HANDLE_FAILURE')
+    })
+
+    it('triages as before when the probe ran, found no PR, and nothing was committed', () => {
+      // The only route that reaches triage and deletes artifacts. A Neon cap
+      // death dies before Claude runs, so with a working gh it lands here too.
+      const out = classifyError(0, 'planning', 'NONE', 'unknown')
+
+      expect(out).toContain('HANDLE_FAILURE:exit:1')
+      expect(out).not.toContain('STRANDED')
+      expect(out).not.toContain('SUCCESS')
+      expect(out).not.toContain('LABEL:')
+    })
+
+    // The harness keeps orchestrator.sh's `set -e` on, so a statement that
+    // returns non-zero aborts mid-function and the trailing line never appears.
+    it.each(['OPEN', 'CLOSED', 'NONE', 'ERROR'] as PrState[])(
+      'runs handle_error_exit to completion with a %s PR',
+      (pr) => {
+        expect(classifyError(3, 'pr-review', pr, 'unknown')).toContain(
+          'Preserved worktree and branch for HON-999',
+        )
+      },
+    )
+
+    it('runs handle_error_exit to completion on the merged path', () => {
+      expect(classifyError(3, 'pr-review', 'MERGED', 'green')).toContain(
+        'Worker HON-999 complete — worktree cleaned up',
+      )
+    })
+  })
+
+  // One probe, one stranding, one success — called from every path. Behaviour
   // tests above cover each path in isolation; only a static guard can catch one
   // path quietly growing its own copy, which is how the timeout path came to
   // miss stranded detection in the first place.
-  describe('the exit-0 and timeout paths share one implementation', () => {
+  describe('the exit-0, timeout and error-exit paths share one implementation', () => {
     const source = () => fs.readFileSync(orchestrator, 'utf8')
 
-    it.each(['handle_success', 'handle_timeout'])('%s probes through probe_worker_pr', (fn) => {
-      expect(shellFunctionBody(source(), fn)).toContain('probe_worker_pr "$')
-    })
+    it.each(['handle_success', 'handle_timeout', 'handle_error_exit'])(
+      '%s probes through probe_worker_pr',
+      (fn) => {
+        expect(shellFunctionBody(source(), fn)).toContain('probe_worker_pr "$')
+      },
+    )
 
-    it.each(['handle_success', 'handle_timeout'])('%s strands through strand_worker', (fn) => {
-      expect(shellFunctionBody(source(), fn)).toContain('strand_worker "$issue_id"')
-    })
+    it.each(['handle_success', 'handle_timeout', 'handle_error_exit'])(
+      '%s strands through strand_worker',
+      (fn) => {
+        expect(shellFunctionBody(source(), fn)).toContain('strand_worker "$issue_id"')
+      },
+    )
 
-    it.each(['handle_success', 'handle_timeout'])('%s succeeds through record_success', (fn) => {
-      expect(shellFunctionBody(source(), fn)).toContain('record_success "$issue_id"')
-    })
+    it.each(['handle_success', 'handle_timeout', 'handle_error_exit'])(
+      '%s succeeds through record_success',
+      (fn) => {
+        expect(shellFunctionBody(source(), fn)).toContain('record_success "$issue_id"')
+      },
+    )
 
     it('resolves the PR in exactly one place', () => {
       // pr_for_branch outside probe_worker_pr means a second, divergent probe.
@@ -2708,6 +2818,21 @@ describe('orchestrator.sh', () => {
 
       expect(body).toContain('handle_timeout "$issue_id"')
       expect(body).not.toMatch(/handle_failure .*"timeout"/)
+    })
+
+    it('routes the non-zero exit through handle_error_exit, not handle_failure (HON-1064)', () => {
+      // Same one-line regression as the timeout route: the behaviour tests call
+      // handle_error_exit directly, so only this guard sees the wiring.
+      const body = shellFunctionBody(source(), 'monitor_workers')
+
+      expect(body).toContain('handle_error_exit "$issue_id"')
+      expect(body).not.toMatch(/handle_failure .*"exit:/)
+    })
+
+    it('keeps handle_failure reachable from handle_error_exit', () => {
+      expect(shellFunctionBody(source(), 'handle_error_exit')).toMatch(
+        /handle_failure .*"exit:\$exit_code"/,
+      )
     })
 
     it('keeps handle_failure reachable from handle_timeout', () => {
@@ -4088,6 +4213,20 @@ describe('orchestrator.sh', () => {
           ]),
         ).toEqual(['HON-702:none:'])
       })
+
+      // HON-1064 added exit=error. watch_scan_log reads the verdict and pr=#N
+      // only, so every exit reason must land in the same tally and open list.
+      it.each(['clean', 'timeout', 'error'])(
+        'reads a STRANDED line with exit=%s the same way',
+        (exit) => {
+          const line = `2026-09-20 10:20:00 WARN  [OUTCOME] HON-702 STRANDED 47m42s 2-commits phase=pr-review pr=#707 ci=failing exit=${exit}`
+
+          expect(scan([line]).TALLY_STRANDED).toBe('1')
+          expect(strandedOpen([line, ...STRANDED.slice(1)])).toEqual([
+            'HON-702:707:auto/hon-702-thing',
+          ])
+        },
+      )
 
       it('drops a stranded outcome the issue was re-run past, and keeps the other', () => {
         const open = strandedOpen([
