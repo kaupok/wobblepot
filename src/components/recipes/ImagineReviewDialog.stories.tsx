@@ -165,9 +165,14 @@ export const EstonianLocale: Story = {
     docs: {
       description: {
         story:
-          'Estonian locale — a 4-figure calorie value renders ungrouped (`1435 kcal`, not the en `1,435`) and the matched per-serving row uses a comma decimal (`1,5g`).',
+          'Estonian locale — a 4-figure calorie value renders ungrouped (`1435 kcal`, not the en `1,435`) and the matched per-serving row uses a comma decimal and catalog copy (`1,5g portsjoni kohta`).',
       },
     },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await userEvent.click(await body.findByRole('button', { name: /2 sobitatud koostisosa/i }))
+    await expect(await body.findByText('1,5g portsjoni kohta')).toBeInTheDocument()
   },
 }
 
@@ -264,8 +269,8 @@ export const WithLiquid: Story = {
   play: async () => {
     const body = within(document.body)
     await userEvent.click(await body.findByRole('button', { name: /2 ingredients matched/i }))
-    await expect(await body.findByText('15ml/serving')).toBeInTheDocument()
-    await expect(body.getByText('150g/serving')).toBeInTheDocument()
+    await expect(await body.findByText('15ml per serving')).toBeInTheDocument()
+    await expect(body.getByText('150g per serving')).toBeInTheDocument()
   },
 }
 
