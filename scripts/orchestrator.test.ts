@@ -462,6 +462,18 @@ describe('orchestrator.sh', () => {
       expect(r.breaker).toContain('consecutive_failures')
     })
 
+    it('records the triage timeout, which `wt stop` sizes its wait from (HON-1067)', () => {
+      const out = runHarnessEnv(
+        { ORCHESTRATOR_TRIAGE_TIMEOUT: '300' },
+        'failure',
+        'RETRY',
+        '0',
+        'false',
+      )
+
+      expect(out).toMatch(/^STATUS_TRIAGE:300$/m)
+    })
+
     it('leaves last_loop null when the file is written outside the main loop', () => {
       // The `failure` harness runs handle_failure and then write_status_file,
       // as monitor_workers does, without entering the main loop. If a write
@@ -951,9 +963,14 @@ describe('orchestrator.sh', () => {
   // orphans `claude` processes and leaves their issues In Progress + assigned,
   // the state select_next_issue skips forever.
   describe('stop_wait_bound', () => {
-    const bound = (workers: string, triage = '') =>
+    const bound = (workers: string, triage = '', statusTriage = '') =>
       Number(
-        runHarnessEnv({ ORCHESTRATOR_TRIAGE_TIMEOUT: triage }, 'stop-wait-bound', workers).trim(),
+        runHarnessEnv(
+          { ORCHESTRATOR_TRIAGE_TIMEOUT: triage },
+          'stop-wait-bound',
+          workers,
+          statusTriage,
+        ).trim(),
       )
 
     it.each([
@@ -992,6 +1009,20 @@ describe('orchestrator.sh', () => {
 
     it('falls back to the 120s default for an unreadable triage timeout', () => {
       expect(bound('3', 'abc')).toBe(bound('3'))
+    })
+
+    it("prefers the orchestrator's triage timeout from its status file", () => {
+      // ORCHESTRATOR_TRIAGE_TIMEOUT exported only into `wt start` is not in the
+      // shell that runs `wt stop`.
+      expect(bound('3', '', '300')).toBeGreaterThanOrEqual(300 + 15 * 3)
+      expect(bound('3', '120', '300')).toBeGreaterThanOrEqual(300 + 15 * 3)
+    })
+
+    it('cmd_stop passes the status file triage_timeout to stop_wait_bound', () => {
+      const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_stop')
+
+      expect(body).toContain('.triage_timeout // empty')
+      expect(body).toContain('stop_wait_bound "$worker_count" "$triage_timeout"')
     })
 
     it('honours the first SIGTERM without waiting out the poll interval', () => {
@@ -1088,14 +1119,17 @@ describe('orchestrator.sh', () => {
         const { status, out, pids } = runShutdown('triage')
 
         expect(status).toBe(1)
-        const triageEnd = out.indexOf('TRIAGE_END:HON-1')
-        const drain = out.indexOf('Force shutdown — killing 1 worker(s)')
-        expect(out.indexOf('TRIAGE_START:HON-1')).toBeGreaterThan(-1)
+        // HON-1 and HON-3 both fail. Whichever is triaged first sends the
+        // second signal; the other is left to the drain rather than costing a
+        // second triage call that stop_wait_bound does not allow for.
+        const triaged = [...out.matchAll(/^TRIAGE_START:(HON-\d+)$/gm)].map((m) => m[1])
+        expect(triaged).toHaveLength(1)
+        const triageEnd = out.indexOf(`TRIAGE_END:${triaged[0]}`)
+        const drain = out.indexOf('Force shutdown — killing 2 worker(s)')
         expect(triageEnd).toBeGreaterThan(-1)
         expect(drain).toBeGreaterThan(triageEnd)
-        // HON-1 exited on its own and was handled; only HON-2 is drained.
-        expect(out).toContain('RESTORE_QUEUED:HON-2')
-        expect(out).not.toContain('RESTORE_QUEUED:HON-1')
+        const restored = [...out.matchAll(/^RESTORE_QUEUED:(HON-\d+)$/gm)].map((m) => m[1])
+        expect(restored.sort()).toEqual(['HON-1', 'HON-2', 'HON-3'].filter((i) => i !== triaged[0]))
         expect(isAlive(pids['HON-2'])).toBe(false)
       },
     )
@@ -5858,6 +5892,16 @@ describe('orchestrator.sh', () => {
       expect(out).toContain('PENDING:3:false')
       expect(out).not.toContain('reloading')
       expect(out).not.toContain('WARN')
+    })
+
+    it('does not reload when the signal lands during its checks (HON-1067)', () => {
+      // The new image starts with SHUTTING_DOWN cleared, so an exec here would
+      // lose the first `wt stop` signal.
+      const out = reload('shutdown-mid')
+
+      expect(out).toContain('Shutting down')
+      expect(out).toContain('NO_EXEC')
+      expect(out).not.toContain('reloading in place')
     })
 
     it('holds the reload while a worker runs, and stops claiming so the workers can drain', () => {

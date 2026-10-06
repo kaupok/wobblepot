@@ -3757,7 +3757,8 @@ cmd_start() {
 
 # How long `wt stop` waits for the force-shutdown drain before SIGKILL, in
 # seconds. Pure so it can be asserted without a live orchestrator:
-# triage + max(60, 15 * workers).
+# triage + max(60, 15 * workers). $2 is the orchestrator's triage timeout from
+# its status file; without it, ORCHESTRATOR_TRIAGE_TIMEOUT from this shell.
 #
 # The drain runs in the orchestrator's main loop, not in its trap handler, so a
 # second signal that lands during a triage call is acted on only when that call
@@ -3771,7 +3772,7 @@ stop_wait_bound() {
   local floor=60 per_worker=15
   # Same default as TRIAGE_TIMEOUT in orchestrator.sh. A fractional value (GNU
   # timeout accepts `1.5`) rounds up; anything unreadable takes the default.
-  local triage="${ORCHESTRATOR_TRIAGE_TIMEOUT:-120}"
+  local triage="${2:-${ORCHESTRATOR_TRIAGE_TIMEOUT:-120}}"
   local triage_whole="${triage%%[!0-9]*}"
   if [ -z "$triage_whole" ]; then
     triage_whole=120
@@ -3833,9 +3834,12 @@ cmd_stop() {
     # orphaning `claude` processes and leaving their issues In Progress +
     # assigned — the exact state select_next_issue skips forever (HON-572).
     # Scale the wait with the work instead.
-    local worker_count bound
+    local worker_count triage_timeout bound
     worker_count=$(jq -r '.workers | length' "$status_file" 2>/dev/null) || worker_count=""
-    bound=$(stop_wait_bound "$worker_count")
+    # The orchestrator's own value: an ORCHESTRATOR_TRIAGE_TIMEOUT exported
+    # only into `wt start` is not in this shell.
+    triage_timeout=$(jq -r '.triage_timeout // empty' "$status_file" 2>/dev/null) || triage_timeout=""
+    bound=$(stop_wait_bound "$worker_count" "$triage_timeout")
     echo -e "${DIM}Draining ${worker_count:-unknown} worker(s) — waiting up to ${bound}s before SIGKILL${NC}"
 
     local drained=0

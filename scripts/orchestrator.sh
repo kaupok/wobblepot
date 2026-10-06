@@ -509,7 +509,9 @@ write_status_file() {
 
   # poll_interval goes in as a string and is converted inside jq: it is never
   # validated, so `--argjson` on a value like "1m" would fail the whole write.
-  # `wt watch` reads it to size the alert age-out (watch_scan_log).
+  # `wt watch` reads it to size the alert age-out (watch_scan_log). The same
+  # goes for triage_timeout, which `wt stop` reads to size its wait: it can come
+  # from the environment of `wt start`, which `wt stop` does not see (HON-1067).
   local tmp_file="${STATUS_FILE}.tmp.$$"
   jq -n \
     --argjson pid "$$" \
@@ -517,6 +519,7 @@ write_status_file() {
     --arg last_poll "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
     --argjson max_workers "$MAX_WORKERS" \
     --arg poll_interval "$POLL_INTERVAL" \
+    --arg triage_timeout "$TRIAGE_TIMEOUT" \
     --arg last_loop "$LAST_LOOP_AT" \
     --argjson circuit_breaker "$(jq -n \
       --argjson consecutive_failures "$CONSECUTIVE_FAILURES" \
@@ -525,7 +528,7 @@ write_status_file() {
        else {consecutive_failures: $consecutive_failures, paused_until: $paused_until} end')" \
     --argjson workers "$workers_json" \
     --argjson checkout "$checkout_json" \
-    '{pid: $pid, started_at: $started_at, last_poll: $last_poll, last_loop: (if $last_loop == "" then null else $last_loop end), max_workers: $max_workers, poll_interval: ($poll_interval | tonumber? // null), circuit_breaker: $circuit_breaker, checkout: $checkout, workers: $workers}' \
+    '{pid: $pid, started_at: $started_at, last_poll: $last_poll, last_loop: (if $last_loop == "" then null else $last_loop end), max_workers: $max_workers, poll_interval: ($poll_interval | tonumber? // null), triage_timeout: ($triage_timeout | tonumber? // null), circuit_breaker: $circuit_breaker, checkout: $checkout, workers: $workers}' \
     > "$tmp_file" 2>/dev/null && mv "$tmp_file" "$STATUS_FILE" || rm -f "$tmp_file"
 }
 
@@ -933,6 +936,12 @@ monitor_workers() {
   local to_remove=()
 
   while [ $i -lt ${#WORKER_PIDS[@]} ]; do
+    # A second signal that landed while an earlier worker was handled (its
+    # triage call can take TRIAGE_TIMEOUT) leaves the rest to the drain.
+    # Handling them first could cost one triage call per exited worker, and
+    # stop_wait_bound allows for one (HON-1067).
+    [ "$FORCE_SHUTDOWN" = true ] && break
+
     local pid="${WORKER_PIDS[$i]}"
     local issue_id="${WORKER_ISSUES[$i]}"
     local issue_uuid="${WORKER_ISSUE_UUIDS[$i]}"
@@ -2977,6 +2986,11 @@ reload_if_code_changed() {
   local settled_fp=""
   settled_fp=$(code_fingerprint) || settled_fp=""
   [ "$settled_fp" = "$new_fp" ] || return 0
+
+  # The check at the top ran before the fingerprint and `bash -n` calls, and a
+  # signal that lands during them only sets the flag. The new image starts with
+  # it cleared, so exec'ing now would lose the signal (HON-1067).
+  [ "$SHUTTING_DOWN" = true ] && return 0
 
   log INFO "Orchestrator code changed on disk ($CODE_FINGERPRINT -> $new_fp); reloading in place (PID $$)"
 
