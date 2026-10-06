@@ -1,6 +1,11 @@
-# Auto-implement — filing deferred findings (6.8)
+# Auto-implement — filing deferred findings and follow-ups (6.8)
 
-Read from `SKILL.md` → 6.8 when `/tmp/auto-implement-deferrals-HON-XX.md` holds anything.
+Read from `SKILL.md` → 6.8 when `/tmp/auto-implement-deferrals-HON-XX.md` holds anything, and from 2.8 and 3.2 when the run has a follow-up to file.
+
+The file holds two kinds of block, and they are filed differently:
+
+- **A deferred finding** — something wrong or missing that a review pass noticed and 4.4 or 6.4 put out of scope. It is filed as an `[AUTO DRAFT]` issue in Backlog: the rules below, down to [Follow-ups](#follow-ups-kind-follow-up).
+- **A follow-up** — a block tagged `kind: follow-up`: a step this issue needs that the PR does not ship. It is filed by [Follow-ups](#follow-ups-kind-follow-up), without the prefix.
 
 Everything deferred during the run gets filed as a Linear issue before the merge. One sink, written by 4.4 and by every 6.4 round:
 
@@ -14,7 +19,7 @@ A deferral that exists only in a PR comment is gone the moment the PR merges. Th
 
 **Filing is not cheaper than fixing.** The effort-first rules in 4.4 and 6.4 still decide the bucket, and this step does not soften them. An `[AUTO DRAFT]` issue for something that was a five-minute fix is a defect in the cycle, not an output.
 
-**Cap: 3 issues per cycle.** A cycle that files six tickets per PR grows the backlog faster than the cycle drains it. Run the duplicate check below across every deferral **first** — a duplicate adds nothing to the backlog, so it must not consume a slot — then, if more than three still survive, rank by the priority you would assign each one (2 before 3 before 4), break ties by putting correctness and data-loss findings ahead of everything else, and file the top three. List the remainder in the 7.6 report as unfiled, one line each — they are not lost, they are handed to the operator.
+**Cap: 3 issues per cycle.** Follow-ups do not count toward it and are never dropped by it. A cycle that files six tickets per PR grows the backlog faster than the cycle drains it. Run the duplicate check below across every deferral **first** — a duplicate adds nothing to the backlog, so it must not consume a slot — then, if more than three still survive, rank by the priority you would assign each one (2 before 3 before 4), break ties by putting correctness and data-loss findings ahead of everything else, and file the top three. List the remainder in the 7.6 report as unfiled, one line each — they are not lost, they are handed to the operator.
 
 **Check each one isn't already filed.** A deferred finding often names a pre-existing condition, and the review pass has no memory of the backlog:
 
@@ -59,10 +64,70 @@ Reference other issues as plain text (`HON-NNN`), never as hand-copied `<issue i
 
 **Never nest a markdown table inside a list item.** Linear's description parser silently strips the list item's content indent — 3 characters under `1. `, 2 under `- ` — off the front of every table _body_ cell. The header and delimiter rows survive, so the table still looks right while `` `MealForm.tsx:153` `` has become `` alForm.tsx:153` ``: data loss, not a rendering glitch, and nothing reports it. That lands hardest here — 6.8 files unattended, and the `## Problem` section above is specified as file paths and line numbers, which is exactly the payload that gets eaten. Put any table you add to the issue body at top level, or use a nested bullet list. See CLAUDE.md → Writing for Agents.
 
+## Follow-ups (`kind: follow-up`)
+
+CLAUDE.md → "A follow-up is an issue" is the rule. This section is how the unattended cycle applies it.
+
+**What is a follow-up, and what is not.** A follow-up is a step that a doc rule or the parent's acceptance criteria require, and that this PR does not ship: re-record a golden after a prompt change (`docs/AI_MODELS.md` → Record the golden), run a backfill after a migration. The cycle produces it on purpose, as part of finishing the parent. A review finding is never a follow-up, even when the fix happens after merge. If the block cannot name the rule or criterion in its `why:` line, it is a finding: file it as one.
+
+The distinction matters because the two get different gates. `[AUTO DRAFT]` exists to keep work the cycle *noticed* out of unattended pickup until a human judges it, and that gate stays. A follow-up is not new work the cycle invented: a human queued the parent, and the follow-up is the rest of it. So it takes no prefix and gets the state the CLAUDE.md rule gives it, which may be Queued. A follow-up that only says "fix this later" is a finding with the wrong tag, and filing it Queued would let the cycle implement its own findings unreviewed.
+
+**Where it comes from, and when it is filed:**
+
+| Found in | Filed |
+| --- | --- |
+| The 2.7 plan (`## Follow-ups`) | At 2.8, before the plan is posted, so the plan carries the ID |
+| Phase 3, while implementing | At once, in 3.2. Not through the file: 4.4 truncates it after Phase 3 |
+| 4.4 or 6.4 triage | Appended to the file as a `kind: follow-up` block, filed here at 6.8 |
+
+Block format in the file:
+
+```markdown
+## <the step, sentence case>
+
+kind: follow-up
+why: <the doc rule or acceptance criterion that requires it>
+state: Queued | Todo
+needs-merge: yes | no
+<what to run, on which commit, and how to check it is done>
+```
+
+**Check it isn't already filed.** An orchestrator retry re-runs Phase 2, so a plan-time follow-up can already exist. Re-fetch the parent with `get_issue({ id: "HON-XX", includeRelations: true })` and skip any follow-up whose title is already in `relations.blocks` or `relations.relatedTo`.
+
+**Create it:**
+
+```
+mcp__linear-server__save_issue({
+  team: "Wobblebot",
+  title: "<sentence-case step, no prefix>",
+  description: "Follow-up to HON-XX, filed by /auto-implement <2.8 | 3.2 | 6.8>.
+
+  <## Problem, ## What, ## Acceptance criteria, ## Context — name HON-XX and the PR>",
+  state: "Queued",            // or "Todo" when a human must act (credentials, spend approval, a judgment call)
+  blockedBy: ["HON-XX"],      // needs-merge: yes — use relatedTo: ["HON-XX"] instead when it does not
+  priority: <the parent's priority>,
+  addLabels: ["Follow-up", <the parent's labels, minus Gated, Stranded and Needs attention>],
+})
+```
+
+- **No `[AUTO DRAFT]` prefix.** Only findings take it.
+- **The `Follow-up` label and the first description line** mark the origin, because an issue with no prefix reads as human-written in a list view (CLAUDE.md → "Linear title prefixes"). The first line names the phase that filed it.
+- **`blockedBy` the parent in this same call** when the step needs the parent's change on `main`. The orchestrator picks up a Queued issue within a minute, so without the relation it runs before the parent merges (HON-902 for the same-call rule, HON-1053 for the incident).
+- **Unassigned.** A human picks up a Todo follow-up; the orchestrator picks up a Queued one.
+- **No run-state labels.** `Gated`, `Stranded` and `Needs attention` describe the parent's run. The orchestrator skips a Queued issue labelled `Gated` or `Stranded`, so a copied label strands the follow-up.
+- The body clears "Writing for Agents" in CLAUDE.md: the agent that picks it up has none of this session's context.
+
+**Put the ID in the PR body.** 2.8 and 3.2 filings reach the PR at 5.4. A follow-up filed here at 6.8 is after 5.4, so add it to the Summary's `**Follow-ups:**` line with `gh pr edit <PR_NUMBER> --body-file <file>`. On the 6.7 hand-off path, also list it in the hand-off comment.
+
+**A filing failure.** At 6.8 it does not block the merge, as for findings: print the unfiled body, and say in the 7.6 report that the follow-up has no issue. At 2.8 the plan is not posted: retry once, then stop with the 2.8 error. In 3.2, retry once, then carry the block into the deferrals file after 4.4's truncation so 6.8 tries again.
+
+## Report and exit
+
 Report what was filed:
 
 ```
 [auto-implement] Filed N deferred finding(s): HON-AA, HON-BB
+[auto-implement] Filed N follow-up(s): HON-CC
 ```
 
 When neither 4.4 nor 6.4 deferred anything, this step is a no-op — a clean PR review alone does not mean that, since 4.4's deferrals arrive here too:

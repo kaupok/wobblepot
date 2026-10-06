@@ -282,7 +282,8 @@ After merging but before local cleanup, post a work summary to the linked Linear
 # `files` is capped at 100 here and left that way on purpose (HON-587): this list is
 # cosmetic, and truncating a changelog is not a merge gate. The docs-only decision
 # in Step 2 reads the paginated REST endpoint instead.
-gh pr view <PR_NUMBER> --json number,title,url,commits,files
+# `body` carries the Summary's **Follow-ups** line, read for `### Follow-ups` below.
+gh pr view <PR_NUMBER> --json number,title,url,body,commits,files
 
 # Review comments: inline comments + review-level summaries
 # (`:owner/:repo` is auto-filled by gh from the current git remote)
@@ -292,6 +293,12 @@ gh pr view <PR_NUMBER> --json number,title,url,commits,files
 # comments". A genuinely empty `[]` still passes — only null/false are falsy to `//`.
 gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/comments?per_page=100' | jq -s 'add // error("fetch produced no output")'
 gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/reviews?per_page=100'  | jq -s 'add // error("fetch produced no output")'
+```
+
+**Fetch the plan comment** (the one starting `# Plan:`), for its `## Follow-ups` section:
+
+```
+mcp__linear-server__list_comments({ issueId: "HON-XX" })
 ```
 
 **Post comment to Linear:**
@@ -319,7 +326,12 @@ mcp__linear-server__save_comment({
 
 ### Review feedback addressed
 - [summary of review comments that were addressed, or "No review feedback" if none]
+
+### Follow-ups
+- [One issue ID per line: HON-NNN. Or "None".]
 ```
+
+**Follow-ups hold issue IDs only.** Collect them from the plan comment's `## Follow-ups` and the PR body's **Follow-ups** line. Do not read them off the issue's `relations.blocks`: that list also holds issues blocked only for sequencing (CLAUDE.md → "Queueing issues that touch the same files"), which are not follow-ups. If you know of a step this issue still needs that has no issue (a plan line marked `to file:`, a hand-off comment, a "Not verified" line that names a post-merge step), file it first with the `save_issue` call in `/plan-issue` step 10 (`addLabels: ["Follow-up"]`, first description line `Follow-up to HON-XX, filed by /merge.`), then list its ID. Never write the step as text under this heading or anywhere else in the comment: this issue is Done once the comment posts, and nobody reads a Done issue again (CLAUDE.md → "A follow-up is an issue", HON-1053). A follow-up filed here needs no `blockedBy`, because the change is already on `main`: use `relatedTo`.
 
 **After posting**, print the summary to the terminal as well so the user can see it inline.
 

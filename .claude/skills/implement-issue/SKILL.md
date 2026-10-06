@@ -189,6 +189,8 @@ Starting with step 1...
 
 Then implement following the plan steps (or issue description if `--no-plan`).
 
+**File follow-ups as you find them.** If the implementation shows a step this issue needs that the PR cannot ship (a golden re-record after a prompt change, a backfill after a migration), file it as a Linear issue before this skill ends, per CLAUDE.md → "A follow-up is an issue". Use the `save_issue` call in `/plan-issue` step 10: Queued or Todo, `blockedBy: ["HON-XX"]` when it needs this change on `main`, `addLabels: ["Follow-up"]`, the first description line `Follow-up to HON-XX, filed by /implement-issue.`, no prefix. A plan line still marked `to file:` (the filing failed when the plan was posted) is filed here too. A follow-up written only into the plan, a commit message or the summary is lost once this issue is Done.
+
 **Work the plan's `## Coupled callsites` section too, if it has one.** It is a sibling of `## Implementation Steps`, not a member, so "follow the plan steps" walks straight past it. Every entry bucketed **Mirror** must be edited in this phase — the section exists because `/plan-issue` step 7b found callsites that hardcode a copy of the geometry you are changing, and leaving them for review is the failure that scan was written to prevent.
 
 ### 9. Signal completion
@@ -198,6 +200,7 @@ Before signalling completion, confirm the definition of done:
 - **E2E drift**: if you touched `src/app/**/page.tsx`, a route URL, navigation/CTA copy, or a modal/dialog, grep `tests/e2e/` via the spec `// ROUTES: … · COMPONENTS: …` headers (`grep -l "ROUTES.*<route>\|COMPONENTS.*<Component>" tests/e2e/*.spec.ts`; for copy renames also `grep -rn "<exact old copy>" tests/e2e/`) and update affected specs (CLAUDE.md E2E rule)
 - **Storybook**: if you touched `src/components/**`, create/update the colocated `.stories.tsx` and run `pnpm test-storybook:ci` (CLAUDE.md Storybook rule)
 - **Coupled callsites**: if you changed a geometry default on a primitive under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper, every **Mirror** is edited — from the plan's `## Coupled callsites` section if it has one, otherwise by running `/plan-issue` step 7b's greps now. Keyed off the diff, not the plan, so it still fires under `--no-plan` and on plans written before that section existed (CLAUDE.md shared-primitive geometry rule)
+- **Follow-ups**: every step this issue needs that the PR does not ship has an issue ID, from the plan's `## Follow-ups` or filed in step 8
 - `pnpm lint && pnpm type-check && pnpm test` pass
 
 After implementing all steps, output the completion marker exactly as shown:
@@ -205,6 +208,8 @@ After implementing all steps, output the completion marker exactly as shown:
 ```
 [implement-issue:complete] Implementation complete for HON-XX
 ```
+
+If this issue has follow-ups, print their IDs on the next line, so `/create-pr` can put them in the PR body: `Follow-ups: HON-AA (Queued, blocked by HON-XX), HON-BB (Todo)`.
 
 This marker signals to orchestrating skills (like `/auto-implement`) that implementation is finished. The calling context will determine what happens next.
 

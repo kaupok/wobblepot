@@ -110,6 +110,7 @@ This goes in the Summary section of the description (step 6). The goal: a review
 
 - [1-3 bullet points describing the changes]
 - **E2E impact:** [From step 5b — either `E2E specs updated: tests/e2e/foo.spec.ts, tests/e2e/bar.spec.ts` or `No E2E impact`. Omit the line entirely only if the diff is pure-backend with no UI / route / modal surface.]
+- **Follow-ups:** [IDs of the issues filed for steps this PR does not ship (the plan's `## Follow-ups`, and any `/implement-issue` filed): `HON-NNN (Queued, blocked by HON-XX)`. Omit the line if there are none.]
 - **Coupled callsites:** [If the diff changes a primitive's geometry default, a `@theme` token, or a shared layout wrapper — either `Mirrors updated: src/app/foo/loading.tsx, …` or `none — no callsite hardcodes the changed <property>`. Omit the line entirely if none of those changed. Without it the scan's result lives only in the Linear plan and a GitHub reviewer cannot see that it ran (CLAUDE.md shared-primitive geometry rule).]
 
 ## Verified
@@ -130,7 +131,7 @@ If Linear issue is linked, include `Closes HON-XX` at the end of the Context sec
 1. A line goes under "Verified" only if you ran it and saw the result. Intent is not verification.
 2. Do not write a step for a human to perform. If a fact can be asserted, assert it in a test or a story play function and cite that under "Verified". If it cannot be checked at all, it goes under "Not verified" with the reason.
 3. "Not verified" is not a to-do list and creates no follow-up by itself. It is a statement of remaining risk.
-4. A step that must happen after merge (restart a process, run a workflow) is not a PR line at all: the merge step performs it, or it is a Todo issue assigned to a human, per CLAUDE.md → "Queued is the queue".
+4. A step that must happen after merge (restart a process, run a workflow, re-record a golden) is not a "Verified" or "Not verified" line. The merge step performs it, or it is an issue, filed before this PR merges, with its ID on the Summary's **Follow-ups** line (CLAUDE.md → "A follow-up is an issue"). If it has no issue yet, file it now with the `save_issue` call in `/plan-issue` step 10 (`addLabels: ["Follow-up"]`, first description line `Follow-up to HON-XX, filed by /create-pr.`), then list the ID.
 
 ### 7. Push and create PR
 
