@@ -22,8 +22,9 @@ export const MEASURED_BY_VOLUME_SUBCATEGORIES: ReadonlySet<string> = new Set([
 ])
 
 /**
- * Pourable ingredients in subcategories that also hold spoonable ones:
- * `cream` holds clotted cream, `sauce` holds pesto and mayonnaise.
+ * Pourable ingredients outside those subcategories: in mixed ones (`cream`
+ * holds clotted cream, `sauce` holds pesto and mayonnaise), in `acid` (the
+ * vinegars), or with no subcategory at all.
  */
 export const MEASURED_BY_VOLUME_NAMES: ReadonlySet<string> = new Set([
   'heavy cream',
@@ -43,6 +44,10 @@ export const MEASURED_BY_VOLUME_NAMES: ReadonlySet<string> = new Set([
   'teriyaki sauce',
   'coconut aminos',
   'tucupi',
+  'vinegar',
+  'balsamic vinegar',
+  'canola oil',
+  'half and half',
 ])
 
 /** Solid or spoonable ingredients in a pourable subcategory. Wins over both lists above. */

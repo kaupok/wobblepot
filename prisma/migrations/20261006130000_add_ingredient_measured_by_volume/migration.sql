@@ -40,7 +40,11 @@ WHERE "householdId" IS NULL
       'hot sauce',
       'teriyaki sauce',
       'coconut aminos',
-      'tucupi'
+      'tucupi',
+      'vinegar',
+      'balsamic vinegar',
+      'canola oil',
+      'half and half'
     )
   )
   AND "name" NOT IN (

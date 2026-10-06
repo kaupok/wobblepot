@@ -22,6 +22,8 @@ describe('isMeasuredByVolume', () => {
   it.each([
     ['heavy cream', 'cream'],
     ['soy sauce', 'sauce'],
+    ['balsamic vinegar', 'acid'],
+    ['canola oil', null],
   ])('is true for the named liquid %j in a mixed subcategory (%s)', (name, subcategory) => {
     expect(isMeasuredByVolume({ name, subcategory })).toBe(true)
   })
