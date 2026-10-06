@@ -8,6 +8,7 @@ interface IngredientAlternative {
   name: string
   category: IngredientCategory
   defaultUnit: Unit
+  measuredByVolume?: boolean
   similarity: number
 }
 
@@ -23,6 +24,7 @@ interface MatchedIngredient {
     category: IngredientCategory
     defaultUnit: Unit
     gramsPerPiece: number | null
+    measuredByVolume?: boolean
     calories?: number
     protein?: number
     carbs?: number
@@ -121,6 +123,7 @@ export function convertToPrefilledData(meal: ImaginedMealResponse): {
           name: ingredient.ingredient.name,
           category: ingredient.ingredient.category,
           defaultUnit: ingredient.ingredient.defaultUnit,
+          measuredByVolume: ingredient.ingredient.measuredByVolume,
           gramsPerPiece: ingredient.ingredient.gramsPerPiece,
           calories: ingredient.ingredient.calories,
           protein: ingredient.ingredient.protein,
@@ -144,6 +147,7 @@ export function convertToPrefilledData(meal: ImaginedMealResponse): {
         name: ingredient.ingredient.name,
         category: ingredient.ingredient.category,
         defaultUnit: ingredient.ingredient.defaultUnit,
+        measuredByVolume: ingredient.ingredient.measuredByVolume,
         gramsPerPiece: ingredient.ingredient.gramsPerPiece,
         calories: ingredient.ingredient.calories,
         protein: ingredient.ingredient.protein,

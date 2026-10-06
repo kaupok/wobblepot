@@ -383,6 +383,7 @@
       "updating": "Uuendan…",
       "pieceQuantity": "{count, plural, =0 {0 tk} one {# tk} other {# tk}}",
       "gramsQuantity": "{count}g",
+      "millilitresQuantity": "{count}ml",
       "someQuantity": "veidi"
     },
     "day": {

@@ -130,6 +130,7 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
                   name: translateIngredient(comp.ingredient, locale).name,
                   category: comp.ingredient.category,
                   defaultUnit: comp.ingredient.defaultUnit,
+                  measuredByVolume: comp.ingredient.measuredByVolume,
                   gramsPerPiece: comp.ingredient.gramsPerPiece,
                 },
               })),

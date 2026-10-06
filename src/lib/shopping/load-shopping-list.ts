@@ -8,7 +8,7 @@ import {
   formatRelativeDate,
   formatAbsoluteDate,
 } from '@/lib/i18n/format-dates'
-import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
+import { displayUnit, formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 export interface ShoppingListHousehold {
@@ -93,7 +93,7 @@ export async function loadShoppingList(
         unit: item.ingredient.defaultUnit,
         displayQuantity: formatShoppingQuantity(
           item.shoppingQuantity,
-          item.ingredient.defaultUnit,
+          displayUnit(item.ingredient),
           locale,
           item.isVague,
           item.originalPhrase,

@@ -48,7 +48,7 @@ export function LowConfidenceIngredientRow({
     maximumFractionDigits: 1,
   })
   const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
-  const unitLabel = formatUnit(data.ingredient.defaultUnit)
+  const unitLabel = formatUnit(data.ingredient)
   const isDuplicate = duplicateIndices && duplicateIndices.length > 0
 
   const handleAlternativeSelect = (selectedId: string) => {
@@ -62,6 +62,7 @@ export function LowConfidenceIngredientRow({
         name: selectedAlt.name,
         category: selectedAlt.category,
         defaultUnit: selectedAlt.defaultUnit,
+        measuredByVolume: selectedAlt.measuredByVolume,
       },
       totalQuantity: data.totalQuantity,
       isVague: data.isVague,

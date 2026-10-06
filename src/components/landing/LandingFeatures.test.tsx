@@ -131,6 +131,8 @@ describe('LandingFeatures', () => {
     }
     expect(within(pantry).getByRole('checkbox', { name: /Lemon/ })).not.toBeChecked()
     expect(within(pantry).getByText('300g')).toBeInTheDocument()
+    // The oil is a liquid, so it reads in ml (HON-1054).
+    expect(within(pantry).getByText('25ml')).toBeInTheDocument()
     expect(within(pantry).getByText('1 pc')).toBeInTheDocument()
   })
 

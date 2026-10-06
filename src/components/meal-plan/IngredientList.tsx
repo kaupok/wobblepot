@@ -6,7 +6,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Body, Heading, Ul, Li } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { formatQuantity as formatLocaleQuantity } from '@/lib/i18n/format-number'
-import { formatWeight, withPieceUnit } from '@/lib/i18n/format-shopping-quantity'
+import {
+  displayUnit,
+  formatMeasure,
+  withPieceUnit,
+  type DisplayUnit,
+} from '@/lib/i18n/format-shopping-quantity'
 import type { Locale } from '@/lib/i18n/locales'
 import { useEnumLabel, useVaguePhrase } from '@/lib/i18n/enum-label'
 import { AvailabilityStatus, getIngredientAvailabilitySets } from './AvailabilityIndicator'
@@ -49,7 +54,7 @@ interface IngredientListProps {
 function formatQuantity(
   quantityPerServing: number,
   servings: number,
-  unit: 'g' | 'piece',
+  unit: DisplayUnit,
   locale: Locale,
   isVague: boolean | undefined,
   originalPhrase: string | null | undefined,
@@ -73,8 +78,9 @@ function formatQuantity(
     )
   }
 
-  // Grams switch to kg at 1000g, as on the shopping list and pantry (HON-950).
-  return formatWeight(totalQuantity, locale)
+  // Grams switch to kg at 1000g, as on the shopping list and pantry (HON-950);
+  // a liquid shows in ml and switches to l (HON-1054).
+  return formatMeasure(totalQuantity, unit, locale)
 }
 
 export function IngredientList({
@@ -131,7 +137,7 @@ export function IngredientList({
       const qty = formatQuantity(
         comp.quantityPerServing,
         servings,
-        comp.ingredient.defaultUnit,
+        displayUnit(comp.ingredient),
         locale,
         comp.isVague,
         comp.originalPhrase,
@@ -184,7 +190,7 @@ export function IngredientList({
               {formatQuantity(
                 comp.quantityPerServing,
                 servings,
-                comp.ingredient.defaultUnit,
+                displayUnit(comp.ingredient),
                 locale,
                 comp.isVague,
                 comp.originalPhrase,

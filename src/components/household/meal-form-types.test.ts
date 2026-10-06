@@ -6,6 +6,7 @@ import etMessages from '../../../messages/et.json'
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
 import {
   buildFinalComponents,
+  formatUnit,
   mealComponentErrorMessage,
   type IngredientResult,
   type MealComponent,
@@ -98,5 +99,23 @@ describe('mealComponentErrorMessage', () => {
     expect(
       mealComponentErrorMessage({ code: 'unverified', names: ['Rice', 'Leek'] }, tEn, 'en'),
     ).toBe('Verify matches before saving: Rice, Leek')
+  })
+})
+
+// The label beside a quantity field. A liquid says ml; the stored number is
+// the same, because 1 g = 1 ml (HON-1054).
+describe('formatUnit', () => {
+  it('labels a gram ingredient g', () => {
+    expect(formatUnit({ defaultUnit: 'g' })).toBe('g')
+    expect(formatUnit({ defaultUnit: 'g', measuredByVolume: false })).toBe('g')
+  })
+
+  it('labels a measured-by-volume ingredient ml', () => {
+    expect(formatUnit({ defaultUnit: 'g', measuredByVolume: true })).toBe('ml')
+  })
+
+  it('leaves a piece ingredient unlabelled', () => {
+    expect(formatUnit({ defaultUnit: 'piece' })).toBe('')
+    expect(formatUnit({ defaultUnit: 'piece', measuredByVolume: true })).toBe('')
   })
 })

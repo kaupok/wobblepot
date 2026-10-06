@@ -164,7 +164,14 @@ describe('GET /api/pantry', () => {
       where: { householdId: 'household-123' },
       include: {
         ingredient: {
-          select: { id: true, name: true, category: true, defaultUnit: true, gramsPerPiece: true },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            defaultUnit: true,
+            gramsPerPiece: true,
+            measuredByVolume: true,
+          },
         },
       },
     })
@@ -594,6 +601,50 @@ describe('GET /api/pantry', () => {
     expect(response.status).toBe(200)
     expect(data.items[0].neededQuantity).toBe(1500)
     expect(data.items[0].neededDisplayQuantity).toBe('1.5kg')
+  })
+
+  // A liquid shows its stored grams as millilitres, 1:1; the raw quantity stays
+  // in grams (HON-1054).
+  it('formats a measured-by-volume ingredient in ml and l', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'pantry-1',
+        householdId: 'household-123',
+        ingredientId: 'ing-1',
+        quantity: null,
+        isStaple: false,
+        updatedAt: new Date('2024-01-01'),
+        ingredient: {
+          id: 'ing-1',
+          name: 'Milk',
+          category: 'dairy',
+          defaultUnit: 'g',
+          gramsPerPiece: null,
+          measuredByVolume: true,
+        },
+      },
+    ] as never)
+    mockFindManyEntries.mockResolvedValue([
+      {
+        id: 'entry-1',
+        date: new Date(),
+        status: 'planned',
+        meal: { components: [{ ingredientId: 'ing-1', quantityPerServing: 750 }] },
+      },
+    ] as never)
+
+    const response = await GET(createMockRequest('http://localhost/api/pantry?days=7'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.items[0].neededQuantity).toBe(1500)
+    expect(data.items[0].neededDisplayQuantity).toBe('1.5l')
   })
 
   it('formats kg needed quantities with a comma decimal for et households', async () => {

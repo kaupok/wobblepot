@@ -433,7 +433,7 @@ export function ImagineReviewDialog({
                     const perServing = formatQuantity(row.totalQuantity / meal.servings, locale, {
                       maximumFractionDigits: 1,
                     })
-                    const unitLabel = formatUnit(row.ingredient.defaultUnit)
+                    const unitLabel = formatUnit(row.ingredient)
                     return (
                       <div key={index} className="flex items-center justify-between px-3 py-1">
                         <Body variant="small">{row.ingredient.name}</Body>

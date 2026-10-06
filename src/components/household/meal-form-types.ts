@@ -1,6 +1,7 @@
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { IngredientRowData } from '@/components/recipes/IngredientRow'
 import type { IngredientResult } from '@/hooks/use-ingredient-search'
+import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 
 export type MealTypeValue = 'breakfast' | 'lunch' | 'dinner'
 
@@ -15,6 +16,7 @@ export interface IngredientAlternative {
   name: string
   category: IngredientCategory
   defaultUnit: Unit
+  measuredByVolume?: boolean
   similarity: number
 }
 
@@ -37,6 +39,7 @@ export interface PrefilledIngredient {
     category: IngredientCategory
     defaultUnit: Unit
     gramsPerPiece?: number | null
+    measuredByVolume?: boolean
     calories?: number
     protein?: number
     carbs?: number
@@ -77,6 +80,7 @@ export interface MealFormData {
       category: IngredientCategory
       defaultUnit: Unit
       gramsPerPiece?: number | null
+      measuredByVolume?: boolean
       calories?: number
       protein?: number
       carbs?: number
@@ -96,12 +100,17 @@ export interface MealFormProps {
   onCancel: () => void
 }
 
-// Display 'g' for gram quantities; hide the unit for piece-counted items (the
-// number alone reads more naturally — "5 lemons" not "5 pcs lemons"). Estonian
-// translations live in the catalog under `enums.Unit.*` for any future
-// consumer that wants to render piece units explicitly.
-export function formatUnit(unit: Unit): string {
-  return unit === 'g' ? 'g' : ''
+// The unit label beside a quantity: 'g' for grams, 'ml' for an ingredient a
+// cook measures by volume (1 g = 1 ml, HON-1054), and nothing for piece-counted
+// items (the number alone reads more naturally — "5 lemons" not "5 pcs
+// lemons"). Estonian translations live in the catalog under `enums.Unit.*` for
+// any future consumer that wants to render piece units explicitly.
+export function formatUnit(ingredient: {
+  defaultUnit: string
+  measuredByVolume?: boolean
+}): string {
+  const unit = displayUnit(ingredient)
+  return unit === 'piece' ? '' : unit
 }
 
 const MAX_LISTED_NAMES = 3

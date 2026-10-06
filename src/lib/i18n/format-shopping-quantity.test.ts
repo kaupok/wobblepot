@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import type { Unit } from '@/generated/prisma/enums'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import {
+  displayUnit,
+  formatMeasure,
   formatShoppingQuantity as format,
+  formatVolume,
   formatWeight,
   withPieceUnit,
+  type DisplayUnit,
 } from './format-shopping-quantity'
 import type { Locale } from './locales'
 import type { VaguePhraseKey } from './vague-phrase'
@@ -19,7 +22,7 @@ const NBSP = '\u00a0'
 /** Formats with the locale's own `enums.VaguePhrase` and `enums.Unit` labels, as the server callers do. */
 function formatShoppingQuantity(
   quantity: number,
-  unit: Unit,
+  unit: DisplayUnit,
   locale: Locale,
   isVague = false,
   originalPhrase: string | null = null,
@@ -41,6 +44,23 @@ describe('formatShoppingQuantity', () => {
 
     it('renders zero grams', () => {
       expect(formatShoppingQuantity(0, 'g', 'en')).toBe('0g')
+    })
+  })
+
+  // A flagged liquid: the stored grams read as millilitres, 1:1 (HON-1054).
+  describe('millilitres', () => {
+    it('renders a flagged ingredient in ml', () => {
+      expect(formatShoppingQuantity(120, 'ml', 'en')).toBe('120ml')
+      expect(formatShoppingQuantity(120, 'ml', 'et')).toBe('120ml')
+    })
+
+    it('switches to litres with the locale decimal separator', () => {
+      expect(formatShoppingQuantity(1500, 'ml', 'en')).toBe('1.5l')
+      expect(formatShoppingQuantity(1500, 'ml', 'et')).toBe('1,5l')
+    })
+
+    it('still shows the phrase for a vague quantity', () => {
+      expect(formatShoppingQuantity(0, 'ml', 'en', true, 'splash')).toBe('a splash')
     })
   })
 
@@ -139,6 +159,56 @@ describe('formatWeight', () => {
   it('rounds to one fraction digit with the locale decimal separator', () => {
     expect(formatWeight(1250, 'en')).toBe('1.3kg')
     expect(formatWeight(1250, 'et')).toBe('1,3kg')
+  })
+})
+
+describe('formatVolume', () => {
+  it('renders whole millilitres below 1000ml', () => {
+    expect(formatVolume(120, 'en')).toBe('120ml')
+    expect(formatVolume(999, 'et')).toBe('999ml')
+    expect(formatVolume(62.4, 'en')).toBe('62ml')
+  })
+
+  it('renders litres when the millilitres would round up to 1000', () => {
+    expect(formatVolume(999.4, 'en')).toBe('999ml')
+    expect(formatVolume(999.5, 'en')).toBe('1l')
+  })
+
+  it('collapses whole litres', () => {
+    expect(formatVolume(1000, 'en')).toBe('1l')
+    expect(formatVolume(2000, 'et')).toBe('2l')
+  })
+
+  it('renders fractional litres with the locale decimal separator', () => {
+    expect(formatVolume(1500, 'en')).toBe('1.5l')
+    expect(formatVolume(1500, 'et')).toBe('1,5l')
+    expect(formatVolume(1250, 'en')).toBe('1.3l')
+  })
+})
+
+describe('formatMeasure', () => {
+  it('formats grams as weight and millilitres as volume', () => {
+    expect(formatMeasure(120, 'g', 'en')).toBe('120g')
+    expect(formatMeasure(120, 'ml', 'en')).toBe('120ml')
+  })
+})
+
+describe('displayUnit', () => {
+  it('shows a flagged gram ingredient in ml', () => {
+    expect(displayUnit({ defaultUnit: 'g', measuredByVolume: true })).toBe('ml')
+  })
+
+  it('keeps grams for an unflagged ingredient', () => {
+    expect(displayUnit({ defaultUnit: 'g', measuredByVolume: false })).toBe('g')
+  })
+
+  it('reads an absent flag as grams', () => {
+    expect(displayUnit({ defaultUnit: 'g' })).toBe('g')
+  })
+
+  it('keeps pieces whatever the flag says', () => {
+    expect(displayUnit({ defaultUnit: 'piece', measuredByVolume: true })).toBe('piece')
+    expect(displayUnit({ defaultUnit: 'piece' })).toBe('piece')
   })
 })
 

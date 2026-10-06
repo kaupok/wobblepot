@@ -11,7 +11,7 @@ import {
   formatRelativeDate,
   formatAbsoluteDate,
 } from '@/lib/i18n/format-dates'
-import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
+import { displayUnit, formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { captureApiError } from '@/lib/errors'
 
@@ -111,7 +111,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           unit: item.ingredient.defaultUnit,
           displayQuantity: formatShoppingQuantity(
             item.shoppingQuantity,
-            item.ingredient.defaultUnit,
+            displayUnit(item.ingredient),
             locale,
             item.isVague,
             item.originalPhrase,

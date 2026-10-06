@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
-import { formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
+import { displayUnit, formatShoppingQuantity } from '@/lib/i18n/format-shopping-quantity'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 import { MIXED_VAGUE_PHRASE } from '@/lib/vague-quantities'
 import { sameVaguePhrase } from '@/lib/i18n/vague-phrase'
@@ -45,6 +45,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
             category: true,
             defaultUnit: true,
             gramsPerPiece: true,
+            measuredByVolume: true,
             ...ingredientTranslationsInclude(locale),
           },
         },
@@ -164,7 +165,7 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
             // "2 tk".
             neededDisplayQuantity: formatShoppingQuantity(
               neededInfo.quantity,
-              item.ingredient.defaultUnit,
+              displayUnit(item.ingredient),
               locale,
               neededInfo.isVague,
               neededInfo.originalPhrase,

@@ -298,6 +298,7 @@ export async function GET(request: NextRequest) {
                 name: true,
                 category: true,
                 defaultUnit: true,
+                measuredByVolume: true,
                 gramsPerPiece: true,
                 calories: true,
                 protein: true,
@@ -355,6 +356,7 @@ export async function GET(request: NextRequest) {
             name: translatedIngredient.name,
             category: translatedIngredient.category,
             defaultUnit: translatedIngredient.defaultUnit,
+            measuredByVolume: translatedIngredient.measuredByVolume,
             gramsPerPiece: translatedIngredient.gramsPerPiece,
           },
         }

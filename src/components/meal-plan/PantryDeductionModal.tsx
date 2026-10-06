@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Body } from '@/components/ui/typography'
+import { displayUnit, type DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
 import type { MealComponent, PantryItemFull, PantryDeductionItem } from './types'
 
 interface PantryDeductionModalProps {
@@ -57,7 +58,7 @@ export function computeDeductions(
       deductions.push({
         ingredientId: component.ingredientId,
         ingredientName: component.ingredient.name,
-        unit: component.ingredient.defaultUnit,
+        unit: displayUnit(component.ingredient),
         currentQuantity: null,
         deductionAmount,
         newQuantity: null,
@@ -71,7 +72,7 @@ export function computeDeductions(
     deductions.push({
       ingredientId: component.ingredientId,
       ingredientName: component.ingredient.name,
-      unit: component.ingredient.defaultUnit,
+      unit: displayUnit(component.ingredient),
       currentQuantity,
       deductionAmount,
       newQuantity: newQuantity <= 0 ? null : newQuantity,
@@ -82,7 +83,7 @@ export function computeDeductions(
   return deductions
 }
 
-type FormatQuantityFn = (quantity: number | null, unit: 'g' | 'piece') => string
+type FormatQuantityFn = (quantity: number | null, unit: DisplayUnit) => string
 
 export function PantryDeductionModal({
   open,
@@ -102,6 +103,10 @@ export function PantryDeductionModal({
     if (quantity === null) return t('someQuantity')
     if (unit === 'piece') {
       return t('pieceQuantity', { count: quantity })
+    }
+    // A liquid reads in ml, 1 g = 1 ml (HON-1054).
+    if (unit === 'ml') {
+      return t('millilitresQuantity', { count: Math.round(quantity) })
     }
     return t('gramsQuantity', { count: Math.round(quantity) })
   }

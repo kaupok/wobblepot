@@ -1,6 +1,7 @@
 import type { MealImageFields } from './MealImageCard'
 import type { MealImageStatus, MealType } from '@/generated/prisma/enums'
 import type { RatingSignal } from '@/lib/meal-planning/candidate-score'
+import type { DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
 
 export interface MealComponent {
   ingredientId: string
@@ -13,6 +14,8 @@ export interface MealComponent {
     category: string
     defaultUnit: 'g' | 'piece'
     gramsPerPiece?: number | null
+    /** Shown in millilitres, 1 g = 1 ml (HON-1054). Absent reads as grams. */
+    measuredByVolume?: boolean
   }
 }
 
@@ -148,7 +151,7 @@ export interface PantryItemFull {
 export interface PantryDeductionItem {
   ingredientId: string
   ingredientName: string
-  unit: 'g' | 'piece'
+  unit: DisplayUnit
   currentQuantity: number | null
   deductionAmount: number
   newQuantity: number | null // null means "will be removed"

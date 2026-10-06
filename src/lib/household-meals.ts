@@ -72,6 +72,7 @@ export async function listHouseholdMeals({
               name: true,
               category: true,
               defaultUnit: true,
+              measuredByVolume: true,
               gramsPerPiece: true,
               calories: true,
               protein: true,
@@ -149,6 +150,7 @@ export async function listHouseholdMeals({
             name: translatedIngredient.name,
             category: translatedIngredient.category,
             defaultUnit: translatedIngredient.defaultUnit,
+            measuredByVolume: translatedIngredient.measuredByVolume,
             gramsPerPiece: translatedIngredient.gramsPerPiece,
           },
         }

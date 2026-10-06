@@ -141,6 +141,7 @@ export async function loadDemoDay({
           name: translateIngredient(comp.ingredient, rowLocale).name,
           quantityPerServing: comp.quantityPerServing,
           defaultUnit: comp.ingredient.defaultUnit,
+          measuredByVolume: comp.ingredient.measuredByVolume,
         })),
         locale: rowLocale,
       })
@@ -199,6 +200,7 @@ export async function loadDemoDay({
                 name: translateIngredient(comp.ingredient, locale).name,
                 category: comp.ingredient.category,
                 defaultUnit: comp.ingredient.defaultUnit,
+                measuredByVolume: comp.ingredient.measuredByVolume,
                 gramsPerPiece: comp.ingredient.gramsPerPiece,
               },
             })),

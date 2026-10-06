@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import {
   createIngredientAlternative,
+  createIngredientResult,
   createLowConfidenceIngredientRowData,
 } from '@/stories/fixtures'
 import { expectAtMostLines, expectWithinHorizontally } from '@/stories/layout-helpers'
@@ -194,6 +195,53 @@ export const SelectingAlternativeInvokesOnUpdate: Story = {
         type: 'matched',
         ingredient: expect.objectContaining({ id: 'chicken-breast', name: 'Chicken breast' }),
         totalQuantity: 600,
+      }),
+    )
+  },
+}
+
+// A liquid reads in ml (HON-1054), and a picked alternative keeps its flag, so
+// the matched row it becomes still says ml.
+export const LiquidSelectingAlternativeKeepsMillilitres: Story = {
+  args: {
+    data: createLowConfidenceIngredientRowData({
+      extractedName: 'olive oil',
+      originalText: '60ml olive oil',
+      ingredient: createIngredientResult({ id: 'olive-oil' }),
+      totalQuantity: 60,
+      alternatives: [
+        createIngredientAlternative({
+          id: 'extra-virgin-olive-oil',
+          name: 'Extra virgin olive oil',
+          category: 'fat',
+          defaultUnit: 'g',
+          measuredByVolume: true,
+          similarity: 0.8,
+        }),
+      ],
+    }),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('15ml per serving')).toBeInTheDocument()
+
+    await userEvent.click(canvas.getByRole('combobox', { name: /verify ingredient match/i }))
+    const body = within(document.body)
+    await userEvent.click(await body.findByRole('option', { name: /extra virgin olive oil/i }))
+    // Await the Select's close sequence before the a11y gate runs (see
+    // SelectingAlternativeInvokesOnUpdate).
+    await waitFor(() => {
+      expect(document.querySelectorAll('[role="listbox"]').length).toBe(0)
+    })
+
+    await expect(args.onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'matched',
+        ingredient: expect.objectContaining({
+          id: 'extra-virgin-olive-oil',
+          measuredByVolume: true,
+        }),
+        totalQuantity: 60,
       }),
     )
   },

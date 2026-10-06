@@ -68,6 +68,7 @@ function createIngredient(overrides: Partial<ShoppingListItem['ingredient']> = {
     category: 'protein' as IngredientCategory,
     defaultUnit: 'g' as Unit,
     gramsPerPiece: null as number | null,
+    measuredByVolume: false,
     ...overrides,
   }
 }

@@ -32,6 +32,7 @@ function matched(
       category: 'spice',
       subcategory: null,
       defaultUnit: 'g',
+      measuredByVolume: false,
       gramsPerPiece: null,
       calories: 0,
       protein: 0,
@@ -84,6 +85,7 @@ describe('translateMatchResults', () => {
             name: 'black pepper',
             category: 'spice',
             defaultUnit: 'g',
+            measuredByVolume: false,
             similarity: 0.6,
           },
           {
@@ -91,6 +93,7 @@ describe('translateMatchResults', () => {
             name: 'white pepper',
             category: 'spice',
             defaultUnit: 'g',
+            measuredByVolume: false,
             similarity: 0.5,
           },
         ],

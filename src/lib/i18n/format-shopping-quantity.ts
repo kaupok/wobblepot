@@ -1,13 +1,36 @@
-import type { Unit } from '@/generated/prisma/enums'
 import { formatQuantity, formatInteger } from './format-number'
 import type { Locale } from './locales'
 import { formatVaguePhrase, type VaguePhraseLabel } from './vague-phrase'
 
 /**
+ * The unit a quantity is shown in. Storage has only `g` and `piece`; `ml` is a
+ * display unit for an ingredient a cook measures by volume (HON-1054).
+ */
+export type DisplayUnit = 'g' | 'ml' | 'piece'
+
+/**
+ * Choose the unit an ingredient's quantity is shown in. Every screen that
+ * shows a quantity calls this, so no screen keeps its own copy of the rule.
+ *
+ * An ingredient with `measuredByVolume` shows its stored grams as millilitres,
+ * 1 g = 1 ml, because recipe import and the seeds store 1 ml as 1 g
+ * (HON-1054). An absent flag reads as grams, which is the rule for
+ * household-owned ingredients.
+ */
+export function displayUnit(ingredient: {
+  defaultUnit: string
+  measuredByVolume?: boolean
+}): DisplayUnit {
+  if (ingredient.defaultUnit === 'piece') return 'piece'
+  return ingredient.measuredByVolume ? 'ml' : 'g'
+}
+
+/**
  * Format a shopping-list quantity for display in the active locale.
  *
  * `quantity` is in the ingredient's `defaultUnit`, the unit
- * `MealComponent.quantityPerServing` is stored in (HON-713).
+ * `MealComponent.quantityPerServing` is stored in (HON-713); `unit` is
+ * `displayUnit(ingredient)`.
  *
  * - Vague: returns the phrase in the household's language through `tVague`
  *   (the `enums.VaguePhrase` translator); a phrase outside the vocabulary
@@ -16,13 +39,14 @@ import { formatVaguePhrase, type VaguePhraseLabel } from './vague-phrase'
  *   buys enough, and labelled with `pieceLabel` (`enums.Unit.piece`): `1 pc`,
  *   `1 tk` (HON-956).
  * - Grams: `formatWeight` — `<n>g` below 1000g, `<n>kg` from there on.
+ * - Millilitres: `formatVolume` — `<n>ml` below 1000ml, `<n>l` from there on.
  *
  * Decimal separator and thousands grouping follow `locale`: `1.5kg` in `en`,
  * `1,5kg` in `et`.
  */
 export function formatShoppingQuantity(
   quantity: number,
-  unit: Unit,
+  unit: DisplayUnit,
   locale: Locale,
   isVague: boolean,
   originalPhrase: string | null,
@@ -39,7 +63,12 @@ export function formatShoppingQuantity(
     return withPieceUnit(formatInteger(Math.ceil(quantity - 1e-9), locale), pieceLabel)
   }
 
-  return formatWeight(quantity, locale)
+  return formatMeasure(quantity, unit, locale)
+}
+
+/** `formatVolume` for `ml`, `formatWeight` for `g`. */
+export function formatMeasure(quantity: number, unit: 'g' | 'ml', locale: Locale): string {
+  return unit === 'ml' ? formatVolume(quantity, locale) : formatWeight(quantity, locale)
 }
 
 /**
@@ -55,6 +84,20 @@ export function formatWeight(grams: number, locale: Locale): string {
   }
 
   return `${formatInteger(grams, locale)}g`
+}
+
+/**
+ * Format a volume in millilitres: `<n>ml` below 1000ml, `<n>l` at 1000ml and
+ * above, with one fraction digit at most (whole litres collapse to e.g. `2l`).
+ * The same shape as `formatWeight` (HON-1054).
+ */
+export function formatVolume(ml: number, locale: Locale): string {
+  // 999.5ml and up would round to "1,000ml" on the millilitre path.
+  if (ml >= 999.5) {
+    return `${formatQuantity(ml / 1000, locale, { maximumFractionDigits: 1 })}l`
+  }
+
+  return `${formatInteger(ml, locale)}ml`
 }
 
 /**

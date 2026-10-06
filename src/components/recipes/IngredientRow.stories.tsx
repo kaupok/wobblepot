@@ -190,6 +190,34 @@ export const PieceUnit: Story = {
   },
 }
 
+export const LiquidUnit: Story = {
+  args: {
+    data: createMatchedIngredientRowData({
+      ingredient: {
+        id: 'red-wine',
+        name: 'Red wine',
+        category: 'condiment',
+        defaultUnit: 'g',
+        gramsPerPiece: null,
+        measuredByVolume: true,
+      },
+      totalQuantity: 120,
+    }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A liquid reads in ml, beside the summary and the quantity field: the stored grams are millilitres, 1 g = 1 ml (HON-1054).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('30ml per serving')).toBeInTheDocument()
+  },
+}
+
 // 600g / 400 servings = 1.5g — the locale-toggle story renders this as `1,5g`
 // in et and `1.5g` in en, verifying the locale-aware decimal separator.
 export const EstonianLocale: Story = {

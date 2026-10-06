@@ -311,6 +311,7 @@ async function handlePOST(request: Request) {
                 name: matched.ingredient.name,
                 category: matched.ingredient.category,
                 defaultUnit: matched.ingredient.defaultUnit,
+                measuredByVolume: matched.ingredient.measuredByVolume,
                 gramsPerPiece: matched.ingredient.gramsPerPiece,
                 calories: matched.ingredient.calories,
                 protein: matched.ingredient.protein,
@@ -333,6 +334,7 @@ async function handlePOST(request: Request) {
                 ingredient: {
                   ...ingNutrition,
                   defaultUnit: comp.ingredient.defaultUnit,
+                  measuredByVolume: comp.ingredient.measuredByVolume,
                   gramsPerPiece: comp.ingredient.gramsPerPiece,
                 },
               },
@@ -346,6 +348,7 @@ async function handlePOST(request: Request) {
           isVague: comp.isVague,
           ingredient: {
             defaultUnit: comp.ingredient.defaultUnit,
+            measuredByVolume: comp.ingredient.measuredByVolume,
             gramsPerPiece: comp.ingredient.gramsPerPiece,
             proteinType: nutritionMap.get(comp.ingredientId)?.proteinType ?? null,
             protein: nutritionMap.get(comp.ingredientId)?.protein ?? 0,

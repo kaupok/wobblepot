@@ -235,6 +235,40 @@ export const MacrosHiddenWithoutMacroData: Story = {
   },
 }
 
+export const WithLiquid: Story = {
+  args: {
+    meal: createReviewMealData({
+      prefilledIngredients: [
+        createMatchedPrefilledIngredient({ convertedQuantity: 600 }),
+        createMatchedPrefilledIngredient({
+          ingredient: {
+            id: 'mirin',
+            name: 'Mirin',
+            category: 'condiment',
+            defaultUnit: 'g',
+            measuredByVolume: true,
+          },
+          convertedQuantity: 60,
+        }),
+      ],
+    }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A liquid reads in ml in the matched list: the stored grams are millilitres, 1 g = 1 ml (HON-1054). The salmon stays in grams.',
+      },
+    },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await userEvent.click(await body.findByRole('button', { name: /2 ingredients matched/i }))
+    await expect(await body.findByText('15ml/serving')).toBeInTheDocument()
+    await expect(body.getByText('150g/serving')).toBeInTheDocument()
+  },
+}
+
 // Play stories — exercise parent-callback contracts under @storybook/addon-vitest.
 // Radix Dialog content lives outside `canvasElement`, so queries use `within(document.body)`.
 

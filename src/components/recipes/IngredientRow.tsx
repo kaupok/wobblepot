@@ -25,6 +25,7 @@ export interface IngredientAlternative {
   name: string
   category: IngredientCategory
   defaultUnit: Unit
+  measuredByVolume?: boolean
   similarity: number
 }
 
@@ -155,7 +156,7 @@ export function IngredientRow({
     maximumFractionDigits: 1,
   })
   const isInvalidQuantity = !data.isVague && data.totalQuantity <= 0
-  const unitLabel = formatUnit(data.ingredient.defaultUnit)
+  const unitLabel = formatUnit(data.ingredient)
   const isDuplicate = duplicateIndices && duplicateIndices.length > 0
 
   return (

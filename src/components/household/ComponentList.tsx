@@ -43,7 +43,7 @@ export function ComponentList({
     <div className="flex flex-col gap-2">
       {components.map((comp, index) => {
         const isInvalidQuantity = !comp.isVague && comp.totalQuantity <= 0
-        const unitLabel = formatUnit(comp.ingredient.defaultUnit)
+        const unitLabel = formatUnit(comp.ingredient)
         const duplicateIndices = duplicateMap.get(comp.ingredientId)
         const isDuplicate = duplicateIndices && duplicateIndices.length > 1
         const otherIndices = isDuplicate ? duplicateIndices.filter((i) => i !== index) : []
@@ -112,7 +112,7 @@ export function ComponentList({
                       aria-label={t('totalQuantityAria', { name: comp.ingredient.name })}
                     />
                     {unitLabel && (
-                      <span className="text-muted-foreground bg-muted border-l px-2 py-1.5 text-sm">
+                      <span className="text-foreground bg-muted border-l px-2 py-1.5 text-sm">
                         {unitLabel}
                       </span>
                     )}

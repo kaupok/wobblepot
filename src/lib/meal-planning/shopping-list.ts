@@ -35,6 +35,7 @@ export interface ShoppingListItem {
     category: IngredientCategory
     defaultUnit: Unit
     gramsPerPiece: number | null
+    measuredByVolume: boolean
   }
   neededQuantity: number // Total needed for all planned meals
   pantryQuantity: number | null // What's in pantry (null = have some)
@@ -64,6 +65,7 @@ interface NeededIngredient {
     category: IngredientCategory
     defaultUnit: Unit
     gramsPerPiece: number | null
+    measuredByVolume: boolean
   }
   quantity: number
   mealCount: number
@@ -171,6 +173,7 @@ export async function computeShoppingList(
                   category: true,
                   defaultUnit: true,
                   gramsPerPiece: true,
+                  measuredByVolume: true,
                   ...ingredientTranslationsInclude(locale),
                 },
               },
@@ -370,6 +373,7 @@ export async function computeRollingWindowShoppingList(
                     category: true,
                     defaultUnit: true,
                     gramsPerPiece: true,
+                    measuredByVolume: true,
                     ...ingredientTranslationsInclude(locale),
                   },
                 },
