@@ -1952,12 +1952,17 @@ describe('orchestrator.sh', () => {
       expect(out).not.toContain('SPAWN_WORKER')
     })
 
-    it('runs the triage call with an empty strict MCP config', () => {
+    it('runs the triage call with an empty strict MCP config, options ended before the prompt', () => {
       const input = stripTimestamps(runHarness('failure', 'BACKLOG', '0', 'false')).match(
         /^TRIAGE_INPUT:(.*)$/m,
       )?.[1]
 
-      expect(input).toContain('--strict-mcp-config --mcp-config {"mcpServers":{}}')
+      // --mcp-config takes several values, so the real CLI reads a prompt that
+      // follows it directly as a second config file and exits 1. The `--` is
+      // what keeps the prompt a prompt.
+      expect(input).toContain(
+        '--strict-mcp-config --mcp-config {"mcpServers":{}} -- Worker for HON-991 failed',
+      )
     })
   })
 

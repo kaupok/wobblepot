@@ -403,7 +403,9 @@ bash_timeout() {
   # Poll rather than sleeping the whole bound, so the watchdog exits on its own
   # as soon as the command finishes and never has to be killed: killing a
   # background job can make bash write a job-status line to stderr, which the
-  # triage call captures with 2>&1 and would then parse as a verdict.
+  # triage call used to capture with 2>&1 and parse as a verdict. It now reads
+  # the verdict from stdout only (HON-1118), but the line would still land in
+  # the stderr the failure log quotes.
   #
   # Poll in tenths, not whole seconds. The caller waits on the watchdog below,
   # so its poll interval is added to every call still running at the first
@@ -2416,13 +2418,15 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
     # handle_failure under set -e.
     #
     # The empty strict MCP config keeps the call from starting every server in
-    # .mcp.json inside TRIAGE_TIMEOUT; the triage prompt uses no tool.
+    # .mcp.json inside TRIAGE_TIMEOUT; the triage prompt uses no tool. The `--`
+    # is required: --mcp-config takes several values, so without it the CLI
+    # reads the prompt as a second config file and every call exits 1.
     local triage_output triage_stderr="" triage_err_file="" exit_code=0
     triage_err_file=$(mktemp "${TMPDIR:-/tmp}/orchestrator-triage-err.XXXXXXXX") || triage_err_file=""
     triage_output=$(echo "$log_tail" | run_with_timeout "$TRIAGE_TIMEOUT" \
       env -u ANTHROPIC_API_KEY claude -p --model "$TRIAGE_MODEL" \
         --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
-        "$triage_prompt" 2>"${triage_err_file:-/dev/null}") || exit_code=$?
+        -- "$triage_prompt" 2>"${triage_err_file:-/dev/null}") || exit_code=$?
     if [ -n "$triage_err_file" ]; then
       triage_stderr=$(cat "$triage_err_file" 2>/dev/null || true)
       rm -f "$triage_err_file"
