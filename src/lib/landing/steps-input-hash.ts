@@ -6,7 +6,7 @@ import type { StepsRequestInput } from '@/lib/ai/preparation-steps'
  * stored row. Part of the hash, so the next `pnpm steps:library` run finds
  * every row stale.
  */
-export const LIBRARY_STEPS_VERSION = 1
+export const LIBRARY_STEPS_VERSION = 2 // 2: British English steps (HON-1098)
 
 /**
  * A fingerprint of everything the steps prompt reads for one meal and locale:

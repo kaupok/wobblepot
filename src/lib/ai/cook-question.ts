@@ -1,5 +1,5 @@
 import { formatIngredientsList, type StepsComponent } from './preparation-steps'
-import { localeInstruction, estonianVoiceForPrepSteps, isEstonian } from './prompts'
+import { localeInstruction, britishEnglish, estonianVoiceForPrepSteps, isEstonian } from './prompts'
 import type { CookQuestionSubject } from './cook-question-subject'
 
 export interface CookQuestionPantryItem {
@@ -188,7 +188,7 @@ Rules:
 - 2 or 3 short sentences, never more than 4, and under 80 words, in one paragraph. Give the one best suggestion, not a list of options, then stop: no side notes. Practical and specific.
 - Metric units only: °C, g, kg, ml, L, cm.
 - Do not repeat the step text.${previousRule}
-- If the question is not about this meal, answer with one sentence that says you can only help with this meal.${localeInstruction(locale)}${estonianVoiceForPrepSteps(locale)}`
+- If the question is not about this meal, answer with one sentence that says you can only help with this meal.${localeInstruction(locale)}${britishEnglish(locale)}${estonianVoiceForPrepSteps(locale)}`
 }
 
 /**

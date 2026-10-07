@@ -1,5 +1,5 @@
 import { VAGUE_PHRASES } from '@/lib/vague-quantities'
-import { localeInstruction, estonianVoiceForRecipeParse } from './prompts'
+import { localeInstruction, britishEnglish, estonianVoiceForRecipeParse } from './prompts'
 import { RecipeExtractionSchema } from './recipe-schema'
 
 /**
@@ -27,28 +27,28 @@ Use specific ingredient names when the database has them. Keep generic names whe
 | Ambiguous Text | Correct Output | Rationale |
 |----------------|----------------|-----------|
 | "salt and pepper to taste" | "black pepper" | DB has "black pepper" (specific) |
-| "1 red pepper, diced" | "red bell pepper" | DB has "red bell pepper" (specific) |
+| "1 red bell pepper, diced" | "red pepper" | DB has "red pepper" (specific) |
 | "sauté the onion" | "onion" | DB has "onion" (generic) |
 | "add the oil" | "vegetable oil" | DB has "vegetable oil" (specific) |
 | "1 cup milk" | "milk" | DB has "milk" (generic) |
 | "butter for greasing" | "butter" | DB has "butter" (generic) |
 | "1 cup rice" | "white rice" | DB has "white rice" (specific) |
 | "a splash of vinegar" | "vinegar" | DB has "vinegar" (generic) |
-| "top with cream" | "heavy cream" | DB has "heavy cream" (specific) |
+| "top with cream" | "double cream" | DB has "double cream" (specific) |
 | "2 tbsp extra virgin olive oil" | "olive oil" | DB has "olive oil" (strip quality grade) |
 | "1 tbsp virgin olive oil" | "olive oil" | DB has "olive oil" (strip quality grade) |
 | "light olive oil" | "olive oil" | DB has "olive oil" (strip quality grade) |
-| "2 cans peeled tomatoes" | "canned whole peeled tomatoes" | DB has "canned whole peeled tomatoes" (specific) |
-| "1 can whole tomatoes" | "canned whole peeled tomatoes" | DB has "canned whole peeled tomatoes" (specific) |
-| "1 can diced tomatoes" | "canned diced tomatoes" | DB has "canned diced tomatoes" (specific) |
-| "1 can chopped tomatoes" | "canned diced tomatoes" | DB has "canned diced tomatoes" (specific) |
+| "2 cans peeled tomatoes" | "tinned plum tomatoes" | DB has "tinned plum tomatoes" (specific) |
+| "1 can whole tomatoes" | "tinned plum tomatoes" | DB has "tinned plum tomatoes" (specific) |
+| "1 can diced tomatoes" | "tinned chopped tomatoes" | DB has "tinned chopped tomatoes" (specific) |
+| "1 can chopped tomatoes" | "tinned chopped tomatoes" | DB has "tinned chopped tomatoes" (specific) |
 
 QUALITY/PROCESSING QUALIFIERS TO STRIP:
 Some ingredients have quality grades or processing descriptors that should be stripped because the DB stores only the base ingredient:
 - Olive oil: "extra virgin", "virgin", "light", "pure", "cold pressed" → output "olive oil"
 - These describe quality grades, not different products
 
-Expand generic terms ONLY when the database has the specific variant (pepper → black pepper, rice → white rice, oil → vegetable oil, cream → heavy cream).
+Expand generic terms ONLY when the database has the specific variant (pepper → black pepper, rice → white rice, oil → vegetable oil, cream → double cream).
 Keep generic terms when that's what the database stores (onion, milk, butter, vinegar, olive oil).
 
 VAGUE QUANTITY DETECTION:
@@ -76,8 +76,8 @@ CRITICAL QUANTITY RULES (for non-vague ingredients):
   Example: "4 cloves garlic" → quantity: 4, unit: "piece", name: "garlic"
   Example: "2 chicken breasts" → quantity: 2, unit: "piece", name: "chicken breast"
 - For canned items: "can" is NOT a supported unit. Convert to grams: 1 standard can ≈ 400g
-  Example: "2 cans peeled tomatoes" → quantity: 800, unit: "g", name: "canned whole peeled tomatoes"
-  Example: "1 can diced tomatoes" → quantity: 400, unit: "g", name: "canned diced tomatoes"
+  Example: "2 cans peeled tomatoes" → quantity: 800, unit: "g", name: "tinned plum tomatoes"
+  Example: "1 can diced tomatoes" → quantity: 400, unit: "g", name: "tinned chopped tomatoes"
   Example: "1 can coconut milk" → quantity: 400, unit: "g", name: "coconut milk"
 - For herbs/leaves measured in cups, convert to grams (1 cup fresh herbs ≈ 20-30g)
   Example: "2 cups basil leaves" → quantity: 50, unit: "g", name: "basil"
@@ -118,7 +118,7 @@ Rate your confidence (0-100) that this text contains a real recipe:
 - 0-19: Definitely not a recipe (random text, code, news, lorem ipsum)
 Be honest — if the text is not a recipe, give a low score even if you can extract something.
 
-Extract the structured recipe data.${localeInstruction(locale)}${estonianVoiceForRecipeParse(locale)}`
+Extract the structured recipe data.${localeInstruction(locale)}${britishEnglish(locale)}${estonianVoiceForRecipeParse(locale)}`
 }
 
 /**

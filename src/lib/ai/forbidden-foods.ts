@@ -83,6 +83,7 @@ const MEAT: FoodGroup = {
     'rabbit',
     'sausage',
     'meat',
+    'mince',
     'guanciale',
     'gelatin',
     'gelatine',
@@ -143,6 +144,22 @@ const MEAT: FoodGroup = {
   prefixes: ['soja', 'seene', 'porgandi', 'tofu'],
   falseFriends: [
     'champignon',
+    // The cut, not the meat. Named phrases only: a bare "minced" would excuse
+    // "minced steak" too.
+    'minced garlic',
+    'minced ginger',
+    'minced onion',
+    'minced shallot',
+    'minced chilli',
+    'minced chili',
+    'minced herbs',
+    // Meat-free minces, named for what they are made of (HON-1098). Never a
+    // qualifier: "mushroom" would excuse the chicken in "mushroom chicken pie".
+    'quorn mince',
+    'lentil mince',
+    'plant mince',
+    'mushroom mince',
+    'vegetable mince',
     'champagne',
     'bechamel',
     'béchamel',
@@ -184,6 +201,7 @@ const FISH: FoodGroup = {
     'gravlax',
     'lox',
     'sprat',
+    'kipper',
     'surimi',
     'bonito',
     'dashi',
@@ -278,6 +296,7 @@ const DAIRY: FoodGroup = {
     'ghee',
     'custard',
     'quark',
+    'fromage',
     'paneer',
     'labneh',
     'béchamel',
@@ -371,6 +390,8 @@ const DAIRY: FoodGroup = {
     'laimikoor',
     'kooritud',
     'koorimata',
+    // British shop name for vegan parmesan; "vegan" cannot reach past "hard" (HON-1098).
+    'vegan hard cheese',
   ],
 }
 
@@ -386,6 +407,8 @@ const EGGS: FoodGroup = {
     'majonees',
     'besee',
     'brioche',
+    // Quorn's mycoprotein is bound with egg white, except the range sold as vegan.
+    'quorn',
   ],
   ingredientKeywords: ['carbonara', 'karbonaara', 'caesar'],
   qualifiers: [
@@ -398,7 +421,7 @@ const EGGS: FoodGroup = {
     'aquafaba',
     'munavaba',
   ],
-  falseFriends: ['eggplant', 'veggie', 'reggiano'],
+  falseFriends: ['eggplant', 'veggie', 'reggiano', 'quorn vegan'],
 }
 
 const HONEY: FoodGroup = {

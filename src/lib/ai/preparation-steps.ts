@@ -1,5 +1,10 @@
 import { z } from 'zod'
-import { localeInstruction, estonianVoiceForPrepSteps, englishVoiceForPrepSteps } from './prompts'
+import {
+  localeInstruction,
+  britishEnglish,
+  estonianVoiceForPrepSteps,
+  englishVoiceForPrepSteps,
+} from './prompts'
 
 export const fullStepsSchema = z.object({
   equipment: z
@@ -54,14 +59,14 @@ Ingredients:
 ${ingredientsList}
 
 Provide:
-- equipment: 3-5 essential equipment items (be specific, e.g., "Large oven-safe skillet" not just "pan")
+- equipment: 3-5 essential equipment items (be specific, e.g., "Large oven-safe frying pan" not just "pan")
 - steps: 4-6 ordered steps covering what to start first (longest cooking items), parallel prep, and timing tips
 - pitfalls: 2-3 common mistakes or pitfalls specific to this dish
 - tip: One helpful cooking tip
 
 ${metricReminder}
 
-Keep it brief and practical. Not a full recipe — just order of operations and key tips. Do not repeat ingredient quantities.${localeInstruction(locale)}${estonianVoiceForPrepSteps(locale)}${englishVoiceForPrepSteps(locale)}`
+Keep it brief and practical. Not a full recipe — just order of operations and key tips. Do not repeat ingredient quantities.${localeInstruction(locale)}${britishEnglish(locale)}${estonianVoiceForPrepSteps(locale)}${englishVoiceForPrepSteps(locale)}`
 }
 
 export function buildSupplementaryStepsPrompt(input: SupplementaryPrepStepsPromptInput): string {
@@ -87,7 +92,7 @@ Do NOT repeat or rephrase what the user already wrote. Only add new information.
 
 ${metricReminder}
 
-Keep it brief and practical.${localeInstruction(locale)}${estonianVoiceForPrepSteps(locale)}${englishVoiceForPrepSteps(locale)}`
+Keep it brief and practical.${localeInstruction(locale)}${britishEnglish(locale)}${estonianVoiceForPrepSteps(locale)}${englishVoiceForPrepSteps(locale)}`
 }
 
 export interface StepsComponent {

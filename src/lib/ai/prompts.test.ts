@@ -6,7 +6,13 @@ import {
   estonianVoiceForRecipeParse,
   estonianVoiceForPrepSteps,
   englishVoiceForPrepSteps,
+  britishEnglish,
 } from './prompts'
+import { buildImagineRequest } from './imagine-request'
+import { buildFullStepsPrompt, buildSupplementaryStepsPrompt } from './preparation-steps'
+import { buildCookQuestionPrompt } from './cook-question'
+import { buildRecipeExtractionPrompt } from './recipe-prompt'
+import { buildReviewRequest } from './review-request'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import type { PromptInput } from './types'
 import type { MealSlot, SlotRequirement } from '@/lib/meal-planning/slots'
@@ -583,5 +589,157 @@ describe('englishVoiceForPrepSteps', () => {
 
   it('starts with a blank line so it appends cleanly after the prompt body', () => {
     expect(englishVoiceForPrepSteps('en').startsWith('\n\n')).toBe(true)
+  })
+})
+
+describe('britishEnglish', () => {
+  it('returns empty for "et", the one locale with its own voice', () => {
+    expect(britishEnglish('et')).toBe('')
+  })
+
+  it('returns the block for the default locale, null, undefined, and unknown locales', () => {
+    // An unknown locale gets English output (HON-921), so it gets British English too.
+    for (const locale of ['en', null, undefined, 'fi']) {
+      expect(britishEnglish(locale)).toContain('BRITISH ENGLISH:')
+    }
+  })
+
+  it('starts with a blank line so it appends cleanly after the prompt body', () => {
+    expect(britishEnglish('en').startsWith('\n\n')).toBe(true)
+  })
+
+  it('names the British word for each American one', () => {
+    const block = britishEnglish('en')
+    for (const pair of [
+      'courgette (not zucchini)',
+      'aubergine (not eggplant)',
+      'coriander (not cilantro)',
+      'spring onion (not scallion or green onion)',
+      'prawns (not shrimp)',
+      'beef mince (not ground beef)',
+      'hob (not stovetop)',
+      'grill for the overhead heat (not broil)',
+      'frying pan (not skillet)',
+      'baking tray (not sheet pan)',
+      'kitchen paper (not paper towel)',
+      'cling film (not plastic wrap)',
+      'double cream (not heavy cream)',
+      'plain flour (not all-purpose flour)',
+      'bicarbonate of soda (not baking soda)',
+      'caster sugar (not superfine sugar)',
+      'pepper for the vegetable (not bell pepper)',
+    ]) {
+      expect(block).toContain(pair)
+    }
+  })
+
+  it('asks for British ingredient names, with the colour on a pepper', () => {
+    // `INGREDIENT_ALIASES` maps a bare "pepper" to black pepper.
+    const block = britishEnglish('en')
+    expect(block).toContain('Ingredient "name" fields use the British word too')
+    expect(block).toContain('a bare "pepper" is black pepper')
+    // "sweet pepper" aliases to the generic `bell pepper` row.
+    expect(block).toContain('"sweet pepper" when the colour is not known')
+  })
+})
+
+describe('British English on every English surface', () => {
+  const household = {
+    allergens: [],
+    dietaryType: null,
+    excludedIngredients: [],
+    restrictions: [],
+    householdSize: 4,
+  }
+  const steps = {
+    mealName: 'Chicken stir-fry',
+    householdSize: 4,
+    timeMinutes: 30,
+    ingredientsList: '- chicken breast: 600g',
+  }
+  const builders: { name: string; build: (locale: string) => string }[] = [
+    {
+      name: 'imagine',
+      build: (locale) => buildImagineRequest({ prompt: 'pasta', household, locale }).system,
+    },
+    {
+      name: 'full preparation tips',
+      build: (locale) => buildFullStepsPrompt({ ...steps, locale }),
+    },
+    {
+      name: 'supplementary preparation tips',
+      build: (locale) =>
+        buildSupplementaryStepsPrompt({ ...steps, preparationNotes: 'Fry it.', locale }),
+    },
+    {
+      name: 'cook question',
+      build: (locale) =>
+        buildCookQuestionPrompt({
+          mealName: 'Chicken stir-fry',
+          servings: 4,
+          timeMinutes: 30,
+          components: [{ name: 'chicken breast', quantityPerServing: 150, defaultUnit: 'g' }],
+          preparationNotes: null,
+          steps: ['Fry the chicken.'],
+          equipment: ['Large wok'],
+          subject: { kind: 'step', index: 0 },
+          pitfalls: [],
+          tip: null,
+          pantry: [],
+          restrictions: {
+            allergens: [],
+            dietaryType: null,
+            excludedIngredients: [],
+            restrictions: [],
+          },
+          question: 'Can I use thighs?',
+          locale,
+        }),
+    },
+    { name: 'recipe parsing', build: (locale) => buildRecipeExtractionPrompt('1 egg', locale) },
+  ]
+
+  describe.each(builders)('$name', ({ build }) => {
+    it('includes the block for English', () => {
+      expect(build('en')).toContain(britishEnglish('en'))
+    })
+
+    it('leaves it out for Estonian', () => {
+      expect(build('et')).not.toContain('BRITISH ENGLISH')
+    })
+  })
+
+  it('includes the block for recipe parsing with no locale', () => {
+    expect(buildRecipeExtractionPrompt('1 egg')).toContain(britishEnglish(null))
+  })
+
+  it('leaves it out of the quantity review, which returns IDs and numbers only', () => {
+    const review = (locale: string) =>
+      buildReviewRequest({ mealName: 'Omelette', servings: 2, ingredients: [], locale }).system
+    expect(review('en')).not.toContain('BRITISH ENGLISH')
+  })
+
+  it('leaves it out of the plan prompt, which returns meal IDs only', () => {
+    for (const locale of ['en', 'et']) {
+      expect(buildMealPlanPrompt({ ...createInput(), locale })).not.toContain('BRITISH ENGLISH')
+    }
+    expect(buildMealPlanPrompt(createInput())).not.toContain('BRITISH ENGLISH')
+  })
+
+  it('keeps American words out of the examples the block would contradict', () => {
+    // The block itself names each American word; everything else is examples.
+    const examples = builders
+      .map(({ build }) => build('en').replace(britishEnglish('en'), ''))
+      .join('\n')
+    // Quoted: an output name. Source text may still say "1 red bell pepper, diced".
+    for (const word of [
+      'skillet',
+      '"heavy cream"',
+      '"red bell pepper"',
+      '"canned diced tomatoes"',
+      '"canned whole peeled tomatoes"',
+    ]) {
+      expect(examples).not.toContain(word)
+    }
   })
 })

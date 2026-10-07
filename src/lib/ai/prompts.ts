@@ -151,13 +151,38 @@ ENGLISH VOICE:
 - punctuation: never join clauses with a dash (" - ", " – " or "—"). Use a colon, a semicolon or a new sentence. Write a range with an en dash and no spaces: "60–90 seconds", "4–5 batches".
 
 ENGLISH EXAMPLES (draft → what to output):
-- equipment: "Two large 36cm flat-bottom woks or heavy skillets (to cook in batches over high heat)" → "Two large woks"
+- equipment: "Two large 36cm flat-bottom woks or heavy frying pans (to cook in batches over high heat)" → "Two large woks"
 - equipment: "Sharp chef's knife and two large cutting boards (one for meat, one for vegetables)" → "Chef's knife and cutting boards"
 - step: "While water heats, slice beef thinly against the grain (about 0.5cm thick) - partially freezing the steak for 10 minutes makes slicing much faster. Toss slices with part of the soy sauce and a splash of oil to marinate." → two steps: "While the water heats, slice the beef thinly against the grain." and "Toss the beef with half the soy sauce and a splash of oil."
 - step: "Sear the beef for 60-90 seconds - cook in 4-5 batches so the wok stays hot." → "Sear the beef in 4–5 batches, 60–90 seconds each, so the wok stays hot."
 - step: "Fry the onions in butter over a medium-low heat, stirring now and then so they don't catch, until they are soft and golden, which should take around 10-12 minutes or so." → "Fry the onions in butter over medium-low heat for 10–12 minutes, until soft and golden."
 - pitfall: "Leaving the broccoli wet - it turns mushy." → "Wet broccoli steams in the wok and turns mushy, so drain it well."
 - tip: "Partially freezing the steak for 10 minutes makes slicing much faster, and it also helps you get thinner, more even slices." → "Freeze the steak for 10 minutes before slicing; it cuts thinner and faster."`
+}
+
+/**
+ * British English block for every request whose output a household reads:
+ * imagine, recipe parsing, preparation steps and cook answers. Not the plan
+ * prompt or the quantity review, which return IDs and numbers. The stored
+ * ingredient pool uses British names (HON-1083, HON-1097, HON-1099), so the
+ * AI's words have to agree with the shopping list (HON-1098).
+ */
+const BRITISH_ENGLISH_RULES = `BRITISH ENGLISH:
+- Write British English in every field a person reads: names, descriptions, steps, notes and answers.
+- British spelling: colour, flavour, centre, litre, yoghurt, chilli, and -ise verbs (caramelise, tenderise).
+- British food and kitchen words, never the American ones: courgette (not zucchini), aubergine (not eggplant), coriander (not cilantro), spring onion (not scallion or green onion), prawns (not shrimp), beef mince (not ground beef), hob (not stovetop), grill for the overhead heat (not broil), frying pan (not skillet), baking tray (not sheet pan), kitchen paper (not paper towel), cling film (not plastic wrap), double cream (not heavy cream), plain flour (not all-purpose flour), bicarbonate of soda (not baking soda), caster sugar (not superfine sugar), pepper for the vegetable (not bell pepper).
+- Ingredient "name" fields use the British word too: "courgette", "beef mince", "prawn". For the vegetable, give the colour ("red pepper", "green pepper"), or "sweet pepper" when the colour is not known: a bare "pepper" is black pepper.
+- Text you write uses metric quantities and °C (190°C, 500g, 250ml). Ingredient units still follow this prompt's own unit rules.`
+
+/**
+ * The British English block for every locale that is not Estonian. Same gate
+ * as `englishVoiceForPrepSteps`: an unknown locale gets English output
+ * (HON-921), so it gets British English too. Empty for Estonian, so the
+ * Estonian prompts carry no block.
+ */
+export function britishEnglish(locale: string | null | undefined): string {
+  if (isEstonian(locale)) return ''
+  return `\n\n${BRITISH_ENGLISH_RULES}`
 }
 
 /**

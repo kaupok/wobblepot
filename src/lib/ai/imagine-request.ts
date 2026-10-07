@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { localeInstruction, estonianVoiceForImagineMeal } from './prompts'
+import { localeInstruction, britishEnglish, estonianVoiceForImagineMeal } from './prompts'
 import type { FoodViolation } from './forbidden-foods'
 import { formatQuantity } from '@/lib/i18n/format-number'
 import { DEFAULT_LOCALE, isKnownLocale, type Locale } from '@/lib/i18n/locales'
@@ -204,12 +204,12 @@ Quantity guidelines (per serving, scale by number of servings):
 - Sauces/condiments: 1-2 tbsp per serving
 - Cheese: 20-40g per serving
 
-Important: quantities must reflect the ingredient's role in the dish. A main-component vegetable (e.g., bell pepper in a stir-fry) needs 80-150g/serving, while a garnish or accent (e.g., a few slices of bell pepper on a sandwich) needs only 20-30g/serving.
+Important: quantities must reflect the ingredient's role in the dish. A main-component vegetable (e.g., red pepper in a stir-fry) needs 80-150g/serving, while a garnish or accent (e.g., a few slices of red pepper on a sandwich) needs only 20-30g/serving.
 
-BAD: "30g red bell pepper" for 4 servings of roasted vegetables (7.5g/serving — barely a slice)
-GOOD: "400g red bell pepper" for 4 servings of roasted vegetables (100g/serving)
+BAD: "30g red pepper" for 4 servings of roasted vegetables (7.5g/serving — barely a slice)
+GOOD: "400g red pepper" for 4 servings of roasted vegetables (100g/serving)
 
-The user may attach photos for context — these could show ingredients they have available, a dish they'd like to recreate, a recipe from a cookbook, or anything else. Use the visual information to inform your meal suggestions. If the photos show specific ingredients, try to incorporate them. If they show a prepared dish or recipe page, use it as inspiration for one or more of your suggestions.${constraintsSection}${localeInstruction(locale)}${estonianVoiceForImagineMeal(locale)}`
+The user may attach photos for context — these could show ingredients they have available, a dish they'd like to recreate, a recipe from a cookbook, or anything else. Use the visual information to inform your meal suggestions. If the photos show specific ingredients, try to incorporate them. If they show a prepared dish or recipe page, use it as inspiration for one or more of your suggestions.${constraintsSection}${localeInstruction(locale)}${britishEnglish(locale)}${estonianVoiceForImagineMeal(locale)}`
 
   const content: Array<
     { type: 'text'; text: string } | { type: 'image'; image: Buffer; mediaType: string }
