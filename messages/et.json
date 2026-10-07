@@ -343,12 +343,12 @@
       }
     },
     "nutrition": {
-      "summaryHeader": "Toiteväärtus (portsjoni kohta)",
-      "calories": "Kalorid",
+      "perServing": "portsjoni kohta",
+      "kcal": "{calories} kcal",
+      "grams": "{value}g",
       "protein": "Valgud",
       "carbs": "Süsivesikud",
       "fat": "Rasvad",
-      "compactLine": "Portsjoni kohta: {calories} kcal · {protein}g valku · {carbs}g süsivesikuid · {fat}g rasva",
       "vagueInfo": "Sisaldab hinnanguid umbmääraste koguste kohta, nagu „maitse järgi”.",
       "vagueInfoLabel": "Nende numbrite kohta"
     },
@@ -500,7 +500,6 @@
       "ingredientsHeading": "Koostisosad",
       "ingredientsHelper": "Sisesta kogu retsepti jaoks vajalik kogus ({count, plural, one {# portsjon} other {# portsjonit}}). Arvutame ühe portsjoni koguse automaatselt.",
       "noIngredients": "Koostisosi pole veel lisatud. Kasuta ülaltoodud otsingut.",
-      "nutritionPerServing": "Toiteväärtus portsjoni kohta",
       "nutritionApproximate": "Ligikaudne — {count, plural, one {# koostisosa pole arvestatud} other {# koostisosa pole arvestatud}}",
       "toVerifyBadge": "{count} kontrollida",
       "unmatchedBadge": "{count} sobitamata",

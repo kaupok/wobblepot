@@ -269,9 +269,9 @@ export function MealDetail({
         {meal.nutrition && (
           <div
             data-testid="cook-view-nutrition"
-            className="flex flex-col gap-1 px-5 md:px-8 lg:px-10"
+            className="flex flex-col gap-3 px-5 md:px-8 lg:px-10"
           >
-            <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
+            <NutritionSummary nutrition={meal.nutrition} components={meal.components} size="lg" />
             <NutritionDisclaimer />
           </div>
         )}

@@ -343,12 +343,12 @@
       }
     },
     "nutrition": {
-      "summaryHeader": "Nutrition (per serving)",
-      "calories": "Calories",
+      "perServing": "per serving",
+      "kcal": "{calories} kcal",
+      "grams": "{value}g",
       "protein": "Protein",
       "carbs": "Carbs",
       "fat": "Fat",
-      "compactLine": "Per serving: {calories} kcal · {protein}g protein · {carbs}g carbs · {fat}g fat",
       "vagueInfo": "Includes estimates for vague quantities like “to taste”.",
       "vagueInfoLabel": "About these numbers"
     },
@@ -500,7 +500,6 @@
       "ingredientsHeading": "Ingredients",
       "ingredientsHelper": "Enter the total quantity needed for the entire recipe ({count, plural, one {# serving} other {# servings}}). We will calculate per-serving amounts automatically.",
       "noIngredients": "No ingredients added yet. Search above to add some.",
-      "nutritionPerServing": "Nutrition per serving",
       "nutritionApproximate": "Approximate — {count, plural, one {# ingredient not included} other {# ingredients not included}}",
       "toVerifyBadge": "{count} to verify",
       "unmatchedBadge": "{count} unmatched",

@@ -228,16 +228,13 @@ export function MealForm({ meal, defaultServings, onSuccess, onCancel }: MealFor
           {/* Live nutrition summary */}
           {nutritionSummary.matchedCount > 0 && (
             <div className="bg-muted/50 rounded-md border px-3 py-2">
-              <div className="mb-1">
-                <Body variant="caption">{t('nutritionPerServing')}</Body>
-              </div>
+              {/* No caption above: the summary says "per serving" itself (HON-1109). */}
               <NutritionSummary
                 nutrition={nutritionSummary.nutrition}
-                compact
                 components={nutritionSummary.hasVague ? [{ isVague: true }] : undefined}
               />
               {nutritionSummary.unmatchedCount > 0 && (
-                <div className="mt-1">
+                <div className="mt-2">
                   <Body variant="caption">
                     {t('nutritionApproximate', {
                       count: nutritionSummary.unmatchedCount,

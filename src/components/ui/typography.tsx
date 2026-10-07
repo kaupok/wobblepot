@@ -7,7 +7,16 @@ export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'display' | 'section' |
 export type HeadingFace = 'default' | 'brand'
 export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div'
 export type BodyVariant =
-  'default' | 'lead' | 'large' | 'small' | 'paragraph' | 'muted' | 'caption' | 'step'
+  | 'default'
+  | 'lead'
+  | 'large'
+  | 'small'
+  | 'paragraph'
+  | 'muted'
+  | 'caption'
+  | 'fine-print'
+  | 'step'
+  | 'step-small'
 export type ListVariant = 'default' | 'plain' | 'steps'
 export type BodyTone = 'default' | 'muted' | 'destructive' | 'success' | 'warning' | 'info'
 
@@ -113,6 +122,9 @@ const bodyVariants = cva('', {
       paragraph: 'text-sm leading-normal',
       muted: 'text-sm text-muted-foreground',
       caption: 'text-xs font-medium text-muted-foreground',
+      // Caption at regular weight, for fine print that must stay quieter than
+      // the caption-level labels beside it: the nutrition disclaimer (HON-1109).
+      'fine-print': 'text-xs text-muted-foreground',
       // The cook view's steps, pitfalls and tip: Paragraph two sizes up, in
       // the foreground colour, for reading at arm's length (HON-932).
       step: 'text-lg lg:text-xl leading-relaxed',
