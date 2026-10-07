@@ -173,7 +173,7 @@
       "noMealPlanned": "No meal planned",
       "addMeal": "Add meal",
       "adding": "Adding…",
-      "pickMeal": "Pick a meal",
+      "emptySlotLabel": "{mealType}: pick a meal, {day}",
       "slotActionLabel": "{action}: {day}, {mealType}",
       "note": "Note",
       "swap": "Swap",

@@ -21,10 +21,10 @@ Cloudflare DNS).
 Defined as code constants in [`src/lib/resend.ts`](../src/lib/resend.ts) →
 `EMAIL_SENDERS`. Apply at every send-site:
 
-| Key             | FROM                                           | Triggers                                                                                              |
-| --------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `auth`          | `Wobblepot <auth@mail.wobblepot.com>`          | Password reset (`src/lib/auth.ts`), account-deletion confirmation (`src/app/api/auth/user/route.ts`)  |
-| `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Weekly planning reminder (`src/lib/weekly-reminder.ts`, template `src/lib/emails/weekly-reminder.ts`) |
+| Key             | FROM                                           | Triggers                                                                                                                                                                                                                 |
+| --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auth`          | `Wobblepot <auth@mail.wobblepot.com>`          | Password reset (`src/lib/auth.ts`), account-deletion confirmation (`src/app/api/auth/user/route.ts`), waitlist confirmation (`src/lib/waitlist.ts`), waitlist invite (`src/app/api/admin/waitlist/[id]/invite/route.ts`) |
+| `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Weekly planning reminder (`src/lib/weekly-reminder.ts`, template `src/lib/emails/weekly-reminder.ts`)                                                                                                                    |
 
 **`support@wobblepot.com` outbound is deferred.** Architecturally it sends
 from the apex (not the subdomain) for human-driven reply threads, but:
@@ -112,6 +112,12 @@ propagate (typically minutes).
 2. Trigger a real send from each FROM (forgot-password for `auth@`, etc.).
 3. Score should be **≥ 9/10**. Anything lower means a header/content issue —
    debug before promoting.
+
+Last recorded run: 10/10 on 2026-10-07 with the waitlist confirmation email
+(HON-1081). Separate sends to real mailboxes the same day found the password
+reset in the inbox at Gmail and Outlook.com, and the waitlist confirmation and
+the invite code in the inbox at Outlook.com, with SPF, DKIM and DMARC aligned
+in the received headers.
 
 ## DMARC
 

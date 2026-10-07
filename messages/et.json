@@ -173,7 +173,7 @@
       "noMealPlanned": "Toitu pole planeeritud",
       "addMeal": "Lisa toit",
       "adding": "Lisan…",
-      "pickMeal": "Vali toit",
+      "emptySlotLabel": "{mealType}: vali toit, {day}",
       "slotActionLabel": "{action}: {day}, {mealType}",
       "note": "Märkus",
       "swap": "Vaheta",

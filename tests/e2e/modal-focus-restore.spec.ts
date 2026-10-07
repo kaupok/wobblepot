@@ -113,7 +113,7 @@ test.describe('Modal focus-restore', () => {
   })
 
   // Not covered by the Radix contract above: the meal selector opens
-  // programmatically once "Pick a meal" has created a placeholder entry, with
+  // programmatically once an empty slot's button has created a placeholder entry, with
   // no `DialogTrigger`, and a modal Radix dialog restores focus only to its
   // trigger. The slot hands it to its own button instead, which is still
   // pending (the placeholder DELETE is in flight), so the button must be
@@ -124,7 +124,7 @@ test.describe('Modal focus-restore', () => {
   // plan). The selector's `/suggestions` call is a DB query, not an AI one.
   // Not `@smoke`: this file imports `signUpWithHousehold`, which
   // `scripts/check-smoke-specs.sh` rejects in a `@smoke` file.
-  test('focus returns to "Pick a meal" after the empty-slot selector is dismissed', async ({
+  test('focus returns to the empty-slot button after the empty-slot selector is dismissed', async ({
     page,
   }) => {
     await signInAsSmoke(page)
@@ -134,7 +134,7 @@ test.describe('Modal focus-restore', () => {
     // household, and past days hide their empty slots. The other specs that
     // share this household only touch today + 2 lunch (shopping-to-pantry) and
     // today + 10 (the card tests below), which a Today slot never is.
-    const trigger = page.getByRole('button', { name: 'Pick a meal' }).first()
+    const trigger = page.getByRole('button', { name: /: pick a meal,/ }).first()
     await expect(trigger).toBeVisible()
 
     let entryPath: string | null = null

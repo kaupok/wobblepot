@@ -105,29 +105,83 @@ export const AllDayMealTypes: Story = {
   },
 }
 
-export const MixedEntriesAndEmpty: Story = {
-  args: {
-    day: createTimelineDay({
+const mixedDay = createTimelineDay({
+  date: '2026-04-17',
+  label: 'Friday',
+  dateLabel: 'Apr 17',
+  isToday: false,
+  entries: [
+    createPlanEntry({
+      id: 'entry-dinner',
       date: '2026-04-17',
-      label: 'Friday Apr 17',
-      isToday: false,
-      entries: [
-        createPlanEntry({
-          id: 'entry-dinner',
-          date: '2026-04-17',
-          mealType: MealType.dinner,
-        }),
-      ],
-      emptySlots: [MealType.breakfast, MealType.lunch],
+      mealType: MealType.dinner,
     }),
-  },
+  ],
+  emptySlots: [MealType.breakfast, MealType.lunch],
+})
+
+// The empty slots are buttons on the heading's line, in meal-type order, and
+// the planned dinner is the only card below it (HON-1111).
+export const MixedEntriesAndEmpty: Story = {
+  args: { day: mixedDay },
   parameters: {
     docs: {
       description: {
-        story: 'One filled dinner with empty breakfast + lunch slots above it.',
+        story:
+          'One planned dinner with empty breakfast and lunch slots as buttons on the heading line.',
       },
     },
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const breakfast = canvas.getByRole('button', {
+      name: 'Breakfast: pick a meal, Friday Apr 17',
+    })
+    const lunch = canvas.getByRole('button', { name: 'Lunch: pick a meal, Friday Apr 17' })
+    const headingRow = canvas.getByRole('heading', { level: 2 }).parentElement
+    await expect(headingRow).toContainElement(breakfast)
+    await expect(headingRow).toContainElement(lunch)
+    await expect(
+      breakfast.compareDocumentPosition(lunch) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  },
+}
+
+/** Estonian meal names are longer, so the buttons wrap below the heading sooner. */
+export const MixedEntriesAndEmptyEstonian: Story = {
+  args: { day: mixedDay },
+  globals: { locale: 'et' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(
+      canvas.getByRole('button', { name: 'Hommikusöök: vali toit, Friday Apr 17' }),
+    ).toBeVisible()
+    await expect(
+      canvas.getByRole('button', { name: 'Lõunasöök: vali toit, Friday Apr 17' }),
+    ).toBeVisible()
+  },
+}
+
+/** A phone width: the buttons wrap below the heading, together, from the left. */
+export const ThreeEmptySlotsNarrow: Story = {
+  args: {
+    day: createTimelineDay({
+      date: '2026-04-17',
+      label: 'Wednesday',
+      dateLabel: 'Apr 17',
+      isToday: false,
+      entries: [],
+      emptySlots: [MealType.breakfast, MealType.lunch, MealType.dinner],
+    }),
+  },
+  globals: { locale: 'et' },
+  decorators: [
+    (Story) => (
+      <div className="max-w-xs">
+        <Story />
+      </div>
+    ),
+  ],
 }
 
 export const AllEmpty: Story = {
@@ -162,14 +216,7 @@ export const NoMealsExpected: Story = {
   },
 }
 
-// WHY: Empty-slot "Pick a meal" buttons render on a dashed outline; axe flags
-// the surrounding muted placeholder text. The text is informational for
-// sighted users while the button is the real action — waive only that rule.
-const emptySlotA11y = {
-  config: { rules: [{ id: 'color-contrast', enabled: false }] },
-}
-
-// Play story — verify the "Pick a meal" button in an empty slot is reachable
+// Play story — verify the "+ Dinner" button of an empty slot is reachable
 // and activates the empty-slot create flow. This is the user-facing entry
 // point when there is nothing planned yet for a day.
 export const PickMealFromEmptySlot: Story = {
@@ -183,12 +230,11 @@ export const PickMealFromEmptySlot: Story = {
     }),
   },
   parameters: {
-    a11y: emptySlotA11y,
     msw: { handlers: slowCreateEntryHandlers },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const pick = canvas.getByRole('button', { name: /pick a meal/i })
+    const pick = canvas.getByRole('button', { name: /^Dinner: pick a meal/ })
     await userEvent.click(pick)
     // `aria-disabled`, not `disabled`, so it keeps focus while pending (HON-803).
     await expect(canvas.getByRole('button', { name: /adding…/i })).toHaveAttribute(
