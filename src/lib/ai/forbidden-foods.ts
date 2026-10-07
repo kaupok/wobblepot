@@ -146,6 +146,13 @@ const MEAT: FoodGroup = {
     'champignon',
     // "minced garlic": the cut, not the meat. "minced beef" still fails on "beef".
     'minced',
+    // Meat-free minces, named for what they are made of (HON-1098). Never a
+    // qualifier: "mushroom" would excuse the chicken in "mushroom chicken pie".
+    'quorn mince',
+    'lentil mince',
+    'plant mince',
+    'mushroom mince',
+    'vegetable mince',
     'champagne',
     'bechamel',
     'béchamel',
@@ -393,6 +400,8 @@ const EGGS: FoodGroup = {
     'majonees',
     'besee',
     'brioche',
+    // Quorn's mycoprotein is bound with egg white, except the range sold as vegan.
+    'quorn',
   ],
   ingredientKeywords: ['carbonara', 'karbonaara', 'caesar'],
   qualifiers: [

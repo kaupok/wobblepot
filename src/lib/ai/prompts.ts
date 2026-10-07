@@ -162,9 +162,10 @@ ENGLISH EXAMPLES (draft → what to output):
 
 /**
  * British English block for every request whose output a household reads:
- * imagine, recipe parsing, preparation tips, cook answers and the quantity
- * review. The stored ingredient pool uses British names (HON-1083, HON-1097,
- * HON-1099), so the AI's words have to agree with the shopping list (HON-1098).
+ * imagine, recipe parsing, preparation steps and cook answers. Not the plan
+ * prompt or the quantity review, which return IDs and numbers. The stored
+ * ingredient pool uses British names (HON-1083, HON-1097, HON-1099), so the
+ * AI's words have to agree with the shopping list (HON-1098).
  */
 const BRITISH_ENGLISH_RULES = `BRITISH ENGLISH:
 - Write British English in every field a person reads: names, descriptions, steps, notes and answers.
@@ -177,8 +178,7 @@ const BRITISH_ENGLISH_RULES = `BRITISH ENGLISH:
  * The British English block for every locale that is not Estonian. Same gate
  * as `englishVoiceForPrepSteps`: an unknown locale gets English output
  * (HON-921), so it gets British English too. Empty for Estonian, so the
- * Estonian prompts stay byte-identical. Not used by the plan prompt, which
- * returns meal IDs only.
+ * Estonian prompts carry no block.
  */
 export function britishEnglish(locale: string | null | undefined): string {
   if (isEstonian(locale)) return ''

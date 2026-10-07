@@ -357,6 +357,9 @@ describe('the food words the British English block asks for (HON-1098)', () => {
     [{ allergens: ['fish'] }, 'kipper'],
     [{ dietaryType: 'vegetarian' }, 'smoked kippers'],
     [{ dietaryType: 'vegan' }, 'hard cheese'],
+    [{ dietaryType: 'vegan' }, 'quorn mince'],
+    [{ allergens: ['eggs'] }, 'quorn pieces'],
+    [{ dietaryType: 'vegetarian' }, 'beef and mushroom mince'],
   ])('%o flags %s', (household, ingredient) => {
     expect(violates(household, ingredient)).toBe(true)
   })
@@ -366,6 +369,12 @@ describe('the food words the British English block asks for (HON-1098)', () => {
     [{ dietaryType: 'vegan' }, 'minced garlic'],
     [{ dietaryType: 'vegetarian' }, 'soya mince'],
     [{ dietaryType: 'vegetarian' }, 'veggie mince'],
+    [{ dietaryType: 'vegetarian' }, 'quorn mince'],
+    [{ dietaryType: 'vegetarian' }, 'lentil mince'],
+    [{ dietaryType: 'vegetarian' }, 'plant mince'],
+    [{ dietaryType: 'vegetarian' }, 'mushroom mince'],
+    [{ dietaryType: 'vegetarian' }, 'vegetable mince'],
+    [{ dietaryType: 'vegan' }, 'vegan quorn mince'],
     [{ dietaryType: 'vegan' }, 'courgette'],
     [{ dietaryType: 'vegan' }, 'aubergine'],
     [{ dietaryType: 'vegan' }, 'coriander'],
