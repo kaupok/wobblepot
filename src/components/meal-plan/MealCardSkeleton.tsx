@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
  * two description lines. The switch is the card's own container query
  * (`@md/meal-image`), so the wrapper is the container and the skeleton takes
  * its width. The heights are the card's rows added up (`MealCard`, the text
- * block's comment); `Meal plan/MealCard` → `Skeleton matches the card`
+ * block's comment); `Meal plan/MealCard` → `One height per breakpoint`
  * measures the two side by side. No 'use client': `src/app/loading.tsx` is a
  * server component.
  */
