@@ -15,6 +15,8 @@ export type BodyVariant =
   | 'muted'
   | 'caption'
   | 'fine-print'
+  | 'figure'
+  | 'figure-small'
   | 'step'
   | 'step-small'
 export type ListVariant = 'default' | 'plain' | 'steps'
@@ -125,6 +127,11 @@ const bodyVariants = cva('', {
       // Caption at regular weight, for fine print that must stay quieter than
       // the caption-level labels beside it: the nutrition disclaimer (HON-1109).
       'fine-print': 'text-xs text-muted-foreground',
+      // A number that labels a chart, semibold so it leads the muted name under
+      // it: the nutrition legend's grams (HON-1114). `figure` in the cook view,
+      // `figure-small` on cards and in the recipe form.
+      figure: 'text-sm font-semibold',
+      'figure-small': 'text-xs font-semibold',
       // The cook view's steps, pitfalls and tip: Paragraph two sizes up, in
       // the foreground colour, for reading at arm's length (HON-932).
       step: 'text-lg lg:text-xl leading-relaxed',
