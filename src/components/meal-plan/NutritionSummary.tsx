@@ -7,9 +7,15 @@ import { Body } from '@/components/ui/typography'
 import { formatInteger } from '@/lib/i18n/format-number'
 import type { Locale } from '@/lib/i18n/locales'
 import { cn } from '@/lib/utils'
-import { MACROS, macroEnergyShares, macroSplitStyle, type Macro } from './macro-energy-shares'
+import {
+  MACROS,
+  macroCarbsStyle,
+  macroEnergyShares,
+  macroSplitStyle,
+  type Macro,
+} from './macro-energy-shares'
 import type { NutritionData, MealComponent } from './types'
-import { useMacroLabelsFit } from './use-macro-labels-fit'
+import { useMacroLegendPlacement } from './use-macro-legend-placement'
 
 export type NutritionSummarySize = 'default' | 'lg'
 
@@ -20,16 +26,23 @@ interface NutritionSummaryProps {
   components?: Pick<MealComponent, 'isVague'>[]
 }
 
-/** The ordinal series token for each macro's part and swatch (globals.css). */
+/** The ordinal series token for each macro's part of the bar (globals.css). */
 const PART_FILL: Record<Macro, string> = {
   protein: 'bg-series-1',
   carbs: 'bg-series-2',
   fat: 'bg-series-3',
 }
 
+/** Protein starts the row and Fat ends it; only Carbs moves. */
+const LABEL_ALIGN: Record<Macro, string> = {
+  protein: 'items-start text-left',
+  carbs: 'items-center text-center',
+  fat: 'items-end text-right',
+}
+
 const SIZE = {
-  default: { value: 'small', bar: 'h-1.5', gap: 'gap-2', rowGap: 'gap-y-2' },
-  lg: { value: 'large', bar: 'h-3', gap: 'gap-3', rowGap: 'gap-y-3' },
+  default: { value: 'small', grams: 'figure-small', gap: 'gap-1.5' },
+  lg: { value: 'large', grams: 'figure', gap: 'gap-2' },
 } as const satisfies Record<NutritionSummarySize, Record<string, string>>
 
 /** Outer ends of the bar fully rounded, the corners between parts barely. */
@@ -45,16 +58,26 @@ function hasVagueIngredients(components?: Pick<MealComponent, 'isVague'>[]): boo
 }
 
 /**
- * A meal's nutrition per serving (HON-1109): the calories, one bar split by
- * each macro's share of the energy (protein, carbs, fat), and each macro's
- * grams over its name.
+ * Where Carbs centres before a browser measures (the server render): the
+ * middle of its part, or the protein/fat boundary for a carbs part at 0g, as a
+ * share of the row. The layout effect replaces it with px before paint.
+ */
+function estimatedCarbsCentre(shares: Record<Macro, number>): string {
+  if (shares.protein + shares.carbs + shares.fat === 0) return '50%'
+  return `${shares.protein + shares.carbs / 2}%`
+}
+
+/**
+ * A meal's nutrition per serving (HON-1109, HON-1114): the calories with "per
+ * serving" beside them, one bar split by each macro's share of the energy
+ * (protein, carbs, fat), and each macro's grams over its name.
  *
- * The legend sits under its own parts when every label fits its part
- * ("aligned"), so the bar and its numbers read as one object. When a label is
- * wider than its part — Estonian "Süsivesikud" over 22%, carbs at 4% in a
- * low-carb meal — the legend pins to the start, middle and end of the row
- * instead, with a swatch before each name ("pinned"). The bar is decoration:
- * every value is in the text, in reading order.
+ * One legend layout for every meal. Protein's part always starts the bar and
+ * fat's always ends it, so Protein is flush left and Fat flush right. Carbs
+ * centres under its own part and is clamped to keep 16px from both
+ * (`useMacroLegendPlacement`). When the three labels and two gaps do not fit
+ * the row (200% text zoom), the legend is a plain row instead. The bar is
+ * decoration: every value is in the text, in reading order.
  */
 export function NutritionSummary({
   nutrition,
@@ -64,6 +87,7 @@ export function NutritionSummary({
   const t = useTranslations('meal-plan.nutrition')
   const locale = useLocale() as Locale
   const rootRef = useRef<HTMLDivElement>(null)
+  const legendRef = useRef<HTMLDivElement>(null)
   const sizing = SIZE[size]
 
   const grams: Record<Macro, number> = {
@@ -76,14 +100,11 @@ export function NutritionSummary({
   // A macro shown as "0g" has no part and no gap.
   const drawn = MACROS.filter((macro) => Math.round(grams[macro]) > 0)
   const drawnShares = drawn.map((macro) => shares[macro])
-  // Aligned needs a part over every label.
-  const canAlign = drawn.length === MACROS.length
-  const fits = useMacroLabelsFit(
+  const { carbsCentre, fallback } = useMacroLegendPlacement(
     rootRef,
-    canAlign,
+    legendRef,
     `${drawnShares.join()}|${locale}|${formatted.join()}`,
   )
-  const aligned = canAlign && fits
 
   // A vague quantity ("to taste") makes the numbers an estimate. One (i)
   // button after "per serving" says so, and a meal without one shows nothing
@@ -94,65 +115,69 @@ export function NutritionSummary({
     </InfoTip>
   )
 
-  // `w-max` on the grams and the name, so the fit check reads their text's
-  // width rather than their column's.
-  const legendItem = (macro: Macro, index: number, swatch: boolean) => (
-    <div key={macro} data-macro={macro} className="flex flex-col gap-1">
-      <Body variant={sizing.value} data-macro-text={macro} className="w-max">
-        {t('grams', { value: formatted[index]! })}
-      </Body>
-      <div className="flex items-center gap-1.5">
-        {swatch && (
-          <span aria-hidden className={cn('size-2.5 shrink-0 rounded-xs', PART_FILL[macro])} />
-        )}
-        <Body variant="caption" data-macro-text={macro} className="w-max">
-          {t(macro)}
-        </Body>
-      </div>
-    </div>
-  )
-
   return (
-    <div
-      ref={rootRef}
-      data-size={size}
-      data-mode={aligned ? 'aligned' : 'pinned'}
-      className={cn('flex flex-col tabular-nums', sizing.gap)}
-    >
-      <div className="flex items-baseline justify-between gap-2">
+    <div ref={rootRef} data-size={size} className={cn('flex flex-col tabular-nums', sizing.gap)}>
+      <div className="flex items-baseline gap-2">
         <Body variant={sizing.value}>
           {t('kcal', { calories: formatInteger(nutrition.calories, locale) })}
         </Body>
         <div className="flex items-center gap-1">
-          <Body variant="caption">{t('perServing')}</Body>
+          <Body variant="fine-print">{t('perServing')}</Body>
           {vagueInfo}
         </div>
       </div>
 
-      {drawn.length > 0 && (
+      <div className="flex flex-col gap-1.5">
+        {drawn.length > 0 && (
+          <div
+            data-testid="macro-split"
+            className="grid-cols-macro-split grid gap-x-0.5"
+            // eslint-disable-next-line shadcn/no-inline-styles -- --macro-split is the bar's data-driven column template, read by the grid-cols-macro-split @utility in globals.css; it sets no colour or type.
+            style={macroSplitStyle(drawnShares)}
+          >
+            {drawn.map((macro, index) => (
+              <div
+                key={macro}
+                aria-hidden
+                data-macro-part={macro}
+                className={cn('h-1.5', PART_FILL[macro], partShape(index, drawn.length))}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Protein and Fat are in flow at the row's ends and give it its
+            height; Carbs sits over the row at its measured centre. In the
+            fallback all three are in flow and the row wraps. `w-max` on each
+            label, so its measured width is its text's wherever it sits. */}
         <div
-          data-testid="macro-split"
-          className={cn('grid-cols-macro-split grid gap-x-0.5', sizing.rowGap)}
-          // eslint-disable-next-line shadcn/no-inline-styles -- --macro-split is the bar's data-driven column template, read by the grid-cols-macro-split @utility in globals.css; it sets no colour or type.
-          style={macroSplitStyle(drawnShares)}
+          ref={legendRef}
+          data-testid="macro-legend"
+          data-fallback={fallback || undefined}
+          className="relative flex flex-wrap justify-between gap-x-4 gap-y-1"
+          // eslint-disable-next-line shadcn/no-inline-styles -- --macro-carbs-x is the Carbs label's data-driven centre, read by the left-macro-carbs @utility in globals.css; it sets no colour or type.
+          style={macroCarbsStyle(
+            carbsCentre === null ? estimatedCarbsCentre(shares) : `${carbsCentre}px`,
+          )}
         >
-          {drawn.map((macro, index) => (
+          {MACROS.map((macro, index) => (
             <div
               key={macro}
-              aria-hidden
-              data-macro-part={macro}
-              className={cn(sizing.bar, PART_FILL[macro], partShape(index, drawn.length))}
-            />
+              data-macro={macro}
+              className={cn(
+                'flex w-max flex-col gap-0.5',
+                LABEL_ALIGN[macro],
+                macro === 'carbs' &&
+                  !fallback &&
+                  'left-macro-carbs absolute top-0 -translate-x-1/2',
+              )}
+            >
+              <Body variant={sizing.grams}>{t('grams', { value: formatted[index]! })}</Body>
+              <Body variant="fine-print">{t(macro)}</Body>
+            </div>
           ))}
-          {aligned && MACROS.map((macro, index) => legendItem(macro, index, false))}
         </div>
-      )}
-
-      {!aligned && (
-        <div className="flex justify-between gap-2">
-          {MACROS.map((macro, index) => legendItem(macro, index, drawn.length > 0))}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

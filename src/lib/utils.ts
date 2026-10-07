@@ -65,6 +65,7 @@ export const CUSTOM_UTILITY_CLASS_GROUPS = {
   'grid-cols': ['grid-cols-timeline', 'grid-cols-macro-split'],
   'scroll-mt': ['scroll-mt-below-header'],
   bottom: ['bottom-above-tab-bar'],
+  left: ['left-macro-carbs'],
   p: ['p-safe'],
 } as const
 

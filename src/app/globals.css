@@ -179,12 +179,18 @@
   grid-template-columns: 1fr 320px;
 }
 
-/* The nutrition split bar and its aligned legend (HON-1109): one `fr` track per
+/* The nutrition split bar (HON-1109): one `fr` track per
    macro, from its share of the meal's energy. Data-driven, so the template is
    a custom property set by `macroSplitStyle` in
    src/components/meal-plan/macro-energy-shares.ts. */
 @utility grid-cols-macro-split {
   grid-template-columns: var(--macro-split);
+}
+
+/* The nutrition legend's Carbs label, centred under its part of the bar
+   (HON-1114). Set from measurement in NutritionSummary, so data-driven. */
+@utility left-macro-carbs {
+  left: var(--macro-carbs-x);
 }
 
 /* The one page width (docs/DESIGN.md → Composition rules → "One page width",

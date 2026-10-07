@@ -137,6 +137,12 @@ export const BodyVariants: Story = {
         Fine print — caption size at regular weight, quieter than the captions beside it: the
         nutrition disclaimer (HON-1109).
       </Body>
+      <Body variant="figure">
+        Figure — 16px semibold: the cook view’s nutrition grams (HON-1114).
+      </Body>
+      <Body variant="figure-small">
+        Figure small — 14px semibold: the nutrition grams on cards and in the recipe form.
+      </Body>
       <Body variant="step">
         Step — the cook view’s steps, Watch out and Tip: 20px, 22px from `lg`, relaxed leading, in
         the foreground colour (HON-932).

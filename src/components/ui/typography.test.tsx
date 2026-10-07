@@ -218,6 +218,16 @@ describe('Typography Components', () => {
       expect(body).not.toHaveClass('font-medium')
     })
 
+    it.each([
+      ['figure', 'text-sm'],
+      ['figure-small', 'text-xs'],
+    ] as const)('renders the %s variant semibold at %s', (variant, size) => {
+      render(<Body variant={variant}>12g</Body>)
+      const body = screen.getByText('12g')
+      expect(body).toHaveClass(size, 'font-semibold')
+      expect(body).not.toHaveClass('text-muted-foreground')
+    })
+
     it('accepts custom className', () => {
       render(<Body className="custom-class">Body text</Body>)
       const body = screen.getByText('Body text')

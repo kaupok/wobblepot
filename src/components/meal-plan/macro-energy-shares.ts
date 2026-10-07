@@ -57,3 +57,12 @@ export function macroSplitStyle(shares: number[]): CSSProperties {
 function macroSplitTemplate(shares: number[]): string {
   return shares.map((share) => `minmax(${MIN_PART_PX}px, ${share}fr)`).join(' ')
 }
+
+/**
+ * The legend's Carbs label centre, a CSS length (`48%` before measurement,
+ * `112.5px` after), as the `style` value read by the `left-macro-carbs`
+ * utility in globals.css (HON-1114). Data-driven, like `macroSplitStyle`.
+ */
+export function macroCarbsStyle(centre: string): CSSProperties {
+  return { '--macro-carbs-x': centre } as CSSProperties
+}
