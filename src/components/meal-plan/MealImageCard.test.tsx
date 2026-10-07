@@ -50,7 +50,7 @@ describe('MealImageCard', () => {
     const wrapper = screen.getByTestId('meal-card-image')
     expect(wrapper).toHaveClass(
       'right-12',
-      'left-1/3',
+      'left-1/2',
       '@md/meal-image:left-3/8',
       'mask-r-from-80%',
     )
@@ -84,8 +84,11 @@ describe('MealImageCard', () => {
       expect(wrapper).toHaveClass('absolute', '-z-10', '-inset-y-2', 'mask-b-from-60%')
       expect(wrapper).not.toHaveClass('inset-y-0', 'h-20')
       // The head keeps the horizontal geometry, fades and `sizes` of the trailing box.
-      expect(wrapper).toHaveClass('right-12', 'left-1/3', 'mask-l-from-30%', 'mask-r-from-80%')
-      expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 437px, 55vw')
+      expect(wrapper).toHaveClass('right-12', 'left-1/2', 'mask-l-from-30%', 'mask-r-from-80%')
+      expect(screen.getByRole('img')).toHaveAttribute(
+        'sizes',
+        '(min-width: 768px) 437px, (min-width: 480px) 55vw, 37vw',
+      )
     })
 
     it('runs the image to the card bottom, unfaded, when nothing follows the head', () => {
@@ -236,6 +239,23 @@ describe('MealImageCard', () => {
       expect(card).not.toHaveAttribute('data-meal-surface')
     })
 
+    // HON-1096: the planner card's fixed height switches at the card's own
+    // container query, with or without an image; the title cap stays off.
+    it('keeps the container on a head card without an image or an overlay', () => {
+      const { container } = render(
+        <MealImageCard
+          meal={{ name: 'Lemon garlic chicken', imageStatus: 'none' }}
+          size="sm"
+          head={<p>Head</p>}
+        />,
+      )
+      const card = container.querySelector('[data-slot="card"]') as HTMLElement
+
+      expect(card).toHaveClass('group/meal-image', '@container/meal-image')
+      expect(card).not.toHaveAttribute('data-meal-surface')
+      expect(card).not.toHaveAttribute('data-meal-overlay')
+    })
+
     it('leaves an empty overlay out', () => {
       const { container } = render(
         <MealImageCard meal={ready} size="sm" head={<p>Head</p>} overlay={false} />,
@@ -305,7 +325,10 @@ describe('MealImageCard', () => {
 
     it('describes the planner side image, which ends before the action column', () => {
       renderCard(ready, undefined, true)
-      expect(screen.getByRole('img')).toHaveAttribute('sizes', '(min-width: 768px) 437px, 55vw')
+      expect(screen.getByRole('img')).toHaveAttribute(
+        'sizes',
+        '(min-width: 768px) 437px, (min-width: 480px) 55vw, 37vw',
+      )
     })
 
     it('describes the add-meal dialog bottom image as one grid column', () => {
@@ -354,8 +377,8 @@ describe('MealImageCard', () => {
       '@md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
     ])
     expect(mealImageTitleWidth(true).split(' ')).toEqual([
-      'group-data-meal-surface/meal-image:max-w-1/3',
-      'group-data-meal-overlay/meal-image:max-w-1/3',
+      'group-data-meal-surface/meal-image:max-w-1/2',
+      'group-data-meal-overlay/meal-image:max-w-1/2',
       '@md/meal-image:group-data-meal-surface/meal-image:max-w-3/8',
       '@md/meal-image:group-data-meal-overlay/meal-image:max-w-3/8',
     ])

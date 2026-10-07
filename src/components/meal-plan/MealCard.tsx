@@ -46,6 +46,7 @@ import type { MealType } from '@/generated/prisma/enums'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { useMealImageFields } from '@/hooks/use-meal-image'
 import { useEntryStatus } from './use-entry-status'
+import { DESCRIPTION_CLAMP, useDescriptionLines } from './use-description-lines'
 import { cn } from '@/lib/utils'
 
 /**
@@ -242,6 +243,18 @@ export function MealCard({
     hintId: noteHintId,
   })
   const notePlacement = { scatter: noteSlipScatter, position: noteDrag.position }
+
+  // The description takes the whole lines left under the name (HON-1096).
+  const textBlockRef = useRef<HTMLDivElement>(null)
+  const nameRef = useRef<HTMLDivElement>(null)
+  const descriptionRef = useRef<HTMLDivElement>(null)
+  const descriptionLines = useDescriptionLines({
+    blockRef: textBlockRef,
+    nameRef,
+    descriptionRef,
+    hasDescription: !!meal?.description,
+  })
+
   // Clearing the note clears its place on the server; a new note starts at
   // the default place.
   function handleNoteChange(next: string | null) {
@@ -499,10 +512,25 @@ export function MealCard({
                 underlines on a hover anywhere on it, and the card draws the
                 name's focus ring around itself (`card-target`, HON-1010).
                 The description shares the name's column, so it too stays off
-                the plate; it is hidden below `md`, where that column is a third
-                of a phone card and prose in it would run a dozen lines. */}
-            <div className={cn('flex min-w-0 flex-col', mealImageTitleWidth(hasTrailingActions))}>
-              <div className="relative flex min-h-8 w-fit items-center">
+                the plate.
+
+                The column is the card's text block, and its minimum height is
+                what gives every planned card one height per breakpoint
+                (HON-1096): two name lines (2 × 1.75rem) on a narrow card, where
+                the description is hidden, and two name lines plus two
+                description lines (2 × 1.5rem) from the card's `@md`. The name
+                is never clamped: a longer one grows the card. The description
+                gets the whole lines left under it (`useDescriptionLines`), and
+                any spare height falls below it, above the badge row. In rem, so
+                the cards grow with the text size rather than clip it. */}
+            <div
+              ref={textBlockRef}
+              className={cn(
+                'flex min-h-14 min-w-0 flex-col @md/meal-image:min-h-26',
+                mealImageTitleWidth(hasTrailingActions),
+              )}
+            >
+              <div ref={nameRef} className="relative flex min-h-8 w-fit items-center">
                 <Heading variant="section" as="h3">
                   <button
                     ref={mealNameButtonRef}
@@ -528,14 +556,21 @@ export function MealCard({
                 </Heading>
               </div>
               {meal.description && (
-                <div className="hidden md:line-clamp-2">
+                <div ref={descriptionRef} className={DESCRIPTION_CLAMP[descriptionLines]}>
                   <Body variant="muted">{meal.description}</Body>
                 </div>
               )}
             </div>
             {/* Capped when the note's slip lies beside it, so a second badge
-                wraps instead of running under the slip. */}
-            <div className={cn('flex flex-wrap items-center gap-1', MEAL_IMAGE_BADGE_ROW_WIDTH)}>
+                wraps instead of running under the slip. One badge high when it
+                is empty, so a card without badges is as tall as one with them
+                (HON-1096): the badge's floor, 26px, in rem. */}
+            <div
+              className={cn(
+                'flex min-h-6.5 flex-wrap items-center gap-1',
+                MEAL_IMAGE_BADGE_ROW_WIDTH,
+              )}
+            >
               {shouldShowAvailability && availability && (
                 <AvailabilityIndicator availability={availability} />
               )}

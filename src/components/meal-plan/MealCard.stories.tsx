@@ -13,6 +13,7 @@ import { awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
 import { defaultHandlers } from '@/stories/msw-handlers'
 import type { AlternativeMeal } from './types'
 import { MealCard } from './MealCard'
+import { MealCardSkeleton } from './MealCardSkeleton'
 
 const mealFixture = createMeal()
 
@@ -1575,5 +1576,176 @@ export const EmptyReadonly: Story = {
     meal: null,
     status: 'planned',
     isReadOnly: true,
+  },
+}
+
+/**
+ * The names for the one-height stories (HON-1096). A two-line name depends on
+ * the name column's width: half a phone card, 3/8 of a desktop one. The play
+ * function checks each name's line count first, so a font or width change that
+ * breaks the premise fails loudly rather than passing on one-line names.
+ */
+const HEIGHT_NAMES = {
+  phone: { short: 'Pasta', twoLines: 'Lemon garlic roast chicken' },
+  desktop: { short: 'Pasta', twoLines: 'Sheet-pan lemon garlic chicken thighs' },
+} as const
+const FILET_MIGNON = 'Pan-Seared Filet Mignon with Red Wine Reduction and Truffle Mashed Potatoes'
+const LONG_DESCRIPTION =
+  'Thighs roasted skin-up on a sheet pan over potatoes, with whole garlic, lemon halves and thyme, until the skin crackles and the potatoes catch at the edges.'
+/** The Section line, 1.75rem: a name's line count is its height over this. */
+const NAME_LINE = 28
+
+/**
+ * Planned cards side by side at one card width: a short name, a two-line name
+ * with a long description, a long name, and a meal without a description or
+ * badges, with the loading skeleton beside them (HON-1096). The last card has
+ * no image either, so it switches at the card's container query on its own.
+ * Every card with a name of two lines or fewer is the same height, and the
+ * skeleton matches it.
+ */
+export const OneHeightPhone: Story = {
+  name: 'One height per breakpoint (phone)',
+  args: { meal: mealFixture, status: 'planned' },
+  parameters: { cardWidth: 'phone' },
+  render: (args, { parameters }) => {
+    const names = HEIGHT_NAMES[parameters.cardWidth as keyof typeof HEIGHT_NAMES]
+    const image = { imageStatus: 'ready', imageUrl: mealIllustration.src, imageHue: 52 } as const
+    const cards = [
+      { id: 'short', name: names.short, description: DESCRIPTION },
+      { id: 'two-lines', name: names.twoLines, description: LONG_DESCRIPTION },
+      { id: 'long', name: FILET_MIGNON, description: LONG_DESCRIPTION },
+      { id: 'no-description', name: names.short, description: null },
+    ]
+    return (
+      <div className="flex flex-col gap-4">
+        {cards.map(({ id, name, description }) => (
+          <div key={id} data-testid={id}>
+            <MealCard
+              {...args}
+              entryId={id}
+              meal={{
+                ...mealFixture,
+                id,
+                name,
+                description,
+                ...(id === 'no-description' ? {} : image),
+              }}
+              // No pantry, so no availability badge: the row is reserved anyway.
+              pantryIngredients={id === 'no-description' ? [] : args.pantryIngredients}
+            />
+          </div>
+        ))}
+        <div data-testid="skeleton">
+          <MealCardSkeleton />
+        </div>
+      </div>
+    )
+  },
+  play: async ({ canvasElement, parameters }) => {
+    const canvas = within(canvasElement)
+    const desktop = parameters.cardWidth === 'desktop'
+    await waitFor(() => expect(canvas.getAllByTestId('meal-card-image')).toHaveLength(3))
+    const card = (id: string) =>
+      canvas.getByTestId(id).querySelector<HTMLElement>('[data-slot="card"]')!
+    const height = (id: string) => card(id).getBoundingClientRect().height
+    const nameOf = (id: string) => within(card(id)).getByRole('heading', { level: 3 })
+    const nameLines = (id: string) =>
+      Math.round(nameOf(id).getBoundingClientRect().height / NAME_LINE)
+    const descriptionOf = (id: string) =>
+      within(card(id)).queryByText(id === 'short' ? DESCRIPTION : LONG_DESCRIPTION)
+
+    // The premise: one- and two-line names, and a long name of three or more.
+    await expect(nameLines('short')).toBe(1)
+    await expect(nameLines('two-lines')).toBe(2)
+    await expect(nameLines('long')).toBeGreaterThanOrEqual(3)
+
+    // One height for every name of two lines or fewer, with or without a
+    // description or badges, and the skeleton at that height too.
+    const expected = desktop ? 204 : 156
+    for (const id of ['short', 'two-lines', 'no-description']) {
+      await expect(height(id)).toBeCloseTo(expected, 0)
+    }
+    await expect(
+      within(canvas.getByTestId('skeleton')).getByRole('status').getBoundingClientRect().height,
+    ).toBeCloseTo(expected, 0)
+
+    // The long name is never clamped: the card grows to show all of it.
+    const longName = nameOf('long')
+    await expect(longName.scrollHeight).toBeLessThanOrEqual(longName.clientHeight + 1)
+    await expect(getComputedStyle(longName).webkitLineClamp).toBe('none')
+    await expect(longName.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      card('long').getBoundingClientRect().bottom,
+    )
+    await expect(height('long')).toBeGreaterThanOrEqual(expected)
+
+    if (!desktop) {
+      // A phone card hides the description: its column is half the card.
+      for (const id of ['short', 'two-lines', 'long']) {
+        await expect(descriptionOf(id)).not.toBeVisible()
+      }
+      return
+    }
+
+    // Desktop: the description follows the name directly and takes the whole
+    // lines left, with the spare height below it, above the badge row.
+    for (const id of ['short', 'two-lines']) {
+      const description = descriptionOf(id)!
+      const wrapper = description.parentElement!
+      await expect(description).toBeVisible()
+      await expect(getComputedStyle(wrapper).webkitLineClamp).toBe('2')
+      const nameBox = nameOf(id).parentElement!.getBoundingClientRect()
+      await expect(wrapper.getBoundingClientRect().top).toBeCloseTo(nameBox.bottom, 0)
+      const badgeRow = wrapper.parentElement!.nextElementSibling!.getBoundingClientRect()
+      await expect(badgeRow.top).toBeGreaterThanOrEqual(wrapper.getBoundingClientRect().bottom)
+    }
+    // The long description is cut on the two-line card: the clamp ends it with
+    // an ellipsis rather than letting it run.
+    const cut = descriptionOf('two-lines')!.parentElement!
+    await expect(cut.scrollHeight).toBeGreaterThan(cut.clientHeight)
+    // Under a three-line name no whole line is left, so the description goes.
+    await expect(descriptionOf('long')).not.toBeVisible()
+  },
+}
+
+export const OneHeightDesktop: Story = {
+  ...OneHeightPhone,
+  name: 'One height per breakpoint (desktop)',
+  parameters: { cardWidth: 'desktop' },
+}
+
+/**
+ * At 200% text the cards grow rather than clip (WCAG 1.4.4, HON-1096): every
+ * height is a minimum in rem, so it scales with the text, and nothing in the
+ * head runs past the card's edge.
+ */
+export const OneHeightAtDoubleText: Story = {
+  ...OneHeightPhone,
+  name: 'One height at 200% text (desktop)',
+  parameters: { cardWidth: 'desktop' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await waitFor(() => expect(canvas.getAllByTestId('meal-card-image')).toHaveLength(3))
+    const cards = Array.from(canvasElement.querySelectorAll<HTMLElement>('[data-slot="card"]'))
+    const before = cards.map((card) => card.getBoundingClientRect().height)
+    const root = document.documentElement
+    const fontSize = root.style.fontSize
+    root.style.fontSize = '200%'
+    try {
+      await waitFor(() =>
+        cards.forEach((card, i) =>
+          expect(card.getBoundingClientRect().height).toBeGreaterThan(before[i]! * 1.5),
+        ),
+      )
+      for (const card of cards) {
+        const box = card.getBoundingClientRect()
+        const head = card.querySelector('[data-slot="meal-image-head"]')!.getBoundingClientRect()
+        await expect(head.bottom).toBeLessThanOrEqual(box.bottom)
+        const name = within(card).getByRole('heading', { level: 3 })
+        await expect(name.scrollHeight).toBeLessThanOrEqual(name.clientHeight + 1)
+        await expect(name.getBoundingClientRect().bottom).toBeLessThanOrEqual(box.bottom)
+      }
+    } finally {
+      root.style.fontSize = fontSize
+    }
   },
 }
