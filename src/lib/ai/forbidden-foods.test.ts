@@ -399,6 +399,45 @@ describe('the food words the British English block asks for (HON-1098)', () => {
   })
 })
 
+describe('goat, steak and sirloin (HON-1106)', () => {
+  it.each([
+    [{ dietaryType: 'vegetarian' }, 'goat curry'],
+    [{ dietaryType: 'vegetarian' }, 'sirloin steak'],
+    [{ dietaryType: 'vegetarian' }, 'minced steak'],
+    [{ dietaryType: 'vegetarian' }, 'rump steak'],
+    [{ dietaryType: 'vegetarian' }, 'steik'],
+    [{ dietaryType: 'vegetarian' }, 'kitseliha'],
+    [{ dietaryType: 'pescatarian' }, 'goat'],
+    [{ dietaryType: 'pescatarian' }, 'sirloin'],
+    // FISH still catches a fish steak for a vegetarian.
+    [{ dietaryType: 'vegetarian' }, 'tuna steak'],
+    [{ dietaryType: 'vegetarian' }, 'lõhesteik'],
+    // DAIRY still catches goat dairy for a vegan.
+    [{ dietaryType: 'vegan' }, "goat's cheese"],
+    [{ dietaryType: 'vegan' }, "goat's curd"],
+    [{ allergens: ['dairy'] }, 'goat curd'],
+    [{ allergens: ['dairy'] }, 'lemon curd'],
+  ])('%o flags %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(true)
+  })
+
+  it.each([
+    [{ dietaryType: 'vegetarian' }, "goat's cheese"],
+    [{ dietaryType: 'vegetarian' }, "goat's curd"],
+    [{ dietaryType: 'vegetarian' }, 'goat milk'],
+    [{ dietaryType: 'vegetarian' }, 'beefsteak tomato'],
+    [{ dietaryType: 'vegetarian' }, 'kitsejuust'],
+    [{ dietaryType: 'pescatarian' }, 'tuna steak'],
+    [{ dietaryType: 'pescatarian' }, 'lõhesteik'],
+    [{ dietaryType: 'vegan' }, 'cauliflower steak'],
+    [{ dietaryType: 'vegan' }, 'lillkapsasteik'],
+    [{ dietaryType: 'vegan' }, 'bean curd'],
+    [{ allergens: ['dairy'] }, 'bean curd'],
+  ])('%o allows %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(false)
+  })
+})
+
 describe('review round 3 gaps (PR #981)', () => {
   it.each([
     [{ allergens: ['shellfish'] }, 'rannakarbid'],
