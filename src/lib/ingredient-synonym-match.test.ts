@@ -50,8 +50,31 @@ describe('findSynonymMatches', () => {
   it('returns nothing for a term under three characters', () => {
     expect(findSynonymMatches('ru')).toEqual([])
     expect(findSynonymMatches('rut')).toEqual([
-      { target: 'swede', synonym: 'rutabaga', strong: true },
+      { target: 'swede', synonym: 'rutabaga', strong: false },
     ])
+  })
+
+  // HON-1104: "egg" must not list aubergine (eggplant) above the egg rows.
+  it('is strong for a one-word synonym only from four characters', () => {
+    const strongHits = (term: string) =>
+      findSynonymMatches(term)
+        .filter((m) => m.strong)
+        .map((m) => m.synonym)
+
+    expect(strongHits('egg')).toEqual([])
+    expect(strongHits('swe')).toEqual([])
+    expect(strongHits('cor')).toEqual([])
+    expect(strongHits('rut')).toEqual([])
+    expect(strongHits('eggp')).toEqual(['eggplant'])
+    expect(strongHits('zucc')).toEqual(['zucchini'])
+    expect(strongHits('ruta')).toEqual(['rutabaga'])
+    expect(strongHits('corn')).toEqual(['cornstarch', 'corn'])
+    // A three-letter term still finds the row, as a weak match.
+    expect(findSynonymMatches('egg')).toEqual([
+      { target: 'aubergine', synonym: 'eggplant', strong: false },
+    ])
+    // "swede" is a pool name, not a synonym, so the name search finds it.
+    expect(findSynonymMatches('swed')).toEqual([])
   })
 
   // HON-1083: the pantry quick-add offers "courgette (zucchini)" for "zucc".

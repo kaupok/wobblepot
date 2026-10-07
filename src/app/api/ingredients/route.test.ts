@@ -430,6 +430,62 @@ describe('GET /api/ingredients', () => {
       expect(queryAt(1).sql).toMatch(/similarity\(i\.name, \?\) as similarity/)
     })
 
+    // HON-1104: "egg" only starts "eggplant", a weak hit under four characters,
+    // so aubergine keeps its own name score below the egg rows.
+    it('ranks the name hits above a one-word synonym a short term starts', async () => {
+      mockQueryRaw
+        .mockResolvedValueOnce([
+          { id: 'ing-egg', name: 'egg', category: 'protein', defaultUnit: 'pcs', similarity: 1 },
+          {
+            id: 'ing-noodles',
+            name: 'egg noodles',
+            category: 'carb',
+            defaultUnit: 'g',
+            similarity: 0.33,
+          },
+        ] as never)
+        .mockResolvedValueOnce([
+          {
+            ...flour,
+            id: 'ing-aubergine',
+            name: 'aubergine',
+            poolName: 'aubergine',
+            category: 'vegetable',
+            similarity: 0,
+          },
+        ] as never)
+
+      const { data } = await search('search=egg')
+
+      expect(data.ingredients.map((i: { id: string }) => i.id)).toEqual([
+        'ing-egg',
+        'ing-noodles',
+        'ing-aubergine',
+      ])
+      expect(data.ingredients[2]).toEqual(
+        expect.objectContaining({ similarity: 0, matchedAs: 'eggplant' }),
+      )
+    })
+
+    it('ranks a one-word synonym first from four characters', async () => {
+      mockQueryRaw.mockResolvedValueOnce([] as never).mockResolvedValueOnce([
+        {
+          ...flour,
+          id: 'ing-courgette',
+          name: 'courgette',
+          poolName: 'courgette',
+          category: 'vegetable',
+          similarity: 0,
+        },
+      ] as never)
+
+      const { data } = await search('search=zucc')
+
+      expect(data.ingredients[0]).toEqual(
+        expect.objectContaining({ id: 'ing-courgette', similarity: 0.9, matchedAs: 'zucchini' }),
+      )
+    })
+
     it('returns the Estonian display name with the English synonym', async () => {
       mockGetMembership.mockResolvedValue(membershipWithLocale('et'))
       mockQueryRaw
