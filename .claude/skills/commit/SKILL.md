@@ -28,17 +28,7 @@ Check for flags:
 git branch --show-current
 ```
 
-If on `main`:
-
-1. First analyze the changes to determine the commit type (feat, fix, chore, docs, etc.) and a short kebab-case description
-2. Create a feature branch automatically:
-   ```bash
-   git checkout -b <type>/<short-description>
-   ```
-   Example: `chore/husky-precommit-hooks`, `fix/login-validation`, `feat/user-preferences`
-3. Continue with the commit workflow
-
-In the main checkout, `guard-main-checkout` blocks `git checkout -b`, because the branch switch would reach every session that shares the checkout. The changes are already there, so moving to a worktree would leave them behind. Stop and ask the user whether to run the branch creation with the `WOBBLEPOT_ALLOW_MAIN_CHECKOUT=1` inline prefix.
+If on `main`, this is the main checkout, and `guard-main-checkout` blocks `git checkout -b` there, because the branch switch would reach every session that shares the checkout. The changes are already there, so moving to a worktree would leave them behind. Pick a branch name from the change (`<type>/<short-kebab-description>`, for example `fix/login-validation`), then ask the user whether to run `git checkout -b <name>` with the `WOBBLEPOT_ALLOW_MAIN_CHECKOUT=1` inline prefix.
 
 ### 3. Check for changes
 

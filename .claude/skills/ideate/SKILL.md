@@ -13,7 +13,7 @@ Take a rough idea and shape it into actionable Linear issues through interactive
 
 ### Chrome availability
 
-If Chrome browser tools (`mcp__claude-in-chrome__*`) are available in this session, you can browse the live app during ideation for visual context. Use this — it makes discussions much more grounded.
+If Chrome browser tools (`mcp__claude-in-chrome__*`) are available in this session, you can browse the live app during ideation for visual context. "When to browse" below says when it helps.
 
 If Chrome is not available, proceed without it. Optionally mention that `claude --chrome` or `/chrome` enables app browsing for future sessions.
 
@@ -132,10 +132,13 @@ Ask the user conversationally if the proposed issues look good to create. If the
 
 For each approved issue:
 
+Prefix the title with `[DRAFT]` when the spec is not ready to implement; never `[AUTO DRAFT]`, which only `/auto-implement` files (CLAUDE.md → Linear title prefixes). Create the issue in Backlog.
+
 ```typescript
 mcp__linear-server__save_issue({
   title: 'Issue title',
   team: 'Wobblebot',
+  state: 'Backlog',
   description: 'Full description with acceptance criteria',
   // priority: 1-4 if set (1=Urgent, 2=High, 3=Medium, 4=Low)
   // blockedBy: ['HON-XX'],

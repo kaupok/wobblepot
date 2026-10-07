@@ -101,7 +101,7 @@ for i in $(seq 1 100); do
     # PR paginates at all, so the exposure is precisely the population this fetch exists
     # for. changedFiles is a scalar total and is not paginated; a mismatch — or a failed
     # count, which can equal nothing — empties FILES, the same closing move that
-    # scripts/pr-review.sh:272 already makes.
+    # scripts/pr-review.sh makes with its PR_FILE_COUNT = PR_CHANGED check.
     CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null)
     [ "$(printf '%s\n' "$FILES" | grep -c .)" = "$CHANGED" ] || FILES=""
     NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
@@ -166,7 +166,7 @@ FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=1
 # paginates at all, so the exposure is precisely the population this fetch exists for.
 # changedFiles is a scalar total and is not paginated; a mismatch — or a failed count,
 # which can equal nothing — empties FILES into the guard below, the same closing move
-# scripts/pr-review.sh:272 already makes.
+# scripts/pr-review.sh makes with its PR_FILE_COUNT = PR_CHANGED check.
 CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null)
 [ "$(printf '%s\n' "$FILES" | grep -c .)" = "$CHANGED" ] || FILES=""
 NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')

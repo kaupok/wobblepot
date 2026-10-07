@@ -139,22 +139,9 @@ If Linear issue is linked, include `Closes HON-XX` at the end of the Context sec
 # Push with upstream tracking
 git push -u origin $(git branch --show-current)
 
-# Create PR using HEREDOC for body
+# Create PR using HEREDOC; the body is the full description drafted in step 6
 gh pr create --title "type(scope): Subject" --body "$(cat <<'EOF'
-## Context
-[Why these changes were made. Closes HON-XX if applicable.]
-
-## Summary
-- ...
-- E2E impact: [specs updated | No E2E impact]
-
-## Verified
-- [command, test, story or spec — result]
-
-## Not verified
-- [what, and why it could not be checked here — or Nothing]
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+[The description drafted in step 6]
 EOF
 )"
 ```

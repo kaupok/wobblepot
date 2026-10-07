@@ -224,7 +224,7 @@ Immediately after the gate passes — before any planning work — set status to
 mcp__linear-server__save_issue({ id: "HON-XX", state: "In Progress", assignee: "me" })
 ```
 
-### 2.3 MANDATORY: Check relatedTo + epic siblings for recently-merged overlap
+### 2.3 Check relatedTo + epic siblings for recently-merged overlap
 
 For each id in `relations.relatedTo` and (if `parentId` is set) each sub-issue of the parent:
 
@@ -276,13 +276,7 @@ Review any prior discussion, decisions, or context from team members.
 
 ### 2.6 Explore codebase
 
-Using Read, Grep, and Glob tools:
-
-- Identify key files mentioned in the issue
-- Find existing patterns to follow
-- Note related components or APIs
-
-Read the files the plan depends on, not the whole codebase.
+Read the files the plan depends on and the existing patterns it should follow, not the whole codebase.
 
 **If the issue changes a shared primitive's geometry** (a size/height/padding/radius default under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper default): run the coupling scan from `/plan-issue` step 7b — this skill inlines its own planning phase, so 7b does not otherwise fire here — and record the result as a `## Coupled callsites` section in the 2.7 plan, grouped Mirror / Override / Deliberate. Write an explicit `none — no callsite hardcodes the changed <property>` if it found nothing.
 
@@ -355,7 +349,7 @@ mcp__linear-server__save_comment({
 })
 ```
 
-**CRITICAL: Do NOT proceed to Phase 3 until the plan has been successfully posted to Linear.** If the `save_comment` call fails, retry once. If it fails again, stop with error:
+**Proceed to Phase 3 only once the plan is posted to Linear**, because a retry and later phases read it from there. If the `save_comment` call fails, retry once. If it fails again, stop with error:
 
 ```
 [auto-implement] ✗ Error: Failed to post plan to Linear. Cannot proceed without documented plan.
@@ -419,13 +413,11 @@ The plan from Phase 2.7 is already in context — do not re-fetch it from Linear
 
 For each implementation step in the plan:
 
-1. Read relevant files using Read tool
-2. Make changes using Edit or Write tools
-3. Write tests for new functionality (unit tests colocated with source files)
-4. Follow patterns from CLAUDE.md
-5. If `src/components/**` changed → create/update the colocated `.stories.tsx` (CLAUDE.md Storybook rule) and run `pnpm test-storybook:ci`
-6. If the 2.7 plan has a `## Coupled callsites` section, work it like the implementation steps — it is a sibling of `## Implementation Steps`, not a member, so nothing else will pick it up. Every **Mirror** must be edited in this phase; leaving them for the 4.3 review bullet reproduces the find-it-in-review failure this scan exists to prevent
-7. If the implementation shows a step this issue needs that the PR cannot ship (a golden re-record after a prompt change, a backfill after a migration), file it now by `deferral.md` → Follow-ups and keep the ID for the 5.4 PR body. Do not append it to the deferrals file: 4.4 truncates that file after this phase
+1. Make the change the step describes
+2. Write tests for new functionality (unit tests colocated with source files)
+3. If `src/components/**` changed → create/update the colocated `.stories.tsx` (CLAUDE.md Storybook rule) and run `pnpm test-storybook:ci`
+4. If the 2.7 plan has a `## Coupled callsites` section, work it like the implementation steps — it is a sibling of `## Implementation Steps`, not a member, so nothing else will pick it up. Every **Mirror** must be edited in this phase; leaving them for the 4.3 review bullet reproduces the find-it-in-review failure this scan exists to prevent
+5. If the implementation shows a step this issue needs that the PR cannot ship (a golden re-record after a prompt change, a backfill after a migration), file it now by `deferral.md` → Follow-ups and keep the ID for the 5.4 PR body. Do not append it to the deferrals file: 4.4 truncates that file after this phase
 
 ### 3.3 Batched plans: commit and push per batch
 
@@ -527,10 +519,7 @@ while issues remain and attempt < max_attempts:
     attempt += 1
     [auto-implement] Fix attempt {attempt}/3
 
-    For each issue in "Address Now":
-        - Read the file at the specified location
-        - Analyze the issue and code context
-        - Apply the fix using Edit tool
+    Fix each issue in "Address Now"
 
     # Re-run checks
     pnpm lint && pnpm type-check && pnpm test
@@ -723,7 +712,7 @@ FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=1
 # paginates at all, so the exposure is precisely the population this fetch exists for.
 # changedFiles is a scalar total and is not paginated; a mismatch — or a failed count,
 # which can equal nothing — empties FILES into the guard below, the same closing move
-# scripts/pr-review.sh:272 already makes.
+# scripts/pr-review.sh makes with its PR_FILE_COUNT = PR_CHANGED check.
 CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null)
 [ "$(printf '%s\n' "$FILES" | grep -c .)" = "$CHANGED" ] || FILES=""
 NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
@@ -799,7 +788,7 @@ gh pr view --json number,title,headRefName,url
 
 ### 6.3 Trigger Claude review
 
-Spawn a fresh Claude Code session to review the PR. **You MUST use the script below — do NOT inline the review prompt or spawn claude directly.** The script handles model selection (`REVIEW_MODEL` from `scripts/models.sh`, overridable with `CLAUDE_REVIEW_MODEL`), locking, and prompt formatting.
+Spawn a fresh Claude Code session to review the PR. Review the PR through the script below, not an inline prompt or a direct `claude` call: the script handles model selection (`REVIEW_MODEL` from `scripts/models.sh`, overridable with `CLAUDE_REVIEW_MODEL`), locking, and prompt formatting.
 
 **First record the marker count as `ROUND_BEFORE`**, using the same fetch as the verification below. The cap counts rounds by these markers, so the count has to be shown to *increase* — see the check after the run.
 

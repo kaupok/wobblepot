@@ -227,7 +227,7 @@ This marker signals to orchestrating skills (like `/auto-implement`) that implem
 | Already on the branch       | Continue without creating new branch                |
 | Assigned to someone else    | Warn and ask before reassigning                     |
 | In worktree                 | Use worktree branch directly, skip branch creation  |
-| Not on main (regular repo)  | Warn if not on main when creating branch            |
+| Main checkout               | EnterWorktree (step 7); switch in place only with `WOBBLEPOT_ALLOW_MAIN_CHECKOUT=1` |
 
 ## Important
 

@@ -24,7 +24,7 @@ Always pass `assignee: "null"` — In Progress / In Review / Done / Canceled iss
 mcp__linear-server__list_issues({ state: "Queued", assignee: "null", limit: 100 })
 ```
 
-### 1.3 MANDATORY: Verify every candidate with `includeRelations: true`
+### 1.3 Verify every candidate with `includeRelations: true`
 
 `list_issues` does NOT return relations. Before a candidate can enter the selection pool, re-fetch it:
 
