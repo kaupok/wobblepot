@@ -48,7 +48,7 @@ export type EmailSender = keyof typeof EMAIL_SENDERS
 /**
  * Prefixes the subject with `[Staging]` outside production so testers can
  * tell at a glance which env the email came from. Apply at every send-site —
- * we don't have a wrapper around `resend.emails.send` (one send-site today).
+ * we don't have a wrapper around `resend.emails.send`.
  */
 export function envSubject(subject: string): string {
   return clientEnv.NEXT_PUBLIC_APP_ENV === 'production' ? subject : `[Staging] ${subject}`

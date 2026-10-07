@@ -10,6 +10,14 @@ import { HouseholdSettingsForm } from './household/HouseholdSettingsForm'
 import { MemberList } from '@/components/household/MemberList'
 import { MEMBERS_QUERY_KEY, type MembersResponse } from '@/components/household/members-query'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { REMINDER_WEEKDAYS, type ReminderWeekday } from '@/lib/weekly-reminder-schedule'
+
+/** A stored weekday outside 1–7 reads as off rather than as a broken select. */
+function toReminderWeekday(value: number | null): ReminderWeekday | null {
+  return (REMINDER_WEEKDAYS as readonly number[]).includes(value ?? 0)
+    ? (value as ReminderWeekday)
+    : null
+}
 
 export default async function HouseholdPage() {
   const session = await auth.api.getSession({
@@ -87,6 +95,7 @@ export default async function HouseholdPage() {
                 : null
             }
             isOwner={isOwner}
+            reminderWeekday={toReminderWeekday(membership.reminderWeekday)}
           />
         </div>
       </div>

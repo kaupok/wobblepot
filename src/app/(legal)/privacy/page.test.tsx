@@ -37,6 +37,17 @@ describe('PrivacyPage', () => {
     )
   })
 
+  it('discloses the weekly reminder: the data and the consent basis (HON-1084)', () => {
+    const text = renderedText().replace(/\s+/g, ' ')
+    expect(text).toContain(
+      'Weekly reminder: the day you chose, when you switched the reminder on, and when we last sent it.',
+    )
+    expect(text).toContain(
+      'The weekly planning reminder email is also consent: we send it only after you switch it on',
+    )
+    expect(text).toContain('every email has a link to stop it')
+  })
+
   it('links to the dedicated subprocessors page (HON-543)', () => {
     render(<PrivacyPage />)
     expect(screen.getByRole('link', { name: 'subprocessors page' })).toHaveAttribute(

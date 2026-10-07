@@ -71,6 +71,11 @@ export const PUBLIC_ROUTES = [
     reason:
       'A visitor without an account asks for an invite and confirms it from an emailed link (HON-846)',
   },
+  {
+    path: '/reminders',
+    reason:
+      'The weekly reminder email links to /reminders/stop, which must work without a sign-in (HON-1084)',
+  },
   { path: '/privacy', reason: 'Legal page, served from the (legal) route group' },
   { path: '/terms', reason: 'Legal page, served from the (legal) route group' },
   { path: '/status', reason: 'Public status page' },

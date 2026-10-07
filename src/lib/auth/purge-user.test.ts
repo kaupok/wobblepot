@@ -216,6 +216,28 @@ describe('purgeUser', () => {
     })
   })
 
+  // The weekly reminder's consent, day, stop token and last send live on the
+  // member row (HON-1084), so a purge leaves none of them behind only if every
+  // one of the user's membership rows is deleted, never merely updated.
+  it.each([
+    ['the sole owner, by the household cascade', 'owner' as const, 1, 'household'],
+    ['an owner beside another account holder', 'owner' as const, 2, 'member'],
+    ['a member', 'member' as const, 2, 'member'],
+  ])('deletes the membership row, reminder fields included, for %s', async (_, role, count, by) => {
+    const { householdDelete, memberDelete } = mockTx({
+      memberships: [{ id: 'member-1', householdId: 'hh-1', role }],
+      memberCount: count,
+    })
+
+    await purgeUser('user-1')
+
+    if (by === 'household') {
+      expect(householdDelete).toHaveBeenCalledWith({ where: { id: 'hh-1' } })
+    } else {
+      expect(memberDelete).toHaveBeenCalledWith({ where: { id: 'member-1' } })
+    }
+  })
+
   it('deletes sessions, accounts, and the user row', async () => {
     const m = mockTx({ memberships: [] })
 

@@ -140,9 +140,10 @@ export function getDaysRemaining(timezone?: string): number {
  * Intl locale that emits ISO `YYYY-MM-DD` from `Intl.DateTimeFormat` with these
  * options. The output is never shown to the user, so this string is
  * intentionally locale-agnostic.
+ *
+ * @param now - the instant to read the date of; tests and the reminder cron pass it
  */
-export function getTodayInTimezone(timezone: string): string {
-  const now = new Date()
+export function getTodayInTimezone(timezone: string, now: Date = new Date()): string {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
     year: 'numeric',
