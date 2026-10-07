@@ -94,6 +94,10 @@ propagate (typically minutes).
 3. Score should be **≥ 9/10**. Anything lower means a header/content issue —
    debug before promoting.
 
+Last recorded run: 10/10 on 2026-10-07 with the waitlist confirmation email
+(HON-1081). The same check found every email in the inbox at Gmail and
+Outlook.com, with SPF, DKIM and DMARC aligned.
+
 ## DMARC
 
 ### Reading aggregate reports
