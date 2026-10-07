@@ -58,6 +58,16 @@ function shellFunctionBody(source: string, name: string): string {
   return source.slice(start, end)
 }
 
+/** The `exec env … claude` command in a function body, its `\` continuations joined. */
+function launchLine(body: string): string {
+  const line = body
+    .replace(/\\\n\s*/g, '')
+    .split('\n')
+    .find((l) => /^\s*exec env /.test(l))
+  expect(line, 'no `exec env` launch line').toBeDefined()
+  return line!.trim()
+}
+
 type PrState = 'OPEN' | 'MERGED' | 'CLOSED' | 'NONE' | 'ERROR'
 type CiState = 'green' | 'pending' | 'failing' | 'unknown'
 
@@ -787,8 +797,20 @@ describe('orchestrator.sh', () => {
           expect(line).not.toContain('ORCHESTRATOR_RETRY_CONTEXT')
           expect(line).not.toContain('auto_prompt')
         }
-        expect(body).toMatch(/exec env [^\n]*-u ORCHESTRATOR_RETRY_CONTEXT claude/)
+        expect(launchLine(body)).toMatch(
+          /exec env [^\n]*-u ORCHESTRATOR_RETRY_CONTEXT [^\n]*claude/,
+        )
         expect(body).toContain('"$(auto_prompt "$prompt")"')
+      })
+
+      // HON-1119: Claude Code moves an MCP call past 2 minutes to the
+      // background, and this headless worker exits when its turn ends, so the
+      // result would never arrive. 0 keeps every MCP call in the foreground.
+      it('launches the worker with MCP auto-backgrounding switched off', () => {
+        const body = shellFunctionBody(fs.readFileSync(worktreeClaude, 'utf8'), 'cmd_auto')
+        expect(launchLine(body)).toMatch(
+          /exec env [^\n]* CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude /,
+        )
       })
     })
   })
