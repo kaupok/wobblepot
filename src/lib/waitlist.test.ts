@@ -12,6 +12,8 @@ vi.mock('@/lib/prisma', () => ({
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
+    signupCode: { updateMany: vi.fn() },
+    user: { findUnique: vi.fn() },
   },
 }))
 
@@ -25,6 +27,7 @@ vi.mock('@/lib/resend', () => ({
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 
 import {
+  clearWaitlistForNewUser,
   confirmWaitlistToken,
   confirmedCutoff,
   purgeExpiredWaitlistRequests,
@@ -35,6 +38,8 @@ import { prisma } from '@/lib/prisma'
 const mockFindUnique = vi.mocked(prisma.waitlistRequest.findUnique)
 const mockUpdateMany = vi.mocked(prisma.waitlistRequest.updateMany)
 const mockDeleteMany = vi.mocked(prisma.waitlistRequest.deleteMany)
+const mockCodeUpdateMany = vi.mocked(prisma.signupCode.updateMany)
+const mockUserFindUnique = vi.mocked(prisma.user.findUnique)
 
 const NOW = new Date('2026-10-06T12:00:00.000Z')
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -155,5 +160,57 @@ describe('purgeExpiredWaitlistRequests', () => {
     expect(mockDeleteMany).toHaveBeenNthCalledWith(2, {
       where: { confirmedAt: { lt: new Date('2026-04-06T12:00:00.000Z') } },
     })
+  })
+})
+
+describe('clearWaitlistForNewUser', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockUserFindUnique.mockResolvedValue({ email: ' Anna@Example.com ' } as never)
+    mockCodeUpdateMany.mockResolvedValue({ count: 0 })
+    mockDeleteMany.mockResolvedValue({ count: 1 })
+  })
+
+  it("deletes the request under the new user's email, trimmed and lowercased", async () => {
+    await clearWaitlistForNewUser('user_1')
+
+    expect(mockUserFindUnique).toHaveBeenCalledWith({
+      where: { id: 'user_1' },
+      select: { email: true },
+    })
+    expect(mockDeleteMany).toHaveBeenCalledWith({ where: { email: 'anna@example.com' } })
+  })
+
+  it("expires an unused code linked to the address's request before deleting it", async () => {
+    await clearWaitlistForNewUser('user_1')
+
+    expect(mockCodeUpdateMany).toHaveBeenCalledWith({
+      where: { usedAt: null, waitlistRequest: { is: { email: 'anna@example.com' } } },
+      data: { expiresAt: expect.any(Date) },
+    })
+    expect(mockCodeUpdateMany.mock.invocationCallOrder[0]!).toBeLessThan(
+      mockDeleteMany.mock.invocationCallOrder[0]!,
+    )
+  })
+
+  it('does nothing when the user row cannot be read', async () => {
+    mockUserFindUnique.mockResolvedValue(null)
+
+    await clearWaitlistForNewUser('user_1')
+
+    expect(mockCodeUpdateMany).not.toHaveBeenCalled()
+    expect(mockDeleteMany).not.toHaveBeenCalled()
+  })
+
+  it('logs a database error and does not throw, so sign-up still succeeds', async () => {
+    const error = new Error('connection lost')
+    mockDeleteMany.mockRejectedValue(error)
+
+    await expect(clearWaitlistForNewUser('user_1')).resolves.toBeUndefined()
+    expect(console.warn).toHaveBeenCalledWith(
+      '[waitlist] failed to delete the waitlist request of a new user',
+      { userId: 'user_1', err: error },
+    )
   })
 })

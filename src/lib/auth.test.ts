@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
+  afterEmailSignUp,
   auth,
   assertTermsAccepted,
   hashPasswordWithBreachCheck,
@@ -8,6 +9,8 @@ import {
 } from './auth'
 import { CURRENT_TERMS_VERSION } from './consent'
 import { isPasswordBreached } from './breached-password'
+import { linkUsedBy, releaseClaim } from '@/lib/signup-codes'
+import { clearWaitlistForNewUser } from '@/lib/waitlist'
 
 // Mock the prisma module
 vi.mock('@/lib/prisma', () => ({
@@ -16,6 +19,16 @@ vi.mock('@/lib/prisma', () => ({
 
 vi.mock('./breached-password', () => ({
   isPasswordBreached: vi.fn(),
+}))
+
+vi.mock('@/lib/signup-codes', () => ({
+  linkUsedBy: vi.fn(),
+  releaseClaim: vi.fn(),
+  validateAndClaimInviteCode: vi.fn(),
+}))
+
+vi.mock('@/lib/waitlist', () => ({
+  clearWaitlistForNewUser: vi.fn(),
 }))
 
 describe('hashPasswordWithBreachCheck', () => {
@@ -74,6 +87,41 @@ describe('stampTermsConsent', () => {
     ['internal creation with no request context', undefined],
   ])('does not stamp for %s — consent is only validated on email sign-up', (_label, path) => {
     expect(stampTermsConsent(path)).toBeNull()
+  })
+})
+
+describe('afterEmailSignUp', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("deletes the new user's waitlist request when the sign-up has no invite code (HON-1102)", async () => {
+    await afterEmailSignUp({ email: 'anna@example.com' }, 'user_1')
+
+    expect(clearWaitlistForNewUser).toHaveBeenCalledWith('user_1')
+    expect(releaseClaim).not.toHaveBeenCalled()
+  })
+
+  it('links the used invite code, then deletes the waitlist request', async () => {
+    const body = { inviteCode: 'good' }
+
+    await afterEmailSignUp(body, 'user_1')
+
+    expect(linkUsedBy).toHaveBeenCalledWith(body, 'user_1')
+    expect(clearWaitlistForNewUser).toHaveBeenCalledWith('user_1')
+    expect(vi.mocked(linkUsedBy).mock.invocationCallOrder[0]!).toBeLessThan(
+      vi.mocked(clearWaitlistForNewUser).mock.invocationCallOrder[0]!,
+    )
+  })
+
+  it('releases the claimed code and touches no waitlist request when sign-up failed', async () => {
+    const body = { inviteCode: 'good' }
+
+    await afterEmailSignUp(body, undefined)
+
+    expect(releaseClaim).toHaveBeenCalledWith(body)
+    expect(linkUsedBy).not.toHaveBeenCalled()
+    expect(clearWaitlistForNewUser).not.toHaveBeenCalled()
   })
 })
 
