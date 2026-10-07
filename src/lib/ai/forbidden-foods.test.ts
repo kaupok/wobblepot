@@ -399,6 +399,93 @@ describe('the food words the British English block asks for (HON-1098)', () => {
   })
 })
 
+describe('goat, steak and sirloin (HON-1106)', () => {
+  it.each([
+    [{ dietaryType: 'vegetarian' }, 'goat curry'],
+    [{ dietaryType: 'vegetarian' }, 'sirloin steak'],
+    [{ dietaryType: 'vegetarian' }, 'minced steak'],
+    [{ dietaryType: 'vegetarian' }, 'rump steak'],
+    [{ dietaryType: 'vegetarian' }, 'steik'],
+    [{ dietaryType: 'vegetarian' }, 'kitseliha'],
+    [{ dietaryType: 'pescatarian' }, 'goat'],
+    [{ dietaryType: 'pescatarian' }, 'sirloin'],
+    // FISH still catches a fish steak for a vegetarian.
+    [{ dietaryType: 'vegetarian' }, 'tuna steak'],
+    [{ dietaryType: 'vegetarian' }, 'lõhesteik'],
+    // DAIRY still catches goat dairy for a vegan.
+    [{ dietaryType: 'vegan' }, "goat's cheese"],
+    [{ dietaryType: 'vegan' }, "goat's curd"],
+    [{ allergens: ['dairy'] }, 'goat curd'],
+    [{ allergens: ['dairy'] }, 'lemon curd'],
+    // Pool names the PR #1177 review ran through the check.
+    [{ dietaryType: 'vegetarian' }, 'filee praad'],
+    [{ dietaryType: 'vegetarian' }, 'metssea praad'],
+    [{ dietaryType: 'vegetarian' }, 'wild boar'],
+    [{ dietaryType: 'vegetarian' }, 'hiidlestapraad'],
+    [{ allergens: ['fish'] }, 'hiidlest'],
+    [{ dietaryType: 'vegetarian' }, 'new york strip'],
+    [{ dietaryType: 'vegetarian' }, 'ribeye'],
+    [{ dietaryType: 'vegetarian' }, 'rib-eye'],
+    [{ dietaryType: 'vegetarian' }, 'välisfilee'],
+    [{ dietaryType: 'vegetarian' }, 'sisefilee'],
+    [{ dietaryType: 'vegetarian' }, 'fileepraad'],
+    [{ dietaryType: 'vegetarian' }, 'sea eskalopp'],
+    [{ dietaryType: 'vegetarian' }, 'sea seljatükk'],
+    [{ dietaryType: 'vegetarian' }, 'sea ribitükk'],
+    [{ dietaryType: 'vegetarian' }, 'sea abatükk'],
+    [{ dietaryType: 'vegetarian' }, 'kalafilee praad'],
+    [{ allergens: ['eggs'] }, 'lemon curd'],
+    [{ dietaryType: 'vegan' }, 'lime curd'],
+    [{ allergens: ['eggs'] }, 'raspberry curd'],
+    [{ allergens: ['eggs'] }, 'passion fruit curd'],
+    [{ dietaryType: 'vegetarian' }, 'kitsekarri'],
+    [{ dietaryType: 'vegetarian' }, 'kitsepraad'],
+    [{ dietaryType: 'vegetarian' }, 'kitse hautis'],
+    [{ dietaryType: 'vegan' }, 'kitsejuust'],
+  ])('%o flags %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(true)
+  })
+
+  it.each([
+    [{ dietaryType: 'vegetarian' }, "goat's cheese"],
+    [{ dietaryType: 'vegetarian' }, "goat's curd"],
+    [{ dietaryType: 'vegetarian' }, 'goat milk'],
+    [{ dietaryType: 'vegetarian' }, 'beefsteak tomato'],
+    [{ dietaryType: 'vegetarian' }, 'kitsejuust'],
+    [{ dietaryType: 'pescatarian' }, 'tuna steak'],
+    [{ dietaryType: 'pescatarian' }, 'lõhesteik'],
+    [{ dietaryType: 'vegan' }, 'cauliflower steak'],
+    [{ dietaryType: 'vegan' }, 'lillkapsasteik'],
+    [{ dietaryType: 'vegan' }, 'bean curd'],
+    [{ allergens: ['dairy'] }, 'bean curd'],
+    [{ dietaryType: 'pescatarian' }, 'halibut steak'],
+    [{ dietaryType: 'pescatarian' }, 'hiidlestapraad'],
+    [{ dietaryType: 'vegetarian' }, 'steak sauce'],
+    [{ dietaryType: 'vegan' }, 'steak seasoning'],
+    [{ dietaryType: 'vegan' }, 'Cauliflower Steaks'],
+    [{ dietaryType: 'vegetarian' }, "roasted beetroot with goat's cheese"],
+    [{ dietaryType: 'vegetarian' }, 'goat’s cheese'],
+    [{ dietaryType: 'vegetarian' }, 'goats curd'],
+    [{ dietaryType: 'vegetarian' }, 'goat feta'],
+    [{ dietaryType: 'vegetarian' }, 'goat ricotta'],
+    [{ dietaryType: 'vegetarian' }, 'goat labneh'],
+    [{ dietaryType: 'vegetarian' }, 'lamb’s lettuce'],
+    [{ dietaryType: 'pescatarian' }, 'kalafilee praad'],
+    [{ dietaryType: 'pescatarian' }, 'lõhefileepraad'],
+    [{ dietaryType: 'vegetarian' }, 'sea salt'],
+    [{ dietaryType: 'vegetarian' }, 'sea buckthorn'],
+    [{ allergens: ['eggs'] }, "goat's curd"],
+    [{ allergens: ['eggs'] }, 'bean curd'],
+    [{ allergens: ['eggs'] }, 'cheese curds'],
+    [{ dietaryType: 'vegetarian' }, 'cheese board'],
+    [{ dietaryType: 'vegetarian' }, "goat's yoghurt"],
+    [{ dietaryType: 'vegetarian' }, 'kitsepiim'],
+    [{ dietaryType: 'vegetarian' }, 'kitse juust'],
+  ])('%o allows %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(false)
+  })
+})
+
 describe('review round 3 gaps (PR #981)', () => {
   it.each([
     [{ allergens: ['shellfish'] }, 'rannakarbid'],
