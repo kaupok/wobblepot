@@ -243,6 +243,12 @@ This works because every environment applies migrations before it seeds. `prisma
 
 **If the new name already exists as a global row**, this is a merge, not a rename. For an ingredient the `UPDATE` fails on `ingredient_global_name_key`; for a meal nothing stops it, because meal names carry no unique index, and you get two global meals with one name. Check before writing the migration. A merge repoints every foreign key to the surviving id (for an ingredient: `meal_component`, `pantry_item` and `custom_shopping_item`, the first two with a unique key to collide on) and deletes the old row. Plan it as its own issue.
 
+`prisma/migrations/20261007120000_merge_british_ingredient_twins` is the worked example (HON-1097). Three things it handles that the foreign keys do not show:
+
+- `household_preferences` and `member_preferences` hold ingredient ids in `"excludedIngredientIds"`, a plain array with no foreign key. Replace the old id there too, or the exclusion stops filtering.
+- `meal_component` and `pantry_item` quantities are in the row's `defaultUnit`. When the two rows differ (`g` and `piece`), convert with `gramsPerPiece`.
+- The surviving row takes the union of both rows' `allergens`, so no household loses an allergen filter.
+
 ## Never run an unscoped UPDATE
 
 ```sql

@@ -98,6 +98,7 @@
     "zod": "4.5.4"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.4.3",
     "@formatjs/icu-messageformat-parser": "3.5.4",
     "@playwright/test": "1.62.1",
     "@shadcn/lint": "0.1.0",

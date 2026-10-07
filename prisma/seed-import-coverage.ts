@@ -137,7 +137,7 @@ export const importCoverageIngredients = [
     fiber: 3.3,
   },
   {
-    name: 'fresh cilantro',
+    name: 'fresh coriander',
     category: 'spice',
     subcategory: 'herb',
     defaultUnit: 'g',
@@ -1446,19 +1446,6 @@ export const importCoverageIngredients = [
   },
   {
     name: 'stewing beef',
-    category: 'protein',
-    subcategory: 'beef',
-    proteinType: 'beef',
-    defaultUnit: 'g',
-    allergens: [],
-    calories: 225,
-    protein: 26,
-    carbs: 0,
-    fat: 13,
-    fiber: 0,
-  },
-  {
-    name: 'beef stew meat',
     category: 'protein',
     subcategory: 'beef',
     proteinType: 'beef',
