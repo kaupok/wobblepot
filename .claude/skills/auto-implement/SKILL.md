@@ -32,6 +32,8 @@ The **6.7 hand-off** is a deliberate terminal state, not a failure. Phase 6 caps
 
 **Backgrounding a command is allowed; ending the turn beside it is not.** When a command outruns Bash's 600 s foreground cap, you may start it with `run_in_background: true` — but the same turn must then *wait on it* with foreground wait-chunks until it reaches a terminal marker (the pattern in 6.1 and `batched.md`). A tool call in flight cannot end a turn, and the 600 s cap is per call, not per turn, so chained foreground waits cover an arbitrarily long job.
 
+**Bash is not the only tool that backgrounds work.** A subagent starts in the background by default, Monitor delivers its result as a later notification, and an MCP call that runs past 2 minutes moves to the background on its own. Each fails the same way in a headless run (HON-1119). So spawn an Agent with `run_in_background: false`, and do not use Monitor: wait with foreground wait-chunks instead. The worker launch sets `CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0` (`scripts/worktree-claude.sh`), so a slow Linear or Playwright call stays in the foreground.
+
 ### Sibling files
 
 Rarely-taken branches live next to this file, in `.claude/skills/auto-implement/`, and cost nothing on a run that never reaches them. Each section that moved keeps its heading here with a pointer saying which file to read and when. **When a pointer applies, read the file before acting** — its rules are not repeated here.

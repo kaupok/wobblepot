@@ -1110,7 +1110,12 @@ cmd_auto() {
   # Unset ORCHESTRATOR_RETRY_CONTEXT too: it is consumed into the prompt here,
   # and the worker runs `pnpm test`, which sources these scripts — a leaked
   # value would make every script under test see a retry (HON-728).
-  exec env -u ANTHROPIC_API_KEY -u ORCHESTRATOR_RETRY_CONTEXT claude --dangerously-skip-permissions \
+  # CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 keeps a slow MCP call (Linear,
+  # Playwright) in the foreground. Claude Code otherwise backgrounds one after
+  # 2 minutes, and this headless worker exits when its turn ends, so the turn
+  # can end before the result arrives and the result is lost (HON-1119).
+  exec env -u ANTHROPIC_API_KEY -u ORCHESTRATOR_RETRY_CONTEXT \
+    CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude --dangerously-skip-permissions \
     --model "$AUTO_MODEL" "$(auto_prompt "$prompt")"
 }
 
