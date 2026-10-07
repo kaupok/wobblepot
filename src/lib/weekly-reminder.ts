@@ -34,7 +34,9 @@ const SEND_GAP_MS = 500
  * The fields to write when a member sets their reminder. A weekday switches it
  * on: the consent time and the stop token are kept if they exist and set if
  * they do not, so changing the day is not new consent. `null` switches it off
- * and clears both. `reminderLastSentAt` is never touched, so switching off
+ * and clears the consent. The token stays for the life of the member row, so
+ * the stop link in an older email still works after the member switches the
+ * reminder on again. `reminderLastSentAt` is never touched, so switching off
  * and on again cannot send twice in one week.
  */
 export function reminderUpdate(
@@ -43,7 +45,7 @@ export function reminderUpdate(
   now: Date = new Date(),
 ) {
   if (weekday === null) {
-    return { reminderWeekday: null, reminderConsentAt: null, reminderToken: null }
+    return { reminderWeekday: null, reminderConsentAt: null }
   }
   return {
     reminderWeekday: weekday,
@@ -53,14 +55,15 @@ export function reminderUpdate(
 }
 
 /**
- * Switches off the reminder that owns `token`. An unknown or already cleared
- * token changes nothing, and the caller answers the same either way, so the
+ * Switches off the reminder that owns `token`, and keeps the token (see
+ * `reminderUpdate`). An unknown token, or one whose reminder is already off,
+ * changes nothing, and the caller answers the same either way, so the
  * link never tells whether a token existed.
  */
 export async function stopRemindersByToken(token: string): Promise<void> {
   await prisma.householdMember.updateMany({
     where: { reminderToken: token },
-    data: { reminderWeekday: null, reminderConsentAt: null, reminderToken: null },
+    data: { reminderWeekday: null, reminderConsentAt: null },
   })
 }
 
@@ -160,11 +163,12 @@ async function remindMember(
 
   // Claim the send before making it. Hobby cron timing drifts by up to an hour,
   // so two overlapping runs must not both pass the gap check above. Keyed on
-  // the token as well, so a reminder switched off since the read is not sent.
+  // the weekday as well, so a reminder switched off or moved to another day
+  // since the read is not sent.
   const { count } = await prisma.householdMember.updateMany({
     where: {
       id: member.id,
-      reminderToken: token,
+      reminderWeekday: member.reminderWeekday,
       OR: [
         { reminderLastSentAt: null },
         { reminderLastSentAt: { lt: new Date(now.getTime() - REMINDER_MIN_GAP_MS) } },

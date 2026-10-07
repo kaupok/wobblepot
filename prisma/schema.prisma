@@ -298,7 +298,8 @@ model HouseholdMember {
   reminderWeekday    Int?
   /// When the member switched the reminder on. Cleared when it is switched off.
   reminderConsentAt  DateTime?
-  /// `nanoid(32)` for the stop link, minted on opt-in, cleared on opt-out.
+  /// `nanoid(32)` for the stop link, minted on the first opt-in and kept after opt-out,
+  /// so the stop link in an older email still works after a later opt-in.
   reminderToken      String?   @unique
   /// The last send; the cron skips a member sent to less than 6 days ago.
   reminderLastSentAt DateTime?

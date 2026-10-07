@@ -92,7 +92,7 @@ describe('PATCH /api/households/me/members/me/reminder', () => {
     expect(data.reminderToken).toMatch(/^[\w-]{32}$/)
   })
 
-  it('switches it off and clears consent and token, leaving the last send alone', async () => {
+  it('switches it off and clears consent, keeping the token and the last send', async () => {
     mockFindUnique.mockResolvedValue({
       id: 'member-1',
       reminderConsentAt: new Date('2026-09-01'),
@@ -104,7 +104,7 @@ describe('PATCH /api/households/me/members/me/reminder', () => {
     expect(response.status).toBe(200)
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'member-1' },
-      data: { reminderWeekday: null, reminderConsentAt: null, reminderToken: null },
+      data: { reminderWeekday: null, reminderConsentAt: null },
     })
   })
 })

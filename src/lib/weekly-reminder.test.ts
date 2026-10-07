@@ -141,7 +141,7 @@ describe('sendWeeklyReminders', () => {
     expect(mockUpdateMany).toHaveBeenCalledWith({
       where: {
         id: 'member-1',
-        reminderToken: 'token-1',
+        reminderWeekday: 7,
         OR: [
           { reminderLastSentAt: null },
           { reminderLastSentAt: { lt: new Date(SUNDAY_RUN.getTime() - REMINDER_MIN_GAP_MS) } },
@@ -269,27 +269,28 @@ describe('reminderUpdate', () => {
     })
   })
 
-  it('clears all three when switched off, and leaves reminderLastSentAt alone', () => {
+  it('clears the day and consent when switched off, and keeps the token and last send', () => {
     const update = reminderUpdate(
       { reminderConsentAt: new Date('2026-09-01'), reminderToken: 'kept' },
       null,
       now,
     )
 
-    expect(update).toEqual({ reminderWeekday: null, reminderConsentAt: null, reminderToken: null })
+    expect(update).toEqual({ reminderWeekday: null, reminderConsentAt: null })
+    expect(update).not.toHaveProperty('reminderToken')
     expect(update).not.toHaveProperty('reminderLastSentAt')
   })
 })
 
 describe('stopRemindersByToken', () => {
-  it('clears the reminder that owns the token', async () => {
+  it('switches off the reminder that owns the token, and keeps the token', async () => {
     mockUpdateMany.mockResolvedValue({ count: 1 })
 
     await stopRemindersByToken('token-1')
 
     expect(mockUpdateMany).toHaveBeenCalledWith({
       where: { reminderToken: 'token-1' },
-      data: { reminderWeekday: null, reminderConsentAt: null, reminderToken: null },
+      data: { reminderWeekday: null, reminderConsentAt: null },
     })
   })
 })
