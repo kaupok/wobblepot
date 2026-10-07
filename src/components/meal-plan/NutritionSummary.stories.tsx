@@ -123,26 +123,38 @@ async function loadFonts(canvasElement: HTMLElement) {
 
 /**
  * The one layout: Protein flush left, Fat flush right and right-aligned,
- * Carbs between with 16px to each, no swatch, no overlap. Waits for the
- * layout effect's measurement, which replaces the server's `%` estimate.
+ * Carbs between with 16px to each, no swatch, no overlap.
+ *
+ * Retried until it holds: the web font's arrival resizes the labels, and the
+ * ResizeObserver's re-measure lands a frame or two after `fonts.ready`, so a
+ * single read can still see the fallback font's placement (it did on CI).
  */
 async function expectPlaced(canvasElement: HTMLElement) {
   await loadFonts(canvasElement)
-  await waitFor(() =>
-    expect(legend(canvasElement).style.getPropertyValue('--macro-carbs-x')).toMatch(/px$/),
-  )
-  await expect(legend(canvasElement)).not.toHaveAttribute('data-fallback')
-  const row = box(legend(canvasElement))
-  const [protein, carbs, fat] = (['protein', 'carbs', 'fat'] as const).map((macro) =>
-    box(label(canvasElement, macro)),
-  )
-  await expect(Math.abs(protein!.left - row.left)).toBeLessThanOrEqual(0.5)
-  await expect(Math.abs(fat!.right - row.right)).toBeLessThanOrEqual(0.5)
+  await waitFor(() => {
+    expect(legend(canvasElement).style.getPropertyValue('--macro-carbs-x')).toMatch(/px$/)
+    expect(legend(canvasElement)).not.toHaveAttribute('data-fallback')
+    const row = box(legend(canvasElement))
+    const [protein, carbs, fat] = (['protein', 'carbs', 'fat'] as const).map((macro) =>
+      box(label(canvasElement, macro)),
+    )
+    expect(Math.abs(protein!.left - row.left)).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(fat!.right - row.right)).toBeLessThanOrEqual(0.5)
+    expect(carbs!.left - protein!.right).toBeGreaterThanOrEqual(16 - 0.5)
+    expect(fat!.left - carbs!.right).toBeGreaterThanOrEqual(16 - 0.5)
+  })
   await expect(getComputedStyle(label(canvasElement, 'fat')).textAlign).toBe('right')
-  await expect(carbs!.left - protein!.right).toBeGreaterThanOrEqual(16 - 0.5)
-  await expect(fat!.left - carbs!.right).toBeGreaterThanOrEqual(16 - 0.5)
   await expectNoSwatch(canvasElement)
   await expectNoOverlap(canvasElement)
+}
+
+/** Carbs' centre within 1px of their part's, retried for the font's re-measure. */
+async function expectCarbsCentred(canvasElement: HTMLElement) {
+  await waitFor(() => {
+    const offset =
+      centre(box(label(canvasElement, 'carbs'))) - centre(box(part(canvasElement, 'carbs')))
+    expect(Math.abs(offset)).toBeLessThanOrEqual(1)
+  })
 }
 
 /** The cook view's grams at 16px semibold, the names at 14px regular, the bar at 6px. */
@@ -210,9 +222,7 @@ export const HighCarbLarge: Story = {
   args: { nutrition: HIGH_CARB, size: 'lg' },
   play: async ({ canvasElement }) => {
     await expectPlaced(canvasElement)
-    const offset =
-      centre(box(label(canvasElement, 'carbs'))) - centre(box(part(canvasElement, 'carbs')))
-    await expect(Math.abs(offset)).toBeLessThanOrEqual(1)
+    await expectCarbsCentred(canvasElement)
   },
 }
 
@@ -235,9 +245,7 @@ export const HighCarbScaled: Story = {
     await waitFor(() =>
       expect(legend(canvasElement).style.getPropertyValue('--macro-carbs-x')).toMatch(/px$/),
     )
-    const offset =
-      centre(box(label(canvasElement, 'carbs'))) - centre(box(part(canvasElement, 'carbs')))
-    await expect(Math.abs(offset)).toBeLessThanOrEqual(1)
+    await expectCarbsCentred(canvasElement)
   },
 }
 
@@ -263,13 +271,15 @@ export const LowProteinLarge: Story = {
  */
 async function expectCarbsByTheRule(canvasElement: HTMLElement) {
   await expectPlaced(canvasElement)
-  const protein = box(label(canvasElement, 'protein'))
-  const carbs = box(label(canvasElement, 'carbs'))
-  const carbsPart = box(part(canvasElement, 'carbs'))
-  const expected = Math.max(protein.right + 16, centre(carbsPart) - carbs.width / 2)
-  await expect(Math.abs(carbs.left - expected)).toBeLessThanOrEqual(1)
-  await expect(carbs.left).toBeGreaterThanOrEqual(carbsPart.left)
-  await expect(carbs.left).toBeLessThanOrEqual(carbsPart.right)
+  await waitFor(() => {
+    const protein = box(label(canvasElement, 'protein'))
+    const carbs = box(label(canvasElement, 'carbs'))
+    const carbsPart = box(part(canvasElement, 'carbs'))
+    const expected = Math.max(protein.right + 16, centre(carbsPart) - carbs.width / 2)
+    expect(Math.abs(carbs.left - expected)).toBeLessThanOrEqual(1)
+    expect(carbs.left).toBeGreaterThanOrEqual(carbsPart.left)
+    expect(carbs.left).toBeLessThanOrEqual(carbsPart.right)
+  })
 }
 
 /** A macro at 0g has no part and no gap, and its "0g" stays in the legend, in its slot. */
@@ -288,11 +298,11 @@ export const ZeroCarbs: Story = {
   args: { nutrition: { calories: 280, protein: 25, carbs: 0, fat: 20 } },
   play: async ({ canvasElement }) => {
     await expectPlaced(canvasElement)
-    const boundary =
-      (box(part(canvasElement, 'protein')).right + box(part(canvasElement, 'fat')).left) / 2
-    await expect(
-      Math.abs(centre(box(label(canvasElement, 'carbs'))) - boundary),
-    ).toBeLessThanOrEqual(1)
+    await waitFor(() => {
+      const boundary =
+        (box(part(canvasElement, 'protein')).right + box(part(canvasElement, 'fat')).left) / 2
+      expect(Math.abs(centre(box(label(canvasElement, 'carbs'))) - boundary)).toBeLessThanOrEqual(1)
+    })
   },
 }
 
