@@ -413,10 +413,11 @@ The plan from Phase 2.7 is already in context — do not re-fetch it from Linear
 
 For each implementation step in the plan:
 
-1. Write tests for new functionality (unit tests colocated with source files)
-2. If `src/components/**` changed → create/update the colocated `.stories.tsx` (CLAUDE.md Storybook rule) and run `pnpm test-storybook:ci`
-3. If the 2.7 plan has a `## Coupled callsites` section, work it like the implementation steps — it is a sibling of `## Implementation Steps`, not a member, so nothing else will pick it up. Every **Mirror** must be edited in this phase; leaving them for the 4.3 review bullet reproduces the find-it-in-review failure this scan exists to prevent
-4. If the implementation shows a step this issue needs that the PR cannot ship (a golden re-record after a prompt change, a backfill after a migration), file it now by `deferral.md` → Follow-ups and keep the ID for the 5.4 PR body. Do not append it to the deferrals file: 4.4 truncates that file after this phase
+1. Make the change the step describes
+2. Write tests for new functionality (unit tests colocated with source files)
+3. If `src/components/**` changed → create/update the colocated `.stories.tsx` (CLAUDE.md Storybook rule) and run `pnpm test-storybook:ci`
+4. If the 2.7 plan has a `## Coupled callsites` section, work it like the implementation steps — it is a sibling of `## Implementation Steps`, not a member, so nothing else will pick it up. Every **Mirror** must be edited in this phase; leaving them for the 4.3 review bullet reproduces the find-it-in-review failure this scan exists to prevent
+5. If the implementation shows a step this issue needs that the PR cannot ship (a golden re-record after a prompt change, a backfill after a migration), file it now by `deferral.md` → Follow-ups and keep the ID for the 5.4 PR body. Do not append it to the deferrals file: 4.4 truncates that file after this phase
 
 ### 3.3 Batched plans: commit and push per batch
 

@@ -128,7 +128,7 @@ There is no `(public)` route group in this project — the only group is `(legal
 - `src/app/bot`, `src/app/status`
 - `src/app/reminders` (`/reminders/stop`, linked from the reminder email)
 
-This list mirrors `PUBLIC_ROUTES` in `src/proxy.ts`. Where the two differ, `PUBLIC_ROUTES` is current, because `src/proxy.test.ts` enforces it.
+This list mirrors the page routes in `PUBLIC_ROUTES` (`src/proxy.ts`), except `/admin`: it is there only so the proxy returns a 404, and its layout and pages still need a session check. Where the two differ otherwise, `PUBLIC_ROUTES` is current, because `src/proxy.test.ts` enforces it.
 
 Also skip redirect-only pages whose body is just `redirect()` — `src/app/meal-plan` (→ `/`), `src/app/household/invites` (→ `/household`) — they never render content. `src/app/pantry` is not one of them: since HON-776 it renders the pantry and must be checked.
 
