@@ -17,8 +17,11 @@ import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
  * The invite-request form on `/request-invite` (HON-846). One field; a
  * successful submit replaces the form with "check your email", whatever the
  * address, because the route answers the same for every one of them.
+ *
+ * `source` is the page's `?ref=` (HON-1089), sent as `ref` when present. The
+ * route decides whether it is valid, so the form shows nothing for it.
  */
-export function RequestInviteForm() {
+export function RequestInviteForm({ source }: { source?: string }) {
   const t = useTranslations('auth.requestInvite')
   const locale = useLocale()
   const [email, setEmail] = useState('')
@@ -31,7 +34,7 @@ export function RequestInviteForm() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: address, locale }),
+          body: JSON.stringify({ email: address, locale, ...(source ? { ref: source } : {}) }),
         },
         t('failed'),
       ),

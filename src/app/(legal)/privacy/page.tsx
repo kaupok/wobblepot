@@ -114,7 +114,7 @@ export default function PrivacyPage() {
           <Li>
             <Body>
               Invite requests: the email address and language you give us when you ask for an
-              invite.
+              invite, and the name of the link you followed to the form, when it has one.
             </Body>
           </Li>
           <Li>

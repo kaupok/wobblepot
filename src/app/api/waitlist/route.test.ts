@@ -230,6 +230,55 @@ describe('POST /api/waitlist', () => {
       expect(await member.json()).toEqual({ ok: true })
     })
 
+    it('stores a valid ref as the source of a new request', async () => {
+      const response = await POST(
+        req({ email: 'new@example.com', locale: 'en', ref: 'reddit-ukparenting' }),
+      )
+      await runAfter()
+
+      expect(await response.json()).toEqual({ ok: true })
+      expect(mockUpsert.mock.calls[0]![0].create.source).toBe('reddit-ukparenting')
+    })
+
+    it.each([
+      ['markup', '<script>'],
+      ['upper case', 'Mealime'],
+      ['a space', 'expat group'],
+      ['an empty string', ''],
+      ['33 characters', 'a'.repeat(33)],
+      ['a number', 42],
+    ])('drops a ref with %s and still accepts the request', async (_label, ref) => {
+      const response = await POST(req({ email: 'new@example.com', locale: 'en', ref }))
+      await runAfter()
+
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ ok: true })
+      expect(mockUpsert).toHaveBeenCalledTimes(1)
+      expect(mockUpsert.mock.calls[0]![0].create.source).toBeUndefined()
+      expect(mockSend).toHaveBeenCalledTimes(1)
+    })
+
+    it('stores no source for a request without a ref', async () => {
+      await POST(req({ email: 'new@example.com', locale: 'en' }))
+      await runAfter()
+
+      expect(mockUpsert.mock.calls[0]![0].create.source).toBeUndefined()
+    })
+
+    it('keeps the first source when the same address asks again from another link', async () => {
+      mockFindRequest.mockResolvedValue({
+        createdAt: new Date(Date.now() - 11 * 60 * 1000),
+      } as never)
+
+      await POST(req({ email: 'listed@example.com', locale: 'en', ref: 'facebook' }))
+      await runAfter()
+
+      // The upsert writes `source` on create only, so the stored row keeps its first one.
+      const { create, update } = mockUpsert.mock.calls[0]![0]
+      expect(create.source).toBe('facebook')
+      expect(update).not.toHaveProperty('source')
+    })
+
     it('sends the email in the page locale', async () => {
       await POST(req({ email: 'uus@example.com', locale: 'et' }))
       await runAfter()

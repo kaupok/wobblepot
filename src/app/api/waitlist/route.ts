@@ -5,7 +5,11 @@ import { getClientIp } from '@/lib/request-ip'
 import { getServerFlag } from '@/lib/feature-flags'
 import { LocaleSchema } from '@/lib/i18n/locales'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
-import { normalizeWaitlistEmail, processWaitlistRequest } from '@/lib/waitlist'
+import {
+  normalizeWaitlistEmail,
+  processWaitlistRequest,
+  WAITLIST_REF_PATTERN,
+} from '@/lib/waitlist'
 import { captureApiError } from '@/lib/errors'
 
 const waitlistRequestSchema = z.object({
@@ -14,12 +18,16 @@ const waitlistRequestSchema = z.object({
   // The page locale, from `useLocale()`. Anything else falls back to
   // Accept-Language below rather than failing the request.
   locale: LocaleSchema.optional().catch(undefined),
+  // The `ref` of the link the visitor followed (HON-1089). An invalid one is
+  // dropped rather than failing the request, so a bad link still lets them ask.
+  ref: z.string().regex(WAITLIST_REF_PATTERN).optional().catch(undefined),
 })
 
 /**
  * POST /api/waitlist
  *
- * A visitor without an invite code asks for one (HON-846). Body `{ email, locale? }`.
+ * A visitor without an invite code asks for one (HON-846). Body
+ * `{ email, locale?, ref? }`; `ref` becomes the request's source (HON-1089).
  *
  * - 400 for an invalid email.
  * - 429 over the `waitlist` rate limit (per IP).
@@ -59,7 +67,8 @@ export async function POST(request: Request) {
         acceptLanguage: request.headers.get('accept-language'),
       })
 
-    after(() => processWaitlistRequest({ email, locale }))
+    const source = parsed.data.ref
+    after(() => processWaitlistRequest({ email, locale, source }))
 
     return NextResponse.json({ ok: true })
   } catch (error) {

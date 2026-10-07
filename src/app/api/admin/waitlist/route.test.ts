@@ -44,6 +44,7 @@ describe('GET /api/admin/waitlist', () => {
         id: 'w1',
         email: 'anna@example.com',
         locale: 'et',
+        source: 'mealime',
         confirmedAt: new Date('2026-10-05T12:00:00Z'),
         invitedAt: new Date('2026-10-06T08:00:00Z'),
       },
@@ -51,6 +52,7 @@ describe('GET /api/admin/waitlist', () => {
         id: 'w2',
         email: 'ben@example.com',
         locale: 'en',
+        source: null,
         confirmedAt: new Date('2026-10-04T12:00:00Z'),
         invitedAt: null,
       },
@@ -63,6 +65,7 @@ describe('GET /api/admin/waitlist', () => {
       expect.objectContaining({
         where: { confirmedAt: { not: null } },
         orderBy: { confirmedAt: 'desc' },
+        select: expect.objectContaining({ source: true }),
       }),
     )
     expect(await res.json()).toEqual({
@@ -71,6 +74,7 @@ describe('GET /api/admin/waitlist', () => {
           id: 'w1',
           email: 'anna@example.com',
           locale: 'et',
+          source: 'mealime',
           confirmedAt: '2026-10-05T12:00:00.000Z',
           invitedAt: '2026-10-06T08:00:00.000Z',
         },
@@ -78,6 +82,7 @@ describe('GET /api/admin/waitlist', () => {
           id: 'w2',
           email: 'ben@example.com',
           locale: 'en',
+          source: null,
           confirmedAt: '2026-10-04T12:00:00.000Z',
           invitedAt: null,
         },
