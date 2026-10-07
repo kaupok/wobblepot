@@ -423,6 +423,19 @@ describe('goat, steak and sirloin (HON-1106)', () => {
     [{ dietaryType: 'vegetarian' }, 'wild boar'],
     [{ dietaryType: 'vegetarian' }, 'hiidlestapraad'],
     [{ allergens: ['fish'] }, 'hiidlest'],
+    [{ dietaryType: 'vegetarian' }, 'new york strip'],
+    [{ dietaryType: 'vegetarian' }, 'ribeye'],
+    [{ dietaryType: 'vegetarian' }, 'rib-eye'],
+    [{ dietaryType: 'vegetarian' }, 'välisfilee'],
+    [{ dietaryType: 'vegetarian' }, 'sisefilee'],
+    [{ dietaryType: 'vegetarian' }, 'fileepraad'],
+    [{ dietaryType: 'vegetarian' }, 'sea eskalopp'],
+    [{ dietaryType: 'vegetarian' }, 'sea seljatükk'],
+    [{ dietaryType: 'vegetarian' }, 'sea ribitükk'],
+    [{ dietaryType: 'vegetarian' }, 'sea abatükk'],
+    [{ dietaryType: 'vegetarian' }, 'kalafilee praad'],
+    [{ allergens: ['eggs'] }, 'lemon curd'],
+    [{ dietaryType: 'vegan' }, 'lime curd'],
   ])('%o flags %s', (household, ingredient) => {
     expect(violates(household, ingredient)).toBe(true)
   })
@@ -445,6 +458,17 @@ describe('goat, steak and sirloin (HON-1106)', () => {
     [{ dietaryType: 'vegan' }, 'steak seasoning'],
     [{ dietaryType: 'vegan' }, 'Cauliflower Steaks'],
     [{ dietaryType: 'vegetarian' }, "roasted beetroot with goat's cheese"],
+    [{ dietaryType: 'vegetarian' }, 'goat’s cheese'],
+    [{ dietaryType: 'vegetarian' }, 'goats curd'],
+    [{ dietaryType: 'vegetarian' }, 'goat feta'],
+    [{ dietaryType: 'vegetarian' }, 'goat ricotta'],
+    [{ dietaryType: 'vegetarian' }, 'goat labneh'],
+    [{ dietaryType: 'vegetarian' }, 'lamb’s lettuce'],
+    [{ dietaryType: 'pescatarian' }, 'kalafilee praad'],
+    [{ dietaryType: 'pescatarian' }, 'lõhefileepraad'],
+    [{ dietaryType: 'vegetarian' }, 'sea salt'],
+    [{ dietaryType: 'vegetarian' }, 'sea buckthorn'],
+    [{ allergens: ['eggs'] }, "goat's curd"],
   ])('%o allows %s', (household, ingredient) => {
     expect(violates(household, ingredient)).toBe(false)
   })

@@ -84,6 +84,9 @@ const MEAT: FoodGroup = {
     'goat',
     'steak',
     'sirloin',
+    'ribeye',
+    'rib-eye',
+    'new york strip',
     'boar',
     'sausage',
     'meat',
@@ -125,7 +128,19 @@ const MEAT: FoodGroup = {
     // The pool's Estonian steaks that name no other MEAT keyword. A bare
     // "praad" would flag "köögiviljapraad".
     'filee praad',
+    'fileepraad',
+    'välisfilee',
+    'sisefilee',
     'metssea',
+    // Pork cuts written "sea …": a bare "sea " would flag sea bass and sea salt.
+    'sea eskalopp',
+    'seaeskalopp',
+    'sea seljatükk',
+    'seaseljatükk',
+    'sea ribitükk',
+    'searibitükk',
+    'sea abatükk',
+    'seaabatükk',
     'pekk',
     'peki',
     'salaami',
@@ -187,7 +202,14 @@ const MEAT: FoodGroup = {
     'goat yoghurt',
     'goat yogurt',
     "goat's curd",
+    'goats curd',
+    "goats' curd",
     'goat curd',
+    'goat feta',
+    'goat ricotta',
+    'goat labneh',
+    'goat cream cheese',
+    'goat brie',
     'goat butter',
     'goat kefir',
     // Fish and vegetable steaks. FISH still catches the fish ones for a vegetarian.
@@ -205,6 +227,10 @@ const MEAT: FoodGroup = {
     'lõhesteik',
     'lillkapsasteik',
     'seenesteik',
+    'kalafilee praad',
+    'kalafileepraad',
+    'lõhefilee praad',
+    'lõhefileepraad',
     // Meat-free condiments named after what they go with.
     'steak sauce',
     'steak seasoning',
@@ -455,6 +481,11 @@ const EGGS: FoodGroup = {
     'brioche',
     // Quorn's mycoprotein is bound with egg white, except the range sold as vegan.
     'quorn',
+    // Fruit curd is egg yolk; a bare "curd" would flag goat curd and cheese curds.
+    'lemon curd',
+    'lime curd',
+    'orange curd',
+    'fruit curd',
   ],
   ingredientKeywords: ['carbonara', 'karbonaara', 'caesar'],
   qualifiers: [
@@ -748,7 +779,13 @@ export function rulesForHousehold(household: {
 export const COVERED_ALLERGENS = Object.keys(ALLERGEN_GROUPS)
 export const COVERED_DIETS = Object.keys(DIET_GROUPS)
 
-export const normalizeFoodName = (name: string) => name.normalize('NFC').trim().toLowerCase()
+/** Curly apostrophes fold to `'`, so "goat’s cheese" meets the "goat's cheese" false friend. */
+export const normalizeFoodName = (name: string) =>
+  name
+    .normalize('NFC')
+    .replace(/[\u2018\u2019\u02bc]/g, "'")
+    .trim()
+    .toLowerCase()
 
 interface Span {
   start: number
