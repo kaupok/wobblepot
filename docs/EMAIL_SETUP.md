@@ -24,7 +24,7 @@ Defined as code constants in [`src/lib/resend.ts`](../src/lib/resend.ts) →
 | Key             | FROM                                           | Triggers                                                                                                                                                                                                                 |
 | --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `auth`          | `Wobblepot <auth@mail.wobblepot.com>`          | Password reset (`src/lib/auth.ts`), account-deletion confirmation (`src/app/api/auth/user/route.ts`), waitlist confirmation (`src/lib/waitlist.ts`), waitlist invite (`src/app/api/admin/waitlist/[id]/invite/route.ts`) |
-| `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Reserved for future product mail; no send-site uses it yet                                                                                                                                                               |
+| `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Weekly planning reminder (`src/lib/weekly-reminder.ts`, template `src/lib/emails/weekly-reminder.ts`)                                                                                                                    |
 
 **`support@wobblepot.com` outbound is deferred.** Architecturally it sends
 from the apex (not the subdomain) for human-driven reply threads, but:
@@ -40,6 +40,25 @@ Re-add to `EMAIL_SENDERS` once the provider is chosen and the apex (or
 chosen mailbox) is verified. The display address for inbound / `mailto:`
 links lives in [`src/lib/support.ts`](../src/lib/support.ts) (`SUPPORT_EMAIL`)
 — `support@wobblepot.com` (swapped in HON-538).
+
+## Weekly planning reminder
+
+The one product email (HON-1084). A member switches it on for themself on `/household` or on the
+first-plan onboarding step; the daily cron `/api/cron/weekly-reminders` (16:00 UTC, see
+[DEPLOYMENT.md](DEPLOYMENT.md) → Scheduled jobs) sends it on their weekday when next week has no
+meals planned.
+
+- **Template:** `src/lib/emails/weekly-reminder.ts`, copy under `emails.weeklyReminder` in both
+  catalogs, in the household locale.
+- **Consent:** opt-in only, so it is listed under Consent in the privacy policy. Nothing switches it
+  on for a person but that person.
+- **Stopping:** the footer links to the public page `/reminders/stop?token=…`, whose button POSTs to
+  `/api/reminders/stop`. The email also carries RFC 8058 one-click headers,
+  `List-Unsubscribe: <…/api/reminders/stop?token=…>` and
+  `List-Unsubscribe-Post: List-Unsubscribe=One-Click`, so Gmail and Apple Mail show their own
+  unsubscribe button. A GET on that URL only redirects to the page, because mail scanners open
+  links.
+- **Pacing:** sends are 500 ms apart, under Resend's per-second rate limit.
 
 ## Vercel environment variables
 

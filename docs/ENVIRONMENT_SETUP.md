@@ -16,7 +16,7 @@ Complete guide for setting up and managing environment variables in the Wobblepo
 - [PostHog (analytics, errors, source maps)](#posthog-analytics-errors-source-maps)
 - [Vercel Blob (meal images)](#vercel-blob-meal-images)
 - [Neon Database Branching](#neon-database-branching-optional)
-- [Cron secret (account-deletion purge)](#cron-secret-account-deletion-purge)
+- [Cron secret (account-deletion purge, weekly reminders)](#cron-secret-account-deletion-purge-weekly-reminders)
 - [Admin email](#admin-email)
 - [Application URL](#application-url)
 - [Diagnostics and test-only switches](#diagnostics-and-test-only-switches)
@@ -62,7 +62,7 @@ Environment variables are validated at runtime using Zod. Public (`NEXT_PUBLIC_*
 | `UPSTASH_REDIS_REST_URL`                                            | Yes                  | Rate limiting. See [Upstash Redis](#upstash-redis-rate-limiting).                                                                                                |
 | `UPSTASH_REDIS_REST_TOKEN`                                          | Yes                  | Rate limiting.                                                                                                                                                   |
 | `ADMIN_EMAIL`                                                       | Yes, for `/admin`    | The single beta admin. See [Admin email](#admin-email).                                                                                                          |
-| `CRON_SECRET`                                                       | Production only      | Authenticates the account-deletion purge cron. See [Cron secret](#cron-secret-account-deletion-purge).                                                           |
+| `CRON_SECRET`                                                       | Production only      | Authenticates both crons: the account-deletion purge and the weekly reminders. See [Cron secret](#cron-secret-account-deletion-purge-weekly-reminders).          |
 | `BLOB_STORE_ID`                                                     | No                   | Vercel Blob store for generated meal images. Read by `@vercel/blob` with `VERCEL_OIDC_TOKEN`. See [Vercel Blob](#vercel-blob-meal-images).                       |
 | `STATUS_INCIDENT_MESSAGE`                                           | No                   | Operator banner on `/status` during an incident. See [Diagnostics and test-only switches](#diagnostics-and-test-only-switches).                                  |
 | `E2E_DISABLE_RATE_LIMIT`                                            | No, test-only        | Bypasses the abuse rate limiter for E2E runs. Only honoured when `NEXT_PUBLIC_APP_ENV` is `ci`, `test`, or `dev`; throws at boot anywhere else.                  |
@@ -385,14 +385,17 @@ pnpm dlx neonctl@2.22.0 branches list --project-id "$NEON_PROJECT_ID"
 pnpm dlx neonctl@2.22.0 connection-string <branch-name> --project-id "$NEON_PROJECT_ID" --pooled
 ```
 
-## Cron secret (account-deletion purge)
+## Cron secret (account-deletion purge, weekly reminders)
 
-`CRON_SECRET` authenticates the daily GDPR purge cron (`/api/cron/purge-deleted-users`, HON-481), which hard-deletes accounts whose 30-day grace window has elapsed.
+`CRON_SECRET` authenticates both daily crons in `vercel.json`:
+
+- the GDPR purge (`/api/cron/purge-deleted-users`, HON-481), which hard-deletes accounts whose 30-day grace window has elapsed, at 03:00 UTC;
+- the weekly planning reminder (`/api/cron/weekly-reminders`, HON-1084), which emails members who switched it on, at 16:00 UTC.
 
 ### How it works
 
 - The route requires `Authorization: Bearer <CRON_SECRET>` and returns **401** on any mismatch or missing header.
-- [Vercel Cron](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs) **auto-injects** this header on scheduled invocations whenever a `CRON_SECRET` env var exists on the project — no per-cron config needed. The schedule lives in `vercel.json` (`0 3 * * *`, 03:00 UTC).
+- [Vercel Cron](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs) **auto-injects** this header on scheduled invocations whenever a `CRON_SECRET` env var exists on the project — no per-cron config needed. The schedules live in `vercel.json` (`0 3 * * *` and `0 16 * * *`).
 - Validation is `z.string().min(32).optional()`. It is **optional** so local/dev and CI can boot without it (the cron is simply unreachable). In **production** the route returns **500** if it is unset, so a misconfigured deploy fails loud rather than silently never purging.
 
 ### Local dev
@@ -402,6 +405,7 @@ Leave unset — the purge cron is not scheduled locally. To exercise the route m
 ```bash
 CRON_SECRET=$(openssl rand -base64 32)
 curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/purge-deleted-users
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/weekly-reminders
 ```
 
 ### Vercel (deployed environments)

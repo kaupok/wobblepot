@@ -227,7 +227,11 @@ A failed deploy that **exposes or corrupts personal data** is not just a rollbac
 
 ### Scheduled jobs (cron)
 
-`vercel.json` defines a daily Vercel Cron at 03:00 UTC that calls `/api/cron/purge-deleted-users` — the GDPR Art. 17 hard-purge of accounts whose 30-day grace window has elapsed. It is authenticated by `CRON_SECRET`, which **must be set on Production** (Vercel auto-injects the `Authorization: Bearer` header on scheduled runs). If `CRON_SECRET` is unset in production the route returns 500 and the purge never runs, breaking the published 30-day retention promise. See [RUNBOOKS/gdpr-deletion.md](RUNBOOKS/gdpr-deletion.md) for the full deletion/recovery flow and the per-model cascade, and [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) § "Cron secret" for provisioning.
+`vercel.json` defines two daily Vercel Crons. Vercel allows 100 crons per project on every plan; on Hobby each runs at most once a day and fires within the hour it names.
+
+The weekly planning reminder runs at 16:00 UTC: `/api/cron/weekly-reminders` (HON-1084) emails each member who switched the reminder on, on their chosen weekday in the household timezone, when next week has no meals planned. It returns `{ sent, skipped, failed }`. It shares `CRON_SECRET` and the same 500/401 behaviour with the purge; without the secret in production the reminders never go out. See [EMAIL_SETUP.md](EMAIL_SETUP.md) → Weekly planning reminder.
+
+The purge runs at 03:00 UTC: `/api/cron/purge-deleted-users` — the GDPR Art. 17 hard-purge of accounts whose 30-day grace window has elapsed. It is authenticated by `CRON_SECRET`, which **must be set on Production** (Vercel auto-injects the `Authorization: Bearer` header on scheduled runs). If `CRON_SECRET` is unset in production the route returns 500 and the purge never runs, breaking the published 30-day retention promise. See [RUNBOOKS/gdpr-deletion.md](RUNBOOKS/gdpr-deletion.md) for the full deletion/recovery flow and the per-model cascade, and [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) § "Cron secret" for provisioning.
 
 ### Global meal illustrations
 

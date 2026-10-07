@@ -26,6 +26,12 @@ interface SettingsSectionProps<T extends Record<keyof T, SettingsValue>> {
   /** The PATCH route this section's values go to, as the JSON body. */
   url: string
   isOwner: boolean
+  /**
+   * Whether only the owner may save. Default true: the household's settings
+   * are the owner's. A section for the viewer's own setting (the weekly
+   * reminder, HON-1084) passes false, so every member can save it.
+   */
+  ownerOnly?: boolean
   values: T
   saved: T
   /**
@@ -53,6 +59,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
   heading,
   url,
   isOwner,
+  ownerOnly = true,
   values,
   saved,
   collectValues,
@@ -62,6 +69,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
 }: SettingsSectionProps<T>) {
   const t = useTranslations('household.settings')
   const router = useRouter()
+  const canEdit = isOwner || !ownerOnly
   // The message and the values it was about: a failed save's body, or the
   // values that failed `validate`.
   const [error, setError] = useState<{ message: string; values: T } | null>(null)
@@ -78,11 +86,11 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
 
   const save = useMutation({
     mutationFn: async (body: T) => {
-      // The routes are owner-only (they 403 a member), so a non-owner has
-      // nothing to save. handleSubmit and the missing button stop them first;
-      // this keeps the mutation from relying on either (HON-677). Throw rather
-      // than return, so it can never read as a successful save.
-      if (!isOwner) throw new Error(t('ownerOnlyNotice'))
+      // An owner-only route 403s a member, so a non-owner has nothing to
+      // save. handleSubmit and the missing button stop them first; this keeps
+      // the mutation from relying on either (HON-677). Throw rather than
+      // return, so it can never read as a successful save.
+      if (!canEdit) throw new Error(t('ownerOnlyNotice'))
       await apiFetch(
         url,
         {
@@ -112,7 +120,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
       )
       setError({
         message:
-          !isOwner || (err instanceof ApiError && err.status === 403)
+          ownerOnly && (!isOwner || (err instanceof ApiError && err.status === 403))
             ? t('ownerOnlyNotice')
             : t('saveFailed'),
         values: body,
@@ -133,7 +141,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isOwner || save.isPending) return
+    if (!canEdit || save.isPending) return
     const body = collectValues ? collectValues() : values
     // Enter in a text field submits even with no button on screen.
     if (sameValues(body, saved)) return
@@ -148,9 +156,9 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
         <Heading ref={headingRef} id={`${id}-heading`} variant="section" as="h2" tabIndex={-1}>
           {heading}
         </Heading>
-        {children({ disabled: save.isPending || !isOwner, errorId })}
+        {children({ disabled: save.isPending || !canEdit, errorId })}
         {shownError && <FieldError id={errorId}>{shownError}</FieldError>}
-        {isOwner && (isDirty || save.isPending) && (
+        {canEdit && (isDirty || save.isPending) && (
           <Button
             ref={saveButtonRef}
             type="submit"

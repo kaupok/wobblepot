@@ -22,7 +22,7 @@ export interface HouseholdPreferencesValues {
   weekendMealTypes: MealType[]
 }
 
-export type SettingsValue = string | null | readonly string[]
+export type SettingsValue = string | number | null | readonly string[]
 
 function sameArray(a: readonly string[], b: readonly string[]) {
   if (a.length !== b.length) return false

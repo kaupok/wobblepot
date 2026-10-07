@@ -142,6 +142,14 @@ export async function GET() {
                   role: member.role,
                   joinedAt: member.joinedAt,
                   preferences: member.preferences,
+                  // The weekly reminder is the member's own consent (HON-1084),
+                  // so only the caller's row carries it. Never the stop token:
+                  // anyone holding it can switch the reminder off.
+                  ...(member.userId === userId && {
+                    reminderWeekday: member.reminderWeekday,
+                    reminderConsentAt: member.reminderConsentAt,
+                    reminderLastSentAt: member.reminderLastSentAt,
+                  }),
                 }
               }
               // Non-owner household, other member: redact name, preferences,

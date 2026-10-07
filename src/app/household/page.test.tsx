@@ -165,7 +165,7 @@ describe('HouseholdPage', () => {
   /**
    * The two halves of HON-618 are asserted separately because they fail
    * independently. The tag is the outline anchor the rest of the page hangs
-   * off — `MemberList` and the form's three sections render `as="h2"` titles
+   * off — `MemberList` and the form's four sections render `as="h2"` titles
    * (HON-960) — so dropping `as="h1"` would let the title render `<h4>` and
    * invert everything under it. The size is the
    * `docs/DESIGN.md` rule ("page titles above `text-xl` inside the app" is on

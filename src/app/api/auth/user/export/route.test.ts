@@ -370,6 +370,10 @@ describe('GET /api/auth/user/export', () => {
               role: 'owner',
               joinedAt: new Date('2026-01-01T00:00:00.000Z'),
               preferences: { id: 'mp-A', displayName: 'Multi' },
+              reminderWeekday: 7,
+              reminderConsentAt: new Date('2026-10-01T00:00:00.000Z'),
+              reminderToken: 'my-stop-token',
+              reminderLastSentAt: new Date('2026-10-04T16:00:00.000Z'),
             },
             {
               id: 'member-A-other',
@@ -378,6 +382,10 @@ describe('GET /api/auth/user/export', () => {
               role: 'member',
               joinedAt: new Date('2026-02-01T00:00:00.000Z'),
               preferences: { id: 'mp-A2', displayName: 'Alice' },
+              reminderWeekday: 3,
+              reminderConsentAt: new Date('2026-10-02T00:00:00.000Z'),
+              reminderToken: 'alice-stop-token',
+              reminderLastSentAt: null,
             },
           ]
         }
@@ -451,6 +459,20 @@ describe('GET /api/auth/user/export', () => {
     // No invites / aiUsage on non-owner households
     expect(memberHh.invites).toBeUndefined()
     expect(memberHh.aiUsage).toBeUndefined()
+
+    // The weekly reminder (HON-1084): the caller's own consent, on their own
+    // row only, and never the stop token.
+    const myOwnerRow = ownerHh.members.find((m: { id: string }) => m.id === 'member-A-me')
+    expect(myOwnerRow).toMatchObject({
+      reminderWeekday: 7,
+      reminderConsentAt: '2026-10-01T00:00:00.000Z',
+      reminderLastSentAt: '2026-10-04T16:00:00.000Z',
+    })
+    expect(myOwnerRow).not.toHaveProperty('reminderToken')
+    const aliceRow = ownerHh.members.find((m: { id: string }) => m.id === 'member-A-other')
+    expect(aliceRow).not.toHaveProperty('reminderWeekday')
+    expect(aliceRow).not.toHaveProperty('reminderConsentAt')
+    expect(JSON.stringify(body)).not.toContain('stop-token')
   })
 
   it('never exposes password or token fields anywhere in the payload', async () => {

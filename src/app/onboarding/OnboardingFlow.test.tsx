@@ -657,6 +657,67 @@ describe('OnboardingFlow', () => {
       )
     })
 
+    it('offers the weekly reminder unticked, and plans without it', async () => {
+      await goToStep4()
+      mockFetch.mockResolvedValueOnce(respondOk({ id: 'plan-1' }))
+
+      const optIn = screen.getByRole('checkbox', {
+        name: 'Email me on Sundays when next week is not planned yet',
+      })
+      expect(optIn).not.toBeChecked()
+      await userEvent.click(screen.getByRole('button', { name: 'Plan my meals' }))
+
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'))
+      expect(mockFetch.mock.calls.map(([url]) => url)).not.toContain(
+        '/api/households/me/members/me/reminder',
+      )
+    })
+
+    it('switches the reminder on for Sunday before it generates the plan', async () => {
+      await goToStep4()
+      mockFetch
+        .mockResolvedValueOnce(respondOk({ weekday: 7 }))
+        .mockResolvedValueOnce(respondOk({ id: 'plan-1' }))
+
+      await userEvent.click(
+        screen.getByRole('checkbox', {
+          name: 'Email me on Sundays when next week is not planned yet',
+        }),
+      )
+      await userEvent.click(screen.getByRole('button', { name: 'Plan my meals' }))
+
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'))
+      const [reminderUrl, reminderInit] = mockFetch.mock.calls[1]!
+      expect(reminderUrl).toBe('/api/households/me/members/me/reminder')
+      expect(reminderInit).toEqual(
+        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ weekday: 7 }) }),
+      )
+      expect(mockFetch.mock.calls[2]![0]).toBe('/api/meal-plans/generate')
+    })
+
+    it('still generates the plan when the reminder fails to save', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      await goToStep4()
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Failed to save the reminder' }),
+        })
+        .mockResolvedValueOnce(respondOk({ id: 'plan-1' }))
+
+      await userEvent.click(
+        screen.getByRole('checkbox', {
+          name: 'Email me on Sundays when next week is not planned yet',
+        }),
+      )
+      await userEvent.click(screen.getByRole('button', { name: 'Plan my meals' }))
+
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'))
+      expect(mockFetch.mock.calls[2]![0]).toBe('/api/meal-plans/generate')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
     it('shows the error and returns focus to the button when generation fails', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
       await goToStep4()

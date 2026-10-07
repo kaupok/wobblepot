@@ -940,6 +940,14 @@
       "actionHeading": "What you should do",
       "cta": "Get help",
       "apology": "We are sorry this happened. We take the security of your data seriously and have taken steps to address the issue. If you have any questions, reach us at the link above."
+    },
+    "weeklyReminder": {
+      "subject": "Next week is not planned yet",
+      "heading": "Next week is empty",
+      "body": "No meals are planned for next week. Pick them now, and the shopping list follows.",
+      "cta": "Plan next week",
+      "footer": "You get this email because you switched on the weekly reminder in {appName}.",
+      "stop": "Stop the reminders"
     }
   },
   "errors": {
@@ -1103,7 +1111,12 @@
       "mealsHeading": "Meals to plan",
       "weekdaysRow": "Weekdays",
       "weekendsRow": "Weekends",
-      "mealCellAria": "{day}: {meal}"
+      "mealCellAria": "{day}: {meal}",
+      "reminderHeading": "Weekly reminder",
+      "reminderOwnNotice": "This setting is your own, so you can change it.",
+      "reminderToggle": "Remind me to plan next week",
+      "reminderWeekdayLabel": "Day",
+      "reminderHelper": "One email on that day, only when next week has no meals planned yet. Every email has a link to stop them."
     },
     "members": {
       "heading": "Members",
@@ -1270,7 +1283,8 @@
       "nameRequired": "Household name is required",
       "network": "Unable to connect. Please check your internet connection.",
       "createFailed": "We couldn't create your household. Try again."
-    }
+    },
+    "reminderOptIn": "Email me on Sundays when next week is not planned yet"
   },
   "enums": {
     "MealType": {
@@ -1416,6 +1430,18 @@
     "contact": {
       "heading": "Contact",
       "body": "If you want us to stop (or start) fetching your site, or you have questions about how Wobblepot handles content, email <link>{email}</link>. The quickest way to deny us is to add a <code>Disallow</code> rule for <code>{token}</code> in your <code>robots.txt</code>."
+    }
+  },
+  "reminders": {
+    "stop": {
+      "metaTitle": "Stop the weekly reminder",
+      "title": "Stop the weekly reminder?",
+      "button": "Stop the reminders",
+      "submitting": "Stopping…",
+      "doneTitle": "Done",
+      "doneBody": "You can switch the reminder on again on the <link>Household page</link>.",
+      "failed": "We could not stop the reminders. Try again.",
+      "incompleteLink": "This link is not complete. You can switch the reminder off on the <link>Household page</link>."
     }
   }
 }
