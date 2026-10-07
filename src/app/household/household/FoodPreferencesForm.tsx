@@ -1,56 +1,15 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Label } from '@/components/ui/label'
 import { ChoiceChips } from '@/components/ui/choice-chips'
-import { Toggle } from '@/components/ui/toggle'
-import { Body } from '@/components/ui/typography'
 import { TagInput, type TagInputRef } from '@/components/tag-input'
-import { useEnumLabel } from '@/lib/i18n/enum-label'
+import { AllergenPicker } from '@/components/household/AllergenPicker'
 import { SettingsSection } from './SettingsSection'
 import type { Allergen, DietaryType, HouseholdPreferencesValues } from './settings-values'
 
 const DIETARY_TYPE_VALUES: readonly DietaryType[] = ['vegetarian', 'vegan', 'pescatarian']
-const ALLERGEN_VALUES: readonly Allergen[] = [
-  'gluten',
-  'dairy',
-  'eggs',
-  'nuts',
-  'peanuts',
-  'soy',
-  'fish',
-  'shellfish',
-  'sesame',
-]
-
-function AllergenToggle({
-  value,
-  pressed,
-  disabled,
-  onPressedChange,
-}: {
-  value: Allergen
-  pressed: boolean
-  disabled: boolean
-  onPressedChange: (pressed: boolean) => void
-}) {
-  const label = useEnumLabel('Allergen', value)
-  return (
-    <Toggle
-      variant="outline"
-      tone="primary"
-      size="chip"
-      indicator
-      pressed={pressed}
-      onPressedChange={onPressedChange}
-      disabled={disabled}
-    >
-      {label}
-    </Toggle>
-  )
-}
 
 type FoodValues = Pick<
   HouseholdPreferencesValues,
@@ -98,12 +57,6 @@ export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFor
       excludedIngredientsRef.current?.commitPendingValue() ?? excludedIngredients,
   })
 
-  const handleAllergenToggle = (allergen: Allergen, pressed: boolean) => {
-    setAllergensToAvoid((current) =>
-      pressed ? [...current, allergen] : current.filter((a) => a !== allergen),
-    )
-  }
-
   return (
     <SettingsSection
       id="food"
@@ -133,41 +86,12 @@ export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFor
               disabled={disabled}
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <Label id="allergens-label">{tSettings('allergensLabel')}</Label>
-            <div
-              role="group"
-              aria-labelledby="allergens-label"
-              aria-describedby={errorId ? `allergens-ai-notice ${errorId}` : 'allergens-ai-notice'}
-              className="flex flex-wrap gap-2"
-            >
-              {ALLERGEN_VALUES.map((allergen) => (
-                <AllergenToggle
-                  key={allergen}
-                  value={allergen}
-                  pressed={allergensToAvoid.includes(allergen)}
-                  disabled={disabled}
-                  onPressedChange={(pressed) => handleAllergenToggle(allergen, pressed)}
-                />
-              ))}
-            </div>
-            {/* The DPIA's point-of-entry affirmation for Art. 9 allergen data
-                (compliance/dpia.md → Risk area 2, HON-666). */}
-            <Body id="allergens-ai-notice" variant="muted">
-              {tSettings.rich('allergensAiNotice', {
-                privacy: (chunks) => (
-                  <Link
-                    href="/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline"
-                  >
-                    {chunks}
-                  </Link>
-                ),
-              })}
-            </Body>
-          </div>
+          <AllergenPicker
+            value={allergensToAvoid}
+            onChange={setAllergensToAvoid}
+            disabled={disabled}
+            errorId={errorId}
+          />
           <div className="flex flex-col gap-2">
             <Label htmlFor="restrictions">{tSettings('restrictionsLabel')}</Label>
             <TagInput

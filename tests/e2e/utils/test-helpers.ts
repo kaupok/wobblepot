@@ -103,9 +103,10 @@ export async function signUp(
 
 /**
  * Creates a household during onboarding, and leaves before the first plan.
- * Onboarding is a 3-step flow: step 1 = welcome and household name, step 2 =
- * members (the household is created on leaving it), step 3 = the first plan.
- * The helper stops at step 3 and opens '/', where a household with no plan
+ * Onboarding is a 4-step flow: step 1 = welcome and household name, step 2 =
+ * members, step 3 = allergens (the household is created on leaving it),
+ * step 4 = the first plan. The helper ticks no allergen, stops at step 4 and
+ * opens '/', where a household with no plan
  * gets the same choices (`FirstTimeSetup`), so no spec pays for a generation
  * it did not ask for.
  *
@@ -114,8 +115,8 @@ export async function signUp(
  * smoke` test runs this helper under an `et-EE` browser session — chrome
  * during onboarding renders in Estonian (no household exists yet, so the
  * resolver picks up Accept-Language). We use the input `id="name"` and
- * structural button-type selectors instead of `getByRole('button', { name })`
- * to stay locale-agnostic.
+ * structural selectors (button type, `aria-pressed` on the allergen toggles)
+ * instead of `getByRole('button', { name })` to stay locale-agnostic.
  */
 export async function createHousehold(page: Page, householdName?: string): Promise<void> {
   await page.waitForURL('/onboarding')
@@ -126,28 +127,37 @@ export async function createHousehold(page: Page, householdName?: string): Promi
   }
 
   // Step 1 → 2: advance past the household-name step. Step 1 contains exactly
-  // one button (Continue, `type="button"`); step 2 has several type-button
-  // buttons (Back, Add adult, Add child) plus the submit button, so this
-  // selector is only unambiguous in step 1.
+  // one button (Continue, `type="button"`); steps 2 and 3 have several
+  // type-button buttons (Back, Add adult, Add child, the allergen toggles) plus
+  // the submit button, so this selector is only unambiguous in step 1.
   await page.locator('form button[type="button"]').click()
 
-  // The form has a 100ms guard (`justTransitioned`) that ignores submissions
+  // The form has a 500ms guard (`justTransitioned`) that ignores submissions
   // immediately after a step transition, to prevent Enter-key race conditions.
-  // Wait for step 2's submit button to render, then for the guard window to
+  // Wait for the step's submit button to render, then for the guard window to
   // elapse, before clicking — otherwise the click is silently swallowed.
-  await expect(page.locator('form button[type="submit"]')).toBeVisible()
-  await page.waitForTimeout(150)
+  const submit = page.locator('form button[type="submit"]')
+  await expect(submit).toBeVisible()
+  await page.waitForTimeout(600)
 
-  // Step 2 → 3: submit with defaults (the user alone), which creates the household.
+  // Step 2 → 3: Continue with defaults (the user alone). Step 2's Continue is
+  // the form's submit button, and it does not create the household.
+  await submit.click()
+
+  // Step 3 is the only step with toggle buttons (the allergens).
+  await expect(page.locator('form button[aria-pressed]').first()).toBeVisible()
+  await page.waitForTimeout(600)
+
+  // Step 3 → 4: submit with nothing ticked, which creates the household.
   const [created] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().endsWith('/api/households') && r.request().method() === 'POST',
     ),
-    page.locator('form button[type="submit"]').click(),
+    submit.click(),
   ])
   expect(created.ok()).toBe(true)
 
-  // Step 3 is the only step with radio groups (start day, number of days).
+  // Step 4 is the only step with radio groups (start day, number of days).
   await expect(page.getByRole('radiogroup').first()).toBeVisible()
   await page.goto('/')
 }
