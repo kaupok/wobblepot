@@ -1,4 +1,4 @@
-// ROUTES: /, /sign-in, /profile · COMPONENTS: Header, Home (landing hero), SignInForm, ProfilePage, TimelineView, FillDaysAction
+// ROUTES: /, /sign-in, /profile · COMPONENTS: Header, Home (landing hero, phone closing call to action), SignInForm, ProfilePage, TimelineView, FillDaysAction
 import { test, expect, type Page } from '@playwright/test'
 import { signIn } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -57,6 +57,30 @@ test.describe('Smoke', { tag: '@smoke' }, () => {
     ).toBeVisible()
     await expect(page.getByRole('banner').getByRole('link', { name: 'Wobblepot' })).toBeVisible()
     await expectBodyInGeist(page)
+  })
+
+  // Below `md` the scrolled header folds to an icon, so phones get the button
+  // once more above the maker's line; from `md` the header keeps Sign up on
+  // screen and the page has the hero's button only (HON-1060). jsdom applies no
+  // media queries, so only a real browser can show the `md:hidden` switch.
+  test('landing asks once more on phones only', async ({ page }) => {
+    const cta = page.getByRole('main').getByRole('link', { name: "Plan this week's dinners" })
+    const closingLine = page.getByText(
+      'Two minutes at setup, then a week of dinners and one shopping list.',
+    )
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await expect(cta).toHaveCount(2)
+    await expect(cta.last()).toBeVisible()
+    await expect(closingLine).toBeVisible()
+
+    // A role locator skips `display: none`, so the hidden closing button drops
+    // out of the count rather than resolving as a hidden match.
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await expect(cta).toHaveCount(1)
+    await expect(cta).toBeVisible()
+    await expect(closingLine).toBeHidden()
   })
 
   test('seeded smoke user signs in and views profile', async ({ page }) => {
