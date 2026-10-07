@@ -417,10 +417,10 @@ describe('matchIngredients', () => {
     expect(matched.similarityScore).toBe(0.95)
   })
 
-  // HON-1100: another English name resolves to the pool row. The word-level
-  // check still sees "all-purpose" vs "plain", so the match is flagged for review.
-  // HON-1099 renamed the pool rows to the British word, so the American word is
-  // the other name now.
+  // HON-1100: another English name resolves to the pool row. HON-1099 renamed
+  // the pool rows to the British word, so the American word is the other name
+  // now, and the extraction prompt still writes it. A curated synonym is the
+  // same food, so the word-level check does not flag it for review.
   describe('another English name', () => {
     /** Answers a search for `target` with that row; any other search finds nothing. */
     function answerSearchFor(target: string, id: string) {
@@ -442,9 +442,44 @@ describe('matchIngredients', () => {
         expect.objectContaining({
           type: 'matched',
           ingredient: expect.objectContaining({ id: 'ing-flour', name: 'plain flour' }),
-          lowConfidence: true,
+          lowConfidence: false,
         }),
       )
+    })
+
+    it.each([
+      ['canned diced tomatoes', 'tinned chopped tomatoes'],
+      ['canned whole peeled tomatoes', 'tinned plum tomatoes'],
+      ['sweet chili sauce', 'sweet chilli sauce'],
+    ])('matches the prompt name "%s" to %s without asking for review', async (pasted, pool) => {
+      answerSearchFor(pool, 'ing-pool')
+
+      const [result] = await matchIngredients(
+        [makeExtracted({ name: pasted, quantity: 400, unit: 'g' })],
+        4,
+      )
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          type: 'matched',
+          ingredient: expect.objectContaining({ name: pool }),
+          lowConfidence: false,
+        }),
+      )
+    })
+
+    it('still asks for review when a synonym word finds a row that is not its target', async () => {
+      mockQueryRaw.mockImplementation((() =>
+        Promise.resolve([
+          makeDbMatch({ id: 'ing-plum', name: 'tinned plum tomatoes', similarity: 0.9 }),
+        ])) as never)
+
+      const [result] = await matchIngredients(
+        [makeExtracted({ name: 'canned diced tomatoes', quantity: 400, unit: 'g' })],
+        4,
+      )
+
+      expect(result).toEqual(expect.objectContaining({ type: 'matched', lowConfidence: true }))
     })
 
     it.each([

@@ -5,7 +5,7 @@ import {
   MIXED_VAGUE_PHRASE,
   type VagueQuantityResult,
 } from '@/lib/vague-quantities'
-import { applyIngredientAlias } from '@/lib/ingredient-aliases'
+import { applyIngredientAlias, findSynonym } from '@/lib/ingredient-aliases'
 import { normalizeIngredientName, extractLastWord } from '@/lib/normalize-ingredient'
 import type { ExtractedIngredient } from './recipe-schema'
 import { LOW_CONFIDENCE_THRESHOLD, VERY_LOW_CONFIDENCE_THRESHOLD } from './recipe-confidence'
@@ -171,7 +171,14 @@ export async function matchIngredients(
       // e.g., "trout fillet" → "cod fillet": trout ≠ cod → flag for review.
       // Compares against the name the match was made on, so "must pipar" matched
       // through its translation is not judged against "black pepper" (HON-912).
-      if (!lowConfidence && directName.includes(' ')) {
+      // A curated synonym is the same food under another name, so its row is not
+      // judged by its words: "canned diced tomatoes" is "tinned chopped tomatoes"
+      // (HON-1099).
+      const synonymTarget = findSynonym(directName) ?? findSynonym(normalizedName)
+      const isSynonymMatch =
+        synonymTarget !== undefined &&
+        match.matchedName.toLowerCase() === synonymTarget.toLowerCase()
+      if (!lowConfidence && !isSynonymMatch && directName.includes(' ')) {
         const COMMON_SUFFIXES = new Set([
           'fillet',
           'breast',
