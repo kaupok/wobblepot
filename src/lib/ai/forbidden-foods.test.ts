@@ -417,6 +417,12 @@ describe('goat, steak and sirloin (HON-1106)', () => {
     [{ dietaryType: 'vegan' }, "goat's curd"],
     [{ allergens: ['dairy'] }, 'goat curd'],
     [{ allergens: ['dairy'] }, 'lemon curd'],
+    // Pool names the PR #1177 review ran through the check.
+    [{ dietaryType: 'vegetarian' }, 'filee praad'],
+    [{ dietaryType: 'vegetarian' }, 'metssea praad'],
+    [{ dietaryType: 'vegetarian' }, 'wild boar'],
+    [{ dietaryType: 'vegetarian' }, 'hiidlestapraad'],
+    [{ allergens: ['fish'] }, 'hiidlest'],
   ])('%o flags %s', (household, ingredient) => {
     expect(violates(household, ingredient)).toBe(true)
   })
@@ -433,6 +439,12 @@ describe('goat, steak and sirloin (HON-1106)', () => {
     [{ dietaryType: 'vegan' }, 'lillkapsasteik'],
     [{ dietaryType: 'vegan' }, 'bean curd'],
     [{ allergens: ['dairy'] }, 'bean curd'],
+    [{ dietaryType: 'pescatarian' }, 'halibut steak'],
+    [{ dietaryType: 'pescatarian' }, 'hiidlestapraad'],
+    [{ dietaryType: 'vegetarian' }, 'steak sauce'],
+    [{ dietaryType: 'vegan' }, 'steak seasoning'],
+    [{ dietaryType: 'vegan' }, 'Cauliflower Steaks'],
+    [{ dietaryType: 'vegetarian' }, "roasted beetroot with goat's cheese"],
   ])('%o allows %s', (household, ingredient) => {
     expect(violates(household, ingredient)).toBe(false)
   })
