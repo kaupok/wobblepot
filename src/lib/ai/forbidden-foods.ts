@@ -125,6 +125,8 @@ const MEAT: FoodGroup = {
     'viiner',
     'karbonaad',
     'steik',
+    // Goat: "kitsekarri", "kitsepraad". The goat dairy is a false friend.
+    'kitse',
     // The pool's Estonian steaks that name no other MEAT keyword. A bare
     // "praad" would flag "köögiviljapraad".
     'filee praad',
@@ -201,6 +203,10 @@ const MEAT: FoodGroup = {
     "goats' milk",
     'goat yoghurt',
     'goat yogurt',
+    "goat's yoghurt",
+    "goat's yogurt",
+    'goats yoghurt',
+    'goats yogurt',
     "goat's curd",
     'goats curd',
     "goats' curd",
@@ -212,6 +218,17 @@ const MEAT: FoodGroup = {
     'goat brie',
     'goat butter',
     'goat kefir',
+    'kitsejuust',
+    'kitse juust',
+    'kitsepiim',
+    'kitse piim',
+    'kitsejogurt',
+    'kitsekohupiim',
+    'kitsevõi',
+    'kitsekeefir',
+    'kitsekefiir',
+    // "cheese board" is not a wild boar.
+    'board',
     // Fish and vegetable steaks. FISH still catches the fish ones for a vegetarian.
     'fish steak',
     'tuna steak',
@@ -481,11 +498,8 @@ const EGGS: FoodGroup = {
     'brioche',
     // Quorn's mycoprotein is bound with egg white, except the range sold as vegan.
     'quorn',
-    // Fruit curd is egg yolk; a bare "curd" would flag goat curd and cheese curds.
-    'lemon curd',
-    'lime curd',
-    'orange curd',
-    'fruit curd',
+    // Fruit curd is egg yolk, whatever the fruit. The dairy and tofu curds are false friends.
+    'curd',
   ],
   ingredientKeywords: ['carbonara', 'karbonaara', 'caesar'],
   qualifiers: [
@@ -498,7 +512,21 @@ const EGGS: FoodGroup = {
     'aquafaba',
     'munavaba',
   ],
-  falseFriends: ['eggplant', 'veggie', 'reggiano', 'quorn vegan'],
+  falseFriends: [
+    'eggplant',
+    'veggie',
+    'reggiano',
+    'quorn vegan',
+    'bean curd',
+    'goat curd',
+    "goat's curd",
+    'goats curd',
+    "goats' curd",
+    'sheep curd',
+    "sheep's curd",
+    'cheese curd',
+    'curd cheese',
+  ],
 }
 
 const HONEY: FoodGroup = {

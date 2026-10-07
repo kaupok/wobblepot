@@ -436,6 +436,12 @@ describe('goat, steak and sirloin (HON-1106)', () => {
     [{ dietaryType: 'vegetarian' }, 'kalafilee praad'],
     [{ allergens: ['eggs'] }, 'lemon curd'],
     [{ dietaryType: 'vegan' }, 'lime curd'],
+    [{ allergens: ['eggs'] }, 'raspberry curd'],
+    [{ allergens: ['eggs'] }, 'passion fruit curd'],
+    [{ dietaryType: 'vegetarian' }, 'kitsekarri'],
+    [{ dietaryType: 'vegetarian' }, 'kitsepraad'],
+    [{ dietaryType: 'vegetarian' }, 'kitse hautis'],
+    [{ dietaryType: 'vegan' }, 'kitsejuust'],
   ])('%o flags %s', (household, ingredient) => {
     expect(violates(household, ingredient)).toBe(true)
   })
@@ -469,6 +475,12 @@ describe('goat, steak and sirloin (HON-1106)', () => {
     [{ dietaryType: 'vegetarian' }, 'sea salt'],
     [{ dietaryType: 'vegetarian' }, 'sea buckthorn'],
     [{ allergens: ['eggs'] }, "goat's curd"],
+    [{ allergens: ['eggs'] }, 'bean curd'],
+    [{ allergens: ['eggs'] }, 'cheese curds'],
+    [{ dietaryType: 'vegetarian' }, 'cheese board'],
+    [{ dietaryType: 'vegetarian' }, "goat's yoghurt"],
+    [{ dietaryType: 'vegetarian' }, 'kitsepiim'],
+    [{ dietaryType: 'vegetarian' }, 'kitse juust'],
   ])('%o allows %s', (household, ingredient) => {
     expect(violates(household, ingredient)).toBe(false)
   })
