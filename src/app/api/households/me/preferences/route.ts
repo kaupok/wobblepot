@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { INGREDIENT_SYNONYMS } from '@/lib/ingredient-aliases'
 
 const updatePreferencesSchema = z.object({
   dietaryType: z.enum(['vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
@@ -95,10 +96,18 @@ export async function PATCH(request: Request) {
     // so matching another household's would reveal them (HON-889).
     let excludedIngredientIds: string[] | undefined
     if (parsed.data.excludedIngredients) {
+      // A name saved before a rename or merge is now another English name for
+      // a pool row ("shrimp" for prawns, HON-1097), so look up its pool name
+      // too, or a re-save drops the exclusion. Synonyms only: an alias narrows
+      // a word ("beef" → beef mince) and would exclude less than was typed.
+      const names = parsed.data.excludedIngredients.flatMap((name) => {
+        const poolName = INGREDIENT_SYNONYMS[name.toLowerCase().trim()]
+        return poolName ? [name, poolName] : [name]
+      })
       const ingredients = await prisma.ingredient.findMany({
         where: {
           name: {
-            in: parsed.data.excludedIngredients,
+            in: names,
             mode: 'insensitive',
           },
           OR: [{ householdId: null }, { householdId: membership.household.id }],

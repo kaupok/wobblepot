@@ -293,7 +293,7 @@ describe('PATCH /api/households/me/preferences', () => {
     expect(response.status).toBe(200)
     expect(mockIngredientFindMany).toHaveBeenCalledWith({
       where: {
-        name: { in: ['Cilantro'], mode: 'insensitive' },
+        name: { in: ['Cilantro', 'fresh coriander'], mode: 'insensitive' },
         OR: [{ householdId: null }, { householdId: 'household-123' }],
       },
       select: { id: true },
@@ -301,6 +301,35 @@ describe('PATCH /api/households/me/preferences', () => {
     expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: { excludedIngredients: ['Cilantro'], excludedIngredientIds: ['ing-cilantro'] },
+      }),
+    )
+  })
+
+  // HON-1097: "shrimp" was merged into prawns, so a household that typed it
+  // keeps the exclusion when it saves the form again.
+  it('also resolves an excluded name through its other English name', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockIngredientFindMany.mockResolvedValue([{ id: 'ing-prawns' }] as never)
+    mockUpsert.mockResolvedValue(mockPreferences as never)
+
+    const response = await PATCH(createRequest({ excludedIngredients: ['Shrimp', 'beef'] }))
+
+    expect(response.status).toBe(200)
+    expect(mockIngredientFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          // "beef" is an alias (→ beef mince), not a synonym: it is not narrowed.
+          name: { in: ['Shrimp', 'prawns', 'beef'], mode: 'insensitive' },
+        }),
+      }),
+    )
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { excludedIngredients: ['Shrimp', 'beef'], excludedIngredientIds: ['ing-prawns'] },
       }),
     )
   })

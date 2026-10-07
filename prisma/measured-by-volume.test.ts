@@ -20,7 +20,7 @@ describe('isMeasuredByVolume', () => {
   })
 
   it.each([
-    ['heavy cream', 'cream'],
+    ['double cream', 'cream'],
     ['soy sauce', 'sauce'],
     ['balsamic vinegar', 'acid'],
     ['canola oil', null],
