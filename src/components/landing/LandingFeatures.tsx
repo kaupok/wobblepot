@@ -133,8 +133,6 @@ const noop = () => {}
  */
 export function LandingFeatures() {
   const t = useTranslations('landing.why')
-  // The portions caption names the salmon the vignette shows.
-  const salmon = useScaledSalmon()
 
   return (
     <section aria-labelledby="landing-why" className="flex flex-col gap-12 md:gap-16">
@@ -148,7 +146,6 @@ export function LandingFeatures() {
           role restores them, as on "How it works". */}
       <ul role="list" className="flex list-none flex-col gap-16 md:gap-24">
         {POINTS.map((point, index) => {
-          const Vignette = VIGNETTES[point]
           return (
             <li key={point} className="grid items-center gap-6 md:grid-cols-2 md:gap-16">
               <div className="flex flex-col gap-3 text-balance">
@@ -162,23 +159,67 @@ export function LandingFeatures() {
                 </Heading>
                 <Body tone="muted">{t(`${point}.body`)}</Body>
               </div>
-              <figure
-                data-testid={`landing-vignette-${point}`}
-                className={cn('min-w-0', index % 2 === 1 && 'md:order-first')}
-              >
-                <div inert className={TILTS[point]}>
-                  <Vignette />
-                </div>
-                {/* Outside the inert part, which assistive tech skips. */}
-                <figcaption className="sr-only">
-                  {t(`${point}.vignette.caption`, { quantity: salmon })}
-                </figcaption>
-              </figure>
+              <LandingVignette point={point} className={cn(index % 2 === 1 && 'md:order-first')} />
             </li>
           )
         })}
       </ul>
     </section>
+  )
+}
+
+export type LandingPoint = Point
+
+/**
+ * One point's vignette, tilted, with its caption for screen readers.
+ * Exported so another landing layout can place the same vignettes its own way.
+ */
+export function LandingVignette({ point, className }: { point: Point; className?: string }) {
+  const t = useTranslations('landing.why')
+  // The portions caption names the salmon the vignette shows.
+  const salmon = useScaledSalmon()
+  const Vignette = VIGNETTES[point]
+
+  return (
+    <figure data-testid={`landing-vignette-${point}`} className={cn('min-w-0', className)}>
+      <div inert className={TILTS[point]}>
+        <Vignette />
+      </div>
+      {/* Outside the inert part, which assistive tech skips. */}
+      <figcaption className="sr-only">
+        {t(`${point}.vignette.caption`, { quantity: salmon })}
+      </figcaption>
+    </figure>
+  )
+}
+
+/**
+ * The household page's member rows alone, on the neutral card they sit on in
+ * the app: who is at the table, before any meal. Not inert itself; the caller
+ * puts it inside an `inert` picture.
+ */
+export function HouseholdVignette() {
+  const t = useTranslations('landing.why.kids.vignette')
+
+  return (
+    <VignetteSurface>
+      <ul className="flex flex-col divide-y">
+        {MEMBERS.map(({ key, portionMultiplier }) => (
+          <MemberRow
+            key={key}
+            member={member(key, t(key), portionMultiplier)}
+            canEdit={false}
+            canRemove={false}
+            canInvite={false}
+            onEdit={noop}
+            onRemove={noop}
+            onRemoveFocus={noop}
+            onInvite={noop}
+            onInviteUpdated={noop}
+          />
+        ))}
+      </ul>
+    </VignetteSurface>
   )
 }
 

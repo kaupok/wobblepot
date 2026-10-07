@@ -22,8 +22,10 @@ import type { MealType, ProteinType } from '@/generated/prisma/enums'
  * descriptions come from the catalog, so an Estonian visitor reads an Estonian
  * day.
  */
+export type ShowcaseMealKey = 'breakfast' | 'lunch' | 'dinner'
+
 const SHOWCASE_MEALS: ReadonlyArray<{
-  key: 'breakfast' | 'lunch' | 'dinner'
+  key: ShowcaseMealKey
   mealType: MealType
   proteinType: ProteinType
   imageUrl: string
@@ -64,46 +66,65 @@ export function LandingShowcase() {
         {t('day')}
       </Heading>
       <div className="flex flex-col gap-3">
-        {SHOWCASE_MEALS.map((meal) => {
-          const name = t(`${meal.key}.name`)
-          return (
-            <MealImageCard
-              key={meal.key}
-              meal={{
-                name,
-                imageUrl: meal.imageUrl,
-                imageStatus: 'ready',
-                imageHue: meal.imageHue,
-              }}
-              size="sm"
-              // The planner card's head: badges, then the name capped before
-              // the plate, then the description in the same column.
-              head={
-                <CardHeader className="px-4 pt-1 pb-1">
-                  <div className="flex min-h-8 items-center">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <MealTypeBadge mealType={meal.mealType} />
-                      <KidFriendlyBadge compact />
-                      <ProteinBadge proteinType={meal.proteinType} />
-                    </div>
-                  </div>
-                  <div className={`flex min-w-0 flex-col ${mealImageTitleWidth()}`}>
-                    <div className="flex min-h-8 items-center">
-                      <Heading variant="section" as="p">
-                        {name}
-                      </Heading>
-                    </div>
-                    <div className="hidden md:line-clamp-2">
-                      <Body variant="muted">{t(`${meal.key}.description`)}</Body>
-                    </div>
-                  </div>
-                </CardHeader>
-              }
-            />
-          )
-        })}
+        {SHOWCASE_MEALS.map((meal) => (
+          <ShowcaseMealCard key={meal.key} meal={meal.key} />
+        ))}
       </div>
       <figcaption className="sr-only">{t('caption')}</figcaption>
     </figure>
+  )
+}
+
+interface ShowcaseMealCardProps {
+  meal: ShowcaseMealKey
+  /** The description under the name, from `md`. Off where the card is a small picture. */
+  description?: boolean
+}
+
+/**
+ * One meal of the example day on the planner's card. Exported so another
+ * landing layout can place the same cards its own way.
+ */
+export function ShowcaseMealCard({ meal: key, description = true }: ShowcaseMealCardProps) {
+  const t = useTranslations('landing.showcase')
+  const meal = SHOWCASE_MEALS.find((m) => m.key === key)
+  if (!meal) return null
+  const name = t(`${meal.key}.name`)
+
+  return (
+    <MealImageCard
+      meal={{
+        name,
+        imageUrl: meal.imageUrl,
+        imageStatus: 'ready',
+        imageHue: meal.imageHue,
+      }}
+      size="sm"
+      // The planner card's head: badges, then the name capped before the
+      // plate, then the description in the same column.
+      head={
+        <CardHeader className="px-4 pt-1 pb-1">
+          <div className="flex min-h-8 items-center">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <MealTypeBadge mealType={meal.mealType} />
+              <KidFriendlyBadge compact />
+              <ProteinBadge proteinType={meal.proteinType} />
+            </div>
+          </div>
+          <div className={`flex min-w-0 flex-col ${mealImageTitleWidth()}`}>
+            <div className="flex min-h-8 items-center">
+              <Heading variant="section" as="p">
+                {name}
+              </Heading>
+            </div>
+            {description && (
+              <div className="hidden md:line-clamp-2">
+                <Body variant="muted">{t(`${meal.key}.description`)}</Body>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+      }
+    />
   )
 }
