@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { MealDetailModal } from './MealDetailModal'
@@ -41,6 +41,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
@@ -117,6 +118,46 @@ describe('MealDetailModal note menu (HON-966)', () => {
     await waitFor(() => expect(onNoteChange).toHaveBeenCalledWith('Double the garlic and lemon'))
 
     await waitFor(() => expect(trigger()).toHaveFocus())
+  })
+
+  // A closing menu stays mounted through its exit animation, and Radix runs its
+  // close-focus only once the animation ends. A save that returns sooner closes
+  // the editor first; the menu's close-focus then found no textarea and fell
+  // back to the slip (HON-1108). jsdom runs no animations, so the menu reports
+  // one here and the test ends it.
+  it('returns focus to the trigger on a Save that beats the menu exit animation', async () => {
+    let menuAnimation = 'none'
+    const realGetComputedStyle = window.getComputedStyle.bind(window)
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const styles = realGetComputedStyle(element, pseudo)
+      if (element.getAttribute('role') !== 'menu') return styles
+      return new Proxy(styles, {
+        get: (target, property) =>
+          property === 'animationName' ? menuAnimation : Reflect.get(target, property, target),
+      })
+    })
+    const user = userEvent.setup()
+    const { onNoteChange } = renderModal({ note: 'Double the garlic' })
+
+    await user.click(trigger())
+    const menu = await screen.findByRole('menu')
+    menuAnimation = 'exit'
+    await user.click(screen.getByRole('menuitem', { name: 'Edit note' }))
+    const textarea = await screen.findByRole('textbox', { name: 'Meal note' })
+    await user.type(textarea, ' and lemon{Enter}')
+    await waitFor(() => expect(onNoteChange).toHaveBeenCalledWith('Double the garlic and lemon'))
+    await waitFor(() => expect(textarea).not.toBeInTheDocument())
+    expect(menu).toBeInTheDocument()
+
+    // jsdom has no `AnimationEvent`, which carries the name Radix matches on.
+    const animationEnd = new Event('animationend')
+    Object.defineProperty(animationEnd, 'animationName', { value: 'exit' })
+    fireEvent(menu, animationEnd)
+    await waitFor(() => expect(menu).not.toBeInTheDocument())
+    // Radix's close-focus runs in a timeout after the unmount.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(trigger()).toHaveFocus()
   })
 
   it('returns focus to the slip when the editor was opened from it', async () => {

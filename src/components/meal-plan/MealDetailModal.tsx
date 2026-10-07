@@ -258,8 +258,14 @@ export function MealDetailModal({
     setIsEditingNote(editing)
   }, [])
   useEffect(() => {
+    if (isEditingNote) return
+    // The menu focuses the editor only once its exit animation ends, and a
+    // save can close the editor sooner. With no textarea left, the editor's
+    // focus falls back to the slip; leave the menu to return focus to its
+    // trigger (HON-1108).
+    noteRequestedRef.current = false
     const opener = noteOpenerRef.current
-    if (isEditingNote || !opener) return
+    if (!opener) return
     noteOpenerRef.current = null
     const focused = document.activeElement
     if (focused && focused !== document.body && focused !== contentRef.current) return
