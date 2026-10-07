@@ -3,6 +3,13 @@ import { INGREDIENT_SYNONYMS, synonymKey } from './ingredient-aliases'
 /** Shorter terms match too many keys to be useful ("pe" → every pepper). */
 export const MIN_SYNONYM_TERM_LENGTH = 3
 
+/**
+ * A shorter term that starts a one-word synonym is often a common word of its
+ * own ("egg" starts "eggplant"), so it must not outrank the rows named by it
+ * (HON-1104).
+ */
+export const MIN_STRONG_KEY_TERM_LENGTH = 4
+
 export interface SynonymMatch {
   /** The global ingredient's name in the pool. */
   target: string
@@ -10,11 +17,12 @@ export interface SynonymMatch {
   synonym: string
   /**
    * True when the term picks out this synonym rather than a generic word in
-   * it: it starts a one-word synonym ("zucc", "ruta"), or it reaches past the
-   * first word of a longer one ("all-purpose f"). False when it is only the
-   * first word or part of it ("all-purpose", "sweet") or starts a later word
-   * ("pepper" in "red bell pepper"). The search route ranks only a strong hit
-   * above name hits.
+   * it: it starts a one-word synonym with at least `MIN_STRONG_KEY_TERM_LENGTH`
+   * characters ("zucc", "ruta"), or it reaches past the first word of a longer
+   * one ("all-purpose f"). False when it is a shorter start of a one-word
+   * synonym ("egg" in "eggplant"), only the first word or part of it
+   * ("all-purpose", "sweet") or starts a later word ("pepper" in "red bell
+   * pepper"). The search route ranks only a strong hit above name hits.
    */
   strong: boolean
 }
@@ -44,7 +52,11 @@ export function findSynonymMatches(search: string): SynonymMatch[] {
     const tableWords = synonym.split(/\s+/)
     const firstWord = synonymKey(tableWords[0] ?? synonym)
     if (key.startsWith(term)) {
-      if (tableWords.length === 1 || term.length > firstWord.length) {
+      const picksOut =
+        tableWords.length === 1
+          ? term.length >= MIN_STRONG_KEY_TERM_LENGTH
+          : term.length > firstWord.length
+      if (picksOut) {
         strong.push({ target, synonym, strong: true })
       } else {
         byKeyStart.push({ target, synonym, strong: false })
