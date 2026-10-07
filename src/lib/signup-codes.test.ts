@@ -206,44 +206,15 @@ describe('linkUsedBy', () => {
 
   it('deletes the waitlist request the linked code was sent to (HON-970)', async () => {
     const deleteMany = vi.fn().mockResolvedValue({ count: 1 })
-    const db = makeDb(vi.fn().mockResolvedValue({ count: 1 }), deleteMany)
-
-    await linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never })
-
-    expect(db.user.findUnique).toHaveBeenCalledWith({
-      where: { id: 'user_1' },
-      select: { email: true },
-    })
-    // By the email too: a Send again that moved the link to a new code during
-    // this sign-up, or a sign-up with some other code, still clears the request.
-    expect(deleteMany).toHaveBeenCalledWith({
-      where: { OR: [{ signupCode: { code: 'good' } }, { email: 'anna@example.com' }] },
-    })
-  })
-
-  it("expires an unused code still linked to the address's request before deleting it", async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 1 })
-    const db = makeDb(updateMany, vi.fn().mockResolvedValue({ count: 1 }))
+    const db = makeDb(updateMany, deleteMany)
 
     await linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never })
 
-    expect(updateMany).toHaveBeenLastCalledWith({
-      where: { usedAt: null, waitlistRequest: { is: { email: 'anna@example.com' } } },
-      data: { expiresAt: expect.any(Date) },
-    })
-    expect(updateMany.mock.invocationCallOrder.at(-1)!).toBeLessThan(
-      db.waitlistRequest.deleteMany.mock.invocationCallOrder[0]!,
-    )
-  })
-
-  it('deletes by the code alone when the user row cannot be read', async () => {
-    const deleteMany = vi.fn().mockResolvedValue({ count: 1 })
-    const db = makeDb(vi.fn().mockResolvedValue({ count: 1 }), deleteMany)
-    db.user.findUnique.mockResolvedValue(null)
-
-    await linkUsedBy({ inviteCode: 'good' }, 'user_1', { db: db as never })
-
-    expect(deleteMany).toHaveBeenCalledWith({ where: { OR: [{ signupCode: { code: 'good' } }] } })
+    expect(deleteMany).toHaveBeenCalledWith({ where: { signupCode: { code: 'good' } } })
+    // The request under the user's email is clearWaitlistForNewUser's (HON-1102).
+    expect(db.user.findUnique).not.toHaveBeenCalled()
+    expect(updateMany).toHaveBeenCalledTimes(1)
   })
 
   it('deletes no waitlist request when the link matched no code', async () => {

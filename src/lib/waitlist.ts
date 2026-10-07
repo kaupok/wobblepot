@@ -205,6 +205,35 @@ export async function purgeExpiredWaitlistRequests(
   return { unconfirmed: unconfirmed.count, confirmed: confirmed.count }
 }
 
+/**
+ * Deletes the waitlist request of a user who just signed up (HON-1102). An
+ * address with an account needs no request, so this runs on every email
+ * sign-up, with or without an invite code: when `invite_code_required` is
+ * off, nothing else would clear the row before the 6-month purge. The
+ * request a used code was sent to is deleted by `linkUsedBy`; this one
+ * matches by the new user's email.
+ *
+ * Never throws: a failure is logged, because it must not fail sign-up.
+ */
+export async function clearWaitlistForNewUser(userId: string): Promise<void> {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
+    if (!user) return
+    const email = normalizeWaitlistEmail(user.email)
+
+    // A code sent to this address that is still unused has nobody left to
+    // serve, so it must not stay passable once the request is gone.
+    await prisma.signupCode.updateMany({
+      where: { usedAt: null, waitlistRequest: { is: { email } } },
+      data: { expiresAt: new Date() },
+    })
+    await prisma.waitlistRequest.deleteMany({ where: { email } })
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[waitlist] failed to delete the waitlist request of a new user', { userId, err })
+  }
+}
+
 /** A confirmed request as `/admin/waitlist` and its API send it to the client. */
 export interface WaitlistRow {
   id: string

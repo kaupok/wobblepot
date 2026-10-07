@@ -10,6 +10,7 @@ import { resolveEmailLocale } from '@/lib/emails/locale'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
+import { clearWaitlistForNewUser } from '@/lib/waitlist'
 import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
 import { CURRENT_TERMS_VERSION } from '@/lib/consent'
 import { timeSignupStep } from '@/lib/signup-timing'
@@ -76,6 +77,29 @@ export async function hashPasswordWithBreachCheck(password: string): Promise<str
     })
   }
   return timeSignupStep('scrypt', () => hashPassword(password))
+}
+
+/**
+ * The `/sign-up/email` after-hook body, exported for unit testing.
+ *
+ * On success it links the used invite code, then deletes the new user's
+ * waitlist request by email. The second step runs with or without a code,
+ * because with `invite_code_required` off a waitlisted address signs up with
+ * none (HON-1102). Neither step throws.
+ *
+ * On failure (no user) the sign-up failed after the atomic claim: Better
+ * Auth's endpoint runs *after* hooks.before, so a Zod validation,
+ * USER_ALREADY_EXISTS, or breached-password rejection at the endpoint layer
+ * leaves the code claimed but unlinked. Release it so the user can retry
+ * without burning the code permanently.
+ */
+export async function afterEmailSignUp(body: unknown, userId: string | undefined): Promise<void> {
+  if (userId) {
+    await linkUsedBy(body, userId)
+    await clearWaitlistForNewUser(userId)
+    return
+  }
+  await releaseClaim(body)
 }
 
 /**
@@ -239,7 +263,8 @@ export const auth = betterAuth({
    * Invite-only sign-up gate. The `before` hook validates the invite code
    * (gated by the `invite_code_required` PostHog kill-switch) and atomically
    * claims it via a row-level UPDATE; the `after` hook backfills the
-   * `usedById` link once the new user row exists. Both delegate to
+   * `usedById` link once the new user row exists and deletes the user's
+   * waitlist request (see {@link afterEmailSignUp}). Both delegate to
    * `src/lib/signup-codes.ts` so the validation/claim logic stays
    * unit-testable in isolation. See HON-488.
    */
@@ -253,17 +278,7 @@ export const auth = betterAuth({
     }),
     after: createAuthMiddleware(async (ctx) => {
       if (ctx.path !== '/sign-up/email') return
-      const userId = ctx.context.newSession?.user?.id
-      if (userId) {
-        await linkUsedBy(ctx.body, userId)
-        return
-      }
-      // Sign-up failed after the atomic claim — Better Auth's endpoint runs
-      // *after* hooks.before, so a Zod validation, USER_ALREADY_EXISTS, or
-      // breached-password rejection at the endpoint layer leaves the code
-      // claimed but unlinked. Release it so the user can retry without
-      // burning the code permanently.
-      await releaseClaim(ctx.body)
+      await afterEmailSignUp(ctx.body, ctx.context.newSession?.user?.id)
     }),
   },
 })
