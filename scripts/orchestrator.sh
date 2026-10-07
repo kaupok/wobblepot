@@ -403,7 +403,9 @@ bash_timeout() {
   # Poll rather than sleeping the whole bound, so the watchdog exits on its own
   # as soon as the command finishes and never has to be killed: killing a
   # background job can make bash write a job-status line to stderr, which the
-  # triage call captures with 2>&1 and would then parse as a verdict.
+  # triage call used to capture with 2>&1 and parse as a verdict. It now reads
+  # the verdict from stdout only (HON-1118), but the line would still land in
+  # the stderr the failure log quotes.
   #
   # Poll in tenths, not whole seconds. The caller waits on the watchdog below,
   # so its poll interval is added to every call still running at the first
@@ -2407,9 +2409,28 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
     # whole poll loop. run_with_timeout returns 124 when the bound is hit; that
     # is a stuck tool, not a diagnosis, so fall back to BACKLOG rather than the
     # NEEDS_HUMAN branch a real CLI error takes.
-    local triage_output exit_code=0
+    #
+    # stdout and stderr are captured apart, and the verdict comes from stdout
+    # only. Claude Code writes diagnostics to stderr in print mode (an unknown
+    # model ID, a wildcard allow rule, MCP config), and with `2>&1` the first of
+    # them became the verdict word (HON-1118). stderr goes to a file because
+    # `$(…)` captures one stream; a failed mktemp drops it rather than aborting
+    # handle_failure under set -e.
+    #
+    # The empty strict MCP config keeps the call from starting every server in
+    # .mcp.json inside TRIAGE_TIMEOUT; the triage prompt uses no tool. The `--`
+    # is required: --mcp-config takes several values, so without it the CLI
+    # reads the prompt as a second config file and every call exits 1.
+    local triage_output triage_stderr="" triage_err_file="" exit_code=0
+    triage_err_file=$(mktemp "${TMPDIR:-/tmp}/orchestrator-triage-err.XXXXXXXX") || triage_err_file=""
     triage_output=$(echo "$log_tail" | run_with_timeout "$TRIAGE_TIMEOUT" \
-      env -u ANTHROPIC_API_KEY claude -p --model "$TRIAGE_MODEL" "$triage_prompt" 2>&1) || exit_code=$?
+      env -u ANTHROPIC_API_KEY claude -p --model "$TRIAGE_MODEL" \
+        --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
+        -- "$triage_prompt" 2>"${triage_err_file:-/dev/null}") || exit_code=$?
+    if [ -n "$triage_err_file" ]; then
+      triage_stderr=$(cat "$triage_err_file" 2>/dev/null || true)
+      rm -f "$triage_err_file"
+    fi
 
     # Extract first word only — Claude may include explanatory text after the keyword
     local triage_result
@@ -2420,15 +2441,19 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
       log WARN "Claude triage timed out after ${TRIAGE_TIMEOUT}s, falling back to BACKLOG"
       triage="BACKLOG"
     elif [ "$exit_code" -ne 0 ]; then
-      log WARN "Claude triage failed (exit $exit_code): $(head -1 <<<"$triage_output")"
+      # The CLI's error is on stderr; fall back to stdout for one that is not.
+      local triage_error="$triage_stderr"
+      [ -n "$(tr -d '[:space:]' <<<"$triage_error")" ] || triage_error="$triage_output"
+      log WARN "Claude triage failed (exit $exit_code): $(awk 'NF{print; exit}' <<<"$triage_error")"
       triage="NEEDS_HUMAN"
     else
       case "$triage_result" in
         RETRY|BACKLOG|NEEDS_HUMAN) triage="$triage_result" ;;
         *)
           log WARN "Unexpected triage result: '$triage_result'"
-          # Detect Claude CLI errors returned on stdout
-          if grep -qiE 'balance|credit|limit|unauthorized|forbidden' <<<"$triage_output"; then
+          # Detect Claude CLI errors returned on stdout or stderr
+          if grep -qiE 'balance|credit|limit|unauthorized|forbidden' <<<"$triage_output
+$triage_stderr"; then
             log WARN "Looks like a Claude CLI error, treating as NEEDS_HUMAN"
             triage="NEEDS_HUMAN"
           fi ;;
