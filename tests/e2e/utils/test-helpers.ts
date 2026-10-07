@@ -132,13 +132,13 @@ export async function createHousehold(page: Page, householdName?: string): Promi
   // the submit button, so this selector is only unambiguous in step 1.
   await page.locator('form button[type="button"]').click()
 
-  // The form has a 100ms guard (`justTransitioned`) that ignores submissions
+  // The form has a 500ms guard (`justTransitioned`) that ignores submissions
   // immediately after a step transition, to prevent Enter-key race conditions.
   // Wait for the step's submit button to render, then for the guard window to
   // elapse, before clicking — otherwise the click is silently swallowed.
   const submit = page.locator('form button[type="submit"]')
   await expect(submit).toBeVisible()
-  await page.waitForTimeout(150)
+  await page.waitForTimeout(600)
 
   // Step 2 → 3: Continue with defaults (the user alone). Step 2's Continue is
   // the form's submit button, and it does not create the household.
@@ -146,7 +146,7 @@ export async function createHousehold(page: Page, householdName?: string): Promi
 
   // Step 3 is the only step with toggle buttons (the allergens).
   await expect(page.locator('form button[aria-pressed]').first()).toBeVisible()
-  await page.waitForTimeout(150)
+  await page.waitForTimeout(600)
 
   // Step 3 → 4: submit with nothing ticked, which creates the household.
   const [created] = await Promise.all([

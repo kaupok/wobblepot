@@ -22,6 +22,12 @@ const TOTAL_STEPS = 4
 
 type Step = 1 | 2 | 3 | 4
 
+// How long a step ignores submits after it appears. Longer than a
+// double-click: step 3's create button renders where step 2's Continue was,
+// so a shorter guard lets the second click create the household before the
+// allergens step is seen, and step 4 has no Back (HON-1082).
+const TRANSITION_GUARD_MS = 500
+
 interface OnboardingFlowProps {
   userName: string
 }
@@ -43,10 +49,10 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
   // Enter key event can inadvertently submit the form
   const [justTransitioned, setJustTransitioned] = useState(false)
 
-  // Clear transition guard after 100ms, with cleanup to prevent memory leak
+  // Clear transition guard after TRANSITION_GUARD_MS, with cleanup to prevent memory leak
   useEffect(() => {
     if (justTransitioned) {
-      const timeoutId = setTimeout(() => setJustTransitioned(false), 100)
+      const timeoutId = setTimeout(() => setJustTransitioned(false), TRANSITION_GUARD_MS)
       return () => clearTimeout(timeoutId)
     }
   }, [justTransitioned])

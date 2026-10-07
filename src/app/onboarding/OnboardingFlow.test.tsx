@@ -224,13 +224,13 @@ describe('OnboardingFlow', () => {
 
     async function goToStep2() {
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      // Wait for transition guard to clear (100ms timeout in handleNext)
-      await vi.advanceTimersByTimeAsync(150)
+      // Wait for the transition guard to clear (500 ms, TRANSITION_GUARD_MS)
+      await vi.advanceTimersByTimeAsync(600)
     }
 
     async function continueToStep3() {
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await vi.advanceTimersByTimeAsync(150)
+      await vi.advanceTimersByTimeAsync(600)
     }
 
     async function goToStep3() {
@@ -485,6 +485,31 @@ describe('OnboardingFlow', () => {
         expect(screen.getByText('Step 3 of 4')).toBeInTheDocument()
       })
 
+      // Step 3's create button renders where step 2's Continue was, so the
+      // second click of a double-click lands on it (HON-1082 review).
+      it('ignores the second click of a double-click on step 2 Continue', async () => {
+        mockFetch.mockResolvedValue(respondOk({ id: 'household-123' }))
+        renderFlow()
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(250)
+        })
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+
+        expect(mockFetch).not.toHaveBeenCalled()
+        expect(screen.getByText('Step 3 of 4')).toBeInTheDocument()
+
+        // Once the guard clears, Continue creates as usual.
+        await vi.advanceTimersByTimeAsync(600)
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+        await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
+      })
+
       it('creates on Enter in step 3, with the members typed on step 2', async () => {
         mockFetch.mockResolvedValue(respondOk({ id: 'household-123' }))
 
@@ -518,9 +543,9 @@ describe('OnboardingFlow', () => {
     async function goToStep3() {
       renderFlow()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await vi.advanceTimersByTimeAsync(150)
+      await vi.advanceTimersByTimeAsync(600)
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await vi.advanceTimersByTimeAsync(150)
+      await vi.advanceTimersByTimeAsync(600)
     }
 
     it('focuses the step title and shows the nine allergens with the AI notice', async () => {
@@ -578,7 +603,7 @@ describe('OnboardingFlow', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Back' }))
       expect(screen.getByRole('heading', { level: 1, name: "Who's at your table?" })).toHaveFocus()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await vi.advanceTimersByTimeAsync(150)
+      await vi.advanceTimersByTimeAsync(600)
 
       expect(screen.getByRole('button', { name: 'Tree nuts' })).toHaveAttribute(
         'aria-pressed',
@@ -604,9 +629,9 @@ describe('OnboardingFlow', () => {
       mockFetch.mockResolvedValueOnce(respondOk({ id: 'household-123' }))
       renderFlow()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await vi.advanceTimersByTimeAsync(150)
+      await vi.advanceTimersByTimeAsync(600)
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-      await vi.advanceTimersByTimeAsync(150)
+      await vi.advanceTimersByTimeAsync(600)
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await screen.findByRole('heading', { level: 1, name: 'Plan your first meals' })
     }
