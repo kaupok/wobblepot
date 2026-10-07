@@ -33,8 +33,10 @@ interface LandingPageProps {
  * opening the cook view), how it works in three steps, who it is for and
  * what makes it different, each point shown with the app's own components,
  * and one closing line on who made it.
- * The call to action is in the hero only: from `md` the floating header keeps
- * "Sign up" on screen, and below `md` it is in the header's Account sheet.
+ * The call to action is in the hero, and on phones once more above the
+ * closing line: from `md` the floating header keeps "Sign up" on screen, but
+ * below `md` the scrolled header folds to an icon, so a phone reader at the
+ * end of the page would have no sign-up control in sight (HON-1060).
  *
  * Not `<main>`: the root layout's `<main id="main-content">` is the page
  * landmark (HON-820). Capped at the page width like the app, so the landing
@@ -124,9 +126,23 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
 
         <LandingFeatures />
 
-        {/* The ending: one line on who made it, as a statement. No second
-            call to action (HON-1037). The bottom padding keeps the footer off
-            the last line. */}
+        {/* Phones only: below `md` the scrolled header shows no Sign up, so the
+            page asks once more before it ends (HON-1060). One new sentence on
+            why to click, not the hero's text: the beta note, the price and the
+            data line stay in the hero. A plain div, not a region, so the page
+            still ends on the maker's line. */}
+        <div className="md:hidden">
+          <div className="mx-auto flex max-w-3xl flex-col gap-6 text-center text-balance">
+            <Body variant="lead">{t('close.line')}</Body>
+            <Button asChild size="lg" className="w-full">
+              <Link href="/sign-up">{t('cta')}</Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* The ending: one line on who made it, as a statement. From `md` there
+            is no second call to action (HON-1037). The bottom padding keeps the
+            footer off the last line. */}
         <section aria-labelledby="landing-note" className="pb-8 md:pb-16">
           <div className="mx-auto max-w-3xl text-center text-balance">
             <Heading variant="h1" as="h2" face="brand" id="landing-note">

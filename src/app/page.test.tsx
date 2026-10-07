@@ -207,6 +207,9 @@ const PRICE_EN =
 const PRICE_ET =
   'Beeta ajal tasuta. Tasulised paketid tulevad hiljem. Anname sellest 30 päeva ette teada ja beetapered saavad soodsama hinna.'
 const TRUST_EN = 'Your data lives in the EU, and there are no ads.'
+// The phone-only closing line above the maker's line (HON-1060).
+const CLOSE_EN = 'Two minutes at setup, then a week of dinners and one shopping list.'
+const CLOSE_ET = 'Kaks minutit alguses, siis nädala õhtusöögid ja üks ostunimekiri.'
 
 /** Asserts that each element comes after the one before it in document order. */
 function expectInOrder(...elements: HTMLElement[]) {
@@ -252,12 +255,12 @@ describe('Home page component', () => {
 
       // The note under the button carries the invite-code hurdle, so the button
       // does not (HON-1056).
-      expect(screen.getByRole('link', { name: "Plan this week's dinners" })).toHaveAttribute(
-        'href',
-        '/sign-up',
-      )
-      // Once, under the hero: the header's Sign up covers the rest of the page.
-      expect(signUpLinks()).toHaveLength(1)
+      for (const link of screen.getAllByRole('link', { name: "Plan this week's dinners" })) {
+        expect(link).toHaveAttribute('href', '/sign-up')
+      }
+      // Under the hero, and once more at the end for phones, where the scrolled
+      // header shows no Sign up (HON-1060).
+      expect(signUpLinks()).toHaveLength(2)
       expect(screen.getByText(TRUST_EN)).toBeInTheDocument()
     })
 
@@ -279,11 +282,10 @@ describe('Home page component', () => {
       expect(screen.queryByRole('note')).not.toBeInTheDocument()
       expect(screen.queryByText(/private beta/i)).not.toBeInTheDocument()
       expect(screen.queryByRole('link', { name: 'Ask for an invite' })).not.toBeInTheDocument()
-      expect(screen.getByRole('link', { name: "Plan this week's dinners" })).toHaveAttribute(
-        'href',
-        '/sign-up',
-      )
-      expect(signUpLinks()).toHaveLength(1)
+      for (const link of screen.getAllByRole('link', { name: "Plan this week's dinners" })) {
+        expect(link).toHaveAttribute('href', '/sign-up')
+      }
+      expect(signUpLinks()).toHaveLength(2)
       expectInOrder(screen.getByText(PRICE_EN), screen.getByText(TRUST_EN))
     })
 
@@ -431,6 +433,28 @@ describe('Home page component', () => {
     }
   })
 
+  // Below `md` the scrolled header folds to an icon, so phones get a second
+  // button before the maker's line. jsdom applies no media queries, so the
+  // class stands in for the visibility check.
+  it("asks once more on phones, with its own line, above the maker's line (HON-1060)", async () => {
+    await renderLanding()
+
+    const closing = signUpLinks()[1]!
+    expect(closing).toHaveAccessibleName("Plan this week's dinners")
+    const wrapper = closing.closest<HTMLElement>('.md\\:hidden')
+    expect(wrapper).not.toBeNull()
+    const closingBlock = within(wrapper!)
+    expect(closingBlock.getByText(CLOSE_EN)).toBeInTheDocument()
+    // The beta note, the price and the data line stay in the hero.
+    expect(closingBlock.queryByText(PRICE_EN)).not.toBeInTheDocument()
+    expect(closingBlock.queryByText(TRUST_EN)).not.toBeInTheDocument()
+    expect(closingBlock.queryByRole('note')).not.toBeInTheDocument()
+    expectInOrder(
+      wrapper!,
+      screen.getByRole('region', { name: 'Made by a dad, for a family of four' }),
+    )
+  })
+
   it('ends the page with the line on who made it', async () => {
     await renderLanding()
     const note = screen.getByRole('region', { name: 'Made by a dad, for a family of four' })
@@ -460,6 +484,7 @@ describe('Home page component', () => {
         'Õhtusöök igaks päevaks koos valmistusajaga. Lisa hommikusöök ja lõuna, kui soovid. Vaheta iga toit, mis ei meeldi.',
       ),
     ).toBeInTheDocument()
+    expect(screen.getByText(CLOSE_ET)).toBeInTheDocument()
     // "Made for family kitchens" is a client component, which this file's
     // next-intl mock renders in English: LandingFeatures.test.tsx renders it in
     // Estonian.
