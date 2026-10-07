@@ -80,6 +80,32 @@ const defaultProps = {
   onEntryUpdated: vi.fn(),
 }
 
+function dayWithDinnerAnd(emptySlots: TimelineDay['emptySlots']): TimelineDay {
+  return {
+    ...baseDay,
+    entries: [
+      {
+        id: 'e1',
+        date: '2026-03-29',
+        mealType: 'dinner',
+        status: 'planned',
+        rating: null,
+        meal: {
+          id: 'm1',
+          name: 'Dinner Meal',
+          kidFriendly: true,
+          components: [],
+          nutrition: { calories: 500, protein: 30, carbs: 50, fat: 15 },
+        },
+        preparationTips: null,
+        note: null,
+        servingOverride: null,
+      },
+    ],
+    emptySlots,
+  }
+}
+
 describe('TimelineDayCard', () => {
   it('renders day label as a heading', () => {
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
@@ -167,42 +193,43 @@ describe('TimelineDayCard', () => {
     expect(screen.getByText('No meals planned')).toBeInTheDocument()
   })
 
-  it('sorts entries and empty slots by meal type order', () => {
-    const dayWithMixed: TimelineDay = {
-      ...baseDay,
-      entries: [
-        {
-          id: 'e1',
-          date: '2026-03-29',
-          mealType: 'dinner',
-          status: 'planned',
-          rating: null,
-          meal: {
-            id: 'm1',
-            name: 'Dinner Meal',
-            kidFriendly: true,
-            components: [],
-            nutrition: { calories: 500, protein: 30, carbs: 50, fat: 15 },
-          },
-          preparationTips: null,
-          note: null,
-          servingOverride: null,
-        },
-      ],
-      emptySlots: ['breakfast', 'lunch'],
-    }
+  // An empty slot is a button on the heading's line, not a row in the entry
+  // list, so an empty day takes one line (HON-1111).
+  it('renders an empty slot in the heading row, not in the entry list', () => {
+    render(<TimelineDayCard day={dayWithDinnerAnd(['breakfast'])} {...defaultProps} />)
 
-    render(<TimelineDayCard day={dayWithMixed} {...defaultProps} />)
+    const headingRow = screen.getByRole('heading', { name: 'Today' }).parentElement
+    const slot = screen.getByTestId('empty-slot-breakfast')
+    const card = screen.getByTestId('meal-card-dinner')
+    expect(headingRow).toContainElement(slot)
+    expect(headingRow).not.toContainElement(card)
+    // The heading row comes first, so the slot precedes the dinner card.
+    expect(slot.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 
-    // All three should be present
-    expect(screen.getByTestId('empty-slot-breakfast')).toBeInTheDocument()
-    expect(screen.getByTestId('empty-slot-lunch')).toBeInTheDocument()
-    expect(screen.getByTestId('meal-card-dinner')).toBeInTheDocument()
+  it('keeps the button out of the heading, so the outline reads the day alone', () => {
+    render(<TimelineDayCard day={dayWithDinnerAnd(['breakfast'])} {...defaultProps} />)
+    const heading = screen.getByRole('heading', { name: 'Today' })
+    expect(heading).not.toContainElement(screen.getByTestId('empty-slot-breakfast'))
+  })
+
+  it('orders empty slots breakfast, lunch, dinner', () => {
+    const day: TimelineDay = { ...baseDay, emptySlots: ['dinner', 'breakfast', 'lunch'] }
+    render(<TimelineDayCard day={day} {...defaultProps} />)
+
+    const slots = screen.getAllByTestId(/^empty-slot-/).map((el) => el.dataset.testid)
+    expect(slots).toEqual(['empty-slot-breakfast', 'empty-slot-lunch', 'empty-slot-dinner'])
+  })
+
+  it('does not show "No meals planned" when the day has only empty slots', () => {
+    render(<TimelineDayCard day={baseDay} {...defaultProps} />)
+    expect(screen.queryByText('No meals planned')).not.toBeInTheDocument()
   })
 
   // The slot label is the card's own first row (`MealTypeBadge` inside
-  // `MealCard` and `TimelineEmptySlot`, both mocked here), so the day card
-  // renders none of its own and passes each slot's `mealType` down instead.
+  // `MealCard`) and the empty slot's button text (`TimelineEmptySlot`), both
+  // mocked here, so the day card renders none of its own and passes each
+  // slot's `mealType` down instead.
   it('leaves the meal type label to the cards', () => {
     const dayWithEntry: TimelineDay = {
       ...baseDay,

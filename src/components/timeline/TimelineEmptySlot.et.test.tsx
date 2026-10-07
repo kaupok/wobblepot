@@ -60,7 +60,7 @@ describe('TimelineEmptySlot in Estonian', () => {
     respondWith({ error: 'Entry already exists for this date and meal type' }, 409)
     renderSlot()
 
-    await userEvent.click(screen.getByRole('button', { name: /Vali toit/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Õhtusöök: vali toit, Neljapäev$/ }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(etMessages['meal-plan'].card.entryAlreadyExists)
@@ -71,7 +71,7 @@ describe('TimelineEmptySlot in Estonian', () => {
     respondWith({ error: 'Validation failed' }, 400)
     renderSlot()
 
-    await userEvent.click(screen.getByRole('button', { name: /Vali toit/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Õhtusöök: vali toit, Neljapäev$/ }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(etMessages['meal-plan'].card.createEntryFailed)
