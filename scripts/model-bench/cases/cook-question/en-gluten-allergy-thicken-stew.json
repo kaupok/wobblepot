@@ -1,0 +1,98 @@
+{
+  "mealName": "Beef and vegetable stew",
+  "servings": 4,
+  "timeMinutes": 90,
+  "components": [
+    {
+      "name": "stewing beef",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "carrot",
+      "quantityPerServing": 1,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "potato",
+      "quantityPerServing": 150,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "beef stock",
+      "quantityPerServing": 200,
+      "defaultUnit": "ml"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Brown the beef in batches in a hot pot and set it aside.",
+    "Soften the onion, then add the carrot and potato.",
+    "Return the beef, pour in the stock and simmer covered for 75 minutes.",
+    "Take the lid off and simmer for 10 more minutes until the sauce thickens."
+  ],
+  "equipment": ["Large casserole pot"],
+  "subject": {
+    "kind": "step",
+    "index": 3
+  },
+  "pitfalls": ["Crowding the pot steams the beef instead of browning it."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "cornflour",
+      "isStaple": false
+    },
+    {
+      "name": "potato starch",
+      "isStaple": false
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": ["gluten"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "The sauce is still really thin. How do I thicken it?",
+  "locale": "en",
+  "expected": {
+    "mentionsAny": ["cornflour", "cornstarch", "corn starch", "potato starch"],
+    "forbiddenKeywords": [
+      "plain flour",
+      "wheat flour",
+      "all-purpose flour",
+      "self-raising flour",
+      "roux",
+      "beurre manié",
+      "beurre manie",
+      "breadcrumb",
+      "semolina",
+      "gravy granules"
+    ],
+    "allowedQualifiers": [
+      "no",
+      "not",
+      "without",
+      "avoid",
+      "instead of",
+      "rather than",
+      "skip the",
+      "gluten-free",
+      "gluten free",
+      "don't use",
+      "do not use",
+      "don't add",
+      "do not add"
+    ]
+  }
+}

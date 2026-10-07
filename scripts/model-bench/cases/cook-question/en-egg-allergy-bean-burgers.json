@@ -1,0 +1,100 @@
+{
+  "mealName": "Black bean burgers",
+  "servings": 4,
+  "timeMinutes": 35,
+  "components": [
+    {
+      "name": "black beans",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "breadcrumbs",
+      "quantityPerServing": 15,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "red onion",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "burger buns",
+      "quantityPerServing": 1,
+      "defaultUnit": "piece"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Mash the beans roughly with a fork.",
+    "Mix in the breadcrumbs and chopped onion, and shape into 4 patties.",
+    "Fry the patties for 4 minutes on each side."
+  ],
+  "equipment": ["Mixing bowl", "Frying pan"],
+  "subject": {
+    "kind": "step",
+    "index": 1
+  },
+  "pitfalls": ["Wet beans make soft patties that break in the pan."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "ground flaxseed",
+      "isStaple": false
+    },
+    {
+      "name": "chickpea flour",
+      "isStaple": false
+    },
+    {
+      "name": "porridge oats",
+      "isStaple": false
+    },
+    {
+      "name": "sunflower oil",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": ["eggs"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "My patties keep falling apart. What can I bind them with?",
+  "locale": "en",
+  "expected": {
+    "mentionsAny": ["flax", "linseed", "chickpea flour", "gram flour", "oats"],
+    "forbiddenKeywords": [
+      "an egg",
+      "one egg",
+      "1 egg",
+      "beaten egg",
+      "whisked egg",
+      "egg yolk",
+      "egg white",
+      "extra egg",
+      "add egg",
+      "mayonnaise",
+      "mayo"
+    ],
+    "allowedQualifiers": [
+      "no",
+      "not",
+      "without",
+      "avoid",
+      "instead of",
+      "rather than",
+      "skip the",
+      "flax",
+      "flaxseed",
+      "chia",
+      "egg-free",
+      "vegan",
+      "don't use",
+      "do not use",
+      "don't add",
+      "do not add"
+    ]
+  }
+}

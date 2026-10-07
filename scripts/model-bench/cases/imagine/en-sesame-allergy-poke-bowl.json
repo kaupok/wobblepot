@@ -1,0 +1,11 @@
+{
+  "prompt": "a salmon poke bowl with a sesame-ginger dressing",
+  "household": {
+    "allergens": ["sesame"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": [],
+    "householdSize": 2
+  },
+  "locale": "en"
+}

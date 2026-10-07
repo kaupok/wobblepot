@@ -1,0 +1,94 @@
+{
+  "mealName": "Chicken and broccoli stir-fry",
+  "servings": 3,
+  "timeMinutes": 20,
+  "components": [
+    {
+      "name": "chicken breast",
+      "quantityPerServing": 130,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "broccoli",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "garlic",
+      "quantityPerServing": 1,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "jasmine rice",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Cook the rice.",
+    "Stir-fry the chicken strips in a hot wok for 5 minutes.",
+    "Add the broccoli and garlic and stir-fry for 3 more minutes, then season and serve over the rice."
+  ],
+  "equipment": ["Wok", "Saucepan"],
+  "subject": {
+    "kind": "step",
+    "index": 2
+  },
+  "pitfalls": ["A wok that is not hot enough stews the chicken."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "coconut aminos",
+      "isStaple": false
+    },
+    {
+      "name": "fish sauce",
+      "isStaple": false
+    },
+    {
+      "name": "lime",
+      "isStaple": false
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": ["soy"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "It tastes a bit flat. What can I add for more savoury flavour?",
+  "locale": "en",
+  "expected": {
+    "mentionsAny": ["coconut aminos", "fish sauce"],
+    "forbiddenKeywords": [
+      "soy sauce",
+      "splash of soy",
+      "light soy",
+      "dark soy",
+      "tamari",
+      "miso",
+      "teriyaki",
+      "hoisin"
+    ],
+    "allowedQualifiers": [
+      "no",
+      "not",
+      "without",
+      "avoid",
+      "instead of",
+      "rather than",
+      "skip the",
+      "soy-free",
+      "soy free",
+      "don't use",
+      "do not use",
+      "don't add",
+      "do not add"
+    ]
+  }
+}

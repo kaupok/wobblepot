@@ -1,0 +1,100 @@
+{
+  "mealName": "Mushroom risotto",
+  "servings": 4,
+  "timeMinutes": 40,
+  "components": [
+    {
+      "name": "risotto rice",
+      "quantityPerServing": 80,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "chestnut mushrooms",
+      "quantityPerServing": 100,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "vegetable stock",
+      "quantityPerServing": 250,
+      "defaultUnit": "ml"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Fry the mushrooms until golden and set them aside.",
+    "Soften the onion, then stir in the rice for 1 minute.",
+    "Add the hot stock a ladle at a time, stirring, for 18 to 20 minutes.",
+    "Stir the mushrooms back in and rest the risotto for 2 minutes."
+  ],
+  "equipment": ["Wide pan", "Saucepan", "Ladle"],
+  "subject": {
+    "kind": "step",
+    "index": 2
+  },
+  "pitfalls": ["Cold stock stops the rice cooking each time you add it."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "white miso paste",
+      "isStaple": false
+    },
+    {
+      "name": "dried porcini",
+      "isStaple": false
+    },
+    {
+      "name": "soy sauce",
+      "isStaple": false
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": [],
+    "dietaryType": "vegetarian",
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "I've run out of vegetable stock halfway through. What can I use instead?",
+  "locale": "en",
+  "expected": {
+    "mentionsAny": ["miso", "porcini", "soy sauce"],
+    "forbiddenKeywords": [
+      "chicken stock",
+      "chicken broth",
+      "chicken cube",
+      "beef stock",
+      "beef broth",
+      "beef cube",
+      "bone broth",
+      "fish stock",
+      "dashi",
+      "anchov",
+      "bacon",
+      "pancetta"
+    ],
+    "allowedQualifiers": [
+      "no",
+      "not",
+      "without",
+      "avoid",
+      "instead of",
+      "rather than",
+      "skip the",
+      "vegetarian",
+      "vegan",
+      "kombu",
+      "don't use",
+      "do not use",
+      "don't add",
+      "do not add"
+    ]
+  }
+}

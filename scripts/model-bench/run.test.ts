@@ -194,14 +194,14 @@ describe('main', () => {
     expect(existsSync(join(outDir, `${STEM}.md`))).toBe(false)
   })
 
-  it('adds two judge calls per imagine and tips case and run under --dry-run --judge-api', async () => {
+  it('adds two judge calls per judged case and run under --dry-run --judge-api', async () => {
     const code = await main([...BASE_ARGS, '--dry-run', '--judge-api'], deps)
 
     expect(code).toBe(0)
     const text = out.join('\n')
-    // 72 benchmark calls, plus 4 judged starter cases × 3 runs × 2 orders.
-    expect(text).toContain('Total calls: 96')
-    expect(text).toMatch(/claude-opus-5-5 \(judge\): 24 calls, .*~\$\d+\.\d\d/)
+    // 72 benchmark calls, plus 6 judged starter cases × 3 runs × 2 orders.
+    expect(text).toContain('Total calls: 108')
+    expect(text).toMatch(/claude-opus-5-5 \(judge\): 36 calls, .*~\$\d+\.\d\d/)
     // The rubric is cached: one write per locale, every later call reads it.
     expect(text).toMatch(/claude-opus-5-5 \(judge\): .*\+ ~\d+ cache write, ~\d+ cache read/)
   })
@@ -212,7 +212,7 @@ describe('main', () => {
     expect(code).toBe(0)
     const text = out.join('\n')
     expect(text).toContain('Total calls: 72')
-    expect(text).toContain('judge: 12 pairs, 24 prompts, exported for Claude Code')
+    expect(text).toContain('judge: 18 pairs, 36 prompts, exported for Claude Code')
     expect(text).not.toContain('claude-opus-5-5')
   })
 

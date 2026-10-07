@@ -1,0 +1,111 @@
+{
+  "mealName": "Roasted tomato soup",
+  "servings": 4,
+  "timeMinutes": 50,
+  "components": [
+    {
+      "name": "tomatoes",
+      "quantityPerServing": 250,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "red pepper",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "onion",
+      "quantityPerServing": 0.25,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "vegetable stock",
+      "quantityPerServing": 150,
+      "defaultUnit": "ml"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Roast the tomatoes, pepper and onion at 200 °C for 30 minutes.",
+    "Tip everything into a pot with the stock and simmer for 5 minutes.",
+    "Blend until smooth and season to taste."
+  ],
+  "equipment": ["Roasting tin", "Saucepan", "Stick blender"],
+  "subject": {
+    "kind": "step",
+    "index": 2
+  },
+  "pitfalls": ["Blending hot soup in a closed jug can blow the lid off."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "oat cream",
+      "isStaple": false
+    },
+    {
+      "name": "coconut milk",
+      "isStaple": false
+    },
+    {
+      "name": "olive oil",
+      "isStaple": true
+    },
+    {
+      "name": "salt",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": ["dairy"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "How can I make it creamier?",
+  "locale": "en",
+  "expected": {
+    "mentionsAny": ["oat cream", "coconut milk"],
+    "forbiddenKeywords": [
+      "double cream",
+      "heavy cream",
+      "single cream",
+      "whipping cream",
+      "splash of cream",
+      "dollop of cream",
+      "swirl of cream",
+      "sour cream",
+      "crème fraîche",
+      "creme fraiche",
+      "cream cheese",
+      "mascarpone",
+      "parmesan",
+      "grated cheese",
+      "knob of butter",
+      "stir in butter",
+      "of butter",
+      "whole milk",
+      "splash of milk",
+      "greek yoghurt",
+      "greek yogurt",
+      "natural yoghurt",
+      "natural yogurt"
+    ],
+    "allowedQualifiers": [
+      "no",
+      "not",
+      "without",
+      "avoid",
+      "instead of",
+      "rather than",
+      "skip the",
+      "dairy-free",
+      "dairy free",
+      "vegan",
+      "plant-based",
+      "don't use",
+      "do not use",
+      "don't add",
+      "do not add"
+    ]
+  }
+}

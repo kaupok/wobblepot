@@ -1,6 +1,6 @@
 ---
 name: bench-judge
-description: Judge the model benchmark's exported imagine and tips pairs in Claude Code (billed to the subscription, not the API key) and import the verdicts into the report. Use after `pnpm ai-eval --judge` has written a `.judge-pairs.json`.
+description: Judge the model benchmark's exported imagine, tips and cook-question pairs in Claude Code (billed to the subscription, not the API key) and import the verdicts into the report. Use after `pnpm ai-eval --judge` has written a `.judge-pairs.json`.
 context: inherit
 ---
 
@@ -49,7 +49,7 @@ for (const [k, its] of slices) { fs.writeFileSync(path.join(out, `${++n}.json`),
 ' scripts/model-bench/results/<stem>.judge-pairs.json "$SCRATCH/bench-judge"
 ```
 
-With the full case set and 3 runs that is 32 slices of 3 prompts.
+With the full case set and 3 runs that is 74 slices of 3 prompts.
 
 ### 3. Judge each slice with a subagent
 

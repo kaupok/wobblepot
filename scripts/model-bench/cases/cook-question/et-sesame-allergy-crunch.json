@@ -1,0 +1,86 @@
+{
+  "mealName": "Kurgi-nuudlisalat",
+  "servings": 3,
+  "timeMinutes": 20,
+  "components": [
+    {
+      "name": "Riisinuudlid",
+      "quantityPerServing": 70,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Kurk",
+      "quantityPerServing": 0.33,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "Porgand",
+      "quantityPerServing": 0.5,
+      "defaultUnit": "piece"
+    },
+    {
+      "name": "Laimimahl",
+      "quantityPerServing": 10,
+      "defaultUnit": "ml"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Leota nuudleid kuumas vees 5 minutit ja loputa külma veega.",
+    "Lõika kurk ja porgand õhukesteks ribadeks.",
+    "Sega nuudlid ja köögiviljad laimimahlaga ning lisa vahetult enne serveerimist midagi krõmpsu."
+  ],
+  "equipment": ["Kauss", "Kurn"],
+  "subject": {
+    "kind": "step",
+    "index": 2
+  },
+  "pitfalls": ["Soojad nuudlid kleepuvad kokku."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "Päevalilleseemned",
+      "isStaple": false
+    },
+    {
+      "name": "Kõrvitsaseemned",
+      "isStaple": false
+    },
+    {
+      "name": "Sool",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": ["sesame"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "Mida ma saaksin peale puistata, et oleks krõmpsum?",
+  "locale": "et",
+  "expected": {
+    "mentionsAny": ["päevalilleseem", "kõrvitsaseem"],
+    "forbiddenKeywords": [
+      "seesamiseemneid",
+      "seesamiseemnetega",
+      "seesamiseemned",
+      "röstitud seesam",
+      "seesamiõli",
+      "tahiin"
+    ],
+    "allowedQualifiers": [
+      "ilma",
+      "mitte",
+      "ei",
+      "väldi",
+      "vältige",
+      "seesamivaba",
+      "ära kasuta",
+      "ära lisa",
+      "ära puista",
+      "ärge kasutage",
+      "ärge lisage"
+    ]
+  }
+}

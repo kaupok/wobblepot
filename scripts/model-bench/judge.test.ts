@@ -43,6 +43,7 @@ function outputFor(c: BenchCase, role: Role): unknown {
       ],
     }
   }
+  if (c.task === 'cook-question') return `${MARK[role]}: use the cashews from the pantry.`
   return { pitfalls: [MARK[role], 'p'], tip: 't' }
 }
 
@@ -106,7 +107,7 @@ async function judgeOne(decide: (asA: Role, index: number) => Winner) {
 
 describe('buildJudgePrompt via runJudge', () => {
   it('never shows the judge a model ID, or the words "baseline" and "candidate"', async () => {
-    // Every committed imagine and tips case, not only the starter set: a
+    // Every committed judged case, not only the starter set: a
     // case's own text is part of the prompt.
     const cases = loadCases(JUDGED_TASKS)
     const { factory, calls } = judge(() => 'tie')
@@ -126,6 +127,8 @@ describe('buildJudgePrompt via runJudge', () => {
       // The scorer's keyword lists are not what the app sent.
       expect(call.promptText).not.toContain('forbiddenKeywords')
       expect(call.promptText).not.toContain('allowedQualifiers')
+      // Nor the answer a cook-question scorer looks for.
+      expect(call.promptText).not.toMatch(/"expected"|mentionsAny|offTopic/)
       // Nor which incident a case reproduces.
       expect(between(call.promptText, 'input')).not.toMatch(/HON-\d+|"source"/)
     }
@@ -325,7 +328,7 @@ describe('runJudge', () => {
 
     expect(calls).toHaveLength(4)
     expect(result.pairs).toHaveLength(2)
-    expect(result.plannedPairs).toBe(4)
+    expect(result.plannedPairs).toBe(6)
     expect(result.partial).toBe(true)
     // Four calls at 1k input ($4 / MTok) and 100k output ($20 / MTok).
     expect(result.spendUsd).toBeCloseTo(4 * (0.004 + 2), 6)

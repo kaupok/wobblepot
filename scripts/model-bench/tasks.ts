@@ -75,6 +75,12 @@ export interface MetricDef {
    */
   regressionDrop?: number
   /**
+   * An allergen or dietary check, scored 0 or 1 per call. The report counts it
+   * per call and says what failure rate a clean result still allows, because
+   * "no failures in 24 calls" reads as "safe" and is not.
+   */
+  safety?: true
+  /**
    * The absolute bar `--check` holds the metric's mean over all runs to
    * (HON-901): at least `min`, or at most `max`. A metric without one is shown
    * in the check report but never fails it.
@@ -324,6 +330,7 @@ const imagine: TaskSpec<'imagine'> = {
       // breaches on a drop past `regressionDrop`): any drop outside noise is a
       // regression, and a baseline at 100% on every run measures no range.
       regressionDrop: 0,
+      safety: true,
       gate: { min: 1 },
     },
   ],
@@ -507,6 +514,7 @@ const cookQuestion: TaskSpec<'cook-question'> = {
       // nothing, and `answered` already counts the failure.
       onError: null,
       regressionDrop: 0,
+      safety: true,
       gate: { min: 1 },
     },
     {

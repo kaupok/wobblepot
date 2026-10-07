@@ -1,0 +1,11 @@
+{
+  "prompt": "pannkoogid moosiga pühapäeva hommikuks",
+  "household": {
+    "allergens": ["eggs"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": [],
+    "householdSize": 4
+  },
+  "locale": "et"
+}
