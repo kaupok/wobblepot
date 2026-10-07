@@ -56,10 +56,11 @@ interface MealCardBaseProps {
    * for the recipe library: there the list is uncoloured names only, it made a
    * phone card nearly two screens tall (HON-784) and a desktop card nearly one
    * viewport (HON-819), and the edit page and meal detail carry the full list
-   * with quantities. The alternatives grid keeps `'always'`, because there the
-   * list is colour-coded against the pantry. The imagine panel and results keep
-   * it too, left unchanged by HON-784's scope decision even though they pass no
-   * pantry data.
+   * with quantities. The meal picker's alternatives grid passes `'never'` too and
+   * renders `MealIngredientNames` itself, behind one "Show ingredients" toggle
+   * for the whole grid (HON-1115). The imagine panel and results keep
+   * `'always'`, left unchanged by HON-784's scope decision even though they pass
+   * no pantry data.
    */
   ingredients?: 'always' | 'never'
   /**
@@ -99,11 +100,6 @@ export function MealCardBase({
   titleActions,
 }: MealCardBaseProps) {
   const tDetail = useTranslations('meal-plan.detail')
-  const tAvailability = useTranslations('meal-plan.availability')
-  const availability =
-    hasPantryData(pantryIngredients) && pantryIngredients
-      ? getIngredientAvailabilitySets(pantryIngredients)
-      : null
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -171,47 +167,73 @@ export function MealCardBase({
         </div>
       )}
 
-      {/* 6. Ingredient list. Names only and muted without pantry data. With
-          it, each row's icon, hidden state text and colour say whether the
-          pantry has it: colour is never the only cue (HON-816). Staples count
-          as available. Left out entirely with `ingredients="never"`. */}
-      {ingredients === 'never' ? null : availability ? (
-        <ul className="flex flex-col text-sm">
-          {meal.components.map((comp) => {
-            const isAvailable =
-              availability.stapleIds.has(comp.ingredientId) ||
-              availability.availableIds.has(comp.ingredientId)
-            const Icon = isAvailable ? Check : Minus
-
-            return (
-              <li
-                key={comp.ingredientId}
-                className={cn(
-                  'flex items-start gap-1.5',
-                  isAvailable ? 'text-success' : 'text-warning',
-                )}
-              >
-                {/* A box one `text-sm` line tall centres the icon on the first
-                    line, so a wrapped name keeps it beside that line. */}
-                <span className="flex h-5 shrink-0 items-center">
-                  <Icon className="size-3.5" aria-hidden="true" />
-                </span>
-                <span>{comp.ingredient.name}</span>
-                <span className="sr-only">
-                  {', '}
-                  {tAvailability(isAvailable ? 'stateAvailable' : 'stateUnavailable')}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-      ) : (
-        <ul className="text-muted-foreground ml-4 list-disc text-sm">
-          {meal.components.map((comp) => (
-            <li key={comp.ingredientId}>{comp.ingredient.name}</li>
-          ))}
-        </ul>
+      {/* 6. Ingredient list, left out entirely with `ingredients="never"`. */}
+      {ingredients === 'always' && (
+        <MealIngredientNames meal={meal} pantryIngredients={pantryIngredients} />
       )}
     </div>
+  )
+}
+
+interface MealIngredientNamesProps {
+  meal: Pick<MealCardBaseData, 'components'>
+  /** As on `MealCardBase`: marks each row by pantry availability. */
+  pantryIngredients?: PantryIngredient[]
+}
+
+/**
+ * A meal's ingredient names, one per row. Names only and muted without pantry
+ * data. With it, each row's icon, hidden state text and colour say whether the
+ * pantry has it: colour is never the only cue (HON-816). Staples count as
+ * available. `MealCardBase` renders it for `ingredients="always"`; the meal
+ * picker's `AlternativeCard` renders it behind its own toggle (HON-1115).
+ */
+export function MealIngredientNames({ meal, pantryIngredients }: MealIngredientNamesProps) {
+  const tAvailability = useTranslations('meal-plan.availability')
+  const availability =
+    hasPantryData(pantryIngredients) && pantryIngredients
+      ? getIngredientAvailabilitySets(pantryIngredients)
+      : null
+
+  if (!availability) {
+    return (
+      <ul className="text-muted-foreground ml-4 list-disc text-sm">
+        {meal.components.map((comp) => (
+          <li key={comp.ingredientId}>{comp.ingredient.name}</li>
+        ))}
+      </ul>
+    )
+  }
+
+  return (
+    <ul className="flex flex-col text-sm">
+      {meal.components.map((comp) => {
+        const isAvailable =
+          availability.stapleIds.has(comp.ingredientId) ||
+          availability.availableIds.has(comp.ingredientId)
+        const Icon = isAvailable ? Check : Minus
+
+        return (
+          <li
+            key={comp.ingredientId}
+            className={cn(
+              'flex items-start gap-1.5',
+              isAvailable ? 'text-success' : 'text-warning',
+            )}
+          >
+            {/* A box one `text-sm` line tall centres the icon on the first
+                line, so a wrapped name keeps it beside that line. */}
+            <span className="flex h-5 shrink-0 items-center">
+              <Icon className="size-3.5" aria-hidden="true" />
+            </span>
+            <span>{comp.ingredient.name}</span>
+            <span className="sr-only">
+              {', '}
+              {tAvailability(isAvailable ? 'stateAvailable' : 'stateUnavailable')}
+            </span>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

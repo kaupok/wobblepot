@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -15,7 +15,16 @@ import type { AlternativeMeal, PantryIngredient } from '../types'
  * card without one shows nothing in its place, so its skeleton reserves no
  * 3:2 band either (HON-943, DESIGN.md → Imagery).
  */
-export function AlternativeSkeleton() {
+export function AlternativeSkeleton({
+  ingredients = 'toggle',
+}: {
+  /**
+   * `'toggle'` mirrors a closed `AlternativeCard`: one bar for the "Show
+   * ingredients" button (HON-1115). `'list'` keeps the ingredient bars, for the
+   * imagine panel, whose cards still show their list.
+   */
+  ingredients?: 'toggle' | 'list'
+}) {
   return (
     <Card size="sm" className="flex h-full flex-col">
       {/* Mirrors `AlternativeCard`: `sm` card, `p-4` content. */}
@@ -25,13 +34,18 @@ export function AlternativeSkeleton() {
           <Skeleton className="h-5 w-24" />
           <Skeleton className="h-5 w-20" />
         </div>
-        <div className="flex flex-col gap-1">
-          <Skeleton className="h-5 w-28" />
-          <Skeleton className="ml-4 h-4 w-20" />
-          <Skeleton className="ml-4 h-4 w-24" />
-          <Skeleton className="ml-4 h-4 w-16" />
-          <Skeleton className="ml-4 h-4 w-22" />
-        </div>
+        {ingredients === 'toggle' ? (
+          // The ghost `sm` toggle: `h-8`, as wide as "Show ingredients".
+          <Skeleton data-testid="ingredients-toggle-skeleton" className="h-8 w-36" />
+        ) : (
+          <div data-testid="ingredient-list-skeleton" className="flex flex-col gap-1">
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="ml-4 h-4 w-20" />
+            <Skeleton className="ml-4 h-4 w-24" />
+            <Skeleton className="ml-4 h-4 w-16" />
+            <Skeleton className="ml-4 h-4 w-22" />
+          </div>
+        )}
       </CardContent>
       {/* Mirrors `AlternativeCard`'s `CardFooter` (`p-4 pt-0`). */}
       <div className="px-4 pb-4">
@@ -58,7 +72,7 @@ export interface AlternativesListProps {
   /** Id of the meal whose select request is in flight, if any. */
   selectingId?: string | null
   onSelect: (mealId: string) => void
-  /** When provided, ingredient lists are colour-coded by pantry availability. */
+  /** When provided, the to-buy badge shows and ingredient lists are colour-coded by pantry availability. */
   pantryIngredients?: PantryIngredient[]
   hasMore?: boolean
   isLoadingMore?: boolean
@@ -88,6 +102,12 @@ export function AlternativesList({
   loadingLabel,
   onLoadMore,
 }: AlternativesListProps) {
+  // One state for the grid: the user opens the lists to compare the meals, and
+  // a card opening alone would stretch its row (HON-1115). Cards that "Load
+  // more" adds take it too. It starts closed each time the dialog opens,
+  // because `DialogContent` unmounts on close.
+  const [ingredientsOpen, setIngredientsOpen] = useState(false)
+
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-3">
@@ -125,6 +145,8 @@ export function AlternativesList({
                 onSelect={onSelect}
                 isSelecting={selectingId === meal.id}
                 pantryIngredients={pantryIngredients}
+                ingredientsOpen={ingredientsOpen}
+                onIngredientsOpenChange={setIngredientsOpen}
               />
             ))}
           </div>

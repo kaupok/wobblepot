@@ -261,7 +261,10 @@ export function ImaginePanel({ mealType, onExit, onMealSaved }: ImaginePanelProp
         {(isImagining || imaginedMeals) && (
           <div className="grid gap-4 sm:grid-cols-3">
             {isImagining
-              ? Array.from({ length: 3 }).map((_, i) => <AlternativeSkeleton key={i} />)
+              ? // Imagine cards keep their ingredient list (HON-1115 left them out of scope).
+                Array.from({ length: 3 }).map((_, i) => (
+                  <AlternativeSkeleton key={i} ingredients="list" />
+                ))
               : imaginedMeals?.map((meal) => (
                   <Card key={meal.id} size="sm" className="flex h-full flex-col">
                     <CardContent className="flex-1 p-4 pb-2">
