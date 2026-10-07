@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { MealType } from '@/generated/prisma/enums'
+import { Allergen, MealType } from '@/generated/prisma/enums'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
 import { isMembershipConflict, runHouseholdClaim } from '@/lib/household-claim'
 import { captureApiError } from '@/lib/errors'
@@ -34,6 +34,9 @@ const createHouseholdSchema = z.object({
     )
     .max(MAX_ADDITIONAL_MEMBERS)
     .optional(),
+  // Asked in onboarding step 3, so the first plan already avoids them (HON-1082).
+  // Nine values exist, so a longer array can only hold duplicates.
+  allergensToAvoid: z.array(z.enum(Allergen)).max(Object.keys(Allergen).length).optional(),
 })
 
 export async function POST(request: Request) {
@@ -73,6 +76,7 @@ export async function POST(request: Request) {
   // Create household, membership, preferences, and optional members in a transaction
   try {
     const { name, members } = parsed.data
+    const allergensToAvoid = [...new Set(parsed.data.allergensToAvoid ?? [])]
 
     // `runHouseholdClaim`, not a bare `$transaction`: sharing a transaction is
     // not enough on its own. At read committed this check is a `SELECT`
@@ -119,6 +123,7 @@ export async function POST(request: Request) {
           householdId: newHousehold.id,
           weekdayMealTypes: [MealType.dinner],
           weekendMealTypes: [MealType.dinner],
+          allergensToAvoid,
         },
       })
 

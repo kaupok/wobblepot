@@ -98,11 +98,12 @@ An ingredient with `measuredByVolume` shows its quantity in millilitres, with 1 
 ### New User Setup
 
 1. `/sign-up`: name, email, password, an invite code while `invite_code_required` is on, and the terms consent
-2. `/onboarding` step 1 of 3: the welcome, and the household name
-3. `/onboarding` step 2 of 3: who eats at the table, as Adults (the user first) and Children, each added with its own button; names are optional. Leaving this step creates the household
-4. `/onboarding` step 3 of 3: the first plan, a start date and a number of days, then it generates and lands on `/`. The step says the first plan is dinners only and where to change that. A household that leaves before generating gets the same choices on `/` (`FirstTimeSetup`)
+2. `/onboarding` step 1 of 4: the welcome, and the household name
+3. `/onboarding` step 2 of 4: who eats at the table, as Adults (the user first) and Children, each added with its own button; names are optional
+4. `/onboarding` step 3 of 4: the allergens the household avoids, as the nine toggles and the AI notice of `/household` (`AllergenPicker`); nothing ticked means none. Leaving this step creates the household, with its allergens in the same request
+5. `/onboarding` step 4 of 4: the first plan, a start date and a number of days, then it generates and lands on `/`. The step says the first plan is dinners only and where to change that. A household that leaves before generating gets the same choices on `/` (`FirstTimeSetup`)
 
-Preferences (dietary type, allergens, meal types) are set on `/household` after onboarding, not during it. See "Onboarding" under Key Decisions.
+Allergens are asked in onboarding. The other preferences (dietary type, restrictions, excluded ingredients, meal types) are set on `/household` after onboarding. See "Onboarding" under Key Decisions.
 
 ### Planning
 
@@ -259,15 +260,15 @@ enum ProteinType {
 
 ### Onboarding
 
-**Decision:** Onboarding asks for the household's name and its members, and nothing else.
+**Decision:** Onboarding asks for the household's name, its members, and the allergens to avoid, and nothing else.
 
-**Why:** It has to be quick. Decided 2026-09-29.
+**Why:** It has to be quick. Decided 2026-09-29, for the name and the members only. Amended 2026-10-06 (HON-1082) to add the allergens: the first plan must not contain a meal the household is allergic to, and allergen filtering is the product's strongest claim. The step is optional: nothing ticked means no allergens, so a household with no allergy pays one tap.
 
-**Consequence:** The first plan is generated with default preferences, because nothing has asked for any yet:
+**Consequence:** The first plan avoids the household's allergens and is otherwise generated with default preferences, because nothing has asked for any yet:
 
 - Meal types: dinner only, on weekdays and on weekends. Household creation writes the preferences row with just these two set (`src/app/api/households/route.ts`).
 - Dietary type: none, so no protein type is excluded. A plan with five or more dinners reserves one for fish and one for legumes, for variety (`src/lib/meal-planning/candidates.ts`, `src/lib/meal-planning/slots.ts`).
-- Allergens, restrictions and excluded ingredients: none, so no meal is filtered out for them.
+- Restrictions and excluded ingredients: none, so no meal is filtered out for them.
 
 **Implementation:**
 

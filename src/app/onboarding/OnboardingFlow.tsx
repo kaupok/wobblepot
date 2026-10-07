@@ -13,22 +13,25 @@ import { track } from '@/lib/analytics'
 import { ApiError, apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { FieldError } from '@/components/FieldError'
+import { AllergenPicker } from '@/components/household/AllergenPicker'
+import type { Allergen } from '@/generated/prisma/enums'
 import { FirstPlanStep } from './FirstPlanStep'
 import { MAX_MEMBERS, MembersStep, type MemberDraft, type PortionType } from './MembersStep'
 
-const TOTAL_STEPS = 3
+const TOTAL_STEPS = 4
 
-type Step = 1 | 2 | 3
+type Step = 1 | 2 | 3 | 4
 
 interface OnboardingFlowProps {
   userName: string
 }
 
 /**
- * Sign-up to a first plan in three steps (docs/PROJECT_SPEC.md → New User
- * Setup): the household's name, who eats at its table, and the first plan.
- * The household is created on leaving step 2, because the plan needs it, so
- * step 3 has no Back. Nothing else is asked: preferences are set on
+ * Sign-up to a first plan in four steps (docs/PROJECT_SPEC.md → New User
+ * Setup): the household's name, who eats at its table, the allergens it
+ * avoids, and the first plan. The household is created on leaving step 3,
+ * with its allergens in the same request, because the plan needs both, so
+ * step 4 has no Back. Nothing else is asked: other preferences are set on
  * `/household` afterwards (PROJECT_SPEC.md → Onboarding).
  */
 export function OnboardingFlow({ userName }: OnboardingFlowProps) {
@@ -36,8 +39,8 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
   const t = useTranslations('onboarding')
   const [currentStep, setCurrentStep] = useState<Step>(1)
   const [error, setError] = useState('')
-  // Guard against race condition when transitioning from step 1 to 2
-  // where Enter key event can inadvertently submit the form
+  // Guard against race condition when moving to the next step, where the
+  // Enter key event can inadvertently submit the form
   const [justTransitioned, setJustTransitioned] = useState(false)
 
   // Clear transition guard after 100ms, with cleanup to prevent memory leak
@@ -88,6 +91,9 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
     )
   }
 
+  // Step 3: allergens to avoid. Kept here, so Back and forward keeps them.
+  const [allergens, setAllergens] = useState<Allergen[]>([])
+
   // "Adult 2", "Child 1": numbered within the member's group, where the user
   // is adult 1. The placeholder shows it, and it is saved for an empty name.
   const defaultNameOf = (member: MemberDraft): string => {
@@ -107,14 +113,14 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
 
     // Set transition guard to prevent race condition where Enter key
     // from "Continue" button inadvertently submits the form after
-    // the submit button appears on step 2
+    // the next step's submit button appears
     setJustTransitioned(true)
-    setCurrentStep(2)
+    setCurrentStep(currentStep === 1 ? 2 : 3)
   }
 
   const handleBack = () => {
     setError('')
-    setCurrentStep(1)
+    setCurrentStep(currentStep === 3 ? 2 : 1)
   }
 
   const submitRef = useRef<HTMLButtonElement>(null)
@@ -136,14 +142,16 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
             name: member.name.trim() || defaultNameOf(member),
             portionType: member.portionType,
           })),
+          allergensToAvoid: allergens,
         }),
       })
     },
     onSuccess: (data) => {
+      // No allergens and no count of them: they are health data (HON-1082).
       void track('onboarding:household_created', { household_id: data.id })
       // No refresh: the page would see the new membership and redirect to
-      // Today before the first plan. Step 3 is the household's first screen.
-      setCurrentStep(3)
+      // Today before the first plan. Step 4 is the household's first screen.
+      setCurrentStep(4)
     },
     onError: (err) => {
       // `apiFetch` throws `ApiError` for every answer the route gave, so
@@ -186,10 +194,11 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
       return
     }
 
-    // Enter in the name field means Continue (HON-836): step 1 has no submit
-    // button, so Enter there submits implicitly, and creating the household
-    // here would skip the members step.
-    if (currentStep === 1) {
+    // Enter before the last form step means Continue (HON-836): step 1 has no
+    // submit button, so Enter in the name field submits implicitly, and step
+    // 2's submit button is Continue. Creating the household there would skip
+    // the steps after it.
+    if (currentStep < 3) {
       handleNext()
       return
     }
@@ -209,20 +218,18 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
     submitRef.current?.focus()
   }, [isLoading])
 
-  const title =
-    currentStep === 1
-      ? userName
-        ? t('welcomeTitle', { name: userName })
-        : t('welcomeTitleNoName')
-      : currentStep === 2
-        ? t('membersStepTitle')
-        : t('planStepTitle')
-  const description =
-    currentStep === 1
-      ? t('welcomeDescription')
-      : currentStep === 2
-        ? t('membersStepDescription')
-        : t('planStepDescription')
+  const title = {
+    1: userName ? t('welcomeTitle', { name: userName }) : t('welcomeTitleNoName'),
+    2: t('membersStepTitle'),
+    3: t('allergensStepTitle'),
+    4: t('planStepTitle'),
+  }[currentStep]
+  const description = {
+    1: t('welcomeDescription'),
+    2: t('membersStepDescription'),
+    3: t('allergensStepDescription'),
+    4: t('planStepDescription'),
+  }[currentStep]
 
   return (
     <Card className="w-full max-w-md">
@@ -253,7 +260,7 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
           <Body variant="muted">{description}</Body>
         </div>
       </CardHeader>
-      {currentStep === 3 ? (
+      {currentStep === 4 ? (
         <FirstPlanStep />
       ) : (
         /* noValidate: Enter on step 1 submits, and the browser would block that
@@ -276,7 +283,7 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
                   autoFocus
                 />
               </div>
-            ) : (
+            ) : currentStep === 2 ? (
               <MembersStep
                 userName={userName}
                 members={members}
@@ -286,6 +293,11 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
                 onNameChange={changeMemberName}
                 disabled={isLoading}
               />
+            ) : (
+              <div className="flex flex-col gap-6">
+                <AllergenPicker value={allergens} onChange={setAllergens} disabled={isLoading} />
+                <Body variant="muted">{t('allergensHelper')}</Body>
+              </div>
             )}
             {error && (
               <div className="mt-4">
@@ -311,7 +323,10 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
                 >
                   {t('back')}
                 </Button>
+                {/* Keyed by step, so step 3's button is a new element and not
+                    step 2's, still carrying the key press that moved here. */}
                 <Button
+                  key={currentStep}
                   ref={submitRef}
                   type="submit"
                   size="lg"

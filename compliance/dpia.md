@@ -1,13 +1,13 @@
 # Data Protection Impact Assessment (lightweight)
 
-|                           |                                                                                                                                                                  |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Controller**            | Honkadori OÜ (registry code 14197288, Peetri 11, 10415 Tallinn, Estonia), operating as **Wobblepot**                                                             |
-| **Date**                  | 2026-06-06                                                                                                                                                       |
-| **Status**                | Approved 2026-06-06 (founder sign-off, HON-543) · Updated 2026-09-15: allergen-entry affirmation implemented, Art. 9 residual lowered (HON-666)                  |
-| **Scale at assessment**   | Pre-launch / invite-only EU beta; no production user data yet                                                                                                    |
-| **Supervisory authority** | Andmekaitse Inspektsioon (AKI), Estonia                                                                                                                          |
-| **Review triggers**       | Public (non-invite) launch · first enterprise customer · any new processor handling member dietary data · standalone child accounts · relevant AKI/EDPB guidance |
+|                           |                                                                                                                                                                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Controller**            | Honkadori OÜ (registry code 14197288, Peetri 11, 10415 Tallinn, Estonia), operating as **Wobblepot**                                                                                                                                    |
+| **Date**                  | 2026-06-06                                                                                                                                                                                                                              |
+| **Status**                | Approved 2026-06-06 (founder sign-off, HON-543) · Updated 2026-09-15: allergen-entry affirmation implemented, Art. 9 residual lowered (HON-666) · Updated 2026-10-07: allergens also entered in onboarding, same affirmation (HON-1082) |
+| **Scale at assessment**   | Pre-launch / invite-only EU beta; no production user data yet                                                                                                                                                                           |
+| **Supervisory authority** | Andmekaitse Inspektsioon (AKI), Estonia                                                                                                                                                                                                 |
+| **Review triggers**       | Public (non-invite) launch · first enterprise customer · any new processor handling member dietary data · standalone child accounts · relevant AKI/EDPB guidance                                                                        |
 
 This is a deliberate lightweight assessment, not a formal GDPR Art. 35 DPIA. Screening result: the processing is not on AKI's Art. 35(4) mandatory-DPIA list and does not meet the EDPB WP248 "likely high risk" threshold at beta scale (no systematic monitoring, no large scale, no automated decisions with legal effect). We assess the two elevated-risk areas anyway because they touch children and health-adjacent data.
 
@@ -35,7 +35,7 @@ Wobblepot plans family meals. The account-holding adult creates **household memb
 
 - Providing allergen data is **optional and user-initiated**, for the single, clearly stated purpose of meal planning; we treat that affirmative act, against the policy's explicit AI-processing disclosure, as Art. 9(2)(a) explicit consent.
 - Necessity/proportionality: allergen-aware planning is the core safety feature of the product — the data cannot be omitted from prompts without defeating the user's purpose.
-- Point-of-entry affirmation — **implemented (HON-666)**. The gap this assessment originally named was that the explicit-consent claim rested on the privacy policy alone. Allergens are entered once per household, for all members (adults and under-16s alike), in the household settings form; directly under that checkbox group a notice states that ticked allergens are sent to our AI provider so meal plans avoid them, and links to the privacy policy. It is a passive notice rather than a checkbox: the affirmative act is ticking an allergen, and HON-467's cancellation reasoning (a consent checkbox is evidentiary ceremony) still holds.
+- Point-of-entry affirmation — **implemented (HON-666)**. The gap this assessment originally named was that the explicit-consent claim rested on the privacy policy alone. Allergens are entered once per household, for all members (adults and under-16s alike), in onboarding (step 3) and in the household settings form. Both render one component (`src/components/household/AllergenPicker.tsx`, HON-1082), so both show the same affirmation: directly under that checkbox group a notice states that ticked allergens are sent to our AI provider so meal plans avoid them, and links to the privacy policy. It is a passive notice rather than a checkbox: the affirmative act is ticking an allergen, and HON-467's cancellation reasoning (a consent checkbox is evidentiary ceremony) still holds.
 
 **Risks & mitigations**
 

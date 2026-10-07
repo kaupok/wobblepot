@@ -51,15 +51,15 @@ describe('OnboardingFlow', () => {
   })
 
   describe('Step 1: welcome and household name', () => {
-    it('welcomes the user by name and counts three steps', () => {
+    it('welcomes the user by name and counts four steps', () => {
       renderFlow()
 
-      expect(screen.getByText('Step 1 of 3')).toBeInTheDocument()
+      expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
       expect(
         screen.getByRole('heading', { level: 1, name: 'Welcome to Wobblepot, John!' }),
       ).toBeInTheDocument()
       expect(
-        screen.getByText('Three quick steps, and your first meals are planned.'),
+        screen.getByText('Four quick steps, and your first meals are planned.'),
       ).toBeInTheDocument()
     })
 
@@ -92,7 +92,7 @@ describe('OnboardingFlow', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       expect(screen.getByRole('alert')).toHaveTextContent('Household name is required')
-      expect(screen.getByText('Step 1 of 3')).toBeInTheDocument()
+      expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
     })
   })
 
@@ -110,7 +110,7 @@ describe('OnboardingFlow', () => {
 
       const title = screen.getByRole('heading', { level: 1, name: "Who's at your table?" })
       expect(title).toHaveFocus()
-      expect(title).toHaveAccessibleDescription('Step 2 of 3')
+      expect(title).toHaveAccessibleDescription('Step 2 of 4')
       expect(mockScrollTo).toHaveBeenCalledWith({ top: 0 })
     })
 
@@ -122,7 +122,7 @@ describe('OnboardingFlow', () => {
 
       const title = screen.getByRole('heading', { level: 1, name: 'Welcome to Wobblepot, John!' })
       expect(title).toHaveFocus()
-      expect(title).toHaveAccessibleDescription('Step 1 of 3')
+      expect(title).toHaveAccessibleDescription('Step 1 of 4')
     })
   })
 
@@ -228,6 +228,16 @@ describe('OnboardingFlow', () => {
       await vi.advanceTimersByTimeAsync(150)
     }
 
+    async function continueToStep3() {
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await vi.advanceTimersByTimeAsync(150)
+    }
+
+    async function goToStep3() {
+      await goToStep2()
+      await continueToStep3()
+    }
+
     it('sends the name and the members, adults first, with default names for empty rows', async () => {
       mockFetch.mockResolvedValue(respondOk({ id: 'household-123' }))
 
@@ -241,6 +251,7 @@ describe('OnboardingFlow', () => {
       await userEvent.type(screen.getByLabelText('Child 1 name'), ' Emma ')
       await userEvent.click(screen.getByRole('button', { name: 'Add adult' }))
       await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+      await continueToStep3()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
@@ -255,6 +266,7 @@ describe('OnboardingFlow', () => {
           { name: 'Emma', portionType: 'child' },
           { name: 'Child 2', portionType: 'child' },
         ],
+        allergensToAvoid: [],
       })
     })
 
@@ -262,32 +274,36 @@ describe('OnboardingFlow', () => {
       mockFetch.mockResolvedValue(respondOk({ id: 'household-123' }))
 
       renderFlow()
-      await goToStep2()
+      await goToStep3()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
-      expect(householdRequestBody()).toEqual({ name: "John's household", members: [] })
+      expect(householdRequestBody()).toEqual({
+        name: "John's household",
+        members: [],
+        allergensToAvoid: [],
+      })
     })
 
     it('moves to the first plan without leaving the page', async () => {
       mockFetch.mockResolvedValue(respondOk({ id: 'household-123' }))
 
       renderFlow()
-      await goToStep2()
+      await goToStep3()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       const title = await screen.findByRole('heading', { level: 1, name: 'Plan your first meals' })
       expect(title).toHaveFocus()
-      expect(title).toHaveAccessibleDescription('Step 3 of 3')
+      expect(title).toHaveAccessibleDescription('Step 4 of 4')
       // The household exists now, so there is no step to go back to.
       expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
       expect(screen.getByRole('radiogroup', { name: 'Start from' })).toBeInTheDocument()
       expect(
         screen.getByText(
-          'We start with dinners. Add other meals, diets and allergies later on the Household page.',
+          'We start with dinners. Add other meals and diets later on the Household page.',
         ),
       ).toBeInTheDocument()
-      // A refresh would let the page redirect a member to Today before step 3.
+      // A refresh would let the page redirect a member to Today before step 4.
       expect(mockPush).not.toHaveBeenCalled()
       expect(mockRefresh).not.toHaveBeenCalled()
     })
@@ -301,7 +317,7 @@ describe('OnboardingFlow', () => {
       )
 
       renderFlow()
-      await goToStep2()
+      await goToStep3()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
@@ -314,7 +330,7 @@ describe('OnboardingFlow', () => {
       })
 
       renderFlow()
-      await goToStep2()
+      await goToStep3()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       await waitFor(() => {
@@ -331,7 +347,7 @@ describe('OnboardingFlow', () => {
       )
 
       renderFlow()
-      await goToStep2()
+      await goToStep3()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
       dropFocusToBody()
@@ -355,7 +371,7 @@ describe('OnboardingFlow', () => {
       )
 
       renderFlow()
-      await goToStep2()
+      await goToStep3()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       dropFocusToBody()
 
@@ -387,7 +403,7 @@ describe('OnboardingFlow', () => {
       })
 
       renderFlow()
-      await goToStep2()
+      await goToStep3()
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
       await waitFor(() => {
@@ -405,7 +421,7 @@ describe('OnboardingFlow', () => {
         await userEvent.type(screen.getByLabelText('Household name'), '{Enter}')
 
         expect(mockFetch).not.toHaveBeenCalled()
-        expect(screen.getByText('Step 2 of 3')).toBeInTheDocument()
+        expect(screen.getByText('Step 2 of 4')).toBeInTheDocument()
         expect(
           screen.getByRole('heading', { level: 1, name: "Who's at your table?" }),
         ).toHaveFocus()
@@ -425,7 +441,7 @@ describe('OnboardingFlow', () => {
 
         expect(mockFetch).not.toHaveBeenCalled()
         expect(screen.getByRole('alert')).toHaveTextContent('Household name is required')
-        expect(screen.getByText('Step 1 of 3')).toBeInTheDocument()
+        expect(screen.getByText('Step 1 of 4')).toBeInTheDocument()
       })
 
       it('ignores a submit inside the transition window after Enter advances', async () => {
@@ -442,24 +458,55 @@ describe('OnboardingFlow', () => {
         expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
       })
 
-      it('still submits from a member name input on step 2', async () => {
+      it('moves from step 2 to step 3 on Enter in a member name input, without creating', async () => {
+        renderFlow()
+        await goToStep2()
+        await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+        await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma{Enter}')
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+
+        expect(mockFetch).not.toHaveBeenCalled()
+        expect(screen.getByRole('heading', { level: 1, name: 'Allergies' })).toHaveFocus()
+      })
+
+      it('ignores a submit inside the transition window after step 2 advances', async () => {
+        renderFlow()
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+        fireEvent.submit(screen.getByRole('button', { name: 'Continue' }).closest('form')!)
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+
+        expect(mockFetch).not.toHaveBeenCalled()
+        expect(screen.getByText('Step 3 of 4')).toBeInTheDocument()
+      })
+
+      it('creates on Enter in step 3, with the members typed on step 2', async () => {
         mockFetch.mockResolvedValue(respondOk({ id: 'household-123' }))
 
         renderFlow()
         await goToStep2()
         await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
-        await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma{Enter}')
+        await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma')
+        await continueToStep3()
+        screen.getByRole('button', { name: 'Continue' }).focus()
+        await userEvent.keyboard('{Enter}')
 
         await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
         expect(householdRequestBody()).toEqual({
           name: "John's household",
           members: [{ name: 'Emma', portionType: 'child' }],
+          allergensToAvoid: [],
         })
       })
     })
   })
 
-  describe('Step 3: the first plan', () => {
+  describe('Step 3: allergens', () => {
     beforeEach(() => {
       vi.useFakeTimers({ shouldAdvanceTime: true })
     })
@@ -469,8 +516,95 @@ describe('OnboardingFlow', () => {
     })
 
     async function goToStep3() {
+      renderFlow()
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await vi.advanceTimersByTimeAsync(150)
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await vi.advanceTimersByTimeAsync(150)
+    }
+
+    it('focuses the step title and shows the nine allergens with the AI notice', async () => {
+      await goToStep3()
+
+      const title = screen.getByRole('heading', { level: 1, name: 'Allergies' })
+      expect(title).toHaveFocus()
+      expect(title).toHaveAccessibleDescription('Step 3 of 4')
+      const group = screen.getByRole('group', { name: 'Allergens to avoid' })
+      expect(within(group).getAllByRole('button')).toHaveLength(9)
+      expect(group).toHaveAccessibleDescription(/sent to our AI provider/)
+      expect(screen.getByRole('link', { name: 'privacy policy' })).toHaveAttribute(
+        'href',
+        '/privacy',
+      )
+      expect(
+        screen.getByText(
+          'No allergies? Leave everything unticked. You can change this later on the Household page.',
+        ),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument()
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+
+    it('sends the ticked allergens with the household', async () => {
+      mockFetch.mockResolvedValue(respondOk({ id: 'household-123' }))
+      await goToStep3()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Tree nuts' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Sesame' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
+      expect(householdRequestBody().allergensToAvoid).toEqual(['nuts', 'sesame'])
+    })
+
+    it('does not send the allergens to analytics', async () => {
+      const { track } = await import('@/lib/analytics')
+      mockFetch.mockResolvedValue(respondOk({ id: 'household-123' }))
+      await goToStep3()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Tree nuts' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+      await screen.findByRole('heading', { level: 1, name: 'Plan your first meals' })
+      expect(track).toHaveBeenCalledWith('onboarding:household_created', {
+        household_id: 'household-123',
+      })
+    })
+
+    it('keeps the ticked allergens after Back and Continue', async () => {
+      await goToStep3()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Tree nuts' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+      expect(screen.getByRole('heading', { level: 1, name: "Who's at your table?" })).toHaveFocus()
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await vi.advanceTimersByTimeAsync(150)
+
+      expect(screen.getByRole('button', { name: 'Tree nuts' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+      expect(screen.getByRole('button', { name: 'Gluten' })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      )
+    })
+  })
+
+  describe('Step 4: the first plan', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    async function goToStep4() {
       mockFetch.mockResolvedValueOnce(respondOk({ id: 'household-123' }))
       renderFlow()
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await vi.advanceTimersByTimeAsync(150)
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
       await vi.advanceTimersByTimeAsync(150)
       await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
@@ -478,7 +612,7 @@ describe('OnboardingFlow', () => {
     }
 
     it('generates the plan and lands on Today', async () => {
-      await goToStep3()
+      await goToStep4()
       mockFetch.mockResolvedValueOnce(respondOk({ id: 'plan-1' }))
 
       await userEvent.click(screen.getByRole('button', { name: 'Plan my meals' }))
@@ -500,7 +634,7 @@ describe('OnboardingFlow', () => {
 
     it('shows the error and returns focus to the button when generation fails', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
-      await goToStep3()
+      await goToStep4()
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,

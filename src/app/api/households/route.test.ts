@@ -540,6 +540,95 @@ describe('POST /api/households', () => {
     expect(data.preferences).toBeDefined()
   })
 
+  describe('allergens to avoid (HON-1082)', () => {
+    function signIn() {
+      mockGetSession.mockResolvedValue({
+        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+        session: { id: 'session-123' },
+      } as never)
+    }
+
+    /** Runs the claim against a mock transaction and returns its preferences `create`. */
+    function mockClaim() {
+      const preferencesCreate = vi.fn().mockResolvedValue({ id: 'prefs-123' })
+      mockTransaction.mockImplementation(async (callback) => {
+        const mockTx = {
+          $queryRaw: vi.fn().mockResolvedValue([]),
+          household: {
+            create: vi.fn().mockResolvedValue({ id: 'household-123' }),
+            findUnique: vi.fn().mockResolvedValue({ id: 'household-123', name: 'Home' }),
+          },
+          householdMember: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({ id: 'member-123' }),
+          },
+          ...stapleMocks(),
+          householdPreferences: { create: preferencesCreate },
+        }
+        return callback(mockTx as never)
+      })
+      return preferencesCreate
+    }
+
+    function post(body: unknown) {
+      return POST(
+        new Request('http://localhost/api/households', {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+      )
+    }
+
+    it('writes the allergens on the preferences row', async () => {
+      signIn()
+      const preferencesCreate = mockClaim()
+
+      const response = await post({ name: 'Home', allergensToAvoid: ['nuts', 'sesame'] })
+
+      expect(response.status).toBe(201)
+      expect(preferencesCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({ allergensToAvoid: ['nuts', 'sesame'] }),
+      })
+    })
+
+    it('stores a duplicate once', async () => {
+      signIn()
+      const preferencesCreate = mockClaim()
+
+      await post({ name: 'Home', allergensToAvoid: ['nuts', 'gluten', 'nuts'] })
+
+      expect(preferencesCreate.mock.calls[0]![0].data.allergensToAvoid).toEqual(['nuts', 'gluten'])
+    })
+
+    it('stores an empty list when the field is missing', async () => {
+      signIn()
+      const preferencesCreate = mockClaim()
+
+      await post({ name: 'Home' })
+
+      expect(preferencesCreate.mock.calls[0]![0].data.allergensToAvoid).toEqual([])
+    })
+
+    it('answers 400 without opening a transaction for an unknown allergen', async () => {
+      signIn()
+
+      const response = await post({ name: 'Home', allergensToAvoid: ['nuts', 'kiwi'] })
+
+      expect(response.status).toBe(400)
+      expect(await response.json()).toMatchObject({ error: 'Validation failed' })
+      expect(mockTransaction).not.toHaveBeenCalled()
+    })
+
+    it('answers 400 for more values than allergens exist', async () => {
+      signIn()
+
+      const response = await post({ name: 'Home', allergensToAvoid: Array(10).fill('nuts') })
+
+      expect(response.status).toBe(400)
+      expect(mockTransaction).not.toHaveBeenCalled()
+    })
+  })
+
   it('persists Estonian when Accept-Language prefers et (HON-549 — public flip)', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
