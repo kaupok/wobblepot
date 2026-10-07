@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import {
   localeInstruction,
   britishEnglish,
@@ -99,6 +100,8 @@ export interface StepsComponent {
   name: string
   quantityPerServing: number
   defaultUnit: string
+  /** The cook measures it by volume, so the prompt shows ml (HON-1070). Absent reads as grams. */
+  measuredByVolume?: boolean
 }
 
 export interface StepsRequestInput {
@@ -116,15 +119,26 @@ export interface SupplementaryStepsRequestInput extends StepsRequestInput {
 }
 
 /**
- * One line per component: total quantity for `servings`, rounded, with `piece`
- * shown as `pcs`. Shared with the cook-question prompt (HON-969).
+ * The unit a component's quantity is sent to the AI in. Grams follow the
+ * screens' rule (`displayUnit`), so a liquid the cook measures by volume reads
+ * `ml` in the steps as it does in the ingredient list (HON-1070); `piece` reads
+ * `pcs`. Any other unit passes through: the eval cases write liquids as `ml`.
+ */
+export function promptUnit(comp: StepsComponent): string {
+  if (comp.defaultUnit === 'piece') return 'pcs'
+  if (comp.defaultUnit === 'g') return displayUnit(comp)
+  return comp.defaultUnit
+}
+
+/**
+ * One line per component: total quantity for `servings`, rounded, in
+ * `promptUnit`. Shared with the cook-question prompt (HON-969).
  */
 export function formatIngredientsList(components: StepsComponent[], servings: number): string {
   return components
     .map((comp) => {
       const quantity = comp.quantityPerServing * servings
-      const unit = comp.defaultUnit === 'piece' ? 'pcs' : comp.defaultUnit
-      return `- ${comp.name}: ${Math.round(quantity)}${unit}`
+      return `- ${comp.name}: ${Math.round(quantity)}${promptUnit(comp)}`
     })
     .join('\n')
 }

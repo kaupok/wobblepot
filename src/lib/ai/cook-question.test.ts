@@ -164,6 +164,19 @@ describe('buildCookQuestionPrompt', () => {
     expect(buildCookQuestionPrompt(input())).toContain('- chicken breast: 600g')
   })
 
+  it('sends a liquid the cook measures by volume in ml (HON-1070)', () => {
+    const prompt = buildCookQuestionPrompt(
+      input({
+        components: [
+          { name: 'chicken breast', quantityPerServing: 150, defaultUnit: 'g' },
+          { name: 'red wine', quantityPerServing: 30, defaultUnit: 'g', measuredByVolume: true },
+        ],
+      }),
+    )
+    expect(prompt).toContain('- red wine: 120ml')
+    expect(prompt).toContain('- chicken breast: 600g')
+  })
+
   it('includes the cached pitfalls and tip when given, and leaves them out otherwise', () => {
     const withTips = buildCookQuestionPrompt(
       input({ pitfalls: ['Do not boil the cream'], tip: 'Rest the chicken' }),
