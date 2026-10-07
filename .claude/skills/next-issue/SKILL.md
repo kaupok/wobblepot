@@ -73,7 +73,7 @@ Find the next unblocked issue and return a concise implementation summary.
    mcp__linear-server__list_issues({ state: "Backlog", assignee: "null", limit: 100 })
    ```
 
-3. **MANDATORY: Verify every candidate with `includeRelations: true`**
+3. **Verify every candidate with `includeRelations: true`**
 
    Before a candidate can enter the output list, re-fetch it:
 
@@ -81,7 +81,7 @@ Find the next unblocked issue and return a concise implementation summary.
    mcp__linear-server__get_issue({ id: "HON-XX", includeRelations: true })
    ```
 
-   This is non-negotiable. `list_issues` does not return the `relations` field, so blockers are invisible without this step.
+   `list_issues` does not return the `relations` field, so blockers are invisible without this step.
 
 4. **Hard filters — reject the candidate if ANY of these fail**
 
@@ -107,7 +107,7 @@ Find the next unblocked issue and return a concise implementation summary.
 
    Skim for red-flag phrases: "add env var", "add secret", "configure DNS", "sign up", "provision", "API key", "`support@`", "legal entity", "OÜ", "Resend", "Upstash", "PostHog", "Sentry", "Anthropic console", "Vercel dashboard", "manual spot-check", "reads natural", "feels native", "idiomatic Estonian", "voice reference", "tone of voice", "native speaker", "copy review", and any AC that references a specific human by name as the reviewer.
 
-   Reject `[DRAFT]` and `[AUTO DRAFT]` titles outright in no-human-input mode — a draft spec is not ready for unattended implementation, and an `[AUTO DRAFT]` is a review finding an agent filed for itself (`/auto-implement` 6.8), which no unattended cycle should pick up unreviewed. `/auto-implement` 1.5 rejects both. Keeping these symmetric is non-negotiable: the `wt auto [branchName]` chain passes the issue ID through to `/auto-implement` as an explicit arg, which skips the filter, so either prefix surfaced here would still trigger unattended work.
+   Reject `[DRAFT]` and `[AUTO DRAFT]` titles outright in no-human-input mode — a draft spec is not ready for unattended implementation, and an `[AUTO DRAFT]` is a review finding an agent filed for itself (`/auto-implement` 6.8), which no unattended cycle should pick up unreviewed. `/auto-implement` 1.5 rejects both. Keep these symmetric: the `wt auto [branchName]` chain passes the issue ID through to `/auto-implement` as an explicit arg, which skips the filter, so either prefix surfaced here would still trigger unattended work.
 
 6. **Prioritize surviving candidates**
    - State, in the step 2 order for the active mode: Todo → Queued → Backlog by default, Queued → Todo → Backlog with `--auto`
@@ -122,7 +122,7 @@ Find the next unblocked issue and return a concise implementation summary.
 
 ## Output Format
 
-Return up to 3 unblocked candidates, ranked by priority. Keep total output under 600 words.
+Return up to 3 unblocked candidates, ranked by priority.
 
 ```
 ## Top Candidates

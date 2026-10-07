@@ -99,9 +99,9 @@ Exact versions are pinned in `package.json`. The majors:
 - Client: `@/lib/auth-client` (Client Components)
 - API: `/api/auth/[...all]` (handles all auth endpoints)
 
-**Protected routes:** Check session with `auth.api.getSession({ headers: await headers() })`, redirect if null. See `src/app/profile/page.tsx:8-15`. `src/proxy.ts` additionally performs an _optimistic_ session-cookie redirect (307 → `/sign-in?returnUrl=…`) for the prefixes in `PROTECTED_PREFIXES`, so anonymous requests never stream a 200 + skeleton first. It checks cookie presence only, so the page still owns the real session check. `src/proxy.test.ts` fails CI on any top-level route that isn't classified in `PROTECTED_PREFIXES` or `PUBLIC_ROUTES`.
+**Protected routes:** Check session with `getSession()` from `@/lib/session` (a request-cached `auth.api.getSession({ headers: await headers() })`), redirect if null. See `ProfilePage` in `src/app/profile/page.tsx`. `src/proxy.ts` additionally performs an _optimistic_ session-cookie redirect (307 → `/sign-in?returnUrl=…`) for the prefixes in `PROTECTED_PREFIXES`, so anonymous requests never stream a 200 + skeleton first. It checks cookie presence only, so the page still owns the real session check. `src/proxy.test.ts` fails CI on any top-level route that isn't classified in `PROTECTED_PREFIXES` or `PUBLIC_ROUTES`.
 
-**Client-side auth:** Use `authClient.signIn.email()` with callbacks. See `src/app/sign-in/SignInForm.tsx:60-78`
+**Client-side auth:** Use `authClient.signIn.email()` with callbacks. See `handleSubmit` in `src/app/sign-in/SignInForm.tsx`
 
 **Sign out:** `authClient.signOut()` + `router.push()` + `router.refresh()`
 
@@ -109,7 +109,7 @@ Exact versions are pinned in `package.json`. The majors:
 
 ## Data Fetching Patterns
 
-**Server Components (preferred):** Fetch directly in async Server Components. See `src/app/page.tsx:8-11`
+**Server Components (preferred):** Fetch directly in async Server Components. See `Home` in `src/app/page.tsx`
 
 **Client Components:** TanStack Query (`@tanstack/react-query`) for all client-side data fetching.
 
@@ -154,11 +154,11 @@ The app ships in English and Estonian, and the locale is the household's. [docs/
 
 **Route-level error boundaries** via `error.tsx`. Use Typography components for error UI. Show detailed errors only in dev mode. See `src/app/error.tsx`
 
-**User-friendly error messages:** Map technical errors to friendly, translated messages. See `src/lib/auth-errors.ts:5-90`. Errors say what happened and what to do next, not what went wrong technically.
+**User-friendly error messages:** Map technical errors to friendly, translated messages. See `getAuthErrorKey` in `src/lib/auth-errors.ts` (server string to key) and `useAuthErrorMessage` in `src/lib/auth-errors-client.tsx` (key to catalog copy). Errors say what happened and what to do next, not what went wrong technically.
 
 ## Form Handling Patterns
 
-**Native HTML forms** with controlled inputs (no form library). Use `useState` for form state, `onSubmit` with `e.preventDefault()`, disable inputs during submission. See `src/app/sign-in/SignInForm.tsx:22-92`
+**Native HTML forms** with controlled inputs (no form library). Use `useState` for form state, `onSubmit` with `e.preventDefault()`, disable inputs during submission. See `SignInForm` in `src/app/sign-in/SignInForm.tsx`
 
 **Validation:** HTML5 attributes + custom validation in submit handler + server-side via Better Auth
 

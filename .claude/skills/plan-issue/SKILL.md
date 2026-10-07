@@ -106,13 +106,7 @@ Review any prior discussion, decisions, or context from team members.
 
 ### 6. Explore codebase
 
-Using Read, Grep, and Glob tools:
-
-- Identify key files mentioned in the issue
-- Find existing patterns to follow
-- Note related components or APIs
-
-Read the files the plan depends on, not the whole codebase.
+Read the files the plan depends on and the existing patterns it should follow, not the whole codebase.
 
 **If step 3 flagged any recently-merged sibling issues:** also run `git log --oneline --since="14 days ago" -- <overlapping-paths>` and `git diff origin/main~<N>..origin/main -- <overlapping-paths>` so you actually see what the sibling changed. The file tree alone doesn't tell you which lines are new; without the diff you risk searching for a pattern, not finding it, and duplicating it.
 
@@ -363,9 +357,9 @@ If step 10 filed follow-ups, list them on the next line: `Follow-ups filed: HON-
 Run `/implement-issue HON-XX` when ready to start implementation.
 ```
 
-Then STOP. Do not proceed to implementation, do not offer next steps, do not ask questions.
+Then end the skill: implementation starts only when the user runs `/implement-issue`.
 
-**If `--auto` flag WAS used:** Do NOT output the "Run /implement-issue" message. Just output the completion marker. The orchestrating skill (auto-implement) will handle the next step.
+**If `--auto` was used:** output only the completion marker; `/auto-implement` handles the next step.
 
 ## Important
 
@@ -376,4 +370,4 @@ Then STOP. Do not proceed to implementation, do not offer next steps, do not ask
 - Include verification steps that can be checked after implementation
 - If the issue has acceptance criteria, map them to verification steps
 - Every "not in this PR" decision in Design Decisions has a line in `## Follow-ups`, and every line there has an issue ID before the plan is posted
-- **Never suggest or prompt to start implementation** - the skill ends after posting to Linear
+- Do not start implementation: the skill ends with the output above.

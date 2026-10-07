@@ -180,7 +180,7 @@ Place each item in one of three buckets:
 
 ## Output Format
 
-Return a structured review with triage (under 1000 words):
+Return a structured review with triage in this shape. The caller acts on it item by item, so keep each item to a line or two and drop sections that do not apply:
 
 ```
 ## Branch review: [branch-name]

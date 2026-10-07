@@ -123,10 +123,12 @@ Check auth protection on route pages:
 
 There is no `(public)` route group in this project — the only group is `(legal)`. Treat these pages as intentionally public and skip them:
 
-- `src/app/sign-in`, `sign-up`, `forgot-password`, `reset-password`
-- `src/app/invite/[code]` (invite acceptance happens before sign-in)
+- `src/app/sign-in`, `sign-up`, `forgot-password`, `reset-password`, `request-invite`
 - `src/app/(legal)/**` (`/privacy`, `/privacy/subprocessors`, `/terms`)
 - `src/app/bot`, `src/app/status`
+- `src/app/reminders` (`/reminders/stop`, linked from the reminder email)
+
+This list mirrors `PUBLIC_ROUTES` in `src/proxy.ts`. Where the two differ, `PUBLIC_ROUTES` is current, because `src/proxy.test.ts` enforces it.
 
 Also skip redirect-only pages whose body is just `redirect()` — `src/app/meal-plan` (→ `/`), `src/app/household/invites` (→ `/household`) — they never render content. `src/app/pantry` is not one of them: since HON-776 it renders the pantry and must be checked.
 
@@ -134,7 +136,7 @@ For every other `page.tsx`, verify it (or its nearest `layout.tsx`) performs a s
 
 ```bash
 find src/app -name 'page.tsx' \
-  | grep -vE '/(sign-in|sign-up|forgot-password|reset-password|invite|\(legal\)|bot|status|meal-plan|household/invites)/' \
+  | grep -vE '/(sign-in|sign-up|forgot-password|reset-password|request-invite|reminders|\(legal\)|bot|status|meal-plan|household/invites)/' \
   | xargs grep -LE 'getSession|auth\.api\.getSession|@/lib/session|load-inventory'
 ```
 
