@@ -21,6 +21,20 @@ describe('findSynonymMatches', () => {
     ])
   })
 
+  // HON-1099 review: hyphens and spacing do not matter, as in a trigram search.
+  it('matches a spelling variant of the key', () => {
+    expect(findSynonymMatches('all purpose fl')).toEqual([
+      { target: 'plain flour', synonym: 'all-purpose flour', strong: true },
+    ])
+    expect(findSynonymMatches('half-and')).toEqual([
+      { target: 'single cream', synonym: 'half and half', strong: true },
+    ])
+    // "all purpose" is still only the table's first word, "all-purpose".
+    expect(findSynonymMatches('all purpose')).toEqual([
+      { target: 'plain flour', synonym: 'all-purpose flour', strong: false },
+    ])
+  })
+
   it('matches a later word of the key', () => {
     expect(findSynonymMatches('cabb')).toEqual([
       { target: 'chinese leaf', synonym: 'napa cabbage', strong: false },

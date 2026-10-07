@@ -451,6 +451,15 @@ describe('matchIngredients', () => {
       ['powdered sugar', 'icing sugar'],
       ['cornstarch', 'cornflour'],
       ['baking soda', 'bicarbonate of soda'],
+      // HON-1099 review: the spellings a trigram search used to match by name.
+      ['all purpose flour', 'plain flour'],
+      ['unbleached all-purpose flour', 'plain flour'],
+      ['half-and-half', 'single cream'],
+      ['corn starch', 'cornflour'],
+      ['whole-wheat flour', 'wholemeal flour'],
+      ['black eyed peas', 'black-eyed beans'],
+      ['cornish game hens', 'poussin'],
+      ['thai chilies', 'thai chilli'],
     ])('resolves a pasted "%s" to the %s row', async (pasted, pool) => {
       answerSearchFor(pool, 'ing-pool')
 

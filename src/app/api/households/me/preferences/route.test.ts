@@ -334,6 +334,28 @@ describe('PATCH /api/households/me/preferences', () => {
     )
   })
 
+  // HON-1099 renamed "half and half" to single cream. A household that saved
+  // the American word, in any spelling, keeps the exclusion.
+  it('resolves a spelling variant of an excluded name through its other English name', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockIngredientFindMany.mockResolvedValue([{ id: 'ing-single-cream' }] as never)
+    mockUpsert.mockResolvedValue(mockPreferences as never)
+
+    await PATCH(createRequest({ excludedIngredients: ['Half-and-Half'] }))
+
+    expect(mockIngredientFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          name: { in: ['Half-and-Half', 'single cream'], mode: 'insensitive' },
+        }),
+      }),
+    )
+  })
+
   it('updates multiple fields successfully', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },

@@ -4,6 +4,8 @@ import {
   INGREDIENT_SYNONYMS,
   applyIngredientAlias,
   hasIngredientAlias,
+  findSynonym,
+  synonymKey,
 } from './ingredient-aliases'
 
 describe('INGREDIENT_ALIASES', () => {
@@ -188,11 +190,42 @@ describe('INGREDIENT_SYNONYMS', () => {
     expect(applyIngredientAlias('guajillo chili')).toBe('guajillo chilli')
   })
 
+  it('reads hyphens as spaces and drops apostrophes in the synonym key', () => {
+    expect(synonymKey('  All-Purpose   Flour ')).toBe('all purpose flour')
+    expect(synonymKey('Confectioners’ Sugar')).toBe('confectioners sugar')
+  })
+
+  // HON-1099 review: a trigram search ignored hyphens and spacing, so these
+  // spellings found the old American row by name. The synonym lookup must too.
+  it.each([
+    ['all purpose flour', 'plain flour'],
+    ['All-Purpose  Flour', 'plain flour'],
+    ['half-and-half', 'single cream'],
+    ['whole-wheat flour', 'wholemeal flour'],
+    ['black eyed peas', 'black-eyed beans'],
+    ["confectioners' sugar", 'icing sugar'],
+    ['corn starch', 'cornflour'],
+    ['cornish game hen', 'poussin'],
+    ['phyllo', 'filo pastry'],
+  ])('resolves the spelling "%s" to %s', (pasted, pool) => {
+    expect(applyIngredientAlias(pasted)).toBe(pool)
+    expect(hasIngredientAlias(pasted)).toBe(true)
+    expect(findSynonym(pasted)).toBe(pool)
+  })
+
+  it('leaves a pool name alone whatever its spelling', () => {
+    expect(findSynonym('black-eyed beans')).toBeUndefined()
+    expect(findSynonym("goat's cheese")).toBeUndefined()
+    expect(applyIngredientAlias('plain flour')).toBe('plain flour')
+  })
+
   it('points the aliases of a renamed pool row at its British name', () => {
     expect(applyIngredientAlias('chopped tomatoes')).toBe('tinned chopped tomatoes')
     expect(applyIngredientAlias('chile de arbol')).toBe('arbol chilli')
     expect(applyIngredientAlias('filo')).toBe('filo pastry')
     expect(applyIngredientAlias('yogurt')).toBe('natural yogurt')
+    expect(applyIngredientAlias('diced tomatoes')).toBe('tinned chopped tomatoes')
+    expect(applyIngredientAlias('canned tomatoes')).toBe('tinned chopped tomatoes')
     // "cornmeal" is the pool name now, not an alias of "corn meal".
     expect(applyIngredientAlias('cornmeal')).toBe('cornmeal')
   })

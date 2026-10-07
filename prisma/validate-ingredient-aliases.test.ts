@@ -31,6 +31,24 @@ describe('validateIngredientAliases', () => {
     ])
   })
 
+  it('fails a synonym key that reads as a pool name', () => {
+    const result = validateIngredientAliases(pool, {}, { 'black-pepper': 'plain flour' })
+    expect(result.errors).toEqual([
+      expect.stringContaining('"black-pepper" reads as the ingredient name "black pepper"'),
+    ])
+  })
+
+  it('fails two synonym keys that read as one', () => {
+    const result = validateIngredientAliases(
+      pool,
+      {},
+      { 'all-purpose flour': 'plain flour', 'all purpose flour': 'plain flour' },
+    )
+    expect(result.errors).toEqual([
+      expect.stringContaining('"all-purpose flour" and "all purpose flour" read as one key'),
+    ])
+  })
+
   it('fails a key that is in both tables', () => {
     const result = validateIngredientAliases(
       pool,

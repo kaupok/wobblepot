@@ -86,6 +86,7 @@ const COOKING_MODIFIERS = new Set([
 
   // Quality / type modifiers
   'organic',
+  'unbleached',
   'boneless',
   'skinless',
   'seedless',
@@ -138,6 +139,7 @@ const IRREGULAR_PLURALS: Record<string, string> = {
   tomatoes: 'tomato',
   mangoes: 'mango',
   chillies: 'chilli', // the -ies rule would give "chilly"
+  chilies: 'chili',
   heroes: 'hero',
   echoes: 'echo',
   vetoes: 'veto',

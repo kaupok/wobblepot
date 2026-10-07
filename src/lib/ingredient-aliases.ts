@@ -99,6 +99,8 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 
   // Tinned / processed tomato aliases
   'chopped tomatoes': 'tinned chopped tomatoes', // DB has tinned chopped tomatoes
+  'diced tomatoes': 'tinned chopped tomatoes', // American word for chopped tomatoes
+  'canned tomatoes': 'tinned chopped tomatoes', // DB has tinned chopped tomatoes
 
   // Meat / protein aliases
   mince: 'beef mince', // Most common "mince" meaning
@@ -213,8 +215,12 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
  * alias is an expansion to a more specific row, so "chicken breast (chicken)"
  * would be wrong there. The AI recipe matcher reads both tables.
  *
+ * Lookups go through `synonymKey`, so a key also stands for its hyphen,
+ * apostrophe and spacing variants ("all purpose flour", "half-and-half").
+ *
  * Rules (checked by `pnpm db:validate`):
- * - Keys are lowercase and are not themselves the name of a global ingredient
+ * - Keys are lowercase and are not themselves the name of a global ingredient,
+ *   not even after `synonymKey`, and no two keys share a `synonymKey`
  * - A key is in this table or in `INGREDIENT_ALIASES`, never both
  * - Values match a global ingredient name exactly
  */
@@ -227,11 +233,13 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
   'confectioners sugar': 'icing sugar',
   'superfine sugar': 'caster sugar',
   cornstarch: 'cornflour',
+  'corn starch': 'cornflour',
   'corn meal': 'cornmeal',
   'corn flakes': 'cornflakes',
   'baking soda': 'bicarbonate of soda',
   bicarb: 'bicarbonate of soda',
   'phyllo dough': 'filo pastry',
+  phyllo: 'filo pastry',
   gelatin: 'gelatine',
   'vanilla bean': 'vanilla pod',
   'anise seed': 'aniseed',
@@ -269,6 +277,7 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
 
   // Meat and fish
   'cornish hen': 'poussin',
+  'cornish game hen': 'poussin',
   'ham steak': 'gammon steak',
   'baby shrimp': 'small prawns',
   'cooked shrimp': 'cooked prawns',
@@ -336,6 +345,26 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
 }
 
 /**
+ * The lookup key for `INGREDIENT_SYNONYMS`: lower case, apostrophes dropped,
+ * hyphens read as spaces, runs of spaces collapsed. A trigram search ignores
+ * those marks, so "all purpose flour" used to find the "all-purpose flour" row
+ * by name. Now that the American word lives only in the synonym table, the
+ * lookup has to ignore them too (HON-1099).
+ */
+export function synonymKey(name: string): string {
+  return name.toLowerCase().replace(/['’]/g, '').replace(/[-‐–]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+const SYNONYMS_BY_KEY = new Map(
+  Object.entries(INGREDIENT_SYNONYMS).map(([key, poolName]) => [synonymKey(key), poolName]),
+)
+
+/** The pool name for another English name of a global ingredient, if it is one. */
+export function findSynonym(name: string): string | undefined {
+  return SYNONYMS_BY_KEY.get(synonymKey(name))
+}
+
+/**
  * Apply ingredient alias expansion, or resolve another English name to the
  * pool's name.
  *
@@ -344,7 +373,7 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
  */
 export function applyIngredientAlias(name: string): string {
   const normalized = name.toLowerCase().trim()
-  return INGREDIENT_ALIASES[normalized] ?? INGREDIENT_SYNONYMS[normalized] ?? name
+  return INGREDIENT_ALIASES[normalized] ?? findSynonym(name) ?? name
 }
 
 /**
@@ -356,5 +385,5 @@ export function applyIngredientAlias(name: string): string {
  */
 export function hasIngredientAlias(name: string): boolean {
   const normalized = name.toLowerCase().trim()
-  return normalized in INGREDIENT_ALIASES || normalized in INGREDIENT_SYNONYMS
+  return normalized in INGREDIENT_ALIASES || findSynonym(name) !== undefined
 }
