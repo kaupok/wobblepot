@@ -83,6 +83,7 @@ const MEAT: FoodGroup = {
     'rabbit',
     'sausage',
     'meat',
+    'mince',
     'guanciale',
     'gelatin',
     'gelatine',
@@ -143,6 +144,8 @@ const MEAT: FoodGroup = {
   prefixes: ['soja', 'seene', 'porgandi', 'tofu'],
   falseFriends: [
     'champignon',
+    // "minced garlic": the cut, not the meat. "minced beef" still fails on "beef".
+    'minced',
     'champagne',
     'bechamel',
     'béchamel',
@@ -184,6 +187,7 @@ const FISH: FoodGroup = {
     'gravlax',
     'lox',
     'sprat',
+    'kipper',
     'surimi',
     'bonito',
     'dashi',
@@ -278,6 +282,7 @@ const DAIRY: FoodGroup = {
     'ghee',
     'custard',
     'quark',
+    'fromage',
     'paneer',
     'labneh',
     'béchamel',

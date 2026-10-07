@@ -336,6 +336,50 @@ describe('British and American names of a row renamed in HON-1099', () => {
   })
 })
 
+describe('the food words the British English block asks for (HON-1098)', () => {
+  it.each([
+    [{ dietaryType: 'vegetarian' }, 'beef mince'],
+    [{ dietaryType: 'vegetarian' }, 'mince'],
+    [{ dietaryType: 'vegan' }, 'mince'],
+    [{ dietaryType: 'vegetarian' }, 'lamb mince'],
+    [{ dietaryType: 'pescatarian' }, 'mince'],
+    [{ dietaryType: 'vegetarian' }, 'minced beef'],
+    [{ allergens: ['shellfish'] }, 'prawns'],
+    [{ allergens: ['shellfish'] }, 'king prawn'],
+    [{ dietaryType: 'vegetarian' }, 'prawn'],
+    [{ allergens: ['dairy'] }, 'double cream'],
+    [{ dietaryType: 'vegan' }, 'double cream'],
+    [{ allergens: ['dairy'] }, 'yoghurt'],
+    [{ dietaryType: 'vegan' }, 'natural yoghurt'],
+    [{ allergens: ['dairy'] }, 'fromage frais'],
+    [{ dietaryType: 'vegan' }, 'fromage frais'],
+    [{ allergens: ['gluten'] }, 'plain flour'],
+    [{ allergens: ['fish'] }, 'kipper'],
+    [{ dietaryType: 'vegetarian' }, 'smoked kippers'],
+  ])('%o flags %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(true)
+  })
+
+  it.each([
+    // "minced" is the cut, so the garlic stays; the beef in "minced beef" does not.
+    [{ dietaryType: 'vegan' }, 'minced garlic'],
+    [{ dietaryType: 'vegetarian' }, 'soya mince'],
+    [{ dietaryType: 'vegetarian' }, 'veggie mince'],
+    [{ dietaryType: 'vegan' }, 'courgette'],
+    [{ dietaryType: 'vegan' }, 'aubergine'],
+    [{ dietaryType: 'vegan' }, 'coriander'],
+    [{ dietaryType: 'vegan' }, 'spring onion'],
+    [{ dietaryType: 'vegan' }, 'red pepper'],
+    [{ dietaryType: 'vegan' }, 'red chilli'],
+    [{ dietaryType: 'vegan' }, 'caster sugar'],
+    [{ dietaryType: 'vegan' }, 'bicarbonate of soda'],
+    [{ allergens: ['gluten'] }, 'bicarbonate of soda'],
+    [{ dietaryType: 'vegan' }, 'oat yoghurt'],
+  ])('%o allows %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(false)
+  })
+})
+
 describe('review round 3 gaps (PR #981)', () => {
   it.each([
     [{ allergens: ['shellfish'] }, 'rannakarbid'],

@@ -31,7 +31,12 @@
         "unit": "g"
       },
       {
-        "names": ["canned diced tomatoes", "canned diced tomato"],
+        "names": [
+          "canned diced tomatoes",
+          "canned diced tomato",
+          "tinned chopped tomatoes",
+          "tinned chopped tomato"
+        ],
         "quantity": 400,
         "unit": "g"
       },
@@ -41,7 +46,7 @@
         "unit": "ml"
       },
       {
-        "names": ["red bell pepper"],
+        "names": ["red bell pepper", "red pepper"],
         "quantity": 100,
         "unit": "g"
       },

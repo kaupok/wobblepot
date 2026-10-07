@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { localeInstruction } from './prompts'
+import { localeInstruction, britishEnglish } from './prompts'
 
 export interface ReviewIngredient {
   ingredientId: string
@@ -77,7 +77,7 @@ Rules:
 - Only correct quantities that are clearly wrong (too low or too high for the ingredient's role)
 - Every ingredient in the input must appear in the output with the same ingredientId
 - Quantities must be > 0
-- Use realistic home cooking amounts, not restaurant portions${localeInstruction(locale)}`
+- Use realistic home cooking amounts, not restaurant portions${localeInstruction(locale)}${britishEnglish(locale)}`
 
   return {
     schema: ReviewedIngredientsSchema,

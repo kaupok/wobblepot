@@ -56,6 +56,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
 
   // Dairy alternatives
   yogurt: 'natural yogurt', // DB has natural yogurt
+  yoghurt: 'natural yogurt', // British spelling (HON-1098)
 
   // Indian ingredients - expand to DB names (seed-comprehensive)
   besan: 'chickpea flour', // DB has chickpea flour
