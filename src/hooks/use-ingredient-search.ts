@@ -23,8 +23,8 @@ export interface IngredientResult {
   carbs?: number
   fat?: number
   /**
-   * The other English name the search term matched ("plain flour" for
-   * all-purpose flour), shown in brackets in the dropdown (HON-1100). Absent on
+   * The other English name the search term matched ("all-purpose flour" for
+   * plain flour), shown in brackets in the dropdown (HON-1100). Absent on
    * a row found by its own name.
    */
   matchedAs?: string

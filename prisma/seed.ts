@@ -401,7 +401,7 @@ export const baseIngredients = [
     fiber: 1.2,
   },
   {
-    name: 'canned diced tomatoes',
+    name: 'tinned chopped tomatoes',
     category: 'vegetable',
     subcategory: 'fruit-vegetable',
     defaultUnit: 'g',
@@ -413,7 +413,7 @@ export const baseIngredients = [
     fiber: 1.0,
   },
   {
-    name: 'canned whole peeled tomatoes',
+    name: 'tinned plum tomatoes',
     category: 'vegetable',
     subcategory: 'fruit-vegetable',
     defaultUnit: 'g',
@@ -463,7 +463,7 @@ export const baseIngredients = [
     fiber: 2.1,
   },
   {
-    name: 'red bell pepper',
+    name: 'red pepper',
     category: 'vegetable',
     subcategory: 'fruit-vegetable',
     defaultUnit: 'g',

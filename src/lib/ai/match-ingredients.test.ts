@@ -159,10 +159,10 @@ describe('matchIngredients', () => {
 
   it('shows verify match for similarity between very-low and low thresholds', async () => {
     // Similarity between VERY_LOW_CONFIDENCE_THRESHOLD (0.55) and LOW_CONFIDENCE_THRESHOLD (0.6)
-    mockQueryRaw.mockResolvedValue([makeDbMatch({ similarity: 0.55, name: 'corn meal' })])
+    mockQueryRaw.mockResolvedValue([makeDbMatch({ similarity: 0.55, name: 'cornmeal' })])
 
     const results = await matchIngredients(
-      [makeExtracted({ name: 'cornmeal', originalText: '1 cup cornmeal' })],
+      [makeExtracted({ name: 'polenta meal', originalText: '1 cup polenta meal' })],
       4,
     )
 
@@ -398,7 +398,7 @@ describe('matchIngredients', () => {
     // First call (direct search for "pepper") returns low similarity
     // Second call (alias search for "black pepper") returns higher
     mockQueryRaw
-      .mockResolvedValueOnce([makeDbMatch({ similarity: 0.4, name: 'red bell pepper' })])
+      .mockResolvedValueOnce([makeDbMatch({ similarity: 0.4, name: 'red pepper' })])
       .mockResolvedValueOnce([makeDbMatch({ similarity: 0.95, name: 'black pepper' })])
 
     const results = await matchIngredients(
@@ -417,8 +417,10 @@ describe('matchIngredients', () => {
     expect(matched.similarityScore).toBe(0.95)
   })
 
-  // HON-1100: another English name resolves to the pool row. The word-level
-  // check still sees "plain" vs "all-purpose", so the match is flagged for review.
+  // HON-1100: another English name resolves to the pool row. HON-1099 renamed
+  // the pool rows to the British word, so the American word is the other name
+  // now, and the extraction prompt still writes it. A curated synonym is the
+  // same food, so the word-level check does not flag it for review.
   describe('another English name', () => {
     /** Answers a search for `target` with that row; any other search finds nothing. */
     function answerSearchFor(target: string, id: string) {
@@ -428,35 +430,83 @@ describe('matchIngredients', () => {
         )) as never)
     }
 
-    it('resolves "plain flour" to the all-purpose flour row', async () => {
-      answerSearchFor('all-purpose flour', 'ing-flour')
+    it('resolves "all-purpose flour" to the plain flour row', async () => {
+      answerSearchFor('plain flour', 'ing-flour')
 
       const [result] = await matchIngredients(
-        [makeExtracted({ name: 'plain flour', quantity: 200, unit: 'g' })],
+        [makeExtracted({ name: 'all-purpose flour', quantity: 200, unit: 'g' })],
         4,
       )
 
       expect(result).toEqual(
         expect.objectContaining({
           type: 'matched',
-          ingredient: expect.objectContaining({ id: 'ing-flour', name: 'all-purpose flour' }),
-          lowConfidence: true,
+          ingredient: expect.objectContaining({ id: 'ing-flour', name: 'plain flour' }),
+          lowConfidence: false,
         }),
       )
     })
 
-    it('resolves "icing sugar" to the powdered sugar row', async () => {
-      answerSearchFor('powdered sugar', 'ing-sugar')
+    it.each([
+      ['canned diced tomatoes', 'tinned chopped tomatoes'],
+      ['canned whole peeled tomatoes', 'tinned plum tomatoes'],
+      ['sweet chili sauce', 'sweet chilli sauce'],
+    ])('matches the prompt name "%s" to %s without asking for review', async (pasted, pool) => {
+      answerSearchFor(pool, 'ing-pool')
 
       const [result] = await matchIngredients(
-        [makeExtracted({ name: 'icing sugar', quantity: 50, unit: 'g' })],
+        [makeExtracted({ name: pasted, quantity: 400, unit: 'g' })],
         4,
       )
 
       expect(result).toEqual(
         expect.objectContaining({
           type: 'matched',
-          ingredient: expect.objectContaining({ id: 'ing-sugar', name: 'powdered sugar' }),
+          ingredient: expect.objectContaining({ name: pool }),
+          lowConfidence: false,
+        }),
+      )
+    })
+
+    it('still asks for review when a synonym word finds a row that is not its target', async () => {
+      mockQueryRaw.mockImplementation((() =>
+        Promise.resolve([
+          makeDbMatch({ id: 'ing-plum', name: 'tinned plum tomatoes', similarity: 0.9 }),
+        ])) as never)
+
+      const [result] = await matchIngredients(
+        [makeExtracted({ name: 'canned diced tomatoes', quantity: 400, unit: 'g' })],
+        4,
+      )
+
+      expect(result).toEqual(expect.objectContaining({ type: 'matched', lowConfidence: true }))
+    })
+
+    it.each([
+      ['powdered sugar', 'icing sugar'],
+      ['cornstarch', 'cornflour'],
+      ['baking soda', 'bicarbonate of soda'],
+      // HON-1099 review: the spellings a trigram search used to match by name.
+      ['all purpose flour', 'plain flour'],
+      ['unbleached all-purpose flour', 'plain flour'],
+      ['half-and-half', 'single cream'],
+      ['corn starch', 'cornflour'],
+      ['whole-wheat flour', 'wholemeal flour'],
+      ['black eyed peas', 'black-eyed beans'],
+      ['cornish game hens', 'poussin'],
+      ['thai chilies', 'thai chilli'],
+    ])('resolves a pasted "%s" to the %s row', async (pasted, pool) => {
+      answerSearchFor(pool, 'ing-pool')
+
+      const [result] = await matchIngredients(
+        [makeExtracted({ name: pasted, quantity: 10, unit: 'g' })],
+        4,
+      )
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          type: 'matched',
+          ingredient: expect.objectContaining({ id: 'ing-pool', name: pool }),
         }),
       )
     })
@@ -522,12 +572,12 @@ describe('matchIngredients', () => {
     expect(matched.quantityWarning).toContain('Unusually high')
   })
 
-  it('treats "red chili pepper" → "red bell pepper" as unmatched when similarity is below VERY_LOW_CONFIDENCE_THRESHOLD', async () => {
-    // Simulate fuzzy search returning "red bell pepper" with similarity 0.53
+  it('treats "red chili pepper" → "red pepper" as unmatched when similarity is below VERY_LOW_CONFIDENCE_THRESHOLD', async () => {
+    // Simulate fuzzy search returning "red pepper" with similarity 0.53
     // This is above the old threshold (0.5) but should be below the new one
     mockQueryRaw.mockResolvedValue([
       makeDbMatch({
-        name: 'red bell pepper',
+        name: 'red pepper',
         similarity: 0.53,
         category: 'vegetable',
         subcategory: 'fruit-vegetable',

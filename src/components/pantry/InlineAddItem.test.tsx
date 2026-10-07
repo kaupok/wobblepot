@@ -27,7 +27,7 @@ describe('InlineAddItem other English name', () => {
     vi.restoreAllMocks()
   })
 
-  it('offers "all-purpose flour (plain flour)" for "plain fl" and adds the pool row', async () => {
+  it('offers "plain flour (all-purpose flour)" for "all-purpose" and adds the pool row', async () => {
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
       if (init?.method === 'POST') {
         return Promise.resolve({
@@ -42,10 +42,10 @@ describe('InlineAddItem other English name', () => {
             ingredients: [
               {
                 id: 'flour',
-                name: 'all-purpose flour',
+                name: 'plain flour',
                 category: 'carb',
                 defaultUnit: 'g',
-                matchedAs: 'plain flour',
+                matchedAs: 'all-purpose flour',
               },
             ],
           }),
@@ -57,13 +57,9 @@ describe('InlineAddItem other English name', () => {
     const { wrapper } = createQueryWrapper()
     render(<InlineAddItem onItemAdded={onItemAdded} />, { wrapper })
 
-    await user.type(screen.getByLabelText('Add ingredient to pantry'), 'plain fl')
-    const option = await screen.findByRole(
-      'button',
-      { name: /all-purpose flour/ },
-      { timeout: 2000 },
-    )
-    expect(option).toHaveTextContent('all-purpose flour(plain flour)')
+    await user.type(screen.getByLabelText('Add ingredient to pantry'), 'all-purpose')
+    const option = await screen.findByRole('button', { name: /plain flour/ }, { timeout: 2000 })
+    expect(option).toHaveTextContent('plain flour(all-purpose flour)')
 
     await user.click(option)
 

@@ -511,18 +511,18 @@ export const emptyIngredientsHandlers: HttpHandler[] = [
 /**
  * Answer `GET /api/ingredients` with one row found by another English name and
  * one found by its own name (HON-1100). Use for the dropdown stories that show
- * the bracket hint, "all-purpose flour (plain flour)".
+ * the bracket hint, "plain flour (all-purpose flour)".
  */
 export const synonymIngredientsHandlers: HttpHandler[] = [
   http.get('/api/ingredients', () =>
     HttpResponse.json({
       ingredients: [
         {
-          id: 'all-purpose-flour',
-          name: 'all-purpose flour',
+          id: 'plain-flour',
+          name: 'plain flour',
           category: 'carb',
           defaultUnit: 'g',
-          matchedAs: 'plain flour',
+          matchedAs: 'all-purpose flour',
         },
         { id: 'flour-tortilla', name: 'flour tortilla', category: 'carb', defaultUnit: 'piece' },
       ],

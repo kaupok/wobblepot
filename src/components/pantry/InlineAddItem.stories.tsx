@@ -232,22 +232,18 @@ export const MatchedByOtherName: Story = {
     docs: {
       description: {
         story:
-          'Typing "plain fl" offers "all-purpose flour (plain flour)": the row found by another English name shows that name in brackets, in the muted tone (HON-1100). A row found by its own name has no bracket.',
+          'Typing "all-purpose" offers "plain flour (all-purpose flour)": the row found by another English name shows that name in brackets, in the muted tone (HON-1100). A row found by its own name has no bracket.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.type(canvas.getByPlaceholderText(/add ingredient to pantry/i), 'plain fl')
+    await userEvent.type(canvas.getByPlaceholderText(/add ingredient to pantry/i), 'all-purpose')
 
-    const option = await canvas.findByRole(
-      'button',
-      { name: /all-purpose flour/i },
-      { timeout: 3000 },
-    )
-    await expect(option).toHaveTextContent('all-purpose flour(plain flour)')
+    const option = await canvas.findByRole('button', { name: /plain flour/i }, { timeout: 3000 })
+    await expect(option).toHaveTextContent('plain flour(all-purpose flour)')
     await expect(canvas.getByRole('button', { name: /flour tortilla/i })).not.toHaveTextContent(
-      '(plain flour)',
+      '(all-purpose flour)',
     )
   },
 }

@@ -23,7 +23,7 @@ describe('isMeasuredByVolume', () => {
     ['double cream', 'cream'],
     ['soy sauce', 'sauce'],
     ['balsamic vinegar', 'acid'],
-    ['canola oil', null],
+    ['rapeseed oil', null],
   ])('is true for the named liquid %j in a mixed subcategory (%s)', (name, subcategory) => {
     expect(isMeasuredByVolume({ name, subcategory })).toBe(true)
   })
@@ -87,8 +87,17 @@ describe('migration 20261006130000_add_ingredient_measured_by_volume', () => {
     )
   })
 
-  it('lists exactly the module include names', () => {
-    expect(sqlList('"name" IN (').sort()).toEqual([...MEASURED_BY_VOLUME_NAMES].sort())
+  // Migration 20261007150000_british_english_pool_names renamed these rows in
+  // place (HON-1099), so the flag stays on them and the module lists the new
+  // name. The applied migration is frozen and keeps the old one.
+  const RENAMED_SINCE: Record<string, string> = {
+    'canola oil': 'rapeseed oil',
+    'half and half': 'single cream',
+  }
+
+  it('lists exactly the module include names, under their names today', () => {
+    const today = sqlList('"name" IN (').map((name) => RENAMED_SINCE[name] ?? name)
+    expect(today.sort()).toEqual([...MEASURED_BY_VOLUME_NAMES].sort())
   })
 
   it('lists exactly the module exclude names', () => {

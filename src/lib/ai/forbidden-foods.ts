@@ -60,6 +60,9 @@ const PLANT_SWAP = ['vegan', 'plant-based', 'plant based', 'taimne', 'taimse', '
 const MEAT: FoodGroup = {
   keywords: [
     'chicken',
+    'poussin',
+    'cornish hen',
+    'game hen',
     'beef',
     'pork',
     'bacon',
@@ -69,6 +72,7 @@ const MEAT: FoodGroup = {
     'chorizo',
     'pepperoni',
     'ham',
+    'gammon',
     'lamb',
     'mutton',
     'turkey',
@@ -81,6 +85,7 @@ const MEAT: FoodGroup = {
     'meat',
     'guanciale',
     'gelatin',
+    'gelatine',
     'lard',
     'suet',
     'bone broth',
@@ -259,6 +264,8 @@ const DAIRY: FoodGroup = {
   keywords: [
     'milk',
     'cream',
+    'half and half',
+    'half-and-half',
     'crème',
     'creme',
     'butter',
@@ -508,6 +515,8 @@ const GLUTEN: FoodGroup = {
     'cracker',
     'biscuit',
     'pastry',
+    'phyllo',
+    'filo',
     'dumpling',
     'wonton',
     'beer',

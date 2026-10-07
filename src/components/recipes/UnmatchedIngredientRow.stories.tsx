@@ -198,19 +198,15 @@ export const MatchedByOtherName: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.type(canvas.getByPlaceholderText(/search ingredients/i), 'plain fl')
+    await userEvent.type(canvas.getByPlaceholderText(/search ingredients/i), 'all-purpose')
 
-    const result = await canvas.findByRole(
-      'button',
-      { name: /all-purpose flour/i },
-      { timeout: 3000 },
-    )
-    await expect(result).toHaveTextContent('all-purpose flour(plain flour)')
+    const result = await canvas.findByRole('button', { name: /plain flour/i }, { timeout: 3000 })
+    await expect(result).toHaveTextContent('plain flour(all-purpose flour)')
 
     await userEvent.click(result)
     await waitFor(() =>
       expect(args.onResolve).toHaveBeenCalledWith(
-        { id: 'all-purpose-flour', name: 'all-purpose flour', category: 'carb', defaultUnit: 'g' },
+        { id: 'plain-flour', name: 'plain flour', category: 'carb', defaultUnit: 'g' },
         100,
       ),
     )

@@ -1190,7 +1190,7 @@ export const newIngredients = [
   // VEGETABLES - Asian (12 new)
   // ============================================
   {
-    name: 'napa cabbage',
+    name: 'chinese leaf',
     category: 'vegetable',
     subcategory: 'asian',
     defaultUnit: 'g',
@@ -2252,7 +2252,7 @@ export const newIngredients = [
     fiber: 7,
   },
   {
-    name: 'fava beans',
+    name: 'broad beans',
     category: 'legume',
     subcategory: 'bean',
     defaultUnit: 'g',
@@ -3036,7 +3036,7 @@ export const newIngredients = [
     fiber: 6,
   },
   {
-    name: 'corn flakes',
+    name: 'cornflakes',
     category: 'carb',
     subcategory: 'cereal',
     defaultUnit: 'g',

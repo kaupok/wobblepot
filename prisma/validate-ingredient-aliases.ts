@@ -6,6 +6,8 @@
  * so a test cannot load it.
  */
 
+import { synonymKey } from '../src/lib/ingredient-aliases'
+
 type ValidationResult = {
   errors: string[]
   warnings: string[]
@@ -28,6 +30,11 @@ export function validateIngredientAliases(
     }
   }
 
+  // Synonyms are looked up by `synonymKey`, so compare by it too: a key that
+  // only differs from a pool name by a hyphen would map that name away.
+  const poolByKey = new Map([...ingredientNames].map((name) => [synonymKey(name), name]))
+  const synonymByKey = new Map<string, string>()
+
   for (const [from, to] of Object.entries(synonyms)) {
     if (!ingredientNames.has(to)) {
       errors.push(
@@ -43,6 +50,19 @@ export function validateIngredientAliases(
           `Remove the synonym, or merge the two rows.`,
       )
     }
+    const key = synonymKey(from)
+    const poolName = poolByKey.get(key)
+    if (poolName !== undefined && poolName !== from) {
+      errors.push(
+        `Ingredient synonym "${from}" reads as the ingredient name "${poolName}". ` +
+          `Remove the synonym, or merge the two rows.`,
+      )
+    }
+    const twin = synonymByKey.get(key)
+    if (twin !== undefined) {
+      errors.push(`Ingredient synonyms "${twin}" and "${from}" read as one key. Keep one.`)
+    }
+    synonymByKey.set(key, from)
     if (from in aliases) {
       errors.push(`"${from}" is both an ingredient alias and a synonym. Keep it in one table.`)
     }

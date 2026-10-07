@@ -4,6 +4,8 @@ import {
   INGREDIENT_SYNONYMS,
   applyIngredientAlias,
   hasIngredientAlias,
+  findSynonym,
+  synonymKey,
 } from './ingredient-aliases'
 
 describe('INGREDIENT_ALIASES', () => {
@@ -33,13 +35,13 @@ describe('INGREDIENT_ALIASES', () => {
   })
 
   it('contains baking and condiment aliases', () => {
-    expect(INGREDIENT_ALIASES['flour']).toBe('all-purpose flour')
+    expect(INGREDIENT_ALIASES['flour']).toBe('plain flour')
     expect(INGREDIENT_ALIASES['sugar']).toBe('granulated sugar')
     expect(INGREDIENT_ALIASES['yeast']).toBe('active dry yeast')
     expect(INGREDIENT_ALIASES['chocolate']).toBe('chocolate chips')
     expect(INGREDIENT_ALIASES['wine']).toBe('red wine')
     expect(INGREDIENT_ALIASES['mustard']).toBe('yellow mustard')
-    expect(INGREDIENT_ALIASES['yogurt']).toBe('plain yogurt')
+    expect(INGREDIENT_ALIASES['yogurt']).toBe('natural yogurt')
     expect(INGREDIENT_ALIASES['miso']).toBe('white miso paste')
     expect(INGREDIENT_ALIASES['vinegar']).toBe('white vinegar')
     expect(INGREDIENT_ALIASES['soy sauce']).toBe('light soy sauce')
@@ -71,13 +73,13 @@ describe('INGREDIENT_ALIASES', () => {
   })
 
   it('contains Mexican ingredient aliases', () => {
-    expect(INGREDIENT_ALIASES['chile guajillo']).toBe('guajillo chili')
-    expect(INGREDIENT_ALIASES['dried guajillo']).toBe('guajillo chili')
-    expect(INGREDIENT_ALIASES['chile pasilla']).toBe('pasilla chili')
-    expect(INGREDIENT_ALIASES['dried pasilla']).toBe('pasilla chili')
-    expect(INGREDIENT_ALIASES['chile de arbol']).toBe('arbol chili')
-    expect(INGREDIENT_ALIASES['chile de árbol']).toBe('arbol chili')
-    expect(INGREDIENT_ALIASES['dried arbol']).toBe('arbol chili')
+    expect(INGREDIENT_ALIASES['chile guajillo']).toBe('guajillo chilli')
+    expect(INGREDIENT_ALIASES['dried guajillo']).toBe('guajillo chilli')
+    expect(INGREDIENT_ALIASES['chile pasilla']).toBe('pasilla chilli')
+    expect(INGREDIENT_ALIASES['dried pasilla']).toBe('pasilla chilli')
+    expect(INGREDIENT_ALIASES['chile de arbol']).toBe('arbol chilli')
+    expect(INGREDIENT_ALIASES['chile de árbol']).toBe('arbol chilli')
+    expect(INGREDIENT_ALIASES['dried arbol']).toBe('arbol chilli')
     expect(INGREDIENT_ALIASES['oaxaca cheese']).toBe('queso oaxaca')
     expect(INGREDIENT_ALIASES['quesillo']).toBe('queso oaxaca')
     expect(INGREDIENT_ALIASES['corn truffle']).toBe('huitlacoche')
@@ -125,13 +127,13 @@ describe('INGREDIENT_ALIASES', () => {
   it('contains Mediterranean and French aliases', () => {
     expect(INGREDIENT_ALIASES['parmigiano-reggiano']).toBe('parmesan')
     expect(INGREDIENT_ALIASES['parmigiano reggiano']).toBe('parmesan')
-    expect(INGREDIENT_ALIASES['phyllo pastry']).toBe('phyllo dough')
-    expect(INGREDIENT_ALIASES['filo dough']).toBe('phyllo dough')
-    expect(INGREDIENT_ALIASES['filo']).toBe('phyllo dough')
+    expect(INGREDIENT_ALIASES['phyllo pastry']).toBe('filo pastry')
+    expect(INGREDIENT_ALIASES['filo dough']).toBe('filo pastry')
+    expect(INGREDIENT_ALIASES['filo']).toBe('filo pastry')
     expect(INGREDIENT_ALIASES['french green beans']).toBe('haricots verts')
-    expect(INGREDIENT_ALIASES['calabrian chili paste']).toBe('calabrian chili')
-    expect(INGREDIENT_ALIASES['calabrian chili pepper']).toBe('calabrian chili')
-    expect(INGREDIENT_ALIASES['calabrian pepper']).toBe('calabrian chili')
+    expect(INGREDIENT_ALIASES['calabrian chili paste']).toBe('calabrian chilli')
+    expect(INGREDIENT_ALIASES['calabrian chili pepper']).toBe('calabrian chilli')
+    expect(INGREDIENT_ALIASES['calabrian pepper']).toBe('calabrian chilli')
     expect(INGREDIENT_ALIASES['sopressata']).toBe('soppressata')
     expect(INGREDIENT_ALIASES['apple brandy']).toBe('calvados')
   })
@@ -147,11 +149,12 @@ describe('INGREDIENT_ALIASES', () => {
 
 // HON-1100: other English names for the same row, shown next to it in search.
 describe('INGREDIENT_SYNONYMS', () => {
-  it('maps British and American names to the pool name', () => {
-    expect(INGREDIENT_SYNONYMS['plain flour']).toBe('all-purpose flour')
-    expect(INGREDIENT_SYNONYMS['icing sugar']).toBe('powdered sugar')
-    expect(INGREDIENT_SYNONYMS['cornflour']).toBe('cornstarch')
-    expect(INGREDIENT_SYNONYMS['swede']).toBe('rutabaga')
+  it('maps other English names to the pool name', () => {
+    expect(INGREDIENT_SYNONYMS['all-purpose flour']).toBe('plain flour')
+    expect(INGREDIENT_SYNONYMS['powdered sugar']).toBe('icing sugar')
+    expect(INGREDIENT_SYNONYMS['confectioners sugar']).toBe('icing sugar')
+    expect(INGREDIENT_SYNONYMS['cornstarch']).toBe('cornflour')
+    expect(INGREDIENT_SYNONYMS['rutabaga']).toBe('swede')
     expect(INGREDIENT_SYNONYMS['capsicum']).toBe('bell pepper')
     expect(INGREDIENT_SYNONYMS['garbanzo beans']).toBe('chickpeas')
   })
@@ -173,6 +176,58 @@ describe('INGREDIENT_SYNONYMS', () => {
     expect(applyIngredientAlias('cilantro')).toBe('fresh coriander')
     expect(applyIngredientAlias('red chili pepper')).toBe('red chilli')
     expect(applyIngredientAlias('chicken broth')).toBe('chicken stock')
+  })
+
+  // HON-1099: a pasted American recipe still matches the renamed pool row.
+  it('resolves the American name of a renamed pool row to its British name', () => {
+    expect(applyIngredientAlias('cornstarch')).toBe('cornflour')
+    expect(applyIngredientAlias('Baking Soda')).toBe('bicarbonate of soda')
+    expect(applyIngredientAlias('powdered sugar')).toBe('icing sugar')
+    expect(applyIngredientAlias('corn meal')).toBe('cornmeal')
+    expect(applyIngredientAlias('canned diced tomatoes')).toBe('tinned chopped tomatoes')
+    expect(applyIngredientAlias('red bell pepper')).toBe('red pepper')
+    expect(applyIngredientAlias('half and half')).toBe('single cream')
+    expect(applyIngredientAlias('guajillo chili')).toBe('guajillo chilli')
+  })
+
+  it('reads hyphens as spaces and drops apostrophes in the synonym key', () => {
+    expect(synonymKey('  All-Purpose   Flour ')).toBe('all purpose flour')
+    expect(synonymKey('Confectioners’ Sugar')).toBe('confectioners sugar')
+  })
+
+  // HON-1099 review: a trigram search ignored hyphens and spacing, so these
+  // spellings found the old American row by name. The synonym lookup must too.
+  it.each([
+    ['all purpose flour', 'plain flour'],
+    ['All-Purpose  Flour', 'plain flour'],
+    ['half-and-half', 'single cream'],
+    ['whole-wheat flour', 'wholemeal flour'],
+    ['black eyed peas', 'black-eyed beans'],
+    ["confectioners' sugar", 'icing sugar'],
+    ['corn starch', 'cornflour'],
+    ['cornish game hen', 'poussin'],
+    ['phyllo', 'filo pastry'],
+  ])('resolves the spelling "%s" to %s', (pasted, pool) => {
+    expect(applyIngredientAlias(pasted)).toBe(pool)
+    expect(hasIngredientAlias(pasted)).toBe(true)
+    expect(findSynonym(pasted)).toBe(pool)
+  })
+
+  it('leaves a pool name alone whatever its spelling', () => {
+    expect(findSynonym('black-eyed beans')).toBeUndefined()
+    expect(findSynonym("goat's cheese")).toBeUndefined()
+    expect(applyIngredientAlias('plain flour')).toBe('plain flour')
+  })
+
+  it('points the aliases of a renamed pool row at its British name', () => {
+    expect(applyIngredientAlias('chopped tomatoes')).toBe('tinned chopped tomatoes')
+    expect(applyIngredientAlias('chile de arbol')).toBe('arbol chilli')
+    expect(applyIngredientAlias('filo')).toBe('filo pastry')
+    expect(applyIngredientAlias('yogurt')).toBe('natural yogurt')
+    expect(applyIngredientAlias('diced tomatoes')).toBe('tinned chopped tomatoes')
+    expect(applyIngredientAlias('canned tomatoes')).toBe('tinned chopped tomatoes')
+    // "cornmeal" is the pool name now, not an alias of "corn meal".
+    expect(applyIngredientAlias('cornmeal')).toBe('cornmeal')
   })
 
   it('points the aliases of a merged row at its British twin', () => {
@@ -227,7 +282,7 @@ describe('applyIngredientAlias', () => {
   })
 
   it('expands baking and condiment aliases', () => {
-    expect(applyIngredientAlias('flour')).toBe('all-purpose flour')
+    expect(applyIngredientAlias('flour')).toBe('plain flour')
     expect(applyIngredientAlias('sugar')).toBe('granulated sugar')
     expect(applyIngredientAlias('mustard')).toBe('yellow mustard')
     expect(applyIngredientAlias('vinegar')).toBe('white vinegar')
@@ -237,15 +292,18 @@ describe('applyIngredientAlias', () => {
   it('expands audit quick-win aliases', () => {
     expect(applyIngredientAlias('Capsicum')).toBe('bell pepper')
     expect(applyIngredientAlias('SULTANAS')).toBe('raisins')
-    expect(applyIngredientAlias('Bicarbonate of Soda')).toBe('baking soda')
+    expect(applyIngredientAlias('Bicarb')).toBe('bicarbonate of soda')
     expect(applyIngredientAlias('extra virgin olive oil')).toBe('olive oil')
     expect(applyIngredientAlias('Lemon Juice')).toBe('lemon')
   })
 
   it('resolves another English name to the pool name', () => {
-    expect(applyIngredientAlias('Plain Flour')).toBe('all-purpose flour')
-    expect(applyIngredientAlias('icing sugar')).toBe('powdered sugar')
-    expect(hasIngredientAlias('plain flour')).toBe(true)
+    expect(applyIngredientAlias('All-Purpose Flour')).toBe('plain flour')
+    expect(applyIngredientAlias('powdered sugar')).toBe('icing sugar')
+    expect(hasIngredientAlias('all-purpose flour')).toBe(true)
+    // The British name is the pool name now, so it passes through unchanged.
+    expect(applyIngredientAlias('plain flour')).toBe('plain flour')
+    expect(hasIngredientAlias('plain flour')).toBe(false)
   })
 
   it('expands Japanese pantry aliases', () => {

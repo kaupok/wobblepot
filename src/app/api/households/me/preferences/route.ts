@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { INGREDIENT_SYNONYMS } from '@/lib/ingredient-aliases'
+import { findSynonym } from '@/lib/ingredient-aliases'
 
 const updatePreferencesSchema = z.object({
   dietaryType: z.enum(['vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
@@ -101,7 +101,7 @@ export async function PATCH(request: Request) {
       // too, or a re-save drops the exclusion. Synonyms only: an alias narrows
       // a word ("beef" → beef mince) and would exclude less than was typed.
       const names = parsed.data.excludedIngredients.flatMap((name) => {
-        const poolName = INGREDIENT_SYNONYMS[name.toLowerCase().trim()]
+        const poolName = findSynonym(name)
         return poolName ? [name, poolName] : [name]
       })
       const ingredients = await prisma.ingredient.findMany({

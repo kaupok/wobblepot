@@ -280,6 +280,62 @@ describe('British and American names of a renamed row', () => {
   })
 })
 
+// HON-1099 renamed the rest of the pool. Same rule: both words trip it. Before
+// it, "ham steak" was caught by "ham" but "gammon steak" by nothing, and
+// "cornish hen", "half and half" and "phyllo dough" were not caught at all.
+describe('British and American names of a row renamed in HON-1099', () => {
+  it.each([
+    [{ allergens: ['gluten'] }, 'all-purpose flour'],
+    [{ allergens: ['gluten'] }, 'plain flour'],
+    [{ allergens: ['gluten'] }, 'whole wheat flour'],
+    [{ allergens: ['gluten'] }, 'wholemeal flour'],
+    [{ allergens: ['gluten'] }, 'whole wheat pasta'],
+    [{ allergens: ['gluten'] }, 'wholewheat pasta'],
+    [{ allergens: ['gluten'] }, 'phyllo dough'],
+    [{ allergens: ['gluten'] }, 'filo pastry'],
+    [{ allergens: ['gluten'] }, 'filo'],
+    [{ allergens: ['dairy'] }, 'half and half'],
+    [{ allergens: ['dairy'] }, 'half-and-half'],
+    [{ dietaryType: 'vegan' }, 'half-and-half'],
+    [{ allergens: ['dairy'] }, 'single cream'],
+    [{ allergens: ['dairy'] }, 'plain yogurt'],
+    [{ allergens: ['dairy'] }, 'natural yogurt'],
+    [{ allergens: ['shellfish'] }, 'baby shrimp'],
+    [{ allergens: ['shellfish'] }, 'small prawns'],
+    [{ allergens: ['shellfish'] }, 'shrimp peeled'],
+    [{ allergens: ['shellfish'] }, 'peeled prawns'],
+    [{ allergens: ['shellfish'] }, 'cooked shrimp'],
+    [{ allergens: ['shellfish'] }, 'cooked prawns'],
+    [{ allergens: ['fish'] }, 'canned anchovies'],
+    [{ allergens: ['fish'] }, 'tinned anchovies'],
+    [{ allergens: ['fish'] }, 'canned sardines'],
+    [{ allergens: ['fish'] }, 'tinned sardines'],
+    [{ dietaryType: 'vegetarian' }, 'ham steak'],
+    [{ dietaryType: 'vegetarian' }, 'gammon steak'],
+    [{ dietaryType: 'vegetarian' }, 'cornish hen'],
+    [{ dietaryType: 'vegetarian' }, 'cornish game hens'],
+    [{ dietaryType: 'vegetarian' }, 'poussin'],
+    [{ dietaryType: 'vegetarian' }, 'gelatin'],
+    [{ dietaryType: 'vegetarian' }, 'gelatine'],
+    [{ dietaryType: 'vegan' }, 'single cream'],
+  ])('%o flags %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(true)
+  })
+
+  it.each([
+    [{ allergens: ['gluten'] }, 'cornstarch'],
+    [{ allergens: ['gluten'] }, 'cornflour'],
+    [{ dietaryType: 'vegan' }, 'rapeseed oil'],
+    [{ dietaryType: 'vegan' }, 'broad beans'],
+    [{ dietaryType: 'vegan' }, 'black-eyed beans'],
+    [{ dietaryType: 'vegan' }, 'chestnut mushroom'],
+    [{ dietaryType: 'vegan' }, 'vanilla pod'],
+    [{ dietaryType: 'vegan' }, 'tinned chopped tomatoes'],
+  ])('%o allows %s', (household, ingredient) => {
+    expect(violates(household, ingredient)).toBe(false)
+  })
+})
+
 describe('review round 3 gaps (PR #981)', () => {
   it.each([
     [{ allergens: ['shellfish'] }, 'rannakarbid'],

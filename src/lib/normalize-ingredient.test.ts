@@ -40,6 +40,8 @@ describe('singularize', () => {
     expect(singularize('leaves')).toBe('leaf')
     expect(singularize('loaves')).toBe('loaf')
     expect(singularize('halves')).toBe('half')
+    expect(singularize('chillies')).toBe('chilli')
+    expect(singularize('chilies')).toBe('chili')
   })
 
   it('preserves false plurals', () => {
@@ -82,6 +84,7 @@ describe('stripModifiers', () => {
     expect(stripModifiers('frozen peas')).toBe('peas')
     expect(stripModifiers('canned tomatoes')).toBe('tomatoes')
     expect(stripModifiers('tinned tomatoes')).toBe('tomatoes')
+    expect(stripModifiers('unbleached all-purpose flour')).toBe('all-purpose flour')
     expect(stripModifiers('smoked paprika')).toBe('paprika')
     expect(stripModifiers('ground cumin')).toBe('cumin')
   })

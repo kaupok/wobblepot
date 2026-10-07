@@ -44,7 +44,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   lentils: 'green lentils', // DB has green lentils (in seed-expansion)
 
   // Baking - expand to DB names (seed-comprehensive)
-  flour: 'all-purpose flour', // DB has all-purpose flour
+  flour: 'plain flour', // DB has plain flour
   sugar: 'granulated sugar', // DB has granulated sugar
   yeast: 'active dry yeast', // DB has active dry yeast
   chocolate: 'chocolate chips', // DB has chocolate chips
@@ -55,7 +55,7 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   sherry: 'dry sherry', // DB has dry sherry
 
   // Dairy alternatives
-  yogurt: 'plain yogurt', // DB has plain yogurt
+  yogurt: 'natural yogurt', // DB has natural yogurt
 
   // Indian ingredients - expand to DB names (seed-comprehensive)
   besan: 'chickpea flour', // DB has chickpea flour
@@ -76,7 +76,6 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   vinegar: 'white vinegar', // DB has white vinegar
 
   // British English / alternate names (seed-import-coverage)
-  cornmeal: 'corn meal', // DB has corn meal
   'self raising flour': 'self-raising flour', // Without hyphen
   mangetout: 'snap peas', // British term
   'coriander leaves': 'fresh coriander', // Explicit leaf reference
@@ -98,8 +97,10 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'red chile': 'red chilli', // DB has red chilli
   'green chile': 'green chilli', // DB has green chilli
 
-  // Canned / processed tomato aliases
-  'chopped tomatoes': 'canned diced tomatoes', // DB has canned diced tomatoes
+  // Tinned / processed tomato aliases
+  'chopped tomatoes': 'tinned chopped tomatoes', // DB has tinned chopped tomatoes
+  'diced tomatoes': 'tinned chopped tomatoes', // American word for chopped tomatoes
+  'canned tomatoes': 'tinned chopped tomatoes', // DB has tinned chopped tomatoes
 
   // Meat / protein aliases
   mince: 'beef mince', // Most common "mince" meaning
@@ -121,13 +122,13 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   'creme fraîche': 'creme fraiche', // Partial accent variant
 
   // Mexican ingredient aliases (HON-418)
-  'chile guajillo': 'guajillo chili', // DB has guajillo chili
-  'dried guajillo': 'guajillo chili', // DB has guajillo chili
-  'chile pasilla': 'pasilla chili', // DB has pasilla chili
-  'dried pasilla': 'pasilla chili', // DB has pasilla chili
-  'chile de arbol': 'arbol chili', // DB has arbol chili
-  'chile de árbol': 'arbol chili', // DB has arbol chili (with accent)
-  'dried arbol': 'arbol chili', // DB has arbol chili
+  'chile guajillo': 'guajillo chilli', // DB has guajillo chilli
+  'dried guajillo': 'guajillo chilli', // DB has guajillo chilli
+  'chile pasilla': 'pasilla chilli', // DB has pasilla chilli
+  'dried pasilla': 'pasilla chilli', // DB has pasilla chilli
+  'chile de arbol': 'arbol chilli', // DB has arbol chilli
+  'chile de árbol': 'arbol chilli', // DB has arbol chilli (with accent)
+  'dried arbol': 'arbol chilli', // DB has arbol chilli
   'oaxaca cheese': 'queso oaxaca', // DB has queso oaxaca
   quesillo: 'queso oaxaca', // DB has queso oaxaca (common Mexican name)
   'corn truffle': 'huitlacoche', // DB has huitlacoche
@@ -194,72 +195,116 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   // Mediterranean & French aliases (HON-417)
   'parmigiano-reggiano': 'parmesan', // DB has parmesan
   'parmigiano reggiano': 'parmesan', // DB has parmesan
-  'phyllo pastry': 'phyllo dough', // DB has phyllo dough
-  'filo dough': 'phyllo dough', // DB has phyllo dough
-  filo: 'phyllo dough', // DB has phyllo dough
+  'phyllo pastry': 'filo pastry', // DB has filo pastry
+  'filo dough': 'filo pastry', // DB has filo pastry
+  filo: 'filo pastry', // DB has filo pastry
   'french green beans': 'haricots verts', // DB has haricots verts
-  'calabrian chili paste': 'calabrian chili', // DB has calabrian chili
-  'calabrian chili pepper': 'calabrian chili', // DB has calabrian chili
-  'calabrian pepper': 'calabrian chili', // DB has calabrian chili
+  'calabrian chili paste': 'calabrian chilli', // DB has calabrian chilli
+  'calabrian chili pepper': 'calabrian chilli', // DB has calabrian chilli
+  'calabrian pepper': 'calabrian chilli', // DB has calabrian chilli
   sopressata: 'soppressata', // DB has soppressata (standard double-p spelling)
   'apple brandy': 'calvados', // DB has calvados
 }
 
 /**
  * Other English names for a global ingredient: the same thing under another
- * name, usually the British or American word for the pool's name (HON-1100).
+ * name, usually the American word for the pool's British name (HON-1100).
  *
  * Kept apart from `INGREDIENT_ALIASES` because the ingredient search shows a
- * synonym next to the row it found ("all-purpose flour (plain flour)"), and an
+ * synonym next to the row it found ("plain flour (all-purpose flour)"), and an
  * alias is an expansion to a more specific row, so "chicken breast (chicken)"
  * would be wrong there. The AI recipe matcher reads both tables.
  *
+ * Lookups go through `synonymKey`, so a key also stands for its hyphen,
+ * apostrophe and spacing variants ("all purpose flour", "half-and-half").
+ *
  * Rules (checked by `pnpm db:validate`):
- * - Keys are lowercase and are not themselves the name of a global ingredient
+ * - Keys are lowercase and are not themselves the name of a global ingredient,
+ *   not even after `synonymKey`, and no two keys share a `synonymKey`
  * - A key is in this table or in `INGREDIENT_ALIASES`, never both
  * - Values match a global ingredient name exactly
  */
 export const INGREDIENT_SYNONYMS: Record<string, string> = {
-  // Baking
-  'plain flour': 'all-purpose flour',
-  'wholemeal flour': 'whole wheat flour',
-  'icing sugar': 'powdered sugar',
-  'confectioners sugar': 'powdered sugar',
+  // Baking (pool names renamed from the American word, HON-1099)
+  'all-purpose flour': 'plain flour',
+  'whole wheat flour': 'wholemeal flour',
+  'whole wheat pasta': 'wholewheat pasta',
+  'powdered sugar': 'icing sugar',
+  'confectioners sugar': 'icing sugar',
   'superfine sugar': 'caster sugar',
-  cornflour: 'cornstarch',
-  'bicarbonate of soda': 'baking soda',
-  bicarb: 'baking soda',
-  'filo pastry': 'phyllo dough',
-  'vanilla pod': 'vanilla bean',
+  cornstarch: 'cornflour',
+  'corn starch': 'cornflour',
+  'corn meal': 'cornmeal',
+  'corn flakes': 'cornflakes',
+  'baking soda': 'bicarbonate of soda',
+  bicarb: 'bicarbonate of soda',
+  'phyllo dough': 'filo pastry',
+  phyllo: 'filo pastry',
+  gelatin: 'gelatine',
+  'vanilla bean': 'vanilla pod',
+  'anise seed': 'aniseed',
+  papadum: 'poppadom',
 
   // Dairy
-  'single cream': 'half and half',
-  'natural yogurt': 'plain yogurt',
-  'natural yoghurt': 'plain yogurt',
+  'half and half': 'single cream',
+  'plain yogurt': 'natural yogurt',
+  'natural yoghurt': 'natural yogurt',
   'greek yoghurt': 'greek yogurt',
 
   // Oils, seeds and legumes
-  'rapeseed oil': 'canola oil',
-  'pumpkin seeds': 'pepitas',
-  'broad beans': 'fava beans',
-  'borlotti beans': 'cranberry beans',
+  'canola oil': 'rapeseed oil',
+  pepitas: 'pumpkin seeds',
+  'fava beans': 'broad beans',
+  'black-eyed peas': 'black-eyed beans',
+  'cranberry beans': 'borlotti beans',
   'garbanzo beans': 'chickpeas',
 
   // Vegetables
-  'chestnut mushroom': 'cremini mushroom',
-  'chinese leaf': 'napa cabbage',
-  swede: 'rutabaga',
-  'plum tomato': 'roma tomato',
-  'jerusalem artichoke': 'sunchoke',
-  'vine leaves': 'grape leaves',
-  'wild garlic': 'ramp',
-  'red pepper': 'red bell pepper',
-  'green pepper': 'green bell pepper',
-  'yellow pepper': 'yellow bell pepper',
+  'cremini mushroom': 'chestnut mushroom',
+  'napa cabbage': 'chinese leaf',
+  rutabaga: 'swede',
+  'roma tomato': 'plum tomato',
+  sunchoke: 'jerusalem artichoke',
+  'grape leaves': 'vine leaves',
+  ramp: 'wild garlic',
+  'red bell pepper': 'red pepper',
+  'green bell pepper': 'green pepper',
+  'yellow bell pepper': 'yellow pepper',
   capsicum: 'bell pepper',
   'sweet pepper': 'bell pepper',
   scallion: 'spring onion',
   'green onion': 'spring onion',
+
+  // Meat and fish
+  'cornish hen': 'poussin',
+  'cornish game hen': 'poussin',
+  'ham steak': 'gammon steak',
+  'baby shrimp': 'small prawns',
+  'cooked shrimp': 'cooked prawns',
+  'shrimp peeled': 'peeled prawns',
+
+  // Tins
+  'canned anchovies': 'tinned anchovies',
+  'canned mackerel': 'tinned mackerel',
+  'canned salmon': 'tinned salmon',
+  'canned sardines': 'tinned sardines',
+  'canned pumpkin': 'tinned pumpkin',
+  'canned diced tomatoes': 'tinned chopped tomatoes',
+  'canned whole peeled tomatoes': 'tinned plum tomatoes',
+  'canned green chiles': 'tinned green chillies',
+  'coconut milk canned': 'tinned coconut milk',
+
+  // Chilli spelling
+  'chili oil': 'chilli oil',
+  'chili garlic sauce': 'chilli garlic sauce',
+  'sweet chili sauce': 'sweet chilli sauce',
+  'thai chili': 'thai chilli',
+  'ancho chili powder': 'ancho chilli powder',
+  'kashmiri chili powder': 'kashmiri chilli powder',
+  'arbol chili': 'arbol chilli',
+  'calabrian chili': 'calabrian chilli',
+  'guajillo chili': 'guajillo chilli',
+  'pasilla chili': 'pasilla chilli',
 
   // Seeded rows renamed from the American word (HON-1083)
   'tomato sauce': 'passata',
@@ -300,6 +345,26 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
 }
 
 /**
+ * The lookup key for `INGREDIENT_SYNONYMS`: lower case, apostrophes dropped,
+ * hyphens read as spaces, runs of spaces collapsed. A trigram search ignores
+ * those marks, so "all purpose flour" used to find the "all-purpose flour" row
+ * by name. Now that the American word lives only in the synonym table, the
+ * lookup has to ignore them too (HON-1099).
+ */
+export function synonymKey(name: string): string {
+  return name.toLowerCase().replace(/['’]/g, '').replace(/[-‐–]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+const SYNONYMS_BY_KEY = new Map(
+  Object.entries(INGREDIENT_SYNONYMS).map(([key, poolName]) => [synonymKey(key), poolName]),
+)
+
+/** The pool name for another English name of a global ingredient, if it is one. */
+export function findSynonym(name: string): string | undefined {
+  return SYNONYMS_BY_KEY.get(synonymKey(name))
+}
+
+/**
  * Apply ingredient alias expansion, or resolve another English name to the
  * pool's name.
  *
@@ -308,7 +373,7 @@ export const INGREDIENT_SYNONYMS: Record<string, string> = {
  */
 export function applyIngredientAlias(name: string): string {
   const normalized = name.toLowerCase().trim()
-  return INGREDIENT_ALIASES[normalized] ?? INGREDIENT_SYNONYMS[normalized] ?? name
+  return INGREDIENT_ALIASES[normalized] ?? findSynonym(name) ?? name
 }
 
 /**
@@ -320,5 +385,5 @@ export function applyIngredientAlias(name: string): string {
  */
 export function hasIngredientAlias(name: string): boolean {
   const normalized = name.toLowerCase().trim()
-  return normalized in INGREDIENT_ALIASES || normalized in INGREDIENT_SYNONYMS
+  return normalized in INGREDIENT_ALIASES || findSynonym(name) !== undefined
 }

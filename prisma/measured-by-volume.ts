@@ -2,7 +2,8 @@
 // than by weight (HON-1069). The seed sets `Ingredient.measuredByVolume` from
 // this rule. Migration 20261006130000_add_ingredient_measured_by_volume repeats
 // the three lists by hand, because a migration cannot import TypeScript;
-// measured-by-volume.test.ts fails when the two copies differ.
+// measured-by-volume.test.ts fails when the two copies differ, apart from the
+// rows a later migration renamed in place (the test lists them).
 //
 // Names and subcategories match exactly, case-sensitive, as the seeds spell them.
 
@@ -46,8 +47,8 @@ export const MEASURED_BY_VOLUME_NAMES: ReadonlySet<string> = new Set([
   'tucupi',
   'vinegar',
   'balsamic vinegar',
-  'canola oil',
-  'half and half',
+  'rapeseed oil',
+  'single cream',
 ])
 
 /** Solid or spoonable ingredients in a pourable subcategory. Wins over both lists above. */

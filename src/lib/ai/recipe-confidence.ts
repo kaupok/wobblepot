@@ -123,7 +123,8 @@ export const LOW_CONFIDENCE_THRESHOLD = 0.6
  *
  * Examples of false positives this threshold filters out:
  * - "fajita seasoning" → "italian seasoning"
- * - "red chili pepper" → "red bell pepper" (similarity ~0.53, semantically wrong)
+ * - "red chili pepper" → "red bell pepper" (similarity ~0.53, semantically wrong;
+ *   the row is "red pepper" since HON-1099)
  *
  * Raised from 0.5 to 0.55 to prevent similar-sounding but semantically different
  * ingredients from being suggested as verify-matches.

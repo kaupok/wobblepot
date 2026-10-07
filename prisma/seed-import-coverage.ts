@@ -523,7 +523,7 @@ export const importCoverageIngredients = [
     gramsPerPiece: 150,
   },
   {
-    name: 'green bell pepper',
+    name: 'green pepper',
     category: 'vegetable',
     defaultUnit: 'piece',
     allergens: [],
@@ -535,7 +535,7 @@ export const importCoverageIngredients = [
     gramsPerPiece: 150,
   },
   {
-    name: 'yellow bell pepper',
+    name: 'yellow pepper',
     category: 'vegetable',
     defaultUnit: 'piece',
     allergens: [],
@@ -547,7 +547,7 @@ export const importCoverageIngredients = [
     gramsPerPiece: 150,
   },
   {
-    name: 'roma tomato',
+    name: 'plum tomato',
     category: 'vegetable',
     defaultUnit: 'piece',
     allergens: [],
@@ -629,7 +629,7 @@ export const importCoverageIngredients = [
     fiber: 1,
   },
   {
-    name: 'canned pumpkin',
+    name: 'tinned pumpkin',
     category: 'vegetable',
     defaultUnit: 'g',
     allergens: [],
@@ -640,7 +640,7 @@ export const importCoverageIngredients = [
     fiber: 2.9,
   },
   {
-    name: 'canned green chiles',
+    name: 'tinned green chillies',
     category: 'vegetable',
     defaultUnit: 'g',
     allergens: [],
@@ -1010,7 +1010,7 @@ export const importCoverageIngredients = [
   // DAIRY (2)
   // ============================================
   {
-    name: 'half and half',
+    name: 'single cream',
     category: 'dairy',
     defaultUnit: 'g',
     allergens: ['dairy'],
@@ -1049,7 +1049,7 @@ export const importCoverageIngredients = [
     fiber: 2,
   },
   {
-    name: 'whole wheat pasta',
+    name: 'wholewheat pasta',
     category: 'carb',
     defaultUnit: 'g',
     allergens: ['gluten'],
@@ -1311,7 +1311,7 @@ export const importCoverageIngredients = [
     fiber: 0,
   },
   {
-    name: 'cornish hen',
+    name: 'poussin',
     category: 'protein',
     subcategory: 'poultry',
     proteinType: 'poultry',
@@ -1895,7 +1895,7 @@ export const importCoverageIngredients = [
     fiber: 0,
   },
   {
-    name: 'ham steak',
+    name: 'gammon steak',
     category: 'protein',
     subcategory: 'pork',
     proteinType: 'pork',
@@ -2207,7 +2207,7 @@ export const importCoverageIngredients = [
   // MISCELLANEOUS (3)
   // ============================================
   {
-    name: 'canola oil',
+    name: 'rapeseed oil',
     category: 'fat',
     defaultUnit: 'g',
     allergens: [],
@@ -2786,7 +2786,7 @@ export const importCoverageIngredients = [
     fat: 18,
   },
   {
-    name: 'canned salmon',
+    name: 'tinned salmon',
     category: 'protein',
     subcategory: 'fish',
     proteinType: 'fish',
@@ -2798,7 +2798,7 @@ export const importCoverageIngredients = [
     fat: 7,
   },
   {
-    name: 'canned mackerel',
+    name: 'tinned mackerel',
     category: 'protein',
     subcategory: 'fish',
     proteinType: 'fish',
@@ -2810,7 +2810,7 @@ export const importCoverageIngredients = [
     fat: 6.3,
   },
   {
-    name: 'canned anchovies',
+    name: 'tinned anchovies',
     category: 'protein',
     subcategory: 'fish',
     proteinType: 'fish',
@@ -2850,7 +2850,7 @@ export const importCoverageIngredients = [
   // SHELLFISH - Missing forms (10)
   // ============================================
   {
-    name: 'shrimp peeled',
+    name: 'peeled prawns',
     category: 'protein',
     subcategory: 'shellfish',
     proteinType: 'fish',
@@ -2910,7 +2910,7 @@ export const importCoverageIngredients = [
     fat: 0.9,
   },
   {
-    name: 'baby shrimp',
+    name: 'small prawns',
     category: 'protein',
     subcategory: 'shellfish',
     proteinType: 'fish',
@@ -2922,7 +2922,7 @@ export const importCoverageIngredients = [
     fat: 0.3,
   },
   {
-    name: 'cooked shrimp',
+    name: 'cooked prawns',
     category: 'protein',
     subcategory: 'shellfish',
     proteinType: 'fish',
@@ -3398,7 +3398,7 @@ export const importCoverageIngredients = [
   // CROSS-CUISINE HIGH-PRIORITY (5) — HON-411
   // ============================================
   {
-    name: 'chili oil',
+    name: 'chilli oil',
     category: 'fat',
     subcategory: 'oil',
     defaultUnit: 'g',
@@ -3531,7 +3531,7 @@ export const importCoverageIngredients = [
     gramsPerPiece: 50,
   },
   {
-    name: 'grape leaves',
+    name: 'vine leaves',
     category: 'vegetable',
     defaultUnit: 'piece',
     allergens: [],
@@ -4244,7 +4244,7 @@ export const importCoverageIngredients = [
     fiber: 2.5,
   },
   {
-    name: 'calabrian chili',
+    name: 'calabrian chilli',
     category: 'spice',
     subcategory: 'chili',
     defaultUnit: 'g',
@@ -4331,7 +4331,7 @@ export const importCoverageIngredients = [
 
   // Greek
   {
-    name: 'phyllo dough',
+    name: 'filo pastry',
     category: 'carb',
     subcategory: 'pastry',
     defaultUnit: 'g',

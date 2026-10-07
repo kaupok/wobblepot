@@ -1,4 +1,4 @@
-import { INGREDIENT_SYNONYMS } from './ingredient-aliases'
+import { INGREDIENT_SYNONYMS, synonymKey } from './ingredient-aliases'
 
 /** Shorter terms match too many keys to be useful ("pe" → every pepper). */
 export const MIN_SYNONYM_TERM_LENGTH = 3
@@ -10,10 +10,11 @@ export interface SynonymMatch {
   synonym: string
   /**
    * True when the term picks out this synonym rather than a generic word in
-   * it: it starts a one-word synonym ("zucc", "swed"), or it reaches past the
-   * first word of a longer one ("plain f"). False when it is only the first
-   * word or part of it ("plain", "sweet") or starts a later word ("pepper" in
-   * "red pepper"). The search route ranks only a strong hit above name hits.
+   * it: it starts a one-word synonym ("zucc", "ruta"), or it reaches past the
+   * first word of a longer one ("all-purpose f"). False when it is only the
+   * first word or part of it ("all-purpose", "sweet") or starts a later word
+   * ("pepper" in "red bell pepper"). The search route ranks only a strong hit
+   * above name hits.
    */
   strong: boolean
 }
@@ -21,23 +22,29 @@ export interface SynonymMatch {
 /**
  * The synonym keys a search term matches, one per target row (HON-1100).
  *
- * A key matches when it, or one of its words, starts with the term
- * (case-insensitive): "plain fl" and "flo" both match "plain flour". When
- * several keys point at one row, a strong match wins, then a key that starts
- * with the term, then a key whose later word does; table order breaks ties.
+ * A key matches when it, or one of its words, starts with the term. Both are
+ * compared by `synonymKey`, so case, hyphens and apostrophes do not matter:
+ * "all-purpose fl", "all purpose fl" and "flo" all match "all-purpose flour".
+ * When several keys point at one row, a strong match wins, then a key that
+ * starts with the term, then a key whose later word does; table order breaks
+ * ties.
  */
 export function findSynonymMatches(search: string): SynonymMatch[] {
-  const term = search.trim().toLowerCase()
+  const term = synonymKey(search)
   if (term.length < MIN_SYNONYM_TERM_LENGTH) return []
 
   const strong: SynonymMatch[] = []
   const byKeyStart: SynonymMatch[] = []
   const byWordStart: SynonymMatch[] = []
   for (const [synonym, target] of Object.entries(INGREDIENT_SYNONYMS)) {
-    const words = synonym.split(/\s+/)
-    const firstWord = words[0] ?? synonym
-    if (synonym.startsWith(term)) {
-      if (words.length === 1 || term.length > firstWord.length) {
+    const key = synonymKey(synonym)
+    const words = key.split(' ')
+    // The first word as the table writes it: "all-purpose" is one word, so
+    // typing "all purpose" is still only the first word.
+    const tableWords = synonym.split(/\s+/)
+    const firstWord = synonymKey(tableWords[0] ?? synonym)
+    if (key.startsWith(term)) {
+      if (tableWords.length === 1 || term.length > firstWord.length) {
         strong.push({ target, synonym, strong: true })
       } else {
         byKeyStart.push({ target, synonym, strong: false })
