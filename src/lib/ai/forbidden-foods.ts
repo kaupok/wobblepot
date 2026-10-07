@@ -376,6 +376,8 @@ const DAIRY: FoodGroup = {
     'laimikoor',
     'kooritud',
     'koorimata',
+    // British shop name for vegan parmesan; "vegan" cannot reach past "hard" (HON-1098).
+    'vegan hard cheese',
   ],
 }
 

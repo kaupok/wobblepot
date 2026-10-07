@@ -356,6 +356,7 @@ describe('the food words the British English block asks for (HON-1098)', () => {
     [{ allergens: ['gluten'] }, 'plain flour'],
     [{ allergens: ['fish'] }, 'kipper'],
     [{ dietaryType: 'vegetarian' }, 'smoked kippers'],
+    [{ dietaryType: 'vegan' }, 'hard cheese'],
   ])('%o flags %s', (household, ingredient) => {
     expect(violates(household, ingredient)).toBe(true)
   })
@@ -375,6 +376,9 @@ describe('the food words the British English block asks for (HON-1098)', () => {
     [{ dietaryType: 'vegan' }, 'bicarbonate of soda'],
     [{ allergens: ['gluten'] }, 'bicarbonate of soda'],
     [{ dietaryType: 'vegan' }, 'oat yoghurt'],
+    // The eval's vegan carbonara run wrote it (HON-1098).
+    [{ dietaryType: 'vegan' }, 'vegan hard cheese'],
+    [{ allergens: ['dairy'] }, 'vegan hard cheese'],
   ])('%o allows %s', (household, ingredient) => {
     expect(violates(household, ingredient)).toBe(false)
   })
