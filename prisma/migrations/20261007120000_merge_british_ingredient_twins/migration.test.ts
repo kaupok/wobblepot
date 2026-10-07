@@ -6,8 +6,8 @@ import { ingredientTranslationsEt } from '../../seed-ingredient-translations-et'
 
 // The merge list lives in three places that must agree: this migration, the
 // seeds (which must no longer define the American row), and INGREDIENT_SYNONYMS
-// (which keeps the American word findable). The SQL itself is rehearsed against
-// Postgres in the PR; these checks keep the three lists in step.
+// (which keeps the American word findable). These checks keep the three lists
+// in step; migration.pglite.test.ts runs the SQL itself on Postgres.
 describe('migration 20261007120000_merge_british_ingredient_twins', () => {
   const sql = readFileSync(join(__dirname, 'migration.sql'), 'utf-8')
   const seeds = ['seed.ts', 'seed-expansion.ts', 'seed-comprehensive.ts', 'seed-import-coverage.ts']
