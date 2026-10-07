@@ -8,15 +8,16 @@ import { Body } from '@/components/ui/typography'
 // Future surfaces that must render this when they ship: Today-dashboard nutrition
 // rollup, member-preferences macro-targets UI.
 // Copy is localized via the `common.nutritionDisclaimer` message catalog key.
-// Always the caption level: every surface renders it as fine print, so size is
-// the component's, not the caller's (HON-675).
+// Always fine print: caption size at regular weight, so it reads quieter than
+// the nutrition it qualifies (HON-1109). Size is the component's, not the
+// caller's (HON-675).
 export const NutritionDisclaimer = React.forwardRef<
   HTMLParagraphElement,
   Omit<React.HTMLAttributes<HTMLParagraphElement>, 'className'>
 >((props, ref) => {
   const t = useTranslations('common')
   return (
-    <Body ref={ref} variant="caption" {...props}>
+    <Body ref={ref} variant="fine-print" {...props}>
       {t('nutritionDisclaimer')}
     </Body>
   )

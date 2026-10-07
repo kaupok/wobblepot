@@ -211,6 +211,13 @@ describe('Typography Components', () => {
       expect(body).toHaveClass('text-xs', 'font-medium', 'text-muted-foreground')
     })
 
+    it('renders fine-print variant at caption size and regular weight', () => {
+      render(<Body variant="fine-print">Fine print</Body>)
+      const body = screen.getByText('Fine print')
+      expect(body).toHaveClass('text-xs', 'text-muted-foreground')
+      expect(body).not.toHaveClass('font-medium')
+    })
+
     it('accepts custom className', () => {
       render(<Body className="custom-class">Body text</Body>)
       const body = screen.getByText('Body text')

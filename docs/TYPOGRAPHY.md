@@ -60,9 +60,10 @@ Renders paragraph text with different text sizes and styles:
 <Body variant="paragraph">Wrapping foreground text (sm, normal line-height)</Body>
 <Body variant="muted">Muted text (sm, muted color)</Body>
 <Body variant="caption">Caption text (xs, medium weight, muted)</Body>
+<Body variant="fine-print">Fine print (xs, regular weight, muted)</Body>
 ```
 
-**Available variants:** `default` | `lead` | `large` | `small` | `paragraph` | `muted` | `caption`, plus the cook view's `step` (20 → 22px from `lg`) and `step-small` (18 → 20px, one size below, for the question above an Ask answer, HON-1022)
+**Available variants:** `default` | `lead` | `large` | `small` | `paragraph` | `muted` | `caption` | `fine-print` (the nutrition disclaimer, quieter than the captions beside it, HON-1109), plus the cook view's `step` (20 → 22px from `lg`) and `step-small` (18 → 20px, one size below, for the question above an Ask answer, HON-1022)
 
 ### `tone` — colour
 

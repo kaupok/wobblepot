@@ -9,6 +9,7 @@ import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { NutritionSummary } from './NutritionSummary'
 
+const balanced = { calories: 520, protein: 42, carbs: 30, fat: 28 }
 const fourDigitNutrition = { calories: 1250, protein: 95, carbs: 130, fat: 48 }
 
 function renderInLocale(node: ReactNode, locale: 'en' | 'et' = 'en') {
@@ -20,7 +21,77 @@ function renderInLocale(node: ReactNode, locale: 'en' | 'et' = 'en') {
   )
 }
 
+const parts = (container: HTMLElement) =>
+  [...container.querySelectorAll<HTMLElement>('[data-macro-part]')].map(
+    (part) => part.dataset.macroPart,
+  )
+
+// jsdom lays nothing out, so these cover the markup and the text. Which legend
+// layout a real browser picks is measured by the stories' play functions.
 describe('NutritionSummary', () => {
+  it('reads kcal, per serving, then grams over name for each macro', () => {
+    const { container } = renderInLocale(<NutritionSummary nutrition={balanced} />)
+    expect(container.textContent).toBe('520 kcalper serving42gProtein30gCarbs28gFat')
+    expect(screen.getByText('520 kcal')).toBeInTheDocument()
+    expect(screen.getByText('per serving')).toBeInTheDocument()
+  })
+
+  it('draws protein, carbs and fat in that order, hidden from assistive tech', () => {
+    const { container } = renderInLocale(<NutritionSummary nutrition={balanced} />)
+    expect(parts(container)).toEqual(['protein', 'carbs', 'fat'])
+    for (const part of container.querySelectorAll('[data-macro-part]')) {
+      expect(part).toHaveAttribute('aria-hidden', 'true')
+    }
+    // 42g / 30g / 28g is 31 / 22 / 47 of the energy (4/4/9 kcal a gram).
+    expect(screen.getByTestId('macro-split').style.getPropertyValue('--macro-split')).toBe(
+      'minmax(4px, 31fr) minmax(4px, 22fr) minmax(4px, 47fr)',
+    )
+  })
+
+  it('colours each part from the series tokens only', () => {
+    const { container } = renderInLocale(<NutritionSummary nutrition={balanced} />)
+    const fills = [...container.querySelectorAll('[data-macro-part]')].map(
+      (part) => [...part.classList].filter((name) => name.startsWith('bg-'))[0],
+    )
+    expect(fills).toEqual(['bg-series-1', 'bg-series-2', 'bg-series-3'])
+  })
+
+  it('puts the legend under the parts until a browser measures it (server render)', () => {
+    const { container } = renderInLocale(<NutritionSummary nutrition={balanced} />)
+    expect(container.firstElementChild).toHaveAttribute('data-mode', 'aligned')
+    // In the bar's grid, with no swatches.
+    expect(within(screen.getByTestId('macro-split')).getByText('Protein')).toBeInTheDocument()
+    expect(container.querySelectorAll('span[aria-hidden]')).toHaveLength(0)
+  })
+
+  it.each(['default', 'lg'] as const)('sets the bar height for the %s size', (size) => {
+    const { container } = renderInLocale(<NutritionSummary nutrition={balanced} size={size} />)
+    const part = container.querySelector('[data-macro-part]')
+    expect(part).toHaveClass(size === 'lg' ? 'h-3' : 'h-1.5')
+    expect(container.firstElementChild).toHaveAttribute('data-size', size)
+  })
+
+  it('draws no part for a macro at 0g, still names it, and pins the legend', () => {
+    const { container } = renderInLocale(
+      <NutritionSummary nutrition={{ calories: 300, protein: 25, carbs: 45, fat: 0 }} />,
+    )
+    expect(parts(container)).toEqual(['protein', 'carbs'])
+    expect(screen.getByText('0g')).toBeInTheDocument()
+    expect(screen.getByText('Fat')).toBeInTheDocument()
+    expect(container.firstElementChild).toHaveAttribute('data-mode', 'pinned')
+    // A swatch before each name, since the names no longer sit under parts.
+    expect(container.querySelectorAll('span[aria-hidden]')).toHaveLength(3)
+  })
+
+  it('draws no bar when every macro is 0', () => {
+    const { container } = renderInLocale(
+      <NutritionSummary nutrition={{ calories: 0, protein: 0, carbs: 0, fat: 0 }} />,
+    )
+    expect(screen.queryByTestId('macro-split')).not.toBeInTheDocument()
+    expect(container.querySelectorAll('span[aria-hidden]')).toHaveLength(0)
+    expect(screen.getAllByText('0g')).toHaveLength(3)
+  })
+
   it('groups four-digit calories with a comma in en', () => {
     renderInLocale(<NutritionSummary nutrition={fourDigitNutrition} />)
     // Raw interpolation would render "1250" — the comma proves the value
@@ -37,25 +108,19 @@ describe('NutritionSummary', () => {
     expect(screen.queryByText('1,250 kcal')).not.toBeInTheDocument()
   })
 
-  it('formats macros through the locale formatter in the grid layout', () => {
+  it('names the macros and the basis in Estonian', () => {
+    renderInLocale(<NutritionSummary nutrition={fourDigitNutrition} />, 'et')
+    expect(screen.getByText('portsjoni kohta')).toBeInTheDocument()
+    expect(screen.getByText('Valgud')).toBeInTheDocument()
+    expect(screen.getByText('Süsivesikud')).toBeInTheDocument()
+    expect(screen.getByText('Rasvad')).toBeInTheDocument()
+  })
+
+  it('formats macros through the locale formatter', () => {
     renderInLocale(<NutritionSummary nutrition={fourDigitNutrition} />)
     expect(screen.getByText('95g')).toBeInTheDocument()
     expect(screen.getByText('130g')).toBeInTheDocument()
     expect(screen.getByText('48g')).toBeInTheDocument()
-  })
-
-  it('says the compact line is per serving, formatted for en (HON-964)', () => {
-    renderInLocale(<NutritionSummary nutrition={fourDigitNutrition} compact />)
-    expect(
-      screen.getByText('Per serving: 1,250 kcal · 95g protein · 130g carbs · 48g fat'),
-    ).toBeInTheDocument()
-  })
-
-  it('says the compact line is per serving in Estonian word order (HON-964)', () => {
-    renderInLocale(<NutritionSummary nutrition={fourDigitNutrition} compact />, 'et')
-    expect(
-      screen.getByText('Portsjoni kohta: 1250 kcal · 95g valku · 130g süsivesikuid · 48g rasva'),
-    ).toBeInTheDocument()
   })
 
   it('rounds fractional values like Math.round did', () => {
@@ -73,36 +138,30 @@ describe('NutritionSummary', () => {
   describe('vague-quantity info (HON-764, HON-930)', () => {
     const nutrition = { calories: 520, protein: 42, carbs: 30, fat: 12 }
 
-    it.each([
-      ['compact', true],
-      ['full', false],
-    ])('renders an (i) button that opens the explanation in %s mode', async (_mode, compact) => {
-      const { container } = renderInLocale(
-        <NutritionSummary
-          nutrition={nutrition}
-          compact={compact}
-          components={[{ isVague: true }]}
-        />,
-      )
-      // The asterisk and the caption line are gone. The sentence's only
-      // home outside the popover is the button's screen-reader description.
-      const sentence = 'Includes estimates for vague quantities like “to taste”.'
-      expect(container.textContent).not.toContain('*')
-      expect(screen.getByText(sentence)).toHaveClass('sr-only')
+    it.each(['default', 'lg'] as const)(
+      'renders an (i) button after "per serving" that opens the explanation (%s)',
+      async (size) => {
+        const { container } = renderInLocale(
+          <NutritionSummary nutrition={nutrition} size={size} components={[{ isVague: true }]} />,
+        )
+        // The asterisk and the caption line are gone. The sentence's only
+        // home outside the popover is the button's screen-reader description.
+        const sentence = 'Includes estimates for vague quantities like “to taste”.'
+        expect(container.textContent).not.toContain('*')
+        expect(screen.getByText(sentence)).toHaveClass('sr-only')
 
-      const button = screen.getByRole('button', { name: 'About these numbers' })
-      expect(button).toHaveAccessibleDescription(sentence)
-      // The (i) follows the text it qualifies: the macros line, or the header.
-      const preceding = compact ? /^Per serving: 520 kcal/ : 'Nutrition (per serving)'
-      expect(button.previousElementSibling).toHaveTextContent(preceding)
-      fireEvent.click(button)
-      const popover = await screen.findByRole('dialog', { name: 'About these numbers' })
-      expect(within(popover).getByText(sentence)).toBeInTheDocument()
-    })
+        const button = screen.getByRole('button', { name: 'About these numbers' })
+        expect(button).toHaveAccessibleDescription(sentence)
+        expect(button.previousElementSibling).toHaveTextContent('per serving')
+        fireEvent.click(button)
+        const popover = await screen.findByRole('dialog', { name: 'About these numbers' })
+        expect(within(popover).getByText(sentence)).toBeInTheDocument()
+      },
+    )
 
     it('labels the button and explains in Estonian', async () => {
       renderInLocale(
-        <NutritionSummary nutrition={nutrition} compact components={[{ isVague: true }]} />,
+        <NutritionSummary nutrition={nutrition} components={[{ isVague: true }]} />,
         'et',
       )
       const sentence = 'Sisaldab hinnanguid umbmääraste koguste kohta, nagu „maitse järgi”.'
@@ -113,16 +172,9 @@ describe('NutritionSummary', () => {
       expect(within(popover).getByText(sentence)).toBeInTheDocument()
     })
 
-    it.each([
-      ['compact', true],
-      ['full', false],
-    ])('renders no button in %s mode without vague quantities', (_mode, compact) => {
+    it('renders no button without vague quantities', () => {
       const { container } = renderInLocale(
-        <NutritionSummary
-          nutrition={nutrition}
-          compact={compact}
-          components={[{ isVague: false }]}
-        />,
+        <NutritionSummary nutrition={nutrition} components={[{ isVague: false }]} />,
       )
       expect(screen.queryByRole('button')).not.toBeInTheDocument()
       expect(container.textContent).not.toContain('*')

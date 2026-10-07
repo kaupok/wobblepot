@@ -141,8 +141,8 @@ const viewportWidth = () => overlay().offsetWidth
 const viewportHeight = () => overlay().offsetHeight
 
 /**
- * Nothing in the view is below 16px except the nutrition caption and the
- * disclaimer (HON-932). Walks every text node rather than sampling elements,
+ * Nothing in the view is below 16px except the nutrition legend's captions and
+ * the disclaimer (HON-932, HON-1109). Walks every text node rather than sampling elements,
  * so a new caption anywhere fails it.
  */
 async function assertNoSmallText(dialog: HTMLElement): Promise<void> {

@@ -130,3 +130,53 @@ describe.each([
     expect(contrast(parseOklch(token(body, name)), surface)).toBeGreaterThanOrEqual(4.5)
   })
 })
+
+/**
+ * The ordinal series (`--series-1..3`): the parts of the nutrition split bar
+ * (HON-1109). A part is a graphical object, so each step needs 3:1 against the
+ * surface it sits on (WCAG 1.4.11): the meal tint at every hue, the neutral
+ * meal surface, and the theme's own --background and --card. Adjacent steps
+ * stay 0.15 apart in lightness, so the parts read as different from each other
+ * as well as from the surface.
+ */
+describe.each([
+  { theme: 'light', body: block(':root') },
+  { theme: 'dark', body: block('.dark') },
+])('series tokens ($theme)', ({ body }) => {
+  const STEPS = [1, 2, 3]
+  const series = (step: number, hue: number, chroma = true): Oklch => [
+    Number(token(body, `series-${step}-l`)),
+    chroma ? Number(token(body, `series-${step}-c`)) : 0,
+    hue,
+  ]
+  const surface = (hue: number, chroma = true): Oklch => [
+    Number(token(body, 'meal-surface-l')),
+    chroma ? Number(token(body, 'meal-surface-c')) : 0,
+    hue,
+  ]
+
+  it.each(STEPS)('keeps step %i at 3:1 on the meal tint for every hue', (step) => {
+    const worst = Math.min(...HUES.map((h) => contrast(series(step, h), surface(h))))
+    expect(worst).toBeGreaterThanOrEqual(3)
+  })
+
+  it.each(STEPS)('keeps step %i at 3:1 on the neutral meal surface', (step) => {
+    expect(contrast(series(step, 0, false), surface(0, false))).toBeGreaterThanOrEqual(3)
+  })
+
+  it.each(STEPS)('keeps neutral step %i at 3:1 on --background and --card', (step) => {
+    for (const name of ['background', 'card']) {
+      const backdrop = parseOklch(token(body, name))
+      expect(contrast(series(step, 0, false), backdrop)).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it('keeps adjacent steps at least 0.15 apart in lightness', () => {
+    const lightness = STEPS.map((step) => series(step, 0)[0])
+    for (let i = 1; i < lightness.length; i++) {
+      // Rounded, so 0.15 written as a difference of two decimals still passes.
+      const gap = Math.round(Math.abs(lightness[i]! - lightness[i - 1]!) * 1000) / 1000
+      expect(gap).toBeGreaterThanOrEqual(0.15)
+    }
+  })
+})

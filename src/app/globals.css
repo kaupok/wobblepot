@@ -55,6 +55,9 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -176,6 +179,14 @@
   grid-template-columns: 1fr 320px;
 }
 
+/* The nutrition split bar and its aligned legend (HON-1109): one `fr` track per
+   macro, from its share of the meal's energy. Data-driven, so the template is
+   a custom property set by `macroSplitStyle` in
+   src/components/meal-plan/macro-energy-shares.ts. */
+@utility grid-cols-macro-split {
+  grid-template-columns: var(--macro-split);
+}
+
 /* The one page width (docs/DESIGN.md → Composition rules → "One page width",
    HON-376), shared by the main column and the footer row. The header's pills
    sit at the viewport's edges instead (src/components/header-chrome.tsx).
@@ -263,6 +274,19 @@
   --meal-muted-c: 0.03;
   --meal-chip-l: 0.9;
   --meal-chip-c: 0.11;
+  /* Ordinal series for a bar split into parts: the nutrition macros, protein
+     1, carbs 2, fat 3 (HON-1109). Told apart by lightness alone, because the
+     palette has no accent hue (docs/DESIGN.md → Color), and each part has a
+     text label beside it. Grey on a neutral surface; on a meal tint the tint's
+     hue at the chroma below. Each step is at least 3:1 on the surface and
+     0.15 apart in lightness from the next; src/lib/meal-tint.test.ts measures
+     both. */
+  --series-1-l: 0.3;
+  --series-1-c: 0.06;
+  --series-2-l: 0.46;
+  --series-2-c: 0.09;
+  --series-3-l: 0.62;
+  --series-3-c: 0.11;
   /* The shopping note's sheet: paler than a meal tint, so beside the white
      meal cards it reads as paper rather than a fourth coloured card. Dark text
      on a lighter surface only gains contrast, so the meal-tint pairings the
@@ -345,6 +369,13 @@
   --meal-muted-c: 0.02;
   --meal-chip-l: 0.27;
   --meal-chip-c: 0.11;
+  /* Light to dark, because the surface is dark. */
+  --series-1-l: 0.96;
+  --series-1-c: 0.04;
+  --series-2-l: 0.8;
+  --series-2-c: 0.08;
+  --series-3-l: 0.64;
+  --series-3-c: 0.11;
   /* No paler note in the dark: a lighter sheet there would glow. */
   --note-surface-l: 0.35;
   --note-surface-c: 0.035;
@@ -384,12 +415,32 @@
    any chroma. It sets --meal-hue itself: left unset, the var() makes every
    declaration below invalid at computed-value time and --card transparent. */
 @layer base {
+  /* The series on a neutral surface: grey. Declared on `.dark` as well as
+     `:root`, so the dark lightness resolves wherever the theme class sits. */
+  :root,
+  .dark {
+    --series-1: oklch(var(--series-1-l) 0 0);
+    --series-2: oklch(var(--series-2-l) 0 0);
+    --series-3: oklch(var(--series-3-l) 0 0);
+  }
+
+  /* On a meal tint, the tint's hue. Not on a note or a sticky slip: no series
+     renders there, and its contrast is measured only on the meal tint. */
+  [data-meal-surface] {
+    --series-1: oklch(var(--series-1-l) var(--series-1-c) var(--meal-hue));
+    --series-2: oklch(var(--series-2-l) var(--series-2-c) var(--meal-hue));
+    --series-3: oklch(var(--series-3-l) var(--series-3-c) var(--meal-hue));
+  }
+
   [data-meal-surface='neutral'] {
     --meal-hue: 0;
     --meal-surface-c: 0;
     --meal-text-c: 0;
     --meal-muted-c: 0;
     --meal-chip-c: 0;
+    --series-1-c: 0;
+    --series-2-c: 0;
+    --series-3-c: 0;
   }
 
   /* A paper note — the shopping summary on Today (`UrgentShopping`). A fixed

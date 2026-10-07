@@ -156,7 +156,7 @@ export function MealCardBase({
       )}
 
       {/* 3. Nutrition summary */}
-      <NutritionSummary nutrition={meal.nutrition} components={meal.components} compact />
+      <NutritionSummary nutrition={meal.nutrition} components={meal.components} />
 
       {/* 4. Prep time — a `surface` badge, the page background on the tint:
           the time is a fact about cooking, not the meal's own colour. */}

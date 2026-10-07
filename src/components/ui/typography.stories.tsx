@@ -133,6 +133,10 @@ export const BodyVariants: Story = {
       </Body>
       <Body variant="muted">Muted — de-emphasised supporting text.</Body>
       <Body variant="caption">Caption — compact labels and metadata.</Body>
+      <Body variant="fine-print">
+        Fine print — caption size at regular weight, quieter than the captions beside it: the
+        nutrition disclaimer (HON-1109).
+      </Body>
       <Body variant="step">
         Step — the cook view’s steps, Watch out and Tip: 20px, 22px from `lg`, relaxed leading, in
         the foreground colour (HON-932).
