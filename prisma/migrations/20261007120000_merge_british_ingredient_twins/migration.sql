@@ -112,7 +112,20 @@ BEGIN
         "updatedAt" = CURRENT_TIMESTAMP
     WHERE "ingredientId" = am."id";
 
-    -- A household that holds both: keep the British item.
+    -- A household that holds both: keep the British item, add the American
+    -- amount to it, keep a staple flag set on either, and keep the earlier
+    -- expiry. An untracked amount (NULL) on either side, or no conversion,
+    -- leaves the British amount as it is.
+    UPDATE "pantry_item" b
+    SET "quantity" = COALESCE(b."quantity" + a."quantity" * factor, b."quantity"),
+        "isStaple" = b."isStaple" OR a."isStaple",
+        "expiresAt" = LEAST(b."expiresAt", a."expiresAt"),
+        "updatedAt" = CURRENT_TIMESTAMP
+    FROM "pantry_item" a
+    WHERE a."ingredientId" = am."id"
+      AND b."ingredientId" = br."id"
+      AND b."householdId" = a."householdId";
+
     DELETE FROM "pantry_item" a
     USING "pantry_item" b
     WHERE a."ingredientId" = am."id"

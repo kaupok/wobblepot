@@ -63,6 +63,14 @@ describe('migration 20261007120000_merge_british_ingredient_twins', () => {
     expect(sql).toContain('unnest(br."allergens" || am."allergens")')
   })
 
+  it('folds the American pantry item into the British one before deleting it', () => {
+    const fold = sql.indexOf('"isStaple" = b."isStaple" OR a."isStaple"')
+    const drop = sql.indexOf('DELETE FROM "pantry_item"')
+    expect(fold).toBeGreaterThan(0)
+    expect(sql).toContain('COALESCE(b."quantity" + a."quantity" * factor, b."quantity")')
+    expect(drop).toBeGreaterThan(fold)
+  })
+
   it('deletes the translations before the row', () => {
     const translations = sql.indexOf('DELETE FROM "ingredient_translation"')
     const row = sql.indexOf('DELETE FROM "ingredient" WHERE')
