@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
@@ -51,6 +52,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -64,6 +67,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -79,6 +84,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -92,6 +99,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -108,6 +117,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -122,6 +133,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -135,6 +148,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -148,6 +163,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -155,19 +172,107 @@ describe('AlternativeCard', () => {
     })
   })
 
-  describe('ingredients display', () => {
-    it('shows all ingredient names', () => {
+  // HON-1115: the list sits closed behind one toggle that the grid owns.
+  describe('ingredients toggle', () => {
+    it('hides every ingredient name while closed', () => {
       render(
         <AlternativeCard
           meal={mockMeal}
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByText('Chicken Breast')).not.toBeInTheDocument()
+      expect(screen.queryByText('Rice')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Show ingredients' })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      )
+    })
+
+    it('shows every ingredient name while open, and the toggle reads Hide', () => {
+      render(
+        <AlternativeCard
+          meal={mockMeal}
+          householdServings={3}
+          onSelect={vi.fn()}
+          isSelecting={false}
+          ingredientsOpen={true}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
       expect(screen.getByText('Chicken Breast')).toBeInTheDocument()
       expect(screen.getByText('Rice')).toBeInTheDocument()
+      const toggle = screen.getByRole('button', { name: 'Hide ingredients' })
+      expect(toggle).toHaveAttribute('aria-expanded', 'true')
+      expect(toggle).toHaveAttribute('aria-controls')
+    })
+
+    it('asks the grid to open the lists when the toggle is clicked', async () => {
+      const onIngredientsOpenChange = vi.fn()
+      render(
+        <AlternativeCard
+          meal={mockMeal}
+          householdServings={3}
+          onSelect={vi.fn()}
+          isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={onIngredientsOpenChange}
+        />,
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: 'Show ingredients' }))
+
+      expect(onIngredientsOpenChange).toHaveBeenCalledWith(true)
+    })
+
+    it('renders no toggle for a meal with no ingredients', () => {
+      render(
+        <AlternativeCard
+          meal={{ ...mockMeal, components: [] }}
+          householdServings={3}
+          onSelect={vi.fn()}
+          isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByRole('button', { name: /ingredients/ })).not.toBeInTheDocument()
+    })
+
+    it('keeps keyboard focus on the toggle after it opens and closes the list', async () => {
+      function Controlled() {
+        const [open, setOpen] = useState(false)
+        return (
+          <AlternativeCard
+            meal={mockMeal}
+            householdServings={3}
+            onSelect={vi.fn()}
+            isSelecting={false}
+            ingredientsOpen={open}
+            onIngredientsOpenChange={setOpen}
+          />
+        )
+      }
+      const user = userEvent.setup()
+      render(<Controlled />)
+
+      const toggle = screen.getByRole('button', { name: 'Show ingredients' })
+      toggle.focus()
+      await user.keyboard('{Enter}')
+      expect(screen.getByText('Rice')).toBeInTheDocument()
+      expect(toggle).toHaveAccessibleName('Hide ingredients')
+      expect(document.activeElement).toBe(toggle)
+
+      await user.keyboard('{Enter}')
+      expect(screen.queryByText('Rice')).not.toBeInTheDocument()
+      expect(document.activeElement).toBe(toggle)
     })
   })
 
@@ -180,6 +285,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={onSelect}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -195,6 +302,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={true}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -208,6 +317,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={true}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -215,9 +326,9 @@ describe('AlternativeCard', () => {
     })
   })
 
-  // HON-750: the dialog's cards are tall, so the image sits below the ingredients.
+  // HON-750: the dialog's cards are tall, so the image sits below the content.
   describe('meal image', () => {
-    it('puts the image below the content and above the Select button', () => {
+    it('puts the image below the ingredients toggle and above the Select button', () => {
       render(
         <AlternativeCard
           meal={{
@@ -229,13 +340,15 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
       const image = screen.getByTestId('meal-card-image')
-      const ingredient = screen.getByText('Rice')
+      const toggle = screen.getByRole('button', { name: 'Show ingredients' })
       const select = screen.getByRole('button', { name: 'Select' })
-      expect(ingredient.compareDocumentPosition(image)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(toggle.compareDocumentPosition(image)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
       expect(image.compareDocumentPosition(select)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
       expect(image).not.toHaveClass('absolute')
     })
@@ -250,6 +363,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={false}
+          onIngredientsOpenChange={vi.fn()}
         />,
       )
 
@@ -277,6 +392,8 @@ describe('AlternativeCard', () => {
           householdServings={3}
           onSelect={vi.fn()}
           isSelecting={false}
+          ingredientsOpen={true}
+          onIngredientsOpenChange={vi.fn()}
           pantryIngredients={pantryIngredients}
         />,
       )

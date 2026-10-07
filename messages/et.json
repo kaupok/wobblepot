@@ -214,7 +214,9 @@
       "select": "Vali",
       "selecting": "Valin…",
       "ratedUp": "Sinu hinnang: pöial üles",
-      "ratedDown": "Sinu hinnang: pöial alla"
+      "ratedDown": "Sinu hinnang: pöial alla",
+      "showIngredients": "Näita koostisosi",
+      "hideIngredients": "Peida koostisosad"
     },
     "selector": {
       "swapTitle": "Vali teine toit",
