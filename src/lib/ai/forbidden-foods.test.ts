@@ -360,6 +360,8 @@ describe('the food words the British English block asks for (HON-1098)', () => {
     [{ dietaryType: 'vegan' }, 'quorn mince'],
     [{ allergens: ['eggs'] }, 'quorn pieces'],
     [{ dietaryType: 'vegetarian' }, 'beef and mushroom mince'],
+    [{ dietaryType: 'vegetarian' }, 'minced steak'],
+    [{ dietaryType: 'vegetarian' }, 'minced goat'],
   ])('%o flags %s', (household, ingredient) => {
     expect(violates(household, ingredient)).toBe(true)
   })
@@ -375,6 +377,10 @@ describe('the food words the British English block asks for (HON-1098)', () => {
     [{ dietaryType: 'vegetarian' }, 'mushroom mince'],
     [{ dietaryType: 'vegetarian' }, 'vegetable mince'],
     [{ dietaryType: 'vegan' }, 'vegan quorn mince'],
+    // The brand puts "vegan" after the name.
+    [{ dietaryType: 'vegan' }, 'quorn vegan mince'],
+    [{ allergens: ['eggs'] }, 'quorn vegan mince'],
+    [{ dietaryType: 'vegan' }, 'minced ginger'],
     [{ dietaryType: 'vegan' }, 'courgette'],
     [{ dietaryType: 'vegan' }, 'aubergine'],
     [{ dietaryType: 'vegan' }, 'coriander'],

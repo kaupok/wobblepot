@@ -638,6 +638,8 @@ describe('britishEnglish', () => {
     const block = britishEnglish('en')
     expect(block).toContain('Ingredient "name" fields use the British word too')
     expect(block).toContain('a bare "pepper" is black pepper')
+    // "sweet pepper" aliases to the generic `bell pepper` row.
+    expect(block).toContain('"sweet pepper" when the colour is not known')
   })
 })
 

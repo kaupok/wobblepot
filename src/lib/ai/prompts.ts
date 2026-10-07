@@ -171,7 +171,7 @@ const BRITISH_ENGLISH_RULES = `BRITISH ENGLISH:
 - Write British English in every field a person reads: names, descriptions, steps, notes and answers.
 - British spelling: colour, flavour, centre, litre, yoghurt, chilli, and -ise verbs (caramelise, tenderise).
 - British food and kitchen words, never the American ones: courgette (not zucchini), aubergine (not eggplant), coriander (not cilantro), spring onion (not scallion or green onion), prawns (not shrimp), beef mince (not ground beef), hob (not stovetop), grill for the overhead heat (not broil), frying pan (not skillet), baking tray (not sheet pan), kitchen paper (not paper towel), cling film (not plastic wrap), double cream (not heavy cream), plain flour (not all-purpose flour), bicarbonate of soda (not baking soda), caster sugar (not superfine sugar), pepper for the vegetable (not bell pepper).
-- Ingredient "name" fields use the British word too: "courgette", "beef mince", "prawn". For the vegetable, give the colour ("red pepper", "green pepper"): a bare "pepper" is black pepper.
+- Ingredient "name" fields use the British word too: "courgette", "beef mince", "prawn". For the vegetable, give the colour ("red pepper", "green pepper"), or "sweet pepper" when the colour is not known: a bare "pepper" is black pepper.
 - Text you write uses metric quantities and °C (190°C, 500g, 250ml). Ingredient units still follow this prompt's own unit rules.`
 
 /**

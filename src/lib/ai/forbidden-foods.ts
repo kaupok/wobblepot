@@ -144,8 +144,15 @@ const MEAT: FoodGroup = {
   prefixes: ['soja', 'seene', 'porgandi', 'tofu'],
   falseFriends: [
     'champignon',
-    // "minced garlic": the cut, not the meat. "minced beef" still fails on "beef".
-    'minced',
+    // The cut, not the meat. Named phrases only: a bare "minced" would excuse
+    // "minced steak" too.
+    'minced garlic',
+    'minced ginger',
+    'minced onion',
+    'minced shallot',
+    'minced chilli',
+    'minced chili',
+    'minced herbs',
     // Meat-free minces, named for what they are made of (HON-1098). Never a
     // qualifier: "mushroom" would excuse the chicken in "mushroom chicken pie".
     'quorn mince',
@@ -414,7 +421,7 @@ const EGGS: FoodGroup = {
     'aquafaba',
     'munavaba',
   ],
-  falseFriends: ['eggplant', 'veggie', 'reggiano'],
+  falseFriends: ['eggplant', 'veggie', 'reggiano', 'quorn vegan'],
 }
 
 const HONEY: FoodGroup = {
