@@ -22,15 +22,15 @@ const MAX_LIMIT = 50
 const SIMILARITY_THRESHOLD = 0.3
 /**
  * Score for a strong synonym hit (HON-1100): the term picks out one other
- * English name, "zucc" or "plain f" (`SynonymMatch.strong`). Such a hit is an
+ * English name, "zucc" or "all-purpose f" (`SynonymMatch.strong`). Such a hit is an
  * exact, curated match, but the row's own name can share almost no trigrams
- * with the term ("plain fl" vs "all-purpose flour"), so it gets a fixed score:
+ * with the term ("all-purpose fl" vs "plain flour"), so it gets a fixed score:
  * above any partial name hit, below an exact name hit (similarity 1). Typing
- * "plain fl" then lists all-purpose flour first, and typing a row's full name
+ * "all-purpose fl" then lists plain flour first, and typing a row's full name
  * still puts that row on top.
  *
- * A term that is only a generic word of the synonym ("plain", "sweet", or
- * "pepper" in "red pepper") is not that kind of match, so the row keeps its own
+ * A term that is only a generic word of the synonym ("all-purpose", "sweet", or
+ * "pepper" in "red bell pepper") is not that kind of match, so the row keeps its own
  * name score and falls into the normal order.
  */
 const SYNONYM_SCORE = 0.9
@@ -152,8 +152,8 @@ export async function GET(request: NextRequest) {
     )
 
     // A row is listed once. It keeps its name hit, without `matchedAs`, unless
-    // a strong synonym hit outranks that: typing "plain flour" scores
-    // all-purpose flour only about 0.3 by name, below the other flours.
+    // a strong synonym hit outranks that: typing "all-purpose flour" scores
+    // plain flour low by name, below the other flours.
     let changed = false
     const merged = nameHits.map((row) => {
       const hit = synonymHits.get(row.id)

@@ -10,10 +10,11 @@ export interface SynonymMatch {
   synonym: string
   /**
    * True when the term picks out this synonym rather than a generic word in
-   * it: it starts a one-word synonym ("zucc", "swed"), or it reaches past the
-   * first word of a longer one ("plain f"). False when it is only the first
-   * word or part of it ("plain", "sweet") or starts a later word ("pepper" in
-   * "red pepper"). The search route ranks only a strong hit above name hits.
+   * it: it starts a one-word synonym ("zucc", "ruta"), or it reaches past the
+   * first word of a longer one ("all-purpose f"). False when it is only the
+   * first word or part of it ("all-purpose", "sweet") or starts a later word
+   * ("pepper" in "red bell pepper"). The search route ranks only a strong hit
+   * above name hits.
    */
   strong: boolean
 }
@@ -22,7 +23,7 @@ export interface SynonymMatch {
  * The synonym keys a search term matches, one per target row (HON-1100).
  *
  * A key matches when it, or one of its words, starts with the term
- * (case-insensitive): "plain fl" and "flo" both match "plain flour". When
+ * (case-insensitive): "all-purpose fl" and "flo" both match "all-purpose flour". When
  * several keys point at one row, a strong match wins, then a key that starts
  * with the term, then a key whose later word does; table order breaks ties.
  */

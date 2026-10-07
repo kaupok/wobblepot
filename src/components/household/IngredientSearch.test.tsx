@@ -210,10 +210,10 @@ describe('IngredientSearch other English name', () => {
     mockFetchSuccess([
       {
         id: 'flour',
-        name: 'all-purpose flour',
+        name: 'plain flour',
         category: 'carb',
         defaultUnit: 'g',
-        matchedAs: 'plain flour',
+        matchedAs: 'all-purpose flour',
       },
       { id: 'tomato', name: 'tomato', category: 'vegetable', defaultUnit: 'g' },
     ])
@@ -221,18 +221,18 @@ describe('IngredientSearch other English name', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderSearch({ onAddIngredient })
 
-    await user.type(screen.getByRole('combobox'), 'plain fl')
+    await user.type(screen.getByRole('combobox'), 'all-purpose')
     await vi.advanceTimersByTimeAsync(350)
 
     const options = await screen.findAllByRole('option')
-    expect(options[0]).toHaveTextContent('all-purpose flour(plain flour)')
-    expect(options[1]).not.toHaveTextContent('(plain flour)')
+    expect(options[0]).toHaveTextContent('plain flour(all-purpose flour)')
+    expect(options[1]).not.toHaveTextContent('(all-purpose flour)')
 
     await user.click(options[0]!)
 
     expect(onAddIngredient).toHaveBeenCalledWith({
       id: 'flour',
-      name: 'all-purpose flour',
+      name: 'plain flour',
       category: 'carb',
       defaultUnit: 'g',
     })

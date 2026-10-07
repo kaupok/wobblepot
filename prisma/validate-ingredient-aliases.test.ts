@@ -2,14 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { validateIngredientAliases } from './validate-ingredient-aliases'
 import { INGREDIENT_ALIASES, INGREDIENT_SYNONYMS } from '../src/lib/ingredient-aliases'
 
-const pool = new Set(['all-purpose flour', 'black pepper', 'powdered sugar'])
+const pool = new Set(['plain flour', 'black pepper', 'icing sugar'])
 
 describe('validateIngredientAliases', () => {
   it('passes when every target exists and no key is a pool name', () => {
     const result = validateIngredientAliases(
       pool,
       { pepper: 'black pepper' },
-      { 'plain flour': 'all-purpose flour', 'icing sugar': 'powdered sugar' },
+      { 'all-purpose flour': 'plain flour', 'powdered sugar': 'icing sugar' },
     )
     expect(result.errors).toEqual([])
   })
@@ -20,12 +20,12 @@ describe('validateIngredientAliases', () => {
   })
 
   it('fails a synonym whose target is missing', () => {
-    const result = validateIngredientAliases(pool, {}, { cornflour: 'cornstarch' })
-    expect(result.errors).toEqual([expect.stringContaining('synonym "cornflour" → "cornstarch"')])
+    const result = validateIngredientAliases(pool, {}, { cornstarch: 'cornflour' })
+    expect(result.errors).toEqual([expect.stringContaining('synonym "cornstarch" → "cornflour"')])
   })
 
   it('fails a synonym key that is itself a pool name', () => {
-    const result = validateIngredientAliases(pool, {}, { 'black pepper': 'all-purpose flour' })
+    const result = validateIngredientAliases(pool, {}, { 'black pepper': 'plain flour' })
     expect(result.errors).toEqual([
       expect.stringContaining('"black pepper" is itself an ingredient name'),
     ])
@@ -34,11 +34,11 @@ describe('validateIngredientAliases', () => {
   it('fails a key that is in both tables', () => {
     const result = validateIngredientAliases(
       pool,
-      { 'plain flour': 'all-purpose flour' },
-      { 'plain flour': 'all-purpose flour' },
+      { 'all-purpose flour': 'plain flour' },
+      { 'all-purpose flour': 'plain flour' },
     )
     expect(result.errors).toEqual([
-      expect.stringContaining('"plain flour" is both an ingredient alias and a synonym'),
+      expect.stringContaining('"all-purpose flour" is both an ingredient alias and a synonym'),
     ])
   })
 

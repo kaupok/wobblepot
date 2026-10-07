@@ -113,7 +113,7 @@ const MODIFIER_EXCEPTIONS = new Set([
   'sweet', // sweet potato
   'sour', // sour cream
   'hot', // hot sauce (but "hot" is also in COOKING_MODIFIERS - we handle via exceptions)
-  'plain', // plain yogurt
+  'plain', // plain flour
   'heavy', // heavy cream
   'all-purpose', // all-purpose flour
   'self-raising', // self-raising flour
@@ -137,6 +137,7 @@ const IRREGULAR_PLURALS: Record<string, string> = {
   potatoes: 'potato',
   tomatoes: 'tomato',
   mangoes: 'mango',
+  chillies: 'chilli', // the -ies rule would give "chilly"
   heroes: 'hero',
   echoes: 'echo',
   vetoes: 'veto',

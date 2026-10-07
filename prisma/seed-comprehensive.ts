@@ -16,7 +16,7 @@ export const comprehensiveIngredients = [
   // BAKING - Flours (8)
   // ============================================
   {
-    name: 'all-purpose flour',
+    name: 'plain flour',
     category: 'carb',
     subcategory: 'flour',
     defaultUnit: 'g',
@@ -52,7 +52,7 @@ export const comprehensiveIngredients = [
     fiber: 1.8,
   },
   {
-    name: 'whole wheat flour',
+    name: 'wholemeal flour',
     category: 'carb',
     subcategory: 'flour',
     defaultUnit: 'g',
@@ -128,7 +128,7 @@ export const comprehensiveIngredients = [
     fiber: 0,
   },
   {
-    name: 'powdered sugar',
+    name: 'icing sugar',
     category: 'carb',
     subcategory: 'sweetener',
     defaultUnit: 'g',
@@ -206,7 +206,7 @@ export const comprehensiveIngredients = [
   // BAKING - Leaveners & Baking Essentials (8)
   // ============================================
   {
-    name: 'baking soda',
+    name: 'bicarbonate of soda',
     category: 'spice',
     subcategory: 'leavener',
     defaultUnit: 'g',
@@ -242,7 +242,7 @@ export const comprehensiveIngredients = [
     fiber: 27,
   },
   {
-    name: 'cornstarch',
+    name: 'cornflour',
     category: 'carb',
     subcategory: 'starch',
     defaultUnit: 'g',
@@ -266,7 +266,7 @@ export const comprehensiveIngredients = [
     fiber: 0,
   },
   {
-    name: 'gelatin',
+    name: 'gelatine',
     category: 'condiment',
     subcategory: 'thickener',
     defaultUnit: 'g',
@@ -466,7 +466,7 @@ export const comprehensiveIngredients = [
     densityGPerMl: 1.1,
   },
   {
-    name: 'chili garlic sauce',
+    name: 'chilli garlic sauce',
     category: 'condiment',
     subcategory: 'sauce',
     defaultUnit: 'g',
@@ -479,7 +479,7 @@ export const comprehensiveIngredients = [
     densityGPerMl: 1.1,
   },
   {
-    name: 'sweet chili sauce',
+    name: 'sweet chilli sauce',
     category: 'condiment',
     subcategory: 'sauce',
     defaultUnit: 'g',
@@ -697,7 +697,7 @@ export const comprehensiveIngredients = [
     fiber: 3.4,
   },
   {
-    name: 'thai chili',
+    name: 'thai chilli',
     category: 'vegetable',
     subcategory: 'pepper',
     defaultUnit: 'g',
@@ -962,7 +962,7 @@ export const comprehensiveIngredients = [
     fiber: 43,
   },
   {
-    name: 'ancho chili powder',
+    name: 'ancho chilli powder',
     category: 'spice',
     subcategory: 'chili',
     defaultUnit: 'g',
@@ -986,7 +986,7 @@ export const comprehensiveIngredients = [
     fiber: 28,
   },
   {
-    name: 'pepitas',
+    name: 'pumpkin seeds',
     category: 'fat',
     subcategory: 'seed',
     defaultUnit: 'g',
@@ -1002,7 +1002,7 @@ export const comprehensiveIngredients = [
   // MEXICAN - Dried Chilies & Specialty (6)
   // ============================================
   {
-    name: 'guajillo chili',
+    name: 'guajillo chilli',
     category: 'spice',
     subcategory: 'dried chili',
     defaultUnit: 'g',
@@ -1014,7 +1014,7 @@ export const comprehensiveIngredients = [
     fiber: 29,
   },
   {
-    name: 'pasilla chili',
+    name: 'pasilla chilli',
     category: 'spice',
     subcategory: 'dried chili',
     defaultUnit: 'g',
@@ -1026,7 +1026,7 @@ export const comprehensiveIngredients = [
     fiber: 29,
   },
   {
-    name: 'arbol chili',
+    name: 'arbol chilli',
     category: 'spice',
     subcategory: 'dried chili',
     defaultUnit: 'g',
@@ -1279,7 +1279,7 @@ export const comprehensiveIngredients = [
     fiber: 15,
   },
   {
-    name: 'kashmiri chili powder',
+    name: 'kashmiri chilli powder',
     category: 'spice',
     subcategory: 'chili',
     defaultUnit: 'g',
@@ -1903,7 +1903,7 @@ export const comprehensiveIngredients = [
     fiber: 0,
   },
   {
-    name: 'canned sardines',
+    name: 'tinned sardines',
     category: 'protein',
     subcategory: 'fish',
     proteinType: 'fish',
@@ -2077,7 +2077,7 @@ export const comprehensiveIngredients = [
     fiber: 2.1,
   },
   {
-    name: 'cremini mushroom',
+    name: 'chestnut mushroom',
     category: 'vegetable',
     subcategory: 'mushroom',
     defaultUnit: 'g',
@@ -2217,7 +2217,7 @@ export const comprehensiveIngredients = [
     fiber: 2,
   },
   {
-    name: 'sunchoke',
+    name: 'jerusalem artichoke',
     category: 'vegetable',
     subcategory: 'root',
     defaultUnit: 'g',
@@ -2241,7 +2241,7 @@ export const comprehensiveIngredients = [
     fiber: 1.8,
   },
   {
-    name: 'rutabaga',
+    name: 'swede',
     category: 'vegetable',
     subcategory: 'root',
     defaultUnit: 'g',
@@ -2301,7 +2301,7 @@ export const comprehensiveIngredients = [
     fiber: 1.7,
   },
   {
-    name: 'ramp',
+    name: 'wild garlic',
     category: 'vegetable',
     subcategory: 'allium',
     defaultUnit: 'g',
@@ -2609,7 +2609,7 @@ export const comprehensiveIngredients = [
     densityGPerMl: 1.02,
   },
   {
-    name: 'coconut milk canned',
+    name: 'tinned coconut milk',
     category: 'dairy',
     subcategory: 'milk alternative',
     proteinType: 'none',
@@ -2637,7 +2637,7 @@ export const comprehensiveIngredients = [
     densityGPerMl: 1.03,
   },
   {
-    name: 'plain yogurt',
+    name: 'natural yogurt',
     category: 'dairy',
     subcategory: 'yogurt',
     proteinType: 'dairy',
@@ -2957,7 +2957,7 @@ export const comprehensiveIngredients = [
     fiber: 14,
   },
   {
-    name: 'anise seed',
+    name: 'aniseed',
     category: 'spice',
     subcategory: 'seed spice',
     defaultUnit: 'g',
@@ -2981,7 +2981,7 @@ export const comprehensiveIngredients = [
     fiber: 1,
   },
   {
-    name: 'vanilla bean',
+    name: 'vanilla pod',
     category: 'spice',
     subcategory: 'spice',
     defaultUnit: 'piece',
@@ -3083,7 +3083,7 @@ export const comprehensiveIngredients = [
     fiber: 17,
   },
   {
-    name: 'cranberry beans',
+    name: 'borlotti beans',
     category: 'legume',
     subcategory: 'bean',
     proteinType: 'legume',
@@ -3109,7 +3109,7 @@ export const comprehensiveIngredients = [
     fiber: 15,
   },
   {
-    name: 'black-eyed peas',
+    name: 'black-eyed beans',
     category: 'legume',
     subcategory: 'pea',
     proteinType: 'legume',
@@ -3991,7 +3991,7 @@ export const comprehensiveIngredients = [
     fiber: 10,
   },
   {
-    name: 'corn meal',
+    name: 'cornmeal',
     category: 'carb',
     subcategory: 'flour',
     defaultUnit: 'g',
@@ -4091,7 +4091,7 @@ export const comprehensiveIngredients = [
     fiber: 11,
   },
   {
-    name: 'papadum',
+    name: 'poppadom',
     category: 'carb',
     subcategory: 'flatbread',
     defaultUnit: 'piece',

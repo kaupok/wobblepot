@@ -145,23 +145,19 @@ export const MatchedByOtherName: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.type(canvas.getByRole('combobox'), 'plain fl')
+    await userEvent.type(canvas.getByRole('combobox'), 'all-purpose')
 
-    const option = await canvas.findByRole(
-      'option',
-      { name: /all-purpose flour/i },
-      { timeout: 3000 },
-    )
-    await expect(option).toHaveTextContent('all-purpose flour(plain flour)')
+    const option = await canvas.findByRole('option', { name: /plain flour/i }, { timeout: 3000 })
+    await expect(option).toHaveTextContent('plain flour(all-purpose flour)')
     await expect(canvas.getByRole('option', { name: /flour tortilla/i })).not.toHaveTextContent(
-      '(plain flour)',
+      '(all-purpose flour)',
     )
 
     await userEvent.click(option)
     await waitFor(() =>
       expect(args.onAddIngredient).toHaveBeenCalledWith({
-        id: 'all-purpose-flour',
-        name: 'all-purpose flour',
+        id: 'plain-flour',
+        name: 'plain flour',
         category: 'carb',
         defaultUnit: 'g',
       }),

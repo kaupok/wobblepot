@@ -40,6 +40,7 @@ describe('singularize', () => {
     expect(singularize('leaves')).toBe('leaf')
     expect(singularize('loaves')).toBe('loaf')
     expect(singularize('halves')).toBe('half')
+    expect(singularize('chillies')).toBe('chilli')
   })
 
   it('preserves false plurals', () => {

@@ -226,8 +226,8 @@ describe('GET /api/ingredients', () => {
   describe('by another English name', () => {
     const flour = {
       id: 'ing-flour',
-      name: 'all-purpose flour',
-      poolName: 'all-purpose flour',
+      name: 'plain flour',
+      poolName: 'plain flour',
       category: 'carb',
       defaultUnit: 'g',
     }
@@ -244,23 +244,23 @@ describe('GET /api/ingredients', () => {
     it('returns the row with matchedAs for a synonym prefix', async () => {
       mockQueryRaw.mockResolvedValueOnce([] as never).mockResolvedValueOnce([flour] as never)
 
-      const { status, data } = await search('search=plain%20fl')
+      const { status, data } = await search('search=all-purpose%20fl')
 
       expect(status).toBe(200)
       expect(data.ingredients).toEqual([
         {
           id: 'ing-flour',
-          name: 'all-purpose flour',
+          name: 'plain flour',
           category: 'carb',
           defaultUnit: 'g',
           similarity: 0.9,
-          matchedAs: 'plain flour',
+          matchedAs: 'all-purpose flour',
         },
       ])
       const { sql, values } = queryAt(1)
       expect(sql).toContain('WHERE i.name IN (?)')
       expect(sql).toContain('i."householdId" IS NULL')
-      expect(values).toContain('all-purpose flour')
+      expect(values).toContain('plain flour')
     })
 
     it('returns a row found by its own name without matchedAs', async () => {
@@ -268,9 +268,10 @@ describe('GET /api/ingredients', () => {
         { ...flour, poolName: undefined, similarity: 0.6 },
       ] as never)
 
-      const { data } = await search('search=all-purpose')
+      const { data } = await search('search=plain%20fl')
 
-      // "all-purpose" is no synonym key, so only the name search runs.
+      // "plain fl" starts no synonym key, so only the name search runs and the
+      // row has no bracket (HON-1099: "plain flour" is the pool's own name).
       expect(mockQueryRaw).toHaveBeenCalledTimes(1)
       expect(data.ingredients).toHaveLength(1)
       expect(data.ingredients[0]).not.toHaveProperty('matchedAs')
@@ -289,7 +290,7 @@ describe('GET /api/ingredients', () => {
         .mockResolvedValueOnce([
           {
             id: 'ing-flour',
-            name: 'all-purpose flour',
+            name: 'plain flour',
             category: 'carb',
             defaultUnit: 'g',
             similarity: 0.35,
@@ -306,8 +307,8 @@ describe('GET /api/ingredients', () => {
       expect(data.ingredients[0]).not.toHaveProperty('matchedAs')
     })
 
-    // Review round 3: the whole synonym scores the row only 0.304 by name,
-    // below the other flours, so the synonym hit must win.
+    // Review round 3: the whole synonym scores the row low by name, below the
+    // other flours, so the synonym hit must win.
     it('ranks the row first with matchedAs when the whole synonym is typed', async () => {
       mockQueryRaw
         .mockResolvedValueOnce([
@@ -323,7 +324,7 @@ describe('GET /api/ingredients', () => {
         ] as never)
         .mockResolvedValueOnce([{ ...flour, similarity: 0.304 }] as never)
 
-      const { data } = await search('search=plain%20flour')
+      const { data } = await search('search=all-purpose%20flour')
 
       expect(data.ingredients.map((i: { id: string }) => i.id)).toEqual([
         'ing-flour',
@@ -331,14 +332,14 @@ describe('GET /api/ingredients', () => {
         'ing-00',
       ])
       expect(data.ingredients[0]).toEqual(
-        expect.objectContaining({ similarity: 0.9, matchedAs: 'plain flour' }),
+        expect.objectContaining({ similarity: 0.9, matchedAs: 'all-purpose flour' }),
       )
     })
 
     it('applies the category filter to the synonym search', async () => {
       mockQueryRaw.mockResolvedValue([] as never)
 
-      await search('search=plain%20fl&category=carb')
+      await search('search=all-purpose%20fl&category=carb')
 
       const { sql, values } = queryAt(1)
       expect(sql).toContain('AND i.category = ?::"IngredientCategory"')
@@ -367,22 +368,22 @@ describe('GET /api/ingredients', () => {
           {
             ...flour,
             id: 'ing-red',
-            name: 'red bell pepper',
-            poolName: 'red bell pepper',
+            name: 'red pepper',
+            poolName: 'red pepper',
             similarity: 0.2,
           },
         ] as never)
 
-      const { data } = await search('search=red%20pep&limit=2')
+      const { data } = await search('search=red%20bell%20p&limit=2')
 
       expect(data.ingredients.map((i: { id: string }) => i.id)).toEqual(['ing-red', 'ing-a'])
       expect(data.ingredients[0]).toEqual(
-        expect.objectContaining({ similarity: 0.9, matchedAs: 'red pepper' }),
+        expect.objectContaining({ similarity: 0.9, matchedAs: 'red bell pepper' }),
       )
     })
 
-    // "pepper" only starts a later word of "red pepper": a generic word, so the
-    // row keeps its own name score rather than jumping to the top.
+    // "pepper" only starts a later word of "red bell pepper": a generic word, so
+    // the row keeps its own name score rather than jumping to the top.
     it('keeps the name score for a synonym whose later word starts with the term', async () => {
       mockQueryRaw
         .mockResolvedValueOnce([
@@ -405,8 +406,8 @@ describe('GET /api/ingredients', () => {
           {
             ...flour,
             id: 'ing-red',
-            name: 'red bell pepper',
-            poolName: 'red bell pepper',
+            name: 'red pepper',
+            poolName: 'red pepper',
             similarity: 0.44,
           },
           {
@@ -423,7 +424,7 @@ describe('GET /api/ingredients', () => {
       expect(data.ingredients).toEqual([
         expect.objectContaining({ id: 'ing-bell', similarity: 0.58 }),
         expect.objectContaining({ id: 'ing-black', similarity: 0.54 }),
-        expect.objectContaining({ id: 'ing-red', similarity: 0.44, matchedAs: 'red pepper' }),
+        expect.objectContaining({ id: 'ing-red', similarity: 0.44, matchedAs: 'red bell pepper' }),
       ])
       expect(data.ingredients[0]).not.toHaveProperty('matchedAs')
       expect(queryAt(1).sql).toMatch(/similarity\(i\.name, \?\) as similarity/)
@@ -435,10 +436,10 @@ describe('GET /api/ingredients', () => {
         .mockResolvedValueOnce([] as never)
         .mockResolvedValueOnce([{ ...flour, name: 'nisujahu' }] as never)
 
-      const { data } = await search('search=plain%20flour')
+      const { data } = await search('search=all-purpose%20flour')
 
       expect(data.ingredients[0]).toEqual(
-        expect.objectContaining({ name: 'nisujahu', matchedAs: 'plain flour' }),
+        expect.objectContaining({ name: 'nisujahu', matchedAs: 'all-purpose flour' }),
       )
       const { sql } = queryAt(1)
       expect(sql).toContain('LEFT JOIN "ingredient_translation" t')

@@ -95,10 +95,10 @@ describe('UnmatchedIngredientRow other English name', () => {
           ingredients: [
             {
               id: 'sugar',
-              name: 'powdered sugar',
+              name: 'icing sugar',
               category: 'carb',
               defaultUnit: 'g',
-              matchedAs: 'icing sugar',
+              matchedAs: 'powdered sugar',
             },
           ],
         }),
@@ -108,7 +108,7 @@ describe('UnmatchedIngredientRow other English name', () => {
     const { wrapper } = createQueryWrapper()
     render(
       <UnmatchedIngredientRow
-        data={data('icing sugar')}
+        data={data('powdered sugar')}
         disabled={false}
         onRemove={vi.fn()}
         onResolve={onResolve}
@@ -116,14 +116,14 @@ describe('UnmatchedIngredientRow other English name', () => {
       { wrapper },
     )
 
-    await user.type(screen.getByRole('textbox'), 'icing')
-    const option = await screen.findByRole('button', { name: /powdered sugar/ }, { timeout: 2000 })
-    expect(option).toHaveTextContent('powdered sugar(icing sugar)')
+    await user.type(screen.getByRole('textbox'), 'powdered')
+    const option = await screen.findByRole('button', { name: /icing sugar/ }, { timeout: 2000 })
+    expect(option).toHaveTextContent('icing sugar(powdered sugar)')
 
     await user.click(option)
 
     expect(onResolve).toHaveBeenCalledWith(
-      { id: 'sugar', name: 'powdered sugar', category: 'carb', defaultUnit: 'g' },
+      { id: 'sugar', name: 'icing sugar', category: 'carb', defaultUnit: 'g' },
       100,
     )
   })
