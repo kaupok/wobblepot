@@ -1922,6 +1922,45 @@ describe('orchestrator.sh', () => {
     })
   })
 
+  // ─── HON-1118: stderr diagnostics reach the verdict ───────────────────────
+  // The triage call ran with `2>&1`, and the verdict is the first word of the
+  // first non-empty line. Claude Code prints diagnostics to stderr in print
+  // mode, so one printed ahead of the answer became the verdict and sent a
+  // retryable failure down the "unexpected result" branch.
+  describe('handle_failure triage stderr', () => {
+    const driveTriage = (env: Record<string, string>) =>
+      stripTimestamps(runHarnessEnv(env, 'failure', 'RETRY', '0', 'false', '1'))
+
+    it('reads the verdict from stdout when a warning comes first on stderr', () => {
+      const out = driveTriage({
+        HARNESS_CLAUDE_STDERR: '[claude-code:unrecognized_model] Model claude-next-x is not known',
+      })
+
+      expect(out).not.toContain('Unexpected triage result')
+      expect(out).toContain('Triage for HON-991: RETRY')
+      expect(out).toContain('SPAWN_WORKER:HON-991:retry=1')
+    })
+
+    it('logs the stderr error and needs a human when the CLI exits non-zero', () => {
+      const out = driveTriage({
+        HARNESS_CLAUDE_STDERR: 'Error: OAuth token has expired, run /login',
+        HARNESS_CLAUDE_EXIT: '1',
+      })
+
+      expect(out).toContain('Claude triage failed (exit 1): Error: OAuth token has expired')
+      expect(out).toContain('Triage for HON-991: NEEDS_HUMAN')
+      expect(out).not.toContain('SPAWN_WORKER')
+    })
+
+    it('runs the triage call with an empty strict MCP config', () => {
+      const input = stripTimestamps(runHarness('failure', 'BACKLOG', '0', 'false')).match(
+        /^TRIAGE_INPUT:(.*)$/m,
+      )?.[1]
+
+      expect(input).toContain('--strict-mcp-config --mcp-config {"mcpServers":{}}')
+    })
+  })
+
   // ─── HON-730: one file names the workflow's models ────────────────────────
   // The worker, reviewer and triage models were picked in three scripts, the
   // triage one a literal with no override. scripts/models.sh now owns all three,

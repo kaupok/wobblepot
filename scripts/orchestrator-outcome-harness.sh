@@ -767,18 +767,25 @@ EOF
     # ORCHESTRATOR_TRIAGE_TIMEOUT and assert the BACKLOG fallback (HON-578).
     # The sleep comes first, so a stub the bound kills records nothing — which
     # is what a genuinely wedged CLI does.
+    #
+    # HARNESS_CLAUDE_STDERR is written to stderr before the verdict, the way
+    # Claude Code prints its diagnostics in print mode, and HARNESS_CLAUDE_EXIT
+    # sets the stub's exit code, so a test can drive a CLI that warns or fails
+    # (HON-1118).
     STUB_BIN=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-harness-bin.XXXXXXXX")
     VERDICT_FILE="$STUB_BIN/verdict"
     TRIAGE_INPUT_FILE="$STUB_BIN/triage-input"
     : > "$TRIAGE_INPUT_FILE"
     # Unquoted heredoc: the two FILE paths bake in at write time, while `$*` and
-    # $HARNESS_CLAUDE_SLEEP stay literal for the stub to resolve when it runs.
+    # the HARNESS_CLAUDE_* variables stay literal for the stub to resolve when it runs.
     cat > "$STUB_BIN/claude" <<EOF
 #!/bin/sh
 [ -n "\$HARNESS_CLAUDE_SLEEP" ] && sleep "\$HARNESS_CLAUDE_SLEEP"
 cat >> "$TRIAGE_INPUT_FILE"
 printf '%s' "\$*" >> "$TRIAGE_INPUT_FILE"
+[ -n "\$HARNESS_CLAUDE_STDERR" ] && printf '%s\n' "\$HARNESS_CLAUDE_STDERR" >&2
 cat "$VERDICT_FILE"
+exit "\${HARNESS_CLAUDE_EXIT:-0}"
 EOF
     chmod +x "$STUB_BIN/claude"
     PATH="$STUB_BIN:$PATH"
