@@ -138,6 +138,7 @@ async function main() {
         name: translateIngredient(comp.ingredient, locale).name,
         quantityPerServing: comp.quantityPerServing,
         defaultUnit: comp.ingredient.defaultUnit,
+        measuredByVolume: comp.ingredient.measuredByVolume,
       })),
       locale,
     }

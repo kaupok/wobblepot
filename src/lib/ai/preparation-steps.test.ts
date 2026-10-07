@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   buildFullStepsPrompt,
   buildSupplementaryStepsPrompt,
+  formatIngredientsList,
   type PrepStepsPromptInput,
   type SupplementaryPrepStepsPromptInput,
 } from './preparation-steps'
@@ -133,5 +134,43 @@ describe('buildSupplementaryStepsPrompt', () => {
     const et = buildSupplementaryStepsPrompt(supplementaryInput({ locale: 'et' }))
     expect(et).not.toContain('ENGLISH VOICE')
     expect(et.endsWith(estonianVoiceForPrepSteps('et'))).toBe(true)
+  })
+})
+
+describe('formatIngredientsList', () => {
+  it('sends a liquid the cook measures by volume in ml, 1 g = 1 ml (HON-1070)', () => {
+    expect(
+      formatIngredientsList(
+        [{ name: 'red wine', quantityPerServing: 30, defaultUnit: 'g', measuredByVolume: true }],
+        4,
+      ),
+    ).toBe('- red wine: 120ml')
+  })
+
+  it('keeps grams for an unflagged ingredient and for an absent flag', () => {
+    expect(
+      formatIngredientsList(
+        [
+          { name: 'flour', quantityPerServing: 30, defaultUnit: 'g', measuredByVolume: false },
+          { name: 'rice', quantityPerServing: 75, defaultUnit: 'g' },
+        ],
+        2,
+      ),
+    ).toBe('- flour: 60g\n- rice: 150g')
+  })
+
+  it('shows pieces as pcs, flagged or not', () => {
+    expect(
+      formatIngredientsList(
+        [{ name: 'egg', quantityPerServing: 1, defaultUnit: 'piece', measuredByVolume: true }],
+        2,
+      ),
+    ).toBe('- egg: 2pcs')
+  })
+
+  it('passes through a unit storage does not have, as the eval cases write ml', () => {
+    expect(
+      formatIngredientsList([{ name: 'soy sauce', quantityPerServing: 15, defaultUnit: 'ml' }], 2),
+    ).toBe('- soy sauce: 30ml')
   })
 })

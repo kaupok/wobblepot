@@ -80,7 +80,7 @@ AI-powered meal planning that generates personalized ingredient-based meal plans
 
 `MealComponent.quantityPerServing`, pantry stock, and shopping quantities all use the ingredient's `defaultUnit`: a piece count for a `piece` ingredient (eggs, lemons), grams for everything else. Nothing is stored in grams "under the hood" for piece ingredients. Nutrition values are per 100g, so nutrition is the one reader that converts: pieces × `gramsPerPiece` (falling back to 30g when that is null), via `componentGramsPerServing` in `src/lib/meal-planning/nutrition.ts` (HON-713).
 
-An ingredient with `measuredByVolume` shows its quantity in millilitres, with 1 g = 1 ml, because import and the seeds store 1 ml as 1 g. The rule is display only: storage, nutrition, pantry deduction and shopping sums stay in grams. `displayUnit` in `src/lib/i18n/format-shopping-quantity.ts` chooses the unit for every screen, and `formatVolume` writes `<n>ml` below 1000 and `<n>l` from there on (HON-1054).
+An ingredient with `measuredByVolume` shows its quantity in millilitres, with 1 g = 1 ml, because import and the seeds store 1 ml as 1 g. The rule is display only: storage, nutrition, pantry deduction and shopping sums stay in grams. `displayUnit` in `src/lib/i18n/format-shopping-quantity.ts` chooses the unit for every screen, and `formatVolume` writes `<n>ml` below 1000 and `<n>l` from there on (HON-1054). The preparation-steps and cook-question prompts send the same unit, through `promptUnit` in `src/lib/ai/preparation-steps.ts`, so the steps say ml where the ingredient list does (HON-1070).
 
 ### Pantry Quantity Semantics
 

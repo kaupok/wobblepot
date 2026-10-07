@@ -156,6 +156,7 @@ async function handlePOST(
                   select: {
                     name: true,
                     defaultUnit: true,
+                    measuredByVolume: true,
                     ...ingredientTranslationsInclude(locale),
                   },
                 },
@@ -245,6 +246,7 @@ async function handlePOST(
         name: translateIngredient(comp.ingredient, locale).name,
         quantityPerServing: comp.quantityPerServing,
         defaultUnit: comp.ingredient.defaultUnit,
+        measuredByVolume: comp.ingredient.measuredByVolume,
       })),
       preparationNotes: shownMeal.preparationNotes ?? null,
       steps,

@@ -89,6 +89,7 @@ async function handlePOST(
                   select: {
                     name: true,
                     defaultUnit: true,
+                    measuredByVolume: true,
                     ...ingredientTranslationsInclude(locale),
                   },
                 },
@@ -186,6 +187,7 @@ async function handlePOST(
       name: translateIngredient(comp.ingredient, locale).name,
       quantityPerServing: comp.quantityPerServing,
       defaultUnit: comp.ingredient.defaultUnit,
+      measuredByVolume: comp.ingredient.measuredByVolume,
     }))
 
     const anthropic = createAnthropic({ apiKey: serverEnv.ANTHROPIC_API_KEY })
