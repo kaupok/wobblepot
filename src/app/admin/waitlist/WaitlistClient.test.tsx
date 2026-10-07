@@ -14,6 +14,7 @@ const notInvited: WaitlistRow = {
   id: 'w1',
   email: 'anna@example.com',
   locale: 'et',
+  source: 'mealime',
   confirmedAt: '2026-10-05T12:00:00.000Z',
   invitedAt: null,
 }
@@ -21,6 +22,7 @@ const invited: WaitlistRow = {
   id: 'w2',
   email: 'ben@example.com',
   locale: 'en',
+  source: null,
   confirmedAt: '2026-10-04T12:00:00.000Z',
   invitedAt: '2026-10-06T08:00:00.000Z',
 }
@@ -57,13 +59,18 @@ afterEach(() => {
 })
 
 describe('WaitlistClient', () => {
-  it('lists each request with its locale and dates, and labels the invite action by state', () => {
+  it('lists each request with its locale, source and dates, and labels the invite action by state', () => {
     renderClient()
 
     const list = screen.getByTestId('waitlist-list')
     expect(within(list).getByText('anna@example.com')).toBeInTheDocument()
-    expect(within(list).getByText(/et · Confirmed .* · Not invited/)).toBeInTheDocument()
-    expect(within(list).getByText(/en · Confirmed .* · Invited /)).toBeInTheDocument()
+    expect(
+      within(list).getByText(/^et · Source: mealime · Confirmed .* · Not invited$/),
+    ).toBeInTheDocument()
+    // No source is a direct visit, said in inline English (admin pages are untranslated).
+    expect(
+      within(list).getByText(/^en · Source: direct · Confirmed .* · Invited /),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Send invite to anna@example.com' }),
     ).toHaveTextContent('Send invite')

@@ -29,7 +29,7 @@ describe('PrivacyPage', () => {
   it('discloses invite requests: the data, the consent basis and both retention windows (HON-846)', () => {
     const text = renderedText().replace(/\s+/g, ' ')
     expect(text).toContain(
-      'Invite requests: the email address and language you give us when you ask for an invite.',
+      'Invite requests: the email address and language you give us when you ask for an invite, and the name of the link you followed to the form, when it has one.',
     )
     expect(text).toContain('and keeping your place on the invite list after you confirm your email')
     expect(text).toContain(

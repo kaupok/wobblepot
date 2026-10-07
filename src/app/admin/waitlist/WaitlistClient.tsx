@@ -115,7 +115,8 @@ export function WaitlistClient({ initialRequests }: WaitlistClientProps) {
                     <div className="flex flex-col gap-1">
                       <Body>{row.email}</Body>
                       <Body variant="small" tone="muted">
-                        {row.locale} · Confirmed {formatAt(row.confirmedAt)}
+                        {row.locale} · Source: {row.source ?? 'direct'} · Confirmed{' '}
+                        {formatAt(row.confirmedAt)}
                         {row.invitedAt ? ` · Invited ${formatAt(row.invitedAt)}` : ' · Not invited'}
                       </Body>
                     </div>

@@ -245,6 +245,10 @@ model WaitlistRequest {
   invitedAt    DateTime?
   /// The code sent to this address (HON-970).
   signupCodeId String?   @unique
+  /// The `ref` of the link the person followed to `/request-invite`, when it
+  /// matched `WAITLIST_REF_PATTERN` (HON-1089). Set when the row is created and
+  /// never updated, so the first source wins.
+  source       String?
 
   signupCode SignupCode? @relation(fields: [signupCodeId], references: [id], onDelete: SetNull)
 

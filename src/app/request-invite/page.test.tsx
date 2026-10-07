@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 vi.unmock('next-intl')
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
@@ -34,8 +35,12 @@ vi.mock('next/navigation', () => ({
   }),
 }))
 
-async function renderPage() {
-  const page = await RequestInvitePage()
+function props(searchParams: { ref?: string | string[] } = {}) {
+  return { searchParams: Promise.resolve(searchParams) }
+}
+
+async function renderPage(searchParams: { ref?: string | string[] } = {}) {
+  const page = await RequestInvitePage(props(searchParams))
   const { wrapper: Wrapper } = createQueryWrapper()
   return render(
     <NextIntlClientProvider locale={translationLocale} messages={catalog()}>
@@ -74,7 +79,56 @@ describe('/request-invite', () => {
   it('redirects to sign-up when sign-up is open', async () => {
     vi.mocked(getServerFlag).mockResolvedValue(false)
 
-    await expect(RequestInvitePage()).rejects.toThrow('NEXT_REDIRECT:/sign-up')
+    await expect(RequestInvitePage(props())).rejects.toThrow('NEXT_REDIRECT:/sign-up')
+  })
+
+  describe('the ref of the link the visitor followed (HON-1089)', () => {
+    const fetchMock = vi.fn()
+
+    beforeEach(() => {
+      fetchMock.mockReset()
+      fetchMock.mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    async function submittedBody(searchParams: { ref?: string | string[] }) {
+      const user = userEvent.setup({ delay: null })
+      await renderPage(searchParams)
+      await user.type(screen.getByLabelText('Email'), 'me@example.com')
+      await user.click(screen.getByRole('button', { name: 'Ask for an invite' }))
+      await screen.findByRole('status')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      return JSON.parse(fetchMock.mock.calls[0]![1].body)
+    }
+
+    it('sends ?ref=mealime with the request, with no new text on the form', async () => {
+      expect(await submittedBody({ ref: 'mealime' })).toEqual({
+        email: 'me@example.com',
+        locale: 'en',
+        ref: 'mealime',
+      })
+      expect(screen.queryByText(/mealime/)).not.toBeInTheDocument()
+    })
+
+    it('sends no ref without one', async () => {
+      expect(await submittedBody({})).toEqual({ email: 'me@example.com', locale: 'en' })
+    })
+
+    it('drops a repeated ref rather than picking one', async () => {
+      expect(await submittedBody({ ref: ['mealime', 'reddit'] })).toEqual({
+        email: 'me@example.com',
+        locale: 'en',
+      })
+    })
   })
 
   it('titles the page in the request locale', async () => {

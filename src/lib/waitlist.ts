@@ -34,6 +34,13 @@ export const WAITLIST_INVITE_TTL_DAYS = 14
  */
 export const WAITLIST_RESEND_COOLDOWN_MS = 10 * 60 * 1000
 
+/**
+ * The `ref` values `POST /api/waitlist` stores as the request's source
+ * (HON-1089): a short slug such as `mealime` or `reddit-ukparenting`. Any
+ * other value is dropped, so a mistyped link still lets the person ask.
+ */
+export const WAITLIST_REF_PATTERN = /^[a-z0-9-]{1,32}$/
+
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /** Requests made (or reissued) before this instant are expired. */
@@ -108,14 +115,19 @@ export async function confirmWaitlistToken(
  *   keeps its `confirmedAt` until the new link is clicked; see
  *   {@link confirmWaitlistToken}.
  *
+ * `source` is written only when the row is created, so the link that first
+ * brought an address is the one the admin list shows.
+ *
  * Never throws: every failure is logged, because nobody is left to answer.
  */
 export async function processWaitlistRequest({
   email,
   locale,
+  source,
 }: {
   email: string
   locale: Locale
+  source?: string
 }): Promise<void> {
   try {
     const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
@@ -133,7 +145,7 @@ export async function processWaitlistRequest({
     const confirmToken = nanoid(32)
     await prisma.waitlistRequest.upsert({
       where: { email },
-      create: { email, locale, confirmToken, createdAt: now },
+      create: { email, locale, confirmToken, createdAt: now, source },
       update: { locale, confirmToken, createdAt: now },
     })
 
@@ -198,6 +210,8 @@ export interface WaitlistRow {
   id: string
   email: string
   locale: string
+  /** The `ref` of the link the request came from; null for a direct visit. */
+  source: string | null
   confirmedAt: string
   invitedAt: string | null
 }
@@ -211,12 +225,20 @@ export async function listConfirmedWaitlistRequests(): Promise<WaitlistRow[]> {
   const rows = await prisma.waitlistRequest.findMany({
     where: { confirmedAt: { not: null } },
     orderBy: { confirmedAt: 'desc' },
-    select: { id: true, email: true, locale: true, confirmedAt: true, invitedAt: true },
+    select: {
+      id: true,
+      email: true,
+      locale: true,
+      source: true,
+      confirmedAt: true,
+      invitedAt: true,
+    },
   })
   return rows.map((row) => ({
     id: row.id,
     email: row.email,
     locale: row.locale,
+    source: row.source,
     // Non-null by the `where` above; Prisma does not narrow the type.
     confirmedAt: (row.confirmedAt as Date).toISOString(),
     invitedAt: row.invitedAt ? row.invitedAt.toISOString() : null,
