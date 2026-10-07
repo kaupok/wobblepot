@@ -35,13 +35,14 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-// The button's name carries the slot: every empty slot on Today reads "Pick a
-// meal", so the name adds the day and meal after the visible text (HON-807).
+// The button's text is the meal type ("+ Dinner"). Every empty day has one, so
+// the name adds the action and the day after the visible text (HON-807,
+// HON-1111).
 export const Dinner: Story = {
   play: async ({ canvasElement }) => {
     await expect(
       within(canvasElement).getByRole('button', {
-        name: 'Pick a meal: Thursday Apr 16, Dinner',
+        name: 'Dinner: pick a meal, Thursday Apr 16',
       }),
     ).toBeVisible()
   },
@@ -60,8 +61,18 @@ export const Tomorrow: Story = {
   args: { date: '2026-04-17', dayLabel: 'Tomorrow', relativeDay: 'tomorrow' },
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByRole('button', { name: 'Pick a meal: Tomorrow, Dinner' }),
+      within(canvasElement).getByRole('button', { name: 'Dinner: pick a meal, Tomorrow' }),
     ).toBeVisible()
+  },
+}
+
+/** Estonian: the meal type is the whole visible text, so it needs no declension. */
+export const Estonian: Story = {
+  globals: { locale: 'et' },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole('button', { name: 'Õhtusöök: vali toit, Thursday Apr 16' }),
+    ).toHaveTextContent('Õhtusöök')
   },
 }
 
@@ -71,13 +82,13 @@ export const Adding: Story = {
     docs: {
       description: {
         story:
-          "The create-entry POST never resolves, so clicking 'Pick a meal' leaves the button in the 'Adding...' pending state: aria-disabled, so it keeps focus (HON-803).",
+          "The create-entry POST never resolves, so clicking '+ Dinner' leaves the button in the 'Adding...' pending state: aria-disabled, so it keeps focus (HON-803).",
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('button', { name: /^Pick a meal/ }))
+    await userEvent.click(canvas.getByRole('button', { name: /^Dinner: pick a meal/ }))
     const adding = await canvas.findByRole('button', {
       name: 'Adding…: Thursday Apr 16, Dinner',
     })
@@ -91,13 +102,13 @@ export const Discarding: Story = {
     docs: {
       description: {
         story:
-          "The selector is closed without a pick and the placeholder DELETE never resolves: the selector closes at once, and 'Pick a meal' stays aria-disabled until the discard settles (HON-799). It is aria-disabled rather than disabled so it can take focus back from the selector (HON-803).",
+          "The selector is closed without a pick and the placeholder DELETE never resolves: the selector closes at once, and '+ Dinner' stays aria-disabled until the discard settles (HON-799). It is aria-disabled rather than disabled so it can take focus back from the selector (HON-803).",
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('button', { name: /^Pick a meal/ }))
+    await userEvent.click(canvas.getByRole('button', { name: /^Dinner: pick a meal/ }))
     const dialog = await within(document.body).findByRole('dialog')
     // The dialog covers the row that was tapped, so its title names the slot,
     // in the short form at this phone viewport (HON-807, HON-941).
@@ -107,7 +118,7 @@ export const Discarding: Story = {
     await pressEscape()
     await awaitDialogClosed()
     await waitFor(() =>
-      expect(canvas.getByRole('button', { name: /^Pick a meal/ })).toHaveAttribute(
+      expect(canvas.getByRole('button', { name: /^Dinner: pick a meal/ })).toHaveAttribute(
         'aria-disabled',
         'true',
       ),

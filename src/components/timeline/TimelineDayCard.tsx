@@ -30,80 +30,74 @@ export function TimelineDayCard({
   // so an empty slot can say which day it belongs to (HON-807).
   const dayLabel = day.dateLabel ? `${day.label} ${day.dateLabel}` : day.label
   const relativeDay = day.isToday ? 'today' : day.isTomorrow ? 'tomorrow' : undefined
-  // Build a combined list of entries and empty slots, sorted by meal type
-  type SlotItem =
-    | { type: 'entry'; entry: (typeof day.entries)[0]; order: number }
-    | { type: 'empty'; mealType: (typeof day.emptySlots)[0]; order: number }
-
-  const slots: SlotItem[] = [
-    ...day.entries.map((entry) => ({
-      type: 'entry' as const,
-      entry,
-      order: mealTypeOrder[entry.mealType as keyof typeof mealTypeOrder] ?? 3,
-    })),
-    ...day.emptySlots.map((mealType) => ({
-      type: 'empty' as const,
-      mealType,
-      order: mealTypeOrder[mealType as keyof typeof mealTypeOrder] ?? 3,
-    })),
-  ].sort((a, b) => a.order - b.order)
+  const order = (mealType: string) => mealTypeOrder[mealType as keyof typeof mealTypeOrder] ?? 3
+  const entries = [...day.entries].sort((a, b) => order(a.mealType) - order(b.mealType))
+  const emptySlots = [...day.emptySlots].sort((a, b) => order(a) - order(b))
 
   return (
     <div className="flex flex-col gap-2">
-      <Heading variant="section" as="h2" className={day.isToday ? 'text-primary' : undefined}>
-        {day.label}
-        {day.dateLabel && (
-          <>
-            {' '}
-            {/* The date is a detail beside the weekday: dimmed and at normal
-                weight, in the same heading so the outline still reads
-                "Saturday Sep 26". A plain space, not a formatter's (HON-777). */}
-            <span className="text-muted-foreground font-normal">{day.dateLabel}</span>
-          </>
+      {/* An empty slot is a "+ Dinner" button on the heading's line rather
+          than a row of its own, so an empty day takes one line (HON-1111). The
+          buttons sit beside the heading, not inside it, so the outline still
+          reads "Saturday Sep 26"; they wrap below it, together, on a narrow
+          screen. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <Heading variant="section" as="h2" className={day.isToday ? 'text-primary' : undefined}>
+          {day.label}
+          {day.dateLabel && (
+            <>
+              {' '}
+              {/* The date is a detail beside the weekday: dimmed and at normal
+                  weight, in the same heading so the outline still reads
+                  "Saturday Sep 26". A plain space, not a formatter's (HON-777). */}
+              <span className="text-muted-foreground font-normal">{day.dateLabel}</span>
+            </>
+          )}
+        </Heading>
+        {emptySlots.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {emptySlots.map((mealType) => (
+              <TimelineEmptySlot
+                key={mealType}
+                planId={planId}
+                date={day.date}
+                dayLabel={dayLabel}
+                relativeDay={relativeDay}
+                mealType={mealType}
+                householdServings={householdServings}
+                pantryIngredients={pantryIngredients}
+              />
+            ))}
+          </div>
         )}
-      </Heading>
-      {slots.length === 0 ? (
-        <Body variant="muted">{tDay('noMealsPlanned')}</Body>
-      ) : (
+      </div>
+      {entries.length > 0 ? (
         <div className="flex flex-col gap-2">
-          {slots.map((slot) => {
-            // The slot's label (Dinner, Lunch) is the card's own first row:
-            // `MealCard` and `TimelineEmptySlot` render `MealTypeBadge`.
-            return (
-              <div key={slot.type === 'entry' ? slot.entry.id : `empty-${slot.mealType}`}>
-                {slot.type === 'entry' ? (
-                  <MealCard
-                    entryId={slot.entry.id}
-                    planId={planId}
-                    meal={slot.entry.meal}
-                    mealType={slot.entry.mealType}
-                    status={slot.entry.status}
-                    rating={slot.entry.rating}
-                    householdServings={householdServings}
-                    pantryIngredients={pantryIngredients}
-                    pantryItems={pantryItems}
-                    note={slot.entry.note}
-                    noteX={slot.entry.noteX}
-                    noteY={slot.entry.noteY}
-                    servingOverride={slot.entry.servingOverride}
-                    pantryDeducted={slot.entry.pantryDeducted}
-                    preparationTips={slot.entry.preparationTips}
-                  />
-                ) : (
-                  <TimelineEmptySlot
-                    planId={planId}
-                    date={day.date}
-                    dayLabel={dayLabel}
-                    relativeDay={relativeDay}
-                    mealType={slot.mealType}
-                    householdServings={householdServings}
-                    pantryIngredients={pantryIngredients}
-                  />
-                )}
-              </div>
-            )
-          })}
+          {/* The slot's label (Dinner, Lunch) is the card's own first row:
+              `MealCard` renders `MealTypeBadge`. */}
+          {entries.map((entry) => (
+            <MealCard
+              key={entry.id}
+              entryId={entry.id}
+              planId={planId}
+              meal={entry.meal}
+              mealType={entry.mealType}
+              status={entry.status}
+              rating={entry.rating}
+              householdServings={householdServings}
+              pantryIngredients={pantryIngredients}
+              pantryItems={pantryItems}
+              note={entry.note}
+              noteX={entry.noteX}
+              noteY={entry.noteY}
+              servingOverride={entry.servingOverride}
+              pantryDeducted={entry.pantryDeducted}
+              preparationTips={entry.preparationTips}
+            />
+          ))}
         </div>
+      ) : (
+        emptySlots.length === 0 && <Body variant="muted">{tDay('noMealsPlanned')}</Body>
       )}
     </div>
   )

@@ -20,7 +20,7 @@ vi.mock('@/components/meal-plan/meal-selector/AlternativesList', () => ({
 }))
 
 const PLAN_ID = 'plan-1'
-const PICK_NAME = 'Pick a meal: Thursday Apr 16, Dinner'
+const PICK_NAME = 'Dinner: pick a meal, Thursday Apr 16'
 const ENTRY_ID = 'entry-1'
 const ENTRY_URL = `/api/meal-plans/${PLAN_ID}/entries/${ENTRY_ID}`
 
@@ -107,7 +107,7 @@ function closeSelector() {
   fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
 }
 
-// "Pick a meal" is `aria-disabled`, not `disabled`, while a create or discard
+// The slot's button is `aria-disabled`, not `disabled`, while a create or discard
 // is pending (HON-803), so `toBeDisabled()` cannot see it.
 function expectPending(button: HTMLElement) {
   expect(button).toHaveAttribute('aria-disabled', 'true')
@@ -125,12 +125,12 @@ const suggestionRequests = () => requests.filter((r) => r.url === `${ENTRY_URL}/
 const deleteRequests = () => requests.filter((r) => r.method === 'DELETE')
 
 describe('TimelineEmptySlot', () => {
-  // Today renders one of these per empty slot, so the name has to say which
-  // one, and start with the visible text (WCAG 2.5.3) (HON-807).
-  it('names the day and meal after the visible text', () => {
+  // Every empty day has a "Dinner" button, so the name has to say which day,
+  // and start with the visible text (WCAG 2.5.3) (HON-807, HON-1111).
+  it('shows the meal type and names the day after it', () => {
     renderSlot()
     const button = pickButton()
-    expect(button).toHaveTextContent('Pick a meal')
+    expect(button).toHaveTextContent(/^Dinner$/)
     expect(button).toHaveAccessibleName(PICK_NAME)
   })
 
@@ -185,7 +185,7 @@ describe('TimelineEmptySlot', () => {
     expect(deleteRequests()).toHaveLength(1)
   })
 
-  it('disables "Pick a meal" while the placeholder is being discarded', async () => {
+  it('disables the button while the placeholder is being discarded', async () => {
     renderSlot()
     await openSelector()
 
@@ -240,7 +240,7 @@ describe('TimelineEmptySlot', () => {
     await waitFor(() => expectIdle(pickButton()))
   })
 
-  it('returns focus to "Pick a meal" when the selector closes without a pick', async () => {
+  it('returns focus to the button when the selector closes without a pick', async () => {
     renderSlot()
     await openSelector()
 
@@ -251,7 +251,7 @@ describe('TimelineEmptySlot', () => {
     await waitFor(() => expect(pickButton()).toHaveFocus())
   })
 
-  it('keeps "Pick a meal" focusable while it is pending', async () => {
+  it('keeps the button focusable while it is pending', async () => {
     renderSlot()
     await openSelector()
 

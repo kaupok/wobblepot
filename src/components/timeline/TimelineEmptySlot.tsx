@@ -5,10 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Body } from '@/components/ui/typography'
 import { MealSelectorModal } from '@/components/meal-plan/MealSelectorModal'
-import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { ApiError, apiFetch } from '@/lib/api'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
@@ -123,7 +122,7 @@ export function TimelineEmptySlot({
   }
 
   // Radix hands focus back to a `DialogTrigger`, and the selector has none, so
-  // return it to "Pick a meal" ourselves (HON-803). The button is still pending
+  // return it to the slot's button ourselves (HON-803). The button is still pending
   // here — the discard is in flight — which is why it is `aria-disabled` rather
   // than `disabled`: a disabled button cannot take focus.
   function handleCloseAutoFocus(event: Event) {
@@ -131,35 +130,30 @@ export function TimelineEmptySlot({
     pickButtonRef.current?.focus()
   }
 
-  const buttonText = isCreating ? tCard('adding') : tCard('pickMeal')
+  // The meal type alone is the visible text ("+ Dinner"), so Estonian needs no
+  // declension of it (HON-807). Every empty day has a "Dinner" button, so the
+  // name adds the action and the day after the visible text, which a voice
+  // user can still say (WCAG 2.5.3).
+  const buttonText = isCreating ? tCard('adding') : mealTypeLabel
+  const accessibleName = isCreating
+    ? tCard('slotActionLabel', { action: buttonText, day: dayLabel, mealType: mealTypeLabel })
+    : tCard('emptySlotLabel', { mealType: mealTypeLabel, day: dayLabel })
 
   return (
     <>
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed px-3 py-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <MealTypeBadge mealType={mealType} />
-          <Body variant="caption">{tCard('noMealPlanned')}</Body>
-        </div>
-        <Button
-          ref={pickButtonRef}
-          variant="outline"
-          size="sm"
-          onClick={handlePickMeal}
-          // Not `disabled`: a disabled button drops focus and cannot take it
-          // back when the selector closes (HON-803).
-          aria-disabled={isPending || undefined}
-          // Every empty slot on Today reads "Pick a meal", so the name adds the
-          // slot. It starts with the visible text, so a voice user can still
-          // say what they see (WCAG 2.5.3, HON-807).
-          aria-label={tCard('slotActionLabel', {
-            action: buttonText,
-            day: dayLabel,
-            mealType: mealTypeLabel,
-          })}
-        >
-          {buttonText}
-        </Button>
-      </div>
+      <Button
+        ref={pickButtonRef}
+        variant="ghost"
+        size="sm"
+        onClick={handlePickMeal}
+        // Not `disabled`: a disabled button drops focus and cannot take it
+        // back when the selector closes (HON-803).
+        aria-disabled={isPending || undefined}
+        aria-label={accessibleName}
+      >
+        <Plus aria-hidden="true" />
+        {buttonText}
+      </Button>
       {entryId && (
         <MealSelectorModal
           open={isSelectorOpen}
