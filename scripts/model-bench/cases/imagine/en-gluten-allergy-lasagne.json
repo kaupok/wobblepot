@@ -1,0 +1,11 @@
+{
+  "prompt": "a cheesy lasagne the kids will love",
+  "household": {
+    "allergens": ["gluten"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": [],
+    "householdSize": 4
+  },
+  "locale": "en"
+}

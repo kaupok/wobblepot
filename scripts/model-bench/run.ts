@@ -27,8 +27,8 @@
  * compare a prompt change with the prompt the golden was recorded on. See
  * `golden.ts`.
  *
- * `--judge` (HON-798) adds a blind pairwise comparison of imagine and tips
- * output. By default the prompts are exported for a Claude Code session to
+ * `--judge` (HON-798) adds a blind pairwise comparison of imagine, tips and
+ * cook-question output. By default the prompts are exported for a Claude Code session to
  * answer (`/bench-judge`), and `--import-verdicts` folds the answers into the
  * report; `--judge-api` has `JUDGE_MODEL` answer them through the API key
  * instead. See `judge.ts` and `judge-files.ts`.
@@ -732,7 +732,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
   const judgeExport = args.judge === 'claude-code' ? exportJudgePairs(result, cases) : undefined
   if (args.judge === 'api') {
     log('')
-    log(`Judging imagine and tips pairs with ${JUDGE_MODEL}, twice each`)
+    log(`Judging imagine, tips and cook-question pairs with ${JUDGE_MODEL}, twice each`)
     judge = await runJudge({
       result,
       cases,

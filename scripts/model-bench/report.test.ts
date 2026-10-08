@@ -7,6 +7,7 @@ import type { Task } from './case-schema'
 import {
   buildCheckReport,
   buildReport,
+  callsToBound,
   compareMetric,
   perRunValues,
   renderCheckMarkdown,
@@ -14,6 +15,7 @@ import {
   renderSummary,
   writeCheckReport,
   writeReport,
+  zeroFailureBound,
 } from './report'
 import type { CallRecord, Role, RunResult } from './runner'
 import { TASK_SPECS } from './tasks'
@@ -701,5 +703,140 @@ describe('buildCheckReport', () => {
     } finally {
       rmSync(outDir, { recursive: true, force: true })
     }
+  })
+})
+
+/**
+ * `perRun[i]` lists one entry per call in run i + 1: `true` for a call that
+ * completed, `false` for one that errored.
+ */
+function batch(
+  task: Task,
+  role: Role,
+  perRun: boolean[][],
+  scores: CallRecord['scores'] = {},
+): CallRecord[] {
+  return perRun.flatMap((calls, i) =>
+    calls.map((ok, j) =>
+      call(task, role, i + 1, ok ? scores : {}, {
+        caseId: `${task}/case-${j}`,
+        ...(ok ? {} : { errorName: 'AI_NoObjectGeneratedError', finishReason: 'length' }),
+      }),
+    ),
+  )
+}
+
+const clean = (n: number) => Array<boolean>(n).fill(true)
+const failing = (n: number, failures: number) => [
+  ...Array<boolean>(failures).fill(false),
+  ...clean(n - failures),
+]
+
+describe('completed calls', () => {
+  it('lists failed calls outside noise as a regression on every task', () => {
+    // The 2026-10-07 tips result: 5 of 24 candidate calls cut off at
+    // maxOutputTokens, which the report listed as no regression at all.
+    const r = report(
+      [
+        ...batch('tips', 'baseline', [clean(8), clean(8), clean(8)]),
+        ...batch('tips', 'candidate', [failing(8, 2), failing(8, 1), failing(8, 2)]),
+      ],
+      ['tips'],
+    )
+    expect(r.regressions.map((f) => f.text)).toContainEqual(
+      expect.stringMatching(/tips · Completed \(no error, not cut off\).*100\.0% → 79\.2%/),
+    )
+  })
+
+  it('keeps a single failed call inside the run-to-run range', () => {
+    const r = report(
+      [
+        ...batch('plan', 'baseline', [clean(8), clean(8), clean(8)]),
+        ...batch('plan', 'candidate', [clean(8), failing(8, 1), clean(8)]),
+      ],
+      ['plan'],
+    )
+    expect(r.regressions.map((f) => f.text).join('\n')).not.toContain('Completed')
+    expect(r.withinNoise.map((f) => f.text)).toContainEqual(
+      expect.stringMatching(/plan · Completed/),
+    )
+  })
+
+  it('counts an answer cut off at maxOutputTokens that still parsed as not completed', () => {
+    const cutOff = (run: number) =>
+      call('recipe', 'candidate', run, { recall: 1 }, { finishReason: 'length' })
+    const r = report(
+      [
+        ...[1, 2, 3].map((run) => call('recipe', 'baseline', run, { recall: 1 })),
+        ...[1, 2, 3].map(cutOff),
+      ],
+      ['recipe'],
+    )
+    const completed = r.tasks[0]!.metrics[0]!
+    expect(completed.metric.key).toBe('completed')
+    expect(completed.candidate?.mean).toBe(0)
+    expect(r.regressions.map((f) => f.text)).toContainEqual(
+      expect.stringMatching(/recipe · Completed/),
+    )
+  })
+
+  it('puts the Completed row first in each task table', () => {
+    const md = renderMarkdown(report(series('recipe', 'recall', [1, 1, 1], [1, 1, 1]), ['recipe']))
+    const table = md.split('## recipe')[1]!
+    // Header, separator, then the first metric row.
+    expect(table.split('\n').filter((l) => l.startsWith('| '))[2]).toMatch(
+      /^\| Completed \(no error, not cut off\) \| 100\.0% \| 100\.0% \|/,
+    )
+  })
+})
+
+describe('safety checks', () => {
+  it('bounds a clean result and names a failure, per call', () => {
+    const pass = { noForbiddenIngredients: 1 }
+    const r = report(
+      [
+        ...batch('imagine', 'baseline', [clean(8), clean(8), clean(8)], pass),
+        ...batch('imagine', 'candidate', [clean(8), clean(8), clean(8)], pass).map((c, i) =>
+          i === 0 ? { ...c, scores: { noForbiddenIngredients: 0 } } : c,
+        ),
+      ],
+      ['imagine'],
+    )
+    expect(r.tasks[0]!.safety).toEqual([
+      expect.objectContaining({
+        baseline: { scored: 24, failed: 0 },
+        candidate: { scored: 24, failed: 1 },
+      }),
+    ])
+    const md = renderMarkdown(r)
+    expect(md).toContain('## Safety checks')
+    expect(md).toContain(
+      '| imagine · No forbidden ingredient | 0 of 24 failed (rate up to 11.7%) | **1 of 24 failed** |',
+    )
+    expect(md).toContain('under 5% takes 59 clean calls, and under 1% takes 299')
+  })
+
+  it('leaves an errored call out of the count, as the metric does', () => {
+    const r = report(
+      [
+        ...batch('cook-question', 'baseline', [clean(4)], { avoidsForbidden: 1 }),
+        ...batch('cook-question', 'candidate', [failing(4, 1)], { avoidsForbidden: 1 }),
+      ],
+      ['cook-question'],
+    )
+    expect(r.tasks[0]!.safety[0]!.candidate).toEqual({ scored: 3, failed: 0 })
+  })
+
+  it('adds no section when no task in the run has a safety check', () => {
+    const md = renderMarkdown(report(series('recipe', 'recall', [1, 1, 1], [1, 1, 1]), ['recipe']))
+    expect(md).not.toContain('## Safety checks')
+  })
+
+  it('computes the exact zero-failure bound', () => {
+    expect(zeroFailureBound(24)).toBeCloseTo(0.1173, 4)
+    expect(zeroFailureBound(59)).toBeLessThan(0.05)
+    expect(zeroFailureBound(58)).toBeGreaterThan(0.05)
+    expect(callsToBound(0.05)).toBe(59)
+    expect(callsToBound(0.01)).toBe(299)
   })
 })

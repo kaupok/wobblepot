@@ -3,19 +3,23 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { TASKS } from './case-schema'
+import { TASKS, type Task } from './case-schema'
 import { loadCases } from './load-cases'
-import { prepareCase } from './tasks'
+import { prepareCase, TASK_SPECS } from './tasks'
 
 describe('the committed cases', () => {
   const cases = loadCases(TASKS)
 
   // HON-797: enough cases per task that one failure does not move a rate past
-  // a regression threshold on its own.
-  it.each(TASKS)('%s has 8 to 10 cases, at least 3 of them Estonian', (task) => {
+  // a regression threshold on its own. A task with an allergen check may hold
+  // more, because the report's failure-rate bound for that check shrinks only
+  // with more calls (`zeroFailureBound` in `report.ts`).
+  const maxCases = (task: Task) => (TASK_SPECS[task].metrics.some((m) => m.safety) ? 16 : 10)
+
+  it.each(TASKS)('%s has 8 to its maximum cases, at least 3 of them Estonian', (task) => {
     const locales = cases.filter((c) => c.task === task).map((c) => c.input.locale)
     expect(locales.length).toBeGreaterThanOrEqual(8)
-    expect(locales.length).toBeLessThanOrEqual(10)
+    expect(locales.length).toBeLessThanOrEqual(maxCases(task))
     expect(locales.filter((l) => l === 'et').length).toBeGreaterThanOrEqual(3)
   })
 

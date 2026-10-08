@@ -1,0 +1,82 @@
+{
+  "mealName": "Kana-kookoskarri riisiga",
+  "servings": 4,
+  "timeMinutes": 35,
+  "components": [
+    {
+      "name": "Kanakintsuliha",
+      "quantityPerServing": 130,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Kookospiim",
+      "quantityPerServing": 100,
+      "defaultUnit": "ml"
+    },
+    {
+      "name": "Punane karripasta",
+      "quantityPerServing": 10,
+      "defaultUnit": "g"
+    },
+    {
+      "name": "Jasmiiniriis",
+      "quantityPerServing": 75,
+      "defaultUnit": "g"
+    }
+  ],
+  "preparationNotes": null,
+  "steps": [
+    "Keeda riis.",
+    "Prae karripastat potis 1 minut, lisa kana ja prae 5 minutit.",
+    "Vala juurde kookospiim ja hauta 15 minutit, maitsesta ja serveeri riisiga."
+  ],
+  "equipment": ["Pott", "Kastrul"],
+  "subject": {
+    "kind": "step",
+    "index": 2
+  },
+  "pitfalls": ["Kookospiim võib liiga tugeval tulel kalgenduda."],
+  "tip": null,
+  "pantry": [
+    {
+      "name": "Sojakaste",
+      "isStaple": false
+    },
+    {
+      "name": "Laim",
+      "isStaple": false
+    },
+    {
+      "name": "Pruun suhkur",
+      "isStaple": false
+    },
+    {
+      "name": "Sool",
+      "isStaple": true
+    }
+  ],
+  "restrictions": {
+    "allergens": ["fish", "shellfish"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": []
+  },
+  "question": "Karri maitseb lahjalt. Millega saaksin maitset juurde?",
+  "locale": "et",
+  "expected": {
+    "mentionsAny": ["sojakast", "laim"],
+    "forbiddenKeywords": ["kalakastet", "kalakastmega", "krevetipasta", "anšoovis", "anchovy"],
+    "allowedQualifiers": [
+      "ilma",
+      "mitte",
+      "ei",
+      "väldi",
+      "vältige",
+      "ära kasuta",
+      "ära lisa",
+      "ära puista",
+      "ärge kasutage",
+      "ärge lisage"
+    ]
+  }
+}

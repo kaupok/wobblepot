@@ -1,9 +1,10 @@
 /**
  * Blind pairwise judge for the model benchmark (HON-798).
  *
- * The deterministic scorers cannot see whether an imagined meal sounds good or
- * whether a tip is useful, so for imagine and tips a stronger model compares
- * the baseline's and the candidate's output for the same case and run.
+ * The deterministic scorers cannot see whether an imagined meal sounds good,
+ * whether a tip is useful or whether a cook's answer helps, so for imagine,
+ * tips and cook-question a stronger model compares the baseline's and the
+ * candidate's output for the same case and run.
  *
  * **Blind:** the judge sees the case input and two answers labelled A and B.
  * No model ID, and neither the word "baseline" nor "candidate", reaches it.
@@ -34,8 +35,13 @@ import type { CallRecord, ModelFactory, Role, RunResult } from './runner'
 /** Not an app model, so it lives here rather than in `src/lib/ai/models.ts`. */
 export const JUDGE_MODEL = 'claude-opus-5-5'
 
-/** Recipe, plan and review are left to their deterministic scores. */
-export const JUDGED_TASKS = ['imagine', 'tips'] as const satisfies readonly Task[]
+/**
+ * Recipe, plan and review are left to their deterministic scores. Cook-question
+ * is judged because its checks test the answer's form (length, units, the
+ * expected keyword) and say nothing about whether it helps the cook, or how
+ * its Estonian reads.
+ */
+export const JUDGED_TASKS = ['imagine', 'tips', 'cook-question'] as const satisfies readonly Task[]
 export type JudgedTask = (typeof JUDGED_TASKS)[number]
 
 /** A candidate win rate under this is a regression… */
@@ -139,9 +145,10 @@ function taskLabel(c: CaseOf<JudgedTask>): string {
 }
 
 /**
- * What the app sent. `forbiddenKeywords` and `allowedQualifiers` are the
- * scorer's, not the app's, and `source` names the incident a case reproduces,
- * which would tell the judge a model is known to fail it (HON-903).
+ * What the app sent. `forbiddenKeywords` and `allowedQualifiers` (imagine) and
+ * `expected` (cook-question) are the scorer's, not the app's: `expected` names
+ * the answer the scorer looks for. `source` names the incident a case
+ * reproduces, which would tell the judge a model is known to fail it (HON-903).
  */
 function judgeInput(c: CaseOf<JudgedTask>): unknown {
   if (c.task === 'imagine') {
@@ -151,6 +158,10 @@ function judgeInput(c: CaseOf<JudgedTask>): unknown {
       source: _bookkeeping,
       ...input
     } = c.input
+    return input
+  }
+  if (c.task === 'cook-question') {
+    const { expected: _scorerOnly, source: _bookkeeping, ...input } = c.input
     return input
   }
   const { source: _bookkeeping, ...input } = c.input
@@ -174,6 +185,8 @@ interface ImagineOutput {
  * fields) are left out.
  */
 function judgeOutput(c: CaseOf<JudgedTask>, output: unknown): unknown {
+  // Plain text in production; wrapped so it reads as the answer, not a JSON string.
+  if (c.task === 'cook-question') return { answer: output }
   if (c.task !== 'imagine') return output
   const { locale } = c.input
   const meals = (output as ImagineOutput | null)?.meals ?? []
@@ -273,7 +286,7 @@ export interface JudgePair {
 }
 
 /**
- * Every imagine and tips pair the benchmark produced, in the order it ran
+ * Every judged pair the benchmark produced, in the order it ran
  * them. A side missing from a `--max-usd` stop leaves no pair at all.
  */
 export function pairsToJudge(result: RunResult, cases: BenchCase[]): JudgePair[] {

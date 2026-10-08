@@ -1,0 +1,11 @@
+{
+  "prompt": "kiire kana-wokk nuudlitega, nagu Aasia restoranis",
+  "household": {
+    "allergens": ["soy"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": [],
+    "householdSize": 3
+  },
+  "locale": "et"
+}

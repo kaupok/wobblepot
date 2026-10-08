@@ -1,0 +1,11 @@
+{
+  "prompt": "creamy mac and cheese for a cold evening",
+  "household": {
+    "allergens": ["dairy"],
+    "dietaryType": null,
+    "excludedIngredients": [],
+    "restrictions": [],
+    "householdSize": 3
+  },
+  "locale": "en"
+}

@@ -45,6 +45,25 @@ const FLOAT_TOLERANCE = 1e-9
 /** The candidate's max latency may use at most this share of the route budget. */
 export const LATENCY_BUDGET_SHARE = 0.8
 
+/**
+ * Every task's first row: the share of calls that returned a usable answer, with
+ * no error and not cut off at `maxOutputTokens`. Task metrics score an error in
+ * different ways (a rate counts it as a failure, a safety check as not
+ * measured), and few of them carry a regression threshold, so without this row a
+ * candidate that failed one tips call in five reported no regression. Any drop
+ * outside noise is a regression; a single flake stays inside the range.
+ */
+export const COMPLETED_METRIC: MetricDef = {
+  key: 'completed',
+  label: 'Completed (no error, not cut off)',
+  format: 'percent',
+  onError: 0,
+  regressionDrop: 0,
+}
+
+/** One-sided confidence for the safety-check failure-rate bound. */
+const SAFETY_CONFIDENCE = 0.95
+
 export interface Summary {
   mean: number
   min: number
@@ -87,11 +106,26 @@ export interface Operational {
   totalCostUsd: number
 }
 
+export interface SafetyCount {
+  /** Calls the check scored; an errored call is not measured. */
+  scored: number
+  failed: number
+}
+
+export interface SafetyCheck {
+  metric: MetricDef
+  baseline: SafetyCount
+  candidate: SafetyCount
+}
+
 export interface TaskReport {
   task: Task
   budgetMs: number
   budgetLabel: string
+  /** `COMPLETED_METRIC` first, then the task's own metrics. */
   metrics: MetricComparison[]
+  /** The task's metrics marked `safety`, counted per call. */
+  safety: SafetyCheck[]
   operational: Record<Role, Operational>
 }
 
@@ -171,13 +205,45 @@ export function perRunValues(calls: CallRecord[], key: string): number[] {
   return [...byRun.keys()].sort((a, b) => a - b).map((run) => mean(byRun.get(run)!)!)
 }
 
+/** Per-run share of calls that completed: no error and not cut off. */
+export function perRunCompleted(calls: CallRecord[]): number[] {
+  const byRun = new Map<number, number[]>()
+  for (const call of calls) {
+    const list = byRun.get(call.run) ?? []
+    list.push(call.errorName === null && call.finishReason !== 'length' ? 1 : 0)
+    byRun.set(call.run, list)
+  }
+  return [...byRun.keys()].sort((a, b) => a - b).map((run) => mean(byRun.get(run)!)!)
+}
+
 export function compareMetric(
   metric: MetricDef,
   baselineCalls: CallRecord[],
   candidateCalls: CallRecord[],
 ): MetricComparison {
-  const baselineRuns = perRunValues(baselineCalls, metric.key)
-  const candidateRuns = perRunValues(candidateCalls, metric.key)
+  return compareRuns(
+    metric,
+    perRunValues(baselineCalls, metric.key),
+    perRunValues(candidateCalls, metric.key),
+  )
+}
+
+export function compareCompleted(
+  baselineCalls: CallRecord[],
+  candidateCalls: CallRecord[],
+): MetricComparison {
+  return compareRuns(
+    COMPLETED_METRIC,
+    perRunCompleted(baselineCalls),
+    perRunCompleted(candidateCalls),
+  )
+}
+
+function compareRuns(
+  metric: MetricDef,
+  baselineRuns: number[],
+  candidateRuns: number[],
+): MetricComparison {
   const baseline = summarize(baselineRuns)
   const candidate = summarize(candidateRuns)
   const rangeMeasured = baselineRuns.length >= 2 && candidateRuns.length >= 2
@@ -208,6 +274,26 @@ export function compareMetric(
     metric.regressionDrop !== undefined && delta < -metric.regressionDrop - FLOAT_TOLERANCE
 
   return { metric, baseline, candidate, delta, noise, rangeMeasured, thresholdBreached }
+}
+
+function safetyCount(calls: CallRecord[], key: string): SafetyCount {
+  const scores = calls
+    .map((c) => c.scores[key])
+    .filter((v): v is number => v !== null && v !== undefined)
+  return { scored: scores.length, failed: scores.filter((v) => v < 1).length }
+}
+
+/**
+ * The highest failure rate still consistent, at `SAFETY_CONFIDENCE`, with no
+ * failure in `n` calls: the exact bound 1 − (1 − confidence)^(1/n), about 3/n.
+ */
+export function zeroFailureBound(n: number): number {
+  return 1 - (1 - SAFETY_CONFIDENCE) ** (1 / n)
+}
+
+/** Clean calls needed before `zeroFailureBound` falls to `rate`. */
+export function callsToBound(rate: number): number {
+  return Math.ceil(Math.log(1 - SAFETY_CONFIDENCE) / Math.log(1 - rate))
 }
 
 function operational(calls: CallRecord[], budgetMs: number): Operational {
@@ -274,9 +360,17 @@ export function buildReport(args: {
     const taskCalls = result.calls.filter((c) => c.task === task)
     const byRole = (role: Role) => taskCalls.filter((c) => c.role === role)
 
-    const metrics = spec.metrics.map((m) =>
-      compareMetric(m, byRole('baseline'), byRole('candidate')),
-    )
+    const metrics = [
+      compareCompleted(byRole('baseline'), byRole('candidate')),
+      ...spec.metrics.map((m) => compareMetric(m, byRole('baseline'), byRole('candidate'))),
+    ]
+    const safety = spec.metrics
+      .filter((m) => m.safety)
+      .map((metric) => ({
+        metric,
+        baseline: safetyCount(byRole('baseline'), metric.key),
+        candidate: safetyCount(byRole('candidate'), metric.key),
+      }))
 
     for (const cmp of metrics) {
       if (cmp.delta === null || cmp.delta === 0) continue
@@ -319,6 +413,7 @@ export function buildReport(args: {
       budgetMs: spec.budgetMs,
       budgetLabel: spec.budgetLabel,
       metrics,
+      safety,
       operational: ops,
     }
   })
@@ -504,6 +599,37 @@ function describeChange(cmp: MetricComparison): string {
   return `${formatSummary(cmp.metric, cmp.baseline)} → ${formatSummary(cmp.metric, cmp.candidate)} (${formatDelta(cmp.metric, cmp.delta)})`
 }
 
+function formatSafetyCount({ scored, failed }: SafetyCount): string {
+  if (scored === 0) return 'not measured'
+  if (failed > 0) return `**${failed} of ${scored} failed**`
+  return `0 of ${scored} failed (rate up to ${(zeroFailureBound(scored) * 100).toFixed(1)}%)`
+}
+
+/**
+ * The allergen and dietary checks, per call. A regression needs a drop outside
+ * noise, and a check both models pass on every call shows no difference at all,
+ * which is easy to read as "safe". This section says how little a clean result
+ * on a few dozen calls rules out.
+ */
+function renderSafety(report: BenchReport): string[] {
+  const rows = report.tasks.flatMap((t) => t.safety.map((s) => ({ task: t.task, ...s })))
+  if (rows.length === 0) return []
+  const lines = ['## Safety checks', '']
+  lines.push(
+    `The allergen and dietary checks, counted per call. No failure in a few dozen calls does not show the rate is zero: the figure in brackets is the highest failure rate still consistent with a clean result, at ${SAFETY_CONFIDENCE * 100}% confidence. Showing a rate under 5% takes ${callsToBound(0.05)} clean calls, and under 1% takes ${callsToBound(0.01)}. Before a model change ships on a route with one of these checks, run enough cases or \`--runs\` that the bound is one you accept.`,
+    '',
+  )
+  lines.push(`| Check | ${report.baseline} | ${report.candidate} |`)
+  lines.push('| --- | --- | --- |')
+  for (const r of rows) {
+    lines.push(
+      `| ${r.task} · ${r.metric.label} | ${formatSafetyCount(r.baseline)} | ${formatSafetyCount(r.candidate)} |`,
+    )
+  }
+  lines.push('')
+  return lines
+}
+
 function formatWinRate(s: JudgeTaskSummary): string {
   if (s.winRate === null) return '—'
   return `${(s.winRate * 100).toFixed(1)}% (${s.wins} won of ${s.decided} decided)`
@@ -578,6 +704,8 @@ export function renderMarkdown(report: BenchReport): string {
   if (report.withinNoise.length === 0) lines.push('None.')
   for (const f of report.withinNoise) lines.push(`- ${f.text}`)
   lines.push('')
+
+  lines.push(...renderSafety(report))
 
   if (report.judge) lines.push(...renderJudge(report.judge, candidate))
   else if (report.judgePending) {

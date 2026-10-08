@@ -47,6 +47,16 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
     cacheWritePerMTok: 3.75,
     outputPerMTok: 15,
   },
+  // Candidate for the cheaper routes, under evaluation. Anthropic's Claude
+  // Haiku 5.5 rates for prompts up to 100K tokens, checked 2026-10-07
+  // (https://platform.claude.com/docs/en/about-claude/pricing). Prompts over
+  // 100K pay 5× these; no app prompt comes near that.
+  'claude-haiku-5-5': {
+    inputPerMTok: 0.1,
+    cacheReadPerMTok: 0.01,
+    cacheWritePerMTok: 0.125,
+    outputPerMTok: 0.5,
+  },
   // Not an app model: the model benchmark's `--judge` (HON-798,
   // `scripts/model-bench/judge.ts`). Anthropic's Claude Opus 5.5 rates, checked
   // 2026-09-29 (https://platform.claude.com/docs/en/about-claude/pricing).

@@ -461,21 +461,23 @@ export function scoreCookQuestion(input: CookQuestionCase, output: string): Scor
   const { offTopic, mentionsAny, forbiddenKeywords, allowedQualifiers } = input.expected
   const text = normalizeFoodName(output)
   const words = wordCount(output)
+  const noForbidden =
+    findUnexcusedKeyword(
+      text,
+      (forbiddenKeywords ?? []).map(normalizeFoodName),
+      (allowedQualifiers ?? []).map(normalizeFoodName),
+    ) === null
   return {
     answered: 1,
     metricUnits: pass(!IMPERIAL_UNIT.test(output)),
     withinLength: offTopic ? null : pass(words <= COOK_QUESTION_MAX_WORDS.answer),
     withinSentences: offTopic ? null : pass(sentenceCount(output) <= COOK_QUESTION_MAX_SENTENCES),
-    offTopicDeclined: offTopic ? pass(words <= COOK_QUESTION_MAX_WORDS.offTopic) : null,
-    avoidsForbidden: forbiddenKeywords
-      ? pass(
-          findUnexcusedKeyword(
-            text,
-            forbiddenKeywords.map(normalizeFoodName),
-            (allowedQualifiers ?? []).map(normalizeFoodName),
-          ) === null,
-        )
+    // An off-topic case's keywords are the answer to its question, not a
+    // food, so they count here and stay out of the allergen safety check.
+    offTopicDeclined: offTopic
+      ? pass(words <= COOK_QUESTION_MAX_WORDS.offTopic && noForbidden)
       : null,
+    avoidsForbidden: forbiddenKeywords && !offTopic ? pass(noForbidden) : null,
     mentionsExpected: mentionsAny
       ? pass(mentionsAny.some((phrase) => text.includes(normalizeFoodName(phrase))))
       : null,
