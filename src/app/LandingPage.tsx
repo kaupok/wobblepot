@@ -62,7 +62,11 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
         <section className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-4 text-balance">
-              <Heading face="brand">{t('headline')}</Heading>
+              <Heading face="brand">
+                {/* The catalog string breaks after the first sentence, so the
+                    promise never splits as "… For / the whole week". */}
+                {t.rich('headline', { br: () => <br /> })}
+              </Heading>
               <Body variant="lead">{t('sub')}</Body>
             </div>
             <div className="flex flex-col gap-3">

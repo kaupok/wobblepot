@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, within } from 'storybook/test'
 import { displayFont } from './display-font'
-import { LandingFeatures } from './LandingFeatures'
+import { HouseholdVignette, LandingFeatures, LandingVignette } from './LandingFeatures'
 
 const meta = {
   title: 'Landing/LandingFeatures',
@@ -105,4 +105,41 @@ export const Desktop: Story = {
 export const DesktopDark: Story = {
   globals: { viewport: { value: 'laptop', isRotated: false }, theme: 'dark' },
   play,
+}
+
+/**
+ * One point's vignette on its own (`LandingVignette`), tilted, with its
+ * `sr-only` caption, as landing direction B1 places it in a tile (HON-1116).
+ */
+export const SingleVignette: Story = {
+  render: () => (
+    <div className="max-w-md">
+      <LandingVignette point="pantry" />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const caption = within(canvasElement).getByText(/1 to buy/, { selector: 'figcaption' })
+    await expect(caption).toHaveClass('sr-only')
+    await expect(canvasElement.querySelectorAll('[inert]')).toHaveLength(1)
+  },
+}
+
+/**
+ * Step 1's picture in landing direction B1 (`HouseholdVignette`): the member
+ * rows, then the allergens to avoid with nuts and peanuts ticked. No card of
+ * its own; the page's white panel is its surface.
+ */
+export const Household: Story = {
+  render: () => (
+    <div className="bg-background max-w-sm rounded-2xl p-4">
+      <HouseholdVignette />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Mia (2)')).toBeInTheDocument()
+    await expect(canvas.getByText('Allergens to avoid')).toBeInTheDocument()
+    await expect(canvas.getAllByRole('button', { pressed: true })).toHaveLength(2)
+    await expect(canvas.getByRole('button', { name: 'Dairy', pressed: false })).toBeInTheDocument()
+  },
 }

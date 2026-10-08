@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, within } from 'storybook/test'
-import { LandingShowcase } from './LandingShowcase'
+import { LandingShowcase, ShowcaseMealCard } from './LandingShowcase'
 
 const meta = {
   title: 'Landing/LandingShowcase',
@@ -39,4 +39,24 @@ export const Narrow: Story = {
       <LandingShowcase />
     </div>
   ),
+}
+
+/**
+ * One card on its own (`ShowcaseMealCard`), as landing direction B1 places
+ * them in its deck and step pictures (HON-1116). From `md` the description
+ * shows under the name; `description={false}` drops it for a small picture.
+ */
+export const SingleCard: Story = {
+  render: () => (
+    <div className="flex max-w-md flex-col gap-3">
+      <ShowcaseMealCard meal="dinner" />
+      <ShowcaseMealCard meal="breakfast" description={false} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Baked salmon with asparagus')).toBeInTheDocument()
+    await expect(canvas.getByText('Avocado toast with poached egg')).toBeInTheDocument()
+    await expect(canvas.queryByText(/Sourdough with smashed avocado/)).toBeNull()
+  },
 }

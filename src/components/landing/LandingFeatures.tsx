@@ -5,7 +5,9 @@ import { Sparkles } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Toggle } from '@/components/ui/toggle'
 import { Body, Heading } from '@/components/ui/typography'
 import { MemberRow } from '@/components/household/MemberRow'
 import { IngredientList } from '@/components/meal-plan/IngredientList'
@@ -23,11 +25,13 @@ import {
 } from '@/components/meal-plan/PreparationSteps'
 import { ServingControl } from '@/components/meal-plan/ServingControl'
 import type { MealComponent, PantryIngredient } from '@/components/meal-plan/types'
+import { useEnumLabel } from '@/lib/i18n/enum-label'
 import { formatWeight } from '@/lib/i18n/format-shopping-quantity'
 import { sumPortions } from '@/lib/meal-planning/servings'
 import type { Locale } from '@/lib/i18n/locales'
 import { cn } from '@/lib/utils'
 import type { Member, MemberPreferences } from '@/types/member'
+import type { Allergen } from '@/generated/prisma/enums'
 
 /**
  * The pantry, portions and cook vignettes show the showcase dinner
@@ -194,32 +198,70 @@ export function LandingVignette({ point, className }: { point: Point; className?
 }
 
 /**
- * The household page's member rows alone, on the neutral card they sit on in
- * the app: who is at the table, before any meal. Not inert itself; the caller
- * puts it inside an `inert` picture.
+ * Step 1's allergens: three of the household page's chips, nuts and peanuts
+ * ticked. Not the salmon's fish, so the step does not contradict the dinner
+ * the rest of the page shows.
+ */
+const HOUSEHOLD_ALLERGENS: ReadonlyArray<{ value: Allergen; pressed: boolean }> = [
+  { value: 'dairy', pressed: false },
+  { value: 'nuts', pressed: true },
+  { value: 'peanuts', pressed: true },
+]
+
+/**
+ * Who is at the table, as the household page shows it: the member rows, then
+ * the allergens to avoid as its chips. No card of its own: the caller's
+ * picture panel is its surface. Not inert itself; the caller puts it inside an
+ * `inert` picture.
  */
 export function HouseholdVignette() {
-  const t = useTranslations('landing.why.kids.vignette')
+  const tSettings = useTranslations('household.settings')
 
   return (
-    <VignetteSurface>
-      <ul className="flex flex-col divide-y">
-        {MEMBERS.map(({ key, portionMultiplier }) => (
-          <MemberRow
-            key={key}
-            member={member(key, t(key), portionMultiplier)}
-            canEdit={false}
-            canRemove={false}
-            canInvite={false}
-            onEdit={noop}
-            onRemove={noop}
-            onRemoveFocus={noop}
-            onInvite={noop}
-            onInviteUpdated={noop}
-          />
-        ))}
-      </ul>
-    </VignetteSurface>
+    <div className="flex flex-col gap-4">
+      <MemberRows />
+      <div className="flex flex-col gap-2">
+        <Label>{tSettings('allergensLabel')}</Label>
+        <div className="flex flex-wrap gap-2">
+          {HOUSEHOLD_ALLERGENS.map(({ value, pressed }) => (
+            <AllergenChip key={value} value={value} pressed={pressed} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** The household page's member rows for `MEMBERS`, read-only. */
+function MemberRows() {
+  const t = useTranslations('landing.why.kids.vignette')
+  return (
+    <ul className="flex flex-col divide-y">
+      {MEMBERS.map(({ key, portionMultiplier }) => (
+        <MemberRow
+          key={key}
+          member={member(key, t(key), portionMultiplier)}
+          canEdit={false}
+          canRemove={false}
+          canInvite={false}
+          onEdit={noop}
+          onRemove={noop}
+          onRemoveFocus={noop}
+          onInvite={noop}
+          onInviteUpdated={noop}
+        />
+      ))}
+    </ul>
+  )
+}
+
+/** One allergen chip as `AllergenPicker` draws it, fixed on or off. */
+function AllergenChip({ value, pressed }: { value: Allergen; pressed: boolean }) {
+  const label = useEnumLabel('Allergen', value)
+  return (
+    <Toggle variant="outline" tone="primary" size="chip" indicator pressed={pressed}>
+      {label}
+    </Toggle>
   )
 }
 
@@ -382,28 +424,12 @@ function member(key: string, name: string, portionMultiplier: number): Member {
  * the neutral card the member rows sit on in the app.
  */
 function PortionsVignette() {
-  const t = useTranslations('landing.why.kids.vignette')
   const [salmon] = useIngredients()
 
   return (
     <VignetteSurface>
       <div className="flex flex-col gap-4">
-        <ul className="flex flex-col divide-y">
-          {MEMBERS.map(({ key, portionMultiplier }) => (
-            <MemberRow
-              key={key}
-              member={member(key, t(key), portionMultiplier)}
-              canEdit={false}
-              canRemove={false}
-              canInvite={false}
-              onEdit={noop}
-              onRemove={noop}
-              onRemoveFocus={noop}
-              onInvite={noop}
-              onInviteUpdated={noop}
-            />
-          ))}
-        </ul>
+        <MemberRows />
         <div className="flex">
           <ServingControl
             servings={SERVINGS}

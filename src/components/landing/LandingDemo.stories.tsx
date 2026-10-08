@@ -4,7 +4,7 @@ import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMeal } from '@/stories/fixtures'
 import { assertFocusInDialog, awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
 import type { DemoDay } from '@/lib/landing/load-demo-day'
-import { LandingDemo } from './LandingDemo'
+import { DemoMealCard, LandingDemo } from './LandingDemo'
 
 const day: DemoDay = {
   date: '2026-10-01',
@@ -135,5 +135,25 @@ export const CardClickOpensCookView: Story = {
     await pressEscape()
     await awaitDialogClosed()
     await waitFor(() => expect(name).toHaveFocus())
+  },
+}
+
+/**
+ * One demo card without `onOpen` (`DemoMealCard`): a picture, as landing
+ * direction B1 draws breakfast and lunch behind the front card (HON-1116).
+ * The name is text, not a button, and the card has no pointer cursor.
+ */
+export const PictureCard: Story = {
+  render: () => (
+    <div className="max-w-md">
+      <DemoMealCard entry={day.meals[1]!} description={false} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Beef bibimbap')).toBeInTheDocument()
+    await expect(canvas.queryAllByRole('button')).toHaveLength(0)
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')
+    await expect(getComputedStyle(card!).cursor).not.toBe('pointer')
   },
 }

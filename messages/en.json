@@ -624,15 +624,34 @@
     }
   },
   "landing": {
-    "headline": "Dinner, decided. For the whole week.",
+    "headline": "Dinner, decided. <br></br>For the whole week.",
     "sub": "Wobblepot plans your family's meals around who's eating, what they avoid and what's already in the pantry. Then it writes the shopping list and stays with you at the stove.",
     "cta": "Plan this week's dinners",
     "free": "Free while we're in beta. Paid plans come later. You hear 30 days before, and beta families get a lower price.",
     "trust": "Your data lives in the EU, and there are no ads.",
+    "ctaNote": "Free while we're in beta · No ads · Your data stays in the EU",
     "privateBeta": "We're in private beta, so sign-up needs an invite code.",
     "demo": {
       "hint": "Open a meal to see it the way you would at the stove.",
       "caption": "Three of today's meals from the library. Each name opens the cook view."
+    },
+    "deck": {
+      "caption": "{day} · Tonight's dinner"
+    },
+    "week": {
+      "label": "This week",
+      "tonight": "Tonight",
+      "cooked": "Cooked",
+      "minutes": "{count} min",
+      "meals": {
+        "mon": "Spaghetti bolognese",
+        "tue": "Chicken and rice traybake",
+        "wed": "Lentil soup with bread",
+        "thu": "Fish tacos",
+        "fri": "Homemade pizza",
+        "sat": "Beef stew with potatoes",
+        "sun": "Roast chicken with vegetables"
+      }
     },
     "showcase": {
       "day": "Thursday",
