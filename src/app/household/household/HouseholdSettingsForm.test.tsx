@@ -794,6 +794,32 @@ describe('HouseholdSettingsForm', () => {
         expect(await within(form).findByText(settings.reminderConfirmNotSent)).toBeInTheDocument()
         expect(within(form).queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
       })
+
+      it('keeps the not-sent line when only the day changes after it', async () => {
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ weekday: 7, confirmEmail: 'not_sent' }),
+          })
+          .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ weekday: 3 }) })
+        renderForm()
+
+        const form = section('Weekly reminder')
+        await userEvent.click(within(form).getByRole('checkbox', { name: settings.reminderToggle }))
+        await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
+        await within(form).findByText(settings.reminderConfirmNotSent)
+
+        await userEvent.click(within(form).getByRole('combobox', { name: 'Day' }))
+        await userEvent.click(await screen.findByRole('option', { name: 'Wednesday' }))
+        await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
+        await waitFor(() =>
+          expect(within(form).queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
+        )
+        expect(within(form).getByText(settings.reminderConfirmNotSent)).toBeInTheDocument()
+        expect(within(form).queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
+      })
     })
 
     it('saves another weekday picked from the select', async () => {

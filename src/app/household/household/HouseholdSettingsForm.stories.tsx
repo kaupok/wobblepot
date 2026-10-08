@@ -401,7 +401,7 @@ export const WeeklyReminderAwaitingConfirm: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const line = 'We emailed you a link. The reminder starts after you open it.'
+    const line = 'We emailed you a link. The reminder starts after you open it and confirm.'
     await expect(canvas.getByText(line)).toBeVisible()
     await expect(
       canvas.getByRole('checkbox', { name: 'Remind me to plan next week' }),

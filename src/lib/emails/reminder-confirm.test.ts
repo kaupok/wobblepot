@@ -22,7 +22,7 @@ describe('generateReminderConfirmEmail', () => {
     expect(html).toContain('Confirm the weekly reminder')
     for (const body of [html, text]) {
       expect(body).toContain(
-        'Someone switched on the Wobblepot weekly reminder for this email address.',
+        'You switched on the Wobblepot weekly reminder for this email address.',
       )
       expect(body).toContain('only when next week has no meals planned')
     }

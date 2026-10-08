@@ -23,13 +23,14 @@ import { SettingsSection } from './SettingsSection'
 
 type ReminderValues = { weekday: ReminderWeekday | null }
 
-/** Whether the route says the confirm email did not go out (HON-1113). */
-function confirmEmailNotSent(response: unknown): boolean {
-  return (
-    typeof response === 'object' &&
-    response !== null &&
-    (response as { confirmEmail?: unknown }).confirmEmail === 'not_sent'
-  )
+/**
+ * What the route says about the confirm email (HON-1113): `'sent'` or
+ * `'not_sent'` on a switch-on, undefined on any other save.
+ */
+function confirmEmailOutcome(response: unknown): unknown {
+  return typeof response === 'object' && response !== null
+    ? (response as { confirmEmail?: unknown }).confirmEmail
+    : undefined
 }
 
 interface WeeklyReminderFormProps {
@@ -78,9 +79,13 @@ export function WeeklyReminderForm({
     .filter(Boolean)
     .join(' ')
 
+  // Only a save that reports an outcome, or a switch-off, changes the flag: a
+  // day change sends nothing, so it must not turn "not sent" into "emailed".
   const handleSaved = (values: ReminderValues, response: unknown) => {
     setSaved(values)
-    setConfirmNotSent(confirmEmailNotSent(response))
+    const outcome = confirmEmailOutcome(response)
+    if (values.weekday === null) setConfirmNotSent(false)
+    else if (outcome !== undefined) setConfirmNotSent(outcome === 'not_sent')
   }
 
   return (

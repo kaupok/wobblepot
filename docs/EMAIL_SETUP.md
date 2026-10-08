@@ -54,8 +54,10 @@ meals planned.
   on for a person but that person.
 - **Confirm step (HON-1113):** sign-up does not verify the address, so the first switch-on emails a
   confirm link from the `auth` sender (template `src/lib/emails/reminder-confirm.ts`, copy under
-  `emails.reminderConfirm`). The cron sends only once `reminderConfirmedAt` is set, which the public
-  page `/reminders/confirm?token=…` does on open, within 7 days of the switch-on. Switching off keeps
+  `emails.reminderConfirm`). The cron sends only once `reminderConfirmedAt` is set. The public page
+  `/reminders/confirm?token=…` sets it from a button that POSTs to `/api/reminders/confirm`, within 7
+  days of the switch-on. Opening the page changes nothing, because the address is not proved yet and
+  a mail scanner at a stranger's inbox opens every link. Switching off keeps
   the confirmation; switching off and on again before confirming resends the link, at most 3 times an
   hour and 5 a day per account (`reminder-confirm` in `src/lib/rate-limit.ts`).
 - **Stopping:** the footer links to the public page `/reminders/stop?token=…`, whose button POSTs to

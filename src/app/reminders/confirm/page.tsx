@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
-import { confirmReminderToken, REMINDER_CONFIRM_TTL_DAYS } from '@/lib/weekly-reminder'
+import { reminderConfirmState, REMINDER_CONFIRM_TTL_DAYS } from '@/lib/weekly-reminder'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
+import { ConfirmReminderForm } from './ConfirmReminderForm'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('reminders.confirm')
@@ -24,19 +25,32 @@ const householdLink = (chunks: ReactNode) => (
 
 /**
  * `/reminders/confirm?token=…`: the link in the weekly reminder confirm email
- * (HON-1113). Public, so it works without a sign-in. Opening the page
- * confirms, as the waitlist link does: the email went only to the address
- * being proved, and a mail scanner that opens it first leaves the link
- * reading as confirmed. An old or unknown token, or a reminder that is off,
- * reads as expired.
+ * (HON-1113). Public, so it works without a sign-in.
+ *
+ * Opening the page changes nothing; its button does. The email may have gone
+ * to a stranger's address (sign-up does not verify it), and mail scanners
+ * open every link in an email, so a GET that confirmed would let a scanner
+ * consent for the stranger. The page reads the link's state: a link waiting
+ * for its button, one already confirmed, or one that is old or unknown or
+ * whose reminder is off, which reads as expired.
  */
 export default async function ConfirmReminderPage({ searchParams }: ConfirmReminderPageProps) {
   const { token } = await searchParams
-  const [confirmed, t] = await Promise.all([
-    confirmReminderToken(typeof token === 'string' ? token : undefined),
+  const validToken = typeof token === 'string' && token ? token : undefined
+  const [state, t] = await Promise.all([
+    reminderConfirmState(validToken),
     getTranslations('reminders.confirm'),
   ])
 
+  if (state === 'pending' && validToken) {
+    return (
+      <div className="min-h-screen-below-header grid place-items-center p-4">
+        <ConfirmReminderForm token={validToken} ttlDays={REMINDER_CONFIRM_TTL_DAYS} />
+      </div>
+    )
+  }
+
+  const confirmed = state === 'confirmed'
   return (
     <div className="min-h-screen-below-header grid place-items-center p-4">
       <Card className="w-full max-w-md">

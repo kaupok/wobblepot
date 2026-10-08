@@ -68,40 +68,69 @@ export function reminderUpdate(
   }
 }
 
+export type ReminderConfirmState = 'pending' | 'confirmed' | 'expired'
+
 /**
- * Confirms the address of the member that owns `token` (HON-1113), so the
- * cron starts sending to them.
+ * Where the confirm link for `token` stands (HON-1113), without changing
+ * anything:
  *
- * - An unknown token, or a reminder that is off, reads as expired. A
- *   confirmed member who switched it off is not told it is on.
- * - An already confirmed member reads as confirmed, whatever the consent's
- *   age. Mail security gateways open every link before the person does, so a
- *   second open of the same link must not read as expired.
- * - Otherwise the switch-on must be within {@link REMINDER_CONFIRM_TTL_DAYS}.
- *
- * @returns true when the member is confirmed, false for a missing, unknown or
- * expired token, or a reminder that is off.
+ * - An unknown token, or a reminder that is off, is `expired`. A confirmed
+ *   member who switched it off is not told it is on.
+ * - An already confirmed member is `confirmed`, whatever the consent's age, so
+ *   a second visit to the link does not read as expired.
+ * - Otherwise the link is `pending` within {@link REMINDER_CONFIRM_TTL_DAYS}
+ *   of the switch-on, and `expired` after.
  */
-export async function confirmReminderToken(
-  token: string | undefined,
-  now: Date = new Date(),
-): Promise<boolean> {
-  if (!token) return false
+async function lookupConfirmToken(token: string | undefined, now: Date) {
+  if (!token) return { state: 'expired' as const }
 
   const member = await prisma.householdMember.findUnique({
     where: { reminderConfirmToken: token },
     select: { id: true, reminderWeekday: true, reminderConsentAt: true, reminderConfirmedAt: true },
   })
-  if (!member || member.reminderWeekday === null || !member.reminderConsentAt) return false
-  if (member.reminderConfirmedAt) return true
-  if (member.reminderConsentAt.getTime() < now.getTime() - REMINDER_CONFIRM_TTL_DAYS * DAY_MS) {
-    return false
+  if (!member || member.reminderWeekday === null || !member.reminderConsentAt) {
+    return { state: 'expired' as const }
   }
+  if (member.reminderConfirmedAt) return { state: 'confirmed' as const }
+  if (member.reminderConsentAt.getTime() < now.getTime() - REMINDER_CONFIRM_TTL_DAYS * DAY_MS) {
+    return { state: 'expired' as const }
+  }
+  return { state: 'pending' as const, memberId: member.id }
+}
+
+/**
+ * The state of the confirm link for `token`, read-only. The confirm page
+ * renders from it on GET: mail security gateways open every link in an email
+ * before a person does, and the email may have gone to a stranger's inbox, so
+ * opening the link must not confirm anything.
+ */
+export async function reminderConfirmState(
+  token: string | undefined,
+  now: Date = new Date(),
+): Promise<ReminderConfirmState> {
+  return (await lookupConfirmToken(token, now)).state
+}
+
+/**
+ * Confirms the address of the member that owns `token`, so the cron starts
+ * sending to them. Called by the confirm page's button through
+ * `POST /api/reminders/confirm`, never on a GET (see
+ * {@link reminderConfirmState}).
+ *
+ * @returns true when the member is confirmed (now or before), false for a
+ * missing, unknown or expired token, or a reminder that is off.
+ */
+export async function confirmReminderToken(
+  token: string | undefined,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const found = await lookupConfirmToken(token, now)
+  if (found.state !== 'pending') return found.state === 'confirmed'
 
   // Keyed on the reminder being on, so a switch-off since the read above is
   // not confirmed by the link.
   const { count } = await prisma.householdMember.updateMany({
-    where: { id: member.id, reminderConfirmToken: token, reminderWeekday: { not: null } },
+    where: { id: found.memberId, reminderConfirmToken: token, reminderWeekday: { not: null } },
     data: { reminderConfirmedAt: now },
   })
   return count > 0

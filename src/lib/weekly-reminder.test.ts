@@ -45,6 +45,7 @@ import { toDateString } from '@/lib/meal-planning/dates'
 import {
   REMINDER_MIN_GAP_MS,
   confirmReminderToken,
+  reminderConfirmState,
   reminderUpdate,
   sendReminderConfirmEmail,
   sendWeeklyReminders,
@@ -424,6 +425,58 @@ describe('confirmReminderToken', () => {
     mockUpdateMany.mockResolvedValue({ count: 0 })
 
     await expect(confirmReminderToken('confirm-1', now)).resolves.toBe(false)
+  })
+})
+
+describe('reminderConfirmState', () => {
+  const now = new Date('2026-10-08T12:00:00Z')
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it.each([
+    [
+      'pending for a fresh token',
+      { reminderWeekday: 7, reminderConsentAt: new Date('2026-10-05'), reminderConfirmedAt: null },
+      'pending',
+    ],
+    [
+      'confirmed when already confirmed',
+      {
+        reminderWeekday: 7,
+        reminderConsentAt: new Date('2026-08-01'),
+        reminderConfirmedAt: new Date('2026-08-02'),
+      },
+      'confirmed',
+    ],
+    [
+      'expired more than 7 days after the switch-on',
+      { reminderWeekday: 7, reminderConsentAt: new Date('2026-09-30'), reminderConfirmedAt: null },
+      'expired',
+    ],
+    [
+      'expired when the reminder is off',
+      {
+        reminderWeekday: null,
+        reminderConsentAt: null,
+        reminderConfirmedAt: new Date('2026-09-01'),
+      },
+      'expired',
+    ],
+  ])('is %s, and writes nothing', async (_label, fields, expected) => {
+    mockFindUnique.mockResolvedValue({ id: 'member-1', ...fields } as never)
+
+    await expect(reminderConfirmState('confirm-1', now)).resolves.toBe(expected)
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('is expired for an unknown or missing token', async () => {
+    mockFindUnique.mockResolvedValue(null)
+
+    await expect(reminderConfirmState('nope', now)).resolves.toBe('expired')
+    await expect(reminderConfirmState(undefined, now)).resolves.toBe('expired')
+    expect(mockFindUnique).toHaveBeenCalledTimes(1)
   })
 })
 
