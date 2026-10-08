@@ -73,6 +73,7 @@ export type RateLimitFeature =
   | 'forgot-password'
   | 'waitlist'
   | 'data-export'
+  | 'reminder-confirm'
 
 type Dimension = 'household' | 'ip' | 'user'
 
@@ -131,6 +132,15 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
     daily: { limit: 10, window: '1 d' },
   },
   'data-export': { limit: 3, window: '1 d', dimension: 'user' },
+  // The weekly reminder's confirm email (HON-1113). Switching the reminder off
+  // and on again resends it, and the address is not proved yet, so this bounds
+  // how often one account can mail an inbox that may not be its own.
+  'reminder-confirm': {
+    limit: 3,
+    window: '1 h',
+    dimension: 'user',
+    daily: { limit: 5, window: '1 d' },
+  },
 }
 
 export interface RateLimitResult {

@@ -7,7 +7,7 @@ vi.mock('@/lib/env', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    householdMember: { findMany: vi.fn(), updateMany: vi.fn() },
+    householdMember: { findMany: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
     mealPlanEntry: { count: vi.fn() },
   },
 }))
@@ -44,12 +44,15 @@ import { captureApiError } from '@/lib/errors'
 import { toDateString } from '@/lib/meal-planning/dates'
 import {
   REMINDER_MIN_GAP_MS,
+  confirmReminderToken,
   reminderUpdate,
+  sendReminderConfirmEmail,
   sendWeeklyReminders,
   stopRemindersByToken,
 } from './weekly-reminder'
 
 const mockFindMany = vi.mocked(prisma.householdMember.findMany)
+const mockFindUnique = vi.mocked(prisma.householdMember.findUnique)
 const mockUpdateMany = vi.mocked(prisma.householdMember.updateMany)
 const mockEntryCount = vi.mocked(prisma.mealPlanEntry.count)
 const mockLocale = vi.mocked(resolveEmailLocale)
@@ -64,6 +67,7 @@ function candidate(overrides: Record<string, unknown> = {}) {
     reminderWeekday: 7,
     reminderToken: 'token-1',
     reminderLastSentAt: null as Date | null,
+    reminderConfirmedAt: new Date('2026-10-01T10:00:00Z') as Date | null,
     user: { email: 'pat@example.com', deletedAt: null as Date | null },
     household: { id: 'household-1', timezone: 'Europe/Tallinn' },
     ...overrides,
@@ -85,14 +89,26 @@ describe('sendWeeklyReminders', () => {
     mockLocale.mockResolvedValue('en')
   })
 
-  it('asks only for members who switched it on and have an account', async () => {
+  it('asks only for members who switched it on, confirmed the address and have an account', async () => {
     await run()
 
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { reminderWeekday: { not: null }, userId: { not: null } },
+        where: {
+          reminderWeekday: { not: null },
+          reminderConfirmedAt: { not: null },
+          userId: { not: null },
+        },
       }),
     )
+  })
+
+  it('sends nothing to a member who has not confirmed the address', async () => {
+    mockFindMany.mockResolvedValue([candidate({ reminderConfirmedAt: null })] as never)
+
+    await expect(run()).resolves.toEqual({ sent: 0, skipped: 1, failed: 0 })
+    expect(resendState.send).not.toHaveBeenCalled()
+    expect(mockUpdateMany).not.toHaveBeenCalled()
   })
 
   it('sends on the chosen weekday when next week is empty', async () => {
@@ -250,34 +266,51 @@ describe('sendWeeklyReminders', () => {
 describe('reminderUpdate', () => {
   const now = new Date('2026-10-07T12:00:00Z')
 
-  it('switches on with consent now and a new token', () => {
-    const update = reminderUpdate({ reminderConsentAt: null, reminderToken: null }, 7, now)
+  it('switches on with consent now, a new stop token and a separate confirm token', () => {
+    const update = reminderUpdate(
+      { reminderConsentAt: null, reminderToken: null, reminderConfirmToken: null },
+      7,
+      now,
+    )
 
     expect(update.reminderWeekday).toBe(7)
     expect(update.reminderConsentAt).toBe(now)
     expect(update.reminderToken).toMatch(/^[\w-]{32}$/)
+    expect(update.reminderConfirmToken).toMatch(/^[\w-]{32}$/)
+    expect(update.reminderConfirmToken).not.toBe(update.reminderToken)
   })
 
-  it('keeps the consent time and token when the day changes', () => {
+  it('keeps the consent time and both tokens when the day changes', () => {
     const consentAt = new Date('2026-09-01')
-    const update = reminderUpdate({ reminderConsentAt: consentAt, reminderToken: 'kept' }, 3, now)
+    const update = reminderUpdate(
+      { reminderConsentAt: consentAt, reminderToken: 'kept', reminderConfirmToken: 'confirm' },
+      3,
+      now,
+    )
 
     expect(update).toEqual({
       reminderWeekday: 3,
       reminderConsentAt: consentAt,
       reminderToken: 'kept',
+      reminderConfirmToken: 'confirm',
     })
   })
 
-  it('clears the day and consent when switched off, and keeps the token and last send', () => {
+  it('clears the day and consent when switched off, and keeps the tokens, confirmation and last send', () => {
     const update = reminderUpdate(
-      { reminderConsentAt: new Date('2026-09-01'), reminderToken: 'kept' },
+      {
+        reminderConsentAt: new Date('2026-09-01'),
+        reminderToken: 'kept',
+        reminderConfirmToken: 'c',
+      },
       null,
       now,
     )
 
     expect(update).toEqual({ reminderWeekday: null, reminderConsentAt: null })
     expect(update).not.toHaveProperty('reminderToken')
+    expect(update).not.toHaveProperty('reminderConfirmToken')
+    expect(update).not.toHaveProperty('reminderConfirmedAt')
     expect(update).not.toHaveProperty('reminderLastSentAt')
   })
 })
@@ -292,5 +325,147 @@ describe('stopRemindersByToken', () => {
       where: { reminderToken: 'token-1' },
       data: { reminderWeekday: null, reminderConsentAt: null },
     })
+  })
+})
+
+describe('confirmReminderToken', () => {
+  const now = new Date('2026-10-08T12:00:00Z')
+
+  function member(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'member-1',
+      reminderWeekday: 7,
+      reminderConsentAt: new Date('2026-10-05T12:00:00Z'),
+      reminderConfirmedAt: null as Date | null,
+      ...overrides,
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUpdateMany.mockResolvedValue({ count: 1 })
+  })
+
+  it('confirms a fresh token', async () => {
+    mockFindUnique.mockResolvedValue(member() as never)
+
+    await expect(confirmReminderToken('confirm-1', now)).resolves.toBe(true)
+    expect(mockFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { reminderConfirmToken: 'confirm-1' } }),
+    )
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'member-1', reminderConfirmToken: 'confirm-1', reminderWeekday: { not: null } },
+      data: { reminderConfirmedAt: now },
+    })
+  })
+
+  it('still confirms on the last moment of day 7', async () => {
+    mockFindUnique.mockResolvedValue(
+      member({ reminderConsentAt: new Date('2026-10-01T12:00:00Z') }) as never,
+    )
+
+    await expect(confirmReminderToken('confirm-1', now)).resolves.toBe(true)
+  })
+
+  it('reads a token more than 7 days after the switch-on as expired, and changes nothing', async () => {
+    mockFindUnique.mockResolvedValue(
+      member({ reminderConsentAt: new Date('2026-10-01T11:59:59Z') }) as never,
+    )
+
+    await expect(confirmReminderToken('confirm-1', now)).resolves.toBe(false)
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('reads an unknown token as expired', async () => {
+    mockFindUnique.mockResolvedValue(null)
+
+    await expect(confirmReminderToken('nope', now)).resolves.toBe(false)
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('reads a missing token as expired without a lookup', async () => {
+    await expect(confirmReminderToken(undefined, now)).resolves.toBe(false)
+    expect(mockFindUnique).not.toHaveBeenCalled()
+  })
+
+  it('reads an already confirmed member as confirmed, whatever the consent age, without a write', async () => {
+    mockFindUnique.mockResolvedValue(
+      member({
+        reminderConsentAt: new Date('2026-08-01T00:00:00Z'),
+        reminderConfirmedAt: new Date('2026-08-02T00:00:00Z'),
+      }) as never,
+    )
+
+    await expect(confirmReminderToken('confirm-1', now)).resolves.toBe(true)
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['unconfirmed', null],
+    ['confirmed earlier', new Date('2026-09-01T00:00:00Z')],
+  ])(
+    'reads a switched-off reminder as expired when %s, and changes nothing',
+    async (_label, confirmedAt) => {
+      mockFindUnique.mockResolvedValue(
+        member({
+          reminderWeekday: null,
+          reminderConsentAt: null,
+          reminderConfirmedAt: confirmedAt,
+        }) as never,
+      )
+
+      await expect(confirmReminderToken('confirm-1', now)).resolves.toBe(false)
+      expect(mockUpdateMany).not.toHaveBeenCalled()
+    },
+  )
+
+  it('reads as expired when the reminder was switched off between the read and the write', async () => {
+    mockFindUnique.mockResolvedValue(member() as never)
+    mockUpdateMany.mockResolvedValue({ count: 0 })
+
+    await expect(confirmReminderToken('confirm-1', now)).resolves.toBe(false)
+  })
+})
+
+describe('sendReminderConfirmEmail', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    resendState.configured = true
+    resendState.send.mockResolvedValue({ data: { id: 'email-1' }, error: null })
+    mockLocale.mockResolvedValue('en')
+  })
+
+  it('sends the confirm link from the auth sender, in the household locale', async () => {
+    mockLocale.mockResolvedValue('et')
+
+    await sendReminderConfirmEmail({ to: 'pat@example.com', userId: 'user-1', token: 'c 1' })
+
+    expect(mockLocale).toHaveBeenCalledWith('user-1')
+    const sent = resendState.send.mock.calls[0]![0]
+    expect(sent).toMatchObject({
+      from: 'Wobblepot <auth@mail.wobblepot.com>',
+      to: 'pat@example.com',
+      subject: 'Kinnita Wobblepot iganädalane meeldetuletus',
+    })
+    expect(sent.text).toContain('https://wobblepot.com/reminders/confirm?token=c%201')
+    expect(sent).not.toHaveProperty('headers')
+  })
+
+  it('throws when Resend rejects the send', async () => {
+    resendState.send.mockResolvedValue({ data: null, error: { message: 'bad' } })
+
+    await expect(
+      sendReminderConfirmEmail({ to: 'pat@example.com', userId: 'user-1', token: 'c' }),
+    ).rejects.toThrow('Resend rejected the reminder confirm email: bad')
+  })
+
+  it('sends nothing when email is not configured', async () => {
+    resendState.configured = false
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await sendReminderConfirmEmail({ to: 'pat@example.com', userId: 'user-1', token: 'c' })
+
+    expect(resendState.send).not.toHaveBeenCalled()
+    warn.mockRestore()
   })
 })

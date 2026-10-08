@@ -6,6 +6,7 @@ import { captureApiError } from '@/lib/errors'
 import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { resolveEmailLocale } from '@/lib/emails/locale'
 import { generateWeeklyReminderEmail } from '@/lib/emails/weekly-reminder'
+import { generateReminderConfirmEmail } from '@/lib/emails/reminder-confirm'
 import { getTodayInTimezone } from '@/lib/meal-planning/dates'
 import { isoWeekday, nextWeekRange, type ReminderWeekday } from '@/lib/weekly-reminder-schedule'
 
@@ -17,9 +18,16 @@ import { isoWeekday, nextWeekRange, type ReminderWeekday } from '@/lib/weekly-re
  *
  * Consent is the legal basis (the policy names it under Consent), so nothing
  * here switches a reminder on for anyone but the caller.
+ *
+ * Sign-up does not verify the address, so the consent has to come from the
+ * inbox owner (HON-1113): the first switch-on emails a confirm link, and the
+ * cron sends only once `reminderConfirmedAt` is set.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+/** Days the confirm link works, counted from the switch-on. The email states it. */
+export const REMINDER_CONFIRM_TTL_DAYS = 7
 
 /** The shortest gap between two reminders to one member. */
 export const REMINDER_MIN_GAP_MS = 6 * DAY_MS
@@ -32,15 +40,20 @@ const SEND_GAP_MS = 500
 
 /**
  * The fields to write when a member sets their reminder. A weekday switches it
- * on: the consent time and the stop token are kept if they exist and set if
+ * on: the consent time and the two tokens are kept if they exist and set if
  * they do not, so changing the day is not new consent. `null` switches it off
- * and clears the consent. The token stays for the life of the member row, so
+ * and clears the consent. The tokens stay for the life of the member row, so
  * the stop link in an older email still works after the member switches the
  * reminder on again. `reminderLastSentAt` is never touched, so switching off
- * and on again cannot send twice in one week.
+ * and on again cannot send twice in one week, and neither is
+ * `reminderConfirmedAt`, which proves the address rather than the consent.
  */
 export function reminderUpdate(
-  current: { reminderConsentAt: Date | null; reminderToken: string | null },
+  current: {
+    reminderConsentAt: Date | null
+    reminderToken: string | null
+    reminderConfirmToken: string | null
+  },
   weekday: ReminderWeekday | null,
   now: Date = new Date(),
 ) {
@@ -51,7 +64,98 @@ export function reminderUpdate(
     reminderWeekday: weekday,
     reminderConsentAt: current.reminderConsentAt ?? now,
     reminderToken: current.reminderToken ?? nanoid(32),
+    reminderConfirmToken: current.reminderConfirmToken ?? nanoid(32),
   }
+}
+
+/**
+ * Confirms the address of the member that owns `token` (HON-1113), so the
+ * cron starts sending to them.
+ *
+ * - An unknown token, or a reminder that is off, reads as expired. A
+ *   confirmed member who switched it off is not told it is on.
+ * - An already confirmed member reads as confirmed, whatever the consent's
+ *   age. Mail security gateways open every link before the person does, so a
+ *   second open of the same link must not read as expired.
+ * - Otherwise the switch-on must be within {@link REMINDER_CONFIRM_TTL_DAYS}.
+ *
+ * @returns true when the member is confirmed, false for a missing, unknown or
+ * expired token, or a reminder that is off.
+ */
+export async function confirmReminderToken(
+  token: string | undefined,
+  now: Date = new Date(),
+): Promise<boolean> {
+  if (!token) return false
+
+  const member = await prisma.householdMember.findUnique({
+    where: { reminderConfirmToken: token },
+    select: { id: true, reminderWeekday: true, reminderConsentAt: true, reminderConfirmedAt: true },
+  })
+  if (!member || member.reminderWeekday === null || !member.reminderConsentAt) return false
+  if (member.reminderConfirmedAt) return true
+  if (member.reminderConsentAt.getTime() < now.getTime() - REMINDER_CONFIRM_TTL_DAYS * DAY_MS) {
+    return false
+  }
+
+  // Keyed on the reminder being on, so a switch-off since the read above is
+  // not confirmed by the link.
+  const { count } = await prisma.householdMember.updateMany({
+    where: { id: member.id, reminderConfirmToken: token, reminderWeekday: { not: null } },
+    data: { reminderConfirmedAt: now },
+  })
+  return count > 0
+}
+
+/** The public page the confirm email links to. */
+export function reminderConfirmPageUrl(token: string): string {
+  return `${getServerBaseURL()}/reminders/confirm?token=${encodeURIComponent(token)}`
+}
+
+/**
+ * Sends the confirm email for a member who just switched the reminder on and
+ * has not confirmed the address yet. From the `auth` sender, as the waitlist
+ * confirmation is: it proves an address, it is not the product email.
+ *
+ * Throws when Resend rejects the send, so the caller can log it. Without email
+ * configured it sends nothing, and prints the link in development.
+ */
+export async function sendReminderConfirmEmail({
+  to,
+  userId,
+  token,
+}: {
+  to: string
+  userId: string
+  token: string
+}): Promise<void> {
+  const confirmUrl = reminderConfirmPageUrl(token)
+
+  if (!isEmailConfigured() || !resend) {
+    // eslint-disable-next-line no-console
+    console.warn('Email not configured. Weekly reminder confirm email not sent.')
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log('Weekly reminder confirm URL:', confirmUrl)
+    }
+    return
+  }
+
+  const locale = await resolveEmailLocale(userId)
+  const { subject, html, text } = generateReminderConfirmEmail({
+    confirmUrl,
+    ttlDays: REMINDER_CONFIRM_TTL_DAYS,
+    locale,
+  })
+  // The SDK reports an API failure in `error` rather than throwing.
+  const { error } = await resend.emails.send({
+    from: EMAIL_SENDERS.auth,
+    to,
+    subject: envSubject(subject),
+    html,
+    text,
+  })
+  if (error) throw new Error(`Resend rejected the reminder confirm email: ${error.message}`)
 }
 
 /**
@@ -90,13 +194,18 @@ type Candidate = Awaited<ReturnType<typeof findCandidates>>[number]
 
 function findCandidates() {
   return prisma.householdMember.findMany({
-    where: { reminderWeekday: { not: null }, userId: { not: null } },
+    where: {
+      reminderWeekday: { not: null },
+      reminderConfirmedAt: { not: null },
+      userId: { not: null },
+    },
     select: {
       id: true,
       userId: true,
       reminderWeekday: true,
       reminderToken: true,
       reminderLastSentAt: true,
+      reminderConfirmedAt: true,
       user: { select: { email: true, deletedAt: true } },
       household: { select: { id: true, timezone: true } },
     },
@@ -145,8 +254,11 @@ async function remindMember(
 ): Promise<'sent' | 'skipped'> {
   const { user, household, reminderToken: token, reminderLastSentAt: lastSentAt } = member
   // A user in the deletion grace window gets nothing. A member with no token
-  // has no stop link, and an email without one is not allowed to go out.
+  // has no stop link, and an email without one is not allowed to go out. An
+  // unconfirmed address may not be the member's own (HON-1113); the query
+  // already leaves it out, and this keeps the rule next to the send.
   if (!member.userId || !user || user.deletedAt || !token) return 'skipped'
+  if (!member.reminderConfirmedAt) return 'skipped'
   if (lastSentAt && now.getTime() - lastSentAt.getTime() < REMINDER_MIN_GAP_MS) return 'skipped'
 
   const today = getTodayInTimezone(household.timezone, now)

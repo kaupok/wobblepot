@@ -95,6 +95,7 @@ function renderForm(
     preferences: defaultPreferences,
     isOwner: true,
     reminderWeekday: null,
+    reminderConfirmed: false,
     ...overrides,
   }
   function Wrapper({ children }: { children: ReactNode }) {
@@ -454,6 +455,7 @@ describe('HouseholdSettingsForm', () => {
               preferences={defaultPreferences}
               isOwner
               reminderWeekday={7}
+              reminderConfirmed
             />
           </QueryClientProvider>
         </NextIntlClientProvider>,
@@ -741,6 +743,42 @@ describe('HouseholdSettingsForm', () => {
         '/api/households/me/members/me/reminder',
         expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ weekday: 7 }) }),
       )
+    })
+
+    describe('the confirm step (HON-1113)', () => {
+      it('says an email is waiting while the reminder is on and the address is not confirmed', () => {
+        renderForm({ reminderWeekday: 7, reminderConfirmed: false })
+
+        const form = section('Weekly reminder')
+        expect(within(form).getByText(settings.reminderAwaitingConfirm)).toBeInTheDocument()
+        expect(
+          within(form).getByRole('checkbox', { name: settings.reminderToggle }),
+        ).toHaveAccessibleDescription(
+          `${settings.reminderHelper} ${settings.reminderAwaitingConfirm}`,
+        )
+      })
+
+      it.each([
+        ['on and confirmed', { reminderWeekday: 7 as const, reminderConfirmed: true }],
+        ['off and unconfirmed', { reminderWeekday: null, reminderConfirmed: false }],
+        ['off and confirmed', { reminderWeekday: null, reminderConfirmed: true }],
+      ])('says nothing about an email when %s', (_label, props) => {
+        renderForm(props)
+
+        expect(screen.queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
+      })
+
+      it('shows the line once the switch-on is saved, not on the tick', async () => {
+        mockFetch.mockResolvedValue(ok())
+        renderForm()
+
+        const form = section('Weekly reminder')
+        await userEvent.click(within(form).getByRole('checkbox', { name: settings.reminderToggle }))
+        expect(within(form).queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
+        await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
+
+        expect(await within(form).findByText(settings.reminderAwaitingConfirm)).toBeInTheDocument()
+      })
     })
 
     it('saves another weekday picked from the select', async () => {

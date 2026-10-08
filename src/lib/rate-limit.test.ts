@@ -77,6 +77,7 @@ describe('rate-limit', () => {
         'meal-suggestions',
         'plan-generation',
         'recipe-parse',
+        'reminder-confirm',
         'sign-in',
         'sign-up',
         'waitlist',
@@ -138,6 +139,15 @@ describe('rate-limit', () => {
         window: '1 h',
         dimension: 'ip',
         daily: { limit: 10, window: '1 d' },
+      })
+    })
+
+    it('configures reminder-confirm per user, at 3/hour and 5/day', () => {
+      expect(RATE_LIMIT_CONFIG['reminder-confirm']).toEqual({
+        limit: 3,
+        window: '1 h',
+        dimension: 'user',
+        daily: { limit: 5, window: '1 d' },
       })
     })
   })

@@ -295,14 +295,21 @@ model HouseholdMember {
   // Weekly planning reminder email (HON-1084). Consent is the recipient's, so
   // it lives on the member, and a member with no `userId` can never opt in.
   /// ISO weekday the reminder goes out on: 1 is Monday, 7 is Sunday. Null is off.
-  reminderWeekday    Int?
+  reminderWeekday      Int?
   /// When the member switched the reminder on. Cleared when it is switched off.
-  reminderConsentAt  DateTime?
+  reminderConsentAt    DateTime?
   /// `nanoid(32)` for the stop link, minted on the first opt-in and kept after opt-out,
   /// so the stop link in an older email still works after a later opt-in.
-  reminderToken      String?   @unique
+  reminderToken        String?   @unique
   /// The last send; the cron skips a member sent to less than 6 days ago.
-  reminderLastSentAt DateTime?
+  reminderLastSentAt   DateTime?
+  /// `nanoid(32)` for the confirm link in the double opt-in email (HON-1113), minted on the
+  /// first opt-in and kept for the life of the row. Separate from `reminderToken`, because the
+  /// stop token is in every weekly email and holding it must not confirm anything.
+  reminderConfirmToken String?   @unique
+  /// When the confirm link was opened. The cron sends only to confirmed members. Kept across
+  /// switch-off, because it proves the address, not the consent.
+  reminderConfirmedAt  DateTime?
 
   household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   user        User?              @relation(fields: [userId], references: [id], onDelete: Cascade)

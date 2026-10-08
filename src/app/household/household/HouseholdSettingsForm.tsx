@@ -13,6 +13,8 @@ interface HouseholdSettingsFormProps {
   isOwner: boolean
   /** The viewer's own weekly reminder weekday, null when it is off (HON-1084). */
   reminderWeekday: ReminderWeekday | null
+  /** Whether the viewer opened the reminder's confirm link (HON-1113). */
+  reminderConfirmed: boolean
 }
 
 /**
@@ -28,13 +30,18 @@ export function HouseholdSettingsForm({
   preferences,
   isOwner,
   reminderWeekday,
+  reminderConfirmed,
 }: HouseholdSettingsFormProps) {
   return (
     <div className="flex flex-col gap-10">
       <HouseholdDetailsForm household={household} isOwner={isOwner} />
       <FoodPreferencesForm preferences={preferences} isOwner={isOwner} />
       <MealsToPlanForm preferences={preferences} isOwner={isOwner} />
-      <WeeklyReminderForm weekday={reminderWeekday} isOwner={isOwner} />
+      <WeeklyReminderForm
+        weekday={reminderWeekday}
+        confirmed={reminderConfirmed}
+        isOwner={isOwner}
+      />
     </div>
   )
 }
