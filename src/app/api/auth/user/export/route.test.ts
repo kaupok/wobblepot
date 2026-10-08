@@ -373,6 +373,8 @@ describe('GET /api/auth/user/export', () => {
               reminderWeekday: 7,
               reminderConsentAt: new Date('2026-10-01T00:00:00.000Z'),
               reminderToken: 'my-stop-token',
+              reminderConfirmToken: 'my-confirm-token',
+              reminderConfirmedAt: new Date('2026-10-01T00:05:00.000Z'),
               reminderLastSentAt: new Date('2026-10-04T16:00:00.000Z'),
             },
             {
@@ -385,6 +387,8 @@ describe('GET /api/auth/user/export', () => {
               reminderWeekday: 3,
               reminderConsentAt: new Date('2026-10-02T00:00:00.000Z'),
               reminderToken: 'alice-stop-token',
+              reminderConfirmToken: 'alice-confirm-token',
+              reminderConfirmedAt: null,
               reminderLastSentAt: null,
             },
           ]
@@ -461,18 +465,22 @@ describe('GET /api/auth/user/export', () => {
     expect(memberHh.aiUsage).toBeUndefined()
 
     // The weekly reminder (HON-1084): the caller's own consent, on their own
-    // row only, and never the stop token.
+    // row only, and never the stop or confirm token (HON-1113).
     const myOwnerRow = ownerHh.members.find((m: { id: string }) => m.id === 'member-A-me')
     expect(myOwnerRow).toMatchObject({
       reminderWeekday: 7,
       reminderConsentAt: '2026-10-01T00:00:00.000Z',
+      reminderConfirmedAt: '2026-10-01T00:05:00.000Z',
       reminderLastSentAt: '2026-10-04T16:00:00.000Z',
     })
     expect(myOwnerRow).not.toHaveProperty('reminderToken')
+    expect(myOwnerRow).not.toHaveProperty('reminderConfirmToken')
     const aliceRow = ownerHh.members.find((m: { id: string }) => m.id === 'member-A-other')
     expect(aliceRow).not.toHaveProperty('reminderWeekday')
     expect(aliceRow).not.toHaveProperty('reminderConsentAt')
+    expect(aliceRow).not.toHaveProperty('reminderConfirmedAt')
     expect(JSON.stringify(body)).not.toContain('stop-token')
+    expect(JSON.stringify(body)).not.toContain('confirm-token')
   })
 
   it('never exposes password or token fields anywhere in the payload', async () => {

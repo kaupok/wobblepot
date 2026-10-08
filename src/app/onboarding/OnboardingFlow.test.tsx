@@ -665,6 +665,11 @@ describe('OnboardingFlow', () => {
         name: 'Email me on Sundays when next week is not planned yet',
       })
       expect(optIn).not.toBeChecked()
+      // The address is confirmed by link first (HON-1113), and this step goes
+      // straight to Today, so the checkbox says so.
+      expect(optIn).toHaveAccessibleDescription(
+        'We email you a link first. The reminder starts after you open it and confirm.',
+      )
       await userEvent.click(screen.getByRole('button', { name: 'Plan my meals' }))
 
       await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'))

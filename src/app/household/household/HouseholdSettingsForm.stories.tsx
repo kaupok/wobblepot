@@ -49,6 +49,7 @@ export const Default: Story = {
     },
     isOwner: true,
     reminderWeekday: null,
+    reminderConfirmed: true,
   },
   parameters: {
     docs: {
@@ -86,6 +87,7 @@ export const EstonianHousehold: Story = {
     },
     isOwner: true,
     reminderWeekday: null,
+    reminderConfirmed: true,
   },
   parameters: {
     docs: {
@@ -117,6 +119,7 @@ export const AllergensSelected: Story = {
     },
     isOwner: true,
     reminderWeekday: null,
+    reminderConfirmed: true,
   },
   parameters: {
     docs: {
@@ -159,6 +162,7 @@ export const NonOwner: Story = {
     },
     isOwner: false,
     reminderWeekday: null,
+    reminderConfirmed: true,
   },
   parameters: {
     docs: {
@@ -339,7 +343,13 @@ export const MealsToPlanDirty: Story = {
 
 export const WeeklyReminderOff: Story = {
   args: Default.args,
-  render: (args) => <WeeklyReminderForm weekday={args.reminderWeekday} isOwner={args.isOwner} />,
+  render: (args) => (
+    <WeeklyReminderForm
+      weekday={args.reminderWeekday}
+      confirmed={args.reminderConfirmed}
+      isOwner={args.isOwner}
+    />
+  ),
   parameters: {
     docs: {
       description: {
@@ -374,6 +384,28 @@ export const WeeklyReminderOn: Story = {
       canvas.getByRole('checkbox', { name: 'Remind me to plan next week' }),
     ).toBeChecked()
     await expect(canvas.getByRole('combobox', { name: 'Day' })).toHaveTextContent('Wednesday')
+    await expect(canvas.queryByText(/We emailed you a link/)).not.toBeInTheDocument()
+  },
+}
+
+export const WeeklyReminderAwaitingConfirm: Story = {
+  args: { ...Default.args, reminderWeekday: 7, reminderConfirmed: false },
+  render: WeeklyReminderOff.render,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Switched on, but the confirm link in the email is not opened yet: a muted line under the helper says the reminder starts after it is opened, and the checkbox carries it in its description (HON-1113).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const line = 'We emailed you a link. The reminder starts after you open it and confirm.'
+    await expect(canvas.getByText(line)).toBeVisible()
+    await expect(
+      canvas.getByRole('checkbox', { name: 'Remind me to plan next week' }),
+    ).toHaveAccessibleDescription(/We emailed you a link/)
   },
 }
 
@@ -400,6 +432,33 @@ export const WeeklyReminderSwitchOn: Story = {
       expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
     )
     await expect(canvas.getByRole('heading', { name: 'Weekly reminder' })).toHaveFocus()
+  },
+}
+
+export const WeeklyReminderConfirmNotSent: Story = {
+  ...WeeklyReminderOff,
+  args: { ...Default.args, reminderConfirmed: false },
+  parameters: {
+    msw: {
+      handlers: [
+        http.patch('/api/households/me/members/me/reminder', () =>
+          HttpResponse.json({ weekday: 7, confirmEmail: 'not_sent' }),
+        ),
+      ],
+    },
+    docs: {
+      description: {
+        story:
+          'The switch-on saved, but the route reports that the confirm email did not go out (rate limited or failed), so the line says the link was not sent and how to get it, instead of "We emailed you a link" (HON-1113).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('checkbox', { name: 'Remind me to plan next week' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
+    await expect(await canvas.findByText(/We could not send you the link just now/)).toBeVisible()
+    await expect(canvas.queryByText(/We emailed you a link/)).not.toBeInTheDocument()
   },
 }
 

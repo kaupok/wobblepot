@@ -950,6 +950,16 @@
       "cta": "Planeeri järgmine nädal",
       "footer": "Said selle kirja, sest lülitasid {appName}is sisse iganädalase meeldetuletuse.",
       "stop": "Peata meeldetuletused"
+    },
+    "reminderConfirm": {
+      "subject": "Kinnita {appName} iganädalane meeldetuletus",
+      "heading": "Kinnita iganädalane meeldetuletus",
+      "intro": "Lülitasid selle e-posti aadressiga sisse {appName} iganädalase meeldetuletuse. See on üks e-kiri valitud päeval ja ainult siis, kui järgmiseks nädalaks pole ühtegi toidukorda planeeritud.",
+      "instructionHtml": "Meeldetuletuse alustamiseks klõpsa allolevat nuppu:",
+      "instructionText": "Meeldetuletuse alustamiseks ava allolev link:",
+      "cta": "Alusta meeldetuletust",
+      "expiry": "Link kehtib {days} päeva.",
+      "ignore": "Kui see polnud sina, eira seda kirja. Rohkem kirju me ei saada."
     }
   },
   "errors": {
@@ -1118,7 +1128,9 @@
       "reminderOwnNotice": "See on sinu enda seade, nii et saad seda muuta.",
       "reminderToggle": "Tuleta mulle meelde järgmist nädalat planeerida",
       "reminderWeekdayLabel": "Päev",
-      "reminderHelper": "Üks e-kiri sel päeval, ainult siis, kui järgmiseks nädalaks pole veel ühtegi toidukorda planeeritud. Igas kirjas on link, millega meeldetuletused peatada."
+      "reminderHelper": "Üks e-kiri sel päeval, ainult siis, kui järgmiseks nädalaks pole veel ühtegi toidukorda planeeritud. Igas kirjas on link, millega meeldetuletused peatada.",
+      "reminderAwaitingConfirm": "Saatsime sulle e-kirjaga lingi. Meeldetuletus algab pärast seda, kui oled selle avanud ja kinnitanud.",
+      "reminderConfirmNotSent": "Linki ei õnnestunud praegu saata. Selle saamiseks lülita meeldetuletus hiljem välja ja uuesti sisse."
     },
     "members": {
       "heading": "Liikmed",
@@ -1286,7 +1298,8 @@
       "network": "Ühendus ebaõnnestus. Palun kontrolli internetiühendust.",
       "createFailed": "Leibkonna loomine ei õnnestunud. Proovi uuesti."
     },
-    "reminderOptIn": "Saada mulle pühapäeviti e-kiri, kui järgmine nädal on veel planeerimata"
+    "reminderOptIn": "Saada mulle pühapäeviti e-kiri, kui järgmine nädal on veel planeerimata",
+    "reminderOptInConfirmNote": "Saadame sulle kõigepealt e-kirjaga lingi. Meeldetuletus algab pärast seda, kui oled selle avanud ja kinnitanud."
   },
   "enums": {
     "MealType": {
@@ -1444,6 +1457,18 @@
       "doneBody": "Meeldetuletuse saad uuesti sisse lülitada <link>leibkonna lehel</link>.",
       "failed": "Meeldetuletusi ei õnnestunud peatada. Proovi uuesti.",
       "incompleteLink": "See link pole täielik. Meeldetuletuse saad välja lülitada <link>leibkonna lehel</link>."
+    },
+    "confirm": {
+      "metaTitle": "Kinnita iganädalane meeldetuletus",
+      "title": "Kas alustada iganädalast meeldetuletust?",
+      "intro": "Üks e-kiri valitud päeval, ainult siis, kui järgmiseks nädalaks pole ühtegi toidukorda planeeritud. Igas kirjas on link, millega meeldetuletus peatada.",
+      "button": "Alusta meeldetuletust",
+      "submitting": "Alustan…",
+      "failed": "Meeldetuletust ei õnnestunud alustada. Proovi uuesti.",
+      "confirmedTitle": "Iganädalane meeldetuletus on sees",
+      "confirmedBody": "Saadame sulle e-kirja valitud päeval, kui järgmiseks nädalaks pole ühtegi toidukorda planeeritud. Päeva saad muuta <link>leibkonna lehel</link>.",
+      "expiredTitle": "See link on aegunud",
+      "expiredBody": "Link kehtib {days} päeva ja ainult siis, kui meeldetuletus on sees. Uue lingi saamiseks lülita meeldetuletus <link>leibkonna lehel</link> välja ja uuesti sisse."
     }
   }
 }

@@ -23,9 +23,24 @@ import { SettingsSection } from './SettingsSection'
 
 type ReminderValues = { weekday: ReminderWeekday | null }
 
+/**
+ * What the route says about the confirm email (HON-1113): `'sent'` or
+ * `'not_sent'` on a switch-on, undefined on any other save.
+ */
+function confirmEmailOutcome(response: unknown): unknown {
+  return typeof response === 'object' && response !== null
+    ? (response as { confirmEmail?: unknown }).confirmEmail
+    : undefined
+}
+
 interface WeeklyReminderFormProps {
   /** The viewer's own reminder weekday, null when it is off. */
   weekday: ReminderWeekday | null
+  /**
+   * Whether the viewer opened the confirm link (HON-1113). Until then the
+   * cron sends nothing, so the section says an email is waiting.
+   */
+  confirmed: boolean
   isOwner: boolean
 }
 
@@ -43,14 +58,35 @@ function weekdayName(weekday: ReminderWeekday, locale: Locale) {
  * Weekly reminder (HON-1084): the viewer's own opt-in to one email on a
  * weekday, sent only when next week has no meals planned. The consent is the
  * viewer's, so every member with an account can save it, not only the owner.
- * Saves to `/api/households/me/members/me/reminder`.
+ * Saves to `/api/households/me/members/me/reminder`, which emails a confirm
+ * link on the first switch-on (HON-1113).
  */
-export function WeeklyReminderForm({ weekday: savedWeekday, isOwner }: WeeklyReminderFormProps) {
+export function WeeklyReminderForm({
+  weekday: savedWeekday,
+  confirmed,
+  isOwner,
+}: WeeklyReminderFormProps) {
   const tSettings = useTranslations('household.settings')
   const locale = useLocale() as Locale
 
   const [saved, setSaved] = useState<ReminderValues>({ weekday: savedWeekday })
   const [weekday, setWeekday] = useState<ReminderWeekday | null>(savedWeekday)
+  // Set by the last save: the switch-on's confirm email was rate limited or failed.
+  const [confirmNotSent, setConfirmNotSent] = useState(false)
+  // The confirm email goes out on save, not on tick, so this follows the saved value.
+  const awaitingConfirm = saved.weekday !== null && !confirmed
+  const describedBy = ['reminder-helper', awaitingConfirm && 'reminder-awaiting-confirm']
+    .filter(Boolean)
+    .join(' ')
+
+  // Only a save that reports an outcome, or a switch-off, changes the flag: a
+  // day change sends nothing, so it must not turn "not sent" into "emailed".
+  const handleSaved = (values: ReminderValues, response: unknown) => {
+    setSaved(values)
+    const outcome = confirmEmailOutcome(response)
+    if (values.weekday === null) setConfirmNotSent(false)
+    else if (outcome !== undefined) setConfirmNotSent(outcome === 'not_sent')
+  }
 
   return (
     <SettingsSection
@@ -61,7 +97,7 @@ export function WeeklyReminderForm({ weekday: savedWeekday, isOwner }: WeeklyRem
       ownerOnly={false}
       values={{ weekday }}
       saved={saved}
-      onSaved={setSaved}
+      onSaved={handleSaved}
     >
       {({ disabled, errorId }) => (
         <>
@@ -75,7 +111,7 @@ export function WeeklyReminderForm({ weekday: savedWeekday, isOwner }: WeeklyRem
                 setWeekday(checked === true ? (saved.weekday ?? DEFAULT_REMINDER_WEEKDAY) : null)
               }
               disabled={disabled}
-              aria-describedby={errorId ? `reminder-helper ${errorId}` : 'reminder-helper'}
+              aria-describedby={errorId ? `${describedBy} ${errorId}` : describedBy}
             />
             <Label htmlFor="reminder-on" className="font-normal">
               <span className="leading-snug">{tSettings('reminderToggle')}</span>
@@ -112,6 +148,13 @@ export function WeeklyReminderForm({ weekday: savedWeekday, isOwner }: WeeklyRem
           <Body id="reminder-helper" variant="muted">
             {tSettings('reminderHelper')}
           </Body>
+          {awaitingConfirm && (
+            <Body id="reminder-awaiting-confirm" variant="muted">
+              {confirmNotSent
+                ? tSettings('reminderConfirmNotSent')
+                : tSettings('reminderAwaitingConfirm')}
+            </Body>
+          )}
         </>
       )}
     </SettingsSection>

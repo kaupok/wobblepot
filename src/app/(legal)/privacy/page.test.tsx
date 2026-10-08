@@ -37,15 +37,17 @@ describe('PrivacyPage', () => {
     )
   })
 
-  it('discloses the weekly reminder: the data and the consent basis (HON-1084)', () => {
+  it('discloses the weekly reminder: the data and the consent basis (HON-1084, HON-1113)', () => {
     const text = renderedText().replace(/\s+/g, ' ')
     expect(text).toContain(
-      'Weekly reminder: the day you chose, when you switched the reminder on, and when we last sent it.',
+      'Weekly reminder: the day you chose, when you switched the reminder on, when you confirmed your email address for it, and when we last sent it.',
     )
     expect(text).toContain(
       'The weekly planning reminder email is also consent: we send it only after you switch it on',
     )
-    expect(text).toContain('every email has a link to stop it')
+    expect(text).toContain(
+      'and then open the link in the email we send to confirm your address. Every reminder has a link to stop it.',
+    )
   })
 
   it('links to the dedicated subprocessors page (HON-543)', () => {

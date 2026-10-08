@@ -96,6 +96,7 @@ export default async function HouseholdPage() {
             }
             isOwner={isOwner}
             reminderWeekday={toReminderWeekday(membership.reminderWeekday)}
+            reminderConfirmed={membership.reminderConfirmedAt !== null}
           />
         </div>
       </div>

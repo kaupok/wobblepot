@@ -143,11 +143,13 @@ export async function GET() {
                   joinedAt: member.joinedAt,
                   preferences: member.preferences,
                   // The weekly reminder is the member's own consent (HON-1084),
-                  // so only the caller's row carries it. Never the stop token:
-                  // anyone holding it can switch the reminder off.
+                  // so only the caller's row carries it. Never the stop token,
+                  // which switches the reminder off, nor the confirm token,
+                  // which confirms the address (HON-1113).
                   ...(member.userId === userId && {
                     reminderWeekday: member.reminderWeekday,
                     reminderConsentAt: member.reminderConsentAt,
+                    reminderConfirmedAt: member.reminderConfirmedAt,
                     reminderLastSentAt: member.reminderLastSentAt,
                   }),
                 }

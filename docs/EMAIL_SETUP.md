@@ -21,10 +21,10 @@ Cloudflare DNS).
 Defined as code constants in [`src/lib/resend.ts`](../src/lib/resend.ts) →
 `EMAIL_SENDERS`. Apply at every send-site:
 
-| Key             | FROM                                           | Triggers                                                                                                                                                                                                                 |
-| --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `auth`          | `Wobblepot <auth@mail.wobblepot.com>`          | Password reset (`src/lib/auth.ts`), account-deletion confirmation (`src/app/api/auth/user/route.ts`), waitlist confirmation (`src/lib/waitlist.ts`), waitlist invite (`src/app/api/admin/waitlist/[id]/invite/route.ts`) |
-| `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Weekly planning reminder (`src/lib/weekly-reminder.ts`, template `src/lib/emails/weekly-reminder.ts`)                                                                                                                    |
+| Key             | FROM                                           | Triggers                                                                                                                                                                                                                                                                              |
+| --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth`          | `Wobblepot <auth@mail.wobblepot.com>`          | Password reset (`src/lib/auth.ts`), account-deletion confirmation (`src/app/api/auth/user/route.ts`), waitlist confirmation (`src/lib/waitlist.ts`), waitlist invite (`src/app/api/admin/waitlist/[id]/invite/route.ts`), weekly reminder confirmation (`src/lib/weekly-reminder.ts`) |
+| `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Weekly planning reminder (`src/lib/weekly-reminder.ts`, template `src/lib/emails/weekly-reminder.ts`)                                                                                                                                                                                 |
 
 **`support@wobblepot.com` outbound is deferred.** Architecturally it sends
 from the apex (not the subdomain) for human-driven reply threads, but:
@@ -52,6 +52,14 @@ meals planned.
   catalogs, in the household locale.
 - **Consent:** opt-in only, so it is listed under Consent in the privacy policy. Nothing switches it
   on for a person but that person.
+- **Confirm step (HON-1113):** sign-up does not verify the address, so the first switch-on emails a
+  confirm link from the `auth` sender (template `src/lib/emails/reminder-confirm.ts`, copy under
+  `emails.reminderConfirm`). The cron sends only once `reminderConfirmedAt` is set. The public page
+  `/reminders/confirm?token=…` sets it from a button that POSTs to `/api/reminders/confirm`, within 7
+  days of the switch-on. Opening the page changes nothing, because the address is not proved yet and
+  a mail scanner at a stranger's inbox opens every link. Switching off keeps
+  the confirmation; switching off and on again before confirming resends the link, at most 3 times an
+  hour and 5 a day per account (`reminder-confirm` in `src/lib/rate-limit.ts`).
 - **Stopping:** the footer links to the public page `/reminders/stop?token=…`, whose button POSTs to
   `/api/reminders/stop`. The email also carries RFC 8058 one-click headers,
   `List-Unsubscribe: <…/api/reminders/stop?token=…>` and

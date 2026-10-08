@@ -950,6 +950,16 @@
       "cta": "Plan next week",
       "footer": "You get this email because you switched on the weekly reminder in {appName}.",
       "stop": "Stop the reminders"
+    },
+    "reminderConfirm": {
+      "subject": "Confirm the {appName} weekly reminder",
+      "heading": "Confirm the weekly reminder",
+      "intro": "You switched on the {appName} weekly reminder for this email address. It is one email on a chosen day, sent only when next week has no meals planned.",
+      "instructionHtml": "Click the button below to start the reminder:",
+      "instructionText": "Open the link below to start the reminder:",
+      "cta": "Start the reminder",
+      "expiry": "The link works for {days} days.",
+      "ignore": "If this was not you, ignore this email. We send nothing more."
     }
   },
   "errors": {
@@ -1118,7 +1128,9 @@
       "reminderOwnNotice": "This setting is your own, so you can change it.",
       "reminderToggle": "Remind me to plan next week",
       "reminderWeekdayLabel": "Day",
-      "reminderHelper": "One email on that day, only when next week has no meals planned yet. Every email has a link to stop them."
+      "reminderHelper": "One email on that day, only when next week has no meals planned yet. Every email has a link to stop them.",
+      "reminderAwaitingConfirm": "We emailed you a link. The reminder starts after you open it and confirm.",
+      "reminderConfirmNotSent": "We could not send you the link just now. To get it, switch the reminder off and on again later."
     },
     "members": {
       "heading": "Members",
@@ -1286,7 +1298,8 @@
       "network": "Unable to connect. Please check your internet connection.",
       "createFailed": "We couldn't create your household. Try again."
     },
-    "reminderOptIn": "Email me on Sundays when next week is not planned yet"
+    "reminderOptIn": "Email me on Sundays when next week is not planned yet",
+    "reminderOptInConfirmNote": "We email you a link first. The reminder starts after you open it and confirm."
   },
   "enums": {
     "MealType": {
@@ -1444,6 +1457,18 @@
       "doneBody": "You can switch the reminder on again on the <link>Household page</link>.",
       "failed": "We could not stop the reminders. Try again.",
       "incompleteLink": "This link is not complete. You can switch the reminder off on the <link>Household page</link>."
+    },
+    "confirm": {
+      "metaTitle": "Confirm the weekly reminder",
+      "title": "Start the weekly reminder?",
+      "intro": "One email on the day you chose, only when next week has no meals planned. Every email has a link to stop it.",
+      "button": "Start the reminder",
+      "submitting": "Starting…",
+      "failed": "We could not start the reminder. Try again.",
+      "confirmedTitle": "The weekly reminder is on",
+      "confirmedBody": "We email you on the day you chose, when next week has no meals planned. You can change the day on the <link>Household page</link>.",
+      "expiredTitle": "This link has expired",
+      "expiredBody": "The link works for {days} days, and only while the reminder is on. To get a new link, switch the reminder off and on again on the <link>Household page</link>."
     }
   }
 }

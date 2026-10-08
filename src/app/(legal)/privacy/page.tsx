@@ -119,8 +119,9 @@ export default function PrivacyPage() {
           </Li>
           <Li>
             <Body>
-              Weekly reminder: the day you chose, when you switched the reminder on, and when we
-              last sent it. Switching it off deletes the day and the time you switched it on.
+              Weekly reminder: the day you chose, when you switched the reminder on, when you
+              confirmed your email address for it, and when we last sent it. Switching it off
+              deletes the day and the time you switched it on.
             </Body>
           </Li>
           <Li>
@@ -154,8 +155,8 @@ export default function PrivacyPage() {
                 {PRIVACY_EMAIL}
               </a>
               . The weekly planning reminder email is also consent: we send it only after you switch
-              it on, on the Household page or when you plan your first meals, and every email has a
-              link to stop it.
+              it on, on the Household page or when you plan your first meals, and then open the link
+              in the email we send to confirm your address. Every reminder has a link to stop it.
             </Body>
           </Li>
           <Li>

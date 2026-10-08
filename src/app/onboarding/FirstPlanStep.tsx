@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { CardContent, CardFooter } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { Body } from '@/components/ui/typography'
 import { GeneratingOverlay } from '@/components/meal-plan/GeneratingOverlay'
 import { FirstPlanChoices } from '@/components/timeline/FirstPlanChoices'
 import { FieldError } from '@/components/FieldError'
@@ -98,10 +99,18 @@ export function FirstPlanStep() {
             checked={remind}
             onCheckedChange={(checked) => setRemind(checked === true)}
             disabled={busy}
+            aria-describedby="reminder-opt-in-note"
           />
-          <Label htmlFor="reminder-opt-in" className="font-normal">
-            <span className="leading-snug">{t('reminderOptIn')}</span>
-          </Label>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="reminder-opt-in" className="font-normal">
+              <span className="leading-snug">{t('reminderOptIn')}</span>
+            </Label>
+            {/* The address is confirmed by link before the first send (HON-1113),
+                and the plan step goes straight to Today, so say it here. */}
+            <Body id="reminder-opt-in-note" variant="muted">
+              {t('reminderOptInConfirmNote')}
+            </Body>
+          </div>
         </div>
         {plan.error && (
           <div className="mt-4">
