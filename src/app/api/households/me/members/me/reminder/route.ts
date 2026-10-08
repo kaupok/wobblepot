@@ -30,7 +30,9 @@ const bodySchema = z.object({
  * (HON-1113); the cron sends nothing until it is opened. Changing the day
  * sends nothing, and switching off and on again is the resend path, bounded
  * by the `reminder-confirm` rate limit. The email goes out after the save,
- * and a failure to send it never fails the save.
+ * and a failure to send it never fails the save: the response carries
+ * `confirmEmail: 'sent' | 'not_sent'` instead, so the form does not say an
+ * email is on its way when none is.
  */
 export async function PATCH(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -71,7 +73,8 @@ export async function PATCH(request: Request) {
 
     const switchedOn = member.reminderWeekday === null && data.reminderWeekday !== null
     if (switchedOn && !member.reminderConfirmedAt && data.reminderConfirmToken) {
-      await sendConfirmEmail(session.user, data.reminderConfirmToken)
+      const confirmEmail = await sendConfirmEmail(session.user, data.reminderConfirmToken)
+      return NextResponse.json({ weekday: parsed.data.weekday, confirmEmail })
     }
 
     return NextResponse.json({ weekday: parsed.data.weekday })
@@ -85,20 +88,25 @@ export async function PATCH(request: Request) {
 }
 
 /** Sends the confirm email, or logs why it did not. Never throws. */
-async function sendConfirmEmail(user: { id: string; email: string }, token: string) {
+async function sendConfirmEmail(
+  user: { id: string; email: string },
+  token: string,
+): Promise<'sent' | 'not_sent'> {
   try {
     const limit = await checkRateLimit(user.id, 'reminder-confirm')
     if (!limit.allowed) {
       // eslint-disable-next-line no-console
       console.warn('Weekly reminder confirm email rate limited; not sent.')
-      return
+      return 'not_sent'
     }
-    await sendReminderConfirmEmail({ to: user.email, userId: user.id, token })
+    const sent = await sendReminderConfirmEmail({ to: user.email, userId: user.id, token })
+    return sent ? 'sent' : 'not_sent'
   } catch (error) {
     captureApiError(error, {
       route: '/api/households/me/members/me/reminder',
       userId: user.id,
       step: 'confirm-email',
     })
+    return 'not_sent'
   }
 }

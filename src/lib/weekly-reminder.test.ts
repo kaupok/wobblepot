@@ -438,7 +438,9 @@ describe('sendReminderConfirmEmail', () => {
   it('sends the confirm link from the auth sender, in the household locale', async () => {
     mockLocale.mockResolvedValue('et')
 
-    await sendReminderConfirmEmail({ to: 'pat@example.com', userId: 'user-1', token: 'c 1' })
+    await expect(
+      sendReminderConfirmEmail({ to: 'pat@example.com', userId: 'user-1', token: 'c 1' }),
+    ).resolves.toBe(true)
 
     expect(mockLocale).toHaveBeenCalledWith('user-1')
     const sent = resendState.send.mock.calls[0]![0]
@@ -463,7 +465,9 @@ describe('sendReminderConfirmEmail', () => {
     resendState.configured = false
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    await sendReminderConfirmEmail({ to: 'pat@example.com', userId: 'user-1', token: 'c' })
+    await expect(
+      sendReminderConfirmEmail({ to: 'pat@example.com', userId: 'user-1', token: 'c' }),
+    ).resolves.toBe(false)
 
     expect(resendState.send).not.toHaveBeenCalled()
     warn.mockRestore()

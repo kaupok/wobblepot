@@ -72,7 +72,7 @@ describe('PATCH /api/households/me/members/me/reminder', () => {
     } as never)
     mockFindUnique.mockResolvedValue(member() as never)
     mockRateLimit.mockResolvedValue({ allowed: true } as never)
-    mockSendConfirm.mockResolvedValue(undefined)
+    mockSendConfirm.mockResolvedValue(true)
   })
 
   it('returns 401 without a session', async () => {
@@ -110,7 +110,7 @@ describe('PATCH /api/households/me/members/me/reminder', () => {
     const response = await patch({ weekday: 3 })
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ weekday: 3 })
+    await expect(response.json()).resolves.toEqual({ weekday: 3, confirmEmail: 'sent' })
     expect(mockFindUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: 'user-1' } }),
     )
@@ -144,6 +144,7 @@ describe('PATCH /api/households/me/members/me/reminder', () => {
       const response = await patch({ weekday: 7 })
 
       expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ weekday: 7, confirmEmail: 'sent' })
       const { data } = mockUpdate.mock.calls[0]![0]
       expect(data.reminderConfirmToken).toMatch(/^[\w-]{32}$/)
       expect(mockRateLimit).toHaveBeenCalledWith('user-1', 'reminder-confirm')
@@ -179,6 +180,7 @@ describe('PATCH /api/households/me/members/me/reminder', () => {
       const response = await patch({ weekday: 3 })
 
       expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ weekday: 3 })
       expect(mockSendConfirm).not.toHaveBeenCalled()
       expect(mockRateLimit).not.toHaveBeenCalled()
     })
@@ -198,26 +200,35 @@ describe('PATCH /api/households/me/members/me/reminder', () => {
       expect(mockSendConfirm).not.toHaveBeenCalled()
     })
 
-    it('saves but sends nothing when the rate limit is reached', async () => {
+    it('saves but sends nothing, and says so, when the rate limit is reached', async () => {
       mockRateLimit.mockResolvedValue({ allowed: false } as never)
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
       const response = await patch({ weekday: 7 })
 
       expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ weekday: 7, confirmEmail: 'not_sent' })
       expect(mockUpdate).toHaveBeenCalled()
       expect(mockSendConfirm).not.toHaveBeenCalled()
       warn.mockRestore()
     })
 
-    it('saves and logs when the email fails to send', async () => {
+    it('reports not_sent when email is not configured', async () => {
+      mockSendConfirm.mockResolvedValue(false)
+
+      const response = await patch({ weekday: 7 })
+
+      await expect(response.json()).resolves.toEqual({ weekday: 7, confirmEmail: 'not_sent' })
+    })
+
+    it('saves, logs and reports not_sent when the email fails to send', async () => {
       const failure = new Error('Resend down')
       mockSendConfirm.mockRejectedValue(failure)
 
       const response = await patch({ weekday: 7 })
 
       expect(response.status).toBe(200)
-      await expect(response.json()).resolves.toEqual({ weekday: 7 })
+      await expect(response.json()).resolves.toEqual({ weekday: 7, confirmEmail: 'not_sent' })
       expect(captureApiError).toHaveBeenCalledWith(
         failure,
         expect.objectContaining({ userId: 'user-1', step: 'confirm-email' }),

@@ -1129,7 +1129,8 @@
       "reminderToggle": "Remind me to plan next week",
       "reminderWeekdayLabel": "Day",
       "reminderHelper": "One email on that day, only when next week has no meals planned yet. Every email has a link to stop them.",
-      "reminderAwaitingConfirm": "We emailed you a link. The reminder starts after you open it."
+      "reminderAwaitingConfirm": "We emailed you a link. The reminder starts after you open it.",
+      "reminderConfirmNotSent": "We could not send you the link just now. To get it, switch the reminder off and on again later."
     },
     "members": {
       "heading": "Members",

@@ -779,6 +779,21 @@ describe('HouseholdSettingsForm', () => {
 
         expect(await within(form).findByText(settings.reminderAwaitingConfirm)).toBeInTheDocument()
       })
+
+      it('says the link was not sent when the route reports not_sent', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ weekday: 7, confirmEmail: 'not_sent' }),
+        })
+        renderForm()
+
+        const form = section('Weekly reminder')
+        await userEvent.click(within(form).getByRole('checkbox', { name: settings.reminderToggle }))
+        await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
+
+        expect(await within(form).findByText(settings.reminderConfirmNotSent)).toBeInTheDocument()
+        expect(within(form).queryByText(settings.reminderAwaitingConfirm)).not.toBeInTheDocument()
+      })
     })
 
     it('saves another weekday picked from the select', async () => {

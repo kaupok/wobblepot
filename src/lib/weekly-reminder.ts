@@ -118,7 +118,10 @@ export function reminderConfirmPageUrl(token: string): string {
  * confirmation is: it proves an address, it is not the product email.
  *
  * Throws when Resend rejects the send, so the caller can log it. Without email
- * configured it sends nothing, and prints the link in development.
+ * configured it sends nothing, prints the link in development, and returns
+ * false.
+ *
+ * @returns true when Resend accepted the email.
  */
 export async function sendReminderConfirmEmail({
   to,
@@ -128,7 +131,7 @@ export async function sendReminderConfirmEmail({
   to: string
   userId: string
   token: string
-}): Promise<void> {
+}): Promise<boolean> {
   const confirmUrl = reminderConfirmPageUrl(token)
 
   if (!isEmailConfigured() || !resend) {
@@ -138,7 +141,7 @@ export async function sendReminderConfirmEmail({
       // eslint-disable-next-line no-console
       console.log('Weekly reminder confirm URL:', confirmUrl)
     }
-    return
+    return false
   }
 
   const locale = await resolveEmailLocale(userId)
@@ -156,6 +159,7 @@ export async function sendReminderConfirmEmail({
     text,
   })
   if (error) throw new Error(`Resend rejected the reminder confirm email: ${error.message}`)
+  return true
 }
 
 /**

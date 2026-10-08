@@ -44,8 +44,12 @@ interface SettingsSectionProps<T extends Record<keyof T, SettingsValue>> {
    * the user reads what to fix rather than the route's generic 400.
    */
   validate?: (values: T) => string | undefined
-  /** After a successful save, with the values that were sent. */
-  onSaved: (values: T) => void
+  /**
+   * After a successful save, with the values that were sent and the route's
+   * JSON response (the weekly reminder reads whether its confirm email went
+   * out, HON-1113).
+   */
+  onSaved: (values: T, response: unknown) => void
   children: (state: SectionFieldState) => ReactNode
 }
 
@@ -91,7 +95,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
       // the mutation from relying on either (HON-677). Throw rather than
       // return, so it can never read as a successful save.
       if (!canEdit) throw new Error(t('ownerOnlyNotice'))
-      await apiFetch(
+      return apiFetch<unknown>(
         url,
         {
           method: 'PATCH',
@@ -101,13 +105,13 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
         t('saveFailed'),
       )
     },
-    onSuccess: (_data, body) => {
+    onSuccess: (response, body) => {
       toast.success(t('savedToast'))
       // The Save button unmounts once the section is clean, and focus on it
       // would fall to <body>. Move it to the heading first (CLAUDE.md → Focus
       // management).
       if (ownsFocus()) headingRef.current?.focus()
-      onSaved(body)
+      onSaved(body, response)
       router.refresh()
     },
     onError: (err, body) => {

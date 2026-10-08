@@ -1129,7 +1129,8 @@
       "reminderToggle": "Tuleta mulle meelde järgmist nädalat planeerida",
       "reminderWeekdayLabel": "Päev",
       "reminderHelper": "Üks e-kiri sel päeval, ainult siis, kui järgmiseks nädalaks pole veel ühtegi toidukorda planeeritud. Igas kirjas on link, millega meeldetuletused peatada.",
-      "reminderAwaitingConfirm": "Saatsime sulle e-kirjaga lingi. Meeldetuletus algab pärast seda, kui oled selle avanud."
+      "reminderAwaitingConfirm": "Saatsime sulle e-kirjaga lingi. Meeldetuletus algab pärast seda, kui oled selle avanud.",
+      "reminderConfirmNotSent": "Linki ei õnnestunud praegu saata. Selle saamiseks lülita meeldetuletus hiljem välja ja uuesti sisse."
     },
     "members": {
       "heading": "Liikmed",

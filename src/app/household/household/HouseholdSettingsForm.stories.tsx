@@ -435,6 +435,33 @@ export const WeeklyReminderSwitchOn: Story = {
   },
 }
 
+export const WeeklyReminderConfirmNotSent: Story = {
+  ...WeeklyReminderOff,
+  args: { ...Default.args, reminderConfirmed: false },
+  parameters: {
+    msw: {
+      handlers: [
+        http.patch('/api/households/me/members/me/reminder', () =>
+          HttpResponse.json({ weekday: 7, confirmEmail: 'not_sent' }),
+        ),
+      ],
+    },
+    docs: {
+      description: {
+        story:
+          'The switch-on saved, but the route reports that the confirm email did not go out (rate limited or failed), so the line says the link was not sent and how to get it, instead of "We emailed you a link" (HON-1113).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('checkbox', { name: 'Remind me to plan next week' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
+    await expect(await canvas.findByText(/We could not send you the link just now/)).toBeVisible()
+    await expect(canvas.queryByText(/We emailed you a link/)).not.toBeInTheDocument()
+  },
+}
+
 export const OneSectionChanged: Story = {
   args: Default.args,
   parameters: {

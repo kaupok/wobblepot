@@ -23,6 +23,15 @@ import { SettingsSection } from './SettingsSection'
 
 type ReminderValues = { weekday: ReminderWeekday | null }
 
+/** Whether the route says the confirm email did not go out (HON-1113). */
+function confirmEmailNotSent(response: unknown): boolean {
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    (response as { confirmEmail?: unknown }).confirmEmail === 'not_sent'
+  )
+}
+
 interface WeeklyReminderFormProps {
   /** The viewer's own reminder weekday, null when it is off. */
   weekday: ReminderWeekday | null
@@ -61,11 +70,18 @@ export function WeeklyReminderForm({
 
   const [saved, setSaved] = useState<ReminderValues>({ weekday: savedWeekday })
   const [weekday, setWeekday] = useState<ReminderWeekday | null>(savedWeekday)
+  // Set by the last save: the switch-on's confirm email was rate limited or failed.
+  const [confirmNotSent, setConfirmNotSent] = useState(false)
   // The confirm email goes out on save, not on tick, so this follows the saved value.
   const awaitingConfirm = saved.weekday !== null && !confirmed
   const describedBy = ['reminder-helper', awaitingConfirm && 'reminder-awaiting-confirm']
     .filter(Boolean)
     .join(' ')
+
+  const handleSaved = (values: ReminderValues, response: unknown) => {
+    setSaved(values)
+    setConfirmNotSent(confirmEmailNotSent(response))
+  }
 
   return (
     <SettingsSection
@@ -76,7 +92,7 @@ export function WeeklyReminderForm({
       ownerOnly={false}
       values={{ weekday }}
       saved={saved}
-      onSaved={setSaved}
+      onSaved={handleSaved}
     >
       {({ disabled, errorId }) => (
         <>
@@ -129,7 +145,9 @@ export function WeeklyReminderForm({
           </Body>
           {awaitingConfirm && (
             <Body id="reminder-awaiting-confirm" variant="muted">
-              {tSettings('reminderAwaitingConfirm')}
+              {confirmNotSent
+                ? tSettings('reminderConfirmNotSent')
+                : tSettings('reminderAwaitingConfirm')}
             </Body>
           )}
         </>
