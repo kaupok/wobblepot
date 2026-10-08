@@ -36,7 +36,7 @@ The allergen and dietary checks, counted per call. No failure in a few dozen cal
 | Check                                   | claude-sonnet-5-5                | claude-haiku-5-5                 |
 | --------------------------------------- | -------------------------------- | -------------------------------- |
 | imagine · No forbidden ingredient       | 0 of 65 failed (rate up to 4.5%) | 0 of 65 failed (rate up to 4.5%) |
-| cook-question · No forbidden suggestion | 0 of 45 failed (rate up to 6.4%) | 0 of 45 failed (rate up to 6.4%) |
+| cook-question · No forbidden suggestion | 0 of 40 failed (rate up to 7.2%) | 0 of 40 failed (rate up to 7.2%) |
 
 ## Judge
 

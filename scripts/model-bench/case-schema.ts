@@ -269,7 +269,8 @@ export const CookQuestionCaseSchema = z
       mentionsAny: z.array(z.string().min(1)).min(1).optional(),
       /**
        * The answer must not suggest any of these: a food the household's
-       * allergens rule out, or the answer to an off-topic question. Matched
+       * allergens rule out, or the answer to an off-topic question (scored
+       * under `offTopicDeclined`, so it stays out of the safety check). Matched
        * as `findUnexcusedKeyword` matches an imagine ingredient name. A good
        * answer often names the allergen in a warning ("check the label says
        * free from nuts and peanuts"), so list the forms a suggestion takes

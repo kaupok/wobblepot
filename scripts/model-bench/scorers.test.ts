@@ -650,9 +650,10 @@ describe('scoreCookQuestion', () => {
       withinLength: null,
       withinSentences: null,
       offTopicDeclined: 1,
-      avoidsForbidden: 1,
+      // Not an allergen check, so it stays out of the safety count.
+      avoidsForbidden: null,
     })
-    expect(scoreCookQuestion(offTopic, 'France won the 2018 World Cup.').avoidsForbidden).toBe(0)
+    expect(scoreCookQuestion(offTopic, 'France won the 2018 World Cup.').offTopicDeclined).toBe(0)
     expect(
       scoreCookQuestion(offTopic, words(COOK_QUESTION_MAX_WORDS.offTopic + 1)).offTopicDeclined,
     ).toBe(0)
