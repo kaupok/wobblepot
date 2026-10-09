@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { createMeal } from '@/stories/fixtures'
-import type { MealStatus } from '@/components/meal-plan/types'
+import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
+import type { MealStatus, PantryItemFull } from '@/components/meal-plan/types'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
@@ -25,7 +25,9 @@ function respond(status: number, body: object = {}) {
   )
 }
 
-function renderRow(props: { status?: MealStatus; pantryDeducted?: boolean } = {}) {
+function renderRow(
+  props: { status?: MealStatus; pantryDeducted?: boolean; pantryItems?: PantryItemFull[] } = {},
+) {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
     <Wrapper>
@@ -36,6 +38,8 @@ function renderRow(props: { status?: MealStatus; pantryDeducted?: boolean } = {}
         mealType="dinner"
         status="planned"
         householdServings={4}
+        // The meal's chicken is in the pantry, so Cooked has a deduction to preview.
+        pantryItems={lemonGarlicChickenPantryItems}
         {...props}
       />
     </Wrapper>,
@@ -125,6 +129,22 @@ describe('PastMealRow', () => {
 
     await waitFor(() => expect(undo()).toHaveFocus())
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  // HON-1125: the dialog would only say "No pantry items will be affected".
+  it('completes with no dialog when the pantry holds none of the meal', async () => {
+    const user = userEvent.setup()
+    renderRow({ pantryItems: [] })
+
+    respond(200, { pantryDeducted: true })
+    await user.click(cooked())
+
+    await waitFor(() => expect(undo()).toHaveFocus())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({
+      status: 'completed',
+      deductPantry: true,
+    })
   })
 
   it('focuses Undo after Skipped, and Cooked after Undo', async () => {

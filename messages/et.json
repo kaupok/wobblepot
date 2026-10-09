@@ -158,6 +158,7 @@
     },
     "errors": {
       "rateLimit": "Päringute piirmäär on täis. Palun proovi hiljem uuesti.",
+      "rateLimitUntil": "Oled jõudnud selle tunni toiduplaanide piiranguni. Proovi uuesti pärast kella {time}.",
       "generationTimeout": "Plaani koostamine aegus. Palun proovi uuesti.",
       "generationFailed": "Toitude koostamine ebaõnnestus. Palun proovi uuesti.",
       "generic": "Midagi läks valesti. Palun proovi uuesti.",
@@ -179,14 +180,26 @@
       "swap": "Vaheta",
       "clear": "Eemalda",
       "notCookedYet": "Pole veel valmis",
+      "cooked": "Tehtud",
+      "skipped": "Vahele jäetud",
+      "notSkipped": "Pole vahele jäetud",
       "moreActions": "Rohkem toiminguid: {name}",
       "myRecipe": "Minu retsept",
       "rate": "Hinda",
       "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
       "statusUpdateFailed": "Oleku uuendamine ebaõnnestus. Palun proovi uuesti.",
       "clearFailed": "Toidu eemaldamine ebaõnnestus. Palun proovi uuesti.",
+      "cleared": "Eemaldatud: {name}",
+      "undo": "Võta tagasi",
+      "undoFailed": "Toitu ei õnnestunud taastada. Lisa see uuesti tühjast kohast.",
+      "undoSlotFilled": "Toitu ei õnnestunud taastada. Sellel kohal on nüüd teine toit.",
       "createEntryFailed": "Toidukoha lisamine ebaõnnestus",
-      "entryAlreadyExists": "Sellele kohale on toit juba lisatud. Värskenda lehte, et seda näha."
+      "entryAlreadyExists": "Sellele kohale on toit juba lisatud. Värskenda lehte, et seda näha.",
+      "conflict": {
+        "allergen": "Sisaldab: {allergen}",
+        "diet": "Ei sobi: {diet}",
+        "excluded": "Sisaldab välditavat koostisosa"
+      }
     },
     "noteEditor": {
       "placeholder": "Lisa märkus…",
@@ -245,6 +258,7 @@
       "imagineButton": "Mõtle välja toit",
       "noSuggestions": "Soovitusi pole. Proovi otsida toitu.",
       "rateLimited": "Viimase tunni jooksul on küsitud liiga palju soovitusi. Proovi hiljem uuesti või otsi toitu.",
+      "rateLimitedUntil": "Viimase tunni jooksul on küsitud liiga palju soovitusi. Proovi uuesti pärast kella {time} või otsi toitu.",
       "emptyMyRecipes": "Sul pole veel oma retsepte. Proovi <link>retsepti importida</link>.",
       "emptySearchCustom": "Päringule „{query}\" vastavaid oma retsepte ei leitud. Proovi teist sõna või lülita „Ainult minu retseptid\" välja.",
       "emptySearch": "Päringule „{query}\" vastavaid toite ei leitud. Proovi teist sõna või <imagine>mõtle üks välja</imagine>.",
@@ -297,6 +311,7 @@
         "entryNotFound": "Seda toitu pole enam sinu plaanis. Värskenda lehte ja proovi uuesti.",
         "noMeal": "Siia pole veel toitu valitud. Vali kõigepealt toit.",
         "rateLimited": "Oled jõudnud selle tunni valmistusjuhiste piiranguni. Palun proovi hiljem uuesti.",
+        "rateLimitedUntil": "Oled jõudnud selle tunni valmistusjuhiste piiranguni. Proovi uuesti pärast kella {time}.",
         "generationDisabled": "Valmistusjuhised on praegu välja lülitatud. Palun proovi hiljem uuesti.",
         "aiCapExceeded": "Selle kuu AI kasutuslimiit on täis. See lähtestub järgmise kuu alguses.",
         "providerBusy": "Juhiste teenus on hõivatud. Palun proovi mõne hetke pärast uuesti.",
@@ -335,6 +350,7 @@
         "entryNotFound": "Seda toitu pole enam sinu plaanis. Värskenda lehte ja proovi uuesti.",
         "noMeal": "Siia pole veel toitu valitud. Vali kõigepealt toit.",
         "rateLimited": "Oled jõudnud selle tunni küsimuste piiranguni. Palun proovi hiljem uuesti.",
+        "rateLimitedUntil": "Oled jõudnud selle tunni küsimuste piiranguni. Proovi uuesti pärast kella {time}.",
         "generationDisabled": "Küsimused on praegu välja lülitatud. Palun proovi hiljem uuesti.",
         "aiCapExceeded": "Selle kuu AI kasutuslimiit on täis. See lähtestub järgmise kuu alguses.",
         "providerBusy": "Vastuste teenus on hõivatud. Palun proovi mõne hetke pärast uuesti.",
@@ -410,6 +426,7 @@
       "loading": "Laen…",
       "imagineButton": "Mõtle välja toit",
       "importButton": "Impordi retsept",
+      "createButton": "Loo retsept",
       "loadMore": "Lae rohkem",
       "loadingMore": "Laen…",
       "emptySearch": "Päringule „{query}\" vastavaid retsepte ei leitud",
@@ -439,6 +456,7 @@
         "unauthorized": "Palun logi sisse, et toite välja mõelda.",
         "noHousehold": "Toitude väljamõtlemiseks pead kuuluma leibkonda.",
         "rateLimited": "Oled jõudnud selle tunni toiduideede piiranguni. Palun proovi hiljem uuesti.",
+        "rateLimitedUntil": "Oled jõudnud selle tunni toiduideede piiranguni. Proovi uuesti pärast kella {time}.",
         "aiCapExceeded": "Selle kuu AI kasutuslimiit on täis. See lähtestub järgmise kuu alguses.",
         "promptTooLong": "Kirjeldus tohib olla kuni 500 tähemärki.",
         "promptRequired": "Palun kirjelda, millist toitu soovid.",
@@ -472,6 +490,7 @@
         "unauthorized": "Palun logi sisse, et retsepte importida.",
         "noHousehold": "Retseptide importimiseks pead kuuluma leibkonda.",
         "rateLimited": "Oled jõudnud selle tunni retseptiimpordi piiranguni. Palun proovi hiljem uuesti.",
+        "rateLimitedUntil": "Oled jõudnud selle tunni retseptiimpordi piiranguni. Proovi uuesti pärast kella {time}.",
         "aiCapExceeded": "Selle kuu AI kasutuslimiit on täis. See lähtestub järgmise kuu alguses.",
         "importDisabled": "Retseptide import on ajutiselt välja lülitatud. Palun proovi hiljem uuesti.",
         "invalidRequest": "Päringuga läks midagi valesti. Palun proovi uuesti.",
@@ -602,8 +621,7 @@
       }
     },
     "list": {
-      "emptyHeading": "Retsepte veel pole",
-      "emptyBody": "Loo oma esimene retsept, et alustada",
+      "emptyBody": "Retsepte veel pole. Lisa pere lemmikroog, impordi retsept lingilt või mõtle toit välja.",
       "addToFavoritesAria": "Lisa lemmikutesse",
       "removeFromFavoritesAria": "Eemalda lemmikutest",
       "moreActions": "Rohkem toiminguid: {name}",
@@ -832,6 +850,8 @@
       "requestInvite": "Sul pole koodi? <link>Küsi kutset</link>.",
       "inviteCodeLabel": "Kutsekood",
       "inviteCodeHint": "Sisesta kutses saadud kood.",
+      "householdInvite": "Sa liitud leibkonnaga: <strong>{householdName}</strong>",
+      "householdInviteLabel": "Leibkonna kutse",
       "slowRequest": "See võtab oodatust kauem aega. Palun oota…",
       "navigationFailed": "Konto loomine õnnestus, aga lehe avamine ebaõnnestus. Värskenda lehte."
     },
@@ -884,8 +904,20 @@
       "alreadyMember": {
         "title": "Sa oled juba liige",
         "description": "Sa oled juba leibkonna „{householdName}\" liige",
-        "body": "Korraga saad olla ainult ühe leibkonna liige. Teise leibkonnaga liitumiseks pead esmalt praegusest lahkuma.",
+        "body": "Korraga saad olla ainult ühe leibkonna liige. Teise leibkonnaga liitumiseks lahku enne sellest leibkonnast lehel Leibkond.",
         "action": "Mine avalehele"
+      },
+      "leaveAndJoin": {
+        "title": "Liitud leibkonnaga „{householdName}\"?",
+        "description": "Oled leibkonna „{currentHouseholdName}\" liige. Korraga saad olla ainult ühes leibkonnas.",
+        "bodyOwner": "Sinu leibkond „{currentHouseholdName}\" kustutatakse koos söögiplaani, sahvri, ostunimekirja, retseptide ja oma kontota liikmetega. Seda ei saa tagasi võtta.",
+        "bodyMember": "Lahkud leibkonnast „{currentHouseholdName}\". Selle plaan jääb leibkonnale alles.",
+        "exportNote": "Kui soovid koopiat, lae enne oma andmed profiililt alla.",
+        "action": "Lahku ja liitu",
+        "confirmTitle": "Lahkud ja liitud?",
+        "joining": "Liitumine…",
+        "cannotLeaveBody": "Oled leibkonna „{currentHouseholdName}\" omanik ja seal on {count, plural, one {# muu kontoga liige} other {# muud kontoga liiget}}. Teise leibkonnaga liitumiseks eemalda nad enne oma leibkonnast.",
+        "cannotLeaveAction": "Ava Leibkond"
       },
       "invalid": {
         "title": "Kutse on aegunud",
@@ -906,11 +938,18 @@
         "actionNamed": "Liitu kasutajana „{memberName}\"",
         "joining": "Liitumine…"
       },
+      "signedOut": {
+        "subtext": "Liitumiseks loo konto. Kutsekoodi pole vaja.",
+        "createAccount": "Loo konto",
+        "signIn": "Logi sisse"
+      },
       "errors": {
         "alreadyInHousehold": "Sa oled juba ühe leibkonna liige.",
         "inviteInvalid": "See kutse on aegunud või juba kasutatud.",
         "joinFailed": "Leibkonnaga liitumine ebaõnnestus",
-        "generic": "Tekkis viga. Palun proovi uuesti."
+        "generic": "Tekkis viga. Palun proovi uuesti.",
+        "ownerHasOtherAccounts": "Eemalda enne teised kontoga liikmed oma leibkonnast ja proovi siis uuesti.",
+        "leaveRateLimited": "Oled viimase 30 päeva jooksul leibkonnast lahkunud 3 korda. Proovi hiljem uuesti."
       }
     }
   },
@@ -1066,6 +1105,7 @@
       "termsNotAccepted": "Konto loomiseks pead nõustuma kasutustingimuste ja privaatsuspoliitikaga.",
       "inviteCodeRequired": "Suletud beetas on registreerumiseks vaja kutsekoodi.",
       "inviteCodeInvalid": "See kutsekood ei kehti, on aegunud või juba kasutatud.",
+      "householdInviteInvalid": "See kutselink ei kehti enam. Palu leibkonna omanikult uut kutset.",
       "invalidCredentials": "Sisestatud e-post või parool on vale. Palun proovi uuesti.",
       "incorrectPassword": "Sisestatud parool on vale. Palun proovi uuesti.",
       "accountAlreadyExists": "Selle e-posti aadressiga konto on juba olemas. Proovi hoopis sisse logida.",
@@ -1127,6 +1167,7 @@
       "saveButton": "Salvesta",
       "saving": "Salvestan…",
       "savedToast": "Sätted salvestatud",
+      "savedWithConflicts": "Sätted salvestatud. {count, plural, one {# planeeritud toit ei sobi} other {# planeeritud toitu ei sobi}} nendega. Need on märgitud Täna-vaates.",
       "saveFailed": "Sätete salvestamine ebaõnnestus",
       "mealsRequired": "Vali vähemalt üks söögikord nii argipäevadeks kui ka nädalavahetuseks.",
       "ownerOnlyNotice": "Neid sätteid saab muuta ainult leibkonna omanik. Siin saad neid vaadata.",
@@ -1246,12 +1287,48 @@
         "createFailed": "Kutse loomine ebaõnnestus",
         "generic": "Tekkis viga"
       }
+    },
+    "leave": {
+      "heading": "Lahku leibkonnast",
+      "descriptionMember": "Lahku sellest leibkonnast. Söögiplaan, sahver ja retseptid jäävad leibkonnale alles.",
+      "descriptionOwner": "Oled ainus kontoga liige, nii et lahkumine kustutab selle leibkonna ja kõik selle andmed.",
+      "trigger": "Lahku leibkonnast",
+      "title": "Lahkud leibkonnast?",
+      "bodyMember": "Lahkud leibkonnast „{householdName}\". Selle plaan jääb leibkonnale alles. Tagasi tulemiseks palu omanikult uut kutset.",
+      "bodyOwner": "Sinu leibkond „{householdName}\" kustutatakse koos söögiplaani, sahvri, ostunimekirja, retseptide ja oma kontota liikmetega. Seda ei saa tagasi võtta.",
+      "exportNote": "Kui soovid koopiat, lae enne oma andmed profiililt alla.",
+      "confirm": "Lahku leibkonnast",
+      "leaving": "Lahkun…",
+      "cannotLeave": "Oled selle leibkonna omanik ja siin on {count, plural, one {# muu kontoga liige} other {# muud kontoga liiget}}. Eemalda nad leibkonnast enne lahkumist.",
+      "errors": {
+        "failed": "Leibkonnast lahkumine ebaõnnestus. Proovi uuesti.",
+        "rateLimited": "Oled viimase 30 päeva jooksul leibkonnast lahkunud 3 korda. Proovi hiljem uuesti."
+      }
     }
   },
   "profile": {
     "title": "Profiil",
     "description": "Sinu konto andmed",
-    "nameLabel": "Nimi",
+    "name": {
+      "label": "Nimi",
+      "save": "Salvesta",
+      "saving": "Salvestan…",
+      "saved": "Nimi on salvestatud",
+      "required": "Sisesta oma nimi.",
+      "tooLong": "Kasuta kuni 100 märki.",
+      "saveFailed": "Nime ei salvestatud. Proovi uuesti."
+    },
+    "password": {
+      "heading": "Vaheta parool",
+      "description": "Selles seadmes jääd sisse logituks. Teistest seadmetest logitakse sind välja.",
+      "currentLabel": "Praegune parool",
+      "currentRequired": "Sisesta oma praegune parool.",
+      "newLabel": "Uus parool",
+      "confirmLabel": "Kinnita uus parool",
+      "submit": "Vaheta parool",
+      "submitting": "Parooli vahetamine…",
+      "success": "Parool on vahetatud. Teistest seadmetest on sind välja logitud."
+    },
     "emailLabel": "E-post",
     "yourDataHeading": "Sinu andmed",
     "yourDataDescription": "Lae alla koopia oma profiilist, leibkonna andmetest, söögiplaanidest ja sätetest JSON-failina.",
@@ -1299,6 +1376,8 @@
     "addChild": "Lisa laps",
     "you": "{name} (sina)",
     "memberNameAria": "{label}: nimi",
+    "doneMemberAria": "Valmis: {label}",
+    "editMemberAria": "Muuda: {label}",
     "removeMemberAria": "Eemalda: {label}",
     "membersHelper": "Nimed pole kohustuslikud. Saad kõiki hiljem leibkonna lehel muuta.",
     "membersFull": "Praegu on piir 10 inimest. Rohkem saad lisada hiljem leibkonna lehel.",

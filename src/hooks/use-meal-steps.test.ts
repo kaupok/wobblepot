@@ -106,6 +106,30 @@ describe('useMealSteps', () => {
       expect(result.current.isLoadingSteps).toBe(false)
     })
 
+    it('names the time the hourly limit lifts when the 429 carries resetAt', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: () =>
+          Promise.resolve({
+            error: 'Rate limit exceeded',
+            code: 'rate_limited',
+            // 18:40 on the device clock, whatever TZ the test runs in.
+            resetAt: new Date(2026, 9, 9, 18, 40).toISOString(),
+          }),
+      })
+
+      const { result } = renderHook(() => useMealSteps(defaultOptions), { wrapper })
+
+      await act(async () => {
+        await result.current.fetchSteps()
+      })
+
+      expect(result.current.stepsError).toBe(
+        stepsErrors.rateLimitedUntil.replace('{time}', '6:40 PM'),
+      )
+    })
+
     it('sets generic error message on network error', async () => {
       mockFetch.mockRejectedValue(new Error('Failed to fetch'))
 

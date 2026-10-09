@@ -8,7 +8,7 @@
 
 Foundation and core flows are complete (AI planning, shopping, pantry, auth, household management). Open work is the launch-readiness band: GDPR/legal, production observability, abuse protection, email deliverability, and launch hygiene (metadata, uptime). Target launch geography is EU-wide including UK-GDPR — the compliance bar is the full GDPR surface, not "soft launch to friends". First real-world user is still a family of 4 (two young children); the bar is set at public-beta because retrofitting compliance later is worse than paying the cost upfront.
 
-Sign-up is gated behind single-use invite codes (HON-488) controlled by the `invite_code_required` PostHog kill-switch (default `true`). Flipping the flag to `false` opens public sign-up without a deploy; flipping back re-locks. This shrinks blast radius for the first cohort while keeping us one toggle away from open beta. A visitor without a code can join the waitlist at `/request-invite` and confirm by an emailed link (HON-846); the admin picks who to invite (HON-970).
+Sign-up is gated behind single-use invite codes (HON-488) controlled by the `invite_code_required` PostHog kill-switch (default `true`). Flipping the flag to `false` opens public sign-up without a deploy; flipping back re-locks. This shrinks blast radius for the first cohort while keeping us one toggle away from open beta. A visitor without a code can join the waitlist at `/request-invite` and confirm by an emailed link (HON-846); the admin picks who to invite (HON-970). A household invite link also admits one account: the owner vouches for the invitee, so the link replaces the code and the sign-up joins the invitee to the owner's household (HON-1131).
 
 ---
 
@@ -256,6 +256,8 @@ enum ProteinType {
 - `allergens` = safety-critical, DB-enforced via `Allergen` enum
 - `restrictions` = dietary concepts ("low FODMAP") - free-form String\[\], AI interprets with best-effort
 
+**A preference change marks the plan, and never changes it by itself (HON-1126).** Meals planned before the change can break the new preferences. A planned card whose meal contains an avoided allergen, breaks the dietary type or uses an avoided ingredient carries one warning badge per constraint ("Contains: Tree nuts"), in the cook view too. Cooked and skipped meals are history and carry none. After a food-preference save on `/household`, the toast says how many planned meals from today onward conflict. Nothing is swapped or removed: the household uses Swap on each marked card. The check is `findPreferenceConflicts` (`src/lib/meal-planning/preference-conflicts.ts`): the ingredients' `allergens` data first, then the `forbidden-foods` keyword lists for the meal name and the ingredients with no allergen data. Restrictions are free text and are not checked.
+
 **Enums over strings:** Use Prisma enums for constrained values to prevent inconsistent data.
 
 ### Onboarding
@@ -320,6 +322,8 @@ enum ProteinType {
 
 - The owner adds a member by name, then creates that member's link (`src/app/api/households/me/invites/route.ts`). Only a member without an account can get one. `HouseholdInvite.memberId` is `@unique`, so creating a link again replaces the member's code and expiry. Expiry is set per request (`expiresInDays` in the route's schema, with its default)
 - Joining (`src/app/api/invites/[code]/join/route.ts`) claims the member row for the signed-in user and deletes the invite in the same transaction. Two people opening the same link race safely: the loser gets `invite_invalid` (400) or `invite_not_found` (404), and the client shows the same message for both. A unique index on `household_member."userId"` keeps a user out of a second household (HON-696); the route's doc comments describe the locking
+- Leaving (`POST /api/households/me/leave`, `src/lib/household-leave.ts`, HON-1133): a `member` leaves freely and the household keeps its data. An owner who is the only account holder leaves by deleting the household, with everything in it; members without an account do not count. An owner with other account holders cannot leave until they remove them; there is no ownership transfer
+- An invitee who already has a household gets "Leave and join" on the invite page. The join route takes `{ leaveCurrent: true }` and runs the leave and the claim in one transaction, so a failed claim keeps the old household
 
 ### Children's Data (Art. 8)
 

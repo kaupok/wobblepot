@@ -1,5 +1,7 @@
+import { useEffect, useState, type ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { getRouter } from '@storybook/nextjs-vite/navigation.mock'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
   createExpectedMealTypes,
@@ -9,6 +11,10 @@ import {
   timelineTodayDate,
   urgentShoppingItems,
 } from '@/stories/fixtures'
+import { awaitDialogClosed } from '@/stories/a11y-helpers'
+import { delayedGenerateHandlers } from '@/stories/msw-handlers'
+import { markFirstPlanGenerated } from '@/lib/first-plan-focus'
+import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { TimelineView } from './TimelineView'
 
 const baseEntries = [
@@ -278,5 +284,93 @@ export const BreakfastLunchDinner: Story = {
           'Household plans all three meal types — today is fully planned, future days show three empty slots each.',
       },
     },
+  },
+}
+
+/** A dinner on each of `count` days from Today. The window is Today plus 14 days. */
+function dinnersFromToday(count: number) {
+  return Array.from({ length: count }, (_, i) => {
+    const day = parseLocalDate(timelineTodayDate)
+    day.setDate(day.getDate() + i)
+    const date = toDateString(day)
+    return createPlanEntry({ id: `e-fill-${date}`, date, mealType: MealType.dinner })
+  })
+}
+
+/**
+ * `router.refresh()` is a mock in Storybook, so this stands in for the server:
+ * it swaps in `refreshedEntries` a moment after the call, once the overlay has
+ * closed, as a real refresh lands after a network round trip.
+ */
+function RefreshingTimeline({
+  refreshedEntries,
+  ...props
+}: ComponentProps<typeof TimelineView> & {
+  refreshedEntries: ComponentProps<typeof TimelineView>['entries']
+}) {
+  const [entries, setEntries] = useState(props.entries)
+  useEffect(() => {
+    getRouter().refresh.mockImplementation(() => {
+      setTimeout(() => setEntries(refreshedEntries), 200)
+    })
+  }, [refreshedEntries])
+  return <TimelineView {...props} entries={entries} />
+}
+
+const generateButton = (canvasElement: HTMLElement) =>
+  within(canvasElement).queryByRole('button', { name: /^generate$/i })
+
+/**
+ * Today and tomorrow are planned, and the fill plans the other 13 days. The
+ * refresh removes the fill bar with its Generate button, so the heading of the
+ * first filled day takes focus, not the body (HON-1139).
+ */
+export const FocusAfterFillPlansLastDay: Story = {
+  args: { entries: dinnersFromToday(2) },
+  parameters: { msw: { handlers: delayedGenerateHandlers } },
+  render: (args) => <RefreshingTimeline {...args} refreshedEntries={dinnersFromToday(15)} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(generateButton(canvasElement)!)
+    await awaitDialogClosed()
+    await waitFor(() => expect(generateButton(canvasElement)).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        canvas.getByRole('heading', { level: 2, name: /friday apr 17/i }),
+      ),
+    )
+  },
+}
+
+/** A fill that leaves empty days keeps the bar, and focus stays on Generate (HON-1139). */
+export const FocusAfterFillLeavesEmptyDays: Story = {
+  args: { entries: dinnersFromToday(2) },
+  parameters: { msw: { handlers: delayedGenerateHandlers } },
+  render: (args) => <RefreshingTimeline {...args} refreshedEntries={dinnersFromToday(9)} />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(generateButton(canvasElement)!)
+    await awaitDialogClosed()
+    // The refresh landed: the bar moved down to the new first empty day, Apr 24.
+    await waitFor(() => expect(within(canvasElement).getByText(/^Fill Apr 24/)).toBeInTheDocument())
+    await expect(document.activeElement).toBe(generateButton(canvasElement))
+  },
+}
+
+/**
+ * The first plan was generated on a screen that has left the page
+ * (`FirstTimeSetup` or onboarding), so Today's first heading takes focus as
+ * the view mounts (HON-1139).
+ */
+export const FocusAfterFirstPlan: Story = {
+  args: { entries: dinnersFromToday(7) },
+  beforeEach: () => {
+    markFirstPlanGenerated()
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(canvasElement).getByRole('heading', { level: 2, name: 'Today' }),
+      ),
+    )
   },
 }

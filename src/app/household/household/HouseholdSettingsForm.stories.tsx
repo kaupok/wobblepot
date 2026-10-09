@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
+import { Toaster } from 'sonner'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
 import { HouseholdDetailsForm } from './HouseholdDetailsForm'
@@ -194,6 +195,13 @@ let lastHouseholdBody: unknown
 let lastPreferencesBody: unknown
 let lastReminderBody: unknown
 
+// A section's submit button, in either state. While the save is in flight it
+// reads "Saving…", so waiting only for "Save" to go passes mid-request, before
+// the response moves focus to the heading (HON-1140). Once neither name is on
+// screen the save has settled: SettingsSection focuses the heading in the same
+// `onSuccess` that marks the section clean and unmounts the button.
+const SAVE_BUTTON = /^(Save|Saving…)$/
+
 const saveHandlers = [
   http.patch('/api/households/me', async ({ request }) => {
     lastHouseholdBody = await request.json()
@@ -302,9 +310,45 @@ export const FoodPreferencesDirty: Story = {
       }),
     )
     await waitFor(() =>
-      expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
+      expect(canvas.queryByRole('button', { name: SAVE_BUTTON })).not.toBeInTheDocument(),
     )
     await expect(canvas.getByRole('heading', { name: 'Food preferences' })).toHaveFocus()
+  },
+}
+
+export const FoodPreferencesSavedWithConflicts: Story = {
+  ...FoodPreferences,
+  // The app's toaster sits in the root layout, not in the section.
+  render: (args) => (
+    <>
+      <FoodPreferencesForm preferences={args.preferences} isOwner={args.isOwner} />
+      <Toaster />
+    </>
+  ),
+  parameters: {
+    msw: {
+      handlers: [
+        http.patch('/api/households/me/preferences', () =>
+          HttpResponse.json({ allergensToAvoid: ['nuts'], conflictingEntries: 2 }),
+        ),
+      ],
+    },
+    docs: {
+      description: {
+        story:
+          'Tree nuts ticked and saved while two planned meals contain nuts: the route counts them, and the toast says so and where they are marked, instead of only "Settings saved". The save changes no meal (HON-1126).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'Tree nuts' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
+    const toast = await within(document.body).findByText(
+      'Settings saved. 2 planned meals conflict with them. They are marked on Today.',
+    )
+    // Sonner fades the toast in.
+    await waitFor(() => expect(toast).toBeVisible())
   },
 }
 
@@ -429,7 +473,7 @@ export const WeeklyReminderSwitchOn: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(lastReminderBody).toEqual({ weekday: 7 }))
     await waitFor(() =>
-      expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
+      expect(canvas.queryByRole('button', { name: SAVE_BUTTON })).not.toBeInTheDocument(),
     )
     await expect(canvas.getByRole('heading', { name: 'Weekly reminder' })).toHaveFocus()
   },

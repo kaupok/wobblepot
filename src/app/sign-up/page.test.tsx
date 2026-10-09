@@ -36,6 +36,12 @@ vi.mock('@/lib/auth-client', () => ({
   },
 }))
 
+// The invite-link sign-up asks for the membership before it navigates (HON-1131).
+const mockApiFetch = vi.fn()
+vi.mock('@/lib/api', () => ({
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+}))
+
 // Mock the friendly-error hook so tests assert on raw server messages without
 // coupling to the localized catalog copy. Catalog → key mapping is exercised
 // in src/lib/auth-errors.test.ts.
@@ -453,6 +459,95 @@ describe('SignUpForm', () => {
       await vi.waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent(/email already exists/i)
       })
+    })
+  })
+
+  describe('household invite link (HON-1131)', () => {
+    const HOUSEHOLD_INVITE = { code: 'Ab3_x-9Kq2Lm', householdName: 'Smith Family' }
+
+    async function signUpSucceeds() {
+      const { authClient } = await import('@/lib/auth-client')
+      // Awaited, as better-fetch awaits `onSuccess`: the destination depends on
+      // a request the callback makes.
+      vi.mocked(authClient.signUp.email).mockImplementation(async (_creds, options) => {
+        await options?.onSuccess?.({} as any)
+      })
+      return authClient
+    }
+
+    it('names the household and hides the sign-up code field, even with the gate on', () => {
+      renderForm({ inviteRequired: true, householdInvite: HOUSEHOLD_INVITE })
+
+      const notice = screen.getByRole('note', { name: 'Household invite' })
+      expect(notice).toHaveTextContent('You join this household: Smith Family')
+      expect(screen.queryByLabelText('Invite code')).not.toBeInTheDocument()
+      expect(screen.queryByText(/private beta/i)).not.toBeInTheDocument()
+    })
+
+    it('sends householdInviteCode instead of inviteCode', async () => {
+      const authClient = await signUpSucceeds()
+      mockApiFetch.mockResolvedValue({ id: 'household-1' })
+
+      const user = userEvent.setup({ delay: null })
+      renderForm({ inviteRequired: true, householdInvite: HOUSEHOLD_INVITE })
+
+      await fillRequiredFields(user)
+      await user.click(screen.getByRole('button', { name: /sign up/i }))
+
+      await vi.waitFor(() => {
+        expect(authClient.signUp.email).toHaveBeenCalledWith(
+          {
+            email: 'test@example.com',
+            password: 'password123',
+            name: 'Test User',
+            acceptedTerms: true,
+            householdInviteCode: 'Ab3_x-9Kq2Lm',
+          },
+          expect.any(Object),
+        )
+      })
+    })
+
+    it("goes to the inviter's meal plan, not onboarding, once the user is in the household", async () => {
+      await signUpSucceeds()
+      mockApiFetch.mockResolvedValue({ id: 'household-1' })
+      // A returnUrl from the Sign in footer link does not override it.
+      mockGet.mockReturnValue('/invite/Ab3_x-9Kq2Lm')
+
+      const user = userEvent.setup({ delay: null })
+      renderForm({ householdInvite: HOUSEHOLD_INVITE })
+
+      await fillRequiredFields(user)
+      await user.click(screen.getByRole('button', { name: /sign up/i }))
+
+      await vi.waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/')
+      })
+      expect(mockApiFetch).toHaveBeenCalledWith('/api/households/me')
+    })
+
+    it('goes to the invite page when the claim lost a race and there is no household', async () => {
+      await signUpSucceeds()
+      mockApiFetch.mockRejectedValue(new Error('No household found'))
+
+      const user = userEvent.setup({ delay: null })
+      renderForm({ householdInvite: HOUSEHOLD_INVITE })
+
+      await fillRequiredFields(user)
+      await user.click(screen.getByRole('button', { name: /sign up/i }))
+
+      await vi.waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/invite/Ab3_x-9Kq2Lm')
+      })
+    })
+
+    it('points Sign in back at the invite', () => {
+      renderForm({ householdInvite: HOUSEHOLD_INVITE })
+
+      expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute(
+        'href',
+        '/sign-in?returnUrl=%2Finvite%2FAb3_x-9Kq2Lm',
+      )
     })
   })
 

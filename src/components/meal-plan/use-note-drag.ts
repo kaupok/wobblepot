@@ -299,6 +299,8 @@ export function useNoteDrag({
   return {
     /** Where the slip lies: the saved or moved place, fitted to the card as it is now. */
     position: fitted && fitted.from === position ? fitted.to : position,
+    /** The saved or moved place before the fit: the household's, as the server holds it. */
+    savedPosition: position,
     reset,
     /** Says the slip moves with the arrow keys (WCAG 2.5.7); render it, hidden, at `hintId`. */
     hint: t('moveHint'),

@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // one — which is the entire bug under test here (HON-725). Use the real
 // provider so the `et` assertions below are meaningful.
 vi.unmock('next-intl')
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
@@ -96,6 +96,30 @@ describe('FillDaysAction error localization', () => {
     expect(screen.queryByText(prose)).not.toBeInTheDocument()
   })
 
+  it('names the time the hourly limit lifts when the 429 carries resetAt', async () => {
+    respondWith(
+      {
+        code: 'rate_limited',
+        error: 'Rate limit exceeded',
+        // 18:40 on the device clock, whatever TZ the test runs in.
+        resetAt: new Date(2026, 9, 9, 18, 40).toISOString(),
+      },
+      429,
+    )
+
+    clickFill('et')
+
+    await screen.findByText(etErrors.rateLimitUntil.replace('{time}', '18:40'))
+  })
+
+  it('keeps the plain rate-limit copy when the 429 has no resetAt', async () => {
+    respondWith({ code: 'rate_limited', error: 'Rate limit exceeded' }, 429)
+
+    clickFill('et')
+
+    await screen.findByText(etErrors.rateLimit)
+  })
+
   it('falls back to the generic generation-failed copy for an unrecognised code', async () => {
     respondWith({ code: 'some_future_code', message: 'Something new went wrong.' }, 400)
 
@@ -111,5 +135,51 @@ describe('FillDaysAction error localization', () => {
     clickFill('et')
 
     await screen.findByText(etErrors.generationTimeout)
+  })
+})
+
+// The refresh can unmount the bar, so the page moves focus once it lands
+// (HON-1139).
+describe('FillDaysAction onFilled', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  function renderWith(onFilled: (startDate: string) => void) {
+    const { wrapper: Wrapper } = createQueryWrapper()
+    render(
+      <Wrapper>
+        <NextIntlClientProvider locale="en" messages={enMessages} timeZone="Europe/Tallinn">
+          <FillDaysAction planId="plan-1" startDate="2026-04-16" onFilled={onFilled} />
+        </NextIntlClientProvider>
+      </Wrapper>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: enMessages['meal-plan'].fillDays.submit }))
+  }
+
+  it('reports the start date once the fill succeeds', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ id: 'plan-1' }) }),
+      ),
+    )
+    const onFilled = vi.fn()
+
+    renderWith(onFilled)
+
+    await waitFor(() => expect(onFilled).toHaveBeenCalledWith('2026-04-16'))
+  })
+
+  it('does not report a failed fill', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    respondWith({ code: 'generation_failed', error: 'Failed' }, 500)
+    const onFilled = vi.fn()
+
+    renderWith(onFilled)
+
+    await screen.findByText(enMessages['meal-plan'].errors.generationFailed)
+    expect(onFilled).not.toHaveBeenCalled()
   })
 })

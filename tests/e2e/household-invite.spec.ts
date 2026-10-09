@@ -1,6 +1,11 @@
-// ROUTES: /household, /invite/[code], / · COMPONENTS: AddMemberDialog, MemberInviteDialog, MemberRow, MemberList, JoinHouseholdCard
+// ROUTES: /household, /invite/[code], /sign-up, / · COMPONENTS: AddMemberDialog, MemberInviteDialog, MemberRow, MemberList, JoinHouseholdCard, SignUpForm
 import { test, expect, type Page } from '@playwright/test'
-import { generateUniqueEmail, signUp, signUpWithHousehold } from './utils/test-helpers'
+import {
+  generateUniqueEmail,
+  grantEssentialCookieConsent,
+  signUp,
+  signUpWithHousehold,
+} from './utils/test-helpers'
 
 /**
  * Household member-invite flow (HON-667).
@@ -12,7 +17,13 @@ import { generateUniqueEmail, signUp, signUpWithHousehold } from './utils/test-h
  * /api/invites/[code]/join` sets `HouseholdMember.userId` on the existing row
  * and deletes the invite, rather than creating a second member.
  *
- * Not `@smoke`: it signs up two accounts, and account creation needs an invite
+ * Three invitees: one already has an account and joins from the signed-in card;
+ * one opens the link signed out and creates an account from it with no
+ * sign-up code (HON-1131); and one signed up first, has a one-person household
+ * of their own, and leaves it to join (HON-1133). `invite_code_required` defaults to on with PostHog
+ * unset, so the second test runs with the gate on, as production does.
+ *
+ * Not `@smoke`: it signs up several accounts, and the owner's needs an invite
  * code from `/api/e2e-seed`, which 404s on preview and staging by design
  * (HON-560). Not `@ai` either — no Claude call anywhere in the flow. So it runs
  * in tier 1 CI and `pnpm test:e2e:local` only.
@@ -35,10 +46,13 @@ test.describe('Household member invite', () => {
    */
   const badge = (page: Page, text: string) => page.getByText(text, { exact: true })
 
-  test('owner mints an invite for a manual member; invitee joins and claims the profile', async ({
-    page,
-    browser,
-  }) => {
+  /**
+   * The owner signs up, creates a household, adds a manual member and mints
+   * that member's invite link. Returns the link's pathname.
+   */
+  async function ownerMintsInvite(
+    page: Page,
+  ): Promise<{ householdName: string; invitePath: string }> {
     const householdName = `Invite Household ${Date.now()}`
 
     // --- 1. Owner: sign up, create the household, add a manual member -------
@@ -101,6 +115,15 @@ test.describe('Household member invite', () => {
     // The roster refetches after the invite is created.
     await expect(badge(page, 'Invite pending')).toBeVisible()
 
+    return { householdName, invitePath }
+  }
+
+  test('owner mints an invite for a manual member; invitee joins and claims the profile', async ({
+    page,
+    browser,
+  }) => {
+    const { householdName, invitePath } = await ownerMintsInvite(page)
+
     // --- 3. Invitee: separate context, no household of their own -----------
     const inviteeContext = await browser.newContext()
     try {
@@ -136,6 +159,121 @@ test.describe('Household member invite', () => {
       await expect(inviteePage.getByLabel('Household name')).toHaveValue(householdName)
       await expect(inviteePage.getByText(OWNER_NAME)).toBeVisible()
       await expect(inviteePage.getByText(INVITEE_NAME)).toBeVisible()
+    } finally {
+      await inviteeContext.close()
+    }
+  })
+  test('a signed-out invitee creates an account from the link without a sign-up code (HON-1131)', async ({
+    page,
+    browser,
+  }) => {
+    const { householdName, invitePath } = await ownerMintsInvite(page)
+
+    const inviteeContext = await browser.newContext()
+    try {
+      const inviteePage = await inviteeContext.newPage()
+      await grantEssentialCookieConsent(inviteePage)
+
+      // --- 3. Invitee, signed out: the link shows the invite, not Sign in ---
+      await inviteePage.goto(invitePath)
+      await expect(inviteePage).toHaveURL(invitePath)
+      await expect(
+        inviteePage.getByRole('heading', { name: `Join as ${MANUAL_MEMBER_NAME}` }),
+      ).toBeVisible()
+      await expect(inviteePage.getByText(householdName)).toBeVisible()
+      // Scoped to the page body: the signed-out header has its own Sign in link.
+      const inviteCard = inviteePage.locator('#main-content')
+      await expect(inviteCard.getByRole('link', { name: 'Sign in' })).toBeVisible()
+
+      await inviteCard.getByRole('link', { name: 'Create account' }).click()
+      await expect(inviteePage).toHaveURL(/\/sign-up\?invite=[\w-]+$/)
+
+      // The household invite stands in for the sign-up code: the form names
+      // the household and has no code field, although the gate is on.
+      await expect(inviteePage.getByRole('note', { name: 'Household invite' })).toContainText(
+        householdName,
+      )
+      await expect(inviteePage.locator('input[name="inviteCode"]')).toHaveCount(0)
+
+      await signUp(inviteePage, {
+        name: INVITEE_NAME,
+        email: generateUniqueEmail(),
+        navigate: false,
+      })
+
+      // --- 4. Invitee lands on the inviter's meal plan, not onboarding ------
+      await expect(inviteePage).toHaveURL('/')
+
+      await inviteePage.goto('/household')
+      await expect(inviteePage.getByLabel('Household name')).toHaveValue(householdName)
+      await expect(inviteePage.getByText(OWNER_NAME)).toBeVisible()
+      await expect(inviteePage.getByText(INVITEE_NAME)).toBeVisible()
+
+      // --- 5. Owner's view: the member row was claimed, not duplicated ------
+      await page.reload()
+      await expect(page.getByText(INVITEE_NAME)).toBeVisible()
+      await expect(badge(page, 'No account')).toHaveCount(0)
+      await expect(badge(page, 'Invite pending')).toHaveCount(0)
+    } finally {
+      await inviteeContext.close()
+    }
+  })
+
+  test('a partner who signed up first leaves their own household and joins (HON-1133)', async ({
+    page,
+    browser,
+  }) => {
+    const { householdName, invitePath } = await ownerMintsInvite(page)
+
+    const inviteeContext = await browser.newContext()
+    try {
+      const inviteePage = await inviteeContext.newPage()
+      const ownHouseholdName = `Partner Household ${Date.now()}`
+      await signUpWithHousehold(inviteePage, {
+        name: INVITEE_NAME,
+        email: generateUniqueEmail(),
+        householdName: ownHouseholdName,
+      })
+
+      // --- 3. Invitee: the card offers the move and says what is deleted ----
+      await inviteePage.goto(invitePath)
+      await expect(
+        inviteePage.getByRole('heading', { level: 1, name: `Join "${householdName}"?` }),
+      ).toBeVisible()
+      await expect(
+        inviteePage.getByText(`Your household "${ownHouseholdName}"`, { exact: false }).first(),
+      ).toBeVisible()
+
+      await inviteePage.getByRole('button', { name: 'Leave and join' }).click()
+      const confirm = inviteePage.getByRole('alertdialog')
+      await expect(confirm).toBeVisible()
+      await confirm.getByRole('button', { name: 'Leave and join' }).click()
+      await expect(inviteePage).toHaveURL('/')
+
+      // --- 4. Invitee is in the inviter's household as the named member -----
+      await inviteePage.goto('/household')
+      await expect(inviteePage.getByLabel('Household name')).toHaveValue(householdName)
+      await expect(inviteePage.getByText(OWNER_NAME)).toBeVisible()
+      await expect(inviteePage.getByText(INVITEE_NAME)).toBeVisible()
+
+      // --- 5. Owner's view: the member row was claimed, not duplicated ------
+      await page.reload()
+      await expect(page.getByText(INVITEE_NAME)).toBeVisible()
+      await expect(badge(page, 'No account')).toHaveCount(0)
+      await expect(badge(page, 'Invite pending')).toHaveCount(0)
+
+      // --- 6. Invitee, now a member, leaves from /household ----------------
+      await inviteePage.goto('/household')
+      await inviteePage.getByRole('button', { name: 'Leave household' }).click()
+      const leaveConfirm = inviteePage.getByRole('alertdialog')
+      await expect(leaveConfirm).toContainText(householdName)
+      await leaveConfirm.getByRole('button', { name: 'Leave household' }).click()
+      await expect(inviteePage).toHaveURL(/\/onboarding/)
+
+      // The owner's household stays, without the member who left.
+      await page.reload()
+      await expect(page.getByLabel('Household name')).toHaveValue(householdName)
+      await expect(page.getByText(INVITEE_NAME)).toHaveCount(0)
     } finally {
       await inviteeContext.close()
     }

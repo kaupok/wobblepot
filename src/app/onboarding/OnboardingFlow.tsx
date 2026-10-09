@@ -81,10 +81,12 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
   const [members, setMembers] = useState<MemberDraft[]>([])
   const nextMemberId = useRef(0)
 
-  const addMember = (portionType: PortionType) => {
-    if (members.length + 1 >= MAX_MEMBERS) return
+  // A new row opens for typing; the step focuses its field by the returned id.
+  const addMember = (portionType: PortionType): number | null => {
+    if (members.length + 1 >= MAX_MEMBERS) return null
     const id = nextMemberId.current++
-    setMembers((prev) => [...prev, { id, name: '', portionType }])
+    setMembers((prev) => [...prev, { id, name: '', portionType, editing: true }])
+    return id
   }
 
   const removeMember = (id: number) => {
@@ -95,6 +97,10 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
     setMembers((prev) =>
       prev.map((member) => (member.id === id ? { ...member, name: newName } : member)),
     )
+  }
+
+  const setMemberEditing = (id: number, editing: boolean) => {
+    setMembers((prev) => prev.map((member) => (member.id === id ? { ...member, editing } : member)))
   }
 
   // Step 3: allergens to avoid. Kept here, so Back and forward keeps them.
@@ -297,6 +303,7 @@ export function OnboardingFlow({ userName }: OnboardingFlowProps) {
                 onAdd={addMember}
                 onRemove={removeMember}
                 onNameChange={changeMemberName}
+                onEditingChange={setMemberEditing}
                 disabled={isLoading}
               />
             ) : (

@@ -389,6 +389,26 @@ export const rateLimitedSuggestionsHandlers: HttpHandler[] = [
 ]
 
 /**
+ * As `rateLimitedSuggestionsHandlers`, with the `resetAt` the real routes send:
+ * half an hour from the moment of the request, so the list names the time the
+ * limit lifts (HON-1138).
+ */
+export const rateLimitedUntilSuggestionsHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/:planId/entries/:entryId/suggestions', () =>
+    HttpResponse.json(
+      { error: 'Rate limit exceeded', resetAt: new Date(Date.now() + 1_800_000).toISOString() },
+      { status: 429, headers: { 'Retry-After': '1800' } },
+    ),
+  ),
+  http.post('/api/meal-plans/:planId/entries/:entryId/regenerate', () =>
+    HttpResponse.json(
+      { error: 'Rate limit exceeded', resetAt: new Date(Date.now() + 1_800_000).toISOString() },
+      { status: 429, headers: { 'Retry-After': '1800' } },
+    ),
+  ),
+]
+
+/**
  * Never resolve, keeping queries in their loading state indefinitely. Use in
  * stories that need to show the skeleton / spinner UI deterministically.
  */
@@ -615,6 +635,25 @@ export const rateLimitGenerateHandlers: HttpHandler[] = [
 ]
 
 /**
+ * As `rateLimitGenerateHandlers`, with the `resetAt` the real route sends: half
+ * an hour from the moment of the request, so the copy names the time the limit
+ * lifts (HON-1138).
+ */
+export const rateLimitUntilGenerateHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/generate', () =>
+    HttpResponse.json(
+      {
+        code: 'rate_limited',
+        error: 'Rate limit exceeded',
+        message: 'Maximum 10 meal plan generations per hour',
+        resetAt: new Date(Date.now() + 1_800_000).toISOString(),
+      },
+      { status: 429, headers: { 'Retry-After': '1800' } },
+    ),
+  ),
+]
+
+/**
  * Return 504 for `POST /api/meal-plans/generate`. Covers the server-timeout
  * branch added in HON-694: the route gives up within its own AI budget and
  * both clients show the localized `generationTimeout` copy rather than the
@@ -631,6 +670,31 @@ export const timeoutGenerateHandlers: HttpHandler[] = [
       { status: 504 },
     ),
   ),
+]
+
+/**
+ * Answer `POST /api/meal-plans/generate` after a short wait, so the
+ * `GeneratingOverlay` opens and takes focus before it closes. Use to assert
+ * focus goes back to Generate afterwards (HON-1130).
+ */
+const GENERATE_WAIT_MS = 300
+
+export const delayedGenerateHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/generate', async () => {
+    await delay(GENERATE_WAIT_MS)
+    return HttpResponse.json({ id: 'plan-1' })
+  }),
+]
+
+/** `delayedGenerateHandlers`, answering with the 500 of `errorGenerateHandlers`. */
+export const delayedErrorGenerateHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/generate', async () => {
+    await delay(GENERATE_WAIT_MS)
+    return HttpResponse.json(
+      { code: 'generation_failed', error: 'Failed to generate meal plan' },
+      { status: 500 },
+    )
+  }),
 ]
 
 /**

@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Download, Sparkles } from 'lucide-react'
+import { Download, Plus, Sparkles } from 'lucide-react'
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -25,7 +25,26 @@ export function RecipesPageClient() {
   const tLibrary = useTranslations('recipes.library')
 
   const [searchQuery, setSearchQuery] = useState('')
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  // Where focus lands after a delete leaves no card: the search field, or the
+  // empty state's Create button once the last recipe is gone and the search
+  // with it. One ref for both, because `MealList` reads it from the render
+  // that opened its confirm dialog, before the search unmounted.
+  const emptyFocusRef = useRef<HTMLElement | null>(null)
+  // The search also unmounts while it has focus: clear the search after
+  // deleting the last match, and the library turns empty under the caret.
+  // React detaches the input's ref while it is still in the DOM and attaches
+  // the Create button's after it, so Create takes the focus over.
+  const refocusOnAttachRef = useRef(false)
+  const setEmptyFocusTarget = useCallback((el: HTMLElement | null) => {
+    const previous = emptyFocusRef.current
+    if (!el && previous && previous === document.activeElement) {
+      refocusOnAttachRef.current = true
+    } else if (el && refocusOnAttachRef.current) {
+      refocusOnAttachRef.current = false
+      el.focus()
+    }
+    emptyFocusRef.current = el
+  }, [])
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
   useEffect(() => {
@@ -90,6 +109,18 @@ export function RecipesPageClient() {
   }
 
   const isSearchEmpty = debouncedSearch !== '' && !isLoading && !error && meals.length === 0
+  // Nothing to search and nothing to count: the page drops both and the empty
+  // state offers Create (HON-1128). Not on a failed load, and not while pages
+  // remain after the loaded cards were deleted: the library is not empty then.
+  // The typed text counts as well as the debounced one, so the search does not
+  // vanish under text the debounce has not picked up yet.
+  const isLibraryEmpty =
+    searchQuery.trim() === '' &&
+    debouncedSearch === '' &&
+    !isLoading &&
+    !error &&
+    !hasNextPage &&
+    meals.length === 0
 
   return (
     // A list page: container shell, title on the background, top-aligned, no
@@ -102,42 +133,55 @@ export function RecipesPageClient() {
           <Heading variant="h4" as="h1">
             {tLibrary('title')}
           </Heading>
-          <Body variant="muted">
-            {isLoading
-              ? tLibrary('loading')
-              : hasNextPage
-                ? tRecipes('mealCountMore', { count: meals.length })
-                : tRecipes('mealCount', { count: meals.length })}
-          </Body>
+          {isLibraryEmpty ? null : (
+            <Body variant="muted">
+              {isLoading
+                ? tLibrary('loading')
+                : hasNextPage
+                  ? tRecipes('mealCountMore', { count: meals.length })
+                  : tRecipes('mealCount', { count: meals.length })}
+            </Body>
+          )}
         </div>
         <Body variant="muted">{tLibrary('description')}</Body>
       </div>
 
       {/* Search and the actions share a row from `sm`; the search takes the
           room the actions leave, up to `max-w-md`. On a phone they stack and
-          the search runs the width, with the actions two-up under it (HON-812). */}
+          the search runs the width (HON-812). Import is the one primary: most
+          first recipes come from a link. On a phone it has its own row, with
+          Create and Imagine two-up under it, so the three never sit as equal
+          buttons in one row (docs/DESIGN.md → Reject list, HON-1128). */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="sm:max-w-md sm:flex-1">
-          <Input
-            ref={searchInputRef}
-            type="search"
-            placeholder={tLibrary('searchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label={tLibrary('searchAria')}
-          />
-        </div>
+        {isLibraryEmpty ? null : (
+          <div className="sm:max-w-md sm:flex-1">
+            <Input
+              ref={setEmptyFocusTarget}
+              type="search"
+              placeholder={tLibrary('searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label={tLibrary('searchAria')}
+            />
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+          <Button asChild className="col-span-2">
+            <Link href="/recipes/import">
+              <Download />
+              {tLibrary('importButton')}
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/recipes/create">
+              <Plus />
+              {tLibrary('createButton')}
+            </Link>
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/recipes/imagine">
               <Sparkles />
               {tLibrary('imagineButton')}
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/recipes/import">
-              <Download />
-              {tLibrary('importButton')}
             </Link>
           </Button>
         </div>
@@ -157,7 +201,18 @@ export function RecipesPageClient() {
             meals={meals}
             onDelete={handleDelete}
             onToggleFavorite={handleToggleFavorite}
-            emptyFocusRef={searchInputRef}
+            emptyFocusRef={emptyFocusRef}
+            emptyAction={
+              isLibraryEmpty ? (
+                // Page-level: the column's width on a phone, the label's from
+                // `md` (docs/DESIGN.md → Buttons are as wide as their label).
+                <Button asChild className="w-full md:w-auto">
+                  <Link ref={setEmptyFocusTarget} href="/recipes/create">
+                    {tLibrary('createButton')}
+                  </Link>
+                </Button>
+              ) : undefined
+            }
           />
           {hasNextPage ? (
             <div className="flex justify-center">

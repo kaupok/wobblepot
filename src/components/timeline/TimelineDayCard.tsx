@@ -1,10 +1,12 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { MealCard } from '@/components/meal-plan/MealCard'
 import { Body, Heading } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
 import { useTranslations } from 'next-intl'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
+import type { MealType } from '@/generated/prisma/enums'
 
 const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 } as const
 
@@ -15,6 +17,18 @@ interface TimelineDayCardProps {
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   onEntryUpdated: () => void
+  /** A card's meal was cleared; its slot should take focus once it renders. */
+  onEntryCleared?: (slot: { date: string; mealType: MealType }) => void
+  /** The empty slot to focus as it mounts, set after a clear. */
+  focusSlot?: MealType
+  onSlotFocused?: () => void
+  /**
+   * Focus the day heading as the card renders: a plan was just generated and
+   * the Generate button left the page, taking focus with it (HON-1139).
+   */
+  focusHeading?: boolean
+  /** Called once the card has acted on `focusHeading`, so the page can drop it. */
+  onHeadingFocused?: () => void
 }
 
 export function TimelineDayCard({
@@ -24,8 +38,24 @@ export function TimelineDayCard({
   pantryIngredients,
   pantryItems,
   onEntryUpdated: _onEntryUpdated,
+  onEntryCleared,
+  focusSlot,
+  onSlotFocused,
+  focusHeading = false,
+  onHeadingFocused,
 }: TimelineDayCardProps) {
   const tDay = useTranslations('meal-plan.day')
+  const headingRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (!focusHeading) return
+    // Only from the body: when the Generate button is still on the page, it
+    // keeps focus, and so does a user who moved on before the refresh landed.
+    if (!document.activeElement || document.activeElement === document.body) {
+      headingRef.current?.focus()
+    }
+    onHeadingFocused?.()
+  }, [focusHeading, onHeadingFocused])
   // The heading's text as one string — "Saturday Oct 3", or just "Tomorrow" —
   // so an empty slot can say which day it belongs to (HON-807).
   const dayLabel = day.dateLabel ? `${day.label} ${day.dateLabel}` : day.label
@@ -42,7 +72,15 @@ export function TimelineDayCard({
           reads "Saturday Sep 26"; they wrap below it, together, on a narrow
           screen. */}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <Heading variant="section" as="h2" className={day.isToday ? 'text-primary' : undefined}>
+        {/* `tabIndex={-1}`: the heading can take focus after a generation
+            without joining the tab order. */}
+        <Heading
+          ref={headingRef}
+          variant="section"
+          as="h2"
+          tabIndex={-1}
+          className={day.isToday ? 'text-primary' : undefined}
+        >
           {day.label}
           {day.dateLabel && (
             <>
@@ -66,6 +104,8 @@ export function TimelineDayCard({
                 mealType={mealType}
                 householdServings={householdServings}
                 pantryIngredients={pantryIngredients}
+                autoFocus={mealType === focusSlot}
+                onAutoFocused={onSlotFocused}
               />
             ))}
           </div>
@@ -80,6 +120,7 @@ export function TimelineDayCard({
               key={entry.id}
               entryId={entry.id}
               planId={planId}
+              date={entry.date}
               meal={entry.meal}
               mealType={entry.mealType}
               status={entry.status}
@@ -93,6 +134,8 @@ export function TimelineDayCard({
               servingOverride={entry.servingOverride}
               pantryDeducted={entry.pantryDeducted}
               preparationTips={entry.preparationTips}
+              conflicts={entry.conflicts}
+              onCleared={() => onEntryCleared?.({ date: day.date, mealType: entry.mealType })}
             />
           ))}
         </div>

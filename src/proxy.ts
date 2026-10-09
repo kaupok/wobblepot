@@ -42,7 +42,6 @@ export const PROTECTED_PREFIXES = [
   '/shopping',
   '/pantry',
   '/onboarding',
-  '/invite',
 ] as const
 
 /**
@@ -70,6 +69,11 @@ export const PUBLIC_ROUTES = [
     path: '/request-invite',
     reason:
       'A visitor without an account asks for an invite and confirms it from an emailed link (HON-846)',
+  },
+  {
+    path: '/invite',
+    reason:
+      'A signed-out invitee opens a household invite link and creates an account from it; the page owns the session check (HON-1131)',
   },
   {
     path: '/reminders',

@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { assertFocusReturnsAfterWait } from '@/stories/a11y-helpers'
 import {
+  delayedErrorGenerateHandlers,
+  delayedGenerateHandlers,
   errorGenerateHandlers,
   slowGenerateHandlers,
   timeoutGenerateHandlers,
@@ -43,18 +46,51 @@ export const Generating: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole('button', { name: /^generate meal plan$/i }))
-    await waitFor(() => expect(canvas.getByRole('button', { name: /generating…/i })).toBeDisabled())
+    // The overlay is a modal dialog, so the page under it is `aria-hidden`.
+    await waitFor(() =>
+      expect(canvas.getByRole('button', { name: /generating…/i, hidden: true })).toBeDisabled(),
+    )
 
     // This story renders the one pairing that constrains `GeneratingOverlay`'s
-    // tag outside the timeline: the overlay's status heading sits immediately
-    // before this screen's own title. axe cannot judge it — the overlay comes
-    // first, so any tag reads as a legal decrease — but a transient status
-    // message must not outrank the screen it covers. HON-607 migrates both
+    // tag outside the timeline: the overlay's status heading covers this
+    // screen's own title. axe does not judge it — the overlay is a modal
+    // dialog in a portal, and the page under it is `aria-hidden` — but a
+    // transient status message must not outrank the screen it covers. HON-607 migrates both
     // headings' variants, so pin the relationship rather than either level
     // (HON-619, PR #700 review).
-    const status = canvas.getByRole('heading', { name: /generating your meal plan/i })
-    const title = canvas.getByRole('heading', { name: /^welcome to wobblepot/i })
+    const status = within(document.body).getByRole('heading', {
+      name: /generating your meal plan/i,
+    })
+    const title = canvas.getByRole('heading', { name: /^welcome to wobblepot/i, hidden: true })
     expect(Number(status.tagName.slice(1))).toBeGreaterThanOrEqual(Number(title.tagName.slice(1)))
+  },
+}
+
+/** After a plan is generated, focus is back on Generate, not on the body (HON-1130). */
+export const FocusReturnsAfterSuccess: Story = {
+  args: { userName: 'Alex' },
+  parameters: {
+    msw: { handlers: delayedGenerateHandlers },
+  },
+  play: async ({ canvasElement }) => {
+    const generate = within(canvasElement).getByRole('button', { name: /^generate meal plan$/i })
+    await userEvent.click(generate)
+    await assertFocusReturnsAfterWait(generate)
+  },
+}
+
+/** After a failed generation, focus is back on Generate, next to the error (HON-1130). */
+export const FocusReturnsAfterError: Story = {
+  args: { userName: 'Alex' },
+  parameters: {
+    msw: { handlers: delayedErrorGenerateHandlers },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const generate = canvas.getByRole('button', { name: /^generate meal plan$/i })
+    await userEvent.click(generate)
+    await assertFocusReturnsAfterWait(generate)
+    await expect(canvas.getByText(/failed to generate meals\. please try again/i)).toBeVisible()
   },
 }
 

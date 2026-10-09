@@ -83,8 +83,23 @@ describe('useMealAlternatives', () => {
         await waitFor(() => expect(result.current.isRateLimited).toBe(true))
         expect(result.current.displayedMeals).toEqual([])
         expect(mockApiFetch).toHaveBeenCalledTimes(1)
+        // No body we wrote, so no time to name.
+        expect(result.current.rateLimitResetAt).toBeNull()
       },
     )
+
+    it('reads when the limit lifts from the 429 body', async () => {
+      const resetAt = '2026-10-09T15:40:00.000Z'
+      mockApiFetch.mockRejectedValue(
+        new ApiError('Rate limit exceeded', 429, {
+          body: { error: 'Rate limit exceeded', resetAt },
+        }),
+      )
+
+      const { result } = render({ mode: 'swap' })
+
+      await waitFor(() => expect(result.current.rateLimitResetAt).toEqual(new Date(resetAt)))
+    })
 
     it('drops the rate-limited flag once a search takes over the list', async () => {
       mockApiFetch.mockRejectedValueOnce(new ApiError('Rate limit exceeded', 429))

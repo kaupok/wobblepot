@@ -7,12 +7,40 @@ import { prisma } from '@/lib/prisma'
 import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
 import { captureApiError } from '@/lib/errors'
 
-const createEntrySchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
-  mealType: z.enum(['breakfast', 'lunch', 'dinner']),
-  mealId: z.string().optional(),
-  note: z.string().max(200).nullable().optional(),
-})
+/** One axis of the note's place on the card: a fraction of its room (`NotePosition`), or null for the default. */
+const notePositionAxis = z.number().min(0).max(1).nullable().optional()
+
+// The fields past `note` are for Undo after Clear, which posts the cleared
+// entry back (HON-1123). A completed entry offers no Clear, and a restore
+// must not create a completed row the pantry was never charged for, so
+// `status` stops at `skipped`.
+const createEntrySchema = z
+  .object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+    mealType: z.enum(['breakfast', 'lunch', 'dinner']),
+    mealId: z.string().optional(),
+    note: z.string().max(200).nullable().optional(),
+    noteX: notePositionAxis,
+    noteY: notePositionAxis,
+    status: z.enum(['planned', 'skipped']).optional(),
+    servingOverride: z.number().int().min(1).max(20).nullable().optional(),
+    rating: z.enum(['up', 'down']).nullable().optional(),
+    pantryDeducted: z.boolean().optional(),
+  })
+  // The note's place is one point, set together, and only beside a note
+  // (HON-975).
+  .superRefine((data, ctx) => {
+    if ((data.noteX == null) !== (data.noteY == null)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['noteX'],
+        message: 'noteX and noteY are set together',
+      })
+    }
+    if (!data.note && data.noteX != null) {
+      ctx.addIssue({ code: 'custom', path: ['noteX'], message: 'A position needs a note' })
+    }
+  })
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Auth check
@@ -112,7 +140,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id: planId } = await params
-  const { date, mealType, mealId, note } = parsed.data
+  const {
+    date,
+    mealType,
+    mealId,
+    note,
+    noteX,
+    noteY,
+    status,
+    servingOverride,
+    rating,
+    pantryDeducted,
+  } = parsed.data
 
   try {
     // Verify plan exists and belongs to user's household
@@ -173,8 +212,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         date: entryDate,
         mealType,
         mealId: mealId ?? null,
-        status: 'planned',
+        status: status ?? 'planned',
         note: note ?? null,
+        noteX: noteX ?? null,
+        noteY: noteY ?? null,
+        servingOverride: servingOverride ?? null,
+        rating: rating ?? null,
+        // "Not cooked yet" keeps the charge on the entry so it is charged at
+        // most once (HON-651). A restore of such an entry keeps it too, or the
+        // next completion would charge the pantry again. The flag can only
+        // stop a charge, never cause one.
+        pantryDeductedAt: pantryDeducted ? new Date() : null,
       },
     })
 

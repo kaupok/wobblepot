@@ -221,6 +221,18 @@ export function formatDateTime(
   )
 }
 
+/**
+ * Format the time of day alone (e.g. "6:40 PM" / "18:40"). Hour convention
+ * follows the locale. There is no `timeZone` option on purpose: it tells the
+ * user when to try again after a rate limit (HON-1138), and they read that
+ * against the clock on their own device.
+ */
+export function formatTimeOfDay(date: Date, locale: Locale): string {
+  return normalizeSpaces(
+    new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(date),
+  )
+}
+
 interface RelativeDateOptions extends DateFormatOptions {
   /**
    * Reference date for the "today" comparison. Defaults to `new Date()`.

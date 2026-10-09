@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
@@ -25,6 +25,7 @@ import { ApiError, apiFetch } from '@/lib/api'
 import {
   MEAL_PLAN_GENERATE_ERROR_KEYS,
   mealPlanGenerateFallbackKey,
+  rateLimitMessage,
   translateErrorCode,
 } from '@/lib/ai/error-codes'
 import { FieldError } from '@/components/FieldError'
@@ -46,15 +47,21 @@ const DAY_OPTION_VALUES = ['3', '5', '7', '14'] as const
 interface FillDaysActionProps {
   planId: string
   startDate: string // YYYY-MM-DD, first day of the fill range
+  /**
+   * The fill succeeded. The refresh can unmount this bar, so the page moves
+   * focus to the first filled day once that happens (HON-1139).
+   */
+  onFilled?: (startDate: string) => void
 }
 
-export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
+export function FillDaysAction({ planId, startDate, onFilled }: FillDaysActionProps) {
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
   const locale = useLocale() as Locale
   const tFill = useTranslations('meal-plan.fillDays')
   const tErrors = useTranslations('meal-plan.errors')
   const [days, setDays] = useState('7')
+  const generateRef = useRef<HTMLButtonElement>(null)
 
   const dateRangeLabel = useMemo(() => {
     const start = parseLocalDate(startDate)
@@ -104,26 +111,30 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
       // largest possible change to the plan's `recentMealIds` — every cached
       // suggestion list on the page is stale (HON-682).
       dropSuggestionCache()
+      onFilled?.(startDate)
       router.refresh()
     },
   })
   const isGenerating = generateMutation.isPending
   const mutationError = generateMutation.error
-  const error = !mutationError
-    ? null
-    : mutationError instanceof ApiError
-      ? // A body with no known `code` — a platform 504, a proxy error page —
-        // falls back on the status.
-        tErrors(
-          translateErrorCode(
-            mutationError.code,
-            MEAL_PLAN_GENERATE_ERROR_KEYS,
-            mealPlanGenerateFallbackKey(mutationError.status),
-          ),
-        )
-      : mutationError.name === 'AbortError'
-        ? tErrors('generationTimeout')
-        : tErrors('generic')
+  let error: string | null = null
+  if (mutationError instanceof ApiError) {
+    // A body with no known `code` — a platform 504, a proxy error page —
+    // falls back on the status. A household limit names when it lifts.
+    const { key, values } = rateLimitMessage(
+      translateErrorCode(
+        mutationError.code,
+        MEAL_PLAN_GENERATE_ERROR_KEYS,
+        mealPlanGenerateFallbackKey(mutationError.status),
+      ),
+      MEAL_PLAN_GENERATE_ERROR_KEYS.rate_limited,
+      mutationError.body,
+      locale,
+    )
+    error = tErrors(key, values)
+  } else if (mutationError) {
+    error = mutationError.name === 'AbortError' ? tErrors('generationTimeout') : tErrors('generic')
+  }
 
   function handleFill() {
     generateMutation.mutate()
@@ -131,12 +142,15 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
 
   return (
     <>
-      {isGenerating && <GeneratingOverlay />}
+      {isGenerating && <GeneratingOverlay returnFocusRef={generateRef} />}
       <div className="bg-muted/50 flex flex-col gap-2 rounded-lg border p-4">
-        <div className="flex items-center gap-3">
+        {/* Below `sm` the label takes its own line and the select and Generate
+            wrap under it; at 390px the three did not fit in one row and
+            Generate covered the select (HON-1127). */}
+        <div className="flex items-start gap-3 sm:items-center">
           <Sparkles className="text-primary h-4 w-4 shrink-0" />
-          <div className="flex flex-1 items-center gap-2">
-            <Body variant="small" className="shrink-0">
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            <Body variant="small" className="shrink-0 basis-full sm:basis-auto">
               {tFill('label', { dateRange: dateRangeLabel })}
             </Body>
             <Select value={days} onValueChange={setDays}>
@@ -151,10 +165,15 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              ref={generateRef}
+              className="sm:ml-auto"
+              onClick={handleFill}
+              disabled={isGenerating}
+            >
+              {isGenerating ? tFill('submitting') : tFill('submit')}
+            </Button>
           </div>
-          <Button onClick={handleFill} disabled={isGenerating}>
-            {isGenerating ? tFill('submitting') : tFill('submit')}
-          </Button>
         </div>
         {error && <FieldError>{error}</FieldError>}
       </div>

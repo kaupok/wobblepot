@@ -80,7 +80,7 @@ export function FirstPlanStep() {
 
   return (
     <>
-      {plan.isGenerating && <GeneratingOverlay />}
+      {plan.isGenerating && <GeneratingOverlay returnFocusRef={submitRef} />}
       <CardContent>
         <FirstPlanChoices
           startDateOptions={plan.startDateOptions}

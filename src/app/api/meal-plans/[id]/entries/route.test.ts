@@ -337,4 +337,101 @@ describe('POST /api/meal-plans/[id]/entries', () => {
     expect(response.status).toBe(200)
     expect(data.mealId).toBeNull()
   })
+
+  describe('restore after Clear (HON-1123)', () => {
+    const restoreBody = {
+      date: '2099-01-28',
+      mealType: 'dinner',
+      mealId: 'meal-1',
+      note: 'Leftovers for lunch',
+      noteX: 0.25,
+      noteY: 0.75,
+      status: 'skipped',
+      servingOverride: 6,
+      rating: 'down',
+    }
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(mockSession)
+      mockGetMembership.mockResolvedValue(mockMembership)
+      mockFindFirstPlan.mockResolvedValue({ id: 'plan-123' } as never)
+      mockFindFirstEntry.mockResolvedValue(null)
+      mockFindFirstMeal.mockResolvedValue({ id: 'meal-1' } as never)
+      mockCreateEntry.mockResolvedValue({
+        id: 'restored-entry',
+        date: new Date('2099-01-28T00:00:00.000Z'),
+        mealType: 'dinner',
+        status: 'skipped',
+        mealId: 'meal-1',
+        note: 'Leftovers for lunch',
+      } as never)
+    })
+
+    it("writes the cleared entry's fields back", async () => {
+      const response = await POST(createPostRequest(restoreBody), { params: createParams() })
+
+      expect(response.status).toBe(200)
+      expect(mockCreateEntry).toHaveBeenCalledWith({
+        data: {
+          planId: 'plan-123',
+          date: new Date('2099-01-28T00:00:00.000Z'),
+          mealType: 'dinner',
+          mealId: 'meal-1',
+          status: 'skipped',
+          note: 'Leftovers for lunch',
+          noteX: 0.25,
+          noteY: 0.75,
+          servingOverride: 6,
+          rating: 'down',
+          pantryDeductedAt: null,
+        },
+      })
+    })
+
+    it('keeps the pantry charge of an entry that was cooked and reverted', async () => {
+      await POST(createPostRequest({ ...restoreBody, pantryDeducted: true }), {
+        params: createParams(),
+      })
+
+      expect(mockCreateEntry).toHaveBeenCalledWith({
+        data: expect.objectContaining({ pantryDeductedAt: expect.any(Date) }),
+      })
+    })
+
+    it('refuses a completed entry', async () => {
+      const response = await POST(createPostRequest({ ...restoreBody, status: 'completed' }), {
+        params: createParams(),
+      })
+
+      expect(response.status).toBe(400)
+      expect(mockCreateEntry).not.toHaveBeenCalled()
+    })
+
+    it('refuses a note position without a note', async () => {
+      const response = await POST(createPostRequest({ ...restoreBody, note: null }), {
+        params: createParams(),
+      })
+
+      expect(response.status).toBe(400)
+      expect(mockCreateEntry).not.toHaveBeenCalled()
+    })
+
+    it('refuses half a note position', async () => {
+      const response = await POST(createPostRequest({ ...restoreBody, noteY: null }), {
+        params: createParams(),
+      })
+
+      expect(response.status).toBe(400)
+      expect(mockCreateEntry).not.toHaveBeenCalled()
+    })
+
+    it('leaves a slot that was refilled meanwhile alone', async () => {
+      mockFindFirstEntry.mockResolvedValue({ id: 'new-entry' } as never)
+
+      const response = await POST(createPostRequest(restoreBody), { params: createParams() })
+
+      expect(response.status).toBe(409)
+      expect(mockCreateEntry).not.toHaveBeenCalled()
+    })
+  })
 })

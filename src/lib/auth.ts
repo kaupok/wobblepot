@@ -11,9 +11,11 @@ import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
 import { clearWaitlistForNewUser } from '@/lib/waitlist'
+import { joinHouseholdFromSignUp } from '@/lib/household-invite'
 import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
 import { CURRENT_TERMS_VERSION } from '@/lib/consent'
 import { timeSignupStep } from '@/lib/signup-timing'
+import { MAX_ACCOUNT_NAME_LENGTH } from '@/lib/account-name'
 
 const MIN_PASSWORD_LENGTH = 12
 
@@ -36,6 +38,28 @@ export function assertTermsAccepted(body: unknown): void {
     throw new APIError('BAD_REQUEST', {
       message: TERMS_NOT_ACCEPTED_MESSAGE,
       code: 'TERMS_NOT_ACCEPTED',
+    })
+  }
+}
+
+export const INVALID_ACCOUNT_NAME_MESSAGE = `The account name must be 1 to ${MAX_ACCOUNT_NAME_LENGTH} characters.`
+
+/**
+ * Server-side gate for `/update-user` (HON-1129). The profile form trims the
+ * name and caps it at {@link MAX_ACCOUNT_NAME_LENGTH}; this rejects a request
+ * that skips the form, including a blank name. A body without `name` (an image-only update) passes.
+ * Exported for unit testing, like {@link assertTermsAccepted}.
+ */
+export function assertValidAccountNameUpdate(body: unknown): void {
+  if (typeof body !== 'object' || body === null || !('name' in body)) return
+  const name = (body as { name?: unknown }).name
+  if (name === undefined) return
+  // The raw length, not the trimmed one: Better Auth stores `name` as sent, so
+  // padding must not slip a long value past the limit.
+  if (typeof name !== 'string' || !name.trim() || name.length > MAX_ACCOUNT_NAME_LENGTH) {
+    throw new APIError('BAD_REQUEST', {
+      message: INVALID_ACCOUNT_NAME_MESSAGE,
+      code: 'INVALID_ACCOUNT_NAME',
     })
   }
 }
@@ -85,7 +109,8 @@ export async function hashPasswordWithBreachCheck(password: string): Promise<str
  * On success it links the used invite code, then deletes the new user's
  * waitlist request by email. The second step runs with or without a code,
  * because with `invite_code_required` off a waitlisted address signs up with
- * none (HON-1102). Neither step throws.
+ * none (HON-1102). When the sign-up came from a household invite link, it then
+ * puts the user into the invite's member row (HON-1131). No step throws.
  *
  * On failure (no user) the sign-up failed after the atomic claim: Better
  * Auth's endpoint runs *after* hooks.before, so a Zod validation,
@@ -97,6 +122,7 @@ export async function afterEmailSignUp(body: unknown, userId: string | undefined
   if (userId) {
     await linkUsedBy(body, userId)
     await clearWaitlistForNewUser(userId)
+    await joinHouseholdFromSignUp(body, userId)
     return
   }
   await releaseClaim(body)
@@ -270,6 +296,10 @@ export const auth = betterAuth({
    */
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === '/update-user') {
+        assertValidAccountNameUpdate(ctx.body)
+        return
+      }
       if (ctx.path !== '/sign-up/email') return
       // Terms consent first: rejecting here means the invite code below is
       // never claimed, so a consent failure can't burn a code (HON-457).

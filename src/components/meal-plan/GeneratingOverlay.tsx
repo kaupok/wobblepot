@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { Dialog, DialogDescription, DialogPortal, DialogTitle } from '@/components/ui/dialog'
 import { Heading, Body } from '@/components/ui/typography'
 
 const PROGRESS_KEYS = ['progress1', 'progress2', 'progress3', 'progress4'] as const
@@ -10,7 +12,23 @@ const PROGRESS_KEYS = ['progress1', 'progress2', 'progress3', 'progress4'] as co
 const MESSAGE_INTERVAL_MS = 3000
 const SLOW_THRESHOLD_MS = 10000
 
-export function GeneratingOverlay() {
+interface GeneratingOverlayProps {
+  /**
+   * The control that started the wait, focused again when the overlay closes.
+   * Each callsite disables that control in the same render that opens the
+   * overlay, and Chromium blurs a disabled control, so the element Radix
+   * records as focused on open can be the body (CLAUDE.md → Focus management).
+   */
+  returnFocusRef?: RefObject<HTMLElement | null>
+}
+
+/**
+ * A modal dialog for the wait on `/api/meal-plans/generate`. The dialog traps
+ * focus and hides the page from assistive technology. The user cannot close
+ * it: the route writes the plan even when the client gives up, so there is no
+ * honest Cancel (HON-1130).
+ */
+export function GeneratingOverlay({ returnFocusRef }: GeneratingOverlayProps) {
   const t = useTranslations('meal-plan.generating')
   const [messageIndex, setMessageIndex] = useState(0)
   const [isSlow, setIsSlow] = useState(false)
@@ -34,36 +52,65 @@ export function GeneratingOverlay() {
   const progressKey = PROGRESS_KEYS[messageIndex] ?? PROGRESS_KEYS[0]
   const displayMessage = isSlow ? t('slow') : t(progressKey)
 
+  const preventDismiss = (event: Event) => event.preventDefault()
+
   return (
-    <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center">
-      <div className="flex flex-col items-center gap-6 text-center">
-        <Loader2 className="text-primary h-12 w-12 animate-spin" />
-        <div className="flex flex-col items-center gap-2">
-          {/*
-            `variant="h4"` is HON-607's; the `<h2>` tag is set by two callsites,
-            neither visible from this file:
+    <Dialog open>
+      <DialogPortal>
+        {/*
+          The content is the scrim itself, without `DialogContent`: that adds
+          its own lighter `DialogOverlay` and the card look, and this overlay
+          is an 80% wash with no card (HON-823).
+        */}
+        <DialogPrimitive.Content
+          className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center outline-none"
+          onEscapeKeyDown={preventDismiss}
+          onPointerDownOutside={preventDismiss}
+          onInteractOutside={preventDismiss}
+          onCloseAutoFocus={(event) => {
+            if (!returnFocusRef) return
+            // Prevented even when the control has left the page with the
+            // overlay: Radix would focus the body then, after the page may
+            // already have moved focus to the new plan (HON-1139).
+            event.preventDefault()
+            const target = returnFocusRef.current
+            if (target?.isConnected) target.focus()
+          }}
+        >
+          <div className="flex flex-col items-center gap-6 text-center">
+            <Loader2 className="text-primary h-12 w-12 animate-spin" />
+            <div className="flex flex-col items-center gap-2">
+              {/*
+                `variant="h4"` is HON-607's. The `<h2>` tag answers to two
+                callsites, neither visible from this file. The overlay renders
+                in a portal at the end of `<body>`, after the page's last
+                heading, and while it is open the page is `aria-hidden`.
 
-            - `FillDaysAction.tsx` emits the overlay between the planned and
-              empty `TimelineDayCard`s, so it sits among the `h2` day labels as
-              their sibling. Deeper than `h3` would be a skipped level to axe's
-              `heading-order` after a day label. Pinned in
-              `TimelineDayCard.test.tsx`.
-            - `FirstTimeSetup.tsx` emits it just before that screen's own
-              `<h2>` title. Any tag is a legal decrease there, so axe is blind;
-              what matters is editorial — a transient status message must not
-              outrank the screen it covers. The `Generating` story's play
-              function in `FirstTimeSetup.stories.tsx` pins that.
-
-            HON-619 had this at `<h4>`, one level under the header wordmark's
-            old `<h4>`; HON-806 took the wordmark out of the outline, and the
-            day labels moved up to `h2` with it.
-          */}
-          <Heading variant="h4" as="h2">
-            {t('heading')}
-          </Heading>
-          <Body variant="muted">{displayMessage}</Body>
-        </div>
-      </div>
-    </div>
+                - `FillDaysAction.tsx` sits among the `h2` day labels. An
+                  overlay deeper than `h3` would read as a skipped level if it
+                  ever rendered inline again. Pinned in
+                  `TimelineDayCard.test.tsx`.
+                - `FirstTimeSetup.tsx` has its own `<h2>` title. A transient
+                  status message must not outrank the screen it covers. The
+                  `Generating` story's play function in
+                  `FirstTimeSetup.stories.tsx` pins that.
+              */}
+              <DialogTitle asChild>
+                <Heading variant="h4" as="h2">
+                  {t('heading')}
+                </Heading>
+              </DialogTitle>
+              {/* The dialog's description on open; the live region announces
+                  each later change once. */}
+              <DialogDescription asChild>
+                <Body variant="muted" role="status" aria-live="polite">
+                  {displayMessage}
+                </Body>
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPortal>
+    </Dialog>
   )
 }

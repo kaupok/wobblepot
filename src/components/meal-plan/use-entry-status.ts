@@ -1,13 +1,14 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { track, type Source } from '@/lib/analytics'
-import type { MealData, MealStatus } from './types'
+import { computeDeductions } from './PantryDeductionModal'
+import type { MealData, MealStatus, PantryItemFull } from './types'
 
 interface UseEntryStatusOptions {
   planId: string
@@ -16,6 +17,13 @@ interface UseEntryStatusOptions {
   initialStatus: MealStatus
   /** The pantry was already charged for this entry — see `PlanEntry.pantryDeducted`. */
   pantryDeducted?: boolean
+  /** The servings a completion charges the pantry for. */
+  servings: number
+  /**
+   * The household's pantry. Required, not defaulted: a caller that left it out
+   * would complete every meal with no deduction and no word about it.
+   */
+  pantryItems: PantryItemFull[]
   /** Where a status change came from, unless the call names its own. */
   source: Source
   /** The server dropped the entry's cached tips on the way out of `completed`. */
@@ -28,8 +36,9 @@ interface UseEntryStatusOptions {
  * An entry's status and the rules for changing it, shared by the planner card
  * and the past-meals row (HON-1018): the optimistic update and its revert, the
  * completion analytics, and the pantry deduction that a completion previews
- * unless the entry was already charged (HON-651). The caller renders
- * `PantryDeductionModal` from `isDeductionModalOpen`.
+ * unless the entry was already charged (HON-651) or the meal would change no
+ * pantry row (HON-1125). The caller renders `PantryDeductionModal` from
+ * `isDeductionModalOpen`.
  */
 export function useEntryStatus({
   planId,
@@ -37,6 +46,8 @@ export function useEntryStatus({
   meal,
   initialStatus,
   pantryDeducted = false,
+  servings,
+  pantryItems,
   source: defaultSource,
   onLeaveCompleted,
   onCompleted,
@@ -49,6 +60,14 @@ export function useEntryStatus({
   // re-complete before `router.refresh()` lands does not preview it again.
   const [chargedHere, setChargedHere] = useState(false)
   const isPantryCharged = pantryDeducted || chargedHere
+  // What the deduction dialog would list. The server matches the same rows
+  // (non-staples holding one of the meal's ingredients), so an empty list
+  // means a confirm would change nothing in the pantry, as far as this page
+  // knows.
+  const hasDeductions = useMemo(
+    () => !!meal && computeDeductions(meal.components, servings, pantryItems).length > 0,
+    [meal, servings, pantryItems],
+  )
   // Where a completion started, read when the deduction is confirmed: the
   // caller's own control, or "Done cooking" in the cook view.
   const completionSourceRef = useRef<Source>(defaultSource)
@@ -127,6 +146,16 @@ export function useEntryStatus({
         return
       }
 
+      // A meal that would change no pantry row skips the dialog too: it would
+      // only say "No pantry items will be affected" (HON-1125). It still asks
+      // the server to deduct, as the confirm would have: the page's pantry can
+      // be older than the database (another member's shop, a cached Back), and
+      // the server deducts what really matches.
+      if (!hasDeductions) {
+        completeWithDeduction()
+        return
+      }
+
       // Intercept "completed" status to show deduction modal
       setIsDeductionModalOpen(true)
       return
@@ -136,7 +165,8 @@ export function useEntryStatus({
     statusMutation.mutate({ newStatus, source })
   }
 
-  function handleDeductionConfirm() {
+  // The dialog's Confirm, and a completion with nothing to preview.
+  function completeWithDeduction() {
     statusMutation.mutate(
       { newStatus: 'completed', deductPantry: true, source: completionSourceRef.current },
       {
@@ -151,10 +181,11 @@ export function useEntryStatus({
 
   return {
     status,
+    isPantryCharged,
     isUpdating: statusMutation.isPending,
     isDeductionModalOpen,
     setIsDeductionModalOpen,
     handleStatusChange,
-    handleDeductionConfirm,
+    handleDeductionConfirm: completeWithDeduction,
   }
 }

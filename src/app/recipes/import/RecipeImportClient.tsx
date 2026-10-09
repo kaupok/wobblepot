@@ -5,14 +5,19 @@ import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
 import { Loader2, Sparkles, AlertTriangle } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
 import { Textarea } from '@/components/ui/textarea'
 import { Heading, Body } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { ApiError, apiFetch } from '@/lib/api'
-import { RECIPE_IMPORT_ERROR_KEYS, translateErrorCode } from '@/lib/ai/error-codes'
+import {
+  RECIPE_IMPORT_ERROR_KEYS,
+  rateLimitMessage,
+  translateErrorCode,
+} from '@/lib/ai/error-codes'
+import type { Locale } from '@/lib/i18n/locales'
 import type { IngredientCategory, MealType, Unit } from '@/generated/prisma/enums'
 import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { FieldError } from '@/components/FieldError'
@@ -175,6 +180,7 @@ const TEXT_STEP_DELAYS = [0, 4000]
 export function RecipeImportClient() {
   const router = useRouter()
   const t = useTranslations('recipes.import')
+  const locale = useLocale() as Locale
   const [recipeText, setRecipeText] = useState('')
   const [error, setError] = useState('')
   const [progressStep, setProgressStep] = useState('')
@@ -308,9 +314,13 @@ export function RecipeImportClient() {
         message: body.message,
         error: body.error,
       })
-      setError(
-        t(`errors.${translateErrorCode(err.code, RECIPE_IMPORT_ERROR_KEYS, 'parseGeneric')}`),
+      const { key, values } = rateLimitMessage(
+        translateErrorCode(err.code, RECIPE_IMPORT_ERROR_KEYS, 'parseGeneric'),
+        RECIPE_IMPORT_ERROR_KEYS.rate_limited,
+        err.body,
+        locale,
       )
+      setError(t(`errors.${key}`, values))
     },
     onSettled: (_data, _err, { controller }) => {
       // A cancelled run was already wound down by `handleCancel`, and may

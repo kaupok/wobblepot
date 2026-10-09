@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { Loader2, Sparkles } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { BackToRecipesLink } from '@/components/recipes/BackToRecipesLink'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
@@ -17,7 +17,8 @@ import type { PrefilledIngredient } from '@/components/household/MealForm'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
-import { IMAGINE_ERROR_KEYS, translateErrorCode } from '@/lib/ai/error-codes'
+import { IMAGINE_ERROR_KEYS, rateLimitMessage, translateErrorCode } from '@/lib/ai/error-codes'
+import type { Locale } from '@/lib/i18n/locales'
 import {
   convertToPrefilledData,
   reviewImaginedMeal,
@@ -68,6 +69,7 @@ function SkeletonCard() {
 export function ImagineClient() {
   const router = useRouter()
   const t = useTranslations('recipes.imagine')
+  const locale = useLocale() as Locale
   const [prompt, setPrompt] = useState('')
   const [error, setError] = useState('')
   const [meals, setMeals] = useState<ImaginedMealResponse[] | null>(null)
@@ -198,11 +200,13 @@ export function ImagineClient() {
         message: body.message,
         error: body.error,
       })
-      setError(
-        t(`errors.${translateErrorCode(err.code, IMAGINE_ERROR_KEYS, 'generic')}`, {
-          max: MAX_ATTACHED_IMAGES,
-        }),
+      const { key, values } = rateLimitMessage(
+        translateErrorCode(err.code, IMAGINE_ERROR_KEYS, 'generic'),
+        IMAGINE_ERROR_KEYS.rate_limited,
+        err.body,
+        locale,
       )
+      setError(t(`errors.${key}`, { max: MAX_ATTACHED_IMAGES, ...values }))
     },
     onSettled: (_data, _err, { controller }) => {
       if (abortControllerRef.current === controller) abortControllerRef.current = null

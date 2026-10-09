@@ -277,11 +277,12 @@ describe('TimelineDayCard', () => {
  * heading reappearing in the app shell fails this file rather than silently
  * re-parenting the day labels.
  *
- * The day labels are not the only headings in that stretch of the page:
- * `FillDaysAction` renders `GeneratingOverlay` inline between the planned and
- * empty day cards while a fill-days generation runs, so the overlay's heading
- * is a sibling of the day labels. The second test pins it within one level of
- * the day label before it (PR #700 review).
+ * The day labels are not the only headings near that part of the page:
+ * `FillDaysAction` renders `GeneratingOverlay` between the planned and empty
+ * day cards while a fill-days generation runs. The overlay is a modal dialog
+ * in a portal at the end of `<body>` (HON-1130), so its heading follows the
+ * page's last heading, but the second test still pins it within one level of
+ * a day label before it (PR #700 review).
  */
 describe('TimelineDayCard - heading hierarchy', () => {
   it('opens the outline with the day label at h2, with no heading from the header', async () => {
@@ -296,14 +297,13 @@ describe('TimelineDayCard - heading hierarchy', () => {
   })
 
   it('keeps the generating overlay within one level of the day label before it', async () => {
-    // `FillDaysAction` emits `<GeneratingOverlay />` between the planned and
-    // empty `TimelineDayCard`s, so this is the real document order for up to
-    // the 45s client timeout of every fill-days generation. axe's
+    // `FillDaysAction` emits `<GeneratingOverlay />` after the planned
+    // `TimelineDayCard`s, and its portal puts the heading after a day label
+    // for up to the 65s client timeout of every fill-days generation. axe's
     // `heading-order` is `currLevel - prevLevel <= 1` on each adjacent pair,
-    // so an overlay deeper than `h3` skips a level after the planned day's
-    // `h2`. The pair after it (overlay, then the empty day's `h2`) is a
-    // decrease or a step of one for any overlay tag, so only this side can
-    // fail. No story composes the two, so the axe gate cannot see it.
+    // so an overlay deeper than `h3` skips a level after a day's `h2`. No
+    // story composes the two, so the axe gate cannot see it. The modal hides
+    // the page from the accessibility tree, hence `hidden: true`.
     const { getSession } = await import('@/lib/session')
     vi.mocked(getSession).mockResolvedValue(null)
 
@@ -311,7 +311,8 @@ describe('TimelineDayCard - heading hierarchy', () => {
     render(<TimelineDayCard day={baseDay} {...defaultProps} />)
     render(<GeneratingOverlay />)
 
-    const level = (name: string) => Number(screen.getByRole('heading', { name }).tagName.slice(1))
+    const level = (name: string) =>
+      Number(screen.getByRole('heading', { name, hidden: true }).tagName.slice(1))
 
     expect(level('Generating your meal plan…') - level('Today')).toBeLessThanOrEqual(1)
   })

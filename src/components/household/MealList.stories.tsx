@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { delay, http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { householdMealList } from '@/stories/fixtures'
 import { MealList } from './MealList'
@@ -29,14 +30,46 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+/**
+ * Empty state: one muted line and the page's one primary action under it.
+ * `/recipes` passes a "Create recipe" link as `emptyAction` (HON-1128).
+ */
 export const Empty: Story = {
-  args: { meals: [] },
+  args: {
+    meals: [],
+    emptyAction: (
+      <Button asChild>
+        <a href="/recipes/create">Create recipe</a>
+      </Button>
+    ),
+  },
   parameters: {
     docs: {
       description: {
-        story: 'Empty state — verbiage encourages the user to create their first recipe.',
+        story:
+          'Empty library — one line saying what is true and what to do next, and the `emptyAction` button under it.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(
+      canvas.getByText(
+        'No recipes yet. Add a family favourite, import one from a link, or imagine one.',
+      ),
+    ).toBeVisible()
+    await expect(canvas.getByRole('link', { name: 'Create recipe' })).toHaveAttribute(
+      'href',
+      '/recipes/create',
+    )
+  },
+}
+
+/** Without `emptyAction` the empty state is the line alone. */
+export const EmptyWithoutAction: Story = {
+  args: { meals: [] },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByRole('link')).toBeNull()
   },
 }
 

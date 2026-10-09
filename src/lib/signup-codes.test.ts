@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { APIError } from 'better-auth/api'
 import {
+  HOUSEHOLD_INVITE_INVALID_MESSAGE,
   INVITE_CODE_INVALID_MESSAGE,
   INVITE_CODE_REQUIRED_MESSAGE,
   getInviteCodeFromBody,
@@ -293,5 +294,82 @@ describe('releaseClaim', () => {
       code: 'good',
       err: error,
     })
+  })
+})
+
+describe('validateAndClaimInviteCode with a household invite (HON-1131)', () => {
+  const VALID_INVITE = {
+    id: 'invite-1',
+    householdId: 'household-1',
+    memberId: 'member-1',
+    code: 'Ab3_x-9Kq2Lm',
+    expiresAt: new Date(Date.now() + 86_400_000),
+    household: { id: 'household-1', name: 'Smith Family', members: [] },
+    member: { id: 'member-1', name: 'Partner', userId: null },
+  }
+
+  const makeHouseholdDb = (invite: unknown) => ({
+    ...makeDb(),
+    householdInvite: { findUnique: vi.fn().mockResolvedValue(invite) },
+  })
+
+  const body = { householdInviteCode: ' Ab3_x-9Kq2Lm ', email: 'p@example.com' }
+  const flagOn = () => vi.fn().mockResolvedValue(true)
+
+  it('accepts a valid invite without claiming a sign-up code', async () => {
+    const db = makeHouseholdDb(VALID_INVITE)
+
+    await expect(
+      validateAndClaimInviteCode(body, { db: db as never, getFlag: flagOn() }),
+    ).resolves.toBeUndefined()
+
+    expect(db.householdInvite.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { code: 'Ab3_x-9Kq2Lm' } }),
+    )
+    expect(db.signupCode.updateMany).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['unknown', null],
+    ['expired', { ...VALID_INVITE, expiresAt: new Date(Date.now() - 1000) }],
+    ['claimed', { ...VALID_INVITE, member: { ...VALID_INVITE.member, userId: 'user-9' } }],
+    [
+      'owner pending deletion',
+      { ...VALID_INVITE, household: { ...VALID_INVITE.household, members: [{ id: 'owner-1' }] } },
+    ],
+  ])('rejects a %s invite with a 403 and its own message', async (_label, invite) => {
+    const db = makeHouseholdDb(invite)
+
+    const rejection = validateAndClaimInviteCode(body, { db: db as never, getFlag: flagOn() })
+
+    await expect(rejection).rejects.toBeInstanceOf(APIError)
+    await expect(rejection).rejects.toMatchObject({
+      message: HOUSEHOLD_INVITE_INVALID_MESSAGE,
+      statusCode: 403,
+    })
+    expect(db.signupCode.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('does not fall back to a sign-up code when the household invite is invalid', async () => {
+    const db = makeHouseholdDb(null)
+
+    await expect(
+      validateAndClaimInviteCode(
+        { ...body, inviteCode: 'good' },
+        { db: db as never, getFlag: flagOn() },
+      ),
+    ).rejects.toMatchObject({ message: HOUSEHOLD_INVITE_INVALID_MESSAGE })
+    expect(db.signupCode.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('does no lookup when the flag is off', async () => {
+    const db = makeHouseholdDb(null)
+
+    await validateAndClaimInviteCode(body, {
+      db: db as never,
+      getFlag: vi.fn().mockResolvedValue(false),
+    })
+
+    expect(db.householdInvite.findUnique).not.toHaveBeenCalled()
   })
 })
