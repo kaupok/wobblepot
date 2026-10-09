@@ -185,7 +185,9 @@ export function RecipesPageClient() {
             emptyFocusRef={emptyFocusRef}
             emptyAction={
               isLibraryEmpty ? (
-                <Button asChild>
+                // Page-level: the column's width on a phone, the label's from
+                // `md` (docs/DESIGN.md → Buttons are as wide as their label).
+                <Button asChild className="w-full md:w-auto">
                   <Link ref={setEmptyFocusTarget} href="/recipes/create">
                     {tLibrary('createButton')}
                   </Link>

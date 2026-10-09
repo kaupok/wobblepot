@@ -201,6 +201,9 @@ export const Empty: Story = {
     await expect(creates).toHaveLength(2)
     await expect(creates.map((link) => link.dataset.variant)).toEqual(['outline', 'default'])
     for (const link of creates) await expect(link).toHaveAttribute('href', '/recipes/create')
+    // A page-level button runs the column's width on a phone.
+    const column = creates[1]!.parentElement!.getBoundingClientRect()
+    await expect(creates[1]!.getBoundingClientRect().width).toBeCloseTo(column.width, 0)
     await expectPhoneActions(canvasElement)
   },
 }
