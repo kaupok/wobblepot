@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { createMeal } from '@/stories/fixtures'
+import { createMeal, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
 import { toast, type ExternalToast } from 'sonner'
 import { track } from '@/lib/analytics'
 import { MealCard } from './MealCard'
-import type { PantryIngredient, PreparationSteps } from './types'
+import type { PantryIngredient, PantryItemFull, PreparationSteps } from './types'
 
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }))
 vi.mock('next/navigation', () => ({
@@ -47,6 +47,7 @@ function renderCard(props: {
   rating?: 'up' | 'down' | null
   isReadOnly?: boolean
   pantryIngredients?: PantryIngredient[]
+  pantryItems?: PantryItemFull[]
   pantryDeducted?: boolean
   preparationTips?: PreparationSteps | null
   note?: string | null
@@ -65,6 +66,8 @@ function renderCard(props: {
         mealType="dinner"
         status="planned"
         householdServings={4}
+        // The meal's chicken is in the pantry, so a completion has a deduction to preview.
+        pantryItems={lemonGarlicChickenPantryItems}
         {...props}
       />
     </Wrapper>,
@@ -228,6 +231,128 @@ describe('MealCard Clear and Undo', () => {
 
     expect(await screen.findByRole('menuitem', { name: 'Not cooked yet' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Clear' })).not.toBeInTheDocument()
+  })
+})
+
+// Cooked and Skipped in the ⋯ menu, each one pick, and the way back (HON-1125).
+describe('MealCard status from the menu', () => {
+  let patches: unknown[]
+
+  beforeEach(() => {
+    patches = []
+    vi.mocked(track).mockClear()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === 'PATCH') patches.push(JSON.parse(String(init.body)))
+        return Promise.resolve(
+          new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }),
+    )
+  })
+
+  const trigger = () => screen.getByRole('button', { name: `More actions: ${meal.name}` })
+
+  async function menuItems(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(trigger())
+    const menu = await screen.findByRole('menu')
+    return within(menu)
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent)
+  }
+
+  async function pick(user: ReturnType<typeof userEvent.setup>, name: string) {
+    await user.click(trigger())
+    await user.click(await screen.findByRole('menuitem', { name }))
+  }
+
+  it.each([
+    ['planned', ['Note', 'Cooked', 'Skipped', 'Swap', 'Clear']],
+    ['completed', ['Note', 'Not cooked yet']],
+    ['skipped', ['Note', 'Not skipped', 'Swap', 'Clear']],
+  ] as const)('offers the status items in order on a %s card', async (status, items) => {
+    const user = userEvent.setup()
+    renderCard({ meal, status })
+
+    expect(await menuItems(user)).toEqual(items)
+  })
+
+  it('completes in one pick when the pantry holds none of the meal', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal, pantryItems: [] })
+
+    await pick(user, 'Cooked')
+
+    expect(await screen.findByText('How was it?')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(patches).toEqual([{ status: 'completed', deductPantry: false }])
+    expect(screen.getByText('Cooked')).toHaveAttribute('data-variant', 'surface')
+    await waitFor(() => expect(trigger()).toHaveFocus())
+    expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {
+      plan_id: 'plan-1',
+      meal_id: meal.id,
+      source: 'meal_card',
+    })
+  })
+
+  it('previews the deduction when a pantry row would change, and returns focus to ⋯', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal })
+
+    await pick(user, 'Cooked')
+    const deduction = await screen.findByRole('dialog', { name: 'Mark as completed' })
+    expect(patches).toEqual([])
+
+    await user.click(within(deduction).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(trigger()).toHaveFocus())
+
+    await pick(user, 'Cooked')
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'Mark as completed' })).getByRole('button', {
+        name: 'Confirm',
+      }),
+    )
+    expect(await screen.findByText('How was it?')).toBeInTheDocument()
+    expect(patches).toEqual([{ status: 'completed', deductPantry: true }])
+    await waitFor(() => expect(trigger()).toHaveFocus())
+  })
+
+  it('skips in one pick, says so, and takes it back with Not skipped', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal })
+
+    await pick(user, 'Skipped')
+
+    expect(await screen.findByText('Skipped')).toHaveAttribute('data-variant', 'surface')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(trigger()).toHaveFocus())
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('meal_plan:meal_skipped', {
+        plan_id: 'plan-1',
+        meal_id: meal.id,
+        source: 'meal_card',
+      }),
+    )
+
+    await pick(user, 'Not skipped')
+
+    await waitFor(() => expect(screen.queryByText('Skipped')).not.toBeInTheDocument())
+    expect(patches).toEqual([
+      { status: 'skipped', deductPantry: false },
+      { status: 'planned', deductPantry: false },
+    ])
+    await waitFor(() => expect(trigger()).toHaveFocus())
+  })
+
+  it('names the status on a read-only card too', () => {
+    renderCard({ meal, status: 'completed', rating: 'up', isReadOnly: true })
+
+    expect(screen.getByText('Cooked')).toBeInTheDocument()
   })
 })
 

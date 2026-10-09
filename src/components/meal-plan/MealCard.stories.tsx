@@ -865,10 +865,14 @@ export const Planned: Story = {
 
     // The counterpart to `CompletedThumbsUp` below: Swap is offered here, so
     // its absence there cannot pass on a card that failed to render at all.
+    // Cooked and Skipped sit above it, one pick each (HON-1125).
     await openMoreActions(canvasElement)
+    const menu = await within(document.body).findByRole('menu')
     await expect(
-      await within(document.body).findByRole('menuitem', { name: /^swap$/i }),
-    ).toBeInTheDocument()
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Note', 'Cooked', 'Skipped', 'Swap', 'Clear'])
   },
 }
 
@@ -984,6 +988,96 @@ export const PlannedAlreadyCharged: Story = {
  * never stacked on it — and confirming shows the rating prompt, with focus
  * back on the meal's name rather than the page body.
  */
+/** The status PATCH bodies the menu stories' entry handler received. */
+let statusPatches: Record<string, unknown>[] = []
+
+/** Records every entry PATCH ahead of the default handlers. */
+const statusPatchHandlers = {
+  default: [
+    http.patch('/api/meal-plans/:planId/entries/:entryId', async ({ request }) => {
+      statusPatches.push((await request.json()) as Record<string, unknown>)
+      return HttpResponse.json({ ok: true })
+    }),
+    ...defaultHandlers,
+  ],
+}
+
+/** Opens ⋯ and picks `name`. */
+async function pickFromMenu(canvasElement: HTMLElement, name: string) {
+  await openMoreActions(canvasElement)
+  await userEvent.click(await within(document.body).findByRole('menuitem', { name }))
+}
+
+/**
+ * Cooked in the ⋯ menu, with none of the meal's ingredients in the pantry: no
+ * dialog, since it would only say "No pantry items will be affected". The
+ * entry completes uncharged, the rating prompt follows, the card says
+ * "Cooked", and focus stays on ⋯ (HON-1125).
+ */
+export const CookedFromMenu: Story = {
+  args: { meal: mealFixture, status: 'planned', pantryIngredients: [], pantryItems: [] },
+  parameters: { msw: { handlers: statusPatchHandlers } },
+  play: async ({ canvasElement }) => {
+    statusPatches = []
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole('button', { name: /more actions/i })
+
+    await pickFromMenu(canvasElement, 'Cooked')
+
+    await expect(await canvas.findByText('How was it?', {}, ROUND_TRIP)).toBeInTheDocument()
+    await expect(within(document.body).queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(statusPatches).toEqual([{ status: 'completed', deductPantry: false }]),
+    )
+    await expect(canvas.getByText('Cooked')).toHaveAttribute('data-variant', 'surface')
+    await waitFor(() => expect(trigger).toHaveFocus())
+  },
+}
+
+/**
+ * Cooked in the ⋯ menu when the pantry holds the meal's chicken: the deduction
+ * opens, as from the cook view, and a cancel hands focus back to ⋯.
+ */
+export const CookedFromMenuWithDeduction: Story = {
+  args: { meal: mealFixture, status: 'planned' },
+  parameters: { msw: { handlers: statusPatchHandlers } },
+  play: async ({ canvasElement }) => {
+    statusPatches = []
+    const body = within(document.body)
+    const trigger = within(canvasElement).getByRole('button', { name: /more actions/i })
+
+    await pickFromMenu(canvasElement, 'Cooked')
+
+    const deduction = await body.findByRole('dialog', { name: 'Mark as completed' })
+    await expect(within(deduction).getByText('Chicken thigh')).toBeInTheDocument()
+    await userEvent.click(within(deduction).getByRole('button', { name: 'Cancel' }))
+    await awaitDialogClosed()
+    await waitFor(() => expect(trigger).toHaveFocus())
+    await expect(statusPatches).toEqual([])
+  },
+}
+
+/** Skipped in the ⋯ menu: one pick, no dialog, and the card says so (HON-1125). */
+export const SkippedFromMenu: Story = {
+  args: { meal: mealFixture, status: 'planned' },
+  parameters: { msw: { handlers: statusPatchHandlers } },
+  play: async ({ canvasElement }) => {
+    statusPatches = []
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole('button', { name: /more actions/i })
+
+    await pickFromMenu(canvasElement, 'Skipped')
+
+    await expect(await canvas.findByText('Skipped')).toHaveAttribute('data-variant', 'surface')
+    await expect(within(document.body).queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(
+      () => expect(statusPatches).toEqual([{ status: 'skipped', deductPantry: false }]),
+      ROUND_TRIP,
+    )
+    await waitFor(() => expect(trigger).toHaveFocus())
+  },
+}
+
 export const DoneCookingFromCookView: Story = {
   args: {
     meal: mealFixture,
@@ -1462,6 +1556,8 @@ export const CompletedThumbsUp: Story = {
     // Undo after Clear cannot restore what the pantry was charged for, so a
     // completed entry goes back through "Not cooked yet" (HON-1123).
     await expect(body.queryByRole('menuitem', { name: /^clear$/i })).not.toBeInTheDocument()
+    // The status reads in words, not only from the thumb (HON-1125).
+    await expect(within(canvasElement).getByText('Cooked')).toBeInTheDocument()
   },
 }
 
@@ -1490,15 +1586,28 @@ export const Skipped: Story = {
     docs: {
       description: {
         story:
-          'Swap is still offered: nothing was deducted for a skipped meal, so “actually, let’s cook something” stays a legitimate path (HON-633).',
+          'Swap is still offered: nothing was deducted for a skipped meal, so “actually, let’s cook something” stays a legitimate path (HON-633). "Not skipped" takes the skip back (HON-1125).',
       },
     },
+    msw: { handlers: statusPatchHandlers },
   },
   play: async ({ canvasElement }) => {
+    statusPatches = []
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText('Skipped')).toHaveAttribute('data-variant', 'surface')
     await openMoreActions(canvasElement)
+    const menu = await within(document.body).findByRole('menu')
     await expect(
-      await within(document.body).findByRole('menuitem', { name: /^swap$/i }),
-    ).toBeInTheDocument()
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Note', 'Not skipped', 'Swap', 'Clear'])
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Not skipped' }))
+    await waitFor(() => expect(canvas.queryByText('Skipped')).not.toBeInTheDocument())
+    await waitFor(
+      () => expect(statusPatches).toEqual([{ status: 'planned', deductPantry: false }]),
+      ROUND_TRIP,
+    )
   },
 }
 

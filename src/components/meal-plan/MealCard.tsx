@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ApiError, apiFetch } from '@/lib/api'
-import { MoreHorizontal, NotebookPen, Repeat, Undo2, X } from 'lucide-react'
+import { Check, MoreHorizontal, NotebookPen, Repeat, SkipForward, Undo2, X } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -164,6 +164,8 @@ export function MealCard({
     meal,
     initialStatus,
     pantryDeducted,
+    servings: effectiveServings,
+    pantryItems,
     source: 'meal_card',
     // The server dropped the entry's cached tips on the way out of
     // `completed`; the cook view's copy has to go with them.
@@ -379,12 +381,20 @@ export function MealCard({
     moreActionsTriggerRef.current?.focus()
   }, [isNoteEditing])
 
-  // The deduction dialog opens from state too. It is reached from the cook
-  // view's "Done cooking", which has closed by then, so focus comes back to
-  // the meal's name, which opened the view.
-  function focusMealNameOnClose(event: Event) {
+  // The deduction dialog opens from state too, so focus goes back to whatever
+  // started the completion: the ⋯ trigger for Cooked in the menu, or the
+  // meal's name for the cook view's "Done cooking", since the view has closed
+  // by then and the name opened it.
+  const completionOpenerRef = useRef<'menu' | 'cook_view'>('cook_view')
+  function focusCompletionOpenerOnClose(event: Event) {
     event.preventDefault()
-    mealNameButtonRef.current?.focus()
+    const opener =
+      completionOpenerRef.current === 'menu' ? moreActionsTriggerRef : mealNameButtonRef
+    opener.current?.focus()
+  }
+  function completeFrom(opener: 'menu' | 'cook_view') {
+    completionOpenerRef.current = opener
+    handleStatusChange('completed', opener === 'menu' ? 'meal_card' : 'cook_view')
   }
 
   // A click anywhere on the card opens the cook view, as the name does
@@ -516,8 +526,8 @@ export function MealCard({
               </div>
               {hasTrailingActions && (
                 <div className="flex shrink-0 items-center gap-1">
-                  {/* Note, Swap and Clear share one trigger: the title row keeps
-                      its width for the meal name. */}
+                  {/* Note, the status, Swap and Clear share one trigger: the
+                      title row keeps its width for the meal name. */}
                   <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -555,9 +565,29 @@ export function MealCard({
                         <NotebookPen aria-hidden="true" />
                         {tCard('note')}
                       </DropdownMenuItem>
-                      {/* "Done cooking" can complete today's or a future
-                          day's meal, so a completion here needs its own way
-                          back. Past meals have their own page (HON-1018). */}
+                      {/* Tonight's "not tonight", and a meal cooked without
+                          the cook view, take one pick here (HON-1125). */}
+                      {status === 'planned' && (
+                        <>
+                          <DropdownMenuItem
+                            onSelect={() => completeFrom('menu')}
+                            disabled={isUpdating}
+                          >
+                            <Check aria-hidden="true" />
+                            {tCard('cooked')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => handleStatusChange('skipped')}
+                            disabled={isUpdating}
+                          >
+                            <SkipForward aria-hidden="true" />
+                            {tCard('skipped')}
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {/* A completion or a skip on today's or a future day's
+                          meal needs its own way back here. Past meals have
+                          their own page (HON-1018). */}
                       {status === 'completed' && (
                         <DropdownMenuItem
                           onSelect={() => handleStatusChange('planned')}
@@ -565,6 +595,15 @@ export function MealCard({
                         >
                           <Undo2 aria-hidden="true" />
                           {tCard('notCookedYet')}
+                        </DropdownMenuItem>
+                      )}
+                      {status === 'skipped' && (
+                        <DropdownMenuItem
+                          onSelect={() => handleStatusChange('planned')}
+                          disabled={isUpdating}
+                        >
+                          <Undo2 aria-hidden="true" />
+                          {tCard('notSkipped')}
                         </DropdownMenuItem>
                       )}
                       {canSwapMeal && (
@@ -668,6 +707,10 @@ export function MealCard({
               {hasServingOverride && (
                 <Badge variant="secondary">{tCard('servings', { count: effectiveServings })}</Badge>
               )}
+              {/* The status in words, so it reads without the thumbs or the
+                  missing availability badge (HON-1125). */}
+              {status === 'completed' && <Badge variant="surface">{tCard('cooked')}</Badge>}
+              {status === 'skipped' && <Badge variant="surface">{tCard('skipped')}</Badge>}
               {status === 'completed' && rating && !showRatingPrompt && (
                 <RatingBadge rating={rating} onClick={() => setShowRatingPrompt(true)} />
               )}
@@ -752,9 +795,7 @@ export function MealCard({
         generateOnOpen={status === 'planned' && !isReadOnly}
         // A read-only card cannot be marked cooked.
         onDoneCooking={
-          status === 'planned' && !isReadOnly
-            ? () => handleStatusChange('completed', 'cook_view')
-            : undefined
+          status === 'planned' && !isReadOnly ? () => completeFrom('cook_view') : undefined
         }
       />
       <MealSelectorModal
@@ -780,7 +821,7 @@ export function MealCard({
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}
         isLoading={isUpdating}
-        onCloseAutoFocus={focusMealNameOnClose}
+        onCloseAutoFocus={focusCompletionOpenerOnClose}
       />
     </>
   )

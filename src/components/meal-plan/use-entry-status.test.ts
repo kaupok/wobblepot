@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { createQueryWrapper } from '@/test/query-wrapper'
-import { createMeal } from '@/stories/fixtures'
-import type { MealStatus } from './types'
+import { createMeal, createPantryItem, lemonGarlicChickenPantryItems } from '@/stories/fixtures'
+import type { MealStatus, PantryItemFull } from './types'
 
 const refresh = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }))
@@ -33,10 +33,13 @@ function renderStatusHook(
   options: {
     initialStatus?: MealStatus
     pantryDeducted?: boolean
+    /** Defaults to a pantry holding the meal's chicken, so a completion has a deduction to preview. */
+    pantryItems?: PantryItemFull[]
     onCompleted?: () => void
     onLeaveCompleted?: () => void
   } = {},
 ) {
+  const pantryItems = options.pantryItems ?? lemonGarlicChickenPantryItems
   const { wrapper } = createQueryWrapper()
   return renderHook(
     () =>
@@ -46,6 +49,8 @@ function renderStatusHook(
         meal,
         initialStatus: options.initialStatus ?? 'planned',
         pantryDeducted: options.pantryDeducted,
+        servings: 4,
+        pantryItems,
         source: 'past_meals',
         onCompleted: options.onCompleted,
         onLeaveCompleted: options.onLeaveCompleted,
@@ -100,6 +105,36 @@ describe('useEntryStatus', () => {
     await waitFor(() => expect(onCompleted).toHaveBeenCalledTimes(1))
     expect(result.current.status).toBe('completed')
     expect(patchBodies()).toEqual([{ status: 'completed', deductPantry: false }])
+  })
+
+  // HON-1125: the dialog would only say "No pantry items will be affected".
+  it.each([
+    ['an empty pantry', []],
+    [
+      'a pantry with none of its ingredients',
+      [createPantryItem({ ingredientId: 'salmon-fillet' })],
+    ],
+    [
+      'a pantry with only staples of it',
+      [createPantryItem({ ingredientId: 'chicken-thigh', isStaple: true })],
+    ],
+  ])('completes directly, uncharged, against %s', async (_label, pantryItems) => {
+    const onCompleted = vi.fn()
+    const { result } = renderStatusHook({ pantryItems, onCompleted })
+
+    respond(200, { pantryDeducted: false })
+    act(() => result.current.handleStatusChange('completed'))
+
+    expect(result.current.isDeductionModalOpen).toBe(false)
+    expect(result.current.status).toBe('completed')
+    await waitFor(() => expect(onCompleted).toHaveBeenCalledTimes(1))
+    expect(patchBodies()).toEqual([{ status: 'completed', deductPantry: false }])
+    expect(result.current.isPantryCharged).toBe(false)
+    expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {
+      plan_id: 'plan-1',
+      meal_id: meal.id,
+      source: 'past_meals',
+    })
   })
 
   it('does not preview a second deduction after a revert in the same session', async () => {

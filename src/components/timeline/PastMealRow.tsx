@@ -36,8 +36,9 @@ interface PastMealRowProps {
  * and the name, then one-click Cooked and Skipped (HON-1018). The page's one
  * job is to clear a backlog, so the row carries no image, description or
  * badges, and opens nothing. Cooked runs the same completion as the planner
- * card (`useEntryStatus`): the pantry deduction preview unless the entry was
- * already charged. Once cooked, the thumbs sit inline; they are the prompt.
+ * card (`useEntryStatus`): the pantry deduction preview, unless the entry was
+ * already charged or its meal would change no pantry row. Once cooked, the
+ * thumbs sit inline; they are the prompt.
  */
 export function PastMealRow({
   entryId,
@@ -55,6 +56,7 @@ export function PastMealRow({
   const mealTypeLabel = useEnumLabel('MealType', mealType)
   const nameId = useId()
   const [rating, setRating] = useState<EntryRating | null>(initialRating ?? null)
+  const servings = servingOverride ?? householdServings
   const {
     status,
     isUpdating,
@@ -68,6 +70,8 @@ export function PastMealRow({
     meal,
     initialStatus,
     pantryDeducted,
+    servings,
+    pantryItems,
     source: 'past_meals',
   })
 
@@ -185,7 +189,7 @@ export function PastMealRow({
         onOpenChange={setIsDeductionModalOpen}
         mealName={meal.name}
         components={meal.components}
-        householdServings={servingOverride ?? householdServings}
+        householdServings={servings}
         pantryItems={pantryItems}
         onConfirm={handleDeductionConfirm}
         isLoading={isUpdating}
