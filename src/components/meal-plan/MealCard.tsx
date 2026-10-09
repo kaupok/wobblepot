@@ -201,16 +201,22 @@ export function MealCard({
   // when a meal is assigned, so the override still has to be dropped. `meal`
   // is null there, so the change test always passes, which is right: filling
   // an empty slot is always a change.
+  //
+  // A swap on a skipped card is "actually, let's cook something" (HON-633),
+  // and the skip was for the meal that left. The swap PATCH keeps the status,
+  // so the card plans the new meal itself; otherwise it would show "Skipped",
+  // with no Cooked and no "Done cooking" (HON-1125).
   const handleSwapComplete = useCallback(
     (selectedMealId: string) => {
       if (selectedMealId !== meal?.id) {
         setServingOverride(null)
         detailModalRef.current?.resetForSwap()
         dropSuggestionCache()
+        if (status === 'skipped') handleStatusChange('planned')
       }
       router.refresh()
     },
-    [router, dropSuggestionCache, meal?.id],
+    [router, dropSuggestionCache, meal?.id, status, handleStatusChange],
   )
 
   // A pantry holding only staples says nothing yet, so the card claims nothing

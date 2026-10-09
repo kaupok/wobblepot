@@ -1456,6 +1456,50 @@ export const SwapDropsSuggestionsForSiblingEntries: Story = {
 }
 
 /**
+ * A swap on a skipped card plans the new meal: the skip was for the meal that
+ * left (HON-1125). The swap PATCH carries only the meal, so the card sends the
+ * status itself.
+ */
+export const SwapOnSkippedCardPlansIt: Story = {
+  args: { meal: mealFixture, status: 'skipped' },
+  parameters: {
+    msw: {
+      handlers: {
+        default: [
+          http.post('/api/meal-plans/:planId/entries/:entryId/regenerate', () =>
+            HttpResponse.json({ alternatives: swapAlternatives(1) }),
+          ),
+          ...statusPatchHandlers.default,
+        ],
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    statusPatches = []
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+    await expect(canvas.getByText('Skipped')).toBeInTheDocument()
+
+    await pickFromMenu(canvasElement, 'Swap')
+    const swap = await body.findByRole('dialog')
+    await within(swap).findByText('Beef stir-fry', undefined, ROUND_TRIP)
+    await userEvent.click(within(swap).getByRole('button', { name: /^select$/i }))
+    // Select closes the dialog only once its PATCH resolves.
+    await awaitDialogClosed(ROUND_TRIP.timeout)
+
+    await waitFor(
+      () =>
+        expect(statusPatches).toEqual([
+          { mealId: 'meal-stir-fry' },
+          { status: 'planned', deductPantry: false },
+        ]),
+      ROUND_TRIP,
+    )
+    await expect(canvas.queryByText('Skipped')).not.toBeInTheDocument()
+  },
+}
+
+/**
  * The note is a taped sticky-note slip, and the slip is the button that opens
  * the editor (HON-926). With no image, the card still lies the slip over its
  * corner, and caps the title so the name wraps before the slip (HON-974).
