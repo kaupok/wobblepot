@@ -389,6 +389,26 @@ export const rateLimitedSuggestionsHandlers: HttpHandler[] = [
 ]
 
 /**
+ * As `rateLimitedSuggestionsHandlers`, with the `resetAt` the real routes send:
+ * half an hour from the moment of the request, so the list names the time the
+ * limit lifts (HON-1138).
+ */
+export const rateLimitedUntilSuggestionsHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/:planId/entries/:entryId/suggestions', () =>
+    HttpResponse.json(
+      { error: 'Rate limit exceeded', resetAt: new Date(Date.now() + 1_800_000).toISOString() },
+      { status: 429, headers: { 'Retry-After': '1800' } },
+    ),
+  ),
+  http.post('/api/meal-plans/:planId/entries/:entryId/regenerate', () =>
+    HttpResponse.json(
+      { error: 'Rate limit exceeded', resetAt: new Date(Date.now() + 1_800_000).toISOString() },
+      { status: 429, headers: { 'Retry-After': '1800' } },
+    ),
+  ),
+]
+
+/**
  * Never resolve, keeping queries in their loading state indefinitely. Use in
  * stories that need to show the skeleton / spinner UI deterministically.
  */
@@ -610,6 +630,25 @@ export const rateLimitGenerateHandlers: HttpHandler[] = [
         message: 'Maximum 10 meal plan generations per hour',
       },
       { status: 429 },
+    ),
+  ),
+]
+
+/**
+ * As `rateLimitGenerateHandlers`, with the `resetAt` the real route sends: half
+ * an hour from the moment of the request, so the copy names the time the limit
+ * lifts (HON-1138).
+ */
+export const rateLimitUntilGenerateHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/generate', () =>
+    HttpResponse.json(
+      {
+        code: 'rate_limited',
+        error: 'Rate limit exceeded',
+        message: 'Maximum 10 meal plan generations per hour',
+        resetAt: new Date(Date.now() + 1_800_000).toISOString(),
+      },
+      { status: 429, headers: { 'Retry-After': '1800' } },
     ),
   ),
 ]

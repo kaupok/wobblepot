@@ -21,7 +21,12 @@ import { useMealAlternatives } from './meal-selector/use-meal-alternatives'
 import { ApiError, apiFetch } from '@/lib/api'
 import { track } from '@/lib/analytics'
 import { useEnumLabel } from '@/lib/i18n/enum-label'
-import { formatAbsoluteDate, formatDayLong, formatDayShort } from '@/lib/i18n/format-dates'
+import {
+  formatAbsoluteDate,
+  formatDayLong,
+  formatDayShort,
+  formatTimeOfDay,
+} from '@/lib/i18n/format-dates'
 import type { Locale } from '@/lib/i18n/locales'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { toast } from 'sonner'
@@ -134,6 +139,7 @@ export function MealSelectorModal({
     isSearchMode,
     isMyRecipesBrowseMode,
     isRateLimited,
+    rateLimitResetAt,
   } = useMealAlternatives({
     open,
     planId,
@@ -338,7 +344,11 @@ export function MealSelectorModal({
   } else {
     emptyState = (
       <Body variant="muted" className="text-center">
-        {isRateLimited ? tSelector('rateLimited') : tSelector('noSuggestions')}
+        {!isRateLimited
+          ? tSelector('noSuggestions')
+          : rateLimitResetAt
+            ? tSelector('rateLimitedUntil', { time: formatTimeOfDay(rateLimitResetAt, locale) })
+            : tSelector('rateLimited')}
       </Body>
     )
   }

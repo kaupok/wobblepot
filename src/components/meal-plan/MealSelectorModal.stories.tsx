@@ -17,6 +17,7 @@ import {
   errorMealsHandlers,
   loadingMealsHandlers,
   rateLimitedSuggestionsHandlers,
+  rateLimitedUntilSuggestionsHandlers,
 } from '@/stories/msw-handlers'
 import { MealSelectorModal } from './MealSelectorModal'
 
@@ -385,6 +386,18 @@ export const RateLimited: Story = {
   play: async () => {
     const body = within(document.body)
     await expect(await body.findByText(/too many suggestion requests/i)).toBeInTheDocument()
+  },
+}
+
+/** A 429 that carries `resetAt` names the time to try again, not "later" (HON-1138). */
+export const RateLimitedUntil: Story = {
+  args: { mode: 'swap' },
+  parameters: {
+    msw: { handlers: rateLimitedUntilSuggestionsHandlers },
+  },
+  play: async () => {
+    const body = within(document.body)
+    await expect(await body.findByText(/try again after \d{1,2}:\d{2}/i)).toBeInTheDocument()
   },
 }
 

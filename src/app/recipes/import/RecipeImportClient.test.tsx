@@ -272,6 +272,33 @@ describe('RecipeImportClient error localization', () => {
     await screen.findByText(enMessages.recipes.import.errors.parseTimeout)
   })
 
+  it('names the time the hourly limit lifts when the 429 carries resetAt', async () => {
+    respondWith(
+      {
+        success: false,
+        error: 'Rate limit exceeded',
+        code: 'rate_limited',
+        // 18:40 on the device clock, whatever TZ the test runs in.
+        resetAt: new Date(2026, 9, 9, 18, 40).toISOString(),
+      },
+      429,
+    )
+
+    parse('en')
+
+    await screen.findByText(
+      enMessages.recipes.import.errors.rateLimitedUntil.replace('{time}', '6:40 PM'),
+    )
+  })
+
+  it('keeps the plain rate-limit copy when the 429 has no resetAt', async () => {
+    respondWith({ success: false, error: 'Rate limit exceeded', code: 'rate_limited' }, 429)
+
+    parse('et')
+
+    await screen.findByText(etMessages.recipes.import.errors.rateLimited)
+  })
+
   it('falls back to the generic translated message for an unrecognised code', async () => {
     respondWith(
       { success: false, error: 'Some brand new failure', code: 'code_from_a_newer_deploy' },

@@ -121,6 +121,25 @@ describe('ImaginePanel error localization', () => {
     expect(screen.queryByText('Rate limit exceeded')).not.toBeInTheDocument()
   })
 
+  it('names the time the hourly limit lifts when the 429 carries resetAt', async () => {
+    respondWith(
+      {
+        success: false,
+        error: 'Rate limit exceeded',
+        code: 'rate_limited',
+        // 18:40 on the device clock, whatever TZ the test runs in.
+        resetAt: new Date(2026, 9, 9, 18, 40).toISOString(),
+      },
+      429,
+    )
+
+    generate('et')
+
+    await screen.findByText(
+      etMessages.recipes.imagine.errors.rateLimitedUntil.replace('{time}', '18:40'),
+    )
+  })
+
   it('falls back to the imagineFailed copy when the error body is not JSON', async () => {
     // What a platform-level 502 or an HTML error page looks like to the client.
     vi.stubGlobal(

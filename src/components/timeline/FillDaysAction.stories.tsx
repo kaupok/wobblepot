@@ -7,6 +7,7 @@ import {
   delayedGenerateHandlers,
   errorGenerateHandlers,
   rateLimitGenerateHandlers,
+  rateLimitUntilGenerateHandlers,
   slowGenerateHandlers,
   timeoutGenerateHandlers,
 } from '@/stories/msw-handlers'
@@ -114,6 +115,18 @@ export const RateLimited: Story = {
     await waitFor(() =>
       expect(canvas.getByText(/rate limit exceeded\. please try again later/i)).toBeVisible(),
     )
+  },
+}
+
+/** A 429 that carries `resetAt` names the time to try again, not "later" (HON-1138). */
+export const RateLimitedUntil: Story = {
+  parameters: {
+    msw: { handlers: rateLimitUntilGenerateHandlers },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: /^generate$/i }))
+    await waitFor(() => expect(canvas.getByText(/try again after \d{1,2}:\d{2}/i)).toBeVisible())
   },
 }
 

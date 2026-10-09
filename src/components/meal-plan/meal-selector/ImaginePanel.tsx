@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, Sparkles, ArrowLeft } from 'lucide-react'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { AttachImages, useAttachImages } from '@/components/recipes/AttachImages'
 import { ImagineReviewDialog, type ReviewMealData } from '@/components/recipes/ImagineReviewDialog'
 import { MAX_ATTACHED_IMAGES } from '@/lib/image-attachments'
-import { IMAGINE_ERROR_KEYS, translateErrorCode } from '@/lib/ai/error-codes'
+import { IMAGINE_ERROR_KEYS, rateLimitMessage, translateErrorCode } from '@/lib/ai/error-codes'
+import type { Locale } from '@/lib/i18n/locales'
 import {
   convertToPrefilledData,
   reviewImaginedMeal,
@@ -49,6 +50,7 @@ export function ImaginePanel({ mealType, onExit, onMealSaved }: ImaginePanelProp
   // resolve against that screen's catalog rather than duplicating thirteen
   // strings into this namespace (HON-700).
   const tRouteErrors = useTranslations('recipes.imagine.errors')
+  const locale = useLocale() as Locale
 
   const [prompt, setPrompt] = useState('')
   const [imaginedMeals, setImaginedMeals] = useState<ImaginedMealResponse[] | null>(null)
@@ -130,11 +132,13 @@ export function ImaginePanel({ mealType, onExit, onMealSaved }: ImaginePanelProp
         message: body.message,
         error: body.error,
       })
-      setError(
-        tRouteErrors(translateErrorCode(err.code, IMAGINE_ERROR_KEYS, 'imagineFailed'), {
-          max: MAX_ATTACHED_IMAGES,
-        }),
+      const { key, values } = rateLimitMessage(
+        translateErrorCode(err.code, IMAGINE_ERROR_KEYS, 'imagineFailed'),
+        IMAGINE_ERROR_KEYS.rate_limited,
+        err.body,
+        locale,
       )
+      setError(tRouteErrors(key, { max: MAX_ATTACHED_IMAGES, ...values }))
     },
     onSettled: (_data, _err, { controller }) => {
       if (abortControllerRef.current === controller) abortControllerRef.current = null

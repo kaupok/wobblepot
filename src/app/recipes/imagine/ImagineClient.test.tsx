@@ -154,6 +154,25 @@ describe('ImagineClient error localization', () => {
     )
   })
 
+  it('names the time the hourly limit lifts when the 429 carries resetAt', async () => {
+    respondWith(
+      {
+        success: false,
+        error: 'Rate limit exceeded',
+        code: 'rate_limited',
+        // 18:40 on the device clock, whatever TZ the test runs in.
+        resetAt: new Date(2026, 9, 9, 18, 40).toISOString(),
+      },
+      429,
+    )
+
+    await generate('et')
+
+    await screen.findByText(
+      etMessages.recipes.imagine.errors.rateLimitedUntil.replace('{time}', '18:40'),
+    )
+  })
+
   it('renders the translated image-cap message, with its {max} argument filled in', async () => {
     // The only coded branch whose message takes an ICU argument — a regression
     // here renders the literal `{max}` rather than the limit.

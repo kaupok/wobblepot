@@ -3,6 +3,7 @@
 import { useCallback } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, apiFetch } from '@/lib/api'
+import { rateLimitResetAt } from '@/lib/ai/error-codes'
 import type { AlternativeMeal, MealComponent, NutritionData } from '../types'
 import type { MealImageFields } from '../MealImageCard'
 import type { MealType, ProteinType } from '@/generated/prisma/enums'
@@ -104,6 +105,11 @@ export interface UseMealAlternativesResult {
    * draw on it (HON-710); without this the refusal reads as an empty pool.
    */
   isRateLimited: boolean
+  /**
+   * When that limit lifts, from the 429 body's `resetAt` (HON-1138). Null when
+   * not rate-limited, or when the 429 carried no body we wrote.
+   */
+  rateLimitResetAt: Date | null
 }
 
 /**
@@ -207,6 +213,8 @@ export function useMealAlternatives({
     })
   }, [queryClient, planId, entryId, mode])
 
+  const isRateLimited = !activeQuery && isRateLimitError(suggestionsError)
+
   return {
     displayedMeals,
     isLoading: activeQuery ? activeQuery.isLoading : isLoadingSuggestions,
@@ -218,6 +226,10 @@ export function useMealAlternatives({
     hasLoadedList: !!pages,
     isSearchMode,
     isMyRecipesBrowseMode,
-    isRateLimited: !activeQuery && isRateLimitError(suggestionsError),
+    isRateLimited,
+    rateLimitResetAt:
+      isRateLimited && suggestionsError instanceof ApiError
+        ? rateLimitResetAt(suggestionsError.body)
+        : null,
   }
 }
