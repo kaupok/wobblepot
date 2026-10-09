@@ -1011,8 +1011,9 @@ async function pickFromMenu(canvasElement: HTMLElement, name: string) {
 /**
  * Cooked in the ⋯ menu, with none of the meal's ingredients in the pantry: no
  * dialog, since it would only say "No pantry items will be affected". The
- * entry completes uncharged, the rating prompt follows, the card says
- * "Cooked", and focus stays on ⋯ (HON-1125).
+ * PATCH still asks the server to deduct, in case the page's pantry is stale.
+ * The rating prompt follows, the card says "Cooked", and focus stays on ⋯
+ * (HON-1125).
  */
 export const CookedFromMenu: Story = {
   args: { meal: mealFixture, status: 'planned', pantryIngredients: [], pantryItems: [] },
@@ -1027,7 +1028,7 @@ export const CookedFromMenu: Story = {
     await expect(await canvas.findByText('How was it?', {}, ROUND_TRIP)).toBeInTheDocument()
     await expect(within(document.body).queryByRole('dialog')).not.toBeInTheDocument()
     await waitFor(() =>
-      expect(statusPatches).toEqual([{ status: 'completed', deductPantry: false }]),
+      expect(statusPatches).toEqual([{ status: 'completed', deductPantry: true }]),
     )
     await expect(canvas.getByText('Cooked')).toHaveAttribute('data-variant', 'surface')
     await waitFor(() => expect(trigger).toHaveFocus())

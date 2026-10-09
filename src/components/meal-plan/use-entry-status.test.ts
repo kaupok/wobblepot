@@ -118,24 +118,28 @@ describe('useEntryStatus', () => {
       'a pantry with only staples of it',
       [createPantryItem({ ingredientId: 'chicken-thigh', isStaple: true })],
     ],
-  ])('completes directly, uncharged, against %s', async (_label, pantryItems) => {
-    const onCompleted = vi.fn()
-    const { result } = renderStatusHook({ pantryItems, onCompleted })
+  ])(
+    'completes directly against %s, still asking the server to deduct',
+    async (_label, pantryItems) => {
+      const onCompleted = vi.fn()
+      const { result } = renderStatusHook({ pantryItems, onCompleted })
 
-    respond(200, { pantryDeducted: false })
-    act(() => result.current.handleStatusChange('completed'))
+      respond(200, { pantryDeducted: true })
+      act(() => result.current.handleStatusChange('completed'))
 
-    expect(result.current.isDeductionModalOpen).toBe(false)
-    expect(result.current.status).toBe('completed')
-    await waitFor(() => expect(onCompleted).toHaveBeenCalledTimes(1))
-    expect(patchBodies()).toEqual([{ status: 'completed', deductPantry: false }])
-    expect(result.current.isPantryCharged).toBe(false)
-    expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {
-      plan_id: 'plan-1',
-      meal_id: meal.id,
-      source: 'past_meals',
-    })
-  })
+      expect(result.current.isDeductionModalOpen).toBe(false)
+      expect(result.current.status).toBe('completed')
+      await waitFor(() => expect(onCompleted).toHaveBeenCalledTimes(1))
+      // The page's pantry can be stale; the server deducts what really matches.
+      expect(patchBodies()).toEqual([{ status: 'completed', deductPantry: true }])
+      expect(result.current.isPantryCharged).toBe(true)
+      expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {
+        plan_id: 'plan-1',
+        meal_id: meal.id,
+        source: 'past_meals',
+      })
+    },
+  )
 
   it('does not preview a second deduction after a revert in the same session', async () => {
     const { result } = renderStatusHook()

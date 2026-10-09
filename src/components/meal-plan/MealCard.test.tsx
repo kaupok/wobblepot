@@ -289,7 +289,7 @@ describe('MealCard status from the menu', () => {
 
     expect(await screen.findByText('How was it?')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(patches).toEqual([{ status: 'completed', deductPantry: false }])
+    expect(patches).toEqual([{ status: 'completed', deductPantry: true }])
     expect(screen.getByText('Cooked')).toHaveAttribute('data-variant', 'surface')
     await waitFor(() => expect(trigger()).toHaveFocus())
     expect(track).toHaveBeenCalledWith('meal_plan:meal_completed', {

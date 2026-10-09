@@ -83,14 +83,16 @@ async function otherPastMealsToMark(page: Page, exceptId: string) {
   ).length
 }
 
-// The real page and the real PATCH: Cooked completes the entry, and the row
-// and the rating survive a reload (HON-1018). The meal shares no ingredient
-// with the pantry, so there is nothing to deduct and no dialog to confirm
-// (HON-1125); the entry stays uncharged. The deduction dialog is covered by
-// PastMealRow's tests and stories, the charge by pantry-deduction.spec.ts. The account menu's dot follows each
-// status change through `router.refresh()`, with no reload (HON-1028). Unit
-// tests and Storybook cover the row in isolation.
-test('a past meal is marked cooked from its row in one click, and rated', async ({ page }) => {
+// The real page, the real PATCH and the real pantry charge: Cooked completes
+// the entry and charges it, and the row and the rating survive a reload
+// (HON-1018). The meal shares no ingredient with the pantry, so there is
+// nothing to preview and no dialog to confirm (HON-1125); the deduction dialog
+// is covered by PastMealRow's tests and stories. The account menu's dot
+// follows each status change through `router.refresh()`, with no reload
+// (HON-1028). Unit tests and Storybook cover the row in isolation.
+test('a past meal is marked cooked from its row in one click, charged once, and rated', async ({
+  page,
+}) => {
   await signInAsSmoke(page)
 
   const date = daysFromNow(PAST_DAY_OFFSET)
@@ -160,7 +162,7 @@ test('a past meal is marked cooked from its row in one click, and rated', async 
       row().getByRole('button', { name: 'Cooked' }).click(),
     ])
     expect(patch.ok()).toBe(true)
-    expect(patch.request().postDataJSON()).toEqual({ status: 'completed', deductPantry: false })
+    expect(patch.request().postDataJSON()).toEqual({ status: 'completed', deductPantry: true })
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(undo).toBeFocused()
 
@@ -176,7 +178,7 @@ test('a past meal is marked cooked from its row in one click, and rated', async 
       'true',
     )
 
-    // Persisted: completed, uncharged, and rated.
+    // Persisted: completed, charged once, and rated.
     await expect
       .poll(async () => {
         const entry = (await listEntries(page)).entries.find((e) => e.id === entryId)
@@ -184,7 +186,7 @@ test('a past meal is marked cooked from its row in one click, and rated', async 
           entry && { status: entry.status, charged: entry.pantryDeducted, rating: entry.rating }
         )
       })
-      .toEqual({ status: 'completed', charged: false, rating: 'up' })
+      .toEqual({ status: 'completed', charged: true, rating: 'up' })
 
     await page.reload()
     await expect(row().getByText('Cooked', { exact: true })).toBeVisible()

@@ -62,7 +62,8 @@ export function useEntryStatus({
   const isPantryCharged = pantryDeducted || chargedHere
   // What the deduction dialog would list. The server matches the same rows
   // (non-staples holding one of the meal's ingredients), so an empty list
-  // means a confirm would change nothing in the pantry.
+  // means a confirm would change nothing in the pantry, as far as this page
+  // knows.
   const hasDeductions = useMemo(
     () => !!meal && computeDeductions(meal.components, servings, pantryItems).length > 0,
     [meal, servings, pantryItems],
@@ -139,13 +140,19 @@ export function useEntryStatus({
       // The server charges an entry at most once — reverting does not restock,
       // and nothing clears the marker (HON-651). Previewing a deduction here
       // would ask the user to confirm a change that never happens, so an
-      // already-charged entry completes directly. So does one whose meal would
-      // change no pantry row: the dialog would only say "No pantry items will
-      // be affected" and ask for a confirm that does nothing (HON-1125). The
-      // entry stays uncharged, so a later completion previews what a pantry
-      // stocked meanwhile would lose.
-      if (isPantryCharged || !hasDeductions) {
+      // already-charged entry completes directly.
+      if (isPantryCharged) {
         statusMutation.mutate({ newStatus, source }, { onSuccess: () => onCompleted?.() })
+        return
+      }
+
+      // A meal that would change no pantry row skips the dialog too: it would
+      // only say "No pantry items will be affected" (HON-1125). It still asks
+      // the server to deduct, as the confirm would have: the page's pantry can
+      // be older than the database (another member's shop, a cached Back), and
+      // the server deducts what really matches.
+      if (!hasDeductions) {
+        completeWithDeduction()
         return
       }
 
@@ -158,7 +165,8 @@ export function useEntryStatus({
     statusMutation.mutate({ newStatus, source })
   }
 
-  function handleDeductionConfirm() {
+  // The dialog's Confirm, and a completion with nothing to preview.
+  function completeWithDeduction() {
     statusMutation.mutate(
       { newStatus: 'completed', deductPantry: true, source: completionSourceRef.current },
       {
@@ -178,6 +186,6 @@ export function useEntryStatus({
     isDeductionModalOpen,
     setIsDeductionModalOpen,
     handleStatusChange,
-    handleDeductionConfirm,
+    handleDeductionConfirm: completeWithDeduction,
   }
 }

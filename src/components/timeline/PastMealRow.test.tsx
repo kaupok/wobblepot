@@ -132,18 +132,18 @@ describe('PastMealRow', () => {
   })
 
   // HON-1125: the dialog would only say "No pantry items will be affected".
-  it('completes uncharged with no dialog when the pantry holds none of the meal', async () => {
+  it('completes with no dialog when the pantry holds none of the meal', async () => {
     const user = userEvent.setup()
     renderRow({ pantryItems: [] })
 
-    respond(200, { pantryDeducted: false })
+    respond(200, { pantryDeducted: true })
     await user.click(cooked())
 
     await waitFor(() => expect(undo()).toHaveFocus())
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({
       status: 'completed',
-      deductPantry: false,
+      deductPantry: true,
     })
   })
 
