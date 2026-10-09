@@ -194,6 +194,13 @@ let lastHouseholdBody: unknown
 let lastPreferencesBody: unknown
 let lastReminderBody: unknown
 
+// A section's submit button, in either state. While the save is in flight it
+// reads "Saving…", so waiting only for "Save" to go passes mid-request, before
+// the response moves focus to the heading (HON-1140). Once neither name is on
+// screen the save has settled: SettingsSection focuses the heading in the same
+// `onSuccess` that marks the section clean and unmounts the button.
+const SAVE_BUTTON = /^(Save|Saving…)$/
+
 const saveHandlers = [
   http.patch('/api/households/me', async ({ request }) => {
     lastHouseholdBody = await request.json()
@@ -302,7 +309,7 @@ export const FoodPreferencesDirty: Story = {
       }),
     )
     await waitFor(() =>
-      expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
+      expect(canvas.queryByRole('button', { name: SAVE_BUTTON })).not.toBeInTheDocument(),
     )
     await expect(canvas.getByRole('heading', { name: 'Food preferences' })).toHaveFocus()
   },
@@ -429,7 +436,7 @@ export const WeeklyReminderSwitchOn: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(lastReminderBody).toEqual({ weekday: 7 }))
     await waitFor(() =>
-      expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
+      expect(canvas.queryByRole('button', { name: SAVE_BUTTON })).not.toBeInTheDocument(),
     )
     await expect(canvas.getByRole('heading', { name: 'Weekly reminder' })).toHaveFocus()
   },
