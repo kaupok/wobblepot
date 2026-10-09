@@ -18,6 +18,10 @@ import { timeSignupStep } from '@/lib/signup-timing'
 import { MAX_ACCOUNT_NAME_LENGTH } from '@/lib/account-name'
 
 const MIN_PASSWORD_LENGTH = 12
+// Better Auth's default, set here because `errors.auth.passwordTooLong` names
+// the number. The inputs carry no `maxLength`: the browser would cut a pasted
+// longer password silently, and sign-in, which has no cap, would then reject it.
+const MAX_PASSWORD_LENGTH = 128
 
 export const TERMS_NOT_ACCEPTED_MESSAGE =
   'You must accept the Terms of Service and Privacy Policy to create an account.'
@@ -194,6 +198,7 @@ export const auth = betterAuth({
      * minimum is enforced at sign-up and password reset only.
      */
     minPasswordLength: MIN_PASSWORD_LENGTH,
+    maxPasswordLength: MAX_PASSWORD_LENGTH,
     /**
      * HIBP breach check before storing a new password.
      * `hash` is only invoked when storing a new password (sign-up, reset,

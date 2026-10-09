@@ -57,6 +57,16 @@ describe('ChangePasswordForm', () => {
     )
   })
 
+  // No `maxLength`: the browser cuts a pasted longer password silently, and
+  // sign-in, which has no cap, then rejects it. The server error shows
+  // `errors.auth.passwordTooLong` instead (HON-1142).
+  it('does not cap the length of the new password fields', () => {
+    render(<ChangePasswordForm />)
+
+    expect(screen.getByLabelText('New password')).not.toHaveAttribute('maxlength')
+    expect(screen.getByLabelText('Confirm new password')).not.toHaveAttribute('maxlength')
+  })
+
   it('shows the sign-up password hint under the new password', () => {
     render(<ChangePasswordForm />)
 
@@ -129,6 +139,7 @@ describe('ChangePasswordForm', () => {
         'That password appears in known data breaches. Please pick a different one.',
         'That password appears in known data breaches. Please pick a different one.',
       ],
+      ['Password too long', 'Use a password of 128 characters or fewer.'],
       ['Too many requests', 'Too many attempts. Please try again in a few minutes.'],
       ['Credential account not found', 'An unexpected error occurred. Please try again.'],
     ])('maps "%s"', async (serverMessage, copy) => {

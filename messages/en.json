@@ -1112,6 +1112,7 @@
       "invalidEmail": "Please enter a valid email address.",
       "breachedPassword": "That password appears in known data breaches. Please pick a different one.",
       "passwordTooShort": "Password must be at least 12 characters long.",
+      "passwordTooLong": "Use a password of 128 characters or fewer.",
       "passwordWeak": "Please choose a stronger password.",
       "tooManyAttempts": "Too many attempts. Please try again in a few minutes.",
       "network": "Unable to connect to the server. Please check your internet connection and try again.",

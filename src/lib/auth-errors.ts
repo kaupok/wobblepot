@@ -26,6 +26,7 @@ export type AuthErrorKey =
   | 'invalidEmail'
   | 'breachedPassword'
   | 'passwordTooShort'
+  | 'passwordTooLong'
   | 'passwordWeak'
   | 'tooManyAttempts'
   | 'network'
@@ -136,6 +137,14 @@ export function getAuthErrorKey(message: string): AuthErrorKey | null {
     (lowerMessage.includes('short') || lowerMessage.includes('minimum'))
   ) {
     return 'passwordTooShort'
+  }
+  // Better Auth's `PASSWORD_TOO_LONG` ("Password too long"), over
+  // `maxPasswordLength` in `src/lib/auth.ts`.
+  if (
+    lowerMessage.includes('password') &&
+    (lowerMessage.includes('too long') || lowerMessage.includes('maximum'))
+  ) {
+    return 'passwordTooLong'
   }
   if (lowerMessage.includes('password') && lowerMessage.includes('weak')) {
     return 'passwordWeak'

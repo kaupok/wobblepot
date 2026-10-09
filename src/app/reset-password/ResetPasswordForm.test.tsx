@@ -74,6 +74,16 @@ describe('ResetPasswordForm', () => {
       expect(confirmPassword).toHaveAttribute('autocomplete', 'new-password')
     })
 
+    // No `maxLength`: the browser cuts a pasted longer password silently, and
+    // sign-in, which has no cap, then rejects it. The server error shows
+    // `errors.auth.passwordTooLong` instead (HON-1142).
+    it('does not cap the length of the password fields', () => {
+      render(<ResetPasswordForm />)
+
+      expect(screen.getByLabelText(/new password/i)).not.toHaveAttribute('maxlength')
+      expect(screen.getByLabelText(/confirm password/i)).not.toHaveAttribute('maxlength')
+    })
+
     // The hint under the field and the label already say what a placeholder would.
     it('renders the password fields without placeholders, with the hint', () => {
       render(<ResetPasswordForm />)

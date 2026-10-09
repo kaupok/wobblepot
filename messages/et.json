@@ -1112,6 +1112,7 @@
       "invalidEmail": "Palun sisesta kehtiv e-posti aadress.",
       "breachedPassword": "See parool esineb teadaolevates andmeleketes. Palun vali mõni muu.",
       "passwordTooShort": "Parool peab olema vähemalt 12 märki pikk.",
+      "passwordTooLong": "Kasuta parooli, mis on kuni 128 märki pikk.",
       "passwordWeak": "Palun vali tugevam parool.",
       "tooManyAttempts": "Liiga palju katseid. Palun proovi mõne minuti pärast uuesti.",
       "network": "Serveriga ei õnnestunud ühenduda. Kontrolli internetiühendust ja proovi uuesti.",

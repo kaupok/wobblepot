@@ -127,6 +127,15 @@ describe('SignUpForm', () => {
       expect(password).toHaveAttribute('autocomplete', 'new-password')
     })
 
+    // No `maxLength`: the browser cuts a pasted longer password silently, and
+    // sign-in, which has no cap, then rejects it. The server error shows
+    // `errors.auth.passwordTooLong` instead (HON-1142).
+    it('does not cap the length of the password', () => {
+      renderForm()
+
+      expect(screen.getByLabelText('Password')).not.toHaveAttribute('maxlength')
+    })
+
     it('renders sign up button', () => {
       renderForm()
 
