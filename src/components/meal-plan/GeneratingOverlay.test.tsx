@@ -1,4 +1,5 @@
-import { render, screen, act } from '@testing-library/react'
+import { createRef } from 'react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { GeneratingOverlay } from './GeneratingOverlay'
 
@@ -19,11 +20,12 @@ describe('GeneratingOverlay', () => {
   })
 
   it('renders spinning loader icon', () => {
-    const { container } = render(<GeneratingOverlay />)
+    render(<GeneratingOverlay />)
 
-    // Testing the animation class requires direct DOM query
-    // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
-    const loader = container.querySelector('.animate-spin')
+    // Testing the animation class requires direct DOM query. The dialog
+    // renders in a portal, outside the render container.
+    // eslint-disable-next-line testing-library/no-node-access
+    const loader = document.body.querySelector('.animate-spin')
     expect(loader).toBeInTheDocument()
   })
 
@@ -85,5 +87,82 @@ describe('GeneratingOverlay', () => {
       vi.advanceTimersByTime(5000)
     })
     expect(screen.getByText('Taking longer than expected, please wait…')).toBeInTheDocument()
+  })
+
+  describe('as a dialog', () => {
+    it('is a dialog named by the heading and described by the message', () => {
+      render(<GeneratingOverlay />)
+
+      const dialog = screen.getByRole('dialog', { name: 'Generating your meal plan…' })
+      expect(dialog).toHaveAccessibleDescription('Analyzing your preferences…')
+    })
+
+    it('hides the page under it from assistive technology', () => {
+      render(
+        <>
+          <button type="button">Generate</button>
+          <GeneratingOverlay />
+        </>,
+      )
+
+      expect(screen.queryByRole('button', { name: 'Generate' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Generate', hidden: true })).toBeInTheDocument()
+    })
+
+    it('announces each message change once, from one polite status region', () => {
+      render(<GeneratingOverlay />)
+
+      const status = screen.getByRole('status')
+      expect(status).toHaveAttribute('aria-live', 'polite')
+      expect(status).toHaveTextContent('Analyzing your preferences…')
+
+      act(() => {
+        vi.advanceTimersByTime(10000)
+      })
+
+      // The same element, so a screen reader hears the change rather than a
+      // new region appearing.
+      expect(screen.getByRole('status')).toBe(status)
+      expect(status).toHaveTextContent('Taking longer than expected, please wait…')
+    })
+
+    it('has no close button and stays open on Escape', () => {
+      render(<GeneratingOverlay />)
+
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('takes focus into the dialog', () => {
+      render(<GeneratingOverlay />)
+
+      expect(screen.getByRole('dialog')).toHaveFocus()
+    })
+
+    it('focuses the control that started the wait once it closes', () => {
+      const returnFocusRef = createRef<HTMLButtonElement>()
+      const { rerender } = render(
+        <>
+          <button ref={returnFocusRef} type="button">
+            Generate
+          </button>
+          <GeneratingOverlay returnFocusRef={returnFocusRef} />
+        </>,
+      )
+      expect(screen.getByRole('dialog')).toHaveFocus()
+
+      rerender(
+        <button ref={returnFocusRef} type="button">
+          Generate
+        </button>,
+      )
+      // Radix restores focus in a timeout after the dialog unmounts.
+      act(() => {
+        vi.runOnlyPendingTimers()
+      })
+
+      expect(screen.getByRole('button', { name: 'Generate' })).toHaveFocus()
+    })
   })
 })

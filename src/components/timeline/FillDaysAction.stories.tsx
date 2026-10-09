@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { assertFocusReturnsAfterWait } from '@/stories/a11y-helpers'
 import {
+  delayedErrorGenerateHandlers,
+  delayedGenerateHandlers,
   errorGenerateHandlers,
   rateLimitGenerateHandlers,
   slowGenerateHandlers,
@@ -46,7 +49,39 @@ export const Generating: Story = {
     const canvas = within(canvasElement)
     const generate = canvas.getByRole('button', { name: /^generate$/i })
     await userEvent.click(generate)
-    await waitFor(() => expect(canvas.getByRole('button', { name: /generating…/i })).toBeDisabled())
+    // The overlay is a modal dialog, so the page under it is `aria-hidden`.
+    await waitFor(() =>
+      expect(canvas.getByRole('button', { name: /generating…/i, hidden: true })).toBeDisabled(),
+    )
+    await expect(
+      within(document.body).getByRole('dialog', { name: /generating your meal plan/i }),
+    ).toBeVisible()
+  },
+}
+
+/** After a plan is generated, focus is back on Generate, not on the body (HON-1130). */
+export const FocusReturnsAfterSuccess: Story = {
+  parameters: {
+    msw: { handlers: delayedGenerateHandlers },
+  },
+  play: async ({ canvasElement }) => {
+    const generate = within(canvasElement).getByRole('button', { name: /^generate$/i })
+    await userEvent.click(generate)
+    await assertFocusReturnsAfterWait(generate)
+  },
+}
+
+/** After a failed generation, focus is back on Generate, next to the error (HON-1130). */
+export const FocusReturnsAfterError: Story = {
+  parameters: {
+    msw: { handlers: delayedErrorGenerateHandlers },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const generate = canvas.getByRole('button', { name: /^generate$/i })
+    await userEvent.click(generate)
+    await assertFocusReturnsAfterWait(generate)
+    await expect(canvas.getByText(/failed to generate meals\. please try again/i)).toBeVisible()
   },
 }
 

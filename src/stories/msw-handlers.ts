@@ -634,6 +634,31 @@ export const timeoutGenerateHandlers: HttpHandler[] = [
 ]
 
 /**
+ * Answer `POST /api/meal-plans/generate` after a short wait, so the
+ * `GeneratingOverlay` opens and takes focus before it closes. Use to assert
+ * focus goes back to Generate afterwards (HON-1130).
+ */
+const GENERATE_WAIT_MS = 300
+
+export const delayedGenerateHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/generate', async () => {
+    await delay(GENERATE_WAIT_MS)
+    return HttpResponse.json({ id: 'plan-1' })
+  }),
+]
+
+/** `delayedGenerateHandlers`, answering with the 500 of `errorGenerateHandlers`. */
+export const delayedErrorGenerateHandlers: HttpHandler[] = [
+  http.post('/api/meal-plans/generate', async () => {
+    await delay(GENERATE_WAIT_MS)
+    return HttpResponse.json(
+      { code: 'generation_failed', error: 'Failed to generate meal plan' },
+      { status: 500 },
+    )
+  }),
+]
+
+/**
  * Hold `POST /api/meal-plans/generate` open. Use to render the `GeneratingOverlay`
  * in `FillDaysAction` / `FirstTimeSetup` stories.
  */
