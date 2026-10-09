@@ -1,523 +1,253 @@
 {
   "task": "cook-question",
   "model": "claude-sonnet-5-5",
-  "recordedAt": "2026-10-07",
-  "commit": "27cf478d",
+  "recordedAt": "2026-10-09",
+  "commit": "b235beab",
   "runs": 3,
   "cases": {
-    "cook-question/en-equipment-no-wok": {
-      "promptHash": "1dd16439f7d2f421ead135a26769f187fa9f00b1d2f71f7c34d900d432858f86",
-      "requestHash": "b39657e3d40000409f95b860b7080421ac2746b37852ee0a1d87597337953296",
+    "cook-question/en-dairy-allergy-creamy-soup": {
+      "promptHash": "8bffb44386523edf6030d9f13f750818658f8ec2d1c449e369cb29caec8a5a47",
+      "requestHash": "c645b64133833edad9128a837efd8dd9b56182096438b4bee18972761222c345",
       "calls": [
         {
-          "caseId": "cook-question/en-equipment-no-wok",
+          "caseId": "cook-question/en-dairy-allergy-creamy-soup",
           "task": "cook-question",
           "run": 1,
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2136.812249999988,
+          "latencyMs": 1704.068459,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1209,
+            "inputTokens": 1156,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 124,
+            "outputTokens": 106,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.003658,
+          "costUsd": 0.003372,
           "errorName": null,
           "errorMessage": null,
-          "output": "Use your largest frying pan instead of the wok; it's used in steps 2 and 3. Because it's smaller, cook the chicken in two batches over high heat, about 5 minutes in total, so it browns rather than steams. Add a splash of your household's vegetable oil for each batch, then stir-fry the broccoli and pepper for 3 minutes before returning the chicken.",
+          "output": "Stir in about 100ml of the household's oat cream after blending, which is dairy-free and gives a silky, creamy finish. Pour it in gradually while the soup is still hot, then taste and add a pinch of salt if needed. Coconut milk would also work, but oat cream keeps the tomato flavour more prominent.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
             "withinLength": 1,
             "withinSentences": 1,
             "offTopicDeclined": null,
-            "avoidsForbidden": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         },
         {
-          "caseId": "cook-question/en-equipment-no-wok",
+          "caseId": "cook-question/en-dairy-allergy-creamy-soup",
           "task": "cook-question",
           "run": 2,
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2345.3059169999906,
+          "latencyMs": 1775.4697499999966,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1209,
+            "inputTokens": 1156,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 134,
+            "outputTokens": 89,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.003758,
+          "costUsd": 0.003202,
           "errorName": null,
           "errorMessage": null,
-          "output": "Use your largest frying pan instead of the wok; it's used in steps 2 and 3. Because it's smaller and flatter, cook the chicken in two batches over high heat, about 5 minutes in total, adding a splash of your household's vegetable oil each time. Then stir-fry the broccoli and peppers for 3 minutes, also in two batches if they crowd the pan, before adding the soy sauce.",
+          "output": "Stir in about 100ml of the household's oat cream after blending, which is dairy-free and will make the soup silkier. Keep the soup on a gentle heat for a minute or two, without letting it boil, so it warms through. Taste and add a pinch of salt if needed.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
             "withinLength": 1,
             "withinSentences": 1,
             "offTopicDeclined": null,
-            "avoidsForbidden": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         },
         {
-          "caseId": "cook-question/en-equipment-no-wok",
+          "caseId": "cook-question/en-dairy-allergy-creamy-soup",
           "task": "cook-question",
           "run": 3,
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2218.655832999968,
+          "latencyMs": 1559.4612079999933,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1209,
+            "inputTokens": 1156,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 136,
+            "outputTokens": 80,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.003778,
+          "costUsd": 0.003112,
           "errorName": null,
           "errorMessage": null,
-          "output": "Use your largest frying pan instead of the wok; it's used in steps 2 and 3. Because it's smaller, cook the chicken in two batches over high heat, about 5 minutes in total, and add a little of the household's vegetable oil to each batch so it browns rather than steams. In step 3, stir-fry the vegetables in the same pan for about 3 minutes, then return the chicken and add the soy sauce.",
+          "output": "Stir in about 100ml of oat cream after blending, which the household has in stock and is dairy-free. Do it with the soup back on a low heat for a minute, so it warms through without boiling. Then taste and add a pinch of salt if needed.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
             "withinLength": 1,
             "withinSentences": 1,
             "offTopicDeclined": null,
-            "avoidsForbidden": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         }
       ]
     },
-    "cook-question/en-follow-up-previous-answer": {
-      "promptHash": "433f08bc9367dc167ab2207c9dc53aee25c8aa165229f74b5b4fae96373dd79d",
-      "requestHash": "2b6ae2bdb3a5dd6f33b53fde5d0523179a9a7ae445dfb14fdbbfd5d3c8b30733",
+    "cook-question/en-egg-allergy-bean-burgers": {
+      "promptHash": "51a36c5794771be56bc8dc4f9a8bd87eb0da35be5fdcaaf9454cbd2c091d621d",
+      "requestHash": "c12ba4eb34a34a054456ca0a054b837c771ddc179099be85e9934e9b8a390179",
       "calls": [
         {
-          "caseId": "cook-question/en-follow-up-previous-answer",
+          "caseId": "cook-question/en-egg-allergy-bean-burgers",
           "task": "cook-question",
           "run": 1,
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1968.4955830000108,
+          "latencyMs": 1895.9609170000003,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1371,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 98,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.003722,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "Use the white wine vinegar the household has, but only a small amount: stir about 1 teaspoon (5ml) into an extra ladle of the hot stock, then add it to the rice. This gives the sharpness the wine would have, and it is strong, so don't add more. Stir until it is absorbed.",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": 1,
-            "withinSentences": 1,
-            "offTopicDeclined": null,
-            "avoidsForbidden": null,
-            "mentionsExpected": 1
-          }
-        },
-        {
-          "caseId": "cook-question/en-follow-up-previous-answer",
-          "task": "cook-question",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 2059.6858749999665,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1371,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 93,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.003672,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "Use the white wine vinegar the household has, but only a small amount: stir 1 teaspoon (about 5ml) into an extra ladle of the hot chicken stock. Add it to the rice the same way and stir until it is absorbed. That gives the sharpness the wine would have added.",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": 1,
-            "withinSentences": 1,
-            "offTopicDeclined": null,
-            "avoidsForbidden": null,
-            "mentionsExpected": 1
-          }
-        },
-        {
-          "caseId": "cook-question/en-follow-up-previous-answer",
-          "task": "cook-question",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 2023.293416999979,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1371,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 97,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.003712,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "Use the white wine vinegar the household has, but only a small amount: stir 1 teaspoon (about 5ml) into an extra ladle of hot chicken stock. Pour it in the same way and stir until it is absorbed. This gives the sharpness the wine would have added without making the rice sour.",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": 1,
-            "withinSentences": 1,
-            "offTopicDeclined": null,
-            "avoidsForbidden": null,
-            "mentionsExpected": 1
-          }
-        }
-      ]
-    },
-    "cook-question/en-nut-allergy-crunch": {
-      "promptHash": "fa101e8661cc1bdc8636233cf403d70f18aa52fc18f7576426b0611238101d29",
-      "requestHash": "70d43b02c9f556e252bdd78af2435a9000890e4c723b3f7d9513dbf18ab2a777",
-      "calls": [
-        {
-          "caseId": "cook-question/en-nut-allergy-crunch",
-          "task": "cook-question",
-          "run": 1,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4714.578375000012,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1181,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 446,
-            "usageMissing": false
-          },
-          "reasoningTokens": 336,
-          "costUsd": 0.006822,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "Sprinkle about 20g of sunflower seeds over the top, as your household has them. Toast them in a dry saucepan over a medium heat for 2 minutes first, then let them cool so they stay crisp and nutty against the sesame oil. Check the packet is labelled nut-free, as some seeds are packed alongside nuts.",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": 1,
-            "withinSentences": 1,
-            "offTopicDeclined": null,
-            "avoidsForbidden": 1,
-            "mentionsExpected": null
-          }
-        },
-        {
-          "caseId": "cook-question/en-nut-allergy-crunch",
-          "task": "cook-question",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4445.883082999964,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1181,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 374,
-            "usageMissing": false
-          },
-          "reasoningTokens": 273,
-          "costUsd": 0.006102,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "Sprinkle on about 20g of sunflower seeds, which the household has in the pantry. They're a seed rather than a nut, and they add a nutty crunch that goes well with sesame oil. Scatter them over just before serving so they stay crisp, and check the packet doesn't say \"may contain nuts\".",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": 1,
-            "withinSentences": 1,
-            "offTopicDeclined": null,
-            "avoidsForbidden": 1,
-            "mentionsExpected": null
-          }
-        },
-        {
-          "caseId": "cook-question/en-nut-allergy-crunch",
-          "task": "cook-question",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 4593.252541999915,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1181,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 421,
-            "usageMissing": false
-          },
-          "reasoningTokens": 300,
-          "costUsd": 0.006572,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "Sprinkle about 20g of sunflower seeds over the top, as the household has them in the pantry. For extra flavour, toast them in a dry saucepan over a medium heat for about 2 minutes, until lightly golden, and let them cool a little. Scatter them over just before serving so they stay crunchy, and check the packet says they're free from nuts and peanuts.",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": 1,
-            "withinSentences": 1,
-            "offTopicDeclined": null,
-            "avoidsForbidden": 1,
-            "mentionsExpected": null
-          }
-        }
-      ]
-    },
-    "cook-question/en-off-topic-football": {
-      "promptHash": "cc4ea2acb2bc0d3393fb5fd8692d6d75d5517defe2864fc11d6922c722b49867",
-      "requestHash": "44491685c56d147ea26939b652eeab92f6e2fe22db0efa562a8251ebf1e39105",
-      "calls": [
-        {
-          "caseId": "cook-question/en-off-topic-football",
-          "task": "cook-question",
-          "run": 1,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 1334.5823749999981,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1114,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 28,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.002508,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "I can only help with this chicken tikka masala, so I can't answer questions about football.",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": null,
-            "withinSentences": null,
-            "offTopicDeclined": 1,
-            "avoidsForbidden": 1,
-            "mentionsExpected": null
-          }
-        },
-        {
-          "caseId": "cook-question/en-off-topic-football",
-          "task": "cook-question",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 1431.3408749999944,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1114,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 28,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.002508,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "I can only help with this chicken tikka masala, so I can't answer questions about football.",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": null,
-            "withinSentences": null,
-            "offTopicDeclined": 1,
-            "avoidsForbidden": 1,
-            "mentionsExpected": null
-          }
-        },
-        {
-          "caseId": "cook-question/en-off-topic-football",
-          "task": "cook-question",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 1349.4362919999985,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1114,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 28,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.002508,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "I can only help with this chicken tikka masala, so I can't answer questions about football.",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": null,
-            "withinSentences": null,
-            "offTopicDeclined": 1,
-            "avoidsForbidden": 1,
-            "mentionsExpected": null
-          }
-        }
-      ]
-    },
-    "cook-question/en-salmon-how-do-i-know-done": {
-      "promptHash": "38c7509c51f148727ce832a9a4435ffe9ded62ea8ff80b0dd51ba48946f1e112",
-      "requestHash": "2d43059621aeb4d9f8e9f6ff78059ac581c69024e0b8d303d367d53f59422dbb",
-      "calls": [
-        {
-          "caseId": "cook-question/en-salmon-how-do-i-know-done",
-          "task": "cook-question",
-          "run": 1,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 2595.3385830000043,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1147,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 119,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.003484,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "The salmon is done when the flesh has turned from translucent deep pink to an opaque, paler pink about three-quarters of the way up the side from the pan. Once you've turned it, press the thickest part gently with the fish slice: it should feel firm but still slightly springy, and flake easily. If the very centre still looks glossy and raw, give it another 30 seconds.",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": 1,
-            "withinSentences": 1,
-            "offTopicDeclined": null,
-            "avoidsForbidden": null,
-            "mentionsExpected": 1
-          }
-        },
-        {
-          "caseId": "cook-question/en-salmon-how-do-i-know-done",
-          "task": "cook-question",
-          "run": 2,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 2453.853000000003,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1147,
-            "cacheReadTokens": 0,
-            "cacheWriteTokens": 0,
-            "outputTokens": 121,
-            "usageMissing": false
-          },
-          "reasoningTokens": 0,
-          "costUsd": 0.003504,
-          "errorName": null,
-          "errorMessage": null,
-          "output": "The salmon is done when the flesh has turned from translucent to opaque pinkish-orange. You'll see the cooked colour creep up the side of the fillet, leaving only a thin, slightly translucent band at the top. Press the thickest part gently with the fish slice: it should flake into firm layers, and if it still looks glossy and raw in the centre, give it another minute.",
-          "scores": {
-            "answered": 1,
-            "metricUnits": 1,
-            "withinLength": 1,
-            "withinSentences": 1,
-            "offTopicDeclined": null,
-            "avoidsForbidden": null,
-            "mentionsExpected": 1
-          }
-        },
-        {
-          "caseId": "cook-question/en-salmon-how-do-i-know-done",
-          "task": "cook-question",
-          "run": 3,
-          "role": "candidate",
-          "model": "claude-sonnet-5-5",
-          "position": 1,
-          "latencyMs": 2422.8341670000227,
-          "attempts": 1,
-          "finishReason": "stop",
-          "usage": {
-            "model": "claude-sonnet-5-5",
-            "inputTokens": 1147,
+            "inputTokens": 1164,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
             "outputTokens": 115,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.003444,
+          "costUsd": 0.003478,
           "errorName": null,
           "errorMessage": null,
-          "output": "Look at the side of the fillet: the flesh turns from translucent to opaque pale pink, and the colour should have crept about two-thirds of the way up before you turn it. After turning, it's done when the thickest part flakes easily when pressed gently with the fish slice and is just opaque in the centre. The skin should be golden and release from the pan without tugging.",
+          "output": "Stir in 2 tbsp of the chickpea flour, which the household has in stock, as it binds well and is egg-free. Mash the beans more thoroughly first and pat them dry with kitchen paper, since wet beans are the usual cause of crumbling. Chill the shaped patties for 10 minutes before frying so they hold together in the pan.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-egg-allergy-bean-burgers",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1882.5669169999965,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1164,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 99,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003318,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use the chickpea flour the household has in stock: stir in about 2 tablespoons (roughly 20g) until the mixture holds together when squeezed. If the mix still looks wet, drain and pat the beans dry first, then chill the shaped patties for 10 minutes before frying so they firm up.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-egg-allergy-bean-burgers",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1972.0892080000049,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1164,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 99,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003318,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Try the chickpea flour the household has in stock: stir in about 2 tbsp (20g) until the mixture holds together when squeezed. If the mix still feels wet, blot the mashed beans with kitchen paper first, then chill the shaped patties for 10 minutes before frying so they firm up.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/en-equipment-no-wok": {
+      "promptHash": "9efb99903150012099ace13228dc5e241fe7540accf943a99b077c52c1770e9a",
+      "requestHash": "b5ed1a960b0028a7b929f3ec3396f0a3a52db55133201f9d2cf443b178204ae4",
+      "calls": [
+        {
+          "caseId": "cook-question/en-equipment-no-wok",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2019.6777080000002,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1291,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 158,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004162,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use a large, wide frying pan instead of the wok for steps 2 and 3, and add a splash of vegetable oil, which the household has in stock. Cook the chicken in two batches over high heat, about 4 minutes each, so the pan isn't crowded and the chicken browns rather than steams. Then return everything to the pan for step 3, adding the broccoli and pepper and stir-frying for about 4 minutes, as the shallower pan cooks the vegetables a little slower.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -525,14 +255,731 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": 1,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-equipment-no-wok",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2168.678583000001,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1291,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 143,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004012,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use a large, deep frying pan in place of the wok for steps 2 and 3, adding a splash of the vegetable oil you have in stock. Cook the chicken in two batches over high heat, about 3 minutes each, so the pan isn't crowded and the chicken browns rather than steams. Then stir-fry the broccoli and pepper for about 3 to 4 minutes, as the flatter base heats the vegetables less evenly.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "avoidsClaims": 1,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-equipment-no-wok",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2040.2982079999929,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1291,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 140,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003982,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use your largest frying pan in place of the wok for steps 2 and 3, and cook the chicken in two batches over high heat, about 4 minutes each, so it browns rather than steams. Use a little of the household's vegetable oil, then return all the chicken to the pan with the broccoli and pepper in step 3. Allow roughly an extra 2 minutes of stir-frying so the broccoli softens in the shallower pan.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "avoidsClaims": 1,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/en-follow-up-previous-answer": {
+      "promptHash": "71a539c5b6dfc06b46076de4d88acb9bc4df56f39726d7ed2826f4fa29eabbed",
+      "requestHash": "f3f462f7227f6ab0c659dff070fecb35778512040879370af79aa7ae81284a33",
+      "calls": [
+        {
+          "caseId": "cook-question/en-follow-up-previous-answer",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1637.772833,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1411,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 101,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003832,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use the white wine vinegar the household has in the pantry. Stir about 1 teaspoon (5ml) into an extra ladle of hot chicken stock, which is also in the pantry. Add it to the rice and stir until absorbed. Vinegar is sharper than wine, so keep to that small amount.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-follow-up-previous-answer",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1550.771084,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1411,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 90,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003722,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use white wine vinegar, which the household has in the pantry. Mix about 1 teaspoon (5ml) into a ladle of the hot chicken stock, then add it to the rice and stir until absorbed. Keep it small, as vinegar is much sharper than wine.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-follow-up-previous-answer",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1771.5669579999958,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1411,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 96,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003782,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use the white wine vinegar the household has in the pantry. Stir in just 1 teaspoon (about 5ml) with an extra ladle of the hot chicken stock, which the household also has, and stir until absorbed. Vinegar is much sharper than wine, so keep to that small amount.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/en-gluten-allergy-thicken-stew": {
+      "promptHash": "507cbaa5ade95d7f0478e3add94f4d52ee6e4170a0518181ef847542657acf24",
+      "requestHash": "f94a310cea60004905a768d498414369534f41b9c4bc6a2661f793c81979fefc",
+      "calls": [
+        {
+          "caseId": "cook-question/en-gluten-allergy-thicken-stew",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1730.0638330000002,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1184,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 114,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003508,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Stir 1 tablespoon of cornflour (the household has it) into 2 tablespoons of cold water until smooth, then stir it into the simmering stew. Let it bubble gently for 2 minutes, stirring, until the sauce thickens. If it's still thin, add a little more of the mixture, as the sauce thickens further as it cools.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-gluten-allergy-thicken-stew",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1756.3919170000008,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1184,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 119,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003558,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Stir 1 tablespoon of cornflour (the household has it) into 2 tablespoons of cold water until smooth. Pour it into the simmering stew, stirring constantly, and let it bubble for 2 minutes. If it's still too thin, mix a little more slurry and repeat. Keep the heat at a gentle simmer so it thickens evenly.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-gluten-allergy-thicken-stew",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1900.7727920000034,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1184,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 104,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003408,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Stir 1 tablespoon of cornflour (the household has it) with 2 tablespoons of cold water until smooth. Pour it into the simmering stew while stirring, then simmer for 2 minutes. If it is still too thin, repeat with a little more slurry, as it thickens fully only once it bubbles.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/en-nut-allergy-crunch": {
+      "promptHash": "75ed842070928bc2f86136ebfddc2ae5239101cd6770c944cc4a60a09bb647f4",
+      "requestHash": "40dc9e97db3ea3db39ba76066ea042a36d24b8687200332ebb1314255e74088d",
+      "calls": [
+        {
+          "caseId": "cook-question/en-nut-allergy-crunch",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3294.126708,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1221,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 301,
+            "usageMissing": false
+          },
+          "reasoningTokens": 217,
+          "costUsd": 0.005452,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Sprinkle on some sunflower seeds, which the household has in the pantry. Use about 20g, scattered over just before serving so they stay crunchy. They're a seed rather than a nut, but check the packet is labelled free from nuts and peanuts.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": null
+          }
+        },
+        {
+          "caseId": "cook-question/en-nut-allergy-crunch",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4195.0145829999965,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1221,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 320,
+            "usageMissing": false
+          },
+          "reasoningTokens": 250,
+          "costUsd": 0.005642,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Sprinkle about 20g of sunflower seeds over the top. The household has them in the pantry, and they give a nutty crunch that suits the sesame oil. Add them at the last moment so they stay crisp.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": null
+          }
+        },
+        {
+          "caseId": "cook-question/en-nut-allergy-crunch",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 3460.1245000000054,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1221,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 318,
+            "usageMissing": false
+          },
+          "reasoningTokens": 237,
+          "costUsd": 0.005622,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Sprinkle on sunflower seeds, which the household has in the pantry. Use about 20g over the three bowls, adding them just before serving so they stay crisp. They're seeds rather than nuts, but do check the packet for any nut warning first.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": null
+          }
+        }
+      ]
+    },
+    "cook-question/en-off-topic-football": {
+      "promptHash": "614f9ecef2cc5f934fc09231ed7bf847ec162f60124ba7b0a232d946f3870c1a",
+      "requestHash": "e6aae7839d28fa15e4592abab17f4cc6a24bc5d3c7a52ee6e72c78914f9e8c8a",
+      "calls": [
+        {
+          "caseId": "cook-question/en-off-topic-football",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1349.265875000001,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1154,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 28,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.002588,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "I can only help with this chicken tikka masala, so I can't answer questions about football.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": null,
+            "withinSentences": null,
+            "offTopicDeclined": 1,
+            "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": null
+          }
+        },
+        {
+          "caseId": "cook-question/en-off-topic-football",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1204.3189999999959,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1154,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 28,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.002588,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "I can only help with this chicken tikka masala, so I can't answer questions about football.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": null,
+            "withinSentences": null,
+            "offTopicDeclined": 1,
+            "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": null
+          }
+        },
+        {
+          "caseId": "cook-question/en-off-topic-football",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1452.7540000000008,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1154,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 28,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.002588,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "I can only help with this chicken tikka masala, so I can't answer questions about football.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": null,
+            "withinSentences": null,
+            "offTopicDeclined": 1,
+            "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": null
+          }
+        }
+      ]
+    },
+    "cook-question/en-salmon-how-do-i-know-done": {
+      "promptHash": "6a4d125713536177b0122be5f5d5ec128f6df9d26ed61ea83671e709dab191eb",
+      "requestHash": "a2d3d5de80f947923a0a9a647c7c9f43bbeece1059c925098113daed13b46156",
+      "calls": [
+        {
+          "caseId": "cook-question/en-salmon-how-do-i-know-done",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2014.5828329999986,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1187,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 115,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003524,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Look at the side of the fillet: the flesh turns from translucent pink to opaque, and the colour climbs up from the pan. After the 4 minutes skin side down, it should be about two-thirds of the way up. Once turned and cooked through, the centre should flake easily with the fish slice and look just slightly translucent, which is perfect for 2 people.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-salmon-how-do-i-know-done",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2049.0250000000015,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1187,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 113,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003504,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Look at the side of the fillet: the flesh turns from translucent to opaque pinkish-orange, climbing up from the skin. After turning, when it's opaque about three-quarters of the way up, the salmon is nearly done. Press the thickest part with the fish slice, and it should flake gently but still look slightly glossy and moist in the centre.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-salmon-how-do-i-know-done",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2247.7092089999933,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1187,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 123,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.003604,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Look at the side of the fillet: the flesh turns from translucent pink to opaque, and the cooked band should creep about two-thirds of the way up before you turn it. At the end, the thickest part should flake easily when pressed with the fish slice and look just opaque, with a slightly translucent centre if you like it succulent. The skin should be crisp and release from the pan without tugging.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/en-soy-allergy-stir-fry-flavour": {
+      "promptHash": "98e69b104274ab3a9477cc7c8c552a5f8c89f449cd9d20b337fab4496680aabe",
+      "requestHash": "f061ee525e9cf22febc8a225072aedaf0f0accfab660b8fef914d9460d19cbd5",
+      "calls": [
+        {
+          "caseId": "cook-question/en-soy-allergy-stir-fry-flavour",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4235.4078340000015,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1177,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 407,
+            "usageMissing": false
+          },
+          "reasoningTokens": 314,
+          "costUsd": 0.006424,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Stir in about 10 ml of fish sauce, which the household has in the pantry, and toss for 20 seconds so it coats the chicken and broccoli. It adds deep savoury flavour, so taste before adding salt. Check the label first to make sure your bottle contains no soy.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-soy-allergy-stir-fry-flavour",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4150.294249999999,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1177,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 433,
+            "usageMissing": false
+          },
+          "reasoningTokens": 353,
+          "costUsd": 0.006684,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "The household has coconut aminos, which is a soy-free savoury seasoning. Stir in about 15ml over the stir-fry and toss for 20 seconds, then taste before adding any salt. Check the label first to make sure it is soy-free.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-soy-allergy-stir-fry-flavour",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 4451.645791000003,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1177,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 423,
+            "usageMissing": false
+          },
+          "reasoningTokens": 330,
+          "costUsd": 0.006584,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Stir in about 15 ml of coconut aminos, which the household has in the pantry and which is soy-free. Toss it through the hot wok for 30 seconds so it clings to the chicken and broccoli and reduces slightly. Taste before adding any salt, as it's already salty.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         }
       ]
     },
     "cook-question/en-substitute-pantry-match": {
-      "promptHash": "eee42a545a742e3de2fd707aa645330cd0eb503e37196beb45bc63bb0144d77f",
-      "requestHash": "9846e68375710fc20b528939c57f87198c080d30ca0275c8dd358cf3d54d18ce",
+      "promptHash": "114dea60f9271f164a76e98854d8f04cff31e8fefb8e253e0981c8daf996999f",
+      "requestHash": "b7645cce3f6c4500821dd5d0f366bb8c5a51f21ef709a9bdb98a71df8ab1bec5",
       "calls": [
         {
           "caseId": "cook-question/en-substitute-pantry-match",
@@ -541,22 +988,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1859.8743749999849,
+          "latencyMs": 1842.021667000001,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1209,
+            "inputTokens": 1249,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 86,
+            "outputTokens": 98,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.003278,
+          "costUsd": 0.003478,
           "errorName": null,
           "errorMessage": null,
-          "output": "Use the Greek yoghurt the household has in place of the sour cream, using the same 200g. It's more likely to split than sour cream, so let the pan cool off the heat for a minute first, then stir it in gently and keep the heat very low. Don't let it boil.",
+          "output": "Use the Greek yoghurt the household has in place of the sour cream, with the same 200g. Since it can curdle more readily than sour cream, keep the pan off the heat and stir it in gently, warming through only on the lowest heat. Stir in a pinch of salt at the end to lift the tang.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -564,6 +1011,7 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         },
@@ -574,22 +1022,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 1792.8131670000148,
+          "latencyMs": 1828.385374999998,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1209,
+            "inputTokens": 1249,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 85,
+            "outputTokens": 88,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.003268,
+          "costUsd": 0.003378,
           "errorName": null,
           "errorMessage": null,
-          "output": "Use the Greek yoghurt the household has in place of the sour cream, using the same 200g. It's more likely to split than sour cream, so let the pan cool for a minute off the heat, then stir it in gently and keep the heat very low. Don't let it boil.",
+          "output": "The best swap for the sour cream is the Greek yoghurt your household has in stock. Use 200g, and since it splits more easily than sour cream, keep the pan off the heat and stir it in gently. Warm everything through on the lowest heat and don't let it bubble.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -597,6 +1045,7 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         },
@@ -607,22 +1056,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 2171.890999999945,
+          "latencyMs": 1659.4180840000045,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1209,
+            "inputTokens": 1249,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 94,
+            "outputTokens": 88,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.003358,
+          "costUsd": 0.003378,
           "errorName": null,
           "errorMessage": null,
-          "output": "Use the Greek yoghurt the household has in place of the sour cream, using the same 200g. It's more likely to split, so keep the pan off the heat, let it cool for a minute, and stir the yoghurt in gently. Warm it through on the lowest heat and don't let it bubble.",
+          "output": "Swap the sour cream for the Greek yoghurt, which the household has in the pantry. Use the same 200g, and stir it in off the heat. Yoghurt splits even more easily than sour cream, so keep the heat very low and stop as soon as everything is warm.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -630,14 +1079,123 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/en-vegetarian-risotto-stock": {
+      "promptHash": "7a8db4edf3e31c4bc2ce2112b4ada7b949e8ea4fa8320eed190a8c2e3e6c6ea7",
+      "requestHash": "c15c74a14e81fdb3d68bf78215d16a56b4151b96634852cb229d702785cc2b09",
+      "calls": [
+        {
+          "caseId": "cook-question/en-vegetarian-risotto-stock",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1508.713208000001,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1205,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 93,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.00334,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Use hot water flavoured with the white miso paste your household has in stock. Stir about 1 tablespoon (roughly 15g) of miso into each 500ml of hot water, then keep adding it a ladle at a time as before. Taste before adding any salt, as miso is already salty.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-vegetarian-risotto-stock",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1650.4393340000097,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1205,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 96,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.00337,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Stir 1 tablespoon (about 15g) of the white miso paste your household has into 1 L of very hot water, which makes a quick substitute stock. Keep it hot in the saucepan and carry on adding it a ladle at a time. Miso is salty, so taste before adding any salt.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/en-vegetarian-risotto-stock",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 1682.3378749999974,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1205,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 112,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.00353,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Stir 1 tablespoon (about 15g) of white miso paste, which the household has in stock, into every 500ml of very hot water, and keep adding it a ladle at a time as before. Miso is salty, so taste before adding any salt. If you want extra depth, a splash of soy sauce (also in your pantry) works, but go lightly.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         }
       ]
     },
     "cook-question/et-equipment-pan-size": {
-      "promptHash": "cb131d0651745317ebd871bcafdb3f125975b28a51d2d6adc0dfb4f6ba564344",
-      "requestHash": "4b8af79853d5accf39fda22025ec02b219b6687158809a8a0f0a635b937f6038",
+      "promptHash": "3a540a1a7ec9dcf471e4244346a1ccaba957dde57f0df5ee78580926a5e72963",
+      "requestHash": "d3419ceac9a7c89e835e98bd33e1888ea91c794c68050ca5df111406d08e0f8d",
       "calls": [
         {
           "caseId": "cook-question/et-equipment-pan-size",
@@ -646,22 +1204,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 10498.635582999996,
+          "latencyMs": 8672.884666999998,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1915,
+            "inputTokens": 1997,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 946,
+            "outputTokens": 874,
             "usageMissing": false
           },
-          "reasoningTokens": 791,
-          "costUsd": 0.01329,
+          "reasoningTokens": 689,
+          "costUsd": 0.012734,
           "errorName": null,
           "errorMessage": null,
-          "output": "Jah, suurus loeb sammudes 3 ja 4: kartulid ja kanakoivad peavad mahtuma ühte kihti, muidu kartulid aurustuvad ega pruunistu. Kasuta väikese plaadi asemel kahte ahjuvormi või plaati korraga, kartulid ühel ja kanakoivad teisel, ning küpseta ikka 45 minutit, vahetades vormide kohad poole peal.",
+          "output": "Jah, sammudes 3 ja 4 on suurus oluline: 1250 g kartulit ja 5 kanakoiba ei mahu väikesele plaadile ühe kihina ning kartulid hauduvad, mitte ei pruunistu. Jaga need kahele väikesele plaadile ja küpseta mõlemat korraga samal 200 °C-l, aeg jääb 45 minutiks. Vaheta plaatide kohad poole küpsetusaja peal, et kõik pruunistuks ühtlaselt.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -669,6 +1227,7 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         },
@@ -679,22 +1238,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 8171.593499999959,
+          "latencyMs": 7002.240250000003,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1915,
+            "inputTokens": 1997,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 722,
+            "outputTokens": 641,
             "usageMissing": false
           },
-          "reasoningTokens": 520,
-          "costUsd": 0.01105,
+          "reasoningTokens": 441,
+          "costUsd": 0.010404,
           "errorName": null,
           "errorMessage": null,
-          "output": "Jah, suurus on oluline: sammudes 3 ja 4 peavad kartulid ja kanakoivad mahtuma ühe kihina, muidu kartulid aurustuvad ega pruunistu. Jaga kõik oma väikese plaadi ja ahjuvormi vahel ning küpseta neid korraga ahju eri restidel, aga vaheta 20 minuti pärast kohad. Kuumus jääb 200 °C-ks, aega lisa vajadusel 5–10 minutit ja kontrolli, et kana sisetemperatuur on 75 °C.",
+          "output": "Jah, suurus on oluline sammudes 3 ja 4: 1250 g kartulit ja 5 kanakoiba ei mahu väikesele plaadile ühe kihina ning kartulid hauduvad, mitte ei pruunistu. Jaga kõik kahe väikese ahjuplaadi vahele, pane need eri restidele ja vaheta plaatide kohad poole küpsetusaja peal. Küpsetusaeg jääb 45 minutiks, kuid kontrolli enne välja võtmist, et kana sisetemperatuur on 75 °C.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -702,6 +1261,7 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         },
@@ -712,22 +1272,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 9471.519208000042,
+          "latencyMs": 8430.966708000007,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1915,
+            "inputTokens": 1997,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 763,
+            "outputTokens": 903,
             "usageMissing": false
           },
-          "reasoningTokens": 588,
-          "costUsd": 0.01146,
+          "reasoningTokens": 743,
+          "costUsd": 0.013024,
           "errorName": null,
           "errorMessage": null,
-          "output": "Jah, suurus on oluline: 1250 g kartulit ja 5 kanakoiba ei mahu väikesele plaadile ühe kihina, ja siis kartulid aurustuvad, mitte ei pruunistu. Sammudes 3 ja 4 jaga kõik kahe ahjukindla vormi või plaadi vahel ning pane need eri riiulitele. Küpseta ikka 45 minutit 200 °C juures ja vaheta vormide kohad poole aja pealt ära.",
+          "output": "Jah, suurus on oluline: sammudes 3 ja 4 peavad kartulid ja kanakoivad mahtuma ühe kihina, muidu kartulid aurustuvad ega pruunistu. Kui sinu plaat on väike, jaga kõik kahele plaadile ja pane need ahjus kahele restile. Sammus 4 jääb küpsetusaeg samaks, aga vaheta plaatide kohad 20 minuti pärast.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -735,14 +1295,123 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/et-fish-allergy-curry-flavour": {
+      "promptHash": "8988fa98db66615923ad9ec3c933c48ec0b579bc7507038ec4403dcdbcd25cf8",
+      "requestHash": "34f5c6e9116520828a7ad3749c715d244abe26322b09be6c0b9c9599b8f69a14",
+      "calls": [
+        {
+          "caseId": "cook-question/et-fish-allergy-curry-flavour",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2367.890709000003,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1826,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 98,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004632,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Lisa karrile sojakastet, sellest on sul kodus olemas. Alusta 1 spl-st, sega läbi ja maitse, vajadusel lisa veel. Sojakaste annab sügavust ja soolasust, nii et soola pole siis enam palju vaja.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/et-fish-allergy-curry-flavour",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2172.2288750000007,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1826,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 90,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004552,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Lisa karrile sojakastet, see on sul olemas. Valage seda 1 spl korraga, sega läbi ja maitse, kuni karri saab sügavama soolasuse. Sojakaste on soolane, nii et soola lisa alles pärast.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/et-fish-allergy-curry-flavour",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2358.1603750000068,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1826,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 100,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004652,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Lisa karrile sojakastet, sul on seda kodus olemas. Alusta 1 spl-ga, sega läbi ja maitse, vajadusel lisa veel veidi. Sojakaste annab soolsust ja sügavust, nii et soola pole siis enam tarvis.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         }
       ]
     },
     "cook-question/et-hakklihakaste-substitute": {
-      "promptHash": "84fb6dc72e9d6721b9c8122a688f37e9e0ef38462524fa7dbf8cdb6455529b2c",
-      "requestHash": "e2d3e7212bcf8b7d1f9fbe484723bf7044fe43ee9ef41ae890d0cad7cacd892e",
+      "promptHash": "d639ae3d1e0dc8dc132d9b5d9bb6194143e8f85aa09a133bbd60ac25b2eac06a",
+      "requestHash": "2547ddbcbafc554a7f76072a816a873f101750dfe571662d1bc7982f8c02a97d",
       "calls": [
         {
           "caseId": "cook-question/et-hakklihakaste-substitute",
@@ -751,22 +1420,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3173.9814999999944,
+          "latencyMs": 2126.6320419999975,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1813,
+            "inputTokens": 1853,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 130,
+            "outputTokens": 114,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.004926,
+          "costUsd": 0.004846,
           "errorName": null,
           "errorMessage": null,
-          "output": "Kasuta hapukoore asemel sama kogus Kreeka jogurtit, 160 g, see on sul olemas. Tõsta pann enne jogurti lisamist tulelt maha ja sega jogurt kaste hulka, siis ei lähe see kuumuse käes kokku. Hauta edasi tasasel tulel ja ära lase kastmel keema minna.",
+          "output": "Kasuta hapukoore asemel sama koguse Kreeka jogurtit, 160 g – see on sul olemas. Tõsta pann enne jogurti lisamist tulelt maha ja sega jogurt kiiresti sisse. Hauta siis väga tasasel tulel, et jogurt ei lähe kokku.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -774,6 +1443,7 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         },
@@ -784,22 +1454,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3045.5011670000385,
+          "latencyMs": 2098.7211249999964,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1813,
+            "inputTokens": 1853,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 124,
+            "outputTokens": 97,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.004866,
+          "costUsd": 0.004676,
           "errorName": null,
           "errorMessage": null,
-          "output": "Kasuta hapukoore asemel sama koguse (160 g) Kreeka jogurtit, seda on sul kodus olemas. Sega jogurt enne pannile lisamist väikese koguse kuuma kastmega ühtlaseks, siis ei lähe see tükki. Hauta tasasel tulel ja ära lase kastmel keema minna.",
+          "output": "Asenda hapukoor Kreeka jogurtiga, seda on sul olemas. Võta sama kogus, 160 g, ja sega see tasasel tulel kastmesse. Ära lase kastmel enam keema minna, muidu jogurt võib kokku kerkida.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -807,6 +1477,7 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         },
@@ -817,22 +1488,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 3010.551291999989,
+          "latencyMs": 2118.05079199998,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1813,
+            "inputTokens": 1853,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 127,
+            "outputTokens": 115,
             "usageMissing": false
           },
           "reasoningTokens": 0,
-          "costUsd": 0.004896,
+          "costUsd": 0.004856,
           "errorName": null,
           "errorMessage": null,
-          "output": "Kasuta hapukoore asemel sama kogus Kreeka jogurtit, 160 g, see on sul olemas. Tõsta pann enne jogurti lisamist tulelt maha ja sega jogurt kastmesse, siis ei lähe see kuumusest kokku. Hauta edasi tasasel tulel ja ära lase kastmel keema minna.",
+          "output": "Kasuta hapukoore asemel sama koguse Kreeka jogurtit, 160 g, see on sul olemas. Tõsta pann enne jogurti lisamist hetkeks tulelt ja sega jogurt rahulikult sisse. Hauta siis tasasel tulel, et jogurt ei lähe kokku.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -840,14 +1511,123 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        }
+      ]
+    },
+    "cook-question/et-sesame-allergy-crunch": {
+      "promptHash": "569846a8a387ef865b44cc2be2a640613ba6f76960d393d4c8fd0d1e1813cc7f",
+      "requestHash": "f8f98d9fec857ce0d30a985a9219a8032282d24a47daad88f0085ab9b2e2b280",
+      "calls": [
+        {
+          "caseId": "cook-question/et-sesame-allergy-crunch",
+          "task": "cook-question",
+          "run": 1,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2156.447291999997,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1846,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 109,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004782,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Puista peale päevalilleseemneid, need on teil olemas. Kui tahad, et need oleksid krõmpsuvamad, kuivata neid kuival pannil paar minutit kergelt kuldseks. Puista need salatile alles vahetult enne serveerimist, siis jäävad krõbedaks.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/et-sesame-allergy-crunch",
+          "task": "cook-question",
+          "run": 2,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2502.851416999998,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1846,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 113,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004822,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Puista peale päevalilleseemneid, need on teil kodus olemas. Kui tahad veel rohkem krõmpsu, rösti neid enne kuival pannil 2–3 minutit, kuni lõhnama hakkavad. Lisa need alles serveerimise hetkel, siis jäävad krõbedaks.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
+            "mentionsExpected": 1
+          }
+        },
+        {
+          "caseId": "cook-question/et-sesame-allergy-crunch",
+          "task": "cook-question",
+          "run": 3,
+          "role": "candidate",
+          "model": "claude-sonnet-5-5",
+          "position": 1,
+          "latencyMs": 2333.3448340000177,
+          "attempts": 1,
+          "finishReason": "stop",
+          "usage": {
+            "model": "claude-sonnet-5-5",
+            "inputTokens": 1846,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 120,
+            "usageMissing": false
+          },
+          "reasoningTokens": 0,
+          "costUsd": 0.004892,
+          "errorName": null,
+          "errorMessage": null,
+          "output": "Puista peale päevalilleseemneid, need on teil kodus olemas. Kui tahad, et need oleksid krõmpsuvamad ja pähklisema maitsega, kuumuta neid enne 2–3 minutit kuival pannil. Puista need salatile alles vahetult enne serveerimist, siis jäävad krõbedaks.",
+          "scores": {
+            "answered": 1,
+            "metricUnits": 1,
+            "withinLength": 1,
+            "withinSentences": 1,
+            "offTopicDeclined": null,
+            "avoidsForbidden": 1,
+            "avoidsClaims": null,
             "mentionsExpected": 1
           }
         }
       ]
     },
     "cook-question/et-time-pressure-lasanje": {
-      "promptHash": "9e5b512083f9be334a2ad28da56fcd34becb971f7ff6ab6e684d48cf1a9ac708",
-      "requestHash": "30873ceed4ed3f4bfd15873980f61c08d450fc066b3488f51c4d55be4819a95d",
+      "promptHash": "cd5be55da983777403829e609bc12ca86e84ea6642f500b743a8fbc7a6da265d",
+      "requestHash": "15bbd79177ede49f19a15145510c6f550bcdf1dd67dbebef6c23050e2797f19e",
       "calls": [
         {
           "caseId": "cook-question/et-time-pressure-lasanje",
@@ -856,22 +1636,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 8763.366915999999,
+          "latencyMs": 7740.658041000002,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1883,
+            "inputTokens": 1923,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 801,
+            "outputTokens": 715,
             "usageMissing": false
           },
-          "reasoningTokens": 624,
-          "costUsd": 0.011776,
+          "reasoningTokens": 543,
+          "costUsd": 0.010996,
           "errorName": null,
           "errorMessage": null,
-          "output": "25 minutiga see valmis ei saa, sest plaadid vajavad pehmenemiseks aega. Kiireim variant on tõsta ahi 200 °C peale ja katta vorm fooliumiga, mis sul on olemas, sest aur pehmendab plaadid kiiremini. Küpseta 30 minutit, võta foolium ära ja pruunista veel 5 minutit. Lase seejärel vaid 5 minutit seista, siis on lasanje laual umbes 40 minuti pärast.",
+          "output": "25 minutiga see valmis ei jõua, sest lasanjeplaadid vajavad pehmenemiseks aega. Kiirenda nii: kata vorm fooliumiga (see on teil olemas) ja küpseta 200 °C juures umbes 30 minutit, viimased 5 minutit ilma fooliumita. Auru all pehmenevad plaadid kiiremini. Lase enne lõikamist vähemalt 5 minutit seista, muidu kihid libisevad laiali.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -879,6 +1659,7 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
             "mentionsExpected": null
           }
         },
@@ -889,22 +1670,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 7377.7597500000265,
+          "latencyMs": 9551.175833000001,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1883,
+            "inputTokens": 1923,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 657,
+            "outputTokens": 762,
             "usageMissing": false
           },
-          "reasoningTokens": 504,
-          "costUsd": 0.010336,
+          "reasoningTokens": 602,
+          "costUsd": 0.011466,
           "errorName": null,
           "errorMessage": null,
-          "output": "25 minutiga ei jõua, sest plaadid vajavad pehmenemiseks vähemalt 30 minutit ja siis veel seismist. Kata vorm fooliumiga (see on sul olemas) ja küpseta 200 °C juures 30 minutit, viimased 5 minutit ilma fooliumita, et pealt kuldub. Lase enne lõikamist 5 minutit seista, siis kihid ei libise laiali.",
+          "output": "Päris 25 minutiga lasanje ei valmi, sest plaadid vajavad pehmenemiseks aega. Kata vorm tihedalt fooliumiga (see on sul olemas) ja küpseta 200 °C juures 30 minutit, siis võta foolium ära ja lase mozzarellal 5 minutit kuldseks minna. Lase enne lõikamist vähemalt 5 minutit seista, et kihid laiali ei libiseks.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -912,6 +1693,7 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
             "mentionsExpected": null
           }
         },
@@ -922,22 +1704,22 @@
           "role": "candidate",
           "model": "claude-sonnet-5-5",
           "position": 1,
-          "latencyMs": 8814.148082999978,
+          "latencyMs": 9025.826417000004,
           "attempts": 1,
           "finishReason": "stop",
           "usage": {
             "model": "claude-sonnet-5-5",
-            "inputTokens": 1883,
+            "inputTokens": 1923,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "outputTokens": 750,
+            "outputTokens": 704,
             "usageMissing": false
           },
-          "reasoningTokens": 588,
-          "costUsd": 0.011266,
+          "reasoningTokens": 586,
+          "costUsd": 0.010886,
           "errorName": null,
           "errorMessage": null,
-          "output": "25 minutiga see ei õnnestu, sest lasanje vajab küpsemiseks ja seismiseks kokku üle poole tunni. Kõige rohkem aitab, kui katad vormi fooliumiga (see on sul olemas) ja küpsetad 200 °C juures 30 minutit, sest aurus pehmenevad plaadid kiiremini. Lase siis 5 minutit seista, nii et söömiseni läheb umbes 35 minutit.",
+          "output": "25 minutiga ei jõua, sest lasanjeplaadid jäävad toored. Kata vorm tihedalt fooliumpaberiga (see on sul olemas) ja küpseta 200 °C juures umbes 30 minutit, siis lase 5 minutit seista. Süüa saad umbes 10 minutit hiljem.",
           "scores": {
             "answered": 1,
             "metricUnits": 1,
@@ -945,6 +1727,7 @@
             "withinSentences": 1,
             "offTopicDeclined": null,
             "avoidsForbidden": null,
+            "avoidsClaims": null,
             "mentionsExpected": null
           }
         }
