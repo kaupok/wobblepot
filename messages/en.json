@@ -698,7 +698,11 @@
       },
       "shop": {
         "title": "Shop once, then cook",
-        "body": "One list of what you're missing, grouped by aisle. At the stove, the steps are on your phone, and you can ask about any of them."
+        "body": "One list of what you're missing, grouped by aisle. At the stove, the steps are on your phone, and you can ask about any of them.",
+        "vignette": {
+          "mozzarella": "Mozzarella",
+          "beef": "Stewing beef"
+        }
       }
     },
     "note": {

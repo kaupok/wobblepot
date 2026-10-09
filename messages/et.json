@@ -698,7 +698,11 @@
       },
       "shop": {
         "title": "Käi korra poes, siis kokka",
-        "body": "Üks nimekiri sellest, mis on puudu, rühmitatud riiulite kaupa. Pliidi juures on sammud telefonis ja iga sammu kohta saab küsida."
+        "body": "Üks nimekiri sellest, mis on puudu, rühmitatud riiulite kaupa. Pliidi juures on sammud telefonis ja iga sammu kohta saab küsida.",
+        "vignette": {
+          "mozzarella": "Mozzarella",
+          "beef": "Hautiseliha"
+        }
       }
     },
     "note": {

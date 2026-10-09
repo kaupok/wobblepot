@@ -107,26 +107,28 @@ export function WeekVignette() {
 }
 
 /**
- * Step 3, "Shop once, then cook": tonight's salmon and lemon to buy, the
- * asparagus already in the basket. Names come from the pantry vignette's
- * catalog keys, so they read in the visitor's language.
+ * Step 3, "Shop once, then cook": what the step 2 week is missing. Thursday's
+ * lemon, the one item the pantry tile (`LandingFeatures`) has to buy; Friday's
+ * mozzarella, already in the basket; Saturday's stewing beef. The salmon and
+ * asparagus are in the pantry, so they are not on the list.
  */
 export function ShoppingVignette() {
-  const t = useTranslations('landing.why.pantry.vignette')
+  const pantry = useTranslations('landing.why.pantry.vignette')
+  const t = useTranslations('landing.how.shop.vignette')
   const locale = useLocale() as Locale
   const items = [
-    { key: 'salmon', quantity: formatWeight(300, locale), done: false },
-    { key: 'asparagus', quantity: formatWeight(250, locale), done: true },
-    { key: 'lemon', quantity: formatInteger(2, locale), done: false },
-  ] as const
+    { name: pantry('lemon'), quantity: formatInteger(1, locale), done: false },
+    { name: t('mozzarella'), quantity: formatWeight(250, locale), done: true },
+    { name: t('beef'), quantity: formatWeight(800, locale), done: false },
+  ]
 
   return (
     <StepRows>
-      {items.map(({ key, quantity, done }) => (
+      {items.map(({ name, quantity, done }) => (
         <StepRow
-          key={key}
-          mark={<Checkbox checked={done} aria-label={t(key)} />}
-          name={t(key)}
+          key={name}
+          mark={<Checkbox checked={done} aria-label={name} />}
+          name={name}
           done={done}
           detail={
             <Body variant="figure-small" tone="muted">
