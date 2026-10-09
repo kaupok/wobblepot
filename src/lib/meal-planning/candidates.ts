@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { findPreferenceConflicts } from '@/lib/meal-planning/preference-conflicts'
 import {
   Allergen,
   DietaryType,
@@ -79,6 +80,9 @@ export interface CandidateMeal {
   netRating?: number
 }
 
+/** How many of a meal's largest components the AI sees as `topIngredients`. */
+const TOP_INGREDIENT_COUNT = 3
+
 /** Thumbs-up count minus thumbs-down count. */
 function netRating(entries: { rating: EntryRating | null }[]): number {
   return entries.reduce((net, e) => net + (e.rating === 'up' ? 1 : e.rating === 'down' ? -1 : 0), 0)
@@ -87,6 +91,10 @@ function netRating(entries: { rating: EntryRating | null }[]): number {
 /**
  * Pre-filter meals by hard constraints before AI selection.
  * Database handles: allergens, excluded ingredients, recent history, protein type.
+ * After the query: the diet, by every ingredient name (HON-1143). The database
+ * filter reads only `primaryProteinType`, so a legume meal with butter or a tofu
+ * meal with pork mince gets through it; `findPreferenceConflicts` is the check
+ * the planner's "Not suitable" badge uses, so the pool and the badge agree.
  * AI handles: variety and final selection from filtered candidates.
  *
  * When householdId is provided, includes both system meals (householdId: null)
@@ -95,9 +103,8 @@ function netRating(entries: { rating: EntryRating | null }[]): number {
 export async function getCandidates(filters: CandidateFilters): Promise<CandidateMeal[]> {
   const favoriteMealIds = new Set(filters.favoriteMealIds ?? [])
   const ratingHouseholdId = filters.includeNetRating ? filters.householdId : undefined
-  const excludedProteinTypes = filters.dietaryType
-    ? getExcludedProteinTypes(filters.dietaryType)
-    : []
+  const dietaryType = filters.dietaryType ?? null
+  const excludedProteinTypes = getExcludedProteinTypes(dietaryType)
 
   const meals = await prisma.meal.findMany({
     where: {
@@ -155,10 +162,12 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
       householdId: true,
       components: {
         orderBy: { quantityPerServing: 'desc' },
-        take: 3,
+        // The diet check reads every ingredient; without a diet only the top ones are used.
+        ...(dietaryType ? {} : { take: TOP_INGREDIENT_COUNT }),
         select: {
+          ingredientId: true,
           ingredient: {
-            select: { name: true, category: true },
+            select: { name: true, category: true, allergens: true },
           },
         },
       },
@@ -175,13 +184,27 @@ export async function getCandidates(filters: CandidateFilters): Promise<Candidat
     },
   })
 
+  // Hard filter: dietary type by ingredient. Only the diet is passed, so only diet conflicts
+  // can come back; allergens stay with the structured filter in the query above.
+  const allowed = dietaryType
+    ? meals.filter(
+        (meal) =>
+          !findPreferenceConflicts(meal, {
+            dietaryType,
+            allergensToAvoid: [],
+            excludedIngredients: [],
+            excludedIngredientIds: [],
+          }).some((conflict) => conflict.kind === 'diet'),
+      )
+    : meals
+
   // Transform to CandidateMeal format
-  const candidates = meals.map((meal) => ({
+  const candidates = allowed.map((meal) => ({
     id: meal.id,
     name: meal.name,
     kidFriendly: meal.kidFriendly,
     primaryProteinType: meal.primaryProteinType,
-    topIngredients: meal.components.map((c) => ({
+    topIngredients: meal.components.slice(0, TOP_INGREDIENT_COUNT).map((c) => ({
       name: c.ingredient.name,
       category: c.ingredient.category,
     })),
