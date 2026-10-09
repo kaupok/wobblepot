@@ -288,6 +288,30 @@ describe('OnboardingFlow', () => {
         expect(screen.queryByRole('button', { name: 'Edit Emma' })).not.toBeInTheDocument()
       })
 
+      it('finishes a named row when Tab moves past Done to Remove', async () => {
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+        await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma')
+        await userEvent.tab()
+        await userEvent.tab()
+
+        expect(screen.queryByLabelText('Child 1 name')).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Edit Emma' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Remove Emma' })).toHaveFocus()
+      })
+
+      it('keeps the row open when Shift+Tab moves from Done back to the field', async () => {
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+        await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma')
+        await userEvent.tab()
+        await userEvent.tab({ shift: true })
+
+        expect(screen.getByLabelText('Child 1 name')).toHaveFocus()
+      })
+
       it('keeps focus on Remove when Tab moves to it from a finished row', async () => {
         await goToStep2()
 

@@ -181,18 +181,32 @@ function MemberRow({
   disabled,
 }: MemberRowProps) {
   const t = useTranslations('onboarding')
+  const inputRef = useRef<HTMLInputElement>(null)
   const doneRef = useRef<HTMLButtonElement>(null)
   const typed = member.name.trim()
   const label = typed || defaultName
 
+  // Leaving the open field or its Done finishes a named row, so Continue
+  // straight from the field works and Tab past Done shows the name. Not on a
+  // move between the two: finishing removes both while one takes focus. Not
+  // when the window loses focus either (another app or tab): the browser
+  // returns focus to the field, which must still be there.
+  const handleLeave = (next: EventTarget | null, sibling: HTMLElement | null) => {
+    if (!typed || next === sibling || !document.hasFocus()) return
+    onCommit()
+  }
+
   // Remove is the last child in both states, so it stays the same element and
-  // keeps focus when Tab from the field finishes the row on the way to it.
+  // keeps focus when Tab past Done finishes the row on the way to it.
   return (
     <li className="flex items-center gap-2">
       {member.editing ? (
         <>
           <Input
-            ref={fieldRef}
+            ref={(el) => {
+              inputRef.current = el
+              fieldRef(el)
+            }}
             type="text"
             value={member.name}
             onChange={(e) => onNameChange(e.target.value)}
@@ -203,15 +217,7 @@ function MemberRow({
               e.preventDefault()
               onDone()
             }}
-            onBlur={(e) => {
-              // Leaving a named field finishes it, so Continue straight from the
-              // field works. Not on the way to Done: that would remove Done
-              // while it takes focus, and Done finishes the row itself. Not
-              // when the window loses focus either (another app or tab): the
-              // browser returns focus to the field, which must still be there.
-              if (!typed || e.relatedTarget === doneRef.current || !document.hasFocus()) return
-              onCommit()
-            }}
+            onBlur={(e) => handleLeave(e.relatedTarget, doneRef.current)}
             placeholder={defaultName}
             disabled={disabled}
             maxLength={100}
@@ -228,6 +234,7 @@ function MemberRow({
             // finish the row and remove this button before the click lands.
             onMouseDown={(e) => e.preventDefault()}
             onClick={onDone}
+            onBlur={(e) => handleLeave(e.relatedTarget, inputRef.current)}
             disabled={disabled}
             aria-label={t('doneMemberAria', { label })}
           >
