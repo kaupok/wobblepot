@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
@@ -55,6 +55,7 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
   const tFill = useTranslations('meal-plan.fillDays')
   const tErrors = useTranslations('meal-plan.errors')
   const [days, setDays] = useState('7')
+  const generateRef = useRef<HTMLButtonElement>(null)
 
   const dateRangeLabel = useMemo(() => {
     const start = parseLocalDate(startDate)
@@ -131,7 +132,7 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
 
   return (
     <>
-      {isGenerating && <GeneratingOverlay />}
+      {isGenerating && <GeneratingOverlay returnFocusRef={generateRef} />}
       <div className="bg-muted/50 flex flex-col gap-2 rounded-lg border p-4">
         {/* Below `sm` the label takes its own line and the select and Generate
             wrap under it; at 390px the three did not fit in one row and
@@ -154,7 +155,12 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
                 ))}
               </SelectContent>
             </Select>
-            <Button className="sm:ml-auto" onClick={handleFill} disabled={isGenerating}>
+            <Button
+              ref={generateRef}
+              className="sm:ml-auto"
+              onClick={handleFill}
+              disabled={isGenerating}
+            >
               {isGenerating ? tFill('submitting') : tFill('submit')}
             </Button>
           </div>

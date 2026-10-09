@@ -54,6 +54,20 @@ export async function assertTabStaysInDialog(count = 10): Promise<void> {
   }
 }
 
+/**
+ * For a dialog that opens while a request runs and closes when it ends
+ * (`GeneratingOverlay`): waits for it to take focus, then to unmount, and
+ * asserts focus is back on `control`. The control is disabled while the
+ * dialog is open, so Chromium would otherwise leave focus on the body.
+ */
+export async function assertFocusReturnsAfterWait(control: HTMLElement): Promise<void> {
+  await assertFocusInDialog()
+  await awaitDialogClosed()
+  await waitFor(() => {
+    expect(document.activeElement).toBe(control)
+  })
+}
+
 /** Presses Escape. Closes Radix dialogs and fires `onOpenChange(false)`. */
 export async function pressEscape(): Promise<void> {
   await userEvent.keyboard('{Escape}')

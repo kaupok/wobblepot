@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import axe from 'axe-core'
-import { expect, waitFor, within } from 'storybook/test'
+import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import { TimelineView } from '@/components/timeline/TimelineView'
 import {
@@ -11,6 +11,7 @@ import {
   timelineTodayDate,
   urgentShoppingItems,
 } from '@/stories/fixtures'
+import { assertFocusInDialog, assertTabStaysInDialog, pressEscape } from '@/stories/a11y-helpers'
 import { GeneratingOverlay } from './GeneratingOverlay'
 
 const meta = {
@@ -28,9 +29,33 @@ export const Default: Story = {
     docs: {
       description: {
         story:
-          'Fixed full-screen overlay with a spinner and rotating progress messages. After 10s without change it switches to a “taking longer” fallback.',
+          'Full-screen modal dialog with a spinner and rotating progress messages. After 10s without change it switches to a “taking longer” fallback. It has no close button: Escape and clicks do nothing.',
       },
     },
+  },
+}
+
+// HON-1130: the wait cannot be cancelled, so the dialog traps focus and
+// ignores Escape and clicks on the scrim. It has no focusable control, so
+// Radix focuses the dialog itself and Tab keeps it there.
+export const FocusTrap: Story = {
+  play: async () => {
+    const body = within(document.body)
+    const dialog = await body.findByRole('dialog', { name: 'Generating your meal plan…' })
+    await expect(dialog).toHaveAccessibleDescription('Analyzing your preferences…')
+    await expect(body.getByRole('status')).toHaveAttribute('aria-live', 'polite')
+
+    await assertFocusInDialog()
+    await assertTabStaysInDialog()
+    for (let i = 0; i < 3; i++) {
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+      await expect(dialog.contains(document.activeElement)).toBe(true)
+    }
+
+    await pressEscape()
+    await userEvent.click(dialog)
+    await expect(body.getByRole('dialog')).toBe(dialog)
+    await expect(dialog.contains(document.activeElement)).toBe(true)
   },
 }
 
@@ -43,12 +68,13 @@ export const ReducedMotion: Story = {
   globals: {
     reducedMotion: 'on',
   },
-  play: async ({ canvasElement }) => {
+  play: async () => {
     await waitFor(() => {
       expect(document.documentElement.getAttribute('data-reduced-motion')).toBe('true')
     })
 
-    const spinner = canvasElement.querySelector('.animate-spin')
+    // The dialog renders in a portal, outside the canvas.
+    const spinner = document.body.querySelector('.animate-spin')
     expect(spinner).not.toBeNull()
 
     const style = window.getComputedStyle(spinner as Element)
@@ -94,10 +120,10 @@ function OverTimeline() {
 // `passes`. axe blends the backgrounds behind the scrim, not the page's text
 // that shows faintly through it — if that text starts fighting the copy, raise
 // the scrim's opacity; do not bring the blur back or add a card behind it.
-async function assertScrimOverTimeline({ canvasElement }: { canvasElement: HTMLElement }) {
-  const canvas = within(canvasElement)
-  const heading = canvas.getByRole('heading', { name: 'Generating your meal plan…' })
-  const status = canvas.getByText('Analyzing your preferences…')
+async function assertScrimOverTimeline() {
+  const body = within(document.body)
+  const heading = body.getByRole('heading', { name: 'Generating your meal plan…' })
+  const status = body.getByText('Analyzing your preferences…')
   await expect(heading).toBeVisible()
   await expect(status).toBeVisible()
 

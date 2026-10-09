@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Card, CardContent } from '@/components/ui/card'
@@ -24,17 +25,17 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
   const tFirst = useTranslations('meal-plan.firstTime')
   const tToday = useTranslations('today')
   const plan = useGenerateFirstPlan({ onGenerated: () => router.refresh() })
+  const generateRef = useRef<HTMLButtonElement>(null)
 
   return (
     <>
-      {/* Today's page title, as in `TimelineView` (HON-815). Ahead of the
-          overlay, whose own heading is an h2. */}
+      {/* Today's page title, as in `TimelineView` (HON-815). */}
       <div className="sr-only">
         <Heading variant="h4" as="h1">
           {tToday('pageTitle')}
         </Heading>
       </div>
-      {plan.isGenerating && <GeneratingOverlay />}
+      {plan.isGenerating && <GeneratingOverlay returnFocusRef={generateRef} />}
       <div className="min-h-screen-below-header-gutters flex w-full items-center justify-center px-4 py-8">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center gap-6 pt-8 pb-8">
@@ -58,6 +59,7 @@ export function FirstTimeSetup({ userName }: FirstTimeSetupProps) {
             {plan.error && <FieldError>{plan.error}</FieldError>}
 
             <Button
+              ref={generateRef}
               onClick={plan.generate}
               disabled={plan.isGenerating}
               size="lg"
