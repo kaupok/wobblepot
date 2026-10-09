@@ -98,8 +98,10 @@ export function RecipesPageClient() {
 
   const isSearchEmpty = debouncedSearch !== '' && !isLoading && !error && meals.length === 0
   // Nothing to search and nothing to count: the page drops both and the empty
-  // state offers Create (HON-1128).
-  const isLibraryEmpty = debouncedSearch === '' && !isLoading && meals.length === 0
+  // state offers Create (HON-1128). Not on a failed load, and not while pages
+  // remain after the loaded cards were deleted: the library is not empty then.
+  const isLibraryEmpty =
+    debouncedSearch === '' && !isLoading && !error && !hasNextPage && meals.length === 0
 
   return (
     // A list page: container shell, title on the background, top-aligned, no
@@ -182,11 +184,13 @@ export function RecipesPageClient() {
             onToggleFavorite={handleToggleFavorite}
             emptyFocusRef={emptyFocusRef}
             emptyAction={
-              <Button asChild>
-                <Link ref={setEmptyFocusTarget} href="/recipes/create">
-                  {tLibrary('createButton')}
-                </Link>
-              </Button>
+              isLibraryEmpty ? (
+                <Button asChild>
+                  <Link ref={setEmptyFocusTarget} href="/recipes/create">
+                    {tLibrary('createButton')}
+                  </Link>
+                </Button>
+              ) : undefined
             }
           />
           {hasNextPage ? (

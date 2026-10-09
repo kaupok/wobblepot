@@ -243,9 +243,15 @@ export const ErrorState: Story = {
     docs: {
       description: {
         story:
-          'Endpoint returns a 500 — `useInfiniteQuery` surfaces no data; the page falls through to the empty-list state.',
+          'Endpoint returns a 500 — `useInfiniteQuery` surfaces no data. The search stays and the empty state offers no Create: a failed load is not an empty library (HON-1128).',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await waitFor(() => expect(canvas.queryByText('Loading…')).toBeNull())
+    await expect(canvas.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible()
+    await expect(canvas.getAllByRole('link', { name: 'Create recipe' })).toHaveLength(1)
   },
 }
 

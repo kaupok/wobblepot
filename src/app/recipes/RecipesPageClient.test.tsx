@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { householdMealList } from '@/stories/fixtures'
 import { RecipesPageClient } from './RecipesPageClient'
@@ -58,6 +58,21 @@ describe('RecipesPageClient actions and empty library', () => {
     // The header actions stay, so Import and Imagine are not lost.
     expect(screen.getByRole('link', { name: 'Import recipe' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Imagine a meal' })).toBeInTheDocument()
+  })
+
+  it('keeps the search and offers no empty-state Create when the load fails', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Failed to fetch meals' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    render(<RecipesPageClient />, createQueryWrapper())
+
+    await waitFor(() => expect(screen.queryByText('Loading…')).toBeNull())
+    expect(screen.getByRole('searchbox', { name: 'Search recipes' })).toBeInTheDocument()
+    // Only the header's outline Create: a failed load is not an empty library.
+    expect(screen.getAllByRole('link', { name: 'Create recipe' })).toHaveLength(1)
   })
 })
 
