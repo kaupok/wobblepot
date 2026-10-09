@@ -61,7 +61,7 @@ To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough
 | `/sign-up`               | Public        | Sign up with a private-beta invite code (redirects to `/` or `/onboarding` if already signed in)   |
 | `/forgot-password`       | Public        | Request a password reset email                                                                     |
 | `/reset-password`        | Public        | Set a new password from the emailed reset link                                                     |
-| `/invite/[code]`         | Auth          | Join a household via invite link (signed out → `/sign-in?returnUrl=…`; unknown code → 404)         |
+| `/invite/[code]`         | Public        | Join a household via invite link (signed out → Create account or Sign in; unknown code → 404)      |
 | `/past-meals`            | Auth          | The past 7 days, newest first, to mark meals cooked or skipped; linked from Today's notice         |
 | `/onboarding`            | Auth          | Create-household form for new accounts (redirects to `/` once a household exists)                  |
 | `/recipes`               | Auth          | My recipes — meal library browser                                                                  |

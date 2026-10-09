@@ -810,6 +810,8 @@
       "requestInvite": "Don't have one? <link>Ask for an invite</link>.",
       "inviteCodeLabel": "Invite code",
       "inviteCodeHint": "Paste the code from your invitation.",
+      "householdInvite": "You join this household: <strong>{householdName}</strong>",
+      "householdInviteLabel": "Household invite",
       "slowRequest": "This is taking longer than expected. Please wait…",
       "navigationFailed": "Account created successfully, but navigation failed. Please refresh the page."
     },
@@ -883,6 +885,11 @@
         "action": "Join household",
         "actionNamed": "Join as {memberName}",
         "joining": "Joining…"
+      },
+      "signedOut": {
+        "subtext": "Create an account to join. You don't need an invite code.",
+        "createAccount": "Create account",
+        "signIn": "Sign in"
       },
       "errors": {
         "alreadyInHousehold": "You are already a member of a household.",
@@ -1044,6 +1051,7 @@
       "termsNotAccepted": "To create an account, accept the terms of service and privacy policy.",
       "inviteCodeRequired": "An invite code is required to sign up while we are in private beta.",
       "inviteCodeInvalid": "That invite code is invalid, expired, or has already been used.",
+      "householdInviteInvalid": "This invite link no longer works. Ask the household owner for a new one.",
       "invalidCredentials": "The email or password you entered is incorrect. Please try again.",
       "incorrectPassword": "The password you entered is incorrect. Please try again.",
       "accountAlreadyExists": "An account with this email address already exists. Try signing in instead.",

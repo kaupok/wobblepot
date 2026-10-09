@@ -21,13 +21,12 @@ test.describe('Anonymous access to protected routes', () => {
     expect(response.headers()['location']).toContain('/sign-in?returnUrl=%2Fprofile')
   })
 
-  test('invite links redirect before the invite card streams', async ({ request }) => {
+  // A signed-out invitee must see the invite card, which offers Create account
+  // as well as Sign in, so `/invite` is public (HON-1131).
+  test('household invite links are not redirected to sign-in', async ({ request }) => {
     const response = await request.get('/invite/does-not-exist', { maxRedirects: 0 })
 
-    expect(response.status()).toBe(307)
-    expect(response.headers()['location']).toContain(
-      '/sign-in?returnUrl=%2Finvite%2Fdoes-not-exist',
-    )
+    expect(response.headers()['location'] ?? '').not.toContain('/sign-in')
   })
 
   test('public routes are unaffected', async ({ request }) => {

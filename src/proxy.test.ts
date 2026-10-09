@@ -319,11 +319,19 @@ describe('proxy — protected-route redirect (HON-599)', () => {
   })
 
   it('preserves the query string in returnUrl', async () => {
-    await run('https://wobblepot.dev/invite/abc?x=1')
+    await run('https://wobblepot.dev/household/members?x=1')
 
     expect(nextMock.redirect?.location).toBe(
-      'https://wobblepot.dev/sign-in?returnUrl=%2Finvite%2Fabc%3Fx%3D1',
+      'https://wobblepot.dev/sign-in?returnUrl=%2Fhousehold%2Fmembers%3Fx%3D1',
     )
+  })
+
+  // A signed-out invitee must see the invite card, which offers Create account
+  // as well as Sign in (HON-1131). The page owns the session check.
+  it('does not redirect an anonymous household invite link', async () => {
+    await run('https://wobblepot.dev/invite/abc123')
+
+    expect(nextMock.redirect).toBeNull()
   })
 
   it('redirects nested paths under a protected prefix', async () => {
@@ -345,10 +353,10 @@ describe('proxy — protected-route redirect (HON-599)', () => {
   })
 
   it('keeps real query params when stripping _rsc', async () => {
-    await run('https://wobblepot.dev/invite/abc?x=1&_rsc=1f2a3b')
+    await run('https://wobblepot.dev/household/members?x=1&_rsc=1f2a3b')
 
     expect(nextMock.redirect?.location).toBe(
-      'https://wobblepot.dev/sign-in?returnUrl=%2Finvite%2Fabc%3Fx%3D1',
+      'https://wobblepot.dev/sign-in?returnUrl=%2Fhousehold%2Fmembers%3Fx%3D1',
     )
   })
 

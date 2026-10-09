@@ -12,6 +12,7 @@
 
 export type AuthErrorKey =
   | 'termsNotAccepted'
+  | 'householdInviteInvalid'
   | 'inviteCodeRequired'
   | 'inviteCodeInvalid'
   | 'invalidCredentials'
@@ -58,6 +59,11 @@ export function getAuthErrorKey(message: string): AuthErrorKey | null {
   // Invite-code errors (must come before the CSRF/forbidden branch — the
   // backend throws these as APIError('FORBIDDEN', ...) and the keyword
   // 'forbidden' would otherwise swallow them into the generic CSRF copy).
+  // A household invite link that no longer admits a sign-up (HON-1131):
+  // `HOUSEHOLD_INVITE_INVALID_MESSAGE` in `src/lib/signup-codes.ts`.
+  if (lowerMessage.includes('household invite')) {
+    return 'householdInviteInvalid'
+  }
   if (lowerMessage.includes('invite code is required')) {
     return 'inviteCodeRequired'
   }

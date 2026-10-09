@@ -10,6 +10,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
 import { ApiError, apiFetch } from '@/lib/api'
+import { householdInvitePath } from '@/lib/household-invite-link'
 
 /** The route's error body: `error` is a machine-readable code, `message` English prose. */
 interface JoinErrorBody {
@@ -18,7 +19,8 @@ interface JoinErrorBody {
 }
 
 interface JoinHouseholdCardProps {
-  status: 'valid' | 'invalid' | 'already_member'
+  /** `signed_out`: a valid invite seen by a visitor with no session (HON-1131). */
+  status: 'valid' | 'signed_out' | 'invalid' | 'already_member'
   householdName: string
   memberName: string | null
   code: string
@@ -128,8 +130,73 @@ export function JoinHouseholdCard({
     )
   }
 
+  if (status === 'signed_out') {
+    // The invitee has no account yet. The household invite admits them
+    // without a sign-up code, so Create account comes first; Sign in returns
+    // here once signed in, to the signed-in card.
+    const signInHref = `/sign-in?returnUrl=${encodeURIComponent(householdInvitePath(code))}`
+    return (
+      <Card className="w-full max-w-md">
+        <InviteDetails
+          householdName={householdName}
+          memberName={memberName}
+          subtext={t('signedOut.subtext')}
+        />
+        <CardFooter>
+          <div className="flex w-full flex-col gap-2">
+            <Button asChild className="w-full">
+              <Link href={`/sign-up?invite=${encodeURIComponent(code)}`}>
+                {t('signedOut.createAccount')}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full">
+              <Link href={signInHref}>{t('signedOut.signIn')}</Link>
+            </Button>
+          </div>
+        </CardFooter>
+      </Card>
+    )
+  }
+
   return (
     <Card className="w-full max-w-md">
+      <InviteDetails
+        householdName={householdName}
+        memberName={memberName}
+        subtext={memberName ? t('valid.subtextMember') : t('valid.subtextHouseholdOnly')}
+      />
+      <CardFooter>
+        <div className="flex w-full flex-col gap-4">
+          {error && <FieldError>{error}</FieldError>}
+          <Button onClick={handleJoin} disabled={isLoading} className="w-full">
+            {isLoading
+              ? t('valid.joining')
+              : memberName
+                ? t('valid.actionNamed', { memberName })
+                : t('valid.action')}
+          </Button>
+        </div>
+      </CardFooter>
+    </Card>
+  )
+}
+
+/**
+ * The header and body of a valid invite: the same two names, whether the
+ * visitor is signed in or not (HON-1131). Only the subtext differs.
+ */
+function InviteDetails({
+  householdName,
+  memberName,
+  subtext,
+}: {
+  householdName: string
+  memberName: string | null
+  subtext: string
+}) {
+  const t = useTranslations('auth.invite')
+  return (
+    <>
       <CardHeader>
         <Heading as="h1" variant="h4">
           {memberName ? t('valid.titleNamed', { memberName }) : t('valid.title')}
@@ -152,23 +219,9 @@ export function JoinHouseholdCard({
                   strong: (chunks) => <strong>{chunks}</strong>,
                 })}
           </Body>
-          <Body variant="muted">
-            {memberName ? t('valid.subtextMember') : t('valid.subtextHouseholdOnly')}
-          </Body>
+          <Body variant="muted">{subtext}</Body>
         </div>
       </CardContent>
-      <CardFooter>
-        <div className="flex w-full flex-col gap-4">
-          {error && <FieldError>{error}</FieldError>}
-          <Button onClick={handleJoin} disabled={isLoading} className="w-full">
-            {isLoading
-              ? t('valid.joining')
-              : memberName
-                ? t('valid.actionNamed', { memberName })
-                : t('valid.action')}
-          </Button>
-        </div>
-      </CardFooter>
-    </Card>
+    </>
   )
 }

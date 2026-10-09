@@ -168,3 +168,37 @@ describe('JoinHouseholdCard page heading', () => {
     expect(screen.getByRole('heading', { level: 1, name: title })).toBe(headings[0])
   })
 })
+
+describe('JoinHouseholdCard for a signed-out visitor (HON-1131)', () => {
+  it('names the household and member, with Create account first and Sign in second', () => {
+    renderInLocale(
+      <JoinHouseholdCard
+        status="signed_out"
+        householdName="Smith Family"
+        memberName="Partner"
+        code="Ab3_x-9Kq2Lm"
+      />,
+      'en',
+    )
+
+    expect(screen.getByRole('heading', { name: 'Join as Partner' })).toBeInTheDocument()
+    expect(screen.getByText('Smith Family')).toBeInTheDocument()
+
+    const links = screen.getAllByRole('link')
+    expect(links.map((link) => link.textContent)).toEqual(['Create account', 'Sign in'])
+    expect(links[0]).toHaveAttribute('href', '/sign-up?invite=Ab3_x-9Kq2Lm')
+    expect(links[1]).toHaveAttribute('href', '/sign-in?returnUrl=%2Finvite%2FAb3_x-9Kq2Lm')
+    // No join button: there is no session to join with.
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('renders the Estonian copy', () => {
+    renderInLocale(
+      <JoinHouseholdCard status="signed_out" householdName="Kõrv" memberName="Mari" code="abc" />,
+      'et',
+    )
+
+    expect(screen.getByRole('link', { name: 'Loo konto' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Logi sisse' })).toBeInTheDocument()
+  })
+})

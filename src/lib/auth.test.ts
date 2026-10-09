@@ -11,6 +11,7 @@ import { CURRENT_TERMS_VERSION } from './consent'
 import { isPasswordBreached } from './breached-password'
 import { linkUsedBy, releaseClaim } from '@/lib/signup-codes'
 import { clearWaitlistForNewUser } from '@/lib/waitlist'
+import { joinHouseholdFromSignUp } from '@/lib/household-invite'
 
 // Mock the prisma module
 vi.mock('@/lib/prisma', () => ({
@@ -29,6 +30,10 @@ vi.mock('@/lib/signup-codes', () => ({
 
 vi.mock('@/lib/waitlist', () => ({
   clearWaitlistForNewUser: vi.fn(),
+}))
+
+vi.mock('@/lib/household-invite', () => ({
+  joinHouseholdFromSignUp: vi.fn(),
 }))
 
 describe('hashPasswordWithBreachCheck', () => {
@@ -112,6 +117,20 @@ describe('afterEmailSignUp', () => {
     expect(vi.mocked(linkUsedBy).mock.invocationCallOrder[0]!).toBeLessThan(
       vi.mocked(clearWaitlistForNewUser).mock.invocationCallOrder[0]!,
     )
+  })
+
+  it('joins the household from an invite-link sign-up (HON-1131)', async () => {
+    const body = { householdInviteCode: 'Ab3_x-9Kq2Lm' }
+
+    await afterEmailSignUp(body, 'user_1')
+
+    expect(joinHouseholdFromSignUp).toHaveBeenCalledWith(body, 'user_1')
+  })
+
+  it('does not try to join a household when sign-up failed', async () => {
+    await afterEmailSignUp({ householdInviteCode: 'Ab3_x-9Kq2Lm' }, undefined)
+
+    expect(joinHouseholdFromSignUp).not.toHaveBeenCalled()
   })
 
   it('releases the claimed code and touches no waitlist request when sign-up failed', async () => {

@@ -2,9 +2,21 @@ import 'server-only'
 import { APIError } from 'better-auth/api'
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { getServerFlag, type FlagKey } from '@/lib/feature-flags'
+import {
+  findHouseholdInvite,
+  getHouseholdInviteCodeFromBody,
+  getInviteValidity,
+} from '@/lib/household-invite'
 
 export const INVITE_CODE_REQUIRED_MESSAGE = 'An invite code is required.'
 export const INVITE_CODE_INVALID_MESSAGE = 'This invite code is invalid, expired, or already used.'
+/**
+ * Its own message, not {@link INVITE_CODE_INVALID_MESSAGE}: the sign-up form
+ * maps it to its own catalog copy (`getAuthErrorKey` matches "household
+ * invite"), which tells the visitor to ask the household owner for a new link.
+ */
+export const HOUSEHOLD_INVITE_INVALID_MESSAGE =
+  'This household invite link is invalid, expired, or already used.'
 
 const INVITE_FLAG: FlagKey = 'invite_code_required'
 
@@ -29,6 +41,15 @@ export function getInviteCodeFromBody(body: unknown): string {
  * unexpired. Postgres serializes concurrent updates on the same row, so
  * exactly one concurrent caller wins.
  *
+ * A household invite stands in for the sign-up code (HON-1131): the owner is
+ * vouching for the invitee. With `householdInviteCode` on the body, the
+ * request passes only if that invite is claimable now (`getInviteValidity`,
+ * the same checks the join route makes), and no `SignupCode` is claimed. The
+ * invite is not claimed here, because no user exists yet; the after-hook
+ * claims it (`afterEmailSignUp` in `src/lib/auth.ts`). Each link still admits
+ * one account: the claim deletes the invite, so a second sign-up on the same
+ * link finds no invite and is refused here.
+ *
  * Throws `APIError('FORBIDDEN', ...)` when the gate rejects the request —
  * Better Auth converts that into a 403 response.
  */
@@ -40,6 +61,15 @@ export async function validateAndClaimInviteCode(
   const getFlag = options.getFlag ?? getServerFlag
 
   if (!(await getFlag(INVITE_FLAG, 'anonymous'))) return
+
+  const householdCode = getHouseholdInviteCodeFromBody(body)
+  if (householdCode) {
+    const invite = await findHouseholdInvite(householdCode, db)
+    if (!invite || getInviteValidity(invite) !== 'valid') {
+      throw new APIError('FORBIDDEN', { message: HOUSEHOLD_INVITE_INVALID_MESSAGE })
+    }
+    return
+  }
 
   const code = getInviteCodeFromBody(body)
   if (!code) {

@@ -110,6 +110,13 @@ describe('getAuthErrorKey', () => {
       )
     })
 
+    it('maps the household invite message to its own key (HON-1131)', () => {
+      // Verbatim HOUSEHOLD_INVITE_INVALID_MESSAGE from src/lib/signup-codes.ts.
+      expect(
+        getAuthErrorKey('This household invite link is invalid, expired, or already used.'),
+      ).toBe('householdInviteInvalid')
+    })
+
     it('takes precedence over the generic Forbidden mapping', () => {
       // Better Auth wraps the throw in a FORBIDDEN response; without the
       // ordering in auth-errors.ts the keyword "forbidden" upstream of the

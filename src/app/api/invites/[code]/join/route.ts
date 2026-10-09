@@ -1,62 +1,15 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { Prisma } from '@/generated/prisma/client'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { isMembershipConflict, runHouseholdClaim } from '@/lib/household-claim'
+import {
+  AlreadyInHouseholdError,
+  InviteNoLongerClaimableError,
+  inviteMembershipClaim,
+  isMembershipConflict,
+  runHouseholdClaim,
+} from '@/lib/household-claim'
+import { findHouseholdInvite, getInviteValidity } from '@/lib/household-invite'
 import { captureApiError } from '@/lib/errors'
-
-/**
- * The user already belongs to a household, so this invite cannot claim a
- * second member row for them. The unique index on `household_member."userId"`
- * is what actually keeps one user out of two households (HON-696); this
- * check is what turns the common case into a clean 400 before any write, and
- * a loser the index rejects instead (`P2002`) is mapped to the same 400 in the
- * catch below. See `runHouseholdClaim` for the per-user lock that makes the
- * check race-free.
- *
- * Thrown rather than returned because the check runs inside the same
- * transaction that claims the member row — throwing is the only way to roll
- * that claim back. The outer `catch` turns it into the same 400 the
- * standalone check used to return directly; `JoinHouseholdCard` branches on
- * that exact `error` string, so the body must not drift.
- */
-class AlreadyInHouseholdError extends Error {
-  constructor() {
-    super('You are already a member of a household')
-    this.name = 'AlreadyInHouseholdError'
-  }
-}
-
-/**
- * The invite read at the top of the handler is no longer claimable by the
- * time the transaction runs: a concurrent join consumed it, or its member row
- * was deleted (which cascade-deletes the invite — see `HouseholdInvite.member`
- * `onDelete: Cascade`). Both writes below are count-checked rather than
- * allowed to raise `P2025`, so this is the single signal for "the row the
- * claim was built on is gone".
- *
- * Mapped to the existing `invite_invalid` 400 rather than the `invite_not_found`
- * 404: the code *did* resolve, so "not found" is the wrong diagnosis, and
- * "expired or already used" is simply accurate for the loser of a race on a
- * single-use link.
- *
- * The client copy no longer turns on the choice. Before HON-697,
- * `JoinHouseholdCard` had a translated branch for `invite_invalid` and none
- * for `invite_not_found`, so the 404 rendered this route's English `message`
- * verbatim to an Estonian user. It now ignores the server prose entirely and
- * renders the same translated string for both codes — the 404 is the commoner
- * way to lose the same race (a click after the winner's claim committed misses
- * at `findUnique`; see the expiry check below), so the two describe one
- * situation to the user. Keep them distinct on the wire regardless: logs and
- * PostHog want them apart.
- */
-class InviteNoLongerClaimableError extends Error {
-  constructor() {
-    super('The invite was consumed before this request could claim it')
-    this.name = 'InviteNoLongerClaimableError'
-  }
-}
 
 export async function POST(_request: Request, { params }: { params: Promise<{ code: string }> }) {
   const session = await auth.api.getSession({
@@ -74,28 +27,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
     // transaction: the claim's own count checks are what make it single-use,
     // so re-reading the invite inside the callback would only widen the
     // transaction's footprint.
-    const invite = await prisma.householdInvite.findUnique({
-      where: { code },
-      include: {
-        household: {
-          select: {
-            id: true,
-            name: true,
-            // Non-empty while the owner's account is pending deletion — see
-            // the check below. `take: 1`: only its presence matters.
-            members: {
-              where: { role: 'owner', user: { deletedAt: { not: null } } },
-              select: { id: true },
-              take: 1,
-            },
-          },
-        },
-        member: {
-          select: { id: true, name: true },
-        },
-      },
-    })
+    const invite = await findHouseholdInvite(code)
 
+    // A used invite no longer exists, because claiming it deletes the row, so
+    // a second join on the same code lands here rather than on a validity
+    // check (HON-680).
     if (!invite) {
       return NextResponse.json(
         {
@@ -106,104 +42,33 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       )
     }
 
-    // Validate invite is still active. Expiry is the only condition to check:
-    // an invite that has been used no longer exists, because claiming it
-    // deletes the row (see the `deleteMany` in the claim callback below), so a
-    // second join on the same code falls through to the `invite_not_found` 404
-    // above rather than reaching here.
-    const now = new Date()
-    const isExpired = invite.expiresAt < now
-
-    if (isExpired) {
+    // Every reason maps to the same `invite_invalid` 400, so an invitee is not
+    // told that the owner is pending account deletion (HON-881).
+    // `JoinHouseholdCard` branches on that exact `error` string.
+    const validity = getInviteValidity(invite)
+    if (validity !== 'valid' || !invite.memberId || !invite.member) {
+      if (validity === 'owner_pending_deletion') {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[invites/join] refused invite ${invite.id}: household ${invite.household.id} owner is pending account deletion`,
+        )
+      }
       return NextResponse.json(
         {
           error: 'invite_invalid',
-          message: 'This invite has expired or has already been used.',
+          message:
+            validity === 'expired'
+              ? 'This invite has expired or has already been used.'
+              : 'This invite is no longer valid.',
         },
         { status: 400 },
       )
     }
 
-    // Member-specific invites must have a memberId
-    if (!invite.memberId || !invite.member) {
-      return NextResponse.json(
-        {
-          error: 'invite_invalid',
-          message: 'This invite is no longer valid.',
-        },
-        { status: 400 },
-      )
-    }
-
-    // The owner has asked to delete their account. Members without an account
-    // do not block that request, and the purge deletes them with the household
-    // (HON-881) — so claiming one now would add an account holder the purge
-    // then leaves in a household with no owner. Refuse with the same body an
-    // expired invite gets: the invitee is not told the owner is leaving. If the
-    // owner cancels, recovery clears `deletedAt` and this link works again.
-    if (invite.household.members.length > 0) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[invites/join] refused invite ${invite.id}: household ${invite.household.id} owner is pending account deletion`,
-      )
-      return NextResponse.json(
-        {
-          error: 'invite_invalid',
-          message: 'This invite is no longer valid.',
-        },
-        { status: 400 },
-      )
-    }
-
-    const memberId = invite.memberId
-    const inviteId = invite.id
+    // `runHouseholdClaim` holds this user's row lock for the whole claim; see
+    // `inviteMembershipClaim` for why that keeps one user in one household.
     const userId = session.user.id
-
-    // Claim the existing member profile instead of creating a new one. The
-    // "already in a household" check runs on `tx`, and `runHouseholdClaim`
-    // holds this user's row lock for the whole transaction, so two concurrent
-    // joins with different valid codes cannot both observe "no membership" and
-    // both commit (HON-679, HON-838). The unique index on `"userId"` backs that
-    // up unconditionally (HON-696).
-    const claimMembership = async (tx: Prisma.TransactionClient) => {
-      const existingMembership = await tx.householdMember.findFirst({
-        where: { userId },
-      })
-
-      if (existingMembership) {
-        throw new AlreadyInHouseholdError()
-      }
-
-      // `updateMany` with `userId: null`, not `update`: this is a claim of an
-      // *unclaimed* row, and expressing that as a conditional write means a
-      // member row that a concurrent join already claimed matches nothing
-      // instead of being silently overwritten. It also avoids `P2025` when the
-      // row is gone entirely, which `update` would raise and the catch below
-      // would turn into a 500.
-      const claimed = await tx.householdMember.updateMany({
-        where: { id: memberId, userId: null },
-        data: { userId },
-      })
-
-      if (claimed.count === 0) {
-        throw new InviteNoLongerClaimableError()
-      }
-
-      // Deleting the invite is what makes it single-use: there is no uses
-      // counter, so the absence of the row is the whole enforcement (HON-680).
-      // Count-checked for the same reason as the claim above: the loser of a
-      // race for one shared link must get the `invite_invalid` 400, not a
-      // `P2025` that falls through to a 500.
-      const consumed = await tx.householdInvite.deleteMany({
-        where: { id: inviteId },
-      })
-
-      if (consumed.count === 0) {
-        throw new InviteNoLongerClaimableError()
-      }
-    }
-
-    await runHouseholdClaim(userId, claimMembership)
+    await runHouseholdClaim(userId, inviteMembershipClaim(userId, invite.memberId, invite.id))
 
     return NextResponse.json({
       success: true,

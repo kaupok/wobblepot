@@ -7,6 +7,8 @@ import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
 import { useAuthErrorMessage } from '@/lib/auth-errors-client'
 import { getValidReturnUrl } from '@/lib/utils'
+import { apiFetch } from '@/lib/api'
+import { householdInvitePath } from '@/lib/household-invite-link'
 import { track } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { Callout } from '@/components/ui/callout'
@@ -18,13 +20,46 @@ import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
+/** A valid household invite the visitor came from (HON-1131). */
+export interface SignUpHouseholdInvite {
+  code: string
+  householdName: string
+}
+
 interface SignUpFormProps {
   inviteRequired: boolean
   inviteCodeLabel: string
   inviteCodeHint: string
+  /**
+   * Set when the visit carries a valid household invite. The invite stands in
+   * for the sign-up code, so the code field is hidden, and the sign-up joins
+   * the household (`afterEmailSignUp` in `src/lib/auth.ts`).
+   */
+  householdInvite?: SignUpHouseholdInvite | null
 }
 
-export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: SignUpFormProps) {
+/**
+ * Where an invite-link sign-up goes next. The after-hook's claim never fails
+ * the sign-up, so a lost race (another sign-up on the same link) still returns
+ * success: ask for the membership to tell the two apart. Joined → `/`, the
+ * inviter's meal plan, not onboarding. Not joined → the invite page, which
+ * shows why.
+ */
+async function householdInviteDestination(code: string): Promise<string> {
+  try {
+    await apiFetch('/api/households/me')
+    return '/'
+  } catch {
+    return householdInvitePath(code)
+  }
+}
+
+export function SignUpForm({
+  inviteRequired,
+  inviteCodeLabel,
+  inviteCodeHint,
+  householdInvite = null,
+}: SignUpFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = getValidReturnUrl(searchParams.get('returnUrl'))
@@ -42,6 +77,13 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
   const [isLoading, setIsLoading] = useState(false)
   const [isSlowRequest, setIsSlowRequest] = useState(false)
   const { ref: submitRef, requestRefocus } = useRefocusAfterPending(isLoading)
+  // An invitee who has an account after all signs in and comes back to the
+  // invite, wherever they entered sign-up from.
+  const signInReturnUrl = householdInvite ? householdInvitePath(householdInvite.code) : returnUrl
+  const signInHref =
+    signInReturnUrl !== '/'
+      ? `/sign-in?returnUrl=${encodeURIComponent(signInReturnUrl)}`
+      : '/sign-in'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,18 +117,25 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
       // user row, so it is intentionally not in `additionalFields`. The same
       // applies to `acceptedTerms`: the server validates the flag and stamps
       // `acceptedTermsAt` + `acceptedTermsVersion` itself (HON-457).
+      // A household invite replaces the sign-up code: the before-hook checks
+      // it, and the after-hook joins the household (HON-1131).
       const payload: Record<string, unknown> = { email, password, name, acceptedTerms }
-      if (inviteRequired) {
+      if (householdInvite) {
+        payload.householdInviteCode = householdInvite.code
+      } else if (inviteRequired) {
         payload.inviteCode = inviteCode
       }
       await authClient.signUp.email(payload as Parameters<typeof authClient.signUp.email>[0], {
-        onSuccess: () => {
+        onSuccess: async () => {
           // Fire-and-forget analytics; HON-476 wires `auth:sign_up` into the
           // funnel taxonomy. Awaiting would make a slow PostHog request gate
           // the redirect, so we intentionally drop the promise.
           void track('auth:sign_up', {})
+          const destination = householdInvite
+            ? await householdInviteDestination(householdInvite.code)
+            : returnUrl
           try {
-            router.push(returnUrl)
+            router.push(destination)
             router.refresh()
             isNavigating = true
           } catch {
@@ -126,17 +175,26 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
       <form onSubmit={handleSubmit}>
         <CardContent>
           <div className="flex flex-col gap-4">
-            {inviteRequired && (
-              <Callout role="note" aria-label={t('privateBetaNoticeLabel')}>
-                {t('privateBetaBanner')}{' '}
-                {t.rich('requestInvite', {
-                  link: (chunks) => (
-                    <Link href="/request-invite" className="underline">
-                      {chunks}
-                    </Link>
-                  ),
+            {householdInvite ? (
+              <Callout role="note" aria-label={t('householdInviteLabel')}>
+                {t.rich('householdInvite', {
+                  householdName: householdInvite.householdName,
+                  strong: (chunks) => <strong>{chunks}</strong>,
                 })}
               </Callout>
+            ) : (
+              inviteRequired && (
+                <Callout role="note" aria-label={t('privateBetaNoticeLabel')}>
+                  {t('privateBetaBanner')}{' '}
+                  {t.rich('requestInvite', {
+                    link: (chunks) => (
+                      <Link href="/request-invite" className="underline">
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
+                </Callout>
+              )
             )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">{t('nameLabel')}</Label>
@@ -187,7 +245,7 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
                 {t('passwordHint')}
               </Body>
             </div>
-            {inviteRequired && (
+            {inviteRequired && !householdInvite && (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="inviteCode">{inviteCodeLabel}</Label>
                 <Input
@@ -268,14 +326,7 @@ export function SignUpForm({ inviteRequired, inviteCodeLabel, inviteCodeHint }: 
             </Button>
             <Body variant="muted" className="text-center">
               {t('alreadyHaveAccount')}{' '}
-              <Link
-                href={
-                  returnUrl !== '/'
-                    ? `/sign-in?returnUrl=${encodeURIComponent(returnUrl)}`
-                    : '/sign-in'
-                }
-                className="text-primary hover:underline"
-              >
+              <Link href={signInHref} className="text-primary hover:underline">
                 {t('signInLink')}
               </Link>
             </Body>
