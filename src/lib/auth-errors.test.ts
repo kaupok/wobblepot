@@ -47,6 +47,12 @@ describe('getAuthErrorKey', () => {
       expect(getAuthErrorKey('Password minimum length not met')).toBe('passwordTooShort')
     })
 
+    // Better Auth's `PASSWORD_TOO_LONG` (HON-1142).
+    it('handles password too long error', () => {
+      expect(getAuthErrorKey('Password too long')).toBe('passwordTooLong')
+      expect(getAuthErrorKey('Password exceeds maximum length')).toBe('passwordTooLong')
+    })
+
     it('handles weak password error', () => {
       expect(getAuthErrorKey('Password is too weak')).toBe('passwordWeak')
       expect(getAuthErrorKey('Weak password provided')).toBe('passwordWeak')

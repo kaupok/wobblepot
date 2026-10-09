@@ -74,6 +74,14 @@ describe('ResetPasswordForm', () => {
       expect(confirmPassword).toHaveAttribute('autocomplete', 'new-password')
     })
 
+    // Better Auth's `maxPasswordLength`, so the browser stops input at the limit.
+    it('caps both password fields at 128 characters', () => {
+      render(<ResetPasswordForm />)
+
+      expect(screen.getByLabelText(/new password/i)).toHaveAttribute('maxlength', '128')
+      expect(screen.getByLabelText(/confirm password/i)).toHaveAttribute('maxlength', '128')
+    })
+
     // The hint under the field and the label already say what a placeholder would.
     it('renders the password fields without placeholders, with the hint', () => {
       render(<ResetPasswordForm />)

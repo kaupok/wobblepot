@@ -127,6 +127,13 @@ describe('SignUpForm', () => {
       expect(password).toHaveAttribute('autocomplete', 'new-password')
     })
 
+    // Better Auth's `maxPasswordLength`, so the browser stops input at the limit.
+    it('caps the password at 128 characters', () => {
+      renderForm()
+
+      expect(screen.getByLabelText('Password')).toHaveAttribute('maxlength', '128')
+    })
+
     it('renders sign up button', () => {
       renderForm()
 

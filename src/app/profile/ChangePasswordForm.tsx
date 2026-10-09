@@ -13,6 +13,7 @@ import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
 const MIN_PASSWORD_LENGTH = 12
+const MAX_PASSWORD_LENGTH = 128
 
 /**
  * Changes the password of the signed-in user. `revokeOtherSessions` signs out
@@ -119,6 +120,7 @@ export function ChangePasswordForm() {
             required
             disabled={isLoading}
             minLength={MIN_PASSWORD_LENGTH}
+            maxLength={MAX_PASSWORD_LENGTH}
             aria-describedby="new-password-hint"
           />
           <Body id="new-password-hint" variant="muted">
@@ -137,6 +139,7 @@ export function ChangePasswordForm() {
             required
             disabled={isLoading}
             minLength={MIN_PASSWORD_LENGTH}
+            maxLength={MAX_PASSWORD_LENGTH}
           />
         </div>
         {error && <FieldError>{error}</FieldError>}
