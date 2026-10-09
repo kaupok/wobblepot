@@ -714,6 +714,7 @@ describe('the cook-question allergen cases', () => {
         'Do not use soy sauce; add fish sauce and lime.',
         // Run 1 of the HON-1135 check.
         'It adds a savoury depth and is a soy-free alternative to soy sauce.',
+        'It adds a salty, savoury depth much like soy sauce, without the soy.',
       ],
     },
     'en-vegetarian-risotto-stock': {

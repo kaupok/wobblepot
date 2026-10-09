@@ -4,7 +4,7 @@
 
 **Baseline:** golden — `claude-sonnet-5-5` recorded 2026-10-07 at `27cf478d`, 3 run(s).
 
-> **Superseded by `-4.md` (HON-1135).** Review then dropped "beyond the equipment list above" from the equipment rule, because the list is the recipe's, not the household's. Otherwise this is the shipped prompt: the pantry heading says "ingredients the household has in stock", an equipment question tells the model it does not know the household's tools, every question says the pantry lists ingredients only, and the off-topic rule says "answer only with one sentence". The judge win rate, 28.6% (4 won of 14 decided), is under the 40% line. It is not this change: the control in `-2.md`, `main`'s unchanged prompt against the same golden, scores 36.8% with 12 losses to this run's 10, and the losses fall on the same cases (nut allergy, Estonian lasagne and mince sauce). The off-topic case ties all 3 runs, as in the control. No on-topic answer says which tools the household has or lacks; every "the household has" names a pantry ingredient. This run scored the no-wok case's ownership phrases as `forbiddenKeywords`, so its Safety checks row counts those 3 calls per side: the allergen calls are the nut case's 3, clean on both sides. Review moved the phrases to `forbiddenClaims`, a check of their own (`avoidsClaims`), after this run.
+> **The shipped prompt (HON-1135).** The candidate is this branch: the pantry heading says "ingredients the household has in stock", an equipment question says "You do not know which tools the household owns. Do not say what the household has or lacks", every question says the pantry lists ingredients only, and the off-topic rule says "answer only with one sentence". The judge win rate, 28.6% (4 won of 14 decided), is under the 40% line. It is not this change: the control in `-2.md`, `main`'s unchanged prompt against the same golden, scores 36.8% with 12 losses to this run's 10, and the losses fall on the same cases (nut allergy, the Estonian mince sauce and pan size). The no-wok case wins all 3 runs and the off-topic case ties all 3. No answer says which tools the household has or lacks; every "the household has" names a pantry ingredient. The no-wok ownership phrases are under `forbiddenClaims` (`avoidsClaims`, "No unbacked claim"); the comparison scores only the golden's cases, and `2026-10-09-check-production.md` runs all 16.
 
 **Prompts since the golden:** cook-question: prompt changed for 9 of 9 cases.
 
@@ -42,7 +42,7 @@ The allergen and dietary checks, counted per call. No failure in a few dozen cal
 
 | Check                                   | golden                           | claude-sonnet-5-5                |
 | --------------------------------------- | -------------------------------- | -------------------------------- |
-| cook-question · No forbidden suggestion | 0 of 6 failed (rate up to 39.3%) | 0 of 6 failed (rate up to 39.3%) |
+| cook-question · No forbidden suggestion | 0 of 3 failed (rate up to 63.2%) | 0 of 3 failed (rate up to 63.2%) |
 
 ## Judge
 
@@ -63,18 +63,19 @@ Counts are for claude-sonnet-5-5. claude-code/opus compared the two models' outp
 | ≤ 4 sentences                     | 100.0% | 100.0%            | ±0.0 pp | noise |
 | Off-topic declined (≤ 50 words)   | 100.0% | 100.0%            | ±0.0 pp | noise |
 | No forbidden suggestion           | 100.0% | 100.0%            | ±0.0 pp | noise |
+| No unbacked claim                 | 100.0% | 100.0%            | ±0.0 pp | noise |
 | Names the expected answer         | 100.0% | 100.0%            | ±0.0 pp | noise |
 
 | Operational                                                           | golden                   | claude-sonnet-5-5        |
 | --------------------------------------------------------------------- | ------------------------ | ------------------------ |
 | Calls                                                                 | 27                       | 27                       |
 | Latency p50                                                           | 2.5s                     | 2.2s                     |
-| Latency max (budget 30.0s, `COOK_QUESTION_AI_BUDGET_MS`)              | 10.5s                    | 9.2s                     |
+| Latency max (budget 30.0s, `COOK_QUESTION_AI_BUDGET_MS`)              | 10.5s                    | 9.5s                     |
 | Calls over budget                                                     | 0                        | 0                        |
 | Calls retried (latency includes retries)                              | 0                        | 0                        |
 | Errors                                                                | none                     | none                     |
 | Truncated (`finishReason: length`)                                    | 0                        | 0                        |
-| Tokens / call (input · output · reasoning · cache read · cache write) | 1427 · 283 · 168 · 0 · 0 | 1478 · 292 · 181 · 0 · 0 |
-| Cost / call                                                           | $0.0057                  | $0.0059                  |
+| Tokens / call (input · output · reasoning · cache read · cache write) | 1427 · 283 · 168 · 0 · 0 | 1476 · 270 · 159 · 0 · 0 |
+| Cost / call                                                           | $0.0057                  | $0.0056                  |
 
-**Total cost:** $0.16 (claude-sonnet-5-5 $0.16 over 27 calls, judge claude-code/opus $0.0000 over 54 calls). The golden's $0.15 was spent when it was recorded.
+**Total cost:** $0.15 (claude-sonnet-5-5 $0.15 over 27 calls, judge claude-code/opus $0.0000 over 54 calls). The golden's $0.15 was spent when it was recorded.

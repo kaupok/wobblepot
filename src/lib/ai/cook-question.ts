@@ -131,7 +131,7 @@ export function buildCookQuestionPrompt(input: CookQuestionRequestInput): string
 - Name the steps that use this piece of equipment, by number.${stepWord}
 - When you suggest a substitute for it, pick something most kitchens have, and say what changes in those steps (time, heat, or cooking in batches) in the same sentence that names them.
 - Do not suggest buying anything.
-- You do not know which tools the household owns beyond the equipment list above. Do not say what the household has or lacks; suggest the substitute and let the cook decide.`
+- You do not know which tools the household owns. Do not say what the household has or lacks; suggest the substitute and let the cook decide.`
   const notes = preparationNotes?.trim()
     ? `\n\nThe household's own notes on this meal:\n${preparationNotes.trim()}`
     : ''

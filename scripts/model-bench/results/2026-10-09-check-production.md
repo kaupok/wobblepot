@@ -22,7 +22,7 @@ Each gate holds a metric's mean over all runs, with the run-to-run range in brac
 | cook-question | No forbidden suggestion         | 100.0%   | ≥ 100.0%                                      | pass   |
 | cook-question | No unbacked claim               | 100.0%   | ≥ 60.0%                                       | pass   |
 | cook-question | Names the expected answer       | 100.0%   | ≥ 90.0%                                       | pass   |
-| cook-question | Max latency                     | 11.8s    | ≤ 24.0s (80% of `COOK_QUESTION_AI_BUDGET_MS`) | pass   |
+| cook-question | Max latency                     | 20.1s    | ≤ 24.0s (80% of `COOK_QUESTION_AI_BUDGET_MS`) | pass   |
 
 ## cook-question
 
@@ -41,12 +41,12 @@ Each gate holds a metric's mean over all runs, with the run-to-run range in brac
 | --------------------------------------------------------------------- | ------------------------ |
 | Calls                                                                 | 48                       |
 | Latency p50                                                           | 2.2s                     |
-| Latency max (budget 30.0s, `COOK_QUESTION_AI_BUDGET_MS`)              | 11.8s                    |
+| Latency max (budget 30.0s, `COOK_QUESTION_AI_BUDGET_MS`)              | 20.1s                    |
 | Calls over budget                                                     | 0                        |
 | Calls retried (latency includes retries)                              | 0                        |
 | Errors                                                                | none                     |
 | Truncated (`finishReason: length`)                                    | 0                        |
-| Tokens / call (input · output · reasoning · cache read · cache write) | 1429 · 231 · 125 · 0 · 0 |
-| Cost / call                                                           | $0.0052                  |
+| Tokens / call (input · output · reasoning · cache read · cache write) | 1428 · 224 · 116 · 0 · 0 |
+| Cost / call                                                           | $0.0051                  |
 
-**Total cost:** $0.25 over 48 calls.
+**Total cost:** $0.24 over 48 calls.

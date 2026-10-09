@@ -156,9 +156,10 @@ describe('buildCookQuestionPrompt', () => {
         'say what changes in those steps (time, heat, or cooking in batches) in the same sentence that names them.',
       )
       expect(rules).toContain('- Do not suggest buying anything.')
-      // The app records no equipment, so an answer must not say what the household owns (HON-1135).
+      // The app records no equipment, so an answer must not say what the household
+      // owns. The equipment list is the recipe's, so the rule must not except it (HON-1135).
       expect(rules).toContain(
-        '- You do not know which tools the household owns beyond the equipment list above. Do not say what the household has or lacks; suggest the substitute and let the cook decide.',
+        '- You do not know which tools the household owns. Do not say what the household has or lacks; suggest the substitute and let the cook decide.',
       )
     })
 
@@ -174,7 +175,7 @@ describe('buildCookQuestionPrompt', () => {
       expect(rules).toContain('- Answer only about this meal and step 3.')
       expect(rules).not.toContain('piece of equipment')
       expect(rules).not.toContain('buying')
-      expect(rules).not.toContain('beyond the equipment list')
+      expect(rules).not.toContain('which tools the household owns')
     })
 
     it('calls the earlier question one about the item', () => {
