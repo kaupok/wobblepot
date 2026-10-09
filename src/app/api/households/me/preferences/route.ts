@@ -137,12 +137,22 @@ export async function PATCH(request: Request) {
     // A food save says how many planned meals now break the preferences, so
     // the toast can tell the household to look (HON-1126). It reads only: the
     // plan never changes by itself. The meal-types save sends no food field.
+    // The preferences are stored by now, so a failed count is logged and the
+    // save still succeeds: the cards are marked on Today either way.
     if (FOOD_FIELDS.some((field) => parsed.data[field] !== undefined)) {
-      const conflictingEntries = await countConflictingPlannedEntries(
-        membership.household,
-        preferences,
-      )
-      return NextResponse.json({ ...preferences, conflictingEntries })
+      try {
+        const conflictingEntries = await countConflictingPlannedEntries(
+          membership.household,
+          preferences,
+        )
+        return NextResponse.json({ ...preferences, conflictingEntries })
+      } catch (error) {
+        captureApiError(error, {
+          route: '/api/households/me/preferences',
+          userId: session.user.id,
+          householdId: membership.household.id,
+        })
+      }
     }
 
     return NextResponse.json(preferences)

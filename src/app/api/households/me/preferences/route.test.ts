@@ -530,4 +530,21 @@ describe('PATCH /api/households/me/preferences', () => {
     expect(data.conflictingEntries).toBeUndefined()
     expect(mockCountConflicts).not.toHaveBeenCalled()
   })
+
+  it('still reports the save when the conflict count fails', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockUpsert.mockResolvedValue({ ...mockPreferences, allergensToAvoid: ['nuts'] } as never)
+    mockCountConflicts.mockRejectedValue(new Error('connection reset'))
+
+    const response = await PATCH(createRequest({ allergensToAvoid: ['nuts'] }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.allergensToAvoid).toEqual(['nuts'])
+    expect(data.conflictingEntries).toBeUndefined()
+  })
 })
