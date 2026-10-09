@@ -414,6 +414,7 @@
       "loading": "Loading…",
       "imagineButton": "Imagine a meal",
       "importButton": "Import recipe",
+      "createButton": "Create recipe",
       "loadMore": "Load more",
       "loadingMore": "Loading…",
       "emptySearch": "No recipes found matching \"{query}\"",
@@ -606,8 +607,7 @@
       }
     },
     "list": {
-      "emptyHeading": "No recipes yet",
-      "emptyBody": "Create your first recipe to get started",
+      "emptyBody": "No recipes yet. Add a family favourite, import one from a link, or imagine one.",
       "addToFavoritesAria": "Add to favourites",
       "removeFromFavoritesAria": "Remove from favourites",
       "moreActions": "More actions: {name}",

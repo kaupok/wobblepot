@@ -1,4 +1,80 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import { createQueryWrapper } from '@/test/query-wrapper'
+import { householdMealList } from '@/stories/fixtures'
+import { RecipesPageClient } from './RecipesPageClient'
+
+vi.stubGlobal('fetch', vi.fn())
+
+function mockMeals(meals: unknown[]) {
+  vi.mocked(fetch).mockResolvedValue(
+    new Response(JSON.stringify({ meals, nextCursor: null }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  )
+}
+
+describe('RecipesPageClient actions and empty library', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('offers Import as the one primary action, with Create and Imagine outline', async () => {
+    mockMeals(householdMealList)
+    render(<RecipesPageClient />, createQueryWrapper())
+
+    await screen.findByRole('searchbox', { name: 'Search recipes' })
+    const importLink = screen.getByRole('link', { name: 'Import recipe' })
+    const group = within(importLink.parentElement!)
+    const links = group.getAllByRole('link')
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/recipes/import',
+      '/recipes/create',
+      '/recipes/imagine',
+    ])
+    expect(links.map((link) => link.dataset.variant)).toEqual(['default', 'outline', 'outline'])
+    // A populated library has no empty-state Create.
+    expect(screen.getAllByRole('link', { name: 'Create recipe' })).toHaveLength(1)
+  })
+
+  it('hides the search and the count and shows a primary Create when the library is empty', async () => {
+    mockMeals([])
+    render(<RecipesPageClient />, createQueryWrapper())
+
+    expect(
+      await screen.findByText(
+        'No recipes yet. Add a family favourite, import one from a link, or imagine one.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('searchbox')).toBeNull()
+    expect(screen.queryByText('No recipes')).toBeNull()
+
+    const creates = screen.getAllByRole('link', { name: 'Create recipe' })
+    expect(creates).toHaveLength(2)
+    const emptyCreate = creates.at(-1)!
+    expect(emptyCreate).toHaveAttribute('href', '/recipes/create')
+    expect(emptyCreate.dataset.variant).toBe('default')
+    // The header actions stay, so Import and Imagine are not lost.
+    expect(screen.getByRole('link', { name: 'Import recipe' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Imagine a meal' })).toBeInTheDocument()
+  })
+
+  it('keeps the search and offers no empty-state Create when the load fails', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Failed to fetch meals' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    render(<RecipesPageClient />, createQueryWrapper())
+
+    await waitFor(() => expect(screen.queryByText('Loading…')).toBeNull())
+    expect(screen.getByRole('searchbox', { name: 'Search recipes' })).toBeInTheDocument()
+    // Only the header's outline Create: a failed load is not an empty library.
+    expect(screen.getAllByRole('link', { name: 'Create recipe' })).toHaveLength(1)
+  })
+})
 
 /**
  * Tests for the quantity conversion logic in RecipesPageClient.
