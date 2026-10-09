@@ -49,16 +49,26 @@ export const Week: Story = {
   },
 }
 
-/** Step 3: the salmon and lemon to buy, the asparagus already ticked. */
+/**
+ * Step 3: what the week is missing. The lemon and stewing beef to buy, the
+ * mozzarella already ticked. No salmon or asparagus: the pantry has them.
+ */
 export const Shopping: Story = {
   render: () => <ShoppingVignette />,
   // WHY: a ticked item is deliberately de-emphasized (WCAG 1.4.3 exempts
-  // inactive UI), as in `Shopping/CategoryGroup`; the asparagus is one.
+  // inactive UI), as in `Shopping/CategoryGroup`; the mozzarella is one.
   parameters: { a11y: { config: { rules: [{ id: 'color-contrast', enabled: false }] } } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getAllByRole('checkbox')).toHaveLength(3)
-    await expect(canvas.getByRole('checkbox', { name: 'Asparagus' })).toBeChecked()
+    await expect(canvas.getByRole('checkbox', { name: 'Lemon' })).not.toBeChecked()
+    await expect(canvas.getByRole('checkbox', { name: 'Mozzarella' })).toBeChecked()
+    await expect(canvas.getByRole('checkbox', { name: 'Stewing beef' })).not.toBeChecked()
+    await expect(canvas.getByText('1')).toBeInTheDocument()
+    await expect(canvas.getByText('250g')).toBeInTheDocument()
+    await expect(canvas.getByText('800g')).toBeInTheDocument()
+    await expect(canvas.queryByText('Salmon fillet')).not.toBeInTheDocument()
+    await expect(canvas.queryByText('Asparagus')).not.toBeInTheDocument()
   },
 }
 
