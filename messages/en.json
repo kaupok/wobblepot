@@ -1285,6 +1285,8 @@
     "addChild": "Add child",
     "you": "{name} (you)",
     "memberNameAria": "{label} name",
+    "doneMemberAria": "Done: {label}",
+    "editMemberAria": "Edit {label}",
     "removeMemberAria": "Remove {label}",
     "membersHelper": "Names are optional. You can change everyone later on the Household page.",
     "membersFull": "10 people is the most for now. Add more later on the Household page.",

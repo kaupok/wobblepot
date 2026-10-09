@@ -181,10 +181,104 @@ describe('OnboardingFlow', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Remove Emma' }))
 
-      // Leo moves up and is numbered 1 now, with his name kept.
-      expect(screen.getByLabelText('Child 1 name')).toHaveValue('Leo')
-      expect(screen.queryByLabelText('Child 2 name')).not.toBeInTheDocument()
+      // Leo moves up, finished by the click that left his field, with his name kept.
+      const children = screen.getByRole('region', { name: 'Children' })
+      expect(within(children).getAllByRole('listitem')).toHaveLength(1)
+      expect(within(children).getByRole('button', { name: 'Edit Leo' })).toHaveTextContent('Leo')
+      expect(within(children).queryByRole('textbox')).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Add child' })).toHaveFocus()
+    })
+
+    // A tester typed a name and looked for an OK button (HON-1134).
+    describe('Finishing a row', () => {
+      it('opens a new row with its field focused and a Done button beside it', async () => {
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add adult' }))
+
+        expect(screen.getByLabelText('Adult 2 name')).toHaveFocus()
+        expect(screen.getByRole('button', { name: 'Done: Adult 2' })).toBeInTheDocument()
+      })
+
+      it('shows the name as text after Done, with focus on it', async () => {
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+        await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma')
+        await userEvent.click(screen.getByRole('button', { name: 'Done: Emma' }))
+
+        const children = screen.getByRole('region', { name: 'Children' })
+        expect(within(children).queryByRole('textbox')).not.toBeInTheDocument()
+        const name = within(children).getByRole('button', { name: 'Edit Emma' })
+        expect(name).toHaveTextContent('Emma')
+        expect(name).toHaveFocus()
+        expect(within(children).getByRole('button', { name: 'Remove Emma' })).toBeInTheDocument()
+        expect(screen.getByText('Step 2 of 4')).toBeInTheDocument()
+      })
+
+      it('shows the default name in muted text for a row finished empty', async () => {
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add adult' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Done: Adult 2' }))
+
+        const name = screen.getByRole('button', { name: 'Edit Adult 2' })
+        expect(name).toHaveTextContent('Adult 2')
+        expect(name).toHaveClass('text-muted-foreground')
+      })
+
+      it('reopens a finished row with its name, focused', async () => {
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+        await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma')
+        await userEvent.click(screen.getByRole('button', { name: 'Done: Emma' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Edit Emma' }))
+
+        const field = screen.getByLabelText('Child 1 name')
+        expect(field).toHaveValue('Emma')
+        expect(field).toHaveFocus()
+      })
+
+      it('finishes a named row when focus leaves it, and keeps an empty one open', async () => {
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+        await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma')
+        await userEvent.click(screen.getByRole('button', { name: 'Add adult' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+
+        expect(screen.getByRole('button', { name: 'Edit Emma' })).toBeInTheDocument()
+        // The empty adult row stays a field: names are optional, and an empty
+        // field is still waiting for one.
+        expect(screen.getByLabelText('Adult 2 name')).toBeInTheDocument()
+      })
+
+      // Leaving the field finishes a named row, which removes Done. Tabbing to
+      // Done must not do that, or focus would fall to the body.
+      it('keeps focus on Done when Tab moves to it from a named field', async () => {
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+        await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma')
+        await userEvent.tab()
+
+        const done = screen.getByRole('button', { name: 'Done: Emma' })
+        expect(done).toHaveFocus()
+        await userEvent.keyboard('{Enter}')
+        expect(screen.getByRole('button', { name: 'Edit Emma' })).toHaveFocus()
+      })
+
+      it('keeps focus on Remove when Tab moves to it from a finished row', async () => {
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+        await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma')
+        await userEvent.click(screen.getByRole('button', { name: 'Done: Emma' }))
+        await userEvent.tab()
+
+        expect(screen.getByRole('button', { name: 'Remove Emma' })).toHaveFocus()
+      })
     })
 
     it('names an unnamed row by its default in the Remove label', async () => {
@@ -458,11 +552,30 @@ describe('OnboardingFlow', () => {
         expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
       })
 
-      it('moves from step 2 to step 3 on Enter in a member name input, without creating', async () => {
+      // Enter in a member field finishes the row instead (HON-1134).
+      it('finishes the row on Enter in a member name input and stays on step 2', async () => {
         renderFlow()
         await goToStep2()
         await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
         await userEvent.type(screen.getByLabelText('Child 1 name'), 'Emma{Enter}')
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(600)
+        })
+
+        expect(mockFetch).not.toHaveBeenCalled()
+        expect(screen.getByText('Step 2 of 4')).toBeInTheDocument()
+        expect(
+          screen.getByRole('heading', { level: 1, name: "Who's at your table?" }),
+        ).toBeInTheDocument()
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Edit Emma' })).toHaveFocus()
+      })
+
+      it('still moves from step 2 to step 3 on Enter on Continue', async () => {
+        renderFlow()
+        await goToStep2()
+        screen.getByRole('button', { name: 'Continue' }).focus()
+        await userEvent.keyboard('{Enter}')
         await act(async () => {
           await vi.advanceTimersByTimeAsync(0)
         })
@@ -510,6 +623,7 @@ describe('OnboardingFlow', () => {
         await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
       })
 
+      // The field is still open when Continue is pressed.
       it('creates on Enter in step 3, with the members typed on step 2', async () => {
         mockFetch.mockResolvedValue(respondOk({ id: 'household-123' }))
 
