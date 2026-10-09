@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type RefObject } from 'react'
+import { useRef, useState, type ReactNode, type RefObject } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
@@ -62,11 +62,22 @@ interface MealListProps {
   meals: MealData[]
   onDelete: (mealId: string) => void
   onToggleFavorite: (mealId: string, isFavorite: boolean) => void
-  /** Takes focus after a delete that leaves no card to land on (the page's search field). */
+  /**
+   * Takes focus after a delete that leaves no card to land on: the page's
+   * search field, or the empty state's action once the search is gone.
+   */
   emptyFocusRef?: RefObject<HTMLElement | null>
+  /** The empty state's one primary button, under its line. */
+  emptyAction?: ReactNode
 }
 
-export function MealList({ meals, onDelete, onToggleFavorite, emptyFocusRef }: MealListProps) {
+export function MealList({
+  meals,
+  onDelete,
+  onToggleFavorite,
+  emptyFocusRef,
+  emptyAction,
+}: MealListProps) {
   const t = useTranslations('recipes.list')
   const [deleteConfirmMeal, setDeleteConfirmMeal] = useState<MealData | null>(null)
   // The confirm dialog opens from a menu item that is gone by the time it
@@ -120,9 +131,9 @@ export function MealList({ meals, onDelete, onToggleFavorite, emptyFocusRef }: M
 
   if (meals.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Body variant="muted">{t('emptyHeading')}</Body>
+      <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
         <Body variant="muted">{t('emptyBody')}</Body>
+        {emptyAction}
       </div>
     )
   }

@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /sign-in, /onboarding, /, /profile · COMPONENTS: SignUpForm (with HON-488 invite-code gate + HON-457 terms-consent checkbox), SignInForm, OnboardingFlow, Header (User menu)
+// ROUTES: /sign-up, /sign-in, /onboarding, /, /profile, /recipes, /recipes/create · COMPONENTS: SignUpForm (with HON-488 invite-code gate + HON-457 terms-consent checkbox), SignInForm, OnboardingFlow, Header (User menu), RecipesPageClient, MealList
 import { test, expect } from '@playwright/test'
 import {
   generateUniqueEmail,
@@ -32,6 +32,15 @@ test.describe('Authentication flows', () => {
     // Should redirect to home with the first-time setup card
     await expect(page).toHaveURL('/')
     await expect(page.getByText(`Welcome to Wobblepot, ${name}!`)).toBeVisible()
+
+    // A new household reaches the create form from the empty library in one
+    // tap. The header's outline Create comes first; the empty state's primary
+    // Create is the last link of that name (HON-1128).
+    await page.goto('/recipes')
+    await expect(page.getByRole('searchbox')).toHaveCount(0)
+    await page.getByRole('link', { name: 'Create recipe' }).last().click()
+    await expect(page).toHaveURL('/recipes/create')
+    await expect(page.getByRole('heading', { name: 'Create recipe' })).toBeVisible()
   })
 
   // Fresh-signup variant — NOT @smoke: signUp() needs /api/e2e-seed, which

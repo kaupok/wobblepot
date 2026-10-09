@@ -410,6 +410,7 @@
       "loading": "Laen…",
       "imagineButton": "Mõtle välja toit",
       "importButton": "Impordi retsept",
+      "createButton": "Loo retsept",
       "loadMore": "Lae rohkem",
       "loadingMore": "Laen…",
       "emptySearch": "Päringule „{query}\" vastavaid retsepte ei leitud",
@@ -602,8 +603,7 @@
       }
     },
     "list": {
-      "emptyHeading": "Retsepte veel pole",
-      "emptyBody": "Loo oma esimene retsept, et alustada",
+      "emptyBody": "Retsepte veel pole. Lisa pere lemmikroog, impordi retsept lingilt või mõtle toit välja.",
       "addToFavoritesAria": "Lisa lemmikutesse",
       "removeFromFavoritesAria": "Eemalda lemmikutest",
       "moreActions": "Rohkem toiminguid: {name}",
