@@ -2,6 +2,7 @@
 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getQueryClient } from '@/lib/get-query-client'
+import { useResetQueryCacheOnScopeChange } from '@/hooks/use-reset-query-cache-on-scope-change'
 import { AiUsageToast } from '@/components/AiUsageToast'
 import { PostHogProvider } from '@/components/PostHogProvider'
 import type { BootstrapData } from '@/lib/feature-flags'
@@ -35,6 +36,7 @@ export default function Providers({
   bootstrap,
 }: ProvidersProps) {
   const queryClient = getQueryClient()
+  useResetQueryCacheOnScopeChange(queryClient, { userId, householdId })
   return (
     <QueryClientProvider client={queryClient}>
       <PostHogProvider userId={userId} householdId={householdId} bootstrap={bootstrap}>
