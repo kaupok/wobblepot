@@ -10,6 +10,7 @@ import {
   formatLongDate,
   formatDateTime,
   formatRelativeDate,
+  formatTimeOfDay,
   type DatesTranslator,
 } from './format-dates'
 
@@ -123,6 +124,24 @@ describe('formatDateDisplay', () => {
     expect(out).toMatch(/Mon/i)
     expect(out).toMatch(/Jan/i)
     expect(out).toContain('12')
+  })
+})
+
+describe('formatTimeOfDay', () => {
+  // Local constructor: the formatter reads the device zone, so the expected
+  // text is the same whatever TZ the test runs in.
+  const evening = new Date(2026, 9, 9, 18, 40)
+
+  it('renders a 12-hour time with a plain space before PM in en', () => {
+    expect(formatTimeOfDay(evening, 'en')).toBe('6:40 PM')
+  })
+
+  it('renders a 24-hour time in et', () => {
+    expect(formatTimeOfDay(evening, 'et')).toBe('18:40')
+  })
+
+  it('pads the minutes to two digits', () => {
+    expect(formatTimeOfDay(new Date(2026, 9, 9, 9, 5), 'et')).toBe('9:05')
   })
 })
 

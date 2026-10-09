@@ -96,6 +96,30 @@ describe('FillDaysAction error localization', () => {
     expect(screen.queryByText(prose)).not.toBeInTheDocument()
   })
 
+  it('names the time the hourly limit lifts when the 429 carries resetAt', async () => {
+    respondWith(
+      {
+        code: 'rate_limited',
+        error: 'Rate limit exceeded',
+        // 18:40 on the device clock, whatever TZ the test runs in.
+        resetAt: new Date(2026, 9, 9, 18, 40).toISOString(),
+      },
+      429,
+    )
+
+    clickFill('et')
+
+    await screen.findByText(etErrors.rateLimitUntil.replace('{time}', '18:40'))
+  })
+
+  it('keeps the plain rate-limit copy when the 429 has no resetAt', async () => {
+    respondWith({ code: 'rate_limited', error: 'Rate limit exceeded' }, 429)
+
+    clickFill('et')
+
+    await screen.findByText(etErrors.rateLimit)
+  })
+
   it('falls back to the generic generation-failed copy for an unrecognised code', async () => {
     respondWith({ code: 'some_future_code', message: 'Something new went wrong.' }, 400)
 

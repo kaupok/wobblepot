@@ -584,6 +584,27 @@ describe('useCookQuestion', () => {
     expect(result.current.error).toEqual({ message, canRetry: false })
   })
 
+  it('names the time the hourly limit lifts when the 429 carries resetAt', async () => {
+    mockFetch.mockResolvedValue(
+      fail(429, {
+        error: 'English',
+        code: 'rate_limited',
+        // 18:40 on the device clock, whatever TZ the test runs in.
+        resetAt: new Date(2026, 9, 9, 18, 40).toISOString(),
+      }),
+    )
+    const { result } = renderHook(() => useCookQuestion(options), { wrapper })
+
+    await act(async () => {
+      await result.current.ask(question())
+    })
+
+    expect(result.current.error).toEqual({
+      message: errors.rateLimitedUntil.replace('{time}', '6:40 PM'),
+      canRetry: false,
+    })
+  })
+
   it('retries a 500 once and shows the answer', async () => {
     mockFetch
       .mockResolvedValueOnce(fail(500, { error: 'boom', code: 'question_failed' }))

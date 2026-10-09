@@ -11,6 +11,8 @@ import {
   cookQuestionFallbackKey,
   mealPlanGenerateFallbackKey,
   preparationStepsFallbackKey,
+  rateLimitMessage,
+  rateLimitResetAt,
   translateErrorCode,
 } from './error-codes'
 
@@ -170,5 +172,109 @@ describe('cookQuestionFallbackKey', () => {
     expect(cookQuestionFallbackKey(504)).toBe('questionTimeout')
     expect(cookQuestionFallbackKey(500)).toBe('questionFailed')
     expect(cookQuestionFallbackKey(429)).toBe('questionFailed')
+  })
+})
+
+/**
+ * Every rate-limit key a callsite hands `rateLimitMessage`, with its namespace
+ * in both catalogs. The helper derives the `…Until` sibling by name, so a
+ * missing one would render the raw key path rather than fail a type check.
+ */
+const rateLimitSurfaces = [
+  {
+    name: 'recipes.imagine.errors',
+    key: IMAGINE_ERROR_KEYS.rate_limited,
+    en: enMessages.recipes.imagine.errors as Record<string, unknown>,
+    et: etMessages.recipes.imagine.errors as Record<string, unknown>,
+  },
+  {
+    name: 'recipes.import.errors',
+    key: RECIPE_IMPORT_ERROR_KEYS.rate_limited,
+    en: enMessages.recipes.import.errors as Record<string, unknown>,
+    et: etMessages.recipes.import.errors as Record<string, unknown>,
+  },
+  {
+    name: 'meal-plan.errors',
+    key: MEAL_PLAN_GENERATE_ERROR_KEYS.rate_limited,
+    en: enMessages['meal-plan'].errors as Record<string, unknown>,
+    et: etMessages['meal-plan'].errors as Record<string, unknown>,
+  },
+  {
+    name: 'meal-plan.steps.errors',
+    key: PREPARATION_STEPS_ERROR_KEYS.rate_limited,
+    en: enMessages['meal-plan'].steps.errors as Record<string, unknown>,
+    et: etMessages['meal-plan'].steps.errors as Record<string, unknown>,
+  },
+  {
+    name: 'meal-plan.cookQuestion.errors',
+    key: COOK_QUESTION_ERROR_KEYS.rate_limited,
+    en: enMessages['meal-plan'].cookQuestion.errors as Record<string, unknown>,
+    et: etMessages['meal-plan'].cookQuestion.errors as Record<string, unknown>,
+  },
+  {
+    name: 'meal-plan.selector',
+    key: 'rateLimited',
+    en: enMessages['meal-plan'].selector as Record<string, unknown>,
+    et: etMessages['meal-plan'].selector as Record<string, unknown>,
+  },
+] as const
+
+describe('rate-limit …Until keys', () => {
+  it.each(rateLimitSurfaces)(
+    '$name: the …Until sibling exists in both catalogs with a {time} argument',
+    ({ key, en, et }) => {
+      expect(en[`${key}Until`]).toEqual(expect.stringContaining('{time}'))
+      expect(et[`${key}Until`]).toEqual(expect.stringContaining('{time}'))
+    },
+  )
+})
+
+describe('rateLimitResetAt', () => {
+  it('returns the date from an ISO resetAt', () => {
+    expect(rateLimitResetAt({ resetAt: '2026-10-09T15:40:00.000Z' })).toEqual(
+      new Date('2026-10-09T15:40:00.000Z'),
+    )
+  })
+
+  it.each([
+    ['no body', undefined],
+    ['a null body', null],
+    ['a string body', 'Too Many Requests'],
+    ['a body without resetAt', { error: 'Rate limit exceeded' }],
+    ['a numeric resetAt', { resetAt: 1_760_000_000_000 }],
+    ['an unparseable resetAt', { resetAt: 'soon' }],
+  ])('returns null for %s', (_label, body) => {
+    expect(rateLimitResetAt(body)).toBeNull()
+  })
+})
+
+describe('rateLimitMessage', () => {
+  // 18:40 on the device clock, whatever TZ the test runs in.
+  const resetAt = new Date(2026, 9, 9, 18, 40)
+  const body = { code: 'rate_limited', resetAt: resetAt.toISOString() }
+
+  it('picks the …Until key with the time in the household locale when resetAt is known', () => {
+    expect(rateLimitMessage('rateLimited', 'rateLimited', body, 'et')).toEqual({
+      key: 'rateLimitedUntil',
+      values: { time: '18:40' },
+    })
+    expect(rateLimitMessage('rateLimit', 'rateLimit', body, 'en')).toEqual({
+      key: 'rateLimitUntil',
+      values: { time: '6:40 PM' },
+    })
+  })
+
+  it('keeps the plain key when the body has no resetAt', () => {
+    expect(rateLimitMessage('rateLimited', 'rateLimited', {}, 'en')).toEqual({
+      key: 'rateLimited',
+      values: {},
+    })
+  })
+
+  it('passes any other key through, even with a resetAt in the body', () => {
+    expect(rateLimitMessage('providerBusy', 'rateLimited', body, 'en')).toEqual({
+      key: 'providerBusy',
+      values: {},
+    })
   })
 })

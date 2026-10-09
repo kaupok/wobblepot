@@ -14,6 +14,9 @@
  * the two halves of the contract from drifting apart.
  */
 
+import { formatTimeOfDay } from '@/lib/i18n/format-dates'
+import type { Locale } from '@/lib/i18n/locales'
+
 /** Error codes returned by `POST /api/meals/imagine`. */
 export type ImagineErrorCode =
   | 'unauthorized'
@@ -272,4 +275,40 @@ export function translateErrorCode(
   if (!Object.hasOwn(keys, code)) return fallbackKey
   const key = keys[code]
   return typeof key === 'string' ? key : fallbackKey
+}
+
+/**
+ * When a household rate limit lifts, read from a 429 body. Every AI route's
+ * limiter branch sends `resetAt` as an ISO string; a 429 from the platform or
+ * a proxy carries no body we wrote, so this returns null rather than a guess.
+ */
+export function rateLimitResetAt(body: unknown): Date | null {
+  if (typeof body !== 'object' || body === null) return null
+  const resetAt = (body as { resetAt?: unknown }).resetAt
+  if (typeof resetAt !== 'string') return null
+  const date = new Date(resetAt)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+/**
+ * Swap a rate-limit message key for its `…Until` sibling, which names the time
+ * the limit lifts, when the 429 body says when that is (HON-1138). "Try again
+ * later" leaves a parent guessing between a minute and tomorrow; the body
+ * already knows.
+ *
+ * `key` is what `translateErrorCode` resolved; any key other than
+ * `rateLimitKey`, or a body without a usable `resetAt`, passes through
+ * unchanged. Every `rateLimitKey` passed here needs a `${rateLimitKey}Until`
+ * key with a `{time}` argument beside it in the catalog.
+ */
+export function rateLimitMessage(
+  key: string,
+  rateLimitKey: string,
+  body: unknown,
+  locale: Locale,
+): { key: string; values: { time?: string } } {
+  if (key !== rateLimitKey) return { key, values: {} }
+  const resetAt = rateLimitResetAt(body)
+  if (!resetAt) return { key, values: {} }
+  return { key: `${rateLimitKey}Until`, values: { time: formatTimeOfDay(resetAt, locale) } }
 }

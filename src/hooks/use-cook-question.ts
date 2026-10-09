@@ -2,15 +2,17 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ApiError, toApiError } from '@/lib/api'
 import { track } from '@/lib/analytics'
 import {
   COOK_QUESTION_ERROR_KEYS,
   cookQuestionFallbackKey,
+  rateLimitMessage,
   translateErrorCode,
   type CookQuestionErrorCode,
 } from '@/lib/ai/error-codes'
+import type { Locale } from '@/lib/i18n/locales'
 import type { CookQuestionPrevious } from '@/lib/ai/cook-question'
 import { sameSubject, type CookQuestionSubject } from '@/lib/ai/cook-question-subject'
 import { clipText, COOK_QUESTION_PREVIOUS_ANSWER_MAX_LENGTH } from '@/lib/ai/cook-question-limits'
@@ -175,6 +177,7 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
   const lastRequestRef = useRef<AskRequest | null>(null)
   const lastAnsweredRef = useRef<AnsweredQuestion | null>(null)
   const t = useTranslations('meal-plan.cookQuestion')
+  const locale = useLocale() as Locale
 
   // A mutation, not a query: each POST runs a billed AI call on demand, and
   // the answer lives in local state the caller resets.
@@ -253,13 +256,14 @@ export function useCookQuestion({ planId, entryId, mealId }: UseCookQuestionOpti
         code: err.code,
         error: body.error,
       })
-      const key = translateErrorCode(
-        err.code,
-        COOK_QUESTION_ERROR_KEYS,
-        cookQuestionFallbackKey(err.status),
+      const { key, values } = rateLimitMessage(
+        translateErrorCode(err.code, COOK_QUESTION_ERROR_KEYS, cookQuestionFallbackKey(err.status)),
+        COOK_QUESTION_ERROR_KEYS.rate_limited,
+        err.body,
+        locale,
       )
       setError({
-        message: t(`errors.${key}`),
+        message: t(`errors.${key}`, values),
         canRetry: !NO_RETRY_BUTTON_CODES.has(err.code ?? ''),
       })
     },

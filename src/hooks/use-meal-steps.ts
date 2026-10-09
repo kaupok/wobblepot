@@ -2,14 +2,16 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ApiError, apiFetch } from '@/lib/api'
 import {
   PREPARATION_STEPS_ERROR_KEYS,
   preparationStepsFallbackKey,
+  rateLimitMessage,
   translateErrorCode,
   type PreparationStepsErrorCode,
 } from '@/lib/ai/error-codes'
+import type { Locale } from '@/lib/i18n/locales'
 import type { PreparationSteps } from '@/components/meal-plan/types'
 
 interface UseMealStepsOptions {
@@ -69,6 +71,7 @@ export function useMealSteps({ planId, entryId, initialSteps = null }: UseMealSt
   const [isStepsExpanded, setIsStepsExpanded] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const t = useTranslations('meal-plan.steps')
+  const locale = useLocale() as Locale
 
   // A mutation, not a query: the POST runs a billed AI generation on demand,
   // and the result lives in local state that callers can reset (`cancelSteps`).
@@ -111,12 +114,17 @@ export function useMealSteps({ planId, entryId, initialSteps = null }: UseMealSt
         error: body.error,
         message: body.message,
       })
-      const key = translateErrorCode(
-        error.code,
-        PREPARATION_STEPS_ERROR_KEYS,
-        preparationStepsFallbackKey(error.status),
+      const { key, values } = rateLimitMessage(
+        translateErrorCode(
+          error.code,
+          PREPARATION_STEPS_ERROR_KEYS,
+          preparationStepsFallbackKey(error.status),
+        ),
+        PREPARATION_STEPS_ERROR_KEYS.rate_limited,
+        error.body,
+        locale,
       )
-      setStepsError(t(`errors.${key}`))
+      setStepsError(t(`errors.${key}`, values))
     },
   })
 

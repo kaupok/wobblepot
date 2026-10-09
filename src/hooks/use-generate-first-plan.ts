@@ -16,6 +16,7 @@ import { ApiError, apiFetch } from '@/lib/api'
 import {
   MEAL_PLAN_GENERATE_ERROR_KEYS,
   mealPlanGenerateFallbackKey,
+  rateLimitMessage,
   translateErrorCode,
 } from '@/lib/ai/error-codes'
 
@@ -89,21 +90,24 @@ export function useGenerateFirstPlan({ onGenerated }: { onGenerated: () => void 
   })
 
   const mutationError = generateMutation.error
-  const error = !mutationError
-    ? null
-    : mutationError instanceof ApiError
-      ? // A body with no known `code` — a platform 504, a proxy error page —
-        // falls back on the status.
-        tErrors(
-          translateErrorCode(
-            mutationError.code,
-            MEAL_PLAN_GENERATE_ERROR_KEYS,
-            mealPlanGenerateFallbackKey(mutationError.status),
-          ),
-        )
-      : mutationError.name === 'AbortError'
-        ? tErrors('generationTimeout')
-        : tErrors('generic')
+  let error: string | null = null
+  if (mutationError instanceof ApiError) {
+    // A body with no known `code` — a platform 504, a proxy error page —
+    // falls back on the status. A household limit names when it lifts.
+    const { key, values } = rateLimitMessage(
+      translateErrorCode(
+        mutationError.code,
+        MEAL_PLAN_GENERATE_ERROR_KEYS,
+        mealPlanGenerateFallbackKey(mutationError.status),
+      ),
+      MEAL_PLAN_GENERATE_ERROR_KEYS.rate_limited,
+      mutationError.body,
+      locale,
+    )
+    error = tErrors(key, values)
+  } else if (mutationError) {
+    error = mutationError.name === 'AbortError' ? tErrors('generationTimeout') : tErrors('generic')
+  }
 
   return {
     startDateOptions,

@@ -19,7 +19,11 @@ vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 
 // The list and the imagine panel have their own tests; here they only need to
 // hand the modal a meal id, which is what triggers the PATCH under test.
-const hookState = vi.hoisted(() => ({ isRateLimited: false, isSearchMode: false }))
+const hookState = vi.hoisted(() => ({
+  isRateLimited: false,
+  rateLimitResetAt: null as Date | null,
+  isSearchMode: false,
+}))
 
 vi.mock('./meal-selector/use-meal-alternatives', () => ({
   useMealAlternatives: () => ({
@@ -34,6 +38,7 @@ vi.mock('./meal-selector/use-meal-alternatives', () => ({
     isSearchMode: hookState.isSearchMode,
     isMyRecipesBrowseMode: false,
     isRateLimited: hookState.isRateLimited,
+    rateLimitResetAt: hookState.rateLimitResetAt,
   }),
 }))
 
@@ -260,6 +265,20 @@ describe('MealSelectorModal plan-assignment error localization', () => {
 describe('MealSelectorModal suggestions rate limit', () => {
   afterEach(() => {
     hookState.isRateLimited = false
+    hookState.rateLimitResetAt = null
+  })
+
+  it('names the time the limit lifts when the 429 said so (HON-1138)', () => {
+    hookState.isRateLimited = true
+    // 18:40 on the device clock, whatever TZ the test runs in.
+    hookState.rateLimitResetAt = new Date(2026, 9, 9, 18, 40)
+    renderModal()
+
+    expect(
+      screen.getByText(
+        etMessages['meal-plan'].selector.rateLimitedUntil.replace('{time}', '18:40'),
+      ),
+    ).toBeInTheDocument()
   })
 
   it('explains a rate-limited suggestions request in Estonian instead of "no suggestions"', () => {
