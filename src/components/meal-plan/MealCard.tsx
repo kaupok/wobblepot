@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useId, useRef } from 'react'
 import { toast } from 'sonner'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { apiFetch } from '@/lib/api'
+import { ApiError, apiFetch } from '@/lib/api'
 import { MoreHorizontal, NotebookPen, Repeat, Undo2, X } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -56,9 +56,29 @@ import { cn } from '@/lib/utils'
 const CARD_CLICK_IGNORE =
   'button, a, input, textarea, select, label, [role="menuitem"], [role="option"]'
 
+/**
+ * What Undo posts back to the create route after Clear (HON-1123): the entry
+ * as the card shows it now. The cached tips are left out; the cook view
+ * regenerates them on open.
+ */
+interface ClearedEntry {
+  date: string
+  mealType: MealType
+  mealId: string
+  note: string | null
+  noteX: number | null
+  noteY: number | null
+  servingOverride: number | null
+  status: 'planned' | 'skipped'
+  rating: EntryRating | null
+  pantryDeducted: boolean
+}
+
 interface MealCardProps {
   entryId: string
   planId: string
+  /** The entry's day, YYYY-MM-DD: Undo after Clear restores the entry to it. */
+  date: string
   meal: MealData | null
   mealType: MealType
   status: MealStatus
@@ -76,11 +96,17 @@ interface MealCardProps {
   pantryDeducted?: boolean
   /** The entry's cached preparation tips — see `PlanEntry.preparationTips`. */
   preparationTips?: PreparationSteps | null
+  /**
+   * Called once Clear has deleted the entry, before the refresh that unmounts
+   * this card, so the page can move focus to the slot that replaces it.
+   */
+  onCleared?: () => void
 }
 
 export function MealCard({
   entryId,
   planId,
+  date,
   meal,
   mealType,
   status: initialStatus,
@@ -95,6 +121,7 @@ export function MealCard({
   servingOverride: initialServingOverride,
   pantryDeducted = false,
   preparationTips = null,
+  onCleared,
 }: MealCardProps) {
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
@@ -125,6 +152,7 @@ export function MealCard({
 
   const {
     status,
+    isPantryCharged,
     isUpdating,
     isDeductionModalOpen,
     setIsDeductionModalOpen,
@@ -199,25 +227,64 @@ export function MealCard({
   // charged for them, and "actually, let's cook something" is a real path.
   const canSwapMeal = status !== 'completed'
 
+  // Undo posts the cleared entry to the create route. It runs after this card
+  // has unmounted, which is why its callbacks live here rather than in
+  // `mutate()`'s options: those are skipped once the component unmounts.
+  const restoreMutation = useMutation({
+    mutationFn: (entry: ClearedEntry) =>
+      apiFetch<{ id: string }>(
+        `/api/meal-plans/${planId}/entries`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entry),
+        },
+        tCard('undoFailed'),
+      ),
+    onSuccess: () => {
+      dropSuggestionCache()
+      router.refresh()
+    },
+    onError: (err) => {
+      // The route's `error` is English (HON-914): log it, render catalog copy.
+      console.error(
+        '[meal-card] restore after clear failed',
+        err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
+      )
+      // A 409: the slot was filled again meanwhile, by another member or tab.
+      // The new entry stays, and the refresh shows it in place of the stale
+      // empty slot, which would only answer a second 409.
+      if (err instanceof ApiError && err.status === 409) {
+        toast.error(tCard('undoSlotFilled'))
+        router.refresh()
+        return
+      }
+      toast.error(tCard('undoFailed'))
+    },
+  })
+
+  // One tap clears, and a toast offers Undo for a few seconds: the menu is a
+  // small target on a phone, and Clear sits under Swap (HON-1123).
   const clearMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (_entry: ClearedEntry) =>
       apiFetch<{ success: true }>(`/api/meal-plans/${planId}/entries/${entryId}`, {
         method: 'DELETE',
       }),
-    onSuccess: () => {
+    onSuccess: (_data, entry) => {
       // Clearing frees this entry's meal to be suggested elsewhere again, so
       // every other card's cached list is now wrong in the other direction.
       dropSuggestionCache()
+      onCleared?.()
       router.refresh()
+      toast(tCard('cleared', { name: meal?.name ?? '' }), {
+        action: { label: tCard('undo'), onClick: () => restoreMutation.mutate(entry) },
+        duration: 6000,
+      })
     },
     onError: () => {
       toast.error(tCard('clearFailed'))
     },
   })
-
-  function handleClear() {
-    clearMutation.mutate()
-  }
 
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
 
@@ -243,6 +310,25 @@ export function MealCard({
     hintId: noteHintId,
   })
   const notePlacement = { scatter: noteSlipScatter, position: noteDrag.position }
+
+  function handleClear() {
+    // Clear is offered only on a card with a meal that is not completed.
+    if (!meal || status === 'completed') return
+    // A cleared note has no place, so the snapshot drops a stale one.
+    const position = note ? noteDrag.savedPosition : null
+    clearMutation.mutate({
+      date,
+      mealType,
+      mealId: meal.id,
+      note,
+      noteX: position?.x ?? null,
+      noteY: position?.y ?? null,
+      servingOverride,
+      status,
+      rating,
+      pantryDeducted: isPantryCharged,
+    })
+  }
 
   // The description takes the whole lines left under the name (HON-1096).
   const textBlockRef = useRef<HTMLDivElement>(null)
@@ -487,10 +573,15 @@ export function MealCard({
                           {tCard('swap')}
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onSelect={handleClear} disabled={isClearing}>
-                        <X aria-hidden="true" />
-                        {tCard('clear')}
-                      </DropdownMenuItem>
+                      {/* A completed entry records what the pantry was
+                          charged for, and Undo cannot restore that; "Not
+                          cooked yet" is its way back (HON-1123). */}
+                      {status !== 'completed' && (
+                        <DropdownMenuItem onSelect={handleClear} disabled={isClearing}>
+                          <X aria-hidden="true" />
+                          {tCard('clear')}
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

@@ -185,6 +185,10 @@
       "servings": "{count, plural, one {# serving} other {# servings}}",
       "statusUpdateFailed": "Failed to update status. Please try again.",
       "clearFailed": "Failed to clear meal. Please try again.",
+      "cleared": "Cleared: {name}",
+      "undo": "Undo",
+      "undoFailed": "Couldn't restore the meal. Add it again from the empty slot.",
+      "undoSlotFilled": "Couldn't restore the meal. The slot has another meal now.",
       "createEntryFailed": "Failed to add meal slot",
       "entryAlreadyExists": "This slot already has a meal. Refresh the page to see it."
     },

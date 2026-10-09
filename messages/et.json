@@ -185,6 +185,10 @@
       "servings": "{count, plural, one {# portsjon} other {# portsjonit}}",
       "statusUpdateFailed": "Oleku uuendamine ebaõnnestus. Palun proovi uuesti.",
       "clearFailed": "Toidu eemaldamine ebaõnnestus. Palun proovi uuesti.",
+      "cleared": "Eemaldatud: {name}",
+      "undo": "Võta tagasi",
+      "undoFailed": "Toitu ei õnnestunud taastada. Lisa see uuesti tühjast kohast.",
+      "undoSlotFilled": "Toitu ei õnnestunud taastada. Sellel kohal on nüüd teine toit.",
       "createEntryFailed": "Toidukoha lisamine ebaõnnestus",
       "entryAlreadyExists": "Sellele kohale on toit juba lisatud. Värskenda lehte, et seda näha."
     },

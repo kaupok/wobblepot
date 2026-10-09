@@ -3,14 +3,17 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { createMeal } from '@/stories/fixtures'
+import { toast, type ExternalToast } from 'sonner'
 import { track } from '@/lib/analytics'
 import { MealCard } from './MealCard'
 import type { PantryIngredient, PreparationSteps } from './types'
 
+const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }))
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh }),
 }))
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
 
 // The list is not under test here; a stub keeps the selector free of
 // suggestion fixtures.
@@ -49,13 +52,16 @@ function renderCard(props: {
   note?: string | null
   noteX?: number | null
   noteY?: number | null
+  servingOverride?: number | null
+  onCleared?: () => void
 }) {
   const { wrapper: Wrapper } = createQueryWrapper()
-  render(
+  return render(
     <Wrapper>
       <MealCard
         entryId="entry-1"
         planId="plan-1"
+        date="2026-10-10"
         mealType="dinner"
         status="planned"
         householdServings={4}
@@ -77,6 +83,153 @@ async function dismissSelector() {
   fireEvent.keyDown(dialog, { key: 'Escape' })
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 }
+
+// One tap clears, and a toast offers Undo (HON-1123).
+describe('MealCard Clear and Undo', () => {
+  let requests: { method: string; url: string; body: unknown }[]
+  let restoreStatus: number
+
+  beforeEach(() => {
+    requests = []
+    restoreStatus = 200
+    vi.mocked(toast).mockClear()
+    vi.mocked(toast.error).mockClear()
+    refresh.mockClear()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET'
+        requests.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : null })
+        if (method === 'POST' && url === '/api/meal-plans/plan-1/entries') {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify(restoreStatus === 200 ? { id: 'entry-2' } : { error: 'exists' }),
+              { status: restoreStatus, headers: { 'Content-Type': 'application/json' } },
+            ),
+          )
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ success: true }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }),
+    )
+  })
+
+  async function clearFromMenu(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: `More actions: ${meal.name}` }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Clear' }))
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1))
+    return vi.mocked(toast).mock.calls[0]!
+  }
+
+  function clickUndo(options?: ExternalToast) {
+    const action = options?.action
+    if (!action || typeof action !== 'object' || !('onClick' in action)) {
+      throw new Error('The toast has no Undo action')
+    }
+    action.onClick({} as React.MouseEvent<HTMLButtonElement>)
+  }
+
+  it('deletes the entry and offers Undo for six seconds', async () => {
+    const user = userEvent.setup()
+    const onCleared = vi.fn()
+    renderCard({ meal, onCleared })
+
+    const [message, options] = await clearFromMenu(user)
+
+    expect(requests).toContainEqual(
+      expect.objectContaining({ method: 'DELETE', url: '/api/meal-plans/plan-1/entries/entry-1' }),
+    )
+    expect(onCleared).toHaveBeenCalledTimes(1)
+    expect(message).toBe(`Cleared: ${meal.name}`)
+    expect(options).toMatchObject({ action: { label: 'Undo' }, duration: 6000 })
+  })
+
+  it('restores the entry as the card showed it', async () => {
+    const user = userEvent.setup()
+    renderCard({
+      meal,
+      status: 'skipped',
+      rating: 'down',
+      note: 'Leftovers',
+      noteX: 0.2,
+      noteY: 0.8,
+      servingOverride: 6,
+      pantryDeducted: true,
+    })
+
+    const [, options] = await clearFromMenu(user)
+    clickUndo(options)
+
+    await waitFor(() =>
+      expect(requests.find((r) => r.method === 'POST')?.body).toEqual({
+        date: '2026-10-10',
+        mealType: 'dinner',
+        mealId: meal.id,
+        note: 'Leftovers',
+        noteX: 0.2,
+        noteY: 0.8,
+        servingOverride: 6,
+        status: 'skipped',
+        rating: 'down',
+        pantryDeducted: true,
+      }),
+    )
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  // The refresh after a clear unmounts the card, so Undo runs without it.
+  it('says so when the slot was filled again meanwhile, after the card is gone', async () => {
+    const user = userEvent.setup()
+    restoreStatus = 409
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { unmount } = renderCard({ meal })
+
+    const [, options] = await clearFromMenu(user)
+    unmount()
+    refresh.mockClear()
+    clickUndo(options)
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Couldn't restore the meal. The slot has another meal now.",
+      ),
+    )
+    // The refresh shows the new meal in place of the stale empty slot.
+    expect(refresh).toHaveBeenCalledTimes(1)
+    consoleError.mockRestore()
+  })
+
+  it('sends the user to the empty slot when the restore fails otherwise', async () => {
+    const user = userEvent.setup()
+    restoreStatus = 500
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderCard({ meal })
+
+    const [, options] = await clearFromMenu(user)
+    clickUndo(options)
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Couldn't restore the meal. Add it again from the empty slot.",
+      ),
+    )
+    consoleError.mockRestore()
+  })
+
+  it('offers no Clear on a completed card', async () => {
+    const user = userEvent.setup()
+    renderCard({ meal, status: 'completed', rating: 'up' })
+
+    await user.click(screen.getByRole('button', { name: `More actions: ${meal.name}` }))
+
+    expect(await screen.findByRole('menuitem', { name: 'Not cooked yet' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Clear' })).not.toBeInTheDocument()
+  })
+})
 
 describe('MealCard own-recipe icon', () => {
   it("marks the household's own recipe after its name, not in the badge row (HON-973)", () => {
@@ -501,6 +654,7 @@ describe('MealCard note placement (HON-975)', () => {
         <MealCard
           entryId="entry-1"
           planId="plan-1"
+          date="2026-10-10"
           meal={meal}
           mealType="dinner"
           status="planned"

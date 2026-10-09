@@ -1,5 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import type { Decorator, Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
+import { Toaster, toast } from 'sonner'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import {
@@ -35,6 +36,7 @@ const meta = {
   args: {
     entryId: 'entry-1',
     planId: 'plan-1',
+    date: '2026-10-10',
     mealType: MealType.dinner,
     householdServings: 4,
     pantryIngredients: lemonGarlicChickenPantry,
@@ -1445,18 +1447,21 @@ export const CompletedThumbsUp: Story = {
     docs: {
       description: {
         story:
-          'No Swap control: a completed entry records what was cooked and what the pantry was charged for, and the API refuses to repoint it (409, HON-633). Note and Clear stay available.',
+          'No Swap or Clear: a completed entry records what was cooked and what the pantry was charged for, and the API refuses to repoint it (409, HON-633). Undo after Clear could not restore that charge (HON-1123). "Not cooked yet" is the way back.',
       },
     },
   },
   play: async ({ canvasElement }) => {
     const body = within(document.body)
     await openMoreActions(canvasElement)
-    // Note and Clear are in the same menu, so the missing Swap is not a menu
-    // that never opened.
+    // Note and "Not cooked yet" are in the same menu, so the missing Swap and
+    // Clear are not a menu that never opened.
     await expect(await body.findByRole('menuitem', { name: /^note$/i })).toBeInTheDocument()
-    await expect(body.getByRole('menuitem', { name: /^clear$/i })).toBeInTheDocument()
+    await expect(body.getByRole('menuitem', { name: /^not cooked yet$/i })).toBeInTheDocument()
     await expect(body.queryByRole('menuitem', { name: /^swap$/i })).not.toBeInTheDocument()
+    // Undo after Clear cannot restore what the pantry was charged for, so a
+    // completed entry goes back through "Not cooked yet" (HON-1123).
+    await expect(body.queryByRole('menuitem', { name: /^clear$/i })).not.toBeInTheDocument()
   },
 }
 
@@ -1747,5 +1752,111 @@ export const OneHeightAtDoubleText: Story = {
     } finally {
       root.style.fontSize = fontSize
     }
+  },
+}
+
+// Clear with Undo (HON-1123). The page's `<Toaster />` lives in the root
+// layout, so these stories mount their own.
+const withToaster: Decorator = (Story) => (
+  <>
+    <Toaster />
+    <Story />
+  </>
+)
+
+let clearRequests: { method: string; body: unknown }[] = []
+
+function clearHandlers(restoreStatus = 200) {
+  return [
+    http.delete('/api/meal-plans/:planId/entries/:entryId', () => {
+      clearRequests.push({ method: 'DELETE', body: null })
+      return HttpResponse.json({ success: true })
+    }),
+    http.post('/api/meal-plans/:planId/entries', async ({ request }) => {
+      clearRequests.push({ method: 'POST', body: await request.json() })
+      return restoreStatus === 200
+        ? HttpResponse.json({ id: 'entry-2' })
+        : HttpResponse.json({ error: 'Entry already exists' }, { status: restoreStatus })
+    }),
+  ]
+}
+
+async function clearAndUndo(canvasElement: HTMLElement) {
+  clearRequests = []
+  const body = within(document.body)
+  // Sonner's toasts are module state, so the previous story's toast is still
+  // there.
+  toast.dismiss()
+  await waitFor(() => expect(body.queryByText(/^Cleared:/)).not.toBeInTheDocument())
+  await openMoreActions(canvasElement)
+  await userEvent.click(await body.findByRole('menuitem', { name: /^clear$/i }))
+  await waitFor(() => expect(clearRequests).toEqual([{ method: 'DELETE', body: null }]))
+  await expect(await body.findByText(`Cleared: ${mealFixture.name}`)).toBeInTheDocument()
+  await userEvent.click(body.getByRole('button', { name: /^undo$/i }))
+  await waitFor(() => expect(clearRequests).toHaveLength(2))
+}
+
+/**
+ * One tap clears; a toast offers Undo for six seconds, and Undo posts the
+ * entry back with its note, place, servings and status.
+ */
+export const ClearWithUndo: Story = {
+  args: {
+    meal: mealFixture,
+    status: 'skipped',
+    note: 'Leftovers for lunch',
+    noteX: 0.25,
+    noteY: 0.75,
+    servingOverride: 6,
+  },
+  decorators: [withToaster],
+  parameters: { msw: { handlers: clearHandlers() } },
+  play: async ({ canvasElement }) => {
+    await clearAndUndo(canvasElement)
+    await expect(clearRequests[1]).toEqual({
+      method: 'POST',
+      body: {
+        date: '2026-10-10',
+        mealType: MealType.dinner,
+        mealId: mealFixture.id,
+        note: 'Leftovers for lunch',
+        noteX: 0.25,
+        noteY: 0.75,
+        servingOverride: 6,
+        status: 'skipped',
+        rating: null,
+        pantryDeducted: false,
+      },
+    })
+  },
+}
+
+/** The slot was filled again before Undo: the new entry stays, and the toast says so. */
+export const ClearUndoSlotFilled: Story = {
+  args: { meal: mealFixture, status: 'planned' },
+  decorators: [withToaster],
+  parameters: { msw: { handlers: clearHandlers(409) } },
+  play: async ({ canvasElement }) => {
+    await clearAndUndo(canvasElement)
+    await expect(
+      await within(document.body).findByText(
+        "Couldn't restore the meal. The slot has another meal now.",
+      ),
+    ).toBeInTheDocument()
+  },
+}
+
+/** Any other failure: the slot is still empty, so the toast sends the user there. */
+export const ClearUndoFails: Story = {
+  args: { meal: mealFixture, status: 'planned' },
+  decorators: [withToaster],
+  parameters: { msw: { handlers: clearHandlers(500) } },
+  play: async ({ canvasElement }) => {
+    await clearAndUndo(canvasElement)
+    await expect(
+      await within(document.body).findByText(
+        "Couldn't restore the meal. Add it again from the empty slot.",
+      ),
+    ).toBeInTheDocument()
   },
 }

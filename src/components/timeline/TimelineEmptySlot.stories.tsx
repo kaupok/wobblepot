@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, userEvent, waitFor, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { MealType } from '@/generated/prisma/enums'
 import { lemonGarlicChickenPantry } from '@/stories/fixtures'
 import {
@@ -123,5 +123,20 @@ export const Discarding: Story = {
         'true',
       ),
     )
+  },
+}
+
+/**
+ * The slot replaces a card whose meal was just cleared, so it takes the
+ * focus the card took with it (HON-1123).
+ */
+export const AutoFocus: Story = {
+  args: { autoFocus: true, onAutoFocused: fn() },
+  play: async ({ canvasElement, args }) => {
+    const button = within(canvasElement).getByRole('button', {
+      name: 'Dinner: pick a meal, Thursday Apr 16',
+    })
+    await waitFor(() => expect(args.onAutoFocused).toHaveBeenCalledTimes(1))
+    await expect(document.activeElement).toBe(button)
   },
 }

@@ -151,6 +151,7 @@ export function useEntryStatus({
 
   return {
     status,
+    isPantryCharged,
     isUpdating: statusMutation.isPending,
     isDeductionModalOpen,
     setIsDeductionModalOpen,

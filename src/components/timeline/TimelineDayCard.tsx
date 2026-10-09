@@ -5,6 +5,7 @@ import { Body, Heading } from '@/components/ui/typography'
 import { TimelineEmptySlot } from './TimelineEmptySlot'
 import { useTranslations } from 'next-intl'
 import type { TimelineDay, PantryIngredient, PantryItemFull } from '@/components/meal-plan/types'
+import type { MealType } from '@/generated/prisma/enums'
 
 const mealTypeOrder = { breakfast: 0, lunch: 1, dinner: 2 } as const
 
@@ -15,6 +16,11 @@ interface TimelineDayCardProps {
   pantryIngredients: PantryIngredient[]
   pantryItems: PantryItemFull[]
   onEntryUpdated: () => void
+  /** A card's meal was cleared; its slot should take focus once it renders. */
+  onEntryCleared?: (slot: { date: string; mealType: MealType }) => void
+  /** The empty slot to focus as it mounts, set after a clear. */
+  focusSlot?: MealType
+  onSlotFocused?: () => void
 }
 
 export function TimelineDayCard({
@@ -24,6 +30,9 @@ export function TimelineDayCard({
   pantryIngredients,
   pantryItems,
   onEntryUpdated: _onEntryUpdated,
+  onEntryCleared,
+  focusSlot,
+  onSlotFocused,
 }: TimelineDayCardProps) {
   const tDay = useTranslations('meal-plan.day')
   // The heading's text as one string — "Saturday Oct 3", or just "Tomorrow" —
@@ -66,6 +75,8 @@ export function TimelineDayCard({
                 mealType={mealType}
                 householdServings={householdServings}
                 pantryIngredients={pantryIngredients}
+                autoFocus={mealType === focusSlot}
+                onAutoFocused={onSlotFocused}
               />
             ))}
           </div>
@@ -80,6 +91,7 @@ export function TimelineDayCard({
               key={entry.id}
               entryId={entry.id}
               planId={planId}
+              date={entry.date}
               meal={entry.meal}
               mealType={entry.mealType}
               status={entry.status}
@@ -93,6 +105,7 @@ export function TimelineDayCard({
               servingOverride={entry.servingOverride}
               pantryDeducted={entry.pantryDeducted}
               preparationTips={entry.preparationTips}
+              onCleared={() => onEntryCleared?.({ date: day.date, mealType: entry.mealType })}
             />
           ))}
         </div>
