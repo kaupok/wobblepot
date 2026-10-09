@@ -36,7 +36,7 @@ export default function Providers({
   bootstrap,
 }: ProvidersProps) {
   const queryClient = getQueryClient()
-  useResetQueryCacheOnScopeChange(queryClient, `${userId ?? ''}:${householdId ?? ''}`)
+  useResetQueryCacheOnScopeChange(queryClient, { userId, householdId })
   return (
     <QueryClientProvider client={queryClient}>
       <PostHogProvider userId={userId} householdId={householdId} bootstrap={bootstrap}>
