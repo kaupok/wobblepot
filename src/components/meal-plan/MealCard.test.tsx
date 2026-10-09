@@ -8,8 +8,9 @@ import { track } from '@/lib/analytics'
 import { MealCard } from './MealCard'
 import type { PantryIngredient, PreparationSteps } from './types'
 
+const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }))
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh }),
 }))
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
@@ -93,6 +94,7 @@ describe('MealCard Clear and Undo', () => {
     restoreStatus = 200
     vi.mocked(toast).mockClear()
     vi.mocked(toast.error).mockClear()
+    refresh.mockClear()
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string, init?: RequestInit) => {
@@ -188,6 +190,26 @@ describe('MealCard Clear and Undo', () => {
 
     const [, options] = await clearFromMenu(user)
     unmount()
+    refresh.mockClear()
+    clickUndo(options)
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Couldn't restore the meal. The slot has another meal now.",
+      ),
+    )
+    // The refresh shows the new meal in place of the stale empty slot.
+    expect(refresh).toHaveBeenCalledTimes(1)
+    consoleError.mockRestore()
+  })
+
+  it('sends the user to the empty slot when the restore fails otherwise', async () => {
+    const user = userEvent.setup()
+    restoreStatus = 500
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderCard({ meal })
+
+    const [, options] = await clearFromMenu(user)
     clickUndo(options)
 
     await waitFor(() =>

@@ -1832,10 +1832,25 @@ export const ClearWithUndo: Story = {
 }
 
 /** The slot was filled again before Undo: the new entry stays, and the toast says so. */
-export const ClearUndoFails: Story = {
+export const ClearUndoSlotFilled: Story = {
   args: { meal: mealFixture, status: 'planned' },
   decorators: [withToaster],
   parameters: { msw: { handlers: clearHandlers(409) } },
+  play: async ({ canvasElement }) => {
+    await clearAndUndo(canvasElement)
+    await expect(
+      await within(document.body).findByText(
+        "Couldn't restore the meal. The slot has another meal now.",
+      ),
+    ).toBeInTheDocument()
+  },
+}
+
+/** Any other failure: the slot is still empty, so the toast sends the user there. */
+export const ClearUndoFails: Story = {
+  args: { meal: mealFixture, status: 'planned' },
+  decorators: [withToaster],
+  parameters: { msw: { handlers: clearHandlers(500) } },
   play: async ({ canvasElement }) => {
     await clearAndUndo(canvasElement)
     await expect(

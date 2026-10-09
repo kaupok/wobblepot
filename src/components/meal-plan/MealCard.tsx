@@ -247,11 +247,18 @@ export function MealCard({
     },
     onError: (err) => {
       // The route's `error` is English (HON-914): log it, render catalog copy.
-      // A 409 means the slot was filled again meanwhile; the new entry stays.
       console.error(
         '[meal-card] restore after clear failed',
         err instanceof ApiError ? { status: err.status, error: err.message } : { error: err },
       )
+      // A 409: the slot was filled again meanwhile, by another member or tab.
+      // The new entry stays, and the refresh shows it in place of the stale
+      // empty slot, which would only answer a second 409.
+      if (err instanceof ApiError && err.status === 409) {
+        toast.error(tCard('undoSlotFilled'))
+        router.refresh()
+        return
+      }
       toast.error(tCard('undoFailed'))
     },
   })
