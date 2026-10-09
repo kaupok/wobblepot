@@ -134,6 +134,20 @@ export const AlreadyCharged: Story = {
 }
 
 /**
+ * The pantry holds none of the meal's ingredients, so a confirm would change
+ * nothing there: Cooked completes with no dialog (HON-1125).
+ */
+export const NothingToDeduct: Story = {
+  args: { pantryItems: [] },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(cooked(canvasElement))
+
+    await waitFor(() => expect(undo(canvasElement)).toHaveFocus())
+    await expect(within(document.body).queryByRole('dialog')).not.toBeInTheDocument()
+  },
+}
+
+/**
  * A long name on a phone wraps rather than truncates, and the buttons wrap
  * under it, so the row never scrolls sideways.
  */

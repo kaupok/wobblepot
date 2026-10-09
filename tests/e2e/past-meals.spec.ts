@@ -83,12 +83,16 @@ async function otherPastMealsToMark(page: Page, exceptId: string) {
   ).length
 }
 
-// The real page, the real PATCH and the real pantry charge: Cooked opens the
-// deduction, Confirm completes the entry and charges it, and the row and the
-// rating survive a reload (HON-1018). The account menu's dot follows each
-// status change through `router.refresh()`, with no reload (HON-1028). Unit
-// tests and Storybook cover the row in isolation.
-test('a past meal is marked cooked from its row, charged once, and rated', async ({ page }) => {
+// The real page, the real PATCH and the real pantry charge: Cooked completes
+// the entry and charges it, and the row and the rating survive a reload
+// (HON-1018). The meal shares no ingredient with the pantry, so there is
+// nothing to preview and no dialog to confirm (HON-1125); the deduction dialog
+// is covered by PastMealRow's tests and stories. The account menu's dot
+// follows each status change through `router.refresh()`, with no reload
+// (HON-1028). Unit tests and Storybook cover the row in isolation.
+test('a past meal is marked cooked from its row in one click, charged once, and rated', async ({
+  page,
+}) => {
   await signInAsSmoke(page)
 
   const date = daysFromNow(PAST_DAY_OFFSET)
@@ -149,19 +153,17 @@ test('a past meal is marked cooked from its row, charged once, and rated', async
     // Our entry is past and planned, so the account menu shows the dot.
     await expect(accountMenu).toHaveAccessibleName(ACCOUNT_MENU_WITH_DOT)
 
-    await row().getByRole('button', { name: 'Cooked' }).click()
-    const dialog = page.getByRole('dialog', { name: 'Mark as completed' })
-    await expect(dialog).toBeVisible()
     const [patch] = await Promise.all([
       page.waitForResponse(
         (r) =>
           r.request().method() === 'PATCH' &&
           new URL(r.url()).pathname === `/api/meal-plans/${planId}/entries/${entryId}`,
       ),
-      dialog.getByRole('button', { name: 'Confirm' }).click(),
+      row().getByRole('button', { name: 'Cooked' }).click(),
     ])
     expect(patch.ok()).toBe(true)
-    await expect(dialog).toBeHidden()
+    expect(patch.request().postDataJSON()).toEqual({ status: 'completed', deductPantry: true })
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(undo).toBeFocused()
 
     // Marked, the dot clears unless another past meal is still to mark.

@@ -166,12 +166,11 @@ test.describe('Pantry deduction on meal completion', { tag: '@ai' }, () => {
     const patchedPantry = (await patchPantryResponse.json()) as { quantity: number | null }
     expect(patchedPantry.quantity).toBe(STARTING_QUANTITY)
 
-    // Mark the meal completed with pantry deduction. We hit the API directly
-    // because the one-click Cooked button is only on `/past-meals`
-    // (src/components/timeline/PastMealRow.tsx), and "today" is not past —
-    // so the UI path can't complete a freshly generated plan. The PATCH
-    // endpoint is where the deduction logic lives; disabling it would still
-    // be caught by the assertion below.
+    // Mark the meal completed with pantry deduction. We hit the API directly:
+    // the PATCH endpoint is where the deduction logic lives, and the UI path
+    // (Cooked in the card's ⋯ menu, then the deduction dialog, HON-1125) is
+    // covered by MealCard's tests and stories. Disabling the deduction would
+    // still be caught by the assertion below.
     const completeResponse = await page.request.patch(
       `/api/meal-plans/${planId}/entries/${entry.id}`,
       {
