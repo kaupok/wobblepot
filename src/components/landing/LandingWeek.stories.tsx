@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Monday to Sunday under the hero deck of landing direction B1 (HON-1116): the days before tonight cooked, muted, with a check; tonight in the foreground ink, naming the deck’s dinner; the rest to come. Seven columns from `md`. On a phone, a focusable strip that scrolls sideways, runs to the screen edges and opens with tonight centred.',
+          'Monday to Sunday under the landing page’s hero deck (HON-1116): the days before tonight cooked, muted, with a check; tonight in the foreground ink, naming the deck’s dinner; the rest to come. Seven columns from `md`. On a phone, a focusable strip that scrolls sideways, runs to the screen edges and opens with tonight centred.',
       },
     },
   },

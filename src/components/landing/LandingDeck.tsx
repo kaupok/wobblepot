@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Body, Heading } from '@/components/ui/typography'
 import { MealDetailModal } from '@/components/meal-plan/MealDetailModal'
-import { DemoMealCard } from '@/components/landing/LandingDemo'
-import { ShowcaseMealCard } from '@/components/landing/LandingShowcase'
+import { DemoMealCard } from '@/components/landing/DemoMealCard'
+import { ShowcaseMealCard } from '@/components/landing/ShowcaseMealCard'
 import type { DemoDay, DemoMeal } from '@/lib/landing/load-demo-day'
 import { cn } from '@/lib/utils'
 
@@ -37,7 +37,7 @@ const DOM_ORDER: readonly DeckMeal[] = ['dinner', 'breakfast', 'lunch']
 interface LandingDeckProps {
   /**
    * Today's library meals (`loadDemoDay`), or null when the library cannot
-   * fill a day, in which case the static example day (`LandingShowcase`)
+   * fill a day, in which case the static example day (`ShowcaseMealCard`)
    * stands in, as on the live landing.
    */
   day: DemoDay | null
@@ -47,7 +47,7 @@ interface LandingDeckProps {
 
 /**
  * Tonight's dinner in front, breakfast and lunch tilted behind it on either
- * side: landing direction B1's hero picture (HON-1116).
+ * side: the landing page's hero picture (HON-1116).
  *
  * The deck keeps the live landing's demo (HON-1036) rather than static cards,
  * because opening a real meal in the cook view is the page's one chance to

@@ -108,7 +108,7 @@ export const Hero: Story = {
     docs: {
       description: {
         story:
-          'The landing page’s one centred headline (landing direction B1, HON-1116): 48px on a phone, 72px from `md`, 96px from `lg`, line height 1, bold, in the display face. Marketing only; it renders an `h1` and the `title-scale` design rule fails it inside the app.',
+          'The landing page’s one centred headline (HON-1116): 48px on a phone, 72px from `md`, 96px from `lg`, line height 1, bold, in the display face. Marketing only; it renders an `h1` and the `title-scale` design rule fails it inside the app.',
       },
     },
   },

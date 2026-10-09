@@ -19,7 +19,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The pictures above the three steps of "Three steps to a planned week" in landing direction B1 (HON-1116). Each is three rows in one shape: a mark, a name, a detail on the right. Step 1 is the household, step 2 three dinners, step 3 the shopping list.',
+          'The pictures above the three steps of "Three steps to a planned week" on the landing page (HON-1116). Each is three rows in one shape: a mark, a name, a detail on the right. Step 1 is the household, step 2 three dinners, step 3 the shopping list.',
       },
     },
   },

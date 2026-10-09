@@ -54,27 +54,6 @@ const SHOWCASE_MEALS: ReadonlyArray<{
   },
 ]
 
-export function LandingShowcase() {
-  const t = useTranslations('landing.showcase')
-
-  return (
-    <figure className="flex flex-col gap-3">
-      {/* The day label at the timeline's Section size, as a paragraph: the
-          landing page's outline is the hero's h1 and the section h2s, and an
-          example day is not a section of it. */}
-      <Heading variant="section" as="p">
-        {t('day')}
-      </Heading>
-      <div className="flex flex-col gap-3">
-        {SHOWCASE_MEALS.map((meal) => (
-          <ShowcaseMealCard key={meal.key} meal={meal.key} />
-        ))}
-      </div>
-      <figcaption className="sr-only">{t('caption')}</figcaption>
-    </figure>
-  )
-}
-
 interface ShowcaseMealCardProps {
   meal: ShowcaseMealKey
   /** The description under the name, from `md`. Off where the card is a small picture. */
@@ -82,8 +61,9 @@ interface ShowcaseMealCardProps {
 }
 
 /**
- * One meal of the example day on the planner's card. Exported so another
- * landing layout can place the same cards its own way.
+ * One meal of the example day on the planner's card: the landing deck's card
+ * when the library cannot fill a demo day (`LandingDeck`), and the step 2
+ * picture's dinner.
  */
 export function ShowcaseMealCard({ meal: key, description = true }: ShowcaseMealCardProps) {
   const t = useTranslations('landing.showcase')

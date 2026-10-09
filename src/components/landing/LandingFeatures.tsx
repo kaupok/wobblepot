@@ -28,7 +28,7 @@ import type { Member, MemberPreferences } from '@/types/member'
 
 /**
  * The pantry, portions and cook vignettes show the showcase dinner
- * (`LandingShowcase`), so the section tells one story from the pantry to the
+ * (`ShowcaseMealCard`), so the section tells one story from the pantry to the
  * stove. The pantry and cook vignettes sit on its tint, the hue `extractHue`
  * returns for its committed illustration.
  */
@@ -42,7 +42,7 @@ const SALMON_HUE = 88
  * the salmon's, so the rows alternate from `md`: yellow, orange, neutral,
  * yellow (HON-1042). Its illustration is a copy of the meal's generated image
  * and its hue is what `extractHue` returns for that file, as for
- * `LandingShowcase`; the name, description and prompt are in the catalog.
+ * `ShowcaseMealCard`; the name, description and prompt are in the catalog.
  */
 const BUTTER_CHICKEN = {
   imageUrl: '/landing/butter-chicken.jpg',
@@ -107,7 +107,7 @@ const VIGNETTES: Record<Point, ComponentType> = {
 }
 
 // A slight tilt on each vignette, in a different direction and amount, so the
-// column reads as things laid on a table rather than a grid. Whole degrees
+// vignettes read as things laid on a table rather than a grid. Whole degrees
 // only, which the rotate scale has.
 const TILTS: Record<Point, string> = {
   pantry: 'rotate-1',
@@ -122,20 +122,21 @@ const noop = () => {}
 
 /**
  * "Made for family kitchens" on the signed-out home page (HON-1038): the
- * heading, then one row per point, each with a vignette
- * built from the app's own components in a fixed state, so the page proves
- * each claim with the product rather than a picture of it (docs/DESIGN.md →
- * Reject list). Nothing fetches and nothing saves.
+ * heading, then the four points as a 2×2 grid of tiles from `md` (one column
+ * below it, HON-1116). Each tile is the point's title and text, then a
+ * vignette built from the app's own components in a fixed state, so the page
+ * proves each claim with the product rather than a picture of it
+ * (docs/DESIGN.md → Reject list). Nothing fetches and nothing saves.
  *
- * From `md` each row is two columns and the vignette swaps sides on every
- * other row; below `md` a row is the text, then its vignette. The DOM order is
- * always text first, so a screen reader reads the claim before its caption.
+ * The tiles stay on the plain muted surface. Faint per-point tints were tried,
+ * and with the tinted vignettes inside they read muddy. A tile clips its
+ * tilted vignette, so a tilt never widens the page.
  */
 export function LandingFeatures() {
   const t = useTranslations('landing.why')
 
   return (
-    <section aria-labelledby="landing-why" className="flex flex-col gap-12 md:gap-16">
+    <section aria-labelledby="landing-why" className="flex flex-col gap-10 md:gap-12">
       {/* A statement, not a section label: the hero's size, centred. */}
       <div className="mx-auto max-w-3xl text-center text-balance">
         <Heading variant="h1" as="h2" face="brand" id="landing-why">
@@ -143,45 +144,45 @@ export function LandingFeatures() {
         </Heading>
       </div>
       {/* WebKit drops list semantics from a `list-style: none` list, so the
-          role restores them, as on "How it works". */}
-      <ul role="list" className="flex list-none flex-col gap-16 md:gap-24">
-        {POINTS.map((point, index) => {
-          return (
-            <li key={point} className="grid items-center gap-6 md:grid-cols-2 md:gap-16">
-              <div className="flex flex-col gap-3 text-balance">
-                {/* Two steps above the Section headings this file draws in the
-                    vignettes, so the claim leads and the vignette reads as its
-                    proof. `IngredientList` keeps its own heading. The title is
-                    the page's voice, so it takes the display face; the vignette
-                    is the product, so it keeps Geist. */}
-                <Heading variant="h3" face="brand">
-                  {t(`${point}.title`)}
-                </Heading>
-                <Body tone="muted">{t(`${point}.body`)}</Body>
-              </div>
-              <LandingVignette point={point} className={cn(index % 2 === 1 && 'md:order-first')} />
-            </li>
-          )
-        })}
+          role restores them, as on the steps. */}
+      <ul role="list" className="grid list-none gap-5 md:grid-cols-2">
+        {POINTS.map((point) => (
+          <li
+            key={point}
+            className="bg-muted flex flex-col gap-7 overflow-hidden rounded-3xl px-5 pt-7 pb-8 md:px-10 md:pt-10 md:pb-10"
+          >
+            <div className="flex flex-col gap-2 text-balance">
+              {/* Above the Section headings this file draws in the vignettes,
+                  so the claim leads and the vignette reads as its proof.
+                  `IngredientList` keeps its own heading. The title is the
+                  page's voice, so it takes the display face; the vignette is
+                  the product, so it keeps Geist. */}
+              <Heading variant="h3" face="brand">
+                {t(`${point}.title`)}
+              </Heading>
+              {/* The default ink, not muted: muted text on the muted tile is
+                  4.3:1, under the 4.5:1 floor. */}
+              <Body>{t(`${point}.body`)}</Body>
+            </div>
+            <div className="mx-auto w-full max-w-md">
+              <LandingVignette point={point} />
+            </div>
+          </li>
+        ))}
       </ul>
     </section>
   )
 }
 
-export type LandingPoint = Point
-
-/**
- * One point's vignette, tilted, with its caption for screen readers.
- * Exported so another landing layout can place the same vignettes its own way.
- */
-export function LandingVignette({ point, className }: { point: Point; className?: string }) {
+/** One point's vignette, tilted, with its caption for screen readers. */
+function LandingVignette({ point }: { point: Point }) {
   const t = useTranslations('landing.why')
   // The portions caption names the salmon the vignette shows.
   const salmon = useScaledSalmon()
   const Vignette = VIGNETTES[point]
 
   return (
-    <figure data-testid={`landing-vignette-${point}`} className={cn('min-w-0', className)}>
+    <figure data-testid={`landing-vignette-${point}`} className="min-w-0">
       <div inert className={TILTS[point]}>
         <Vignette />
       </div>
@@ -309,7 +310,7 @@ function ImagineVignette() {
           imageHue: BUTTER_CHICKEN.imageHue,
         }}
         size="sm"
-        // The planner card's head, as `LandingShowcase` draws it, with the
+        // The planner card's head, as `ShowcaseMealCard` draws it, with the
         // own-recipe mark after the name (`MealCard`).
         head={
           <CardHeader className="px-4 pt-1 pb-1">

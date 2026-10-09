@@ -91,10 +91,6 @@ export const PUBLIC_ROUTES = [
     path: '/meal-plan',
     reason: 'Legacy path that redirect()s unconditionally, before any Suspense boundary',
   },
-  {
-    path: '/landing-b1',
-    reason: 'Temporary preview of a landing page direction, read signed out like the landing on /',
-  },
 ] as const satisfies readonly { path: `/${string}`; reason: string }[]
 
 /**

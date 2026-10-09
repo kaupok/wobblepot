@@ -110,14 +110,15 @@ describe('LandingFeatures', () => {
     }
   })
 
-  it('swaps the vignette to the left on rows 2 and 4 from md, and keeps text first in the DOM', () => {
+  it('lays the points out as tiles, two columns from md, each clipping its tilted vignette', () => {
     renderFeatures()
-    POINTS.forEach((point, index) => {
-      const figure = vignette(point)
-      expect(figure.classList.contains('md:order-first')).toBe(index % 2 === 1)
-      // Below md the row stacks in DOM order: the text, then the vignette.
-      expect(figure.previousElementSibling?.querySelector('h3')).toBeInTheDocument()
-    })
+    const list = screen
+      .getByRole('region', { name: 'Made for family kitchens' })
+      .querySelector('ul')
+    expect(list).toHaveClass('grid', 'md:grid-cols-2')
+    for (const point of POINTS) {
+      expect(vignette(point).closest('li')).toHaveClass('bg-muted', 'overflow-hidden')
+    }
   })
 
   it('shows the pantry: three ingredients ticked, the lemon to buy', () => {

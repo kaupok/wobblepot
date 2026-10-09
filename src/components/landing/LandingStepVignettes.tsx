@@ -14,7 +14,7 @@ import type { Locale } from '@/lib/i18n/locales'
 import { cn } from '@/lib/utils'
 
 /*
- * The pictures above the three steps of landing direction B1 (HON-1116).
+ * The pictures above the three steps on the landing page (HON-1116).
  * Each is three rows in one shape: a mark, a name, a detail on the right. One
  * idea per picture, so the band reads at a glance. Earlier versions drew the
  * app's own household page, planner day and shopping list, and at this size

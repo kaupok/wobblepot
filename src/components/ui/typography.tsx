@@ -41,8 +41,8 @@ export const toneVariants = {
 const headingVariants = cva('scroll-m-20 tracking-tight', {
   variants: {
     variant: {
-      // The landing page's one headline, centred above the product (landing
-      // direction B1, HON-1116). Two steps above h1 on a phone and growing to
+      // The landing page's one headline, centred above the product
+      // (HON-1116). Two steps above h1 on a phone and growing to
       // 96px from `lg`, because it is the page's whole first statement. Bold,
       // not extrabold: it is set in the display face. Marketing only; inside
       // the app the `title-scale` design rule fails it.

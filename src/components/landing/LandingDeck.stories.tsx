@@ -70,7 +70,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Landing direction B1's hero picture (HON-1116): tonight's dinner in front, breakfast and lunch tilted behind it. With a demo day every card is the live landing's demo card (HON-1036) and opens the read-only cook view. A side card first swings to the front, trading places with the card there, and the caption follows it. With no demo day the static showcase stands in and nothing opens.",
+          "The landing page's hero picture (HON-1116): tonight's dinner in front, breakfast and lunch tilted behind it. With a demo day every card is the live landing's demo card (HON-1036) and opens the read-only cook view. A side card first swings to the front, trading places with the card there, and the caption follows it. With no demo day the static showcase stands in and nothing opens.",
       },
     },
   },

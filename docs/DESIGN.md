@@ -46,7 +46,7 @@ Two more levels exist for the cook view only (HON-932). It is read from a counte
 | Display | The cook view's meal name, its dialog title                                         | `<Heading variant="display" face="brand">` | `text-2xl lg:text-3xl font-semibold tracking-tight`, Bricolage Grotesque | 24px / 32px; 30px / 36px from `lg`      |
 | Step    | The cook view's steps, "Watch out" and "Tip", and the household's preparation notes | `<Body variant="step">`                    | `text-lg lg:text-xl leading-relaxed`, foreground                         | 20px / 32.5px; 22px / 35.75px from `lg` |
 
-One more level exists for the signed-out landing page only (HON-1116). Landing direction B1 centres its headline above the product, so the headline is the whole first screen's statement and sits above `h1`. Nothing in the app uses it, and the `title-scale` design rule fails it there:
+One more level exists for the signed-out landing page only (HON-1116). The landing page centres its headline above the product, so the headline is the whole first screen's statement and sits above `h1`. Nothing in the app uses it, and the `title-scale` design rule fails it there:
 
 | Level | Use for                                   | Component                               | Renders as                                                                     | Size / line                          |
 | ----- | ----------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------ |

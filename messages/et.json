@@ -643,16 +643,12 @@
   },
   "landing": {
     "headline": "Õhtusöök otsustatud. <br></br>Terveks nädalaks.",
-    "sub": "Wobblepot koostab pere söögiplaani selle järgi, kes sööb, mida välditakse ja mis on juba sahvris olemas. Siis kirjutab ta poenimekirja ja on pliidi juures sinuga.",
-    "subShort": "Söögiplaan sinu pere, allergiate ja sahvri järgi. Üks poenimekiri terveks nädalaks.",
+    "sub": "Söögiplaan sinu pere, allergiate ja sahvri järgi. Üks poenimekiri terveks nädalaks.",
     "cta": "Planeeri selle nädala õhtusöögid",
-    "free": "Beeta ajal tasuta. Tasulised paketid tulevad hiljem. Anname sellest 30 päeva ette teada ja beetapered saavad soodsama hinna.",
-    "trust": "Sinu andmed on Euroopa Liidus ja reklaame ei ole.",
     "ctaNote": "Beeta ajal tasuta · Reklaamideta · Sinu andmed jäävad Euroopa Liitu",
     "privateBeta": "Oleme suletud beetas, seega on registreerumiseks vaja kutsekoodi.",
     "demo": {
-      "hint": "Ava toit, et näha seda nii, nagu pliidi ääres.",
-      "caption": "Kolm tänast toitu raamatukogust. Iga nimi avab kokkamisvaate."
+      "hint": "Ava toit, et näha seda nii, nagu pliidi ääres."
     },
     "deck": {
       "breakfast": "{day} · Tänane hommikusöök",
@@ -676,7 +672,6 @@
     },
     "showcase": {
       "day": "Neljapäev",
-      "caption": "Näidispäev Wobblepotis: hommikusöök, lõuna ja õhtusöök, igaüks oma kaardil.",
       "breakfast": {
         "name": "Avokaadovõileib pošeeritud munaga",
         "description": "Juuretisega leib purustatud avokaado ja pošeeritud munaga"

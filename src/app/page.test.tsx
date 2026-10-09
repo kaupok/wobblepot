@@ -200,13 +200,10 @@ async function renderLanding() {
   return render(await Home(), { wrapper })
 }
 
-// The price line under the hero button, word for word: it is a promise to beta
-// households (HON-1061), so the test pins the exact sentence.
-const PRICE_EN =
-  "Free while we're in beta. Paid plans come later. You hear 30 days before, and beta families get a lower price."
-const PRICE_ET =
-  'Beeta ajal tasuta. Tasulised paketid tulevad hiljem. Anname sellest 30 päeva ette teada ja beetapered saavad soodsama hinna.'
-const TRUST_EN = 'Your data lives in the EU, and there are no ads.'
+// The one line of small print under the hero button, word for word: the price
+// and the data promise (HON-1061, HON-1116).
+const NOTE_EN = "Free while we're in beta · No ads · Your data stays in the EU"
+const NOTE_ET = 'Beeta ajal tasuta · Reklaamideta · Sinu andmed jäävad Euroopa Liitu'
 // The phone-only closing line above the maker's line (HON-1060).
 const CLOSE_EN = 'Two minutes at setup, then a week of dinners and one shopping list.'
 const CLOSE_ET = 'Kaks minutit alguses, siis nädala õhtusöögid ja üks ostunimekiri.'
@@ -261,16 +258,14 @@ describe('Home page component', () => {
       // Under the hero, and once more at the end for phones, where the scrolled
       // header shows no Sign up (HON-1060).
       expect(signUpLinks()).toHaveLength(2)
-      expect(screen.getByText(TRUST_EN)).toBeInTheDocument()
     })
 
-    it('says what it costs between the notice and the data line while invites are required (HON-1061)', async () => {
+    it('puts the price and data line under the notice while invites are required (HON-1061)', async () => {
       await renderLanding()
 
       expectInOrder(
         screen.getByRole('note', { name: 'Private beta notice' }),
-        screen.getByText(PRICE_EN),
-        screen.getByText(TRUST_EN),
+        screen.getByText(NOTE_EN),
       )
     })
 
@@ -286,7 +281,7 @@ describe('Home page component', () => {
         expect(link).toHaveAttribute('href', '/sign-up')
       }
       expect(signUpLinks()).toHaveLength(2)
-      expectInOrder(screen.getByText(PRICE_EN), screen.getByText(TRUST_EN))
+      expect(screen.getByText(NOTE_EN)).toBeInTheDocument()
     })
 
     it('translates the notice and its link', async () => {
@@ -301,7 +296,7 @@ describe('Home page component', () => {
         'href',
         '/request-invite',
       )
-      expectInOrder(notice, screen.getByText(PRICE_ET))
+      expectInOrder(notice, screen.getByText(NOTE_ET))
     })
   })
 
@@ -331,15 +326,18 @@ describe('Home page component', () => {
 
   it('renders value proposition when not authenticated', async () => {
     await renderLanding()
-    expect(screen.getByText(/plans your family's meals around who's eating/)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Meals planned around your family, your allergies and your pantry. One shopping list for the week.',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('renders an example day drawn with the planner card', async () => {
     await renderLanding()
-    // The hero's day comes first; the differences' vignettes are figures too.
+    // The hero's deck comes first; the differences' vignettes are figures too.
     const figure = screen.getAllByRole('figure')[0]!
-    expect(within(figure).getByText(/An example day in Wobblepot/)).toBeInTheDocument()
-    expect(within(figure).getByText('Thursday')).toBeInTheDocument()
+    expect(within(figure).getByText("Thursday · Tonight's dinner")).toBeInTheDocument()
     for (const name of [
       'Avocado toast with poached egg',
       'Beef bibimbap',
@@ -379,10 +377,10 @@ describe('Home page component', () => {
     await renderLanding()
 
     expect(loadDemoDay).toHaveBeenCalledWith({ locale: 'en', date: expect.any(String) })
-    // The hero's day comes first; the differences' vignettes are figures too.
+    // The hero's deck comes first; the differences' vignettes are figures too.
     const figure = screen.getAllByRole('figure')[0]!
     // 2026-10-01 is a Thursday.
-    expect(within(figure).getByText('Thursday')).toBeInTheDocument()
+    expect(within(figure).getByText("Thursday · Tonight's dinner")).toBeInTheDocument()
     expect(within(figure).getByRole('button', { name: 'Avocado toast' })).toBeInTheDocument()
     expect(within(figure).getByRole('button', { name: 'Baked salmon' })).toBeInTheDocument()
     expect(screen.queryByText('Avocado toast with poached egg')).not.toBeInTheDocument()
@@ -445,9 +443,8 @@ describe('Home page component', () => {
     expect(wrapper).not.toBeNull()
     const closingBlock = within(wrapper!)
     expect(closingBlock.getByText(CLOSE_EN)).toBeInTheDocument()
-    // The beta note, the price and the data line stay in the hero.
-    expect(closingBlock.queryByText(PRICE_EN)).not.toBeInTheDocument()
-    expect(closingBlock.queryByText(TRUST_EN)).not.toBeInTheDocument()
+    // The beta notice and the price and data line stay in the hero.
+    expect(closingBlock.queryByText(NOTE_EN)).not.toBeInTheDocument()
     expect(closingBlock.queryByRole('note')).not.toBeInTheDocument()
     expectInOrder(
       wrapper!,

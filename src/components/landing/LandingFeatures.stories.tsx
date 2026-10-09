@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, within } from 'storybook/test'
 import { displayFont } from './display-font'
-import { LandingFeatures, LandingVignette } from './LandingFeatures'
+import { LandingFeatures } from './LandingFeatures'
 
 const meta = {
   title: 'Landing/LandingFeatures',
@@ -20,7 +20,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "\"Made for family kitchens\" on the signed-out landing page: the heading, then one row per point with a static vignette built from the app's own components (the cook view's ingredients, the imagine prompt and the planner card, the household's member rows, a cooking step with a question and its answer). From `md` their surfaces alternate: the salmon's yellow tint, the butter chicken's orange, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption; from `md` the vignette swaps sides on rows 2 and 4.",
+          "\"Made for family kitchens\" on the signed-out landing page: the heading, then the four points as tiles, two columns from `md`, each with a static vignette built from the app's own components (the cook view's ingredients, the imagine prompt and the planner card, the household's member rows, a cooking step with a question and its answer). From `md` their surfaces alternate: the salmon's yellow tint, the butter chicken's orange, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption.",
       },
     },
   },
@@ -47,8 +47,8 @@ const play: Story['play'] = async ({ canvasElement }) => {
   const focusable = drawings.flatMap((el) =>
     Array.from(el.querySelectorAll('button, input, [tabindex]')),
   )
-  // Checkboxes, the prompt field and the Imagine button, the recipe mark, the Serves pill,
-  // the step and its Ask button.
+  // Checkboxes, the prompt field and the Imagine button, the recipe mark and
+  // the Serves pill.
   await expect(focusable.length).toBeGreaterThan(0)
   ;(document.activeElement as HTMLElement | null)?.blur()
   for (let i = 0; i <= focusable.length; i++) {
@@ -71,7 +71,7 @@ const play: Story['play'] = async ({ canvasElement }) => {
   }
 }
 
-/** Phone (390 px): each row is the text, then its vignette. */
+/** Phone (390 px): one column of tiles. */
 export const Default: Story = { play }
 
 export const Dark: Story = {
@@ -79,7 +79,7 @@ export const Dark: Story = {
   play,
 }
 
-/** From `md`: two columns, the vignette on the right on rows 1 and 3, on the left on 2 and 4. */
+/** From `md`: two columns of tiles. */
 export const Desktop: Story = {
   globals: { viewport: { value: 'laptop', isRotated: false } },
   play,
@@ -88,21 +88,4 @@ export const Desktop: Story = {
 export const DesktopDark: Story = {
   globals: { viewport: { value: 'laptop', isRotated: false }, theme: 'dark' },
   play,
-}
-
-/**
- * One point's vignette on its own (`LandingVignette`), tilted, with its
- * `sr-only` caption, as landing direction B1 places it in a tile (HON-1116).
- */
-export const SingleVignette: Story = {
-  render: () => (
-    <div className="max-w-md">
-      <LandingVignette point="pantry" />
-    </div>
-  ),
-  play: async ({ canvasElement }) => {
-    const caption = within(canvasElement).getByText(/1 to buy/, { selector: 'figcaption' })
-    await expect(caption).toHaveClass('sr-only')
-    await expect(canvasElement.querySelectorAll('[inert]')).toHaveLength(1)
-  },
 }

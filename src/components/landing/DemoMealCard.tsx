@@ -1,16 +1,14 @@
 'use client'
 
-import { useState, type MouseEvent } from 'react'
-import { useTranslations } from 'next-intl'
+import type { MouseEvent } from 'react'
 import { CardHeader } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
 import { KidFriendlyBadge } from '@/components/meal-plan/KidFriendlyBadge'
-import { MealDetailModal } from '@/components/meal-plan/MealDetailModal'
 import { MealImageCard, mealImageTitleWidth } from '@/components/meal-plan/MealImageCard'
 import { MealTypeBadge } from '@/components/meal-plan/MealTypeBadge'
 import { ProteinBadge } from '@/components/meal-plan/ProteinBadge'
 import { cn } from '@/lib/utils'
-import type { DemoDay, DemoMeal } from '@/lib/landing/load-demo-day'
+import type { DemoMeal } from '@/lib/landing/load-demo-day'
 
 // A click on one of these is not a click on the card. The name opens the view
 // itself. The Kid-friendly badge is a tooltip trigger drawn as a `span`, so it
@@ -39,62 +37,6 @@ function cardClickOpens(event: MouseEvent<HTMLDivElement>): boolean {
   return true
 }
 
-interface LandingDemoProps {
-  day: DemoDay
-  /** The day's weekday name in the visitor's language. */
-  dayLabel: string
-}
-
-/**
- * Today's three library meals on the signed-out home page, as the planner
- * draws them, and each one opens in the real cook view (`MealDetailModal`
- * `readOnly`): the steps an operator wrote ahead of time, nothing fetched,
- * nothing saved. The meal name is the trigger, as on the planner card, and a
- * click anywhere else on the card opens it too (HON-1036). One view, re-keyed
- * by the open meal so ticked steps never carry over.
- */
-export function LandingDemo({ day, dayLabel }: LandingDemoProps) {
-  const t = useTranslations('landing.demo')
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [open, setOpen] = useState(false)
-  const active = day.meals[activeIndex] ?? day.meals[0]
-
-  function openCookView(index: number) {
-    setActiveIndex(index)
-    setOpen(true)
-  }
-
-  return (
-    <figure className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        {/* The day label at the timeline's Section size, as a paragraph: an
-            example day is not a section of the page's outline. */}
-        <Heading variant="section" as="p">
-          {dayLabel}
-        </Heading>
-        <Body variant="muted">{t('hint')}</Body>
-      </div>
-      <div className="flex flex-col gap-3">
-        {day.meals.map((entry, index) => (
-          <DemoMealCard key={entry.meal.id} entry={entry} onOpen={() => openCookView(index)} />
-        ))}
-      </div>
-      <figcaption className="sr-only">{t('caption')}</figcaption>
-      {active && (
-        <MealDetailModal
-          key={active.meal.id}
-          meal={active.meal}
-          householdServings={active.servings}
-          initialSteps={active.steps}
-          open={open}
-          onOpenChange={setOpen}
-          readOnly
-        />
-      )}
-    </figure>
-  )
-}
-
 interface DemoMealCardProps {
   entry: DemoMeal
   /**
@@ -107,10 +49,10 @@ interface DemoMealCardProps {
 }
 
 /**
- * One demo meal on the planner's card. With `onOpen` the name is a button that
- * opens the cook view; without it the name is text, for a card drawn as
- * decoration. Exported so another landing layout can place the cards its own
- * way (`LandingDeck`).
+ * One of today's library meals on the planner's card, for the landing page's
+ * deck (`LandingDeck`). With `onOpen` the name is a button that opens the
+ * cook view, and a click anywhere else on the card opens it too (HON-1036);
+ * without it the name is text, for a card drawn as decoration.
  */
 export function DemoMealCard({ entry, onOpen, description = true }: DemoMealCardProps) {
   return (

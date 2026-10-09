@@ -1,12 +1,12 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import enMessages from '../../../messages/en.json'
-import etMessages from '../../../messages/et.json'
+import enMessages from '../../messages/en.json'
+import etMessages from '../../messages/et.json'
 import { createMeal } from '@/stories/fixtures'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import type { DemoDay } from '@/lib/landing/load-demo-day'
-import { LandingB1 } from './LandingB1'
+import { LandingPage } from './LandingPage'
 
 // `getTranslations` through the real translator, as in `src/app/page.test.tsx`,
 // so the server half renders from the catalogs. `translationLocale` switches
@@ -55,22 +55,25 @@ const demo: DemoDay = {
   ],
 }
 
-async function renderB1(day: DemoDay | null = null) {
+async function renderLanding(day: DemoDay | null = null) {
   const { wrapper } = createQueryWrapper()
-  return render(await LandingB1({ inviteRequired: false, locale: translationLocale, demo: day }), {
-    wrapper,
-  })
+  return render(
+    await LandingPage({ inviteRequired: false, locale: translationLocale, demo: day }),
+    {
+      wrapper,
+    },
+  )
 }
 
 const week = () => screen.getByRole('region', { name: 'This week' })
 
-describe('LandingB1', () => {
+describe('LandingPage', () => {
   beforeEach(() => {
     translationLocale = 'en'
   })
 
   it('sets the headline at the hero level, broken after the first sentence', async () => {
-    await renderB1()
+    await renderLanding()
     const headline = screen.getByRole('heading', {
       level: 1,
       name: 'Dinner, decided. For the whole week.',
@@ -80,7 +83,7 @@ describe('LandingB1', () => {
   })
 
   it('keeps the small print to one line above the deck', async () => {
-    const { container } = await renderB1()
+    const { container } = await renderLanding()
     const text = container.textContent ?? ''
     const note = text.indexOf("Free while we're in beta · No ads · Your data stays in the EU")
     expect(note).toBeGreaterThan(-1)
@@ -90,7 +93,7 @@ describe('LandingB1', () => {
   })
 
   it('shows the static Thursday when there is no demo day, with nothing to open', async () => {
-    await renderB1()
+    await renderLanding()
     expect(screen.getByText("Thursday · Tonight's dinner")).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Baked salmon with asparagus' }),
@@ -106,14 +109,14 @@ describe('LandingB1', () => {
   })
 
   it('lets a keyboard scroll the week strip', async () => {
-    await renderB1()
+    await renderLanding()
     expect(week()).toHaveAttribute('tabindex', '0')
     expect(within(week()).getAllByRole('listitem')).toHaveLength(7)
   })
 
   it("puts the demo day's dinner in front, on today's weekday, and opens it in the cook view", async () => {
     const user = userEvent.setup()
-    await renderB1(demo)
+    await renderLanding(demo)
 
     expect(screen.getByText("Monday · Tonight's dinner")).toBeInTheDocument()
     const tonight = within(week())
@@ -131,7 +134,7 @@ describe('LandingB1', () => {
 
   it('swings a side card to the front, then opens it', async () => {
     const user = userEvent.setup()
-    await renderB1(demo)
+    await renderLanding(demo)
 
     await user.click(screen.getByRole('button', { name: 'Noodle soup' }))
     expect(screen.getByText("Monday · Today's lunch")).toBeInTheDocument()
@@ -143,7 +146,7 @@ describe('LandingB1', () => {
 
   it('reads the server-rendered copy from the Estonian catalog', async () => {
     translationLocale = 'et'
-    await renderB1()
+    await renderLanding()
     expect(
       screen.getByRole('heading', { level: 1, name: 'Õhtusöök otsustatud. Terveks nädalaks.' }),
     ).toBeInTheDocument()
