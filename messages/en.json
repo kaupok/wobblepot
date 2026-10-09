@@ -642,19 +642,36 @@
     }
   },
   "landing": {
-    "headline": "Dinner, decided. For the whole week.",
-    "sub": "Wobblepot plans your family's meals around who's eating, what they avoid and what's already in the pantry. Then it writes the shopping list and stays with you at the stove.",
+    "headline": "Dinner, decided. <br></br>For the whole week.",
+    "sub": "Meals planned around your family, your allergies and your pantry. One shopping list for the week.",
     "cta": "Plan this week's dinners",
-    "free": "Free while we're in beta. Paid plans come later. You hear 30 days before, and beta families get a lower price.",
-    "trust": "Your data lives in the EU, and there are no ads.",
+    "ctaNote": "Free while we're in beta · No ads · Your data stays in the EU",
     "privateBeta": "We're in private beta, so sign-up needs an invite code.",
     "demo": {
-      "hint": "Open a meal to see it the way you would at the stove.",
-      "caption": "Three of today's meals from the library. Each name opens the cook view."
+      "hint": "Open a meal to see it the way you would at the stove."
+    },
+    "deck": {
+      "breakfast": "{day} · Today's breakfast",
+      "lunch": "{day} · Today's lunch",
+      "dinner": "{day} · Tonight's dinner"
+    },
+    "week": {
+      "label": "This week",
+      "tonight": "Tonight",
+      "cooked": "Cooked",
+      "minutes": "{count} min",
+      "meals": {
+        "mon": "Spaghetti bolognese",
+        "tue": "Chicken and rice traybake",
+        "wed": "Lentil soup with bread",
+        "thu": "Fish tacos",
+        "fri": "Homemade pizza",
+        "sat": "Beef stew with potatoes",
+        "sun": "Roast chicken with vegetables"
+      }
     },
     "showcase": {
       "day": "Thursday",
-      "caption": "An example day in Wobblepot: breakfast, lunch and dinner, each on its own card.",
       "breakfast": {
         "name": "Avocado toast with poached egg",
         "description": "Sourdough with smashed avocado and a poached egg"
@@ -707,10 +724,10 @@
         "title": "Imagine a meal",
         "body": "Say what you're in the mood for, or snap a photo. You get three recipes to save, and they join the plan with the rest.",
         "vignette": {
-          "caption": "A description typed into Imagine a meal, and below it the dish it produced on the planner: an acai bowl for breakfast, marked as your own recipe.",
-          "prompt": "Something cold and fruity for breakfast, with granola",
-          "name": "Acai bowl",
-          "description": "Frozen acai with banana, granola and fresh fruit"
+          "caption": "A description typed into Imagine a meal, and below it the dish it produced on the planner: a mild butter chicken for dinner, marked as your own recipe.",
+          "prompt": "Like our Friday takeaway butter chicken, but mild enough for the kids and ready in 40 minutes",
+          "name": "Mild butter chicken",
+          "description": "Creamy tomato curry with chicken and rice"
         }
       },
       "kids": {
@@ -727,7 +744,7 @@
         "title": "Cooking help on the counter",
         "body": "Steps at a size you can read from across the kitchen, and a quick answer when you're stuck on one.",
         "vignette": {
-          "caption": "A cooking step in large type with its Ask button, and the answer to the question \"How do I know the salmon is done?\" below it.",
+          "caption": "A cooking step in large type, then the question \"How do I know the salmon is done?\" and its answer.",
           "step": "Lay the salmon and asparagus on the tray, drizzle with olive oil and bake for 12–15 minutes.",
           "question": "How do I know the salmon is done?",
           "answer": "Press the thickest part with a fork. It’s done when it flakes easily and is no longer glossy in the middle."

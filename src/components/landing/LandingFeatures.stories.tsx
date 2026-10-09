@@ -20,7 +20,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "\"Made for family kitchens\" on the signed-out landing page: the heading, then one row per point with a static vignette built from the app's own components (the cook view's ingredients, the imagine prompt and the planner card, the household's member rows, a cooking step). From `md` their surfaces alternate: the salmon's yellow tint, the acai bowl's pink, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption; from `md` the vignette swaps sides on rows 2 and 4.",
+          "\"Made for family kitchens\" on the signed-out landing page: the heading, then the four points as tiles, two columns from `md`, each with a static vignette built from the app's own components (the cook view's ingredients, the imagine prompt and the planner card, the household's member rows, a cooking step with a question and its answer). From `md` their surfaces alternate: the salmon's yellow tint, the butter chicken's orange, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption.",
       },
     },
   },
@@ -47,8 +47,8 @@ const play: Story['play'] = async ({ canvasElement }) => {
   const focusable = drawings.flatMap((el) =>
     Array.from(el.querySelectorAll('button, input, [tabindex]')),
   )
-  // Checkboxes, the prompt field and the Imagine button, the recipe mark, the Serves pill,
-  // the step and its Ask button.
+  // Checkboxes, the prompt field and the Imagine button, the recipe mark and
+  // the Serves pill.
   await expect(focusable.length).toBeGreaterThan(0)
   ;(document.activeElement as HTMLElement | null)?.blur()
   for (let i = 0; i <= focusable.length; i++) {
@@ -69,26 +69,9 @@ const play: Story['play'] = async ({ canvasElement }) => {
     await expect(el.querySelector('.font-display')).toBeNull()
     await expect(family(el)).not.toMatch(/Bricolage Grotesque/)
   }
-
-  // The answer starts where the step text does, as in the cook view's panel.
-  // Measured in layout coordinates: the vignette is tilted, and a tilt moves
-  // the two bounding boxes apart although the text still lines up.
-  const stepText = canvasElement.querySelector<HTMLElement>('[aria-pressed] p')
-  const answer = canvas.getByText(/Press the thickest part/)
-  const cook = canvas.getByTestId('landing-vignette-cook')
-  const layoutLeft = (el: HTMLElement) => {
-    let left = 0
-    for (let node: Element | null = el; node instanceof HTMLElement && cook.contains(node);) {
-      left += node.offsetLeft
-      node = node.offsetParent
-    }
-    return left
-  }
-  await expect(stepText).not.toBeNull()
-  await expect(layoutLeft(answer)).toBeCloseTo(layoutLeft(stepText!), 0)
 }
 
-/** Phone (390 px): each row is the text, then its vignette. */
+/** Phone (390 px): one column of tiles. */
 export const Default: Story = { play }
 
 export const Dark: Story = {
@@ -96,7 +79,7 @@ export const Dark: Story = {
   play,
 }
 
-/** From `md`: two columns, the vignette on the right on rows 1 and 3, on the left on 2 and 4. */
+/** From `md`: two columns of tiles. */
 export const Desktop: Story = {
   globals: { viewport: { value: 'laptop', isRotated: false } },
   play,

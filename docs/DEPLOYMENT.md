@@ -311,7 +311,7 @@ pnpm meal-images:rehue --confirm
 
 **Regenerating `HUE_BASELINE`.** `pnpm meal-images:rehue --baseline` prints the mean hue-bin shares over the distinct stored images as a ready-to-paste `HUE_BASELINE`, and writes nothing. The constant is checked in, so a new one lands in a PR (update the date and source in its comment) before the backfill runs. Regenerate it when the image style changes, such as a `MEAL_IMAGE_PROMPT_VERSION` bump or HON-971. The 2026-10-03 constant came from the 25 distinct images in a fork of staging; one taken from the full production catalogue is more representative.
 
-**The landing page is not in the database.** `src/components/landing/LandingShowcase.tsx` hardcodes the hues of the three illustrations in `public/landing/`, so the backfill does not reach them. After a rule or baseline change, re-extract them with `extractHue` and update the three values in the same PR.
+**The landing page is not in the database.** `src/components/landing/ShowcaseMealCard.tsx` hardcodes the hues of the three example-day illustrations in `public/landing/`, and `src/components/landing/LandingFeatures.tsx` the butter chicken's, so the backfill does not reach them. After a rule or baseline change, re-extract them with `extractHue` and update the four values in the same PR.
 
 `pnpm meal-images:rehue --help` lists every flag.
 
@@ -335,13 +335,13 @@ pnpm meal-images:refit
 pnpm meal-images:refit --confirm
 ```
 
-**The landing page is not in the database.** The three illustrations in `public/landing/` were fitted by hand in HON-1024 (`fitFootprint`, then JPEG at quality 92) and moved to the box-centre anchor in HON-1031 (`fitFootprint` with the diameter whose target is the rim's current width, so the scale is 1). After a target or anchor change, refit them the same way in the PR, and re-extract their hues for `LandingShowcase.tsx`: a move changes what the centre crop sees.
+**The landing page is not in the database.** The three illustrations in `public/landing/` were fitted by hand in HON-1024 (`fitFootprint`, then JPEG at quality 92) and moved to the box-centre anchor in HON-1031 (`fitFootprint` with the diameter whose target is the rim's current width, so the scale is 1). After a target or anchor change, refit them the same way in the PR, and re-extract their hues for `ShowcaseMealCard.tsx`: a move changes what the centre crop sees.
 
 `pnpm meal-images:refit --help` lists every flag.
 
 ### Library preparation steps
 
-The signed-out home page shows three library meals a day and opens each in the cook view, steps included (`src/lib/landing/load-demo-day.ts`, `LandingDemo`). A public page must never call the AI, so an operator writes the steps ahead of time with `scripts/generate-library-steps.ts` into `MealPreparationSteps`: one row per meal and locale, for the meal's own `servings`. The page picks only from library meals that have a ready illustration and a fresh row; when it cannot fill breakfast, lunch and dinner it falls back to a static example day, so the script is never a blocker, only the switch that turns the demo on.
+The signed-out home page shows three library meals a day and opens each in the cook view, steps included (`src/lib/landing/load-demo-day.ts`, `LandingDeck`). A public page must never call the AI, so an operator writes the steps ahead of time with `scripts/generate-library-steps.ts` into `MealPreparationSteps`: one row per meal and locale, for the meal's own `servings`. The page picks only from library meals that have a ready illustration and a fresh row; when it cannot fill breakfast, lunch and dinner it falls back to a static example day, so the script is never a blocker, only the switch that turns the demo on.
 
 **It runs on every deploy.** Both migration workflows (`deploy-db-migrations-staging.yml`, `deploy-db-migrations-production.yml`) run `pnpm steps:library --confirm --limit=30` after the seed, with `continue-on-error` and an 8-minute step timeout, so a provider outage never blocks a deploy and a partial run only leaves some meals out of the demo until the next one. The step uses the `ANTHROPIC_API_KEY_CI` repository secret, the same key `ci.yml` runs the AI tests with (the older `ANTHROPIC_API_KEY` secret is stale and rejected). A rerun writes only what is missing or stale: a meal that got an illustration since, or one whose name, servings, time, ingredients or translation changed (the row's `inputHash` no longer matches `stepsInputHash` of the prompt inputs), or a new locale. The seed's unconditional meal update does not stale anything, because the hash reads the meal's content, not its `updatedAt`. Most deploys write nothing. The rows are per database, so staging and production fill independently. Run it by hand only to fill a database ahead of a deploy, or past the per-run cap.
 

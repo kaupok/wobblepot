@@ -219,6 +219,8 @@ const CHECKS: Record<DesignRule, (root: HTMLElement) => void> = {
   // in-app level above Title, read from a counter 50–70cm away (docs/DESIGN.md
   // → Type scale, HON-932). Exempted by the variant `Heading` stamps on the
   // element, not by size, so any other heading above `text-xl` still fails.
+  // `hero` is deliberately not exempt: it is the landing page's headline
+  // (HON-1116), and an in-app screen that renders it is wrong.
   'title-scale': (root) => {
     const maxPx = titleLevelPx(root)
     for (const heading of root.querySelectorAll<HTMLElement>(

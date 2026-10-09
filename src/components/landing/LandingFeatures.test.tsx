@@ -69,8 +69,6 @@ describe('LandingFeatures', () => {
     for (const heading of within(section).getAllByRole('heading', { level: 3 })) {
       expect(heading).not.toHaveClass('text-base')
     }
-    // The cook vignette's own "Steps" heading is Section.
-    expect(within(drawing('cook')).getByText('Steps')).toHaveClass('text-base')
   })
 
   it('sets the section heading and point titles in the display face, and nothing in the vignettes', () => {
@@ -91,13 +89,13 @@ describe('LandingFeatures', () => {
     }
   })
 
-  it('tints the vignettes yellow, pink, neutral, yellow: the salmon, the acai bowl, none, the salmon', () => {
+  it('tints the vignettes yellow, orange, neutral, yellow: the salmon, the butter chicken, none, the salmon', () => {
     renderFeatures()
     const hues = POINTS.map((point) => {
       const surface = drawing(point).querySelector('[data-meal-surface]')
       return surface instanceof HTMLElement ? surface.style.getPropertyValue('--meal-hue') : null
     })
-    expect(hues).toEqual(['88', '32', null, '88'])
+    expect(hues).toEqual(['88', '48', null, '88'])
   })
 
   it('makes every vignette inert, with a caption outside the inert part', () => {
@@ -112,14 +110,15 @@ describe('LandingFeatures', () => {
     }
   })
 
-  it('swaps the vignette to the left on rows 2 and 4 from md, and keeps text first in the DOM', () => {
+  it('lays the points out as tiles, two columns from md, each clipping its tilted vignette', () => {
     renderFeatures()
-    POINTS.forEach((point, index) => {
-      const figure = vignette(point)
-      expect(figure.classList.contains('md:order-first')).toBe(index % 2 === 1)
-      // Below md the row stacks in DOM order: the text, then the vignette.
-      expect(figure.previousElementSibling?.querySelector('h3')).toBeInTheDocument()
-    })
+    const list = screen
+      .getByRole('region', { name: 'Made for family kitchens' })
+      .querySelector('ul')
+    expect(list).toHaveClass('grid', 'md:grid-cols-2')
+    for (const point of POINTS) {
+      expect(vignette(point).closest('li')).toHaveClass('bg-muted', 'overflow-hidden')
+    }
   })
 
   it('shows the pantry: three ingredients ticked, the lemon to buy', () => {
@@ -136,19 +135,21 @@ describe('LandingFeatures', () => {
     expect(within(pantry).getByText('1 pc')).toBeInTheDocument()
   })
 
-  it('shows a description in Imagine a meal and the acai bowl it produced on the planner, marked as an own recipe', () => {
+  it('shows a description in Imagine a meal and the dinner it produced on the planner, marked as an own recipe', () => {
     renderFeatures()
     const imagine = drawing('imagine')
     const prompt = within(imagine).getByRole('textbox', {
       name: "Describe the meal you're in the mood for",
     })
     expect(prompt).toHaveAttribute('readonly')
-    expect(prompt).toHaveValue('Something cold and fruity for breakfast, with granola')
+    expect(prompt).toHaveValue(
+      'Like our Friday takeaway butter chicken, but mild enough for the kids and ready in 40 minutes',
+    )
     expect(within(imagine).getByRole('button', { name: 'Imagine meals' })).toBeInTheDocument()
-    expect(within(imagine).getByText('Acai bowl')).toBeInTheDocument()
-    expect(within(imagine).getByText('Breakfast')).toBeInTheDocument()
+    expect(within(imagine).getByText('Mild butter chicken')).toBeInTheDocument()
+    expect(within(imagine).getByText('Dinner')).toBeInTheDocument()
     expect(within(imagine).getByRole('button', { name: 'My recipe' })).toBeInTheDocument()
-    expect(within(imagine).queryByText('Fish')).not.toBeInTheDocument()
+    expect(within(imagine).getByText('Poultry')).toBeInTheDocument()
   })
 
   it("scales the salmon by the members' portions: 120 g × (1 + 1 + 0.5)", () => {
@@ -169,30 +170,31 @@ describe('LandingFeatures', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows one step with its Ask button and the answer under it', () => {
+  it('shows one step in large type, then a question about it and the answer', () => {
     renderFeatures()
     const cook = drawing('cook')
-    expect(within(cook).getByText(/Lay the salmon and asparagus on the tray/)).toBeInTheDocument()
-    expect(within(cook).getByRole('button', { name: 'Ask about step 1' })).toBeInTheDocument()
-    expect(
-      within(cook).getByText('You asked: How do I know the salmon is done?'),
-    ).toBeInTheDocument()
+    expect(within(cook).getByText(/Lay the salmon and asparagus on the tray/)).toHaveClass(
+      'text-lg',
+    )
+    expect(within(cook).getByText('How do I know the salmon is done?')).toBeInTheDocument()
     expect(within(cook).getByText(/Press the thickest part with a fork/)).toBeInTheDocument()
+    // A picture, not the cook view: no step toggle and no Ask button.
+    expect(within(cook).queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('shows no image other than the committed meal illustration', () => {
     renderFeatures()
     const images = screen.getAllByRole('img')
     expect(images).toHaveLength(1)
-    expect(images[0]).toHaveAttribute('alt', 'Acai bowl')
-    expect(images[0]?.getAttribute('src')).toContain('acai-bowl.jpg')
+    expect(images[0]).toHaveAttribute('alt', 'Mild butter chicken')
+    expect(images[0]?.getAttribute('src')).toContain('butter-chicken.jpg')
   })
 
   it('renders in Estonian', () => {
     renderFeatures('et')
     screen.getByRole('region', { name: 'Tehtud pereköökidele' })
     expect(within(drawing('pantry')).getByText('Lõhefilee')).toBeInTheDocument()
-    expect(within(drawing('imagine')).getByText('Acai kauss')).toBeInTheDocument()
+    expect(within(drawing('imagine')).getByText('Mahe võikana')).toBeInTheDocument()
     expect(
       within(drawing('imagine')).getByRole('button', { name: 'Mõtle toidud välja' }),
     ).toBeInTheDocument()

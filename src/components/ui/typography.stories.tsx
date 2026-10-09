@@ -88,6 +88,32 @@ export const BrandFace: Story = {
   },
 }
 
+export const Hero: Story = {
+  name: 'Hero (`variant="hero"`)',
+  render: () => (
+    <div className={`max-w-4xl text-center text-balance ${displayFont.variable}`}>
+      <Heading variant="hero" face="brand">
+        Dinner, decided. <br />
+        For the whole week.
+      </Heading>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const heading = within(canvasElement).getByRole('heading', { level: 1 })
+    await expect(heading).toHaveAttribute('data-variant', 'hero')
+    // Above every other level: 48px below `md`, 72px from `md`, 96px from `lg`.
+    await expect(Number.parseFloat(getComputedStyle(heading).fontSize)).toBeGreaterThanOrEqual(48)
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The landing page’s one centred headline (HON-1116): 48px on a phone, 72px from `md`, 96px from `lg`, line height 1, bold, in the display face. Marketing only; it renders an `h1` and the `title-scale` design rule fails it inside the app.',
+      },
+    },
+  },
+}
+
 export const SemanticTagOverride: Story = {
   name: 'Tag override (`as`)',
   render: () => (

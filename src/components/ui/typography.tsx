@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import React from 'react'
 
 // Variant type exports for type reusability
-export type HeadingVariant = 'h1' | 'h2' | 'h3' | 'h4' | 'display' | 'section' | 'caption'
+export type HeadingVariant = 'hero' | 'h1' | 'h2' | 'h3' | 'h4' | 'display' | 'section' | 'caption'
 export type HeadingFace = 'default' | 'brand'
 export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div'
 export type BodyVariant =
@@ -41,6 +41,12 @@ export const toneVariants = {
 const headingVariants = cva('scroll-m-20 tracking-tight', {
   variants: {
     variant: {
+      // The landing page's one headline, centred above the product
+      // (HON-1116). Two steps above h1 on a phone and growing to
+      // 96px from `lg`, because it is the page's whole first statement. Bold,
+      // not extrabold: it is set in the display face. Marketing only; inside
+      // the app the `title-scale` design rule fails it.
+      hero: 'text-5xl md:text-7xl lg:text-8xl leading-none font-bold',
       h1: 'text-4xl lg:text-5xl font-extrabold',
       h2: 'text-3xl font-semibold border-b pb-2',
       h3: 'text-2xl font-semibold',
@@ -88,6 +94,7 @@ interface HeadingProps
 
 /** The tag each variant renders when `as` is not given. */
 const tagMap = {
+  hero: 'h1',
   h1: 'h1',
   h2: 'h2',
   h3: 'h3',
