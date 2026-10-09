@@ -133,10 +133,13 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
     <>
       {isGenerating && <GeneratingOverlay />}
       <div className="bg-muted/50 flex flex-col gap-2 rounded-lg border p-4">
-        <div className="flex items-center gap-3">
+        {/* Below `sm` the label takes its own line and the select and Generate
+            wrap under it; at 390px the three did not fit in one row and
+            Generate covered the select (HON-1127). */}
+        <div className="flex items-start gap-3 sm:items-center">
           <Sparkles className="text-primary h-4 w-4 shrink-0" />
-          <div className="flex flex-1 items-center gap-2">
-            <Body variant="small" className="shrink-0">
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            <Body variant="small" className="shrink-0 basis-full sm:basis-auto">
               {tFill('label', { dateRange: dateRangeLabel })}
             </Body>
             <Select value={days} onValueChange={setDays}>
@@ -151,10 +154,10 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
                 ))}
               </SelectContent>
             </Select>
+            <Button className="sm:ml-auto" onClick={handleFill} disabled={isGenerating}>
+              {isGenerating ? tFill('submitting') : tFill('submit')}
+            </Button>
           </div>
-          <Button onClick={handleFill} disabled={isGenerating}>
-            {isGenerating ? tFill('submitting') : tFill('submit')}
-          </Button>
         </div>
         {error && <FieldError>{error}</FieldError>}
       </div>
