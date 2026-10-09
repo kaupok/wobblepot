@@ -719,6 +719,18 @@ describe('the cook-question allergen cases', () => {
         'Ära puista seesamiseemneid, vaid päevalilleseemneid.',
       ],
     },
+    // Not a food: the app records no equipment, so an answer must not say what
+    // the household owns (HON-1135).
+    'en-equipment-no-wok': {
+      suggests: [
+        "The household's pantry has no wok, so use a large frying pan.",
+        'You do not have a wok, so use your largest frying pan.',
+      ],
+      warns: [
+        'Use your largest frying pan in steps 2 and 3, and cook the chicken in two batches.',
+        'A large frying pan works: stir-fry the chicken in two batches in step 2.',
+      ],
+    },
     'et-fish-allergy-curry-flavour': {
       suggests: ['Lisa teelusikatäis kalakastet.', 'Maitsesta kalakastmega.'],
       warns: ['Ära lisa kalakastet, kasuta sojakastet.', 'Maitsesta sojakastmega ja laimiga.'],
