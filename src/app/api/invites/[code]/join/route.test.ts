@@ -43,10 +43,23 @@ vi.mock('@/lib/household-claim', async (importActual) => ({
   runHouseholdClaim: vi.fn(),
 }))
 
+// The error classes stay real; `household-leave.test.ts` owns the leave rules.
+vi.mock('@/lib/household-leave', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/household-leave')>()),
+  leaveHousehold: vi.fn(),
+  afterHouseholdLeft: vi.fn(),
+}))
+
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
-import { runHouseholdClaim } from '@/lib/household-claim'
+import { InviteNoLongerClaimableError, runHouseholdClaim } from '@/lib/household-claim'
+import {
+  afterHouseholdLeft,
+  leaveHousehold,
+  NotInHouseholdError,
+  OwnerHasOtherAccountsError,
+} from '@/lib/household-leave'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockMemberFindFirst = vi.mocked(prisma.householdMember.findFirst)
@@ -54,6 +67,8 @@ const mockInviteFindUnique = vi.mocked(prisma.householdInvite.findUnique)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockRunHouseholdClaim = vi.mocked(runHouseholdClaim)
 const mockPrismaTransaction = vi.mocked(prisma.$transaction)
+const mockLeaveHousehold = vi.mocked(leaveHousehold)
+const mockAfterHouseholdLeft = vi.mocked(afterHouseholdLeft)
 
 /**
  * Stand-in for the interactive transaction's `tx` client. The route must do
@@ -427,6 +442,120 @@ describe('POST /api/invites/[code]/join', () => {
     })
     expect(tx.householdInvite.deleteMany).toHaveBeenCalledWith({
       where: { id: 'invite-123' },
+    })
+  })
+
+  // A user who already has a household leaves it in the same transaction as
+  // the claim (HON-1133).
+  describe('with { leaveCurrent: true }', () => {
+    const LEFT = {
+      householdId: 'household-old',
+      role: 'owner' as const,
+      deletedHousehold: true,
+      imageUrls: ['https://blob/old.png'],
+    }
+
+    const createLeaveRequest = (body: unknown = { leaveCurrent: true }) =>
+      new Request('http://localhost/api/invites/abc123/join', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(SESSION as never)
+      mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+      mockLeaveHousehold.mockResolvedValue(LEFT)
+    })
+
+    it('leaves on the claim transaction before claiming, then cleans up after commit', async () => {
+      const order: string[] = []
+      mockLeaveHousehold.mockImplementation(async () => {
+        order.push('leave')
+        return LEFT
+      })
+      tx.householdMember.updateMany.mockImplementation(async () => {
+        order.push('claim')
+        return { count: 1 }
+      })
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+
+      expect(response.status).toBe(200)
+      expect(mockRunHouseholdClaim).toHaveBeenCalledTimes(1)
+      expect(mockLeaveHousehold).toHaveBeenCalledWith(tx, 'user-123')
+      expect(order).toEqual(['leave', 'claim'])
+      expect(mockAfterHouseholdLeft).toHaveBeenCalledWith(LEFT, '/api/invites/[code]/join')
+    })
+
+    it('rejects the whole transaction when the claim fails after the leave, so the leave rolls back', async () => {
+      let transaction: Promise<unknown> | undefined
+      mockRunHouseholdClaim.mockImplementation((_userId: unknown, callback: unknown) => {
+        transaction = (callback as (client: typeof tx) => Promise<unknown>)(tx)
+        return transaction
+      })
+      // The invite was used by someone else between render and click.
+      tx.householdInvite.deleteMany.mockResolvedValue({ count: 0 })
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+      const data = await response.json()
+
+      expect(mockLeaveHousehold).toHaveBeenCalledWith(tx, 'user-123')
+      // A rejected callback is what makes Prisma roll the interactive
+      // transaction back, and the leave with it.
+      await expect(transaction).rejects.toBeInstanceOf(InviteNoLongerClaimableError)
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('invite_invalid')
+      // Nothing that assumes a committed leave runs.
+      expect(mockAfterHouseholdLeft).not.toHaveBeenCalled()
+    })
+
+    it('returns 409 owner_has_other_accounts and claims nothing', async () => {
+      mockLeaveHousehold.mockRejectedValue(new OwnerHasOtherAccountsError(1))
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+
+      expect(response.status).toBe(409)
+      expect(await response.json()).toEqual({ error: 'owner_has_other_accounts', count: 1 })
+      expect(tx.householdMember.updateMany).not.toHaveBeenCalled()
+      expect(mockCaptureApiError).not.toHaveBeenCalled()
+    })
+
+    it('claims as usual when the user has no household to leave', async () => {
+      mockLeaveHousehold.mockRejectedValue(new NotInHouseholdError())
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+
+      expect(response.status).toBe(200)
+      expect(tx.householdMember.updateMany).toHaveBeenCalled()
+      expect(mockAfterHouseholdLeft).not.toHaveBeenCalled()
+    })
+
+    it('refuses an invite into the household being left', async () => {
+      mockLeaveHousehold.mockResolvedValue({ ...LEFT, householdId: 'household-123' })
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('already_in_household')
+      expect(tx.householdMember.updateMany).not.toHaveBeenCalled()
+      expect(mockAfterHouseholdLeft).not.toHaveBeenCalled()
+    })
+
+    it('does not leave without the flag', async () => {
+      const response = await POST(createLeaveRequest({}), { params: createParams('abc123') })
+
+      expect(response.status).toBe(200)
+      expect(mockLeaveHousehold).not.toHaveBeenCalled()
+    })
+
+    it('returns 400 for a malformed body', async () => {
+      const response = await POST(createLeaveRequest({ leaveCurrent: 'yes' }), {
+        params: createParams('abc123'),
+      })
+
+      expect(response.status).toBe(400)
+      expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
     })
   })
 })

@@ -3,10 +3,16 @@ import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
 import { auth } from '@/lib/auth'
-import { getHouseholdMembership, listHouseholdMembers } from '@/lib/household'
+import {
+  countAccountHoldingMembers,
+  getHouseholdMembership,
+  listHouseholdMembers,
+} from '@/lib/household'
 import { getQueryClient } from '@/lib/get-query-client'
 import { Body, Heading } from '@/components/ui/typography'
+import { Separator } from '@/components/ui/separator'
 import { HouseholdSettingsForm } from './household/HouseholdSettingsForm'
+import { LeaveHouseholdDialog } from './household/LeaveHouseholdDialog'
 import { MemberList } from '@/components/household/MemberList'
 import { MEMBERS_QUERY_KEY, type MembersResponse } from '@/components/household/members-query'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
@@ -55,6 +61,10 @@ export default async function HouseholdPage() {
   const t = await getTranslations('household')
   const isOwner = membership.role === 'owner'
   const { household } = membership
+  // Only an owner's leave turns on it: with another account holder they
+  // cannot leave, and alone they delete the household (HON-1133). Members
+  // without an account do not count, as for account deletion (HON-881).
+  const accountMemberCount = isOwner ? await countAccountHoldingMembers(membership.householdId) : 1
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -98,6 +108,21 @@ export default async function HouseholdPage() {
             reminderWeekday={toReminderWeekday(membership.reminderWeekday)}
             reminderConfirmed={membership.reminderConfirmedAt !== null}
           />
+
+          {/* Last, in the style of the profile page's Danger zone (HON-1133). */}
+          <div className="flex flex-col gap-6">
+            <Separator />
+            <div className="flex flex-col gap-3">
+              <Heading variant="section" as="h2">
+                {t('leave.heading')}
+              </Heading>
+              <LeaveHouseholdDialog
+                householdName={household.name}
+                isOwner={isOwner}
+                accountMemberCount={accountMemberCount}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </HydrationBoundary>
