@@ -44,10 +44,14 @@ describe('OnboardingFlow', () => {
     mockPush.mockReset()
     mockRefresh.mockReset()
     mockScrollTo.mockReset()
+    // jsdom reports no document focus while a blur runs; a browser reports it
+    // unless the window itself lost focus, which a member row checks for.
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.restoreAllMocks()
   })
 
   describe('Step 1: welcome and household name', () => {
@@ -267,6 +271,21 @@ describe('OnboardingFlow', () => {
         expect(done).toHaveFocus()
         await userEvent.keyboard('{Enter}')
         expect(screen.getByRole('button', { name: 'Edit Emma' })).toHaveFocus()
+      })
+
+      // The browser blurs the field when the user switches app or tab, and
+      // focuses it again on return, so the field must still be there.
+      it('keeps a named row open when the window loses focus', async () => {
+        await goToStep2()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add child' }))
+        const field = screen.getByLabelText('Child 1 name')
+        await userEvent.type(field, 'Emma')
+        vi.mocked(document.hasFocus).mockReturnValue(false)
+        fireEvent.blur(field)
+
+        expect(screen.getByLabelText('Child 1 name')).toHaveValue('Emma')
+        expect(screen.queryByRole('button', { name: 'Edit Emma' })).not.toBeInTheDocument()
       })
 
       it('keeps focus on Remove when Tab moves to it from a finished row', async () => {

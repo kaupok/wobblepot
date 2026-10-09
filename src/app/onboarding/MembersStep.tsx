@@ -206,8 +206,10 @@ function MemberRow({
             onBlur={(e) => {
               // Leaving a named field finishes it, so Continue straight from the
               // field works. Not on the way to Done: that would remove Done
-              // while it takes focus, and Done finishes the row itself.
-              if (!typed || e.relatedTarget === doneRef.current) return
+              // while it takes focus, and Done finishes the row itself. Not
+              // when the window loses focus either (another app or tab): the
+              // browser returns focus to the field, which must still be there.
+              if (!typed || e.relatedTarget === doneRef.current || !document.hasFocus()) return
               onCommit()
             }}
             placeholder={defaultName}
