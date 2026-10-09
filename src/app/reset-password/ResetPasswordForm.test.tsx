@@ -74,12 +74,14 @@ describe('ResetPasswordForm', () => {
       expect(confirmPassword).toHaveAttribute('autocomplete', 'new-password')
     })
 
-    // Better Auth's `maxPasswordLength`, so the browser stops input at the limit.
-    it('caps both password fields at 128 characters', () => {
+    // No `maxLength`: the browser cuts a pasted longer password silently, and
+    // sign-in, which has no cap, then rejects it. The server error shows
+    // `errors.auth.passwordTooLong` instead (HON-1142).
+    it('does not cap the length of the password fields', () => {
       render(<ResetPasswordForm />)
 
-      expect(screen.getByLabelText(/new password/i)).toHaveAttribute('maxlength', '128')
-      expect(screen.getByLabelText(/confirm password/i)).toHaveAttribute('maxlength', '128')
+      expect(screen.getByLabelText(/new password/i)).not.toHaveAttribute('maxlength')
+      expect(screen.getByLabelText(/confirm password/i)).not.toHaveAttribute('maxlength')
     })
 
     // The hint under the field and the label already say what a placeholder would.

@@ -238,7 +238,6 @@ export function SignUpForm({
                 required
                 disabled={isLoading}
                 minLength={12}
-                maxLength={128}
                 aria-invalid={!!error}
                 aria-describedby={error ? 'form-error' : 'password-hint'}
               />

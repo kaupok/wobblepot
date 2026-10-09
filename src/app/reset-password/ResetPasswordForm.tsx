@@ -158,7 +158,6 @@ function ResetPasswordFields({ token }: { token: string }) {
                 required
                 disabled={isLoading}
                 minLength={12}
-                maxLength={128}
                 aria-describedby="password-hint"
               />
               <Body id="password-hint" variant="muted">
@@ -177,7 +176,6 @@ function ResetPasswordFields({ token }: { token: string }) {
                 required
                 disabled={isLoading}
                 minLength={12}
-                maxLength={128}
               />
             </div>
             {error && <FieldError>{error}</FieldError>}

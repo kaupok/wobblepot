@@ -57,12 +57,14 @@ describe('ChangePasswordForm', () => {
     )
   })
 
-  // Better Auth's `maxPasswordLength`, so the browser stops input at the limit.
-  it('caps both new password fields at 128 characters', () => {
+  // No `maxLength`: the browser cuts a pasted longer password silently, and
+  // sign-in, which has no cap, then rejects it. The server error shows
+  // `errors.auth.passwordTooLong` instead (HON-1142).
+  it('does not cap the length of the new password fields', () => {
     render(<ChangePasswordForm />)
 
-    expect(screen.getByLabelText('New password')).toHaveAttribute('maxlength', '128')
-    expect(screen.getByLabelText('Confirm new password')).toHaveAttribute('maxlength', '128')
+    expect(screen.getByLabelText('New password')).not.toHaveAttribute('maxlength')
+    expect(screen.getByLabelText('Confirm new password')).not.toHaveAttribute('maxlength')
   })
 
   it('shows the sign-up password hint under the new password', () => {
