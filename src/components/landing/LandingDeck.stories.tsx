@@ -3,6 +3,7 @@ import { expect, userEvent, waitFor, within } from 'storybook/test'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMeal } from '@/stories/fixtures'
 import { assertFocusInDialog, awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
+import { assertDesignRules } from '@/stories/design-rules'
 import type { DemoDay } from '@/lib/landing/load-demo-day'
 import { LandingDeck } from './LandingDeck'
 
@@ -86,7 +87,10 @@ const slotOf = (canvasElement: HTMLElement, name: string) =>
     .closest('[data-deck-slot]')
     ?.getAttribute('data-deck-slot')
 
-/** The demo dinner in front: every card's name is a button, and the hint sits above. */
+/**
+ * The demo dinner in front: every card's name is a button, and the hint sits
+ * above. No card casts a shadow: the border is the edge (HON-1145).
+ */
 export const Demo: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -97,6 +101,7 @@ export const Demo: Story = {
     await expect(slotOf(canvasElement, 'Chilli con carne')).toBe('front')
     await expect(slotOf(canvasElement, 'Avocado toast with poached egg')).toBe('left')
     await expect(slotOf(canvasElement, 'Beef bibimbap')).toBe('right')
+    await assertDesignRules(canvasElement, ['no-content-shadow'])
   },
 }
 
@@ -140,7 +145,7 @@ export const SwapsToFront: Story = {
   },
 }
 
-/** No demo day: the static showcase, with no hint and nothing to open. */
+/** No demo day: the static showcase, with no hint, nothing to open, and no shadow. */
 export const Static: Story = {
   args: { day: null, dayLabel: 'Thursday' },
   play: async ({ canvasElement }) => {
@@ -150,6 +155,7 @@ export const Static: Story = {
     await expect(canvas.queryByText(/Open a meal/)).toBeNull()
     await expect(canvas.queryAllByRole('button')).toHaveLength(0)
     await expect(canvasElement.querySelectorAll('[inert]')).toHaveLength(2)
+    await assertDesignRules(canvasElement, ['no-content-shadow'])
   },
 }
 

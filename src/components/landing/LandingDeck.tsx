@@ -19,10 +19,10 @@ type Slot = 'left' | 'front' | 'right'
  * say it moves; the front card lifts.
  */
 const SLOT_CLASSES: Record<Slot, string> = {
-  front: 'z-20 shadow-xl hover:-translate-y-1',
-  left: 'z-0 -translate-x-1/3 -translate-y-10 -rotate-6 scale-75 shadow-md hover:-rotate-3 hover:scale-80 md:-translate-x-2/3 md:translate-y-6',
+  front: 'z-20 hover:-translate-y-1',
+  left: 'z-0 -translate-x-1/3 -translate-y-10 -rotate-6 scale-75 hover:-rotate-3 hover:scale-80 md:-translate-x-2/3 md:translate-y-6',
   right:
-    'z-0 translate-x-1/3 -translate-y-10 rotate-6 scale-75 shadow-md hover:rotate-3 hover:scale-80 md:translate-x-2/3 md:translate-y-6',
+    'z-0 translate-x-1/3 -translate-y-10 rotate-6 scale-75 hover:rotate-3 hover:scale-80 md:translate-x-2/3 md:translate-y-6',
 }
 
 /** The swap's length: the `duration-500` on each card. */
