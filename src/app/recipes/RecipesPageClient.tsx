@@ -30,7 +30,19 @@ export function RecipesPageClient() {
   // with it. One ref for both, because `MealList` reads it from the render
   // that opened its confirm dialog, before the search unmounted.
   const emptyFocusRef = useRef<HTMLElement | null>(null)
+  // The search also unmounts while it has focus: clear the search after
+  // deleting the last match, and the library turns empty under the caret.
+  // React detaches the input's ref while it is still in the DOM and attaches
+  // the Create button's after it, so Create takes the focus over.
+  const refocusOnAttachRef = useRef(false)
   const setEmptyFocusTarget = useCallback((el: HTMLElement | null) => {
+    const previous = emptyFocusRef.current
+    if (!el && previous && previous === document.activeElement) {
+      refocusOnAttachRef.current = true
+    } else if (el && refocusOnAttachRef.current) {
+      refocusOnAttachRef.current = false
+      el.focus()
+    }
     emptyFocusRef.current = el
   }, [])
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -100,8 +112,15 @@ export function RecipesPageClient() {
   // Nothing to search and nothing to count: the page drops both and the empty
   // state offers Create (HON-1128). Not on a failed load, and not while pages
   // remain after the loaded cards were deleted: the library is not empty then.
+  // The typed text counts as well as the debounced one, so the search does not
+  // vanish under text the debounce has not picked up yet.
   const isLibraryEmpty =
-    debouncedSearch === '' && !isLoading && !error && !hasNextPage && meals.length === 0
+    searchQuery.trim() === '' &&
+    debouncedSearch === '' &&
+    !isLoading &&
+    !error &&
+    !hasNextPage &&
+    meals.length === 0
 
   return (
     // A list page: container shell, title on the background, top-aligned, no

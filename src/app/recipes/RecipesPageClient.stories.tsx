@@ -218,25 +218,66 @@ export const LastDeleteFocusesCreate: Story = {
   parameters: {
     msw: {
       handlers: [
-        http.get('/api/households/me/meals', () =>
-          HttpResponse.json({ meals: householdMeals.slice(0, 1), nextCursor: null }),
-        ),
+        http.get('/api/households/me/meals', ({ request }) => {
+          mealsRequest(new URL(request.url).search)
+          return HttpResponse.json({ meals: householdMeals.slice(0, 1), nextCursor: null })
+        }),
         http.delete('/api/households/me/meals/:id', () => HttpResponse.json({ ok: true })),
       ],
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    const body = within(document.body)
-    await userEvent.click(await canvas.findByRole('button', { name: /^More actions: / }))
-    await userEvent.click(await body.findByRole('menuitem', { name: 'Delete' }))
-    const dialog = await body.findByRole('alertdialog')
-    await userEvent.click(within(dialog).getByRole('button', { name: /^delete$/i }))
+    await deleteOnlyRecipe(canvasElement)
 
     await waitFor(() => expect(canvas.queryByRole('searchbox')).toBeNull())
-    const creates = canvas.getAllByRole('link', { name: 'Create recipe', hidden: true })
-    await waitFor(() => expect(document.activeElement).toBe(creates.at(-1)))
+    await waitFor(() => expect(document.activeElement).toBe(emptyStateCreate(canvasElement)))
   },
+}
+
+/**
+ * The other way the search unmounts: it holds the caret. Search for the only
+ * recipe, delete it, then clear the field. Once the debounce settles the
+ * library is empty and the search goes, and focus moves to Create rather than
+ * dropping to the page body.
+ */
+export const ClearedSearchFocusesCreate: Story = {
+  name: 'Cleared search focuses Create',
+  parameters: LastDeleteFocusesCreate.parameters,
+  beforeEach: () => {
+    mealsRequest.mockClear()
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const search = await canvas.findByRole('searchbox', { name: 'Search recipes' })
+    await userEvent.type(search, 'lemon')
+    // The debounced search has run and its results are on the page.
+    await waitFor(() => expect(mealsRequest).toHaveBeenCalledWith('?search=lemon'))
+    await canvas.findByRole('button', { name: /^More actions: / })
+    await deleteOnlyRecipe(canvasElement)
+    await waitFor(() => expect(document.activeElement).toBe(search))
+
+    await userEvent.clear(search)
+    await waitFor(() => expect(canvas.queryByRole('searchbox')).toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(emptyStateCreate(canvasElement)))
+  },
+}
+
+async function deleteOnlyRecipe(canvasElement: HTMLElement) {
+  const body = within(document.body)
+  await userEvent.click(
+    await within(canvasElement).findByRole('button', { name: /^More actions: / }),
+  )
+  await userEvent.click(await body.findByRole('menuitem', { name: 'Delete' }))
+  const dialog = await body.findByRole('alertdialog')
+  await userEvent.click(within(dialog).getByRole('button', { name: /^delete$/i }))
+}
+
+/** The empty state's primary Create, queried fresh: it mounts with the empty library. */
+function emptyStateCreate(canvasElement: HTMLElement) {
+  return within(canvasElement)
+    .getAllByRole('link', { name: 'Create recipe', hidden: true })
+    .find((link) => link.dataset.variant === 'default')
 }
 
 export const ErrorState: Story = {
