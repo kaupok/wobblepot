@@ -29,17 +29,21 @@ function createMockMeal(overrides: {
   householdId?: string | null
   components?: { ingredient: { name: string; category: IngredientCategory } }[]
 }) {
+  const components = overrides.components ?? [
+    { ingredient: { name: 'Chicken', category: IngredientCategory.protein } },
+    { ingredient: { name: 'Rice', category: IngredientCategory.carb } },
+    { ingredient: { name: 'Broccoli', category: IngredientCategory.vegetable } },
+  ]
   return {
     id: overrides.id ?? 'meal-1',
     name: overrides.name ?? 'Test Meal',
     kidFriendly: overrides.kidFriendly ?? false,
     primaryProteinType: overrides.primaryProteinType ?? ProteinType.none,
     householdId: overrides.householdId ?? null,
-    components: overrides.components ?? [
-      { ingredient: { name: 'Chicken', category: IngredientCategory.protein } },
-      { ingredient: { name: 'Rice', category: IngredientCategory.carb } },
-      { ingredient: { name: 'Broccoli', category: IngredientCategory.vegetable } },
-    ],
+    components: components.map((c) => ({
+      ingredientId: `ing-${c.ingredient.name}`,
+      ingredient: { ...c.ingredient, allergens: [] as string[] },
+    })),
   }
 }
 
@@ -277,6 +281,82 @@ describe('getCandidates', () => {
       )
     })
 
+    // HON-1143: a vegan household has 3 seed breakfasts, so one week can use every one of them.
+    describe('when the no-repeat window empties the pool', () => {
+      type WhereArg = { where: { AND: unknown[] } }
+      const andOfCall = (n: number) =>
+        (mockFindMany.mock.calls[n]![0] as unknown as WhereArg).where.AND
+      const recentMealIds = ['oats', 'toast', 'smoothie']
+
+      it.each(['breakfast', 'lunch'] as const)(
+        'falls back to every allowed %s, since breakfast and lunch may repeat',
+        async (mealType) => {
+          mockFindMany
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([createMockMeal({ id: 'oats' })] as never)
+
+          const result = await getCandidates({ ...baseFilters, mealType, recentMealIds })
+
+          expect(result.map((m) => m.id)).toEqual(['oats'])
+          expect(mockFindMany).toHaveBeenCalledTimes(2)
+          expect(andOfCall(0)).toContainEqual({ id: { notIn: recentMealIds } })
+          expect(andOfCall(1)).not.toContainEqual(
+            expect.objectContaining({ id: expect.anything() }),
+          )
+        },
+      )
+
+      it('falls back when the diet check, not the query, empties the pool', async () => {
+        const porridgeWithMilk = createMockMeal({
+          id: 'porridge',
+          components: [{ ingredient: { name: 'milk', category: IngredientCategory.dairy } }],
+        })
+        mockFindMany.mockResolvedValueOnce([porridgeWithMilk] as never).mockResolvedValueOnce([
+          porridgeWithMilk,
+          createMockMeal({
+            id: 'oats',
+            components: [
+              { ingredient: { name: 'rolled oats', category: IngredientCategory.carb } },
+            ],
+          }),
+        ] as never)
+
+        const result = await getCandidates({
+          ...baseFilters,
+          mealType: 'breakfast',
+          dietaryType: 'vegan',
+          recentMealIds,
+        })
+
+        expect(result.map((m) => m.id)).toEqual(['oats'])
+      })
+
+      it('keeps the dinner pool empty, because dinners must not repeat', async () => {
+        mockFindMany.mockResolvedValue([])
+
+        const result = await getCandidates({ ...baseFilters, mealType: 'dinner', recentMealIds })
+
+        expect(result).toEqual([])
+        expect(mockFindMany).toHaveBeenCalledTimes(1)
+      })
+
+      it('does not query again when nothing was excluded', async () => {
+        mockFindMany.mockResolvedValue([])
+
+        await getCandidates({ ...baseFilters, mealType: 'breakfast', recentMealIds: [] })
+
+        expect(mockFindMany).toHaveBeenCalledTimes(1)
+      })
+
+      it('does not query again when the pool still has a meal', async () => {
+        mockFindMany.mockResolvedValue([createMockMeal({ id: 'granola' })] as never)
+
+        await getCandidates({ ...baseFilters, mealType: 'breakfast', recentMealIds })
+
+        expect(mockFindMany).toHaveBeenCalledTimes(1)
+      })
+    })
+
     it('does not add recent meals filter when empty', async () => {
       mockFindMany.mockResolvedValue([])
 
@@ -413,6 +493,143 @@ describe('getCandidates', () => {
       )
     })
 
+    // HON-1143: the protein-type filter misses a forbidden ingredient that is not the primary protein.
+    describe('by ingredient', () => {
+      const ingredient = (name: string, category: IngredientCategory) => ({
+        ingredient: { name, category },
+      })
+      const dalWithButter = createMockMeal({
+        id: 'dal-butter',
+        name: 'Red Lentil Dal',
+        primaryProteinType: ProteinType.legume,
+        components: [
+          ingredient('red lentils', IngredientCategory.protein),
+          ingredient('butter', IngredientCategory.dairy),
+          ingredient('onion', IngredientCategory.vegetable),
+        ],
+      })
+      const chickpeaCurry = createMockMeal({
+        id: 'chickpea-curry',
+        name: 'Chickpea Curry',
+        primaryProteinType: ProteinType.legume,
+        components: [
+          ingredient('chickpeas', IngredientCategory.protein),
+          ingredient('coconut milk', IngredientCategory.fat),
+          ingredient('onion', IngredientCategory.vegetable),
+        ],
+      })
+      const mapoTofu = createMockMeal({
+        id: 'mapo-tofu',
+        name: 'Mapo Tofu',
+        primaryProteinType: ProteinType.legume,
+        components: [
+          ingredient('firm tofu', IngredientCategory.protein),
+          ingredient('pork mince', IngredientCategory.protein),
+          ingredient('doubanjiang', IngredientCategory.condiment),
+        ],
+      })
+      const salmon = createMockMeal({
+        id: 'salmon',
+        name: 'Baked Salmon',
+        primaryProteinType: ProteinType.fish,
+        components: [
+          ingredient('salmon fillet', IngredientCategory.protein),
+          ingredient('potato', IngredientCategory.vegetable),
+        ],
+      })
+
+      it('drops a legume meal with butter for a vegan household', async () => {
+        mockFindMany.mockResolvedValue([dalWithButter, chickpeaCurry] as never)
+
+        const result = await getCandidates({ ...baseFilters, dietaryType: 'vegan' })
+
+        expect(result.map((m) => m.id)).toEqual(['chickpea-curry'])
+      })
+
+      it('drops Mapo Tofu with pork mince for a vegetarian household', async () => {
+        mockFindMany.mockResolvedValue([mapoTofu, chickpeaCurry] as never)
+
+        const result = await getCandidates({ ...baseFilters, dietaryType: 'vegetarian' })
+
+        expect(result.map((m) => m.id)).toEqual(['chickpea-curry'])
+      })
+
+      it('drops Mapo Tofu but keeps fish for a pescatarian household', async () => {
+        mockFindMany.mockResolvedValue([mapoTofu, salmon] as never)
+
+        const result = await getCandidates({ ...baseFilters, dietaryType: 'pescatarian' })
+
+        expect(result.map((m) => m.id)).toEqual(['salmon'])
+      })
+
+      it('keeps every meal when the household has no diet', async () => {
+        mockFindMany.mockResolvedValue([dalWithButter, mapoTofu, salmon] as never)
+
+        const result = await getCandidates({ ...baseFilters, dietaryType: null })
+
+        expect(result).toHaveLength(3)
+      })
+
+      it('ignores allergens, which the database filter owns', async () => {
+        const peanutNoodles = createMockMeal({
+          id: 'peanut-noodles',
+          name: 'Peanut Noodles',
+          primaryProteinType: ProteinType.legume,
+          components: [ingredient('peanut butter', IngredientCategory.protein)],
+        })
+        mockFindMany.mockResolvedValue([peanutNoodles] as never)
+
+        const result = await getCandidates({
+          ...baseFilters,
+          dietaryType: 'vegan',
+          allergensToAvoid: ['peanuts'],
+        })
+
+        expect(result.map((m) => m.id)).toEqual(['peanut-noodles'])
+      })
+
+      it('reads every component with a diet, and shows the AI only the top 3', async () => {
+        const fourComponents = createMockMeal({
+          components: [
+            ingredient('chickpeas', IngredientCategory.protein),
+            ingredient('rice', IngredientCategory.carb),
+            ingredient('spinach', IngredientCategory.vegetable),
+            ingredient('honey', IngredientCategory.condiment),
+          ],
+        })
+        mockFindMany.mockResolvedValue([fourComponents] as never)
+
+        const result = await getCandidates({ ...baseFilters, dietaryType: 'vegan' })
+
+        // The fourth component is the forbidden one: a `take: 3` query would have missed it.
+        expect(result).toEqual([])
+        const components = (
+          mockFindMany.mock.calls[0]![0] as unknown as { select: { components: object } }
+        ).select.components
+        expect(components).not.toHaveProperty('take')
+      })
+
+      it('keeps topIngredients to 3 when every component is read', async () => {
+        const fourComponents = createMockMeal({
+          components: [
+            ingredient('chickpeas', IngredientCategory.protein),
+            ingredient('rice', IngredientCategory.carb),
+            ingredient('spinach', IngredientCategory.vegetable),
+            ingredient('garlic', IngredientCategory.vegetable),
+          ],
+        })
+        mockFindMany.mockResolvedValue([fourComponents] as never)
+
+        const result = await getCandidates({ ...baseFilters, dietaryType: 'vegan' })
+
+        expect(result[0]!.topIngredients.map((i) => i.name)).toEqual([
+          'chickpeas',
+          'rice',
+          'spinach',
+        ])
+      })
+    })
+
     it('does not filter by dietary type when not specified', async () => {
       mockFindMany.mockResolvedValue([])
 
@@ -491,8 +708,9 @@ describe('getCandidates', () => {
               orderBy: { quantityPerServing: 'desc' },
               take: 3,
               select: {
+                ingredientId: true,
                 ingredient: {
-                  select: { name: true, category: true },
+                  select: { name: true, category: true, allergens: true },
                 },
               },
             },

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { findPreferenceConflicts } from '@/lib/meal-planning/preference-conflicts'
 import {
   Allergen,
   DietaryType,
@@ -79,6 +80,9 @@ export interface CandidateMeal {
   netRating?: number
 }
 
+/** How many of a meal's largest components the AI sees as `topIngredients`. */
+const TOP_INGREDIENT_COUNT = 3
+
 /** Thumbs-up count minus thumbs-down count. */
 function netRating(entries: { rating: EntryRating | null }[]): number {
   return entries.reduce((net, e) => net + (e.rating === 'up' ? 1 : e.rating === 'down' ? -1 : 0), 0)
@@ -87,6 +91,10 @@ function netRating(entries: { rating: EntryRating | null }[]): number {
 /**
  * Pre-filter meals by hard constraints before AI selection.
  * Database handles: allergens, excluded ingredients, recent history, protein type.
+ * After the query: the diet, by every ingredient name (HON-1143). The database
+ * filter reads only `primaryProteinType`, so a legume meal with butter or a tofu
+ * meal with pork mince gets through it; `findPreferenceConflicts` is the check
+ * the planner's "Not suitable" badge uses, so the pool and the badge agree.
  * AI handles: variety and final selection from filtered candidates.
  *
  * When householdId is provided, includes both system meals (householdId: null)
@@ -95,93 +103,121 @@ function netRating(entries: { rating: EntryRating | null }[]): number {
 export async function getCandidates(filters: CandidateFilters): Promise<CandidateMeal[]> {
   const favoriteMealIds = new Set(filters.favoriteMealIds ?? [])
   const ratingHouseholdId = filters.includeNetRating ? filters.householdId : undefined
-  const excludedProteinTypes = filters.dietaryType
-    ? getExcludedProteinTypes(filters.dietaryType)
-    : []
+  const dietaryType = filters.dietaryType ?? null
+  const excludedProteinTypes = getExcludedProteinTypes(dietaryType)
 
-  const meals = await prisma.meal.findMany({
-    where: {
-      suitableFor: { has: filters.mealType },
-      // Only non-deleted meals
-      deletedAt: null,
-      // Include system meals + household's custom meals if householdId provided
-      ...(filters.householdId
-        ? { OR: [{ householdId: null }, { householdId: filters.householdId }] }
-        : { householdId: null }),
-      AND: [
-        // Hard filter: dietary type - exclude meals with protein types not allowed
-        ...(excludedProteinTypes.length > 0
-          ? [{ primaryProteinType: { notIn: excludedProteinTypes } }]
-          : []),
-        // Hard filter: allergens - exclude meals with any allergen-containing ingredients
-        ...(filters.allergensToAvoid.length > 0
-          ? [
-              {
-                NOT: {
-                  components: {
-                    some: {
-                      ingredient: {
-                        allergens: { hasSome: filters.allergensToAvoid },
+  // Every meal the household may eat, less `recentMealIds`.
+  const findAllowed = async (recentMealIds: string[]) => {
+    const meals = await prisma.meal.findMany({
+      where: {
+        suitableFor: { has: filters.mealType },
+        // Only non-deleted meals
+        deletedAt: null,
+        // Include system meals + household's custom meals if householdId provided
+        ...(filters.householdId
+          ? { OR: [{ householdId: null }, { householdId: filters.householdId }] }
+          : { householdId: null }),
+        AND: [
+          // Hard filter: dietary type - exclude meals with protein types not allowed
+          ...(excludedProteinTypes.length > 0
+            ? [{ primaryProteinType: { notIn: excludedProteinTypes } }]
+            : []),
+          // Hard filter: allergens - exclude meals with any allergen-containing ingredients
+          ...(filters.allergensToAvoid.length > 0
+            ? [
+                {
+                  NOT: {
+                    components: {
+                      some: {
+                        ingredient: {
+                          allergens: { hasSome: filters.allergensToAvoid },
+                        },
                       },
                     },
                   },
                 },
-              },
-            ]
-          : []),
-        // Hard filter: excluded ingredients
-        ...(filters.excludedIngredientIds.length > 0
-          ? [
-              {
-                NOT: {
-                  components: {
-                    some: { ingredientId: { in: filters.excludedIngredientIds } },
+              ]
+            : []),
+          // Hard filter: excluded ingredients
+          ...(filters.excludedIngredientIds.length > 0
+            ? [
+                {
+                  NOT: {
+                    components: {
+                      some: { ingredientId: { in: filters.excludedIngredientIds } },
+                    },
                   },
                 },
-              },
-            ]
-          : []),
-        // Recent history: exclude recently used meals
-        ...(filters.recentMealIds.length > 0 ? [{ id: { notIn: filters.recentMealIds } }] : []),
-        // Protein type filter (for slot-specific queries)
-        ...(filters.primaryProteinType ? [{ primaryProteinType: filters.primaryProteinType }] : []),
-      ],
-    },
-    select: {
-      id: true,
-      name: true,
-      kidFriendly: true,
-      primaryProteinType: true,
-      householdId: true,
-      components: {
-        orderBy: { quantityPerServing: 'desc' },
-        take: 3,
-        select: {
-          ingredient: {
-            select: { name: true, category: true },
+              ]
+            : []),
+          // Recent history: exclude recently used meals
+          ...(recentMealIds.length > 0 ? [{ id: { notIn: recentMealIds } }] : []),
+          // Protein type filter (for slot-specific queries)
+          ...(filters.primaryProteinType
+            ? [{ primaryProteinType: filters.primaryProteinType }]
+            : []),
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        kidFriendly: true,
+        primaryProteinType: true,
+        householdId: true,
+        components: {
+          orderBy: { quantityPerServing: 'desc' },
+          // The diet check reads every ingredient; without a diet only the top ones are used.
+          ...(dietaryType ? {} : { take: TOP_INGREDIENT_COUNT }),
+          select: {
+            ingredientId: true,
+            ingredient: {
+              select: { name: true, category: true, allergens: true },
+            },
           },
         },
+        // Scoped to this household's own plans: a system meal is shared across households, and
+        // one household's thumbs must never move another's ranking.
+        ...(ratingHouseholdId
+          ? {
+              planEntries: {
+                where: { plan: { householdId: ratingHouseholdId }, rating: { not: null } },
+                select: { rating: true },
+              },
+            }
+          : {}),
       },
-      // Scoped to this household's own plans: a system meal is shared across households, and
-      // one household's thumbs must never move another's ranking.
-      ...(ratingHouseholdId
-        ? {
-            planEntries: {
-              where: { plan: { householdId: ratingHouseholdId }, rating: { not: null } },
-              select: { rating: true },
-            },
-          }
-        : {}),
-    },
-  })
+    })
+
+    // Hard filter: dietary type by ingredient. Only the diet is passed, so only diet conflicts
+    // can come back; allergens stay with the structured filter in the query above.
+    return dietaryType
+      ? meals.filter(
+          (meal) =>
+            !findPreferenceConflicts(meal, {
+              dietaryType,
+              allergensToAvoid: [],
+              excludedIngredients: [],
+              excludedIngredientIds: [],
+            }).some((conflict) => conflict.kind === 'diet'),
+        )
+      : meals
+  }
+
+  let allowed = await findAllowed(filters.recentMealIds)
+  // Breakfast and lunch may repeat: validatePlan checks dinner duplicates only. When the
+  // no-repeat window empties one of their pools, fall back to every allowed meal rather than
+  // return none: a vegan household has 3 seed breakfasts, and one week can use all of them.
+  if (allowed.length === 0 && filters.mealType !== 'dinner' && filters.recentMealIds.length > 0) {
+    allowed = await findAllowed([])
+  }
 
   // Transform to CandidateMeal format
-  const candidates = meals.map((meal) => ({
+  const candidates = allowed.map((meal) => ({
     id: meal.id,
     name: meal.name,
     kidFriendly: meal.kidFriendly,
     primaryProteinType: meal.primaryProteinType,
-    topIngredients: meal.components.map((c) => ({
+    topIngredients: meal.components.slice(0, TOP_INGREDIENT_COUNT).map((c) => ({
       name: c.ingredient.name,
       category: c.ingredient.category,
     })),
