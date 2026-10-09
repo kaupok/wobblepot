@@ -103,23 +103,31 @@ describe('ProfileNameForm', () => {
 
   // The field and button are disabled while pending, and Chromium blurs the
   // focused control. jsdom does not, so the test drops focus itself.
-  it('disables the form while saving and returns focus to Save after a failure', async () => {
-    let settle!: (result: UpdateResult) => void
-    vi.mocked(authClient.updateUser).mockImplementation(
-      () => new Promise<UpdateResult>((resolve) => (settle = resolve)) as never,
-    )
-    const user = userEvent.setup()
-    render(<ProfileNameForm initialName="Mari" />)
+  // The page does not navigate after a save, so success needs the refocus too
+  // (PR #1202 review).
+  it.each([
+    ['a failure', failed],
+    ['a success', ok],
+  ])(
+    'disables the form while saving and returns focus to Save after %s',
+    async (_label, result) => {
+      let settle!: (result: UpdateResult) => void
+      vi.mocked(authClient.updateUser).mockImplementation(
+        () => new Promise<UpdateResult>((resolve) => (settle = resolve)) as never,
+      )
+      const user = userEvent.setup()
+      render(<ProfileNameForm initialName="Mari" />)
 
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
-    expect(screen.getByLabelText('Name')).toBeDisabled()
-    dropFocusToBody()
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+      expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
+      expect(screen.getByLabelText('Name')).toBeDisabled()
+      dropFocusToBody()
 
-    await act(async () => settle(failed))
+      await act(async () => settle(result))
 
-    await vi.waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Save' })).toHaveFocus()
-    })
-  })
+      await vi.waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Save' })).toHaveFocus()
+      })
+    },
+  )
 })

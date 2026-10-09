@@ -61,9 +61,10 @@ export function ProfileNameForm({ initialName }: { initialName: string }) {
       router.refresh()
     } else {
       setError(t('saveFailed'))
-      // The button lost focus when the form was disabled; give it back.
-      requestRefocus()
     }
+    // The button lost focus when the form was disabled. The page does not
+    // navigate on success either, so give it back on both paths.
+    requestRefocus()
     setIsLoading(false)
   }
 

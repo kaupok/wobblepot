@@ -84,10 +84,10 @@ export function ChangePasswordForm() {
       setNewPassword('')
       setConfirmPassword('')
       toast.success(t('success'))
-    } else {
-      // The button lost focus when the form was disabled; give it back.
-      requestRefocus()
     }
+    // The button lost focus when the form was disabled. The page does not
+    // navigate on success either, so give it back on both paths.
+    requestRefocus()
     setIsLoading(false)
   }
 
@@ -141,7 +141,7 @@ export function ChangePasswordForm() {
         </div>
         {error && <FieldError>{error}</FieldError>}
         <div>
-          <Button ref={submitRef} type="submit" disabled={isLoading}>
+          <Button ref={submitRef} type="submit" disabled={isLoading} className="w-full md:w-auto">
             {isLoading ? t('submitting') : t('submit')}
           </Button>
         </div>

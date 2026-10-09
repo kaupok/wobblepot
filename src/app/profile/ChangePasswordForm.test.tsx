@@ -159,6 +159,26 @@ describe('ChangePasswordForm', () => {
 
   // The form is disabled while pending, and Chromium blurs the focused
   // control. jsdom does not, so the test drops focus itself.
+  it('returns focus to the submit button after a successful change', async () => {
+    let settle!: (result: ChangeResult) => void
+    vi.mocked(authClient.changePassword).mockImplementation(
+      () => new Promise<ChangeResult>((resolve) => (settle = resolve)) as never,
+    )
+    const user = userEvent.setup()
+    render(<ChangePasswordForm />)
+
+    await fillIn(user)
+    await submit(user)
+    dropFocusToBody()
+
+    await act(async () => settle(ok))
+
+    await vi.waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Change password' })).toHaveFocus()
+    })
+    expect(toast.success).toHaveBeenCalled()
+  })
+
   it('returns focus to the submit button after a wrong current password', async () => {
     let settle!: (result: ChangeResult) => void
     vi.mocked(authClient.changePassword).mockImplementation(
