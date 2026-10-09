@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, userEvent, within } from 'storybook/test'
 import { displayFont } from './display-font'
-import { HouseholdVignette, LandingFeatures, LandingVignette } from './LandingFeatures'
+import { LandingFeatures, LandingVignette } from './LandingFeatures'
 
 const meta = {
   title: 'Landing/LandingFeatures',
@@ -20,7 +20,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "\"Made for family kitchens\" on the signed-out landing page: the heading, then one row per point with a static vignette built from the app's own components (the cook view's ingredients, the imagine prompt and the planner card, the household's member rows, a cooking step). From `md` their surfaces alternate: the salmon's yellow tint, the acai bowl's pink, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption; from `md` the vignette swaps sides on rows 2 and 4.",
+          "\"Made for family kitchens\" on the signed-out landing page: the heading, then one row per point with a static vignette built from the app's own components (the cook view's ingredients, the imagine prompt and the planner card, the household's member rows, a cooking step with a question and its answer). From `md` their surfaces alternate: the salmon's yellow tint, the butter chicken's orange, the neutral card, the salmon again. Each vignette is `inert` with an `sr-only` caption; from `md` the vignette swaps sides on rows 2 and 4.",
       },
     },
   },
@@ -69,23 +69,6 @@ const play: Story['play'] = async ({ canvasElement }) => {
     await expect(el.querySelector('.font-display')).toBeNull()
     await expect(family(el)).not.toMatch(/Bricolage Grotesque/)
   }
-
-  // The answer starts where the step text does, as in the cook view's panel.
-  // Measured in layout coordinates: the vignette is tilted, and a tilt moves
-  // the two bounding boxes apart although the text still lines up.
-  const stepText = canvasElement.querySelector<HTMLElement>('[aria-pressed] p')
-  const answer = canvas.getByText(/Press the thickest part/)
-  const cook = canvas.getByTestId('landing-vignette-cook')
-  const layoutLeft = (el: HTMLElement) => {
-    let left = 0
-    for (let node: Element | null = el; node instanceof HTMLElement && cook.contains(node);) {
-      left += node.offsetLeft
-      node = node.offsetParent
-    }
-    return left
-  }
-  await expect(stepText).not.toBeNull()
-  await expect(layoutLeft(answer)).toBeCloseTo(layoutLeft(stepText!), 0)
 }
 
 /** Phone (390 px): each row is the text, then its vignette. */
@@ -121,25 +104,5 @@ export const SingleVignette: Story = {
     const caption = within(canvasElement).getByText(/1 to buy/, { selector: 'figcaption' })
     await expect(caption).toHaveClass('sr-only')
     await expect(canvasElement.querySelectorAll('[inert]')).toHaveLength(1)
-  },
-}
-
-/**
- * Step 1's picture in landing direction B1 (`HouseholdVignette`): the member
- * rows, then the allergens to avoid with nuts and peanuts ticked. No card of
- * its own; the page's white panel is its surface.
- */
-export const Household: Story = {
-  render: () => (
-    <div className="bg-background max-w-sm rounded-2xl p-4">
-      <HouseholdVignette />
-    </div>
-  ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement)
-    await expect(canvas.getByText('Mia (2)')).toBeInTheDocument()
-    await expect(canvas.getByText('Allergens to avoid')).toBeInTheDocument()
-    await expect(canvas.getAllByRole('button', { pressed: true })).toHaveLength(2)
-    await expect(canvas.getByRole('button', { name: 'Dairy', pressed: false })).toBeInTheDocument()
   },
 }

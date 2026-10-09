@@ -4,12 +4,12 @@ import { getTranslations } from 'next-intl/server'
 import { Body, Heading } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { LandingDeck } from '@/components/landing/LandingDeck'
+import { type LandingPoint, LandingVignette } from '@/components/landing/LandingFeatures'
 import {
-  HouseholdVignette,
-  type LandingPoint,
-  LandingVignette,
-} from '@/components/landing/LandingFeatures'
-import { PlanDayVignette, ShoppingVignette } from '@/components/landing/LandingStepVignettes'
+  ShoppingVignette,
+  TableVignette,
+  WeekVignette,
+} from '@/components/landing/LandingStepVignettes'
 import { LandingWeek } from '@/components/landing/LandingWeek'
 import { displayFont } from '@/components/landing/display-font'
 import { formatDayLong } from '@/lib/i18n/format-dates'
@@ -78,7 +78,9 @@ export async function LandingB1({ inviteRequired, locale, demo }: LandingB1Props
               {t.rich('headline', { br: () => <br /> })}
             </Heading>
             <div className="max-w-2xl">
-              <Body variant="lead">{t('sub')}</Body>
+              {/* Shorter than the live page's `sub`: the steps below cover the
+                  shopping list and the stove. */}
+              <Body variant="lead">{t('subShort')}</Body>
             </div>
           </div>
 
@@ -101,8 +103,7 @@ export async function LandingB1({ inviteRequired, locale, demo }: LandingB1Props
                 })}
               </Body>
             )}
-            {/* One line, so the deck starts above the fold. The full pricing
-                promise and the EU line sit with the closing block. */}
+            {/* One line, so the deck starts above the fold. */}
             <Body variant="muted">{t('ctaNote')}</Body>
           </div>
 
@@ -120,9 +121,14 @@ export async function LandingB1({ inviteRequired, locale, demo }: LandingB1Props
           </Heading>
           {/* The role restores list semantics WebKit drops from a
               `list-style: none` list, as on the live page. */}
-          <ol role="list" className="grid list-none gap-10 md:grid-cols-3 md:gap-8">
+          {/* From `md`, each step spans two rows of a subgrid, so the
+              pictures share one height and the step titles line up. */}
+          <ol role="list" className="grid list-none gap-10 md:grid-cols-3 md:gap-x-8 md:gap-y-5">
             {STEPS.map((step, index) => (
-              <li key={step} className="flex flex-col gap-5">
+              <li
+                key={step}
+                className="flex flex-col gap-5 md:row-span-2 md:grid md:grid-rows-subgrid"
+              >
                 <StepPicture step={step} />
                 <div className="flex items-start gap-4">
                   {/* The numeral in the display face, on a disc in the
@@ -174,19 +180,13 @@ export async function LandingB1({ inviteRequired, locale, demo }: LandingB1Props
           </ul>
         </section>
 
-        <div className="mx-auto flex max-w-3xl flex-col gap-6 text-center text-balance">
-          {/* Phones only, as on the live page (HON-1060). */}
-          <div className="flex flex-col gap-6 md:hidden">
-            <Body variant="lead">{t('close.line')}</Body>
-            <Button asChild size="lg" className="w-full">
-              <Link href="/sign-up">{t('cta')}</Link>
-            </Button>
-          </div>
-          {/* The small print the hero shortens to one line, at every width. */}
-          <div className="flex flex-col gap-1">
-            <Body variant="muted">{t('free')}</Body>
-            <Body variant="muted">{t('trust')}</Body>
-          </div>
+        {/* Phones only, as on the live page (HON-1060). The hero's one line
+            under the call to action is the page's only small print. */}
+        <div className="mx-auto flex max-w-3xl flex-col gap-6 text-center text-balance md:hidden">
+          <Body variant="lead">{t('close.line')}</Body>
+          <Button asChild size="lg" className="w-full">
+            <Link href="/sign-up">{t('cta')}</Link>
+          </Button>
         </div>
 
         <section aria-labelledby="landing-note" className="pb-8 md:pb-16">
@@ -206,12 +206,12 @@ export async function LandingB1({ inviteRequired, locale, demo }: LandingB1Props
   )
 }
 
-/** A picture of each step in the app, on a white panel cut at a fixed height. */
+/** A picture of each step, three rows on a white panel. */
 function StepPicture({ step }: { step: (typeof STEPS)[number] }) {
   return (
-    <div inert className="bg-background h-80 overflow-hidden rounded-2xl p-4">
-      {step === 'table' && <HouseholdVignette />}
-      {step === 'week' && <PlanDayVignette />}
+    <div inert className="bg-background flex flex-col justify-center rounded-2xl px-5 py-2">
+      {step === 'table' && <TableVignette />}
+      {step === 'week' && <WeekVignette />}
       {step === 'shop' && <ShoppingVignette />}
     </div>
   )

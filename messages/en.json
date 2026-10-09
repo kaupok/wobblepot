@@ -626,6 +626,7 @@
   "landing": {
     "headline": "Dinner, decided. <br></br>For the whole week.",
     "sub": "Wobblepot plans your family's meals around who's eating, what they avoid and what's already in the pantry. Then it writes the shopping list and stays with you at the stove.",
+    "subShort": "Meals planned around your family, your allergies and your pantry. One shopping list for the week.",
     "cta": "Plan this week's dinners",
     "free": "Free while we're in beta. Paid plans come later. You hear 30 days before, and beta families get a lower price.",
     "trust": "Your data lives in the EU, and there are no ads.",
@@ -710,10 +711,10 @@
         "title": "Imagine a meal",
         "body": "Say what you're in the mood for, or snap a photo. You get three recipes to save, and they join the plan with the rest.",
         "vignette": {
-          "caption": "A description typed into Imagine a meal, and below it the dish it produced on the planner: an acai bowl for breakfast, marked as your own recipe.",
-          "prompt": "Something cold and fruity for breakfast, with granola",
-          "name": "Acai bowl",
-          "description": "Frozen acai with banana, granola and fresh fruit"
+          "caption": "A description typed into Imagine a meal, and below it the dish it produced on the planner: a mild butter chicken for dinner, marked as your own recipe.",
+          "prompt": "Like our Friday takeaway butter chicken, but mild enough for the kids and ready in 40 minutes",
+          "name": "Mild butter chicken",
+          "description": "Creamy tomato curry with chicken and rice"
         }
       },
       "kids": {
@@ -730,7 +731,7 @@
         "title": "Cooking help on the counter",
         "body": "Steps at a size you can read from across the kitchen, and a quick answer when you're stuck on one.",
         "vignette": {
-          "caption": "A cooking step in large type with its Ask button, and the answer to the question \"How do I know the salmon is done?\" below it.",
+          "caption": "A cooking step in large type, then the question \"How do I know the salmon is done?\" and its answer.",
           "step": "Lay the salmon and asparagus on the tray, drizzle with olive oil and bake for 12–15 minutes.",
           "question": "How do I know the salmon is done?",
           "answer": "Press the thickest part with a fork. It’s done when it flakes easily and is no longer glossy in the middle."

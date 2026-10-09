@@ -79,17 +79,14 @@ describe('LandingB1', () => {
     expect(within(headline).getByText((_, el) => el?.tagName === 'BR')).toBeInTheDocument()
   })
 
-  it('keeps one line of small print above the deck, and the rest at the end', async () => {
+  it('keeps the small print to one line above the deck', async () => {
     const { container } = await renderB1()
     const text = container.textContent ?? ''
-    const at = (snippet: string) => {
-      expect(text).toContain(snippet)
-      return text.indexOf(snippet)
-    }
-    const deck = at("Thursday · Tonight's dinner")
-    expect(at("Free while we're in beta · No ads · Your data stays in the EU")).toBeLessThan(deck)
-    expect(at('You hear 30 days before')).toBeGreaterThan(deck)
-    expect(at('Your data lives in the EU, and there are no ads.')).toBeGreaterThan(deck)
+    const note = text.indexOf("Free while we're in beta · No ads · Your data stays in the EU")
+    expect(note).toBeGreaterThan(-1)
+    expect(note).toBeLessThan(text.indexOf("Thursday · Tonight's dinner"))
+    expect(text).not.toContain('You hear 30 days before')
+    expect(text).not.toContain('Your data lives in the EU, and there are no ads.')
   })
 
   it('shows the static Thursday when there is no demo day, with nothing to open', async () => {

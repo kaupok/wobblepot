@@ -626,6 +626,7 @@
   "landing": {
     "headline": "Õhtusöök otsustatud. <br></br>Terveks nädalaks.",
     "sub": "Wobblepot koostab pere söögiplaani selle järgi, kes sööb, mida välditakse ja mis on juba sahvris olemas. Siis kirjutab ta poenimekirja ja on pliidi juures sinuga.",
+    "subShort": "Söögiplaan sinu pere, allergiate ja sahvri järgi. Üks poenimekiri terveks nädalaks.",
     "cta": "Planeeri selle nädala õhtusöögid",
     "free": "Beeta ajal tasuta. Tasulised paketid tulevad hiljem. Anname sellest 30 päeva ette teada ja beetapered saavad soodsama hinna.",
     "trust": "Sinu andmed on Euroopa Liidus ja reklaame ei ole.",
@@ -710,10 +711,10 @@
         "title": "Mõtle välja toit",
         "body": "Ütle, mida sooviksid süüa, või tee foto. Saad kolm retsepti salvestamiseks ja need lähevad plaani koos ülejäänutega.",
         "vignette": {
-          "caption": "Väljale „Mõtle välja toit“ kirjutatud kirjeldus ja selle all toit, mille see andis, plaanis hommikusöögiks: acai kauss, märgitud sinu enda retseptiks.",
-          "prompt": "Midagi külma ja puuviljast hommikusöögiks, granolaga",
-          "name": "Acai kauss",
-          "description": "Külmutatud acai banaani, granola ja värskete puuviljadega"
+          "caption": "Väljale „Mõtle välja toit“ kirjutatud kirjeldus ja selle all toit, mille see andis, plaanis õhtusöögiks: mahe võikana, märgitud sinu enda retseptiks.",
+          "prompt": "Nagu reedene võikana kaasamüügist, aga lastele piisavalt mahe ja 40 minutiga valmis",
+          "name": "Mahe võikana",
+          "description": "Kreemjas tomatikarri kana ja riisiga"
         }
       },
       "kids": {
@@ -730,7 +731,7 @@
         "title": "Kokkamisabi leti peal",
         "body": "Sammud nii suures kirjas, et neid loeb üle köögi, ja kiire vastus, kui mõni samm jääb arusaamatuks.",
         "vignette": {
-          "caption": "Suures kirjas kokkamissamm koos nupuga Küsi ja selle all vastus küsimusele „Kuidas ma tean, et lõhe on valmis?“",
+          "caption": "Suures kirjas kokkamissamm, siis küsimus „Kuidas ma tean, et lõhe on valmis?“ ja selle vastus.",
           "step": "Laota lõhe ja spargel ahjuplaadile, nirista üle oliiviõliga ja küpseta 12–15 minutit.",
           "question": "Kuidas ma tean, et lõhe on valmis?",
           "answer": "Vajuta kahvliga kõige paksemasse kohta. Lõhe on valmis, kui see laguneb kergesti kihtideks ega ole keskelt enam läikiv."
