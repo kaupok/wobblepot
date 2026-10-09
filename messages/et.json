@@ -1285,6 +1285,8 @@
     "addChild": "Lisa laps",
     "you": "{name} (sina)",
     "memberNameAria": "{label}: nimi",
+    "doneMemberAria": "Valmis: {label}",
+    "editMemberAria": "Muuda: {label}",
     "removeMemberAria": "Eemalda: {label}",
     "membersHelper": "Nimed pole kohustuslikud. Saad kõiki hiljem leibkonna lehel muuta.",
     "membersFull": "Praegu on piir 10 inimest. Rohkem saad lisada hiljem leibkonna lehel.",
