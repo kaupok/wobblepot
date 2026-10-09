@@ -78,6 +78,12 @@ export function getAuthErrorKey(message: string): AuthErrorKey | null {
   if (lowerMessage.includes('password') && lowerMessage.includes('incorrect')) {
     return 'incorrectPassword'
   }
+  // A wrong current password on `/change-password` (Better Auth's
+  // `INVALID_PASSWORD`). Exact match, so sign-in's "Invalid email or password"
+  // does not land here.
+  if (lowerMessage === 'invalid password') {
+    return 'incorrectPassword'
+  }
 
   // Account existence errors
   if (lowerMessage.includes('already exists') || lowerMessage.includes('already registered')) {

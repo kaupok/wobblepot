@@ -6,6 +6,8 @@ import { Heading, Body } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
+import { ProfileNameForm } from './ProfileNameForm'
+import { ChangePasswordForm } from './ChangePasswordForm'
 
 export default async function ProfilePage() {
   // `getSession` is `cache()`-wrapped, so this reuses the lookup the root
@@ -54,18 +56,23 @@ export default async function ProfilePage() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <Body variant="small" tone="muted">
-              {t('nameLabel')}
-            </Body>
-            <Body>{session.user.name}</Body>
-          </div>
+          <ProfileNameForm initialName={session.user.name} />
           <div className="flex flex-col gap-1">
             <Body variant="small" tone="muted">
               {t('emailLabel')}
             </Body>
             <Body>{session.user.email}</Body>
           </div>
+        </div>
+
+        <Separator />
+
+        <div className="flex flex-col gap-3">
+          <Heading variant="section" as="h2">
+            {t('password.heading')}
+          </Heading>
+          <Body variant="muted">{t('password.description')}</Body>
+          <ChangePasswordForm />
         </div>
 
         <Separator />

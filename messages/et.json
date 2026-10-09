@@ -1281,7 +1281,26 @@
   "profile": {
     "title": "Profiil",
     "description": "Sinu konto andmed",
-    "nameLabel": "Nimi",
+    "name": {
+      "label": "Nimi",
+      "save": "Salvesta",
+      "saving": "Salvestan…",
+      "saved": "Nimi on salvestatud",
+      "required": "Sisesta oma nimi.",
+      "tooLong": "Kasuta kuni 100 märki.",
+      "saveFailed": "Nime ei salvestatud. Proovi uuesti."
+    },
+    "password": {
+      "heading": "Vaheta parool",
+      "description": "Selles seadmes jääd sisse logituks. Teistest seadmetest logitakse sind välja.",
+      "currentLabel": "Praegune parool",
+      "currentRequired": "Sisesta oma praegune parool.",
+      "newLabel": "Uus parool",
+      "confirmLabel": "Kinnita uus parool",
+      "submit": "Vaheta parool",
+      "submitting": "Parooli vahetamine…",
+      "success": "Parool on vahetatud. Teistest seadmetest on sind välja logitud."
+    },
     "emailLabel": "E-post",
     "yourDataHeading": "Sinu andmed",
     "yourDataDescription": "Lae alla koopia oma profiilist, leibkonna andmetest, söögiplaanidest ja sätetest JSON-failina.",

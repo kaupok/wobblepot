@@ -17,6 +17,16 @@ describe('getAuthErrorKey', () => {
       expect(getAuthErrorKey('Password incorrect')).toBe('incorrectPassword')
       expect(getAuthErrorKey('Incorrect password provided')).toBe('incorrectPassword')
     })
+
+    // Better Auth's `INVALID_PASSWORD`, thrown by `/change-password` for a
+    // wrong current password (HON-1129).
+    it('maps a wrong current password on change-password to incorrectPassword', () => {
+      expect(getAuthErrorKey('Invalid password')).toBe('incorrectPassword')
+    })
+
+    it('leaves sign-in\'s "Invalid email or password" off the change-password mapping', () => {
+      expect(getAuthErrorKey('Invalid email or password')).not.toBe('incorrectPassword')
+    })
   })
 
   describe('account existence errors', () => {
