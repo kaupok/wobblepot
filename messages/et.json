@@ -912,7 +912,8 @@
         "inviteInvalid": "See kutse on aegunud või juba kasutatud.",
         "joinFailed": "Leibkonnaga liitumine ebaõnnestus",
         "generic": "Tekkis viga. Palun proovi uuesti.",
-        "ownerHasOtherAccounts": "Eemalda enne teised kontoga liikmed oma leibkonnast ja proovi siis uuesti."
+        "ownerHasOtherAccounts": "Eemalda enne teised kontoga liikmed oma leibkonnast ja proovi siis uuesti.",
+        "leaveRateLimited": "Oled viimase 30 päeva jooksul leibkonnast lahkunud 3 korda. Proovi hiljem uuesti."
       }
     }
   },
@@ -1263,7 +1264,8 @@
       "leaving": "Lahkun…",
       "cannotLeave": "Oled selle leibkonna omanik ja siin on {count, plural, one {# muu kontoga liige} other {# muud kontoga liiget}}. Eemalda nad leibkonnast enne lahkumist.",
       "errors": {
-        "failed": "Leibkonnast lahkumine ebaõnnestus. Proovi uuesti."
+        "failed": "Leibkonnast lahkumine ebaõnnestus. Proovi uuesti.",
+        "rateLimited": "Oled viimase 30 päeva jooksul leibkonnast lahkunud 3 korda. Proovi hiljem uuesti."
       }
     }
   },

@@ -122,6 +122,17 @@ describe('LeaveHouseholdDialog', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
+  it('renders catalog copy for a 429', async () => {
+    respondWith({ error: 'rate_limited', resetAt: '2030-01-01T00:00:00.000Z' }, 429)
+    renderDialog()
+
+    const dialog = await openAndConfirm()
+
+    await within(dialog).findByText(
+      'You have left a household 3 times in the last 30 days. Try again later.',
+    )
+  })
+
   it('returns focus to the confirm button after a failed leave', async () => {
     let fail: (value: unknown) => void = () => {}
     vi.stubGlobal(

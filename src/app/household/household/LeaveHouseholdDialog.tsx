@@ -64,11 +64,13 @@ export function LeaveHouseholdDialog({
       // The route's `error` is a code; the copy comes from the catalog.
       const body = err instanceof ApiError ? (err.body as { error?: unknown; count?: unknown }) : {}
       console.error('[leave-household] request failed', { error: body.error })
-      setError(
-        body.error === 'owner_has_other_accounts'
-          ? t('cannotLeave', { count: typeof body.count === 'number' ? body.count : 1 })
-          : t('errors.failed'),
-      )
+      if (body.error === 'owner_has_other_accounts') {
+        setError(t('cannotLeave', { count: typeof body.count === 'number' ? body.count : 1 }))
+      } else if (body.error === 'rate_limited') {
+        setError(t('errors.rateLimited'))
+      } else {
+        setError(t('errors.failed'))
+      }
     },
   })
 

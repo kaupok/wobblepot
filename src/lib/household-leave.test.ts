@@ -31,6 +31,7 @@ import { captureApiError } from '@/lib/errors'
 import {
   afterHouseholdLeft,
   leaveHousehold,
+  lockHouseholdsForMove,
   NotInHouseholdError,
   OwnerHasOtherAccountsError,
 } from './household-leave'
@@ -131,6 +132,44 @@ describe('leaveHousehold', () => {
     expect((error as OwnerHasOtherAccountsError).otherAccountCount).toBe(2)
     expect(tx.household.delete).not.toHaveBeenCalled()
     expect(tx.householdMember.delete).not.toHaveBeenCalled()
+  })
+})
+
+describe('lockHouseholdsForMove', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  const lockedIds = () =>
+    tx.$queryRaw.mock.calls.map(([strings, id]) => {
+      expect((strings as TemplateStringsArray).join('?')).toMatch(/FOR UPDATE/)
+      return id
+    })
+
+  it('locks the current and the target household in id order', async () => {
+    tx.householdMember.findFirst.mockResolvedValue({ householdId: 'household-b' })
+
+    await lockHouseholdsForMove(txClient, 'user-1', 'household-a')
+
+    // The same order from either side, so two crossed moves queue instead of
+    // deadlocking (HON-1133).
+    expect(lockedIds()).toEqual(['household-a', 'household-b'])
+  })
+
+  it('locks only the target when the user has no household', async () => {
+    tx.householdMember.findFirst.mockResolvedValue(null)
+
+    await lockHouseholdsForMove(txClient, 'user-1', 'household-a')
+
+    expect(lockedIds()).toEqual(['household-a'])
+  })
+
+  it('locks a household once when the invite is into the current one', async () => {
+    tx.householdMember.findFirst.mockResolvedValue({ householdId: 'household-a' })
+
+    await lockHouseholdsForMove(txClient, 'user-1', 'household-a')
+
+    expect(lockedIds()).toEqual(['household-a'])
   })
 })
 

@@ -12,6 +12,11 @@ vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 60),
+}))
+
 vi.mock('@/lib/household-claim', () => ({
   runHouseholdClaim: vi.fn(),
 }))
@@ -27,6 +32,7 @@ vi.mock('@/lib/household-leave', async (importActual) => ({
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
 import { runHouseholdClaim } from '@/lib/household-claim'
+import { checkRateLimit } from '@/lib/rate-limit'
 import {
   afterHouseholdLeft,
   leaveHousehold,
@@ -39,6 +45,8 @@ const mockGetSession = vi.mocked(auth.api.getSession)
 const mockRunHouseholdClaim = vi.mocked(runHouseholdClaim)
 const mockLeaveHousehold = vi.mocked(leaveHousehold)
 const mockAfterHouseholdLeft = vi.mocked(afterHouseholdLeft)
+const mockCheckRateLimit = vi.mocked(checkRateLimit)
+const ALLOWED = { allowed: true, limit: 3, remaining: 2, resetAt: new Date('2030-01-01') }
 
 const SESSION = {
   user: { id: 'user-1', name: 'Mari', email: 'mari@example.com' },
@@ -50,6 +58,7 @@ describe('POST /api/households/me/leave', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     mockGetSession.mockResolvedValue(SESSION as never)
+    mockCheckRateLimit.mockResolvedValue(ALLOWED)
     mockRunHouseholdClaim.mockImplementation((_userId, callback) =>
       (callback as (client: unknown) => Promise<unknown>)(tx),
     )
@@ -96,6 +105,19 @@ describe('POST /api/households/me/leave', () => {
     const response = await POST()
 
     expect(await response.json()).toEqual({ deletedHousehold: true })
+  })
+
+  it('returns 429 once the user has used their leaves, before touching the household', async () => {
+    mockCheckRateLimit.mockResolvedValue({ ...ALLOWED, allowed: false, remaining: 0 })
+
+    const response = await POST()
+
+    // Leaving and onboarding again would reset the household's AI spend cap.
+    expect(mockCheckRateLimit).toHaveBeenCalledWith('user-1', 'household-leave')
+    expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('60')
+    expect((await response.json()).error).toBe('rate_limited')
+    expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
   })
 
   it('returns 404 no_household when the user has no household', async () => {

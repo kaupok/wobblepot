@@ -912,7 +912,8 @@
         "inviteInvalid": "This invite has expired or has already been used.",
         "joinFailed": "Failed to join household",
         "generic": "An error occurred. Please try again.",
-        "ownerHasOtherAccounts": "Remove the other members with an account from your household first, then try again."
+        "ownerHasOtherAccounts": "Remove the other members with an account from your household first, then try again.",
+        "leaveRateLimited": "You have left a household 3 times in the last 30 days. Try again later."
       }
     }
   },
@@ -1263,7 +1264,8 @@
       "leaving": "Leaving…",
       "cannotLeave": "You own this household, and {count, plural, one {# other member has} other {# other members have}} an account. Remove them from the household before you leave.",
       "errors": {
-        "failed": "Could not leave the household. Try again."
+        "failed": "Could not leave the household. Try again.",
+        "rateLimited": "You have left a household 3 times in the last 30 days. Try again later."
       }
     }
   },

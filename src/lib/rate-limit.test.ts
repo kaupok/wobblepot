@@ -70,6 +70,7 @@ describe('rate-limit', () => {
         'cook-question',
         'data-export',
         'forgot-password',
+        'household-leave',
         'meal-image',
         'meal-imagination',
         'meal-prep-tips',
@@ -82,6 +83,14 @@ describe('rate-limit', () => {
         'sign-up',
         'waitlist',
       ])
+    })
+
+    it('configures household-leave at 3 per 30 days per user (HON-1133)', () => {
+      expect(RATE_LIMIT_CONFIG['household-leave']).toEqual({
+        limit: 3,
+        window: '30 d',
+        dimension: 'user',
+      })
     })
 
     it('configures data-export at 3/day per user', () => {

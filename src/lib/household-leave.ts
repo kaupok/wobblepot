@@ -106,6 +106,32 @@ export async function leaveHousehold(
 }
 
 /**
+ * Locks both households of a "Leave and join" in id order, before the leave
+ * and the claim take their own locks (HON-1133). The leave locks the current
+ * household and the claim the invite's, so two sole owners who each move into
+ * the other's household at the same moment would take the same two locks in
+ * opposite orders and deadlock. Taking them up front in one order makes the
+ * second move wait for the first, and the later locks in `leaveHousehold` and
+ * `inviteMembershipClaim` are then already held.
+ */
+export async function lockHouseholdsForMove(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  targetHouseholdId: string,
+): Promise<void> {
+  const current = await tx.householdMember.findFirst({
+    where: { userId },
+    select: { householdId: true },
+  })
+  const ids = [...new Set([current?.householdId, targetHouseholdId])]
+    .filter((id): id is string => Boolean(id))
+    .sort()
+  for (const id of ids) {
+    await tx.$queryRaw`SELECT 1 FROM "household" WHERE "id" = ${id} FOR UPDATE`
+  }
+}
+
+/**
  * The after-commit half of a leave. Call it only once the transaction that ran
  * {@link leaveHousehold} has committed, so a rolled-back leave keeps its
  * images and analytics and is not counted. Never throws: the leave has

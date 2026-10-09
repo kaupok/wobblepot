@@ -13,12 +13,14 @@ import {
 import {
   afterHouseholdLeft,
   leaveHousehold,
+  lockHouseholdsForMove,
   NotInHouseholdError,
   OwnerHasOtherAccountsError,
   type LeaveHouseholdResult,
 } from '@/lib/household-leave'
 import { findHouseholdInvite, getInviteValidity } from '@/lib/household-invite'
 import { captureApiError } from '@/lib/errors'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
 const ROUTE = '/api/invites/[code]/join'
 
@@ -116,13 +118,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
     // `runHouseholdClaim` holds this user's row lock for the whole claim; see
     // `inviteMembershipClaim` for why that keeps one user in one household.
     const userId = session.user.id
+
+    // A leave counts against the same per-user limit as
+    // `POST /api/households/me/leave`. Checked here, after the invite is known
+    // to be valid, so a dead link does not spend it.
+    if (leaveCurrent) {
+      const rateLimit = await checkRateLimit(userId, 'household-leave')
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          { error: 'rate_limited', resetAt: rateLimit.resetAt.toISOString() },
+          { status: 429, headers: { 'Retry-After': String(retryAfterSeconds(rateLimit)) } },
+        )
+      }
+    }
+
     const claim = inviteMembershipClaim(userId, invite.memberId, invite.id)
     const inviteHouseholdId = invite.household.id
     const left = await runHouseholdClaim(userId, async (tx) => {
       // With `leaveCurrent`, the leave runs first on the same transaction, so
       // the claim's "already in a household" check then sees no membership.
       // A claim that fails after it rolls the leave back with it (HON-1133).
-      const leftHousehold = leaveCurrent ? await leaveIfMember(tx, userId) : null
+      let leftHousehold: LeaveHouseholdResult | null = null
+      if (leaveCurrent) {
+        await lockHouseholdsForMove(tx, userId, inviteHouseholdId)
+        leftHousehold = await leaveIfMember(tx, userId)
+      }
       // An invite into the household being left is not a move: for a sole
       // owner the leave has just deleted the household and the invite with it.
       if (leftHousehold?.householdId === inviteHouseholdId) {

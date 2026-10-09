@@ -9,6 +9,7 @@ import {
   OwnerHasOtherAccountsError,
 } from '@/lib/household-leave'
 import { captureApiError } from '@/lib/errors'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
 const ROUTE = '/api/households/me/leave'
 
@@ -30,6 +31,16 @@ export async function POST() {
   }
 
   const userId = session.user.id
+
+  // Shared with "Leave and join" on the join route: leaving and onboarding
+  // again would reset the household's AI spend cap (`household-leave`).
+  const rateLimit = await checkRateLimit(userId, 'household-leave')
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited', resetAt: rateLimit.resetAt.toISOString() },
+      { status: 429, headers: { 'Retry-After': String(retryAfterSeconds(rateLimit)) } },
+    )
+  }
 
   try {
     const result = await runHouseholdClaim(userId, (tx) => leaveHousehold(tx, userId))

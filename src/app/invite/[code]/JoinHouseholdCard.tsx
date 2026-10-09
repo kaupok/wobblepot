@@ -84,6 +84,8 @@ export function JoinHouseholdCard({
         setError(t('errors.alreadyInHousehold'))
       } else if (data.error === 'owner_has_other_accounts') {
         setError(t('errors.ownerHasOtherAccounts'))
+      } else if (data.error === 'rate_limited') {
+        setError(t('errors.leaveRateLimited'))
       } else if (data.error === 'invite_invalid') {
         setError(t('errors.inviteInvalid'))
       } else {
