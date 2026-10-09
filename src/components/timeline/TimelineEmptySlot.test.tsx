@@ -82,7 +82,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function renderSlot() {
+function renderSlot(props: { autoFocus?: boolean; onAutoFocused?: () => void } = {}) {
   const { wrapper: Wrapper } = createQueryWrapper()
   render(
     <Wrapper>
@@ -92,6 +92,7 @@ function renderSlot() {
         dayLabel="Thursday Apr 16"
         mealType="dinner"
         householdServings={4}
+        {...props}
       />
     </Wrapper>,
   )
@@ -294,5 +295,35 @@ describe('TimelineEmptySlot', () => {
     deleteResponse.reject(new TypeError('Failed to fetch'))
 
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+  })
+
+  // The slot replaces a card whose meal was just cleared (HON-1123).
+  describe('autoFocus', () => {
+    it('takes focus from the page body as it mounts', () => {
+      const onAutoFocused = vi.fn()
+      renderSlot({ autoFocus: true, onAutoFocused })
+
+      expect(pickButton()).toHaveFocus()
+      expect(onAutoFocused).toHaveBeenCalledTimes(1)
+    })
+
+    it('leaves focus where the user moved it', () => {
+      const elsewhere = document.createElement('button')
+      document.body.append(elsewhere)
+      elsewhere.focus()
+      const onAutoFocused = vi.fn()
+
+      renderSlot({ autoFocus: true, onAutoFocused })
+
+      expect(elsewhere).toHaveFocus()
+      expect(onAutoFocused).toHaveBeenCalledTimes(1)
+      elsewhere.remove()
+    })
+
+    it('takes no focus without it', () => {
+      renderSlot()
+
+      expect(pickButton()).not.toHaveFocus()
+    })
   })
 })

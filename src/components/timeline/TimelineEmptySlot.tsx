@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -24,6 +24,13 @@ interface TimelineEmptySlotProps {
   mealType: MealType
   householdServings: number
   pantryIngredients?: PantryIngredient[]
+  /**
+   * Take focus on mount: this slot replaces a card whose meal was just
+   * cleared, and focus fell to the page body with that card (HON-1123).
+   */
+  autoFocus?: boolean
+  /** Called once the mount has acted on `autoFocus`, so the page can drop it. */
+  onAutoFocused?: () => void
 }
 
 export function TimelineEmptySlot({
@@ -34,6 +41,8 @@ export function TimelineEmptySlot({
   mealType,
   householdServings,
   pantryIngredients = [],
+  autoFocus = false,
+  onAutoFocused,
 }: TimelineEmptySlotProps) {
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
@@ -43,6 +52,16 @@ export function TimelineEmptySlot({
   const [entryId, setEntryId] = useState<string | null>(null)
   const hasSelectedRef = useRef(false)
   const pickButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!autoFocus) return
+    // Only from the body: a user who moved on before the refresh landed keeps
+    // their place.
+    if (!document.activeElement || document.activeElement === document.body) {
+      pickButtonRef.current?.focus()
+    }
+    onAutoFocused?.()
+  }, [autoFocus, onAutoFocused])
 
   const createEntryMutation = useMutation({
     mutationFn: () =>

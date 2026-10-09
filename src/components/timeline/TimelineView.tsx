@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { TimelineDayCard } from './TimelineDayCard'
@@ -166,6 +166,13 @@ export function TimelineView({
     router.refresh()
   }
 
+  // A cleared card unmounts and takes focus with it, so its empty slot takes
+  // focus as it renders (HON-1123). Held here, by date, because clearing a
+  // day's last meal can move the day from the planned run to the empty days,
+  // which remounts its `TimelineDayCard`.
+  const [slotToFocus, setSlotToFocus] = useState<{ date: string; mealType: MealType } | null>(null)
+  const handleSlotFocused = useCallback(() => setSlotToFocus(null), [])
+
   const hasEmptyFutureSlots = futureDays.some((d) => d.emptySlots.length > 0)
 
   // Split future days at the fill boundary
@@ -182,6 +189,9 @@ export function TimelineView({
         pantryIngredients={pantryIngredients}
         pantryItems={pantryItems}
         onEntryUpdated={handleEntryUpdated}
+        onEntryCleared={setSlotToFocus}
+        focusSlot={slotToFocus?.date === day.date ? slotToFocus.mealType : undefined}
+        onSlotFocused={handleSlotFocused}
       />
     )
   }

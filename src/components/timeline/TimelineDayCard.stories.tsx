@@ -243,3 +243,15 @@ export const PickMealFromEmptySlot: Story = {
     )
   },
 }
+
+/** After a clear, the slot that replaced the card takes focus (HON-1123). */
+export const FocusesClearedSlot: Story = {
+  args: { day: mixedDay, focusSlot: MealType.lunch, onSlotFocused: fn() },
+  play: async ({ canvasElement, args }) => {
+    const lunch = within(canvasElement).getByRole('button', {
+      name: 'Lunch: pick a meal, Friday Apr 17',
+    })
+    await expect(args.onSlotFocused).toHaveBeenCalledTimes(1)
+    await expect(document.activeElement).toBe(lunch)
+  },
+}
