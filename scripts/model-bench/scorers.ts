@@ -458,7 +458,14 @@ export function sentenceCount(text: string): number {
  * shows the cook an error for it.
  */
 export function scoreCookQuestion(input: CookQuestionCase, output: string): Scores {
-  const { offTopic, mentionsAny, forbiddenKeywords, allowedQualifiers } = input.expected
+  const {
+    offTopic,
+    mentionsAny,
+    forbiddenKeywords,
+    allowedQualifiers,
+    forbiddenClaims,
+    allowedClaimQualifiers,
+  } = input.expected
   const text = normalizeFoodName(output)
   const words = wordCount(output)
   const noForbidden =
@@ -478,6 +485,15 @@ export function scoreCookQuestion(input: CookQuestionCase, output: string): Scor
       ? pass(words <= COOK_QUESTION_MAX_WORDS.offTopic && noForbidden)
       : null,
     avoidsForbidden: forbiddenKeywords && !offTopic ? pass(noForbidden) : null,
+    avoidsClaims: forbiddenClaims
+      ? pass(
+          findUnexcusedKeyword(
+            text,
+            forbiddenClaims.map(normalizeFoodName),
+            (allowedClaimQualifiers ?? []).map(normalizeFoodName),
+          ) === null,
+        )
+      : null,
     mentionsExpected: mentionsAny
       ? pass(mentionsAny.some((phrase) => text.includes(normalizeFoodName(phrase))))
       : null,

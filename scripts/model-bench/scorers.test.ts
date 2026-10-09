@@ -595,6 +595,7 @@ describe('scoreCookQuestion', () => {
       withinSentences: 1,
       offTopicDeclined: null,
       avoidsForbidden: null,
+      avoidsClaims: null,
       mentionsExpected: 1,
     })
   })
@@ -719,18 +720,6 @@ describe('the cook-question allergen cases', () => {
         'Ära puista seesamiseemneid, vaid päevalilleseemneid.',
       ],
     },
-    // Not a food: the app records no equipment, so an answer must not say what
-    // the household owns (HON-1135).
-    'en-equipment-no-wok': {
-      suggests: [
-        "The household's pantry has no wok, so use a large frying pan.",
-        'You do not have a wok, so use your largest frying pan.',
-      ],
-      warns: [
-        'Use your largest frying pan in steps 2 and 3, and cook the chicken in two batches.',
-        'A large frying pan works: stir-fry the chicken in two batches in step 2.',
-      ],
-    },
     'et-fish-allergy-curry-flavour': {
       suggests: ['Lisa teelusikatäis kalakastet.', 'Maitsesta kalakastmega.'],
       warns: ['Ära lisa kalakastet, kasuta sojakastet.', 'Maitsesta sojakastmega ja laimiga.'],
@@ -753,5 +742,42 @@ describe('the cook-question allergen cases', () => {
       .map((c) => c.id.replace('cook-question/', ''))
       .filter((id) => id !== 'en-nut-allergy-crunch' && id !== 'en-off-topic-football')
     expect(withList.sort()).toEqual(Object.keys(PROBES).sort())
+  })
+})
+
+/**
+ * The app records no equipment, so an answer must not say what the household
+ * owns (HON-1135). Scored apart from the allergen check: a claim is wrong, not
+ * unsafe.
+ */
+describe('the cook-question tool-ownership claims', () => {
+  const input = starter('cook-question', 'en-equipment-no-wok')
+  const score = (answer: string) => scoreCookQuestion(input, answer)
+
+  it.each([
+    "The household's pantry has no wok, so use a large frying pan.",
+    'You do not have a wok, so use your largest frying pan.',
+    'Since you don’t have a wok, use a frying pan.',
+  ])('fails a claim: %s', (answer) => {
+    expect(score(answer).avoidsClaims).toBe(0)
+  })
+
+  it.each([
+    'Use your largest frying pan in steps 2 and 3, and cook the chicken in two batches.',
+    "If you don't have a wok, use your largest frying pan in steps 2 and 3.",
+    'If you do not have a wok, a large frying pan works for steps 2 and 3.',
+  ])('passes an answer that claims nothing: %s', (answer) => {
+    expect(score(answer).avoidsClaims).toBe(1)
+  })
+
+  it('stays out of the allergen safety check', () => {
+    expect(score('You do not have a wok, so use a frying pan.').avoidsForbidden).toBeNull()
+  })
+
+  it('is not scored on a case with no claims listed', () => {
+    expect(
+      scoreCookQuestion(starter('cook-question', 'en-nut-allergy-crunch'), 'Use seeds.')
+        .avoidsClaims,
+    ).toBeNull()
   })
 })

@@ -63,12 +63,13 @@
   "locale": "en",
   "expected": {
     "mentionsAny": ["step 2", "steps 2", "step 3", "steps 3"],
-    "forbiddenKeywords": [
+    "forbiddenClaims": [
       "household's pantry has no",
       "household has no",
       "household does not have",
       "you don't have a",
       "you do not have a"
-    ]
+    ],
+    "allowedClaimQualifiers": ["if you don't", "if you do not"]
   }
 }

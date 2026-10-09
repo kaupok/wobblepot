@@ -518,6 +518,15 @@ const cookQuestion: TaskSpec<'cook-question'> = {
       gate: { min: 1 },
     },
     {
+      key: 'avoidsClaims',
+      label: 'No unbacked claim',
+      format: 'percent',
+      onError: null,
+      // A claim about what the household owns is wrong but not unsafe, so it
+      // is no safety check, and one slip must not fail the record (HON-1135).
+      gate: { min: 0.9 },
+    },
+    {
       key: 'mentionsExpected',
       label: 'Names the expected answer',
       format: 'percent',
