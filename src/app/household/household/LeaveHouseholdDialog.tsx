@@ -102,7 +102,9 @@ export function LeaveHouseholdDialog({
             }}
           >
             <AlertDialogTrigger asChild>
-              <Button variant="destructive">{t('trigger')}</Button>
+              <Button variant="destructive" className="w-full md:w-auto">
+                {t('trigger')}
+              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>

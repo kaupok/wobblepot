@@ -133,7 +133,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
     })
 
     if (left) {
-      await afterHouseholdLeft(left, ROUTE)
+      await afterHouseholdLeft(left, { route: ROUTE, userId })
     }
 
     return NextResponse.json({

@@ -79,7 +79,10 @@ describe('POST /api/households/me/leave', () => {
     expect(await response.json()).toEqual({ deletedHousehold: false })
     expect(mockRunHouseholdClaim).toHaveBeenCalledWith('user-1', expect.any(Function))
     expect(mockLeaveHousehold).toHaveBeenCalledWith(tx, 'user-1')
-    expect(mockAfterHouseholdLeft).toHaveBeenCalledWith(result, '/api/households/me/leave')
+    expect(mockAfterHouseholdLeft).toHaveBeenCalledWith(result, {
+      route: '/api/households/me/leave',
+      userId: 'user-1',
+    })
   })
 
   it('reports a deleted household for a sole-account owner', async () => {

@@ -4,6 +4,8 @@ import { countAccountHoldingMembers } from '@/lib/household'
 import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
 import { discardMealImage } from '@/lib/meal-images/storage'
 import { getPosthogServer } from '@/lib/posthog-server'
+import { deletePosthogPersons } from '@/lib/posthog-purge'
+import { captureApiError } from '@/lib/errors'
 
 /** The user has no household membership to leave. */
 export class NotInHouseholdError extends Error {
@@ -76,6 +78,11 @@ export async function leaveHousehold(
   const { householdId } = membership
 
   if (membership.role === 'owner') {
+    // Lock the household before counting, so an invite claim into it either
+    // committed already (and is counted) or waits and then finds its member
+    // row gone. The claim holds `FOR KEY SHARE` on this row for the same
+    // reason (`inviteMembershipClaim`).
+    await tx.$queryRaw`SELECT 1 FROM "household" WHERE "id" = ${householdId} FOR UPDATE`
     const accountMemberCount = await countAccountHoldingMembers(householdId, tx)
     if (accountMemberCount > 1) {
       throw new OwnerHasOtherAccountsError(accountMemberCount - 1)
@@ -99,20 +106,46 @@ export async function leaveHousehold(
 }
 
 /**
- * The after-commit half of a leave: delete the left household's meal images
- * and record `household:member_left`. Call it only once the transaction that
- * ran {@link leaveHousehold} has committed, so a rolled-back leave keeps its
- * images and is not counted. Best-effort on both halves.
+ * The after-commit half of a leave. Call it only once the transaction that ran
+ * {@link leaveHousehold} has committed, so a rolled-back leave keeps its
+ * images and analytics and is not counted. Never throws: the leave has
+ * committed, so nothing here may turn it into an error response.
+ *
+ * - Deletes the meal images of a deleted household.
+ * - Erases a deleted household's PostHog person and events, as `purgeUser`
+ *   does: AI usage events attribute to the household id, and once the row is
+ *   gone nothing in the database links them to anyone, so a later account
+ *   deletion could not find them. Best-effort here rather than before the
+ *   transaction as in the purge, so PostHog being down does not block a
+ *   leave; a failure is captured with the household id for the hand sweep in
+ *   `docs/RUNBOOKS/gdpr-deletion.md`.
+ * - Records `household:member_left`.
  */
-export async function afterHouseholdLeft(result: LeaveHouseholdResult, route: string) {
+export async function afterHouseholdLeft(
+  result: LeaveHouseholdResult,
+  context: { route: string; userId: string },
+) {
   for (const url of result.imageUrls) {
-    await discardMealImage(url, route)
+    await discardMealImage(url, context.route)
+  }
+
+  if (result.deletedHousehold) {
+    try {
+      await deletePosthogPersons([result.householdId], { userId: context.userId })
+    } catch (error) {
+      captureApiError(error, {
+        route: context.route,
+        userId: context.userId,
+        operation: 'posthog-household-purge',
+        distinctIds: [result.householdId],
+      })
+    }
   }
 
   // A server event, listed under "Server events" in `src/lib/analytics.ts`.
   // The distinct id is the household, as for the other server product event,
-  // so no person profile is created for the user from here. Swallowed: the
-  // leave has committed, so a failed capture must not turn it into a 500.
+  // and the event is personless, so it creates no person profile: in
+  // particular none for a household whose person was just erased above.
   try {
     getPosthogServer()?.capture({
       distinctId: result.householdId,
@@ -121,6 +154,7 @@ export async function afterHouseholdLeft(result: LeaveHouseholdResult, route: st
         household_id: result.householdId,
         role: result.role,
         deleted_household: result.deletedHousehold,
+        $process_person_profile: false,
       },
     })
   } catch {

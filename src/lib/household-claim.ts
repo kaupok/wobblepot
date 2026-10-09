@@ -249,6 +249,17 @@ export function inviteMembershipClaim(
       throw new AlreadyInHouseholdError()
     }
 
+    // Hold the invite's household against a concurrent delete until this
+    // claim commits (HON-1133). A sole owner's leave deletes the household
+    // after counting its account holders, and that count cannot see a claim
+    // still in flight, so without this lock the leave could delete the
+    // household just after this claim joined it. The leave takes `FOR UPDATE`
+    // on the same row (`leaveHousehold`), so whichever runs second sees the
+    // other's commit: the leave counts this member, or the claim finds the
+    // member row gone. `FOR KEY SHARE` conflicts only with a delete or a key
+    // change, so settings saves and other joins into the household never wait.
+    await tx.$queryRaw`SELECT 1 FROM "household" h JOIN "household_member" m ON m."householdId" = h."id" WHERE m."id" = ${memberId} FOR KEY SHARE OF h`
+
     // `updateMany` with `userId: null`, not `update`: this is a claim of an
     // *unclaimed* row, and expressing that as a conditional write means a
     // member row that a concurrent join already claimed matches nothing

@@ -33,7 +33,7 @@ export async function POST() {
 
   try {
     const result = await runHouseholdClaim(userId, (tx) => leaveHousehold(tx, userId))
-    await afterHouseholdLeft(result, ROUTE)
+    await afterHouseholdLeft(result, { route: ROUTE, userId })
 
     return NextResponse.json({ deletedHousehold: result.deletedHousehold })
   } catch (error) {

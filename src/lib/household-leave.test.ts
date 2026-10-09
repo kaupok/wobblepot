@@ -16,8 +16,18 @@ vi.mock('@/lib/posthog-server', () => ({
   getPosthogServer: () => ({ capture }),
 }))
 
+vi.mock('@/lib/posthog-purge', () => ({
+  deletePosthogPersons: vi.fn(),
+}))
+
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
 import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
 import { discardMealImage } from '@/lib/meal-images/storage'
+import { deletePosthogPersons } from '@/lib/posthog-purge'
+import { captureApiError } from '@/lib/errors'
 import {
   afterHouseholdLeft,
   leaveHousehold,
@@ -26,6 +36,7 @@ import {
 } from './household-leave'
 
 const tx = {
+  $queryRaw: vi.fn(),
   householdMember: {
     findFirst: vi.fn(),
     count: vi.fn(),
@@ -81,8 +92,22 @@ describe('leaveHousehold', () => {
     tx.householdMember.count.mockResolvedValue(1)
     tx.meal.findMany.mockResolvedValue([{ imageUrl: 'https://blob/a.png' }, { imageUrl: null }])
 
+    const order: string[] = []
+    tx.$queryRaw.mockImplementation(async (strings: TemplateStringsArray) => {
+      order.push(strings.join('?'))
+      return []
+    })
+    tx.householdMember.count.mockImplementation(async () => {
+      order.push('count')
+      return 1
+    })
+
     const result = await leaveHousehold(txClient, 'user-1')
 
+    // The household row is locked before the count, so an invite claim into
+    // it cannot commit unseen between the count and the delete.
+    expect(order[0]).toMatch(/FROM "household" WHERE "id" = \? FOR UPDATE/)
+    expect(order[1]).toBe('count')
     expect(tx.householdMember.count).toHaveBeenCalledWith({
       where: { householdId: 'household-1', userId: { not: null } },
     })
@@ -114,7 +139,9 @@ describe('afterHouseholdLeft', () => {
     vi.resetAllMocks()
   })
 
-  it('discards the images and records household:member_left', async () => {
+  const CONTEXT = { route: '/api/households/me/leave', userId: 'user-1' }
+
+  it('discards the images, erases the PostHog household and records a personless event', async () => {
     await afterHouseholdLeft(
       {
         householdId: 'household-1',
@@ -122,14 +149,51 @@ describe('afterHouseholdLeft', () => {
         deletedHousehold: true,
         imageUrls: ['https://blob/a.png'],
       },
-      '/api/households/me/leave',
+      CONTEXT,
     )
 
     expect(discardMealImage).toHaveBeenCalledWith('https://blob/a.png', '/api/households/me/leave')
+    expect(deletePosthogPersons).toHaveBeenCalledWith(['household-1'], { userId: 'user-1' })
     expect(capture).toHaveBeenCalledWith({
       distinctId: 'household-1',
       event: 'household:member_left',
-      properties: { household_id: 'household-1', role: 'owner', deleted_household: true },
+      properties: {
+        household_id: 'household-1',
+        role: 'owner',
+        deleted_household: true,
+        $process_person_profile: false,
+      },
     })
+  })
+
+  it('leaves PostHog alone when the household stays', async () => {
+    await afterHouseholdLeft(
+      { householdId: 'household-1', role: 'member', deletedHousehold: false, imageUrls: [] },
+      CONTEXT,
+    )
+
+    expect(deletePosthogPersons).not.toHaveBeenCalled()
+    expect(capture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({ deleted_household: false }),
+      }),
+    )
+  })
+
+  it('captures a failed PostHog erasure with the household id and does not throw', async () => {
+    vi.mocked(deletePosthogPersons).mockRejectedValue(new Error('PostHog down'))
+
+    await expect(
+      afterHouseholdLeft(
+        { householdId: 'household-1', role: 'owner', deletedHousehold: true, imageUrls: [] },
+        CONTEXT,
+      ),
+    ).resolves.toBeUndefined()
+
+    expect(captureApiError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ userId: 'user-1', distinctIds: ['household-1'] }),
+    )
+    expect(capture).toHaveBeenCalled()
   })
 })

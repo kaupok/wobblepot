@@ -75,6 +75,8 @@ const mockAfterHouseholdLeft = vi.mocked(afterHouseholdLeft)
  * both the membership check and the claim on this object, not on `prisma`.
  */
 const tx = {
+  // The household lock in `inviteMembershipClaim` (HON-1133).
+  $queryRaw: vi.fn(),
   householdMember: {
     findFirst: vi.fn(),
     updateMany: vi.fn(),
@@ -484,7 +486,10 @@ describe('POST /api/invites/[code]/join', () => {
       expect(mockRunHouseholdClaim).toHaveBeenCalledTimes(1)
       expect(mockLeaveHousehold).toHaveBeenCalledWith(tx, 'user-123')
       expect(order).toEqual(['leave', 'claim'])
-      expect(mockAfterHouseholdLeft).toHaveBeenCalledWith(LEFT, '/api/invites/[code]/join')
+      expect(mockAfterHouseholdLeft).toHaveBeenCalledWith(LEFT, {
+        route: '/api/invites/[code]/join',
+        userId: 'user-123',
+      })
     })
 
     it('rejects the whole transaction when the claim fails after the leave, so the leave rolls back', async () => {
