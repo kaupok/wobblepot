@@ -192,6 +192,14 @@ const MEAT: FoodGroup = {
     'graham',
     'chamomile',
     'beefsteak tomato',
+    // Shellfish and coconut flesh, not meat (HON-1126). SHELLFISH still
+    // catches the crab and the lobster for a vegetarian.
+    'crab meat',
+    'crabmeat',
+    'lobster meat',
+    'coconut meat',
+    'krabiliha',
+    'homaariliha',
     // Goat dairy, not goat meat (HON-1106). DAIRY still catches it for a vegan.
     "goat's cheese",
     'goats cheese',
