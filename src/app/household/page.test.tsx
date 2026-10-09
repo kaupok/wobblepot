@@ -41,6 +41,7 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
   listHouseholdMembers: vi.fn(),
+  countAccountHoldingMembers: vi.fn(async () => 1),
 }))
 
 // Under jsdom `getQueryClient` would hand back its browser singleton, so the
@@ -61,6 +62,18 @@ vi.mock('next/navigation', () => ({
 // `MemberList.test.tsx` both pin it at `level: 2`, one below the h1 here.
 vi.mock('./household/HouseholdSettingsForm', () => ({
   HouseholdSettingsForm: () => <div data-testid="household-settings-form" />,
+}))
+
+// Its own behaviour is in `LeaveHouseholdDialog.test.tsx`; the page passes it
+// the inputs that decide whether the user can leave (HON-1133).
+vi.mock('./household/LeaveHouseholdDialog', () => ({
+  LeaveHouseholdDialog: (props: { isOwner: boolean; accountMemberCount: number }) => (
+    <div
+      data-testid="leave-household"
+      data-owner={String(props.isOwner)}
+      data-account-count={String(props.accountMemberCount)}
+    />
+  ),
 }))
 
 // The stub reads the members the page dehydrated, straight from the client
@@ -207,6 +220,28 @@ describe('HouseholdPage', () => {
     expect(memberList.parentElement).toBe(form.parentElement)
     expect(form.parentElement).toHaveClass('max-w-2xl')
     expect(memberList.closest('.lg\\:grid-cols-2')).toBeNull()
+  })
+
+  it('ends with the Leave household section, after the settings', async () => {
+    await mockSignedIn('member')
+
+    await renderPage()
+
+    const form = screen.getByTestId('household-settings-form')
+    const leave = screen.getByTestId('leave-household')
+    expect(form.compareDocumentPosition(leave) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Leave household', level: 2 })).toBeInTheDocument()
+    expect(leave).toHaveAttribute('data-owner', 'false')
+  })
+
+  it("passes an owner's account-holder count to the leave section", async () => {
+    await mockSignedIn('owner')
+    const { countAccountHoldingMembers } = await import('@/lib/household')
+    vi.mocked(countAccountHoldingMembers).mockResolvedValueOnce(3)
+
+    await renderPage()
+
+    expect(screen.getByTestId('leave-household')).toHaveAttribute('data-account-count', '3')
   })
 
   it('shows a member the owner-only notice once, under the page title', async () => {

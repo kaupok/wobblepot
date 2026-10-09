@@ -74,6 +74,7 @@ export type RateLimitFeature =
   | 'waitlist'
   | 'data-export'
   | 'reminder-confirm'
+  | 'household-leave'
 
 type Dimension = 'household' | 'ip' | 'user'
 
@@ -141,6 +142,13 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
     dimension: 'user',
     daily: { limit: 5, window: '1 d' },
   },
+  // Leaving a household, alone or as "Leave and join" (HON-1133). The AI spend
+  // cap and the AI rate limits belong to the household, and a sole owner's
+  // leave deletes the household with its `ai_usage` rows, so leaving and
+  // onboarding again would reset them. This bounds how often one account can
+  // do that. Three, not two, so one failed leave-and-join (an invite used in
+  // between) does not lock a real move out for a month.
+  'household-leave': { limit: 3, window: '30 d', dimension: 'user' },
 }
 
 export interface RateLimitResult {

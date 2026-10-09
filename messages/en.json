@@ -871,8 +871,20 @@
       "alreadyMember": {
         "title": "Already a member",
         "description": "You are already a member of \"{householdName}\"",
-        "body": "You can only be a member of one household at a time. To join a different household, you would need to leave your current one first.",
+        "body": "You can be a member of one household at a time. To join a different household, leave this one on the Household page first.",
         "action": "Go home"
+      },
+      "leaveAndJoin": {
+        "title": "Join \"{householdName}\"?",
+        "description": "You are a member of \"{currentHouseholdName}\". You can be in one household at a time.",
+        "bodyOwner": "Your household \"{currentHouseholdName}\" and its meal plan, pantry, shopping list, recipes and members without an account are deleted. This cannot be undone.",
+        "bodyMember": "You leave \"{currentHouseholdName}\". Its plan stays with the household.",
+        "exportNote": "To keep a copy, download your data from your profile first.",
+        "action": "Leave and join",
+        "confirmTitle": "Leave and join?",
+        "joining": "Joining…",
+        "cannotLeaveBody": "You own \"{currentHouseholdName}\", and {count, plural, one {# other member has} other {# other members have}} an account there. To join another household, remove them from your household first.",
+        "cannotLeaveAction": "Go to Household"
       },
       "invalid": {
         "title": "Invite expired",
@@ -902,7 +914,9 @@
         "alreadyInHousehold": "You are already a member of a household.",
         "inviteInvalid": "This invite has expired or has already been used.",
         "joinFailed": "Failed to join household",
-        "generic": "An error occurred. Please try again."
+        "generic": "An error occurred. Please try again.",
+        "ownerHasOtherAccounts": "Remove the other members with an account from your household first, then try again.",
+        "leaveRateLimited": "You have left a household 3 times in the last 30 days. Try again later."
       }
     }
   },
@@ -1238,6 +1252,23 @@
       "errors": {
         "createFailed": "Failed to create invite",
         "generic": "An error occurred"
+      }
+    },
+    "leave": {
+      "heading": "Leave household",
+      "descriptionMember": "Leave this household. Its meal plan, pantry and recipes stay with the household.",
+      "descriptionOwner": "You are the only member with an account, so leaving deletes this household and everything in it.",
+      "trigger": "Leave household",
+      "title": "Leave household?",
+      "bodyMember": "You leave \"{householdName}\". Its plan stays with the household. To come back, ask the owner for a new invite.",
+      "bodyOwner": "Your household \"{householdName}\" and its meal plan, pantry, shopping list, recipes and members without an account are deleted. This cannot be undone.",
+      "exportNote": "To keep a copy, download your data from your profile first.",
+      "confirm": "Leave household",
+      "leaving": "Leaving…",
+      "cannotLeave": "You own this household, and {count, plural, one {# other member has} other {# other members have}} an account. Remove them from the household before you leave.",
+      "errors": {
+        "failed": "Could not leave the household. Try again.",
+        "rateLimited": "You have left a household 3 times in the last 30 days. Try again later."
       }
     }
   },

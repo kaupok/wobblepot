@@ -11,8 +11,8 @@
  *
  * Snake_case, namespace-prefixed, past tense. Categories are a closed enum:
  * `auth`, `onboarding`, `meal_plan`, `meal`, `recipe`, `pantry`, `shopping`
- * and `cook_view` for client events, `imagine` for the one server event that
- * has a category. `ai` is reserved for HON-475.
+ * and `cook_view` for client events, `imagine` and `household` for the server
+ * events that have a category. `ai` is reserved for HON-475.
  *
  * ## Server events
  *
@@ -25,6 +25,12 @@
  *   per constraint it broke. Distinct id is the household id. Properties:
  *   `constraint`, `constraint_kind`, `keyword`, `field`, `model`, `attempt`,
  *   `household_id`.
+ * - `household:member_left` (`src/lib/household-leave.ts` → `afterHouseholdLeft`,
+ *   called from `POST /api/households/me/leave` and from
+ *   `POST /api/invites/[code]/join` with `leaveCurrent`, HON-1133): a user left
+ *   their household. Distinct id is the household left. Properties:
+ *   `household_id`, `role` (`owner` | `member`), `deleted_household` (true
+ *   when a sole-account owner's leave deleted it).
  * - `external_api_timeout` (`src/lib/errors.ts` → `captureExternalApiTimeout`,
  *   called from `src/lib/external-fetch.ts`): an external dependency missed a
  *   deadline its caller set. An infrastructure signal, not a product event,

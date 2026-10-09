@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // one — which is the entire bug under test here (HON-697). Use the real
 // provider so the `et` assertions below are meaningful.
 vi.unmock('next-intl')
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import enMessages from '../../../../messages/en.json'
@@ -200,5 +200,102 @@ describe('JoinHouseholdCard for a signed-out visitor (HON-1131)', () => {
 
     expect(screen.getByRole('link', { name: 'Loo konto' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Logi sisse' })).toBeInTheDocument()
+  })
+})
+
+// A signed-in visitor who already has a household (HON-1133).
+describe('JoinHouseholdCard for a member of another household', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  const OWN_HOUSEHOLD = { name: 'Mari kodu', deletesHousehold: true, otherAccountCount: 0 }
+
+  function renderLeaveAndJoin(currentHousehold = OWN_HOUSEHOLD, locale: 'en' | 'et' = 'en') {
+    renderInLocale(
+      <JoinHouseholdCard
+        status="leave_and_join"
+        householdName="Kõrv"
+        memberName="Mari"
+        code="ABC123"
+        currentHousehold={currentHousehold}
+      />,
+      locale,
+    )
+  }
+
+  it('says a sole owner loses their household, and leaves and joins on confirm', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ success: true }) }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    renderLeaveAndJoin()
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Join "Kõrv"?' })).toBeInTheDocument()
+    expect(
+      screen.getByText(/Your household "Mari kodu" .* are deleted\. This cannot be undone\./),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Leave and join' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Leave and join' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/invites/ABC123/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leaveCurrent: true }),
+      }),
+    )
+  })
+
+  it('tells a member their old household keeps its plan', () => {
+    renderLeaveAndJoin({ name: 'Mari kodu', deletesHousehold: false, otherAccountCount: 0 })
+
+    expect(
+      screen.getByText('You leave "Mari kodu". Its plan stays with the household.'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows the invalid-invite copy on the card when the invite was used in between', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    respondWith({ error: 'invite_invalid', message: 'x' }, 400)
+    renderLeaveAndJoin()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Leave and join' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Leave and join' }))
+
+    await screen.findByText(enMessages.auth.invite.errors.inviteInvalid)
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+  })
+
+  it('renders the Estonian title', () => {
+    renderLeaveAndJoin(OWN_HOUSEHOLD, 'et')
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Liitud leibkonnaga „Kõrv"?' }),
+    ).toBeInTheDocument()
+  })
+
+  it('points an owner with other account holders to the household page, with no join button', () => {
+    renderInLocale(
+      <JoinHouseholdCard
+        status="cannot_leave"
+        householdName="Kõrv"
+        memberName="Mari"
+        code="ABC123"
+        currentHousehold={{ name: 'Mari kodu', deletesHousehold: false, otherAccountCount: 2 }}
+      />,
+      'en',
+    )
+
+    expect(screen.getByText(/2 other members have an account there/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Go to Household' })).toHaveAttribute(
+      'href',
+      '/household',
+    )
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 })

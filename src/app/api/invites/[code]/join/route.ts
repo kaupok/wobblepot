@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { z } from 'zod'
+import type { Prisma } from '@/generated/prisma/client'
 import { auth } from '@/lib/auth'
 import {
   AlreadyInHouseholdError,
@@ -8,10 +10,42 @@ import {
   isMembershipConflict,
   runHouseholdClaim,
 } from '@/lib/household-claim'
+import {
+  afterHouseholdLeft,
+  leaveHousehold,
+  lockHouseholdsForMove,
+  NotInHouseholdError,
+  OwnerHasOtherAccountsError,
+  type LeaveHouseholdResult,
+} from '@/lib/household-leave'
 import { findHouseholdInvite, getInviteValidity } from '@/lib/household-invite'
 import { captureApiError } from '@/lib/errors'
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 
-export async function POST(_request: Request, { params }: { params: Promise<{ code: string }> }) {
+const ROUTE = '/api/invites/[code]/join'
+
+/**
+ * Optional. `leaveCurrent: true` leaves the user's current household in the
+ * same transaction as the claim, so a failed claim keeps the old household
+ * (HON-1133). With no body the route behaves as before.
+ */
+const joinBodySchema = z.object({ leaveCurrent: z.boolean().optional() })
+
+/** {@link leaveHousehold}, or `null` when the user has no household to leave. */
+async function leaveIfMember(
+  tx: Prisma.TransactionClient,
+  userId: string,
+): Promise<LeaveHouseholdResult | null> {
+  try {
+    return await leaveHousehold(tx, userId)
+  } catch (error) {
+    // Thrown before any write, so catching it does not abort the transaction.
+    if (error instanceof NotInHouseholdError) return null
+    throw error
+  }
+}
+
+export async function POST(request: Request, { params }: { params: Promise<{ code: string }> }) {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
@@ -22,6 +56,22 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
 
   try {
     const { code } = await params
+
+    let leaveCurrent = false
+    const rawBody = await request.text()
+    if (rawBody.trim()) {
+      let json: unknown
+      try {
+        json = JSON.parse(rawBody)
+      } catch {
+        return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+      }
+      const parsed = joinBodySchema.safeParse(json)
+      if (!parsed.success) {
+        return NextResponse.json({ error: 'Validation failed' }, { status: 400 })
+      }
+      leaveCurrent = parsed.data.leaveCurrent === true
+    }
 
     // Find invite by code. This and the validity checks below stay outside the
     // transaction: the claim's own count checks are what make it single-use,
@@ -68,7 +118,43 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
     // `runHouseholdClaim` holds this user's row lock for the whole claim; see
     // `inviteMembershipClaim` for why that keeps one user in one household.
     const userId = session.user.id
-    await runHouseholdClaim(userId, inviteMembershipClaim(userId, invite.memberId, invite.id))
+
+    // A leave counts against the same per-user limit as
+    // `POST /api/households/me/leave`. Checked here, after the invite is known
+    // to be valid, so a dead link does not spend it.
+    if (leaveCurrent) {
+      const rateLimit = await checkRateLimit(userId, 'household-leave')
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          { error: 'rate_limited', resetAt: rateLimit.resetAt.toISOString() },
+          { status: 429, headers: { 'Retry-After': String(retryAfterSeconds(rateLimit)) } },
+        )
+      }
+    }
+
+    const claim = inviteMembershipClaim(userId, invite.memberId, invite.id)
+    const inviteHouseholdId = invite.household.id
+    const left = await runHouseholdClaim(userId, async (tx) => {
+      // With `leaveCurrent`, the leave runs first on the same transaction, so
+      // the claim's "already in a household" check then sees no membership.
+      // A claim that fails after it rolls the leave back with it (HON-1133).
+      let leftHousehold: LeaveHouseholdResult | null = null
+      if (leaveCurrent) {
+        await lockHouseholdsForMove(tx, userId, inviteHouseholdId)
+        leftHousehold = await leaveIfMember(tx, userId)
+      }
+      // An invite into the household being left is not a move: for a sole
+      // owner the leave has just deleted the household and the invite with it.
+      if (leftHousehold?.householdId === inviteHouseholdId) {
+        throw new AlreadyInHouseholdError()
+      }
+      await claim(tx)
+      return leftHousehold
+    })
+
+    if (left) {
+      await afterHouseholdLeft(left, { route: ROUTE, userId })
+    }
 
     return NextResponse.json({
       success: true,
@@ -100,6 +186,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       )
     }
 
+    // Same body as `POST /api/households/me/leave`: an owner with other
+    // account holders removes them first.
+    if (error instanceof OwnerHasOtherAccountsError) {
+      return NextResponse.json(
+        { error: 'owner_has_other_accounts', count: error.otherAccountCount },
+        { status: 409 },
+      )
+    }
+
     if (error instanceof InviteNoLongerClaimableError) {
       return NextResponse.json(
         {
@@ -110,7 +205,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       )
     }
 
-    captureApiError(error, { route: '/api/invites/[code]/join', userId: session.user.id })
+    captureApiError(error, { route: ROUTE, userId: session.user.id })
     return NextResponse.json({ error: 'Failed to join household' }, { status: 500 })
   }
 }

@@ -871,8 +871,20 @@
       "alreadyMember": {
         "title": "Sa oled juba liige",
         "description": "Sa oled juba leibkonna „{householdName}\" liige",
-        "body": "Korraga saad olla ainult ühe leibkonna liige. Teise leibkonnaga liitumiseks pead esmalt praegusest lahkuma.",
+        "body": "Korraga saad olla ainult ühe leibkonna liige. Teise leibkonnaga liitumiseks lahku enne sellest leibkonnast lehel Leibkond.",
         "action": "Mine avalehele"
+      },
+      "leaveAndJoin": {
+        "title": "Liitud leibkonnaga „{householdName}\"?",
+        "description": "Oled leibkonna „{currentHouseholdName}\" liige. Korraga saad olla ainult ühes leibkonnas.",
+        "bodyOwner": "Sinu leibkond „{currentHouseholdName}\" kustutatakse koos söögiplaani, sahvri, ostunimekirja, retseptide ja oma kontota liikmetega. Seda ei saa tagasi võtta.",
+        "bodyMember": "Lahkud leibkonnast „{currentHouseholdName}\". Selle plaan jääb leibkonnale alles.",
+        "exportNote": "Kui soovid koopiat, lae enne oma andmed profiililt alla.",
+        "action": "Lahku ja liitu",
+        "confirmTitle": "Lahkud ja liitud?",
+        "joining": "Liitumine…",
+        "cannotLeaveBody": "Oled leibkonna „{currentHouseholdName}\" omanik ja seal on {count, plural, one {# muu kontoga liige} other {# muud kontoga liiget}}. Teise leibkonnaga liitumiseks eemalda nad enne oma leibkonnast.",
+        "cannotLeaveAction": "Ava Leibkond"
       },
       "invalid": {
         "title": "Kutse on aegunud",
@@ -902,7 +914,9 @@
         "alreadyInHousehold": "Sa oled juba ühe leibkonna liige.",
         "inviteInvalid": "See kutse on aegunud või juba kasutatud.",
         "joinFailed": "Leibkonnaga liitumine ebaõnnestus",
-        "generic": "Tekkis viga. Palun proovi uuesti."
+        "generic": "Tekkis viga. Palun proovi uuesti.",
+        "ownerHasOtherAccounts": "Eemalda enne teised kontoga liikmed oma leibkonnast ja proovi siis uuesti.",
+        "leaveRateLimited": "Oled viimase 30 päeva jooksul leibkonnast lahkunud 3 korda. Proovi hiljem uuesti."
       }
     }
   },
@@ -1238,6 +1252,23 @@
       "errors": {
         "createFailed": "Kutse loomine ebaõnnestus",
         "generic": "Tekkis viga"
+      }
+    },
+    "leave": {
+      "heading": "Lahku leibkonnast",
+      "descriptionMember": "Lahku sellest leibkonnast. Söögiplaan, sahver ja retseptid jäävad leibkonnale alles.",
+      "descriptionOwner": "Oled ainus kontoga liige, nii et lahkumine kustutab selle leibkonna ja kõik selle andmed.",
+      "trigger": "Lahku leibkonnast",
+      "title": "Lahkud leibkonnast?",
+      "bodyMember": "Lahkud leibkonnast „{householdName}\". Selle plaan jääb leibkonnale alles. Tagasi tulemiseks palu omanikult uut kutset.",
+      "bodyOwner": "Sinu leibkond „{householdName}\" kustutatakse koos söögiplaani, sahvri, ostunimekirja, retseptide ja oma kontota liikmetega. Seda ei saa tagasi võtta.",
+      "exportNote": "Kui soovid koopiat, lae enne oma andmed profiililt alla.",
+      "confirm": "Lahku leibkonnast",
+      "leaving": "Lahkun…",
+      "cannotLeave": "Oled selle leibkonna omanik ja siin on {count, plural, one {# muu kontoga liige} other {# muud kontoga liiget}}. Eemalda nad leibkonnast enne lahkumist.",
+      "errors": {
+        "failed": "Leibkonnast lahkumine ebaõnnestus. Proovi uuesti.",
+        "rateLimited": "Oled viimase 30 päeva jooksul leibkonnast lahkunud 3 korda. Proovi hiljem uuesti."
       }
     }
   },

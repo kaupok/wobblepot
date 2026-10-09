@@ -320,6 +320,8 @@ enum ProteinType {
 
 - The owner adds a member by name, then creates that member's link (`src/app/api/households/me/invites/route.ts`). Only a member without an account can get one. `HouseholdInvite.memberId` is `@unique`, so creating a link again replaces the member's code and expiry. Expiry is set per request (`expiresInDays` in the route's schema, with its default)
 - Joining (`src/app/api/invites/[code]/join/route.ts`) claims the member row for the signed-in user and deletes the invite in the same transaction. Two people opening the same link race safely: the loser gets `invite_invalid` (400) or `invite_not_found` (404), and the client shows the same message for both. A unique index on `household_member."userId"` keeps a user out of a second household (HON-696); the route's doc comments describe the locking
+- Leaving (`POST /api/households/me/leave`, `src/lib/household-leave.ts`, HON-1133): a `member` leaves freely and the household keeps its data. An owner who is the only account holder leaves by deleting the household, with everything in it; members without an account do not count. An owner with other account holders cannot leave until they remove them; there is no ownership transfer
+- An invitee who already has a household gets "Leave and join" on the invite page. The join route takes `{ leaveCurrent: true }` and runs the leave and the claim in one transaction, so a failed claim keeps the old household
 
 ### Children's Data (Art. 8)
 

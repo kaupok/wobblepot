@@ -17,9 +17,10 @@ import {
  * /api/invites/[code]/join` sets `HouseholdMember.userId` on the existing row
  * and deletes the invite, rather than creating a second member.
  *
- * Two invitees: one already has an account and joins from the signed-in card;
- * the other opens the link signed out and creates an account from it with no
- * sign-up code (HON-1131). `invite_code_required` defaults to on with PostHog
+ * Three invitees: one already has an account and joins from the signed-in card;
+ * one opens the link signed out and creates an account from it with no
+ * sign-up code (HON-1131); and one signed up first, has a one-person household
+ * of their own, and leaves it to join (HON-1133). `invite_code_required` defaults to on with PostHog
  * unset, so the second test runs with the gate on, as production does.
  *
  * Not `@smoke`: it signs up several accounts, and the owner's needs an invite
@@ -213,6 +214,66 @@ test.describe('Household member invite', () => {
       await expect(page.getByText(INVITEE_NAME)).toBeVisible()
       await expect(badge(page, 'No account')).toHaveCount(0)
       await expect(badge(page, 'Invite pending')).toHaveCount(0)
+    } finally {
+      await inviteeContext.close()
+    }
+  })
+
+  test('a partner who signed up first leaves their own household and joins (HON-1133)', async ({
+    page,
+    browser,
+  }) => {
+    const { householdName, invitePath } = await ownerMintsInvite(page)
+
+    const inviteeContext = await browser.newContext()
+    try {
+      const inviteePage = await inviteeContext.newPage()
+      const ownHouseholdName = `Partner Household ${Date.now()}`
+      await signUpWithHousehold(inviteePage, {
+        name: INVITEE_NAME,
+        email: generateUniqueEmail(),
+        householdName: ownHouseholdName,
+      })
+
+      // --- 3. Invitee: the card offers the move and says what is deleted ----
+      await inviteePage.goto(invitePath)
+      await expect(
+        inviteePage.getByRole('heading', { level: 1, name: `Join "${householdName}"?` }),
+      ).toBeVisible()
+      await expect(
+        inviteePage.getByText(`Your household "${ownHouseholdName}"`, { exact: false }).first(),
+      ).toBeVisible()
+
+      await inviteePage.getByRole('button', { name: 'Leave and join' }).click()
+      const confirm = inviteePage.getByRole('alertdialog')
+      await expect(confirm).toBeVisible()
+      await confirm.getByRole('button', { name: 'Leave and join' }).click()
+      await expect(inviteePage).toHaveURL('/')
+
+      // --- 4. Invitee is in the inviter's household as the named member -----
+      await inviteePage.goto('/household')
+      await expect(inviteePage.getByLabel('Household name')).toHaveValue(householdName)
+      await expect(inviteePage.getByText(OWNER_NAME)).toBeVisible()
+      await expect(inviteePage.getByText(INVITEE_NAME)).toBeVisible()
+
+      // --- 5. Owner's view: the member row was claimed, not duplicated ------
+      await page.reload()
+      await expect(page.getByText(INVITEE_NAME)).toBeVisible()
+      await expect(badge(page, 'No account')).toHaveCount(0)
+      await expect(badge(page, 'Invite pending')).toHaveCount(0)
+
+      // --- 6. Invitee, now a member, leaves from /household ----------------
+      await inviteePage.goto('/household')
+      await inviteePage.getByRole('button', { name: 'Leave household' }).click()
+      const leaveConfirm = inviteePage.getByRole('alertdialog')
+      await expect(leaveConfirm).toContainText(householdName)
+      await leaveConfirm.getByRole('button', { name: 'Leave household' }).click()
+      await expect(inviteePage).toHaveURL(/\/onboarding/)
+
+      // The owner's household stays, without the member who left.
+      await page.reload()
+      await expect(page.getByLabel('Household name')).toHaveValue(householdName)
+      await expect(page.getByText(INVITEE_NAME)).toHaveCount(0)
     } finally {
       await inviteeContext.close()
     }

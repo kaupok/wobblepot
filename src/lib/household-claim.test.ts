@@ -318,6 +318,7 @@ describe('isMembershipConflict', () => {
 
 describe('inviteMembershipClaim', () => {
   const makeTx = () => ({
+    $queryRaw: vi.fn().mockResolvedValue([]),
     householdMember: {
       findFirst: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -325,6 +326,29 @@ describe('inviteMembershipClaim', () => {
     householdInvite: {
       deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
+  })
+
+  it("locks the invite's household against a concurrent delete before claiming", async () => {
+    const tx = makeTx()
+    const order: string[] = []
+    tx.$queryRaw.mockImplementation(async (strings: TemplateStringsArray, ...values: unknown[]) => {
+      order.push(`lock ${strings.join('?')} ${JSON.stringify(values)}`)
+      return []
+    })
+    tx.householdMember.updateMany.mockImplementation(async () => {
+      order.push('claim')
+      return { count: 1 }
+    })
+
+    await inviteMembershipClaim('user-1', 'member-1', 'invite-1')(tx as never)
+
+    // A sole owner's leave takes FOR UPDATE on the same household row, so the
+    // two serialise and the leave cannot delete the household under a claim
+    // that is about to commit (HON-1133).
+    expect(order).toHaveLength(2)
+    expect(order[0]).toMatch(/FROM "household" h .* FOR KEY SHARE OF h/)
+    expect(order[0]).toContain('["member-1"]')
+    expect(order[1]).toBe('claim')
   })
 
   it('claims the unclaimed member row, then deletes the invite', async () => {

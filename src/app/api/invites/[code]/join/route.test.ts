@@ -43,10 +43,31 @@ vi.mock('@/lib/household-claim', async (importActual) => ({
   runHouseholdClaim: vi.fn(),
 }))
 
+// The error classes stay real; `household-leave.test.ts` owns the leave rules.
+vi.mock('@/lib/household-leave', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/household-leave')>()),
+  leaveHousehold: vi.fn(),
+  lockHouseholdsForMove: vi.fn(),
+  afterHouseholdLeft: vi.fn(),
+}))
+
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn(),
+  retryAfterSeconds: vi.fn(() => 60),
+}))
+
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
-import { runHouseholdClaim } from '@/lib/household-claim'
+import { InviteNoLongerClaimableError, runHouseholdClaim } from '@/lib/household-claim'
+import {
+  afterHouseholdLeft,
+  leaveHousehold,
+  lockHouseholdsForMove,
+  NotInHouseholdError,
+  OwnerHasOtherAccountsError,
+} from '@/lib/household-leave'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockMemberFindFirst = vi.mocked(prisma.householdMember.findFirst)
@@ -54,12 +75,19 @@ const mockInviteFindUnique = vi.mocked(prisma.householdInvite.findUnique)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockRunHouseholdClaim = vi.mocked(runHouseholdClaim)
 const mockPrismaTransaction = vi.mocked(prisma.$transaction)
+const mockLeaveHousehold = vi.mocked(leaveHousehold)
+const mockAfterHouseholdLeft = vi.mocked(afterHouseholdLeft)
+const mockLockHouseholdsForMove = vi.mocked(lockHouseholdsForMove)
+const mockCheckRateLimit = vi.mocked(checkRateLimit)
+const RATE_ALLOWED = { allowed: true, limit: 3, remaining: 2, resetAt: new Date('2030-01-01') }
 
 /**
  * Stand-in for the interactive transaction's `tx` client. The route must do
  * both the membership check and the claim on this object, not on `prisma`.
  */
 const tx = {
+  // The household lock in `inviteMembershipClaim` (HON-1133).
+  $queryRaw: vi.fn(),
   householdMember: {
     findFirst: vi.fn(),
     updateMany: vi.fn(),
@@ -427,6 +455,155 @@ describe('POST /api/invites/[code]/join', () => {
     })
     expect(tx.householdInvite.deleteMany).toHaveBeenCalledWith({
       where: { id: 'invite-123' },
+    })
+  })
+
+  // A user who already has a household leaves it in the same transaction as
+  // the claim (HON-1133).
+  describe('with { leaveCurrent: true }', () => {
+    const LEFT = {
+      householdId: 'household-old',
+      role: 'owner' as const,
+      deletedHousehold: true,
+      imageUrls: ['https://blob/old.png'],
+    }
+
+    const createLeaveRequest = (body: unknown = { leaveCurrent: true }) =>
+      new Request('http://localhost/api/invites/abc123/join', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+
+    beforeEach(() => {
+      mockGetSession.mockResolvedValue(SESSION as never)
+      mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+      mockLeaveHousehold.mockResolvedValue(LEFT)
+      mockCheckRateLimit.mockResolvedValue(RATE_ALLOWED)
+    })
+
+    it('leaves on the claim transaction before claiming, then cleans up after commit', async () => {
+      const order: string[] = []
+      mockLockHouseholdsForMove.mockImplementation(async () => {
+        order.push('lock')
+      })
+      mockLeaveHousehold.mockImplementation(async () => {
+        order.push('leave')
+        return LEFT
+      })
+      tx.householdMember.updateMany.mockImplementation(async () => {
+        order.push('claim')
+        return { count: 1 }
+      })
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+
+      expect(response.status).toBe(200)
+      expect(mockRunHouseholdClaim).toHaveBeenCalledTimes(1)
+      expect(mockLeaveHousehold).toHaveBeenCalledWith(tx, 'user-123')
+      // Both households are locked in one order first, so two crossed moves
+      // queue rather than deadlock.
+      expect(mockLockHouseholdsForMove).toHaveBeenCalledWith(tx, 'user-123', 'household-123')
+      expect(order).toEqual(['lock', 'leave', 'claim'])
+      expect(mockCheckRateLimit).toHaveBeenCalledWith('user-123', 'household-leave')
+      expect(mockAfterHouseholdLeft).toHaveBeenCalledWith(LEFT, {
+        route: '/api/invites/[code]/join',
+        userId: 'user-123',
+      })
+    })
+
+    it('rejects the whole transaction when the claim fails after the leave, so the leave rolls back', async () => {
+      let transaction: Promise<unknown> | undefined
+      mockRunHouseholdClaim.mockImplementation((_userId: unknown, callback: unknown) => {
+        transaction = (callback as (client: typeof tx) => Promise<unknown>)(tx)
+        return transaction
+      })
+      // The invite was used by someone else between render and click.
+      tx.householdInvite.deleteMany.mockResolvedValue({ count: 0 })
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+      const data = await response.json()
+
+      expect(mockLeaveHousehold).toHaveBeenCalledWith(tx, 'user-123')
+      // A rejected callback is what makes Prisma roll the interactive
+      // transaction back, and the leave with it.
+      await expect(transaction).rejects.toBeInstanceOf(InviteNoLongerClaimableError)
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('invite_invalid')
+      // Nothing that assumes a committed leave runs.
+      expect(mockAfterHouseholdLeft).not.toHaveBeenCalled()
+    })
+
+    it('returns 409 owner_has_other_accounts and claims nothing', async () => {
+      mockLeaveHousehold.mockRejectedValue(new OwnerHasOtherAccountsError(1))
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+
+      expect(response.status).toBe(409)
+      expect(await response.json()).toEqual({ error: 'owner_has_other_accounts', count: 1 })
+      expect(tx.householdMember.updateMany).not.toHaveBeenCalled()
+      expect(mockCaptureApiError).not.toHaveBeenCalled()
+    })
+
+    it('claims as usual when the user has no household to leave', async () => {
+      mockLeaveHousehold.mockRejectedValue(new NotInHouseholdError())
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+
+      expect(response.status).toBe(200)
+      expect(tx.householdMember.updateMany).toHaveBeenCalled()
+      expect(mockAfterHouseholdLeft).not.toHaveBeenCalled()
+    })
+
+    it('refuses an invite into the household being left', async () => {
+      mockLeaveHousehold.mockResolvedValue({ ...LEFT, householdId: 'household-123' })
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('already_in_household')
+      expect(tx.householdMember.updateMany).not.toHaveBeenCalled()
+      expect(mockAfterHouseholdLeft).not.toHaveBeenCalled()
+    })
+
+    it('does not leave, lock or spend a leave without the flag', async () => {
+      const response = await POST(createLeaveRequest({}), { params: createParams('abc123') })
+
+      expect(response.status).toBe(200)
+      expect(mockLeaveHousehold).not.toHaveBeenCalled()
+      expect(mockLockHouseholdsForMove).not.toHaveBeenCalled()
+      expect(mockCheckRateLimit).not.toHaveBeenCalled()
+    })
+
+    it('returns 429 once the user has used their leaves, and claims nothing', async () => {
+      mockCheckRateLimit.mockResolvedValue({ ...RATE_ALLOWED, allowed: false, remaining: 0 })
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+
+      expect(response.status).toBe(429)
+      expect((await response.json()).error).toBe('rate_limited')
+      expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
+    })
+
+    it('does not spend a leave on an invalid invite', async () => {
+      mockInviteFindUnique.mockResolvedValue({
+        ...VALID_INVITE,
+        expiresAt: new Date('2020-01-01'),
+      } as never)
+
+      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+
+      expect(response.status).toBe(400)
+      expect(mockCheckRateLimit).not.toHaveBeenCalled()
+    })
+
+    it('returns 400 for a malformed body', async () => {
+      const response = await POST(createLeaveRequest({ leaveCurrent: 'yes' }), {
+        params: createParams('abc123'),
+      })
+
+      expect(response.status).toBe(400)
+      expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
     })
   })
 })
