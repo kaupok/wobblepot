@@ -150,6 +150,54 @@ export const ClickAnywhereOpensCookView: Story = {
 }
 
 /**
+ * A planned meal that breaks the household's food preferences, saved after it
+ * was planned: one badge per constraint in the first row, and the same badges
+ * under the name in the cook view (HON-1126).
+ */
+export const WithConflicts: Story = {
+  args: {
+    ...PlannedWithImage.args,
+    conflicts: [
+      { kind: 'allergen', constraint: 'nuts' },
+      { kind: 'diet', constraint: 'vegan' },
+    ],
+  },
+  parameters: ClickAnywhereOpensCookView.parameters,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const body = within(document.body)
+    await expect(canvas.getByText('Contains: Tree nuts')).toBeVisible()
+    await expect(canvas.getByText('Not suitable: Vegan')).toBeVisible()
+
+    await userEvent.click(canvas.getByRole('button', { name: mealFixture.name }))
+    const dialog = within(await body.findByRole('dialog', { name: mealFixture.name }))
+    // The dialog fades in.
+    await waitFor(() => expect(dialog.getByText('Contains: Tree nuts')).toBeVisible())
+    await expect(dialog.getByText('Not suitable: Vegan')).toBeVisible()
+    await pressEscape()
+    await awaitDialogClosed()
+  },
+}
+
+export const WithConflictsDark: Story = {
+  ...WithConflicts,
+  name: 'With conflicts (dark)',
+  globals: { theme: 'dark' },
+  play: undefined,
+}
+
+/** A cooked meal is history: it carries no conflict badge (HON-1126). */
+export const CompletedWithConflicts: Story = {
+  args: { ...WithConflicts.args, status: 'completed' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { name: mealFixture.name })).toBeVisible()
+    await expect(canvas.queryByText('Contains: Tree nuts')).not.toBeInTheDocument()
+    await expect(canvas.queryByText('Not suitable: Vegan')).not.toBeInTheDocument()
+  },
+}
+
+/**
  * One of the household's own recipes: the bare "My recipe" icon follows the
  * meal name's last word, with a tooltip, and the badge row keeps only the slot
  * and the protein (HON-973). A library meal (every other story) has none.

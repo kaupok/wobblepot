@@ -16,6 +16,13 @@ type FoodValues = Pick<
   'dietaryType' | 'allergensToAvoid' | 'restrictions' | 'excludedIngredients'
 >
 
+/** The preferences route's `conflictingEntries`, or 0 when it is absent. */
+function conflictingEntries(response: unknown): number {
+  if (typeof response !== 'object' || response === null) return 0
+  const count = (response as { conflictingEntries?: unknown }).conflictingEntries
+  return typeof count === 'number' && count > 0 ? count : 0
+}
+
 interface FoodPreferencesFormProps {
   preferences: HouseholdPreferencesValues | null
   isOwner: boolean
@@ -44,6 +51,13 @@ export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFor
     saved.excludedIngredients,
   )
 
+  // The route counts the planned meals the saved preferences conflict with
+  // (HON-1126). None, or a response without the count, keeps "Settings saved".
+  const savedMessage = (response: unknown) => {
+    const count = conflictingEntries(response)
+    return count ? tSettings('savedWithConflicts', { count }) : undefined
+  }
+
   const restrictionsRef = useRef<TagInputRef>(null)
   const excludedIngredientsRef = useRef<TagInputRef>(null)
 
@@ -67,6 +81,7 @@ export function FoodPreferencesForm({ preferences, isOwner }: FoodPreferencesFor
       saved={saved}
       collectValues={collectValues}
       onSaved={setSaved}
+      savedMessage={savedMessage}
     >
       {({ disabled, errorId }) => (
         <>

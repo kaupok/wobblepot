@@ -2,6 +2,7 @@ import type { MealImageFields } from './MealImageCard'
 import type { MealImageStatus, MealType } from '@/generated/prisma/enums'
 import type { RatingSignal } from '@/lib/meal-planning/candidate-score'
 import type { DisplayUnit } from '@/lib/i18n/format-shopping-quantity'
+import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 
 export interface MealComponent {
   ingredientId: string
@@ -80,6 +81,12 @@ export interface PlanEntry {
    * must not preview a second deduction. Sent by `/api/entries` only.
    */
   pantryDeducted?: boolean
+  /**
+   * The household food preferences a planned meal breaks, one badge each on
+   * the card and in the cook view (HON-1126). Empty for a cooked or skipped
+   * entry. Sent by `/api/entries` only.
+   */
+  conflicts?: PreferenceConflict[]
 }
 
 export interface MealPlan {

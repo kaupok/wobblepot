@@ -6,6 +6,10 @@ import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { findSynonym } from '@/lib/ingredient-aliases'
+import { countConflictingPlannedEntries } from '@/lib/meal-planning/count-preference-conflicts'
+
+/** The fields a planned meal can break; a save that sends one is counted (HON-1126). */
+const FOOD_FIELDS = ['dietaryType', 'allergensToAvoid', 'excludedIngredients'] as const
 
 const updatePreferencesSchema = z.object({
   dietaryType: z.enum(['vegetarian', 'vegan', 'pescatarian']).nullable().optional(),
@@ -129,6 +133,17 @@ export async function PATCH(request: Request) {
       update: preferencesData,
       create: { householdId: membership.household.id, ...preferencesData },
     })
+
+    // A food save says how many planned meals now break the preferences, so
+    // the toast can tell the household to look (HON-1126). It reads only: the
+    // plan never changes by itself. The meal-types save sends no food field.
+    if (FOOD_FIELDS.some((field) => parsed.data[field] !== undefined)) {
+      const conflictingEntries = await countConflictingPlannedEntries(
+        membership.household,
+        preferences,
+      )
+      return NextResponse.json({ ...preferences, conflictingEntries })
+    }
 
     return NextResponse.json(preferences)
   } catch (error) {

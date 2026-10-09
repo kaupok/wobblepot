@@ -50,6 +50,12 @@ interface SettingsSectionProps<T extends Record<keyof T, SettingsValue>> {
    * out, HON-1113).
    */
   onSaved: (values: T, response: unknown) => void
+  /**
+   * The toast after a successful save, from the route's JSON response. Omit,
+   * or return undefined, for "Settings saved". The food section names the
+   * planned meals the new preferences conflict with (HON-1126).
+   */
+  savedMessage?: (response: unknown) => string | undefined
   children: (state: SectionFieldState) => ReactNode
 }
 
@@ -69,6 +75,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
   collectValues,
   validate,
   onSaved,
+  savedMessage,
   children,
 }: SettingsSectionProps<T>) {
   const t = useTranslations('household.settings')
@@ -106,7 +113,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
       )
     },
     onSuccess: (response, body) => {
-      toast.success(t('savedToast'))
+      toast.success(savedMessage?.(response) ?? t('savedToast'))
       // The Save button unmounts once the section is clean, and focus on it
       // would fall to <body>. Move it to the heading first (CLAUDE.md → Focus
       // management).

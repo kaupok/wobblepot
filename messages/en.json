@@ -194,7 +194,12 @@
       "undoFailed": "Couldn't restore the meal. Add it again from the empty slot.",
       "undoSlotFilled": "Couldn't restore the meal. The slot has another meal now.",
       "createEntryFailed": "Failed to add meal slot",
-      "entryAlreadyExists": "This slot already has a meal. Refresh the page to see it."
+      "entryAlreadyExists": "This slot already has a meal. Refresh the page to see it.",
+      "conflict": {
+        "allergen": "Contains: {allergen}",
+        "diet": "Not suitable: {diet}",
+        "excluded": "Has an avoided ingredient"
+      }
     },
     "noteEditor": {
       "placeholder": "Add a note…",
@@ -1140,6 +1145,7 @@
       "saveButton": "Save",
       "saving": "Saving…",
       "savedToast": "Settings saved",
+      "savedWithConflicts": "Settings saved. {count, plural, one {# planned meal conflicts} other {# planned meals conflict}} with them. They are marked on Today.",
       "saveFailed": "Failed to save settings",
       "mealsRequired": "Pick at least one meal for weekdays and one for weekends.",
       "ownerOnlyNotice": "Only the household owner can change these settings. You can see them here.",

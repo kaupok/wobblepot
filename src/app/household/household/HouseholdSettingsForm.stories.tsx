@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { http, HttpResponse } from 'msw'
+import { Toaster } from 'sonner'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
 import { HouseholdSettingsForm } from './HouseholdSettingsForm'
 import { HouseholdDetailsForm } from './HouseholdDetailsForm'
@@ -305,6 +306,42 @@ export const FoodPreferencesDirty: Story = {
       expect(canvas.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
     )
     await expect(canvas.getByRole('heading', { name: 'Food preferences' })).toHaveFocus()
+  },
+}
+
+export const FoodPreferencesSavedWithConflicts: Story = {
+  ...FoodPreferences,
+  // The app's toaster sits in the root layout, not in the section.
+  render: (args) => (
+    <>
+      <FoodPreferencesForm preferences={args.preferences} isOwner={args.isOwner} />
+      <Toaster />
+    </>
+  ),
+  parameters: {
+    msw: {
+      handlers: [
+        http.patch('/api/households/me/preferences', () =>
+          HttpResponse.json({ allergensToAvoid: ['nuts'], conflictingEntries: 2 }),
+        ),
+      ],
+    },
+    docs: {
+      description: {
+        story:
+          'Tree nuts ticked and saved while two planned meals contain nuts: the route counts them, and the toast says so and where they are marked, instead of only "Settings saved". The save changes no meal (HON-1126).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'Tree nuts' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
+    const toast = await within(document.body).findByText(
+      'Settings saved. 2 planned meals conflict with them. They are marked on Today.',
+    )
+    // Sonner fades the toast in.
+    await waitFor(() => expect(toast).toBeVisible())
   },
 }
 

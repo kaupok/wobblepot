@@ -669,6 +669,37 @@ describe('HouseholdSettingsForm', () => {
         expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument(),
       )
     })
+
+    // HON-1126: the route counts the planned meals the new preferences break.
+    it('says how many planned meals conflict with the saved preferences', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ conflictingEntries: 2 }),
+      })
+      renderForm()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Tree nuts' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() =>
+        expect(toast.success).toHaveBeenCalledWith(
+          'Settings saved. 2 planned meals conflict with them. They are marked on Today.',
+        ),
+      )
+    })
+
+    it('says only "Settings saved" when no planned meal conflicts', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ conflictingEntries: 0 }),
+      })
+      renderForm()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Tree nuts' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Settings saved'))
+    })
   })
 
   describe('meals to plan', () => {

@@ -134,6 +134,7 @@ export function TimelineDayCard({
               servingOverride={entry.servingOverride}
               pantryDeducted={entry.pantryDeducted}
               preparationTips={entry.preparationTips}
+              conflicts={entry.conflicts}
               onCleared={() => onEntryCleared?.({ date: day.date, mealType: entry.mealType })}
             />
           ))}
