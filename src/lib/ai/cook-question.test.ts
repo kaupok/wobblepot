@@ -47,6 +47,29 @@ describe('buildCookQuestionPrompt', () => {
     expect(pantry).toContain('- olive oil (staple)')
   })
 
+  it('calls the pantry ingredients in stock and never a record of tools', () => {
+    // "What the household has" read as the whole kitchen, so one answer said the
+    // household owns no grater (HON-1135).
+    for (const prompt of [
+      buildCookQuestionPrompt(input()),
+      buildCookQuestionPrompt(input({ subject: { kind: 'equipment', index: 0 } })),
+    ]) {
+      expect(prompt).toContain('PANTRY (ingredients the household has in stock; names only):')
+      expect(prompt).not.toContain('what the household has;')
+      expect(section(prompt, 'Rules:')).toContain(
+        'Only call an ingredient available if it is in the pantry.\n- The pantry lists ingredients only. Never claim the household has or lacks a tool or appliance.',
+      )
+    }
+  })
+
+  it('declines an off-topic question in one sentence and nothing else', () => {
+    // With the renamed pantry heading, every benchmark run added a second
+    // sentence after the decline until the rule said "only" (HON-1135).
+    expect(section(buildCookQuestionPrompt(input()), 'Rules:')).toContain(
+      '- If the question is not about this meal, answer only with one sentence that says you can only help with this meal.',
+    )
+  })
+
   it('says the pantry is empty rather than leaving the section blank', () => {
     const pantry = section(buildCookQuestionPrompt(input({ pantry: [] })), 'PANTRY')
     expect(pantry).toContain('recorded nothing')
@@ -133,6 +156,11 @@ describe('buildCookQuestionPrompt', () => {
         'say what changes in those steps (time, heat, or cooking in batches) in the same sentence that names them.',
       )
       expect(rules).toContain('- Do not suggest buying anything.')
+      // The app records no equipment, so an answer must not say what the household
+      // owns. The equipment list is the recipe's, so the rule must not except it (HON-1135).
+      expect(rules).toContain(
+        '- You do not know which tools the household owns. Do not say what the household has or lacks; suggest the substitute and let the cook decide.',
+      )
     })
 
     it('gives the Estonian word for a step only in an Estonian prompt', () => {
@@ -147,6 +175,7 @@ describe('buildCookQuestionPrompt', () => {
       expect(rules).toContain('- Answer only about this meal and step 3.')
       expect(rules).not.toContain('piece of equipment')
       expect(rules).not.toContain('buying')
+      expect(rules).not.toContain('which tools the household owns')
     })
 
     it('calls the earlier question one about the item', () => {

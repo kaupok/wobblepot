@@ -283,6 +283,18 @@ export const CookQuestionCaseSchema = z
        * warns against a nut fails as if it suggested one.
        */
       allowedQualifiers: z.array(z.string().min(1)).optional(),
+      /**
+       * Phrases a claim the app cannot back takes: "household has no", "you
+       * don't have a" for a tool the app never records (HON-1135). Matched as
+       * `forbiddenKeywords` are, but scored under `avoidsClaims`, so a phrasing
+       * fault stays out of the allergen safety check.
+       */
+      forbiddenClaims: z.array(z.string().min(1)).min(1).optional(),
+      /**
+       * Excuses a `forbiddenClaims` match it overlaps or sits directly before:
+       * "if you" for "If you don't have a wok, use…", which claims nothing.
+       */
+      allowedClaimQualifiers: z.array(z.string().min(1)).optional(),
     }),
     source,
   })

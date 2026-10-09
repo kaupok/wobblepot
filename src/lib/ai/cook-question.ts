@@ -130,7 +130,8 @@ export function buildCookQuestionPrompt(input: CookQuestionRequestInput): string
     : `
 - Name the steps that use this piece of equipment, by number.${stepWord}
 - When you suggest a substitute for it, pick something most kitchens have, and say what changes in those steps (time, heat, or cooking in batches) in the same sentence that names them.
-- Do not suggest buying anything.`
+- Do not suggest buying anything.
+- You do not know which tools the household owns. Do not say what the household has or lacks; suggest the substitute and let the cook decide.`
   const notes = preparationNotes?.trim()
     ? `\n\nThe household's own notes on this meal:\n${preparationNotes.trim()}`
     : ''
@@ -170,7 +171,7 @@ ${stepsList}${equipmentSection}${pitfallsSection}${tipSection}
 
 ${focusLine}
 
-PANTRY (what the household has; names only):
+PANTRY (ingredients the household has in stock; names only):
 ${formatPantry(pantry)}
 
 HOUSEHOLD RESTRICTIONS (must follow):
@@ -184,11 +185,12 @@ ${question}
 Rules:
 - ${scopeRule}${equipmentRules}
 - When you suggest a substitute, prefer an ingredient from the pantry above, and say that the household has it. Only call an ingredient available if it is in the pantry.
+- The pantry lists ingredients only. Never claim the household has or lacks a tool or appliance.
 - Never suggest a food the household restrictions exclude.
 - 2 or 3 short sentences, never more than 4, and under 80 words, in one paragraph. Give the one best suggestion, not a list of options, then stop: no side notes. Practical and specific.
 - Metric units only: °C, g, kg, ml, L, cm.
 - Do not repeat the step text.${previousRule}
-- If the question is not about this meal, answer with one sentence that says you can only help with this meal.${localeInstruction(locale)}${britishEnglish(locale)}${estonianVoiceForPrepSteps(locale)}`
+- If the question is not about this meal, answer only with one sentence that says you can only help with this meal.${localeInstruction(locale)}${britishEnglish(locale)}${estonianVoiceForPrepSteps(locale)}`
 }
 
 /**
