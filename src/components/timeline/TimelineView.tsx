@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { TimelineDayCard } from './TimelineDayCard'
@@ -9,6 +9,7 @@ import { UrgentShopping } from './UrgentShopping'
 import { Heading } from '@/components/ui/typography'
 import { parseLocalDate, toDateString, isWeekday } from '@/lib/meal-planning/dates'
 import { formatAbsoluteDate, formatDayLong } from '@/lib/i18n/format-dates'
+import { takeFirstPlanGenerated } from '@/lib/first-plan-focus'
 import type { Locale } from '@/lib/i18n/locales'
 import type {
   PlanEntry,
@@ -173,6 +174,35 @@ export function TimelineView({
   const [slotToFocus, setSlotToFocus] = useState<{ date: string; mealType: MealType } | null>(null)
   const handleSlotFocused = useCallback(() => setSlotToFocus(null), [])
 
+  // After a generation the Generate button can leave the page, so a day
+  // heading takes focus instead (HON-1139). A fill sets the first day it
+  // planned and waits for the refresh: `staleEntries` is the list it was
+  // started on, and `router.refresh()` always delivers a new array. The first
+  // plan arrives with this view's mount, so it has nothing to wait for. The
+  // card focuses only from the body, so a fill that keeps the bar on the page
+  // leaves focus on Generate.
+  const [headingToFocus, setHeadingToFocus] = useState<{
+    date: string
+    staleEntries: PlanEntry[] | null
+  } | null>(null)
+  const handleHeadingFocused = useCallback(() => setHeadingToFocus(null), [])
+  const handleFilled = (startDate: string) =>
+    setHeadingToFocus({ date: startDate, staleEntries: entries })
+  const headingDateToFocus =
+    headingToFocus && headingToFocus.staleEntries !== entries ? headingToFocus.date : null
+
+  const firstDate = futureDays[0]?.date
+  useEffect(() => {
+    // An effect, not render: `sessionStorage` is client-only. Reading the
+    // flag clears it, so this acts on the mount after the first plan only.
+    if (firstDate && takeFirstPlanGenerated()) {
+      // A one-off read of browser storage, which render cannot do without a
+      // hydration mismatch; it sets state at most once per flag.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHeadingToFocus({ date: firstDate, staleEntries: null })
+    }
+  }, [firstDate])
+
   const hasEmptyFutureSlots = futureDays.some((d) => d.emptySlots.length > 0)
 
   // Split future days at the fill boundary
@@ -192,6 +222,8 @@ export function TimelineView({
         onEntryCleared={setSlotToFocus}
         focusSlot={slotToFocus?.date === day.date ? slotToFocus.mealType : undefined}
         onSlotFocused={handleSlotFocused}
+        focusHeading={headingDateToFocus === day.date}
+        onHeadingFocused={handleHeadingFocused}
       />
     )
   }
@@ -222,7 +254,7 @@ export function TimelineView({
           {plannedDays.map(renderDay)}
 
           {hasEmptyFutureSlots && fillStartDate && (
-            <FillDaysAction planId={planId} startDate={fillStartDate} />
+            <FillDaysAction planId={planId} startDate={fillStartDate} onFilled={handleFilled} />
           )}
 
           {emptyDays.map(renderDay)}

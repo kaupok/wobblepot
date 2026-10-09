@@ -46,9 +46,14 @@ const DAY_OPTION_VALUES = ['3', '5', '7', '14'] as const
 interface FillDaysActionProps {
   planId: string
   startDate: string // YYYY-MM-DD, first day of the fill range
+  /**
+   * The fill succeeded. The refresh can unmount this bar, so the page moves
+   * focus to the first filled day once that happens (HON-1139).
+   */
+  onFilled?: (startDate: string) => void
 }
 
-export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
+export function FillDaysAction({ planId, startDate, onFilled }: FillDaysActionProps) {
   const router = useRouter()
   const dropSuggestionCache = useDropPlanSuggestions(planId)
   const locale = useLocale() as Locale
@@ -105,6 +110,7 @@ export function FillDaysAction({ planId, startDate }: FillDaysActionProps) {
       // largest possible change to the plan's `recentMealIds` — every cached
       // suggestion list on the page is stale (HON-682).
       dropSuggestionCache()
+      onFilled?.(startDate)
       router.refresh()
     },
   })
