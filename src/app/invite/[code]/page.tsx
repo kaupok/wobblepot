@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
-import { redirect, notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { prisma } from '@/lib/prisma'
+import { findHouseholdInvite, getInviteValidity } from '@/lib/household-invite'
 import { getSession } from '@/lib/session'
 import { getHouseholdMembership } from '@/lib/household'
 import { JoinHouseholdCard } from './JoinHouseholdCard'
@@ -22,39 +22,19 @@ export default async function InvitePage({ params }: InvitePageProps) {
   // layout already resolved for this request rather than re-reading `session`.
   const session = await getSession()
 
-  if (!session) {
-    redirect(`/sign-in?returnUrl=/invite/${code}`)
-  }
-
   // The membership check and the invite lookup are independent queries, so
   // start both together. The invite is only awaited on the path that reads it,
   // so an already-member visit keeps its previous failure isolation: a broken
   // `household_invite` query can't turn that card into an error page.
-  const invitePromise = prisma.householdInvite.findUnique({
-    where: { code },
-    include: {
-      household: {
-        select: {
-          name: true,
-          // Non-empty while the owner's account is pending deletion; the join
-          // route refuses such a claim, so the card shows it as invalid (HON-881).
-          members: {
-            where: { role: 'owner', user: { deletedAt: { not: null } } },
-            select: { id: true },
-            take: 1,
-          },
-        },
-      },
-      member: {
-        select: { name: true },
-      },
-    },
-  })
+  const invitePromise = findHouseholdInvite(code)
   // The early return below never awaits it — swallow the rejection so it can't
   // surface as an unhandledRejection. `await invitePromise` still throws.
   invitePromise.catch(() => {})
 
-  const existingMembership = await getHouseholdMembership(session.user.id)
+  // A signed-out visitor is the invitee who has no account yet, so they get
+  // the invite itself, with Create account first (HON-1131). `/invite` is a
+  // public route in `src/proxy.ts` for this branch.
+  const existingMembership = session ? await getHouseholdMembership(session.user.id) : null
 
   if (existingMembership) {
     return (
@@ -71,20 +51,16 @@ export default async function InvitePage({ params }: InvitePageProps) {
 
   const invite = await invitePromise
 
+  // A claimed invite is deleted rather than counted, so a used code resolves
+  // to no invite at all (HON-680).
   if (!invite) {
     notFound()
   }
 
-  // Check if invite is still valid. A claimed invite is deleted rather than
-  // counted, so a used code resolves to no invite at all and `notFound()` above
-  // has already handled it (HON-680). That leaves expiry, and an owner whose
-  // account is pending deletion — rendered exactly like an expired invite, so
-  // the invitee is not told why (HON-881).
-  const now = new Date()
-  const isExpired = invite.expiresAt < now
-  const ownerPendingDeletion = invite.household.members.length > 0
-
-  if (isExpired || ownerPendingDeletion) {
+  // Expired, broken, already claimed, or an owner whose account is pending
+  // deletion — all rendered as the same invalid card, so the invitee is not
+  // told why (HON-881).
+  if (getInviteValidity(invite) !== 'valid' || !invite.member) {
     return (
       <div className="min-h-screen-below-header grid place-items-center p-4">
         <JoinHouseholdCard
@@ -97,24 +73,12 @@ export default async function InvitePage({ params }: InvitePageProps) {
     )
   }
 
-  // Member-specific invites require a member
-  if (!invite.member) {
-    return (
-      <div className="min-h-screen-below-header grid place-items-center p-4">
-        <JoinHouseholdCard
-          status="invalid"
-          householdName={invite.household.name}
-          memberName={null}
-          code={code}
-        />
-      </div>
-    )
-  }
-
+  // The signed-out card shows the same two names the signed-in card shows,
+  // and nothing more.
   return (
     <div className="min-h-screen-below-header grid place-items-center p-4">
       <JoinHouseholdCard
-        status="valid"
+        status={session ? 'valid' : 'signed_out'}
         householdName={invite.household.name}
         memberName={invite.member.name}
         code={code}

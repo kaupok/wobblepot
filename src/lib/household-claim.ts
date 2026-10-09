@@ -9,9 +9,10 @@ import { prisma } from '@/lib/prisma'
  * no user. Whatever the isolation level, and whichever code path writes the
  * row, a second membership for the same user fails with `P2002`.
  *
- * The two places that create a membership — `POST /api/households`
- * (onboarding) and `POST /api/invites/[code]/join` — also check "does this user
- * already have a membership?" before writing, and they catch the `P2002`
+ * The places that create a membership — `POST /api/households`
+ * (onboarding), `POST /api/invites/[code]/join`, and the sign-up after-hook for
+ * an invite link (HON-1131) — also check "does this user already have a
+ * membership?" before writing, and the two routes catch the `P2002`
  * ({@link isMembershipConflict}) so that the index firing produces the same
  * `already_in_household` 400 the check does, not a 500.
  *
@@ -179,6 +180,99 @@ export async function runHouseholdClaim<T>(
         continue
       }
       throw error
+    }
+  }
+}
+
+/**
+ * The user already belongs to a household, so this invite cannot claim a
+ * second member row for them. The unique index on `household_member."userId"`
+ * is what actually keeps one user out of two households (HON-696); this
+ * check is what turns the common case into a clean error before any write.
+ *
+ * Thrown rather than returned because the check runs inside the transaction
+ * that claims the member row — throwing is the only way to roll that claim
+ * back.
+ */
+export class AlreadyInHouseholdError extends Error {
+  constructor() {
+    super('You are already a member of a household')
+    this.name = 'AlreadyInHouseholdError'
+  }
+}
+
+/**
+ * The invite the caller read is no longer claimable by the time the
+ * transaction runs: a concurrent join consumed it, or its member row was
+ * deleted (which cascade-deletes the invite — see `HouseholdInvite.member`
+ * `onDelete: Cascade`). Both writes in {@link claimInviteMembership} are
+ * count-checked rather than allowed to raise `P2025`, so this is the single
+ * signal for "the row the claim was built on is gone".
+ */
+export class InviteNoLongerClaimableError extends Error {
+  constructor() {
+    super('The invite was consumed before this request could claim it')
+    this.name = 'InviteNoLongerClaimableError'
+  }
+}
+
+/**
+ * The claim callback for one invite: claim the invite's member row for
+ * `userId` and delete the invite. Run it through {@link runHouseholdClaim}
+ * with the same `userId`, which supplies the transaction and the user's row
+ * lock. Shared by `POST /api/invites/[code]/join` (a signed-in user) and the
+ * sign-up after-hook (a user created from the invite link, HON-1131).
+ *
+ * It claims the existing member profile instead of creating a new one. The
+ * "already in a household" check runs on `tx`, and `runHouseholdClaim` holds
+ * this user's row lock for the whole transaction, so two concurrent joins with
+ * different valid codes cannot both observe "no membership" and both commit
+ * (HON-679, HON-838). The unique index on `"userId"` backs that up
+ * unconditionally (HON-696).
+ *
+ * Throws {@link AlreadyInHouseholdError} or {@link InviteNoLongerClaimableError};
+ * the index can also reject it with a `P2002` ({@link isMembershipConflict}).
+ * Idempotent across attempts, as `runHouseholdClaim` requires: every write is
+ * conditional, and a rolled-back attempt leaves nothing behind.
+ */
+export function inviteMembershipClaim(
+  userId: string,
+  memberId: string,
+  inviteId: string,
+): (tx: Prisma.TransactionClient) => Promise<void> {
+  return async (tx) => {
+    const existingMembership = await tx.householdMember.findFirst({
+      where: { userId },
+    })
+
+    if (existingMembership) {
+      throw new AlreadyInHouseholdError()
+    }
+
+    // `updateMany` with `userId: null`, not `update`: this is a claim of an
+    // *unclaimed* row, and expressing that as a conditional write means a
+    // member row that a concurrent join already claimed matches nothing
+    // instead of being silently overwritten. It also avoids `P2025` when the
+    // row is gone entirely.
+    const claimed = await tx.householdMember.updateMany({
+      where: { id: memberId, userId: null },
+      data: { userId },
+    })
+
+    if (claimed.count === 0) {
+      throw new InviteNoLongerClaimableError()
+    }
+
+    // Deleting the invite is what makes it single-use: there is no uses
+    // counter, so the absence of the row is the whole enforcement (HON-680).
+    // Count-checked for the same reason as the claim above: the loser of a
+    // race for one shared link must get the sentinel, not a `P2025`.
+    const consumed = await tx.householdInvite.deleteMany({
+      where: { id: inviteId },
+    })
+
+    if (consumed.count === 0) {
+      throw new InviteNoLongerClaimableError()
     }
   }
 }

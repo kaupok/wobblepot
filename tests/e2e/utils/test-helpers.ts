@@ -24,12 +24,34 @@ export function generateUniqueEmail(): string {
 }
 
 /**
+ * Pre-grant cookie consent so the bottom-fixed CookieBanner never renders and
+ * intercepts clicks on elements low on the page (e.g. the profile page's
+ * Delete account button). Keeps the rest of each test focused on its real
+ * assertion without a per-test "click Accept all" dance. Uses `essential`,
+ * which satisfies the banner without flipping the analytics flag.
+ */
+export async function grantEssentialCookieConsent(page: Page): Promise<void> {
+  await page.context().addCookies([
+    {
+      name: 'consent-v1',
+      value: 'essential',
+      url: e2eBaseURL(),
+      sameSite: 'Lax',
+    },
+  ])
+}
+
+/**
  * Signs up a new user via the UI.
  *
  * Auto-seeds an invite code via Prisma when the sign-up form has the field
  * (HON-488). The `invite_code_required` flag defaults to `true` whenever
  * PostHog is unconfigured (CI default), so existing tests need a code on
  * each sign-up; passing `inviteCode` explicitly skips the auto-seed.
+ *
+ * Pass `navigate: false` when the page is already on the sign-up form, e.g.
+ * after following a household invite's Create account link (HON-1131). The
+ * form then has no invite-code field, so no code is seeded.
  *
  * Waits for redirect away from sign-up page.
  */
@@ -40,29 +62,18 @@ export async function signUp(
     email?: string
     password?: string
     inviteCode?: string | null
+    navigate?: boolean
   } = {},
 ): Promise<{ email: string; password: string; name: string; inviteCode: string | null }> {
   const email = options.email ?? generateUniqueEmail()
   const password = options.password ?? TEST_PASSWORD
   const name = options.name ?? TEST_NAME
 
-  // Pre-grant cookie consent so the bottom-fixed CookieBanner never
-  // renders and intercepts clicks on elements low on the page (e.g. the
-  // profile page's Delete account button). Keeps the rest of each test
-  // focused on its real assertion without a per-test "click Accept all"
-  // dance. Uses `essential` which satisfies the banner without flipping
-  // the analytics flag.
-  const baseURL = e2eBaseURL()
-  await page.context().addCookies([
-    {
-      name: 'consent-v1',
-      value: 'essential',
-      url: baseURL,
-      sameSite: 'Lax',
-    },
-  ])
+  await grantEssentialCookieConsent(page)
 
-  await page.goto('/sign-up')
+  if (options.navigate !== false) {
+    await page.goto('/sign-up')
+  }
   // Locale-stable selectors: the sign-up form chrome is externalized (HON-508),
   // so label text varies by locale (e.g. "Name" vs "Nimi") for any helper used
   // by `@i18n platform smoke` tests. Use the input `id` (English-only,

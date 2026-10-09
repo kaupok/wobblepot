@@ -810,6 +810,8 @@
       "requestInvite": "Sul pole koodi? <link>Küsi kutset</link>.",
       "inviteCodeLabel": "Kutsekood",
       "inviteCodeHint": "Sisesta kutses saadud kood.",
+      "householdInvite": "Sa liitud leibkonnaga: <strong>{householdName}</strong>",
+      "householdInviteLabel": "Leibkonna kutse",
       "slowRequest": "See võtab oodatust kauem aega. Palun oota…",
       "navigationFailed": "Konto loomine õnnestus, aga lehe avamine ebaõnnestus. Värskenda lehte."
     },
@@ -883,6 +885,11 @@
         "action": "Liitu leibkonnaga",
         "actionNamed": "Liitu kasutajana „{memberName}\"",
         "joining": "Liitumine…"
+      },
+      "signedOut": {
+        "subtext": "Liitumiseks loo konto. Kutsekoodi pole vaja.",
+        "createAccount": "Loo konto",
+        "signIn": "Logi sisse"
       },
       "errors": {
         "alreadyInHousehold": "Sa oled juba ühe leibkonna liige.",
@@ -1044,6 +1051,7 @@
       "termsNotAccepted": "Konto loomiseks pead nõustuma kasutustingimuste ja privaatsuspoliitikaga.",
       "inviteCodeRequired": "Suletud beetas on registreerumiseks vaja kutsekoodi.",
       "inviteCodeInvalid": "See kutsekood ei kehti, on aegunud või juba kasutatud.",
+      "householdInviteInvalid": "See kutselink ei kehti enam. Palu leibkonna omanikult uut kutset.",
       "invalidCredentials": "Sisestatud e-post või parool on vale. Palun proovi uuesti.",
       "incorrectPassword": "Sisestatud parool on vale. Palun proovi uuesti.",
       "accountAlreadyExists": "Selle e-posti aadressiga konto on juba olemas. Proovi hoopis sisse logida.",

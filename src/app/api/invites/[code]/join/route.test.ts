@@ -78,7 +78,7 @@ const VALID_INVITE = {
   // `members` is the owner-pending-deletion probe: empty while the owner's
   // account is live (HON-881).
   household: { id: 'household-123', name: 'Smith Family', members: [] },
-  member: { id: 'member-456', name: 'Baby' },
+  member: { id: 'member-456', name: 'Baby', userId: null },
 }
 
 /** The same invite while the household's owner has `deletedAt` set. */

@@ -9,6 +9,9 @@ vi.mock('@/lib/prisma', () => ({
 
 import { prisma } from '@/lib/prisma'
 import {
+  AlreadyInHouseholdError,
+  InviteNoLongerClaimableError,
+  inviteMembershipClaim,
   runHouseholdClaim,
   backoffDelayMs,
   isMembershipConflict,
@@ -310,5 +313,59 @@ describe('isMembershipConflict', () => {
 
     await expect(runHouseholdClaim('user-1', vi.fn())).rejects.toBe(conflict)
     expect(mockTransaction).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('inviteMembershipClaim', () => {
+  const makeTx = () => ({
+    householdMember: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    householdInvite: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+  })
+
+  it('claims the unclaimed member row, then deletes the invite', async () => {
+    const tx = makeTx()
+
+    await inviteMembershipClaim('user-1', 'member-1', 'invite-1')(tx as never)
+
+    expect(tx.householdMember.findFirst).toHaveBeenCalledWith({ where: { userId: 'user-1' } })
+    expect(tx.householdMember.updateMany).toHaveBeenCalledWith({
+      where: { id: 'member-1', userId: null },
+      data: { userId: 'user-1' },
+    })
+    expect(tx.householdInvite.deleteMany).toHaveBeenCalledWith({ where: { id: 'invite-1' } })
+  })
+
+  it('refuses a user who already has a membership, before any write', async () => {
+    const tx = makeTx()
+    tx.householdMember.findFirst.mockResolvedValue({ id: 'member-9' })
+
+    await expect(
+      inviteMembershipClaim('user-1', 'member-1', 'invite-1')(tx as never),
+    ).rejects.toBeInstanceOf(AlreadyInHouseholdError)
+    expect(tx.householdMember.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('signals a lost race when the member row was already claimed', async () => {
+    const tx = makeTx()
+    tx.householdMember.updateMany.mockResolvedValue({ count: 0 })
+
+    await expect(
+      inviteMembershipClaim('user-1', 'member-1', 'invite-1')(tx as never),
+    ).rejects.toBeInstanceOf(InviteNoLongerClaimableError)
+    expect(tx.householdInvite.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('signals a lost race when the invite is already gone', async () => {
+    const tx = makeTx()
+    tx.householdInvite.deleteMany.mockResolvedValue({ count: 0 })
+
+    await expect(
+      inviteMembershipClaim('user-1', 'member-1', 'invite-1')(tx as never),
+    ).rejects.toBeInstanceOf(InviteNoLongerClaimableError)
   })
 })

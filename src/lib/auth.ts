@@ -11,6 +11,7 @@ import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
 import { clearWaitlistForNewUser } from '@/lib/waitlist'
+import { joinHouseholdFromSignUp } from '@/lib/household-invite'
 import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
 import { CURRENT_TERMS_VERSION } from '@/lib/consent'
 import { timeSignupStep } from '@/lib/signup-timing'
@@ -85,7 +86,8 @@ export async function hashPasswordWithBreachCheck(password: string): Promise<str
  * On success it links the used invite code, then deletes the new user's
  * waitlist request by email. The second step runs with or without a code,
  * because with `invite_code_required` off a waitlisted address signs up with
- * none (HON-1102). Neither step throws.
+ * none (HON-1102). When the sign-up came from a household invite link, it then
+ * puts the user into the invite's member row (HON-1131). No step throws.
  *
  * On failure (no user) the sign-up failed after the atomic claim: Better
  * Auth's endpoint runs *after* hooks.before, so a Zod validation,
@@ -97,6 +99,7 @@ export async function afterEmailSignUp(body: unknown, userId: string | undefined
   if (userId) {
     await linkUsedBy(body, userId)
     await clearWaitlistForNewUser(userId)
+    await joinHouseholdFromSignUp(body, userId)
     return
   }
   await releaseClaim(body)
