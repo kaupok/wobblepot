@@ -67,9 +67,15 @@
       "household's pantry has no",
       "household has no",
       "household does not have",
+      "household doesn't have",
+      "household lacks",
       "you don't have a",
-      "you do not have a"
+      "you do not have a",
+      "you have no",
+      "you don't own",
+      "you do not own",
+      "you lack"
     ],
-    "allowedClaimQualifiers": ["if you don't", "if you do not"]
+    "allowedClaimQualifiers": ["if you", "unless you", "if the household", "if your household"]
   }
 }

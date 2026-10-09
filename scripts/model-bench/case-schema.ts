@@ -292,7 +292,7 @@ export const CookQuestionCaseSchema = z
       forbiddenClaims: z.array(z.string().min(1)).min(1).optional(),
       /**
        * Excuses a `forbiddenClaims` match it overlaps or sits directly before:
-       * "if you don't" for "If you don't have a wok, use…", which claims nothing.
+       * "if you" for "If you don't have a wok, use…", which claims nothing.
        */
       allowedClaimQualifiers: z.array(z.string().min(1)).optional(),
     }),
