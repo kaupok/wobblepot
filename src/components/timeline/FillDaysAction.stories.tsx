@@ -133,3 +133,75 @@ export const GenerateInvokesApi: Story = {
     )
   },
 }
+
+type Box = Pick<DOMRect, 'top' | 'right' | 'bottom' | 'left'>
+
+function intersects(a: Box, b: Box) {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+}
+
+function contains(outer: Box, inner: Box) {
+  return (
+    inner.left >= outer.left &&
+    inner.right <= outer.right &&
+    inner.top >= outer.top &&
+    inner.bottom <= outer.bottom
+  )
+}
+
+/** Picks 14 days and returns the boxes of the card, label, select and Generate. */
+async function chooseFourteenDaysAndMeasure(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement)
+  // Queried before the select opens: Radix keeps the canvas `aria-hidden`
+  // until its close animation ends, so a role query then finds nothing.
+  const select = canvas.getByRole('combobox', { name: /number of days to fill/i })
+  const button = canvas.getByRole('button', { name: /^generate$/i })
+  await userEvent.click(select)
+  await userEvent.click(await within(document.body).findByRole('option', { name: '14 days' }))
+  // Wait for the listbox to unmount, or the a11y check runs mid-animation.
+  await waitFor(() => expect(document.querySelector('[role="listbox"]')).toBeNull())
+
+  const label = await canvas.findByText(/^Fill Nov 28\W+Dec 11$/)
+  const card = canvasElement.querySelector('.rounded-lg')
+  if (!card) throw new globalThis.Error('Expected the Fill bar card')
+  return {
+    card: card.getBoundingClientRect(),
+    label: label.getBoundingClientRect(),
+    select: select.getBoundingClientRect(),
+    button: button.getBoundingClientRect(),
+  }
+}
+
+/**
+ * 390px with the longest range the bar shows. The label takes its own line and
+ * the select and Generate sit side by side under it; Generate used to cover the
+ * select's chevron here (HON-1127).
+ */
+export const Phone: Story = {
+  args: { startDate: '2026-11-28' },
+  globals: { viewport: { value: 'mobileIphone', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const { card, label, select, button } = await chooseFourteenDaysAndMeasure(canvasElement)
+    expect(intersects(select, button)).toBe(false)
+    for (const box of [label, select, button]) expect(contains(card, box)).toBe(true)
+    // Two lines: the controls wrap under the label, side by side.
+    for (const box of [select, button]) expect(box.top).toBeGreaterThanOrEqual(label.bottom)
+    expect(select.right).toBeLessThanOrEqual(button.left)
+    expect(button.top).toBeLessThan(select.bottom)
+  },
+}
+
+/** From `sm` the label, select and Generate stay in one row. */
+export const Desktop: Story = {
+  args: { startDate: '2026-11-28' },
+  globals: { viewport: { value: 'desktop', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const { card, label, select, button } = await chooseFourteenDaysAndMeasure(canvasElement)
+    expect(intersects(select, button)).toBe(false)
+    for (const box of [label, select, button]) expect(contains(card, box)).toBe(true)
+    for (const box of [select, button]) {
+      expect(box.top).toBeLessThan(label.bottom)
+      expect(box.bottom).toBeGreaterThan(label.top)
+    }
+  },
+}
