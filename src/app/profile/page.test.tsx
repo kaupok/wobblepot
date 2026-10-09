@@ -12,7 +12,13 @@ vi.mock('next-intl/server', () => ({
     for (const segment of segments) {
       cursor = (cursor as Record<string, unknown>)?.[segment]
     }
-    return (key: string) => (cursor as Record<string, string>)?.[key] ?? key
+    return (key: string) => {
+      let node: unknown = cursor
+      for (const segment of key.split('.')) {
+        node = (node as Record<string, unknown>)?.[segment]
+      }
+      return typeof node === 'string' ? node : key
+    }
   }),
 }))
 
@@ -54,6 +60,18 @@ vi.mock('./DeleteAccountDialog', () => ({
       data-account-member-count={String(accountMemberCount)}
     />
   ),
+}))
+
+// The two forms are client components with their own tests; the page owns
+// what it hands them.
+vi.mock('./ProfileNameForm', () => ({
+  ProfileNameForm: ({ initialName }: { initialName: string }) => (
+    <div data-testid="profile-name-form" data-initial-name={initialName} />
+  ),
+}))
+
+vi.mock('./ChangePasswordForm', () => ({
+  ChangePasswordForm: () => <div data-testid="change-password-form" />,
 }))
 
 const now = new Date()
@@ -174,7 +192,7 @@ describe('ProfilePage', () => {
     expect(countAccountHoldingMembers).not.toHaveBeenCalled()
   })
 
-  it('renders the signed-in user name and email', async () => {
+  it('hands the account name to the name form and renders the email', async () => {
     const { getSession } = await import('@/lib/session')
     const { getHouseholdMembership } = await import('@/lib/household')
     vi.mocked(getSession).mockResolvedValue(session as never)
@@ -182,13 +200,36 @@ describe('ProfilePage', () => {
 
     render(await ProfilePage())
 
-    expect(screen.getByText('Test User')).toBeInTheDocument()
+    expect(screen.getByTestId('profile-name-form')).toHaveAttribute(
+      'data-initial-name',
+      'Test User',
+    )
     expect(screen.getByText('test@example.com')).toBeInTheDocument()
+  })
+
+  // HON-1129: the password form sits in its own section, above "Your data".
+  it('renders the change-password section before the data section', async () => {
+    const { getSession } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    vi.mocked(getSession).mockResolvedValue(session as never)
+    vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(2) as never)
+
+    render(await ProfilePage())
+
+    const passwordHeading = screen.getByRole('heading', { name: 'Change password' })
+    const dataHeading = screen.getByRole('heading', { name: 'Your data' })
+    expect(screen.getByTestId('change-password-form')).toBeInTheDocument()
+    expect(
+      passwordHeading.compareDocumentPosition(dataHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      screen.getByText('You stay signed in on this device. Other devices are signed out.'),
+    ).toBeInTheDocument()
   })
 
   /**
    * The page title sits on the page background as the document's `<h1>`, at
-   * the Title level of the type scale (`variant="h4"`); its two sections sit
+   * the Title level of the type scale (`variant="h4"`); its sections sit
    * one level below it in the outline. See HON-619 and HON-767.
    *
    * The section level is derived from the title's tag rather than restated, so
@@ -210,7 +251,7 @@ describe('ProfilePage', () => {
     const title = screen.getByRole('heading', { name: 'Profile', level: 1 })
     const titleLevel = Number(title.tagName.slice(1))
 
-    for (const name of ['Your data', 'Danger zone']) {
+    for (const name of ['Change password', 'Your data', 'Danger zone']) {
       expect(screen.getByRole('heading', { name, level: titleLevel + 1 })).toBeInTheDocument()
     }
   })

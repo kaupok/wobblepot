@@ -3,6 +3,8 @@ import {
   afterEmailSignUp,
   auth,
   assertTermsAccepted,
+  assertValidAccountNameUpdate,
+  INVALID_ACCOUNT_NAME_MESSAGE,
   hashPasswordWithBreachCheck,
   stampTermsConsent,
   TERMS_NOT_ACCEPTED_MESSAGE,
@@ -74,6 +76,28 @@ describe('assertTermsAccepted', () => {
     ['non-object body', 'acceptedTerms=true'],
   ])('rejects %s with the friendly message', (_label, body) => {
     expect(() => assertTermsAccepted(body)).toThrowError(TERMS_NOT_ACCEPTED_MESSAGE)
+  })
+})
+
+describe('assertValidAccountNameUpdate', () => {
+  it.each([
+    ['a name', { name: 'Mari Maasikas' }],
+    ['exactly 100 characters', { name: 'a'.repeat(100) }],
+    ['100 characters inside whitespace', { name: `  ${'a'.repeat(100)}  ` }],
+    ['an update without a name', { image: null }],
+    ['an explicit undefined name', { name: undefined }],
+  ])('passes %s', (_label, body) => {
+    expect(() => assertValidAccountNameUpdate(body)).not.toThrow()
+  })
+
+  it.each([
+    ['an empty name', { name: '' }],
+    ['a whitespace-only name', { name: '   ' }],
+    ['101 characters', { name: 'a'.repeat(101) }],
+    ['a non-string name', { name: 42 }],
+    ['a null name', { name: null }],
+  ])('rejects %s', (_label, body) => {
+    expect(() => assertValidAccountNameUpdate(body)).toThrowError(INVALID_ACCOUNT_NAME_MESSAGE)
   })
 })
 

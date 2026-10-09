@@ -1241,7 +1241,26 @@
   "profile": {
     "title": "Profile",
     "description": "Your account information",
-    "nameLabel": "Name",
+    "name": {
+      "label": "Name",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Name saved",
+      "required": "Enter your name.",
+      "tooLong": "Use 100 characters or fewer.",
+      "saveFailed": "Your name was not saved. Try again."
+    },
+    "password": {
+      "heading": "Change password",
+      "description": "You stay signed in on this device. Other devices are signed out.",
+      "currentLabel": "Current password",
+      "currentRequired": "Enter your current password.",
+      "newLabel": "New password",
+      "confirmLabel": "Confirm new password",
+      "submit": "Change password",
+      "submitting": "Changing password…",
+      "success": "Password changed. Other devices are signed out."
+    },
     "emailLabel": "Email",
     "yourDataHeading": "Your data",
     "yourDataDescription": "Download a copy of your profile, household data, meal plans, and settings as a JSON file.",
