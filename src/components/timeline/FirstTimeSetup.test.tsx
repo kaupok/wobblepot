@@ -4,11 +4,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // one — which is the entire bug under test here (HON-725). Use the real
 // provider so the `et` assertions below are meaningful.
 vi.unmock('next-intl')
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'
 import { createQueryWrapper } from '@/test/query-wrapper'
+import { takeFirstPlanGenerated } from '@/lib/first-plan-focus'
 import { FirstTimeSetup } from './FirstTimeSetup'
 
 vi.mock('next/navigation', () => ({
@@ -152,5 +153,38 @@ describe('FirstTimeSetup outline', () => {
     expect(container.querySelector('h1, h2, h3, h4, h5, h6')).toBe(h1s[0])
     expect(container.querySelector('h2')).toBeInTheDocument()
     expect(h1s[0]?.parentElement).toHaveClass('sr-only')
+  })
+})
+
+// Success swaps this screen for `TimelineView`, which takes the signal and
+// focuses its first day heading (HON-1139).
+describe('FirstTimeSetup focus signal', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    sessionStorage.clear()
+  })
+
+  it('marks the first plan for Today once generation succeeds', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ id: 'plan-1' }) }),
+      ),
+    )
+
+    clickGenerate('en')
+
+    await waitFor(() => expect(takeFirstPlanGenerated()).toBe(true))
+  })
+
+  it('does not mark it when generation fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    respondWith({ code: 'generation_failed', error: 'Failed' }, 500)
+
+    clickGenerate('en')
+
+    await screen.findByText(enMessages['meal-plan'].errors.generationFailed)
+    expect(takeFirstPlanGenerated()).toBe(false)
   })
 })

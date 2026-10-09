@@ -255,3 +255,17 @@ export const FocusesClearedSlot: Story = {
     await expect(document.activeElement).toBe(lunch)
   },
 }
+
+/**
+ * After a generation removed the Generate button, the day heading takes focus
+ * (HON-1139). `tabIndex={-1}` keeps it out of the tab order.
+ */
+export const FocusesHeading: Story = {
+  args: { day: mixedDay, focusHeading: true, onHeadingFocused: fn() },
+  play: async ({ canvasElement, args }) => {
+    const heading = within(canvasElement).getByRole('heading', { name: /friday apr 17/i })
+    await expect(args.onHeadingFocused).toHaveBeenCalledTimes(1)
+    await expect(document.activeElement).toBe(heading)
+    await expect(heading).toHaveAttribute('tabindex', '-1')
+  },
+}

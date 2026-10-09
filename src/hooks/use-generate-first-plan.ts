@@ -11,6 +11,7 @@ import {
 import type { Locale } from '@/lib/i18n/locales'
 import type { DatesTranslator } from '@/lib/i18n/format-dates'
 import { track } from '@/lib/analytics'
+import { markFirstPlanGenerated } from '@/lib/first-plan-focus'
 import { ApiError, apiFetch } from '@/lib/api'
 import {
   MEAL_PLAN_GENERATE_ERROR_KEYS,
@@ -80,6 +81,9 @@ export function useGenerateFirstPlan({ onGenerated }: { onGenerated: () => void 
       if (data?.id) {
         void track('meal_plan:plan_generated', { plan_id: data.id })
       }
+      // Both callers leave the screen that holds Generate, so Today takes
+      // focus instead (HON-1139).
+      markFirstPlanGenerated()
       onGenerated()
     },
   })

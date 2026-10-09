@@ -68,10 +68,13 @@ export function GeneratingOverlay({ returnFocusRef }: GeneratingOverlayProps) {
           onPointerDownOutside={preventDismiss}
           onInteractOutside={preventDismiss}
           onCloseAutoFocus={(event) => {
-            const target = returnFocusRef?.current
-            if (!target) return
+            if (!returnFocusRef) return
+            // Prevented even when the control has left the page with the
+            // overlay: Radix would focus the body then, after the page may
+            // already have moved focus to the new plan (HON-1139).
             event.preventDefault()
-            target.focus()
+            const target = returnFocusRef.current
+            if (target?.isConnected) target.focus()
           }}
         >
           <div className="flex flex-col items-center gap-6 text-center">
