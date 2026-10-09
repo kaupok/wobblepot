@@ -70,24 +70,33 @@ const meta = {
     docs: {
       description: {
         component:
-          "Landing direction B1's hero picture (HON-1116): tonight's dinner in front, breakfast and lunch tilted behind it. With a demo day the front card is the live landing's demo card (HON-1036) and opens the read-only cook view; the side cards are `inert` pictures. With no demo day the static showcase stands in and nothing opens.",
+          "Landing direction B1's hero picture (HON-1116): tonight's dinner in front, breakfast and lunch tilted behind it. With a demo day every card is the live landing's demo card (HON-1036) and opens the read-only cook view. A side card first swings to the front, trading places with the card there, and the caption follows it. With no demo day the static showcase stands in and nothing opens.",
       },
     },
   },
-  args: { day, caption: "Monday · Tonight's dinner" },
+  args: { day, dayLabel: 'Monday' },
 } satisfies Meta<typeof LandingDeck>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** The demo dinner in front: one button, its name, and the hint above. */
+const slotOf = (canvasElement: HTMLElement, name: string) =>
+  within(canvasElement)
+    .getByRole('button', { name })
+    .closest('[data-deck-slot]')
+    ?.getAttribute('data-deck-slot')
+
+/** The demo dinner in front: every card's name is a button, and the hint sits above. */
 export const Demo: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await expect(canvas.getByText("Monday · Tonight's dinner")).toBeInTheDocument()
     await expect(canvas.getByText(/Open a meal/)).toBeInTheDocument()
-    await expect(canvas.getAllByRole('button')).toHaveLength(1)
-    await expect(canvasElement.querySelectorAll('[inert]')).toHaveLength(2)
+    await expect(canvas.getAllByRole('button')).toHaveLength(3)
+    await expect(canvasElement.querySelectorAll('[inert]')).toHaveLength(0)
+    await expect(slotOf(canvasElement, 'Chilli con carne')).toBe('front')
+    await expect(slotOf(canvasElement, 'Avocado toast with poached egg')).toBe('left')
+    await expect(slotOf(canvasElement, 'Beef bibimbap')).toBe('right')
   },
 }
 
@@ -111,14 +120,36 @@ export const OpensCookView: Story = {
   },
 }
 
-/** No demo day: the static showcase, with no hint and nothing to open. */
-export const Static: Story = {
-  args: { day: null, caption: "Thursday · Tonight's dinner" },
+/**
+ * A side card swings to the front and the dinner takes its place, then the
+ * lunch opens. On close, focus returns to the lunch's name, now in front.
+ */
+export const SwapsToFront: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+    const name = canvas.getByRole('button', { name: 'Beef bibimbap' })
+    await userEvent.click(name)
+    await expect(slotOf(canvasElement, 'Beef bibimbap')).toBe('front')
+    await expect(slotOf(canvasElement, 'Chilli con carne')).toBe('right')
+    await expect(canvas.getByText("Monday · Today's lunch")).toBeInTheDocument()
+    const dialog = await within(document.body).findByRole('dialog')
+    await expect(within(dialog).getByText('Fry the beef')).toBeInTheDocument()
+    await pressEscape()
+    await awaitDialogClosed()
+    await waitFor(() => expect(name).toHaveFocus())
+  },
+}
+
+/** No demo day: the static showcase, with no hint and nothing to open. */
+export const Static: Story = {
+  args: { day: null, dayLabel: 'Thursday' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByText("Thursday · Tonight's dinner")).toBeInTheDocument()
     await expect(canvas.getByText('Baked salmon with asparagus')).toBeInTheDocument()
     await expect(canvas.queryByText(/Open a meal/)).toBeNull()
     await expect(canvas.queryAllByRole('button')).toHaveLength(0)
+    await expect(canvasElement.querySelectorAll('[inert]')).toHaveLength(2)
   },
 }
 

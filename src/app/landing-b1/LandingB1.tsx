@@ -106,7 +106,7 @@ export async function LandingB1({ inviteRequired, locale, demo }: LandingB1Props
             <Body variant="muted">{t('ctaNote')}</Body>
           </div>
 
-          <LandingDeck day={dinner ? demo : null} caption={t('deck.caption', { day: dayLabel })} />
+          <LandingDeck day={dinner ? demo : null} dayLabel={dayLabel} />
 
           <LandingWeek locale={locale} tonightIndex={tonightIndex} tonight={tonight} />
         </section>

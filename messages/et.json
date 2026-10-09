@@ -636,7 +636,9 @@
       "caption": "Kolm tänast toitu raamatukogust. Iga nimi avab kokkamisvaate."
     },
     "deck": {
-      "caption": "{day} · Tänane õhtusöök"
+      "breakfast": "{day} · Tänane hommikusöök",
+      "lunch": "{day} · Tänane lõunasöök",
+      "dinner": "{day} · Tänane õhtusöök"
     },
     "week": {
       "label": "Sel nädalal",

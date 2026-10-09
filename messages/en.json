@@ -636,7 +636,9 @@
       "caption": "Three of today's meals from the library. Each name opens the cook view."
     },
     "deck": {
-      "caption": "{day} · Tonight's dinner"
+      "breakfast": "{day} · Today's breakfast",
+      "lunch": "{day} · Today's lunch",
+      "dinner": "{day} · Tonight's dinner"
     },
     "week": {
       "label": "This week",

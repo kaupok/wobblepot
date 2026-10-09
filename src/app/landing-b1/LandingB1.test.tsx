@@ -127,13 +127,21 @@ describe('LandingB1', () => {
     expect(tonight).toHaveTextContent('45 min')
     expect(within(week()).queryByText('Cooked')).not.toBeInTheDocument()
 
-    // Breakfast and lunch are pictures behind the front card: no buttons.
-    expect(screen.queryByRole('button', { name: 'Porridge with berries' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Noodle soup' })).not.toBeInTheDocument()
-
     await user.click(screen.getByRole('button', { name: 'Chilli con carne' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText('Simmer the sauce')).toBeInTheDocument()
+  })
+
+  it('swings a side card to the front, then opens it', async () => {
+    const user = userEvent.setup()
+    await renderB1(demo)
+
+    await user.click(screen.getByRole('button', { name: 'Noodle soup' }))
+    expect(screen.getByText("Monday · Today's lunch")).toBeInTheDocument()
+    // The week strip keeps tonight's dinner.
+    expect(within(week()).getByText('Chilli con carne')).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Cook the noodles')).toBeInTheDocument()
   })
 
   it('reads the server-rendered copy from the Estonian catalog', async () => {
@@ -142,6 +150,8 @@ describe('LandingB1', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Õhtusöök otsustatud. Terveks nädalaks.' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('Neljapäev · Tänane õhtusöök')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Ütle, kes on laua ääres' }),
+    ).toBeInTheDocument()
   })
 })
