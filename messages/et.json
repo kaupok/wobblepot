@@ -194,7 +194,12 @@
       "undoFailed": "Toitu ei õnnestunud taastada. Lisa see uuesti tühjast kohast.",
       "undoSlotFilled": "Toitu ei õnnestunud taastada. Sellel kohal on nüüd teine toit.",
       "createEntryFailed": "Toidukoha lisamine ebaõnnestus",
-      "entryAlreadyExists": "Sellele kohale on toit juba lisatud. Värskenda lehte, et seda näha."
+      "entryAlreadyExists": "Sellele kohale on toit juba lisatud. Värskenda lehte, et seda näha.",
+      "conflict": {
+        "allergen": "Sisaldab: {allergen}",
+        "diet": "Ei sobi: {diet}",
+        "excluded": "Sisaldab välditavat koostisosa"
+      }
     },
     "noteEditor": {
       "placeholder": "Lisa märkus…",
@@ -1140,6 +1145,7 @@
       "saveButton": "Salvesta",
       "saving": "Salvestan…",
       "savedToast": "Sätted salvestatud",
+      "savedWithConflicts": "Sätted salvestatud. {count, plural, one {# planeeritud toit ei sobi} other {# planeeritud toitu ei sobi}} nendega. Need on märgitud Täna-vaates.",
       "saveFailed": "Sätete salvestamine ebaõnnestus",
       "mealsRequired": "Vali vähemalt üks söögikord nii argipäevadeks kui ka nädalavahetuseks.",
       "ownerOnlyNotice": "Neid sätteid saab muuta ainult leibkonna omanik. Siin saad neid vaadata.",

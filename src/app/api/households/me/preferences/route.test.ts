@@ -28,13 +28,19 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+vi.mock('@/lib/meal-planning/count-preference-conflicts', () => ({
+  countConflictingPlannedEntries: vi.fn(),
+}))
+
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { countConflictingPlannedEntries } from '@/lib/meal-planning/count-preference-conflicts'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
 const mockUpsert = vi.mocked(prisma.householdPreferences.upsert)
 const mockIngredientFindMany = vi.mocked(prisma.ingredient.findMany)
+const mockCountConflicts = vi.mocked(countConflictingPlannedEntries)
 
 const mockPreferences = {
   id: 'prefs-123',
@@ -482,5 +488,63 @@ describe('PATCH /api/households/me/preferences', () => {
       update: { weekdayMealTypes: ['lunch', 'dinner'] },
       create: { householdId: 'household-123', weekdayMealTypes: ['lunch', 'dinner'] },
     })
+  })
+
+  // HON-1126: a food save reports how many planned meals now break the
+  // preferences, and reads the plan only. The prisma mock has no
+  // `mealPlanEntry` at all, so any write to an entry would throw.
+  it('returns the number of conflicting planned meals after a food save', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    const updatedPreferences = { ...mockPreferences, allergensToAvoid: ['nuts'] }
+    mockUpsert.mockResolvedValue(updatedPreferences as never)
+    mockCountConflicts.mockResolvedValue(2)
+
+    const response = await PATCH(createRequest({ allergensToAvoid: ['nuts'] }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.allergensToAvoid).toEqual(['nuts'])
+    expect(data.conflictingEntries).toBe(2)
+    expect(mockCountConflicts).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'household-123', timezone: 'Europe/Tallinn' }),
+      updatedPreferences,
+    )
+  })
+
+  it('does not count conflicts after a meal-types save', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockUpsert.mockResolvedValue({ ...mockPreferences, weekdayMealTypes: ['lunch'] } as never)
+
+    const response = await PATCH(createRequest({ weekdayMealTypes: ['lunch'] }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.conflictingEntries).toBeUndefined()
+    expect(mockCountConflicts).not.toHaveBeenCalled()
+  })
+
+  it('still reports the save when the conflict count fails', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockUpsert.mockResolvedValue({ ...mockPreferences, allergensToAvoid: ['nuts'] } as never)
+    mockCountConflicts.mockRejectedValue(new Error('connection reset'))
+
+    const response = await PATCH(createRequest({ allergensToAvoid: ['nuts'] }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.allergensToAvoid).toEqual(['nuts'])
+    expect(data.conflictingEntries).toBeUndefined()
   })
 })

@@ -34,6 +34,7 @@ import { noteScatter } from './note-placement'
 import { useNoteDrag } from './use-note-drag'
 import { MyRecipeIcon } from './MyRecipeIcon'
 import { ProteinBadge } from './ProteinBadge'
+import { ConflictBadges } from './ConflictBadge'
 import type {
   EntryRating,
   MealData,
@@ -43,6 +44,7 @@ import type {
   PreparationSteps,
 } from './types'
 import type { MealType } from '@/generated/prisma/enums'
+import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 import { useDropPlanSuggestions } from '@/hooks/use-drop-plan-suggestions'
 import { useMealImageFields } from '@/hooks/use-meal-image'
 import { useEntryStatus } from './use-entry-status'
@@ -96,6 +98,8 @@ interface MealCardProps {
   pantryDeducted?: boolean
   /** The entry's cached preparation tips — see `PlanEntry.preparationTips`. */
   preparationTips?: PreparationSteps | null
+  /** The food preferences the meal breaks — see `PlanEntry.conflicts`. */
+  conflicts?: PreferenceConflict[]
   /**
    * Called once Clear has deleted the entry, before the refresh that unmounts
    * this card, so the page can move focus to the slot that replaces it.
@@ -121,6 +125,7 @@ export function MealCard({
   servingOverride: initialServingOverride,
   pantryDeducted = false,
   preparationTips = null,
+  conflicts = [],
   onCleared,
 }: MealCardProps) {
   const router = useRouter()
@@ -529,6 +534,9 @@ export function MealCard({
               >
                 <MealTypeBadge mealType={mealType} />
                 <ProteinBadge proteinType={meal.primaryProteinType} />
+                {/* A cooked or skipped meal is history (HON-1126). The status
+                    is the card's own, so marking it cooked hides them at once. */}
+                {status === 'planned' && <ConflictBadges conflicts={conflicts} />}
               </div>
               {hasTrailingActions && (
                 <div className="flex shrink-0 items-center gap-1">
@@ -797,6 +805,7 @@ export function MealCard({
         servingOverride={servingOverride}
         onServingOverrideChange={setServingOverride}
         initialSteps={preparationTips}
+        conflicts={status === 'planned' ? conflicts : undefined}
         // Steps generate on open only for a meal somebody is about to cook.
         generateOnOpen={status === 'planned' && !isReadOnly}
         // A read-only card cannot be marked cooked.

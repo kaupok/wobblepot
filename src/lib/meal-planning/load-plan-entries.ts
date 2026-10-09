@@ -13,6 +13,11 @@ import {
 import type { MealPlanEntryStatus } from '@/generated/prisma/enums'
 import { presentMealImage } from '@/lib/meal-images/present'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import {
+  findPreferenceConflicts,
+  type ConflictPreferences,
+  type PreferenceConflict,
+} from '@/lib/meal-planning/preference-conflicts'
 
 export interface PlanEntriesHousehold {
   id: string
@@ -20,6 +25,11 @@ export interface PlanEntriesHousehold {
   /** Read with `members` to tell which cached tips still fit (`parseCachedPreparationSteps`). */
   _count: { members: number }
   members: readonly { preferences: { portionMultiplier: number } | null }[]
+  /**
+   * The household's food preferences, which mark the planned meals that break
+   * them (HON-1126). Absent or null marks none.
+   */
+  preferences?: ConflictPreferences | null
 }
 
 export interface PlanEntriesQuery {
@@ -80,6 +90,12 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
     // Coalesce the locale's MealTranslation over the canonical English fields
     // (per-field fallback). For en this returns the meal unchanged.
     const translatedMeal = entry.meal ? translateMeal(entry.meal, locale) : null
+    // Planned meals only: a cooked or skipped meal is history. Canonical names,
+    // not the translated ones: the keyword lists match both languages.
+    const conflicts: PreferenceConflict[] =
+      entry.meal && entry.status === 'planned' && household.preferences
+        ? findPreferenceConflicts(entry.meal, household.preferences)
+        : []
 
     return {
       id: entry.id,
@@ -100,6 +116,7 @@ export async function loadPlanEntries(household: PlanEntriesHousehold, query: Pl
       noteY: entry.noteY,
       servingOverride: entry.servingOverride,
       pantryDeducted: entry.pantryDeductedAt !== null,
+      conflicts,
       meal:
         entry.meal && translatedMeal
           ? {

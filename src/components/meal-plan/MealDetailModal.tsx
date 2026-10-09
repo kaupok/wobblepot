@@ -28,9 +28,11 @@ import { cn } from '@/lib/utils'
 import { MealDetail } from './MealDetail'
 import { MealImage } from './MealImage'
 import { MyRecipeIcon } from './MyRecipeIcon'
+import { ConflictBadges } from './ConflictBadge'
 import { mealHueStyle, mealTintHue } from './MealImageCard'
 import { NoteEditor, type NoteEditorHandle } from './NoteEditor'
 import type { MealData, MealStatus, PantryIngredient, PreparationSteps } from './types'
+import type { PreferenceConflict } from '@/lib/meal-planning/preference-conflicts'
 
 export interface MealDetailModalHandle {
   /**
@@ -66,6 +68,12 @@ interface MealDetailModalProps {
    * `router.refresh()` cannot bring back tips a swap or serving change dropped.
    */
   initialSteps?: PreparationSteps | null
+  /**
+   * The food preferences the meal breaks, as badges under its name, so the
+   * household sees them before cooking (HON-1126). The caller passes them for
+   * a planned entry only.
+   */
+  conflicts?: readonly PreferenceConflict[]
   /**
    * Generate the steps when the view opens, rather than behind "How to
    * prepare" — for a planned entry somebody is about to cook (HON-933).
@@ -122,6 +130,7 @@ export function MealDetailModal({
   servingOverride,
   onServingOverrideChange,
   initialSteps = null,
+  conflicts = [],
   generateOnOpen = false,
   onDoneCooking,
   readOnly = false,
@@ -507,6 +516,13 @@ export function MealDetailModal({
                   </>
                 )}
               </Heading>
+              {/* Under the name, so the household reads them before cooking
+                  (HON-1126). */}
+              {conflicts.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-2">
+                  <ConflictBadges conflicts={conflicts} size="lg" />
+                </div>
+              )}
             </div>
           }
           // Actions on the meal sit on its title row (docs/DESIGN.md). `icon-lg`,

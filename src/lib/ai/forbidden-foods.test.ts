@@ -206,6 +206,22 @@ describe('a false friend excuses only the word it is (PR #981 review)', () => {
     },
   )
 
+  // HON-1126: Crab Cakes were marked "Not suitable: Pescatarian" on the plan.
+  it.each(['crab meat', 'white crabmeat', 'lobster meat', 'coconut meat', 'krabiliha'])(
+    'does not read %s as meat',
+    (ingredient) => {
+      expect(violates({ dietaryType: 'pescatarian' }, ingredient)).toBe(false)
+    },
+  )
+
+  it.each(['crab meat', 'lobster meat', 'krabiliha'])(
+    'still reads %s as shellfish for a vegetarian',
+    (ingredient) => {
+      expect(violates({ dietaryType: 'vegetarian' }, ingredient)).toBe(true)
+      expect(violates({ allergens: ['shellfish'] }, ingredient)).toBe(true)
+    },
+  )
+
   it('still reads bechamel as dairy', () => {
     expect(violates({ allergens: ['dairy'] }, 'bechamel')).toBe(true)
   })

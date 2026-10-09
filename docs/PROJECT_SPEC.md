@@ -256,6 +256,8 @@ enum ProteinType {
 - `allergens` = safety-critical, DB-enforced via `Allergen` enum
 - `restrictions` = dietary concepts ("low FODMAP") - free-form String\[\], AI interprets with best-effort
 
+**A preference change marks the plan, and never changes it by itself (HON-1126).** Meals planned before the change can break the new preferences. A planned card whose meal contains an avoided allergen, breaks the dietary type or uses an avoided ingredient carries one warning badge per constraint ("Contains: Tree nuts"), in the cook view too. Cooked and skipped meals are history and carry none. After a food-preference save on `/household`, the toast says how many planned meals from today onward conflict. Nothing is swapped or removed: the household uses Swap on each marked card. The check is `findPreferenceConflicts` (`src/lib/meal-planning/preference-conflicts.ts`): the ingredients' `allergens` data first, then the `forbidden-foods` keyword lists for the meal name and the ingredients with no allergen data. Restrictions are free text and are not checked.
+
 **Enums over strings:** Use Prisma enums for constrained values to prevent inconsistent data.
 
 ### Onboarding
