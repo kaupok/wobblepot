@@ -20,14 +20,17 @@ type Slot = 'left' | 'front' | 'right'
  * the column is too narrow to fan, so the side cards stack straight up behind
  * the front card, breakfast at the back, and each shows its badge row. From
  * `lg` they fan out to either side, high enough that the name clears the front
- * card. A side card rises or straightens on hover, to say it moves; the front
- * card lifts.
+ * card. The rise is a fixed length from the card's top (`origin-top`), not a
+ * share of its height, because the badge row and name are the same height on
+ * every card while the static showcase cards are taller than the demo cards;
+ * so the grid's top padding always holds the rise. A side card rises or
+ * straightens on hover, to say it moves; the front card lifts.
  */
 const SLOT_CLASSES: Record<Slot, string> = {
   front: 'z-20 hover:-translate-y-1',
-  left: 'z-0 -translate-y-2/3 scale-90 hover:-translate-y-3/4 lg:-translate-x-1/2 lg:-translate-y-3/4 lg:-rotate-4 lg:hover:-translate-y-3/4 lg:hover:-rotate-2 lg:hover:scale-95',
+  left: 'z-0 -translate-y-20 scale-90 hover:-translate-y-22 lg:-translate-x-1/2 lg:-translate-y-28 lg:-rotate-4 lg:hover:-translate-y-28 lg:hover:-rotate-2 lg:hover:scale-95',
   right:
-    'z-10 -translate-y-2/5 scale-95 hover:-translate-y-1/2 lg:z-0 lg:translate-x-1/2 lg:-translate-y-3/4 lg:scale-90 lg:rotate-4 lg:hover:-translate-y-3/4 lg:hover:rotate-2 lg:hover:scale-95',
+    'z-10 -translate-y-10 scale-95 hover:-translate-y-12 lg:z-0 lg:translate-x-1/2 lg:-translate-y-28 lg:scale-90 lg:rotate-4 lg:hover:-translate-y-28 lg:hover:rotate-2 lg:hover:scale-95',
 }
 
 /** The swap's length: the `duration-500` on each card. */
@@ -108,7 +111,7 @@ export function LandingDeck({ day, dayLabel }: LandingDeckProps) {
         </Heading>
         {demo && <Body variant="muted">{t('demo.hint')}</Body>}
       </figcaption>
-      <div className="grid pt-20 pb-2 text-left lg:pt-28 lg:pb-6">
+      <div className="grid pt-20 pb-2 text-left lg:pt-32 lg:pb-6">
         {DOM_ORDER.map((type) => {
           const slot = slotOf(type)
           const demoEntry = demo ? entry(type) : undefined
@@ -118,7 +121,7 @@ export function LandingDeck({ day, dayLabel }: LandingDeckProps) {
               data-deck-slot={slot}
               inert={!demo && slot !== 'front'}
               className={cn(
-                'col-start-1 row-start-1 self-start rounded-xl transition duration-500 ease-out motion-reduce:transition-none',
+                'col-start-1 row-start-1 origin-top self-start rounded-xl transition duration-500 ease-out motion-reduce:transition-none',
                 SLOT_CLASSES[slot],
               )}
             >
