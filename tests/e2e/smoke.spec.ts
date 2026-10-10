@@ -1,4 +1,4 @@
-// ROUTES: /, /sign-in, /profile · COMPONENTS: Header, Home (landing hero, phone closing call to action), SignInForm, ProfilePage, TimelineView, FillDaysAction
+// ROUTES: /, /sign-in, /profile · COMPONENTS: Header, Home (landing hero, phone closing call to action), LandingWeek, SignInForm, ProfilePage, TimelineView, FillDaysAction
 import { test, expect, type Page } from '@playwright/test'
 import { signIn } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -72,6 +72,11 @@ test.describe('Smoke', { tag: '@smoke' }, () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
     await expect(cta).toHaveCount(2)
+    // The week strip's `sr-only` "Cooked" text once widened the page (HON-1147).
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(overflow).toBeLessThanOrEqual(0)
     await expect(cta.last()).toBeVisible()
     await expect(closingLine).toBeVisible()
 

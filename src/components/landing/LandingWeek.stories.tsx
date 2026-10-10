@@ -6,8 +6,17 @@ const meta = {
   title: 'Landing/LandingWeek',
   component: LandingWeek,
   tags: ['autodocs'],
+  // The page's `px-4` gutter, which the strip's `-mx-4` pulls back to the
+  // screen edges. Without it the strip itself reaches past the screen.
+  decorators: [
+    (Story) => (
+      <div className="px-4 py-8">
+        <Story />
+      </div>
+    ),
+  ],
   parameters: {
-    layout: 'padded',
+    layout: 'fullscreen',
     docs: {
       description: {
         component:
@@ -30,6 +39,15 @@ const tonightCell = (canvasElement: HTMLElement) =>
     .getAllByRole('listitem')
     .find((day) => day.getAttribute('aria-current') === 'date')
 
+/**
+ * The page does not scroll sideways. A `sr-only` "Cooked" span that escapes
+ * the strip widens the whole document (HON-1147).
+ */
+const expectNoPageOverflow = (canvasElement: HTMLElement) => {
+  const root = canvasElement.ownerDocument.documentElement
+  return expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth)
+}
+
 /** Phone (390 px): the strip scrolls, and opens with Thursday in view. */
 export const Default: Story = {
   play: async ({ canvasElement }) => {
@@ -49,6 +67,7 @@ export const Default: Story = {
       expect(box.left).toBeGreaterThanOrEqual(view.left)
       expect(box.right).toBeLessThanOrEqual(view.right)
     })
+    await expectNoPageOverflow(canvasElement)
   },
 }
 
@@ -61,11 +80,15 @@ export const Monday: Story = {
   },
 }
 
-/** Sunday: the rest of the week is cooked. */
+/**
+ * Sunday: the rest of the week is cooked. Its "Cooked" text reaches farthest
+ * along the strip, so this story catches the page overflow (HON-1147).
+ */
 export const Sunday: Story = {
   args: { tonightIndex: 6 },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getAllByText('Cooked')).toHaveLength(6)
+    await expectNoPageOverflow(canvasElement)
   },
 }
 

@@ -71,7 +71,9 @@ export function LandingWeek({ locale, tonightIndex, tonight }: LandingWeekProps)
         role="region"
         aria-label={t('label')}
         tabIndex={0}
-        className="-mx-4 overflow-x-auto px-4 pb-2 md:mx-0 md:overflow-visible md:px-0 md:pb-0"
+        // `relative`: the `sr-only` "Cooked" spans are absolute, so without a
+        // positioned scroller they escape the strip and widen the page.
+        className="relative -mx-4 overflow-x-auto px-4 pb-2 md:mx-0 md:overflow-visible md:px-0 md:pb-0"
       >
         <ol role="list" className="flex list-none gap-2 text-left md:grid md:grid-cols-7">
           {WEEK.map((day, index) => {
