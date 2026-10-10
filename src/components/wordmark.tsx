@@ -1,6 +1,25 @@
 import { cn } from '@/lib/utils'
 
 /**
+ * The wordmark's `w` alone: the same outline as the wordmark's first glyph,
+ * the icon's mark (`public/brand/wobblepot-mark.svg`). The header shows it in
+ * the disc the signed-out pill folds into. Decorative: it sits beside the
+ * wordmark inside the same link, which carries the name.
+ */
+export function LogoMark({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="10 -523 767 523"
+      aria-hidden="true"
+      className={cn('h-4 w-auto fill-current', className)}
+    >
+      <path d="M142 0 10 -523H151L231 -114H236L321 -523H471L552 -114H557L642 -523H776L643 0H467L396 -380H391L316 0Z" />
+    </svg>
+  )
+}
+
+/**
  * The Wobblepot wordmark: "wobblepot" in Bricolage Grotesque (opsz 96, wght 640,
  * wdth 100, tracking -0.035em), outlined so the app never loads the face. The
  * viewBox is the ink box, ascender to descender, so the caller sets the height

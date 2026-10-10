@@ -71,7 +71,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The top chrome, rendered at the root layout on every page. It floats: the fixed bar is transparent and lets clicks through, and the chrome sits in bordered pills on it — on `md:` and up the logo with the daily views in one and the settings views with the account menu in the other, the page showing through between them; on a phone one pill across the column with the logo and the account icon at its ends. The skip-to-content link is the first thing in it (visible only when focused). `Header` (the server half) resolves the session and renders this.',
+          'The top chrome, rendered at the root layout on every page. It floats: the fixed bar is transparent and lets clicks through, and the chrome sits in bordered pills on it — on `md:` and up the logo with the daily views in one and the settings views with the account menu in the other, the page showing through between them; on a phone, signed in, one pill across the column with the logo and the account icon at its ends; signed out, the two pills at every width, the logo pill folding to a `w` disc on scroll. The skip-to-content link is the first thing in it (visible only when focused). `Header` (the server half) resolves the session and renders this.',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -105,6 +105,74 @@ export const LoggedOut: Story = {
     )
     // Signed out as signed in: the wordmark is not a heading (HON-806).
     await expect(within(banner).queryByRole('heading')).not.toBeInTheDocument()
+  },
+}
+
+/**
+ * Scrolls, then measures the signed-out fold: the logo's group closes to a
+ * 56px disc at the left edge, with the home link the 44px box centred in it.
+ * `afterFold` runs while scrolled, for what each width adds.
+ */
+async function playLoggedOutScrolled(
+  canvasElement: HTMLElement,
+  afterFold: (banner: HTMLElement) => Promise<void>,
+) {
+  const banner = within(canvasElement).getByRole('banner')
+  const logo = within(banner).getByRole('link', { name: 'Wobblepot' })
+  const disc = logo.parentElement!
+
+  window.scrollTo(0, 400)
+  await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
+  await waitFor(() => expect(Math.round(box(disc).width)).toBe(56), { timeout: 1500 })
+  await expectNear(box(disc).left, 16)
+  await expectNear(box(logo).width, 44)
+  await expectNear(box(logo).left - box(disc).left, box(disc).right - box(logo).right)
+  // Still the way home: folded, not hidden.
+  await expect(logo).toBeVisible()
+  await expect(logo).toHaveAccessibleName('Wobblepot')
+  await afterFold(banner)
+
+  window.scrollTo(0, 0)
+  await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
+}
+
+export const LoggedOutScrolled: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Signed out, scrolled. The phone has two pills from the start, the logo pill and the menu disc. Scrolling closes the logo pill to a 56px disc around the wordmark’s `w`; the menu disc does not change. The play scrolls and measures both discs and the controls centred in them.',
+      },
+    },
+  },
+  play: ({ canvasElement }) =>
+    playLoggedOutScrolled(canvasElement, async (banner) => {
+      const menu = within(banner).getByRole('button', { name: 'User menu' })
+      const disc = menu.parentElement!
+      await waitFor(() => expect(Math.round(box(disc).width)).toBe(56), { timeout: 1500 })
+      // `clientWidth`, not `innerWidth`: the fixed header ends at the
+      // scrollbar, which takes 15px in CI's Chromium and none on macOS.
+      await expectNear(document.documentElement.clientWidth - box(disc).right, 16)
+      await expectNear(box(menu).left - box(disc).left, box(disc).right - box(menu).right)
+    }),
+}
+
+export const DesktopLoggedOutScrolled: Story = {
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Desktop, signed out, scrolled. The logo pill closes to the same 56px disc with the `w`; the right pill keeps Sign in, Sign up and the theme toggle.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await playLoggedOutScrolled(canvasElement, (banner) =>
+      expect(within(banner).getByRole('link', { name: 'Sign in' })).toBeVisible(),
+    )
   },
 }
 
@@ -460,7 +528,7 @@ export const DesktopLoggedOut: Story = {
     const banner = within(canvasElement).getByRole('banner')
     const signIn = within(banner).getByRole('link', { name: 'Sign in' })
     const theme = within(banner).getByRole('button', { name: 'Toggle theme' })
-    const pill = box(signIn.closest('.md\\:rounded-full')!)
+    const pill = box(signIn.closest('.shadow-float')!)
     // 8px padding inside a 1px border, the same at both ends.
     await expectNear(box(signIn).left - pill.left, 9)
     await expectNear(pill.right - box(theme).right, 9)
