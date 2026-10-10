@@ -15,14 +15,19 @@ type Slot = 'left' | 'front' | 'right'
 /**
  * Where each slot puts a card. All three cards share one grid cell at the
  * front card's width, and only transforms move them, so a swap animates
- * without reflowing the text. A side card straightens and grows on hover, to
- * say it moves; the front card lifts.
+ * without reflowing the text. The cards are wide and short, so a side card
+ * must rise above the front card for its badges and name to show. Below `lg`
+ * the column is too narrow to fan, so the side cards stack straight up behind
+ * the front card, breakfast at the back, and each shows its badge row. From
+ * `lg` they fan out to either side, high enough that the name clears the front
+ * card. A side card rises or straightens on hover, to say it moves; the front
+ * card lifts.
  */
 const SLOT_CLASSES: Record<Slot, string> = {
   front: 'z-20 hover:-translate-y-1',
-  left: 'z-0 -translate-x-1/3 -translate-y-10 -rotate-6 scale-75 hover:-rotate-3 hover:scale-80 md:-translate-x-2/3 md:translate-y-6',
+  left: 'z-0 -translate-y-2/3 scale-90 hover:-translate-y-3/4 lg:-translate-x-1/2 lg:-translate-y-3/4 lg:-rotate-4 lg:hover:-translate-y-3/4 lg:hover:-rotate-2 lg:hover:scale-95',
   right:
-    'z-0 translate-x-1/3 -translate-y-10 rotate-6 scale-75 hover:rotate-3 hover:scale-80 md:translate-x-2/3 md:translate-y-6',
+    'z-10 -translate-y-2/5 scale-95 hover:-translate-y-1/2 lg:z-0 lg:translate-x-1/2 lg:-translate-y-3/4 lg:scale-90 lg:rotate-4 lg:hover:-translate-y-3/4 lg:hover:rotate-2 lg:hover:scale-95',
 }
 
 /** The swap's length: the `duration-500` on each card. */
@@ -46,8 +51,7 @@ interface LandingDeckProps {
 }
 
 /**
- * Tonight's dinner in front, breakfast and lunch tilted behind it on either
- * side: the landing page's hero picture (HON-1116).
+ * Tonight's dinner in front, breakfast and lunch behind it: the landing page's hero picture (HON-1116).
  *
  * The deck keeps the live landing's demo (HON-1036) rather than static cards,
  * because opening a real meal in the cook view is the page's one chance to
@@ -61,8 +65,8 @@ interface LandingDeckProps {
  * With no demo day, the three cards are the static showcase: the side cards
  * are decoration (`inert`) and nothing opens.
  *
- * The side cards reach past the column, and on a phone past the screen; the
- * caller clips them at the viewport's edge.
+ * From `lg` the side cards reach past the column; the caller clips them at the
+ * viewport's edge.
  */
 export function LandingDeck({ day, dayLabel }: LandingDeckProps) {
   const t = useTranslations('landing')
@@ -104,7 +108,7 @@ export function LandingDeck({ day, dayLabel }: LandingDeckProps) {
         </Heading>
         {demo && <Body variant="muted">{t('demo.hint')}</Body>}
       </figcaption>
-      <div className="grid pt-8 pb-10 text-left md:pt-0 md:pb-16">
+      <div className="grid pt-20 pb-2 text-left lg:pt-28 lg:pb-6">
         {DOM_ORDER.map((type) => {
           const slot = slotOf(type)
           const demoEntry = demo ? entry(type) : undefined

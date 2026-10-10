@@ -75,9 +75,9 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
     <div className={cn('w-full px-4 py-8 md:py-16', displayFont.variable)}>
       <div className="flex flex-col gap-20 md:gap-32">
         {/* Hero. The gutter is pulled back (`-mx-4 px-4`) and the section
-            clips sideways, so the cards behind tonight's dinner and the week
-            strip run to the screen's edge on a phone rather than stopping at
-            the column. */}
+            clips sideways, so the week strip runs to the screen's edge on a
+            phone, and the fanned cards behind tonight's dinner to the edge
+            of a narrow desktop window, rather than stopping at the column. */}
         <section className="-mx-4 flex flex-col items-center gap-8 overflow-x-clip px-4 text-center md:gap-10">
           <div className="flex max-w-4xl flex-col items-center gap-5 text-balance">
             <Heading variant="hero" face="brand">
