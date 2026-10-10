@@ -150,7 +150,9 @@ export const LoggedOutScrolled: Story = {
       const menu = within(banner).getByRole('button', { name: 'User menu' })
       const disc = menu.parentElement!
       await waitFor(() => expect(Math.round(box(disc).width)).toBe(56), { timeout: 1500 })
-      await expectNear(window.innerWidth - box(disc).right, 16)
+      // `clientWidth`, not `innerWidth`: the fixed header ends at the
+      // scrollbar, which takes 15px in CI's Chromium and none on macOS.
+      await expectNear(document.documentElement.clientWidth - box(disc).right, 16)
       await expectNear(box(menu).left - box(disc).left, box(disc).right - box(menu).right)
     }),
 }
