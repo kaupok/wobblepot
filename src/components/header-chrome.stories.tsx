@@ -108,6 +108,72 @@ export const LoggedOut: Story = {
   },
 }
 
+/**
+ * Scrolls, then measures the signed-out fold: the logo's group closes to a
+ * 56px disc at the left edge, with the home link the 44px box centred in it.
+ * `afterFold` runs while scrolled, for what each width adds.
+ */
+async function playLoggedOutScrolled(
+  canvasElement: HTMLElement,
+  afterFold: (banner: HTMLElement) => Promise<void>,
+) {
+  const banner = within(canvasElement).getByRole('banner')
+  const logo = within(banner).getByRole('link', { name: 'Wobblepot' })
+  const disc = logo.parentElement!
+
+  window.scrollTo(0, 400)
+  await waitFor(() => expect(banner).toHaveAttribute('data-scrolled'))
+  await waitFor(() => expect(Math.round(box(disc).width)).toBe(56), { timeout: 1500 })
+  await expectNear(box(disc).left, 16)
+  await expectNear(box(logo).width, 44)
+  await expectNear(box(logo).left - box(disc).left, box(disc).right - box(logo).right)
+  // Still the way home: folded, not hidden.
+  await expect(logo).toBeVisible()
+  await expect(logo).toHaveAccessibleName('Wobblepot')
+  await afterFold(banner)
+
+  window.scrollTo(0, 0)
+  await waitFor(() => expect(banner).not.toHaveAttribute('data-scrolled'))
+}
+
+export const LoggedOutScrolled: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Signed out, scrolled. The phone has two pills from the start, the logo pill and the menu disc. Scrolling closes the logo pill to a 56px disc around the wordmark’s `w`; the menu disc does not change. The play scrolls and measures both discs and the controls centred in them.',
+      },
+    },
+  },
+  play: ({ canvasElement }) =>
+    playLoggedOutScrolled(canvasElement, async (banner) => {
+      const menu = within(banner).getByRole('button', { name: 'User menu' })
+      const disc = menu.parentElement!
+      await waitFor(() => expect(Math.round(box(disc).width)).toBe(56), { timeout: 1500 })
+      await expectNear(window.innerWidth - box(disc).right, 16)
+      await expectNear(box(menu).left - box(disc).left, box(disc).right - box(menu).right)
+    }),
+}
+
+export const DesktopLoggedOutScrolled: Story = {
+  globals: {
+    viewport: { value: 'desktop', isRotated: false },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Desktop, signed out, scrolled. The logo pill closes to the same 56px disc with the `w`; the right pill keeps Sign in, Sign up and the theme toggle.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await playLoggedOutScrolled(canvasElement, (banner) =>
+      expect(within(banner).getByRole('link', { name: 'Sign in' })).toBeVisible(),
+    )
+  },
+}
+
 export const LoggedIn: Story = {
   args: { session: authedSession, hasHousehold: true },
   play: async ({ canvasElement }) => {
@@ -460,7 +526,7 @@ export const DesktopLoggedOut: Story = {
     const banner = within(canvasElement).getByRole('banner')
     const signIn = within(banner).getByRole('link', { name: 'Sign in' })
     const theme = within(banner).getByRole('button', { name: 'Toggle theme' })
-    const pill = box(signIn.closest('.md\\:rounded-full')!)
+    const pill = box(signIn.closest('.shadow-float')!)
     // 8px padding inside a 1px border, the same at both ends.
     await expectNear(box(signIn).left - pill.left, 9)
     await expectNear(pill.right - box(theme).right, 9)

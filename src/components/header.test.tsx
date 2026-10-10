@@ -376,11 +376,12 @@ describe('Header component', () => {
     expect(header).not.toHaveClass('border-b')
     expect(header).not.toHaveClass('bg-background')
 
-    const pill = screen.getByRole('link', { name: 'Wobblepot' }).closest('.rounded-full')
-    expect(pill).toHaveClass('pointer-events-auto', 'border', 'bg-background', 'shadow-float')
+    // `.shadow-float`, not `.rounded-full`: signed out, the link is round too.
+    const pill = screen.getByRole('link', { name: 'Wobblepot' }).closest('.shadow-float')
+    expect(pill).toHaveClass('pointer-events-auto', 'border', 'bg-background', 'rounded-full')
   })
 
-  it('folds the logo away on scroll, from a data attribute on the banner', async () => {
+  it('folds the signed-out logo to its mark on scroll, from a data attribute on the banner', async () => {
     const { getSession } = await import('@/lib/session')
     vi.mocked(getSession).mockResolvedValue(null)
 
@@ -391,13 +392,23 @@ describe('Header component', () => {
     expect(screen.getByRole('banner')).toHaveClass('group')
     expect(screen.getByRole('banner')).not.toHaveAttribute('data-scrolled')
 
-    const fold = screen.getByRole('link', { name: 'Wobblepot' }).parentElement
-    expect(fold).toHaveClass(
+    // The link stays in reach: it never goes `invisible`. The wordmark folds
+    // inside it, and the `w` opens to the 44px disc.
+    const link = screen.getByRole('link', { name: 'Wobblepot' })
+    expect(link).not.toHaveClass('group-data-scrolled:invisible')
+    const [wordmark, mark] = Array.from(link.children)
+    expect(wordmark).toHaveClass(
       'overflow-hidden',
       'group-data-scrolled:max-w-0',
       'group-data-scrolled:opacity-0',
-      'group-data-scrolled:invisible',
     )
+    expect(wordmark).not.toHaveClass('group-data-scrolled:invisible')
+    expect(mark).toHaveClass('max-w-0', 'opacity-0', 'group-data-scrolled:max-w-11')
+    expect(mark?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+
+    // Two pills from the start: no phone pill around both groups.
+    expect(link.closest('.shadow-float')?.parentElement).toHaveClass('contents')
+    expect(link.closest('.shadow-float')?.parentElement).not.toHaveClass('border')
   })
 
   it('renders the skip link first, labelled from the nav catalog', async () => {
