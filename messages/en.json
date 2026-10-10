@@ -1605,6 +1605,7 @@
     "shoppingHeading": "Shopping list for the week",
     "disclaimer": "This is an example week. Your household's own plan follows its allergies and preferences.",
     "recipeYield": "{servings, number} servings",
+    "saveToPinterest": "Save to Pinterest",
     "households": {
       "family-of-four": "two adults and two children",
       "two-adults-and-a-toddler": "two adults and a toddler",

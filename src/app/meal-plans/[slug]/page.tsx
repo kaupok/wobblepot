@@ -10,6 +10,7 @@ import { SampleShoppingList } from '@/components/meal-plans/SampleShoppingList'
 import { getServerBaseURL } from '@/lib/env'
 import { buildSampleWeek, serializeJsonLd } from '@/lib/meal-plans/build-sample-week'
 import { loadSampleWeek } from '@/lib/meal-plans/load-sample-week'
+import { pinterestSaveUrl, samplePinPath } from '@/lib/meal-plans/pinterest'
 import { findSampleWeek, sampleWeekPath } from '@/lib/meal-plans/sample-weeks'
 
 /**
@@ -57,8 +58,10 @@ export default async function MealPlanPage({ params }: MealPlanPageProps) {
   ])
 
   const title = tMeta('title')
+  const baseUrl = getServerBaseURL()
+  const pageUrl = `${baseUrl}${sampleWeekPath(week.slug)}`
   const view = buildSampleWeek(week, meals, {
-    pageUrl: `${getServerBaseURL()}${sampleWeekPath(week.slug)}`,
+    pageUrl,
     title,
     recipeYield: (servings) => t('recipeYield', { servings }),
     tVague: (key) => tVague(key),
@@ -118,9 +121,26 @@ export default async function MealPlanPage({ params }: MealPlanPageProps) {
 
           <div className="flex max-w-2xl flex-col gap-4">
             <Body variant="muted">{t('disclaimer')}</Body>
-            <Button asChild size="lg" className="w-full md:w-auto md:self-start">
-              <Link href={`/request-invite?ref=${week.ref}`}>{tLanding('cta')}</Link>
-            </Button>
+            <div className="flex flex-col gap-3 md:flex-row">
+              <Button asChild size="lg" className="w-full md:w-auto">
+                <Link href={`/request-invite?ref=${week.ref}`}>{tLanding('cta')}</Link>
+              </Button>
+              {/* A plain link, not Pinterest's script: no third-party code on
+                  the page and no CSP change (HON-1148). */}
+              <Button asChild size="lg" variant="outline" className="w-full md:w-auto">
+                <a
+                  href={pinterestSaveUrl({
+                    pageUrl,
+                    mediaUrl: `${baseUrl}${samplePinPath(week.slug)}`,
+                    description: title,
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t('saveToPinterest')}
+                </a>
+              </Button>
+            </div>
           </div>
         </div>
       </div>

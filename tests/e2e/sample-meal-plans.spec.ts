@@ -1,4 +1,4 @@
-// ROUTES: /meal-plans/[slug], /robots.txt, /sitemap.xml · COMPONENTS: SampleMealCard, SampleShoppingList, src/proxy.ts (PUBLIC_ROUTES)
+// ROUTES: /meal-plans/[slug], /meal-plans/[slug]/pin.png, /robots.txt, /sitemap.xml · COMPONENTS: SampleMealCard, SampleShoppingList, src/proxy.ts (PUBLIC_ROUTES)
 import { test, expect } from '@playwright/test'
 
 /**
@@ -46,6 +46,26 @@ test.describe('Sample meal plans', () => {
     const data = JSON.parse(jsonLd ?? '{}')
     expect(data['@type']).toBe('ItemList')
     expect(data.itemListElement).toHaveLength(7)
+  })
+
+  test('a sample week has a 1000 × 1500 Pinterest image, and the page links to it', async ({
+    page,
+    request,
+  }) => {
+    // The unit test mocks `next/og`; only a live server runs satori and resvg.
+    const pin = await request.get('/meal-plans/family-of-four/pin.png')
+    expect(pin.status()).toBe(200)
+    expect(pin.headers()['content-type']).toBe('image/png')
+    // A PNG's IHDR chunk holds the width and height at bytes 16–23.
+    const png = await pin.body()
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1000, 1500])
+
+    expect((await request.get('/meal-plans/nut-free-week/pin.png')).status()).toBe(404)
+
+    await page.goto('/meal-plans/family-of-four')
+    const save = page.getByRole('link', { name: 'Save to Pinterest' })
+    const href = new URL((await save.getAttribute('href')) ?? '')
+    expect(href.searchParams.get('media')).toMatch(/\/meal-plans\/family-of-four\/pin\.png$/)
   })
 
   test('robots.txt lets crawlers reach the sample weeks, and the sitemap lists them', async ({

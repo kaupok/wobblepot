@@ -169,6 +169,24 @@ describe('/meal-plans/[slug]', () => {
       )
     })
 
+    it('links to Pinterest with the page and its pin image, in a new tab', async () => {
+      await renderPage()
+      const link = screen.getByRole('link', { name: enMessages.mealPlans.saveToPinterest })
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+      const url = new URL(link.getAttribute('href')!)
+      expect(url.origin + url.pathname).toBe('https://www.pinterest.com/pin/create/button/')
+      expect(url.searchParams.get('url')).toBe(
+        'https://wobblepot.com/meal-plans/two-adults-and-a-toddler',
+      )
+      expect(url.searchParams.get('media')).toBe(
+        'https://wobblepot.com/meal-plans/two-adults-and-a-toddler/pin.png',
+      )
+      expect(url.searchParams.get('description')).toBe(
+        'A week of dinners for two adults and a toddler',
+      )
+    })
+
     it('embeds the week as an ItemList of Recipe', async () => {
       const { container } = await renderPage()
       const script = container.querySelector('script[type="application/ld+json"]')
