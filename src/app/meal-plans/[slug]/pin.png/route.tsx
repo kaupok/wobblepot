@@ -33,8 +33,10 @@ const CELL_HEIGHT = Math.round((CELL_WIDTH * 2) / 3)
 
 /**
  * A day, as the loader's cache does: the meals change only on a seed run or an
- * image batch. Replaces `ImageResponse`'s default one-year `immutable`, which
- * would keep a pin without its images after a batch adds them.
+ * image batch. Replaces `next/og`'s default `public, max-age=0,
+ * must-revalidate`, so the CDN keeps the PNG and a crawl does not render it
+ * again. `next/og` merges `headers` with `Headers.set`, so the key's case does
+ * not matter (`next/dist/server/og/image-response.js`).
  */
 const CACHE_CONTROL = 'public, max-age=86400, s-maxage=86400'
 

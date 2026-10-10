@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { ExternalLink } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
@@ -121,26 +122,27 @@ export default async function MealPlanPage({ params }: MealPlanPageProps) {
 
           <div className="flex max-w-2xl flex-col gap-4">
             <Body variant="muted">{t('disclaimer')}</Body>
-            <div className="flex flex-col gap-3 md:flex-row">
-              <Button asChild size="lg" className="w-full md:w-auto">
-                <Link href={`/request-invite?ref=${week.ref}`}>{tLanding('cta')}</Link>
-              </Button>
-              {/* A plain link, not Pinterest's script: no third-party code on
-                  the page and no CSP change (HON-1148). */}
-              <Button asChild size="lg" variant="outline" className="w-full md:w-auto">
-                <a
-                  href={pinterestSaveUrl({
-                    pageUrl,
-                    mediaUrl: `${baseUrl}${samplePinPath(week.slug)}`,
-                    description: title,
-                  })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {t('saveToPinterest')}
-                </a>
-              </Button>
-            </div>
+            <Button asChild size="lg" className="w-full md:w-auto md:self-start">
+              <Link href={`/request-invite?ref=${week.ref}`}>{tLanding('cta')}</Link>
+            </Button>
+            {/* A plain link, not Pinterest's script: no third-party code on
+                the page and no CSP change (HON-1148). A link rather than a
+                second button, so the call to action stays the one button and
+                no button pair has to fit two-up on a phone (docs/DESIGN.md). */}
+            <Button asChild variant="link" className="self-start">
+              <a
+                href={pinterestSaveUrl({
+                  pageUrl,
+                  mediaUrl: `${baseUrl}${samplePinPath(week.slug)}`,
+                  description: title,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t('saveToPinterest')}
+                <ExternalLink aria-hidden="true" />
+              </a>
+            </Button>
           </div>
         </div>
       </div>

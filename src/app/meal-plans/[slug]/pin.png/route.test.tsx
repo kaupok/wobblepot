@@ -92,7 +92,7 @@ describe('GET /meal-plans/[slug]/pin.png', () => {
     },
   )
 
-  it('caches for a day rather than the one-year immutable default', async () => {
+  it('caches for a day rather than the no-cache default', async () => {
     const response = await get('family-of-four')
     expect(response.headers.get('cache-control')).toBe('public, max-age=86400, s-maxage=86400')
   })
