@@ -1,7 +1,11 @@
 import { prisma } from '@/lib/prisma'
 import { IngredientCategory, Unit } from '@/generated/prisma/enums'
 import { getStartOfTodayInTimezone, toDateString } from './dates'
-import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
+import {
+  ingredientTranslationsInclude,
+  translateIngredient,
+  type WithIngredientTranslations,
+} from '@/lib/i18n/content'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 import { getEffectiveServings } from './servings'
 import { loadHouseholdServings } from '@/lib/household'
@@ -56,9 +60,9 @@ export interface GroupedShoppingList {
 }
 
 /**
- * Internal type for tracking needed ingredients during aggregation.
+ * One ingredient's total across the planned meals, before pantry deduction.
  */
-interface NeededIngredient {
+export interface NeededIngredient {
   ingredient: {
     id: string
     name: string
@@ -108,6 +112,83 @@ export function groupByCategory(items: ShoppingListItem[]): GroupedShoppingList[
   result.sort((a, b) => categoryConfig[a.category].order - categoryConfig[b.category].order)
 
   return result
+}
+
+/**
+ * One planned meal's contribution to a shopping list: the day it is cooked,
+ * the servings it is cooked for, and its components.
+ */
+export interface AggregationEntry {
+  date: Date
+  servings: number
+  components: readonly AggregationComponent[]
+}
+
+/** A meal component as the aggregation reads it. */
+export type AggregationComponent = {
+  ingredientId: string
+  quantityPerServing: number
+  isVague: boolean
+  originalPhrase: string | null
+  ingredient: WithIngredientTranslations<NeededIngredient['ingredient']>
+}
+
+/**
+ * Sum each ingredient's quantity across the entries, before any pantry
+ * deduction: `quantityPerServing × servings` per component, the number of
+ * meals that use it, and the earliest day it is needed. A vague component
+ * marks the whole item vague; two different vague phrases become "some".
+ *
+ * Pure, so the shopping list, the rolling window and the public sample weeks
+ * (`src/lib/meal-plans/build-sample-week.ts`) all add up the same way.
+ */
+export function aggregateComponents(
+  entries: readonly AggregationEntry[],
+  locale: Locale,
+): Map<string, NeededIngredient> {
+  const needed = new Map<string, NeededIngredient>()
+
+  for (const entry of entries) {
+    for (const component of entry.components) {
+      const ingredientId = component.ingredientId
+      const qty = component.quantityPerServing * entry.servings
+      const existing = needed.get(ingredientId)
+
+      if (existing) {
+        existing.quantity += qty
+        existing.mealCount += 1
+        // Track earliest date this ingredient is needed
+        if (entry.date < existing.earliestNeededDate) {
+          existing.earliestNeededDate = entry.date
+        }
+        // If any component is vague, mark the whole item as vague
+        if (component.isVague) {
+          if (!existing.isVague) {
+            // First vague component encountered
+            existing.isVague = true
+            existing.originalPhrase = component.originalPhrase
+          } else if (
+            existing.originalPhrase !== MIXED_VAGUE_PHRASE &&
+            !sameVaguePhrase(component.originalPhrase, existing.originalPhrase)
+          ) {
+            // Different vague phrase encountered - use "some" instead
+            existing.originalPhrase = MIXED_VAGUE_PHRASE
+          }
+        }
+      } else {
+        needed.set(ingredientId, {
+          ingredient: translateIngredient(component.ingredient, locale),
+          quantity: qty,
+          mealCount: 1,
+          earliestNeededDate: entry.date,
+          isVague: component.isVague,
+          originalPhrase: component.originalPhrase,
+        })
+      }
+    }
+  }
+
+  return needed
 }
 
 /**
@@ -187,53 +268,22 @@ export async function computeShoppingList(
   // 2. Get the household's servings (its members' portions) for the quantities
   const householdServings = await loadHouseholdServings(householdId)
 
-  // 3. Aggregate quantities per ingredient
-  const needed = new Map<string, NeededIngredient>()
-
-  for (const entry of planEntries) {
-    // Skip entries without a meal (e.g., eating_out entries before status change)
-    if (!entry.meal) continue
-
-    const effectiveServings = getEffectiveServings(entry, householdServings)
-
-    for (const component of entry.meal.components) {
-      const ingredientId = component.ingredientId
-      const qty = component.quantityPerServing * effectiveServings
-      const existing = needed.get(ingredientId)
-
-      if (existing) {
-        existing.quantity += qty
-        existing.mealCount += 1
-        // Track earliest date this ingredient is needed
-        if (entry.date < existing.earliestNeededDate) {
-          existing.earliestNeededDate = entry.date
-        }
-        // If any component is vague, mark the whole item as vague
-        if (component.isVague) {
-          if (!existing.isVague) {
-            // First vague component encountered
-            existing.isVague = true
-            existing.originalPhrase = component.originalPhrase
-          } else if (
-            existing.originalPhrase !== MIXED_VAGUE_PHRASE &&
-            !sameVaguePhrase(component.originalPhrase, existing.originalPhrase)
-          ) {
-            // Different vague phrase encountered - use "some" instead
-            existing.originalPhrase = MIXED_VAGUE_PHRASE
-          }
-        }
-      } else {
-        needed.set(ingredientId, {
-          ingredient: translateIngredient(component.ingredient, locale),
-          quantity: qty,
-          mealCount: 1,
-          earliestNeededDate: entry.date,
-          isVague: component.isVague,
-          originalPhrase: component.originalPhrase,
-        })
-      }
-    }
-  }
+  // 3. Aggregate quantities per ingredient. An entry without a meal (an
+  // eating_out entry before its status change) contributes nothing.
+  const needed = aggregateComponents(
+    planEntries.flatMap((entry) =>
+      entry.meal
+        ? [
+            {
+              date: entry.date,
+              servings: getEffectiveServings(entry, householdServings),
+              components: entry.meal.components,
+            },
+          ]
+        : [],
+    ),
+    locale,
+  )
 
   // 4. Get pantry items
   const pantryItems = await prisma.pantryItem.findMany({
@@ -399,53 +449,22 @@ export async function computeRollingWindowShoppingList(
   // 2. Get the household's servings (its members' portions) for the quantities
   const householdServings = await loadHouseholdServings(householdId)
 
-  // 3. Aggregate quantities per ingredient
-  const needed = new Map<string, NeededIngredient>()
-
-  for (const entry of planEntries) {
-    // Skip entries without a meal (e.g., eating_out entries before status change)
-    if (!entry.meal) continue
-
-    const effectiveServings = getEffectiveServings(entry, householdServings)
-
-    for (const component of entry.meal.components) {
-      const ingredientId = component.ingredientId
-      const qty = component.quantityPerServing * effectiveServings
-      const existing = needed.get(ingredientId)
-
-      if (existing) {
-        existing.quantity += qty
-        existing.mealCount += 1
-        // Track earliest date this ingredient is needed
-        if (entry.date < existing.earliestNeededDate) {
-          existing.earliestNeededDate = entry.date
-        }
-        // If any component is vague, mark the whole item as vague
-        if (component.isVague) {
-          if (!existing.isVague) {
-            // First vague component encountered
-            existing.isVague = true
-            existing.originalPhrase = component.originalPhrase
-          } else if (
-            existing.originalPhrase !== MIXED_VAGUE_PHRASE &&
-            !sameVaguePhrase(component.originalPhrase, existing.originalPhrase)
-          ) {
-            // Different vague phrase encountered - use "some" instead
-            existing.originalPhrase = MIXED_VAGUE_PHRASE
-          }
-        }
-      } else {
-        needed.set(ingredientId, {
-          ingredient: translateIngredient(component.ingredient, locale),
-          quantity: qty,
-          mealCount: 1,
-          earliestNeededDate: entry.date,
-          isVague: component.isVague,
-          originalPhrase: component.originalPhrase,
-        })
-      }
-    }
-  }
+  // 3. Aggregate quantities per ingredient. An entry without a meal (an
+  // eating_out entry before its status change) contributes nothing.
+  const needed = aggregateComponents(
+    planEntries.flatMap((entry) =>
+      entry.meal
+        ? [
+            {
+              date: entry.date,
+              servings: getEffectiveServings(entry, householdServings),
+              components: entry.meal.components,
+            },
+          ]
+        : [],
+    ),
+    locale,
+  )
 
   // 4. Get pantry items
   const pantryItems = await prisma.pantryItem.findMany({

@@ -8,6 +8,7 @@ import { isMembershipConflict, runHouseholdClaim } from '@/lib/household-claim'
 import { captureApiError } from '@/lib/errors'
 import { shouldSkipLocalCapture } from '@/lib/release'
 import { seedDefaultStaples } from '@/lib/meal-planning/default-staples'
+import { PORTION_BY_TYPE } from '@/lib/meal-planning/servings'
 
 /**
  * Upper bound on the `members` array, which is the *additional* members beyond
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
           await tx.memberPreferences.create({
             data: {
               memberId: newMember.id,
-              portionMultiplier: member.portionType === 'child' ? 0.5 : 1.0,
+              portionMultiplier: PORTION_BY_TYPE[member.portionType],
             },
           })
         }
