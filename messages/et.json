@@ -17,6 +17,32 @@
     },
     "manifest": {
       "description": "Õhtusöök otsustatud, terveks nädalaks. Wobblepot koostab pere söögiplaani selle järgi, kes sööb, mida välditakse ja mis on sahvris."
+    },
+    "mealPlans": {
+      "family-of-four": {
+        "title": "Nädala õhtusöögid neljaliikmelisele perele",
+        "description": "Näidisnädal: seitse pere õhtusööki kahele täiskasvanule ja kahele lapsele. Kõik kogused on arvutatud ja nädala ostunimekiri on üks."
+      },
+      "two-adults-and-a-toddler": {
+        "title": "Nädala õhtusöögid kahele täiskasvanule ja väikelapsele",
+        "description": "Seitse lapsesõbralikku õhtusööki kahele täiskasvanule ja väikelapsele. Kogused arvestavad väikelapse väiksemat portsjonit ja nädala ostunimekiri on üks."
+      },
+      "one-adult-two-kids": {
+        "title": "Nädala õhtusöögid ühele täiskasvanule ja kahele lapsele",
+        "description": "Seitse lapsesõbralikku õhtusööki ühele täiskasvanule ja kahele lapsele. Iga toit valmib kuni 45 minutiga ja nädala ostunimekiri on üks."
+      },
+      "thirty-minute-dinners": {
+        "title": "Seitse pere õhtusööki kuni 30 minutiga",
+        "description": "Seitse pere õhtusööki, mis valmivad kuni 30 minutiga. Kogused on kahele täiskasvanule ja kahele lapsele ning nädala ostunimekiri on üks."
+      },
+      "vegetarian-week": {
+        "title": "Nädala taimetoidust õhtusöögid perele",
+        "description": "Seitse taimetoidust pere õhtusööki ilma liha ja kalata. Kogused on kahele täiskasvanule ja kahele lapsele ning nädala ostunimekiri on üks."
+      },
+      "kid-friendly-week": {
+        "title": "Nädala lapsesõbralikud õhtusöögid",
+        "description": "Seitse lapsesõbralikku pere õhtusööki. Kogused on kahele täiskasvanule ja kahele lapsele ning nädala ostunimekiri on üks."
+      }
     }
   },
   "dates": {
@@ -1570,6 +1596,22 @@
       "confirmedBody": "Saadame sulle e-kirja valitud päeval, kui järgmiseks nädalaks pole ühtegi toidukorda planeeritud. Päeva saad muuta <link>leibkonna lehel</link>.",
       "expiredTitle": "See link on aegunud",
       "expiredBody": "Link kehtib {days} päeva ja ainult siis, kui meeldetuletus on sees. Uue lingi saamiseks lülita meeldetuletus <link>leibkonna lehel</link> välja ja uuesti sisse."
+    }
+  },
+  "mealPlans": {
+    "lead": "Allolevad kogused on arvestatud {household}: iga õhtusöök on {servings, number} portsjonit.",
+    "weekHeading": "Nädala õhtusöögid",
+    "ingredientsLabel": "Koostisosad: {meal}",
+    "shoppingHeading": "Nädala ostunimekiri",
+    "disclaimer": "See on näidisnädal. Teie leibkonna oma plaan arvestab tema allergiate ja eelistustega.",
+    "recipeYield": "{servings, number} portsjonit",
+    "households": {
+      "family-of-four": "kahele täiskasvanule ja kahele lapsele",
+      "two-adults-and-a-toddler": "kahele täiskasvanule ja väikelapsele",
+      "one-adult-two-kids": "ühele täiskasvanule ja kahele lapsele",
+      "thirty-minute-dinners": "kahele täiskasvanule ja kahele lapsele",
+      "vegetarian-week": "kahele täiskasvanule ja kahele lapsele",
+      "kid-friendly-week": "kahele täiskasvanule ja kahele lapsele"
     }
   }
 }

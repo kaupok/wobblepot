@@ -22,11 +22,11 @@ type MealTranslationFields = {
   preparationNotes: string | null
 }
 
-type WithIngredientTranslations<T> = T & {
+export type WithIngredientTranslations<T> = T & {
   translations?: IngredientTranslationFields[]
 }
 
-type WithMealTranslations<T> = T & {
+export type WithMealTranslations<T> = T & {
   translations?: MealTranslationFields[]
 }
 

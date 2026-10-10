@@ -10,6 +10,8 @@ import {
   mealTranslationsInclude,
   translateIngredient,
   translateMeal,
+  type WithIngredientTranslations,
+  type WithMealTranslations,
 } from '@/lib/i18n/content'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales'
 import { stepsInputHash } from './steps-input-hash'
@@ -90,6 +92,49 @@ function pickDay<
   return picked
 }
 
+/** What `freshStepsRow` reads from a library meal loaded with its steps. */
+type MealWithStepsRows<Row> = WithMealTranslations<{ name: string }> & {
+  timeMinutes: number | null
+  preparationSteps: readonly Row[]
+  components: readonly {
+    quantityPerServing: number
+    ingredient: WithIngredientTranslations<{
+      name: string
+      defaultUnit: string
+      measuredByVolume: boolean
+    }>
+  }[]
+}
+
+/**
+ * The meal's stored steps row in `rowLocale`, or null when there is none or it
+ * is stale. Fresh means written from the inputs the prompt would read now, in
+ * the row's own locale: the English row is checked against the English names.
+ * The landing demo and the public sample weeks (`src/lib/meal-plans`) both
+ * read steps through this.
+ */
+export function freshStepsRow<Row extends { locale: string; servings: number; inputHash: string }>(
+  meal: MealWithStepsRows<Row>,
+  rowLocale: string,
+): Row | null {
+  const row = meal.preparationSteps.find((candidate) => candidate.locale === rowLocale)
+  if (!row) return null
+  const shown = translateMeal(meal, rowLocale)
+  const expected = stepsInputHash({
+    mealName: shown.name,
+    servings: row.servings,
+    timeMinutes: meal.timeMinutes,
+    components: meal.components.map((comp) => ({
+      name: translateIngredient(comp.ingredient, rowLocale).name,
+      quantityPerServing: comp.quantityPerServing,
+      defaultUnit: comp.ingredient.defaultUnit,
+      measuredByVolume: comp.ingredient.measuredByVolume,
+    })),
+    locale: rowLocale,
+  })
+  return row.inputHash === expected ? row : null
+}
+
 /**
  * Today's three meals for the signed-out home page: library meals with a
  * ready illustration and steps written ahead of time (`pnpm steps:library`,
@@ -127,27 +172,7 @@ export async function loadDemoDay({
   const prepared = meals.flatMap((meal) => {
     const image = presentMealImage(meal)
     if (image.imageStatus !== 'ready') return []
-    // Fresh means written from the inputs the prompt would read now, in the
-    // row's own locale: the English row is checked against the English names.
-    const freshRow = (rowLocale: string) => {
-      const row = meal.preparationSteps.find((candidate) => candidate.locale === rowLocale)
-      if (!row) return null
-      const shown = translateMeal(meal, rowLocale)
-      const expected = stepsInputHash({
-        mealName: shown.name,
-        servings: row.servings,
-        timeMinutes: meal.timeMinutes,
-        components: meal.components.map((comp) => ({
-          name: translateIngredient(comp.ingredient, rowLocale).name,
-          quantityPerServing: comp.quantityPerServing,
-          defaultUnit: comp.ingredient.defaultUnit,
-          measuredByVolume: comp.ingredient.measuredByVolume,
-        })),
-        locale: rowLocale,
-      })
-      return row.inputHash === expected ? row : null
-    }
-    const row = freshRow(locale) ?? freshRow(DEFAULT_LOCALE)
+    const row = freshStepsRow(meal, locale) ?? freshStepsRow(meal, DEFAULT_LOCALE)
     if (!row) return []
     const steps = parsePreparationSteps(row.steps)
     if (!steps) return []

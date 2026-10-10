@@ -91,6 +91,11 @@ export const PUBLIC_ROUTES = [
     path: '/meal-plan',
     reason: 'Legacy path that redirect()s unconditionally, before any Suspense boundary',
   },
+  {
+    path: '/meal-plans',
+    reason:
+      'Public sample meal plans for search and sharing; they read no session and link to /request-invite (HON-1085)',
+  },
 ] as const satisfies readonly { path: `/${string}`; reason: string }[]
 
 /**

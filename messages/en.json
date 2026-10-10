@@ -17,6 +17,32 @@
     },
     "manifest": {
       "description": "Dinner, decided, for the whole week. Wobblepot plans your family's meals around who's eating, what they avoid and what's in the pantry."
+    },
+    "mealPlans": {
+      "family-of-four": {
+        "title": "A week of dinners for a family of four",
+        "description": "An example week of seven family dinners for two adults and two children, with every quantity scaled and one shopping list for the week."
+      },
+      "two-adults-and-a-toddler": {
+        "title": "A week of dinners for two adults and a toddler",
+        "description": "Seven kid-friendly dinners for two adults and a toddler, with quantities scaled to a toddler's smaller portion and one shopping list for the week."
+      },
+      "one-adult-two-kids": {
+        "title": "A week of dinners for one adult and two kids",
+        "description": "Seven kid-friendly dinners for one adult and two kids, each ready in 45 minutes or less, with one shopping list for the week."
+      },
+      "thirty-minute-dinners": {
+        "title": "Seven family dinners in 30 minutes or less",
+        "description": "Seven family dinners that each take 30 minutes or less, scaled for two adults and two children, with one shopping list for the week."
+      },
+      "vegetarian-week": {
+        "title": "A week of vegetarian family dinners",
+        "description": "Seven vegetarian family dinners with no meat or fish, scaled for two adults and two children, with one shopping list for the week."
+      },
+      "kid-friendly-week": {
+        "title": "A week of kid-friendly dinners",
+        "description": "Seven kid-friendly family dinners, scaled for two adults and two children, with one shopping list for the week."
+      }
     }
   },
   "dates": {
@@ -1570,6 +1596,22 @@
       "confirmedBody": "We email you on the day you chose, when next week has no meals planned. You can change the day on the <link>Household page</link>.",
       "expiredTitle": "This link has expired",
       "expiredBody": "The link works for {days} days, and only while the reminder is on. To get a new link, switch the reminder off and on again on the <link>Household page</link>."
+    }
+  },
+  "mealPlans": {
+    "lead": "The quantities below are for {household}: {servings, number} servings at each dinner.",
+    "weekHeading": "The week's dinners",
+    "ingredientsLabel": "Ingredients: {meal}",
+    "shoppingHeading": "Shopping list for the week",
+    "disclaimer": "This is an example week. Your household's own plan follows its allergies and preferences.",
+    "recipeYield": "{servings, number} servings",
+    "households": {
+      "family-of-four": "two adults and two children",
+      "two-adults-and-a-toddler": "two adults and a toddler",
+      "one-adult-two-kids": "one adult and two children",
+      "thirty-minute-dinners": "two adults and two children",
+      "vegetarian-week": "two adults and two children",
+      "kid-friendly-week": "two adults and two children"
     }
   }
 }

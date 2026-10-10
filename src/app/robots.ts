@@ -15,12 +15,15 @@ export default function robots(): MetadataRoute.Robots {
           '/request-invite',
           '/bot',
           '/status',
+          '/meal-plans',
         ],
         disallow: [
           '/api',
           '/profile',
           '/household',
-          '/meal-plan',
+          // The trailing slash: a bare '/meal-plan' prefix also blocks the
+          // public '/meal-plans' pages (HON-1085).
+          '/meal-plan/',
           '/pantry',
           '/shopping',
           '/onboarding',

@@ -10,7 +10,7 @@ describe('sitemap', () => {
     const { default: sitemap } = await import('./sitemap')
     const result = sitemap()
 
-    expect(result).toHaveLength(5)
+    expect(result).toHaveLength(11)
     expect(result[0]).toMatchObject({
       url: 'https://wobblepot.com',
       changeFrequency: 'weekly',
@@ -51,6 +51,23 @@ describe('sitemap', () => {
     expect(result[2]!.lastModified).toEqual(new Date(POLICY_LAST_UPDATED))
     expect(result[3]!.lastModified).toEqual(new Date(POLICY_LAST_UPDATED))
     expect(result[4]!.lastModified).toEqual(new Date(POLICY_LAST_UPDATED))
+  })
+
+  it('lists the six sample meal plans (HON-1085)', async () => {
+    const { default: sitemap } = await import('./sitemap')
+    const result = sitemap()
+
+    expect(result.slice(5).map((entry) => entry.url)).toEqual([
+      'https://wobblepot.com/meal-plans/family-of-four',
+      'https://wobblepot.com/meal-plans/two-adults-and-a-toddler',
+      'https://wobblepot.com/meal-plans/one-adult-two-kids',
+      'https://wobblepot.com/meal-plans/thirty-minute-dinners',
+      'https://wobblepot.com/meal-plans/vegetarian-week',
+      'https://wobblepot.com/meal-plans/kid-friendly-week',
+    ])
+    for (const entry of result.slice(5)) {
+      expect(entry).toMatchObject({ changeFrequency: 'monthly', priority: 0.8 })
+    }
   })
 
   it('includes lastModified as a Date', async () => {

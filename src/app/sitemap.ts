@@ -1,6 +1,11 @@
 import type { MetadataRoute } from 'next'
 import { POLICY_LAST_UPDATED } from '@/lib/consent'
 import { getServerBaseURL } from '@/lib/env'
+import {
+  SAMPLE_WEEKS,
+  SAMPLE_WEEKS_LAST_UPDATED,
+  sampleWeekPath,
+} from '@/lib/meal-plans/sample-weeks'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = getServerBaseURL()
@@ -39,5 +44,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'yearly',
       priority: 0.5,
     },
+    // The public sample meal plans (HON-1085): hand-picked content that
+    // changes only when a week's meals do.
+    ...SAMPLE_WEEKS.map((week) => ({
+      url: `${baseUrl}${sampleWeekPath(week.slug)}`,
+      lastModified: new Date(SAMPLE_WEEKS_LAST_UPDATED),
+      changeFrequency: 'monthly' as const,
+      priority: 0.8,
+    })),
   ]
 }

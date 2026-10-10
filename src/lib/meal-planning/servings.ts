@@ -1,4 +1,12 @@
 /**
+ * The portion size a new member starts with, by the portion type the
+ * household form offers: a child eats half an adult's serving. The household
+ * API writes these (`src/app/api/households/route.ts`), and the public sample
+ * weeks scale their quantities with them (`src/lib/meal-plans/sample-weeks.ts`).
+ */
+export const PORTION_BY_TYPE = { adult: 1, child: 0.5 } as const
+
+/**
  * How many servings a household cooks for when an entry carries no override:
  * the sum of its members' portion sizes, rounded to the nearest 0.5, at least 1.
  *
