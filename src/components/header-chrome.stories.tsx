@@ -71,7 +71,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The top chrome, rendered at the root layout on every page. It floats: the fixed bar is transparent and lets clicks through, and the chrome sits in bordered pills on it — on `md:` and up the logo with the daily views in one and the settings views with the account menu in the other, the page showing through between them; on a phone one pill across the column with the logo and the account icon at its ends. The skip-to-content link is the first thing in it (visible only when focused). `Header` (the server half) resolves the session and renders this.',
+          'The top chrome, rendered at the root layout on every page. It floats: the fixed bar is transparent and lets clicks through, and the chrome sits in bordered pills on it — on `md:` and up the logo with the daily views in one and the settings views with the account menu in the other, the page showing through between them; on a phone, signed in, one pill across the column with the logo and the account icon at its ends; signed out, the two pills at every width, the logo pill folding to a `w` disc on scroll. The skip-to-content link is the first thing in it (visible only when focused). `Header` (the server half) resolves the session and renders this.',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
