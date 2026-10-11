@@ -31,8 +31,10 @@ const ROUTE = '/api/mcp'
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  // `Mcp-Method` and `Mcp-Name` ride on every 2026-07-28 request; the SDK
+  // refuses a request without them.
   'Access-Control-Allow-Headers':
-    'Authorization, Content-Type, Accept, MCP-Protocol-Version, Mcp-Session-Id',
+    'Authorization, Content-Type, Accept, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Mcp-Session-Id',
   'Access-Control-Expose-Headers': 'WWW-Authenticate, MCP-Protocol-Version',
   'Access-Control-Max-Age': '86400',
 } as const

@@ -284,7 +284,13 @@ describe('/api/mcp', () => {
 
     expect(response.status).toBe(204)
     expect(response.headers.get('access-control-allow-origin')).toBe('*')
-    expect(response.headers.get('access-control-allow-headers')).toContain('Authorization')
-    expect(response.headers.get('access-control-allow-headers')).toContain('MCP-Protocol-Version')
+    const allowed = response.headers
+      .get('access-control-allow-headers')!
+      .split(',')
+      .map((name) => name.trim().toLowerCase())
+    // Every header a 2026-07-28 request carries that is not CORS-safelisted.
+    for (const name of ['authorization', 'mcp-protocol-version', 'mcp-method', 'mcp-name']) {
+      expect(allowed, name).toContain(name)
+    }
   })
 })
