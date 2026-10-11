@@ -66,7 +66,11 @@ export default function PrivacyPage() {
             </Body>
           </Li>
           <Li>
-            <Body>We never sell your data, and analytics only runs if you opt in.</Body>
+            <Body>
+              We never sell your data. Analytics cookies stay off until you opt in. Without them,
+              our servers still send our analytics processor a few service records, such as each
+              request a connected AI assistant makes.
+            </Body>
           </Li>
           <Li>
             <Body>
@@ -127,8 +131,8 @@ export default function PrivacyPage() {
           <Li>
             <Body>
               Connected AI assistants: which assistants you allowed to read your household data,
-              what you allowed each one to do, and the access tokens it uses — only if you connect
-              one (see{' '}
+              what you allowed each one to do, the access tokens it uses, and a record of each
+              request it makes — only if you connect one (see{' '}
               <a className="underline" href="#ai-assistants">
                 Connected AI assistants
               </a>
@@ -137,7 +141,8 @@ export default function PrivacyPage() {
           </Li>
           <Li>
             <Body>
-              Usage analytics and error reports — only if you accept analytics cookies (see{' '}
+              Usage analytics and error reports from your browser — only if you accept analytics
+              cookies (see{' '}
               <a className="underline" href="#cookies">
                 Cookies
               </a>
@@ -159,10 +164,10 @@ export default function PrivacyPage() {
           </Li>
           <Li>
             <Body>
-              <strong>Consent</strong> (Art. 6(1)(a)): product analytics and error tracking, which
-              stay off until you accept analytics cookies, and keeping your place on the invite list
-              after you confirm your email. You can withdraw analytics consent at any time from the
-              cookie settings in the footer, and leave the invite list by emailing{' '}
+              <strong>Consent</strong> (Art. 6(1)(a)): product analytics and error tracking in your
+              browser, which stay off until you accept analytics cookies, and keeping your place on
+              the invite list after you confirm your email. You can withdraw analytics consent at
+              any time from the cookie settings in the footer, and leave the invite list by emailing{' '}
               <a className="underline" href={PRIVACY_EMAIL_HREF}>
                 {PRIVACY_EMAIL}
               </a>
@@ -237,10 +242,11 @@ export default function PrivacyPage() {
         <Body>
           We use five processors: Anthropic, PBC for AI meal planning, Resend (Plus Five Five, Inc.)
           for transactional email, Vercel Inc. for hosting, Neon (a Databricks company) for the
-          database, and PostHog, Inc. for product analytics and error tracking — the latter active
-          only after you accept analytics cookies. All five involve a transfer to the United States
-          covered by appropriate safeguards, and we have a data processing agreement with every one
-          of them.
+          database, and PostHog, Inc. for product analytics and error tracking — in your browser
+          active only after you accept analytics cookies. Records our servers send PostHog, such as
+          each request a connected AI assistant makes, do not depend on cookies. All five involve a
+          transfer to the United States covered by appropriate safeguards, and we have a data
+          processing agreement with every one of them.
         </Body>
         <Body>
           An AI assistant you connect to Wobblepot is not on this list: it receives data on your

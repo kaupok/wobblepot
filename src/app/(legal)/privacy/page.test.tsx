@@ -62,8 +62,10 @@ describe('PrivacyPage', () => {
     const text = renderedText()
     expect(text).toContain('transfer to the United States')
     expect(text).toContain('data processing agreement with every one of them')
-    // PostHog is consent-gated (HON-462)
-    expect(text).toContain('active only after you accept analytics cookies')
+    // PostHog in the browser is consent-gated (HON-462); server-side records,
+    // such as MCP tool calls, are not, and the policy says so (HON-1161).
+    expect(text).toContain('in your browser active only after you accept analytics cookies')
+    expect(text).toContain('each request a connected AI assistant makes, do not depend on cookies')
   })
 
   it('states all retention numbers from the issue scope', () => {
