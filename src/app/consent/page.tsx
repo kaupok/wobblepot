@@ -40,7 +40,7 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
         <ConsentCard
           status="ready"
           clientName={request.clientName}
-          redirectHost={request.redirectHost}
+          redirectTarget={request.redirectTarget}
           householdName={request.householdName}
           scopes={request.scopes}
         />

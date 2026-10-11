@@ -28,7 +28,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The `/consent` step when an MCP client such as Claude connects to Wobblepot (HON-1150). It names the app, the host that receives the answer and the household, lists what the app can do in plain words, and sends Allow or Deny to the OAuth provider. On success the auth client sends the browser back to the app; on an error the card shows catalog copy and returns focus to the button.',
+          'The `/consent` step when an MCP client such as Claude connects to Wobblepot (HON-1150). It names the app, where the answer goes (a host, or the scheme of a native app) and the household, lists what the app can do in plain words, and sends Allow or Deny to the OAuth provider. On success the auth client sends the browser back to the app; on an error the card shows catalog copy and returns focus to the button.',
       },
     },
     msw: { handlers: [pendingConsent] },
@@ -36,7 +36,7 @@ const meta = {
   args: {
     status: 'ready',
     clientName: 'Claude',
-    redirectHost: 'claude.ai',
+    redirectTarget: 'claude.ai',
     householdName: 'Kõrvid',
     scopes: ['mcp:read', 'openid', 'profile', 'offline_access'],
   },
@@ -51,8 +51,20 @@ export const UnnamedApp: Story = {
   args: { clientName: null },
 }
 
+export const NativeApp: Story = {
+  args: { clientName: 'Example desktop app', redirectTarget: 'com.example.app' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "A native client's private-use redirect URI (`com.example.app:/callback`) has no host, so the card names its scheme.",
+      },
+    },
+  },
+}
+
 export const LookAlikeName: Story = {
-  args: { clientName: 'Claude', redirectHost: 'claude-connect.example' },
+  args: { clientName: 'Claude', redirectTarget: 'claude-connect.example' },
   parameters: {
     docs: {
       description: {

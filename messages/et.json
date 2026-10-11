@@ -983,7 +983,7 @@
       "titleUnnamed": "Kas ühendada see rakendus?",
       "description": "{clientName} küsib ligipääsu sinu Wobblepoti kontole.",
       "descriptionUnnamed": "Üks rakendus küsib ligipääsu sinu Wobblepoti kontole.",
-      "redirectsTo": "Sinu vastus saadetakse aadressile {host}.",
+      "redirectsTo": "Sinu vastus saadetakse aadressile {target}.",
       "household": "Leibkond: {householdName}",
       "scopesHeading": "See saab:",
       "scopes": {

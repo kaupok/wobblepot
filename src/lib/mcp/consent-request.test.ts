@@ -20,6 +20,7 @@ import { prisma } from '@/lib/prisma'
 import {
   isSignedOAuthRequest,
   loadConsentRequest,
+  redirectTargetOf,
   signedOAuthQuery,
   toSearchParams,
 } from './consent-request'
@@ -64,7 +65,7 @@ describe('loadConsentRequest', () => {
     expect(request).toEqual({
       status: 'ready',
       clientName: 'Claude',
-      redirectHost: 'claude.ai',
+      redirectTarget: 'claude.ai',
       householdName: 'Kõrvid',
       scopes: ['mcp:read', 'openid', 'offline_access'],
     })
@@ -91,6 +92,15 @@ describe('loadConsentRequest', () => {
       { status: 'invalid' },
     )
     expect(verifyOAuthQueryParams).not.toHaveBeenCalled()
+  })
+
+  it('accepts a native client whose private-use redirect URI has no host', async () => {
+    const native = new URLSearchParams(SIGNED)
+    native.set('redirect_uri', 'com.example.app:/oauth/callback')
+    expect(await loadConsentRequest(native, 'user-1')).toMatchObject({
+      status: 'ready',
+      redirectTarget: 'com.example.app',
+    })
   })
 
   it('is invalid when the signed query has no usable redirect_uri', async () => {
@@ -153,5 +163,21 @@ describe('toSearchParams', () => {
     expect(search.getAll('ba_param')).toEqual(['a', 'b'])
     expect(search.get('sig')).toBe('s')
     expect(search.has('empty')).toBe(false)
+  })
+})
+
+describe('redirectTargetOf', () => {
+  it('is the host of a web or loopback redirect URI', () => {
+    expect(redirectTargetOf('https://claude.ai/api/mcp/auth_callback')).toBe('claude.ai')
+    expect(redirectTargetOf('http://127.0.0.1:33418/callback')).toBe('127.0.0.1:33418')
+  })
+
+  it("is the scheme of a native client's private-use URI, which has no host", () => {
+    expect(redirectTargetOf('com.example.app:/oauth/callback')).toBe('com.example.app')
+  })
+
+  it('is null for a missing or unparseable value', () => {
+    expect(redirectTargetOf(null)).toBeNull()
+    expect(redirectTargetOf('not a url')).toBeNull()
   })
 })

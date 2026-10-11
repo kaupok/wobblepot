@@ -33,7 +33,7 @@ function renderCard(node: ReactNode, locale: 'en' | 'et' = 'en') {
 const READY = {
   status: 'ready' as const,
   clientName: 'Claude',
-  redirectHost: 'claude.ai',
+  redirectTarget: 'claude.ai',
   householdName: 'Kõrvid',
   scopes: ['mcp:read' as const, 'openid' as const, 'offline_access' as const],
 }

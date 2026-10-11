@@ -37,10 +37,17 @@ export function signedOAuthQuery(search: URLSearchParams): string | null {
   return signed.toString()
 }
 
-function hostOf(url: string | null): string | null {
+/**
+ * Where the provider sends the answer, for the consent card: the host of an
+ * `https` or loopback redirect URI, or the scheme of a native client's
+ * private-use URI (`com.example.app:/callback` has no host, and the scheme
+ * names the app the system hands the answer to). Null when it is not a URL.
+ */
+export function redirectTargetOf(url: string | null): string | null {
   if (!url) return null
   try {
-    return new URL(url).host || null
+    const parsed = new URL(url)
+    return parsed.host || parsed.protocol.replace(/:$/, '') || null
   } catch {
     return null
   }
@@ -66,11 +73,11 @@ export type ConsentRequest =
       /** The client's self-declared `client_name`; null when it sent none. */
       clientName: string | null
       /**
-       * Host of the signed `redirect_uri`, where the code goes on Allow. The
-       * name is self-declared and registration is open, so the host is what
-       * tells a real connector from a look-alike.
+       * Where the answer goes, from the signed `redirect_uri` (see
+       * `redirectTargetOf`). The name is self-declared and registration is
+       * open, so this is what tells a real connector from a look-alike.
        */
-      redirectHost: string
+      redirectTarget: string
       householdName: string | null
       scopes: McpScope[]
     }
@@ -97,9 +104,9 @@ export async function loadConsentRequest(
   const signed = new URLSearchParams(query)
   const clientId = signed.get('client_id')
   // The authorize endpoint matched `redirect_uri` against the client's
-  // registration before it signed the query, so the host is trustworthy here.
-  const redirectHost = hostOf(signed.get('redirect_uri'))
-  if (!clientId || !redirectHost) return { status: 'invalid' }
+  // registration before it signed the query, so the target is trustworthy here.
+  const redirectTarget = redirectTargetOf(signed.get('redirect_uri'))
+  if (!clientId || !redirectTarget) return { status: 'invalid' }
 
   const [client, membership] = await Promise.all([
     prisma.oauthClient.findUnique({
@@ -116,7 +123,7 @@ export async function loadConsentRequest(
   return {
     status: 'ready',
     clientName: client.name?.trim() || null,
-    redirectHost,
+    redirectTarget,
     householdName: membership?.household.name ?? null,
     scopes: knownScopes(signed.get('scope')),
   }
