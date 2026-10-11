@@ -56,6 +56,12 @@ describe('ConsentCard', () => {
       'Confirm that it is you.',
       'Stay connected, so you do not need to allow it again.',
     ])
+    // Tool-call analytics are server-side, outside the cookie banner (HON-1151).
+    expect(
+      screen.getByText(
+        'Wobblepot records each request it makes: which tool, how long it took and the reason the assistant gave. It does not record what it reads.',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('renders Estonian copy', () => {

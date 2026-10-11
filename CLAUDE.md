@@ -432,6 +432,7 @@ The documents in the Documentation Structure table at the top, plus:
 | [docs/RUNBOOKS/](docs/RUNBOOKS/)                       | Breach notification, database recovery, DSR intake, GDPR deletion, Neon branch cleanup, status page, translation maintenance |
 | [compliance/README.md](compliance/README.md)           | DPAs, the DPIA, subprocessors                                                                                                |
 | [docs/MCP_SETUP.md](docs/MCP_SETUP.md)                 | MCP server configuration and troubleshooting                                                                                 |
+| [docs/MCP_SERVER.md](docs/MCP_SERVER.md)               | The Wobblepot MCP server at `/api/mcp`: tools, auth flow, local testing, threat model                                        |
 | [docs/CHROME_TESTING.md](docs/CHROME_TESTING.md)       | Browser testing with Chrome extension                                                                                        |
 
 <!-- BEGIN:nextjs-agent-rules -->

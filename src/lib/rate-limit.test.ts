@@ -71,6 +71,7 @@ describe('rate-limit', () => {
         'data-export',
         'forgot-password',
         'household-leave',
+        'mcp',
         'meal-image',
         'meal-imagination',
         'meal-prep-tips',
@@ -83,6 +84,10 @@ describe('rate-limit', () => {
         'sign-up',
         'waitlist',
       ])
+    })
+
+    it('configures mcp at 120 tool calls per hour per household (HON-1151)', () => {
+      expect(RATE_LIMIT_CONFIG.mcp).toEqual({ limit: 120, window: '1 h', dimension: 'household' })
     })
 
     it('configures household-leave at 3 per 30 days per user (HON-1133)', () => {

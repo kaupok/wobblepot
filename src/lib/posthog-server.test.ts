@@ -28,6 +28,7 @@ describe('posthog-server', () => {
     constructorSpy.mockClear()
     shutdownSpy.mockClear()
     delete (globalThis as { posthog?: unknown }).posthog
+    delete (globalThis as { posthogMcp?: unknown }).posthogMcp
     delete process.env.NEXT_PUBLIC_POSTHOG_KEY
     delete process.env.NEXT_PUBLIC_POSTHOG_HOST
     delete process.env.VERCEL
@@ -44,6 +45,7 @@ describe('posthog-server', () => {
   afterEach(() => {
     processOnceSpy.mockRestore()
     delete (globalThis as { posthog?: unknown }).posthog
+    delete (globalThis as { posthogMcp?: unknown }).posthogMcp
     delete process.env.NEXT_PUBLIC_POSTHOG_KEY
     delete process.env.NEXT_PUBLIC_POSTHOG_HOST
     delete process.env.VERCEL
@@ -252,5 +254,35 @@ describe('posthog-server', () => {
 
     const opts = constructorSpy.mock.calls[0]![1] as { before_send: (event: unknown) => unknown }
     expect(opts.before_send(null)).toBeNull()
+  })
+  it('gives MCP analytics its own client, so @posthog/mcp cannot relabel the shared one', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+
+    const { getPosthogServer, getPosthogMcpServer } = await import('@/lib/posthog-server')
+    const shared = getPosthogServer()
+    const mcp = getPosthogMcpServer()
+
+    expect(mcp).not.toBeNull()
+    expect(mcp).not.toBe(shared)
+    // One instance each, reused on later calls.
+    expect(getPosthogMcpServer()).toBe(mcp)
+    expect(constructorSpy).toHaveBeenCalledTimes(2)
+    // Same project and the same flush and sanitiser options. `before_send` is
+    // a closure per client, so it is compared by kind.
+    const [sharedKey, sharedOptions] = constructorSpy.mock.calls[0]!
+    expect(constructorSpy.mock.calls[1]).toEqual([
+      sharedKey,
+      { ...sharedOptions, before_send: expect.any(Function) },
+    ])
+  })
+
+  it('returns no MCP client under Vitest either', async () => {
+    vi.stubEnv('VITEST', 'true')
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com'
+
+    const { getPosthogMcpServer } = await import('@/lib/posthog-server')
+    expect(getPosthogMcpServer()).toBeNull()
   })
 })
