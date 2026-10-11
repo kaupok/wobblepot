@@ -68,16 +68,19 @@ test.describe('Sample meal plans', () => {
     expect(href.searchParams.get('media')).toMatch(/\/meal-plans\/family-of-four\/pin\.png$/)
   })
 
-  test('robots.txt lets crawlers reach the sample weeks, and the sitemap lists them', async ({
-    request,
-  }) => {
+  // E2E never runs a production build, so this asserts the staging shape
+  // (HON-1159). The production allow list for /meal-plans is in
+  // src/app/robots.test.ts.
+  test('a non-production build keeps the sample weeks out of search', async ({ request }) => {
+    const page = await request.get('/meal-plans/family-of-four')
+    expect(page.headers()['x-robots-tag']).toBe('noindex, nofollow')
+
     const robots = await (await request.get('/robots.txt')).text()
-    expect(robots).toContain('Allow: /meal-plans')
-    expect(robots).toContain('Disallow: /meal-plan/')
-    expect(robots).not.toMatch(/Disallow: \/meal-plan$/m)
+    expect(robots).toContain('Allow: /')
+    expect(robots).not.toContain('Disallow:')
+    expect(robots).not.toContain('Sitemap:')
 
     const sitemap = await (await request.get('/sitemap.xml')).text()
-    expect(sitemap).toContain('/meal-plans/family-of-four</loc>')
-    expect(sitemap).toContain('/meal-plans/vegetarian-week</loc>')
+    expect(sitemap).not.toContain('<url>')
   })
 })

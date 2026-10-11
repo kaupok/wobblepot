@@ -1,7 +1,15 @@
 import type { MetadataRoute } from 'next'
-import { getServerBaseURL } from '@/lib/env'
+import { clientEnv, getServerBaseURL } from '@/lib/env'
+import { isIndexable } from '@/lib/indexing'
 
 export default function robots(): MetadataRoute.Robots {
+  // Staging and preview (HON-1159): crawling stays allowed, because Google
+  // must fetch a page to read its `X-Robots-Tag: noindex` (next.config.ts). A
+  // `Disallow: /` would keep an already-indexed page in the index.
+  if (!isIndexable(clientEnv.NEXT_PUBLIC_APP_ENV)) {
+    return { rules: { userAgent: '*', allow: '/' } }
+  }
+
   return {
     rules: [
       {

@@ -1,9 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { POLICY_LAST_UPDATED } from '@/lib/consent'
 
+const env = vi.hoisted(() => ({ NEXT_PUBLIC_APP_ENV: 'production' }))
+
 vi.mock('@/lib/env', () => ({
+  clientEnv: env,
   getServerBaseURL: () => 'https://wobblepot.com',
 }))
+
+afterEach(() => {
+  env.NEXT_PUBLIC_APP_ENV = 'production'
+})
 
 describe('sitemap', () => {
   it('returns the home page entry', async () => {
@@ -78,4 +85,14 @@ describe('sitemap', () => {
       expect(entry.lastModified).toBeInstanceOf(Date)
     }
   })
+
+  it.each(['staging', 'preview', 'dev', 'ci', 'test'])(
+    'lists no URLs in %s (HON-1159)',
+    async (appEnv) => {
+      env.NEXT_PUBLIC_APP_ENV = appEnv
+      const { default: sitemap } = await import('./sitemap')
+
+      expect(sitemap()).toEqual([])
+    },
+  )
 })
