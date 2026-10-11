@@ -80,14 +80,15 @@ Add the domain to the relevant directive in `src/proxy.ts` `buildCspHeader()`. D
 
 Set via `next.config.ts` `headers()` on all routes:
 
-| Header                      | Value                                                                                                           | Purpose                                                                             |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload`                                                                  | Forces HTTPS for 1 year, includes subdomains, eligible for HSTS preload list        |
-| `X-Frame-Options`           | `DENY`                                                                                                          | Legacy clickjacking protection (CSP `frame-ancestors` is the modern equivalent)     |
-| `X-Content-Type-Options`    | `nosniff`                                                                                                       | Prevents MIME type sniffing                                                         |
-| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                                                               | Sends full URL for same-origin, origin-only for cross-origin, nothing for downgrade |
-| `Permissions-Policy`        | `camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=()` | Disables browser features not used by the app                                       |
-| `X-DNS-Prefetch-Control`    | `on`                                                                                                            | Enables DNS prefetching for performance                                             |
+| Header                      | Value                                                                                                           | Purpose                                                                                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload`                                                                  | Forces HTTPS for 1 year, includes subdomains, eligible for HSTS preload list                                                            |
+| `X-Frame-Options`           | `DENY`                                                                                                          | Legacy clickjacking protection (CSP `frame-ancestors` is the modern equivalent)                                                         |
+| `X-Content-Type-Options`    | `nosniff`                                                                                                       | Prevents MIME type sniffing                                                                                                             |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                                                               | Sends full URL for same-origin, origin-only for cross-origin, nothing for downgrade                                                     |
+| `Permissions-Policy`        | `camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=()` | Disables browser features not used by the app                                                                                           |
+| `X-DNS-Prefetch-Control`    | `on`                                                                                                            | Enables DNS prefetching for performance                                                                                                 |
+| `X-Robots-Tag`              | `noindex, nofollow`, only when `NEXT_PUBLIC_APP_ENV` is not `production`                                        | Keeps staging and preview deployments out of search (HON-1159). `robots.ts` and `sitemap.ts` read the same check, `src/lib/indexing.ts` |
 
 ### Headers intentionally omitted
 

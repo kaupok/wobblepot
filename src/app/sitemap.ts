@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { POLICY_LAST_UPDATED } from '@/lib/consent'
-import { getServerBaseURL } from '@/lib/env'
+import { clientEnv, getServerBaseURL } from '@/lib/env'
+import { isIndexable } from '@/lib/indexing'
 import {
   SAMPLE_WEEKS,
   SAMPLE_WEEKS_LAST_UPDATED,
@@ -8,6 +9,10 @@ import {
 } from '@/lib/meal-plans/sample-weeks'
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  // Staging and preview list nothing, so search engines get no URLs to index
+  // there (HON-1159).
+  if (!isIndexable(clientEnv.NEXT_PUBLIC_APP_ENV)) return []
+
   const baseUrl = getServerBaseURL()
   // Legal pages change only on material policy updates (HON-559); the date
   // is the policy version date, bumped alongside CURRENT_TERMS_VERSION.

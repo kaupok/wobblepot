@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
+import { noindexHeaders } from './src/lib/indexing'
 import { postHogRewrites } from './src/lib/posthog-proxy'
 import { uploadSourcemaps } from './src/lib/posthog-sourcemaps'
 
@@ -88,6 +89,9 @@ const nextConfig: NextConfig = {
             value:
               'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=()',
           },
+          // Keeps staging and preview deployments out of search (HON-1159).
+          // Production gets no header. See src/lib/indexing.ts.
+          ...noindexHeaders(process.env.NEXT_PUBLIC_APP_ENV),
         ],
       },
     ]
