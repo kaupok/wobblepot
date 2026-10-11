@@ -853,6 +853,7 @@
       "submitting": "Sisse logimine…",
       "dontHaveAccount": "Pole veel kontot?",
       "signUpLink": "Loo konto",
+      "connectorSignUpNote": "Loo esmalt konto ja seadista leibkond. Seejärel alusta ühendamist uuesti rakendusest.",
       "resetSuccess": "Parool on edukalt vahetatud. Saad nüüd uue parooliga sisse logida.",
       "slowRequest": "See võtab oodatust kauem aega. Palun oota…",
       "navigationFailed": "Sisselogimine õnnestus, aga lehe avamine ebaõnnestus. Värskenda lehte."

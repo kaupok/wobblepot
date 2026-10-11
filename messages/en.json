@@ -853,6 +853,7 @@
       "submitting": "Signing in…",
       "dontHaveAccount": "Don't have an account?",
       "signUpLink": "Sign up",
+      "connectorSignUpNote": "Sign up first and set up your household. Then start connecting again from the app.",
       "resetSuccess": "Your password has been reset successfully. You can now sign in with your new password.",
       "slowRequest": "This is taking longer than expected. Please wait…",
       "navigationFailed": "Authentication successful, but navigation failed. Please refresh the page."

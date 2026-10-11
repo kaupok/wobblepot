@@ -114,6 +114,26 @@ describe('SignInForm', () => {
     })
   })
 
+  // HON-1162: sign-up drops an MCP client's signed OAuth query, so a new user
+  // is told to set up first and connect again.
+  describe('connector sign-up note', () => {
+    const note = /then start connecting again from the app/i
+
+    it('is hidden on a plain sign-in', () => {
+      render(<SignInForm />)
+
+      expect(screen.queryByText(note)).not.toBeInTheDocument()
+    })
+
+    it('shows under the sign up link during an OAuth request', () => {
+      render(<SignInForm isOAuthRequest />)
+
+      expect(screen.getByText(note)).toBeInTheDocument()
+      // The link itself is unchanged: it keeps only `returnUrl`.
+      expect(screen.getByRole('link', { name: /sign up/i })).toHaveAttribute('href', '/sign-up')
+    })
+  })
+
   describe('URL parameter success message', () => {
     it('shows success message when reset=success in URL', () => {
       mockGet.mockReturnValue('success')
