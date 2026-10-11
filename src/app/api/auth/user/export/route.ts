@@ -13,7 +13,9 @@ import { captureApiError } from '@/lib/errors'
  *
  * Scoping:
  *  - Always: user profile, own session metadata (without tokens), own
- *    HouseholdMember + MemberPreferences rows across every membership.
+ *    HouseholdMember + MemberPreferences rows across every membership,
+ *    and the apps connected through OAuth (HON-1150): each consent's app
+ *    name, scopes and dates, never a token.
  *  - Per owner-household: full tree (members, prefs, meals, plans,
  *    pantry, favorites, custom shopping items, invites, AI usage).
  *  - Per non-owner-membership household: shared context only. Other
@@ -106,6 +108,22 @@ export async function GET() {
           },
           orderBy: { createdAt: 'asc' },
         })
+
+        // Apps such as Claude that the user allowed on `/consent` (HON-1150).
+        // The consent row and the client's self-declared name only; the
+        // tokens stay out, like the session tokens above.
+        const connectedApps = (
+          await tx.oauthConsent.findMany({
+            where: { userId },
+            select: {
+              scopes: true,
+              createdAt: true,
+              updatedAt: true,
+              client: { select: { name: true } },
+            },
+            orderBy: { createdAt: 'asc' },
+          })
+        ).map(({ client, ...consent }) => ({ appName: client.name, ...consent }))
 
         const memberships = await tx.householdMember.findMany({
           where: { userId },
@@ -266,6 +284,7 @@ export async function GET() {
           user: {
             ...user,
             sessions,
+            connectedApps,
           },
           households: households.filter((h): h is NonNullable<typeof h> => h !== null),
         }

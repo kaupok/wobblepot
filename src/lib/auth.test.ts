@@ -17,7 +17,8 @@ import { joinHouseholdFromSignUp } from '@/lib/household-invite'
 
 // Mock the prisma module
 vi.mock('@/lib/prisma', () => ({
-  prisma: {},
+  // The `mcp()` plugin seeds its resource row at init (HON-1150).
+  prisma: { oauthResource: { findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }) } },
 }))
 
 vi.mock('./breached-password', () => ({

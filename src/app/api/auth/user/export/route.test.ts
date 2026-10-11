@@ -53,6 +53,7 @@ function deny() {
 type TxMocks = {
   user: { findUnique: ReturnType<typeof vi.fn> }
   session: { findMany: ReturnType<typeof vi.fn> }
+  oauthConsent: { findMany: ReturnType<typeof vi.fn> }
   householdMember: { findMany: ReturnType<typeof vi.fn> }
   household: { findUnique: ReturnType<typeof vi.fn> }
   meal: { findMany: ReturnType<typeof vi.fn> }
@@ -69,6 +70,7 @@ function makeTx(): TxMocks {
   return {
     user: { findUnique: vi.fn() },
     session: { findMany: vi.fn().mockResolvedValue([]) },
+    oauthConsent: { findMany: vi.fn().mockResolvedValue([]) },
     householdMember: { findMany: vi.fn().mockResolvedValue([]) },
     household: { findUnique: vi.fn() },
     meal: { findMany: vi.fn().mockResolvedValue([]) },
@@ -282,6 +284,48 @@ describe('GET /api/auth/user/export', () => {
     expect(ownerHh.customShoppingItems).toHaveLength(1)
     expect(ownerHh.invites).toHaveLength(1)
     expect(ownerHh.aiUsage).toHaveLength(1)
+  })
+
+  it('exports the apps the user connected through OAuth, without tokens (HON-1150)', async () => {
+    authedAs('user-owner')
+
+    const tx = makeTx()
+    tx.user.findUnique.mockResolvedValue({
+      id: 'user-owner',
+      name: 'Owner User',
+      email: 'owner@example.com',
+      emailVerified: true,
+      image: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+      acceptedTermsAt: null,
+      acceptedTermsVersion: null,
+    })
+    tx.oauthConsent.findMany.mockResolvedValue([
+      {
+        scopes: ['openid', 'mcp:read'],
+        createdAt: new Date('2026-10-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-10-02T00:00:00.000Z'),
+        client: { name: 'Claude' },
+      },
+    ])
+    installTx(tx)
+
+    const body = JSON.parse(await (await GET()).text())
+
+    expect(body.user.connectedApps).toEqual([
+      {
+        appName: 'Claude',
+        scopes: ['openid', 'mcp:read'],
+        createdAt: '2026-10-01T00:00:00.000Z',
+        updatedAt: '2026-10-02T00:00:00.000Z',
+      },
+    ])
+    expect(tx.oauthConsent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'user-owner' } }),
+    )
+    const select = tx.oauthConsent.findMany.mock.calls[0]![0].select
+    expect(Object.keys(select)).not.toContain('token')
   })
 
   it('round-trips real consent values for a consented user (HON-457)', async () => {

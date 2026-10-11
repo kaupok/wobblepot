@@ -9,6 +9,7 @@ This file covers the response headers: the Content Security Policy and the stati
 - **Cron secret:** [ENVIRONMENT_SETUP.md § Cron secret](./ENVIRONMENT_SETUP.md#cron-secret-account-deletion-purge-weekly-reminders).
 - **Destructive-command hook** for agents (`.claude/hooks/block-destructive.mts`): CLAUDE.md → Git & Workflow Essentials → Hooks.
 - **Breach response:** [RUNBOOKS/breach-notification.md](./RUNBOOKS/breach-notification.md).
+- **OAuth for MCP clients:** [§ OAuth for MCP clients](#oauth-for-mcp-clients) below.
 
 ## Content Security Policy (CSP)
 
@@ -94,3 +95,12 @@ Set via `next.config.ts` `headers()` on all routes:
 
 - **`X-XSS-Protection`**: Deprecated. Can cause issues in older browsers (IE). CSP provides superior XSS protection.
 - **`Report-To` / `report-uri`**: CSP violation reporting deferred until a consumer (e.g., PostHog dashboard) is ready. Currently would just generate noise.
+
+## OAuth for MCP clients
+
+Wobblepot is an OAuth 2.1 authorization server for MCP clients, such as a custom connector in Claude (HON-1150). The Better Auth `mcp()` plugin in `src/lib/auth.ts` runs it, with the `jwt` plugin for signing keys and the `cimd` plugin for Client ID Metadata Documents.
+
+- **Endpoints.** Under `/api/auth`: `oauth2/authorize`, `oauth2/token`, `oauth2/register`, `oauth2/consent`, `oauth2/userinfo` and `jwks`. Discovery is at the origin root, because the issuer is the bare origin: `/.well-known/oauth-authorization-server` (RFC 8414) and `/.well-known/oauth-protected-resource`, also at `/.well-known/oauth-protected-resource/api/mcp` (RFC 9728). They are public JSON with `Access-Control-Allow-Origin: *`. The proxy adds its CSP to them as to every route; a JSON response runs no script, so the CSP needs no change.
+- **Tokens.** PKCE with `S256` is required. An access token is a JWT for the audience `<origin>/api/mcp`, valid for 1 hour, signed with a key from the `jwks` table, whose private key is encrypted with `BETTER_AUTH_SECRET`. With `offline_access` the client also gets a refresh token, valid for 30 days and rotated on each use; a retry within 30 seconds gets the same response.
+- **Consent.** A signed-in user allows or denies the client on `/consent`. The page checks the signature and expiry of the query before it shows the client's name. Consents are stored in `oauth_consent`, tokens in `oauth_access_token` and `oauth_refresh_token`. All three cascade on user deletion. A client row in `oauth_client` stays, with `userId` cleared.
+- **Registration is open.** Dynamic client registration accepts unauthenticated requests, because Claude registers that way, and a Client ID Metadata Document is fetched with the plugin's Node transport, which resolves the host once, accepts only public addresses and follows no redirects. Anyone can create a client row, but a client reads nothing until a user allows it. Better Auth's built-in rate limiter covers these endpoints. There is no Upstash bucket: Claude registers from shared Anthropic addresses, so a per-IP limit would block every household after a few connections.

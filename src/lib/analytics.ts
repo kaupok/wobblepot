@@ -11,8 +11,8 @@
  *
  * Snake_case, namespace-prefixed, past tense. Categories are a closed enum:
  * `auth`, `onboarding`, `meal_plan`, `meal`, `recipe`, `pantry`, `shopping`
- * and `cook_view` for client events, `imagine` and `household` for the server
- * events that have a category. `ai` is reserved for HON-475.
+ * and `cook_view` for client events, `imagine`, `household` and `mcp` for the
+ * server events that have a category. `ai` is reserved for HON-475.
  *
  * ## Server events
  *
@@ -31,6 +31,13 @@
  *   their household. Distinct id is the household left. Properties:
  *   `household_id`, `role` (`owner` | `member`), `deleted_household` (true
  *   when a sole-account owner's leave deleted it).
+ * - `mcp:client_connected` (`src/lib/mcp/consent-analytics.ts`, called from the
+ *   `/oauth2/consent` after-hook in `src/lib/auth.ts`, HON-1150): a user clicked
+ *   Allow on `/consent` and an MCP client such as Claude got an authorization
+ *   code. Deny captures nothing. Distinct id is the user id, so the event joins
+ *   the person known from sign-in. Properties: `household_id`, `client_name`,
+ *   `scopes` (array of scope strings), `is_reconsent` (true when this user had
+ *   consented to this client before). No client id, redirect URI or token.
  * - `external_api_timeout` (`src/lib/errors.ts` → `captureExternalApiTimeout`,
  *   called from `src/lib/external-fetch.ts`): an external dependency missed a
  *   deadline its caller set. An infrastructure signal, not a product event,
