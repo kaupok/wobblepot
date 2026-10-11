@@ -24,12 +24,14 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     headers: await headers(),
   })
 
+  const isOAuthRequest = await isSignedOAuthRequest(toSearchParams(await searchParams))
+
   // Inside an MCP client's OAuth authorization the provider also sends a
   // signed-in user here, for `prompt=login` or an expired `max_age`. Show the
   // form so they can sign in again; the auth client forwards the signed query
   // and the authorization continues (HON-1150). Sending them home would drop
   // it, and the client would never get an answer.
-  if (session && !(await isSignedOAuthRequest(toSearchParams(await searchParams)))) {
+  if (session && !isOAuthRequest) {
     const hasMembership = await hasHouseholdMembership(session.user.id)
     redirect(hasMembership ? '/' : '/onboarding')
   }
@@ -39,7 +41,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   return (
     <div className="min-h-screen-below-header grid place-items-center p-4">
       <Suspense fallback={<LoadingFallback message={t('loading')} />}>
-        <SignInForm />
+        <SignInForm isOAuthRequest={isOAuthRequest} />
       </Suspense>
     </div>
   )

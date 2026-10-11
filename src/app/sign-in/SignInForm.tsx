@@ -26,7 +26,16 @@ function isOAuthRedirect(data: unknown): boolean {
   return redirect === true && typeof url === 'string' && url.length > 0
 }
 
-export function SignInForm() {
+interface SignInFormProps {
+  /**
+   * The URL carries a signed OAuth query: an MCP client is connecting
+   * (HON-1150). Sign-up does not carry the query through, so the form tells a
+   * new user to set up first and connect again (HON-1162).
+   */
+  isOAuthRequest?: boolean
+}
+
+export function SignInForm({ isOAuthRequest = false }: SignInFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = getValidReturnUrl(searchParams.get('returnUrl'))
@@ -202,6 +211,11 @@ export function SignInForm() {
                 {t('signUpLink')}
               </Link>
             </Body>
+            {isOAuthRequest && (
+              <Body variant="muted" className="text-center">
+                {t('connectorSignUpNote')}
+              </Body>
+            )}
           </div>
         </CardFooter>
       </form>

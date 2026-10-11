@@ -144,6 +144,29 @@ test.describe('OAuth for MCP clients', () => {
     await expect(page.getByRole('button', { name: 'Allow' })).toBeVisible()
   })
 
+  test('sign-in during an authorization tells a new user to set up first, then connect again', async ({
+    page,
+    request,
+  }) => {
+    const note =
+      'Sign up first and set up your household. Then start connecting again from the app.'
+    const { server, resource } = await discover(request)
+    const clientId = await registerClient(request, server)
+
+    // Sign-up does not carry the signed query through (HON-1162), so the page
+    // says so next to the sign-up link.
+    const { challenge } = pkcePair()
+    await page.goto(
+      authorizePath(server, { clientId, challenge, resource: resource.resource, state: 'note-1' }),
+    )
+    await page.waitForURL(/\/sign-in\?/)
+    await expect(page.getByText(note)).toBeVisible()
+
+    await page.goto('/sign-in')
+    await expect(page.locator('form').getByRole('link', { name: 'Sign up' })).toBeVisible()
+    await expect(page.getByText(note)).toHaveCount(0)
+  })
+
   test('prompt=login sends a signed-in user to sign in again, then to consent', async ({
     page,
     request,
