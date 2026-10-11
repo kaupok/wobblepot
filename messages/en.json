@@ -987,7 +987,7 @@
       "household": "Household: {householdName}",
       "scopesHeading": "It will be able to:",
       "scopes": {
-        "mcpRead": "Read your meal plan, shopping list and pantry.",
+        "mcpRead": "Read your meal plan, shopping list, pantry and recipes.",
         "openid": "Confirm that it is you.",
         "profile": "See your name and profile picture.",
         "offlineAccess": "Stay connected, so you do not need to allow it again."

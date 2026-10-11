@@ -987,7 +987,7 @@
       "household": "Leibkond: {householdName}",
       "scopesHeading": "See saab:",
       "scopes": {
-        "mcpRead": "lugeda sinu söögiplaani, ostunimekirja ja sahvrit;",
+        "mcpRead": "lugeda sinu söögiplaani, ostunimekirja, sahvrit ja retsepte;",
         "openid": "kinnitada, et see oled sina;",
         "profile": "näha sinu nime ja profiilipilti;",
         "offlineAccess": "jääda ühendatuks, nii et sa ei pea seda uuesti lubama."

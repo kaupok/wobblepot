@@ -126,6 +126,17 @@ export default function PrivacyPage() {
           </Li>
           <Li>
             <Body>
+              Connected AI assistants: which assistants you allowed to read your household data,
+              what you allowed each one to do, and the access tokens it uses — only if you connect
+              one (see{' '}
+              <a className="underline" href="#ai-assistants">
+                Connected AI assistants
+              </a>
+              ).
+            </Body>
+          </Li>
+          <Li>
+            <Body>
               Usage analytics and error reports — only if you accept analytics cookies (see{' '}
               <a className="underline" href="#cookies">
                 Cookies
@@ -142,7 +153,8 @@ export default function PrivacyPage() {
             <Body>
               <strong>Contract performance</strong> (GDPR Art. 6(1)(b)): running your account,
               generating meal plans, managing your pantry and shopping lists — the service you
-              signed up for.
+              signed up for. When you connect an AI assistant, giving it the data you allowed is
+              also part of this service, done at your request.
             </Body>
           </Li>
           <Li>
@@ -162,7 +174,8 @@ export default function PrivacyPage() {
           <Li>
             <Body>
               <strong>Legitimate interests</strong> (Art. 6(1)(f)): keeping the service secure —
-              rate limiting, abuse prevention, and operational logging.
+              rate limiting, abuse prevention, and operational logging — and recording how a
+              connected AI assistant uses Wobblepot, so we can find and fix requests that fail.
             </Body>
           </Li>
         </Ul>
@@ -178,6 +191,44 @@ export default function PrivacyPage() {
         </Body>
       </Section>
 
+      {/* The assistant is a third party the user chooses, not our processor, so
+          it stays off the processor list below and the subprocessors page
+          (HON-1161, compliance/README.md). */}
+      <Section id="ai-assistants" title="Connected AI assistants">
+        <Body>
+          You can connect an AI assistant, such as Claude, to Wobblepot, so it can answer questions
+          like &ldquo;what is for dinner tomorrow&rdquo; from your household&rsquo;s data. Nothing
+          is shared until you sign in to Wobblepot and allow the assistant on the consent page. That
+          page shows the assistant&rsquo;s name, the website it sends you back to, and what it will
+          be able to do.
+        </Body>
+        <Body>
+          A connected assistant can read your household&rsquo;s meal plan, shopping list, pantry,
+          and recipes. If the consent page says so, it can also see your name and profile picture.
+          It cannot change anything in Wobblepot.
+        </Body>
+        <Body>
+          The assistant is not one of our processors. You choose it, you allow it, and you tell it
+          what to do, so we share the data on your instruction. What the assistant does with the
+          data after that is set by its own provider&rsquo;s terms and privacy policy, not by us.
+          Read them before you connect it.
+        </Body>
+        <Body>
+          For each request the assistant makes, we record which tool it used, how long the request
+          took, and the reason the assistant gave, linked to your account and household. We do not
+          record the data it read. This record goes to our analytics processor, PostHog, and the
+          consent page tells you about it before you allow the assistant.
+        </Body>
+        <Body>
+          To disconnect an assistant, remove the Wobblepot connection in the assistant, so it stops
+          using its access, or email{' '}
+          <a className="underline" href={PRIVACY_EMAIL_HREF}>
+            {PRIVACY_EMAIL}
+          </a>{' '}
+          and we delete its access. Deleting your account disconnects every assistant at once.
+        </Body>
+      </Section>
+
       {/* The full processor table (data categories, regions, transfer
           safeguards, DPA links) lives on /privacy/subprocessors (HON-543).
           This section names every vendor so the Art. 13/14 recipient
@@ -190,6 +241,14 @@ export default function PrivacyPage() {
           only after you accept analytics cookies. All five involve a transfer to the United States
           covered by appropriate safeguards, and we have a data processing agreement with every one
           of them.
+        </Body>
+        <Body>
+          An AI assistant you connect to Wobblepot is not on this list: it receives data on your
+          instruction, not ours (see{' '}
+          <a className="underline" href="#ai-assistants">
+            Connected AI assistants
+          </a>
+          ).
         </Body>
         <Body>
           The full list — data categories shared, processing regions, and transfer safeguards per
@@ -244,6 +303,15 @@ export default function PrivacyPage() {
           </Li>
           <Li>
             <Body>AI usage records: kept on a 12-month rolling window for cost control.</Body>
+          </Li>
+          <Li>
+            <Body>
+              Connected AI assistants: an access token works for 1 hour. A renewal token works for
+              30 days and is replaced each time the assistant uses it, so the connection stops
+              working after 30 days without use. We keep the record that you allowed an assistant,
+              and the records of its tokens, until you ask us to delete them or delete your account.
+              Deleting your account removes them at once, without the 30-day grace period.
+            </Body>
           </Li>
           <Li>
             <Body>

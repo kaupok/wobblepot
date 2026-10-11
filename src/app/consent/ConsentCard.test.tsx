@@ -52,7 +52,7 @@ describe('ConsentCard', () => {
     expect(screen.getByText('Your answer is sent to claude.ai.')).toBeInTheDocument()
     const items = screen.getAllByRole('listitem').map((li) => li.textContent)
     expect(items).toEqual([
-      'Read your meal plan, shopping list and pantry.',
+      'Read your meal plan, shopping list, pantry and recipes.',
       'Confirm that it is you.',
       'Stay connected, so you do not need to allow it again.',
     ])
