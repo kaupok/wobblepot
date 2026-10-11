@@ -1,122 +1,26 @@
 // ROUTES: /.well-known/oauth-authorization-server, /.well-known/oauth-protected-resource, /api/auth/oauth2/*, /consent, /sign-in · COMPONENTS: ConsentCard, SignInForm
-import { createHash, randomBytes } from 'node:crypto'
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { signOut, signUpWithHousehold, TEST_PASSWORD } from './utils/test-helpers'
+import {
+  authorizePath,
+  decodeJwtPayload,
+  discover,
+  pathOf,
+  pkcePair,
+  REDIRECT_URI,
+  registerClient,
+  waitForRedirectUri,
+} from './utils/oauth'
 
 /**
  * Wobblepot as the OAuth 2.1 authorization server for MCP clients (HON-1150),
  * driven the way Claude's custom connector drives it: discovery, dynamic
  * client registration, authorization code with PKCE, consent, token exchange.
+ * The helpers are in `utils/oauth.ts`.
  *
  * **Not `@smoke`:** every test signs up a throwaway account, which needs
  * `/api/e2e-seed` for the invite code (404 on preview and staging).
- *
- * The redirect URI is an `https` callback on a reserved domain, as Claude's
- * connector registers one (the provider accepts plain `http` only for native
- * loopback clients). The browser's request to it is fulfilled by `page.route`,
- * so the spec reads the code or the error from the URL without a server.
  */
-
-const REDIRECT_URI = 'https://mcp-client.example/callback'
-const SCOPE = 'openid profile offline_access mcp:read'
-
-interface AuthServerMetadata {
-  issuer: string
-  authorization_endpoint: string
-  token_endpoint: string
-  registration_endpoint: string
-  jwks_uri: string
-  code_challenge_methods_supported: string[]
-}
-
-interface ProtectedResourceMetadata {
-  resource: string
-  authorization_servers: string[]
-}
-
-/** The path and query of an endpoint URL, so requests follow Playwright's baseURL. */
-function pathOf(url: string): string {
-  const parsed = new URL(url)
-  return `${parsed.pathname}${parsed.search}`
-}
-
-function base64url(buffer: Buffer): string {
-  return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-function pkcePair() {
-  const verifier = base64url(randomBytes(32))
-  const challenge = base64url(createHash('sha256').update(verifier).digest())
-  return { verifier, challenge }
-}
-
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  const payload = token.split('.')[1]
-  expect(payload, 'access token is a JWT').toBeTruthy()
-  return JSON.parse(Buffer.from(payload!, 'base64url').toString('utf8'))
-}
-
-async function discover(request: APIRequestContext) {
-  const asResponse = await request.get('/.well-known/oauth-authorization-server')
-  expect(asResponse.status()).toBe(200)
-  const prResponse = await request.get('/.well-known/oauth-protected-resource')
-  expect(prResponse.status()).toBe(200)
-  return {
-    server: (await asResponse.json()) as AuthServerMetadata,
-    resource: (await prResponse.json()) as ProtectedResourceMetadata,
-  }
-}
-
-/** RFC 7591 registration of a public client, as Claude's connector registers. */
-async function registerClient(request: APIRequestContext, server: AuthServerMetadata) {
-  const response = await request.post(pathOf(server.registration_endpoint), {
-    data: {
-      client_name: 'E2E MCP client',
-      redirect_uris: [REDIRECT_URI],
-      token_endpoint_auth_method: 'none',
-      grant_types: ['authorization_code', 'refresh_token'],
-      response_types: ['code'],
-      scope: SCOPE,
-    },
-  })
-  expect(response.status(), await response.text()).toBeLessThan(300)
-  const body = (await response.json()) as { client_id: string }
-  expect(body.client_id).toBeTruthy()
-  return body.client_id
-}
-
-function authorizePath(
-  server: AuthServerMetadata,
-  params: {
-    clientId: string
-    challenge: string
-    resource: string
-    state: string
-    prompt?: string
-  },
-): string {
-  const query = new URLSearchParams({
-    ...(params.prompt ? { prompt: params.prompt } : {}),
-    response_type: 'code',
-    client_id: params.clientId,
-    redirect_uri: REDIRECT_URI,
-    scope: SCOPE,
-    state: params.state,
-    code_challenge: params.challenge,
-    code_challenge_method: 'S256',
-    resource: params.resource,
-  })
-  return `${pathOf(server.authorization_endpoint)}?${query}`
-}
-
-/** Answers the browser's request to the redirect URI and waits for it. */
-async function waitForRedirectUri(page: Page): Promise<URL> {
-  await page.route(`${REDIRECT_URI}**`, (route) =>
-    route.fulfill({ status: 200, contentType: 'text/plain', body: 'callback' }),
-  )
-  await page.waitForURL((url) => url.href.startsWith(REDIRECT_URI))
-  return new URL(page.url())
-}
 
 test.describe('OAuth for MCP clients', () => {
   test('publishes discovery metadata at the origin root', async ({ request }) => {

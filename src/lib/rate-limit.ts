@@ -68,6 +68,7 @@ export type RateLimitFeature =
   | 'cook-question'
   | 'meal-suggestions'
   | 'meal-image'
+  | 'mcp'
   | 'sign-up'
   | 'sign-in'
   | 'forgot-password'
@@ -106,6 +107,10 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
   // Only generations count: a ready image, a poll on a fresh claim and a
   // global meal all return before the limiter (HON-735).
   'meal-image': { limit: 30, window: '1 h', dimension: 'household' },
+  // One per MCP `tools/call` (HON-1151); `tools/list` is not counted. The tools
+  // only read the database, so this is abuse protection, not a cost cap: two
+  // calls a minute is far above what an assistant answering a household needs.
+  mcp: { limit: 120, window: '1 h', dimension: 'household' },
   'sign-up': {
     limit: 5,
     window: '1 h',

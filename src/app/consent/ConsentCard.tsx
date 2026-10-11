@@ -108,6 +108,9 @@ export function ConsentCard({
             </Ul>
           </div>
           <Body variant="muted">{t('readOnly')}</Body>
+          {/* Server-side MCP analytics skip the cookie banner, so the card says
+              what is measured (HON-1151). */}
+          <Body variant="muted">{t('measured')}</Body>
         </div>
       </CardContent>
       <CardFooter>

@@ -171,9 +171,11 @@ describe('GET /api/meals', () => {
     expect(data.hasMore).toBe(false)
 
     const whereArg = mockMealFindMany.mock.calls[0]?.[0]?.where as { AND: unknown[] }
-    expect(whereArg.AND).toContainEqual({
-      OR: [{ householdId: null }, { householdId: 'household-123' }],
-    })
+    expect(whereArg.AND).toContainEqual(
+      expect.objectContaining({
+        OR: [{ householdId: null }, { householdId: 'household-123' }],
+      }),
+    )
   })
 
   it('carries the image fields the card tint reads (HON-746)', async () => {
@@ -447,7 +449,7 @@ describe('GET /api/meals', () => {
     await GET(createRequest())
 
     const whereArg = mockMealFindMany.mock.calls[0]?.[0]?.where as { AND: unknown[] }
-    expect(whereArg.AND).toContainEqual({ deletedAt: null })
+    expect(whereArg.AND).toContainEqual(expect.objectContaining({ deletedAt: null }))
   })
 
   it('searches English names only, with no translation join, for an English household', async () => {

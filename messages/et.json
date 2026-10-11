@@ -993,6 +993,7 @@
         "offlineAccess": "jääda ühendatuks, nii et sa ei pea seda uuesti lubama."
       },
       "readOnly": "See ei saa Wobblepotis midagi muuta.",
+      "measured": "Wobblepot loendab selle päringuid: millist tööriista see kasutas ja kui kaua see aega võttis, aga mitte seda, mida see luges.",
       "allow": "Luba",
       "allowing": "Ühendamine…",
       "deny": "Keela",

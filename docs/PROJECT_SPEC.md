@@ -382,6 +382,7 @@ enum ProteinType {
 - Email-based invites
 - Plan history/archive: the Today timeline shows only the last 7 days
 - Real-time multi-user sync
+- MCP tools that change data (marking items purchased, swapping a meal) and MCP tools that call the AI (plan generation, imagining a meal): the MCP server only reads for now (HON-1151)
 
 ---
 
@@ -469,6 +470,10 @@ The main areas: `auth` (Better Auth, plus account deletion and export under `aut
 - Mark purchased to move an item into the pantry, and undo it
 - Custom shopping items
 - Missing ingredients indicators on meals
+
+### AI assistants (Ongoing)
+
+- Read-only MCP server at `/api/mcp` (HON-1151): an assistant such as Claude reads the household's meal plan, shopping list, pantry and meals through OAuth (HON-1150). See [MCP_SERVER.md](./MCP_SERVER.md)
 
 ### Polish & UX (Ongoing)
 

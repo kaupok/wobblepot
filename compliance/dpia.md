@@ -15,6 +15,8 @@ This is a deliberate lightweight assessment, not a formal GDPR Art. 35 DPIA. Scr
 
 Wobblepot plans family meals. The account-holding adult creates **household member profiles** — including children — containing names/labels, allergens, dietary restrictions, preferences, and macro targets. To generate meal plans, swaps, and preparation tips, this data is transmitted to **Anthropic, PBC** (US) as our processor (LLM inference). Full processor list, regions, and transfer safeguards: [`README.md`](./README.md); public disclosure at `/privacy/subprocessors`.
 
+A household member can also connect an AI assistant to the read-only MCP server (HON-1151). PostHog then receives one analytics event per tool call (tool name, timing, error state, the user and household id, the agent's stated reason for the call), never the tool's parameters or the household data it returned; the consent page says so. What the connected assistant receives is assessed under HON-1161.
+
 ## Risk area 1 — children's data
 
 **Model:** there are no child accounts. Member profiles are created and managed exclusively by the account-holding parent/guardian, who is the holder of parental responsibility and the one consenting. The privacy policy states: _"By adding a member under 16, you confirm that you are their parent or legal guardian and consent on their behalf."_ GDPR Art. 8 (child's own consent to an information society service) does not apply — the service is offered to the adult, not the child. The previously planned in-app acknowledgment checkbox (HON-467) was cancelled 2026-06-06 as evidentiary ceremony adding no legal basis; this DPIA reviewed and **concurs** with that decision.

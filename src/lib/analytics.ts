@@ -48,8 +48,10 @@
  *   `request_id`, `release`, plus `route` when the caller passes one.
  *
  * `$`-prefixed events follow PostHog's own schema and are not defined here:
- * `$ai_generation` (`src/lib/ai/usage.ts`), `$exception` (`src/lib/errors.ts`,
- * `src/lib/errors-client.ts`, `src/instrumentation.ts`,
+ * `$ai_generation` (`src/lib/ai/usage.ts`), `$mcp_tool_call` and
+ * `$mcp_tools_list` (`@posthog/mcp`, wired in `src/lib/mcp/analytics.ts`, with
+ * `household_id` and without tool parameters or responses), `$exception`
+ * (`src/lib/errors.ts`, `src/lib/errors-client.ts`, `src/instrumentation.ts`,
  * `src/app/global-error.tsx`) and `$pageview` (`PostHogProvider`).
  *
  * **Why past tense, not present (PostHog's documented recommendation):**
