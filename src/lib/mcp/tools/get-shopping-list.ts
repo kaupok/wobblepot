@@ -39,7 +39,7 @@ export const getShoppingList = defineTool({
           ingredientId: item.ingredientId,
           name: item.name,
           quantity: item.quantity,
-          unit: item.unit,
+          unit: item.displayUnit,
           displayQuantity: item.displayQuantity,
           category: group.category,
           neededBy: item.neededByDate,

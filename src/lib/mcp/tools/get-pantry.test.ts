@@ -19,7 +19,13 @@ const PANTRY = {
     {
       id: 'pantry-1',
       ingredientId: 'ing-rice',
-      ingredient: { id: 'ing-rice', name: 'Rice', category: 'carb', defaultUnit: 'g' },
+      ingredient: {
+        id: 'ing-rice',
+        name: 'Rice',
+        category: 'carb',
+        defaultUnit: 'g',
+        displayUnit: 'g',
+      },
       quantity: 500,
       isStaple: true,
       updatedAt: new Date(),
@@ -30,8 +36,14 @@ const PANTRY = {
     },
     {
       id: 'pantry-2',
-      ingredientId: 'ing-salt',
-      ingredient: { id: 'ing-salt', name: 'Salt', category: 'spice', defaultUnit: 'g' },
+      ingredientId: 'ing-milk',
+      ingredient: {
+        id: 'ing-milk',
+        name: 'Milk',
+        category: 'dairy',
+        defaultUnit: 'g',
+        displayUnit: 'ml',
+      },
       quantity: null,
       isStaple: false,
       updatedAt: new Date(),
@@ -60,10 +72,11 @@ describe('get_pantry', () => {
           neededSoon: true,
         },
         {
-          ingredientId: 'ing-salt',
-          name: 'Salt',
+          ingredientId: 'ing-milk',
+          name: 'Milk',
           quantity: null,
-          unit: 'g',
+          // The unit the pantry screen shows, not the stored grams.
+          unit: 'ml',
           isStaple: false,
           neededSoon: false,
         },

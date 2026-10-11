@@ -25,6 +25,7 @@ const LIST = {
           name: 'Carrot',
           quantity: 300,
           unit: 'g',
+          displayUnit: 'g',
           displayQuantity: '300g',
           neededByDate: '2026-10-13',
           purchased: false,
@@ -40,6 +41,7 @@ const LIST = {
           name: 'Milk',
           quantity: 1000,
           unit: 'g',
+          displayUnit: 'ml',
           displayQuantity: '1l',
           neededByDate: '2026-10-12',
           purchased: true,
@@ -60,7 +62,7 @@ describe('get_shopping_list', () => {
     vi.mocked(loadShoppingList).mockResolvedValue(LIST)
   })
 
-  it('flattens the groups into items with their category, for 7 days by default', async () => {
+  it('flattens the groups into items with their category and shown unit, for 7 days by default', async () => {
     const result = await call()
 
     expect(loadShoppingList).toHaveBeenCalledWith(household, { days: 7 })
@@ -81,7 +83,8 @@ describe('get_shopping_list', () => {
           ingredientId: 'ing-milk',
           name: 'Milk',
           quantity: 1000,
-          unit: 'g',
+          // Stored as grams, shown and returned as millilitres (HON-1054).
+          unit: 'ml',
           displayQuantity: '1l',
           category: 'dairy',
           neededBy: '2026-10-12',

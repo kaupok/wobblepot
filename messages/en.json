@@ -993,7 +993,7 @@
         "offlineAccess": "Stay connected, so you do not need to allow it again."
       },
       "readOnly": "It cannot change anything in Wobblepot.",
-      "measured": "Wobblepot counts the requests it makes: which tool and how long it took, not what it reads.",
+      "measured": "Wobblepot records each request it makes: which tool, how long it took and the reason the assistant gave. It does not record what it reads.",
       "allow": "Allow",
       "allowing": "Connecting…",
       "deny": "Deny",

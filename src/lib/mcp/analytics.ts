@@ -31,7 +31,8 @@ export const stripMcpPayload: BeforeSendFn = (event) => {
  * rest of the server events. With no client (tests, no key) nothing is wired.
  *
  * Server-side, so the cookie-consent gate (HON-462) does not apply, the same
- * as `$ai_generation`. The consent page states that tool calls are counted.
+ * as `$ai_generation`. The consent page says what an event holds, the
+ * assistant's reason (`$mcp_intent`) included.
  */
 export function instrumentMcpServer(server: McpServer, ctx: McpCallerContext): void {
   const posthog = getPosthogServer()

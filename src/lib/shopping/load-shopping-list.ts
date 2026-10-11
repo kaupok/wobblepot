@@ -91,6 +91,10 @@ export async function loadShoppingList(
         name: item.ingredient.name,
         quantity: item.shoppingQuantity,
         unit: item.ingredient.defaultUnit,
+        // `g`, `ml` or `piece`: `unit` stays the stored unit, and this is the one
+        // every screen shows, so readers outside the UI (the MCP tools, HON-1151)
+        // need not repeat the `measuredByVolume` rule.
+        displayUnit: displayUnit(item.ingredient),
         displayQuantity: formatShoppingQuantity(
           item.shoppingQuantity,
           displayUnit(item.ingredient),

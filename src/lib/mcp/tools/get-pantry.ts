@@ -31,7 +31,7 @@ export const getPantry = defineTool({
         ingredientId: item.ingredientId,
         name: item.ingredient.name,
         quantity: item.quantity,
-        unit: item.ingredient.defaultUnit,
+        unit: item.ingredient.displayUnit,
         isStaple: item.isStaple,
         // `loadPantry` sets `neededQuantity` only for an item a planned meal in
         // the window uses.

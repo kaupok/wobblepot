@@ -59,7 +59,7 @@ describe('ConsentCard', () => {
     // Tool-call analytics are server-side, outside the cookie banner (HON-1151).
     expect(
       screen.getByText(
-        'Wobblepot counts the requests it makes: which tool and how long it took, not what it reads.',
+        'Wobblepot records each request it makes: which tool, how long it took and the reason the assistant gave. It does not record what it reads.',
       ),
     ).toBeInTheDocument()
   })

@@ -103,6 +103,30 @@ describe('get_meal', () => {
     expect(getMeal.outputSchema.safeParse(result.structuredContent).success).toBe(true)
   })
 
+  it("scales to the servings the caller passes, such as a planned entry's override", async () => {
+    const result = await runTool(
+      getMeal,
+      ctx,
+      getMeal.inputSchema.parse({ mealId: 'meal-1', servings: 8 }),
+    )
+
+    const meal = (
+      result.structuredContent as { meal: { servings: number; ingredients: unknown[] } }
+    ).meal
+    expect(meal.servings).toBe(8)
+    expect(meal.ingredients[0]).toEqual({
+      name: 'Chicken breast',
+      quantity: 1200,
+      unit: 'g',
+      note: null,
+    })
+  })
+
+  it('rejects servings outside 1..50', () => {
+    expect(getMeal.inputSchema.safeParse({ mealId: 'meal-1', servings: 0 }).success).toBe(false)
+    expect(getMeal.inputSchema.safeParse({ mealId: 'meal-1', servings: 51 }).success).toBe(false)
+  })
+
   it('looks the meal up only among those the household may see', async () => {
     await call('meal-1')
 

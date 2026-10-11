@@ -153,6 +153,8 @@ export async function loadPantry(household: PantryHousehold, { days }: { days: 7
         name: translatedIngredient.name,
         category: translatedIngredient.category,
         defaultUnit: translatedIngredient.defaultUnit,
+        // `g`, `ml` or `piece`, the unit the pantry screen shows (HON-1151).
+        displayUnit: displayUnit(item.ingredient),
       },
       quantity: item.quantity,
       isStaple: item.isStaple,

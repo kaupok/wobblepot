@@ -20,9 +20,18 @@ export const getMeal = defineTool({
   name: 'get_meal',
   title: 'Get meal',
   description:
-    "Returns one meal: its ingredients scaled to the household's servings, preparation notes when the recipe has them, and nutrition per serving. Use it after get_meal_plan or list_meals, with their mealId, to answer what goes into a meal or how to make it.",
+    'Returns one meal: its ingredients scaled to a number of servings, preparation notes when the recipe has them, and nutrition per serving. Use it after get_meal_plan or list_meals, with their mealId, to answer what goes into a meal or how to make it. For a planned meal, pass the servings get_meal_plan returned for that entry.',
   inputSchema: z.object({
     mealId: z.string().min(1).max(100).describe('The id from get_meal_plan or list_meals.'),
+    servings: z
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .optional()
+      .describe(
+        "How many servings to scale the ingredients to. Defaults to the household's usual servings.",
+      ),
   }),
   outputSchema: z.object({
     meal: z.object({
@@ -51,7 +60,7 @@ export const getMeal = defineTool({
       isFavorite: z.boolean(),
     }),
   }),
-  run: async (household, { mealId }) => {
+  run: async (household, { mealId, servings: requestedServings }) => {
     const locale = resolveHouseholdLocale(household)
     const meal = await prisma.meal.findFirst({
       // The shared catalogue or this household's own recipes, the same set
@@ -98,7 +107,9 @@ export const getMeal = defineTool({
     }
 
     const translated = translateMeal(meal, locale)
-    const servings = sumPortions(household.members)
+    // A planned entry can override the household's servings (guests), so the
+    // caller passes the entry's servings from get_meal_plan.
+    const servings = requestedServings ?? sumPortions(household.members)
     const nutrition = computeMealNutrition(meal.components)
 
     return {
