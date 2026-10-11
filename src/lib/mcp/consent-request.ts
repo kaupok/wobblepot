@@ -3,6 +3,18 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { knownScopes, type McpScope } from '@/lib/mcp/oauth'
 
+/** A page's `searchParams` as `URLSearchParams`, repeated keys kept. */
+export function toSearchParams(
+  params: Record<string, string | string[] | undefined>,
+): URLSearchParams {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) value.forEach((v) => search.append(key, v))
+    else if (value !== undefined) search.append(key, value)
+  }
+  return search
+}
+
 /** Query parameter that lists the names the provider signed. */
 const SIGNED_PARAM_NAMES = 'ba_param'
 
@@ -25,12 +37,40 @@ export function signedOAuthQuery(search: URLSearchParams): string | null {
   return signed.toString()
 }
 
+function hostOf(url: string | null): string | null {
+  if (!url) return null
+  try {
+    return new URL(url).host || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * True when the URL carries a query the provider signed and that has not
+ * expired: the page is a step of an OAuth authorization. `/sign-in` uses it to
+ * let a signed-in user re-authenticate for `prompt=login` or `max_age`
+ * instead of sending them home, which would drop the authorization.
+ */
+export async function isSignedOAuthRequest(search: URLSearchParams): Promise<boolean> {
+  const query = signedOAuthQuery(search)
+  if (!query) return false
+  const { secret } = await auth.$context
+  return verifyOAuthQueryParams(query, secret)
+}
+
 export type ConsentRequest =
   | { status: 'invalid' }
   | {
       status: 'ready'
       /** The client's self-declared `client_name`; null when it sent none. */
       clientName: string | null
+      /**
+       * Host of the signed `redirect_uri`, where the code goes on Allow. The
+       * name is self-declared and registration is open, so the host is what
+       * tells a real connector from a look-alike.
+       */
+      redirectHost: string
       householdName: string | null
       scopes: McpScope[]
     }
@@ -56,7 +96,10 @@ export async function loadConsentRequest(
 
   const signed = new URLSearchParams(query)
   const clientId = signed.get('client_id')
-  if (!clientId) return { status: 'invalid' }
+  // The authorize endpoint matched `redirect_uri` against the client's
+  // registration before it signed the query, so the host is trustworthy here.
+  const redirectHost = hostOf(signed.get('redirect_uri'))
+  if (!clientId || !redirectHost) return { status: 'invalid' }
 
   const [client, membership] = await Promise.all([
     prisma.oauthClient.findUnique({
@@ -73,6 +116,7 @@ export async function loadConsentRequest(
   return {
     status: 'ready',
     clientName: client.name?.trim() || null,
+    redirectHost,
     householdName: membership?.household.name ?? null,
     scopes: knownScopes(signed.get('scope')),
   }

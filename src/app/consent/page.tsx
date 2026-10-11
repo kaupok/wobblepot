@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { getSession } from '@/lib/session'
-import { loadConsentRequest } from '@/lib/mcp/consent-request'
+import { loadConsentRequest, toSearchParams } from '@/lib/mcp/consent-request'
 import { ConsentCard } from './ConsentCard'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,15 +12,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 interface ConsentPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
-}
-
-function toSearchParams(params: Record<string, string | string[] | undefined>): URLSearchParams {
-  const search = new URLSearchParams()
-  for (const [key, value] of Object.entries(params)) {
-    if (Array.isArray(value)) value.forEach((v) => search.append(key, v))
-    else if (value !== undefined) search.append(key, value)
-  }
-  return search
 }
 
 /**
@@ -49,6 +40,7 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
         <ConsentCard
           status="ready"
           clientName={request.clientName}
+          redirectHost={request.redirectHost}
           householdName={request.householdName}
           scopes={request.scopes}
         />

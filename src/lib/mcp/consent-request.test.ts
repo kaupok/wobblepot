@@ -17,11 +17,17 @@ vi.mock('@/lib/prisma', () => ({
 
 import { verifyOAuthQueryParams } from '@better-auth/oauth-provider'
 import { prisma } from '@/lib/prisma'
-import { loadConsentRequest, signedOAuthQuery } from './consent-request'
+import {
+  isSignedOAuthRequest,
+  loadConsentRequest,
+  signedOAuthQuery,
+  toSearchParams,
+} from './consent-request'
 
 const SIGNED =
   'client_id=client-123&scope=openid+offline_access+mcp%3Aread&exp=4102444800' +
-  '&ba_param=ba_param&ba_param=client_id&ba_param=exp&ba_param=scope&sig=signature'
+  '&redirect_uri=https%3A%2F%2Fclaude.ai%2Fapi%2Fmcp%2Fauth_callback' +
+  '&ba_param=ba_param&ba_param=client_id&ba_param=exp&ba_param=redirect_uri&ba_param=scope&sig=signature'
 
 describe('signedOAuthQuery', () => {
   it('keeps the signed parameters and drops the rest', () => {
@@ -58,6 +64,7 @@ describe('loadConsentRequest', () => {
     expect(request).toEqual({
       status: 'ready',
       clientName: 'Claude',
+      redirectHost: 'claude.ai',
       householdName: 'Kõrvid',
       scopes: ['mcp:read', 'openid', 'offline_access'],
     })
@@ -86,6 +93,16 @@ describe('loadConsentRequest', () => {
     expect(verifyOAuthQueryParams).not.toHaveBeenCalled()
   })
 
+  it('is invalid when the signed query has no usable redirect_uri', async () => {
+    const withoutRedirect = new URLSearchParams(SIGNED)
+    withoutRedirect.delete('redirect_uri')
+    expect((await loadConsentRequest(withoutRedirect, 'user-1')).status).toBe('invalid')
+
+    const garbled = new URLSearchParams(SIGNED)
+    garbled.set('redirect_uri', 'not a url')
+    expect((await loadConsentRequest(garbled, 'user-1')).status).toBe('invalid')
+  })
+
   it('is invalid for an unknown or disabled client', async () => {
     vi.mocked(prisma.oauthClient.findUnique).mockResolvedValueOnce(null)
     expect((await loadConsentRequest(new URLSearchParams(SIGNED), 'user-1')).status).toBe('invalid')
@@ -106,5 +123,35 @@ describe('loadConsentRequest', () => {
 
     const request = await loadConsentRequest(new URLSearchParams(SIGNED), 'user-1')
     expect(request).toMatchObject({ status: 'ready', clientName: null, householdName: null })
+  })
+})
+
+describe('isSignedOAuthRequest', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('is true for a query with a valid signature', async () => {
+    vi.mocked(verifyOAuthQueryParams).mockResolvedValue(true)
+    expect(await isSignedOAuthRequest(new URLSearchParams(SIGNED))).toBe(true)
+  })
+
+  it('is false for a forged or expired signature', async () => {
+    vi.mocked(verifyOAuthQueryParams).mockResolvedValue(false)
+    expect(await isSignedOAuthRequest(new URLSearchParams(SIGNED))).toBe(false)
+  })
+
+  it('is false without a signed query, and checks nothing', async () => {
+    expect(await isSignedOAuthRequest(new URLSearchParams('returnUrl=%2Fpantry'))).toBe(false)
+    expect(verifyOAuthQueryParams).not.toHaveBeenCalled()
+  })
+})
+
+describe('toSearchParams', () => {
+  it('keeps repeated keys and skips undefined values', () => {
+    const search = toSearchParams({ ba_param: ['a', 'b'], sig: 's', empty: undefined })
+    expect(search.getAll('ba_param')).toEqual(['a', 'b'])
+    expect(search.get('sig')).toBe('s')
+    expect(search.has('empty')).toBe(false)
   })
 })

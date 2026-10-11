@@ -983,6 +983,7 @@
       "titleUnnamed": "Connect this app?",
       "description": "{clientName} asks for access to your Wobblepot account.",
       "descriptionUnnamed": "An app asks for access to your Wobblepot account.",
+      "redirectsTo": "Your answer is sent to {host}.",
       "household": "Household: {householdName}",
       "scopesHeading": "It will be able to:",
       "scopes": {

@@ -87,9 +87,16 @@ async function registerClient(request: APIRequestContext, server: AuthServerMeta
 
 function authorizePath(
   server: AuthServerMetadata,
-  params: { clientId: string; challenge: string; resource: string; state: string },
+  params: {
+    clientId: string
+    challenge: string
+    resource: string
+    state: string
+    prompt?: string
+  },
 ): string {
   const query = new URLSearchParams({
+    ...(params.prompt ? { prompt: params.prompt } : {}),
     response_type: 'code',
     client_id: params.clientId,
     redirect_uri: REDIRECT_URI,
@@ -153,6 +160,9 @@ test.describe('OAuth for MCP clients', () => {
     ).toBeVisible()
     await expect(page.getByText('Household: OAuth E2E household')).toBeVisible()
     await expect(page.getByText('Read your meal plan, shopping list and pantry.')).toBeVisible()
+    // Registration is open, so the name is self-declared; the card shows the
+    // host that receives the answer.
+    await expect(page.getByText('Your answer is sent to mcp-client.example.')).toBeVisible()
 
     const callbackPromise = waitForRedirectUri(page)
     await page.getByRole('button', { name: 'Allow' }).click()
@@ -221,6 +231,36 @@ test.describe('OAuth for MCP clients', () => {
 
     // The provider sends a signed-out user to the sign-in page with the signed
     // query; the auth client forwards it, and sign-in continues to consent.
+    await page.waitForURL(/\/sign-in\?/)
+    await page.locator('input#email').fill(email)
+    await page.locator('input#password').fill(TEST_PASSWORD)
+    await page.locator('form button[type="submit"]').click()
+
+    await page.waitForURL(/\/consent\?/)
+    await expect(page.getByRole('button', { name: 'Allow' })).toBeVisible()
+  })
+
+  test('prompt=login sends a signed-in user to sign in again, then to consent', async ({
+    page,
+    request,
+  }) => {
+    const { server, resource } = await discover(request)
+    const clientId = await registerClient(request, server)
+    const { email } = await signUpWithHousehold(page)
+
+    const { challenge } = pkcePair()
+    await page.goto(
+      authorizePath(server, {
+        clientId,
+        challenge,
+        resource: resource.resource,
+        state: 'relogin-1',
+        prompt: 'login',
+      }),
+    )
+
+    // The session exists, but the client asked for a fresh sign-in. The page
+    // must show the form rather than send a signed-in user home.
     await page.waitForURL(/\/sign-in\?/)
     await page.locator('input#email').fill(email)
     await page.locator('input#password').fill(TEST_PASSWORD)

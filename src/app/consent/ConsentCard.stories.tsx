@@ -28,7 +28,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The `/consent` step when an MCP client such as Claude connects to Wobblepot (HON-1150). It names the app and the household, lists what the app can do in plain words, and sends Allow or Deny to the OAuth provider. On success the auth client sends the browser back to the app; on an error the card shows catalog copy and returns focus to the button.',
+          'The `/consent` step when an MCP client such as Claude connects to Wobblepot (HON-1150). It names the app, the host that receives the answer and the household, lists what the app can do in plain words, and sends Allow or Deny to the OAuth provider. On success the auth client sends the browser back to the app; on an error the card shows catalog copy and returns focus to the button.',
       },
     },
     msw: { handlers: [pendingConsent] },
@@ -36,6 +36,7 @@ const meta = {
   args: {
     status: 'ready',
     clientName: 'Claude',
+    redirectHost: 'claude.ai',
     householdName: 'Kõrvid',
     scopes: ['mcp:read', 'openid', 'profile', 'offline_access'],
   },
@@ -48,6 +49,18 @@ export const Default: Story = {}
 
 export const UnnamedApp: Story = {
   args: { clientName: null },
+}
+
+export const LookAlikeName: Story = {
+  args: { clientName: 'Claude', redirectHost: 'claude-connect.example' },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Registration is open, so any app can call itself "Claude". The redirect host comes from the signed request and is what tells a look-alike from the real connector.',
+      },
+    },
+  },
 }
 
 export const NoHousehold: Story = {

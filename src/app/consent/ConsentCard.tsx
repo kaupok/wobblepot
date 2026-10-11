@@ -16,6 +16,8 @@ interface ConsentCardProps {
   status: 'ready' | 'invalid'
   /** The client's self-declared name; null when it sent none. */
   clientName?: string | null
+  /** Where the answer is sent: the signed redirect URI's host. */
+  redirectHost?: string
   /** The signed-in user's household; null before onboarding. */
   householdName?: string | null
   scopes?: McpScope[]
@@ -34,6 +36,7 @@ interface ConsentCardProps {
 export function ConsentCard({
   status,
   clientName = null,
+  redirectHost = '',
   householdName = null,
   scopes = [],
 }: ConsentCardProps) {
@@ -92,6 +95,9 @@ export function ConsentCard({
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-4">
+          {/* The name is self-declared and anyone can register an app, so the
+              host is how the user tells the real connector from a look-alike. */}
+          <Body>{t('redirectsTo', { host: redirectHost })}</Body>
           {householdName && <Body>{t('household', { householdName })}</Body>}
           <div className="flex flex-col gap-2">
             <Body>{t('scopesHeading')}</Body>

@@ -33,6 +33,7 @@ function renderCard(node: ReactNode, locale: 'en' | 'et' = 'en') {
 const READY = {
   status: 'ready' as const,
   clientName: 'Claude',
+  redirectHost: 'claude.ai',
   householdName: 'Kõrvid',
   scopes: ['mcp:read' as const, 'openid' as const, 'offline_access' as const],
 }
@@ -47,6 +48,8 @@ describe('ConsentCard', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Connect Claude?' })).toBeInTheDocument()
     expect(screen.getByText('Household: Kõrvid')).toBeInTheDocument()
+    // The self-declared name is not proof; the destination host is.
+    expect(screen.getByText('Your answer is sent to claude.ai.')).toBeInTheDocument()
     const items = screen.getAllByRole('listitem').map((li) => li.textContent)
     expect(items).toEqual([
       'Read your meal plan, shopping list and pantry.',

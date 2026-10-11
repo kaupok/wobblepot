@@ -75,14 +75,26 @@ const THIRTY_DAYS_MS = 30 * DAY_MS
 function mockSoftDeleteTx() {
   const userUpdate = vi.fn()
   const sessionDeleteMany = vi.fn()
+  const oauthRefreshTokenDeleteMany = vi.fn()
+  const oauthAccessTokenDeleteMany = vi.fn()
+  const oauthConsentDeleteMany = vi.fn()
   mockTransaction.mockImplementation(async (fn) => {
     const tx = {
       user: { update: userUpdate },
       session: { deleteMany: sessionDeleteMany },
+      oauthRefreshToken: { deleteMany: oauthRefreshTokenDeleteMany },
+      oauthAccessToken: { deleteMany: oauthAccessTokenDeleteMany },
+      oauthConsent: { deleteMany: oauthConsentDeleteMany },
     }
     return (fn as (tx: unknown) => unknown)(tx)
   })
-  return { userUpdate, sessionDeleteMany }
+  return {
+    userUpdate,
+    sessionDeleteMany,
+    oauthRefreshTokenDeleteMany,
+    oauthAccessTokenDeleteMany,
+    oauthConsentDeleteMany,
+  }
 }
 
 const signedInUser = {
@@ -142,6 +154,21 @@ describe('DELETE /api/auth/user', () => {
     expect(data.otherMemberCount).toBe(2)
     // No soft-delete should have run
     expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('revokes OAuth grants with the sessions, so a connected app loses access (HON-1150)', async () => {
+    mockGetSession.mockResolvedValue(signedInUser)
+    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
+    const { oauthRefreshTokenDeleteMany, oauthAccessTokenDeleteMany, oauthConsentDeleteMany } =
+      mockSoftDeleteTx()
+
+    const response = await DELETE()
+
+    expect(response.status).toBe(200)
+    const where = { where: { userId: 'user-123' } }
+    expect(oauthRefreshTokenDeleteMany).toHaveBeenCalledWith(where)
+    expect(oauthAccessTokenDeleteMany).toHaveBeenCalledWith(where)
+    expect(oauthConsentDeleteMany).toHaveBeenCalledWith(where)
   })
 
   it('soft-deletes: sets deletedAt + a cron-aligned purge instant and deletes sessions', async () => {
