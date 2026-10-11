@@ -103,7 +103,9 @@ describe('PrivacyPage', () => {
     expect(text).toContain('allow the assistant on the consent page')
     expect(text).toContain('The assistant is not one of our processors.')
     expect(text).toContain('we share the data on your instruction')
-    expect(text).toContain('We do not record the data it read.')
+    expect(text).toContain('We do not record the data it read or what it searched for.')
+    // `list_meals` hard-filters allergen meals, so the allergen list is inferable.
+    expect(text).toContain('so an assistant can work out which allergens you avoid')
     expect(text).toContain('Deleting your account disconnects every assistant at once.')
   })
 

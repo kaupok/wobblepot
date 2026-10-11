@@ -33,7 +33,8 @@ describe('SubprocessorsPage', () => {
     expect(text).toContain('UK Addendum')
     expect(text).toContain('UK SCCs')
     // PostHog is consent-gated (HON-462)
-    expect(text).toContain('Active only after you accept analytics cookies.')
+    expect(text).toContain('In your browser, active only after you accept analytics cookies.')
+    expect(text).toContain('do not depend on cookies')
   })
 
   it('links every processor to its privacy policy and DPA with vendor-qualified names', () => {

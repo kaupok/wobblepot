@@ -88,7 +88,7 @@ const PROCESSORS: Processor[] = [
     transferBasis: 'EU-US DPF + EU SCCs Module 2 + UK IDTA + Swiss addendum',
     privacyUrl: 'https://posthog.com/privacy',
     dpaUrl: 'https://posthog.com/dpa',
-    note: 'Active only after you accept analytics cookies.',
+    note: 'In your browser, active only after you accept analytics cookies. Records our servers send, such as requests from a connected AI assistant, do not depend on cookies.',
   },
 ]
 

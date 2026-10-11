@@ -210,7 +210,8 @@ export default function PrivacyPage() {
         <Body>
           A connected assistant can read your household&rsquo;s meal plan, shopping list, pantry,
           and recipes. If the consent page says so, it can also see your name and profile picture.
-          It cannot change anything in Wobblepot.
+          It cannot change anything in Wobblepot. Recipe search leaves out meals that contain your
+          household&rsquo;s allergens, so an assistant can work out which allergens you avoid.
         </Body>
         <Body>
           The assistant is not one of our processors. You choose it, you allow it, and you tell it
@@ -219,10 +220,12 @@ export default function PrivacyPage() {
           Read them before you connect it.
         </Body>
         <Body>
-          For each request the assistant makes, we record which tool it used, how long the request
-          took, and the reason the assistant gave, linked to your account and household. We do not
-          record the data it read. This record goes to our analytics processor, PostHog, and the
-          consent page tells you about it before you allow the assistant.
+          When you allow an assistant, we record its name and what you allowed it to do. For each
+          request it makes, we record the assistant&rsquo;s name and version, which tool it used,
+          how long the request took, whether it failed, and the reason the assistant gave, linked to
+          your account and household. We do not record the data it read or what it searched for.
+          These records go to our analytics processor, PostHog, and the consent page tells you about
+          them before you allow the assistant.
         </Body>
         <Body>
           To disconnect an assistant, remove the Wobblepot connection in the assistant, so it stops
