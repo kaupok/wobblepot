@@ -1,20 +1,42 @@
 // ROUTES: / · COMPONENTS: CookieBanner, PostHogProvider
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 // The browser SDK goes through the same-origin `/ingest` proxy (HON-985); the
 // `posthog.com` arm still catches a regression back to direct calls.
 const POSTHOG_URL_PATTERN = /\/ingest\/|posthog\.com/
 
-// posthog-js embeds its version string in the bundle, so a JS response that
-// contains it is the SDK chunk. Read from the installed package, so an upgrade
-// does not silently turn the check into a no-op.
+// Read from the installed package, so an upgrade does not silently turn the
+// check into a no-op.
 const POSTHOG_JS_VERSION = (
   JSON.parse(
     readFileSync(path.resolve(process.cwd(), 'node_modules/posthog-js/package.json'), 'utf8'),
   ) as { version: string }
 ).version
+
+// posthog-js embeds its version as a string literal (`LIB_VERSION="1.435.8"`),
+// so a JS response that contains the quoted version is the SDK chunk. Match the
+// quotes too (HON-1163): `next dev` keeps module ids and comments in its chunks,
+// so app chunks and the small async-loader stub carry the bare version in the
+// pnpm path `posthog-js@1.435.8_…` without ever loading the SDK.
+const POSTHOG_JS_MARKER = `"${POSTHOG_JS_VERSION}"`
+
+/** URLs of the JS responses on `page` that contain the posthog-js SDK. */
+function collectSdkChunks(page: Page): () => Promise<string[]> {
+  const bodies: Promise<string | null>[] = []
+  page.on('response', (response) => {
+    const url = response.url()
+    if (!/\.js(\?|$)/.test(url)) return
+    bodies.push(
+      response
+        .text()
+        .then((text) => (text.includes(POSTHOG_JS_MARKER) ? url : null))
+        .catch(() => null),
+    )
+  })
+  return async () => (await Promise.all(bodies)).filter((url): url is string => url !== null)
+}
 
 test.describe('PostHog consent gating', () => {
   test('declining consent fires no PostHog requests', async ({ browser }) => {
@@ -58,18 +80,7 @@ test.describe('PostHog consent gating', () => {
   test('declining consent does not download the posthog-js SDK', async ({ browser }) => {
     const context = await browser.newContext()
     const page = await context.newPage()
-
-    const bodies: Promise<string | null>[] = []
-    page.on('response', (response) => {
-      const url = response.url()
-      if (!/\.js(\?|$)/.test(url)) return
-      bodies.push(
-        response
-          .text()
-          .then((text) => (text.includes(POSTHOG_JS_VERSION) ? url : null))
-          .catch(() => null),
-      )
-    })
+    const sdkChunksSoFar = collectSdkChunks(page)
 
     await page.goto('/')
 
@@ -83,7 +94,7 @@ test.describe('PostHog consent gating', () => {
     await page.waitForURL('**/sign-in**')
     await page.waitForTimeout(1500)
 
-    const sdkChunks = (await Promise.all(bodies)).filter((url): url is string => url !== null)
+    const sdkChunks = await sdkChunksSoFar()
     expect(
       sdkChunks,
       `Expected no posthog-js ${POSTHOG_JS_VERSION} chunk after declining consent, saw: ${sdkChunks.join(', ')}`,
@@ -100,6 +111,7 @@ test.describe('PostHog consent gating', () => {
 
     const context = await browser.newContext()
     const page = await context.newPage()
+    const sdkChunksSoFar = collectSdkChunks(page)
 
     // Intercept PostHog requests so the test never hits the real vendor,
     // but still count them as the accept-side invariant.
@@ -126,6 +138,13 @@ test.describe('PostHog consent gating', () => {
       posthogRequests.length,
       'Expected at least one PostHog request after accepting consent',
     ).toBeGreaterThan(0)
+
+    // The positive control for the marker: if a posthog-js upgrade drops the
+    // quoted version from the bundle, the decline test passes vacuously.
+    expect(
+      await sdkChunksSoFar(),
+      `Expected a JS response containing ${POSTHOG_JS_MARKER} after accepting consent`,
+    ).not.toEqual([])
 
     await context.close()
   })
