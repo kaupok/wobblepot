@@ -1,15 +1,18 @@
 import 'server-only'
 import { instrument, type BeforeSendFn } from '@posthog/mcp'
 import type { McpServer } from '@modelcontextprotocol/server'
-import { getPosthogServer } from '@/lib/posthog-server'
+import { getPosthogMcpServer } from '@/lib/posthog-server'
 import type { McpCallerContext } from '@/lib/mcp/context'
 
 /**
  * The `beforeSend` for every MCP event: drops what a tool was asked and what it
  * answered. Parameters can hold a search string, and responses hold the
- * household's meals and pantry; neither belongs in analytics. `$mcp_intent`,
- * the agent's one-sentence reason for the call, stays: it describes the task,
- * not the data.
+ * household's meals and pantry; neither belongs in analytics.
+ *
+ * `$mcp_intent`, the agent's one-sentence reason for the call, stays in full.
+ * That is a decision, not an oversight: it is what the MCP analytics view
+ * clusters on, and the consent page names it. The client's sanitiser does not
+ * shorten it, because `sanitizeEventProperties` passes `$`-prefixed keys through.
  */
 export const stripMcpPayload: BeforeSendFn = (event) => {
   delete event.properties.$mcp_parameters
@@ -26,16 +29,18 @@ export const stripMcpPayload: BeforeSendFn = (event) => {
  * `runTool`). Left on, it would also send a stackless `$exception` for every
  * refusal (no household, the rate limit, an unknown meal id).
  *
- * Every event goes through the `getPosthogServer()` singleton, so its
- * `before_send` sanitiser and its `waitUntil` flush apply as they do to the
- * rest of the server events. With no client (tests, no key) nothing is wired.
+ * Events go through `getPosthogMcpServer()`, a client of its own with the same
+ * options as the shared one (`waitUntil` flush, URL redaction, sanitiser).
+ * Not the shared client: `instrument` rewrites the library id of the client it
+ * gets, which would relabel every other server event. With no client (tests,
+ * no key) nothing is wired.
  *
  * Server-side, so the cookie-consent gate (HON-462) does not apply, the same
  * as `$ai_generation`. The consent page says what an event holds, the
  * assistant's reason (`$mcp_intent`) included.
  */
 export function instrumentMcpServer(server: McpServer, ctx: McpCallerContext): void {
-  const posthog = getPosthogServer()
+  const posthog = getPosthogMcpServer()
   if (!posthog) return
 
   const serverBuild = process.env.VERCEL_GIT_COMMIT_SHA

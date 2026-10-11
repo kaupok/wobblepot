@@ -127,14 +127,16 @@ describe('get_meal', () => {
     expect(getMeal.inputSchema.safeParse({ mealId: 'meal-1', servings: 51 }).success).toBe(false)
   })
 
-  it('looks the meal up only among those the household may see', async () => {
+  it('looks the meal up only among those the household may see or has planned', async () => {
     await call('meal-1')
 
     const where = vi.mocked(prisma.meal.findFirst).mock.calls[0]![0]!.where
     expect(where).toEqual({
-      AND: [
-        { id: 'meal-1' },
+      id: 'meal-1',
+      OR: [
         { deletedAt: null, OR: [{ householdId: null }, { householdId: 'household-1' }] },
+        // A deleted recipe still on this household's plan stays readable.
+        { planEntries: { some: { plan: { householdId: 'household-1' } } } },
       ],
     })
   })

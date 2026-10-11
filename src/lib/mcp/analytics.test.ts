@@ -5,7 +5,7 @@ const { posthog, instrumentSpy } = vi.hoisted(() => ({
   instrumentSpy: vi.fn(),
 }))
 
-vi.mock('@/lib/posthog-server', () => ({ getPosthogServer: vi.fn(() => posthog) }))
+vi.mock('@/lib/posthog-server', () => ({ getPosthogMcpServer: vi.fn(() => posthog) }))
 vi.mock('@posthog/mcp', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@posthog/mcp')>()
   instrumentSpy.mockImplementation(actual.instrument)
@@ -18,7 +18,7 @@ vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server'
-import { getPosthogServer } from '@/lib/posthog-server'
+import { getPosthogMcpServer } from '@/lib/posthog-server'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { captureApiError } from '@/lib/errors'
 import { mcpHousehold, mcpRequest, readMcpBody } from '@/test/mcp'
@@ -48,11 +48,11 @@ async function callPantry(caller: McpCallerContext = ctx) {
 describe('MCP analytics', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPosthogServer).mockReturnValue(posthog as never)
+    vi.mocked(getPosthogMcpServer).mockReturnValue(posthog as never)
     vi.mocked(loadPantry).mockResolvedValue({ items: [], windowDays: 7 } as never)
   })
 
-  it('instruments the server with the PostHog singleton and the payload filter', () => {
+  it('instruments the server with the MCP PostHog client and the payload filter', () => {
     const server = new McpServer({ name: 't', version: '1' })
 
     instrumentMcpServer(server, ctx)
@@ -65,7 +65,7 @@ describe('MCP analytics', () => {
   })
 
   it('wires nothing when there is no PostHog client', () => {
-    vi.mocked(getPosthogServer).mockReturnValue(null)
+    vi.mocked(getPosthogMcpServer).mockReturnValue(null)
 
     instrumentMcpServer(new McpServer({ name: 't', version: '1' }), ctx)
 

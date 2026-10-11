@@ -74,7 +74,7 @@ curl -s http://localhost:3000/api/mcp \
 
 ## Analytics
 
-`@posthog/mcp` wraps each request's server (`src/lib/mcp/analytics.ts`) and sends `$mcp_tool_call` per call and `$mcp_tools_list`, through the `getPosthogServer()` singleton. Events are on the user's person (the token's `sub`) and carry `household_id`. A `beforeSend` removes `$mcp_parameters` and `$mcp_response`, so no search string, meal or pantry content reaches PostHog; `$mcp_intent` stays. The SDK's exception capture is off: with SDK 2.x it only sees the error result, not the thrown error, so `runTool` reports failures instead. PostHog shows the results under MCP analytics.
+`@posthog/mcp` wraps each request's server (`src/lib/mcp/analytics.ts`) and sends `$mcp_tool_call` per call and `$mcp_tools_list`, through `getPosthogMcpServer()`: a client of its own with the shared client's options, because `instrument` rewrites the library id (`$lib`) of the client it is given. Events are on the user's person (the token's `sub`) and carry `household_id`. A `beforeSend` removes `$mcp_parameters` and `$mcp_response`, so no search string, meal or pantry content reaches PostHog; `$mcp_intent`, the agent's reason, stays in full by decision; the sanitiser does not shorten `$`-prefixed keys. The SDK's exception capture is off: with SDK 2.x it only sees the error result, not the thrown error, so `runTool` reports failures instead. PostHog shows the results under MCP analytics.
 
 The capture is server-side, so the cookie banner does not gate it, the same as `$ai_generation`. The consent page says what each event holds (the tool, its timing and the assistant's reason) and that the data the tool read is not recorded.
 

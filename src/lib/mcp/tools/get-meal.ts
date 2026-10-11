@@ -65,7 +65,15 @@ export const getMeal = defineTool({
     const meal = await prisma.meal.findFirst({
       // The shared catalogue or this household's own recipes, the same set
       // `list_meals` shows, so another household's recipe id finds nothing.
-      where: { AND: [{ id: mealId }, visibleMealWhere(household.id)] },
+      // Or a meal on this household's plan: deleting a recipe keeps its plan
+      // entries, and `get_meal_plan` still returns their mealId.
+      where: {
+        id: mealId,
+        OR: [
+          visibleMealWhere(household.id),
+          { planEntries: { some: { plan: { householdId: household.id } } } },
+        ],
+      },
       select: {
         id: true,
         name: true,
