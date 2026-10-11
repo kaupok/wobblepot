@@ -42,6 +42,8 @@ export const PROTECTED_PREFIXES = [
   '/shopping',
   '/pantry',
   '/onboarding',
+  // The consent step of an MCP client's OAuth authorization (HON-1150).
+  '/consent',
 ] as const
 
 /**
@@ -90,6 +92,11 @@ export const PUBLIC_ROUTES = [
   {
     path: '/meal-plan',
     reason: 'Legacy path that redirect()s unconditionally, before any Suspense boundary',
+  },
+  {
+    path: '/.well-known',
+    reason:
+      'OAuth discovery documents for MCP clients (RFC 8414, RFC 9728): public JSON that clients fetch before they hold any credential (HON-1150)',
   },
   {
     path: '/meal-plans',

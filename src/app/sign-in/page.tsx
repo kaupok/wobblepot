@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
 import { auth } from '@/lib/auth'
 import { hasHouseholdMembership } from '@/lib/household'
+import { isSignedOAuthRequest, toSearchParams } from '@/lib/mcp/consent-request'
 import { SignInForm } from './SignInForm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Body } from '@/components/ui/typography'
@@ -14,12 +15,21 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('metaTitle') }
 }
 
-export default async function SignInPage() {
+interface SignInPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+export default async function SignInPage({ searchParams }: SignInPageProps) {
   const session = await auth.api.getSession({
     headers: await headers(),
   })
 
-  if (session) {
+  // Inside an MCP client's OAuth authorization the provider also sends a
+  // signed-in user here, for `prompt=login` or an expired `max_age`. Show the
+  // form so they can sign in again; the auth client forwards the signed query
+  // and the authorization continues (HON-1150). Sending them home would drop
+  // it, and the client would never get an answer.
+  if (session && !(await isSignedOAuthRequest(toSearchParams(await searchParams)))) {
     const hasMembership = await hasHouseholdMembership(session.user.id)
     redirect(hasMembership ? '/' : '/onboarding')
   }

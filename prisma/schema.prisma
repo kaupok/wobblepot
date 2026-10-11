@@ -113,13 +113,13 @@ enum AiFeature {
 // Run the generate command again if adding Better Auth plugins that require new tables
 
 model User {
-  id                   String           @id
+  id                   String              @id
   name                 String
   email                String
-  emailVerified        Boolean          @default(false)
+  emailVerified        Boolean             @default(false)
   image                String?
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @default(now()) @updatedAt
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @default(now()) @updatedAt
   // GDPR Art. 17 soft-delete (HON-481). `deletedAt` non-null means the user
   // requested deletion; sign-in is blocked while set. `purgeScheduledFor` is
   // when the daily cron hard-cascades the account — the first 03:00 UTC cron
@@ -136,8 +136,15 @@ model User {
   accounts             Account[]
   // Singular: `HouseholdMember.userId` is unique — one household per user (HON-696).
   householdMembership  HouseholdMember?
-  signupCodesCreated   SignupCode[]     @relation("SignupCodeCreatedBy")
-  signupCodeUsed       SignupCode?      @relation("SignupCodeUsedBy")
+  signupCodesCreated   SignupCode[]        @relation("SignupCodeCreatedBy")
+  signupCodeUsed       SignupCode?         @relation("SignupCodeUsedBy")
+  // OAuth provider for MCP clients (HON-1150). Tokens and consents cascade, so
+  // account deletion removes every grant; a registered client survives with
+  // `userId` cleared, because it is the client's record, not the user's.
+  oauthClients         OauthClient[]
+  oauthAccessTokens    OauthAccessToken[]
+  oauthRefreshTokens   OauthRefreshToken[]
+  oauthConsents        OauthConsent[]
 
   @@unique([email])
   @@index([purgeScheduledFor])
@@ -155,6 +162,9 @@ model Session {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  oauthAccessTokens  OauthAccessToken[]
+  oauthRefreshTokens OauthRefreshToken[]
+
   @@unique([token])
   @@index([userId])
   @@map("session")
@@ -162,13 +172,13 @@ model Session {
 
 model Account {
   id                    String    @id
-  // Better Auth 1.7 made `issuer` the identity key for an account, replacing
-  // `providerId` in the unique constraint. Providers without an issuer of
-  // their own get a synthetic `local:<urlencoded providerId>`; this app is
-  // email/password only (no socialProviders, no plugins in src/lib/auth.ts),
-  // so `local:credential` is the only issuer it can produce. The default
-  // exists to cover the migrate-before-deploy window, when the previous
-  // Better Auth still INSERTs without this column — see the migration.
+  // Better Auth 1.7.0–1.7.2 made `issuer` the identity key for an account.
+  // 1.7.3 went back to `(providerId, accountId)` and no longer writes this
+  // column, so the default fills it on every insert. This app has no social
+  // providers, so `local:credential` is the only value it ever held. Dropping
+  // the column is optional cleanup (Better Auth 1.7 upgrade guide → "Account
+  // identity keeps the provider key"); it is kept so a migration never has to
+  // race a deploy still running 1.7.2 (HON-1150).
   issuer                String    @default("local:credential")
   accountId             String
   providerId            String
@@ -198,6 +208,213 @@ model Verification {
   updatedAt  DateTime @default(now()) @updatedAt
 
   @@map("verification")
+}
+
+// OAuth 2.1 authorization server for MCP clients (HON-1150). Written by hand
+// from the `jwt` plugin schema (better-auth/dist/plugins/jwt/schema.mjs) and
+// the `@better-auth/oauth-provider` schema that `@better-auth/mcp` uses; there
+// is no Better Auth CLI here (CLAUDE.md → Better Auth CLI). Better Auth checks
+// these at init and rejects auth requests on a missing table or column, so a
+// plugin upgrade that adds a field needs a migration first. Model names are
+// `Oauth…` so the Prisma client property is `oauthClient`, the name the
+// adapter asks for. Fields Better Auth marks `required` are non-null; the rest
+// are optional, as its generator writes them.
+
+// Signing keys for access and ID tokens, served at `/api/auth/jwks`. The
+// private key is encrypted with BETTER_AUTH_SECRET.
+model Jwks {
+  id         String    @id
+  publicKey  String
+  privateKey String
+  createdAt  DateTime
+  expiresAt  DateTime?
+  alg        String?
+  crv        String?
+
+  @@map("jwks")
+}
+
+// A registered OAuth client: dynamic registration (RFC 7591) or a Client ID
+// Metadata Document (`clientDiscoveryId` set).
+model OauthClient {
+  id                               String    @id
+  clientId                         String    @unique
+  clientSecret                     String?
+  clientDiscoveryId                String?
+  disabled                         Boolean?  @default(false)
+  skipConsent                      Boolean?
+  enableEndSession                 Boolean?
+  subjectType                      String?
+  scopes                           String[]
+  clientCredentialsScopes          String[]  @default([])
+  userId                           String?
+  user                             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt                        DateTime?
+  updatedAt                        DateTime?
+  name                             String?
+  uri                              String?
+  icon                             String?
+  contacts                         String[]
+  tos                              String?
+  policy                           String?
+  softwareId                       String?
+  softwareVersion                  String?
+  softwareStatement                String?
+  redirectUris                     String[]
+  postLogoutRedirectUris           String[]
+  backchannelLogoutUri             String?
+  backchannelLogoutSessionRequired Boolean?
+  tokenEndpointAuthMethod          String?
+  applicationType                  String?
+  jwks                             String?
+  jwksUri                          String?
+  grantTypes                       String[]
+  responseTypes                    String[]
+  requirePKCE                      Boolean?
+  dpopBoundAccessTokens            Boolean?  @default(false)
+  referenceId                      String?
+  metadata                         Json?
+
+  resources     OauthClientResource[]
+  accessTokens  OauthAccessToken[]
+  refreshTokens OauthRefreshToken[]
+  consents      OauthConsent[]
+
+  @@index([userId])
+  @@map("oauth_client")
+}
+
+// A protected resource the server issues tokens for. `mcp()` seeds the MCP
+// resource (`<origin>/api/mcp`) at init.
+model OauthResource {
+  id                            String    @id
+  identifier                    String    @unique
+  name                          String
+  accessTokenTtl                Int?
+  refreshTokenTtl               Int?
+  signingAlgorithm              String?
+  signingKeyId                  String?
+  allowedScopes                 String[]
+  customClaims                  Json?
+  dpopBoundAccessTokensRequired Boolean?  @default(false)
+  disabled                      Boolean?  @default(false)
+  createdAt                     DateTime?
+  updatedAt                     DateTime?
+  policyVersion                 Int?      @default(1)
+  metadata                      Json?
+
+  clients OauthClientResource[]
+
+  @@map("oauth_resource")
+}
+
+// Which client may request which resource.
+model OauthClientResource {
+  id         String        @id
+  clientId   String
+  client     OauthClient   @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  resourceId String
+  resource   OauthResource @relation(fields: [resourceId], references: [identifier], onDelete: Cascade)
+  metadata   Json?
+  createdAt  DateTime?
+
+  @@unique([clientId, resourceId])
+  @@index([clientId])
+  @@index([resourceId])
+  @@map("oauth_client_resource")
+}
+
+// A refresh token, issued with `offline_access`. Stored hashed.
+model OauthRefreshToken {
+  id                      String      @id
+  token                   String      @unique
+  clientId                String
+  client                  OauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  sessionId               String?
+  session                 Session?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  userId                  String
+  user                    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  authorizationCodeId     String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  expiresAt               DateTime?
+  createdAt               DateTime?
+  revoked                 DateTime?
+  rotatedAt               DateTime?
+  rotationReplayResponse  String?
+  rotationReplayExpiresAt DateTime?
+  authTime                DateTime?
+  confirmation            Json?
+  scopes                  String[]
+
+  accessTokens OauthAccessToken[]
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@map("oauth_refresh_token")
+}
+
+// An opaque access token. Tokens bound to the MCP resource are JWTs and are
+// not stored; this table holds only the ones without a resource audience.
+model OauthAccessToken {
+  id                      String             @id
+  token                   String?            @unique
+  clientId                String
+  client                  OauthClient        @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  sessionId               String?
+  session                 Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  userId                  String?
+  user                    User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  authorizationCodeId     String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  refreshId               String?
+  refresh                 OauthRefreshToken? @relation(fields: [refreshId], references: [id], onDelete: SetNull)
+  expiresAt               DateTime?
+  createdAt               DateTime?
+  revoked                 DateTime?
+  confirmation            Json?
+  scopes                  String[]
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@index([refreshId])
+  @@map("oauth_access_token")
+}
+
+// A user's consent to a client for a set of scopes. `/consent` writes it; a
+// later authorization with the same scopes skips the consent page.
+model OauthConsent {
+  id                      String      @id
+  clientId                String
+  client                  OauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  userId                  String?
+  user                    User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  scopes                  String[]
+  createdAt               DateTime?
+  updatedAt               DateTime?
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("oauth_consent")
+}
+
+// Replay guard for `private_key_jwt` client assertions: the id is a digest of
+// the assertion's `jti`.
+model OauthClientAssertion {
+  id        String   @id
+  expiresAt DateTime
+
+  @@map("oauth_client_assertion")
 }
 
 // Single-use sign-up codes that gate `/sign-up` while the launch is invite-only.

@@ -60,7 +60,7 @@ Exact versions are pinned in `package.json`. The majors:
 - **Styling**: Tailwind CSS 4 with class-variance-authority, shadcn/ui
 - **i18n**: next-intl 4, catalogs in `messages/`
 - **Data**: PostgreSQL (Neon) with Prisma 7; TanStack Query v5 on the client
-- **Auth**: Better Auth (email/password)
+- **Auth**: Better Auth (email/password; OAuth 2.1 server for MCP clients)
 - **AI**: Vercel AI SDK with Claude — see [docs/AI_MODELS.md](docs/AI_MODELS.md)
 - **Services**: PostHog (analytics, feature flags, error capture), Upstash Redis (rate limits), Resend (email), Vercel (hosting)
 - **Testing**: Vitest, Playwright, Storybook 10
@@ -93,7 +93,7 @@ Exact versions are pinned in `package.json`. The majors:
 
 ## Authentication Patterns
 
-**Better Auth** for email/password authentication (no OAuth yet).
+**Better Auth** for email/password authentication (no social sign-in). It is also the OAuth 2.1 authorization server for MCP clients: the `mcp()` plugin, the `/consent` page and the root `.well-known` routes. See [docs/SECURITY.md](docs/SECURITY.md) → OAuth for MCP clients.
 
 - Server: `@/lib/auth` (Server Components, API routes)
 - Client: `@/lib/auth-client` (Client Components)
@@ -374,7 +374,7 @@ If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, 
 
 **Go-to-market content stays out of this repository.** The repository is public, so a market choice, a price, a cohort result or a channel plan written here is published. They live in Linear documents titled `GTM …` and in issues labelled `GTM`; `/gtm` has the map. A PR that go-to-market needs says what changes for the user, not the strategy behind it.
 
-**Vendor skills:** `better-auth-best-practices`, `create-auth-skill` and `next-upgrade` are symlinks to `.agents/skills/*` — upstream references (Next.js / Better Auth) installed from skills.sh, not project rules. Where they conflict with this file, this file wins: Prisma adapter (not Drizzle), email/password only (no OAuth yet), pnpm with exact pins (no `@latest`, no `npm install`), TanStack Query for client reads (never `useEffect` + `fetch`), and the Next 16 upgrade guide (not v14/v15). Only `next-upgrade` is user-invocable; the rest are reference-only. Next.js guidance comes from `node_modules/next/dist/docs/`, which the harness names on every session.
+**Vendor skills:** `better-auth-best-practices`, `create-auth-skill` and `next-upgrade` are symlinks to `.agents/skills/*` — upstream references (Next.js / Better Auth) installed from skills.sh, not project rules. Where they conflict with this file, this file wins: Prisma adapter (not Drizzle), email/password only (no social sign-in), pnpm with exact pins (no `@latest`, no `npm install`), TanStack Query for client reads (never `useEffect` + `fetch`), and the Next 16 upgrade guide (not v14/v15). Only `next-upgrade` is user-invocable; the rest are reference-only. Next.js guidance comes from `node_modules/next/dist/docs/`, which the harness names on every session.
 
 **Better Auth CLI:** the vendor skills tell you to run `npx @better-auth/cli@latest generate`. It does not work here (nor does its successor, `auth`): the CLI cannot load `src/lib/auth.ts`, so it is not a dependency of this repo. To pick up a Better Auth schema change, read the account/session/user/verification table definitions in `@better-auth/core/dist/db/get-tables.mjs` under `node_modules/.pnpm/` and diff them against `prisma/schema.prisma` by hand.
 

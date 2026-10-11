@@ -1,7 +1,11 @@
 import { betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { hashPassword } from 'better-auth/crypto'
+import { jwt } from 'better-auth/plugins'
 import { prismaAdapter } from '@better-auth/prisma-adapter'
+import { mcp } from '@better-auth/mcp'
+import { cimd } from '@better-auth/cimd'
+import { fetchClientMetadataResource } from '@better-auth/cimd/node'
 import { prisma } from '@/lib/prisma'
 import { serverEnv, getServerBaseURL } from '@/lib/env'
 import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
@@ -16,6 +20,8 @@ import { assertUserNotSoftDeleted } from '@/lib/auth/soft-delete-guard'
 import { CURRENT_TERMS_VERSION } from '@/lib/consent'
 import { timeSignupStep } from '@/lib/signup-timing'
 import { MAX_ACCOUNT_NAME_LENGTH } from '@/lib/account-name'
+import { MCP_SCOPES, getMcpIssuer, getMcpResource } from '@/lib/mcp/oauth'
+import { captureMcpClientConnected } from '@/lib/mcp/consent-analytics'
 
 const MIN_PASSWORD_LENGTH = 12
 // Better Auth's default, set here because `errors.auth.passwordTooLong` names
@@ -312,10 +318,62 @@ export const auth = betterAuth({
       await timeSignupStep('invite-code', () => validateAndClaimInviteCode(ctx.body))
     }),
     after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === '/oauth2/consent') {
+        await captureMcpClientConnected({
+          body: ctx.body,
+          userId: ctx.context.session?.user.id,
+          returned: ctx.context.returned,
+        })
+        return
+      }
       if (ctx.path !== '/sign-up/email') return
       await afterEmailSignUp(ctx.body, ctx.context.newSession?.user?.id)
     }),
   },
+
+  /**
+   * OAuth 2.1 authorization server for MCP clients such as Claude's custom
+   * connectors (HON-1150). The endpoints live under `/api/auth/oauth2/*`; the
+   * discovery documents are served at the origin root by
+   * `src/app/.well-known/*`. See docs/SECURITY.md → OAuth for MCP clients.
+   */
+  plugins: [
+    // Signs the access tokens and serves `/api/auth/jwks`. The issuer is the
+    // bare origin, so discovery sits at the root (see `getMcpIssuer`). The
+    // session JWT header is off: nothing here reads it, and it would sign a
+    // token on every `/get-session`.
+    jwt({
+      jwt: { issuer: getMcpIssuer(getServerBaseURL()) },
+      disableSettingJwtHeader: true,
+    }),
+    // `mcp()` is the OAuth provider. Do not also register `oauthProvider()`.
+    mcp({
+      loginPage: '/sign-in',
+      consentPage: '/consent',
+      resource: getMcpResource(getServerBaseURL()),
+      scopes: [...MCP_SCOPES],
+      // The plugin seeds this resource row at init. Left to itself it writes
+      // `allowedScopes: null`, which Prisma rejects for a `String[]` column,
+      // and init failure fails every auth request. Listing the scopes (the
+      // same set, so nothing narrows) gives the seed a value.
+      resources: [
+        {
+          identifier: getMcpResource(getServerBaseURL()),
+          name: 'Wobblepot MCP',
+          allowedScopes: [...MCP_SCOPES],
+        },
+      ],
+      // Open dynamic client registration (RFC 7591). Claude's connector
+      // registers itself this way; `mcp()` enables no registration by default.
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+    }),
+    // Client ID Metadata Documents, the registration MCP 2026-07-28 prefers.
+    // The Node transport resolves the host once, accepts only public
+    // addresses and follows no redirects, so a client_id URL cannot reach
+    // internal hosts.
+    cimd({ fetchClientMetadataResource, metadataProfile: 'mcp-2026-07-28' }),
+  ],
 })
 
 /**

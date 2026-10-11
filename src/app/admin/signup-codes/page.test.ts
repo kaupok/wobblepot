@@ -7,7 +7,9 @@ vi.mock('@/lib/session', () => ({
 }))
 
 vi.mock('@/lib/prisma', () => ({
-  prisma: {},
+  // The page imports the real `auth`, whose `mcp()` plugin seeds its resource
+  // row at init (HON-1150).
+  prisma: { oauthResource: { findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }) } },
 }))
 
 vi.mock('next/navigation', () => ({

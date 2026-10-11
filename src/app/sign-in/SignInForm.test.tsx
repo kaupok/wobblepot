@@ -232,6 +232,48 @@ describe('SignInForm', () => {
       })
     })
 
+    it('leaves navigation to the auth client when the OAuth flow answers with a redirect', async () => {
+      // Inside an MCP client's authorization the provider's after-hook returns
+      // the consent URL, and Better Auth's redirect plugin navigates to it
+      // (HON-1150). Pushing returnUrl as well would race that navigation.
+      const { authClient } = await import('@/lib/auth-client')
+      vi.mocked(authClient.signIn.email).mockImplementation(async (creds, options) => {
+        options?.onSuccess?.({
+          data: { redirect: true, url: '/consent?client_id=abc&sig=xyz' },
+        } as any)
+      })
+
+      const user = userEvent.setup({ delay: null })
+      render(<SignInForm />)
+
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+      await user.type(screen.getByLabelText(/^password$/i), 'password123')
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+      await vi.waitFor(() => expect(authClient.signIn.email).toHaveBeenCalled())
+      expect(mockPush).not.toHaveBeenCalled()
+      expect(mockRefresh).not.toHaveBeenCalled()
+      // The form stays disabled while the browser leaves the page.
+      expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled()
+    })
+
+    it('pushes returnUrl after a plain sign-in, which answers redirect: false', async () => {
+      const { authClient } = await import('@/lib/auth-client')
+      mockGet.mockImplementation((key: string) => (key === 'returnUrl' ? '/pantry' : null))
+      vi.mocked(authClient.signIn.email).mockImplementation(async (creds, options) => {
+        options?.onSuccess?.({ data: { redirect: false, token: 't' } } as any)
+      })
+
+      const user = userEvent.setup({ delay: null })
+      render(<SignInForm />)
+
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com')
+      await user.type(screen.getByLabelText(/^password$/i), 'password123')
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+      await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith('/pantry'))
+    })
+
     // Better Auth resolves the request promise as soon as the server answers,
     // after firing exactly one of onSuccess / onError. The mock below mirrors
     // that: it holds the promise open, then settles it through onError so the

@@ -976,6 +976,33 @@
         "ownerHasOtherAccounts": "Eemalda enne teised kontoga liikmed oma leibkonnast ja proovi siis uuesti.",
         "leaveRateLimited": "Oled viimase 30 päeva jooksul leibkonnast lahkunud 3 korda. Proovi hiljem uuesti."
       }
+    },
+    "connect": {
+      "metaTitle": "Ühenda rakendus",
+      "title": "Kas ühendada {clientName}?",
+      "titleUnnamed": "Kas ühendada see rakendus?",
+      "description": "{clientName} küsib ligipääsu sinu Wobblepoti kontole.",
+      "descriptionUnnamed": "Üks rakendus küsib ligipääsu sinu Wobblepoti kontole.",
+      "redirectsTo": "Sinu vastus saadetakse aadressile {target}.",
+      "household": "Leibkond: {householdName}",
+      "scopesHeading": "See saab:",
+      "scopes": {
+        "mcpRead": "lugeda sinu söögiplaani, ostunimekirja ja sahvrit;",
+        "openid": "kinnitada, et see oled sina;",
+        "profile": "näha sinu nime ja profiilipilti;",
+        "offlineAccess": "jääda ühendatuks, nii et sa ei pea seda uuesti lubama."
+      },
+      "readOnly": "See ei saa Wobblepotis midagi muuta.",
+      "allow": "Luba",
+      "allowing": "Ühendamine…",
+      "deny": "Keela",
+      "denying": "Tühistamine…",
+      "failed": "Ühendamine ebaõnnestus. Alusta uuesti rakendusest.",
+      "invalid": {
+        "title": "Ühendamise taotlus on aegunud",
+        "body": "See taotlus pole enam kehtiv. Alusta ühendamist uuesti rakendusest, mida kasutasid.",
+        "action": "Mine avalehele"
+      }
     }
   },
   "emails": {

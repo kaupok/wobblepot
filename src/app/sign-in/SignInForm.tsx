@@ -15,6 +15,17 @@ import { Heading, Body } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 
+/**
+ * True when sign-in returned `{ redirect: true, url }`. A plain sign-in
+ * returns `redirect: false`; the OAuth provider's after-hook replaces the body
+ * with the authorization's next URL.
+ */
+function isOAuthRedirect(data: unknown): boolean {
+  if (typeof data !== 'object' || data === null) return false
+  const { redirect, url } = data as { redirect?: unknown; url?: unknown }
+  return redirect === true && typeof url === 'string' && url.length > 0
+}
+
 export function SignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -66,7 +77,16 @@ export function SignInForm() {
           password,
         },
         {
-          onSuccess: () => {
+          onSuccess: (ctx) => {
+            // Inside an OAuth authorization (an MCP client connecting,
+            // HON-1150) the server answers with the next step, usually
+            // `/consent`, and the auth client's redirect plugin has already
+            // set `window.location.href` to it. Pushing `returnUrl` here would
+            // race that navigation.
+            if (isOAuthRedirect(ctx.data)) {
+              isNavigating = true
+              return
+            }
             try {
               router.push(returnUrl)
               router.refresh()

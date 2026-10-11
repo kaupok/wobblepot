@@ -143,8 +143,9 @@ export async function DELETE() {
     const now = new Date()
     const purgeScheduledFor = computePurgeInstant(now)
 
-    // Soft-delete: mark the account and sign the user out everywhere. Household
-    // data and the user row are left intact until the grace window expires.
+    // Soft-delete: mark the account, sign the user out everywhere and revoke
+    // connected apps. Household data and the user row are left intact until
+    // the grace window expires.
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
@@ -154,6 +155,16 @@ export async function DELETE() {
       await tx.session.deleteMany({
         where: { userId },
       })
+
+      // Connected MCP clients lose access with the sessions (HON-1150). The
+      // token endpoint never creates a session, so the soft-delete guard on
+      // session creation does not stop a refresh; deleting the grants does.
+      // A JWT access token already issued stays valid until it expires (at
+      // most an hour). The purge cascade would remove these rows too, but only
+      // after the 30-day grace window.
+      await tx.oauthRefreshToken.deleteMany({ where: { userId } })
+      await tx.oauthAccessToken.deleteMany({ where: { userId } })
+      await tx.oauthConsent.deleteMany({ where: { userId } })
     })
 
     // Confirmation email is sent after the soft-delete commits (best-effort).
