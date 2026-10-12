@@ -238,5 +238,15 @@ test.describe('OAuth for MCP clients', () => {
         .getByRole('region', { name: 'Connect to an AI assistant' })
         .getByText('No assistant is connected.'),
     ).toBeVisible()
+
+    // A Client ID Metadata Document client's id is a URL. Encoded, it must reach
+    // the `[clientId]` route as one segment, not fall through to Better Auth's
+    // catch-all: this user has no such consent, so the route's own 404 answers.
+    const urlClientId = 'https://assistant.example/oauth/client.json'
+    const response = await page.request.delete(
+      `/api/auth/user/mcp-consents/${encodeURIComponent(urlClientId)}`,
+    )
+    expect(response.status()).toBe(404)
+    expect(await response.json()).toEqual({ error: 'Connected assistant not found' })
   })
 })

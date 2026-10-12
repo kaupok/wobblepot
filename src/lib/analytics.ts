@@ -37,7 +37,10 @@
  *   code. Deny captures nothing. Distinct id is the user id, so the event joins
  *   the person known from sign-in. Properties: `household_id`, `client_name`,
  *   `scopes` (array of scope strings), `is_reconsent` (true when this user had
- *   consented to this client before). No client id, redirect URI or token.
+ *   consented to this client before, since the last Disconnect: Disconnect
+ *   deletes the consent row, so a reconnect after it reads false; join on
+ *   `mcp:client_disconnected` to find returning users). No client id, redirect
+ *   URI or token.
  * - `mcp:client_disconnected` (`src/lib/mcp/consents.ts` → `disconnectMcpClient`,
  *   called from `DELETE /api/auth/user/mcp-consents/[clientId]`, HON-1153): a
  *   user clicked Disconnect on the profile page, and the consent and tokens for

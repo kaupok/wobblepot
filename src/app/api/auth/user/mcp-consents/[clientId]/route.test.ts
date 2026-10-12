@@ -80,4 +80,19 @@ describe('DELETE /api/auth/user/mcp-consents/[clientId]', () => {
       expect.objectContaining({ userId: 'user-1' }),
     )
   })
+
+  // A Client ID Metadata Document client's id is a URL. The list encodes it
+  // into the path; Next matches the raw path one segment at a time and then
+  // decodes the param, so the route receives the id unchanged. The server-side
+  // half is covered in `tests/e2e/oauth-consent.spec.ts`.
+  it('receives a URL client id decoded, from one encoded path segment', async () => {
+    const { getRouteRegex } = await import('next/dist/shared/lib/router/utils/route-regex')
+    const { getRouteMatcher } = await import('next/dist/shared/lib/router/utils/route-matcher')
+    const match = getRouteMatcher(getRouteRegex('/api/auth/user/mcp-consents/[clientId]'))
+    const clientId = 'https://claude.ai/oauth/claude-code-client-metadata'
+
+    expect(match(`/api/auth/user/mcp-consents/${encodeURIComponent(clientId)}`)).toEqual({
+      clientId,
+    })
+  })
 })
