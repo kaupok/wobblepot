@@ -95,7 +95,7 @@ describe('Better Auth catch-all route (/api/auth/[...all])', () => {
     { path: '/api/auth/sign-in/email', feature: 'sign-in' },
     { path: '/api/auth/request-password-reset', feature: 'forgot-password' },
     // Resend on /profile (HON-1155).
-    { path: '/api/auth/send-verification-email', feature: 'forgot-password' },
+    { path: '/api/auth/send-verification-email', feature: 'verify-email' },
   ] as const)('rate-limits $path against feature $feature', async ({ path, feature }) => {
     mockCheckRateLimit.mockResolvedValue(allow())
     const route = await import('./route')

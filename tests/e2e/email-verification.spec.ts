@@ -13,9 +13,9 @@ import { fetchUserState, fetchVerifyEmailPath, expectUserExists } from './utils/
  */
 
 const NOT_VERIFIED =
-  'Your email address is not verified yet. Open the link in the email we sent you.'
+  'Your email address is not verified yet. Send a verification link and open it from your inbox.'
 const VERIFIED = 'Your email address is verified.'
-const RESEND = { name: 'Send the link again' }
+const RESEND = { name: 'Send a verification link' }
 
 test.describe('Email verification', () => {
   test.setTimeout(90_000)

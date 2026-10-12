@@ -11,7 +11,7 @@ const SEND = '*/api/auth/send-verification-email'
 /** Called by the default handler with the request body, so a play function can assert it. */
 const sendSpy = fn()
 
-const RESEND = { name: 'Send the link again' }
+const RESEND = { name: 'Send a verification link' }
 
 const meta = {
   title: 'Feature/Profile/VerifyEmailNotice',
@@ -27,7 +27,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The account email\'s verification state (HON-1155): always on `/profile`, and on `/onboarding` after the link landed there. Unverified: a warning with "Send the link again". After an expired or broken link the warning says so. Verified: nothing, except once after the link landed on `/profile?verified=1`. Errors show catalog copy; focus returns to the button after a failure and moves to the "Sent" message after success.',
+          'The account email\'s verification state (HON-1155): always on `/profile`, and on `/onboarding` after the link landed there. Unverified: a warning with "Send a verification link". After an expired or broken link the warning says so. Verified: nothing, except once after the link landed on `/profile?verified=1`. Errors show catalog copy; focus returns to the button after a failure and moves to the "Sent" message after success.',
       },
     },
     msw: {

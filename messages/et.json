@@ -1430,11 +1430,11 @@
     },
     "emailLabel": "E-post",
     "verifyEmail": {
-      "notVerified": "Sinu e-posti aadress on veel kinnitamata. Ava link kirjas, mille sulle saatsime.",
+      "notVerified": "Sinu e-posti aadress on veel kinnitamata. Saada kinnituslink ja ava see oma postkastist.",
       "expired": "See kinnituslink on aegunud. Saada uus.",
       "invalid": "See kinnituslink ei tööta. Saada uus.",
       "verified": "Sinu e-posti aadress on kinnitatud.",
-      "resend": "Saada link uuesti",
+      "resend": "Saada kinnituslink",
       "sending": "Saatmine…",
       "sent": "Saadetud. Vaata postkasti.",
       "alreadyVerified": "Sinu e-posti aadress on juba kinnitatud. Laadi leht uuesti.",

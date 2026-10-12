@@ -30,7 +30,7 @@ function renderNotice({
   )
 }
 
-const RESEND = { name: 'Send the link again' }
+const RESEND = { name: 'Send a verification link' }
 
 describe('VerifyEmailNotice', () => {
   beforeEach(() => {
@@ -47,7 +47,7 @@ describe('VerifyEmailNotice', () => {
       renderNotice()
 
       expect(screen.getByRole('status')).toHaveTextContent(
-        'Your email address is not verified yet. Open the link in the email we sent you.',
+        'Your email address is not verified yet. Send a verification link and open it from your inbox.',
       )
       expect(screen.getByRole('button', RESEND)).toBeEnabled()
     })

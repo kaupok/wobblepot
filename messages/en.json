@@ -1430,11 +1430,11 @@
     },
     "emailLabel": "Email",
     "verifyEmail": {
-      "notVerified": "Your email address is not verified yet. Open the link in the email we sent you.",
+      "notVerified": "Your email address is not verified yet. Send a verification link and open it from your inbox.",
       "expired": "This verification link has expired. Send a new one.",
       "invalid": "This verification link does not work. Send a new one.",
       "verified": "Your email address is verified.",
-      "resend": "Send the link again",
+      "resend": "Send a verification link",
       "sending": "Sending…",
       "sent": "Sent. Check your inbox.",
       "alreadyVerified": "Your email address is already verified. Reload the page.",
