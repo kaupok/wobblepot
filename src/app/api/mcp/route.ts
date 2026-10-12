@@ -7,7 +7,13 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { buildMcpServer } from '@/lib/mcp/server'
 import type { McpCallerContext } from '@/lib/mcp/context'
-import { MCP_READ_SCOPE, MCP_RESOURCE_PATH, getMcpIssuer, getMcpResource } from '@/lib/mcp/oauth'
+import {
+  MCP_READ_SCOPE,
+  MCP_RESOURCE_PATH,
+  MCP_WRITE_SCOPE,
+  getMcpIssuer,
+  getMcpResource,
+} from '@/lib/mcp/oauth'
 
 /**
  * The Wobblepot MCP server: read tools over the household's meal plan,
@@ -174,6 +180,11 @@ export async function POST(request: Request): Promise<Response> {
       issuer: getMcpIssuer(origin),
       jwksUrl: `${origin}/api/auth/jwks`,
       requiredScopes: [MCP_READ_SCOPE],
+      // The 401 challenge names the scopes to ask for, and an MCP client reads
+      // it before `scopes_supported`. Left to default to `requiredScopes`, it
+      // says `mcp:read` only, so a client would never ask for `mcp:write` and
+      // "connect again" would loop back to a read-only token (HON-1154).
+      challengeScopes: [MCP_READ_SCOPE, MCP_WRITE_SCOPE],
     },
   )
   try {

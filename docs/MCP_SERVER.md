@@ -67,7 +67,7 @@ The server info (`mcpServerInfo(origin)` in `src/lib/mcp/server.ts`) carries `na
 
 The authorization server is in [SECURITY.md](SECURITY.md) → OAuth for MCP clients.
 
-**Scopes.** `mcp:read` is required for every request (`requiredScopes` in the route); `mcp:write` adds the write tools. Both are in `MCP_SCOPES` (`src/lib/mcp/oauth.ts`) and in the protected-resource metadata, so a client such as Claude asks for both. A connection made before HON-1154 holds `mcp:read` only, and its refresh token cannot widen that: the user disconnects and connects again to allow changes.
+**Scopes.** `mcp:read` is required for every request (`requiredScopes` in the route); `mcp:write` adds the write tools. Both are in `MCP_SCOPES` (`src/lib/mcp/oauth.ts`), in the protected-resource metadata and in the 401 challenge (`challengeScopes`), so a client such as Claude asks for both. The challenge matters most: a client reads its `scope` before `scopes_supported`, and without `challengeScopes` it would say `mcp:read` only. A connection made before HON-1154 holds `mcp:read` only, and its refresh token cannot widen that: the user disconnects and connects again to allow changes.
 
 **Adding a scope** takes two more steps than editing `MCP_SCOPES`, because the plugin stores scope lists in two places:
 

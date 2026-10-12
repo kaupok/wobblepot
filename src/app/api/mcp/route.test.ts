@@ -181,7 +181,15 @@ describe('/api/mcp', () => {
       issuer: ORIGIN,
       jwksUrl: `${ORIGIN}/api/auth/jwks`,
       requiredScopes: ['mcp:read'],
+      challengeScopes: ['mcp:read', 'mcp:write'],
     })
+  })
+
+  it('asks for the read and write scopes in the 401 challenge, so a client can request both', async () => {
+    const response = await POST(mcpRequest('tools/list'))
+
+    expect(response.status).toBe(401)
+    expect(response.headers.get('www-authenticate')).toContain('scope="mcp:read mcp:write"')
   })
 
   describe('with a valid token', () => {
