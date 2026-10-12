@@ -369,7 +369,14 @@ const SHELLFISH: FoodGroup = {
     'mereanni',
   ],
   qualifiers: PLANT_SWAP,
-  falseFriends: ['oyster mushroom', 'crab apple', 'austerseen', 'austriseen', 'austria'],
+  falseFriends: [
+    'oyster mushroom',
+    'crab apple',
+    'austerseen',
+    'austriseen',
+    'austerservik',
+    'austria',
+  ],
 }
 
 const DAIRY: FoodGroup = {
