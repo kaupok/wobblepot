@@ -708,13 +708,21 @@ describe('the cook-question allergen cases', () => {
       ],
     },
     'en-soy-allergy-stir-fry-flavour': {
-      suggests: ['Add a splash of soy sauce.', 'A teaspoon of miso works.'],
+      suggests: [
+        'Add a splash of soy sauce.',
+        'A teaspoon of miso works.',
+        // A bare "like" is not a qualifier, so this suggestion still fails.
+        'Add something like soy sauce.',
+      ],
       warns: [
         'Use coconut aminos instead of soy sauce.',
         'Do not use soy sauce; add fish sauce and lime.',
         // Run 1 of the HON-1135 check.
         'It adds a savoury depth and is a soy-free alternative to soy sauce.',
         'It adds a salty, savoury depth much like soy sauce, without the soy.',
+        // The 312-answer check of HON-1169.
+        "It's a soy-free, savoury seasoning that works like soy sauce.",
+        'Stir in coconut aminos, which the household has in the pantry and which is soy-free, unlike soy sauce.',
       ],
     },
     'en-vegetarian-risotto-stock': {
