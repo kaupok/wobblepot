@@ -35,6 +35,8 @@ PostHog's MCP SDK adds a `context` argument (the agent's reason for the call), a
 
 Streamable HTTP, stateless: every `POST` builds a fresh server for that request (`createMcpHandler` from `@modelcontextprotocol/server`). It serves both protocol eras: the 2026-07-28 per-request envelope, and the 2025 `initialize` handshake (`legacy: 'stateless'`), because most clients still open with the second. `GET` answers 405, because no server-to-client stream exists. `OPTIONS` answers the CORS preflight; every response carries `Access-Control-Allow-Origin: *`, which is safe because the token is a bearer header and no cookie is read.
 
+The server info (`mcpServerInfo(origin)` in `src/lib/mcp/server.ts`) carries `name: 'wobblepot'`, `title`, `version`, a one-sentence `description`, `websiteUrl` (the origin) and `icons`: `/icons/icon-192x192.png` and `/icons/icon-512x512.png` as absolute URLs on the origin. Claude shows the icon in its connector list; without it, Claude looks the host up in a third-party favicon cache, which can hold an old icon for weeks (HON-1171). Keep `name` and `version` fixed: `@posthog/mcp` reports them as `$mcp_server_name` and `$mcp_server_version`.
+
 ## Auth flow
 
 1. The client calls `/api/mcp` without a token and gets 401 with `WWW-Authenticate` pointing at `/.well-known/oauth-protected-resource/api/mcp`.

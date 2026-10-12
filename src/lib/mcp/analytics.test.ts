@@ -38,7 +38,9 @@ function captures(event: string): CaptureCall[] {
 
 /** Serves one tool call through a server built and instrumented for `ctx`. */
 async function callPantry(caller: McpCallerContext = ctx) {
-  const handler = createMcpHandler(() => buildMcpServer(caller), { legacy: 'stateless' })
+  const handler = createMcpHandler(() => buildMcpServer(caller, 'https://wobblepot.test'), {
+    legacy: 'stateless',
+  })
   const response = await handler.fetch(
     mcpRequest('tools/call', { name: 'get_pantry', arguments: { context: 'Check the milk' } }),
   )
