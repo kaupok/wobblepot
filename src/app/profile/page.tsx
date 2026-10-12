@@ -10,8 +10,8 @@ import { ProfileNameForm } from './ProfileNameForm'
 import { ChangePasswordForm } from './ChangePasswordForm'
 import { ConnectedAssistantsList } from './ConnectedAssistantsList'
 import { McpServerUrl } from './McpServerUrl'
-import { VerifyEmailNotice } from './VerifyEmailNotice'
-import { parseVerificationLanding } from '@/lib/email-verification'
+import { VerifyEmailNotice } from '@/components/VerifyEmailNotice'
+import { parseVerificationLanding, verificationLandingSearch } from '@/lib/email-verification'
 import { getServerBaseURL } from '@/lib/env'
 import { listMcpConsents } from '@/lib/mcp/consents'
 import { getMcpResource } from '@/lib/mcp/oauth'
@@ -46,9 +46,13 @@ export default async function ProfilePage({
     searchParams,
   ])
 
-  // Redirect users without a household to onboarding
+  const landing = parseVerificationLanding(params)
+
+  // Redirect users without a household to onboarding. A new user often opens
+  // the verification mail before onboarding is done, so the link's result
+  // goes along and onboarding shows it (HON-1155).
   if (!membership) {
-    redirect('/onboarding')
+    redirect(landing ? `/onboarding${verificationLandingSearch(landing)}` : '/onboarding')
   }
 
   const isOwner = membership.role === 'owner'
@@ -84,7 +88,7 @@ export default async function ProfilePage({
           <VerifyEmailNotice
             email={session.user.email}
             emailVerified={session.user.emailVerified}
-            landing={parseVerificationLanding(params)}
+            landing={landing}
           />
         </div>
 

@@ -36,6 +36,24 @@ export function parseVerificationLanding(params: {
   return first(params.verified) === '1' ? 'verified' : null
 }
 
+/**
+ * The query that carries a landing to another page, in the same params
+ * `parseVerificationLanding` reads. `/profile` sends a user without a
+ * household to `/onboarding`, and that redirect must keep the result: a new
+ * user often opens the mail during onboarding. Rebuilt from the parsed value,
+ * so no raw request input is forwarded.
+ */
+export function verificationLandingSearch(landing: VerificationLanding): string {
+  switch (landing) {
+    case 'verified':
+      return '?verified=1'
+    case 'expired':
+      return '?verified=1&error=TOKEN_EXPIRED'
+    case 'invalid':
+      return '?verified=1&error=INVALID_TOKEN'
+  }
+}
+
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value
 }

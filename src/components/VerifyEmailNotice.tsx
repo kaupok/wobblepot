@@ -22,12 +22,14 @@ interface VerifyEmailNoticeProps {
 const LANDING_PARAMS = ['verified', 'error'] as const
 
 /**
- * The account email's verification state on `/profile` (HON-1155).
+ * The account email's verification state (HON-1155), on `/profile` always and
+ * on `/onboarding` after the link landed there (`/profile` forwards a user
+ * without a household).
  *
  * Unverified: a warning with a Resend button. After an expired or broken link
- * the warning says so. Verified: nothing, except once after the link landed
- * here, when it confirms. The redirect params are cleared from the URL on
- * mount, so a reload does not repeat the message.
+ * the warning says so. Verified: nothing, except once after the link landed,
+ * when it confirms. The redirect params are cleared from the URL on mount, so
+ * a reload does not repeat the message.
  */
 export function VerifyEmailNotice({ email, emailVerified, landing }: VerifyEmailNoticeProps) {
   const t = useTranslations('profile.verifyEmail')

@@ -1,6 +1,6 @@
-// ROUTES: /sign-up, /onboarding, /profile, /sign-in, /api/auth/verify-email · COMPONENTS: SignUpForm, ProfilePage, VerifyEmailNotice, SignInForm
+// ROUTES: /sign-up, /onboarding, /profile, /sign-in, /api/auth/verify-email · COMPONENTS: SignUpForm, ProfilePage, OnboardingPage, VerifyEmailNotice, SignInForm
 import { test, expect } from '@playwright/test'
-import { grantEssentialCookieConsent, signUpWithHousehold } from './utils/test-helpers'
+import { grantEssentialCookieConsent, signUp, signUpWithHousehold } from './utils/test-helpers'
 import { fetchUserState, fetchVerifyEmailPath, expectUserExists } from './utils/e2e-support'
 
 /**
@@ -56,6 +56,27 @@ test.describe('Email verification', () => {
     ).toBeVisible()
     await expect(page.getByRole('button', RESEND)).toBeVisible()
     expect(expectUserExists(await fetchUserState(email), email).emailVerified).toBe(false)
+  })
+
+  // A new user often opens the mail before onboarding is done. `/profile`
+  // sends a user without a household to `/onboarding`, with the result.
+  test('a link opened during onboarding shows its result there', async ({ page }) => {
+    const { email } = await signUp(page)
+
+    await page.goto(
+      `/api/auth/verify-email?token=not-a-token&callbackURL=${encodeURIComponent('/profile?verified=1')}`,
+    )
+    await expect(page).toHaveURL('/onboarding')
+    await expect(
+      page.getByText('This verification link does not work. Send a new one.'),
+    ).toBeVisible()
+    await expect(page.getByRole('button', RESEND)).toBeVisible()
+
+    await page.goto(await fetchVerifyEmailPath(email))
+
+    await expect(page.getByText(VERIFIED)).toBeVisible()
+    await expect(page).toHaveURL('/onboarding')
+    expect(expectUserExists(await fetchUserState(email), email).emailVerified).toBe(true)
   })
 
   test('a link opened while signed out verifies, then signs in to the profile', async ({

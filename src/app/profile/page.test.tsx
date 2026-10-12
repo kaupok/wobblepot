@@ -92,7 +92,7 @@ vi.mock('./ConnectedAssistantsList', () => ({
   ),
 }))
 
-vi.mock('./VerifyEmailNotice', () => ({
+vi.mock('@/components/VerifyEmailNotice', () => ({
   VerifyEmailNotice: ({
     email,
     emailVerified,
@@ -332,6 +332,21 @@ describe('ProfilePage', () => {
     vi.mocked(getHouseholdMembership).mockResolvedValue(null)
 
     await expect(ProfilePage(props())).rejects.toThrow('NEXT_REDIRECT:/onboarding')
+  })
+
+  // A new user often opens the verification mail before onboarding is done;
+  // the result goes along to /onboarding (HON-1155).
+  it.each([
+    [{ verified: '1' }, '/onboarding?verified=1'],
+    [{ verified: '1', error: 'TOKEN_EXPIRED' }, '/onboarding?verified=1&error=TOKEN_EXPIRED'],
+    [{ verified: '1', error: 'bogus' }, '/onboarding?verified=1&error=INVALID_TOKEN'],
+  ])('forwards the verification result %o to onboarding', async (params, target) => {
+    const { getSession } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    vi.mocked(getSession).mockResolvedValue(session as never)
+    vi.mocked(getHouseholdMembership).mockResolvedValue(null)
+
+    await expect(ProfilePage(props(params))).rejects.toThrow(`NEXT_REDIRECT:${target}`)
   })
 
   it('shows the MCP server URL for this environment, the Claude steps and the connected assistants', async () => {

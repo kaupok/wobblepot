@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { EMAIL_VERIFICATION_CALLBACK_URL, parseVerificationLanding } from './email-verification'
+import {
+  EMAIL_VERIFICATION_CALLBACK_URL,
+  parseVerificationLanding,
+  verificationLandingSearch,
+  type VerificationLanding,
+} from './email-verification'
 
 describe('parseVerificationLanding', () => {
   it('reads a successful verification', () => {
@@ -44,4 +49,14 @@ describe('parseVerificationLanding', () => {
       }),
     ).toBe('expired')
   })
+})
+
+describe('verificationLandingSearch', () => {
+  it.each<VerificationLanding>(['verified', 'expired', 'invalid'])(
+    'round-trips %s through parseVerificationLanding',
+    (landing) => {
+      const params = Object.fromEntries(new URLSearchParams(verificationLandingSearch(landing)))
+      expect(parseVerificationLanding(params)).toBe(landing)
+    },
+  )
 })
