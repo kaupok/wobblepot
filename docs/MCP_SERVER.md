@@ -45,6 +45,12 @@ Streamable HTTP, stateless: every `POST` builds a fresh server for that request 
 
 The authorization server is in [SECURITY.md](SECURITY.md) → OAuth for MCP clients.
 
+## Connecting and disconnecting
+
+The profile page has a "Connect to an AI assistant" section (HON-1153): the server URL with Copy, three steps for Claude's custom connectors with a link to Anthropic's guide, and the "Connected assistants" list. The list is the user's `oauth_consent` rows (`GET /api/auth/user/mcp-consents`, `listMcpConsents` in `src/lib/mcp/consents.ts`).
+
+**Disconnecting.** Disconnect calls `DELETE /api/auth/user/mcp-consents/[clientId]`, which deletes the user's `oauth_consent`, `oauth_refresh_token` and `oauth_access_token` rows for that client in one transaction (`disconnectMcpClient`). The plugin's own `/oauth2/delete-consent` deletes only the consent row, so it is not used. The access token is a JWT that is not stored, so deleting rows alone would leave it valid for up to an hour: `/api/mcp` therefore refuses a token whose `sub` and `azp` (the client id) have no consent row, with the same 401 `invalid_token` challenge as a deleted account. The assistant's next call fails, and it must ask the user to connect again. Another user's client id gets 404, so the route does not confirm that someone else's grant exists. Account deletion disconnects every assistant the same way (`docs/RUNBOOKS/gdpr-deletion.md`).
+
 ## Test locally with MCP Inspector
 
 1. Run the app: `pnpm dev`.
@@ -76,12 +82,14 @@ curl -s http://localhost:3000/api/mcp \
 
 `@posthog/mcp` wraps each request's server (`src/lib/mcp/analytics.ts`) and sends `$mcp_tool_call` per call and `$mcp_tools_list`, through `getPosthogMcpServer()`: a client of its own with the shared client's options, because `instrument` rewrites the library id (`$lib`) of the client it is given. Events are on the user's person (the token's `sub`) and carry `household_id`. A `beforeSend` removes `$mcp_parameters` and `$mcp_response`, so no search string, meal or pantry content reaches PostHog; `$mcp_intent`, the agent's reason, stays in full by decision; the sanitiser does not shorten `$`-prefixed keys. The SDK's exception capture is off: with SDK 2.x it only sees the error result, not the thrown error, so `runTool` reports failures instead. PostHog shows the results under MCP analytics.
 
-The capture is server-side, so the cookie banner does not gate it, the same as `$ai_generation`. The consent page says what each event holds (the tool, its timing and the assistant's reason) and that the data the tool read is not recorded.
+The connect funnel is `mcp:server_url_copied` (Copy on the profile page, a client event, so the cookie banner gates it) → `mcp:client_connected` (Allow on `/consent`) → the first `$mcp_tool_call`. Disconnect captures `mcp:client_disconnected`. All three are listed in `src/lib/analytics.ts`.
+
+The tool-call capture is server-side, so the cookie banner does not gate it, the same as `$ai_generation`. The consent page says what each event holds (the tool, its timing and the assistant's reason) and that the data the tool read is not recorded.
 
 ## Threat model
 
-A token reads one household's data and nothing else. It needs the `mcp:read` scope, is bound to this resource by audience and to one user by `sub`, and expires within an hour; a deleted account's token is refused even before it expires. The route resolves the household from `sub` on every request with `getHouseholdMembership`, the call every API route makes, and each tool reads only through that household's id (`get_meal` limits itself to the shared catalogue and the household's own recipes with `visibleMealWhere`). No tool writes, and no tool calls an AI model, so a compromised or confused client can read what the user allowed but cannot change a plan or spend money. Tool parameters and results stay out of analytics. What the assistant does with the data it reads is up to its own provider: it is a third party the user chooses, not our processor. The privacy policy says so (`/privacy#ai-assistants`), and the DPIA assesses it as risk area 3 (`compliance/dpia.md`, HON-1161).
+A token reads one household's data and nothing else. It needs the `mcp:read` scope, is bound to this resource by audience and to one user by `sub`, and expires within an hour; a deleted account's token, and a token whose client the user disconnected, is refused even before it expires. The route resolves the household from `sub` on every request with `getHouseholdMembership`, the call every API route makes, and each tool reads only through that household's id (`get_meal` limits itself to the shared catalogue and the household's own recipes with `visibleMealWhere`). No tool writes, and no tool calls an AI model, so a compromised or confused client can read what the user allowed but cannot change a plan or spend money. Tool parameters and results stay out of analytics. What the assistant does with the data it reads is up to its own provider: it is a third party the user chooses, not our processor. The privacy policy says so (`/privacy#ai-assistants`), and the DPIA assesses it as risk area 3 (`compliance/dpia.md`, HON-1161).
 
 ## Not yet
 
-Write tools (HON-1154), AI tools such as plan generation, the "Connect to an AI assistant" profile section (HON-1153) and the Claude connector check on staging (HON-1152).
+Write tools (HON-1154) and AI tools such as plan generation.

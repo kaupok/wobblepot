@@ -1384,6 +1384,40 @@
       "submitting": "Parooli vahetamine…",
       "success": "Parool on vahetatud. Teistest seadmetest on sind välja logitud."
     },
+    "assistants": {
+      "heading": "Ühenda AI-assistendiga",
+      "description": "Küsi Claude'ilt või mõnelt teiselt assistendilt oma söögiplaani, ostunimekirja ja sahvri kohta.",
+      "urlLabel": "Serveri aadress",
+      "copy": "Kopeeri",
+      "copied": "Kopeeritud",
+      "copySuccess": "Serveri aadress kopeeritud",
+      "copyFailed": "Aadressi ei kopeeritud. Vali see ja kopeeri käsitsi.",
+      "stepsHeading": "Ühenda Claude",
+      "steps": {
+        "openConnectors": "Ava Claude'is jaotis „Connectors“ ja vali „Add custom connector“.",
+        "pasteUrl": "Kleebi serveri aadress ja lisa ühendus.",
+        "allow": "Logi Wobblepotti sisse ja vali „Luba“."
+      },
+      "help": "Kui mõni samm ei vasta sellele, mida näed, järgi <link>Claude'i juhendit kohandatud ühenduste kohta</link>.",
+      "listHeading": "Ühendatud assistendid",
+      "empty": "Ühtegi assistenti pole ühendatud.",
+      "unnamed": "Nimeta assistent",
+      "connectedOn": "Ühendatud: {date}",
+      "scopes": {
+        "mcpRead": "Loeb söögiplaani, ostunimekirja, sahvrit ja retsepte",
+        "openid": "Kinnitab, et see oled sina",
+        "profile": "Näeb sinu nime ja profiilipilti",
+        "offlineAccess": "Jääb ühendatuks"
+      },
+      "disconnect": "Katkesta ühendus",
+      "disconnectLabel": "Katkesta ühendus: {name}",
+      "confirmTitle": "Kas katkestada ühendus: {name}?",
+      "confirmDescription": "Assistent lõpetab kohe Wobblepotiga töötamise. Et seda uuesti kasutada, ühenda see uuesti.",
+      "disconnecting": "Katkestamine…",
+      "disconnected": "Ühendus katkestatud: {name}",
+      "disconnectFailed": "Ühendust ei katkestatud. Proovi uuesti.",
+      "loadFailed": "Ühendatud assistente ei õnnestunud laadida. Laadi leht uuesti."
+    },
     "emailLabel": "E-post",
     "yourDataHeading": "Sinu andmed",
     "yourDataDescription": "Lae alla koopia oma profiilist, leibkonna andmetest, söögiplaanidest ja sätetest JSON-failina.",

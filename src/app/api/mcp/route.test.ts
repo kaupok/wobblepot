@@ -17,7 +17,11 @@ vi.mock('@better-auth/mcp', async (importOriginal) => {
   return { ...actual, requireMcpAuth: vi.fn(actual.requireMcpAuth) }
 })
 vi.mock('@/lib/prisma', () => ({
-  prisma: { user: { findUnique: vi.fn() }, meal: { findFirst: vi.fn() } },
+  prisma: {
+    user: { findUnique: vi.fn() },
+    oauthConsent: { findFirst: vi.fn() },
+    meal: { findFirst: vi.fn() },
+  },
 }))
 vi.mock('@/lib/household', () => ({ getHouseholdMembership: vi.fn() }))
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: vi.fn() }))
@@ -95,6 +99,7 @@ describe('/api/mcp', () => {
     vi.clearAllMocks()
     vi.mocked(requireMcpAuth).mockImplementation(actualRequireMcpAuth)
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ deletedAt: null } as never)
+    vi.mocked(prisma.oauthConsent.findFirst).mockResolvedValue({ id: 'consent-1' } as never)
     vi.mocked(getHouseholdMembership).mockImplementation(async (userId: string) => {
       const household = HOUSEHOLDS[userId as keyof typeof HOUSEHOLDS]
       return (household ? { householdId: household.id, household } : null) as never
@@ -243,6 +248,21 @@ describe('/api/mcp', () => {
 
       expect(response.status).toBe(401)
       expect(response.headers.get('www-authenticate')).toContain('error="invalid_token"')
+    })
+
+    it('refuses the token of a disconnected client with 401 (HON-1153)', async () => {
+      // Disconnect deleted the consent row; the JWT itself is still unexpired.
+      vi.mocked(prisma.oauthConsent.findFirst).mockResolvedValue(null)
+
+      const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
+
+      expect(response.status).toBe(401)
+      expect(response.headers.get('www-authenticate')).toContain('error="invalid_token"')
+      expect(response.headers.get('www-authenticate')).toContain('no active grant')
+      expect(prisma.oauthConsent.findFirst).toHaveBeenCalledWith({
+        where: { userId: 'user-a', clientId: 'client-1' },
+        select: { id: true },
+      })
     })
 
     it('reports a failed account lookup and answers 500 without the server error', async () => {

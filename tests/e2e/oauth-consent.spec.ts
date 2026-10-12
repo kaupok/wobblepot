@@ -1,8 +1,9 @@
-// ROUTES: /.well-known/oauth-authorization-server, /.well-known/oauth-protected-resource, /api/auth/oauth2/*, /consent, /sign-in · COMPONENTS: ConsentCard, SignInForm
-import { test, expect } from '@playwright/test'
+// ROUTES: /.well-known/oauth-authorization-server, /.well-known/oauth-protected-resource, /api/auth/oauth2/*, /api/auth/user/mcp-consents, /api/mcp, /consent, /profile, /sign-in · COMPONENTS: ConsentCard, SignInForm, ConnectedAssistantsList, McpServerUrl
+import { test, expect, type APIRequestContext } from '@playwright/test'
 import { signOut, signUpWithHousehold, TEST_PASSWORD } from './utils/test-helpers'
 import {
   authorizePath,
+  connectMcpClient,
   decodeJwtPayload,
   discover,
   pathOf,
@@ -21,6 +22,15 @@ import {
  * **Not `@smoke`:** every test signs up a throwaway account, which needs
  * `/api/e2e-seed` for the invite code (404 on preview and staging).
  */
+
+/** `tools/list` on the MCP server with a bearer token; returns the HTTP status. */
+async function mcpToolsListStatus(request: APIRequestContext, token: string): Promise<number> {
+  const response = await request.post('/api/mcp', {
+    headers: { authorization: `Bearer ${token}`, accept: 'application/json, text/event-stream' },
+    data: { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
+  })
+  return response.status()
+}
 
 test.describe('OAuth for MCP clients', () => {
   test('publishes discovery metadata at the origin root', async ({ request }) => {
@@ -197,5 +207,36 @@ test.describe('OAuth for MCP clients', () => {
 
     await page.waitForURL(/\/consent\?/)
     await expect(page.getByRole('button', { name: 'Allow' })).toBeVisible()
+  })
+
+  test('the profile page lists a connected client, and Disconnect stops its token at once (HON-1153)', async ({
+    page,
+    request,
+  }) => {
+    await signUpWithHousehold(page, { householdName: 'Disconnect E2E household' })
+    const token = await connectMcpClient(page, request)
+    expect(await mcpToolsListStatus(request, token)).toBe(200)
+
+    await page.goto('/profile')
+    const section = page.getByRole('region', { name: 'Connect to an AI assistant' })
+    await expect(section.getByText(/\/api\/mcp$/)).toBeVisible()
+    const row = section.getByRole('listitem').filter({ hasText: 'E2E MCP client' })
+    await expect(row).toBeVisible()
+
+    await row.getByRole('button', { name: 'Disconnect: E2E MCP client' }).click()
+    const dialog = page.getByRole('alertdialog', { name: 'Disconnect E2E MCP client?' })
+    await dialog.getByRole('button', { name: 'Disconnect' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(section.getByText('No assistant is connected.')).toBeVisible()
+
+    // The JWT has not expired; the route refuses it because the grant is gone.
+    expect(await mcpToolsListStatus(request, token)).toBe(401)
+
+    await page.reload()
+    await expect(
+      page
+        .getByRole('region', { name: 'Connect to an AI assistant' })
+        .getByText('No assistant is connected.'),
+    ).toBeVisible()
   })
 })

@@ -12,13 +12,21 @@ vi.mock('next-intl/server', () => ({
     for (const segment of segments) {
       cursor = (cursor as Record<string, unknown>)?.[segment]
     }
-    return (key: string) => {
+    const t = (key: string) => {
       let node: unknown = cursor
       for (const segment of key.split('.')) {
         node = (node as Record<string, unknown>)?.[segment]
       }
       return typeof node === 'string' ? node : key
     }
+    // Enough of `t.rich` for one `<tag>…</tag>` pair, which is all this page uses.
+    t.rich = (key: string, tags: Record<string, (chunks: string) => unknown>) => {
+      const match = /^(.*)<(\w+)>(.*)<\/\2>(.*)$/.exec(t(key))
+      if (!match) return t(key)
+      const [, before, tag, inner, after] = match
+      return [before, tags[tag!]!(inner!), after]
+    }
+    return t
   }),
 }))
 
@@ -72,6 +80,24 @@ vi.mock('./ProfileNameForm', () => ({
 
 vi.mock('./ChangePasswordForm', () => ({
   ChangePasswordForm: () => <div data-testid="change-password-form" />,
+}))
+
+vi.mock('./McpServerUrl', () => ({
+  McpServerUrl: ({ url }: { url: string }) => <div data-testid="mcp-server-url" data-url={url} />,
+}))
+
+vi.mock('./ConnectedAssistantsList', () => ({
+  ConnectedAssistantsList: ({ initialConsents }: { initialConsents: unknown[] }) => (
+    <div data-testid="connected-assistants" data-count={String(initialConsents.length)} />
+  ),
+}))
+
+vi.mock('@/lib/mcp/consents', () => ({
+  listMcpConsents: vi.fn(async () => []),
+}))
+
+vi.mock('@/lib/env', () => ({
+  getServerBaseURL: () => 'https://wobblepot.test',
 }))
 
 const now = new Date()
@@ -283,5 +309,36 @@ describe('ProfilePage', () => {
     vi.mocked(getHouseholdMembership).mockResolvedValue(null)
 
     await expect(ProfilePage()).rejects.toThrow('NEXT_REDIRECT:/onboarding')
+  })
+
+  it('shows the MCP server URL for this environment, the Claude steps and the connected assistants', async () => {
+    const { getSession } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    const { listMcpConsents } = await import('@/lib/mcp/consents')
+    vi.mocked(getSession).mockResolvedValue(session as never)
+    vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(1) as never)
+    vi.mocked(listMcpConsents).mockResolvedValue([
+      { clientId: 'c1', clientName: 'Claude', scopes: ['mcp:read'], createdAt: null },
+    ])
+
+    render(await ProfilePage())
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Connect to an AI assistant' }),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('mcp-server-url')).toHaveAttribute(
+      'data-url',
+      'https://wobblepot.test/api/mcp',
+    )
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'In Claude, open Connectors and choose Add custom connector.',
+      'Paste the server URL and add the connector.',
+      'Sign in to Wobblepot and choose Allow.',
+    ])
+    expect(
+      screen.getByRole('link', { name: "Claude's guide to custom connectors" }),
+    ).toHaveAttribute('href', expect.stringContaining('support.claude.com'))
+    expect(listMcpConsents).toHaveBeenCalledWith('user-123')
+    expect(screen.getByTestId('connected-assistants')).toHaveAttribute('data-count', '1')
   })
 })
