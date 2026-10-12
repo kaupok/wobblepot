@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { purgeUser } from '@/lib/auth/purge-user'
 import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
+import { purgeExpiredOauthTokens } from '@/lib/auth/purge-expired-oauth-tokens'
 import { captureApiError } from '@/lib/errors'
 
 export const dynamic = 'force-dynamic'
@@ -27,6 +28,10 @@ export const dynamic = 'force-dynamic'
  * deleted (`purgeExpiredWaitlistRequests`). It lives here rather than in a
  * cron of its own because `vercel.json` schedules this one cron, and this
  * route already owns the published retention promises.
+ *
+ * For the same reason it deletes expired OAuth access and refresh token rows
+ * (HON-1165, `purgeExpiredOauthTokens`), as the privacy policy and the DPIA
+ * promise.
  */
 export async function GET(request: Request) {
   const cronSecret = serverEnv.CRON_SECRET
@@ -69,8 +74,9 @@ export async function GET(request: Request) {
     }
 
     const waitlist = await purgeExpiredWaitlistRequests(now)
+    const oauthTokens = await purgeExpiredOauthTokens(now)
 
-    return NextResponse.json({ purged, scanned: expired.length, waitlist })
+    return NextResponse.json({ purged, scanned: expired.length, waitlist, oauthTokens })
   } catch (error) {
     captureApiError(error, { route: '/api/cron/purge-deleted-users' })
     return NextResponse.json({ error: 'Purge failed' }, { status: 500 })

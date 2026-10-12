@@ -39,6 +39,8 @@ Daily cron — 03:00 UTC (vercel.json → /api/cron/purge-deleted-users)
          POSTHOG_PURGE_API_KEY skips with a captured error) (HON-907)
       2. database cascade, in its own transaction
       3. Vercel Blob meal images of deleted households (best effort)
+  • same run: expired waitlist requests (HON-846) and OAuth access and
+    refresh token rows past expiresAt (HON-1165)
         │
         ▼
 Hard cascade complete → row gone → backup copies clear within ~24h (Neon PITR)

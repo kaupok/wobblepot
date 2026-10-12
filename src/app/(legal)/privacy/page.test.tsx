@@ -117,7 +117,11 @@ describe('PrivacyPage', () => {
     expect(text).toContain('an access token works for 1 hour')
     expect(text).toContain('so the connection stops working after 30 days without use')
     expect(text).toContain(
-      'Deleting your account removes them at once, without the 30-day grace period.',
+      'Deleting your account removes all of them at once, without the 30-day grace period.',
+    )
+    // The nightly purge deletes expired token rows (HON-1165).
+    expect(text).toContain(
+      'We delete the record of each token within a day after the token expires.',
     )
   })
 
