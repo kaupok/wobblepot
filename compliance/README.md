@@ -4,7 +4,7 @@ Honkadori OÜ compliance artifacts. Wobblepot is the trade name; all DPAs and ve
 
 This folder holds tracked policy docs and vendor boilerplate DPAs; executed contracts that carry signatory details are held outside the repo (see `compliance/private/`, gitignored). DPAs do not need to be public — GDPR Art. 28 requires the contracts exist, not that they're published. Public transparency is satisfied by the processor summary in the privacy policy plus the dedicated `/privacy/subprocessors` page (Art. 13/14, HON-543).
 
-Risk assessment: [`dpia.md`](./dpia.md) — lightweight DPIA covering children's data and AI processing via Anthropic.
+Risk assessment: [`dpia.md`](./dpia.md) — lightweight DPIA covering children's data, AI processing via Anthropic, and connected AI assistants.
 
 ## Pre-launch state (as of 2026-05-05)
 
@@ -21,6 +21,14 @@ Risk assessment: [`dpia.md`](./dpia.md) — lightweight DPIA covering children's
 | 3   | Vercel                      | Vercel Inc.                              | Hosting, request metadata, logs      | US/EU              |
 | 4   | Neon (a Databricks company) | Neon, LLC (importer: Databricks, Inc.)   | Database — all user records          | **EU (Frankfurt)** |
 | 5   | PostHog                     | PostHog, Inc.                            | Product analytics + error tracking   | EU (Frankfurt)     |
+
+### Connected AI assistants are not subprocessors
+
+A household member can connect an AI assistant, such as Claude, to the Wobblepot MCP server (HON-1150, HON-1151). The assistant's vendor is **not** a subprocessor and does not go in the tables here or on `/privacy/subprocessors`.
+
+Reason (decision 2026-10-11, HON-1161): the assistant is a third party the user chooses. The user picks the client, allows it on `/consent`, and instructs it. Honkadori OÜ does not choose the vendor, does not instruct it, and does not decide what it does with the data, so there is no Art. 28 relationship and no DPA to sign. The privacy policy (`/privacy#ai-assistants`) describes the disclosure as made on the user's instruction and says how to stop it. The DPIA assesses it as risk area 3.
+
+Revisit this if Wobblepot itself starts sending data to an assistant vendor on its own initiative, for example a Wobblepot-run agent: that vendor would be a processor.
 
 ## DPA status
 

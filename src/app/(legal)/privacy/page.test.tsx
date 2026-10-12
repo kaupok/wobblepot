@@ -62,8 +62,10 @@ describe('PrivacyPage', () => {
     const text = renderedText()
     expect(text).toContain('transfer to the United States')
     expect(text).toContain('data processing agreement with every one of them')
-    // PostHog is consent-gated (HON-462)
-    expect(text).toContain('active only after you accept analytics cookies')
+    // PostHog in the browser is consent-gated (HON-462); server-side records,
+    // such as MCP tool calls, are not, and the policy says so (HON-1161).
+    expect(text).toContain('in your browser active only after you accept analytics cookies')
+    expect(text).toContain('each request a connected AI assistant makes, do not depend on cookies')
   })
 
   it('states all retention numbers from the issue scope', () => {
@@ -86,6 +88,37 @@ describe('PrivacyPage', () => {
     )
     expect(text).toContain('swap suggestions')
     expect(text).toContain('preparation tips')
+  })
+
+  it('discloses connected AI assistants as a third party the user chooses (HON-1161)', () => {
+    const { container } = render(<PrivacyPage />)
+    const section = container.querySelector('#ai-assistants')
+    expect(section).not.toBeNull()
+    const text = (section?.textContent ?? '').replace(/\s+/g, ' ')
+    // What it reads: every MCP tool's data set, plus the `profile` scope.
+    expect(text).toContain(
+      'can read your household’s meal plan, shopping list, pantry, and recipes. If the consent page says so, it can also see your name and profile picture.',
+    )
+    expect(text).toContain('It cannot change anything in Wobblepot.')
+    expect(text).toContain('allow the assistant on the consent page')
+    expect(text).toContain('The assistant is not one of our processors.')
+    expect(text).toContain('we share the data on your instruction')
+    expect(text).toContain('We do not record the data it read or what it searched for.')
+    // `list_meals` hard-filters allergen meals, so the allergen list is inferable.
+    expect(text).toContain('so an assistant can work out which allergens you avoid')
+    expect(text).toContain('when you allow an assistant, you agree that it can learn them this way')
+    expect(text).toContain('Deleting your account disconnects every assistant at once.')
+  })
+
+  it('keeps the connected assistant off the processor list and states its retention (HON-1161)', () => {
+    const text = renderedText().replace(/\s+/g, ' ')
+    expect(text).toContain('We use five processors:')
+    expect(text).toContain('An AI assistant you connect to Wobblepot is not on this list')
+    expect(text).toContain('an access token works for 1 hour')
+    expect(text).toContain('so the connection stops working after 30 days without use')
+    expect(text).toContain(
+      'Deleting your account removes them at once, without the 30-day grace period.',
+    )
   })
 
   it('links the data export endpoint (Art. 20 portability)', () => {

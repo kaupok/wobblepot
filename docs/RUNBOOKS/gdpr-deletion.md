@@ -15,6 +15,7 @@ DELETE /api/auth/user
   • set user.deletedAt = now, user.purgeScheduledFor = first 03:00 UTC run
     strictly after (now + 30 days)  ← the real deletion instant (see note below)
   • delete all sessions  → signed out everywhere
+  • delete OAuth consents and tokens → connected AI assistants disconnected
   • send confirmation email (states purge date + how to cancel)
         │
         ▼
@@ -147,7 +148,7 @@ Use this when a verified requester ([`dsr-intake.md`](dsr-intake.md) § "Identit
 
    If this returns any rows, stop. Deleting the owner would leave those members in a household with no owner, and nothing in the app can transfer ownership. Handle the case individually with the requester (for example, the other members leave, or the owner removes them), and record what was agreed on the `privacy@` thread before running step 2.
 
-2. **Soft-delete the account and sign it out everywhere**, in one transaction:
+2. **Soft-delete the account, sign it out everywhere and disconnect its AI assistants**, in one transaction:
 
    ```sql
    BEGIN;
@@ -172,10 +173,19 @@ Use this when a verified requester ([`dsr-intake.md`](dsr-intake.md) § "Identit
    DELETE FROM session
    WHERE "userId" = (SELECT id FROM "user" WHERE email = 'user@example.com');
 
+   -- Disconnect every AI assistant, as the route does (HON-1150). The
+   -- privacy policy promises this happens at once, not at the purge.
+   DELETE FROM oauth_refresh_token
+   WHERE "userId" = (SELECT id FROM "user" WHERE email = 'user@example.com');
+   DELETE FROM oauth_access_token
+   WHERE "userId" = (SELECT id FROM "user" WHERE email = 'user@example.com');
+   DELETE FROM oauth_consent
+   WHERE "userId" = (SELECT id FROM "user" WHERE email = 'user@example.com');
+
    COMMIT;
    ```
 
-   If the `UPDATE` reports `0` rows, nothing was scheduled: the email is wrong, or the account is already pending deletion (check its `"deletedAt"`). The `DELETE` is harmless either way.
+   If the `UPDATE` reports `0` rows, nothing was scheduled: the email is wrong, or the account is already pending deletion (check its `"deletedAt"`). The `DELETE`s are harmless either way.
 
 3. **Reply on the thread with the purge date.** The route sends a confirmation email, but this SQL does not. Give the user the `purgeScheduledFor` value from `RETURNING` (a UTC time), and tell them they can cancel before then by writing to `privacy@wobblepot.com` ([Recovery procedure](#recovery-procedure-within-the-grace-window)).
 
@@ -185,7 +195,7 @@ The grace window exists for the user's protection, so a user may waive it. Do th
 
 Once purged, the account cannot be restored, except from a backup within the window in [Backup residuals](#backup-residuals-neon-pitr). Say so in the reply that confirms the request, before running anything.
 
-1. If the account is not already pending deletion, run [Operator-initiated deletion](#operator-initiated-deletion) steps 1 and 2 first. That covers the sole-owner check and the sessions.
+1. If the account is not already pending deletion, run [Operator-initiated deletion](#operator-initiated-deletion) steps 1 and 2 first. That covers the sole-owner check, the sessions and the AI assistant connections.
 2. Bring the purge forward:
 
    ```sql
@@ -231,6 +241,15 @@ Sign-in is blocked while `"deletedAt"` is set (`src/lib/auth/soft-delete-guard.t
    RETURNING id, "deletedAt", "purgeScheduledFor";
 
    DELETE FROM session
+   WHERE "userId" = (SELECT id FROM "user" WHERE email = 'user@example.com');
+
+   -- Disconnect every AI assistant, as the route does (HON-1150). The
+   -- privacy policy promises this happens at once, not at the purge.
+   DELETE FROM oauth_refresh_token
+   WHERE "userId" = (SELECT id FROM "user" WHERE email = 'user@example.com');
+   DELETE FROM oauth_access_token
+   WHERE "userId" = (SELECT id FROM "user" WHERE email = 'user@example.com');
+   DELETE FROM oauth_consent
    WHERE "userId" = (SELECT id FROM "user" WHERE email = 'user@example.com');
 
    COMMIT;
