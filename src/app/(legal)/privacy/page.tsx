@@ -211,7 +211,9 @@ export default function PrivacyPage() {
           A connected assistant can read your household&rsquo;s meal plan, shopping list, pantry,
           and recipes. If the consent page says so, it can also see your name and profile picture.
           It cannot change anything in Wobblepot. Recipe search leaves out meals that contain your
-          household&rsquo;s allergens, so an assistant can work out which allergens you avoid.
+          household&rsquo;s allergens, so an assistant can work out which allergens you avoid. That
+          includes allergens of the children in your household. Allergies are health data, and when
+          you allow an assistant, you agree that it can learn them this way.
         </Body>
         <Body>
           The assistant is not one of our processors. You choose it, you allow it, and you tell it
