@@ -1384,6 +1384,40 @@
       "submitting": "Changing password…",
       "success": "Password changed. Other devices are signed out."
     },
+    "assistants": {
+      "heading": "Connect to an AI assistant",
+      "description": "Ask Claude or another assistant about your meal plan, shopping list and pantry.",
+      "urlLabel": "Server URL",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copySuccess": "Server URL copied",
+      "copyFailed": "The URL was not copied. Select it and copy it by hand.",
+      "stepsHeading": "Connect Claude",
+      "steps": {
+        "openConnectors": "In Claude, open Connectors and choose Add custom connector.",
+        "pasteUrl": "Paste the server URL and add the connector.",
+        "allow": "Sign in to Wobblepot and choose Allow."
+      },
+      "help": "If a step does not match what you see, follow <link>Claude's guide to custom connectors</link>.",
+      "listHeading": "Connected assistants",
+      "empty": "No assistant is connected.",
+      "unnamed": "Unnamed assistant",
+      "connectedOn": "Connected: {date}",
+      "scopes": {
+        "mcpRead": "Reads meal plan, shopping list, pantry and recipes",
+        "openid": "Confirms it is you",
+        "profile": "Sees your name and profile picture",
+        "offlineAccess": "Stays connected"
+      },
+      "disconnect": "Disconnect",
+      "disconnectLabel": "Disconnect: {name}",
+      "confirmTitle": "Disconnect {name}?",
+      "confirmDescription": "The assistant stops working with Wobblepot at once. To use it again, connect it again.",
+      "disconnecting": "Disconnecting…",
+      "disconnected": "Disconnected: {name}",
+      "disconnectFailed": "The assistant was not disconnected. Try again.",
+      "loadFailed": "Connected assistants could not be loaded. Reload the page."
+    },
     "emailLabel": "Email",
     "yourDataHeading": "Your data",
     "yourDataDescription": "Download a copy of your profile, household data, meal plans, and settings as a JSON file.",

@@ -17,7 +17,11 @@ vi.mock('@better-auth/mcp', async (importOriginal) => {
   return { ...actual, requireMcpAuth: vi.fn(actual.requireMcpAuth) }
 })
 vi.mock('@/lib/prisma', () => ({
-  prisma: { user: { findUnique: vi.fn() }, meal: { findFirst: vi.fn() } },
+  prisma: {
+    user: { findUnique: vi.fn() },
+    oauthConsent: { findFirst: vi.fn() },
+    meal: { findFirst: vi.fn() },
+  },
 }))
 vi.mock('@/lib/household', () => ({ getHouseholdMembership: vi.fn() }))
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: vi.fn() }))
@@ -56,6 +60,11 @@ const HOUSEHOLDS = {
   'user-b': mcpHousehold({ id: 'household-b', name: 'B' }),
 }
 
+/** The consent row's `createdAt`, whole seconds as the plugin writes it. */
+const GRANTED_AT = new Date('2026-10-12T12:00:00Z')
+/** Issued 10 s after the Allow that created the row. */
+const TOKEN_IAT = GRANTED_AT.getTime() / 1000 + 10
+
 const TOOL_NAMES = ['get_meal_plan', 'get_shopping_list', 'get_pantry', 'list_meals', 'get_meal']
 
 interface ListedTool {
@@ -74,7 +83,12 @@ function acceptBearerAsUserId() {
   vi.mocked(requireMcpAuth).mockImplementation((_auth, handler) => async (request: Request) => {
     const token = request.headers.get('authorization')?.replace(/^Bearer /, '')
     if (!token) return new Response(null, { status: 401 })
-    return handler(request, { sub: token, scope: 'openid mcp:read', azp: 'client-1' })
+    return handler(request, {
+      sub: token,
+      scope: 'openid mcp:read',
+      azp: 'client-1',
+      iat: TOKEN_IAT,
+    })
   })
 }
 
@@ -95,6 +109,7 @@ describe('/api/mcp', () => {
     vi.clearAllMocks()
     vi.mocked(requireMcpAuth).mockImplementation(actualRequireMcpAuth)
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ deletedAt: null } as never)
+    vi.mocked(prisma.oauthConsent.findFirst).mockResolvedValue({ createdAt: GRANTED_AT } as never)
     vi.mocked(getHouseholdMembership).mockImplementation(async (userId: string) => {
       const household = HOUSEHOLDS[userId as keyof typeof HOUSEHOLDS]
       return (household ? { householdId: household.id, household } : null) as never
@@ -273,6 +288,42 @@ describe('/api/mcp', () => {
 
       expect(response.status).toBe(401)
       expect(response.headers.get('www-authenticate')).toContain('error="invalid_token"')
+    })
+
+    it('refuses the token of a disconnected client with 401 (HON-1153)', async () => {
+      // Disconnect deleted the consent row; the JWT itself is still unexpired.
+      vi.mocked(prisma.oauthConsent.findFirst).mockResolvedValue(null)
+
+      const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
+
+      expect(response.status).toBe(401)
+      expect(response.headers.get('www-authenticate')).toContain('error="invalid_token"')
+      expect(response.headers.get('www-authenticate')).toContain('no active grant')
+      expect(prisma.oauthConsent.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'user-a', clientId: 'client-1' } }),
+      )
+    })
+
+    it('refuses a token issued before a Disconnect and reconnect with 401', async () => {
+      // The reconnect wrote a new consent row a minute after this token's `iat`.
+      vi.mocked(prisma.oauthConsent.findFirst).mockResolvedValue({
+        createdAt: new Date((TOKEN_IAT + 60) * 1000),
+      } as never)
+
+      const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
+
+      expect(response.status).toBe(401)
+      expect(response.headers.get('www-authenticate')).toContain('no active grant')
+    })
+
+    it('accepts a token issued in the same second as its consent row', async () => {
+      vi.mocked(prisma.oauthConsent.findFirst).mockResolvedValue({
+        createdAt: new Date(TOKEN_IAT * 1000 + 999),
+      } as never)
+
+      const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
+
+      expect(response.status).toBe(200)
     })
 
     it('reports a failed account lookup and answers 500 without the server error', async () => {

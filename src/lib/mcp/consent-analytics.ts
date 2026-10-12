@@ -48,7 +48,8 @@ function clientIdFrom(body: unknown): string | null {
  *
  * `is_reconsent`: the plugin creates a consent row with `createdAt` equal to
  * `updatedAt`, and on a later consent for the same user and client it updates
- * only `updatedAt`. Analytics only: a failure is swallowed.
+ * only `updatedAt`. Disconnect (HON-1153) deletes the row, so a reconnect after
+ * it creates a new one and reads false. Analytics only: a failure is swallowed.
  */
 export async function captureMcpClientConnected({
   body,

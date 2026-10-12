@@ -230,12 +230,14 @@ export default function PrivacyPage() {
           them before you allow the assistant.
         </Body>
         <Body>
-          To disconnect an assistant, remove the Wobblepot connection in the assistant, so it stops
-          using its access, or email{' '}
+          To disconnect an assistant, choose Disconnect next to it under &ldquo;Connected
+          assistants&rdquo; on your profile page. We delete its access at once, and its next request
+          fails. You can also email{' '}
           <a className="underline" href={PRIVACY_EMAIL_HREF}>
             {PRIVACY_EMAIL}
           </a>{' '}
-          and we delete its access. Deleting your account disconnects every assistant at once.
+          and we delete its access for you. Deleting your account disconnects every assistant at
+          once.
         </Body>
       </Section>
 

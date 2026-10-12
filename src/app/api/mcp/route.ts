@@ -78,33 +78,68 @@ function jsonRpcError(status: number, message: string, extraHeaders?: HeadersIni
 }
 
 /**
- * A token that verified but names no live user. A deleted account's tokens are
- * revoked in the deletion request, but an access token already issued stays
- * valid for up to an hour, so the route refuses it here. Same challenge shape
- * as a bad token, so the client re-authorizes.
+ * A token that verified but no longer stands for a live grant: its user is
+ * deleted, or the user disconnected its client on the profile page (HON-1153).
+ * Both delete the token rows, but an access token is a JWT that is not stored
+ * and stays valid for up to an hour, so the route refuses it here. Same
+ * challenge shape as a bad token, so the client re-authorizes.
  */
-function invalidTokenResponse(origin: string): Response {
+function invalidTokenResponse(origin: string, description: string): Response {
   const metadataUrl = `${origin}/.well-known/oauth-protected-resource${MCP_RESOURCE_PATH}`
   return jsonRpcError(401, 'This access token is no longer valid. Connect Wobblepot again.', {
-    'WWW-Authenticate': `Bearer error="invalid_token", error_description="no active account", resource_metadata="${metadataUrl}"`,
+    'WWW-Authenticate': `Bearer error="invalid_token", error_description="${description}", resource_metadata="${metadataUrl}"`,
   })
+}
+
+/**
+ * True for a token minted under an earlier grant: the user disconnected the
+ * client and then connected it again, which creates a new consent row. Without
+ * this, the old token would work again until it expired. The plugin writes the
+ * row's `createdAt` in whole seconds, the unit of `iat`, and a token is always
+ * issued after the Allow that created its row, so a current token never fails
+ * it. A token without `iat` is treated as issued at the epoch.
+ */
+function issuedBeforeGrant(iat: number | undefined, grantedAt: Date | null): boolean {
+  if (!grantedAt) return false
+  return (typeof iat === 'number' ? iat : 0) < Math.floor(grantedAt.getTime() / 1000)
 }
 
 async function serveAuthorized(
   request: Request,
-  claims: { sub?: string; scope?: unknown; azp?: unknown; client_id?: unknown; exp?: number },
+  claims: {
+    sub?: string
+    scope?: unknown
+    azp?: unknown
+    client_id?: unknown
+    exp?: number
+    iat?: number
+  },
   origin: string,
 ): Promise<Response> {
   const userId = claims.sub
-  if (!userId) return invalidTokenResponse(origin)
+  if (!userId) return invalidTokenResponse(origin, 'no active account')
+  // `azp` is the client the token was issued to; `client_id` is the RFC 9068 name.
+  const clientId = String(claims.azp ?? claims.client_id ?? '')
+  if (!clientId) return invalidTokenResponse(origin, 'no active grant')
 
   let caller: McpCallerContext
   try {
-    const [user, membership] = await Promise.all([
+    // The consent row is the grant: the plugin writes one on every Allow, and
+    // Disconnect deletes it. No client here has `skipConsent`, so a live token
+    // always has one.
+    const [user, consent, membership] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true } }),
+      prisma.oauthConsent.findFirst({
+        where: { userId, clientId },
+        select: { createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
       getHouseholdMembership(userId),
     ])
-    if (!user || user.deletedAt) return invalidTokenResponse(origin)
+    if (!user || user.deletedAt) return invalidTokenResponse(origin, 'no active account')
+    if (!consent || issuedBeforeGrant(claims.iat, consent.createdAt)) {
+      return invalidTokenResponse(origin, 'no active grant')
+    }
     caller = { userId, household: membership?.household ?? null }
   } catch (error) {
     // Outside any tool handler, so `@posthog/mcp` does not see it.
@@ -115,7 +150,7 @@ async function serveAuthorized(
   const authInfo: AuthInfo = {
     // The raw token is not needed past verification, so it is not passed on.
     token: '',
-    clientId: String(claims.azp ?? claims.client_id ?? ''),
+    clientId,
     scopes: typeof claims.scope === 'string' ? claims.scope.split(' ').filter(Boolean) : [],
     ...(typeof claims.exp === 'number' ? { expiresAt: claims.exp } : {}),
     extra: { caller },

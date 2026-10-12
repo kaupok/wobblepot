@@ -2,12 +2,21 @@ import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { getSession } from '@/lib/session'
 import { countAccountHoldingMembers, getHouseholdMembership } from '@/lib/household'
-import { Heading, Body } from '@/components/ui/typography'
+import { Heading, Body, Ol, Li } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
 import { ProfileNameForm } from './ProfileNameForm'
 import { ChangePasswordForm } from './ChangePasswordForm'
+import { ConnectedAssistantsList } from './ConnectedAssistantsList'
+import { McpServerUrl } from './McpServerUrl'
+import { getServerBaseURL } from '@/lib/env'
+import { listMcpConsents } from '@/lib/mcp/consents'
+import { getMcpResource } from '@/lib/mcp/oauth'
+
+/** The source of truth for the Claude steps, which move when Claude's menus do. */
+const CLAUDE_CONNECTOR_HELP_URL =
+  'https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp'
 
 export default async function ProfilePage() {
   // `getSession` is `cache()`-wrapped, so this reuses the lookup the root
@@ -24,9 +33,10 @@ export default async function ProfilePage() {
   // rather than after it, so overlap it with the membership read instead of
   // assuming it is already resolved. Both are awaited before the redirect, so
   // the auth gate's ordering is unchanged.
-  const [membership, t] = await Promise.all([
+  const [membership, t, consents] = await Promise.all([
     getHouseholdMembership(session.user.id),
     getTranslations('profile'),
+    listMcpConsents(session.user.id),
   ])
 
   // Redirect users without a household to onboarding
@@ -74,6 +84,44 @@ export default async function ProfilePage() {
           <Body variant="muted">{t('password.description')}</Body>
           <ChangePasswordForm />
         </div>
+
+        <Separator />
+
+        {/* Every household gets this; there is no flag (HON-1153). */}
+        <section aria-labelledby="ai-assistant-heading" className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
+            <Heading variant="section" as="h2" id="ai-assistant-heading">
+              {t('assistants.heading')}
+            </Heading>
+            <Body variant="muted">{t('assistants.description')}</Body>
+            <McpServerUrl url={getMcpResource(getServerBaseURL())} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Heading variant="section" as="h3">
+              {t('assistants.stepsHeading')}
+            </Heading>
+            <Ol>
+              <Li>{t('assistants.steps.openConnectors')}</Li>
+              <Li>{t('assistants.steps.pasteUrl')}</Li>
+              <Li>{t('assistants.steps.allow')}</Li>
+            </Ol>
+            <Body variant="muted">
+              {t.rich('assistants.help', {
+                link: (chunks) => (
+                  <a
+                    href={CLAUDE_CONNECTOR_HELP_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    {chunks}
+                  </a>
+                ),
+              })}
+            </Body>
+          </div>
+          <ConnectedAssistantsList initialConsents={consents} />
+        </section>
 
         <Separator />
 

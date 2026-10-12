@@ -10,9 +10,9 @@
  * ## Naming convention: `category:object_action_past`
  *
  * Snake_case, namespace-prefixed, past tense. Categories are a closed enum:
- * `auth`, `onboarding`, `meal_plan`, `meal`, `recipe`, `pantry`, `shopping`
- * and `cook_view` for client events, `imagine`, `household` and `mcp` for the
- * server events that have a category. `ai` is reserved for HON-475.
+ * `auth`, `onboarding`, `meal_plan`, `meal`, `recipe`, `pantry`, `shopping`,
+ * `cook_view` and `mcp` for client events, `imagine`, `household` and `mcp` for
+ * the server events that have a category. `ai` is reserved for HON-475.
  *
  * ## Server events
  *
@@ -37,7 +37,17 @@
  *   code. Deny captures nothing. Distinct id is the user id, so the event joins
  *   the person known from sign-in. Properties: `household_id`, `client_name`,
  *   `scopes` (array of scope strings), `is_reconsent` (true when this user had
- *   consented to this client before). No client id, redirect URI or token.
+ *   consented to this client before, since the last Disconnect: Disconnect
+ *   deletes the consent row, so a reconnect after it reads false; join on
+ *   `mcp:client_disconnected` to find returning users). No client id, redirect
+ *   URI or token.
+ * - `mcp:client_disconnected` (`src/lib/mcp/consents.ts` → `disconnectMcpClient`,
+ *   called from `DELETE /api/auth/user/mcp-consents/[clientId]`, HON-1153): a
+ *   user clicked Disconnect on the profile page, and the consent and tokens for
+ *   that client were deleted. Captured after the transaction commits. Distinct
+ *   id is the user id, as for `mcp:client_connected`. Properties:
+ *   `household_id`, `client_name`, `days_connected` (whole days since the
+ *   consent's `createdAt`, null when the row has none).
  * - `external_api_timeout` (`src/lib/errors.ts` → `captureExternalApiTimeout`,
  *   called from `src/lib/external-fetch.ts`): an external dependency missed a
  *   deadline its caller set. An infrastructure signal, not a product event,
@@ -141,6 +151,8 @@ export type Source =
   | 'shopping_list'
   | 'cook_view'
   | 'past_meals'
+  /** The profile page (HON-1153). */
+  | 'profile'
 
 /** Meal-type literal union. Mirrors `@/generated/prisma/enums.MealType` but kept local so the analytics module has no DB import. */
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
@@ -197,6 +209,12 @@ export type EventPayload = {
   'pantry:item_added': { source: Source }
   /** `item_count` is the number of lines written to the clipboard — a count, never item names. */
   'shopping:list_copied': { source: Source; item_count: number }
+  /**
+   * The household copied the MCP server URL (HON-1153). The top of the connect
+   * funnel: `mcp:server_url_copied` → `mcp:client_connected` (server) → the
+   * first `$mcp_tool_call`.
+   */
+  'mcp:server_url_copied': { source: Source }
   /**
    * The cook sent a question about one step in the cook view (HON-969). Fires
    * on send, not on the answer. `source` says whether it was a chip or typed.
