@@ -200,7 +200,7 @@ describe('/meal-plans/[slug]', () => {
         totalTime: 'PT25M',
         recipeIngredient: ['250g fish pie base'],
       })
-      expect(data.itemListElement[0].url).toBe(
+      expect(data.itemListElement[0].item.url).toBe(
         'https://wobblepot.com/meal-plans/two-adults-and-a-toddler#monday',
       )
     })
