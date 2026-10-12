@@ -209,6 +209,27 @@ describe('GET /api/e2e-support?action=verify-email-link', () => {
     expect(payload!.exp! - payload!.iat!).toBe(60 * 60 * 24)
   })
 
+  it('mints an already-expired token with expired=1', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ emailVerified: false })
+    const { GET } = await import('./route')
+
+    const res = await GET(
+      new Request(url('?action=verify-email-link&email=new@example.com&expired=1')),
+    )
+    expect(res.status).toBe(200)
+    const { verifyPath } = (await res.json()) as { verifyPath: string }
+    const token = new URL(verifyPath, 'http://localhost').searchParams.get('token')!
+
+    // Signed with the right secret, but past its expiry: `verifyJWT` rejects
+    // it, and decoding the payload shows `exp` is before now.
+    const { verifyJWT } = await import('better-auth/crypto')
+    expect(await verifyJWT(token, TEST_SECRET)).toBeNull()
+    const payload = JSON.parse(Buffer.from(token.split('.')[1]!, 'base64url').toString()) as {
+      exp: number
+    }
+    expect(payload.exp).toBeLessThan(Date.now() / 1000)
+  })
+
   it('404s for an unknown address', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null)
     const { GET } = await import('./route')

@@ -24,7 +24,8 @@ import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
  *   unverified account, the same link the sign-up mail carries (HON-1155).
  *   Better Auth's verification token is a signed JWT, not a `verification`
  *   row, so there is nothing to read: the route mints one with Better Auth's
- *   own function and secret.
+ *   own function and secret. `&expired=1` mints one that has already expired,
+ *   for the expired-link path.
  * - `GET  ?action=household-state&householdId=` — whether a household and its
  *   scoped rows survived. Needed *after* a purge, when the user row is gone
  *   and `user-state` can no longer reach them.
@@ -105,7 +106,7 @@ async function resetToken(email: string) {
   })
 }
 
-async function verifyEmailLink(email: string) {
+async function verifyEmailLink(email: string, expired: boolean) {
   const user = await prisma.user.findUnique({ where: { email }, select: { emailVerified: true } })
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -117,11 +118,13 @@ async function verifyEmailLink(email: string) {
   // `$context.secret` is the secret Better Auth signs with, which follows
   // `BETTER_AUTH_SECRETS` rotation; `serverEnv.BETTER_AUTH_SECRET` would not.
   const { secret } = await auth.$context
+  // A negative lifetime sets `exp` in the past, so Better Auth's verify-email
+  // answers with its real `TOKEN_EXPIRED` redirect.
   const token = await createEmailVerificationToken(
     secret,
     email,
     undefined,
-    EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
+    expired ? -60 : EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
   )
 
   return NextResponse.json({
@@ -217,7 +220,9 @@ export async function GET(request: Request) {
         return missingParam('email')
       }
       if (action === 'reset-token') return await resetToken(email)
-      if (action === 'verify-email-link') return await verifyEmailLink(email)
+      if (action === 'verify-email-link') {
+        return await verifyEmailLink(email, url.searchParams.get('expired') === '1')
+      }
       return await userState(email)
     }
 

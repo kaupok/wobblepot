@@ -58,6 +58,22 @@ test.describe('Email verification', () => {
     expect(expectUserExists(await fetchUserState(email), email).emailVerified).toBe(false)
   })
 
+  test('an expired link lands on the profile with the expired copy and Resend', async ({
+    page,
+  }) => {
+    const { email } = await signUpWithHousehold(page)
+
+    // A real token past its expiry, so Better Auth emits its own TOKEN_EXPIRED.
+    await page.goto(await fetchVerifyEmailPath(email, { expired: true }))
+
+    await expect(page).toHaveURL('/profile')
+    await expect(
+      page.getByText('This verification link has expired. Send a new one.'),
+    ).toBeVisible()
+    await expect(page.getByRole('button', RESEND)).toBeVisible()
+    expect(expectUserExists(await fetchUserState(email), email).emailVerified).toBe(false)
+  })
+
   // A new user often opens the mail before onboarding is done. `/profile`
   // sends a user without a household to `/onboarding`, with the result.
   test('a link opened during onboarding shows its result there', async ({ page }) => {
