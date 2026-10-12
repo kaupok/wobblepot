@@ -2,47 +2,33 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { compareIngredientIds } from '@/lib/meal-planning/pantry'
-import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import {
+  ingredientIdSchema,
+  ingredientIdsSchema,
+  purchaseIngredients,
+} from '@/lib/shopping/purchase'
 
 const purchaseSchema = z
   .object({
-    ingredientId: z.string().min(1).optional(),
-    // `.min(1)` because the refine below tests truthiness and `[]` is truthy:
+    ingredientId: ingredientIdSchema.optional(),
+    // Non-empty because the refine below tests truthiness and `[]` is truthy:
     // without it `{ ingredientIds: [] }` purchases nothing with a 200, and
     // `{ ingredientId, ingredientIds: [] }` silently drops the `ingredientId`
     // (HON-659).
-    ingredientIds: z.array(z.string().min(1)).min(1).optional(),
+    ingredientIds: ingredientIdsSchema.optional(),
   })
   .refine((data) => data.ingredientId || data.ingredientIds, {
     message: 'Either ingredientId or ingredientIds must be provided',
   })
-
-type PurchaseResult = {
-  ingredientId: string
-  pantryItem: {
-    id: string
-    ingredient: {
-      id: string
-      name: string
-      category: string
-      defaultUnit: string
-    }
-    quantity: number | null
-    isStaple: boolean
-    updatedAt: string
-  }
-}
 
 /**
  * POST /api/shopping-list/purchase
  *
  * Mark shopping list item(s) as purchased by adding to pantry.
  * Works with the rolling window shopping list (not tied to a specific plan).
+ * The `mark_purchased` MCP tool calls the same `purchaseIngredients`.
  */
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -81,117 +67,14 @@ export async function POST(request: Request) {
     // Normalize to array
     const ingredientIds = parsed.data.ingredientIds ?? [parsed.data.ingredientId!]
 
-    // Validate all ingredients exist and are global or this household's own.
-    // Another household's reads as invalid, so its id is not revealed (HON-889).
-    const ingredients = await prisma.ingredient.findMany({
-      where: {
-        id: { in: ingredientIds },
-        OR: [{ householdId: null }, { householdId: household.id }],
-      },
-      select: { id: true },
-    })
-
-    const foundIds = new Set(ingredients.map((i) => i.id))
-    const missingIds = ingredientIds.filter((id) => !foundIds.has(id))
-
-    if (missingIds.length > 0) {
+    const outcome = await purchaseIngredients(household, ingredientIds)
+    if (outcome.status === 'invalid_ids') {
       return NextResponse.json(
-        { error: 'Invalid ingredient IDs', invalidIds: missingIds },
+        { error: 'Invalid ingredient IDs', invalidIds: outcome.invalidIds },
         { status: 400 },
       )
     }
-
-    // Take the pantry row locks in a deterministic order. Every transaction
-    // that locks more than one pantry row has to lock them in the same order:
-    // two that lock the same rows in opposite orders end up each holding the
-    // row the other needs next and deadlock (Postgres 40P01), and the catch
-    // below turns the aborted one into a 500 that rolls the whole purchase
-    // back. The realistic pair is this route and the meal-completion deduction
-    // in PATCH /api/meal-plans/[id]/entries/[entryId] — one member at the shop
-    // marking items purchased while another marks a meal cooked — so both sort
-    // with the same comparator (HON-625, HON-632).
-    //
-    // Deduped as well as sorted: `purchaseSchema` accepts a repeated
-    // `ingredientId`, and upserting one row twice in a single transaction is
-    // pure waste. The response is unaffected, because it is rebuilt below over
-    // the caller's array — a repeated id still appears at both of its
-    // positions.
-    const lockOrderedIngredientIds = [...new Set(ingredientIds)].sort(compareIngredientIds)
-
-    // The client inserts these rows straight into the pantry list, so they
-    // carry the household's name for each ingredient, as `loadPantry` does
-    // (HON-913).
-    const locale = resolveHouseholdLocale(household)
-
-    // Upsert all items in a transaction
-    const upsertedByIngredientId = await prisma.$transaction(async (tx) => {
-      const upserted = new Map<string, PurchaseResult>()
-
-      for (const ingredientId of lockOrderedIngredientIds) {
-        const pantryItem = await tx.pantryItem.upsert({
-          where: {
-            householdId_ingredientId: {
-              householdId: household.id,
-              ingredientId,
-            },
-          },
-          create: {
-            householdId: household.id,
-            ingredientId,
-            quantity: null,
-            isStaple: false,
-          },
-          update: {
-            // Touch updatedAt to mark as recently acquired
-          },
-          select: {
-            id: true,
-            quantity: true,
-            isStaple: true,
-            updatedAt: true,
-            ingredient: {
-              select: {
-                id: true,
-                name: true,
-                category: true,
-                defaultUnit: true,
-                ...ingredientTranslationsInclude(locale),
-              },
-            },
-          },
-        })
-        const ingredientShown = translateIngredient(pantryItem.ingredient, locale)
-
-        upserted.set(ingredientId, {
-          ingredientId,
-          pantryItem: {
-            id: pantryItem.id,
-            ingredient: {
-              id: ingredientShown.id,
-              name: ingredientShown.name,
-              category: ingredientShown.category,
-              defaultUnit: ingredientShown.defaultUnit,
-            },
-            quantity: pantryItem.quantity,
-            isStaple: pantryItem.isStaple,
-            updatedAt: pantryItem.updatedAt.toISOString(),
-          },
-        })
-      }
-
-      return upserted
-    })
-
-    // Response order is the caller's, deliberately not the lock order above.
-    // `results` is positional — a client that sent N ids reads them back at the
-    // positions it sent them — whereas the sort exists only to decide which
-    // row this transaction locks first, which is nothing the caller can see.
-    // The non-null assertion holds because `lockOrderedIngredientIds` is a
-    // permutation of the distinct values of `ingredientIds`, so every id here
-    // was upserted above.
-    const results: PurchaseResult[] = ingredientIds.map((ingredientId) =>
-      upsertedByIngredientId.get(ingredientId)!,
-    )
+    const { results } = outcome
 
     return NextResponse.json({ success: true, results }, { status: 200 })
   } catch (error) {

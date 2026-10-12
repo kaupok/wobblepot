@@ -4,7 +4,7 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test'
 /**
  * Wobblepot as the OAuth 2.1 authorization server for MCP clients (HON-1150),
  * driven the way Claude's custom connector drives it. Shared by
- * `oauth-consent.spec.ts` and `mcp-read.spec.ts`.
+ * `oauth-consent.spec.ts`, `mcp-read.spec.ts` and `mcp-write.spec.ts`.
  *
  * The redirect URI is an `https` callback on a reserved domain, as Claude's
  * connector registers one (the provider accepts plain `http` only for native
@@ -14,6 +14,9 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test'
 
 export const REDIRECT_URI = 'https://mcp-client.example/callback'
 export const SCOPE = 'openid profile offline_access mcp:read'
+
+/** What a client asks for to use the write tools too (HON-1154), as Claude's connector does. */
+export const WRITE_SCOPE = `${SCOPE} mcp:write`
 
 export interface AuthServerMetadata {
   issuer: string
@@ -88,6 +91,8 @@ export function authorizePath(
     resource: string
     state: string
     prompt?: string
+    /** Default {@link SCOPE}, read-only. */
+    scope?: string
   },
 ): string {
   const query = new URLSearchParams({
@@ -95,7 +100,7 @@ export function authorizePath(
     response_type: 'code',
     client_id: params.clientId,
     redirect_uri: REDIRECT_URI,
-    scope: SCOPE,
+    scope: params.scope ?? SCOPE,
     state: params.state,
     code_challenge: params.challenge,
     code_challenge_method: 'S256',
@@ -117,16 +122,30 @@ export async function waitForRedirectUri(page: Page): Promise<URL> {
  * The whole connector flow for the signed-in user on `page`: discovery,
  * registration, authorization with PKCE, Allow on `/consent`, and the token
  * exchange. Returns the access token for the MCP resource.
+ *
+ * `scope` is what the client asks for, default read-only {@link SCOPE}.
+ * `onConsent` runs on the consent page before Allow, for a spec to check it.
  */
-export async function connectMcpClient(page: Page, request: APIRequestContext): Promise<string> {
+export async function connectMcpClient(
+  page: Page,
+  request: APIRequestContext,
+  options: { scope?: string; onConsent?: (page: Page) => Promise<void> } = {},
+): Promise<string> {
   const { server, resource } = await discover(request)
   const clientId = await registerClient(request, server)
   const { verifier, challenge } = pkcePair()
 
   await page.goto(
-    authorizePath(server, { clientId, challenge, resource: resource.resource, state: 'connect' }),
+    authorizePath(server, {
+      clientId,
+      challenge,
+      resource: resource.resource,
+      state: 'connect',
+      scope: options.scope,
+    }),
   )
   await page.waitForURL(/\/consent\?/)
+  await options.onConsent?.(page)
   const callbackPromise = waitForRedirectUri(page)
   await page.getByRole('button', { name: 'Allow' }).click()
   const code = (await callbackPromise).searchParams.get('code')

@@ -1,9 +1,10 @@
 // ROUTES: /api/mcp, /api/auth/oauth2/*, /consent · COMPONENTS: ConsentCard
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { signIn } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
 import { smokeFixture } from './utils/fixtures'
 import { connectMcpClient } from './utils/oauth'
+import { mcpCall, mcpCallTool } from './utils/mcp'
 
 /**
  * The read-only MCP server (HON-1151), called the way an MCP client calls it:
@@ -66,39 +67,6 @@ async function plantEntry(page: Page) {
   return { date, meal: meal!, planId: planId!, entryId }
 }
 
-let nextId = 1
-
-/**
- * One JSON-RPC call in the 2025 style, which most clients still send: no
- * per-request envelope, answered over a one-message SSE stream.
- */
-async function mcpCall(
-  request: APIRequestContext,
-  token: string,
-  method: string,
-  params: Record<string, unknown> = {},
-) {
-  const response = await request.post('/api/mcp', {
-    headers: {
-      authorization: `Bearer ${token}`,
-      accept: 'application/json, text/event-stream',
-    },
-    data: { jsonrpc: '2.0', id: nextId++, method, params },
-  })
-  expect(response.status(), await response.text()).toBe(200)
-  const text = await response.text()
-  const data = response.headers()['content-type']?.includes('text/event-stream')
-    ? text
-        .split('\n')
-        .find((line) => line.startsWith('data:'))
-        ?.slice('data:'.length)
-    : text
-  expect(data, `No JSON-RPC body in: ${text}`).toBeTruthy()
-  const body = JSON.parse(data!) as { result?: unknown; error?: { message: string } }
-  expect(body.error).toBeUndefined()
-  return body.result
-}
-
 test.describe('MCP server', () => {
   test('refuses a request without a token and points at the resource metadata', async ({
     request,
@@ -127,25 +95,31 @@ test.describe('MCP server', () => {
       const list = (await mcpCall(request, token, 'tools/list')) as {
         tools: { name: string; annotations?: { readOnlyHint?: boolean } }[]
       }
-      expect(list.tools.map((tool) => tool.name).sort()).toEqual([
-        'get_meal',
-        'get_meal_plan',
-        'get_pantry',
-        'get_shopping_list',
-        'list_meals',
-      ])
-      expect(list.tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true)
+      // A read-only token still lists the write tools (HON-1154), so the model
+      // can tell the user to reconnect; see mcp-write.spec.ts.
+      const readOnly = Object.fromEntries(
+        list.tools.map((tool) => [tool.name, tool.annotations?.readOnlyHint]),
+      )
+      expect(readOnly).toEqual({
+        get_meal: true,
+        get_meal_plan: true,
+        get_pantry: true,
+        get_shopping_list: true,
+        list_meals: true,
+        mark_purchased: false,
+        add_shopping_item: false,
+        check_shopping_item: false,
+      })
 
-      const call = (await mcpCall(request, token, 'tools/call', {
-        name: 'get_meal_plan',
-        arguments: { from: planted.date, to: planted.date },
-      })) as {
-        isError?: boolean
-        structuredContent: { entries: { mealId: string | null; mealType: string }[] }
-      }
+      const call = await mcpCallTool<{ entries: { mealId: string | null; mealType: string }[] }>(
+        request,
+        token,
+        'get_meal_plan',
+        { from: planted.date, to: planted.date },
+      )
       expect(call.isError).toBeFalsy()
-      expect(call.structuredContent.entries.length).toBeGreaterThan(0)
-      expect(call.structuredContent.entries).toContainEqual(
+      expect(call.structuredContent!.entries.length).toBeGreaterThan(0)
+      expect(call.structuredContent!.entries).toContainEqual(
         expect.objectContaining({ mealId: planted.meal.id, mealType: MEAL_TYPE }),
       )
     } finally {

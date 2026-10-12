@@ -202,18 +202,28 @@ export default function PrivacyPage() {
       <Section id="ai-assistants" title="Connected AI assistants">
         <Body>
           You can connect an AI assistant, such as Claude, to Wobblepot, so it can answer questions
-          like &ldquo;what is for dinner tomorrow&rdquo; from your household&rsquo;s data. Nothing
-          is shared until you sign in to Wobblepot and allow the assistant on the consent page. That
-          page shows the assistant&rsquo;s name, the website it sends you back to, and what it will
-          be able to do.
+          like &ldquo;what is for dinner tomorrow&rdquo; from your household&rsquo;s data, and
+          update your shopping list when you ask it to. Nothing is shared until you sign in to
+          Wobblepot and allow the assistant on the consent page. That page shows the
+          assistant&rsquo;s name, the website it sends you back to, and what it will be able to do.
         </Body>
         <Body>
           A connected assistant can read your household&rsquo;s meal plan, shopping list, pantry,
           and recipes. If the consent page says so, it can also see your name and profile picture.
-          It cannot change anything in Wobblepot. Recipe search leaves out meals that contain your
-          household&rsquo;s allergens, so an assistant can work out which allergens you avoid. That
-          includes allergens of the children in your household. Allergies are health data, and when
-          you allow an assistant, you agree that it can learn them this way.
+          Recipe search leaves out meals that contain your household&rsquo;s allergens, so an
+          assistant can work out which allergens you avoid. That includes allergens of the children
+          in your household. Allergies are health data, and when you allow an assistant, you agree
+          that it can learn them this way.
+        </Body>
+        <Body>
+          If the consent page says &ldquo;Update your shopping list, pantry and meal plan&rdquo; and
+          you choose Allow, the assistant can also make changes when you ask it to: mark shopping
+          list items as bought, add items to the list, change what is in your pantry, and change
+          your meal plan. Each change is one you can also make, and undo, in Wobblepot. An assistant
+          cannot create or edit recipes, change your household&rsquo;s members or preferences, or
+          ask Wobblepot to generate a meal plan. Without that line on the consent page, an assistant
+          can only read. Changes made by an assistant are not marked as such; they look like changes
+          you made in the app.
         </Body>
         <Body>
           The assistant is not one of our processors. You choose it, you allow it, and you tell it
@@ -225,9 +235,9 @@ export default function PrivacyPage() {
           When you allow an assistant, we record its name and what you allowed it to do. For each
           request it makes, we record the assistant&rsquo;s name and version, which tool it used,
           how long the request took, whether it failed, and the reason the assistant gave, linked to
-          your account and household. We do not record the data it read or what it searched for.
-          These records go to our analytics processor, PostHog, and the consent page tells you about
-          them before you allow the assistant.
+          your account and household. We do not record the data it read, what it searched for, or
+          what it changed. These records go to our analytics processor, PostHog, and the consent
+          page tells you about them before you allow the assistant.
         </Body>
         <Body>
           To disconnect an assistant, choose Disconnect next to it under &ldquo;Connected

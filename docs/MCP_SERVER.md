@@ -1,6 +1,6 @@
 # Wobblepot MCP server
 
-Wobblepot runs a remote [MCP](https://modelcontextprotocol.io) server, so an AI assistant such as Claude can answer "what is for dinner tomorrow" or "do we need milk" from the household's own data. This first version only reads (HON-1151). No tool changes data, so a wrong answer from the assistant cannot damage a plan.
+Wobblepot runs a remote [MCP](https://modelcontextprotocol.io) server, so an AI assistant such as Claude can answer "what is for dinner tomorrow" or "do we need milk" from the household's own data (HON-1151). With the user's permission it can also update the shopping list: "we bought the milk", "add dish soap to the list" (HON-1154). Every change it can make, the user can undo in the app.
 
 Not to be confused with [MCP_SETUP.md](MCP_SETUP.md), which configures the MCP servers that agents working on this repository use.
 
@@ -17,7 +17,7 @@ The resource identifier, the token audience and the URL are the same value: `get
 
 ## Tools
 
-All five carry `readOnlyHint: true`, `destructiveHint: false` and `openWorldHint: false`, an `inputSchema` and an `outputSchema`. Each answers with compact JSON in a text block and the same object as `structuredContent`. Names of meals and ingredients follow the household's locale; dates are ISO `YYYY-MM-DD`; every `unit` is `g`, `ml` or `piece`, the unit the app shows.
+Every tool has an `inputSchema` and an `outputSchema`, and the server lists every tool for every token. Each answers with compact JSON in a text block and the same object as `structuredContent`. Names of meals and ingredients follow the household's locale; dates are ISO `YYYY-MM-DD`; every `unit` is `g`, `ml` or `piece`, the unit the app shows.
 
 | Tool                | Input                                                                                                      | Output                                                                                                                                                                                 | Reads through              |
 | ------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
@@ -27,7 +27,27 @@ All five carry `readOnlyHint: true`, `destructiveHint: false` and `openWorldHint
 | `list_meals`        | `search?`, `mealType?`, `limit?` (≤ 50, default 20)                                                        | `{ total, meals: [{ id, name, mealTypes, proteinType, isFavorite, isOwnRecipe }] }`                                                                                                    | `loadMeals`                |
 | `get_meal`          | `mealId`, `servings?` (default: the household's servings; pass an entry's `servings` from `get_meal_plan`) | `{ meal: { id, name, description, mealTypes, timeMinutes, servings, ingredients: [{ name, quantity, unit, note }], preparationNotes, nutritionPerServing, isOwnRecipe, isFavorite } }` | Prisma, `visibleMealWhere` |
 
-The tools live in `src/lib/mcp/tools/`, one file each, and `src/lib/mcp/server.ts` registers them. A new tool is a new file there plus one line in `MCP_TOOLS`.
+### Read tools
+
+These five carry `READ_ONLY_ANNOTATIONS`: `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: false`. A token with `mcp:read` can call them.
+
+### Write tools
+
+These three need the `mcp:write` scope as well (HON-1154). They carry `WRITE_ANNOTATIONS` (`readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`); `add_shopping_item` sets `idempotentHint: false`. Each calls the service function its app route calls, with the same field schemas, so the two paths cannot drift. No row records which member or assistant made a change, because the models have no such field.
+
+| Tool                  | Input                                                             | Output                                                                                                                           | Writes through, route                                                                                                                                        |
+| --------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mark_purchased`      | `ingredientIds` (1 to 100, from `get_shopping_list`), `purchased` | `{ purchased, items: [{ ingredientId, outcome }] }`; `outcome` is `in_pantry`, `removed`, `not_in_pantry`, `staple` or `too_old` | `purchaseIngredients` (`POST /api/shopping-list/purchase`), `unpurchaseIngredient` (`POST /api/shopping-list/unpurchase`), in `src/lib/shopping/purchase.ts` |
+| `add_shopping_item`   | `name` (1 to 200 characters, trimmed)                             | `{ outcome, item: { id, name, checked } }`; `outcome` is `added`, `back_on_list` or `already_on_list`                            | `addCustomShoppingItem` (`POST /api/shopping-list/custom`), in `src/lib/shopping/custom-items.ts`                                                            |
+| `check_shopping_item` | `id` (from `customItems` in `get_shopping_list`), `checked`       | `{ item: { id, name, checked } }`                                                                                                | `updateCustomShoppingItem` (`PATCH /api/shopping-list/custom/[id]`), in `src/lib/shopping/custom-items.ts`                                                   |
+
+The pantry rules are the app's. Purchasing puts each ingredient in the pantry with an unknown quantity, in one transaction; an id that is not a global ingredient or the household's own refuses the whole call, so nothing is written. Undoing deletes the pantry item, but only a non-staple bought in the last 7 days; the result names every item it left. Checking a custom item that is linked to an ingredient also puts that ingredient in the pantry.
+
+**The scope check.** `runTool` (`src/lib/mcp/context.ts`) treats a tool as a write unless its annotations say `readOnlyHint: true`, so a tool that forgets its annotations is gated, not opened. A write tool called with a token that has no `mcp:write` answers `isError` with "This assistant can only read Wobblepot. To let it change the shopping list, pantry or meal plan, disconnect it and connect it again, then choose Allow." It runs nothing and is not counted against the rate limit. The tools are still listed for that token, so the model can tell the user what to do. `requireWriteScope(ctx)` is the check itself.
+
+### Adding a tool
+
+The tools live in `src/lib/mcp/tools/`, one file each, and `src/lib/mcp/server.ts` registers them. A new tool is a new file there plus one line in `MCP_TOOLS`. A write tool sets `annotations: WRITE_ANNOTATIONS` and calls the service its route calls; where the logic is inline in the route, move it to `src/lib/` first.
 
 PostHog's MCP SDK adds a `context` argument (the agent's reason for the call), a `conversation_id` argument and an `llm_model` argument to every tool, and a small JSON block to results. That is expected; the SDK strips them before a tool runs.
 
@@ -41,11 +61,18 @@ The server info (`mcpServerInfo(origin)` in `src/lib/mcp/server.ts`) carries `na
 
 1. The client calls `/api/mcp` without a token and gets 401 with `WWW-Authenticate` pointing at `/.well-known/oauth-protected-resource/api/mcp`.
 2. It reads that metadata and the authorization server's at `/.well-known/oauth-authorization-server`, then registers (dynamic registration or a Client ID Metadata Document).
-3. The user signs in to Wobblepot and allows the client on `/consent`.
+3. The user signs in to Wobblepot and allows the client on `/consent`. The page lists each requested scope in plain words; `mcp:write` reads "Update your shopping list, pantry and meal plan." The user allows all the requested scopes or none.
 4. The client exchanges the code (PKCE `S256`) for a 1-hour JWT access token bound to `<origin>/api/mcp`, plus a refresh token with `offline_access`.
 5. Each `POST /api/mcp` carries `Authorization: Bearer <token>`; `requireMcpAuth` checks it against `/api/auth/jwks`.
 
 The authorization server is in [SECURITY.md](SECURITY.md) → OAuth for MCP clients.
+
+**Scopes.** `mcp:read` is required for every request (`requiredScopes` in the route); `mcp:write` adds the write tools. Both are in `MCP_SCOPES` (`src/lib/mcp/oauth.ts`) and in the protected-resource metadata, so a client such as Claude asks for both. A connection made before HON-1154 holds `mcp:read` only, and its refresh token cannot widen that: the user disconnects and connects again to allow changes.
+
+**Adding a scope** takes two more steps than editing `MCP_SCOPES`, because the plugin stores scope lists in two places:
+
+- Every registered client stores the server's scope list on its `oauth_client` row, and the authorize endpoint refuses a scope outside it with `invalid_scope`. A migration must add the scope to the existing rows (`20261013120000_add_mcp_write_scope`), or every client registered before the change fails as soon as it asks for the new scope.
+- The `oauth_resource` row's `allowedScopes` narrows every token for `/api/mcp`. `resourceSeedMode: 'merge'` in `src/lib/auth.ts` rewrites it from config on each start. The default, `insertOnly`, never updates an existing row, so the new scope would be dropped from every token without an error.
 
 ## Connecting and disconnecting
 
@@ -70,14 +97,15 @@ curl -s http://localhost:3000/api/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
-`tests/e2e/mcp-read.spec.ts` drives the same flow in CI.
+`tests/e2e/mcp-read.spec.ts` drives the same flow in CI; `tests/e2e/mcp-write.spec.ts` connects with `mcp:write` and runs `mark_purchased`.
 
 ## Limits and errors
 
-- **Rate limit.** 120 tool calls per hour per household (`mcp` in `src/lib/rate-limit.ts`). `tools/list` is not counted. Over the limit, a tool answers `isError` with the reset time.
+- **Rate limit.** 120 tool calls per hour per household (`mcp` in `src/lib/rate-limit.ts`), reads and writes together. `tools/list` is not counted. Over the limit, a tool answers `isError` with the reset time.
 - **No household.** An account that has not finished onboarding gets `isError` with "This account has no household yet. Finish onboarding in Wobblepot first." from every tool.
-- **Refusals** (an unknown meal id, a date range the wrong way round) answer `isError` with a plain sentence.
-- **Failures.** A tool that throws answers `isError` with "Wobblepot could not read this data. Try again later." and reports the real error once through `captureApiError` (`src/lib/mcp/context.ts` → `runTool`). The server's error text never reaches the client.
+- **No write scope.** A write tool called without `mcp:write` answers `isError` with the reconnect sentence (see Write tools).
+- **Refusals** (an unknown meal id, a date range the wrong way round, an ingredient id that is not on the household's list) answer `isError` with a plain sentence.
+- **Failures.** A tool that throws answers `isError` with "Wobblepot could not complete this request. Try again later." and reports the real error once through `captureApiError` (`src/lib/mcp/context.ts` → `runTool`). The server's error text never reaches the client.
 - **CSP.** `src/proxy.ts` adds its Content Security Policy to this route as to every route. It is a header on a JSON response, which runs no script, and MCP clients do not apply it to a `fetch`, so it needs no exception.
 
 ## Analytics
@@ -90,8 +118,8 @@ The tool-call capture is server-side, so the cookie banner does not gate it, the
 
 ## Threat model
 
-A token reads one household's data and nothing else. It needs the `mcp:read` scope, is bound to this resource by audience and to one user by `sub`, and expires within an hour; a deleted account's token, and a token whose client the user disconnected, is refused even before it expires. The route resolves the household from `sub` on every request with `getHouseholdMembership`, the call every API route makes, and each tool reads only through that household's id (`get_meal` limits itself to the shared catalogue and the household's own recipes with `visibleMealWhere`). No tool writes, and no tool calls an AI model, so a compromised or confused client can read what the user allowed but cannot change a plan or spend money. Tool parameters and results stay out of analytics. What the assistant does with the data it reads is up to its own provider: it is a third party the user chooses, not our processor. The privacy policy says so (`/privacy#ai-assistants`), and the DPIA assesses it as risk area 3 (`compliance/dpia.md`, HON-1161).
+A token reaches one household's data and nothing else. It needs the `mcp:read` scope, is bound to this resource by audience and to one user by `sub`, and expires within an hour; a deleted account's token, and a token whose client the user disconnected, is refused even before it expires. The route resolves the household from `sub` on every request with `getHouseholdMembership`, the call every API route makes, and each tool reads and writes only through that household's id (`get_meal` limits itself to the shared catalogue and the household's own recipes with `visibleMealWhere`; a write tool refuses another household's ingredient or item id as unknown, so it does not reveal that the id exists). A write needs `mcp:write`, which the user allowed on `/consent` after reading "Update your shopping list, pantry and meal plan." The write tools change only the shopping list and, through it, the pantry; none deletes what the app cannot restore, and the user can undo each change in the app. A confused or compromised client with write access can therefore mark items bought or add items, within the shared rate limit of 120 calls an hour, but cannot delete a recipe, change members or preferences, or spend money: no tool calls an AI model. Tool parameters and results stay out of analytics. What the assistant does with the data it reads is up to its own provider: it is a third party the user chooses, not our processor. The privacy policy says so (`/privacy#ai-assistants`), and the DPIA assesses it as risk area 3 (`compliance/dpia.md`, HON-1161).
 
 ## Not yet
 
-Write tools (HON-1154) and AI tools such as plan generation.
+Pantry and meal plan write tools: `set_pantry_quantity` (HON-1173), `swap_meal` and `rate_meal` (HON-1174). AI tools such as plan generation are not planned yet: they cost money per call and need a per-household budget.

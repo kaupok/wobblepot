@@ -1,21 +1,17 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-
-const patchSchema = z.object({
-  checked: z.boolean().optional(),
-  ingredientId: z.string().nullable().optional(),
-})
+import { customItemUpdateSchema, updateCustomShoppingItem } from '@/lib/shopping/custom-items'
 
 /**
  * PATCH /api/shopping-list/custom/[id]
  *
  * Update a custom shopping item: toggle checked or update ingredient link.
  * When checking a linked item, also creates/touches a pantry item.
+ * The `check_shopping_item` MCP tool calls the same `updateCustomShoppingItem`.
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
@@ -36,15 +32,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { household } = membership
     const { id } = await params
 
-    // Find the item and verify it belongs to this household
-    const item = await prisma.customShoppingItem.findUnique({
-      where: { id },
-    })
-
-    if (!item || item.householdId !== household.id) {
-      return NextResponse.json({ error: 'Item not found' }, { status: 404 })
-    }
-
     let body
     try {
       body = await request.json()
@@ -52,7 +39,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
 
-    const parsed = patchSchema.safeParse(body)
+    const parsed = customItemUpdateSchema.safeParse(body)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -61,70 +48,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       )
     }
 
-    const { checked, ingredientId } = parsed.data
+    const outcome = await updateCustomShoppingItem(household.id, id, parsed.data)
 
-    // A new link must point at a global ingredient or this household's own.
-    // Another household's reads as not found, so its id is not revealed (HON-889).
-    // `null` unlinks; anything else, an empty string included, is looked up.
-    if (ingredientId != null) {
-      const ingredient = await prisma.ingredient.findFirst({
-        where: {
-          id: ingredientId,
-          OR: [{ householdId: null }, { householdId: household.id }],
-        },
-        select: { id: true },
-      })
-
-      if (!ingredient) {
+    switch (outcome.status) {
+      case 'not_found':
+        return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+      case 'ingredient_not_found':
         return NextResponse.json({ error: 'Ingredient not found' }, { status: 400 })
-      }
+      case 'updated':
+        return NextResponse.json({ item: outcome.item }, { status: 200 })
     }
-
-    // Build update data
-    const updateData: { checked?: boolean; ingredientId?: string | null } = {}
-    if (checked !== undefined) updateData.checked = checked
-    if (ingredientId !== undefined) updateData.ingredientId = ingredientId
-
-    // If checking a linked item, also add to pantry
-    const effectiveIngredientId = ingredientId !== undefined ? ingredientId : item.ingredientId
-    const isChecking = checked === true && !item.checked
-
-    const updated = await prisma.$transaction(async (tx) => {
-      const updatedItem = await tx.customShoppingItem.update({
-        where: { id },
-        data: updateData,
-        include: {
-          ingredient: {
-            select: { id: true, name: true, category: true },
-          },
-        },
-      })
-
-      // When checking a linked item, upsert pantry item (quantity = null = "have some")
-      if (isChecking && effectiveIngredientId) {
-        await tx.pantryItem.upsert({
-          where: {
-            householdId_ingredientId: {
-              householdId: household.id,
-              ingredientId: effectiveIngredientId,
-            },
-          },
-          create: {
-            householdId: household.id,
-            ingredientId: effectiveIngredientId,
-            quantity: null,
-            isStaple: false,
-          },
-          update: {
-            // Touch updatedAt
-          },
-        })
-      }
-
-      return updatedItem
-    })
-
-    return NextResponse.json({ item: updated }, { status: 200 })
   } catch (error) {
     captureApiError(error, {
       route: '/api/shopping-list/custom/[id]',

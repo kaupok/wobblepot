@@ -6,12 +6,12 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/meal-planning/load-pantry', () => ({ loadPantry: vi.fn() }))
 
 import { loadPantry, type PantryResult } from '@/lib/meal-planning/load-pantry'
-import { mcpHousehold } from '@/test/mcp'
+import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
 import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
 import { getPantry } from './get-pantry'
 
 const household = mcpHousehold({ id: 'household-1' })
-const ctx = { userId: 'user-1', household }
+const ctx = { userId: 'user-1', household, scopes: READ_SCOPES }
 
 const PANTRY = {
   windowDays: 7,
@@ -86,7 +86,11 @@ describe('get_pantry', () => {
   })
 
   it('answers with the onboarding message without a household', async () => {
-    const result = await runTool(getPantry, { userId: 'user-1', household: null }, {})
+    const result = await runTool(
+      getPantry,
+      { userId: 'user-1', household: null, scopes: READ_SCOPES },
+      {},
+    )
 
     expect(result).toEqual({
       isError: true,

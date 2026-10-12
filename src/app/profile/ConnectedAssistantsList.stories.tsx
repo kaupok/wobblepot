@@ -9,7 +9,7 @@ const DELETE_ONE = '*/api/auth/user/mcp-consents/:clientId'
 const CLAUDE: ConnectedAssistant = {
   clientId: 'client-claude',
   clientName: 'Claude',
-  scopes: ['openid', 'profile', 'offline_access', 'mcp:read'],
+  scopes: ['openid', 'profile', 'offline_access', 'mcp:read', 'mcp:write'],
   createdAt: '2026-10-02T18:00:00.000Z',
 }
 const THREE: ConnectedAssistant[] = [

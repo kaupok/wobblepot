@@ -7,6 +7,12 @@ import type { McpHousehold } from '@/lib/mcp/context'
 
 export const MCP_TEST_URL = 'http://localhost:3000/api/mcp'
 
+/** A token that may only read, as every token was before HON-1154. */
+export const READ_SCOPES: readonly string[] = ['openid', 'mcp:read']
+
+/** A token the user allowed to make changes too. */
+export const WRITE_SCOPES: readonly string[] = ['openid', 'mcp:read', 'mcp:write']
+
 /** The per-request envelope of the 2026-07-28 protocol. */
 const MODERN_PROTOCOL = '2026-07-28'
 const MODERN_META = {

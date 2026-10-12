@@ -2,17 +2,12 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { Prisma } from '@/generated/prisma/client'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { ingredientNameMatchSql } from '@/lib/i18n/ingredient-search-sql'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
-
-const AUTO_MATCH_THRESHOLD = 0.4
+import { addCustomShoppingItem, customItemNameSchema } from '@/lib/shopping/custom-items'
 
 const createSchema = z.object({
-  name: z.string().trim().min(1).max(200),
+  name: customItemNameSchema,
 })
 
 /**
@@ -20,6 +15,7 @@ const createSchema = z.object({
  *
  * Create a custom shopping list item. Auto-matches against the ingredient DB
  * using fuzzy search. Returns the created item with match info.
+ * The `add_shopping_item` MCP tool calls the same `addCustomShoppingItem`.
  */
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -56,78 +52,22 @@ export async function POST(request: Request) {
 
   const { name } = parsed.data
 
-  // Check for duplicate name in this household
-  const existing = await prisma.customShoppingItem.findUnique({
-    where: {
-      householdId_name: {
-        householdId: household.id,
-        name,
-      },
-    },
-  })
-
-  if (existing) {
-    // If already exists and checked, uncheck it (re-add behavior)
-    if (existing.checked) {
-      const updated = await prisma.customShoppingItem.update({
-        where: { id: existing.id },
-        data: { checked: false },
-        include: {
-          ingredient: {
-            select: { id: true, name: true, category: true },
-          },
-        },
-      })
-      return NextResponse.json({ item: updated }, { status: 200 })
-    }
-    return NextResponse.json({ error: 'Item already exists', existing }, { status: 409 })
-  }
-
-  // Auto-match against ingredient database: global ingredients and this
-  // household's own, never another household's (HON-889). The household types
-  // names in its own language, so translated names match too (HON-911).
-  let matchedIngredientId: string | null = null
-  const match = ingredientNameMatchSql(name, resolveHouseholdLocale(household))
-
   try {
-    const matches = await prisma.$queryRaw<{ id: string; similarity: number }[]>`
-      SELECT
-        i.id,
-        ${match.score} as similarity
-      FROM "ingredient" i
-      ${match.join}
-      WHERE ${match.score} >= ${AUTO_MATCH_THRESHOLD}
-        AND (i."householdId" IS NULL OR i."householdId" = ${household.id})
-      ORDER BY similarity DESC
-      LIMIT 1
-    `
-
-    if (matches.length > 0 && matches[0]) {
-      matchedIngredientId = matches[0].id
+    const outcome = await addCustomShoppingItem(household, name)
+    switch (outcome.status) {
+      case 'created':
+        return NextResponse.json({ item: outcome.item }, { status: 201 })
+      case 'reopened':
+        return NextResponse.json({ item: outcome.item }, { status: 200 })
+      case 'exists':
+        return NextResponse.json(
+          outcome.existing
+            ? { error: 'Item already exists', existing: outcome.existing }
+            : { error: 'Item already exists' },
+          { status: 409 },
+        )
     }
-  } catch {
-    // If similarity search fails, create without match
-  }
-
-  try {
-    const item = await prisma.customShoppingItem.create({
-      data: {
-        householdId: household.id,
-        name,
-        ingredientId: matchedIngredientId,
-      },
-      include: {
-        ingredient: {
-          select: { id: true, name: true, category: true },
-        },
-      },
-    })
-
-    return NextResponse.json({ item }, { status: 201 })
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json({ error: 'Item already exists' }, { status: 409 })
-    }
     captureApiError(error, { route: '/api/shopping-list/custom', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to create item' }, { status: 500 })
   }

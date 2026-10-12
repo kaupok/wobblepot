@@ -99,11 +99,18 @@ describe('PrivacyPage', () => {
     expect(text).toContain(
       'can read your household’s meal plan, shopping list, pantry, and recipes. If the consent page says so, it can also see your name and profile picture.',
     )
-    expect(text).toContain('It cannot change anything in Wobblepot.')
+    // What it can change, only with the write scope (HON-1154).
+    expect(text).toContain(
+      'If the consent page says “Update your shopping list, pantry and meal plan” and you choose Allow, the assistant can also make changes when you ask it to: mark shopping list items as bought, add items to the list, change what is in your pantry, and change your meal plan.',
+    )
+    expect(text).toContain('Without that line on the consent page, an assistant can only read.')
+    expect(text).toContain('cannot create or edit recipes')
     expect(text).toContain('allow the assistant on the consent page')
     expect(text).toContain('The assistant is not one of our processors.')
     expect(text).toContain('we share the data on your instruction')
-    expect(text).toContain('We do not record the data it read or what it searched for.')
+    expect(text).toContain(
+      'We do not record the data it read, what it searched for, or what it changed.',
+    )
     // `list_meals` hard-filters allergen meals, so the allergen list is inferable.
     expect(text).toContain('so an assistant can work out which allergens you avoid')
     expect(text).toContain('when you allow an assistant, you agree that it can learn them this way')

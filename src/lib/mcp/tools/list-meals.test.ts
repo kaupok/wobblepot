@@ -10,12 +10,12 @@ vi.mock('@/lib/meals/load-meals', () => ({
 }))
 
 import { loadMeals, type LoadMealsResult } from '@/lib/meals/load-meals'
-import { mcpHousehold } from '@/test/mcp'
+import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
 import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
 import { listMeals } from './list-meals'
 
 const household = mcpHousehold({ id: 'household-1' })
-const ctx = { userId: 'user-1', household }
+const ctx = { userId: 'user-1', household, scopes: READ_SCOPES }
 
 const RESULT = {
   total: 2,
@@ -93,7 +93,11 @@ describe('list_meals', () => {
   })
 
   it('answers with the onboarding message without a household', async () => {
-    const result = await runTool(listMeals, { userId: 'user-1', household: null }, { limit: 20 })
+    const result = await runTool(
+      listMeals,
+      { userId: 'user-1', household: null, scopes: READ_SCOPES },
+      { limit: 20 },
+    )
 
     expect(result).toEqual({
       isError: true,

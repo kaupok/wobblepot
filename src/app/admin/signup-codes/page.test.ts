@@ -9,7 +9,13 @@ vi.mock('@/lib/session', () => ({
 vi.mock('@/lib/prisma', () => ({
   // The page imports the real `auth`, whose `mcp()` plugin seeds its resource
   // row at init (HON-1150).
-  prisma: { oauthResource: { findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }) } },
+  prisma: {
+    // `merge` seeding reads the row, then updates it (HON-1154).
+    oauthResource: {
+      findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }),
+      update: vi.fn().mockResolvedValue({ id: 'seeded' }),
+    },
+  },
 }))
 
 vi.mock('next/navigation', () => ({
