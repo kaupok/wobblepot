@@ -91,9 +91,29 @@ function invalidTokenResponse(origin: string, description: string): Response {
   })
 }
 
+/**
+ * True for a token minted under an earlier grant: the user disconnected the
+ * client and then connected it again, which creates a new consent row. Without
+ * this, the old token would work again until it expired. The plugin writes the
+ * row's `createdAt` in whole seconds, the unit of `iat`, and a token is always
+ * issued after the Allow that created its row, so a current token never fails
+ * it. A token without `iat` is treated as issued at the epoch.
+ */
+function issuedBeforeGrant(iat: number | undefined, grantedAt: Date | null): boolean {
+  if (!grantedAt) return false
+  return (typeof iat === 'number' ? iat : 0) < Math.floor(grantedAt.getTime() / 1000)
+}
+
 async function serveAuthorized(
   request: Request,
-  claims: { sub?: string; scope?: unknown; azp?: unknown; client_id?: unknown; exp?: number },
+  claims: {
+    sub?: string
+    scope?: unknown
+    azp?: unknown
+    client_id?: unknown
+    exp?: number
+    iat?: number
+  },
   origin: string,
 ): Promise<Response> {
   const userId = claims.sub
@@ -109,11 +129,17 @@ async function serveAuthorized(
     // always has one.
     const [user, consent, membership] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true } }),
-      prisma.oauthConsent.findFirst({ where: { userId, clientId }, select: { id: true } }),
+      prisma.oauthConsent.findFirst({
+        where: { userId, clientId },
+        select: { createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
       getHouseholdMembership(userId),
     ])
     if (!user || user.deletedAt) return invalidTokenResponse(origin, 'no active account')
-    if (!consent) return invalidTokenResponse(origin, 'no active grant')
+    if (!consent || issuedBeforeGrant(claims.iat, consent.createdAt)) {
+      return invalidTokenResponse(origin, 'no active grant')
+    }
     caller = { userId, household: membership?.household ?? null }
   } catch (error) {
     // Outside any tool handler, so `@posthog/mcp` does not see it.
