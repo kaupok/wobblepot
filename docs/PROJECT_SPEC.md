@@ -97,7 +97,7 @@ An ingredient with `measuredByVolume` shows its quantity in millilitres, with 1 
 
 ### New User Setup
 
-1. `/sign-up`: name, email, password, an invite code while `invite_code_required` is on, and the terms consent
+1. `/sign-up`: name, email, password, an invite code while `invite_code_required` is on, and the terms consent. Sign-up sends a verification email; the link works for 24 hours. The user can sign in before clicking it. `/profile` shows the address as not verified, with Resend, until the link is opened (HON-1155)
 2. `/onboarding` step 1 of 4: the welcome, and the household name
 3. `/onboarding` step 2 of 4: who eats at the table, as Adults (the user first) and Children, each added with its own button; names are optional
 4. `/onboarding` step 3 of 4: the allergens the household avoids, as the nine toggles and the AI notice of `/household` (`AllergenPicker`); nothing ticked means none. Leaving this step creates the household, with its allergens in the same request

@@ -17,6 +17,9 @@ const RATE_LIMITED_PATHS: ReadonlyArray<{ suffix: string; feature: RateLimitFeat
   { suffix: '/sign-up/email', feature: 'sign-up' },
   { suffix: '/sign-in/email', feature: 'sign-in' },
   { suffix: '/request-password-reset', feature: 'forgot-password' },
+  // Resend on `/profile` (HON-1155). The forgot-password bucket fits: each
+  // call sends one mail, and the same enumeration surface applies.
+  { suffix: '/send-verification-email', feature: 'forgot-password' },
 ]
 
 function featureForPath(pathname: string): RateLimitFeature | null {

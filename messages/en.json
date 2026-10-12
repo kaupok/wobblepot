@@ -1018,6 +1018,15 @@
       "expiry": "This link will expire in 1 hour for security reasons.",
       "ignore": "If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged."
     },
+    "verifyEmail": {
+      "subject": "Confirm your {appName} email address",
+      "heading": "Confirm your email address",
+      "instructionHtml": "Click the button below to confirm that this address belongs to your {appName} account:",
+      "instructionText": "Open the link below to confirm that this address belongs to your {appName} account:",
+      "cta": "Confirm email address",
+      "expiry": "The link works for 24 hours.",
+      "ignore": "If you did not create a {appName} account, ignore this email and do not open the link."
+    },
     "waitlistConfirm": {
       "subject": "Confirm your {appName} invite request",
       "heading": "Confirm your invite request",
@@ -1169,6 +1178,7 @@
       "resetUserNotFound": "If an account exists with this email, you will receive a reset link.",
       "userNotFound": "No account found with this email address.",
       "invalidEmail": "Please enter a valid email address.",
+      "emailNotVerified": "Verify your email address first. Open the link in the email we sent you.",
       "breachedPassword": "That password appears in known data breaches. Please pick a different one.",
       "passwordTooShort": "Password must be at least 12 characters long.",
       "passwordTooLong": "Use a password of 128 characters or fewer.",
@@ -1419,6 +1429,17 @@
       "loadFailed": "Connected assistants could not be loaded. Reload the page."
     },
     "emailLabel": "Email",
+    "verifyEmail": {
+      "notVerified": "Your email address is not verified yet. Open the link in the email we sent you.",
+      "expired": "This verification link has expired. Send a new one.",
+      "invalid": "This verification link does not work. Send a new one.",
+      "verified": "Your email address is verified.",
+      "resend": "Send the link again",
+      "sending": "Sending…",
+      "sent": "Sent. Check your inbox.",
+      "alreadyVerified": "Your email address is already verified. Reload the page.",
+      "sendFailed": "The email was not sent. Try again."
+    },
     "yourDataHeading": "Your data",
     "yourDataDescription": "Download a copy of your profile, household data, meal plans, and settings as a JSON file.",
     "downloadButton": "Download my data",

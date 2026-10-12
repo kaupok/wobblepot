@@ -28,6 +28,7 @@ export type UserState =
   | { exists: false }
   | {
       exists: true
+      emailVerified: boolean
       deletedAt: string | null
       purgeScheduledFor: string | null
       householdIds: string[]
@@ -76,6 +77,18 @@ export async function fetchResetToken(email: string): Promise<ResetTokenPayload 
     return null
   }
   return (await res.json()) as ResetTokenPayload
+}
+
+/**
+ * Better Auth's verify-email path for an unverified account: the link the
+ * sign-up mail carries (HON-1155). Throws when the back-channel is unavailable.
+ */
+export async function fetchVerifyEmailPath(email: string): Promise<string> {
+  const { verifyPath } = await fetchOrThrow<{ verifyPath: string }>(
+    supportURL('verify-email-link', { email }),
+    'verify-email-link',
+  )
+  return verifyPath
 }
 
 async function fetchOrThrow<T>(url: string, label: string): Promise<T> {

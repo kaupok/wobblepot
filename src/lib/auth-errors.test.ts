@@ -42,6 +42,11 @@ describe('getAuthErrorKey', () => {
       expect(getAuthErrorKey('Invalid email address')).toBe('invalidEmail')
     })
 
+    // Better Auth's EMAIL_NOT_VERIFIED, for Google sign-in (HON-1155).
+    it('handles an unverified email error', () => {
+      expect(getAuthErrorKey('Email not verified')).toBe('emailNotVerified')
+    })
+
     it('handles password too short error', () => {
       expect(getAuthErrorKey('Password too short')).toBe('passwordTooShort')
       expect(getAuthErrorKey('Password minimum length not met')).toBe('passwordTooShort')

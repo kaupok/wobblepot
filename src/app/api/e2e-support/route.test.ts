@@ -1,3 +1,6 @@
+// @vitest-environment node
+// Node, not jsdom: `jose` signs and verifies the verification-link JWT, and it
+// rejects jsdom's cross-realm `Uint8Array`.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // `RATE_LIMIT_BYPASS_ACTIVE` is computed once at module init, so we mock the
@@ -26,6 +29,12 @@ const mockPrisma = {
 }
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+
+const TEST_SECRET = 'e2e-support-test-secret-at-least-32-characters'
+
+vi.mock('@/lib/auth', () => ({
+  auth: { $context: Promise.resolve({ secret: TEST_SECRET }) },
+}))
 
 const url = (qs: string) => `http://localhost/api/e2e-support${qs}`
 
@@ -124,7 +133,12 @@ describe('GET /api/e2e-support?action=user-state', () => {
   it('returns soft-delete columns and related row counts', async () => {
     const deletedAt = new Date('2026-08-01T00:00:00.000Z')
     const purgeScheduledFor = new Date('2026-08-31T03:00:00.000Z')
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', deletedAt, purgeScheduledFor })
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      emailVerified: false,
+      deletedAt,
+      purgeScheduledFor,
+    })
     mockPrisma.householdMember.findMany.mockResolvedValue([{ householdId: 'h1' }])
     mockPrisma.session.count.mockResolvedValue(0)
     mockPrisma.household.count.mockResolvedValue(1)
@@ -136,6 +150,7 @@ describe('GET /api/e2e-support?action=user-state', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
       exists: true,
+      emailVerified: false,
       deletedAt: deletedAt.toISOString(),
       purgeScheduledFor: purgeScheduledFor.toISOString(),
       householdIds: ['h1'],
@@ -170,6 +185,51 @@ describe('GET /api/e2e-support?action=user-state', () => {
     const res = await GET(new Request(url('?action=drop-tables&email=a@b.c')))
     expect(res.status).toBe(400)
     expect(mockPrisma.user.findUnique).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/e2e-support?action=verify-email-link', () => {
+  beforeEach(() => setBypass(true))
+
+  it("returns Better Auth's verify-email path with a token for the address", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ emailVerified: false })
+    const { GET } = await import('./route')
+
+    const res = await GET(new Request(url('?action=verify-email-link&email=New@Example.com')))
+    expect(res.status).toBe(200)
+    const { verifyPath } = (await res.json()) as { verifyPath: string }
+    const link = new URL(verifyPath, 'http://localhost')
+    expect(link.pathname).toBe('/api/auth/verify-email')
+    expect(link.searchParams.get('callbackURL')).toBe('/profile?verified=1')
+
+    // Signed with Better Auth's secret, in the shape its verify-email reads.
+    const { verifyJWT } = await import('better-auth/crypto')
+    const payload = await verifyJWT(link.searchParams.get('token')!, TEST_SECRET)
+    expect(payload?.email).toBe('new@example.com')
+    expect(payload!.exp! - payload!.iat!).toBe(60 * 60 * 24)
+  })
+
+  it('404s for an unknown address', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null)
+    const { GET } = await import('./route')
+
+    const res = await GET(new Request(url('?action=verify-email-link&email=none@example.com')))
+    expect(res.status).toBe(404)
+  })
+
+  it('409s for an address that is already verified', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ emailVerified: true })
+    const { GET } = await import('./route')
+
+    const res = await GET(new Request(url('?action=verify-email-link&email=done@example.com')))
+    expect(res.status).toBe(409)
+  })
+
+  it('requires an email', async () => {
+    const { GET } = await import('./route')
+
+    const res = await GET(new Request(url('?action=verify-email-link')))
+    expect(res.status).toBe(400)
   })
 })
 

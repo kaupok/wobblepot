@@ -33,6 +33,7 @@ const CATALOGUES: Record<Locale, Messages> = {
 /** Namespaces under `emails` in the catalog — one per template. */
 export type EmailNamespace =
   | 'resetPassword'
+  | 'verifyEmail'
   | 'accountDeletionRequested'
   | 'breachNotification'
   | 'waitlistConfirm'

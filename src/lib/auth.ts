@@ -10,7 +10,11 @@ import { prisma } from '@/lib/prisma'
 import { serverEnv, getServerBaseURL } from '@/lib/env'
 import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { generateResetPasswordEmail } from '@/lib/emails/reset-password'
+import { generateVerifyEmailEmail } from '@/lib/emails/verify-email'
 import { resolveEmailLocale } from '@/lib/emails/locale'
+import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '@/lib/email-verification'
+import { matchAcceptLanguage } from '@/lib/i18n/accept-language'
+import { DEFAULT_LOCALE, isPublicLocale } from '@/lib/i18n/locales'
 import { isPasswordBreached } from '@/lib/breached-password'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import { linkUsedBy, releaseClaim, validateAndClaimInviteCode } from '@/lib/signup-codes'
@@ -139,6 +143,48 @@ export async function afterEmailSignUp(body: unknown, userId: string | undefined
 }
 
 /**
+ * Sends the account verification mail (HON-1155): on sign-up, and on Resend
+ * from `/profile`. Exported for unit testing; wired into
+ * `emailVerification.sendVerificationEmail` below.
+ *
+ * The locale is the household's. A new account has no household yet, so the
+ * fallback is the visitor's `Accept-Language`, limited to public locales.
+ * Like `sendResetPassword`, it never throws: a failed send is logged, and
+ * Resend on `/profile` lets the user try again.
+ */
+export async function sendAccountVerificationEmail(
+  { user, url }: { user: { id: string; email: string }; url: string },
+  request?: Request,
+): Promise<void> {
+  if (!isEmailConfigured() || !resend) {
+    // eslint-disable-next-line no-console
+    console.warn('Email not configured. Verification email not sent.')
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log('Verification URL:', url)
+    }
+    return
+  }
+
+  const requested = matchAcceptLanguage(request?.headers.get('accept-language'))
+  const fallback = requested && isPublicLocale(requested) ? requested : DEFAULT_LOCALE
+  const locale = await resolveEmailLocale(user.id, fallback)
+  const { subject, ...rest } = generateVerifyEmailEmail({ verifyUrl: url, locale })
+
+  try {
+    await resend.emails.send({
+      from: EMAIL_SENDERS.auth,
+      to: user.email,
+      subject: envSubject(subject),
+      ...rest,
+    })
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to send verification email:', error)
+  }
+}
+
+/**
  * Better Auth configuration
  *
  * This is the main server-side authentication instance. It handles:
@@ -248,6 +294,21 @@ export const auth = betterAuth({
         console.error('Failed to send password reset email:', error)
       }
     },
+  },
+
+  /**
+   * Account email verification, in the soft form (HON-1155): sign-up sends a
+   * link, and sign-in stays open before it is clicked, so
+   * `emailAndPassword.requireEmailVerification` stays unset. The link lands on
+   * `EMAIL_VERIFICATION_CALLBACK_URL` (`/profile?verified=1`), which the sign-up
+   * form and the Resend button send as `callbackURL`. No auto sign-in: the user
+   * is normally signed in already, and `/profile` sends an anonymous visitor
+   * through sign-in and back.
+   */
+  emailVerification: {
+    sendOnSignUp: true,
+    expiresIn: EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
+    sendVerificationEmail: (data, request) => sendAccountVerificationEmail(data, request),
   },
 
   /**

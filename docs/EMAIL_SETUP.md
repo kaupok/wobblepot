@@ -21,10 +21,10 @@ Cloudflare DNS).
 Defined as code constants in [`src/lib/resend.ts`](../src/lib/resend.ts) →
 `EMAIL_SENDERS`. Apply at every send-site:
 
-| Key             | FROM                                           | Triggers                                                                                                                                                                                                                                                                              |
-| --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth`          | `Wobblepot <auth@mail.wobblepot.com>`          | Password reset (`src/lib/auth.ts`), account-deletion confirmation (`src/app/api/auth/user/route.ts`), waitlist confirmation (`src/lib/waitlist.ts`), waitlist invite (`src/app/api/admin/waitlist/[id]/invite/route.ts`), weekly reminder confirmation (`src/lib/weekly-reminder.ts`) |
-| `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Weekly planning reminder (`src/lib/weekly-reminder.ts`, template `src/lib/emails/weekly-reminder.ts`)                                                                                                                                                                                 |
+| Key             | FROM                                           | Triggers                                                                                                                                                                                                                                                                                                             |
+| --------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth`          | `Wobblepot <auth@mail.wobblepot.com>`          | Password reset and account email verification (`src/lib/auth.ts`), account-deletion confirmation (`src/app/api/auth/user/route.ts`), waitlist confirmation (`src/lib/waitlist.ts`), waitlist invite (`src/app/api/admin/waitlist/[id]/invite/route.ts`), weekly reminder confirmation (`src/lib/weekly-reminder.ts`) |
+| `notifications` | `Wobblepot <notifications@mail.wobblepot.com>` | Weekly planning reminder (`src/lib/weekly-reminder.ts`, template `src/lib/emails/weekly-reminder.ts`)                                                                                                                                                                                                                |
 
 **`support@wobblepot.com` outbound is deferred.** Architecturally it sends
 from the apex (not the subdomain) for human-driven reply threads, but:
@@ -52,7 +52,8 @@ meals planned.
   catalogs, in the household locale.
 - **Consent:** opt-in only, so it is listed under Consent in the privacy policy. Nothing switches it
   on for a person but that person.
-- **Confirm step (HON-1113):** sign-up does not verify the address, so the first switch-on emails a
+- **Confirm step (HON-1113):** the account address may still be unverified (verification is soft,
+  HON-1155), so the first switch-on emails a
   confirm link from the `auth` sender (template `src/lib/emails/reminder-confirm.ts`, copy under
   `emails.reminderConfirm`). The cron sends only once `reminderConfirmedAt` is set. The public page
   `/reminders/confirm?token=…` sets it from a button that POSTs to `/api/reminders/confirm`, within 7
@@ -163,9 +164,9 @@ record TTL is short enough to roll back quickly if reports show breakage.
 ## Local development
 
 `RESEND_API_KEY` unset → `isEmailConfigured()` returns `false` → send-sites
-short-circuit and no delivery happens. Under `next dev` the password-reset
-send-site logs the reset URL to the console; any other `NODE_ENV` logs a warning
-without the URL. Sufficient for verifying the flow end-to-end without a Resend
+short-circuit and no delivery happens. Under `next dev` the password-reset and
+account-verification send-sites log their URL to the console; any other
+`NODE_ENV` logs a warning without the URL. Sufficient for verifying the flow end-to-end without a Resend
 account.
 
 To exercise the real send path locally, set in `.env` (this repo uses a single

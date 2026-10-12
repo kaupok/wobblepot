@@ -1018,6 +1018,15 @@
       "expiry": "Turvalisuse huvides aegub see link ühe tunni pärast.",
       "ignore": "Kui sa ei taotlenud parooli lähtestamist, võid selle kirja rahulikult eirata. Sinu parool jääb muutumatuks."
     },
+    "verifyEmail": {
+      "subject": "Kinnita oma {appName} e-posti aadress",
+      "heading": "Kinnita e-posti aadress",
+      "instructionHtml": "Klõpsa allolevat nuppu, et kinnitada, et see aadress kuulub sinu {appName} kontole:",
+      "instructionText": "Ava allolev link, et kinnitada, et see aadress kuulub sinu {appName} kontole:",
+      "cta": "Kinnita e-posti aadress",
+      "expiry": "Link kehtib 24 tundi.",
+      "ignore": "Kui sa ei loonud {appName} kontot, eira seda kirja ja ära linki ava."
+    },
     "waitlistConfirm": {
       "subject": "Kinnita oma {appName} kutsesoov",
       "heading": "Kinnita kutsesoov",
@@ -1169,6 +1178,7 @@
       "resetUserNotFound": "Kui sellele aadressile on konto registreeritud, saadame parooli vahetamise lingi.",
       "userNotFound": "Selle e-posti aadressiga kontot ei leitud.",
       "invalidEmail": "Palun sisesta kehtiv e-posti aadress.",
+      "emailNotVerified": "Kinnita kõigepealt oma e-posti aadress. Ava link kirjas, mille sulle saatsime.",
       "breachedPassword": "See parool esineb teadaolevates andmeleketes. Palun vali mõni muu.",
       "passwordTooShort": "Parool peab olema vähemalt 12 märki pikk.",
       "passwordTooLong": "Kasuta parooli, mis on kuni 128 märki pikk.",
@@ -1419,6 +1429,17 @@
       "loadFailed": "Ühendatud assistente ei õnnestunud laadida. Laadi leht uuesti."
     },
     "emailLabel": "E-post",
+    "verifyEmail": {
+      "notVerified": "Sinu e-posti aadress on veel kinnitamata. Ava link kirjas, mille sulle saatsime.",
+      "expired": "See kinnituslink on aegunud. Saada uus.",
+      "invalid": "See kinnituslink ei tööta. Saada uus.",
+      "verified": "Sinu e-posti aadress on kinnitatud.",
+      "resend": "Saada link uuesti",
+      "sending": "Saatmine…",
+      "sent": "Saadetud. Vaata postkasti.",
+      "alreadyVerified": "Sinu e-posti aadress on juba kinnitatud. Laadi leht uuesti.",
+      "sendFailed": "Kirja ei saadetud. Proovi uuesti."
+    },
     "yourDataHeading": "Sinu andmed",
     "yourDataDescription": "Lae alla koopia oma profiilist, leibkonna andmetest, söögiplaanidest ja sätetest JSON-failina.",
     "downloadButton": "Lae andmed alla",
