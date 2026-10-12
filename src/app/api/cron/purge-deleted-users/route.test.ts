@@ -26,6 +26,10 @@ vi.mock('@/lib/waitlist', () => ({
   purgeExpiredWaitlistRequests: vi.fn(),
 }))
 
+vi.mock('@/lib/auth/purge-expired-oauth-tokens', () => ({
+  purgeExpiredOauthTokens: vi.fn(),
+}))
+
 vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
@@ -35,10 +39,12 @@ import { serverEnv } from '@/lib/env'
 import { prisma } from '@/lib/prisma'
 import { purgeUser } from '@/lib/auth/purge-user'
 import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
+import { purgeExpiredOauthTokens } from '@/lib/auth/purge-expired-oauth-tokens'
 
 const mockFindMany = vi.mocked(prisma.user.findMany)
 const mockPurgeUser = vi.mocked(purgeUser)
 const mockPurgeWaitlist = vi.mocked(purgeExpiredWaitlistRequests)
+const mockPurgeOauthTokens = vi.mocked(purgeExpiredOauthTokens)
 // Mutable mock env so individual tests can flip CRON_SECRET / app env.
 const env = serverEnv as unknown as { CRON_SECRET?: string; NEXT_PUBLIC_APP_ENV: string }
 
@@ -55,6 +61,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
     env.NEXT_PUBLIC_APP_ENV = 'test'
     mockFindMany.mockResolvedValue([] as never)
     mockPurgeWaitlist.mockResolvedValue({ unconfirmed: 0, confirmed: 0 })
+    mockPurgeOauthTokens.mockResolvedValue({ accessTokens: 0, refreshTokens: 0 })
   })
 
   it('returns 401 when the Authorization header is missing', async () => {
@@ -92,7 +99,12 @@ describe('GET /api/cron/purge-deleted-users', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data).toEqual({ purged: 2, scanned: 2, waitlist: { unconfirmed: 0, confirmed: 0 } })
+    expect(data).toEqual({
+      purged: 2,
+      scanned: 2,
+      waitlist: { unconfirmed: 0, confirmed: 0 },
+      oauthTokens: { accessTokens: 0, refreshTokens: 0 },
+    })
     expect(mockPurgeUser).toHaveBeenCalledTimes(2)
     expect(mockPurgeUser).toHaveBeenCalledWith('u1')
     expect(mockPurgeUser).toHaveBeenCalledWith('u2')
@@ -142,6 +154,36 @@ describe('GET /api/cron/purge-deleted-users', () => {
 
     it('answers 500 when the waitlist purge fails', async () => {
       mockPurgeWaitlist.mockRejectedValue(new Error('db down'))
+
+      const response = await GET(req(`Bearer ${VALID_SECRET}`))
+
+      expect(response.status).toBe(500)
+    })
+  })
+
+  describe('expired OAuth tokens (HON-1165)', () => {
+    it('deletes expired OAuth tokens in the same run and reports both counts', async () => {
+      mockPurgeOauthTokens.mockResolvedValue({ accessTokens: 5, refreshTokens: 2 })
+
+      const response = await GET(req(`Bearer ${VALID_SECRET}`))
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.oauthTokens).toEqual({ accessTokens: 5, refreshTokens: 2 })
+      // The same instant as the user purge, so the run reads one clock.
+      expect(mockPurgeOauthTokens).toHaveBeenCalledWith(
+        (mockFindMany.mock.calls[0]![0]!.where!.purgeScheduledFor as { lt: Date }).lt,
+      )
+    })
+
+    it('does not delete OAuth tokens on an unauthorized call', async () => {
+      await GET(req('Bearer wrong-secret'))
+
+      expect(mockPurgeOauthTokens).not.toHaveBeenCalled()
+    })
+
+    it('answers 500 when the OAuth token purge fails', async () => {
+      mockPurgeOauthTokens.mockRejectedValue(new Error('db down'))
 
       const response = await GET(req(`Bearer ${VALID_SECRET}`))
 

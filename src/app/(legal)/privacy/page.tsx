@@ -319,9 +319,10 @@ export default function PrivacyPage() {
             <Body>
               Connected AI assistants: an access token works for 1 hour. A renewal token works for
               30 days and is replaced each time the assistant uses it, so the connection stops
-              working after 30 days without use. We keep the record that you allowed an assistant,
-              and the records of its tokens, until you ask us to delete them or delete your account.
-              Deleting your account removes them at once, without the 30-day grace period.
+              working after 30 days without use. We keep the record that you allowed an assistant
+              until you ask us to delete it or delete your account. We delete the record of each
+              token within a day after the token expires. Deleting your account removes all of them
+              at once, without the 30-day grace period.
             </Body>
           </Li>
           <Li>
