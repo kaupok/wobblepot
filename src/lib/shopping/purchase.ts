@@ -158,16 +158,26 @@ export async function purchaseIngredients(
  * - `staple`: a staple stays in the pantry
  * - `too_old`: the pantry item is older than {@link UNPURCHASE_WINDOW_DAYS}, so
  *   it was not this purchase
+ * - `has_quantity`: the pantry item has a quantity, so it was not only this
+ *   purchase; returned only with `keepWithQuantity`
  */
-export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'staple' | 'too_old'
+export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'staple' | 'too_old' | 'has_quantity'
 
 /**
  * Takes a recently purchased ingredient back out of the household's pantry.
  * Only the household's own pantry row is read or deleted.
+ *
+ * A purchase stores no quantity, so a row with one holds more than the
+ * purchase: the household entered it, or a purchase touched a row that was
+ * already there. `keepWithQuantity` leaves such a row in place. The
+ * `mark_purchased` MCP tool sets it, so an assistant cannot delete a quantity
+ * the household entered and the tool stays non-destructive (HON-1154). The
+ * app's own undo does not, unchanged.
  */
 export async function unpurchaseIngredient(
   householdId: string,
   ingredientId: string,
+  options: { keepWithQuantity?: boolean } = {},
 ): Promise<UnpurchaseOutcome> {
   const pantryItem = await prisma.pantryItem.findUnique({
     where: {
@@ -179,12 +189,14 @@ export async function unpurchaseIngredient(
     select: {
       id: true,
       isStaple: true,
+      quantity: true,
       updatedAt: true,
     },
   })
 
   if (!pantryItem) return 'not_in_pantry'
   if (pantryItem.isStaple) return 'staple'
+  if (options.keepWithQuantity && pantryItem.quantity !== null) return 'has_quantity'
 
   const cutoffDate = new Date()
   cutoffDate.setDate(cutoffDate.getDate() - UNPURCHASE_WINDOW_DAYS)

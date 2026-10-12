@@ -127,6 +127,7 @@ describe('mark_purchased', () => {
       vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue({
         id: 'pantry-1',
         isStaple: false,
+        quantity: null,
         updatedAt: new Date(),
       } as never)
 
@@ -150,13 +151,30 @@ describe('mark_purchased', () => {
       const old = new Date()
       old.setDate(old.getDate() - 8)
       vi.mocked(prisma.pantryItem.findUnique)
-        .mockResolvedValueOnce({ id: 'p-staple', isStaple: true, updatedAt: new Date() } as never)
-        .mockResolvedValueOnce({ id: 'p-old', isStaple: false, updatedAt: old } as never)
+        .mockResolvedValueOnce({
+          id: 'p-staple',
+          isStaple: true,
+          quantity: null,
+          updatedAt: new Date(),
+        } as never)
+        .mockResolvedValueOnce({
+          id: 'p-old',
+          isStaple: false,
+          quantity: null,
+          updatedAt: old,
+        } as never)
+        // A quantity the household entered, touched by a recent purchase.
+        .mockResolvedValueOnce({
+          id: 'p-flour',
+          isStaple: false,
+          quantity: 1000,
+          updatedAt: new Date(),
+        } as never)
         // Household B's pantry row is not found under household A's key.
         .mockResolvedValueOnce(null)
 
       const result = await call({
-        ingredientIds: ['ing-salt', 'ing-rice', 'ing-of-b'],
+        ingredientIds: ['ing-salt', 'ing-rice', 'ing-flour', 'ing-of-b'],
         purchased: false,
       })
 
@@ -165,6 +183,7 @@ describe('mark_purchased', () => {
         items: [
           { ingredientId: 'ing-salt', outcome: 'staple' },
           { ingredientId: 'ing-rice', outcome: 'too_old' },
+          { ingredientId: 'ing-flour', outcome: 'has_quantity' },
           { ingredientId: 'ing-of-b', outcome: 'not_in_pantry' },
         ],
       })

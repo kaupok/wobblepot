@@ -14,7 +14,7 @@ const MAX_INGREDIENTS = 100
 export const markPurchased = defineTool({
   name: 'mark_purchased',
   title: 'Mark purchased',
-  description: `Marks items from the shopping list as bought, or undoes that. A bought item goes into the pantry, so it drops off the shopping list. Pass the ingredientId values from get_shopping_list; for items the household added by hand, use check_shopping_item. Undoing takes the item back out of the pantry. That works only within ${UNPURCHASE_WINDOW_DAYS} days of the purchase and never for a staple; the result says so for each item.`,
+  description: `Marks items from the shopping list as bought, or undoes that. A bought item goes into the pantry, so it drops off the shopping list. Pass the ingredientId values from get_shopping_list; for items the household added by hand, use check_shopping_item. Undoing takes the item back out of the pantry. That works only within ${UNPURCHASE_WINDOW_DAYS} days of the purchase, never for a staple, and never for a pantry item with a quantity the household entered; the result says so for each item.`,
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ingredientIds: ingredientIdsSchema
@@ -28,9 +28,9 @@ export const markPurchased = defineTool({
       z.object({
         ingredientId: z.string(),
         outcome: z
-          .enum(['in_pantry', 'removed', 'not_in_pantry', 'staple', 'too_old'])
+          .enum(['in_pantry', 'removed', 'not_in_pantry', 'staple', 'too_old', 'has_quantity'])
           .describe(
-            `in_pantry: bought and in the pantry. removed: taken back out of the pantry. not_in_pantry: it was not in the pantry. staple: a staple stays in the pantry. too_old: it was bought more than ${UNPURCHASE_WINDOW_DAYS} days ago, so it stays.`,
+            `in_pantry: bought and in the pantry. removed: taken back out of the pantry. not_in_pantry: it was not in the pantry. staple: a staple stays in the pantry. too_old: it was bought more than ${UNPURCHASE_WINDOW_DAYS} days ago, so it stays. has_quantity: the pantry has a quantity for it that the household entered, so it stays; the household can change it in the app.`,
           ),
       }),
     ),
@@ -55,9 +55,14 @@ export const markPurchased = defineTool({
     }
 
     // One at a time, as the app undoes them: each is its own small change.
+    // A row with a quantity is kept, so the tool never deletes what the
+    // household entered and `destructiveHint: false` stays true.
     const items = []
     for (const ingredientId of uniqueIds) {
-      items.push({ ingredientId, outcome: await unpurchaseIngredient(household.id, ingredientId) })
+      const outcome = await unpurchaseIngredient(household.id, ingredientId, {
+        keepWithQuantity: true,
+      })
+      items.push({ ingredientId, outcome })
     }
     return { purchased, items }
   },
