@@ -147,6 +147,23 @@ describe('mark_purchased', () => {
       expect(prisma.pantryItem.delete).toHaveBeenCalledWith({ where: { id: 'pantry-1' } })
     })
 
+    it('removes a "ran out" item, because quantity 0 holds nothing the household would lose', async () => {
+      vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue({
+        id: 'pantry-milk',
+        isStaple: false,
+        quantity: 0,
+        updatedAt: new Date(),
+      } as never)
+
+      const result = await call({ ingredientIds: ['ing-milk'], purchased: false })
+
+      expect(result.structuredContent).toEqual({
+        purchased: false,
+        items: [{ ingredientId: 'ing-milk', outcome: 'removed' }],
+      })
+      expect(prisma.pantryItem.delete).toHaveBeenCalledWith({ where: { id: 'pantry-milk' } })
+    })
+
     it('reports each item it leaves in place, and deletes none of them', async () => {
       const old = new Date()
       old.setDate(old.getDate() - 8)

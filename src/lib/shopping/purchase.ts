@@ -158,8 +158,8 @@ export async function purchaseIngredients(
  * - `staple`: a staple stays in the pantry
  * - `too_old`: the pantry item is older than {@link UNPURCHASE_WINDOW_DAYS}, so
  *   it was not this purchase
- * - `has_quantity`: the pantry item has a quantity, so it was not only this
- *   purchase; returned only with `keepWithQuantity`
+ * - `has_quantity`: the pantry item has a quantity above 0, so it was not
+ *   only this purchase; returned only with `keepWithQuantity`
  */
 export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'staple' | 'too_old' | 'has_quantity'
 
@@ -167,9 +167,11 @@ export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'staple' | 'too_ol
  * Takes a recently purchased ingredient back out of the household's pantry.
  * Only the household's own pantry row is read or deleted.
  *
- * A purchase stores no quantity, so a row with one holds more than the
- * purchase: the household entered it, or a purchase touched a row that was
- * already there. `keepWithQuantity` leaves such a row in place. The
+ * A purchase stores no quantity, so a row with a quantity above 0 holds more
+ * than the purchase: the household entered it, or a purchase touched a row
+ * that was already there. `keepWithQuantity` leaves such a row in place. A
+ * quantity of 0 means "ran out" and is still removed: without the row the
+ * ingredient reads as needed just the same, so nothing is lost. The
  * `mark_purchased` MCP tool sets it, so an assistant cannot delete a quantity
  * the household entered and the tool stays non-destructive (HON-1154). The
  * app's own undo does not, unchanged.
@@ -196,7 +198,9 @@ export async function unpurchaseIngredient(
 
   if (!pantryItem) return 'not_in_pantry'
   if (pantryItem.isStaple) return 'staple'
-  if (options.keepWithQuantity && pantryItem.quantity !== null) return 'has_quantity'
+  if (options.keepWithQuantity && pantryItem.quantity !== null && pantryItem.quantity > 0) {
+    return 'has_quantity'
+  }
 
   const cutoffDate = new Date()
   cutoffDate.setDate(cutoffDate.getDate() - UNPURCHASE_WINDOW_DAYS)
