@@ -1,5 +1,5 @@
 import 'server-only'
-import { McpServer } from '@modelcontextprotocol/server'
+import { McpServer, type Implementation } from '@modelcontextprotocol/server'
 import { READ_ONLY_ANNOTATIONS, runTool, type McpCallerContext, type McpTool } from './context'
 import { instrumentMcpServer } from './analytics'
 import { getMealPlan } from './tools/get-meal-plan'
@@ -17,17 +17,37 @@ export const MCP_TOOLS: readonly McpTool[] = [
   getMeal,
 ] as McpTool[]
 
-export const MCP_SERVER_INFO = { name: 'wobblepot', title: 'Wobblepot', version: '1.0.0' }
+export const MCP_SERVER_DESCRIPTION = "Wobblepot is the household's meal planner."
+
+/**
+ * What the server says about itself in `initialize`. Claude shows `icons` in
+ * its connector list; without them it falls back to a favicon cache that still
+ * held the pre-rebrand icon (HON-1171). The URLs are absolute and built from
+ * the deployment's origin, because one build serves staging and production.
+ * `name` and `version` stay fixed: `@posthog/mcp` reports them on every event.
+ */
+export function mcpServerInfo(origin: string): Implementation {
+  return {
+    name: 'wobblepot',
+    title: 'Wobblepot',
+    version: '1.0.0',
+    description: MCP_SERVER_DESCRIPTION,
+    websiteUrl: origin,
+    icons: [
+      { src: `${origin}/icons/icon-192x192.png`, mimeType: 'image/png', sizes: ['192x192'] },
+      { src: `${origin}/icons/icon-512x512.png`, mimeType: 'image/png', sizes: ['512x512'] },
+    ],
+  }
+}
 
 /**
  * One `McpServer` for one request, bound to the caller the route resolved from
  * the access token. A fresh instance per request is the stateless serving
  * model, so no caller's household outlives its request.
  */
-export function buildMcpServer(ctx: McpCallerContext): McpServer {
-  const server = new McpServer(MCP_SERVER_INFO, {
-    instructions:
-      "Wobblepot is the household's meal planner. These tools read its meal plan, shopping list, pantry and meals. They cannot change anything.",
+export function buildMcpServer(ctx: McpCallerContext, origin: string): McpServer {
+  const server = new McpServer(mcpServerInfo(origin), {
+    instructions: `${MCP_SERVER_DESCRIPTION} These tools read its meal plan, shopping list, pantry and meals. They cannot change anything.`,
   })
 
   for (const tool of MCP_TOOLS) {

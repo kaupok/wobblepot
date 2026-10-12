@@ -173,6 +173,36 @@ describe('/api/mcp', () => {
       expect(body.result!.tools).toHaveLength(5)
     })
 
+    it('sends the app icon, website and description in the initialize handshake', async () => {
+      const response = await POST(
+        legacyMcpRequest(
+          'initialize',
+          {
+            protocolVersion: '2025-11-25',
+            capabilities: {},
+            clientInfo: { name: 'test-client', version: '1.0.0' },
+          },
+          as('user-a'),
+        ),
+      )
+
+      expect(response.status).toBe(200)
+      const body = await readMcpBody<{ serverInfo: Record<string, unknown> }>(response)
+      expect(body.error).toBeUndefined()
+      expect(body.result!.serverInfo).toEqual({
+        // `@posthog/mcp` reports `name` and `version` on every event.
+        name: 'wobblepot',
+        title: 'Wobblepot',
+        version: '1.0.0',
+        description: "Wobblepot is the household's meal planner.",
+        websiteUrl: ORIGIN,
+        icons: [
+          { src: `${ORIGIN}/icons/icon-192x192.png`, mimeType: 'image/png', sizes: ['192x192'] },
+          { src: `${ORIGIN}/icons/icon-512x512.png`, mimeType: 'image/png', sizes: ['512x512'] },
+        ],
+      })
+    })
+
     it("returns each caller only their own household's data", async () => {
       const a = await callTool('user-a', 'get_meal_plan', { from: '2026-10-12', to: '2026-10-12' })
       const b = await callTool('user-b', 'get_meal_plan', { from: '2026-10-12', to: '2026-10-12' })

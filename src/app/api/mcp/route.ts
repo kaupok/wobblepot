@@ -46,7 +46,7 @@ const CORS_HEADERS = {
  * included, speak that era today.
  */
 const mcpHandler = createMcpHandler(
-  (requestContext) => buildMcpServer(callerFrom(requestContext.authInfo)),
+  (requestContext) => buildMcpServer(callerFrom(requestContext.authInfo), getServerBaseURL()),
   {
     legacy: 'stateless',
   },
