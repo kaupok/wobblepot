@@ -186,9 +186,11 @@ export function buildSampleWeek(
       return {
         '@type': 'ListItem',
         position: index + 1,
-        url: `${options.pageUrl}#${day.anchor}`,
+        // Google's all-in-one-page carousel: the URL goes on the Recipe, not
+        // the ListItem. A ListItem with both `url` and `item` is invalid.
         item: {
           '@type': 'Recipe',
+          url: `${options.pageUrl}#${day.anchor}`,
           name: day.meal.name,
           ...(day.meal.description && { description: day.meal.description }),
           ...(day.meal.imageStatus === 'ready' &&

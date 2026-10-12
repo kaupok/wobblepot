@@ -160,7 +160,7 @@ describe('buildSampleWeek', () => {
       itemListElement: {
         '@type': string
         position: number
-        url: string
+        url?: string
         item: Record<string, unknown>
       }[]
     }
@@ -169,8 +169,10 @@ describe('buildSampleWeek', () => {
       expect(list['@type']).toBe('ItemList')
       expect(list.name).toBe(OPTIONS.title)
       expect(list.itemListElement.map((element) => element.position)).toEqual([1, 2])
-      expect(list.itemListElement[1]!.url).toBe(`${OPTIONS.pageUrl}#tuesday`)
+      expect(list.itemListElement[1]!.item.url).toBe(`${OPTIONS.pageUrl}#tuesday`)
       for (const element of list.itemListElement) {
+        // Google rejects a ListItem that has both `url` and `item`.
+        expect(element).not.toHaveProperty('url')
         expect(element['@type']).toBe('ListItem')
         expect(element.item['@type']).toBe('Recipe')
       }
@@ -179,6 +181,7 @@ describe('buildSampleWeek', () => {
     it('carries the recipe fields, with the visible quantities as ingredients', () => {
       expect(list.itemListElement[0]!.item).toEqual({
         '@type': 'Recipe',
+        url: `${OPTIONS.pageUrl}#monday`,
         name: MEALS[0]!.name,
         description: 'Pasta with milk',
         image: ['https://blob.example/pasta.webp'],
