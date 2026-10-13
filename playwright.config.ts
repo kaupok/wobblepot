@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test'
+import { SHARED_FIXTURE_SPEC_GLOBS } from './tests/e2e/utils/shared-fixture-specs'
 
 const remoteBaseURL = process.env.PLAYWRIGHT_BASE_URL
 const isCI = !!process.env.CI
@@ -59,14 +60,31 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
-  // CI runs 1 worker against a prebuilt `next start`. Locally the default
-  // (`undefined` → ~50% of cores) fanned several workers at a single-process
-  // `next dev`, so their sign-ups queued on one event loop behind the serial
-  // HIBP + scrypt + Neon work and blew the 30s budget (HON-569). Cap local
-  // parallelism to 2 to bound that contention; override with `--workers=N`.
-  // Remote tiers run from a laptop (PLAYWRIGHT_BASE_URL) hit a real deployment,
-  // not a single-process dev server, so they keep Playwright's default.
-  workers: isCI ? 1 : remoteBaseURL ? undefined : 2,
+  // CI runs 2 workers against a prebuilt `next start`, which serves parallel
+  // requests; the `shared-fixture` project below caps its own specs at one of
+  // them (HON-1182). Locally the default (`undefined` → ~50% of cores) fanned
+  // several workers at a single-process `next dev`, so their sign-ups queued
+  // on one event loop behind the serial HIBP + scrypt + Neon work and blew the
+  // 30s budget (HON-569). Cap local parallelism to 2 to bound that
+  // contention; override with `--workers=N`. Remote tiers (PLAYWRIGHT_BASE_URL)
+  // hit a real deployment, not a single-process dev server: from a laptop they
+  // keep Playwright's default, and in GitHub Actions (preview-smoke,
+  // staging-smoke) they keep 1 worker.
+  workers: remoteBaseURL ? (isCI ? 1 : undefined) : 2,
+  // Specs that sign in as a seeded fixture share the one "Smoke Test
+  // Household", so two of them at once can see each other's rows. In CI they
+  // run one at a time, beside the `isolated` specs, which each sign up their
+  // own account. The list and its guard are in
+  // tests/e2e/utils/shared-fixture-specs.ts. Both projects use the default
+  // browser, chromium.
+  projects: [
+    { name: 'isolated', testIgnore: SHARED_FIXTURE_SPEC_GLOBS },
+    {
+      name: 'shared-fixture',
+      testMatch: SHARED_FIXTURE_SPEC_GLOBS,
+      workers: isCI ? 1 : undefined,
+    },
+  ],
   use: {
     baseURL: remoteBaseURL ?? localBaseURL ?? 'http://localhost:3000',
     // `retain-on-failure` captures traces + screenshots for every

@@ -603,6 +603,11 @@ jobs:
       # limiter path, so the bypass must never reach a job-level `env` that
       # could be copied back to them. It is only meaningful during the live
       # Playwright run against the built Next app.
+      #
+      # 2 workers (HON-1182): the `isolated` and `shared-fixture` projects run
+      # in this one invocation, so `next build` runs once. The
+      # `shared-fixture` project caps itself at 1 worker — see
+      # tests/e2e/README.md → "Parallel groups in CI".
       - name: Run E2E tests (excluding @ai)
         timeout-minutes: 35
         env:

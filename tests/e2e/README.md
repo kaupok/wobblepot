@@ -80,6 +80,34 @@ PLAYWRIGHT_BASE_URL=https://preview-xyz.vercel.app \
   pnpm test:e2e --grep=@smoke
 ```
 
+## Parallel groups in CI
+
+Tier 1 CI runs 2 workers against `next start`, split across two Playwright
+projects in `playwright.config.ts` (HON-1182):
+
+| Project          | Specs                                                         | CI workers   |
+| ---------------- | ------------------------------------------------------------- | ------------ |
+| `shared-fixture` | The specs listed in `tests/e2e/utils/shared-fixture-specs.ts` | 1 at a time  |
+| `isolated`       | Every other spec                                              | Shares the 2 |
+
+A `shared-fixture` spec signs in as a seeded fixture (`smokeFixture()`,
+`forgotPasswordFixture()`, or the `SMOKE_TEST_*` / `FORGOT_PASSWORD_TEST_*`
+env vars). All of them act inside the one "Smoke Test Household" or on the one
+forgot-password account, so two at once can see each other's rows and flake.
+An `isolated` spec signs up its own account and runs beside anything.
+
+One run, one `next build`: both projects run in the same `pnpm test:e2e`
+invocation, and the `shared-fixture` project's `workers: 1` keeps its specs
+serial while the other worker takes `isolated` specs.
+
+Locally and on the remote tiers nothing changes: the fixture specs still run
+in parallel there, so each one keeps planting on a day and slot of its own.
+
+**Guard:** `tests/e2e/utils/shared-fixture-specs.test.ts` fails `pnpm test`
+when a spec signs in as a fixture and is missing from the list, or is listed
+and no longer does. A new fixture spec goes into `SHARED_FIXTURE_SPECS` in the
+same PR.
+
 ## The `@smoke` tag
 
 `@smoke` is a cluster-wide contract: specs carrying this tag run against
@@ -330,12 +358,13 @@ secret can't turn the promotion gate into a silent green).
 
 ## File layout
 
-| File                              | Purpose                                                                 |
-| --------------------------------- | ----------------------------------------------------------------------- |
-| `tests/e2e/*.spec.ts`             | Specs                                                                   |
-| `tests/e2e/utils/test-helpers.ts` | Shared helpers (sign-up, sign-in, meal-plan)                            |
-| `tests/e2e/utils/db-helpers.ts`   | `/api/e2e-seed` client + `e2eBaseURL()`                                 |
-| `tests/e2e/utils/e2e-support.ts`  | `/api/e2e-support` back-channel client + purge-cron trigger             |
-| `tests/e2e/utils/fixtures.ts`     | Seeded-fixture credentials (skip locally / fail loudly on remote tiers) |
-| `tests/e2e/utils/mail-helpers.ts` | Reading outbound email (Resend backend, back-channel fallback)          |
-| `playwright.config.ts`            | Top-level config (CI-aware webServer + baseURL)                         |
+| File                                      | Purpose                                                                 |
+| ----------------------------------------- | ----------------------------------------------------------------------- |
+| `tests/e2e/*.spec.ts`                     | Specs                                                                   |
+| `tests/e2e/utils/test-helpers.ts`         | Shared helpers (sign-up, sign-in, meal-plan)                            |
+| `tests/e2e/utils/db-helpers.ts`           | `/api/e2e-seed` client + `e2eBaseURL()`                                 |
+| `tests/e2e/utils/e2e-support.ts`          | `/api/e2e-support` back-channel client + purge-cron trigger             |
+| `tests/e2e/utils/fixtures.ts`             | Seeded-fixture credentials (skip locally / fail loudly on remote tiers) |
+| `tests/e2e/utils/mail-helpers.ts`         | Reading outbound email (Resend backend, back-channel fallback)          |
+| `tests/e2e/utils/shared-fixture-specs.ts` | Specs that sign in as a seeded fixture (the `shared-fixture` project)   |
+| `playwright.config.ts`                    | Top-level config (CI-aware webServer + baseURL, projects)               |
