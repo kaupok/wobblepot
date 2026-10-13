@@ -40,6 +40,7 @@
     "steps:library": "npx tsx --require ./scripts/register-server-only.cjs scripts/generate-library-steps.ts",
     "env:audit": "npx tsx scripts/env-audit.ts",
     "lockfile:check": "npx tsx scripts/check-lockfile-pins.ts",
+    "prisma-boundary:check": "npx tsx scripts/check-prisma-boundary.ts",
     "agent-cost": "npx tsx scripts/agent-cost-per-pr.ts",
     "stories:check": "npx tsx scripts/check-colocated-stories.ts",
     "i18n:prose-check": "npx tsx scripts/check-server-prose.ts",
