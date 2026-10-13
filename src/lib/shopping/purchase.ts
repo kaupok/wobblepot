@@ -24,6 +24,12 @@ export const UNPURCHASE_WINDOW_DAYS = 7
 
 export type PurchaseResult = {
   ingredientId: string
+  /**
+   * The quantity above 0 the purchase replaced with `null`, or `null` if it
+   * replaced none. An undo deletes the pantry item, so the `mark_purchased`
+   * MCP tool returns it and the assistant can set it back (HON-1176).
+   */
+  replacedQuantity: number | null
   pantryItem: {
     id: string
     ingredient: {
@@ -130,7 +136,8 @@ export async function purchaseIngredients(
       // read the same as an edit on the pantry page (HON-1173, HON-1176). The
       // row is locked by the upsert already, so the lock order above still
       // holds.
-      if (pantryItem.quantity !== null) {
+      const quantityBefore = pantryItem.quantity
+      if (quantityBefore !== null) {
         pantryItem = await tx.pantryItem.update({
           where: { id: pantryItem.id },
           data: { quantity: null },
@@ -141,6 +148,7 @@ export async function purchaseIngredients(
 
       upserted.set(ingredientId, {
         ingredientId,
+        replacedQuantity: quantityBefore !== null && quantityBefore > 0 ? quantityBefore : null,
         pantryItem: {
           id: pantryItem.id,
           ingredient: {

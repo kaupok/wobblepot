@@ -125,7 +125,10 @@ describe('mark_purchased', () => {
         quantity: null,
       }))
 
-      await call({ ingredientIds: ['ing-milk', 'ing-rice', 'ing-oil'], purchased: true })
+      const result = await call({
+        ingredientIds: ['ing-milk', 'ing-rice', 'ing-oil'],
+        purchased: true,
+      })
 
       // The shopping list reads only null as purchased, so a 200 left in place
       // would read the same as an edit on the pantry page (HON-1173, HON-1176).
@@ -136,6 +139,16 @@ describe('mark_purchased', () => {
       expect(update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'pantry-ing-rice' }, data: { quantity: null } }),
       )
+      // An undo deletes the item, so the result gives the replaced 200 back for
+      // the assistant to restore; a 0 ("ran out") is not worth restoring.
+      expect(result.structuredContent).toEqual({
+        purchased: true,
+        items: [
+          { ingredientId: 'ing-milk', outcome: 'in_pantry' },
+          { ingredientId: 'ing-rice', outcome: 'in_pantry', replacedQuantity: 200 },
+          { ingredientId: 'ing-oil', outcome: 'in_pantry' },
+        ],
+      })
     })
 
     it("refuses another household's ingredient and writes nothing", async () => {
