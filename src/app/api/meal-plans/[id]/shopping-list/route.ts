@@ -102,7 +102,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         // Item is purchased if its pantry quantity is null ("have some") and was
         // set after the plan was created. A purchase always sets null, so any
         // other quantity is not a purchase, as in `loadShoppingList`
-        // (HON-1173, HON-1176).
+        // (HON-1173, HON-1176). `computeShoppingList` drops a null item today,
+        // so a listed item does not read as purchased; see `loadShoppingList`
+        // for why the condition stays.
         const purchased = pantryItem
           ? pantryItem.quantity === null && pantryItem.updatedAt >= plan.createdAt
           : false

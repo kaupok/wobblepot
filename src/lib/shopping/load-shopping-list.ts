@@ -82,6 +82,10 @@ export async function loadShoppingList(
       // can be purchased. A purchase always sets null (`purchaseIngredients`),
       // so a 0 or a quantity above 0 was set on the pantry page or with
       // `set_pantry_quantity`, and is not a purchase (HON-1173, HON-1176).
+      // `computeRollingWindowShoppingList` drops a null item today, so a listed
+      // item does not read as purchased: a bought item leaves the list. The
+      // condition stays so that an edit can never read as a purchase if the
+      // list starts to keep bought items.
       const purchased =
         pantryItem && result.earliestPlanCreatedAt
           ? pantryItem.quantity === null && pantryItem.updatedAt >= result.earliestPlanCreatedAt

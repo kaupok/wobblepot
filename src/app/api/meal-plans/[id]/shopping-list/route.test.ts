@@ -246,7 +246,8 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
       },
     ] as never)
 
-    // Bought after plan was created: "have some"
+    // Bought after plan was created: "have some". The real compute drops a
+    // null item (`shopping-list.test.ts`), so this pins only the read rule.
     mockFindManyPantry.mockResolvedValue([
       {
         ingredientId: 'ing-1',

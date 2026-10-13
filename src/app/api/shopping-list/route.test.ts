@@ -347,7 +347,8 @@ describe('GET /api/shopping-list', () => {
       earliestPlanCreatedAt: planCreatedAt,
       hasAnyPlan: true,
     })
-    // Bought after plan creation: "have some" → purchased
+    // Bought after plan creation: "have some" → purchased. The real compute drops a
+    // null item (`shopping-list.test.ts`), so this pins only the read rule.
     mockPantryFindMany.mockResolvedValue([
       {
         ingredientId: 'ing-1',
