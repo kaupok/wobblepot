@@ -56,6 +56,8 @@ Entries are grouped by the `CLAUDE.md` section they belong to.
 
 - **2026-10-06, no issue — go-to-market content and the public repository.** A planning session drafted a paragraph for `docs/PROJECT_SPEC.md` that recorded a go-to-market decision, because the issue's own acceptance criteria asked for it there. The user stopped it before the commit: the repository is public, and that content belongs in Linear documents. The `/gtm` skill and the `CLAUDE.md` rule came out of it.
 
+- **HON-1196, 2026-10-13 — `/diagnose`.** The project had no debugging skill, so an agent read code, formed one theory and edited, with nothing to prove the bug before the edit or the fix after it. `/diagnose` ports the feedback-loop-first rule from Matt Pocock's `diagnosing-bugs` skill (`mattpocock/skills`, `skills/engineering/diagnosing-bugs`). The upstream `hitl-loop.template.sh` was left out: the unattended cycle has no human to run it, so a human-only reproduction becomes a Todo issue.
+
 ## Writing style
 
 - **2026-10-06, no issue — bare identifiers in chat.** In a long planning session the agent wrote chat lines such as "do HON-1056, HON-1081 and HON-1080" and "PR #1151 is open". The user said they do not know what an issue is from its number, and asked for a rule. The identifiers were correct and the messages were still unreadable, because only the agent had the titles in context.
