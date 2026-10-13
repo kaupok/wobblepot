@@ -398,11 +398,12 @@ fi
 
 # ─── Checklist items for CLAUDE.md rules that no CI check can enforce ────────
 #
-# Three rules have no mechanical check, so they live here as reviewer checklist items:
+# Four rules have no mechanical check, so they live here as reviewer checklist items:
 # the CLAUDE.md "definition of done" rules for E2E drift and shared-primitive geometry
-# (HON-729), and the AI eval report (HON-904). Each is appended only when the diff
-# touches the paths the rule is about, so a PR that cannot break the rule does not pay
-# for the check. All three fail closed on an unreadable or truncated file list, like
+# (HON-729), test anti-patterns (HON-1198), and the AI eval report (HON-904). Each is
+# appended only when the diff touches the paths the rule is about, so a PR that cannot
+# break the rule does not pay for the check. All four fail closed on an unreadable or
+# truncated file list, like
 # the design gate above. None emits a "not applicable" line: the item's own "nothing to do" clause covers a gate that
 # fired on a diff the rule turns out not to apply to.
 #
@@ -414,6 +415,11 @@ fi
 E2E_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/(app|components)/.*\.tsx|messages/[^/]*\.json|src/proxy\.ts)$' | grep -vE '\.(stories|test)\.tsx$' || true)
 # Geometry: the primitives themselves, and the stylesheet holding the @theme tokens.
 GEOMETRY_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^(src/components/ui/[^/]*\.tsx|src/app/globals\.css)$' | grep -vE '\.(stories|test)\.tsx$' || true)
+# Test anti-patterns: a test whose expected value is computed the way the code computes
+# it, or that asserts a mock was called, passes on day one and never catches a
+# regression. CI runs it green, so only a reader can see it. Unit tests, E2E specs, and
+# stories, because a play function is a test. Tests are colocated, so any path counts.
+TEST_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '(\.(test|spec)\.(ts|tsx)|\.stories\.tsx)$' || true)
 # AI eval: what `scripts/model-bench/tasks.ts` imports from src/lib/ai/ — the model
 # constants, the route budgets, and the request builders — plus the two schema files
 # the builders send (recipe-schema.ts, types.ts), whose `.describe()` strings are
@@ -442,6 +448,22 @@ if [ -n "$GEOMETRY_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
 
 If this diff changes a size, height, padding or radius default on a primitive under `src/components/ui/`, or a `@theme` token in `src/app/globals.css`, run the greps in `.claude/skills/plan-issue/SKILL.md` step 7b against the **old** literal and check that every Mirror hit — a skeleton or sibling primitive sized to match — moved with it in this PR. An unmoved Mirror is a finding (HON-612 desynced 12 `loading.tsx` skeletons this way); Override and Deliberate hits are not. If no geometry default changed, this check has nothing to do.
 GEOMETRY_PROMPT
+fi
+
+if [ -n "$TEST_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
+  echo -e "${GREEN}Tests, specs or stories changed — adding the test anti-pattern check.${NC}"
+  cat >> "$PROMPT_FILE" <<'TEST_PROMPT'
+
+## Also check that the changed tests can fail
+
+A test that cannot fail passes CI on day one and never catches a regression. For each test, spec or story play function added or changed in this PR, report it as a finding if it is one of these:
+
+- **Tautological**: the expected value is recomputed the way the code computes it (`expect(total(items)).toBe(items.reduce(...))`), a constant is asserted equal to itself, or a snapshot is derived by the same logic. Fix: take the expected value from a literal, a worked example, or the issue's acceptance criteria.
+- **Implementation-coupled**: it mocks an internal collaborator of the unit under test, asserts call counts or call order where the behaviour is observable through the interface, or verifies through a side channel (a direct Prisma query) when the public interface can show the result. Fix: assert on what the interface returns or renders. Mocking a network boundary (MSW, `apiFetch`) or a paid service is not a finding.
+- **Unable to go red**: the assertion would pass if the implementation were deleted (`expect(result).toBeDefined()` on a function that always returns an object, `not.toThrow()` with no other assertion). Fix: assert the specific value or state the change produces.
+
+Anchor the finding on the assertion and name which of the three it is. If no test file changed, this check has nothing to do.
+TEST_PROMPT
 fi
 
 if [ -n "$AI_EVAL_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
