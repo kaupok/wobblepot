@@ -116,6 +116,7 @@ This goes in the Summary section of the description (step 6). The goal: a review
 ## Verified
 
 - [What was run or asserted, and the result. Name the command, test, story or spec: "`pnpm test` — 4745 passed", "`CookieBanner.stories.tsx` › PhoneWithTabBar asserts the 80px offset", "Tier 1 E2E green on the PR".]
+- [The `Driven:` lines `/implement-issue` printed after its completion marker, one per changed screen (`/implement-issue` → "Drive changed screens"). If the diff changes a screen and none were printed, run that step now.]
 
 ## Not verified
 

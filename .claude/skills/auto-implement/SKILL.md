@@ -480,6 +480,7 @@ CLAUDE.md is already loaded as project instructions — do not re-read it. Read 
 - **Performance**: N+1 queries, unnecessary re-renders, large bundle imports
 - **E2E drift**: If the diff includes `src/app/**/page.tsx`, a route URL, a modal/dialog component, or changes user-visible copy in a heading/button/link, grep `tests/e2e/` for stale references via the spec `// ROUTES: … · COMPONENTS: …` headers (`grep -l "ROUTES.*<route>\|COMPONENTS.*<OldName>" tests/e2e/*.spec.ts`; for copy renames also `grep -rn "<exact old copy>" tests/e2e/`) and update affected specs (CLAUDE.md E2E rule)
 - **Storybook**: If the diff touches `src/components/**`, the colocated `.stories.tsx` was created/updated for the new variants and states and `pnpm test-storybook:ci` passes (CLAUDE.md Storybook rule)
+- **Driven screens**: If the diff changes a screen, run `.claude/skills/implement-issue/SKILL.md` → "Drive changed screens" once the 4.5 checks pass. It has the trigger, the commands and the evidence format; keep its `Driven:` lines for the 5.4 "Verified" list
 - **Shared-primitive coupling**: If the diff changes a geometry default on a primitive under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper, run `/plan-issue` step 7b's greps against the **old** literal and confirm every Mirror moved with it. Skeletons are the usual miss — HON-612 desynced 12 route `loading.tsx` files this way and review, not planning, caught it (CLAUDE.md shared-primitive geometry rule)
 
 ### 4.4 Triage issues
@@ -621,6 +622,7 @@ gh pr create --title "type(scope): Subject" --body "$(cat <<'EOF'
 ## Verified
 
 - [What was run or asserted, and the result. Name the command, test, story or spec: "`pnpm test` — 4745 passed", "`CookieBanner.stories.tsx` › PhoneWithTabBar asserts the 80px offset", "Tier 1 E2E green on the PR".]
+- [One `Driven:` line per screen from 4.3's "Driven screens" step, if the diff changes a screen.]
 
 ## Not verified
 

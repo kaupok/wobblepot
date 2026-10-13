@@ -258,6 +258,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **E2E drift:** when you modify a `page.tsx` under `src/app`, change a route's URL, rename navigation or CTA copy, or restructure a modal or dialog, grep `tests/e2e` for references and update the affected specs in the same PR. Use the per-spec `// ROUTES: … · COMPONENTS: …` header comments to scope the grep. This is part of the definition of done: the tier 1 E2E check catches drift on `main`, but stale specs are cheap to miss locally and expensive to fix in batch. No CI check can enforce it, so `scripts/pr-review.sh` adds a reviewer checklist item when the diff touches a `.tsx` under `src/app` or `src/components`, a `messages/*.json` catalog, or `src/proxy.ts`. The reviewer is a backstop; the rule is yours to follow while writing the change.
 
+**Driven screens:** when a diff changes a page or a feature component, open each changed screen through the Playwright MCP on `pnpm review:local` before the PR, and record a `Driven:` line in the PR body. Storybook and the E2E grep are static, so they cannot see a dead button. Steps: `/implement-issue` step 9 → "Drive changed screens". `scripts/pr-review.sh` adds a reviewer item when the line is missing.
+
 ## Shared-primitive geometry
 
 Before changing a size, height, padding or radius default on a primitive under `src/components/ui/*.tsx`, a `@theme` token in `globals.css`, or a shared layout wrapper, find the callsites that hardcode a copy of the old value. Skeletons, sibling primitives sharing the old value, and `className` overrides all keep their own copy, and none of them is visible from the primitive's own file.
