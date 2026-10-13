@@ -23,6 +23,9 @@ const unitTest = {
     'tests/e2e/**/*.spec.*',
     'e2e/**',
     '**/*.stories.*',
+    // Database tests belong to the `unit-db` project, so `pnpm test` stays
+    // green without a database (HON-1183, HON-1186).
+    '**/*.db.test.*',
   ],
   env: {
     NODE_ENV: 'test',
@@ -108,6 +111,32 @@ export default defineConfig({
           name: 'unit-node',
           environment: 'node',
           include: ['**/*.{test,spec}.?(c|m)[jt]s'],
+        },
+      },
+      // `*.db.test.ts` files run real queries against PGlite, an in-process
+      // Postgres (HON-1186). `src/test/db-setup.ts` applies `prisma/migrations`
+      // once per run and resets the tables before each test. One worker with
+      // `isolate: false`, so that one database serves every file in the run.
+      // `pnpm test:db` runs this project alone.
+      {
+        extends: true,
+        test: {
+          name: 'unit-db',
+          environment: 'node',
+          include: ['**/*.db.test.ts'],
+          exclude: ['**/node_modules/**', '**/dist/**'],
+          setupFiles: ['./src/test/db-setup.ts'],
+          globals: true,
+          pool: 'forks',
+          fileParallelism: false,
+          isolate: false,
+          env: {
+            ...unitTest.env,
+            // A closed port: a client that bypasses PGlite fails here instead
+            // of reaching a real database.
+            DATABASE_URL: 'postgresql://unit-db@127.0.0.1:9/unit_db',
+          },
+          testTimeout: 10000,
         },
       },
       {

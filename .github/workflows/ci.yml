@@ -52,12 +52,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The checks run as four parallel jobs (HON-1177): one sequential job took
-  # about 16 min per green run, and every PR, the `/merge` poll and the
-  # orchestrator wait on it. The repository is public, so Actions minutes are
-  # free and wall time is the only cost. The fifth job, `ci`, keeps the old
-  # check name `Lint, Type Check & Test` and turns red when any of the four
-  # does — see its own comment.
+  # The checks run as five parallel jobs (HON-1177; `unit-db` since HON-1186):
+  # one sequential job took about 16 min per green run, and every PR, the
+  # `/merge` poll and the orchestrator wait on it. The repository is public, so
+  # Actions minutes are free and wall time is the only cost. The sixth job,
+  # `ci`, keeps the old check name `Lint, Type Check & Test` and turns red when
+  # any of the five does — see its own comment.
   #
   # Each job carries a full copy of the same `permissions` block. The `env`
   # block is shared at workflow level, above.
@@ -350,6 +350,39 @@ jobs:
         run: pnpm test
 
   # ==========================================
+  # Database tests: `*.db.test.ts` against PGlite (HON-1186)
+  # ==========================================
+  # PGlite is Postgres in the test process, so the job needs no service
+  # container and no `DATABASE_URL`: the `unit-db` project sets its own, to a
+  # closed port, so nothing here can reach the workflow-level URL.
+  unit-db:
+    name: Database tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run database tests
+        run: pnpm test:db
+
+  # ==========================================
   # Storybook: a11y gate and static build
   # ==========================================
   storybook:
@@ -554,7 +587,7 @@ jobs:
     name: Lint, Type Check & Test
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [static, unit, storybook, e2e]
+    needs: [static, unit, unit-db, storybook, e2e]
     if: always()
     permissions: {}
 
@@ -563,6 +596,7 @@ jobs:
         env:
           STATIC_RESULT: ${{ needs.static.result }}
           UNIT_RESULT: ${{ needs.unit.result }}
+          UNIT_DB_RESULT: ${{ needs.unit-db.result }}
           STORYBOOK_RESULT: ${{ needs.storybook.result }}
           E2E_RESULT: ${{ needs.e2e.result }}
         run: |
@@ -570,6 +604,7 @@ jobs:
           for pair in \
             "Static checks=$STATIC_RESULT" \
             "Unit tests=$UNIT_RESULT" \
+            "Database tests=$UNIT_DB_RESULT" \
             "Storybook=$STORYBOOK_RESULT" \
             "E2E=$E2E_RESULT"; do
             name=${pair%%=*}
