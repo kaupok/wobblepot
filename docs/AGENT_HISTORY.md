@@ -59,6 +59,8 @@ Entries are grouped by the `CLAUDE.md` section they belong to.
 
 - **HON-1196, 2026-10-13 — `/diagnose`.** The project had no debugging skill, so an agent read code, formed one theory and edited, with nothing to prove the bug before the edit or the fix after it. `/diagnose` ports the feedback-loop-first rule from Matt Pocock's `diagnosing-bugs` skill (`mattpocock/skills`, `skills/engineering/diagnosing-bugs`). The upstream `hitl-loop.template.sh` was left out: the unattended cycle has no human to run it, so a human-only reproduction becomes a Todo issue.
 
+- **HON-1197, 2026-10-13 — questions in rounds.** `/ideate` and `/refine-backlog` told the agent to "ask targeted questions" and "iterate", but not how. The agent asked one question per turn, or asked the user for facts it could look up, so sessions ran long. Both skills now ask in rounds: the whole frontier of open questions at once, a recommended answer under each, facts looked up rather than asked, and an end when the frontier is empty. The method is from Matt Pocock's `grilling` skill (`mattpocock/skills`, `skills/productivity/grilling`).
+
 - **HON-1199, 2026-10-13 — `/retro`.** A rule entered `CLAUDE.md` only when a human noticed an incident and wrote it up; no skill looked back over a session and asked what the environment could have caught. `/retro` ports Matt Pocock's `retro` skill (`mattpocock/skills`, `skills/engineering/retro`), with the same central rule: a mechanical mistake gets a check, not a sentence of prose. It is user-invoked only, and an approved candidate becomes an `Improvement` issue in Backlog unless it is a one-line doc edit.
 
 ## Writing style

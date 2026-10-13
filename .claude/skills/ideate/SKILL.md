@@ -17,6 +17,30 @@ If Chrome browser tools (`mcp__claude-in-chrome__*`) are available in this sessi
 
 If Chrome is not available, proceed without it. Optionally mention that `claude --chrome` or `/chrome` enables app browsing for future sessions.
 
+## Asking in rounds
+
+Every question this skill asks the user goes through this method. Step 4 asks the first round and Step 6 asks the rest.
+
+Model the open decisions as a tree, because one decision can depend on the answer to another. The **frontier** is every open question whose prerequisites are already settled.
+
+- **Ask the whole frontier in one round.** Do not ask one question per turn.
+- **Give a recommended answer under each question, and word the question so "yes" accepts it.** The user can then answer "yes to all", or correct one number.
+- **A question whose answer depends on another question in the same round waits for a later round.**
+- **Look up facts; ask the user only for decisions.** When a question needs a fact from the codebase, Linear or staging, find it yourself (use a subagent if the lookup is wide), then ask only for the decision. A pending lookup holds back only the questions downstream of it.
+- **The interview ends when the frontier is empty.** Then continue to Step 7.
+
+Number the questions from Q1 in each round. Give each a title that says what it decides, so the user can answer without the earlier rounds in view (CLAUDE.md → Writing style).
+
+```
+❓ **Q1 — <title>**: <question, with choices if any>
+➡️ <recommended answer>
+
+❓ **Q2 — <title>**: ...
+➡️ ...
+```
+
+After the user answers, lock the answers and work out the new frontier. An answer can open new questions, and it can close questions that no longer apply.
+
 ## Phase 1: Understand the Idea
 
 ### Step 1: Get the seed
@@ -65,7 +89,7 @@ Share with the user:
 - **Overlap**: Any existing issues that touch on this?
 - **Initial scope thoughts**: What feels like the right size?
 
-Then ask targeted questions to sharpen the idea. Focus on:
+Then ask the first round (see "Asking in rounds"). These four areas seed it. Drop an area the seed already answers, and look up what the codebase or Linear can tell you instead of asking:
 
 1. **Problem/motivation**: What's the user need or pain point?
 2. **Scope boundaries**: What's in and what's explicitly out?
@@ -86,11 +110,11 @@ Once the idea's direction is clear from initial discussion, scan the codebase fo
 
 Read only what the feasibility question depends on. The goal is feasibility context, not a full plan. Share relevant findings with the user.
 
-### Step 6: Iterate
+### Step 6: Iterate in rounds
 
-This is the core of the skill — a back-and-forth conversation to refine the idea. Keep it natural and collaborative. Don't rush to create issues.
+This is the core of the skill: ask rounds (see "Asking in rounds") until the idea is well-defined. Keep it collaborative. Don't rush to create issues.
 
-Things to explore as the discussion develops:
+These topics seed later rounds as the discussion develops:
 
 - **Trade-offs**: Simpler approach vs. fuller feature? MVP vs. complete?
 - **Splitting**: Is this one issue or several? What's the right granularity?
@@ -100,7 +124,7 @@ Things to explore as the discussion develops:
 
 Throughout iteration, **browse the app whenever it would sharpen the conversation** — when the user mentions a page, when you're discussing UX patterns, when debating what's already built vs. missing. Navigate, screenshot, and reference what you see. See "Browsing the app" below for the page map and guidance.
 
-Continue the conversation until the idea feels well-defined and the user is ready to capture it.
+The interview ends when the frontier is empty: every open decision has an answer. Then continue to Step 7.
 
 ## Phase 3: Create Issues
 
@@ -193,7 +217,7 @@ Skip browsing when:
 
 ## Guidelines
 
-- **Interactive by default**: Don't rush past discussion to issue creation. The conversation IS the value.
+- **Interactive by default**: Don't rush past discussion to issue creation. The conversation IS the value. The interaction is rounds of numbered questions, each with a recommended answer, not one question per turn.
 - **Challenge scope**: Push back gently if an idea is too vague or too ambitious for a single issue.
 - **Stay aligned**: Reference the project spec and current phase when relevant.
 - **Sentence case**: Use sentence case for issue titles per project conventions.

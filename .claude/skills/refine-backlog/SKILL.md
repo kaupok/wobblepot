@@ -9,6 +9,30 @@ context: inherit
 
 You are assisting CPO+CTO in fleshing out draft ideas, features, and issues into actionable, implementation-ready backlog items.
 
+## Asking in rounds
+
+Every time this skill asks the user to decide, it uses this method: the cross-cutting questions in Step 4b, the refinement questions in Step 7, and the new-draft questions in Step 10.
+
+Model the open decisions as a tree, because one decision can depend on the answer to another. The **frontier** is every open question whose prerequisites are already settled.
+
+- **Ask the whole frontier in one round.** Do not ask one question per turn.
+- **Give a recommended answer under each question, and word the question so "yes" accepts it.** The user can then answer "yes to all", or correct one number.
+- **A question whose answer depends on another question in the same round waits for a later round.**
+- **Look up facts; ask the user only for decisions.** When a question needs a fact from the codebase, Linear or staging, find it yourself (use a subagent if the lookup is wide), then ask only for the decision. A pending lookup holds back only the questions downstream of it.
+- **The interview ends when the frontier is empty.** Then continue to the next step: per-issue refinement after Step 4b, Step 7b after Step 7, Step 11 after Step 10.
+
+Number the questions from Q1 in each round. Give each a title that says what it decides, so the user can answer without the earlier rounds in view (CLAUDE.md → Writing style).
+
+```
+❓ **Q1 — <title>**: <question, with choices if any>
+➡️ <recommended answer>
+
+❓ **Q2 — <title>**: ...
+➡️ ...
+```
+
+After the user answers, lock the answers and work out the new frontier. An answer can open new questions, and it can close questions that no longer apply.
+
 ## Phase 1: Context Gathering
 
 ### Step 1: Parse arguments
@@ -81,7 +105,7 @@ Show user:
 
 - Number of issues found and the filter used (draft / label / single)
 - Brief list with titles, priority, and current state
-- Ask which to refine first (or offer to go through all)
+- Ask which to refine first (or offer to go through all), with a recommended order
 
 ### Step 4b: Cluster-level triage (when 5+ issues touch the same system)
 
@@ -89,7 +113,7 @@ When the list includes multiple related drafts (e.g. analytics, observability, G
 
 - Present the cluster shape: what's covered, what's missing, dependency graph.
 - Surface cross-cutting open questions (e.g. PII policy, environment separation, `requestId` correlation, alert channel) — decide them once at the cluster level so child issues can reference back instead of re-deciding.
-- Batch options + recommendations + tradeoffs for cross-cutting decisions in one round, then lock them.
+- Ask the cross-cutting decisions in rounds (see "Asking in rounds"), with the options and trade-offs inside each question, and lock each answer.
 - Only after cluster-level decisions are locked, proceed to per-issue refinement (Step 5 onward).
 
 This is dramatically faster and more coherent than re-deciding cross-cutting concerns inside each issue.
@@ -116,7 +140,9 @@ Display:
 
 ### Step 7: Collaborative refinement
 
-**For draft issues**, discuss:
+Ask in rounds (see "Asking in rounds"). The lists below seed the first round. Drop a topic the issue already answers, and look up what the codebase or Linear can tell you instead of asking.
+
+**For draft issues**, cover:
 
 1. **Problem/motivation**: Why does this matter? What user need or constraint drives it?
 2. **Scope clarity**: Is the scope well-defined? Too broad? Too narrow?
@@ -125,7 +151,7 @@ Display:
 5. **Dependencies**: What must happen first? What does this unblock?
 6. **Split/merge**: Should this be multiple issues? Is it a duplicate?
 
-**For Tech/labeled issues** (e.g., from `/tech-audit`), also discuss:
+**For Tech/labeled issues** (e.g., from `/tech-audit`), also cover:
 
 1. **Scope sizing**: Is this implementable in a single PR? If not, split it.
 2. **Acceptance criteria**: Are they specific and testable? (e.g., "coverage above 70%" not "improve coverage")
@@ -195,7 +221,7 @@ If user wants to create new issues during the session:
 
 ### Step 10: Draft new issue
 
-Discuss with user:
+Ask in rounds (see "Asking in rounds"), seeded with:
 
 - What's the feature/fix/task?
 - Why is it needed?
