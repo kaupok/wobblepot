@@ -45,7 +45,7 @@ Build one command that goes red on the user's exact symptom and green once it is
 
 **A flaky bug** is not debuggable at a 1-in-50 rate. Raise the reproduction rate first: loop the trigger (`(for i in $(seq 1 50); do pnpm test <path> || exit 1; done)`, which exits non-zero on the first failure), add load, shorten timeouts, or force the interleaving. Debug once the loop goes red most of the time.
 
-**A reproduction only a human can run** (a real device, a payment provider, a third-party login) gets no `hitl-loop` script, because the unattended cycle has no human to run it. File a Todo issue that names the steps and what to capture, stop any server you started, and stop.
+**A reproduction only a human can run** (a real device, a payment provider, a third-party login) gets no `hitl-loop` script. Treat it as "If no loop can be built" below. In an unattended run there is no user to ask, so file a Todo issue instead that names the steps and what to capture. When the input was `HON-NNN`, link it with `relatedTo` and add the `Follow-up` label (CLAUDE.md → A follow-up is an issue).
 
 **Done when** you name one command, you have run it once, you show its redacted output, and that output shows the symptom from your one-sentence description, not a nearby failure. A test that fails on a typo in the test does not count.
 
