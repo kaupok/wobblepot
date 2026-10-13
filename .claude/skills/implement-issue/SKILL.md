@@ -216,17 +216,17 @@ Storybook and the E2E grep are static, so a layout break, a wrong empty state or
 { git diff --name-only "$(git merge-base origin/main HEAD)"; git ls-files --others --exclude-standard; } | sort -u
 ```
 
-1. **Start the review server.** It turns on `/api/e2e-seed`, which `pnpm dev` does not, so sign-up works. Use `--db env` when the worktree `.env` has its own `DATABASE_URL` (`wt new`, `wt auto`), so it spends no second Neon branch; otherwise use branch mode. The port is per issue, because up to three workers run at once:
+1. **Start the review server.** It turns on `/api/e2e-seed`, which `pnpm dev` does not, so sign-up works. Use `--db env` when the worktree `.env` has its own `DATABASE_URL` (`wt new`, `wt auto`), so it spends no second Neon branch; otherwise use branch mode:
 
    ```bash
    mine=$(grep '^DATABASE_URL=' .env); main=$(grep '^DATABASE_URL=' "$(git rev-parse --git-common-dir)/../.env")
    [ -n "$mine" ] && [ "$mine" != "$main" ] && echo "own database: --db env" || echo "shared database: branch mode"
    ```
 
-   Start it with `run_in_background: true` and `timeout: 3600000`, with `--db env` appended after the `_` when the check printed it. The 10-minute background default would kill the server partway through the screens, and a killed server leaves its Neon branch behind (`pnpm test:e2e:local gc` sweeps it). The pid file holds the script's own pid, so step 5 stops this server and no other:
+   Start it with `run_in_background: true` and `timeout: 3600000`, with `--db env` appended after the `_` when the check printed it. The 10-minute background default would kill the server partway through the screens, and a killed server leaves its Neon branch behind (`pnpm test:e2e:local gc` sweeps it). The port is a random free one, because up to three workers run at once. The pid file holds the script's own pid, so step 5 stops this server and no other:
 
    ```bash
-   rm -f /tmp/review-HON-XX.pid; REVIEW_LOCAL_PORT=$((3200 + XX % 100)) bash -c 'echo $$ > /tmp/review-HON-XX.pid; exec bash scripts/e2e-local.sh serve "$@"' _ > /tmp/review-HON-XX.log 2>&1
+   rm -f /tmp/review-HON-XX.pid; REVIEW_LOCAL_PORT=$(for p in $(seq 3201 3299 | sort -R); do curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$p/" || { echo "$p"; break; }; done) bash -c 'echo $$ > /tmp/review-HON-XX.pid; exec bash scripts/e2e-local.sh serve "$@"' _ > /tmp/review-HON-XX.log 2>&1
    ```
 
    Then wait in the foreground with `timeout: 540000`, in the same turn (CLAUDE.md → Waiting inside a skill):
@@ -234,7 +234,11 @@ Storybook and the E2E grep are static, so a layout break, a wrong empty state or
    ```bash
    # 96 × 5 s = 480 s, under the 540 s foreground timeout.
    for i in $(seq 1 96); do
-     grep REVIEW-READY /tmp/review-HON-XX.log 2>/dev/null && exit 0
+     # Alive 5 s after READY: if another server took the port, ours exits and READY was theirs.
+     if grep -q REVIEW-READY /tmp/review-HON-XX.log 2>/dev/null; then
+       sleep 5; kill -0 "$(cat /tmp/review-HON-XX.pid)" 2>/dev/null && { grep REVIEW-READY /tmp/review-HON-XX.log; exit 0; }
+       tail -20 /tmp/review-HON-XX.log; echo REVIEW_FAILED; exit 1
+     fi
      if [ -s /tmp/review-HON-XX.pid ] && ! kill -0 "$(cat /tmp/review-HON-XX.pid)" 2>/dev/null; then
        tail -20 /tmp/review-HON-XX.log; echo REVIEW_FAILED; exit 1
      fi
