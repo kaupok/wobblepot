@@ -24,8 +24,12 @@ export const prReview = path.join(scriptsDir, 'pr-review.sh')
  * `${VAR:-default}` treats the two alike, and an override below still wins.
  */
 export function harnessEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
+  // Deleted, not emptied: models.sh reads an empty CLAUDE_*_EFFORT as "no
+  // --effort flag", so only an unset one resolves to the default (HON-1193).
+  const inherited = { ...process.env }
+  for (const key of EFFORT_ENV_VARS) delete inherited[key]
   return {
-    ...process.env,
+    ...inherited,
     NEON_USER_PREFIX: '',
     NEON_BRANCH_CAP: '',
     ORCHESTRATOR_MAX_WORKERS: '',
@@ -37,12 +41,21 @@ export function harnessEnv(overrides: Record<string, string> = {}): NodeJS.Proce
     CLAUDE_AUTO_MODEL: '',
     CLAUDE_REVIEW_MODEL: '',
     CLAUDE_TRIAGE_MODEL: '',
+    CLAUDE_AUTO_MODEL_SMALL: '',
     ...overrides,
   }
 }
 
 export const stripTimestamps = (out: string) =>
   out.replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} /gm, '')
+
+/** The models.sh effort overrides, which harnessEnv removes from the environment. */
+export const EFFORT_ENV_VARS = [
+  'CLAUDE_AUTO_EFFORT',
+  'CLAUDE_REVIEW_EFFORT',
+  'CLAUDE_TRIAGE_EFFORT',
+  'CLAUDE_AUTO_EFFORT_SMALL',
+] as const
 
 /**
  * Slice a shell function's body out of a script's source, so a test can assert

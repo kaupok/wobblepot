@@ -554,6 +554,7 @@ print_usage() {
   echo ""
   echo "  new <branch-name>      Create new worktree and start Claude Code"
   echo "  auto [issue-id|branch] Create worktree and run /auto-implement autonomously"
+  echo "                         [--model <id>] [--effort <level>] override AUTO_MODEL / AUTO_EFFORT"
   echo "  resume <branch-name>   Open Claude Code in existing worktree"
   echo "  prepare <branch-name>  Create a worktree without Neon or Claude; prints its path (WorktreeCreate hook)"
   echo "                         An issue ID (hon-123) resolves to the issue's branch"
@@ -966,9 +967,23 @@ cmd_auto() {
   local fresh_db=0
   local positional_arg=""
   local a
-  for a in "$@"; do
+  # --model and --effort replace AUTO_MODEL and AUTO_EFFORT from models.sh for
+  # this worker. The orchestrator passes both for an issue labelled `Small`
+  # (HON-1193). A flag, not an env var: `wt` re-exports .env over the shell, so
+  # a CLAUDE_AUTO_MODEL line there would beat one set by the caller.
+  # `--effort ''` is valid and means no --effort flag, the CLI's default.
+  while [ $# -gt 0 ]; do
+    a="$1"
     case "$a" in
       --fresh-db) fresh_db=1 ;;
+      --model | --effort)
+        if [ $# -lt 2 ] || { [ "$a" = "--model" ] && [ -z "$2" ]; }; then
+          echo -e "${RED}Error: $a needs a value${NC}" >&2
+          print_usage
+          exit 1
+        fi
+        if [ "$a" = "--model" ]; then AUTO_MODEL="$2"; else AUTO_EFFORT="$2"; fi
+        shift ;;
       -*)
         echo -e "${RED}Error: Unknown flag: $a${NC}" >&2
         print_usage
@@ -982,6 +997,7 @@ cmd_auto() {
           exit 1
         fi ;;
     esac
+    shift
   done
   arg="$positional_arg"
 
@@ -1101,6 +1117,7 @@ cmd_auto() {
   # markers — never copy that note into it.
   local retry_note=""
   [ -n "${ORCHESTRATOR_RETRY_CONTEXT:-}" ] && retry_note=" (with retry context from the previous attempt)"
+  echo "Model: $AUTO_MODEL | Effort: ${AUTO_EFFORT:-default}"
   echo "Starting autonomous Claude Code with: $prompt$retry_note"
   echo "─────────────────────────────────────────"
   echo ""
@@ -1114,9 +1131,11 @@ cmd_auto() {
   # Playwright) in the foreground. Claude Code otherwise backgrounds one after
   # 2 minutes, and this headless worker exits when its turn ends, so the turn
   # can end before the result arrives and the result is lost (HON-1119).
+  # An empty AUTO_EFFORT passes no --effort flag (HON-1193).
+  claude_model_args "$AUTO_MODEL" "$AUTO_EFFORT"
   exec env -u ANTHROPIC_API_KEY -u ORCHESTRATOR_RETRY_CONTEXT \
     CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude --dangerously-skip-permissions \
-    --model "$AUTO_MODEL" "$(auto_prompt "$prompt")"
+    "${CLAUDE_MODEL_ARGS[@]}" "$(auto_prompt "$prompt")"
 }
 
 # Resume existing worktree

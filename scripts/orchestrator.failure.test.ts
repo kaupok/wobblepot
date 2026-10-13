@@ -346,6 +346,32 @@ describe('orchestrator.sh', () => {
       expect(tailOf(retry.context)).toContain('cap still exceeded after orphan GC')
     })
 
+    // HON-1193: an issue labelled `Small` runs on AUTO_MODEL_SMALL and
+    // AUTO_EFFORT_SMALL. The retry follows a failure, so it goes back to the
+    // default tier, whose call carries no model flags at all.
+    it('spawns a Small issue on the small model and effort, logs both, and retries on the default tier', () => {
+      const out = stripTimestamps(runHarnessEnv({ HARNESS_SMALL: '1' }, 'failure-spawn', 'RETRY'))
+
+      expect(out).toContain('WT_CALL:1:auto --model claude-sonnet-5-5 --effort low HON-991\n')
+      expect(out).toContain('Tier: Small | Model: claude-sonnet-5-5 | Effort: low')
+      expect(out.match(/Tier: Small/g)).toHaveLength(1)
+      expect(out).toContain('WT_CALL:2:auto HON-991\n')
+    })
+
+    it('passes the Small tier overrides through to wt auto', () => {
+      const out = stripTimestamps(
+        runHarnessEnv(
+          { HARNESS_SMALL: '1', CLAUDE_AUTO_MODEL_SMALL: 'small-x', CLAUDE_AUTO_EFFORT_SMALL: '' },
+          'failure-spawn',
+          'RETRY',
+        ),
+      )
+
+      // An empty effort is passed as an empty value, which wt auto reads as no flag.
+      expect(out).toContain('WT_CALL:1:auto --model small-x --effort  HON-991\n')
+      expect(out).toContain('Tier: Small | Model: small-x | Effort: default')
+    })
+
     it('spawns nothing when triage does not retry', () => {
       const { count, out } = spawnRun('BACKLOG')
 
@@ -497,11 +523,11 @@ describe('orchestrator.sh', () => {
       expect(offenders).toEqual([])
     })
 
-    it('hands the worker and the reviewer their models.sh variable', () => {
+    it('hands the worker and the reviewer their models.sh variables', () => {
       const wt = fs.readFileSync(worktreeClaude, 'utf8')
       const sourceLine = 'source "$SCRIPT_DIR/models.sh"'
 
-      expect(wt).toContain('--model "$AUTO_MODEL"')
+      expect(wt).toContain('claude_model_args "$AUTO_MODEL" "$AUTO_EFFORT"')
       // After load_env_file, or a CLAUDE_AUTO_MODEL line in .env never reaches it.
       expect(wt.indexOf(sourceLine)).toBeGreaterThan(wt.indexOf('load_env_file "$REPO_ROOT/.env"'))
       expect(wt.indexOf('load_env_file "$REPO_ROOT/.env"')).toBeGreaterThan(-1)
@@ -509,6 +535,118 @@ describe('orchestrator.sh', () => {
       const review = fs.readFileSync(prReview, 'utf8')
       expect(review).toContain(sourceLine)
       expect(review).toContain('MODEL="$REVIEW_MODEL"')
+      expect(review).toContain('claude_model_args "$MODEL" "$REVIEW_EFFORT"')
+      expect(review).toContain('"${CLAUDE_MODEL_ARGS[@]}"')
+    })
+  })
+
+  // ─── HON-1193: an effort per role, and the Small tier ─────────────────────
+  // No script passed --effort, so every call ran at the CLI default. models.sh
+  // now holds an effort per role; an empty one passes no flag, which is what
+  // keeps the default worker's spawn line as it was.
+  describe('workflow effort levels', () => {
+    /** What models.sh resolves under `env`, one `NAME=value` per line. */
+    const resolveEfforts = (env: Record<string, string> = {}) =>
+      execFileSync(
+        'bash',
+        [
+          '-c',
+          'source "$1"; for v in AUTO_EFFORT REVIEW_EFFORT TRIAGE_EFFORT AUTO_EFFORT_SMALL AUTO_MODEL_SMALL; do echo "$v=${!v}"; done',
+          '_',
+          models,
+        ],
+        { encoding: 'utf8', timeout: 30_000, env: harnessEnv(env) },
+      )
+    /** The REAL cmd_auto against a `claude` stub: what the worker CLI receives. */
+    const wtAuto = (args: string[], env: Record<string, string> = {}) =>
+      runHarnessEnv(env, 'wt-auto', String(args.length), ...args)
+    const triageInput = (env: Record<string, string>) =>
+      stripTimestamps(runHarnessEnv(env, 'failure', 'BACKLOG', '0', 'false')).match(
+        /^TRIAGE_INPUT:.*$/m,
+      )?.[0] ?? ''
+
+    it('defaults to no worker effort, medium review, low triage and a low-effort Sonnet 5.5 Small tier', () => {
+      expect(resolveEfforts()).toBe(
+        [
+          'AUTO_EFFORT=',
+          'REVIEW_EFFORT=medium',
+          'TRIAGE_EFFORT=low',
+          'AUTO_EFFORT_SMALL=low',
+          'AUTO_MODEL_SMALL=claude-sonnet-5-5',
+          '',
+        ].join('\n'),
+      )
+    })
+
+    it('lets each CLAUDE_* override win, and an empty effort override stay empty', () => {
+      const out = resolveEfforts({
+        CLAUDE_AUTO_EFFORT: 'high',
+        CLAUDE_REVIEW_EFFORT: '',
+        CLAUDE_TRIAGE_EFFORT: 'max',
+        CLAUDE_AUTO_EFFORT_SMALL: '',
+        CLAUDE_AUTO_MODEL_SMALL: 'small-x',
+      })
+
+      expect(out).toContain('AUTO_EFFORT=high\n')
+      expect(out).toContain('REVIEW_EFFORT=\n')
+      expect(out).toContain('TRIAGE_EFFORT=max\n')
+      expect(out).toContain('AUTO_EFFORT_SMALL=\n')
+      expect(out).toContain('AUTO_MODEL_SMALL=small-x\n')
+    })
+
+    it('spawns the default worker with the same arguments as before when AUTO_EFFORT is empty', () => {
+      const out = wtAuto(['HON-991'])
+
+      expect(out).toContain(
+        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 /auto-implement HON-991\n',
+      )
+      expect(out).toContain('Model: claude-opus-5-5 | Effort: default')
+      expect(out).toContain('EXIT:0')
+    })
+
+    it('passes --effort to the worker when CLAUDE_AUTO_EFFORT is set', () => {
+      expect(wtAuto(['HON-991'], { CLAUDE_AUTO_EFFORT: 'xhigh' })).toContain(
+        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 --effort xhigh /auto-implement HON-991\n',
+      )
+    })
+
+    it('takes --model and --effort on wt auto, ahead of models.sh', () => {
+      const out = wtAuto(['--model', 'small-x', '--effort', 'low', 'HON-991'], {
+        CLAUDE_AUTO_MODEL: 'auto-x',
+        CLAUDE_AUTO_EFFORT: 'max',
+      })
+
+      expect(out).toContain(
+        'CLAUDE_ARGS:--dangerously-skip-permissions --model small-x --effort low /auto-implement HON-991\n',
+      )
+    })
+
+    it("reads wt auto --effort '' as no --effort flag", () => {
+      expect(wtAuto(['--effort', '', 'HON-991'], { CLAUDE_AUTO_EFFORT: 'max' })).toContain(
+        'CLAUDE_ARGS:--dangerously-skip-permissions --model claude-opus-5-5 /auto-implement HON-991\n',
+      )
+    })
+
+    it('refuses a wt auto --model with no value before it creates anything', () => {
+      for (const args of [
+        ['HON-991', '--model'],
+        ['--model', '', 'HON-991'],
+        ['HON-991', '--effort'],
+      ]) {
+        const out = wtAuto(args)
+        expect(out).toContain('needs a value')
+        expect(out).toContain('EXIT:1')
+        expect(out).not.toContain('CLAUDE_ARGS:')
+      }
+    })
+
+    it('runs failure triage at TRIAGE_EFFORT, and with no --effort when it is empty', () => {
+      expect(triageInput({})).toContain(
+        '-p --model claude-sonnet-5 --effort low --strict-mcp-config',
+      )
+      expect(triageInput({ CLAUDE_TRIAGE_EFFORT: '' })).toContain(
+        '-p --model claude-sonnet-5 --strict-mcp-config',
+      )
     })
   })
 
