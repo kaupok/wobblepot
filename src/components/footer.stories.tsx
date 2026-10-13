@@ -16,7 +16,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Site footer rendered on every page (authenticated and public). Shows the privacy policy and terms of service links (HON-457), the support email link, and the cookie-settings entry point.',
+          'Site footer rendered on every page (authenticated and public). Shows the privacy policy and terms of service links (HON-457), the support email link, the status page link (HON-1204), and the cookie-settings entry point.',
       },
     },
   },
@@ -49,9 +49,15 @@ export const Default: Story = {
     await expect(privacy).toHaveAttribute('href', '/privacy')
     const terms = await canvas.findByRole('link', { name: /terms of service/i })
     await expect(terms).toHaveAttribute('href', '/terms')
-    // Cookie settings is one of four equal items, not the emphasised one (HON-813).
-    const cookies = getComputedStyle(canvas.getByRole('button', { name: /cookie settings/i }))
+    // Status page link, for a user in an outage (HON-1204)
+    const status = await canvas.findByRole('link', { name: 'Status' })
+    await expect(status).toHaveAttribute('href', '/status')
+    // Cookie settings and status are equal items, not emphasised ones (HON-813).
     const privacyStyle = getComputedStyle(privacy)
+    const statusStyle = getComputedStyle(status)
+    await expect(statusStyle.color).toBe(privacyStyle.color)
+    await expect(statusStyle.fontSize).toBe(privacyStyle.fontSize)
+    const cookies = getComputedStyle(canvas.getByRole('button', { name: /cookie settings/i }))
     await expect(cookies.color).toBe(privacyStyle.color)
     await expect(cookies.fontSize).toBe(privacyStyle.fontSize)
   },

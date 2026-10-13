@@ -24,6 +24,9 @@ export function Footer() {
           <a href={SUPPORT_EMAIL_HREF} className="text-muted-foreground text-sm hover:underline">
             {t('support')} <span className="sr-only">({SUPPORT_EMAIL})</span>
           </a>
+          <Link href="/status" className="text-muted-foreground text-sm hover:underline">
+            {t('status')}
+          </Link>
           <CookieSettingsTrigger />
         </div>
       </div>
