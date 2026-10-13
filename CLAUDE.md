@@ -250,6 +250,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Unit/Component Tests** (Vitest + Testing Library): Colocate with source files. Use `describe`/`it`, accessibility queries (`getByRole`), focus on user-facing behavior. See `src/components/ui/button.test.tsx`
 
+**A test must be able to fail.** Take expected values from a literal or the acceptance criteria, not from the logic under test; assert through the public interface, not on calls to an internal mock; and assert a specific value, not `toBeDefined()`. CI cannot see these, so `scripts/pr-review.sh` adds a reviewer checklist item when the diff touches a test, spec or story file.
+
 **Test environment:** `.test.tsx` files run in jsdom (the `unit` project); `.test.ts` files run in node (`unit-node`), because booting a window per file was the largest cost in the unit step. A `.test.ts` file that needs a DOM (`renderHook`, `document`, `localStorage`) starts with `// @vitest-environment jsdom`; without it, it fails with `document is not defined` or similar.
 
 **Commands:** `pnpm test`, `pnpm test:coverage`, `pnpm test:e2e`, `pnpm test:all`. `pnpm test:e2e:local` runs the E2E suite against a fresh, isolated Neon branch; `pnpm review:local` serves the app the same way for walking a flow by hand.
