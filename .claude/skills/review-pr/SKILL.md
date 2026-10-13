@@ -6,7 +6,7 @@ context: inherit
 
 # Review PR
 
-Run the Claude PR reviewer on the current branch's PR using `REVIEW_MODEL` from `scripts/models.sh` (overridable with `CLAUDE_REVIEW_MODEL`). The reviewer reads the diff, explores the codebase, and posts findings as GitHub PR comments.
+Run the Claude PR reviewer on the current branch's PR using `REVIEW_MODEL` at `REVIEW_EFFORT` from `scripts/models.sh` (overridable with `CLAUDE_REVIEW_MODEL` and `CLAUDE_REVIEW_EFFORT`). The reviewer reads the diff, explores the codebase, and posts findings as GitHub PR comments.
 
 ## Usage
 

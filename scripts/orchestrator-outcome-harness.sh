@@ -133,6 +133,14 @@
 #     `.env` whose value is also planted in the worker log, beside two sed
 #     backstop shapes and attempt-1 progress markers, so redaction and marker
 #     defanging are asserted on the forwarded note. `log-flavour` as `failure`.
+#     HARNESS_SMALL=1 spawns the first attempt on the `Small` tier (HON-1193).
+#
+#   wt-auto <count> <wt auto arguments…>                           (HON-1193)
+#     <count> says how many of the next arguments (up to 8) reach cmd_auto, so
+#     an empty value and a missing one stay apart. Sources worktree-claude.sh and runs the REAL cmd_auto with git, pnpm and
+#     Neon stubbed, against a PATH stub for `claude`. Prints the worker log's
+#     `Model:` line, CLAUDE_ARGS:<the arguments claude received>, any Error:
+#     line, and EXIT:<cmd_auto's exit code>.
 #
 #   auto-prompt <base-prompt>                                       (HON-728)
 #     Sources worktree-claude.sh and prints the REAL auto_prompt, which reads
@@ -932,8 +940,11 @@ EOF
     # The first attempt, through the same real spawn_worker the retry takes, so
     # "a first attempt carries no retry context" is asserted on a real call.
     # Its ids match step 1 below, which also gives handle_failure a start time.
+    # HARNESS_SMALL=1 (env) spawns it on the `Small` tier, as the poll loop does
+    # for an issue with that label (HON-1193); the retry never passes a tier.
     if [ "$MODE" = "failure-spawn" ]; then
-      spawn_worker "uuid-991" "HON-991" "test-branch-1" "Fixture title" 2>/dev/null
+      spawn_worker "uuid-991" "HON-991" "test-branch-1" "Fixture title" \
+        "0" "" "0" "$([ "${HARNESS_SMALL:-0}" = 1 ] && echo small)" 2>/dev/null
       # The stub numbers its calls by counting the ones already recorded, so the
       # first must land before the retry's can start.
       wait "${WORKER_PIDS[0]}" 2>/dev/null || true
@@ -1099,6 +1110,50 @@ EOF
     # shellcheck source=./worktree-claude.sh
     source "$HARNESS_DIR/worktree-claude.sh"
     auto_prompt "$A1"
+    exit 0
+    ;;
+
+  # ─── wt auto model flags (HON-1193) ────────────────────────────────────────
+  wt-auto)
+    # The REAL cmd_auto, from its argument parsing to its `exec … claude` line,
+    # with git, pnpm, Neon and the untracked-file copy stubbed and a PATH stub
+    # for `claude` that prints its arguments. Sourcing worktree-claude.sh
+    # returns before its own models.sh line, so source that here, the way the
+    # dispatcher does.
+    # shellcheck source=./worktree-claude.sh
+    source "$HARNESS_DIR/worktree-claude.sh"
+    # shellcheck source=./models.sh
+    source "$HARNESS_DIR/models.sh"
+    WT_DIR=$(mktemp -d "${TMPDIR:-/tmp}/orchestrator-harness-wt.XXXXXXXX")
+    trap 'rm -rf "$WT_DIR"' EXIT
+    mkdir -p "$WT_DIR/bin"
+    printf '#!/bin/sh\nprintf "CLAUDE_ARGS:%%s\\n" "$*"\n' > "$WT_DIR/bin/claude"
+    chmod +x "$WT_DIR/bin/claude"
+    PATH="$WT_DIR/bin:$PATH"
+    WORKTREE_BASE="$WT_DIR/base"
+    get_worktree_path() { echo "$WT_DIR/base/wt"; }
+    # `worktree add` makes the directory cmd_auto then cds into; `show-ref`
+    # fails, so the branch is new.
+    git() {
+      case "$*" in
+        *"worktree add"*) mkdir -p "$WT_DIR/base/wt" ;;
+        *show-ref*) return 1 ;;
+      esac
+      return 0
+    }
+    pnpm() { :; }
+    copy_untracked_files() { :; }
+    neon_create_branch_for_worktree() { :; }
+    # "$@" was cleared above, so the arguments come back from A2… by count:
+    # an empty one (`--effort ''`) and a missing one are different cases.
+    WT_ARGS=()
+    for v in "$A2" "$A3" "$A4" "$A5" "$A6" "$A7" "$A8" "$A9"; do
+      [ "${#WT_ARGS[@]}" -lt "$A1" ] && WT_ARGS+=("$v")
+    done
+    rc=0
+    ( cmd_auto ${WT_ARGS[@]+"${WT_ARGS[@]}"} ) > "$WT_DIR/out" 2>&1 || rc=$?
+    grep -E '^(CLAUDE_ARGS|Model):|Error:' "$WT_DIR/out" || true
+    echo "EXIT:$rc"
     exit 0
     ;;
 

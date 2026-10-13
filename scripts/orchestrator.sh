@@ -44,7 +44,9 @@ LINEAR_API_URL="https://api.linear.app/graphql"
 # spawn_worker runs it as a fresh process per worker, so it is always current.
 # A new `source` line must add its file here — orchestrator.loop.test.ts pins that.
 ORCHESTRATOR_CODE_FILES=("$SCRIPT_DIR/orchestrator.sh" "$SCRIPT_DIR/models.sh")
-# The workflow's model IDs; this script reads TRIAGE_MODEL (HON-730).
+# The workflow's model IDs; this script reads TRIAGE_MODEL and TRIAGE_EFFORT
+# (HON-730), and AUTO_MODEL_SMALL and AUTO_EFFORT_SMALL for a `Small` issue
+# (HON-1193).
 # shellcheck source=./models.sh
 source "$SCRIPT_DIR/models.sh"
 
@@ -752,7 +754,8 @@ select_next_issue() {
   done
 
   # jq emits "SKIP<TAB>level<TAB>identifier<TAB>reason" per rejected candidate,
-  # then at most one "PICK<TAB>uuid<TAB>identifier<TAB>branchName<TAB>title".
+  # then at most one "PICK<TAB>uuid<TAB>identifier<TAB>branchName<TAB>small<TAB>title",
+  # where small is 1 for an issue labelled `Small` and 0 otherwise.
   local line kind level id reason skip_key
   # Live entries only, and READ-ONLY: main() calls this function as
   # `candidate=$(select_next_issue "$response")`, so anything written to a shell
@@ -822,6 +825,9 @@ select_next_issue() {
         # Holds the matching label NAME (or null) rather than a boolean, so the
         # SKIP line can name the label the operator actually has to remove.
         _gate_label: ([.labels.nodes[]?.name] | map(select(. == "Gated" or . == "Stranded")) | .[0]),
+        # The `Small` tier (HON-1193): spawn_worker runs the worker on
+        # AUTO_MODEL_SMALL and AUTO_EFFORT_SMALL. "1" or "0" in the PICK line.
+        _small: (if ([.labels.nodes[]?.name] | index("Small")) != null then "1" else "0" end),
         # Any assigned issue belongs to someone — including the operator, who
         # may have self-assigned a Queued issue to work on by hand. Same rule as
         # /next-issue step 4 and /auto-implement 1.4 (assignee must be null).
@@ -879,7 +885,7 @@ select_next_issue() {
     # Sort survivors: blocks others first (desc), then priority (asc, 0=no priority→5)
       ([.[] | select(._skip == null)]
        | sort_by([(._blocks_count * -1), (if .priority == 0 then 5 else .priority end)])
-       | if length > 0 then .[0] | ["PICK", .id, .identifier, (.branchName // ""), .title] | @tsv
+       | if length > 0 then .[0] | ["PICK", .id, .identifier, (.branchName // ""), ._small, .title] | @tsv
          else empty end)
   ')
 }
@@ -920,9 +926,14 @@ claim_issue() {
 
 # ─── Spawn worker ───────────────────────────────────────────────────────────
 
+# tier: "small" for an issue labelled `Small` (HON-1193), which runs on
+# AUTO_MODEL_SMALL and AUTO_EFFORT_SMALL; empty for the default AUTO_MODEL and
+# AUTO_EFFORT that `wt auto` reads from models.sh itself. Only a first attempt
+# passes it: a retry or a finish attempt follows a failure, so it runs on the
+# default tier.
 spawn_worker() {
   local issue_uuid="$1" issue_id="$2" branch="$3" title="$4"
-  local is_retry="${5:-0}" retry_context="${6:-}" is_finish="${7:-0}"
+  local is_retry="${5:-0}" retry_context="${6:-}" is_finish="${7:-0}" tier="${8:-}"
   local ts
   ts=$(date '+%Y%m%d-%H%M%S')
   local log_file="$LOG_DIR/worker-${issue_id}-${ts}.log"
@@ -937,14 +948,23 @@ spawn_worker() {
     actual_branch="auto/$(echo "$issue_id" | tr '[:upper:]' '[:lower:]')"
   fi
 
+  # No flags on the default tier, so its `wt auto` call is unchanged.
+  local tier_args=() tier_line=""
+  if [ "$tier" = small ]; then
+    tier_args=(--model "$AUTO_MODEL_SMALL" --effort "$AUTO_EFFORT_SMALL")
+    tier_line="  Tier: Small | Model: $AUTO_MODEL_SMALL | Effort: ${AUTO_EFFORT_SMALL:-default}"
+  fi
+
   if [ "$DRY_RUN" = true ]; then
     log INFO "[DRY RUN] Would spawn worker for $issue_id: $title"
     log INFO "[DRY RUN]   Branch: $actual_branch | Log: $log_file"
+    [ -z "$tier_line" ] || log INFO "[DRY RUN] $tier_line"
     return 0
   fi
 
   log INFO "Spawning worker for $issue_id: $title"
   log INFO "  Branch: $actual_branch | Log: $log_file"
+  [ -z "$tier_line" ] || log INFO "$tier_line"
 
   # Export the RESOLVED ceiling. worktree-claude.sh is a separate process and
   # cannot see a --max-workers flag, so without this its cap error message can
@@ -958,7 +978,7 @@ spawn_worker() {
   # first attempt up as a retry.
   ORCHESTRATOR_MAX_WORKERS="$MAX_WORKERS" NEON_BRANCH_CAP="$NEON_BRANCH_CAP" \
     ORCHESTRATOR_RETRY_CONTEXT="$retry_context" \
-    "$SCRIPT_DIR/worktree-claude.sh" auto "$wt_arg" > "$log_file" 2>&1 &
+    "$SCRIPT_DIR/worktree-claude.sh" auto ${tier_args[@]+"${tier_args[@]}"} "$wt_arg" > "$log_file" 2>&1 &
   local pid=$!
 
   WORKER_PIDS+=("$pid")
@@ -2423,8 +2443,10 @@ NEEDS_HUMAN - infrastructure problem (disk space, auth expired, config broken)"
     # reads the prompt as a second config file and every call exits 1.
     local triage_output triage_stderr="" triage_err_file="" exit_code=0
     triage_err_file=$(mktemp "${TMPDIR:-/tmp}/orchestrator-triage-err.XXXXXXXX") || triage_err_file=""
+    # An empty TRIAGE_EFFORT passes no --effort flag (HON-1193).
+    claude_model_args "$TRIAGE_MODEL" "$TRIAGE_EFFORT"
     triage_output=$(echo "$log_tail" | run_with_timeout "$TRIAGE_TIMEOUT" \
-      env -u ANTHROPIC_API_KEY claude -p --model "$TRIAGE_MODEL" \
+      env -u ANTHROPIC_API_KEY claude -p "${CLAUDE_MODEL_ARGS[@]}" \
         --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
         -- "$triage_prompt" 2>"${triage_err_file:-/dev/null}") || exit_code=$?
     if [ -n "$triage_err_file" ]; then
@@ -3622,11 +3644,12 @@ main() {
           candidate=$(select_next_issue "$response") || true
 
           if [ -n "$candidate" ]; then
-            local issue_uuid issue_id branch title
+            local issue_uuid issue_id branch small title
             issue_uuid=$(printf '%s' "$candidate" | cut -f1)
             issue_id=$(printf '%s' "$candidate" | cut -f2)
             branch=$(printf '%s' "$candidate" | cut -f3)
-            title=$(printf '%s' "$candidate" | cut -f4-)
+            small=$(printf '%s' "$candidate" | cut -f4)
+            title=$(printf '%s' "$candidate" | cut -f5-)
 
             log_poll_summary "$active" eligible
             log INFO "Selected: $issue_id — $title"
@@ -3641,7 +3664,9 @@ main() {
                 log INFO "Shutdown requested during the claim — returning $issue_id to Queued"
                 [ "$DRY_RUN" = true ] || restore_queue_if_in_progress "$issue_uuid" "$issue_id"
               else
-                spawn_worker "$issue_uuid" "$issue_id" "$branch" "$title"
+                local tier=""
+                [ "$small" = 1 ] && tier=small
+                spawn_worker "$issue_uuid" "$issue_id" "$branch" "$title" "0" "" "0" "$tier"
                 ONCE_SPAWNED=true
               fi
             else

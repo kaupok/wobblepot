@@ -829,6 +829,16 @@ describe('orchestrator.sh', () => {
       expect(out).not.toContain('HON-1')
     })
 
+    // HON-1193: the PICK line carries the Small tier ahead of the title.
+    it('marks a Small issue with 1 in the PICK line, and an unlabelled one with 0', () => {
+      const small = { ...node(1, QUEUED), labels: { nodes: [{ name: 'Tech' }, { name: 'Small' }] } }
+
+      expect(poll([small])).toContain('PICK:u1\tHON-1\tkaupo/hon-1-fixture\t1\tFixture 1\n')
+      expect(poll([node(2, QUEUED)])).toContain(
+        'PICK:u2\tHON-2\tkaupo/hon-2-fixture\t0\tFixture 2\n',
+      )
+    })
+
     it('selects nothing when the only unassigned, unblocked issue is in Todo', () => {
       expect(poll([node(1, TODO)])).toMatch(/^PICK:$/m)
     })

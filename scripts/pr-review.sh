@@ -524,7 +524,7 @@ REVIEW_PROMPT=$(cat "$PROMPT_FILE")
 # ─── Run the reviewer ─────────────────────────────────────────────────────────
 
 echo -e "${GREEN}Starting Claude PR review for PR #${PR_NUMBER}${NC}"
-echo -e "Model: ${MODEL}"
+echo -e "Model: ${MODEL} | Effort: ${REVIEW_EFFORT:-default}"
 echo -e "Repository root: ${REPO_ROOT}"
 echo "─────────────────────────────────────────"
 
@@ -533,9 +533,11 @@ cd "$REPO_ROOT"
 # Unset ANTHROPIC_API_KEY so Claude CLI uses Max subscription instead of API credits
 # Capture exit code manually since set -e would exit before our error message
 EXIT_CODE=0
+# An empty REVIEW_EFFORT passes no --effort flag (HON-1193).
+claude_model_args "$MODEL" "$REVIEW_EFFORT"
 env -u ANTHROPIC_API_KEY claude -p \
   --dangerously-skip-permissions \
-  --model "$MODEL" \
+  "${CLAUDE_MODEL_ARGS[@]}" \
   "$REVIEW_PROMPT" || EXIT_CODE=$?
 
 if [ $EXIT_CODE -eq 0 ]; then

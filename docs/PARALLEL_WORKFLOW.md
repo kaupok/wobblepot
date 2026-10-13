@@ -74,24 +74,31 @@ wt stop
 
 ### Configuration
 
-| Flag                 | Env Var                             | Default           | Description                                                                                                                  |
-| -------------------- | ----------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`          | 3                 | Max concurrent workers                                                                                                       |
-| `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`        | 60                | Seconds between polls                                                                                                        |
-| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT`       | 10800             | Seconds before killing a worker                                                                                              |
-| `--dry-run`          | —                                   | false             | Log actions without executing                                                                                                |
-| `--once`             | —                                   | false             | Single poll cycle, then exit                                                                                                 |
-| —                    | `NEON_BRANCH_CAP`                   | 10                | Neon branches the plan allows                                                                                                |
-| —                    | `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` | 1800              | Seconds before a cap-requeued issue is pickable again                                                                        |
-| —                    | `ORCHESTRATOR_TRIAGE_TIMEOUT`       | 120               | Seconds the failure-triage `claude -p` call may run before the issue falls back to Backlog                                   |
-| —                    | `CLAUDE_AUTO_MODEL`                 | `claude-opus-5-5` | Model every `wt auto` worker runs; read by `scripts/worktree-claude.sh`, not the orchestrator                                |
-| —                    | `CLAUDE_REVIEW_MODEL`               | `claude-opus-5-5` | Model the PR reviewer (`scripts/pr-review.sh`) runs. Not read from `.env` outside a `wt auto` worker: export it in the shell |
-| —                    | `CLAUDE_TRIAGE_MODEL`               | `claude-sonnet-5` | Model the orchestrator's failure-triage `claude -p` call runs                                                                |
-| —                    | `cleanupPeriodDays`                 | 365               | Days Claude Code keeps transcripts; a setting in `~/.claude/settings.json`, not an env var                                   |
+| Flag                 | Env Var                             | Default             | Description                                                                                                                  |
+| -------------------- | ----------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `--max-workers N`    | `ORCHESTRATOR_MAX_WORKERS`          | 3                   | Max concurrent workers                                                                                                       |
+| `--poll-interval N`  | `ORCHESTRATOR_POLL_INTERVAL`        | 60                  | Seconds between polls                                                                                                        |
+| `--worker-timeout N` | `ORCHESTRATOR_WORKER_TIMEOUT`       | 10800               | Seconds before killing a worker                                                                                              |
+| `--dry-run`          | —                                   | false               | Log actions without executing                                                                                                |
+| `--once`             | —                                   | false               | Single poll cycle, then exit                                                                                                 |
+| —                    | `NEON_BRANCH_CAP`                   | 10                  | Neon branches the plan allows                                                                                                |
+| —                    | `ORCHESTRATOR_CAP_REQUEUE_COOLDOWN` | 1800                | Seconds before a cap-requeued issue is pickable again                                                                        |
+| —                    | `ORCHESTRATOR_TRIAGE_TIMEOUT`       | 120                 | Seconds the failure-triage `claude -p` call may run before the issue falls back to Backlog                                   |
+| —                    | `CLAUDE_AUTO_MODEL`                 | `claude-opus-5-5`   | Model every `wt auto` worker runs; read by `scripts/worktree-claude.sh`, not the orchestrator                                |
+| —                    | `CLAUDE_REVIEW_MODEL`               | `claude-opus-5-5`   | Model the PR reviewer (`scripts/pr-review.sh`) runs. Not read from `.env` outside a `wt auto` worker: export it in the shell |
+| —                    | `CLAUDE_TRIAGE_MODEL`               | `claude-sonnet-5`   | Model the orchestrator's failure-triage `claude -p` call runs                                                                |
+| —                    | `CLAUDE_AUTO_EFFORT`                | empty               | `--effort` for every `wt auto` worker. Empty passes no flag, so the CLI's default applies                                    |
+| —                    | `CLAUDE_REVIEW_EFFORT`              | `medium`            | `--effort` for the PR reviewer. Read from the shell, as `CLAUDE_REVIEW_MODEL` is                                             |
+| —                    | `CLAUDE_TRIAGE_EFFORT`              | `low`               | `--effort` for the failure-triage call                                                                                       |
+| —                    | `CLAUDE_AUTO_MODEL_SMALL`           | `claude-sonnet-5-5` | Model for a worker on an issue labelled `Small` (see below)                                                                  |
+| —                    | `CLAUDE_AUTO_EFFORT_SMALL`          | `low`               | `--effort` for a worker on an issue labelled `Small`                                                                         |
+| —                    | `cleanupPeriodDays`                 | 365                 | Days Claude Code keeps transcripts; a setting in `~/.claude/settings.json`, not an env var                                   |
 
-Requires `LINEAR_API_KEY` env var (format: `lin_api_...`). Every env var above except `CLAUDE_REVIEW_MODEL` can live in `.env`: `wt` loads it for every subcommand, and the workers the orchestrator spawns inherit it. `scripts/pr-review.sh` does not load `.env`, so a `.env` value reaches the reviewer only when a `wt auto` worker runs it; `/review-pr`, `/triage-pr-comments` and `/merge` in the main checkout need it exported in the shell that started the session.
+Requires `LINEAR_API_KEY` env var (format: `lin_api_...`). Every env var above except `CLAUDE_REVIEW_MODEL` and `CLAUDE_REVIEW_EFFORT` can live in `.env`: `wt` loads it for every subcommand, and the workers the orchestrator spawns inherit it. `scripts/pr-review.sh` does not load `.env`, so a `.env` value reaches the reviewer only when a `wt auto` worker runs it; `/review-pr`, `/triage-pr-comments` and `/merge` in the main checkout need it exported in the shell that started the session.
 
-The three model defaults live in `scripts/models.sh`, the one file under `scripts/` that names a model ID; see [Swapping models](#swapping-models) before changing one.
+The model and effort defaults live in `scripts/models.sh`, the one file under `scripts/` that names a model ID; see [Swapping models](#swapping-models) before changing one. An effort variable set to empty (`CLAUDE_REVIEW_EFFORT=`) passes no `--effort` flag; only an unset one takes the default.
+
+**The `Small` tier (HON-1193).** An issue labelled `Small` runs on `CLAUDE_AUTO_MODEL_SMALL` at `CLAUDE_AUTO_EFFORT_SMALL` instead of the default worker model and effort. The label means: an agent can finish the issue from the description alone, in one or two files, with no schema change and no UI judgement. Apply it only when all four hold. The orchestrator reads the label when it picks the issue, passes `wt auto --model <id> --effort <level>`, and logs `Tier: Small | Model: … | Effort: …` under the worker's `Branch:` line. A retry or a finish attempt follows a failure, so it runs on the default tier. For a manual run, `wt auto --model <id> --effort <level> HON-NNN` takes the same flags; `--effort ''` means no flag. Whether the tier holds quality is measured in HON-1195.
 
 `cleanupPeriodDays` defaults to 30. Claude Code then deletes everything under `~/.claude/projects/` older than that, subagent transcripts included, by file age; resuming a session does not reset the clock. Those transcripts are the only record of what a run cost, and `pnpm agent-cost` (`scripts/agent-cost-per-pr.ts`) reads nothing else, so it was raised to 365 on 2026-10-01 (HON-785). It lives in the user-scope file because every worktree session reads that file and no repo file reaches them all.
 
@@ -341,7 +348,7 @@ Tests: `scripts/guard-main-checkout-hook.test.ts`.
 
 ## Swapping models
 
-The workflow runs on three models, set in `scripts/models.sh` (HON-730): `AUTO_MODEL` for the `wt auto` worker, `REVIEW_MODEL` for the PR reviewer, and `TRIAGE_MODEL` for the orchestrator's failure triage. Each takes an override from its `CLAUDE_*_MODEL` env var ([Configuration](#configuration)). These are the workflow's models; the app's own AI calls have their own models and benchmark ([AI_MODELS.md](AI_MODELS.md)).
+The workflow runs on three models, set in `scripts/models.sh` (HON-730): `AUTO_MODEL` for the `wt auto` worker, `REVIEW_MODEL` for the PR reviewer, and `TRIAGE_MODEL` for the orchestrator's failure triage. Each takes an override from its `CLAUDE_*_MODEL` env var ([Configuration](#configuration)). Each role also has an effort (`AUTO_EFFORT`, `REVIEW_EFFORT`, `TRIAGE_EFFORT`), and issues labelled `Small` run on `AUTO_MODEL_SMALL` at `AUTO_EFFORT_SMALL` (HON-1193). An effort change is a swap like a model change: test it the same way. These are the workflow's models; the app's own AI calls have their own models and benchmark ([AI_MODELS.md](AI_MODELS.md)).
 
 **Changing a default is a human decision, made on a swap test's results.** An agent does not change one as part of other work.
 
