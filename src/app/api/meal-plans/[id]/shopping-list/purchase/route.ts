@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
@@ -132,12 +133,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // (HON-913).
     const locale = resolveHouseholdLocale(household)
 
+    const select = {
+      id: true,
+      quantity: true,
+      isStaple: true,
+      updatedAt: true,
+      ingredient: {
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          defaultUnit: true,
+          ...ingredientTranslationsInclude(locale),
+        },
+      },
+    } satisfies Prisma.PantryItemSelect
+
     // Upsert all items in a transaction
     const upsertedByIngredientId = await prisma.$transaction(async (tx) => {
       const upserted = new Map<string, PurchaseResult>()
 
       for (const ingredientId of lockOrderedIngredientIds) {
-        const pantryItem = await tx.pantryItem.upsert({
+        let pantryItem = await tx.pantryItem.upsert({
           where: {
             householdId_ingredientId: {
               householdId: household.id,
@@ -153,22 +170,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           update: {
             // Touch updatedAt to mark as recently acquired
           },
-          select: {
-            id: true,
-            quantity: true,
-            isStaple: true,
-            updatedAt: true,
-            ingredient: {
-              select: {
-                id: true,
-                name: true,
-                category: true,
-                defaultUnit: true,
-                ...ingredientTranslationsInclude(locale),
-              },
-            },
-          },
+          select,
         })
+        // Quantity 0 means it ran out, and the shopping list never reads a 0
+        // as purchased, so buying it means "have some", as in
+        // `purchaseIngredients` (HON-1173). The upsert holds the row lock.
+        if (pantryItem.quantity === 0) {
+          pantryItem = await tx.pantryItem.update({
+            where: { id: pantryItem.id },
+            data: { quantity: null },
+            select,
+          })
+        }
         const ingredientShown = translateIngredient(pantryItem.ingredient, locale)
 
         upserted.set(ingredientId, {

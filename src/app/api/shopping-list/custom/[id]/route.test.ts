@@ -239,12 +239,13 @@ describe('PATCH /api/shopping-list/custom/[id]', () => {
       ingredientId: 'ing-salt',
       ingredient: { id: 'ing-salt', name: 'Salt', category: 'seasoning' },
     })
-    const txUpsertSpy = vi.fn()
+    const txUpsertSpy = vi.fn().mockResolvedValue({ id: 'pantry-salt', quantity: null })
+    const txPantryUpdateSpy = vi.fn()
 
     mockTransaction.mockImplementation(async (fn) => {
       const tx = {
         customShoppingItem: { update: txUpdateSpy },
-        pantryItem: { upsert: txUpsertSpy },
+        pantryItem: { upsert: txUpsertSpy, update: txPantryUpdateSpy },
       }
       return (fn as (t: unknown) => Promise<unknown>)(tx)
     })
@@ -268,6 +269,49 @@ describe('PATCH /api/shopping-list/custom/[id]', () => {
         isStaple: false,
       },
       update: {},
+    })
+    expect(txPantryUpdateSpy).not.toHaveBeenCalled()
+  })
+
+  it('turns a "ran out" pantry quantity of 0 into "have some" when a linked item is checked', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue({
+      id: 'custom-1',
+      householdId: 'household-123',
+      name: 'Salt',
+      checked: false,
+      ingredientId: 'ing-salt',
+    } as never)
+
+    const txUpdateSpy = vi.fn().mockResolvedValue({
+      id: 'custom-1',
+      householdId: 'household-123',
+      name: 'Salt',
+      checked: true,
+      ingredientId: 'ing-salt',
+      ingredient: { id: 'ing-salt', name: 'Salt', category: 'seasoning' },
+    })
+    const txUpsertSpy = vi.fn().mockResolvedValue({ id: 'pantry-salt', quantity: 0 })
+    const txPantryUpdateSpy = vi.fn()
+
+    mockTransaction.mockImplementation(async (fn) => {
+      const tx = {
+        customShoppingItem: { update: txUpdateSpy },
+        pantryItem: { upsert: txUpsertSpy, update: txPantryUpdateSpy },
+      }
+      return (fn as (t: unknown) => Promise<unknown>)(tx)
+    })
+
+    const response = await patchRequest('custom-1', { checked: true })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.item.checked).toBe(true)
+    // The shopping list never reads a 0 as purchased (HON-1173).
+    expect(txPantryUpdateSpy).toHaveBeenCalledWith({
+      where: { id: 'pantry-salt' },
+      data: { quantity: null },
     })
   })
 

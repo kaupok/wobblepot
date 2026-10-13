@@ -21,6 +21,7 @@ const ctx = { userId: 'user-a', household, scopes: WRITE_SCOPES }
 
 const update = vi.fn()
 const upsert = vi.fn()
+const pantryUpdate = vi.fn()
 
 function call(input: Record<string, unknown>, caller = ctx) {
   return runTool(checkShoppingItem, caller, checkShoppingItem.inputSchema.parse(input))
@@ -41,9 +42,13 @@ function item(overrides: Record<string, unknown> = {}) {
 describe('check_shopping_item', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    upsert.mockResolvedValue({ id: 'pantry-oat-milk', quantity: null })
     update.mockImplementation(async ({ data }) => ({ ...item(), ...data, ingredient: null }))
     vi.mocked(prisma.$transaction).mockImplementation(async (fn) =>
-      (fn as (tx: unknown) => unknown)({ customShoppingItem: { update }, pantryItem: { upsert } }),
+      (fn as (tx: unknown) => unknown)({
+        customShoppingItem: { update },
+        pantryItem: { upsert, update: pantryUpdate },
+      }),
     )
   })
 
