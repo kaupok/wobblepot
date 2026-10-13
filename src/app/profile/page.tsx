@@ -10,6 +10,8 @@ import { ProfileNameForm } from './ProfileNameForm'
 import { ChangePasswordForm } from './ChangePasswordForm'
 import { ConnectedAssistantsList } from './ConnectedAssistantsList'
 import { McpServerUrl } from './McpServerUrl'
+import { VerifyEmailNotice } from '@/components/VerifyEmailNotice'
+import { parseVerificationLanding, verificationLandingSearch } from '@/lib/email-verification'
 import { getServerBaseURL } from '@/lib/env'
 import { listMcpConsents } from '@/lib/mcp/consents'
 import { getMcpResource } from '@/lib/mcp/oauth'
@@ -18,7 +20,11 @@ import { getMcpResource } from '@/lib/mcp/oauth'
 const CLAUDE_CONNECTOR_HELP_URL =
   'https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp'
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   // `getSession` is `cache()`-wrapped, so this reuses the lookup the root
   // layout already resolved for this request rather than re-reading `session`.
   const session = await getSession()
@@ -33,15 +39,20 @@ export default async function ProfilePage() {
   // rather than after it, so overlap it with the membership read instead of
   // assuming it is already resolved. Both are awaited before the redirect, so
   // the auth gate's ordering is unchanged.
-  const [membership, t, consents] = await Promise.all([
+  const [membership, t, consents, params] = await Promise.all([
     getHouseholdMembership(session.user.id),
     getTranslations('profile'),
     listMcpConsents(session.user.id),
+    searchParams,
   ])
 
-  // Redirect users without a household to onboarding
+  const landing = parseVerificationLanding(params)
+
+  // Redirect users without a household to onboarding. A new user often opens
+  // the verification mail before onboarding is done, so the link's result
+  // goes along and onboarding shows it (HON-1155).
   if (!membership) {
-    redirect('/onboarding')
+    redirect(landing ? `/onboarding${verificationLandingSearch(landing)}` : '/onboarding')
   }
 
   const isOwner = membership.role === 'owner'
@@ -73,6 +84,12 @@ export default async function ProfilePage() {
             </Body>
             <Body>{session.user.email}</Body>
           </div>
+          {/* The verification link lands here: `?verified=1`, or `&error=…` (HON-1155). */}
+          <VerifyEmailNotice
+            email={session.user.email}
+            emailVerified={session.user.emailVerified}
+            landing={landing}
+          />
         </div>
 
         <Separator />

@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
 import { useAuthErrorMessage } from '@/lib/auth-errors-client'
 import { getValidReturnUrl } from '@/lib/utils'
+import { EMAIL_VERIFICATION_CALLBACK_URL } from '@/lib/email-verification'
 import { apiFetch } from '@/lib/api'
 import { householdInvitePath } from '@/lib/household-invite-link'
 import { track } from '@/lib/analytics'
@@ -119,7 +120,15 @@ export function SignUpForm({
       // `acceptedTermsAt` + `acceptedTermsVersion` itself (HON-457).
       // A household invite replaces the sign-up code: the before-hook checks
       // it, and the after-hook joins the household (HON-1131).
-      const payload: Record<string, unknown> = { email, password, name, acceptedTerms }
+      // `callbackURL` is where the verification link in the sign-up mail lands
+      // (HON-1155). Better Auth reads it from this body.
+      const payload: Record<string, unknown> = {
+        email,
+        password,
+        name,
+        acceptedTerms,
+        callbackURL: EMAIL_VERIFICATION_CALLBACK_URL,
+      }
       if (householdInvite) {
         payload.householdInviteCode = householdInvite.code
       } else if (inviteRequired) {

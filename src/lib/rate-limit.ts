@@ -72,6 +72,7 @@ export type RateLimitFeature =
   | 'sign-up'
   | 'sign-in'
   | 'forgot-password'
+  | 'verify-email'
   | 'waitlist'
   | 'data-export'
   | 'reminder-confirm'
@@ -124,6 +125,15 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
     daily: { limit: 100, window: '1 d' },
   },
   'forgot-password': {
+    limit: 3,
+    window: '1 h',
+    dimension: 'ip',
+    daily: { limit: 5, window: '1 d' },
+  },
+  // Resend of the account verification email on `/profile` (HON-1155). Same
+  // limits as forgot-password, but its own counter: a user whose mail went to
+  // spam must not lock password reset out for everyone on the same network.
+  'verify-email': {
     limit: 3,
     window: '1 h',
     dimension: 'ip',

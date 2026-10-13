@@ -17,6 +17,9 @@ const RATE_LIMITED_PATHS: ReadonlyArray<{ suffix: string; feature: RateLimitFeat
   { suffix: '/sign-up/email', feature: 'sign-up' },
   { suffix: '/sign-in/email', feature: 'sign-in' },
   { suffix: '/request-password-reset', feature: 'forgot-password' },
+  // Resend on `/profile` (HON-1155): forgot-password's limits on a separate
+  // counter, so Resend clicks cannot block a password reset.
+  { suffix: '/send-verification-email', feature: 'verify-email' },
 ]
 
 function featureForPath(pathname: string): RateLimitFeature | null {

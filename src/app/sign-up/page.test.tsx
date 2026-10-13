@@ -297,6 +297,29 @@ describe('SignUpForm', () => {
     })
   })
 
+  // The verification link in the sign-up mail lands on the profile (HON-1155).
+  it('sends the profile as the verification callbackURL', async () => {
+    const { authClient } = await import('@/lib/auth-client')
+    vi.mocked(authClient.signUp.email).mockImplementation(async (creds, options) => {
+      if (options?.onSuccess) {
+        options.onSuccess({} as any)
+      }
+    })
+
+    const user = userEvent.setup({ delay: null })
+    renderForm()
+
+    await fillRequiredFields(user)
+    await user.click(screen.getByRole('button', { name: /sign up/i }))
+
+    await vi.waitFor(() => {
+      expect(authClient.signUp.email).toHaveBeenCalledWith(
+        expect.objectContaining({ callbackURL: '/profile?verified=1' }),
+        expect.any(Object),
+      )
+    })
+  })
+
   describe('returnUrl functionality', () => {
     it('sign-in link includes returnUrl when present', () => {
       mockGet.mockReturnValue('/household')
@@ -403,6 +426,7 @@ describe('SignUpForm', () => {
             password: 'password123',
             name: 'Test User',
             acceptedTerms: true,
+            callbackURL: '/profile?verified=1',
           },
           {
             onSuccess: expect.any(Function),
@@ -434,6 +458,7 @@ describe('SignUpForm', () => {
             password: 'password123',
             name: 'Test User',
             acceptedTerms: true,
+            callbackURL: '/profile?verified=1',
             inviteCode: 'beta-001',
           },
           expect.any(Object),
@@ -510,6 +535,7 @@ describe('SignUpForm', () => {
             password: 'password123',
             name: 'Test User',
             acceptedTerms: true,
+            callbackURL: '/profile?verified=1',
             householdInviteCode: 'Ab3_x-9Kq2Lm',
           },
           expect.any(Object),

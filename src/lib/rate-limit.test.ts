@@ -82,6 +82,7 @@ describe('rate-limit', () => {
         'reminder-confirm',
         'sign-in',
         'sign-up',
+        'verify-email',
         'waitlist',
       ])
     })
@@ -148,6 +149,8 @@ describe('rate-limit', () => {
         dimension: 'ip',
         daily: { limit: 5, window: '1 d' },
       })
+      // Same limits as forgot-password, on its own counter (HON-1155).
+      expect(RATE_LIMIT_CONFIG['verify-email']).toEqual(RATE_LIMIT_CONFIG['forgot-password'])
       expect(RATE_LIMIT_CONFIG.waitlist).toEqual({
         limit: 3,
         window: '1 h',

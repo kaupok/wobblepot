@@ -92,6 +92,25 @@ vi.mock('./ConnectedAssistantsList', () => ({
   ),
 }))
 
+vi.mock('@/components/VerifyEmailNotice', () => ({
+  VerifyEmailNotice: ({
+    email,
+    emailVerified,
+    landing,
+  }: {
+    email: string
+    emailVerified: boolean
+    landing: string | null
+  }) => (
+    <div
+      data-testid="verify-email-notice"
+      data-email={email}
+      data-email-verified={String(emailVerified)}
+      data-landing={String(landing)}
+    />
+  ),
+}))
+
 vi.mock('@/lib/mcp/consents', () => ({
   listMcpConsents: vi.fn(async () => []),
 }))
@@ -101,6 +120,10 @@ vi.mock('@/lib/env', () => ({
 }))
 
 const now = new Date()
+
+function props(searchParams: Record<string, string> = {}) {
+  return { searchParams: Promise.resolve(searchParams) }
+}
 
 const session = {
   session: {
@@ -162,7 +185,7 @@ describe('ProfilePage', () => {
     vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(4) as never)
     vi.mocked(countAccountHoldingMembers).mockResolvedValue(2)
 
-    render(await ProfilePage())
+    render(await ProfilePage(props()))
 
     const dialog = screen.getByTestId('delete-account-dialog')
     expect(dialog).toHaveAttribute('data-account-member-count', '2')
@@ -186,7 +209,7 @@ describe('ProfilePage', () => {
       }) as never,
     )
 
-    const pending = ProfilePage()
+    const pending = ProfilePage(props())
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     // `getTranslations` is not DB-free — next-intl's request config resolves
@@ -208,7 +231,7 @@ describe('ProfilePage', () => {
       role: 'member',
     } as never)
 
-    render(await ProfilePage())
+    render(await ProfilePage(props()))
 
     const dialog = screen.getByTestId('delete-account-dialog')
     expect(dialog).toHaveAttribute('data-is-owner', 'false')
@@ -224,7 +247,7 @@ describe('ProfilePage', () => {
     vi.mocked(getSession).mockResolvedValue(session as never)
     vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(2) as never)
 
-    render(await ProfilePage())
+    render(await ProfilePage(props()))
 
     expect(screen.getByTestId('profile-name-form')).toHaveAttribute(
       'data-initial-name',
@@ -240,7 +263,7 @@ describe('ProfilePage', () => {
     vi.mocked(getSession).mockResolvedValue(session as never)
     vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(2) as never)
 
-    render(await ProfilePage())
+    render(await ProfilePage(props()))
 
     const passwordHeading = screen.getByRole('heading', { name: 'Change password' })
     const dataHeading = screen.getByRole('heading', { name: 'Your data' })
@@ -272,7 +295,7 @@ describe('ProfilePage', () => {
     vi.mocked(getSession).mockResolvedValue(session as never)
     vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(2) as never)
 
-    render(await ProfilePage())
+    render(await ProfilePage(props()))
 
     const title = screen.getByRole('heading', { name: 'Profile', level: 1 })
     const titleLevel = Number(title.tagName.slice(1))
@@ -288,7 +311,7 @@ describe('ProfilePage', () => {
     vi.mocked(getSession).mockResolvedValue(session as never)
     vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(2) as never)
 
-    const { container } = render(await ProfilePage())
+    const { container } = render(await ProfilePage(props()))
 
     expect(container.querySelector('[data-slot="card"]')).toBeNull()
   })
@@ -298,7 +321,7 @@ describe('ProfilePage', () => {
     const { getHouseholdMembership } = await import('@/lib/household')
     vi.mocked(getSession).mockResolvedValue(null)
 
-    await expect(ProfilePage()).rejects.toThrow('NEXT_REDIRECT:/sign-in')
+    await expect(ProfilePage(props())).rejects.toThrow('NEXT_REDIRECT:/sign-in')
     expect(getHouseholdMembership).not.toHaveBeenCalled()
   })
 
@@ -308,7 +331,22 @@ describe('ProfilePage', () => {
     vi.mocked(getSession).mockResolvedValue(session as never)
     vi.mocked(getHouseholdMembership).mockResolvedValue(null)
 
-    await expect(ProfilePage()).rejects.toThrow('NEXT_REDIRECT:/onboarding')
+    await expect(ProfilePage(props())).rejects.toThrow('NEXT_REDIRECT:/onboarding')
+  })
+
+  // A new user often opens the verification mail before onboarding is done;
+  // the result goes along to /onboarding (HON-1155).
+  it.each([
+    [{ verified: '1' }, '/onboarding?verified=1'],
+    [{ verified: '1', error: 'TOKEN_EXPIRED' }, '/onboarding?verified=1&error=TOKEN_EXPIRED'],
+    [{ verified: '1', error: 'bogus' }, '/onboarding?verified=1&error=INVALID_TOKEN'],
+  ])('forwards the verification result %o to onboarding', async (params, target) => {
+    const { getSession } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    vi.mocked(getSession).mockResolvedValue(session as never)
+    vi.mocked(getHouseholdMembership).mockResolvedValue(null)
+
+    await expect(ProfilePage(props(params))).rejects.toThrow(`NEXT_REDIRECT:${target}`)
   })
 
   it('shows the MCP server URL for this environment, the Claude steps and the connected assistants', async () => {
@@ -321,7 +359,7 @@ describe('ProfilePage', () => {
       { clientId: 'c1', clientName: 'Claude', scopes: ['mcp:read'], createdAt: null },
     ])
 
-    render(await ProfilePage())
+    render(await ProfilePage(props()))
 
     expect(
       screen.getByRole('heading', { level: 2, name: 'Connect to an AI assistant' }),
@@ -340,5 +378,26 @@ describe('ProfilePage', () => {
     ).toHaveAttribute('href', expect.stringContaining('support.claude.com'))
     expect(listMcpConsents).toHaveBeenCalledWith('user-123')
     expect(screen.getByTestId('connected-assistants')).toHaveAttribute('data-count', '1')
+  })
+
+  // The verification link lands on `/profile?verified=1`, with `&error=…` on a
+  // failure (HON-1155). The page hands the notice the parsed result.
+  it.each([
+    [{}, 'null'],
+    [{ verified: '1' }, 'verified'],
+    [{ verified: '1', error: 'TOKEN_EXPIRED' }, 'expired'],
+    [{ verified: '1', error: 'INVALID_TOKEN' }, 'invalid'],
+  ])('hands the verification notice the state for %o', async (params, landing) => {
+    const { getSession } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    vi.mocked(getSession).mockResolvedValue(session as never)
+    vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(1) as never)
+
+    render(await ProfilePage(props(params)))
+
+    const notice = screen.getByTestId('verify-email-notice')
+    expect(notice).toHaveAttribute('data-email', 'test@example.com')
+    expect(notice).toHaveAttribute('data-email-verified', 'false')
+    expect(notice).toHaveAttribute('data-landing', landing)
   })
 })

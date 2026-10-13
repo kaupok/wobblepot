@@ -6,6 +6,7 @@ import {
   assertValidAccountNameUpdate,
   INVALID_ACCOUNT_NAME_MESSAGE,
   hashPasswordWithBreachCheck,
+  sendAccountVerificationEmail,
   stampTermsConsent,
   TERMS_NOT_ACCEPTED_MESSAGE,
 } from './auth'
@@ -14,6 +15,9 @@ import { isPasswordBreached } from './breached-password'
 import { linkUsedBy, releaseClaim } from '@/lib/signup-codes'
 import { clearWaitlistForNewUser } from '@/lib/waitlist'
 import { joinHouseholdFromSignUp } from '@/lib/household-invite'
+import { resend, isEmailConfigured } from '@/lib/resend'
+import { resolveEmailLocale } from '@/lib/emails/locale'
+import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '@/lib/email-verification'
 
 // Mock the prisma module
 vi.mock('@/lib/prisma', () => ({
@@ -43,6 +47,17 @@ vi.mock('@/lib/waitlist', () => ({
 
 vi.mock('@/lib/household-invite', () => ({
   joinHouseholdFromSignUp: vi.fn(),
+}))
+
+vi.mock('@/lib/resend', () => ({
+  resend: { emails: { send: vi.fn() } },
+  isEmailConfigured: vi.fn(() => true),
+  EMAIL_SENDERS: { auth: 'Wobblepot <auth@mail.wobblepot.test>' },
+  envSubject: (subject: string) => subject,
+}))
+
+vi.mock('@/lib/emails/locale', () => ({
+  resolveEmailLocale: vi.fn(async () => 'en'),
 }))
 
 describe('hashPasswordWithBreachCheck', () => {
@@ -197,6 +212,16 @@ describe('auth options wiring', () => {
     expect(auth.options.emailAndPassword?.password?.hash).toBe(hashPasswordWithBreachCheck)
   })
 
+  // Soft verification (HON-1155): the mail goes out on sign-up, and sign-in
+  // stays open before the link is clicked.
+  it('sends a verification mail on sign-up without blocking sign-in', () => {
+    expect(auth.options.emailVerification?.sendOnSignUp).toBe(true)
+    expect(auth.options.emailVerification?.expiresIn).toBe(EMAIL_VERIFICATION_EXPIRES_IN_SECONDS)
+    expect(auth.options.emailVerification?.sendVerificationEmail).toBeTypeOf('function')
+    expect(auth.options.emailAndPassword).not.toHaveProperty('requireEmailVerification')
+    expect(auth.options.emailVerification).not.toHaveProperty('autoSignInAfterVerification')
+  })
+
   it('sets minPasswordLength to 12', () => {
     expect(auth.options.emailAndPassword?.minPasswordLength).toBe(12)
   })
@@ -208,5 +233,65 @@ describe('auth options wiring', () => {
     // or moved hook layer (e.g. accidentally placed under databaseHooks).
     expect(auth.options.hooks?.before).toBeTypeOf('function')
     expect(auth.options.hooks?.after).toBeTypeOf('function')
+  })
+})
+
+describe('sendAccountVerificationEmail', () => {
+  const user = { id: 'user-1', email: 'new@example.com' }
+  const url = 'https://wobblepot.test/api/auth/verify-email?token=t&callbackURL=%2Fprofile'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(isEmailConfigured).mockReturnValue(true)
+    vi.mocked(resolveEmailLocale).mockResolvedValue('en')
+  })
+
+  it('sends the mail to the user from the auth sender with the link', async () => {
+    await sendAccountVerificationEmail({ user, url })
+
+    expect(resend!.emails.send).toHaveBeenCalledTimes(1)
+    const sent = vi.mocked(resend!.emails.send).mock.calls[0]![0] as {
+      from: string
+      to: string
+      text: string
+    }
+    expect(sent.from).toBe('Wobblepot <auth@mail.wobblepot.test>')
+    expect(sent.to).toBe('new@example.com')
+    expect(sent.text).toContain(url)
+  })
+
+  it("falls back to the visitor's Accept-Language when the user has no household", async () => {
+    const request = new Request('https://wobblepot.test/api/auth/sign-up/email', {
+      headers: { 'accept-language': 'et-EE,et;q=0.9,en;q=0.8' },
+    })
+
+    await sendAccountVerificationEmail({ user, url }, request)
+
+    expect(resolveEmailLocale).toHaveBeenCalledWith('user-1', 'et')
+  })
+
+  it('falls back to English without a request', async () => {
+    await sendAccountVerificationEmail({ user, url })
+
+    expect(resolveEmailLocale).toHaveBeenCalledWith('user-1', 'en')
+  })
+
+  it('does not send when email is not configured', async () => {
+    vi.mocked(isEmailConfigured).mockReturnValue(false)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await sendAccountVerificationEmail({ user, url })
+
+    expect(resend!.emails.send).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalled()
+  })
+
+  // A throw here would fail the sign-up request that triggered the send.
+  it('logs a failed send and does not throw', async () => {
+    vi.mocked(resend!.emails.send).mockRejectedValue(new Error('provider down'))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(sendAccountVerificationEmail({ user, url })).resolves.toBeUndefined()
+    expect(error).toHaveBeenCalled()
   })
 })

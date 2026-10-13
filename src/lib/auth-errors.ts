@@ -24,6 +24,7 @@ export type AuthErrorKey =
   | 'resetUserNotFound'
   | 'userNotFound'
   | 'invalidEmail'
+  | 'emailNotVerified'
   | 'breachedPassword'
   | 'passwordTooShort'
   | 'passwordTooLong'
@@ -115,6 +116,12 @@ export function getAuthErrorKey(message: string): AuthErrorKey | null {
   // Generic user not found (must come after password reset check)
   if (lowerMessage.includes('user not found') || lowerMessage.includes('no user')) {
     return 'userNotFound'
+  }
+
+  // Better Auth's `EMAIL_NOT_VERIFIED` ("Email not verified"). Nothing raises it
+  // yet: sign-in stays open before verification (HON-1155). Google sign-in will.
+  if (lowerMessage.includes('email not verified')) {
+    return 'emailNotVerified'
   }
 
   // Validation errors

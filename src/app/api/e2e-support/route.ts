@@ -1,4 +1,10 @@
 import { NextResponse } from 'next/server'
+import { createEmailVerificationToken } from 'better-auth/api'
+import { auth } from '@/lib/auth'
+import {
+  EMAIL_VERIFICATION_CALLBACK_URL,
+  EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
+} from '@/lib/email-verification'
 import { captureApiError } from '@/lib/errors'
 import { prisma } from '@/lib/prisma'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
@@ -11,9 +17,15 @@ import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
  *   the forgot-password spec can complete the round-trip in environments where
  *   no mail provider is configured (tier 1 CI has no `RESEND_API_KEY`, so no
  *   email is ever sent).
- * - `GET  ?action=user-state&email=` — soft-delete columns, the user's
- *   household ids, and related row counts, for the account-deletion spec's
- *   grace-window assertions.
+ * - `GET  ?action=user-state&email=` — `emailVerified`, the soft-delete
+ *   columns, the user's household ids, and related row counts, for the
+ *   account-deletion spec's grace-window assertions.
+ * - `GET  ?action=verify-email-link&email=` — a verification link for an
+ *   unverified account, the same link the sign-up mail carries (HON-1155).
+ *   Better Auth's verification token is a signed JWT, not a `verification`
+ *   row, so there is nothing to read: the route mints one with Better Auth's
+ *   own function and secret. `&expired=1` mints one that has already expired,
+ *   for the expired-link path.
  * - `GET  ?action=household-state&householdId=` — whether a household and its
  *   scoped rows survived. Needed *after* a purge, when the user row is gone
  *   and `user-state` can no longer reach them.
@@ -94,10 +106,38 @@ async function resetToken(email: string) {
   })
 }
 
+async function verifyEmailLink(email: string, expired: boolean) {
+  const user = await prisma.user.findUnique({ where: { email }, select: { emailVerified: true } })
+  if (!user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+  if (user.emailVerified) {
+    return NextResponse.json({ error: 'Email already verified' }, { status: 409 })
+  }
+
+  // `$context.secret` is the secret Better Auth signs with, which follows
+  // `BETTER_AUTH_SECRETS` rotation; `serverEnv.BETTER_AUTH_SECRET` would not.
+  const { secret } = await auth.$context
+  // A negative lifetime sets `exp` in the past, so Better Auth's verify-email
+  // answers with its real `TOKEN_EXPIRED` redirect.
+  const token = await createEmailVerificationToken(
+    secret,
+    email,
+    undefined,
+    expired ? -60 : EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
+  )
+
+  return NextResponse.json({
+    // The path Better Auth puts in the mail: hitting it sets the flag and
+    // redirects to the callback, so the spec exercises the real endpoint.
+    verifyPath: `/api/auth/verify-email?token=${token}&callbackURL=${encodeURIComponent(EMAIL_VERIFICATION_CALLBACK_URL)}`,
+  })
+}
+
 async function userState(email: string) {
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, deletedAt: true, purgeScheduledFor: true },
+    select: { id: true, emailVerified: true, deletedAt: true, purgeScheduledFor: true },
   })
 
   if (!user) {
@@ -125,6 +165,7 @@ async function userState(email: string) {
 
   return NextResponse.json({
     exists: true,
+    emailVerified: user.emailVerified,
     deletedAt: user.deletedAt,
     purgeScheduledFor: user.purgeScheduledFor,
     householdIds,
@@ -173,12 +214,16 @@ export async function GET(request: Request) {
       return householdId ? await householdState(householdId) : missingParam('householdId')
     }
 
-    if (action === 'reset-token' || action === 'user-state') {
+    if (action === 'reset-token' || action === 'user-state' || action === 'verify-email-link') {
       const email = param(url, 'email')
       if (!email) {
         return missingParam('email')
       }
-      return action === 'reset-token' ? await resetToken(email) : await userState(email)
+      if (action === 'reset-token') return await resetToken(email)
+      if (action === 'verify-email-link') {
+        return await verifyEmailLink(email, url.searchParams.get('expired') === '1')
+      }
+      return await userState(email)
     }
 
     return unknownAction(action)
