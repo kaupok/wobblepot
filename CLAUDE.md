@@ -222,6 +222,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Client:** `import { prisma } from '@/lib/prisma'` (server-only). See `src/lib/prisma.ts`
 
+**Persistence lives in `src/lib`.** Route handlers, pages and components do not import `@/lib/prisma`; they call a `src/lib` function, so their tests mock that function and not Prisma. `pnpm prisma-boundary:check` names the file that breaks this. The files that still do are in `scripts/prisma-import-allowlist.txt`, which only shrinks.
+
 **Schema:** `prisma/schema.prisma` holds the Better Auth models and the meal-planning models. The domain glossary is in `docs/PROJECT_SPEC.md`.
 
 **Commands:**
@@ -247,6 +249,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 ## Testing
 
 **Unit/Component Tests** (Vitest + Testing Library): Colocate with source files. Use `describe`/`it`, accessibility queries (`getByRole`), focus on user-facing behavior. See `src/components/ui/button.test.tsx`
+
+**A test must be able to fail.** Take expected values from a literal or the acceptance criteria, not from the logic under test; assert through the public interface, not on calls to an internal mock; and assert a specific value, not `toBeDefined()`. CI cannot see these, so `scripts/pr-review.sh` adds a reviewer checklist item when the diff touches a test, spec or story file.
 
 **Test environment:** `.test.tsx` files run in jsdom (the `unit` project); `.test.ts` files run in node (`unit-node`), because booting a window per file was the largest cost in the unit step. A `.test.ts` file that needs a DOM (`renderHook`, `document`, `localStorage`) starts with `// @vitest-environment jsdom`; without it, it fails with `document is not defined` or similar.
 

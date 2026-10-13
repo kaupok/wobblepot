@@ -1,8 +1,9 @@
 /**
  * The E2E-drift and shared-geometry checklist items in scripts/pr-review.sh (HON-729),
- * the AI eval report item (HON-904), and the driven-screen item (HON-1188).
+ * the test anti-pattern item (HON-1198), the AI eval report item (HON-904), and the
+ * driven-screen item (HON-1188).
  *
- * All four rules are prose with no mechanical check, so the reviewer prompt is
+ * All five rules are prose with no mechanical check, so the reviewer prompt is
  * their only enforcement — and it is appended conditionally, by a shell grep over the
  * PR's file list. A regex that stopped matching `src/app/**` or `globals.css` would
  * silently switch the check off; one that matched everything would make every PR pay
@@ -42,7 +43,7 @@ function heredoc(name: string): string {
 
 /** Run one extracted gate assignment over a file list and return what it selected. */
 function classify(
-  variable: 'E2E_FILES' | 'GEOMETRY_FILES' | 'AI_EVAL_FILES' | 'DRIVE_FILES',
+  variable: 'E2E_FILES' | 'GEOMETRY_FILES' | 'TEST_FILES' | 'AI_EVAL_FILES' | 'DRIVE_FILES',
   files: string[],
 ): string[] {
   const script = [
@@ -122,6 +123,48 @@ describe('shared-geometry gate', () => {
 
   it('survives a no-match without failing the script', () => {
     expect(() => classify('GEOMETRY_FILES', ['docs/DESIGN.md'])).not.toThrow()
+  })
+})
+
+describe('test anti-pattern gate', () => {
+  // A play function is a test, and tests are colocated, so any path counts.
+  it('selects unit tests, E2E specs and stories anywhere', () => {
+    const hits = [
+      'src/lib/foo.test.ts',
+      'src/components/x/Y.test.tsx',
+      'src/components/x/Y.stories.tsx',
+      'tests/e2e/z.spec.ts',
+      'scripts/review-checklist-gate.test.ts',
+    ]
+    expect(classify('TEST_FILES', hits)).toEqual(hits)
+  })
+
+  it('skips source files, catalogs and test helpers', () => {
+    expect(
+      classify('TEST_FILES', [
+        'src/lib/foo.ts',
+        'messages/en.json',
+        'src/test/query-wrapper.tsx',
+        'src/stories/a11y-helpers.ts',
+        'src/app/api/meals/route.ts',
+        'docs/DESIGN.md',
+      ]),
+    ).toEqual([])
+  })
+
+  it('survives a no-match without failing the script', () => {
+    expect(() => classify('TEST_FILES', ['docs/DESIGN.md'])).not.toThrow()
+  })
+
+  it('names the three anti-patterns, each with a fix, and the network-boundary exemption', () => {
+    const body = heredoc('TEST_PROMPT')
+    for (const name of ['**Tautological**', '**Implementation-coupled**', '**Unable to go red**']) {
+      expect(body).toContain(name)
+    }
+    expect(body.match(/ Fix: /g)).toHaveLength(3)
+    expect(body).toContain(
+      'Mocking a network boundary (MSW, `apiFetch`) or a paid service is not a finding',
+    )
   })
 })
 
@@ -274,6 +317,7 @@ describe('prompt items', () => {
   it.each([
     ['E2E_FILES', 'E2E_PROMPT'],
     ['GEOMETRY_FILES', 'GEOMETRY_PROMPT'],
+    ['TEST_FILES', 'TEST_PROMPT'],
     ['AI_EVAL_FILES', 'AI_EVAL_PROMPT'],
   ])('appends %s item on a match or an untrustworthy file list', (variable, name) => {
     expect(read(prReview)).toContain(
