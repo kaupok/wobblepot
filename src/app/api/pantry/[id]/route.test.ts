@@ -266,7 +266,13 @@ describe('PATCH /api/pantry/[id]', () => {
       data: { quantity: 250 },
       include: {
         ingredient: {
-          select: { id: true, name: true, category: true, defaultUnit: true },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            defaultUnit: true,
+            measuredByVolume: true,
+          },
         },
       },
     })
@@ -336,7 +342,13 @@ describe('PATCH /api/pantry/[id]', () => {
       data: { isStaple: true },
       include: {
         ingredient: {
-          select: { id: true, name: true, category: true, defaultUnit: true },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            defaultUnit: true,
+            measuredByVolume: true,
+          },
         },
       },
     })
@@ -374,7 +386,13 @@ describe('PATCH /api/pantry/[id]', () => {
       data: { quantity: 0, isStaple: true },
       include: {
         ingredient: {
-          select: { id: true, name: true, category: true, defaultUnit: true },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            defaultUnit: true,
+            measuredByVolume: true,
+          },
         },
       },
     })
@@ -410,7 +428,13 @@ describe('PATCH /api/pantry/[id]', () => {
       data: { quantity: null },
       include: {
         ingredient: {
-          select: { id: true, name: true, category: true, defaultUnit: true },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            defaultUnit: true,
+            measuredByVolume: true,
+          },
         },
       },
     })

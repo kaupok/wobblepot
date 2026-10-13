@@ -408,6 +408,39 @@ describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
     expect(mockFindManyPantry).not.toHaveBeenCalled()
   })
 
+  it('turns a "ran out" quantity of 0 into "have some" when the item is bought', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+      session: { id: 'session-123' },
+    } as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
+    mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
+    const row = {
+      id: 'existing-pantry',
+      isStaple: false,
+      updatedAt: new Date('2024-01-15T10:00:00Z'),
+      ingredient: { id: 'ing-1', name: 'Rice', category: 'GRAIN', defaultUnit: 'g' },
+    }
+    const update = vi.fn().mockResolvedValue({ ...row, quantity: null })
+    mockTransaction.mockImplementation(async (callback) =>
+      callback({
+        pantryItem: { upsert: vi.fn().mockResolvedValue({ ...row, quantity: 0 }), update },
+      } as never),
+    )
+
+    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
+      params: createParams(),
+    })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'existing-pantry' }, data: { quantity: null } }),
+    )
+    expect(data.results[0].pantryItem.quantity).toBeNull()
+  })
+
   it('processes batch ingredientIds in transaction', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-123', name: 'John', email: 'john@example.com' },

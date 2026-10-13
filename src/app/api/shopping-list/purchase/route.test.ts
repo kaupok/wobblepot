@@ -234,6 +234,57 @@ describe('POST /api/shopping-list/purchase', () => {
     expect(mockPantryFindMany).not.toHaveBeenCalled()
   })
 
+  it('turns a "ran out" quantity of 0 into "have some" when the item is bought', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockIngredientFindMany.mockResolvedValue([{ id: 'ing-1' }] as never)
+    const row = {
+      id: 'pantry-1',
+      isStaple: false,
+      updatedAt: new Date('2026-01-31'),
+      ingredient: { id: 'ing-1', name: 'Rice', category: 'grain', defaultUnit: 'g' },
+    }
+    const upsert = vi.fn().mockResolvedValue({ ...row, quantity: 0 })
+    const update = vi.fn().mockResolvedValue({ ...row, quantity: null })
+    mockTransaction.mockImplementation(async (fn) =>
+      (fn as (tx: unknown) => unknown)({ pantryItem: { upsert, update } }),
+    )
+
+    const response = await POST(createRequest({ ingredientId: 'ing-1' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    // `loadShoppingList` never reads a 0 as purchased (HON-1173).
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'pantry-1' }, data: { quantity: null } }),
+    )
+    expect(data.results[0].pantryItem.quantity).toBeNull()
+  })
+
+  it('leaves a non-zero quantity as it is when the item is bought', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockIngredientFindMany.mockResolvedValue([{ id: 'ing-1' }] as never)
+    const upsert = vi.fn().mockResolvedValue({
+      id: 'pantry-1',
+      quantity: 200,
+      isStaple: false,
+      updatedAt: new Date('2026-01-31'),
+      ingredient: { id: 'ing-1', name: 'Rice', category: 'grain', defaultUnit: 'g' },
+    })
+    const update = vi.fn()
+    mockTransaction.mockImplementation(async (fn) =>
+      (fn as (tx: unknown) => unknown)({ pantryItem: { upsert, update } }),
+    )
+
+    const response = await POST(createRequest({ ingredientId: 'ing-1' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(update).not.toHaveBeenCalled()
+    expect(data.results[0].pantryItem.quantity).toBe(200)
+  })
+
   it('returns the Estonian ingredient name for an et household, so the pantry row is not English (HON-913)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockFindFirst.mockResolvedValue({

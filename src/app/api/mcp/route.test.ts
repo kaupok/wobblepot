@@ -74,7 +74,12 @@ const READ_TOOL_NAMES = [
   'list_meals',
   'get_meal',
 ]
-const WRITE_TOOL_NAMES = ['mark_purchased', 'add_shopping_item', 'check_shopping_item']
+const WRITE_TOOL_NAMES = [
+  'mark_purchased',
+  'add_shopping_item',
+  'check_shopping_item',
+  'set_pantry_quantity',
+]
 
 interface ListedTool {
   name: string
@@ -199,7 +204,7 @@ describe('/api/mcp', () => {
       ['a read-only token', as('user-a')],
       ['a read and write token', asWriter('user-a')],
     ])(
-      'lists the five read tools and the three write tools for %s, each with both schemas',
+      'lists the five read tools and the four write tools for %s, each with both schemas',
       async (_label, headers) => {
         const response = await POST(mcpRequest('tools/list', {}, headers))
         const body = await readMcpBody<{ tools: ListedTool[] }>(response)
@@ -223,6 +228,7 @@ describe('/api/mcp', () => {
         const write = { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
         expect(annotations.mark_purchased).toEqual({ ...write, idempotentHint: true })
         expect(annotations.check_shopping_item).toEqual({ ...write, idempotentHint: true })
+        expect(annotations.set_pantry_quantity).toEqual({ ...write, idempotentHint: true })
         expect(annotations.add_shopping_item).toEqual({ ...write, idempotentHint: false })
         // Listing is discovery, not a tool call, so it is not rate-limited.
         expect(checkRateLimit).not.toHaveBeenCalled()
@@ -236,6 +242,7 @@ describe('/api/mcp', () => {
           mark_purchased: { ingredientIds: ['ing-1'], purchased: true },
           add_shopping_item: { name: 'Dish soap' },
           check_shopping_item: { id: 'custom-1', checked: true },
+          set_pantry_quantity: { ingredientId: 'ing-1', quantity: 2 },
         }[name]
 
         const result = await callTool('user-a', name, args)

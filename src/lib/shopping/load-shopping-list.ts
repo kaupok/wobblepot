@@ -43,6 +43,7 @@ export async function loadShoppingList(
       where: { householdId: household.id },
       select: {
         ingredientId: true,
+        quantity: true,
         updatedAt: true,
       },
     }),
@@ -77,10 +78,12 @@ export async function loadShoppingList(
     const mappedItems = group.items.map((item) => {
       const pantryItem = pantryMap.get(item.ingredientId)
       // Item is purchased if it exists in pantry and was updated after earliest plan was created
-      // If no plans in window, nothing can be purchased
+      // If no plans in window, nothing can be purchased. Quantity 0 means it
+      // ran out, so setting it (the pantry page, `set_pantry_quantity`) is not
+      // a purchase; a purchase turns a 0 into null (`purchaseIngredients`).
       const purchased =
         pantryItem && result.earliestPlanCreatedAt
-          ? pantryItem.updatedAt >= result.earliestPlanCreatedAt
+          ? pantryItem.quantity !== 0 && pantryItem.updatedAt >= result.earliestPlanCreatedAt
           : false
 
       totalItems++

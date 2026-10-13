@@ -310,6 +310,8 @@ enum ProteinType {
 
 **Rolling window:** Shopping list shows items needed for upcoming meals (not fixed to week boundaries).
 
+**Purchased:** an item on the list is purchased when its pantry item changed after the plan was created, unless its quantity is `0`: setting "ran out" is not a purchase. Buying an item (the shopping list, or checking a linked custom item) puts it in the pantry as `null`, "have some"; a `0` becomes `null`, a quantity above 0 stays. Decided 2026-10-13, HON-1173.
+
 **Default staples.** Every household starts with salt, black pepper and water marked as staples, with no quantity. Removing one from the pantry puts it back on the shopping list; unmarking it only turns it into an ordinary "have some" item, which the list also skips. Decided 2026-09-24, HON-769. Vague quantities ('to taste', 'a handful') stay on the list: they are real purchases for most ingredients, and the staple flag is what keeps seasonings off it.
 
 ### Household Invites

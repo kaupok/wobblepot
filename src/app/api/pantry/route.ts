@@ -2,25 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { captureApiError } from '@/lib/errors'
-import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { createPantryItem, pantryQuantitySchema } from '@/lib/pantry/pantry-items'
 
-// `quantity` floors at 0: `0` is a valid tracked state ("none left, still
-// tracked"), `null` means "have some, amount unknown" (the deduction path
-// treats it as fully consumed), and a negative would render on /shopping as a
-// real on-hand amount and inflate the shopping quantity: `computeShoppingList`
-// (src/lib/meal-planning/shopping-list.ts:279) and
-// `computeRollingWindowShoppingList` (:475) both net via
-// `Math.max(0, neededQty - pantry.quantity)`, which turns "500 needed, -500 on
-// hand" into 1000 to buy. The needed-quantity aggregation in `loadPantry` is
-// meal-plan-only and never reads `quantity`, so it is not the consumer at risk.
+// The quantity rule (`>= 0` or `null`) is `pantryQuantitySchema`'s.
 const createPantryItemSchema = z.object({
   ingredientId: z.string().min(1),
-  quantity: z.number().min(0).nullable().optional(),
+  quantity: pantryQuantitySchema.optional(),
   isStaple: z.boolean().optional().default(false),
 })
 
@@ -83,76 +73,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    // Verify ingredient exists and is global or this household's own. Another
-    // household's reads as not found, so its id is not revealed (HON-889).
-    const ingredient = await prisma.ingredient.findFirst({
-      where: {
-        id: parsed.data.ingredientId,
-        OR: [{ householdId: null }, { householdId: membership.householdId }],
-      },
-      select: { id: true, name: true, category: true, defaultUnit: true },
+    const outcome = await createPantryItem(membership.household, {
+      ingredientId: parsed.data.ingredientId,
+      quantity: parsed.data.quantity ?? null,
+      isStaple: parsed.data.isStaple,
     })
 
-    if (!ingredient) {
+    if (outcome.status === 'ingredient_not_found') {
       return NextResponse.json({ error: 'Ingredient not found' }, { status: 404 })
     }
 
-    // Check if item already exists (unique constraint: householdId + ingredientId)
-    const existing = await prisma.pantryItem.findUnique({
-      where: {
-        householdId_ingredientId: {
-          householdId: membership.householdId,
-          ingredientId: parsed.data.ingredientId,
-        },
-      },
-    })
-
-    if (existing) {
+    if (outcome.status === 'exists') {
       return NextResponse.json(
-        { error: 'Ingredient already in pantry', existingId: existing.id },
+        { error: 'Ingredient already in pantry', existingId: outcome.existingId },
         { status: 409 },
       )
     }
 
-    // `InlineAddItem` inserts this response straight into the pantry list, so
-    // it carries the household's name for the ingredient, as `loadPantry` does
-    // (HON-913).
-    const locale = resolveHouseholdLocale(membership.household)
-
-    const pantryItem = await prisma.pantryItem.create({
-      data: {
-        householdId: membership.householdId,
-        ingredientId: parsed.data.ingredientId,
-        quantity: parsed.data.quantity ?? null,
-        isStaple: parsed.data.isStaple,
-      },
-      include: {
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            defaultUnit: true,
-            ...ingredientTranslationsInclude(locale),
-          },
-        },
-      },
-    })
-    const ingredientShown = translateIngredient(pantryItem.ingredient, locale)
-
+    const { item } = outcome
     return NextResponse.json(
       {
-        id: pantryItem.id,
-        ingredientId: pantryItem.ingredientId,
+        id: item.id,
+        ingredientId: item.ingredientId,
         ingredient: {
-          id: ingredientShown.id,
-          name: ingredientShown.name,
-          category: ingredientShown.category,
-          defaultUnit: ingredientShown.defaultUnit,
+          id: item.ingredient.id,
+          name: item.ingredient.name,
+          category: item.ingredient.category,
+          defaultUnit: item.ingredient.defaultUnit,
         },
-        quantity: pantryItem.quantity,
-        isStaple: pantryItem.isStaple,
-        updatedAt: pantryItem.updatedAt,
+        quantity: item.quantity,
+        isStaple: item.isStaple,
+        updatedAt: item.updatedAt,
       },
       { status: 201 },
     )

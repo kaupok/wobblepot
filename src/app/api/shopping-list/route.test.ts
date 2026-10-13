@@ -364,6 +364,64 @@ describe('GET /api/shopping-list', () => {
     expect(data.summary.remainingItems).toBe(0)
   })
 
+  it('does not read a pantry item set to 0 after plan creation as purchased: it ran out', async () => {
+    const planCreatedAt = new Date('2026-01-30')
+    const neededDate = new Date('2026-02-01')
+
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockComputeShoppingList.mockResolvedValue({
+      groups: [
+        {
+          category: 'protein',
+          categoryLabel: 'Proteins',
+          items: [
+            {
+              ingredientId: 'ing-1',
+              ingredient: {
+                id: 'ing-1',
+                name: 'Chicken breast',
+                category: 'protein',
+                defaultUnit: 'g',
+                measuredByVolume: false,
+                gramsPerPiece: null,
+              },
+              neededQuantity: 600,
+              pantryQuantity: null,
+              shoppingQuantity: 600,
+              mealCount: 2,
+              earliestNeededDate: neededDate,
+              isVague: false,
+              originalPhrase: null,
+            },
+          ],
+        },
+      ],
+      startDate: '2026-01-31',
+      endDate: '2026-02-06',
+      windowDays: 7,
+      earliestPlanCreatedAt: planCreatedAt,
+      hasAnyPlan: true,
+    })
+    // Set to 0 ("ran out") after plan creation, by the pantry page or the
+    // `set_pantry_quantity` MCP tool (HON-1173) → still needed, not purchased
+    mockPantryFindMany.mockResolvedValue([
+      {
+        ingredientId: 'ing-1',
+        quantity: 0,
+        updatedAt: new Date('2026-01-31'),
+      },
+    ] as never)
+
+    const response = await GET(createMockRequest())
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.groups[0].items[0].purchased).toBe(false)
+    expect(data.summary.purchasedItems).toBe(0)
+    expect(data.summary.remainingItems).toBe(1)
+  })
+
   it('accepts days=14 parameter', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)

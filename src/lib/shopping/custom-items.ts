@@ -172,7 +172,7 @@ export async function updateCustomShoppingItem(
 
     // When checking a linked item, upsert pantry item (quantity = null = "have some")
     if (isChecking && effectiveIngredientId) {
-      await tx.pantryItem.upsert({
+      const pantryItem = await tx.pantryItem.upsert({
         where: {
           householdId_ingredientId: {
             householdId,
@@ -189,6 +189,12 @@ export async function updateCustomShoppingItem(
           // Touch updatedAt
         },
       })
+      // Quantity 0 means it ran out, and the shopping list never reads a 0
+      // as purchased, so buying it means "have some", as in
+      // `purchaseIngredients` (HON-1173).
+      if (pantryItem.quantity === 0) {
+        await tx.pantryItem.update({ where: { id: pantryItem.id }, data: { quantity: null } })
+      }
     }
 
     return updatedItem
