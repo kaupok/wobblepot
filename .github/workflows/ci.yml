@@ -108,10 +108,10 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: bash scripts/check-migrations-immutable.sh "$BASE_SHA"
 
-      # Detection, not prevention (HON-649, HON-671). `main` has no required
-      # status checks (HON-584), so an edited migration can still land: a PR
-      # merged red, a PR run cancelled by `cancel-in-progress`, or a merge
-      # through the GitHub UI. By the time this runs, deploy-db-migrations-
+      # Detection, not prevention (HON-649, HON-671). `Lint, Type Check & Test`
+      # is a required status check on `main` (HON-584), but `enforce_admins` is
+      # off, so an edited migration can still land through an admin's
+      # `gh pr merge --admin`. By the time this runs, deploy-db-migrations-
       # staging.yml has been triggered by the same push, so the best available
       # outcome is a loud signal — and the decision is to fail CI on `main`
       # (this job, and through it the `Lint, Type Check & Test` aggregate),
@@ -150,8 +150,10 @@ jobs:
       # hold the checksum of the ORIGINAL SQL; only restoring those bytes clears
       # the drift, and a new migration would leave it in place for good. The
       # script prints that instruction itself in this mode. The revert PR's own
-      # range check still fails (a revert is an `M` against its base) — merge
-      # it deliberately; its `main` push then goes green here.
+      # range check still fails (a revert is an `M` against its base), and the
+      # required check with it, so a human merges it from a terminal with
+      # `gh pr merge --admin` and says why in the PR; its `main` push then goes
+      # green here.
       - name: Check migrations are immutable (post-merge detection)
         if: github.event_name == 'push'
         run: bash scripts/check-migrations-immutable.sh --tree

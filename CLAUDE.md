@@ -238,7 +238,7 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Migration immutability:** a migration file is frozen once it is on `main`. By then staging and production have applied it, and Prisma stored a checksum of its `migration.sql`, so an edit only guarantees that `prisma migrate dev` demands a full database reset. Do not edit, delete or renumber an applied migration; add a new one that fixes forward. CI enforces this on every PR and again on every push to `main`.
 
-- **If an edit lands on `main` anyway, revert the commit** rather than fixing forward. Staging and production still hold the checksum of the original SQL, so only restoring it clears the drift. The revert's PR check fails once (expected; merge it deliberately) and its `main` push goes green.
+- **If an edit lands on `main` anyway, revert the commit** rather than fixing forward. Staging and production still hold the checksum of the original SQL, so only restoring it clears the drift. The revert's PR check fails once (expected). `Lint, Type Check & Test` is a required check on `main`, so a human merges it from a terminal with `gh pr merge --admin --squash --delete-branch` and says why in the PR; its `main` push then goes green.
 - **The only way to keep a post-merge edit** is a pin in `scripts/migration-immutability-allowlist.txt`: `<path> <blob-sha|deleted> <why>`.
 - **Run it locally** with `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. Fetch first: a stale `origin/main` omits migrations that landed since, and editing one of those then reads as an addition and passes.
 
