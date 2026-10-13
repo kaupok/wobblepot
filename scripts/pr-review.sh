@@ -400,10 +400,12 @@ fi
 #
 # Four rules have no mechanical check, so they live here as reviewer checklist items:
 # the CLAUDE.md "definition of done" rules for E2E drift and shared-primitive geometry
-# (HON-729), test anti-patterns (HON-1198), and the AI eval report (HON-904). Each is
-# appended only when the diff touches the paths the rule is about, so a PR that cannot
-# break the rule does not pay for the check. All four fail closed on an unreadable or
-# truncated file list, like
+# Five rules have no mechanical check, so they live here as reviewer checklist items:
+# the CLAUDE.md "definition of done" rules for E2E drift and shared-primitive geometry
+# (HON-729), test anti-patterns (HON-1198), the AI eval report (HON-904), and the
+# driven-screen evidence (HON-1188). Each is appended only when the diff touches the
+# paths the rule is about, so a PR that cannot break the rule does not pay for the
+# check. All five fail closed on an unreadable or truncated file list, like
 # the design gate above. None emits a "not applicable" line: the item's own "nothing to do" clause covers a gate that
 # fired on a diff the rule turns out not to apply to.
 #
@@ -474,6 +476,27 @@ if [ -n "$AI_EVAL_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; then
 
 If this diff changes a prompt builder or text it sends to the model (an output schema in `src/lib/ai/recipe-schema.ts` or `src/lib/ai/types.ts`, the phrase list in `src/lib/vague-quantities.ts`), a model constant, an AI budget or a benchmark case, the PR body must cite a report under `scripts/model-bench/results/` committed in this PR and dated after the change: a `--check` report for a case or budget change, a `--baseline golden` comparison with judge verdicts for a prompt, schema or phrase-list change, a model comparison for a `models.ts` change (`docs/AI_MODELS.md`). A missing or older report is a finding. So is a golden comparison whose header reads `unchanged` for a task the diff changes, or one beside a `scripts/model-bench/golden/` change in the same PR: either way the golden was recorded on the new prompt, and the report compares it with itself. If none of those files changed, this check has nothing to do.
 AI_EVAL_PROMPT
+fi
+
+# Driven screens: /implement-issue step 9 → "Drive changed screens" opens each changed
+# screen through the Playwright MCP and records a `Driven:` line in the PR body. Pages
+# and route files under src/app, and feature components; a src/components/ui primitive
+# is covered by its stories, src/app/api renders no screen, and src/app/admin opens
+# only for ADMIN_EMAIL, which a fresh review account is not. The item fires only
+# when the body has no `Driven:` list line, so a PR that carries the evidence pays
+# nothing. A failed body fetch reads as "no line", which fails closed like the gates above.
+DRIVE_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(app|components)/.*\.tsx$' | grep -vE '^src/(app/(api|admin)|components/ui)/|\.(stories|test)\.tsx$' || true)
+PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body' 2>/dev/null || true)
+DRIVEN_IN_BODY=$(printf '%s\n' "$PR_BODY" | grep -cE '^[[:space:]]*[-*][[:space:]]+Driven:' || true)
+
+if { [ -n "$DRIVE_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; } && [ "$DRIVEN_IN_BODY" = 0 ]; then
+  echo -e "${GREEN}Screens changed and the PR body has no Driven: line — adding the driven-screen check.${NC}"
+  cat >> "$PROMPT_FILE" <<'DRIVE_PROMPT'
+
+## Also check that the changed screens were driven
+
+This diff changes a page or a feature component, and the PR body has no `Driven:` line. `.claude/skills/implement-issue/SKILL.md` → "Drive changed screens" requires one per changed screen: the route, the action, the result the browser showed, and the screenshot on the Linear issue. Report the missing lines as a finding in the summary (the body is not in the diff), naming the screens the diff changes. It is not a finding when the body's "Not verified" list says why the screens could not be driven (the review server or the Playwright MCP could not start, or the screen needs an account the review server cannot create, with the reason), or when the changed files render nothing a user sees (a type or prop rename with no visible change). In that case this check has nothing to do.
+DRIVE_PROMPT
 fi
 
 # ─── PR body: Verified / Not verified, no checkboxes ─────────────────────────

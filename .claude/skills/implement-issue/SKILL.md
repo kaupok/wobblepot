@@ -203,7 +203,64 @@ Before signalling completion, confirm the definition of done:
 - **Storybook**: if you touched `src/components/**`, create/update the colocated `.stories.tsx` and run `pnpm test-storybook:ci` (CLAUDE.md Storybook rule)
 - **Coupled callsites**: if you changed a geometry default on a primitive under `src/components/ui/*.tsx`, a `@theme` token, or a shared layout wrapper, every **Mirror** is edited — from the plan's `## Coupled callsites` section if it has one, otherwise by running `/plan-issue` step 7b's greps now. Keyed off the diff, not the plan, so it still fires under `--no-plan` and on plans written before that section existed (CLAUDE.md shared-primitive geometry rule)
 - **Follow-ups**: every step this issue needs that the PR does not ship has an issue ID, from the plan's `## Follow-ups` or filed in step 8
+- **Driven screens**: if the diff changes a screen, drive it in the browser — see [Drive changed screens](#drive-changed-screens) below
 - `pnpm lint && pnpm type-check && pnpm test` pass
+
+#### Drive changed screens
+
+Storybook and the E2E grep are static, so a layout break, a wrong empty state or a dead button passes both and is first seen on staging (HON-1188). Run this after the checks above pass, so the screen you drive is the one you ship.
+
+**Trigger:** the branch's changes, uncommitted ones included, list a `.tsx` under `src/app/` (outside `src/app/api/` and `src/app/admin/`) or under `src/components/` (outside `src/components/ui/`), not counting `.stories.tsx` and `.test.tsx`. A `ui/` primitive is covered by its stories. Admin pages open only for `ADMIN_EMAIL`, which the review account is not, so do not change the admin gate to reach them. `scripts/pr-review.sh` uses the same trigger. Read the list from the merge base and the untracked files, because this step runs before the work is committed:
+
+```bash
+{ git diff --name-only "$(git merge-base origin/main HEAD)"; git ls-files --others --exclude-standard; } | sort -u
+```
+
+1. **Start the review server.** It turns on `/api/e2e-seed`, which `pnpm dev` does not, so sign-up works. Use `--db env` when the worktree `.env` has its own `DATABASE_URL` (`wt new`, `wt auto`), so it spends no second Neon branch; otherwise use branch mode:
+
+   ```bash
+   mine=$(grep '^DATABASE_URL=' .env); main=$(grep '^DATABASE_URL=' "$(git rev-parse --git-common-dir)/../.env")
+   [ -n "$mine" ] && [ "$mine" != "$main" ] && echo "own database: --db env" || echo "shared database: branch mode"
+   ```
+
+   Start it with `run_in_background: true` and `timeout: 3600000`, with `--db env` appended after the `_` when the check printed it. The 10-minute background default would kill the server partway through the screens, and a killed server leaves its Neon branch behind (`pnpm test:e2e:local gc` sweeps it). The port is a random free one, because up to three workers run at once. The pid file holds the script's own pid, so step 5 stops this server and no other:
+
+   ```bash
+   rm -f /tmp/review-HON-XX.pid; REVIEW_LOCAL_PORT=$(for p in $(seq 3201 3299 | sort -R); do curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$p/" || { echo "$p"; break; }; done) bash -c 'echo $$ > /tmp/review-HON-XX.pid; exec bash scripts/e2e-local.sh serve "$@"' _ > /tmp/review-HON-XX.log 2>&1
+   ```
+
+   Then wait in the foreground with `timeout: 540000`, in the same turn (CLAUDE.md → Waiting inside a skill):
+
+   ```bash
+   # 96 × 5 s = 480 s, under the 540 s foreground timeout.
+   for i in $(seq 1 96); do
+     # Alive 5 s after READY: if another server took the port, ours exits and READY was theirs.
+     if grep -q REVIEW-READY /tmp/review-HON-XX.log 2>/dev/null; then
+       sleep 5; kill -0 "$(cat /tmp/review-HON-XX.pid)" 2>/dev/null && { grep REVIEW-READY /tmp/review-HON-XX.log; exit 0; }
+       tail -20 /tmp/review-HON-XX.log; echo REVIEW_FAILED; exit 1
+     fi
+     if [ -s /tmp/review-HON-XX.pid ] && ! kill -0 "$(cat /tmp/review-HON-XX.pid)" 2>/dev/null; then
+       tail -20 /tmp/review-HON-XX.log; echo REVIEW_FAILED; exit 1
+     fi
+     sleep 5
+   done
+   echo REVIEW_WAITING
+   ```
+
+   `REVIEW_WAITING`: run it again. `REVIEW_FAILED` (no Neon slot, no Neon key, a refused `.env`): do not block the PR. Write a "Not verified" line with the reason from the log, and skip to step 5.
+
+2. **Sign up a review account** (`docs/CHROME_TESTING.md` → Walking the flow). `curl -X POST <url>/api/e2e-seed` returns `{"code":…}`. Sign up on `<url>/sign-up` with that code, `review-<timestamp>@example.com` and `TEST_PASSWORD` from `tests/e2e/utils/test-helpers.ts`, then complete onboarding. Never use a real address or password.
+3. **For each changed screen**, use the Playwright MCP. If its tools are not loaded (`docs/PARALLEL_WORKFLOW.md` → Untracked Files), write a "Not verified" line that says so and skip to step 5. Otherwise: `browser_navigate` to the route, then `browser_snapshot`. Do the issue's main action (`browser_click`, `browser_type`, …), `browser_snapshot` again, and check the result against the acceptance criteria. Then `browser_take_screenshot` with `filename: "hon-XX-<screen>.png"`, and note the path the tool reports. A defect you find here is fixed now, then driven again.
+4. **Upload each screenshot to the Linear issue**, one file at a time: `prepare_attachment_upload` (`issue`, `filename`, `contentType: "image/png"`, `size` from `wc -c < <path>`). Then `curl -X PUT --data-binary @<path>` to `uploadRequest.url`, with every header in `uploadRequest.headers` sent verbatim, within 60 seconds. Then `create_attachment_from_upload` with the `assetUrl`. If an upload fails, the `Driven:` line still stands. Say "screenshot not uploaded" on it.
+5. **Stop the server:** `kill -TERM "$(cat /tmp/review-HON-XX.pid)"`. Its exit trap stops the dev server and, in branch mode, deletes the Neon branch. Run `browser_close`.
+
+**Evidence:** one line per screen, for the PR body's "Verified" list. It names the route, the action, what the snapshot showed, and the Linear attachment:
+
+```
+- Driven: `/shopping-list` — ticked "Milk"; the item moved to Done and the counter read 3/4. Screenshot `hon-XX-shopping-list.png` on HON-XX.
+```
+
+The PR body links the attachment by name, because `gh` cannot upload an image. `scripts/pr-review.sh` reports a PR that matches the trigger and has no `Driven:` line, unless "Not verified" says why the screen could not be driven.
 
 After implementing all steps, output the completion marker exactly as shown:
 
@@ -211,7 +268,7 @@ After implementing all steps, output the completion marker exactly as shown:
 [implement-issue:complete] Implementation complete for HON-XX
 ```
 
-If this issue has follow-ups, print their IDs on the next line, so `/create-pr` can put them in the PR body: `Follow-ups: HON-AA (Queued, blocked by HON-XX), HON-BB (Todo)`.
+If this issue has follow-ups, print their IDs on the next line, so `/create-pr` can put them in the PR body: `Follow-ups: HON-AA (Queued, blocked by HON-XX), HON-BB (Todo)`. Print each `Driven:` line after it, for the same reason.
 
 This marker signals to orchestrating skills (like `/auto-implement`) that implementation is finished. The calling context will determine what happens next.
 

@@ -1,8 +1,9 @@
 /**
  * The E2E-drift and shared-geometry checklist items in scripts/pr-review.sh (HON-729),
- * the test anti-pattern item (HON-1198), and the AI eval report item (HON-904).
+ * the test anti-pattern item (HON-1198), the AI eval report item (HON-904), and the
+ * driven-screen item (HON-1188).
  *
- * All four rules are prose with no mechanical check, so the reviewer prompt is
+ * All five rules are prose with no mechanical check, so the reviewer prompt is
  * their only enforcement — and it is appended conditionally, by a shell grep over the
  * PR's file list. A regex that stopped matching `src/app/**` or `globals.css` would
  * silently switch the check off; one that matched everything would make every PR pay
@@ -42,7 +43,7 @@ function heredoc(name: string): string {
 
 /** Run one extracted gate assignment over a file list and return what it selected. */
 function classify(
-  variable: 'E2E_FILES' | 'GEOMETRY_FILES' | 'TEST_FILES' | 'AI_EVAL_FILES',
+  variable: 'E2E_FILES' | 'GEOMETRY_FILES' | 'TEST_FILES' | 'AI_EVAL_FILES' | 'DRIVE_FILES',
   files: string[],
 ): string[] {
   const script = [
@@ -221,6 +222,92 @@ describe('AI eval gate', () => {
     expect(body).toContain('`--baseline golden` comparison')
     // A golden recorded on the branch compares the new prompt with itself.
     expect(body).toContain('scripts/model-bench/golden/')
+  })
+})
+
+/** Run the extracted `Driven:` count over a PR body. */
+function drivenLines(body: string): number {
+  const script = [
+    'set -euo pipefail',
+    'PR_BODY=$(cat)',
+    lineStartingWith('DRIVEN_IN_BODY='),
+    'printf %s "$DRIVEN_IN_BODY"',
+  ].join('\n')
+  return Number(execFileSync('bash', ['-c', script], { input: body, encoding: 'utf8' }))
+}
+
+describe('driven-screen gate', () => {
+  it('selects pages, route files and feature components', () => {
+    const hits = [
+      'src/app/profile/page.tsx',
+      'src/app/meal-plan/MealPlanClient.tsx',
+      'src/app/shopping-list/loading.tsx',
+      'src/components/Header.tsx',
+      'src/components/meal-plan/MealDetailModal.tsx',
+    ]
+    expect(classify('DRIVE_FILES', hits)).toEqual(hits)
+  })
+
+  // A primitive is covered by its stories, an API route renders no screen, and an
+  // admin page 404s for the review account, so none asks for a server and a sign-up.
+  it('skips primitives, API routes, admin pages, stories, tests and non-tsx files', () => {
+    expect(
+      classify('DRIVE_FILES', [
+        'src/components/ui/button.tsx',
+        'src/app/api/og/route.tsx',
+        'src/app/admin/waitlist/page.tsx',
+        'src/app/admin/signup-codes/SignupCodesClient.tsx',
+        'src/components/Header.stories.tsx',
+        'src/app/page.test.tsx',
+        'src/app/globals.css',
+        'messages/en.json',
+        ...UNRELATED,
+      ]),
+    ).toEqual([])
+  })
+
+  it('survives a no-match without failing the script', () => {
+    expect(() => classify('DRIVE_FILES', ['docs/DESIGN.md'])).not.toThrow()
+  })
+
+  it('counts Driven: list items in the body', () => {
+    const body = [
+      '## Verified',
+      '',
+      '- `pnpm test` — 4745 passed',
+      '- Driven: `/shopping-list` — ticked "Milk"; it moved to Done.',
+      '  * Driven: `/pantry` — added "Rice"; the list showed it.',
+    ].join('\n')
+    expect(drivenLines(body)).toBe(2)
+  })
+
+  // Only the evidence line counts: prose that mentions the word, or a "Not verified"
+  // line that explains why a screen was not driven, must still leave the item on.
+  it('ignores prose, other labels and an empty body', () => {
+    expect(drivenLines('Driven: not a list item')).toBe(0)
+    expect(drivenLines('- The screen was Driven: by hand')).toBe(0)
+    expect(drivenLines('- Not driven: no Neon slot was free')).toBe(0)
+    expect(drivenLines('')).toBe(0)
+  })
+
+  it('appends the item when a screen changed and the body has no Driven: line', () => {
+    expect(read(prReview)).toContain(
+      'if { [ -n "$DRIVE_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; } && [ "$DRIVEN_IN_BODY" = 0 ]; then',
+    )
+    expect(heredoc('DRIVE_PROMPT')).toContain('this check has nothing to do')
+  })
+
+  // The item delegates the procedure to the skill, so the skill has to keep that
+  // subsection under that name, with the same trigger the gate uses.
+  it('points the item at an /implement-issue step that still exists', () => {
+    const skill = read(path.join(repoRoot, '.claude/skills/implement-issue/SKILL.md'))
+    expect(heredoc('DRIVE_PROMPT')).toContain(
+      '`.claude/skills/implement-issue/SKILL.md` → "Drive changed screens"',
+    )
+    expect(skill).toMatch(/^#### Drive changed screens$/m)
+    expect(skill).toContain('outside `src/app/api/` and `src/app/admin/`')
+    expect(skill).toContain('outside `src/components/ui/`')
+    expect(skill).toContain('- Driven: ')
   })
 })
 
