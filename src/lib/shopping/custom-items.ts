@@ -123,7 +123,16 @@ export async function addCustomShoppingItem(
  *   household's own (HON-889)
  */
 export type UpdateCustomItemOutcome =
-  | { status: 'updated'; item: CustomItemWithIngredient }
+  | {
+      status: 'updated'
+      item: CustomItemWithIngredient
+      /**
+       * The pantry quantity above 0 that checking the item replaced with
+       * `null`, or `null` if it replaced none. Unchecking does not restore it,
+       * so the `check_shopping_item` MCP tool returns it (HON-1176).
+       */
+      replacedQuantity: number | null
+    }
   | { status: 'not_found' }
   | { status: 'ingredient_not_found' }
 
@@ -163,7 +172,8 @@ export async function updateCustomShoppingItem(
   const effectiveIngredientId = ingredientId !== undefined ? ingredientId : current.ingredientId
   const isChecking = checked === true && !current.checked
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const { updatedItem, replacedQuantity } = await prisma.$transaction(async (tx) => {
+    let replacedQuantity: number | null = null
     const updatedItem = await tx.customShoppingItem.update({
       where: { id },
       data: updateData,
@@ -189,16 +199,17 @@ export async function updateCustomShoppingItem(
           // Touch updatedAt
         },
       })
-      // Quantity 0 means it ran out, and the shopping list never reads a 0
-      // as purchased, so buying it means "have some", as in
-      // `purchaseIngredients` (HON-1173).
-      if (pantryItem.quantity === 0) {
+      // Buying it means "have some", the only state the shopping list reads
+      // as purchased, so a 0 or an entered quantity is replaced, as in
+      // `purchaseIngredients` (HON-1173, HON-1176).
+      if (pantryItem.quantity !== null) {
+        if (pantryItem.quantity > 0) replacedQuantity = pantryItem.quantity
         await tx.pantryItem.update({ where: { id: pantryItem.id }, data: { quantity: null } })
       }
     }
 
-    return updatedItem
+    return { updatedItem, replacedQuantity }
   })
 
-  return { status: 'updated', item: updated }
+  return { status: 'updated', item: updatedItem, replacedQuantity }
 }

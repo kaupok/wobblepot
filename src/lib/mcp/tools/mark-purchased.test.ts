@@ -105,27 +105,50 @@ describe('mark_purchased', () => {
       })
     })
 
-    it('turns a "ran out" quantity of 0 into "have some" and leaves a quantity above 0', async () => {
+    it('sets a 0 and a quantity above 0 to "have some", and leaves "have some" as it is', async () => {
       vi.mocked(prisma.ingredient.findMany).mockResolvedValue([
         { id: 'ing-milk' },
         { id: 'ing-rice' },
+        { id: 'ing-oil' },
       ] as never)
+      const quantities: Record<string, number | null> = {
+        'ing-milk': 0,
+        'ing-rice': 200,
+        'ing-oil': null,
+      }
       upsert.mockImplementation(async ({ create }) => ({
         ...pantryRow(create.ingredientId),
-        quantity: create.ingredientId === 'ing-milk' ? 0 : 200,
+        quantity: quantities[create.ingredientId],
       }))
       update.mockImplementation(async ({ where }) => ({
         ...pantryRow(where.id.replace('pantry-', '')),
         quantity: null,
       }))
 
-      await call({ ingredientIds: ['ing-milk', 'ing-rice'], purchased: true })
+      const result = await call({
+        ingredientIds: ['ing-milk', 'ing-rice', 'ing-oil'],
+        purchased: true,
+      })
 
-      // The shopping list never reads a 0 as purchased (HON-1173).
-      expect(update).toHaveBeenCalledOnce()
+      // The shopping list reads only null as purchased, so a 200 left in place
+      // would read the same as an edit on the pantry page (HON-1173, HON-1176).
+      expect(update).toHaveBeenCalledTimes(2)
       expect(update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'pantry-ing-milk' }, data: { quantity: null } }),
       )
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'pantry-ing-rice' }, data: { quantity: null } }),
+      )
+      // An undo deletes the item, so the result gives the replaced 200 back for
+      // the assistant to restore; a 0 ("ran out") is not worth restoring.
+      expect(result.structuredContent).toEqual({
+        purchased: true,
+        items: [
+          { ingredientId: 'ing-milk', outcome: 'in_pantry' },
+          { ingredientId: 'ing-rice', outcome: 'in_pantry', replacedQuantity: 200 },
+          { ingredientId: 'ing-oil', outcome: 'in_pantry' },
+        ],
+      })
     })
 
     it("refuses another household's ingredient and writes nothing", async () => {

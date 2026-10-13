@@ -24,6 +24,12 @@ export const UNPURCHASE_WINDOW_DAYS = 7
 
 export type PurchaseResult = {
   ingredientId: string
+  /**
+   * The quantity above 0 the purchase replaced with `null`, or `null` if it
+   * replaced none. An undo deletes the pantry item, so the `mark_purchased`
+   * MCP tool returns it and the assistant can set it back (HON-1176).
+   */
+  replacedQuantity: number | null
   pantryItem: {
     id: string
     ingredient: {
@@ -124,10 +130,14 @@ export async function purchaseIngredients(
         },
         select,
       })
-      // Quantity 0 means it ran out, and `loadShoppingList` never reads a 0 as
-      // purchased. Buying it means "have some, amount unknown". The row is
-      // locked by the upsert already, so the lock order above still holds.
-      if (pantryItem.quantity === 0) {
+      // A purchase means "have some, amount unknown", and `loadShoppingList`
+      // reads only that state as purchased. So a 0 ("ran out") and a quantity
+      // the household entered are both replaced: a quantity above 0 would
+      // read the same as an edit on the pantry page (HON-1173, HON-1176). The
+      // row is locked by the upsert already, so the lock order above still
+      // holds.
+      const quantityBefore = pantryItem.quantity
+      if (quantityBefore !== null) {
         pantryItem = await tx.pantryItem.update({
           where: { id: pantryItem.id },
           data: { quantity: null },
@@ -138,6 +148,7 @@ export async function purchaseIngredients(
 
       upserted.set(ingredientId, {
         ingredientId,
+        replacedQuantity: quantityBefore !== null && quantityBefore > 0 ? quantityBefore : null,
         pantryItem: {
           id: pantryItem.id,
           ingredient: {
@@ -172,7 +183,7 @@ export async function purchaseIngredients(
  * - `too_old`: the pantry item is older than {@link UNPURCHASE_WINDOW_DAYS}, so
  *   it was not this purchase
  * - `has_quantity`: the pantry item has a quantity above 0, so it was not
- *   only this purchase; returned only with `keepWithQuantity`
+ *   a purchase; returned only with `keepWithQuantity`
  */
 export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'staple' | 'too_old' | 'has_quantity'
 
@@ -180,11 +191,11 @@ export type UnpurchaseOutcome = 'removed' | 'not_in_pantry' | 'staple' | 'too_ol
  * Takes a recently purchased ingredient back out of the household's pantry.
  * Only the household's own pantry row is read or deleted.
  *
- * A purchase stores no quantity, so a row with a quantity above 0 holds more
- * than the purchase: the household entered it, or a purchase touched a row
- * that was already there. `keepWithQuantity` leaves such a row in place. A
- * quantity of 0 means "ran out" and is still removed: without the row the
- * ingredient reads as needed just the same, so nothing is lost. The
+ * A purchase always leaves the quantity `null`, replacing any quantity the
+ * row held (HON-1176), so a row with a quantity above 0 is one the household
+ * set after, or without, a purchase. `keepWithQuantity` leaves such a row in
+ * place. A quantity of 0 means "ran out" and is still removed: without the
+ * row the ingredient reads as needed just the same, so nothing is lost. The
  * `mark_purchased` MCP tool sets it, so an assistant cannot delete a quantity
  * the household entered and the tool stays non-destructive (HON-1154). The
  * app's own undo does not, unchanged.

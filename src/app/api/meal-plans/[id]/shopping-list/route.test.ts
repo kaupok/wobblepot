@@ -246,10 +246,12 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
       },
     ] as never)
 
-    // Pantry item updated after plan was created
+    // Bought after plan was created: "have some". The real compute drops a
+    // null item (`shopping-list.test.ts`), so this pins only the read rule.
     mockFindManyPantry.mockResolvedValue([
       {
         ingredientId: 'ing-1',
+        quantity: null,
         updatedAt: new Date('2099-01-26T12:00:00.000Z'), // After planCreatedAt
       },
     ] as never)
@@ -312,6 +314,56 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
     expect(data.summary.remainingItems).toBe(1)
   })
 
+  it('does not read a quantity set below the amount needed after plan creation as purchased (HON-1176)', async () => {
+    mockGetSession.mockResolvedValue(mockSession)
+    mockGetMembership.mockResolvedValue(mockMembership)
+    mockFindUnique.mockResolvedValue(mockPlan as never)
+
+    mockComputeShoppingList.mockResolvedValue([
+      {
+        category: 'protein',
+        categoryLabel: 'Proteins',
+        items: [
+          {
+            ingredientId: 'ing-1',
+            ingredient: {
+              id: 'ing-1',
+              name: 'Chicken breast',
+              category: 'protein',
+              defaultUnit: 'g',
+              gramsPerPiece: null,
+            },
+            neededQuantity: 600,
+            pantryQuantity: 200,
+            shoppingQuantity: 400,
+            mealCount: 2,
+            earliestNeededDate: new Date('2099-01-27T00:00:00.000Z'),
+            isVague: false,
+            originalPhrase: null,
+          },
+        ],
+      },
+    ] as never)
+
+    // Set to 200 g on the pantry page or with `set_pantry_quantity`: the
+    // other 400 g are still needed
+    mockFindManyPantry.mockResolvedValue([
+      {
+        ingredientId: 'ing-1',
+        quantity: 200,
+        updatedAt: new Date('2099-01-26T12:00:00.000Z'), // After planCreatedAt
+      },
+    ] as never)
+
+    const response = await GET(createRequest(), { params: createParams() })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.groups[0].items[0].purchased).toBe(false)
+    expect(data.summary.purchasedItems).toBe(0)
+    expect(data.summary.remainingItems).toBe(1)
+  })
+
   it('marks items as not purchased when pantry item updated before plan creation', async () => {
     mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(mockMembership)
@@ -343,10 +395,11 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
       },
     ] as never)
 
-    // Pantry item updated before plan was created
+    // "Have some" from before the plan was created: not this plan's purchase
     mockFindManyPantry.mockResolvedValue([
       {
         ingredientId: 'ing-1',
+        quantity: null,
         updatedAt: new Date('2099-01-20T10:00:00.000Z'), // Before planCreatedAt
       },
     ] as never)

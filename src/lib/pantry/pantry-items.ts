@@ -136,7 +136,7 @@ export type UpdatePantryItemOutcome =
  * Changes a pantry item's quantity, staple flag or both. Only the fields
  * given are written. The caller makes sure at least one is given: an empty
  * update still bumps `@updatedAt`, which the shopping-list routes read as
- * "purchased" (HON-642).
+ * "purchased" when the quantity is null (HON-642, HON-1176).
  */
 export async function updatePantryItem(
   household: Household,

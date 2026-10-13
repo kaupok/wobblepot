@@ -77,13 +77,18 @@ export async function loadShoppingList(
     // Map items with purchase status and needed-by date
     const mappedItems = group.items.map((item) => {
       const pantryItem = pantryMap.get(item.ingredientId)
-      // Item is purchased if it exists in pantry and was updated after earliest plan was created
-      // If no plans in window, nothing can be purchased. Quantity 0 means it
-      // ran out, so setting it (the pantry page, `set_pantry_quantity`) is not
-      // a purchase; a purchase turns a 0 into null (`purchaseIngredients`).
+      // Item is purchased if its pantry quantity is null ("have some") and was
+      // set after the earliest plan was created. If no plans in window, nothing
+      // can be purchased. A purchase always sets null (`purchaseIngredients`),
+      // so a 0 or a quantity above 0 was set on the pantry page or with
+      // `set_pantry_quantity`, and is not a purchase (HON-1173, HON-1176).
+      // `computeRollingWindowShoppingList` drops a null item today, so a listed
+      // item does not read as purchased: a bought item leaves the list. The
+      // condition stays so that an edit can never read as a purchase if the
+      // list starts to keep bought items.
       const purchased =
         pantryItem && result.earliestPlanCreatedAt
-          ? pantryItem.quantity !== 0 && pantryItem.updatedAt >= result.earliestPlanCreatedAt
+          ? pantryItem.quantity === null && pantryItem.updatedAt >= result.earliestPlanCreatedAt
           : false
 
       totalItems++

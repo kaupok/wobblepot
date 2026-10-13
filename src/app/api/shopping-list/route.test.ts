@@ -347,10 +347,12 @@ describe('GET /api/shopping-list', () => {
       earliestPlanCreatedAt: planCreatedAt,
       hasAnyPlan: true,
     })
-    // Pantry item updated after plan creation → purchased
+    // Bought after plan creation: "have some" → purchased. The real compute drops a
+    // null item (`shopping-list.test.ts`), so this pins only the read rule.
     mockPantryFindMany.mockResolvedValue([
       {
         ingredientId: 'ing-1',
+        quantity: null,
         updatedAt: new Date('2026-01-31'),
       },
     ] as never)
@@ -409,6 +411,121 @@ describe('GET /api/shopping-list', () => {
       {
         ingredientId: 'ing-1',
         quantity: 0,
+        updatedAt: new Date('2026-01-31'),
+      },
+    ] as never)
+
+    const response = await GET(createMockRequest())
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.groups[0].items[0].purchased).toBe(false)
+    expect(data.summary.purchasedItems).toBe(0)
+    expect(data.summary.remainingItems).toBe(1)
+  })
+
+  it('does not read "have some" from before plan creation as purchased', async () => {
+    const planCreatedAt = new Date('2026-01-30')
+    const neededDate = new Date('2026-02-01')
+
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockComputeShoppingList.mockResolvedValue({
+      groups: [
+        {
+          category: 'protein',
+          categoryLabel: 'Proteins',
+          items: [
+            {
+              ingredientId: 'ing-1',
+              ingredient: {
+                id: 'ing-1',
+                name: 'Chicken breast',
+                category: 'protein',
+                defaultUnit: 'g',
+                measuredByVolume: false,
+                gramsPerPiece: null,
+              },
+              neededQuantity: 600,
+              pantryQuantity: null,
+              shoppingQuantity: 600,
+              mealCount: 2,
+              earliestNeededDate: neededDate,
+              isVague: false,
+              originalPhrase: null,
+            },
+          ],
+        },
+      ],
+      startDate: '2026-01-31',
+      endDate: '2026-02-06',
+      windowDays: 7,
+      earliestPlanCreatedAt: planCreatedAt,
+      hasAnyPlan: true,
+    })
+    // "Have some" set before the plan was created → not this plan's purchase
+    mockPantryFindMany.mockResolvedValue([
+      {
+        ingredientId: 'ing-1',
+        quantity: null,
+        updatedAt: new Date('2026-01-29'),
+      },
+    ] as never)
+
+    const response = await GET(createMockRequest())
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.groups[0].items[0].purchased).toBe(false)
+    expect(data.summary.purchasedItems).toBe(0)
+    expect(data.summary.remainingItems).toBe(1)
+  })
+
+  it('does not read a quantity set below the amount needed after plan creation as purchased (HON-1176)', async () => {
+    const planCreatedAt = new Date('2026-01-30')
+    const neededDate = new Date('2026-02-01')
+
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockComputeShoppingList.mockResolvedValue({
+      groups: [
+        {
+          category: 'protein',
+          categoryLabel: 'Proteins',
+          items: [
+            {
+              ingredientId: 'ing-1',
+              ingredient: {
+                id: 'ing-1',
+                name: 'Chicken breast',
+                category: 'protein',
+                defaultUnit: 'g',
+                measuredByVolume: false,
+                gramsPerPiece: null,
+              },
+              neededQuantity: 600,
+              pantryQuantity: 200,
+              shoppingQuantity: 400,
+              mealCount: 2,
+              earliestNeededDate: neededDate,
+              isVague: false,
+              originalPhrase: null,
+            },
+          ],
+        },
+      ],
+      startDate: '2026-01-31',
+      endDate: '2026-02-06',
+      windowDays: 7,
+      earliestPlanCreatedAt: planCreatedAt,
+      hasAnyPlan: true,
+    })
+    // Set to 200 g after plan creation, by the pantry page or the
+    // `set_pantry_quantity` MCP tool → the other 400 g still needed, not purchased
+    mockPantryFindMany.mockResolvedValue([
+      {
+        ingredientId: 'ing-1',
+        quantity: 200,
         updatedAt: new Date('2026-01-31'),
       },
     ] as never)

@@ -11,8 +11,8 @@ import { pantryQuantitySchema, updatePantryItem } from '@/lib/pantry/pantry-item
 //
 // The refine rejects a body with no updatable field — `{}`, or one carrying only
 // unknown keys, which Zod strips to `{}`. Prisma would still issue that UPDATE
-// and bump `@updatedAt`, and both shopping-list routes read
-// `updatedAt >= plan createdAt` as "purchased" (HON-642). Presence is
+// and bump `@updatedAt`, and both shopping-list routes read a null quantity
+// with `updatedAt >= plan createdAt` as "purchased" (HON-642). Presence is
 // `!== undefined`, not truthiness: `quantity: null`, `0` and `isStaple: false`
 // are all real updates.
 const updatePantryItemSchema = z

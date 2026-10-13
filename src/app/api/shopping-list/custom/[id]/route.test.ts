@@ -315,6 +315,48 @@ describe('PATCH /api/shopping-list/custom/[id]', () => {
     })
   })
 
+  it('replaces a quantity the household entered with "have some" when checking a linked item', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockGetMembership.mockResolvedValue(mockMembership as never)
+    mockFindUnique.mockResolvedValue({
+      id: 'custom-1',
+      householdId: 'household-123',
+      name: 'Salt',
+      checked: false,
+      ingredientId: 'ing-salt',
+    } as never)
+
+    const txUpdateSpy = vi.fn().mockResolvedValue({
+      id: 'custom-1',
+      householdId: 'household-123',
+      name: 'Salt',
+      checked: true,
+      ingredientId: 'ing-salt',
+      ingredient: { id: 'ing-salt', name: 'Salt', category: 'seasoning' },
+    })
+    const txUpsertSpy = vi.fn().mockResolvedValue({ id: 'pantry-salt', quantity: 200 })
+    const txPantryUpdateSpy = vi.fn()
+
+    mockTransaction.mockImplementation(async (fn) => {
+      const tx = {
+        customShoppingItem: { update: txUpdateSpy },
+        pantryItem: { upsert: txUpsertSpy, update: txPantryUpdateSpy },
+      }
+      return (fn as (t: unknown) => Promise<unknown>)(tx)
+    })
+
+    const response = await patchRequest('custom-1', { checked: true })
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.item.checked).toBe(true)
+    // The shopping list reads only null as purchased (HON-1176).
+    expect(txPantryUpdateSpy).toHaveBeenCalledWith({
+      where: { id: 'pantry-salt' },
+      data: { quantity: null },
+    })
+  })
+
   it('does not upsert pantry when unchecking a linked item', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
