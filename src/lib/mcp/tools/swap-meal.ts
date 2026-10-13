@@ -110,7 +110,13 @@ export const swapMeal = defineTool({
         'This meal was deleted while this ran. Call swap_meal without mealId for the suggestions. Nothing was changed.',
       )
     }
-    const swapped = await writeSwappedEntry(slot.id, swapEntryData(slot.mealId, mealId))
+    // A skipped slot gets its new meal planned: the skip was for the meal that
+    // left. The app does the same from the card (`MealCard.handleSwapComplete`,
+    // HON-1125); here it is part of the one write.
+    const swapped = await writeSwappedEntry(slot.id, {
+      ...swapEntryData(slot.mealId, mealId),
+      ...(slot.status === 'skipped' ? { status: 'planned' as const } : {}),
+    })
     if (!swapped) {
       throw new ToolInputError(
         `The ${mealType} on ${date} was cooked while this ran, so it cannot be swapped. Nothing was changed.`,

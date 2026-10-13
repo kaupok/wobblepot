@@ -306,6 +306,28 @@ describe('swap_meal', () => {
       expect(prisma.mealPlanEntry.updateManyAndReturn).not.toHaveBeenCalled()
     })
 
+    // The app un-skips the card when it swaps a skipped meal (HON-1125), so
+    // the new meal does not show as skipped.
+    it('plans the new meal when it swaps a skipped entry', async () => {
+      vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue(
+        slot({ status: 'skipped' }) as never,
+      )
+
+      const result = await call({ date: DATE, mealType: 'dinner', mealId: 'meal-soup' })
+
+      expect(result.isError).toBeFalsy()
+      expect(prisma.mealPlanEntry.updateManyAndReturn).toHaveBeenCalledWith({
+        where: { id: 'entry-1', status: { not: 'completed' } },
+        data: {
+          mealId: 'meal-soup',
+          preparationTips: null,
+          servingOverride: null,
+          rating: null,
+          status: 'planned',
+        },
+      })
+    })
+
     it('refuses when the meal was cooked while the swap ran', async () => {
       vi.mocked(prisma.mealPlanEntry.updateManyAndReturn).mockResolvedValue([] as never)
 
