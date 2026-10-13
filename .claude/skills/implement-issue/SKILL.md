@@ -210,7 +210,11 @@ Before signalling completion, confirm the definition of done:
 
 Storybook and the E2E grep are static, so a layout break, a wrong empty state or a dead button passes both and is first seen on staging (HON-1188). Run this after the checks above pass, so the screen you drive is the one you ship.
 
-**Trigger:** `git diff --name-only origin/main...HEAD` lists a `.tsx` under `src/app/` (outside `src/app/api/`) or under `src/components/` (outside `src/components/ui/`), not counting `.stories.tsx` and `.test.tsx`. A `ui/` primitive is covered by its stories. `scripts/pr-review.sh` uses the same trigger.
+**Trigger:** the branch's changes, uncommitted ones included, list a `.tsx` under `src/app/` (outside `src/app/api/`) or under `src/components/` (outside `src/components/ui/`), not counting `.stories.tsx` and `.test.tsx`. A `ui/` primitive is covered by its stories. `scripts/pr-review.sh` uses the same trigger. Read the list from the merge base and the untracked files, because this step runs before the work is committed:
+
+```bash
+{ git diff --name-only "$(git merge-base origin/main HEAD)"; git ls-files --others --exclude-standard; } | sort -u
+```
 
 1. **Start the review server.** It turns on `/api/e2e-seed`, which `pnpm dev` does not, so sign-up works. Use `--db env` when the worktree `.env` has its own `DATABASE_URL` (`wt new`, `wt auto`), so it spends no second Neon branch; otherwise use branch mode. The port is per issue, because up to three workers run at once:
 
@@ -219,13 +223,13 @@ Storybook and the E2E grep are static, so a layout break, a wrong empty state or
    [ -n "$mine" ] && [ "$mine" != "$main" ] && echo "own database: --db env" || echo "shared database: branch mode"
    ```
 
-   Start it with `run_in_background: true`, with `--db env` appended after the `_` when the check printed it. The pid file holds the script's own pid, so step 5 stops this server and no other:
+   Start it with `run_in_background: true` and `timeout: 3600000`, with `--db env` appended after the `_` when the check printed it. The 10-minute background default would kill the server partway through the screens, and a killed server leaves its Neon branch behind (`pnpm test:e2e:local gc` sweeps it). The pid file holds the script's own pid, so step 5 stops this server and no other:
 
    ```bash
    rm -f /tmp/review-HON-XX.pid; REVIEW_LOCAL_PORT=$((3200 + XX % 100)) bash -c 'echo $$ > /tmp/review-HON-XX.pid; exec bash scripts/e2e-local.sh serve "$@"' _ > /tmp/review-HON-XX.log 2>&1
    ```
 
-   Then wait in the foreground, in the same turn (CLAUDE.md → Waiting inside a skill):
+   Then wait in the foreground with `timeout: 540000`, in the same turn (CLAUDE.md → Waiting inside a skill):
 
    ```bash
    # 96 × 5 s = 480 s, under the 540 s foreground timeout.
