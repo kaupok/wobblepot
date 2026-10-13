@@ -456,7 +456,7 @@ cmd_sweep() {
 
 # Map a merged PR's git branch to the Neon branch name to reap, or print nothing
 # when there is none. Pure — no network, no env. Extracted so it is unit-testable
-# from scripts/orchestrator.test.ts.
+# from scripts/orchestrator.neon.test.ts.
 #
 # The `/` -> `--` mapping mirrors worktree-claude.sh's neon_branch_name, so
 # `kaupokorv/hon-51-slug` resolves to the Neon branch that actually exists,
@@ -568,7 +568,7 @@ EOF
 
 # Only dispatch when EXECUTED. The workflow and the runbook both invoke this as
 # `./scripts/neon-cleanup.sh <cmd>`, so this is behaviour-neutral; it exists so
-# scripts/orchestrator.test.ts can source the file and unit-test the pure
+# scripts/orchestrator.neon.test.ts can source the file and unit-test the pure
 # helpers (SAFE_BRANCH_REGEX, neon_branch_target_for_git_branch) without an
 # `unknown command` fail and without touching the Neon or Linear APIs.
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then

@@ -42,7 +42,7 @@ LINEAR_API_URL="https://api.linear.app/graphql"
 # Only files bash has READ into this process belong here: this script and
 # anything it sources at load time (models.sh). worktree-claude.sh is not one:
 # spawn_worker runs it as a fresh process per worker, so it is always current.
-# A new `source` line must add its file here — orchestrator.test.ts pins that.
+# A new `source` line must add its file here — orchestrator.loop.test.ts pins that.
 ORCHESTRATOR_CODE_FILES=("$SCRIPT_DIR/orchestrator.sh" "$SCRIPT_DIR/models.sh")
 # The workflow's model IDs; this script reads TRIAGE_MODEL (HON-730).
 # shellcheck source=./models.sh
@@ -3690,8 +3690,8 @@ main() {
   fi
 }
 
-# Only run the loop when executed, not when sourced. scripts/orchestrator.test.ts
-# sources this file to drive handle_success directly with stubbed collaborators;
+# Only run the loop when executed, not when sourced. The orchestrator.*.test.ts
+# files source it to drive handle_success directly with stubbed collaborators;
 # without the guard, sourcing would acquire the instance lock and start polling
 # Linear for real.
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
