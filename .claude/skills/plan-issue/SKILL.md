@@ -69,9 +69,13 @@ mcp__linear-server__get_issue({ id: "HON-YY", includeRelations: true })
 For any sibling where `status` ∈ { `Done`, `In Review`, `In Progress` }:
 
 - Note its title, `gitBranchName`, and completion/start time.
-- If status is `Done` AND `completedAt` is within the last 14 days, fetch the merged PR to see what files it touched:
+- If status is `Done` AND `completedAt` is within the last 14 days, fetch the merged PR to see what files it touched. Look it up by the sibling's `gitBranchName`, because PR titles are Conventional Commits and carry no issue ID, so a title search finds nothing:
   ```bash
-  gh pr list --search "HON-YY in:title" --state merged --json number,title,files,mergedAt --limit 1
+  gh pr list --head "<gitBranchName>" --state merged --json number,title,files,mergedAt --limit 1
+  ```
+  If that returns `[]` (the branch was renamed), search the body and keep only the PR whose body contains `Closes HON-YY`:
+  ```bash
+  gh pr list --search "HON-YY in:body" --state merged --json number,title,files,mergedAt,body
   ```
   Inspect the `files` array. If any overlap with files you expect to modify (schema, shared lib, route files), flag it in the plan's **Design Decisions** and adjust the approach (extend rather than duplicate).
 - If status is `In Progress` / `In Review`, surface it as a coordination risk in the plan's context.
