@@ -29,18 +29,25 @@ import type { Member, MemberPreferences } from '@/types/member'
 /**
  * The pantry, portions and cook vignettes show the showcase dinner
  * (`ShowcaseMealCard`), so the section tells one story from the pantry to the
- * stove. The pantry and cook vignettes sit on its tint, the hue `extractHue`
- * returns for its committed illustration.
+ * stove. The pantry vignette sits on its tint, the hue `extractHue` returns
+ * for its committed illustration.
  */
 const SALMON_HUE = 88
+
+/**
+ * The cook vignette has no image, so its tint follows its tile (`mint` in
+ * globals.css) rather than the salmon's: a second yellow tile would repeat the
+ * pantry's.
+ */
+const COOK_HUE = 160
 
 /**
  * The imagine vignette shows a different meal, the library's Butter Chicken
  * (`prisma/seed-expansion.ts`), as the dinner Imagine a meal produced from the
  * household's description: a takeaway made milder for the kids and quicker,
  * so the step shows what a free-form request turns into. Its tint differs from
- * the salmon's, so the rows alternate from `md`: yellow, orange, neutral,
- * yellow (HON-1042). Its illustration is a copy of the meal's generated image
+ * the salmon's, and its tile takes the same hue (`peach`), so the tiles run
+ * yellow, orange, blue, green (HON-1042). Its illustration is a copy of the meal's generated image
  * and its hue is what `extractHue` returns for that file, as for
  * `ShowcaseMealCard`; the name, description and prompt are in the catalog.
  */
@@ -109,6 +116,16 @@ const VIGNETTES: Record<Point, ComponentType> = {
 // A slight tilt on each vignette, in a different direction and amount, so the
 // vignettes read as things laid on a table rather than a grid. Whole degrees
 // only, which the rotate scale has.
+// Each tile its own pale colour (`[data-landing-tile]` in globals.css). A
+// tinted vignette takes its tile's hue, so it reads as the same colour a step
+// lighter rather than a second colour on the first.
+const TILES: Record<Point, string> = {
+  pantry: 'sun',
+  imagine: 'peach',
+  kids: 'sky',
+  cook: 'mint',
+}
+
 const TILTS: Record<Point, string> = {
   pantry: 'rotate-1',
   imagine: '-rotate-2',
@@ -128,9 +145,10 @@ const noop = () => {}
  * proves each claim with the product rather than a picture of it
  * (docs/DESIGN.md → Reject list). Nothing fetches and nothing saves.
  *
- * The tiles stay on the plain muted surface. Faint per-point tints were tried,
- * and with the tinted vignettes inside they read muddy. A tile clips its
- * tilted vignette, so a tilt never widens the page.
+ * Each tile has its own pale colour, and a tinted vignette takes its tile's
+ * hue: an earlier try put the meal tints on unrelated tile tints, and two hues
+ * on top of each other read muddy. A tile clips its tilted vignette, so a tilt
+ * never widens the page.
  */
 export function LandingFeatures() {
   const t = useTranslations('landing.why')
@@ -149,7 +167,8 @@ export function LandingFeatures() {
         {POINTS.map((point) => (
           <li
             key={point}
-            className="bg-muted flex flex-col gap-7 overflow-hidden rounded-3xl px-5 pt-7 pb-8 md:px-10 md:pt-10 md:pb-10"
+            data-landing-tile={TILES[point]}
+            className="flex flex-col gap-7 overflow-hidden rounded-3xl px-5 pt-7 pb-8 md:px-10 md:pt-10 md:pb-10"
           >
             <div className="flex flex-col gap-2 text-balance">
               {/* Above the Section headings this file draws in the vignettes,
@@ -160,8 +179,8 @@ export function LandingFeatures() {
               <Heading variant="h3" face="brand">
                 {t(`${point}.title`)}
               </Heading>
-              {/* The default ink, not muted: muted text on the muted tile is
-                  4.3:1, under the 4.5:1 floor. */}
+              {/* The default ink, not muted: muted text on a tile is under
+                  the 4.5:1 floor. */}
               <Body>{t(`${point}.body`)}</Body>
             </div>
             <div className="mx-auto w-full max-w-md">
@@ -414,7 +433,7 @@ function CookVignette() {
   const t = useTranslations('landing.why.cook.vignette')
 
   return (
-    <VignetteSurface hue={SALMON_HUE}>
+    <VignetteSurface hue={COOK_HUE}>
       <div className="flex flex-col gap-4">
         <div className="flex items-start gap-3">
           <div className="bg-background flex size-8 shrink-0 items-center justify-center rounded-full">
