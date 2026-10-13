@@ -52,12 +52,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The checks run as five parallel jobs (HON-1177; `unit-db` since HON-1186):
-  # one sequential job took about 16 min per green run, and every PR, the
-  # `/merge` poll and the orchestrator wait on it. The repository is public, so
-  # Actions minutes are free and wall time is the only cost. The sixth job,
-  # `ci`, keeps the old check name `Lint, Type Check & Test` and turns red when
-  # any of the five does — see its own comment.
+  # The checks run as four parallel jobs (HON-1177): one sequential job took
+  # about 16 min per green run, and every PR, the `/merge` poll and the
+  # orchestrator wait on it. The repository is public, so Actions minutes are
+  # free and wall time is the only cost. The fifth job, `ci`, keeps the old
+  # check name `Lint, Type Check & Test` and turns red when any of the four
+  # does — see its own comment.
   #
   # Each job carries a full copy of the same `permissions` block. The `env`
   # block is shared at workflow level, above.
@@ -264,6 +264,20 @@ jobs:
       - name: Check Prisma import boundary
         run: pnpm prisma-boundary:check
 
+      # Coverage ratchet (HON-1192): the unit job fails a run under the
+      # thresholds in vitest.config.ts, but it reads the PR's own thresholds,
+      # so it cannot see a PR that lowers one. This compares them with the
+      # base. A lowered one passes only with a `Coverage threshold lowered:
+      # <why>` line in the PR body. The body comes from the event payload, so a
+      # re-run after a body edit still reads the old body; push again instead.
+      # PR-only, like the migration check: on `main` the PR already passed it.
+      - name: Check coverage thresholds were not lowered
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: pnpm coverage:ratchet "$BASE_SHA"
+
       # Colocated story gate (HON-757): every component under src/components
       # needs a sibling `.stories.tsx`, or an allowlist entry with a reason in
       # scripts/check-colocated-stories.ts. A local tree scan like the lockfile
@@ -320,8 +334,16 @@ jobs:
         run: pnpm audit --audit-level critical
 
   # ==========================================
-  # Unit tests (Vitest)
+  # Unit tests (Vitest), with the coverage gate (HON-1192)
   # ==========================================
+  # One run of the `unit`, `unit-node` and `unit-db` projects, so the
+  # coverage report covers all three and a run under the thresholds in
+  # vitest.config.ts fails this job. Still no database service (HON-1183):
+  # `unit-db` runs `*.db.test.ts` against PGlite, an in-process Postgres
+  # (HON-1186), and points its own `DATABASE_URL` at a closed port. That
+  # project adds about 5 s, so it has no job of its own: a second job would
+  # repeat the checkout and install, and merging two coverage reports would
+  # add a third.
   unit:
     name: Unit tests
     runs-on: ubuntu-latest
@@ -346,41 +368,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run unit tests
-        run: pnpm test
-
-  # ==========================================
-  # Database tests: `*.db.test.ts` against PGlite (HON-1186)
-  # ==========================================
-  # PGlite is Postgres in the test process, so the job needs no service
-  # container and no `DATABASE_URL`: the `unit-db` project sets its own, to a
-  # closed port, so nothing here can reach the workflow-level URL.
-  unit-db:
-    name: Database tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      actions: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run database tests
-        run: pnpm test:db
+      # `text-summary`: the config's `text` reporter prints a row per file.
+      - name: Run unit tests with coverage
+        run: pnpm test:coverage --coverage.reporter=text-summary
 
   # ==========================================
   # Storybook: a11y gate and static build
@@ -587,7 +577,7 @@ jobs:
     name: Lint, Type Check & Test
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [static, unit, unit-db, storybook, e2e]
+    needs: [static, unit, storybook, e2e]
     if: always()
     permissions: {}
 
@@ -596,7 +586,6 @@ jobs:
         env:
           STATIC_RESULT: ${{ needs.static.result }}
           UNIT_RESULT: ${{ needs.unit.result }}
-          UNIT_DB_RESULT: ${{ needs.unit-db.result }}
           STORYBOOK_RESULT: ${{ needs.storybook.result }}
           E2E_RESULT: ${{ needs.e2e.result }}
         run: |
@@ -604,7 +593,6 @@ jobs:
           for pair in \
             "Static checks=$STATIC_RESULT" \
             "Unit tests=$UNIT_RESULT" \
-            "Database tests=$UNIT_DB_RESULT" \
             "Storybook=$STORYBOOK_RESULT" \
             "E2E=$E2E_RESULT"; do
             name=${pair%%=*}
