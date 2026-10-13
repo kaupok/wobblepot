@@ -40,7 +40,7 @@ interface LandingPageProps {
 /**
  * The signed-out home page (HON-1116). A centred hero, with
  * tonight's dinner in front of breakfast and lunch and the rest of the week as
- * a strip of days under it. The three steps sit on a grey band, each above a
+ * a strip of days under it. The three steps sit on a lilac band, each above a
  * simple picture of that step, and the four points are a 2×2 grid of tiles,
  * each with its vignette (`LandingFeatures`). The page ends on the maker's line.
  *
@@ -119,7 +119,8 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
 
         <section
           aria-labelledby="landing-how"
-          className="bg-muted flex flex-col gap-8 rounded-3xl px-5 py-7 md:px-12 md:py-11"
+          data-landing-tile="lilac"
+          className="flex flex-col gap-8 rounded-3xl px-5 py-7 md:px-12 md:py-11"
         >
           <Heading variant="h3" as="h2" face="brand" id="landing-how">
             {t('how.title')}
@@ -151,8 +152,8 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
                     <Heading variant="h4" as="h3" face="brand">
                       {t(`how.${step}.title`)}
                     </Heading>
-                    {/* The default ink: muted text on the grey band is under
-                        the 4.5:1 contrast floor. */}
+                    {/* The default ink: muted text on the tinted band is
+                        under the 4.5:1 contrast floor. */}
                     <Body>{t(`how.${step}.body`)}</Body>
                   </div>
                 </div>

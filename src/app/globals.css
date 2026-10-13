@@ -299,6 +299,14 @@
      test measures stay the floor. */
   --note-surface-l: 0.985;
   --note-surface-c: 0.025;
+  /* The landing page's tiles (`[data-landing-tile]`): a clean pastel, light
+     enough that it never greys into khaki. The chroma is per tile, below. A
+     tinted vignette on a tile is near-white paper in the tile's hue, so it
+     lifts off the colour rather than sitting as a second, duller tint. Dark
+     text on that lighter paper only gains contrast over the meal tint. */
+  --tile-surface-l: 0.965;
+  --tile-vignette-l: 0.985;
+  --tile-vignette-c: 0.02;
   /* A meal note's slip (`StickyNote`, docs/DESIGN.md → "Notes are sticky
      notes"): the shopping note's yellow at far more chroma, so it stands out
      on a meal tint. A full set of its own rather than the meal tint's text and
@@ -385,6 +393,11 @@
   /* No paler note in the dark: a lighter sheet there would glow. */
   --note-surface-l: 0.35;
   --note-surface-c: 0.035;
+  /* Darker than the meal tint here, so a vignette still sits lighter on it;
+     the vignette keeps the dark meal tint, since paler paper would glow. */
+  --tile-surface-l: 0.27;
+  --tile-vignette-l: 0.35;
+  --tile-vignette-c: 0.035;
   /* A darker yellow with light text. Muted sits higher than the meal tint's
      0.78, which measures under 4.5:1 on this lighter surface. */
   --sticky-surface-l: 0.42;
@@ -497,6 +510,40 @@
     background-color: var(--sticky-tape);
     border-inline: 1px dashed var(--sticky-tape-edge);
     pointer-events: none;
+  }
+
+  /* A landing tile (`LandingPage`, `LandingFeatures`): each box on the
+     signed-out home page in its own pale colour, so the page reads friendlier
+     than a run of grey bands. The tile's text and controls keep the neutral
+     tokens, and a vignette on it brings its own surface. The hue is named, not inline, so no tile needs a style prop.
+     A meal tint inside reads --meal-surface-l/-c from here, because they
+     inherit to the element that sets --meal-hue. Chroma differs per hue: a
+     yellow needs more to stay yellow, a blue or green at the same chroma
+     turns loud. */
+  [data-landing-tile] {
+    --meal-surface-l: var(--tile-vignette-l);
+    --meal-surface-c: var(--tile-vignette-c);
+    background-color: oklch(var(--tile-surface-l) var(--tile-c) var(--tile-hue));
+  }
+  [data-landing-tile='sun'] {
+    --tile-hue: 98;
+    --tile-c: 0.06;
+  }
+  [data-landing-tile='peach'] {
+    --tile-hue: 48;
+    --tile-c: 0.04;
+  }
+  [data-landing-tile='sky'] {
+    --tile-hue: 240;
+    --tile-c: 0.03;
+  }
+  [data-landing-tile='mint'] {
+    --tile-hue: 160;
+    --tile-c: 0.04;
+  }
+  [data-landing-tile='lilac'] {
+    --tile-hue: 300;
+    --tile-c: 0.035;
   }
 
   [data-meal-surface],

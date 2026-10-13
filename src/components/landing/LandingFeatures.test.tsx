@@ -89,13 +89,13 @@ describe('LandingFeatures', () => {
     }
   })
 
-  it('tints the vignettes yellow, orange, neutral, yellow: the salmon, the butter chicken, none, the salmon', () => {
+  it('tints the vignettes yellow, orange, neutral, green: the salmon, the butter chicken, none, the cook tile', () => {
     renderFeatures()
     const hues = POINTS.map((point) => {
       const surface = drawing(point).querySelector('[data-meal-surface]')
       return surface instanceof HTMLElement ? surface.style.getPropertyValue('--meal-hue') : null
     })
-    expect(hues).toEqual(['88', '48', null, '88'])
+    expect(hues).toEqual(['88', '48', null, '160'])
   })
 
   it('makes every vignette inert, with a caption outside the inert part', () => {
@@ -110,15 +110,20 @@ describe('LandingFeatures', () => {
     }
   })
 
-  it('lays the points out as tiles, two columns from md, each clipping its tilted vignette', () => {
+  it('lays the points out as tiles, two columns from md, each in its own colour and clipping its tilted vignette', () => {
     renderFeatures()
     const list = screen
       .getByRole('region', { name: 'Made for family kitchens' })
       .querySelector('ul')
     expect(list).toHaveClass('grid', 'md:grid-cols-2')
-    for (const point of POINTS) {
-      expect(vignette(point).closest('li')).toHaveClass('bg-muted', 'overflow-hidden')
-    }
+    const tiles = POINTS.map((point) => vignette(point).closest('li'))
+    for (const tile of tiles) expect(tile).toHaveClass('overflow-hidden')
+    expect(tiles.map((tile) => tile?.getAttribute('data-landing-tile'))).toEqual([
+      'sun',
+      'peach',
+      'sky',
+      'mint',
+    ])
   })
 
   it('shows the pantry: three ingredients ticked, the lemon to buy', () => {
