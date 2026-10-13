@@ -24,8 +24,407 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: Lint, Type Check & Test
+  # The checks run as four parallel jobs (HON-1177): one sequential job took
+  # about 16 min per green run, and every PR, the `/merge` poll and the
+  # orchestrator wait on it. The repository is public, so Actions minutes are
+  # free and wall time is the only cost. The fifth job, `ci`, keeps the old
+  # check name `Lint, Type Check & Test` and turns red when any of the four
+  # does — see its own comment.
+  #
+  # Each job carries a full copy of the same `env` and `permissions` blocks.
+  # A job that imports src/lib/env.ts needs the variables its schema parses,
+  # and one shared copy is easier to keep correct than four trimmed ones.
+
+  # ==========================================
+  # Static checks: git, lockfile and source-tree scans; no DB or browser
+  # ==========================================
+  static:
+    name: Static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: write
+
+    env:
+      # Literal brand string, not a secret: only required so `clientEnv`
+      # (src/lib/env.ts) parses. The value is rendered in emails only, which
+      # no CI job sends. Kept out of repo variables so nothing drifts from
+      # the product name.
+      NEXT_PUBLIC_APP_NAME: Wobblepot
+      NEXT_PUBLIC_APP_ENV: ci
+      NEXT_TELEMETRY_DISABLED: 1
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
+      # Not a secret: both sides of the bearer check live inside the E2E job.
+      # The account-deletion E2E spec (HON-479) calls the real purge cron with
+      # it instead of adding a test-only branch to the production route. 32+
+      # chars to satisfy the env schema.
+      CRON_SECRET: ci-e2e-cron-secret-not-a-real-credential
+      SEED_TEST_USERS: '1'
+      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
+      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # Full history so `git merge-base` resolves for the immutability
+          # guards below — the PR base sha is an ancestor that only a full
+          # clone is guaranteed to contain, and the push-side `--tree` check
+          # walks all of `main`'s first-parent history. At 9 MiB / ~720 commits
+          # that costs a couple of seconds. Reverting to the depth-1 default
+          # does not merely degrade the guards, it disables them: the base sha
+          # is never fetched, so the PR check exits 2 on an unresolvable ref,
+          # and `--tree` exits 2 on the shallow clone — reddening every `main`
+          # run. Fetching the base back at `--depth=1` is worse still — it
+          # resolves the ref but re-shallows the repository, and the guard then
+          # falls back to a two-tree diff that blames the branch for every
+          # migration the base gained since the fork point. If this has to
+          # change, fetch without `--depth`. The other jobs read no history and
+          # keep the depth-1 default.
+          fetch-depth: 0
+
+      # Guardrail (HON-641): a migration that is already on `main` has been
+      # applied somewhere durable — deploy-db-migrations-staging.yml runs
+      # `prisma migrate deploy` on every merge, and production applies the same
+      # files. Editing one afterwards can only break the checksum Prisma
+      # recorded at apply time, which is what made `migrate dev` unusable in
+      # HON-558. Needs nothing but git, so it runs before the install and fails
+      # in seconds.
+      #
+      # Two steps, one per event. This one is prevention: it runs on the PR,
+      # before the migration reaches `main`. The next is detection for the
+      # edits that get past it anyway.
+      - name: Check migrations are immutable
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/check-migrations-immutable.sh "$BASE_SHA"
+
+      # Detection, not prevention (HON-649, HON-671). `main` has no required
+      # status checks (HON-584), so an edited migration can still land: a PR
+      # merged red, a PR run cancelled by `cancel-in-progress`, or a merge
+      # through the GitHub UI. By the time this runs, deploy-db-migrations-
+      # staging.yml has been triggered by the same push, so the best available
+      # outcome is a loud signal — and the decision is to fail CI on `main`
+      # (this job, and through it the `Lint, Type Check & Test` aggregate),
+      # the loudest signal the repo has, rather than add a notification path.
+      #
+      # A red CI on `main` blocks nothing downstream (verified against the
+      # triggers): deploy-storybook.yml runs on its own `push` paths filter,
+      # deploy-code-production.yml and deploy-db-migrations-production.yml are
+      # `workflow_dispatch` only, and staging-smoke.yml follows the staging
+      # migrations workflow — none uses `workflow_run` or `needs` on this one.
+      #
+      # `--tree` checks HEAD's state, not this push's range: every migration.sql
+      # must match the blob it was first added with on `main`'s first-parent
+      # history, and none may be deleted. So the red is durable — every later
+      # push stays red until the edit is reverted, and an unrelated merge can
+      # no longer turn `main` green over the drift. It needs the full history
+      # the checkout above provides, and exits 2 on a shallow clone rather than
+      # passing. The two historical edits to migrations that had failed to apply
+      # (#181, #356) are pinned in scripts/migration-immutability-allowlist.txt;
+      # a pin accepts one exact blob, with a reason, and is the only sanctioned
+      # way to keep a post-add edit. It assumes each first-parent commit is one
+      # merge unit (squash or merge commit); a rebase merge that adds a
+      # migration and fixes it up in a later commit reads as an edit, and the
+      # remedy there is a pin, not a revert — see the script header.
+      #
+      # Because it checks the tree, the workflow-level `cancel-in-progress` no
+      # longer hides an edit: a push whose run is cancelled by the next push is
+      # still in the next run's HEAD. The cost of this step running first is
+      # unchanged — while it is red, each `main` run also skips the rest of
+      # this job (lint, format, type check and the other static scans; the
+      # unit, Storybook and E2E jobs still run) — which is one more reason to
+      # revert promptly.
+      #
+      # Recovery is a revert, not a fix-forward. `migrate deploy` never
+      # re-applies a migration it has recorded, so staging and production still
+      # hold the checksum of the ORIGINAL SQL; only restoring those bytes clears
+      # the drift, and a new migration would leave it in place for good. The
+      # script prints that instruction itself in this mode. The revert PR's own
+      # range check still fails (a revert is an `M` against its base) — merge
+      # it deliberately; its `main` push then goes green here.
+      - name: Check migrations are immutable (post-merge detection)
+        if: github.event_name == 'push'
+        run: bash scripts/check-migrations-immutable.sh --tree
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run linter
+        run: pnpm lint
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Run type check
+        run: pnpm type-check
+
+      # Dependency advisory gate, half 1 of 2 (HON-595).
+      #
+      # HON-588 cleared defu@6.1.4 (high — prototype pollution on the
+      # better-auth > defu production auth path) purely by lockfile dedupe onto
+      # 6.1.7. No spec changed: better-auth@1.7.2 still declares `^6.1.4`, so a
+      # lockfile regeneration can silently put the advisory back, and `pnpm
+      # audit` would not notice at any threshold we can afford to gate on (see
+      # the second half at the end of this job). This asserts those specific
+      # resolutions directly. The pin list, with an advisory range and a reason
+      # per entry, lives in scripts/check-lockfile-pins.ts.
+      #
+      # Runs here, in the cheap static job, because it is a local text scan of
+      # pnpm-lock.yaml — no network, no DB, no browser, so it cannot flake and
+      # costs ~2s.
+      - name: Check lockfile pins
+        run: pnpm lockfile:check
+
+      # Colocated story gate (HON-757): every component under src/components
+      # needs a sibling `.stories.tsx`, or an allowlist entry with a reason in
+      # scripts/check-colocated-stories.ts. A local tree scan like the lockfile
+      # check above — no network, so it sits in the cheap static job.
+      - name: Check colocated stories
+        run: pnpm stories:check
+
+      # Seed-data gate (HON-551): static validation of the seed TS arrays —
+      # cross-file duplicates, naming conventions, nutritional plausibility,
+      # and et translation coverage. No DB needed, so it runs in the cheap
+      # static job rather than beside the seed in the E2E job.
+      - name: Validate seed data
+        run: pnpm db:validate
+
+      # Guardrail (HON-560): @smoke specs run against shared staging, where
+      # /api/e2e-seed 404s by design — fail at PR time if one reaches for a
+      # seed-dependent helper. Static grep, no DB or browser needed.
+      - name: Check @smoke specs are staging-safe
+        run: bash scripts/check-smoke-specs.sh
+
+      # ==========================================
+      # Dependency advisory gate, half 2 of 2 (HON-595)
+      # ==========================================
+      # Threshold: critical only. This is a deliberate, settled choice — do not
+      # re-litigate it in review without new numbers.
+      #
+      # `pnpm audit` bare reports 33 high / 21 moderate / 4 low on main
+      # (2026-09-07). Every one of those is transitive and dev/build-time, with
+      # no fix available short of a dependency major, so gating on `high` would
+      # turn every PR red on day one and the gate would be disabled within a
+      # week. `critical` has 0 advisories today, so this step starts green and
+      # stays honest: a new critical is a real, actionable regression.
+      #
+      # The option not taken is a full `pnpm audit` plus an allowlist file. That
+      # is the right end state, but an allowlist with 33 entries on day one is a
+      # rubber stamp, so it is deferred until the transitive high count is low
+      # enough to review entry by entry.
+      #
+      # Placed last, and deliberately NOT next to `Check lockfile pins` above:
+      # this is the only step in the workflow that talks to the npm registry,
+      # and `pnpm audit` exits 1 on a transport failure exactly as it does on a
+      # finding (~70s of retries first). Earlier in the job a registry blip
+      # would red the job before the lockfile pins, the colocated stories, the
+      # seed validation and the smoke-spec check ever reported, costing the PR
+      # those signals for a reason unrelated to its diff. Here it can only ever
+      # be the last thing to fail. The unit, Storybook and E2E jobs run in
+      # parallel and report regardless.
+      #
+      # `!cancelled()` rather than the default: an earlier failing step should
+      # not hide a newly published critical, and a manual job cancel should not
+      # spend 70s on retries.
+      - name: Audit dependencies (critical)
+        if: ${{ !cancelled() }}
+        run: pnpm audit --audit-level critical
+
+  # ==========================================
+  # Unit tests (Vitest)
+  # ==========================================
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: write
+
+    # An empty Postgres, with no migrations, so a test that loads src/lib/auth.ts
+    # can reach a server (HON-1177). Better Auth's oauth-provider plugin seeds
+    # the MCP resource row when auth initialises. On a database without the
+    # `oauthResource` table it logs and defers the seed, but a refused
+    # connection rejects outside any test, and Vitest fails the run on the
+    # unhandled rejection even when every test passed. The unit tests ran
+    # beside this sidecar before the split, so this keeps that behaviour.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: honkadori_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Literal brand string, not a secret: only required so `clientEnv`
+      # (src/lib/env.ts) parses. The value is rendered in emails only, which
+      # no CI job sends. Kept out of repo variables so nothing drifts from
+      # the product name.
+      NEXT_PUBLIC_APP_NAME: Wobblepot
+      NEXT_PUBLIC_APP_ENV: ci
+      NEXT_TELEMETRY_DISABLED: 1
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
+      # Not a secret: both sides of the bearer check live inside the E2E job.
+      # The account-deletion E2E spec (HON-479) calls the real purge cron with
+      # it instead of adding a test-only branch to the production route. 32+
+      # chars to satisfy the env schema.
+      CRON_SECRET: ci-e2e-cron-secret-not-a-real-credential
+      SEED_TEST_USERS: '1'
+      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
+      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test
+
+  # ==========================================
+  # Storybook: a11y gate and static build
+  # ==========================================
+  storybook:
+    name: Storybook
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: write
+
+    env:
+      # Literal brand string, not a secret: only required so `clientEnv`
+      # (src/lib/env.ts) parses. The value is rendered in emails only, which
+      # no CI job sends. Kept out of repo variables so nothing drifts from
+      # the product name.
+      NEXT_PUBLIC_APP_NAME: Wobblepot
+      NEXT_PUBLIC_APP_ENV: ci
+      NEXT_TELEMETRY_DISABLED: 1
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
+      # Not a secret: both sides of the bearer check live inside the E2E job.
+      # The account-deletion E2E spec (HON-479) calls the real purge cron with
+      # it instead of adding a test-only branch to the production route. 32+
+      # chars to satisfy the env schema.
+      CRON_SECRET: ci-e2e-cron-secret-not-a-real-credential
+      SEED_TEST_USERS: '1'
+      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
+      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Cache the ~150 MB Chromium download across runs. Playwright is pinned
+      # in pnpm-lock.yaml, so the lockfile hash is a stable cache key (HON-529).
+      # The E2E job restores the same key.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      # On cache hit the browser binary is restored, but `--with-deps`
+      # OS-level libraries are not in ~/.cache/ms-playwright. Install just
+      # the deps (~5s) so headless launch doesn't fail with missing libs.
+      - name: Install Playwright system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Run Storybook a11y tests
+        run: pnpm test-storybook:ci
+
+      # Static build gate for the GitHub Pages deploy (deploy-storybook.yml).
+      # The a11y run above exercises the stories under Vitest but never runs
+      # `storybook build`, so a broken manager bundle or preview head would
+      # otherwise surface only as a failed deploy on main after merge.
+      # NODE_ENV must be `production` to match deploy-storybook.yml: `vite build`
+      # only defaults it when unset, so the job-level `NODE_ENV: test` would
+      # otherwise flip isProduction, the dev/prod export condition, and the
+      # inlined process.env.NODE_ENV — gating a different artifact than the one
+      # that ships. Scoped to this step: on the job it would make `pnpm install`
+      # skip devDependencies.
+      - name: Build Storybook
+        env:
+          NODE_ENV: production
+        run: pnpm build-storybook
+
+  # ==========================================
+  # E2E tier 1: Playwright against Docker Postgres sidecar (HON-455)
+  # ==========================================
+  e2e:
+    name: E2E
     runs-on: ubuntu-latest
     # Above 29 Playwright tests × retries × 60s per-test timeout plus all
     # the setup steps so a slow run surfaces real failures instead of a
@@ -82,84 +481,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-        with:
-          # Full history so `git merge-base` resolves for the immutability
-          # guards below — the PR base sha is an ancestor that only a full
-          # clone is guaranteed to contain, and the push-side `--tree` check
-          # walks all of `main`'s first-parent history. At 9 MiB / ~720 commits
-          # that costs a couple of seconds. Reverting to the depth-1 default
-          # does not merely degrade the guards, it disables them: the base sha
-          # is never fetched, so the PR check exits 2 on an unresolvable ref,
-          # and `--tree` exits 2 on the shallow clone — reddening every `main`
-          # run. Fetching the base back at `--depth=1` is worse still — it
-          # resolves the ref but re-shallows the repository, and the guard then
-          # falls back to a two-tree diff that blames the branch for every
-          # migration the base gained since the fork point. If this has to
-          # change, fetch without `--depth`.
-          fetch-depth: 0
-
-      # Guardrail (HON-641): a migration that is already on `main` has been
-      # applied somewhere durable — deploy-db-migrations-staging.yml runs
-      # `prisma migrate deploy` on every merge, and production applies the same
-      # files. Editing one afterwards can only break the checksum Prisma
-      # recorded at apply time, which is what made `migrate dev` unusable in
-      # HON-558. Needs nothing but git, so it runs before the install and fails
-      # in seconds.
-      #
-      # Two steps, one per event. This one is prevention: it runs on the PR,
-      # before the migration reaches `main`. The next is detection for the
-      # edits that get past it anyway.
-      - name: Check migrations are immutable
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: bash scripts/check-migrations-immutable.sh "$BASE_SHA"
-
-      # Detection, not prevention (HON-649, HON-671). `main` has no required
-      # status checks (HON-584), so an edited migration can still land: a PR
-      # merged red, a PR run cancelled by `cancel-in-progress`, or a merge
-      # through the GitHub UI. By the time this runs, deploy-db-migrations-
-      # staging.yml has been triggered by the same push, so the best available
-      # outcome is a loud signal — and the decision is to fail this `ci` job on
-      # `main`, the loudest signal the repo has, rather than add a notification
-      # path.
-      #
-      # A red `ci` on `main` blocks nothing downstream (verified against the
-      # triggers): deploy-storybook.yml runs on its own `push` paths filter,
-      # deploy-code-production.yml and deploy-db-migrations-production.yml are
-      # `workflow_dispatch` only, and staging-smoke.yml follows the staging
-      # migrations workflow — none uses `workflow_run` or `needs` on this one.
-      #
-      # `--tree` checks HEAD's state, not this push's range: every migration.sql
-      # must match the blob it was first added with on `main`'s first-parent
-      # history, and none may be deleted. So the red is durable — every later
-      # push stays red until the edit is reverted, and an unrelated merge can
-      # no longer turn `main` green over the drift. It needs the full history
-      # the checkout above provides, and exits 2 on a shallow clone rather than
-      # passing. The two historical edits to migrations that had failed to apply
-      # (#181, #356) are pinned in scripts/migration-immutability-allowlist.txt;
-      # a pin accepts one exact blob, with a reason, and is the only sanctioned
-      # way to keep a post-add edit. It assumes each first-parent commit is one
-      # merge unit (squash or merge commit); a rebase merge that adds a
-      # migration and fixes it up in a later commit reads as an edit, and the
-      # remedy there is a pin, not a revert — see the script header.
-      #
-      # Because it checks the tree, the workflow-level `cancel-in-progress` no
-      # longer hides an edit: a push whose run is cancelled by the next push is
-      # still in the next run's HEAD. The cost of this step running first is
-      # unchanged — while it is red, each `main` run also skips lint, tests and
-      # E2E — which is one more reason to revert promptly.
-      #
-      # Recovery is a revert, not a fix-forward. `migrate deploy` never
-      # re-applies a migration it has recorded, so staging and production still
-      # hold the checksum of the ORIGINAL SQL; only restoring those bytes clears
-      # the drift, and a new migration would leave it in place for good. The
-      # script prints that instruction itself in this mode. The revert PR's own
-      # range check still fails (a revert is an `M` against its base) — merge
-      # it deliberately; its `main` push then goes green here.
-      - name: Check migrations are immutable (post-merge detection)
-        if: github.event_name == 'push'
-        run: bash scripts/check-migrations-immutable.sh --tree
 
       - name: Enable Corepack
         run: corepack enable
@@ -173,57 +494,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run linter
-        run: pnpm lint
-
-      - name: Check formatting
-        run: pnpm format:check
-
-      - name: Run type check
-        run: pnpm type-check
-
-      # Dependency advisory gate, half 1 of 2 (HON-595).
-      #
-      # HON-588 cleared defu@6.1.4 (high — prototype pollution on the
-      # better-auth > defu production auth path) purely by lockfile dedupe onto
-      # 6.1.7. No spec changed: better-auth@1.7.2 still declares `^6.1.4`, so a
-      # lockfile regeneration can silently put the advisory back, and `pnpm
-      # audit` would not notice at any threshold we can afford to gate on (see
-      # the second half at the end of this job). This asserts those specific
-      # resolutions directly. The pin list, with an advisory range and a reason
-      # per entry, lives in scripts/check-lockfile-pins.ts.
-      #
-      # Runs here, in the cheap static block, because it is a local text scan of
-      # pnpm-lock.yaml — no network, no DB, no browser, so it cannot flake and
-      # costs ~2s.
-      - name: Check lockfile pins
-        run: pnpm lockfile:check
-
-      # Colocated story gate (HON-757): every component under src/components
-      # needs a sibling `.stories.tsx`, or an allowlist entry with a reason in
-      # scripts/check-colocated-stories.ts. A local tree scan like the lockfile
-      # check above — no network, so it sits in the cheap static block.
-      - name: Check colocated stories
-        run: pnpm stories:check
-
-      - name: Run unit tests
-        run: pnpm test
-
-      # Seed-data gate (HON-551): static validation of the seed TS arrays —
-      # cross-file duplicates, naming conventions, nutritional plausibility,
-      # and et translation coverage. No DB needed, so it runs in the cheap
-      # static-check block and fails fast before the Playwright install.
-      - name: Validate seed data
-        run: pnpm db:validate
-
-      # Guardrail (HON-560): @smoke specs run against shared staging, where
-      # /api/e2e-seed 404s by design — fail at PR time if one reaches for a
-      # seed-dependent helper. Static grep, no DB or browser needed.
-      - name: Check @smoke specs are staging-safe
-        run: bash scripts/check-smoke-specs.sh
-
       # Cache the ~150 MB Chromium download across runs. Playwright is pinned
       # in pnpm-lock.yaml, so the lockfile hash is a stable cache key (HON-529).
+      # The Storybook job restores the same key.
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v6
@@ -242,27 +515,6 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
 
-      - name: Run Storybook a11y tests
-        run: pnpm test-storybook:ci
-
-      # Static build gate for the GitHub Pages deploy (deploy-storybook.yml).
-      # The a11y run above exercises the stories under Vitest but never runs
-      # `storybook build`, so a broken manager bundle or preview head would
-      # otherwise surface only as a failed deploy on main after merge.
-      # NODE_ENV must be `production` to match deploy-storybook.yml: `vite build`
-      # only defaults it when unset, so the job-level `NODE_ENV: test` would
-      # otherwise flip isProduction, the dev/prod export condition, and the
-      # inlined process.env.NODE_ENV — gating a different artifact than the one
-      # that ships. Scoped to this step: on the job it would make `pnpm install`
-      # skip devDependencies.
-      - name: Build Storybook
-        env:
-          NODE_ENV: production
-        run: pnpm build-storybook
-
-      # ==========================================
-      # E2E tier 1: Playwright against Docker Postgres sidecar (HON-455)
-      # ==========================================
       - name: Apply database migrations
         run: pnpm prisma migrate deploy
 
@@ -273,11 +525,11 @@ jobs:
       # Playwright gets killed before the whole job, letting the artifact
       # upload below still run with the partial test-results/ directory.
       #
-      # E2E_DISABLE_RATE_LIMIT is scoped to this step only — setting it at
-      # the job level would leak into `pnpm test` and short-circuit the
-      # rate-limit unit tests (which assume the real limiter path). The
-      # bypass is only meaningful during the live Playwright run against
-      # the built Next app.
+      # E2E_DISABLE_RATE_LIMIT is scoped to this step only. The unit tests now
+      # run in their own job, but the rate-limit unit tests assume the real
+      # limiter path, so the bypass must never reach a job-level `env` that
+      # could be copied back to them. It is only meaningful during the live
+      # Playwright run against the built Next app.
       - name: Run E2E tests (excluding @ai)
         timeout-minutes: 35
         env:
@@ -296,39 +548,51 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      # ==========================================
-      # Dependency advisory gate, half 2 of 2 (HON-595)
-      # ==========================================
-      # Threshold: critical only. This is a deliberate, settled choice — do not
-      # re-litigate it in review without new numbers.
-      #
-      # `pnpm audit` bare reports 33 high / 21 moderate / 4 low on main
-      # (2026-09-07). Every one of those is transitive and dev/build-time, with
-      # no fix available short of a dependency major, so gating on `high` would
-      # turn every PR red on day one and the gate would be disabled within a
-      # week. `critical` has 0 advisories today, so this step starts green and
-      # stays honest: a new critical is a real, actionable regression.
-      #
-      # The option not taken is a full `pnpm audit` plus an allowlist file. That
-      # is the right end state, but an allowlist with 33 entries on day one is a
-      # rubber stamp, so it is deferred until the transitive high count is low
-      # enough to review entry by entry.
-      #
-      # Placed last, and deliberately NOT next to `Check lockfile pins` above:
-      # this is the only step in the job that talks to the npm registry, and
-      # `pnpm audit` exits 1 on a transport failure exactly as it does on a
-      # finding (~70s of retries first). Earlier in the job a registry blip
-      # would red the run before the unit tests, the seed validation, the
-      # Storybook a11y gate and the 35-minute E2E tier ever reported, costing
-      # the PR every other signal for a reason unrelated to its diff. Here it
-      # can only ever be the last thing to fail.
-      #
-      # `!cancelled()` rather than the default: an earlier failing step should
-      # not hide a newly published critical, and a manual job cancel should not
-      # spend 70s on retries.
-      - name: Audit dependencies (critical)
-        if: ${{ !cancelled() }}
-        run: pnpm audit --audit-level critical
+  # ==========================================
+  # Aggregate check: Lint, Type Check & Test (HON-1177)
+  # ==========================================
+  # Keeps the check name the merge tooling waits for. The settle polls in
+  # /merge (.claude/skills/merge/SKILL.md) and /auto-implement
+  # (.claude/skills/auto-implement/SKILL.md) refuse to settle a code PR until
+  # a check named `Lint, Type Check & Test` has registered, and
+  # scripts/ci-settle-gate.test.ts pins that name (`CI_JOB`). Rename this job
+  # and `/merge` never settles a code PR.
+  #
+  # `if: always()` so it still runs, and reports red, when a needed job fails
+  # or is cancelled — without it a failed dependency would skip this job, and
+  # a skipped check reads as passing. Any result other than `success`
+  # (`failure`, `cancelled`, `skipped`) fails it.
+  ci:
+    name: Lint, Type Check & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [static, unit, storybook, e2e]
+    if: always()
+    permissions: {}
+
+    steps:
+      - name: Check the result of every job
+        env:
+          STATIC_RESULT: ${{ needs.static.result }}
+          UNIT_RESULT: ${{ needs.unit.result }}
+          STORYBOOK_RESULT: ${{ needs.storybook.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+        run: |
+          status=0
+          for pair in \
+            "Static checks=$STATIC_RESULT" \
+            "Unit tests=$UNIT_RESULT" \
+            "Storybook=$STORYBOOK_RESULT" \
+            "E2E=$E2E_RESULT"; do
+            name=${pair%%=*}
+            result=${pair#*=}
+            echo "$name: $result"
+            if [ "$result" != success ]; then
+              echo "::error::$name finished with result '$result'"
+              status=1
+            fi
+          done
+          exit "$status"
 
   # ==========================================
   # Vercel env-var drift audit (HON-550)
