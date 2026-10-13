@@ -169,11 +169,60 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # ESLint, Prettier and tsc caches (HON-1181). Cold, the three steps took
+      # about 100 s per run; warm, they re-check only the files that changed.
+      #
+      # Every key ends in the commit SHA. `actions/cache` does not save on an
+      # exact key hit, so a fixed key would be written once and then drift
+      # further from `main` on every merge. The SHA saves a fresh cache on
+      # every run, and the restore-keys prefix picks the newest one.
+      #
+      # The ESLint and Prettier caches use `--cache-strategy content`: the
+      # default `metadata` strategy compares mtimes, and a fresh checkout gives
+      # every file a new mtime, so the cache would never hit. The flags live in
+      # these steps only, so `pnpm lint` and `pnpm format:check` write no cache
+      # files locally.
+      #
+      # ESLint's cache tracks each linted file and the config, but not files a
+      # plugin reads on its own. @shadcn/lint reads components.json, the CSS
+      # files under src and the primitives under src/components/ui, so they
+      # are in the key: a token change must re-lint every file. For the same
+      # reason the restore never falls back past that hash.
+      - name: Cache ESLint results
+        uses: actions/cache@v6
+        with:
+          path: .eslintcache
+          key: ${{ runner.os }}-eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs', 'components.json', 'src/**/*.css', 'src/components/ui/**') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs', 'components.json', 'src/**/*.css', 'src/components/ui/**') }}-
+
       - name: Run linter
-        run: pnpm lint
+        run: pnpm exec eslint . --cache --cache-location .eslintcache --cache-strategy content
+
+      # The lockfile pins Prettier and prettier-plugin-tailwindcss.
+      - name: Cache Prettier results
+        uses: actions/cache@v6
+        with:
+          path: .prettiercache
+          key: ${{ runner.os }}-prettier-${{ hashFiles('pnpm-lock.yaml', '.prettierrc', '.prettierignore') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-prettier-${{ hashFiles('pnpm-lock.yaml', '.prettierrc', '.prettierignore') }}-
 
       - name: Check formatting
-        run: pnpm format:check
+        run: pnpm exec prettier --check . --cache --cache-location .prettiercache --cache-strategy content
+
+      # `incremental: true` in tsconfig.json writes tsconfig.tsbuildinfo. tsc
+      # checks it against each file's content hash and its own version, so a
+      # cache from an older lockfile or tsconfig is safe, and the last
+      # restore-key falls back to it.
+      - name: Cache TypeScript build info
+        uses: actions/cache@v6
+        with:
+          path: tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsc-${{ hashFiles('pnpm-lock.yaml', 'tsconfig.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tsc-${{ hashFiles('pnpm-lock.yaml', 'tsconfig.json') }}-
+            ${{ runner.os }}-tsc-
 
       - name: Run type check
         run: pnpm type-check
@@ -391,16 +440,12 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
+      # A cache hit skips `--with-deps` too, and no `install-deps` step runs
+      # (HON-1181): the ubuntu runner image ships Google Chrome, so the
+      # shared libraries Chromium needs are already installed.
       - name: Install Playwright chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
-
-      # On cache hit the browser binary is restored, but `--with-deps`
-      # OS-level libraries are not in ~/.cache/ms-playwright. Install just
-      # the deps (~5s) so headless launch doesn't fail with missing libs.
-      - name: Install Playwright system deps (cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium
 
       - name: Run Storybook a11y tests
         run: pnpm test-storybook:ci
@@ -504,22 +549,30 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
+      # A cache hit skips `--with-deps` too, and no `install-deps` step runs
+      # (HON-1181): the ubuntu runner image ships Google Chrome, so the
+      # shared libraries Chromium needs are already installed.
       - name: Install Playwright chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
-
-      # On cache hit the browser binary is restored, but `--with-deps`
-      # OS-level libraries are not in ~/.cache/ms-playwright. Install just
-      # the deps (~5s) so headless launch doesn't fail with missing libs.
-      - name: Install Playwright system deps (cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium
 
       - name: Apply database migrations
         run: pnpm prisma migrate deploy
 
       - name: Seed database
         run: pnpm db:seed
+
+      # The E2E web server runs `next build` (playwright.config.ts). Cache its
+      # `.next/cache` (HON-1181): the key moves with any change under src, and
+      # the restore-keys prefix still gives a partial hit from the newest
+      # build on the same lockfile.
+      - name: Cache Next.js build
+        uses: actions/cache@v6
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
 
       # Tier 1 E2E run. Step-level timeout sits below the job-level 45m so
       # Playwright gets killed before the whole job, letting the artifact
