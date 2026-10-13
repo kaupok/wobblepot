@@ -39,17 +39,17 @@ Build one command that goes red on the user's exact symptom and green once it is
 1. **A failing Vitest test next to the source.** `pnpm test <path>`. A `.test.ts` file runs in node and a `.test.tsx` file runs in jsdom; a `.test.ts` that needs a DOM starts with `// @vitest-environment jsdom` (CLAUDE.md → Testing). Use `createQueryWrapper()` from `src/test/query-wrapper.tsx` for a component that uses TanStack Query.
 2. **A Storybook play function.** `pnpm test-storybook:ci <path-to-story>`. Use it when the bug lives in rendering or interaction that jsdom does not model (focus, layout, a Radix portal).
 3. **A Playwright spec.** `pnpm test:e2e:local tests/e2e/<spec>.spec.ts` runs one spec against a fresh Neon branch. Name one spec: the full suite is slow, and the `@ai` specs make paid Claude calls. If the run outlasts the 600 s Bash cap, use the marker-file wait in `.claude/skills/auto-implement/batched.md`.
-4. **A `curl` against the review server.** Start `pnpm review:local` with `run_in_background: true`, wait in the foreground until its output holds `REVIEW-READY http://localhost:<port>`, then `curl` the route. Keep it running for the later phases, which re-run the loop; Phase 7 stops it. Never end a turn beside it (CLAUDE.md → Working style).
+4. **A `curl` against the review server.** Start `pnpm review:local` with `run_in_background: true`, wait in the foreground until its output holds `REVIEW-READY http://localhost:<port>`, then `curl` the route. Keep it running for the later phases, which re-run the loop. Stop it in Phase 7, or before you stop at any earlier point, so its Neon branch is deleted. Never end a turn beside it (CLAUDE.md → Working style).
 5. **A throwaway script under `/tmp`.** Use it for a pure function or a data shape that has no test seam yet. Never commit it.
 6. **`git bisect run` with one of the above,** when the bug appeared between two known commits. The loop command is the bisect script; it must exit non-zero on the bug and zero without it.
 
-**A flaky bug** is not debuggable at a 1-in-50 rate. Raise the reproduction rate first: loop the trigger (`for i in $(seq 1 50); do pnpm test <path> || break; done`), add load, shorten timeouts, or force the interleaving. Debug once the loop goes red most of the time.
+**A flaky bug** is not debuggable at a 1-in-50 rate. Raise the reproduction rate first: loop the trigger (`(for i in $(seq 1 50); do pnpm test <path> || exit 1; done)`, which exits non-zero on the first failure), add load, shorten timeouts, or force the interleaving. Debug once the loop goes red most of the time.
 
-**A reproduction only a human can run** (a real device, a payment provider, a third-party login) gets no `hitl-loop` script, because the unattended cycle has no human to run it. File a Todo issue that names the steps and what to capture, and stop.
+**A reproduction only a human can run** (a real device, a payment provider, a third-party login) gets no `hitl-loop` script, because the unattended cycle has no human to run it. File a Todo issue that names the steps and what to capture, stop any server you started, and stop.
 
 **Done when** you name one command, you have run it once, you show its redacted output, and that output shows the symptom from your one-sentence description, not a nearby failure. A test that fails on a typo in the test does not count.
 
-**If no loop can be built,** stop. List each option you tried and why it did not reproduce the symptom. Ask the user for a reproducing environment or a redacted artifact: a HAR file, a server log, a screen recording. No loop, no hypotheses.
+**If no loop can be built,** stop any server you started, then stop. List each option you tried and why it did not reproduce the symptom. Ask the user for a reproducing environment or a redacted artifact: a HAR file, a server log, a screen recording. No loop, no hypotheses.
 
 ### 3. Minimise
 
