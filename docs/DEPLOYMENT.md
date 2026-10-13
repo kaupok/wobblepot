@@ -19,7 +19,7 @@ Complete guide for deploying Wobblepot to staging and production environments.
 
 ## CI Pipeline
 
-Every PR and every push to `main` runs the following checks in GitHub Actions (`.github/workflows/ci.yml`). Docs-only changes (`**/*.md`, `docs/**`) skip CI entirely. The checks run as parallel jobs (HON-1177), so a green run takes as long as the slowest job, not the sum of all of them. Within a job the steps run in the order listed:
+Every PR and every push to `main` runs the following checks in GitHub Actions (`.github/workflows/ci.yml`). Docs-only changes run them too, because a required status check has to come from a workflow that cannot be skipped (HON-584). The checks run as parallel jobs (HON-1177), so a green run takes as long as the slowest job, not the sum of all of them. Within a job the steps run in the order listed:
 
 **`Static checks`** — the only job that checks out the full git history:
 
@@ -55,7 +55,7 @@ CI runs lint, format check and type check with a cache (HON-1181): ESLint and Pr
 
 **Important notes:**
 
-- **None of these is a required status check yet.** `main` has no required checks, so a red check shows on the PR but does not stop a merge; it is on whoever merges to read it. HON-584 tracks making them required.
+- **`Lint, Type Check & Test` is a required status check on `main`** (HON-584). A red or missing check makes `gh pr merge` fail, which is what stops an unattended orchestrator merge. `enforce_admins` is off, so a repository admin can still merge past a known-bad check with `gh pr merge --admin` and should say why in the PR. The other checks stay advisory; see [GIT_WORKFLOW.md](./GIT_WORKFLOW.md) → "What Enforces What" for the reasons and the override procedure.
 - CI builds the app as part of the E2E step (Playwright starts `pnpm build && pnpm start`). Vercel builds each deployment separately
 - The static Storybook publishes to GitHub Pages (<https://kaupok.github.io/wobblepot/>) from every `main` push that touches a build input — `.github/workflows/deploy-storybook.yml`. It is a docs surface only and sits outside the production release path below
 - Locally: `pnpm test:e2e` runs against `pnpm dev`; see [`tests/e2e/README.md`](../tests/e2e/README.md) for details

@@ -1,23 +1,22 @@
 name: CI
 
-# Skip CI for docs-only changes (HON-529). main has no required status
-# checks today, so docs-only PRs simply show no CI status and remain
-# mergeable. If CI ever becomes a required check, switch to the
-# dummy-job pattern (a second workflow with the same `name:` that
-# triggers on these paths and exits 0 immediately) so PRs don't hang.
+# Runs on every PR and every push to `main`, docs-only changes included.
+# `Lint, Type Check & Test` (the `ci` job below) is a required status check on
+# `main` (HON-584), and a required check has to come from a workflow that
+# cannot be skipped: when a path filter skips the workflow, the check stays
+# "Pending" and blocks the merge for good (GitHub docs → "Troubleshooting
+# required status checks": avoid requiring workflows that can be skipped).
+# That is why the docs-only `paths-ignore` from HON-529 is gone. The
+# alternative, a second workflow with the same check name that exits 0 on
+# docs paths, was rejected: a PR that changes docs and code triggers both,
+# and two check runs of one name race for the verdict. The repository is
+# public, so Actions minutes are free; a docs-only run costs about 4 min of
+# wall time and nothing else.
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.github/ISSUE_TEMPLATE/**'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.github/ISSUE_TEMPLATE/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
