@@ -62,7 +62,7 @@ const job = (name: string, bucket: string, workflow = 'CI'): Check => ({ name, b
 /** A commit status posted by a third-party app, e.g. Vercel's deploy. */
 const commitStatus = (bucket: string): Check => ({ name: 'Vercel', bucket, workflow: '' })
 
-/** The ci.yml job the loop refuses to settle without, for a PR touching code. */
+/** The ci.yml job the loop refuses to settle without, on every PR (HON-1184). */
 const CI_JOB = 'Lint, Type Check & Test'
 
 describe('CI-settle gate', () => {
@@ -91,77 +91,36 @@ describe('CI-settle gate', () => {
       }
     })
 
-    // HON-587: `gh pr view --json files` hardcodes `files(first: 100)` and has no
-    // --paginate, so a >100-file PR whose first 100 paths are docs reads as
-    // DOCS_ONLY — "treat as passed" — for a PR that does contain code. Every site
-    // that decides a merge must read the paginated REST endpoint instead.
-    //
-    // Prose and shell comments are excluded: only a runnable line can merge a PR,
-    // and the replacement sites carry `gh pr view --json files` in a `# NOT …`
-    // comment explaining why they no longer call it.
-    it('reads no file list from the 100-capped `gh pr view --json files`', () => {
+    // HON-1184: no PR is exempt from the required check. The polls used to
+    // classify a PR as docs-only from its file list and settle such a PR without
+    // the ci.yml job, because ci.yml skipped docs paths. HON-584 removed that
+    // path filter and made the job a required status check, so a docs-only PR
+    // that settled before its run registered went straight into a merge GitHub
+    // refuses. With the classifier gone, nothing reads the file list, so the
+    // fetch goes too: no file-list call may remain in a runnable line.
+    it('classifies no PR as docs-only and reads no file list', () => {
       for (const file of [autoImplementSkill, mergeSkill]) {
-        const lines = bashBlocks(readSkill(file))
+        const source = readSkill(file)
+        expect(countOccurrences(source, 'DOCS_ONLY'), path.basename(file)).toBe(0)
+        expect(countOccurrences(source, 'NON_DOCS'), path.basename(file)).toBe(0)
+
+        const lines = bashBlocks(source)
           .flatMap((block) => block.split('\n'))
           .filter((line) => !line.trimStart().startsWith('#'))
-          .filter((line) => line.includes('--json files'))
-
+          .filter((line) => line.includes('/files') || line.includes('changedFiles'))
         expect(lines, `${path.basename(file)}: ${lines.join(' / ')}`).toEqual([])
       }
     })
 
-    // The paginated replacement, at every site that computes it. `--jq` runs per
-    // page and would emit one result per page (HON-586), so the slurp has to be
-    // the system jq — and the REST payload keys the path `filename`, where a
-    // copied-over `.path` would yield one null per file and match no docs pattern.
-    it('slurps the paginated REST file list with the system jq', () => {
-      for (const [file, expected] of [
-        [autoImplementSkill, 2],
-        [mergeSkill, 2],
-      ] as const) {
+    // The rule that replaced it: the ci.yml job row, unconditionally, once per
+    // poll loop. A guard in front of it (`[ … ] ||`) would bring an exemption back.
+    it('requires the ci.yml job on every PR in both poll loops', () => {
+      for (const file of [autoImplementSkill, mergeSkill]) {
         const source = readSkill(file)
-        expect(countOccurrences(source, "jq -rs 'add | .[].filename'")).toBe(expected)
-        expect(countOccurrences(source, 'files?per_page=100')).toBe(expected)
-        // The token the whole fix turns on: without --paginate `gh api` returns
-        // page one only and HON-587 is back. The stub models this too, so the
-        // executed tests below catch it as well — but pin the string, because a
-        // reader diffing these files should see it named.
         expect(
-          countOccurrences(source, 'gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files'),
-        ).toBe(expected)
-        // The partial-walk guard, which is what makes a truncated page-2 failure
-        // fail closed rather than reading as docs-only.
-        expect(countOccurrences(source, '|| FILES=""')).toBe(expected)
-      }
-    })
-
-    // Both DOCS_ONLY classifiers — the poll's and the post-settle verification's —
-    // have to agree that an unreadable file list is not a docs-only PR. Without the
-    // -z test the verification prints DOCS_ONLY ("treat as passed") on a failed
-    // fetch, for a PR that nothing has checked, while the poll three lines up
-    // refuses to. Two implementations of one rule, so assert on both.
-    it('refuses to call an unreadable file list docs-only at either classifier', () => {
-      for (const [file, expected] of [
-        [autoImplementSkill, 1],
-        [mergeSkill, 1],
-      ] as const) {
-        const source = readSkill(file)
-        // The poll's guard, and the verification's.
-        expect(countOccurrences(source, 'DOCS_ONLY=false; [ -n "$FILES" ]')).toBe(expected)
-        // Three-way, not two: an unreadable list and a code change are different
-        // diagnoses, and the CI-fix loop below the verification acts on which one
-        // it is told. Both still stop; only the message differs. Asserted on the
-        // messages rather than on `if [ -z "$FILES" ]`, which /merge now also uses
-        // for the poll's re-derive guard.
-        expect(countOccurrences(source, 'elif [ -n "$NON_DOCS" ]; then')).toBe(expected)
-        expect(countOccurrences(source, 'Could not read the PR file list')).toBe(expected)
-        expect(countOccurrences(source, 'CI did not report checks for a code change')).toBe(
-          expected,
-        )
-        // And the poll's ci.yml-job rule, which consumes the same variable: it
-        // must read DOCS_ONLY, never a bare NON_DOCS that a failed fetch empties.
-        expect(countOccurrences(source, '[ "$DOCS_ONLY" = true ] || printf')).toBe(expected)
-        expect(countOccurrences(source, '[ -z "$NON_DOCS" ] || printf')).toBe(0)
+          countOccurrences(source, `  printf '%s\\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0`),
+          path.basename(file),
+        ).toBe(1)
       }
     })
 
@@ -205,40 +164,10 @@ describe('CI-settle gate', () => {
         path.join(stubBin, 'gh'),
         [
           '#!/bin/sh',
-          // `gh api --paginate .../files` — how the loop reads the file list since
-          // HON-587. Emits the REST payload shape (objects keyed `filename`, not
-          // GraphQL's `path`) so the caller's own jq is what is under test.
-          //
-          // Pagination is modelled, not faked: pages are emitted as separate JSON
-          // documents of 100, which is what `gh api --paginate` actually writes and
-          // what forces the `jq -s 'add'` slurp to do real work. Without --paginate
-          // only page one comes back — the same 100-file truncation this PR removes,
-          // so dropping the flag fails a test instead of passing silently.
-          //
-          // STUB_FETCHED caps how much is emitted while `--json changedFiles` still
-          // reports the true total, standing in for a walk that died mid-pagination.
-          // An empty STUB_FILES prints nothing, standing in for a failed fetch.
-          'if [ "$1" = "api" ]; then',
-          '  case "$*" in *--paginate*) pages=99 ;; *) pages=1 ;; esac',
-          '  [ -n "$STUB_FETCHED" ] && pages=$((STUB_FETCHED / 100))',
-          '  [ -n "$STUB_FILES" ] &&',
-          '    printf \'%s\\n\' "$STUB_FILES" | head -$((pages * 100)) |',
-          "      jq -R . | jq -c -s '. as $a | range(0; length; 100) | $a[.:.+100] | [.[] | {filename: .}]'",
-          '  exit 0',
-          'fi',
           'case "$2" in',
           '  view)',
           '    case "$*" in',
           '      *"--json number"*) printf \'%s\\n\' "$STUB_PR_NUMBER" ;;',
-          // Modelled, not served: real `gh` embeds `files(first: 100)` in its PR
-          // query and offers no --paginate, so it truncates here. Keeping the cap
-          // in the stub is what makes the >100-file test below fail if a site ever
-          // reverts to this call — without it the stub would hand back all 101
-          // paths and the revert would look correct.
-          '      *"--json files"*)  printf \'%s\\n\' "$STUB_FILES" | head -100 ;;',
-          // The scalar total, deliberately NOT subject to any cap or to
-          // STUB_FETCHED — that asymmetry is the whole signal the guard reads.
-          '      *"--json changedFiles"*) printf \'%s\\n\' "$STUB_FILES" | grep -c . ;;',
           '    esac',
           '    ;;',
           '  checks)',
@@ -272,10 +201,10 @@ describe('CI-settle gate', () => {
     /**
      * Run one chunk of the loop. Returns its marker and the poll count.
      *
-     * `fetched` truncates what the paginated fetch returns while leaving the
-     * `changedFiles` total intact — a walk that died partway, not a short PR.
+     * The stub serves no file list: the loop must decide from the check list
+     * alone, so a docs-only PR and a code PR with the same checks look the same.
      */
-    function runChunk(checks: Check[], files = 'src/app/page.tsx', fetched?: number) {
+    function runChunk(checks: Check[]) {
       prNumber += 1
       fs.rmSync(callLog, { force: true })
       fs.rmSync(`/tmp/ci-poll-${prNumber}.prev`, { force: true })
@@ -290,8 +219,6 @@ describe('CI-settle gate', () => {
             ...process.env,
             PATH: `${stubBin}:${process.env.PATH}`,
             STUB_PR_NUMBER: String(prNumber),
-            STUB_FILES: files,
-            STUB_FETCHED: fetched === undefined ? '' : String(fetched),
             STUB_CHECKS: JSON.stringify(checks),
           },
         })
@@ -342,114 +269,32 @@ describe('CI-settle gate', () => {
       expect(marker).toBe('CI_WAITING (chunk 1/6)')
     })
 
-    // Exempting the only row that reported leaves an empty list, and the
-    // loop's "at least one check exists" rule has to catch that — otherwise a
-    // PR whose Actions run never registered would settle green on nothing.
-    it('keeps waiting when a pending Vercel status is the only check', () => {
-      const { marker } = runChunk([commitStatus('pending')])
-
-      expect(marker).toBe('CI_WAITING (chunk 1/6)')
-    })
-
-    it('keeps waiting until the ci.yml job registers for a code PR', () => {
+    it('keeps waiting until the ci.yml job registers', () => {
       const { marker } = runChunk([job('Vercel env-var drift audit', 'pass'), commitStatus('pass')])
 
       expect(marker).toBe('CI_WAITING (chunk 1/6)')
     })
 
-    // A docs-only PR with a stuck Vercel has NO other row to wait on, and that
-    // is its real check list, not a contrived one: ci.yml is paths-ignored for
-    // `**/*.md` and `docs/**`; Preview smoke is `on: deployment_status` gated
-    // on `state == 'success'`, so it never registers while Vercel is pending;
-    // and Neon cleanup is `on: pull_request [closed]`, so it does not exist on
-    // an open PR. PR #678's stuck-Vercel list had no Preview smoke run at all.
-    //
-    // Exempting the one pending row therefore empties the list, and the "at
-    // least one check exists" rule stranded the PR — the same failure HON-600
-    // exists to fix, one class down.
-    it('settles a docs-only PR whose only check is a stuck Vercel status', () => {
-      const { marker, polls } = runChunk([commitStatus('pending')], 'docs/PROJECT_SPEC.md')
+    // HON-1184. A docs-only PR before its ci.yml run registers: Preview smoke
+    // is `on: deployment_status` gated on `state == 'success'`, so it never
+    // registers while Vercel is pending, and the pending Vercel row is exempted
+    // away. The list is empty, and it stays empty across two polls. The loop
+    // used to settle here for a docs-only PR, because ci.yml skipped docs paths;
+    // since HON-584 the job runs on every PR and is a required check, so
+    // settling here sends the PR into a merge GitHub refuses.
+    it('keeps waiting on a docs-only PR that has no ci.yml job row yet', () => {
+      const { marker } = runChunk([commitStatus('pending')])
+
+      expect(marker).toBe('CI_WAITING (chunk 1/6)')
+    })
+
+    // The same docs-only PR once the required job has reported: it settles like
+    // any other, with Vercel still stuck.
+    it('settles a docs-only PR once the ci.yml job row is pass', () => {
+      const { marker, polls } = runChunk([job(CI_JOB, 'pass'), commitStatus('pending')])
 
       expect(marker).toBe('CI_SETTLED')
-      // Never on the first poll: an empty list has to hold across two polls
-      // like any other, which is what the INIT sentinel on PREV buys.
       expect(polls).toBe(2)
-    })
-
-    it('settles a docs-only PR on a failed Vercel deploy so the verification can block it', () => {
-      const { marker } = runChunk([commitStatus('fail')], 'docs/PROJECT_SPEC.md')
-
-      expect(marker).toBe('CI_SETTLED')
-    })
-
-    // The docs-only allowance is keyed on a file list that was actually
-    // fetched. An empty one means the fetch failed, and reading that as
-    // "docs-only, nothing to wait for" would settle a code PR on zero checks.
-    it('does not treat an unreadable file list as docs-only', () => {
-      const { marker } = runChunk([commitStatus('pending')], '')
-
-      expect(marker).toBe('CI_WAITING (chunk 1/6)')
-    })
-
-    // The same unreadable file list, at the rule the `pending` fixture above
-    // cannot reach. A *passing* third-party status is not exempted away, so CUR
-    // is non-empty and the decision falls through to the ci.yml-job rule. That
-    // rule used to read NON_DOCS directly, where an empty value from a failed
-    // fetch means "no ci.yml job required" — the same inference DOCS_ONLY is
-    // guarded against four lines above. Keying it on DOCS_ONLY shares the guard.
-    it('does not settle a code PR without the ci.yml job when the file list is unreadable', () => {
-      const { marker } = runChunk([commitStatus('pass')], '')
-
-      expect(marker).toBe('CI_WAITING (chunk 1/6)')
-    })
-
-    // HON-587, the scenario the pagination fix exists for: 101 changed files
-    // whose first 100 are markdown. `gh pr view --json files` returns only that
-    // first page, so NON_DOCS came back empty and the loop settled a PR that
-    // does contain code on a stuck-Vercel-only check list — no ci.yml job, no
-    // build gate, straight to the merge. Read paginated, the code file is
-    // visible and the loop holds out for `Lint, Type Check & Test`.
-    it('does not treat a >100-file PR whose first 100 files are docs as docs-only', () => {
-      const files = [
-        ...Array.from({ length: 100 }, (_, i) => `docs/RUNBOOKS/generated-${i}.md`),
-        'src/app/page.tsx',
-      ].join('\n')
-
-      const { marker } = runChunk([commitStatus('pending')], files)
-
-      expect(marker).toBe('CI_WAITING (chunk 1/6)')
-    })
-
-    // A walk that died on page 2. `gh api --paginate` writes each page as it
-    // arrives and the pipeline reports jq's exit status, not gh's, so a 502
-    // partway through leaves a truncated but NON-empty list — which sails past
-    // the emptiness guard and reads as docs-only if the first page happens to be
-    // markdown. That is HON-587's outcome reached through the replacement fetch,
-    // and only a >100-file PR paginates at all, so it lands on exactly the
-    // population this fix targets. changedFiles is the unpaginated scalar that
-    // makes the truncation visible.
-    it('does not treat a partially-fetched file list as docs-only', () => {
-      const files = [
-        ...Array.from({ length: 100 }, (_, i) => `docs/RUNBOOKS/generated-${i}.md`),
-        ...Array.from({ length: 50 }, (_, i) => `src/generated-${i}.ts`),
-      ].join('\n')
-
-      // Page 1 arrived, page 2 never did: 100 markdown paths of a 150-file code PR.
-      const { marker } = runChunk([commitStatus('pass')], files, 100)
-
-      expect(marker).toBe('CI_WAITING (chunk 1/6)')
-    })
-
-    // The same list one file shorter and genuinely docs-only still settles, so
-    // the assertion above is pinned to the code file rather than to size.
-    it('still settles a genuinely docs-only PR of the same size', () => {
-      const files = Array.from({ length: 101 }, (_, i) => `docs/RUNBOOKS/generated-${i}.md`).join(
-        '\n',
-      )
-
-      const { marker } = runChunk([commitStatus('pending')], files)
-
-      expect(marker).toBe('CI_SETTLED')
     })
   })
 })
