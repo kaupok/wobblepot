@@ -668,7 +668,7 @@ Every round ends in exactly one of these, and only the second one re-enters 6.3:
 
 | Outcome of the round                                                                   | Next                                                                    |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Clean review — summary says "No issues found" **and** the anchored inline list is empty | 6.8 → Phase 7, merge (6.4)                                              |
+| Clean review — summary says "No issues found", the anchored inline list is empty, **and** `**Spec:**` lists no entry | 6.8 → Phase 7, merge (6.4)                                              |
 | `ROUND` < 3, findings addressed and pushed                                             | back to 6.3 for the next round (6.6 branch A)                           |
 | `ROUND` < 3, nothing changed — every finding deliberately deferred                     | never re-review an identical diff → 6.8 → Phase 7, merge (6.6 branch B) |
 | `ROUND` ≥ 3, everything resolved (fixed, or dropped by 6.4's bar with a note)           | 6.8 → Phase 7, merge — no 4th review (6.6 branch C)                     |
@@ -853,9 +853,10 @@ Dropping `| last` concatenates every round, so the "No issues found" check below
 The reviewer only posts substantive issues (no nitpicks), so triage is simpler:
 
 - **If the fetch returns no summary at all** → the review did not complete. Do not read this as clean; stop and report, matching 6.3's warning. An absent summary and a clean summary are not the same thing.
-- If the latest summary contains "No issues found" **and** the anchored inline list is empty → clean review, skip to 6.8 (Phase 4 may still have left deferrals to file), then Phase 7. One exception: on a documentation-only PR the summary also carries a `**Usability:**` verdict, and a **"less usable"** verdict is a finding no matter what the rest of the summary says. Treat it as an Address Now item — cut what the verdict names — rather than a clean review. `scripts/pr-review.sh` tells the reviewer not to pair the two, but the merge decision is made here, so do not depend on that.
+- If the latest summary contains "No issues found" **and** the anchored inline list is empty → clean review, skip to 6.8 (Phase 4 may still have left deferrals to file), then Phase 7. Two exceptions, each a finding no matter what the rest of the summary says. On a documentation-only PR the summary also carries a `**Usability:**` verdict, and a **"less usable"** verdict is an Address Now item: cut what the verdict names. And any entry under the `**Spec:**` heading is an Address Now item (see below). `scripts/pr-review.sh` tells the reviewer not to pair either with the phrase, but the merge decision is made here, so do not depend on that.
 - Every anchored inline review comment → **Address Now** (they are all substantive by design)
 - **Always read the latest summary body for findings too**, not only when the inline list is empty. `scripts/pr-review.sh` puts out-of-diff findings and anything past its 5-comment inline cap in the summary alone, so summary-only findings routinely arrive *alongside* inline ones. They are Address Now items as well.
+- **Each entry under the summary's `**Spec:**` heading is a finding too** (HON-1200): a missing or partial acceptance criterion, behaviour the issue did not ask for, or a criterion implemented wrong. Address Now: implement the criterion, or remove the unrequested behaviour. A **Missing** or **Implemented but wrong** entry is a correctness defect at every round: never defer it as out of scope and never drop it under the round-3 materiality bar, because the issue's own criteria are the scope. If it cannot be fixed in this run, it routes to 6.7. The heading's status lines `**Spec:** no issue linked` and `**Spec:** issue not readable` are not findings.
 - Never merge on an empty inline list alone.
 - Use effort-first thinking for prioritization:
   - Quick fix → address now
