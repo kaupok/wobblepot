@@ -10,7 +10,7 @@ import { mcpCallTool } from './utils/mcp'
  * The MCP write scope (HON-1154), driven the way an MCP client drives it:
  * consent with `mcp:write`, then `mark_purchased` puts an ingredient in the
  * pantry and takes it out again, and `swap_meal` and `rate_meal` change a
- * planned dinner (HON-1174). A read-only token gets the reconnect message.
+ * planned dinner and rate it once cooked (HON-1174). A read-only token gets the reconnect message.
  *
  * Tier 1 only. The pantry tests sign up a household of their own, so its
  * pantry is empty and no other spec changes it in parallel. The meal plan
@@ -153,7 +153,7 @@ test.describe('MCP write tools', () => {
     expect(await pantryIngredientIds(page)).not.toContain(ingredientId)
   })
 
-  test('a client allowed to make changes swaps a planned dinner and rates it', async ({
+  test('a client allowed to make changes swaps a planned dinner and rates it once cooked', async ({
     page,
     request,
   }) => {
@@ -201,6 +201,17 @@ test.describe('MCP write tools', () => {
       expect(swapped.structuredContent!.outcome).toBe('swapped')
       // The same effect as the app's swap: the entry now names the chosen meal.
       expect((await plantedEntry(page, planted.entryId)).meal?.id).toBe(chosen)
+
+      // The app shows the thumbs on a cooked meal only, and so does the tool.
+      const early = await mcpCallTool(request, token, 'rate_meal', { ...slot, rating: 'up' })
+      expect(early.isError).toBe(true)
+      expect((await plantedEntry(page, planted.entryId)).rating).toBeNull()
+
+      const cooked = await page.request.patch(
+        `/api/meal-plans/${planted.planId}/entries/${planted.entryId}`,
+        { data: { status: 'completed' } },
+      )
+      expect(cooked.ok(), await cooked.text()).toBe(true)
 
       const rated = await mcpCallTool(request, token, 'rate_meal', { ...slot, rating: 'up' })
       expect(rated.isError, rated.content[0]?.text).toBeFalsy()

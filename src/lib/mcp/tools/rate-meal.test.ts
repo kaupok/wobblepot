@@ -75,7 +75,7 @@ describe('rate_meal', () => {
       rating: after,
     })
     expect(prisma.mealPlanEntry.updateManyAndReturn).toHaveBeenCalledWith({
-      where: { id: 'entry-1', planId: 'plan-a', mealId: 'meal-1' },
+      where: { id: 'entry-1', planId: 'plan-a', mealId: 'meal-1', status: 'completed' },
       data: { rating: after },
     })
   })
@@ -96,7 +96,21 @@ describe('rate_meal', () => {
     expect(prisma.mealPlanEntry.updateManyAndReturn).not.toHaveBeenCalled()
   })
 
-  it('refuses when the meal was swapped while the rating ran', async () => {
+  // The app shows the thumbs on a cooked entry only, so a rating anywhere else
+  // could be neither seen nor cleared, yet would move the swap ranking.
+  it.each(['planned', 'skipped'])('refuses a %s entry', async (status) => {
+    vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue(slot({ status }) as never)
+
+    const result = await call({ date: DATE, mealType: 'dinner', rating: 'up' })
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0]).toMatchObject({
+      text: expect.stringContaining('not marked as cooked'),
+    })
+    expect(prisma.mealPlanEntry.updateManyAndReturn).not.toHaveBeenCalled()
+  })
+
+  it('refuses when the meal was swapped or reverted while the rating ran', async () => {
     vi.mocked(prisma.mealPlanEntry.updateManyAndReturn).mockResolvedValue([] as never)
 
     const result = await call({ date: DATE, mealType: 'dinner', rating: 'up' })

@@ -8,9 +8,9 @@ const ratingSchema = z.enum(['up', 'down']).nullable()
 
 export const rateMeal = defineTool({
   name: 'rate_meal',
-  title: 'Rate a planned meal',
+  title: 'Rate a cooked meal',
   description:
-    'Records what the household thought of the meal planned for one day and meal type: up (liked it), down (did not), or null to clear the rating. The same thumbs as in the app. Ratings move the meal up or down in later swap suggestions.',
+    'Records what the household thought of a meal they cooked, by day and meal type: up (liked it), down (did not), or null to clear the rating. The same thumbs as in the app, so only a meal marked as cooked can be rated. Ratings move the meal up or down in later swap suggestions.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ...slotInput,
@@ -29,13 +29,21 @@ export const rateMeal = defineTool({
         `No meal is planned for ${mealType} on ${date}, so there is nothing to rate. Nothing was changed.`,
       )
     }
+    // The app offers the thumbs on a cooked entry only (`MealCard`), and only
+    // there can the household see or clear a rating. A rating on any other
+    // entry would still move the swap ranking, unseen.
+    if (slot.status !== 'completed') {
+      throw new ToolInputError(
+        `The ${mealType} on ${date} is not marked as cooked, so it cannot be rated yet. The household marks it cooked in Wobblepot first. Nothing was changed.`,
+      )
+    }
 
     // The same column write `PATCH /api/meal-plans/[id]/entries/[entryId]`
-    // makes for `{ rating }`. Matched on the meal too: a rating is a verdict on
-    // the meal the entry points at, so a swap that lands first must not take
-    // this rating with it (HON-703).
+    // makes for `{ rating }`. Matched on the meal and the status too: a rating
+    // is a verdict on the cooked meal the entry points at, so a swap or a
+    // revert to planned that lands first must not take this rating (HON-703).
     const [rated] = await prisma.mealPlanEntry.updateManyAndReturn({
-      where: { id: slot.id, planId: slot.planId, mealId: slot.mealId },
+      where: { id: slot.id, planId: slot.planId, mealId: slot.mealId, status: 'completed' },
       data: { rating },
     })
     if (!rated) {
