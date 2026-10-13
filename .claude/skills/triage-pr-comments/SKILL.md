@@ -115,7 +115,7 @@ The Claude reviewer only posts substantive issues (no nitpicks by design). Map t
 | Summary-only `**Issues found:**` entry         | 🟡 Suggestion |
 | `**Spec:**` entry: Missing or Implemented but wrong | 🔴 Critical |
 | `**Spec:**` entry: Not asked for               | 🟡 Suggestion |
-| Summary says "No issues found"                 | Clean review  |
+| Summary says "No issues found" and `**Spec:**` lists no entry | Clean review |
 | Summary confidence 1-2/5 → upgrade all issues  | 🔴 Critical   |
 | Summary confidence 3-5/5 → keep default        | 🟡 Suggestion |
 

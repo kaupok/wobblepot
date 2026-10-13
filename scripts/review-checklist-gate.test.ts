@@ -430,6 +430,20 @@ describe('Spec axis', () => {
     expect(heredoc('SPEC_PROMPT')).toContain('Do NOT write "No issues found"')
   })
 
+  // The triage skills route by these labels: Missing and Implemented but wrong are
+  // correctness defects, Not asked for is not. A label the skills do not name has no
+  // severity, and the round-3 materiality bar could drop it.
+  it('uses the three kind labels the triage skills route on', () => {
+    const spec = heredoc('SPEC_PROMPT')
+    const triage = read(path.join(repoRoot, '.claude/skills/triage-pr-comments/SKILL.md'))
+    const autoImplement = read(path.join(repoRoot, '.claude/skills/auto-implement/SKILL.md'))
+    for (const kind of ['Missing', 'Not asked for', 'Implemented but wrong']) {
+      expect(spec).toContain(`- **${kind}**:`)
+      expect(triage).toContain(kind)
+    }
+    expect(autoImplement).toContain('A **Missing** or **Implemented but wrong** entry')
+  })
+
   it('records the skip when no issue is linked', () => {
     expect(heredoc('NO_SPEC_PROMPT')).toContain('**Spec:** no issue linked')
   })

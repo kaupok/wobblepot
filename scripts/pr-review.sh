@@ -543,11 +543,11 @@ This PR implements Linear issue __ISSUE_ID__. Everything above checks the diff a
 
 1. Fetch the issue with `mcp__linear-server__get_issue` (`id: "__ISSUE_ID__"`, `includeRelations: true`) and its comments with `mcp__linear-server__list_comments` (`issueId: "__ISSUE_ID__"`). The plan is the comment whose body starts `# Plan:`; there may be none. If the issue fetch fails, write `**Spec:** issue not readable` in the summary and skip the rest of this section. That line is not a finding.
 2. Compare the diff with the issue's acceptance criteria (and its "What" section where it has no criteria list). Report each of these:
-   - **Missing or partial**: a criterion the diff does not implement, or implements only in part. Quote the criterion.
+   - **Missing**: a criterion the diff does not implement, or implements only in part. Quote the criterion, and say "partly" when part of it is there.
    - **Not asked for**: behaviour in the diff that neither the issue nor the plan asked for. A change the plan's Design Decisions choose, with a reason, is asked for; so is a test, story or doc edit that supports a criterion.
    - **Implemented but wrong**: a criterion the diff appears to implement, but whose result does not match what the criterion says.
 
-   Each line names its kind, the file, and one sentence. A criterion that only a human can check after merge (a production metric, a staging walk-through) is not a finding.
+   Label each line with one of those three kinds, exactly as written, then the file and one sentence. A criterion that only a human can check after merge (a production metric, a staging walk-through) is not a finding.
 3. Put the result in the Step 5 summary comment, under its own heading directly below the `**Issues found:**` list and above `**Confidence:**`:
 
    **Spec:** checked against __ISSUE_ID__ — N findings
