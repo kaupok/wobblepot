@@ -39,7 +39,7 @@ Build one command that goes red on the user's exact symptom and green once it is
 1. **A failing Vitest test next to the source.** `pnpm test <path>`. A `.test.ts` file runs in node and a `.test.tsx` file runs in jsdom; a `.test.ts` that needs a DOM starts with `// @vitest-environment jsdom` (CLAUDE.md → Testing). Use `createQueryWrapper()` from `src/test/query-wrapper.tsx` for a component that uses TanStack Query.
 2. **A Storybook play function.** `pnpm test-storybook:ci <path-to-story>`. Use it when the bug lives in rendering or interaction that jsdom does not model (focus, layout, a Radix portal).
 3. **A Playwright spec.** `pnpm test:e2e:local tests/e2e/<spec>.spec.ts` runs one spec against a fresh Neon branch. Name one spec: the full suite is slow, and the `@ai` specs make paid Claude calls. If the run outlasts the 600 s Bash cap, use the marker-file wait in `.claude/skills/auto-implement/batched.md`.
-4. **A `curl` against the review server.** Start `pnpm review:local` with `run_in_background: true`, wait in the foreground until its output holds `REVIEW-READY http://localhost:<port>`, then `curl` the route. Stop the server when the phase ends. Never end a turn beside it (CLAUDE.md → Working style).
+4. **A `curl` against the review server.** Start `pnpm review:local` with `run_in_background: true`, wait in the foreground until its output holds `REVIEW-READY http://localhost:<port>`, then `curl` the route. Keep it running for the later phases, which re-run the loop; Phase 7 stops it. Never end a turn beside it (CLAUDE.md → Working style).
 5. **A throwaway script under `/tmp`.** Use it for a pure function or a data shape that has no test seam yet. Never commit it.
 6. **`git bisect run` with one of the above,** when the bug appeared between two known commits. The loop command is the bisect script; it must exit non-zero on the bug and zero without it.
 
@@ -89,7 +89,7 @@ If no seam exercises the real bug pattern, say so in the PR body. That is a find
 
 ### 7. Clean up
 
-1. Grep the debug prefix across the repository (`grep -rn "DEBUG-a4f2" .`) and remove every hit.
+1. Grep the debug prefix across the repository (`git grep -n --untracked "DEBUG-a4f2"`, which skips ignored build output such as `.next/`) and remove every hit.
 2. Delete the throwaway scripts under `/tmp` and stop any server you started.
 3. State the confirmed hypothesis in the commit message body, and in the PR body under "Verified" next to the regression test that proves it. The next reader then learns the cause, not only the fix.
 
