@@ -59,6 +59,8 @@ Entries are grouped by the `CLAUDE.md` section they belong to.
 
 - **HON-1196, 2026-10-13 — `/diagnose`.** The project had no debugging skill, so an agent read code, formed one theory and edited, with nothing to prove the bug before the edit or the fix after it. `/diagnose` ports the feedback-loop-first rule from Matt Pocock's `diagnosing-bugs` skill (`mattpocock/skills`, `skills/engineering/diagnosing-bugs`). The upstream `hitl-loop.template.sh` was left out: the unattended cycle has no human to run it, so a human-only reproduction becomes a Todo issue.
 
+- **HON-1197, 2026-10-13 — questions in rounds.** `/ideate` and `/refine-backlog` told the agent to "ask targeted questions" and "iterate", but not how. The agent asked one question per turn, or asked the user for facts it could look up, so sessions ran long. Both skills now ask in rounds: the whole frontier of open questions at once, a recommended answer under each, facts looked up rather than asked, and an end when the frontier is empty. The method is from Matt Pocock's `grilling` skill (`mattpocock/skills`, `skills/productivity/grilling`).
+
 ## Writing style
 
 - **2026-10-06, no issue — bare identifiers in chat.** In a long planning session the agent wrote chat lines such as "do HON-1056, HON-1081 and HON-1080" and "PR #1151 is open". The user said they do not know what an issue is from its number, and asked for a rule. The identifiers were correct and the messages were still unreadable, because only the agent had the titles in context.
