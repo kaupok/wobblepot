@@ -39,6 +39,10 @@ CI runs lint, format check and type check with a cache (HON-1181): ESLint and Pr
 
 - `pnpm test` - Unit tests
 
+**`Database tests`** — no database service: the `unit-db` Vitest project runs `*.db.test.ts` against PGlite, an in-process Postgres, after applying `prisma/migrations` (HON-1186):
+
+- `pnpm test:db` - Persistence tests
+
 **`Storybook`**:
 
 - `pnpm test-storybook:ci` - Storybook a11y gate
@@ -49,7 +53,7 @@ CI runs lint, format check and type check with a cache (HON-1181): ESLint and Pr
 - `pnpm prisma migrate deploy` and `pnpm db:seed` - Prepare the sidecar database
 - `pnpm test:e2e --grep-invert=@ai` - Playwright E2E tier 1
 
-**`Lint, Type Check & Test`** — runs no check itself. It waits for the four jobs above and is red when any of them is not green. It keeps the name of the old single job, because the `/merge` and `/auto-implement` settle polls wait for a check with that name.
+**`Lint, Type Check & Test`** — runs no check itself. It waits for the five jobs above and is red when any of them is not green. It keeps the name of the old single job, because the `/merge` and `/auto-implement` settle polls wait for a check with that name.
 
 **`Vercel env-var drift audit`** — `pnpm env:audit --strict`, independent of the jobs above (see [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) → "Drift audit")
 
