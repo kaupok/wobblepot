@@ -406,7 +406,7 @@ describe('GET /api/shopping-list', () => {
       hasAnyPlan: true,
     })
     // Set to 0 ("ran out") after plan creation, by the pantry page or the
-    // `set_pantry_quantity` MCP tool (HON-1173) → still needed, not purchased
+    // `set_pantry_status` MCP tool (HON-1201) → still needed, not purchased
     mockPantryFindMany.mockResolvedValue([
       {
         ingredientId: 'ing-1',
@@ -520,8 +520,8 @@ describe('GET /api/shopping-list', () => {
       earliestPlanCreatedAt: planCreatedAt,
       hasAnyPlan: true,
     })
-    // Set to 200 g after plan creation, by the pantry page or the
-    // `set_pantry_quantity` MCP tool → the other 400 g still needed, not purchased
+    // Set to 200 g after plan creation, through `PATCH /api/pantry/[id]` →
+    // the other 400 g still needed, not purchased
     mockPantryFindMany.mockResolvedValue([
       {
         ingredientId: 'ing-1',

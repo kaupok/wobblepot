@@ -2,12 +2,18 @@ import 'server-only'
 import { z } from 'zod'
 import {
   createPantryItem,
-  pantryQuantitySchema,
   updatePantryItem,
   type PantryItemWithIngredient,
 } from '@/lib/pantry/pantry-items'
 import { displayUnit } from '@/lib/i18n/format-shopping-quantity'
 import { defineTool, ToolInputError, WRITE_ANNOTATIONS } from '@/lib/mcp/context'
+
+/**
+ * The two pantry states the app shows (HON-1201). The routes still accept an
+ * amount, but the pantry page never writes one, so an amount from an assistant
+ * would be a state the household cannot see or correct.
+ */
+const STATUS_QUANTITY = { have_some: null, ran_out: 0 } as const
 
 function itemOutput(item: PantryItemWithIngredient) {
   return {
@@ -19,20 +25,20 @@ function itemOutput(item: PantryItemWithIngredient) {
   }
 }
 
-export const setPantryQuantity = defineTool({
-  name: 'set_pantry_quantity',
-  title: 'Set pantry quantity',
+export const setPantryStatus = defineTool({
+  name: 'set_pantry_status',
+  title: 'Set pantry status',
   description:
-    'Sets how much of an ingredient the household has at home. Puts the ingredient in the pantry if it is not there yet. Pass an ingredientId from get_pantry or get_shopping_list. quantity is in the unit get_pantry reports for the ingredient (g, ml or piece); 0 means it ran out; null means "have some, amount unknown". A staple stays a staple.',
+    'Records whether the household has an ingredient at home. have_some: it is in the pantry, amount unknown. ran_out: it is used up, so the shopping list needs the full amount again. Puts the ingredient in the pantry if it is not there yet. Pass an ingredientId from get_pantry or get_shopping_list. A staple stays a staple. Wobblepot does not track amounts, so an amount the user mentions is not stored.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     ingredientId: z
       .string()
       .min(1)
       .describe('The ingredientId of the ingredient, from get_pantry or get_shopping_list.'),
-    quantity: pantryQuantitySchema.describe(
-      'The amount at home, 0 or more, in g, ml or piece. 0: it ran out. null: some, amount unknown.',
-    ),
+    status: z
+      .enum(['have_some', 'ran_out'])
+      .describe('have_some: at home, amount unknown. ran_out: used up.'),
   }),
   outputSchema: z.object({
     outcome: z
@@ -41,12 +47,16 @@ export const setPantryQuantity = defineTool({
     item: z.object({
       ingredientId: z.string(),
       name: z.string(),
-      quantity: z.number().nullable(),
+      quantity: z
+        .number()
+        .nullable()
+        .describe('null: have some. 0: ran out. The same field get_pantry reports.'),
       unit: z.string(),
       isStaple: z.boolean(),
     }),
   }),
-  run: async (household, { ingredientId, quantity }) => {
+  run: async (household, { ingredientId, status }) => {
+    const quantity = STATUS_QUANTITY[status]
     const created = await createPantryItem(household, { ingredientId, quantity, isStaple: false })
 
     if (created.status === 'ingredient_not_found') {

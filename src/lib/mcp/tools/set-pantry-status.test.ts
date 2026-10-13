@@ -14,13 +14,13 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
 import { runTool, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
-import { setPantryQuantity } from './set-pantry-quantity'
+import { setPantryStatus } from './set-pantry-status'
 
 const household = mcpHousehold({ id: 'household-a' })
 const ctx = { userId: 'user-a', household, scopes: WRITE_SCOPES }
 
 function call(input: Record<string, unknown>, caller = ctx) {
-  return runTool(setPantryQuantity, caller, setPantryQuantity.inputSchema.parse(input))
+  return runTool(setPantryStatus, caller, setPantryStatus.inputSchema.parse(input))
 }
 
 const MILK = {
@@ -57,7 +57,7 @@ function pantryRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
-describe('set_pantry_quantity', () => {
+describe('set_pantry_status', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(prisma.ingredient.findFirst).mockResolvedValue(MILK as never)
@@ -75,7 +75,7 @@ describe('set_pantry_quantity', () => {
 
   it('answers a read-only token with the reconnect message and writes nothing', async () => {
     const result = await call(
-      { ingredientId: 'ing-milk', quantity: 2000 },
+      { ingredientId: 'ing-milk', status: 'have_some' },
       {
         ...ctx,
         scopes: READ_SCOPES,
@@ -89,15 +89,14 @@ describe('set_pantry_quantity', () => {
   })
 
   it.each([
-    ['an amount', 2000],
-    ['0, "ran out"', 0],
-    ['null, "have some"', null],
+    ['have_some', null],
+    ['ran_out', 0],
   ])(
-    "creates a pantry item in the caller's household with %s, as POST /api/pantry does",
-    async (_label, quantity) => {
+    "creates a pantry item in the caller's household for %s with quantity %s, as POST /api/pantry does",
+    async (status, quantity) => {
       vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(null)
 
-      const result = await call({ ingredientId: 'ing-milk', quantity })
+      const result = await call({ ingredientId: 'ing-milk', status })
 
       expect(result.structuredContent).toEqual({
         outcome: 'created',
@@ -122,16 +121,16 @@ describe('set_pantry_quantity', () => {
   )
 
   it.each([
-    ['an amount', 250],
-    ['0, "ran out"', 0],
-    ['null, "have some"', null],
+    ['have_some', null],
+    ['ran_out', 0],
   ])(
-    'updates only the quantity of an existing item with %s, as PATCH /api/pantry/[id] does',
-    async (_label, quantity) => {
+    'updates only the quantity of an existing item for %s to %s, as PATCH /api/pantry/[id] does',
+    async (status, quantity) => {
+      // An amount from before HON-1201, so both statuses change the row.
       vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(pantryRow() as never)
       vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(pantryRow() as never)
 
-      const result = await call({ ingredientId: 'ing-milk', quantity })
+      const result = await call({ ingredientId: 'ing-milk', status })
 
       expect(result.structuredContent).toEqual({
         outcome: 'updated',
@@ -151,20 +150,23 @@ describe('set_pantry_quantity', () => {
     },
   )
 
-  it('keeps a staple a staple', async () => {
+  it.each([
+    ['have_some', null],
+    ['ran_out', 0],
+  ])('keeps a staple a staple for %s', async (status, quantity) => {
     const staple = pantryRow({ isStaple: true })
     vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(staple as never)
     vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(staple as never)
-    vi.mocked(prisma.pantryItem.update).mockResolvedValue({
+    vi.mocked(prisma.pantryItem.update).mockImplementation((async ({ data }: never) => ({
       ...staple,
-      quantity: 0,
+      ...(data as object),
       ingredient: MILK,
-    } as never)
+    })) as never)
 
-    const result = await call({ ingredientId: 'ing-milk', quantity: 0 })
+    const result = await call({ ingredientId: 'ing-milk', status })
 
-    expect(result.structuredContent).toMatchObject({ item: { quantity: 0, isStaple: true } })
-    expect(vi.mocked(prisma.pantryItem.update).mock.calls[0]![0].data).toEqual({ quantity: 0 })
+    expect(result.structuredContent).toMatchObject({ item: { quantity, isStaple: true } })
+    expect(vi.mocked(prisma.pantryItem.update).mock.calls[0]![0].data).toEqual({ quantity })
   })
 
   it("refuses another household's ingredient as unknown and writes nothing", async () => {
@@ -172,7 +174,7 @@ describe('set_pantry_quantity', () => {
     // household B's ingredient is not found.
     vi.mocked(prisma.ingredient.findFirst).mockResolvedValue(null)
 
-    const result = await call({ ingredientId: 'ing-household-b', quantity: 1 })
+    const result = await call({ ingredientId: 'ing-household-b', status: 'have_some' })
 
     expect(result.isError).toBe(true)
     expect(result.content[0]).toMatchObject({
@@ -195,11 +197,11 @@ describe('set_pantry_quantity', () => {
     )
     vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(pantryRow() as never)
 
-    const result = await call({ ingredientId: 'ing-milk', quantity: 750 })
+    const result = await call({ ingredientId: 'ing-milk', status: 'ran_out' })
 
-    expect(result.structuredContent).toMatchObject({ outcome: 'updated', item: { quantity: 750 } })
+    expect(result.structuredContent).toMatchObject({ outcome: 'updated', item: { quantity: 0 } })
     expect(prisma.pantryItem.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'pantry-1' }, data: { quantity: 750 } }),
+      expect.objectContaining({ where: { id: 'pantry-1' }, data: { quantity: 0 } }),
     )
   })
 
@@ -207,7 +209,7 @@ describe('set_pantry_quantity', () => {
     vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(pantryRow() as never)
     vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(null)
 
-    const result = await call({ ingredientId: 'ing-milk', quantity: 1 })
+    const result = await call({ ingredientId: 'ing-milk', status: 'have_some' })
 
     expect(result.isError).toBe(true)
     expect(prisma.pantryItem.update).not.toHaveBeenCalled()
@@ -223,15 +225,21 @@ describe('set_pantry_quantity', () => {
       }),
     )
 
-    const result = await call({ ingredientId: 'ing-milk', quantity: 1 })
+    const result = await call({ ingredientId: 'ing-milk', status: 'have_some' })
 
     expect(result.isError).toBe(true)
     expect(result.content[0]).toMatchObject({ text: expect.stringContaining('pantry changed') })
   })
 
-  it('rejects a negative quantity at the schema, as both routes do', () => {
+  it.each([
+    ['an amount', { status: 200 }],
+    ['0', { status: 0 }],
+    ['null', { status: null }],
+    ['another string', { status: 'half' }],
+    ['the old quantity field', { quantity: 200 }],
+  ])('refuses %s at the schema, so nothing is written', (_label, input) => {
     expect(
-      setPantryQuantity.inputSchema.safeParse({ ingredientId: 'ing-milk', quantity: -1 }).success,
+      setPantryStatus.inputSchema.safeParse({ ingredientId: 'ing-milk', ...input }).success,
     ).toBe(false)
   })
 
@@ -243,7 +251,7 @@ describe('set_pantry_quantity', () => {
     } as never)
 
     const result = await call(
-      { ingredientId: 'ing-milk', quantity: 500 },
+      { ingredientId: 'ing-milk', status: 'have_some' },
       { ...ctx, household: mcpHousehold({ id: 'household-a', locale: 'et' }) },
     )
 
