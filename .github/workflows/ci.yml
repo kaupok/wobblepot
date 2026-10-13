@@ -575,6 +575,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
 
+      # `.next/cache/fetch-cache` holds `unstable_cache` results that
+      # `next start` wrote during the previous run's tests, such as the
+      # sample meal plans (loadSampleWeek). Its key does not include the
+      # database, so a PR that changes only the seed would be served the last
+      # run's data. The post-job save runs after the tests, so drop the folder
+      # on every restore rather than trying to exclude it from the save.
+      - name: Drop restored Next.js data cache
+        run: rm -rf .next/cache/fetch-cache
+
       # Tier 1 E2E run. Step-level timeout sits below the job-level 45m so
       # Playwright gets killed before the whole job, letting the artifact
       # upload below still run with the partial test-results/ directory.
