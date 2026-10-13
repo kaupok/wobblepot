@@ -113,6 +113,33 @@ vi.mock('next/font/google', () => ({
   Bricolage_Grotesque: () => ({ variable: 'bricolage-variable' }),
 }))
 
+// Loading the real `src/lib/auth.ts` starts the `mcp()` plugin, whose init
+// seeds the MCP resource row through `prisma.oauthResource`. With no database
+// listening, that query rejects outside any test and Vitest fails the run on
+// the unhandled rejection (HON-1183). Answer the seed in memory, so the unit
+// suite needs no database. Every other delegate is the real one, and a file
+// that mocks `@/lib/prisma` itself replaces this mock.
+vi.mock('@/lib/prisma', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/prisma')>()
+  type Write = { data: Record<string, unknown> }
+  // `merge` seeding reads the row, then creates or updates it (HON-1154).
+  const oauthResource = {
+    findFirst: async () => null,
+    create: async ({ data }: Write) => data,
+    update: async ({ data }: Write) => data,
+  }
+  const prisma = new Proxy(actual.prisma, {
+    get(target, property) {
+      if (property === 'oauthResource') return oauthResource
+      const value: unknown = Reflect.get(target, property, target)
+      // Bind to the real client: Prisma's methods expect it as `this`. A spy
+      // is returned as is, so assertions on it still see its calls.
+      return typeof value === 'function' && !vi.isMockFunction(value) ? value.bind(target) : value
+    },
+  })
+  return { ...actual, prisma }
+})
+
 // Mock ResizeObserver for Radix UI components
 class ResizeObserver {
   observe() {}

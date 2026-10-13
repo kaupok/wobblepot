@@ -6,18 +6,6 @@ vi.mock('@/lib/session', () => ({
   getSession: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  // The page imports the real `auth`, whose `mcp()` plugin seeds its resource
-  // row at init (HON-1150).
-  prisma: {
-    // `merge` seeding reads the row, then updates it (HON-1154).
-    oauthResource: {
-      findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }),
-      update: vi.fn().mockResolvedValue({ id: 'seeded' }),
-    },
-  },
-}))
-
 vi.mock('next/navigation', () => ({
   notFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND')

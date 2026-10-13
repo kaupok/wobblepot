@@ -1,17 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
-
-// The `mcp()` plugin seeds its resource row at init; answer that read so the
-// real auth instance never reaches a database.
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    // `merge` seeding reads the row, then updates it (HON-1154).
-    oauthResource: {
-      findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }),
-      update: vi.fn().mockResolvedValue({ id: 'seeded' }),
-    },
-  },
-}))
-
+import { describe, it, expect } from 'vitest'
 import { GET, OPTIONS } from './route'
 
 /**
