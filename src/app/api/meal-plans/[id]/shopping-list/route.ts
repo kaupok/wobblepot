@@ -99,11 +99,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       // Map items with purchase status and needed-by date
       const mappedItems = group.items.map((item) => {
         const pantryItem = pantryMap.get(item.ingredientId)
-        // Item is purchased if it exists in pantry and was updated after plan was created.
-        // Quantity 0 means it ran out, so it is not a purchase, as in
-        // `loadShoppingList` (HON-1173).
+        // Item is purchased if its pantry quantity is null ("have some") and was
+        // set after the plan was created. A purchase always sets null, so any
+        // other quantity is not a purchase, as in `loadShoppingList`
+        // (HON-1173, HON-1176).
         const purchased = pantryItem
-          ? pantryItem.quantity !== 0 && pantryItem.updatedAt >= plan.createdAt
+          ? pantryItem.quantity === null && pantryItem.updatedAt >= plan.createdAt
           : false
 
         totalItems++

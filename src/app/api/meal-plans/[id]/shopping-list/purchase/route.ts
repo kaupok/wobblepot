@@ -172,10 +172,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           },
           select,
         })
-        // Quantity 0 means it ran out, and the shopping list never reads a 0
-        // as purchased, so buying it means "have some", as in
-        // `purchaseIngredients` (HON-1173). The upsert holds the row lock.
-        if (pantryItem.quantity === 0) {
+        // Buying it means "have some", the only state the shopping list reads
+        // as purchased, so a 0 or an entered quantity is replaced, as in
+        // `purchaseIngredients` (HON-1173, HON-1176). The upsert holds the
+        // row lock.
+        if (pantryItem.quantity !== null) {
           pantryItem = await tx.pantryItem.update({
             where: { id: pantryItem.id },
             data: { quantity: null },

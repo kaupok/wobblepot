@@ -261,13 +261,41 @@ describe('POST /api/shopping-list/purchase', () => {
     expect(data.results[0].pantryItem.quantity).toBeNull()
   })
 
-  it('leaves a non-zero quantity as it is when the item is bought', async () => {
+  it('replaces a quantity the household entered with "have some" when the item is bought', async () => {
+    mockGetSession.mockResolvedValue(mockSession as never)
+    mockFindFirst.mockResolvedValue(mockMembership as never)
+    mockIngredientFindMany.mockResolvedValue([{ id: 'ing-1' }] as never)
+    const row = {
+      id: 'pantry-1',
+      isStaple: false,
+      updatedAt: new Date('2026-01-31'),
+      ingredient: { id: 'ing-1', name: 'Rice', category: 'grain', defaultUnit: 'g' },
+    }
+    const upsert = vi.fn().mockResolvedValue({ ...row, quantity: 200 })
+    const update = vi.fn().mockResolvedValue({ ...row, quantity: null })
+    mockTransaction.mockImplementation(async (fn) =>
+      (fn as (tx: unknown) => unknown)({ pantryItem: { upsert, update } }),
+    )
+
+    const response = await POST(createRequest({ ingredientId: 'ing-1' }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    // `loadShoppingList` reads only null as purchased, so a 200 left in place
+    // would read the same as an edit on the pantry page (HON-1176).
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'pantry-1' }, data: { quantity: null } }),
+    )
+    expect(data.results[0].pantryItem.quantity).toBeNull()
+  })
+
+  it('leaves "have some" as it is when the item is bought', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockFindFirst.mockResolvedValue(mockMembership as never)
     mockIngredientFindMany.mockResolvedValue([{ id: 'ing-1' }] as never)
     const upsert = vi.fn().mockResolvedValue({
       id: 'pantry-1',
-      quantity: 200,
+      quantity: null,
       isStaple: false,
       updatedAt: new Date('2026-01-31'),
       ingredient: { id: 'ing-1', name: 'Rice', category: 'grain', defaultUnit: 'g' },
@@ -282,7 +310,7 @@ describe('POST /api/shopping-list/purchase', () => {
 
     expect(response.status).toBe(200)
     expect(update).not.toHaveBeenCalled()
-    expect(data.results[0].pantryItem.quantity).toBe(200)
+    expect(data.results[0].pantryItem.quantity).toBeNull()
   })
 
   it('returns the Estonian ingredient name for an et household, so the pantry row is not English (HON-913)', async () => {

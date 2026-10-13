@@ -189,10 +189,10 @@ export async function updateCustomShoppingItem(
           // Touch updatedAt
         },
       })
-      // Quantity 0 means it ran out, and the shopping list never reads a 0
-      // as purchased, so buying it means "have some", as in
-      // `purchaseIngredients` (HON-1173).
-      if (pantryItem.quantity === 0) {
+      // Buying it means "have some", the only state the shopping list reads
+      // as purchased, so a 0 or an entered quantity is replaced, as in
+      // `purchaseIngredients` (HON-1173, HON-1176).
+      if (pantryItem.quantity !== null) {
         await tx.pantryItem.update({ where: { id: pantryItem.id }, data: { quantity: null } })
       }
     }
