@@ -85,6 +85,23 @@ describe('check_shopping_item', () => {
     )
   })
 
+  it('returns the pantry quantity that checking off a linked item replaced (HON-1176)', async () => {
+    vi.mocked(prisma.customShoppingItem.findUnique).mockResolvedValue(item() as never)
+    upsert.mockResolvedValue({ id: 'pantry-oat-milk', quantity: 2000 })
+
+    const result = await call({ id: 'custom-1', checked: true })
+
+    // Unchecking does not restore it, so the assistant gets it back to set.
+    expect(pantryUpdate).toHaveBeenCalledWith({
+      where: { id: 'pantry-oat-milk' },
+      data: { quantity: null },
+    })
+    expect(result.structuredContent).toEqual({
+      item: { id: 'custom-1', name: 'Oat milk', checked: true },
+      replacedQuantity: 2000,
+    })
+  })
+
   it('unchecks an item without touching the pantry', async () => {
     vi.mocked(prisma.customShoppingItem.findUnique).mockResolvedValue(
       item({ checked: true }) as never,

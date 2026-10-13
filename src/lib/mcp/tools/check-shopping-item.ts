@@ -7,7 +7,7 @@ export const checkShoppingItem = defineTool({
   name: 'check_shopping_item',
   title: 'Check shopping item',
   description:
-    'Checks off an item the household added to the shopping list by hand, or unchecks it. Pass an id from customItems in get_shopping_list; for the items from planned meals, use mark_purchased. Checking off an item that Wobblepot matched to an ingredient also puts that ingredient in the pantry.',
+    'Checks off an item the household added to the shopping list by hand, or unchecks it. Pass an id from customItems in get_shopping_list; for the items from planned meals, use mark_purchased. Checking off an item that Wobblepot matched to an ingredient also puts that ingredient in the pantry as "have some", replacing any quantity the pantry had for it. Unchecking does not bring that quantity back: the result gives it as replacedQuantity, and set_pantry_quantity sets it back.',
   annotations: WRITE_ANNOTATIONS,
   inputSchema: z.object({
     id: z.string().min(1).describe('The id of an item in customItems, from get_shopping_list.'),
@@ -15,6 +15,12 @@ export const checkShoppingItem = defineTool({
   }),
   outputSchema: z.object({
     item: z.object({ id: z.string(), name: z.string(), checked: z.boolean() }),
+    replacedQuantity: z
+      .number()
+      .optional()
+      .describe(
+        'Only when checking off replaced one: the quantity the pantry had for the matched ingredient, in the unit get_pantry reports.',
+      ),
   }),
   run: async (household, { id, checked }) => {
     const outcome = await updateCustomShoppingItem(household.id, id, { checked })
@@ -25,6 +31,11 @@ export const checkShoppingItem = defineTool({
       )
     }
     const { name, checked: isChecked } = outcome.item
-    return { item: { id, name, checked: isChecked } }
+    // `destructiveHint: false` holds because a replaced quantity is returned,
+    // so the assistant can set it back, as with `mark_purchased` (HON-1176).
+    return {
+      item: { id, name, checked: isChecked },
+      ...(outcome.replacedQuantity !== null && { replacedQuantity: outcome.replacedQuantity }),
+    }
   },
 })
