@@ -28,6 +28,7 @@ Every PR and every push to `main` runs the following checks in GitHub Actions (`
 - `pnpm format:check` - Prettier
 - `pnpm type-check` - TypeScript type checking
 - `pnpm lockfile:check` - Pinned dependency resolutions (HON-595)
+- `pnpm coverage:ratchet` - No coverage threshold went down (PRs only; see the coverage gate below)
 - `pnpm stories:check` - Every component has a colocated story
 - `pnpm db:validate` - Seed data
 - `scripts/check-smoke-specs.sh` - `@smoke` specs are staging-safe
@@ -35,13 +36,14 @@ Every PR and every push to `main` runs the following checks in GitHub Actions (`
 
 CI runs lint, format check and type check with a cache (HON-1181): ESLint and Prettier through `--cache --cache-strategy content`, tsc through its cached `tsconfig.tsbuildinfo`. A warm run re-checks only the files that changed. A push to `main` drops the ESLint cache and lints every file, because `shadcn/no-restyle` reads imported component files that the cache does not track. The flags are in `ci.yml`, not in the scripts, so a local run writes no cache files.
 
-**`Unit tests`** — no database: `vitest.setup.ts` answers the MCP resource seed that loading `src/lib/auth.ts` runs (HON-1183):
+**`Unit tests`** — no database service. `vitest.setup.ts` answers the MCP resource seed that loading `src/lib/auth.ts` runs (HON-1183), and the `unit-db` Vitest project runs `*.db.test.ts` against PGlite, an in-process Postgres, after applying `prisma/migrations` (HON-1186):
 
-- `pnpm test` - Unit tests
+- `pnpm test:coverage` - The `unit`, `unit-node` and `unit-db` projects in one run, with the coverage gate
 
-**`Database tests`** — no database service: the `unit-db` Vitest project runs `*.db.test.ts` against PGlite, an in-process Postgres, after applying `prisma/migrations` (HON-1186):
+**Coverage gate (HON-1192).** `vitest.config.ts` → `coverage.thresholds` holds four numbers: lines, functions, branches and statements. Each is the coverage measured on `main`, rounded down. A run under any of them fails `Unit tests`, so a change that deletes tests or adds untested code shows up as a red check. The report leaves out `src/generated/**`, stories, `src/stories/**` and `scripts/**`.
 
-- `pnpm test:db` - Persistence tests
+- **Raise each threshold by at least one point a month.** Run `pnpm test:coverage` on `main` and set each threshold to the measured number, rounded down. When a number has not risen by a point, add tests until it has.
+- **Lower a threshold only in a PR that says why.** `pnpm coverage:ratchet` in `Static checks` compares the thresholds with the PR base and fails when one went down. A line `Coverage threshold lowered: <why>` in the PR body lets it pass. The check reads the body from the event that started the run, so after you edit the body, push a commit: a re-run reads the old body.
 
 **`Storybook`**:
 
@@ -53,7 +55,7 @@ CI runs lint, format check and type check with a cache (HON-1181): ESLint and Pr
 - `pnpm prisma migrate deploy` and `pnpm db:seed` - Prepare the sidecar database
 - `pnpm test:e2e --grep-invert=@ai` - Playwright E2E tier 1
 
-**`Lint, Type Check & Test`** — runs no check itself. It waits for the five jobs above and is red when any of them is not green. It keeps the name of the old single job, because the `/merge` and `/auto-implement` settle polls wait for a check with that name.
+**`Lint, Type Check & Test`** — runs no check itself. It waits for the four jobs above and is red when any of them is not green. It keeps the name of the old single job, because the `/merge` and `/auto-implement` settle polls wait for a check with that name.
 
 **`Vercel env-var drift audit`** — `pnpm env:audit --strict`, independent of the jobs above (see [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) → "Drift audit")
 

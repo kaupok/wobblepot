@@ -82,12 +82,20 @@ export default defineConfig({
         '**/*.stories.{ts,tsx}',
         'src/stories/**',
         'src/generated/**',
+        // CI checks and tooling, not app source. `include` already leaves
+        // them out; this line keeps them out if `include` ever widens.
+        'scripts/**',
       ],
+      // The measured level on `main` across `unit`, `unit-node` and `unit-db`,
+      // rounded down (HON-1192). `pnpm test:coverage` fails under any of them,
+      // and CI runs it. Raise each by at least one point a month; lower one only
+      // in a PR that says why (`pnpm coverage:ratchet`, docs/DEPLOYMENT.md →
+      // CI Pipeline).
       thresholds: {
-        lines: 0,
-        functions: 0,
-        branches: 0,
-        statements: 0,
+        lines: 92,
+        functions: 89,
+        branches: 87,
+        statements: 92,
       },
     },
     projects: [
@@ -130,6 +138,10 @@ export default defineConfig({
           pool: 'forks',
           fileParallelism: false,
           isolate: false,
+          // Runs after `unit` and `unit-node` when one run selects all three
+          // (`pnpm test:coverage`): Vitest refuses to share a group between
+          // projects with different `maxWorkers`.
+          sequence: { groupOrder: 1 },
           env: {
             ...unitTest.env,
             // A closed port: a client that bypasses PGlite fails here instead

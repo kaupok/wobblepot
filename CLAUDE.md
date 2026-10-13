@@ -254,9 +254,9 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Test environment:** `.test.tsx` files run in jsdom (the `unit` project); `.test.ts` files run in node (`unit-node`), because booting a window per file was the largest cost in the unit step. A `.test.ts` file that needs a DOM (`renderHook`, `document`, `localStorage`) starts with `// @vitest-environment jsdom`; without it, it fails with `document is not defined` or similar.
 
-**Database tests:** a test that exercises a query is a `*.db.test.ts` next to the `src/lib` module it tests, with no `vi.mock`: a mock cannot catch a wrong query. The `unit-db` project runs it against PGlite, an in-process Postgres with every migration applied, and empties the tables before each test except the rows the migrations seed. Run it with `pnpm test:db`; it needs no `DATABASE_URL`, and `pnpm test` excludes it. Example: `src/lib/household.db.test.ts`.
+**Database tests:** a test that exercises a query is a `*.db.test.ts` next to the `src/lib` module it tests, with no `vi.mock`: a mock cannot catch a wrong query. The `unit-db` project runs it against PGlite, an in-process Postgres with every migration applied, and empties the tables before each test except the rows the migrations seed. Run it with `pnpm test:db`; it needs no `DATABASE_URL`, and `pnpm test` excludes it. `pnpm test:coverage` includes it. Example: `src/lib/household.db.test.ts`.
 
-**Commands:** `pnpm test`, `pnpm test:coverage`, `pnpm test:e2e`, `pnpm test:all`. `pnpm test:e2e:local` runs the E2E suite against a fresh, isolated Neon branch; `pnpm review:local` serves the app the same way for walking a flow by hand.
+**Commands:** `pnpm test`, `pnpm test:coverage`, `pnpm test:e2e`, `pnpm test:all`. CI runs `pnpm test:coverage`, which fails under the thresholds in `vitest.config.ts`; the ratchet rule is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) → CI Pipeline. `pnpm test:e2e:local` runs the E2E suite against a fresh, isolated Neon branch; `pnpm review:local` serves the app the same way for walking a flow by hand.
 
 **TanStack Query in tests:** Components using `useQuery`/`useMutation` need a `QueryClientProvider` wrapper. Use `createQueryWrapper()` from `src/test/query-wrapper.tsx`, which creates a fresh `QueryClient` per test with retries disabled.
 
