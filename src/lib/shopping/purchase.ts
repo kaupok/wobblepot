@@ -1,6 +1,7 @@
 import 'server-only'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
 import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
@@ -85,11 +86,27 @@ export async function purchaseIngredients(
   // (HON-913).
   const locale = resolveHouseholdLocale(household)
 
+  const select = {
+    id: true,
+    quantity: true,
+    isStaple: true,
+    updatedAt: true,
+    ingredient: {
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        defaultUnit: true,
+        ...ingredientTranslationsInclude(locale),
+      },
+    },
+  } satisfies Prisma.PantryItemSelect
+
   const upsertedByIngredientId = await prisma.$transaction(async (tx) => {
     const upserted = new Map<string, PurchaseResult>()
 
     for (const ingredientId of lockOrderedIngredientIds) {
-      const pantryItem = await tx.pantryItem.upsert({
+      let pantryItem = await tx.pantryItem.upsert({
         where: {
           householdId_ingredientId: {
             householdId: household.id,
@@ -105,22 +122,18 @@ export async function purchaseIngredients(
         update: {
           // Touch updatedAt to mark as recently acquired
         },
-        select: {
-          id: true,
-          quantity: true,
-          isStaple: true,
-          updatedAt: true,
-          ingredient: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              defaultUnit: true,
-              ...ingredientTranslationsInclude(locale),
-            },
-          },
-        },
+        select,
       })
+      // Quantity 0 means it ran out, and `loadShoppingList` never reads a 0 as
+      // purchased. Buying it means "have some, amount unknown". The row is
+      // locked by the upsert already, so the lock order above still holds.
+      if (pantryItem.quantity === 0) {
+        pantryItem = await tx.pantryItem.update({
+          where: { id: pantryItem.id },
+          data: { quantity: null },
+          select,
+        })
+      }
       const ingredientShown = translateIngredient(pantryItem.ingredient, locale)
 
       upserted.set(ingredientId, {
