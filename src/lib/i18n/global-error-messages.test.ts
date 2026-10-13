@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import enMessages from '../../../messages/en.json'
 import etMessages from '../../../messages/et.json'

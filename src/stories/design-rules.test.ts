@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
 import { assertDesignRules, type DesignRule } from './design-rules'
 

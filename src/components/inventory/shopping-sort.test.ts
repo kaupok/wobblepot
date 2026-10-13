@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ShoppingItemData } from '@/components/shopping/ShoppingItem'
 import type { CustomItemData } from '@/components/shopping/CustomItemInput'

@@ -2,9 +2,46 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { playwright } from '@vitest/browser-playwright'
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin'
-import { defineConfig } from 'vitest/config'
+import { defineConfig, type TestUserConfig } from 'vitest/config'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Shared by the `unit` and `unit-node` projects, so the two cannot drift.
+const unitTest = {
+  setupFiles: ['./vitest.setup.ts'],
+  globals: true,
+  // Read by the `unit` project and by `unit-node` files with a jsdom pragma.
+  environmentOptions: { jsdom: { url: 'http://localhost' } },
+  // `tests/e2e/**/*.spec.ts` belongs to Playwright (see
+  // `playwright.config.ts` → `testMatch`). Colocated `.test.ts` files
+  // there are Vitest's, same split as everywhere else in the repo —
+  // that's how the e2e harness itself (reporters, helpers) gets unit
+  // tested without spinning up a browser.
+  exclude: [
+    '**/node_modules/**',
+    '**/dist/**',
+    'tests/e2e/**/*.spec.*',
+    'e2e/**',
+    '**/*.stories.*',
+  ],
+  env: {
+    NODE_ENV: 'test',
+    NEXT_PUBLIC_APP_NAME: 'TestApp',
+    NEXT_PUBLIC_APP_ENV: 'test',
+    BETTER_AUTH_SECRET: 'test-secret-key-at-least-32-characters-long-for-testing',
+    ANTHROPIC_API_KEY: 'sk-ant-test-key-for-vitest',
+    UPSTASH_REDIS_REST_URL: 'https://test.upstash.io',
+    UPSTASH_REDIS_REST_TOKEN: 'test-upstash-token',
+    ADMIN_EMAIL: 'admin@example.com',
+    // Run as production does (Vercel and CI are UTC). The shopping-list
+    // routes build their reference day with runtime-local date helpers
+    // and compare it in the household's zone, which only agrees on a
+    // UTC runtime — west of UTC their tests shift by a day (HON-772).
+    // Overrides a TZ set in the developer's shell.
+    TZ: 'UTC',
+  },
+  testTimeout: 10000,
+} satisfies TestUserConfig
 
 export default defineConfig({
   esbuild: { jsx: 'automatic', jsxImportSource: 'react' },
@@ -51,44 +88,26 @@ export default defineConfig({
       },
     },
     projects: [
+      // `.tsx` files render components, so they run in jsdom. `.ts` files run
+      // in node, where a file skips the cost of booting a window it never
+      // uses (HON-1178). A `.ts` file that needs a DOM opts back in with a
+      // `// @vitest-environment jsdom` pragma on its first line.
       {
         extends: true,
         test: {
+          ...unitTest,
           name: 'unit',
           environment: 'jsdom',
-          environmentOptions: { jsdom: { url: 'http://localhost' } },
-          setupFiles: ['./vitest.setup.ts'],
-          globals: true,
-          include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
-          // `tests/e2e/**/*.spec.ts` belongs to Playwright (see
-          // `playwright.config.ts` → `testMatch`). Colocated `.test.ts` files
-          // there are Vitest's, same split as everywhere else in the repo —
-          // that's how the e2e harness itself (reporters, helpers) gets unit
-          // tested without spinning up a browser.
-          exclude: [
-            '**/node_modules/**',
-            '**/dist/**',
-            'tests/e2e/**/*.spec.*',
-            'e2e/**',
-            '**/*.stories.*',
-          ],
-          env: {
-            NODE_ENV: 'test',
-            NEXT_PUBLIC_APP_NAME: 'TestApp',
-            NEXT_PUBLIC_APP_ENV: 'test',
-            BETTER_AUTH_SECRET: 'test-secret-key-at-least-32-characters-long-for-testing',
-            ANTHROPIC_API_KEY: 'sk-ant-test-key-for-vitest',
-            UPSTASH_REDIS_REST_URL: 'https://test.upstash.io',
-            UPSTASH_REDIS_REST_TOKEN: 'test-upstash-token',
-            ADMIN_EMAIL: 'admin@example.com',
-            // Run as production does (Vercel and CI are UTC). The shopping-list
-            // routes build their reference day with runtime-local date helpers
-            // and compare it in the household's zone, which only agrees on a
-            // UTC runtime — west of UTC their tests shift by a day (HON-772).
-            // Overrides a TZ set in the developer's shell.
-            TZ: 'UTC',
-          },
-          testTimeout: 10000,
+          include: ['**/*.{test,spec}.?(c|m)[jt]sx'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          ...unitTest,
+          name: 'unit-node',
+          environment: 'node',
+          include: ['**/*.{test,spec}.?(c|m)[jt]s'],
         },
       },
       {
