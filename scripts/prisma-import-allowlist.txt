@@ -33,7 +33,6 @@ src/app/api/mcp/route.ts
 src/app/api/meal-plans/[id]/entries/[entryId]/cook-question/route.ts
 src/app/api/meal-plans/[id]/entries/[entryId]/preparation-tips/route.ts
 src/app/api/meal-plans/[id]/entries/[entryId]/regenerate/route.ts
-src/app/api/meal-plans/[id]/entries/[entryId]/route.ts
 src/app/api/meal-plans/[id]/entries/[entryId]/suggestions/route.ts
 src/app/api/meal-plans/[id]/entries/route.ts
 src/app/api/meal-plans/[id]/route.ts

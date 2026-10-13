@@ -36,7 +36,7 @@ export function sumPortions(
  *
  * - `src/lib/meal-planning/load-pantry.ts` (needed quantities)
  * - `src/lib/meal-planning/shopping-list.ts` (both aggregations)
- * - `src/app/api/meal-plans/[id]/entries/[entryId]/route.ts` (pantry deduction)
+ * - `src/lib/meal-plans/entries.ts` (pantry deduction)
  * - `…/entries/[entryId]/preparation-tips/route.ts` (the AI prompt's servings
  *   and ingredient amounts)
  *
