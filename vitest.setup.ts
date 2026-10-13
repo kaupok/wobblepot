@@ -1,7 +1,5 @@
-import '@testing-library/jest-dom/vitest'
 import { Fragment, createElement, type ReactNode } from 'react'
 import { afterEach, vi } from 'vitest'
-import { cleanup } from '@testing-library/react'
 import enMessages from './messages/en.json'
 
 // next-intl provider context isn't set up in unit tests by default. Most tests
@@ -140,4 +138,11 @@ if (typeof window !== 'undefined') {
   })
 }
 
-afterEach(() => cleanup())
+// DOM matchers and React cleanup only mean something with a window. Files in
+// the `unit-node` project skip them, so they do not pay to load react-dom
+// (HON-1178); a `// @vitest-environment jsdom` file still gets both.
+if (typeof window !== 'undefined') {
+  await import('@testing-library/jest-dom/vitest')
+  const { cleanup } = await import('@testing-library/react')
+  afterEach(() => cleanup())
+}
