@@ -33,7 +33,7 @@ Every PR and every push to `main` runs the following checks in GitHub Actions (`
 - `scripts/check-smoke-specs.sh` - `@smoke` specs are staging-safe
 - `pnpm audit --audit-level critical` - Dependency advisories (last, because it is the only step that calls the npm registry)
 
-**`Unit tests`**:
+**`Unit tests`** — with an empty Postgres sidecar, because loading `src/lib/auth.ts` connects to the database:
 
 - `pnpm test` - Unit tests
 

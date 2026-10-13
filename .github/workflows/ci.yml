@@ -261,6 +261,28 @@ jobs:
       contents: read
       actions: write
 
+    # An empty Postgres, with no migrations, so a test that loads src/lib/auth.ts
+    # can reach a server (HON-1177). Better Auth's oauth-provider plugin seeds
+    # the MCP resource row when auth initialises. On a database without the
+    # `oauthResource` table it logs and defers the seed, but a refused
+    # connection rejects outside any test, and Vitest fails the run on the
+    # unhandled rejection even when every test passed. The unit tests ran
+    # beside this sidecar before the split, so this keeps that behaviour.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: honkadori_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       # Literal brand string, not a secret: only required so `clientEnv`
       # (src/lib/env.ts) parses. The value is rendered in emails only, which
