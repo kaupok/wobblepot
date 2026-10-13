@@ -1,23 +1,22 @@
 name: CI
 
-# Skip CI for docs-only changes (HON-529). main has no required status
-# checks today, so docs-only PRs simply show no CI status and remain
-# mergeable. If CI ever becomes a required check, switch to the
-# dummy-job pattern (a second workflow with the same `name:` that
-# triggers on these paths and exits 0 immediately) so PRs don't hang.
+# Runs on every PR and every push to `main`, docs-only changes included.
+# `Lint, Type Check & Test` (the `ci` job below) is a required status check on
+# `main` (HON-584), and a required check has to come from a workflow that
+# cannot be skipped: when a path filter skips the workflow, the check stays
+# "Pending" and blocks the merge for good (GitHub docs → "Troubleshooting
+# required status checks": avoid requiring workflows that can be skipped).
+# That is why the docs-only `paths-ignore` from HON-529 is gone. The
+# alternative, a second workflow with the same check name that exits 0 on
+# docs paths, was rejected: a PR that changes docs and code triggers both,
+# and two check runs of one name race for the verdict. The repository is
+# public, so Actions minutes are free; a docs-only run costs about 4 min of
+# wall time and nothing else.
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.github/ISSUE_TEMPLATE/**'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.github/ISSUE_TEMPLATE/**'
 
 # One copy for every job (HON-1183): a job that imports src/lib/env.ts needs
 # the variables its schema parses. Step-level `env` entries override these, and
@@ -111,10 +110,10 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: bash scripts/check-migrations-immutable.sh "$BASE_SHA"
 
-      # Detection, not prevention (HON-649, HON-671). `main` has no required
-      # status checks (HON-584), so an edited migration can still land: a PR
-      # merged red, a PR run cancelled by `cancel-in-progress`, or a merge
-      # through the GitHub UI. By the time this runs, deploy-db-migrations-
+      # Detection, not prevention (HON-649, HON-671). `Lint, Type Check & Test`
+      # is a required status check on `main` (HON-584), but `enforce_admins` is
+      # off, so an edited migration can still land through an admin's
+      # `gh pr merge --admin`. By the time this runs, deploy-db-migrations-
       # staging.yml has been triggered by the same push, so the best available
       # outcome is a loud signal — and the decision is to fail CI on `main`
       # (this job, and through it the `Lint, Type Check & Test` aggregate),
@@ -153,8 +152,10 @@ jobs:
       # hold the checksum of the ORIGINAL SQL; only restoring those bytes clears
       # the drift, and a new migration would leave it in place for good. The
       # script prints that instruction itself in this mode. The revert PR's own
-      # range check still fails (a revert is an `M` against its base) — merge
-      # it deliberately; its `main` push then goes green here.
+      # range check still fails (a revert is an `M` against its base), and the
+      # required check with it, so a human merges it from a terminal with
+      # `gh pr merge --admin` and says why in the PR; its `main` push then goes
+      # green here.
       - name: Check migrations are immutable (post-merge detection)
         if: github.event_name == 'push'
         run: bash scripts/check-migrations-immutable.sh --tree

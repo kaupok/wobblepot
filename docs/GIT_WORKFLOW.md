@@ -119,12 +119,13 @@ Tests are left to CI. If the hook does not run, run `pnpm install` and check tha
 
 It matches what would execute, so a `grep` or a commit message that mentions one of these commands passes. It applies to agents only; a human at a terminal is not checked.
 
-**3. GitHub branch protection on `main`**, as `gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/branches/main/protection"` reports it (checked 2026-10-01):
+**3. GitHub branch protection on `main`**, as `gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/branches/main/protection"` reports it (checked 2026-10-13):
 
 - A pull request is required, with 0 approving reviews, so a solo or unattended merge works.
-- **No status checks are required.** A red CI check marks the PR unstable but does not stop `gh pr merge`; the merging human or agent is what reads the checks. HON-584 will add required checks, and this section should then name them.
+- **The status check `Lint, Type Check & Test` is required** (HON-584). It is the aggregate job in `ci.yml` that waits for the four CI jobs and runs on every PR, docs-only ones included, so it always reports. A red or pending check makes `gh pr merge` fail with "not mergeable", which is what stops an unattended merge. `strict` is off, so a PR need not be up to date with `main` before it merges.
+- The other checks stay advisory: `Vercel env-var drift audit` is skipped on forked PRs, the preview smoke checks run only on PRs with the `smoke` label, and the Vercel deploy status is a third-party status. A required check that never reports blocks a PR for good, so none of these is safe to require.
 - Force pushes and deletion of `main` are blocked.
-- `enforce_admins` is off, so a repository admin can bypass these rules.
+- `enforce_admins` is off, so a repository admin can bypass these rules. **Override procedure:** a human who must merge past a known-bad check runs `gh pr merge --admin --squash --delete-branch` from a terminal and says why in the PR. `/merge` and `/auto-implement` never pass `--admin`; the unattended path has no override, by design.
 - Linear history, signed commits and conversation resolution are not required.
 
 Re-run the command above before relying on this list; it changes in the repository settings, not in this file.
