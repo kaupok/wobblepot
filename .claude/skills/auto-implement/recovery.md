@@ -78,37 +78,7 @@ Never touch an assigned issue — `In Progress` + assignee me is an explicit cla
 
 ## No checks reported (6.1, 7.2)
 
-- `no checks reported on the '<branch>' branch` on stderr (exit 1) → acceptable **only** when every changed file is excluded by `ci.yml` `paths-ignore` (`**/*.md`, `docs/**`, `.github/ISSUE_TEMPLATE/**`), i.e. no workflow was ever going to run. Otherwise checks simply have not been reported for a code change — stop. In practice this branch is unreachable here (docs-only PRs still receive Vercel and skipped smoke checks, so `gh pr checks` always reports something); it is kept as a defensive branch — do not rely on it:
-
-```bash
-PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-# Paginated, not `gh pr view --json files` — that caps at 100 files (HON-587).
-# System jq, because `--jq` runs per page (HON-586). REST calls the field `filename`.
-FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=100" | jq -rs 'add | .[].filename')
-# A partial walk fails open exactly like the 100-cap did: gh streams each page as it
-# arrives and the pipeline reports jq's status, not gh's, so a 502 on page 2 of a
-# 150-file code PR leaves 100 docs paths that read as DOCS_ONLY. Only a >100-file PR
-# paginates at all, so the exposure is precisely the population this fetch exists for.
-# changedFiles is a scalar total and is not paginated; a mismatch — or a failed count,
-# which can equal nothing — empties FILES into the guard below, the same closing move
-# scripts/pr-review.sh makes with its PR_FILE_COUNT = PR_CHANGED check.
-CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null)
-[ "$(printf '%s\n' "$FILES" | grep -c .)" = "$CHANGED" ] || FILES=""
-NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
-# An unreadable file list is not evidence of a docs-only PR. Without the -z test a
-# failed fetch leaves NON_DOCS empty and prints DOCS_ONLY — "treat as passed" — for
-# a PR that nothing has checked. Same guard the SKILL.md 6.1 poll puts on DOCS_ONLY.
-if [ -z "$FILES" ]; then
-  # Not the same diagnosis: nothing has established a code change here, the file
-  # list simply could not be read. Saying otherwise points the CI-fix loop below
-  # at healthy CI, where it can spend both attempts pushing commits at nothing.
-  echo "Could not read the PR file list — cannot classify, treat as unverified"  # STOP
-elif [ -n "$NON_DOCS" ]; then
-  echo "CI did not report checks for a code change"  # STOP — do not proceed
-else
-  echo "DOCS_ONLY"  # no CI workflow runs for these paths — treat as passed
-fi
-```
+- `no checks reported on the '<branch>' branch` on stderr (exit 1) → stop, do not merge. `ci.yml` runs on every PR, docs-only ones included, and `Lint, Type Check & Test` is a required check (HON-584), so no PR is exempt: an empty check list means CI did not report, and GitHub would refuse the merge anyway. In practice the 6.1 poll does not settle without that job's row, so this branch is defensive. Report it and stop; do not enter the CI-fix loop, because there is no failure to fix.
 
 ## CI-fix loop (6.1)
 

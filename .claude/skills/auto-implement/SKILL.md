@@ -691,40 +691,16 @@ Run the block below in the **foreground** with `timeout: 540000`:
 #   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
 #                 which covers ci.yml's timeout-minutes of 45)
 #   CI_TIMEOUT  → terminal — report and stop
-# Settles only when: at least one non-exempt check exists (a docs-only PR is allowed none)
-# and none is pending; the sorted name=bucket list is identical on two consecutive polls
-# (fast Vercel/smoke statuses register before the ci.yml job does); and, unless the PR
-# is affirmatively classified docs-only, the ci.yml job "Lint, Type Check & Test" is
-# present. Affirmatively: a file list that could not be read is not a docs-only PR, so
-# it still requires the job (HON-587) — do not weaken this back to "has non-docs files",
-# which is also true of an unreadable list and waives the only build gate there is. Each Bash call is a
+# Settles only when: the ci.yml job "Lint, Type Check & Test" is present and none is
+# pending, and the sorted name=bucket list is identical on two consecutive polls (fast
+# Vercel/smoke statuses register before the ci.yml job does). The job is required on
+# every PR, docs-only ones included: ci.yml has no path filter and the job is a required
+# status check on main (HON-584), so GitHub refuses a merge before it reports. A poll
+# that settled without it, on an empty list before the run registered, would end in a
+# refused `gh pr merge` and a stranded PR (HON-1184). Each Bash call is a
 # fresh shell, so PR_NUMBER is re-derived here and the previous poll's result is carried
 # across chunks in a file — never reuse a shell variable.
 PR_NUMBER=$(gh pr view --json number --jq .number)
-# NOT `gh pr view --json files`: it hardcodes `files(first: 100)` and has no
-# --paginate, so a >100-file PR whose first 100 paths are docs would read as
-# DOCS_ONLY and settle a code PR on no CI at all (HON-587). The REST endpoint
-# paginates; `--jq` runs per page, so the slurp uses the system jq (HON-586).
-# The field is `filename` here — GraphQL's `path` does not exist on this payload
-# and would yield one `null` per file, matching no docs pattern.
-FILES=$(gh api --paginate "/repos/:owner/:repo/pulls/$PR_NUMBER/files?per_page=100" | jq -rs 'add | .[].filename')
-# A partial walk fails open exactly like the 100-cap did: gh streams each page as it
-# arrives and the pipeline reports jq's status, not gh's, so a 502 on page 2 of a
-# 150-file code PR leaves 100 docs paths that read as DOCS_ONLY. Only a >100-file PR
-# paginates at all, so the exposure is precisely the population this fetch exists for.
-# changedFiles is a scalar total and is not paginated; a mismatch — or a failed count,
-# which can equal nothing — empties FILES into the guard below, the same closing move
-# scripts/pr-review.sh makes with its PR_FILE_COUNT = PR_CHANGED check.
-CHANGED=$(gh pr view "$PR_NUMBER" --json changedFiles --jq '.changedFiles' 2>/dev/null)
-[ "$(printf '%s\n' "$FILES" | grep -c .)" = "$CHANGED" ] || FILES=""
-NON_DOCS=$(printf '%s\n' "$FILES" | grep -Ev '\.md$|^docs/|^\.github/ISSUE_TEMPLATE/')
-# ci.yml is paths-ignored for docs, and Preview smoke only fires on a SUCCESSFUL
-# Vercel deploy — so a docs-only PR whose Vercel status is stuck has no other
-# check at all, and exempting that one row leaves the list legitimately empty.
-# Requires a non-empty FILES: a fetch that failed must never read as "docs-only,
-# nothing to wait for" and settle a code PR on zero checks. An empty fetch makes
-# `jq -s 'add'` yield null and `.[]` error out, so FILES lands empty either way.
-DOCS_ONLY=false; [ -n "$FILES" ] && [ -z "$NON_DOCS" ] && DOCS_ONLY=true
 PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
 # Reap state left by an abandoned episode (a killed call, a worker timeout).
 # It is keyed only by PR number, so a RETRY worker on the same PR would inherit
@@ -735,8 +711,8 @@ PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.ch
 # re-issues within seconds, so age separates the two cleanly.
 [ -n "$(find "$CHUNK_FILE" -mmin +10 2>/dev/null)" ] && rm -f "$PREV_FILE" "$CHUNK_FILE"
 CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "$CHUNK_FILE"
-# INIT is a sentinel no check list can equal: without it an empty CUR would match
-# an empty PREV and settle on the very first poll, skipping the stability check.
+# INIT is a sentinel no check list can equal, so the first poll of an episode can
+# never count as stable on its own.
 PREV=$(cat "$PREV_FILE" 2>/dev/null || echo INIT)
 [ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
 for i in $(seq 1 16); do
@@ -746,10 +722,9 @@ for i in $(seq 1 16); do
   CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
     --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
   OK=1
-  [ -n "$CUR" ] || [ "$DOCS_ONLY" = true ] || OK=0                                   # at least one check (docs-only may have none)
-  printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0                                 # none pending
-  [ "$DOCS_ONLY" = true ] || printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (code PRs)
-  [ "$CUR" = "$PREV" ] || OK=0                                                       # identical to the previous poll
+  printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (every PR)
+  printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0           # none pending
+  [ "$CUR" = "$PREV" ] || OK=0                                 # identical to the previous poll
   PREV=$CUR; printf '%s' "$CUR" > "$PREV_FILE"
   if [ "$OK" = 1 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_SETTLED; exit 0; fi
   [ "$i" -lt 16 ] && sleep 30   # the 16th sleep would only delay CI_WAITING
@@ -778,7 +753,7 @@ gh pr checks "$PR_NUMBER" --json name,bucket,state,workflow \
 
 - No output → all checks passed. Proceed.
 - Any line printed → CI is failing (check names and states listed).
-- `no checks reported on the '<branch>' branch` on stderr (exit 1) → read `recovery.md` → No checks reported. It decides whether the PR is docs-only (treat as passed) or must stop.
+- `no checks reported on the '<branch>' branch` on stderr (exit 1) → CI did not report: stop, do not merge. See `recovery.md` → No checks reported.
 
 If CI fails, read `recovery.md` → CI-fix loop: at most 2 fix attempts, each re-running the wait above, then stop.
 
@@ -1042,8 +1017,7 @@ The PR number and URL are available from Phase 5.4 / Phase 6.2.
 # Phase 6.2 for <PR_NUMBER>. After the squash merge (with --delete-branch) HEAD is `main`,
 # so a bare `gh pr view` no longer resolves this PR.
 # `files` is capped at 100 here and left that way on purpose (HON-587): this list is
-# cosmetic, and truncating a changelog is not a merge gate. The docs-only decision
-# in 6.1/7.2 reads the paginated REST endpoint instead.
+# cosmetic, and truncating a changelog is not a merge gate.
 gh pr view <PR_NUMBER> --json number,title,url,commits,files
 
 # Review comments: inline comments + review-level summaries
