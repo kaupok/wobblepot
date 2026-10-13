@@ -222,6 +222,8 @@ Validated at runtime using Zod (`src/lib/env.ts`).
 
 **Client:** `import { prisma } from '@/lib/prisma'` (server-only). See `src/lib/prisma.ts`
 
+**Persistence lives in `src/lib`.** Route handlers, pages and components do not import `@/lib/prisma`; they call a `src/lib` function, so their tests mock that function and not Prisma. `pnpm prisma-boundary:check` names the file that breaks this. The files that still do are in `scripts/prisma-import-allowlist.txt`, which only shrinks.
+
 **Schema:** `prisma/schema.prisma` holds the Better Auth models and the meal-planning models. The domain glossary is in `docs/PROJECT_SPEC.md`.
 
 **Commands:**

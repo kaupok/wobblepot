@@ -1,0 +1,50 @@
+# Files outside src/lib that import `@/lib/prisma` directly (HON-1185). Read by
+# `pnpm prisma-boundary:check` (scripts/check-prisma-boundary.ts), which fails
+# on any other file outside src/lib that imports the client.
+#
+# This list only shrinks. Remove a line when its file stops importing the client
+# (the check warns about a line that no longer does). Never add one: a new
+# route, page or component calls a function in a src/lib module, and that
+# module owns the query. HON-1189 and HON-1191 move these files off the client.
+#
+# Format: one repo-relative path per line; `#` comments and blank lines ignored.
+src/app/admin/signup-codes/page.tsx
+src/app/api/admin/signup-codes/[id]/route.ts
+src/app/api/admin/signup-codes/route.ts
+src/app/api/admin/waitlist/[id]/invite/route.ts
+src/app/api/admin/waitlist/[id]/route.ts
+src/app/api/auth/user/export/route.ts
+src/app/api/auth/user/route.ts
+src/app/api/cron/purge-deleted-users/route.ts
+src/app/api/e2e-seed/route.ts
+src/app/api/e2e-support/route.ts
+src/app/api/health/route.ts
+src/app/api/households/me/invites/[id]/route.ts
+src/app/api/households/me/invites/route.ts
+src/app/api/households/me/meals/[id]/route.ts
+src/app/api/households/me/meals/route.ts
+src/app/api/households/me/members/[id]/route.ts
+src/app/api/households/me/members/me/reminder/route.ts
+src/app/api/households/me/members/route.ts
+src/app/api/households/me/preferences/route.ts
+src/app/api/households/me/route.ts
+src/app/api/ingredients/route.ts
+src/app/api/mcp/route.ts
+src/app/api/meal-plans/[id]/entries/[entryId]/cook-question/route.ts
+src/app/api/meal-plans/[id]/entries/[entryId]/preparation-tips/route.ts
+src/app/api/meal-plans/[id]/entries/[entryId]/regenerate/route.ts
+src/app/api/meal-plans/[id]/entries/[entryId]/route.ts
+src/app/api/meal-plans/[id]/entries/[entryId]/suggestions/route.ts
+src/app/api/meal-plans/[id]/entries/route.ts
+src/app/api/meal-plans/[id]/route.ts
+src/app/api/meal-plans/[id]/shopping-list/purchase/route.ts
+src/app/api/meal-plans/[id]/shopping-list/route.ts
+src/app/api/meal-plans/[id]/shopping-list/unpurchase/route.ts
+src/app/api/meals/[id]/favorite/route.ts
+src/app/api/meals/[id]/image/route.ts
+src/app/api/meals/imagine/route.ts
+src/app/api/members/me/preferences/route.ts
+src/app/api/pantry/[id]/route.ts
+src/app/api/pantry/by-ingredient/[ingredientId]/route.ts
+src/app/api/shopping-list/custom/[id]/route.ts
+src/app/api/shopping-list/custom/checked/route.ts
