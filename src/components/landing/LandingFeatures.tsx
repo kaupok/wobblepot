@@ -113,12 +113,11 @@ const VIGNETTES: Record<Point, ComponentType> = {
   cook: CookVignette,
 }
 
-// A slight tilt on each vignette, in a different direction and amount, so the
-// vignettes read as things laid on a table rather than a grid. Whole degrees
-// only, which the rotate scale has.
 // Each tile its own pale colour (`[data-landing-tile]` in globals.css). A
-// tinted vignette takes its tile's hue, so it reads as the same colour a step
-// lighter rather than a second colour on the first.
+// tinted vignette takes its tile's hue as near-white paper, so it lifts off the
+// colour rather than stacking a second one on it. The pantry's salmon tint
+// (88) sits on `sun` (98): the tile moved toward a true yellow, and at the
+// paper's chroma the ten degrees do not show.
 const TILES: Record<Point, string> = {
   pantry: 'sun',
   imagine: 'peach',
@@ -126,6 +125,9 @@ const TILES: Record<Point, string> = {
   cook: 'mint',
 }
 
+// A slight tilt on each vignette, in a different direction and amount, so the
+// vignettes read as things laid on a table rather than a grid. Whole degrees
+// only, which the rotate scale has.
 const TILTS: Record<Point, string> = {
   pantry: 'rotate-1',
   imagine: '-rotate-2',
