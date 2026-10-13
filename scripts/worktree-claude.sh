@@ -194,7 +194,7 @@ NEON_ISSUE_BRANCH_REGEX='^[A-Za-z0-9._-]+--hon-[0-9]+(-[A-Za-z0-9._-]+)?$'
 # Pure selection half of neon_gc_orphans: given the `neonctl branches list` JSON
 # and the newline-separated list of live worktree branch names (already mapped
 # through neon_branch_name), print the Neon branches that should be deleted.
-# Split out so scripts/orchestrator.test.ts can exercise the real jq expression
+# Split out so scripts/orchestrator.neon.test.ts can exercise the real jq expression
 # and the real protection/worktree filters without touching neonctl.
 neon_gc_orphan_names() {
   local list_out="$1" live_worktrees="$2"

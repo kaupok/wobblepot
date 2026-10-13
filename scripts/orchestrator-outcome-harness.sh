@@ -4,7 +4,7 @@
 # Sources orchestrator.sh — which defines functions without starting the poll
 # loop when sourced — and replaces the collaborators that would touch the
 # network, GitHub or Linear, so each branch can be driven deterministically.
-# Driven by scripts/orchestrator.test.ts.
+# Driven by the scripts/orchestrator.*.test.ts files.
 #
 # Modes:
 #   outcome <commits> <phase> <pr_state> <ci_state>

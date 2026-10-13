@@ -2,7 +2,7 @@
  * The CI-settle gate that decides when a PR may be merged (HON-600).
  *
  * The gate has three implementations that must agree: `pr_ci_state()` in
- * orchestrator.sh (covered in orchestrator.test.ts) and two shell snippets
+ * orchestrator.sh (covered in orchestrator.phase.test.ts) and two shell snippets
  * embedded in skill markdown — /auto-implement Phase 6.1 (which 7.2 re-runs),
  * and /merge Step 2. The markdown ones are the ones that actually merge PRs, and until
  * this file existed nothing executed them: the snippets were prose, and every
@@ -18,7 +18,7 @@
  * is therefore the only build gate.
  *
  * Lives in scripts/ rather than .claude/skills/ so it sits next to
- * orchestrator.test.ts, which tests the third implementation of the same rule.
+ * orchestrator.phase.test.ts, which tests the third implementation of the same rule.
  */
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
