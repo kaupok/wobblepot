@@ -5,18 +5,9 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/content'
-import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { pantryQuantitySchema, updatePantryItem } from '@/lib/pantry/pantry-items'
 
-// `quantity` floors at 0: `0` is a valid tracked state ("none left, still
-// tracked"), `null` means "have some, amount unknown" (the deduction path
-// treats it as fully consumed), and a negative would render on /shopping as a
-// real on-hand amount and inflate the shopping quantity: `computeShoppingList`
-// (src/lib/meal-planning/shopping-list.ts:279) and
-// `computeRollingWindowShoppingList` (:475) both net via
-// `Math.max(0, neededQty - pantry.quantity)`, which turns "500 needed, -500 on
-// hand" into 1000 to buy. The needed-quantity aggregation in `GET /api/pantry`
-// is meal-plan-only and never reads `quantity`, so it is not the one at risk.
+// The quantity rule (`>= 0` or `null`) is `pantryQuantitySchema`'s.
 //
 // The refine rejects a body with no updatable field — `{}`, or one carrying only
 // unknown keys, which Zod strips to `{}`. Prisma would still issue that UPDATE
@@ -26,7 +17,7 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 // are all real updates.
 const updatePantryItemSchema = z
   .object({
-    quantity: z.number().min(0).nullable().optional(),
+    quantity: pantryQuantitySchema.optional(),
     isStaple: z.boolean().optional(),
   })
   .refine((data) => data.quantity !== undefined || data.isStaple !== undefined, {
@@ -65,59 +56,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { id } = await params
 
-    // Find the pantry item and verify it belongs to user's household
-    const pantryItem = await prisma.pantryItem.findFirst({
-      where: {
-        id,
-        householdId: membership.householdId,
-      },
-    })
+    const outcome = await updatePantryItem(membership.household, id, parsed.data)
 
-    if (!pantryItem) {
+    if (outcome.status === 'not_found') {
       return NextResponse.json({ error: 'Pantry item not found' }, { status: 404 })
     }
 
-    // Build update data only with provided fields
-    const updateData: { quantity?: number | null; isStaple?: boolean } = {}
-    if (parsed.data.quantity !== undefined) {
-      updateData.quantity = parsed.data.quantity
-    }
-    if (parsed.data.isStaple !== undefined) {
-      updateData.isStaple = parsed.data.isStaple
-    }
-
-    // The client ignores the name today, but the response matches what
-    // `loadPantry` returns for the same row (HON-913).
-    const locale = resolveHouseholdLocale(membership.household)
-
-    const updated = await prisma.pantryItem.update({
-      where: { id },
-      data: updateData,
-      include: {
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            defaultUnit: true,
-            ...ingredientTranslationsInclude(locale),
-          },
-        },
-      },
-    })
-    const ingredientShown = translateIngredient(updated.ingredient, locale)
-
+    const { item } = outcome
     return NextResponse.json({
-      id: updated.id,
+      id: item.id,
       ingredient: {
-        id: ingredientShown.id,
-        name: ingredientShown.name,
-        category: ingredientShown.category,
-        defaultUnit: ingredientShown.defaultUnit,
+        id: item.ingredient.id,
+        name: item.ingredient.name,
+        category: item.ingredient.category,
+        defaultUnit: item.ingredient.defaultUnit,
       },
-      quantity: updated.quantity,
-      isStaple: updated.isStaple,
-      updatedAt: updated.updatedAt,
+      quantity: item.quantity,
+      isStaple: item.isStaple,
+      updatedAt: item.updatedAt,
     })
   } catch (error) {
     captureApiError(error, { route: '/api/pantry/[id]', userId: session.user.id })

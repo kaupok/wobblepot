@@ -913,7 +913,13 @@ describe('POST /api/pantry', () => {
       },
       include: {
         ingredient: {
-          select: { id: true, name: true, category: true, defaultUnit: true },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            defaultUnit: true,
+            measuredByVolume: true,
+          },
         },
       },
     })
@@ -1000,7 +1006,13 @@ describe('POST /api/pantry', () => {
       },
       include: {
         ingredient: {
-          select: { id: true, name: true, category: true, defaultUnit: true },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            defaultUnit: true,
+            measuredByVolume: true,
+          },
         },
       },
     })
