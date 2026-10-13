@@ -19,6 +19,34 @@ on:
       - 'docs/**'
       - '.github/ISSUE_TEMPLATE/**'
 
+# One copy for every job (HON-1183): a job that imports src/lib/env.ts needs
+# the variables its schema parses. Step-level `env` entries override these.
+env:
+  # Literal brand string, not a secret: only required so `clientEnv`
+  # (src/lib/env.ts) parses. The value is rendered in emails only, which
+  # no CI job sends. Kept out of repo variables so nothing drifts from
+  # the product name.
+  NEXT_PUBLIC_APP_NAME: Wobblepot
+  NEXT_PUBLIC_APP_ENV: ci
+  NEXT_TELEMETRY_DISABLED: 1
+  NODE_ENV: test
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
+  DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
+  BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
+  UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
+  UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
+  # Not a secret: both sides of the bearer check live inside the E2E job.
+  # The account-deletion E2E spec (HON-479) calls the real purge cron with
+  # it instead of adding a test-only branch to the production route. 32+
+  # chars to satisfy the env schema.
+  CRON_SECRET: ci-e2e-cron-secret-not-a-real-credential
+  SEED_TEST_USERS: '1'
+  SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+  SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+  FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
+  FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -31,9 +59,8 @@ jobs:
   # check name `Lint, Type Check & Test` and turns red when any of the four
   # does — see its own comment.
   #
-  # Each job carries a full copy of the same `env` and `permissions` blocks.
-  # A job that imports src/lib/env.ts needs the variables its schema parses,
-  # and one shared copy is easier to keep correct than four trimmed ones.
+  # Each job carries a full copy of the same `permissions` block. The `env`
+  # block is shared at workflow level, above.
 
   # ==========================================
   # Static checks: git, lockfile and source-tree scans; no DB or browser
@@ -45,32 +72,6 @@ jobs:
     permissions:
       contents: read
       actions: write
-
-    env:
-      # Literal brand string, not a secret: only required so `clientEnv`
-      # (src/lib/env.ts) parses. The value is rendered in emails only, which
-      # no CI job sends. Kept out of repo variables so nothing drifts from
-      # the product name.
-      NEXT_PUBLIC_APP_NAME: Wobblepot
-      NEXT_PUBLIC_APP_ENV: ci
-      NEXT_TELEMETRY_DISABLED: 1
-      NODE_ENV: test
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
-      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
-      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
-      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
-      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
-      # Not a secret: both sides of the bearer check live inside the E2E job.
-      # The account-deletion E2E spec (HON-479) calls the real purge cron with
-      # it instead of adding a test-only branch to the production route. 32+
-      # chars to satisfy the env schema.
-      CRON_SECRET: ci-e2e-cron-secret-not-a-real-credential
-      SEED_TEST_USERS: '1'
-      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
-      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
-      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
-      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
 
     steps:
       - name: Checkout code
@@ -320,54 +321,6 @@ jobs:
       contents: read
       actions: write
 
-    # An empty Postgres, with no migrations, so a test that loads src/lib/auth.ts
-    # can reach a server (HON-1177). Better Auth's oauth-provider plugin seeds
-    # the MCP resource row when auth initialises. On a database without the
-    # `oauthResource` table it logs and defers the seed, but a refused
-    # connection rejects outside any test, and Vitest fails the run on the
-    # unhandled rejection even when every test passed. The unit tests ran
-    # beside this sidecar before the split, so this keeps that behaviour.
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: honkadori_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      # Literal brand string, not a secret: only required so `clientEnv`
-      # (src/lib/env.ts) parses. The value is rendered in emails only, which
-      # no CI job sends. Kept out of repo variables so nothing drifts from
-      # the product name.
-      NEXT_PUBLIC_APP_NAME: Wobblepot
-      NEXT_PUBLIC_APP_ENV: ci
-      NEXT_TELEMETRY_DISABLED: 1
-      NODE_ENV: test
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
-      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
-      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
-      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
-      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
-      # Not a secret: both sides of the bearer check live inside the E2E job.
-      # The account-deletion E2E spec (HON-479) calls the real purge cron with
-      # it instead of adding a test-only branch to the production route. 32+
-      # chars to satisfy the env schema.
-      CRON_SECRET: ci-e2e-cron-secret-not-a-real-credential
-      SEED_TEST_USERS: '1'
-      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
-      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
-      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
-      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -397,32 +350,6 @@ jobs:
     permissions:
       contents: read
       actions: write
-
-    env:
-      # Literal brand string, not a secret: only required so `clientEnv`
-      # (src/lib/env.ts) parses. The value is rendered in emails only, which
-      # no CI job sends. Kept out of repo variables so nothing drifts from
-      # the product name.
-      NEXT_PUBLIC_APP_NAME: Wobblepot
-      NEXT_PUBLIC_APP_ENV: ci
-      NEXT_TELEMETRY_DISABLED: 1
-      NODE_ENV: test
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
-      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
-      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
-      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
-      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
-      # Not a secret: both sides of the bearer check live inside the E2E job.
-      # The account-deletion E2E spec (HON-479) calls the real purge cron with
-      # it instead of adding a test-only branch to the production route. 32+
-      # chars to satisfy the env schema.
-      CRON_SECRET: ci-e2e-cron-secret-not-a-real-credential
-      SEED_TEST_USERS: '1'
-      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
-      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
-      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
-      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
 
     steps:
       - name: Checkout code
@@ -465,11 +392,11 @@ jobs:
       # `storybook build`, so a broken manager bundle or preview head would
       # otherwise surface only as a failed deploy on main after merge.
       # NODE_ENV must be `production` to match deploy-storybook.yml: `vite build`
-      # only defaults it when unset, so the job-level `NODE_ENV: test` would
+      # only defaults it when unset, so the workflow-level `NODE_ENV: test` would
       # otherwise flip isProduction, the dev/prod export condition, and the
       # inlined process.env.NODE_ENV — gating a different artifact than the one
-      # that ships. Scoped to this step: on the job it would make `pnpm install`
-      # skip devDependencies.
+      # that ships. Scoped to this step: on the job or the workflow it would make
+      # `pnpm install` skip devDependencies.
       - name: Build Storybook
         env:
           NODE_ENV: production
@@ -506,32 +433,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-
-    env:
-      # Literal brand string, not a secret: only required so `clientEnv`
-      # (src/lib/env.ts) parses. The value is rendered in emails only, which
-      # no CI job sends. Kept out of repo variables so nothing drifts from
-      # the product name.
-      NEXT_PUBLIC_APP_NAME: Wobblepot
-      NEXT_PUBLIC_APP_ENV: ci
-      NEXT_TELEMETRY_DISABLED: 1
-      NODE_ENV: test
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
-      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/honkadori_test?sslmode=disable
-      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET_CI }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_CI }}
-      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL_CI }}
-      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_CI }}
-      # Not a secret: both sides of the bearer check live inside this job. The
-      # account-deletion E2E spec (HON-479) calls the real purge cron with it
-      # instead of adding a test-only branch to the production route. 32+ chars
-      # to satisfy the env schema.
-      CRON_SECRET: ci-e2e-cron-secret-not-a-real-credential
-      SEED_TEST_USERS: '1'
-      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
-      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
-      FORGOT_PASSWORD_TEST_EMAIL: ${{ secrets.FORGOT_PASSWORD_TEST_EMAIL }}
-      FORGOT_PASSWORD_TEST_PASSWORD: ${{ secrets.FORGOT_PASSWORD_TEST_PASSWORD }}
 
     steps:
       - name: Checkout code
@@ -600,8 +501,8 @@ jobs:
       #
       # E2E_DISABLE_RATE_LIMIT is scoped to this step only. The unit tests now
       # run in their own job, but the rate-limit unit tests assume the real
-      # limiter path, so the bypass must never reach a job-level `env` that
-      # could be copied back to them. It is only meaningful during the live
+      # limiter path, so the bypass must never reach the workflow-level `env`,
+      # which the unit job reads too. It is only meaningful during the live
       # Playwright run against the built Next app.
       #
       # 2 workers (HON-1182): the `isolated` and `shared-fixture` projects run

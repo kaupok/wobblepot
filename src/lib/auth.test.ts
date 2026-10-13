@@ -19,18 +19,6 @@ import { resend, isEmailConfigured } from '@/lib/resend'
 import { resolveEmailLocale } from '@/lib/emails/locale'
 import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '@/lib/email-verification'
 
-// Mock the prisma module
-vi.mock('@/lib/prisma', () => ({
-  // The `mcp()` plugin seeds its resource row at init (HON-1150).
-  prisma: {
-    // `merge` seeding reads the row, then updates it (HON-1154).
-    oauthResource: {
-      findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }),
-      update: vi.fn().mockResolvedValue({ id: 'seeded' }),
-    },
-  },
-}))
-
 vi.mock('./breached-password', () => ({
   isPasswordBreached: vi.fn(),
 }))
