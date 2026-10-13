@@ -20,6 +20,7 @@ const household = mcpHousehold({ id: 'household-a' })
 const ctx = { userId: 'user-a', household, scopes: WRITE_SCOPES }
 
 const upsert = vi.fn()
+const update = vi.fn()
 
 function call(input: Record<string, unknown>, caller = ctx) {
   return runTool(markPurchased, caller, markPurchased.inputSchema.parse(input))
@@ -40,7 +41,7 @@ describe('mark_purchased', () => {
     vi.clearAllMocks()
     upsert.mockImplementation(async ({ create }) => pantryRow(create.ingredientId))
     vi.mocked(prisma.$transaction).mockImplementation(async (fn) =>
-      (fn as (tx: unknown) => unknown)({ pantryItem: { upsert } }),
+      (fn as (tx: unknown) => unknown)({ pantryItem: { upsert, update } }),
     )
   })
 
@@ -102,6 +103,29 @@ describe('mark_purchased', () => {
         purchased: true,
         items: [{ ingredientId: 'ing-milk', outcome: 'in_pantry' }],
       })
+    })
+
+    it('turns a "ran out" quantity of 0 into "have some" and leaves a quantity above 0', async () => {
+      vi.mocked(prisma.ingredient.findMany).mockResolvedValue([
+        { id: 'ing-milk' },
+        { id: 'ing-rice' },
+      ] as never)
+      upsert.mockImplementation(async ({ create }) => ({
+        ...pantryRow(create.ingredientId),
+        quantity: create.ingredientId === 'ing-milk' ? 0 : 200,
+      }))
+      update.mockImplementation(async ({ where }) => ({
+        ...pantryRow(where.id.replace('pantry-', '')),
+        quantity: null,
+      }))
+
+      await call({ ingredientIds: ['ing-milk', 'ing-rice'], purchased: true })
+
+      // The shopping list never reads a 0 as purchased (HON-1173).
+      expect(update).toHaveBeenCalledOnce()
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'pantry-ing-milk' }, data: { quantity: null } }),
+      )
     })
 
     it("refuses another household's ingredient and writes nothing", async () => {

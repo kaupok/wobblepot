@@ -61,7 +61,7 @@ export const setPantryQuantity = defineTool({
     // Only the quantity changes, so a staple stays a staple.
     const updated = await updatePantryItem(household, created.existingId, { quantity })
     if (updated.status === 'not_found') {
-      // The household removed the item between the two reads.
+      // The household removed the item after `createPantryItem` read it.
       throw new ToolInputError('The pantry changed while this ran. Try again.')
     }
     return { outcome: 'updated' as const, item: itemOutput(updated.item) }

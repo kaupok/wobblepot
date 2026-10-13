@@ -213,6 +213,22 @@ describe('set_pantry_quantity', () => {
     expect(prisma.pantryItem.update).not.toHaveBeenCalled()
   })
 
+  it('answers a retry message when the item disappears just before the update', async () => {
+    vi.mocked(prisma.pantryItem.findUnique).mockResolvedValue(pantryRow() as never)
+    vi.mocked(prisma.pantryItem.findFirst).mockResolvedValue(pantryRow() as never)
+    vi.mocked(prisma.pantryItem.update).mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Record not found', {
+        code: 'P2025',
+        clientVersion: 'test',
+      }),
+    )
+
+    const result = await call({ ingredientId: 'ing-milk', quantity: 1 })
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0]).toMatchObject({ text: expect.stringContaining('pantry changed') })
+  })
+
   it('rejects a negative quantity at the schema, as both routes do', () => {
     expect(
       setPantryQuantity.inputSchema.safeParse({ ingredientId: 'ing-milk', quantity: -1 }).success,

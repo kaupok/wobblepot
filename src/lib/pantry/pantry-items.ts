@@ -157,10 +157,18 @@ export async function updatePantryItem(
   // returns for the same row (HON-913).
   const locale = resolveHouseholdLocale(household)
 
-  const item = await prisma.pantryItem.update({
-    where: { id },
-    data,
-    include: itemInclude(locale),
-  })
-  return { status: 'updated', item: withTranslatedIngredient(item, locale) }
+  try {
+    const item = await prisma.pantryItem.update({
+      where: { id },
+      data,
+      include: itemInclude(locale),
+    })
+    return { status: 'updated', item: withTranslatedIngredient(item, locale) }
+  } catch (error) {
+    // The household removed the item after the read above.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return { status: 'not_found' }
+    }
+    throw error
+  }
 }
