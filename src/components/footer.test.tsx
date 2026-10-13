@@ -36,4 +36,10 @@ describe('Footer', () => {
       '/terms',
     )
   })
+
+  it('renders a status page link (HON-1204)', () => {
+    renderFooter({ granted: true, grant: vi.fn(), withdraw: vi.fn() })
+
+    expect(screen.getByRole('link', { name: 'Status' })).toHaveAttribute('href', '/status')
+  })
 })

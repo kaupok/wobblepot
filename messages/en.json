@@ -839,7 +839,8 @@
   "footer": {
     "privacy": "Privacy policy",
     "terms": "Terms of service",
-    "support": "Email support"
+    "support": "Email support",
+    "status": "Status"
   },
   "auth": {
     "signIn": {
