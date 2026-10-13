@@ -7,8 +7,8 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 /**
  * Adding an ingredient to the pantry and changing a pantry item, shared by
- * `POST /api/pantry`, `PATCH /api/pantry/[id]` and the `set_pantry_quantity`
- * MCP tool (HON-1173), so the two paths cannot drift.
+ * `POST /api/pantry`, `PATCH /api/pantry/[id]` and the `set_pantry_status`
+ * MCP tool (HON-1173, HON-1201), so the two paths cannot drift.
  */
 
 // `quantity` floors at 0: `0` is a valid tracked state ("none left, still

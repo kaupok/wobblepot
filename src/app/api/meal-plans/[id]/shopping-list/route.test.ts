@@ -345,8 +345,8 @@ describe('GET /api/meal-plans/[id]/shopping-list', () => {
       },
     ] as never)
 
-    // Set to 200 g on the pantry page or with `set_pantry_quantity`: the
-    // other 400 g are still needed
+    // Set to 200 g through `PATCH /api/pantry/[id]`, or before HON-1201 by
+    // `set_pantry_quantity`: the other 400 g are still needed
     mockFindManyPantry.mockResolvedValue([
       {
         ingredientId: 'ing-1',

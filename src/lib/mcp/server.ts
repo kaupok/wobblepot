@@ -10,7 +10,7 @@ import { getMeal } from './tools/get-meal'
 import { markPurchased } from './tools/mark-purchased'
 import { addShoppingItem } from './tools/add-shopping-item'
 import { checkShoppingItem } from './tools/check-shopping-item'
-import { setPantryQuantity } from './tools/set-pantry-quantity'
+import { setPantryStatus } from './tools/set-pantry-status'
 import { swapMeal } from './tools/swap-meal'
 import { rateMeal } from './tools/rate-meal'
 
@@ -28,7 +28,7 @@ export const MCP_TOOLS: readonly McpTool[] = [
   markPurchased,
   addShoppingItem,
   checkShoppingItem,
-  setPantryQuantity,
+  setPantryStatus,
   swapMeal,
   rateMeal,
 ] as McpTool[]

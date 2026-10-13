@@ -80,8 +80,9 @@ export async function loadShoppingList(
       // Item is purchased if its pantry quantity is null ("have some") and was
       // set after the earliest plan was created. If no plans in window, nothing
       // can be purchased. A purchase always sets null (`purchaseIngredients`),
-      // so a 0 or a quantity above 0 was set on the pantry page or with
-      // `set_pantry_quantity`, and is not a purchase (HON-1173, HON-1176).
+      // so a 0 or a quantity above 0 was set on the pantry page, through the
+      // pantry API or with `set_pantry_status`, and is not a purchase
+      // (HON-1173, HON-1176, HON-1201).
       // `computeRollingWindowShoppingList` drops a null item today, so a listed
       // item does not read as purchased: a bought item leaves the list. The
       // condition stays so that an edit can never read as a purchase if the

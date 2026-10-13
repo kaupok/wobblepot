@@ -78,7 +78,7 @@ const WRITE_TOOL_NAMES = [
   'mark_purchased',
   'add_shopping_item',
   'check_shopping_item',
-  'set_pantry_quantity',
+  'set_pantry_status',
   'swap_meal',
   'rate_meal',
 ]
@@ -230,7 +230,7 @@ describe('/api/mcp', () => {
         const write = { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
         expect(annotations.mark_purchased).toEqual({ ...write, idempotentHint: true })
         expect(annotations.check_shopping_item).toEqual({ ...write, idempotentHint: true })
-        expect(annotations.set_pantry_quantity).toEqual({ ...write, idempotentHint: true })
+        expect(annotations.set_pantry_status).toEqual({ ...write, idempotentHint: true })
         expect(annotations.add_shopping_item).toEqual({ ...write, idempotentHint: false })
         expect(annotations.rate_meal).toEqual({ ...write, idempotentHint: true })
         expect(annotations.swap_meal).toEqual({ ...write, idempotentHint: false })
@@ -246,7 +246,7 @@ describe('/api/mcp', () => {
           mark_purchased: { ingredientIds: ['ing-1'], purchased: true },
           add_shopping_item: { name: 'Dish soap' },
           check_shopping_item: { id: 'custom-1', checked: true },
-          set_pantry_quantity: { ingredientId: 'ing-1', quantity: 2 },
+          set_pantry_status: { ingredientId: 'ing-1', status: 'have_some' },
           swap_meal: { date: '2026-10-15', mealType: 'dinner', mealId: 'meal-1' },
           rate_meal: { date: '2026-10-15', mealType: 'dinner', rating: 'up' },
         }[name]
