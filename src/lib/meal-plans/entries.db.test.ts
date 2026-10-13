@@ -143,11 +143,20 @@ describe('deleteEntry', () => {
     expect(await prisma.mealPlanEntry.count({ where: { id: 'entry-alder' } })).toBe(0)
   })
 
-  it("leaves another household's entry, and an entry of another plan, in place", async () => {
+  it("leaves another household's entry in place", async () => {
     const { alder, birch } = await world()
 
     expect(await deleteEntry(alder.id, 'plan-birch', 'entry-birch')).toBe(false)
     expect(await deleteEntry(birch.id, 'plan-birch', 'entry-alder')).toBe(false)
+    expect(await prisma.mealPlanEntry.count()).toBe(2)
+  })
+
+  // A household has one plan, so the wrong plan id is another household's.
+  // The household and the entry match, so only the plan filter refuses it.
+  it('leaves an entry in place when the URL names a plan it is not in', async () => {
+    const { alder } = await world()
+
+    expect(await deleteEntry(alder.id, 'plan-birch', 'entry-alder')).toBe(false)
     expect(await prisma.mealPlanEntry.count()).toBe(2)
   })
 })
@@ -172,7 +181,11 @@ describe('updateEntry: plain edits', () => {
 
     expect(await refusalOf(update({ note: 'x' }, alder.id, 'entry-birch'))).toBe('entryNotFound')
     expect(await refusalOf(update({ note: 'x' }, birch.id))).toBe('entryNotFound')
+    expect(await refusalOf(updateEntry(alder.id, 'plan-birch', 'entry-alder', { note: 'x' }))).toBe(
+      'entryNotFound',
+    )
     expect((await readEntry('entry-birch')).note).toBeNull()
+    expect((await readEntry()).note).toBeNull()
   })
 
   it('refuses a patch that changes nothing, after the entry lookup', async () => {
