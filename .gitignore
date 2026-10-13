@@ -84,3 +84,7 @@ storybook-static
 
 # Signed vendor agreements with personal signatory details (executed originals live in vendor consoles / PandaDoc)
 /compliance/private/
+
+# lint and format caches, written by the CI steps only (HON-1181)
+.eslintcache
+.prettiercache

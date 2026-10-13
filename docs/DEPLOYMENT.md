@@ -33,6 +33,8 @@ Every PR and every push to `main` runs the following checks in GitHub Actions (`
 - `scripts/check-smoke-specs.sh` - `@smoke` specs are staging-safe
 - `pnpm audit --audit-level critical` - Dependency advisories (last, because it is the only step that calls the npm registry)
 
+CI runs lint, format check and type check with a cache (HON-1181): ESLint and Prettier through `--cache --cache-strategy content`, tsc through its cached `tsconfig.tsbuildinfo`. A warm run re-checks only the files that changed. A push to `main` drops the ESLint cache and lints every file, because `shadcn/no-restyle` reads imported component files that the cache does not track. The flags are in `ci.yml`, not in the scripts, so a local run writes no cache files.
+
 **`Unit tests`** — with an empty Postgres sidecar, because loading `src/lib/auth.ts` connects to the database:
 
 - `pnpm test` - Unit tests
