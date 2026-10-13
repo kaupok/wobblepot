@@ -398,8 +398,6 @@ fi
 
 # ─── Checklist items for CLAUDE.md rules that no CI check can enforce ────────
 #
-# Four rules have no mechanical check, so they live here as reviewer checklist items:
-# the CLAUDE.md "definition of done" rules for E2E drift and shared-primitive geometry
 # Five rules have no mechanical check, so they live here as reviewer checklist items:
 # the CLAUDE.md "definition of done" rules for E2E drift and shared-primitive geometry
 # (HON-729), test anti-patterns (HON-1198), the AI eval report (HON-904), and the
@@ -518,6 +516,62 @@ Read the body from step 1. Report each of these as a finding in the summary comm
 
 **A PR-body finding is a finding.** Do NOT write "No issues found" anywhere in a summary that lists one, even if the diff itself is clean. Automation substring-tests for that phrase to decide the review was clean and merges on it, and a PR-body finding never has an inline comment to fall back on.
 PR_BODY_PROMPT
+
+# ─── Spec axis: the diff against the issue's acceptance criteria ─────────────
+#
+# Everything above reviews the diff against standards. None of it reads the Linear
+# issue, so a PR that follows every rule and implements half the issue gets "No
+# issues found" and merges (HON-1200). The Spec axis is reported in its own list so
+# a clean Standards review cannot mask a Spec gap, after Matt Pocock's code-review
+# skill.
+#
+# The issue ID comes from the branch first (`gitBranchName` always carries it), then
+# from a closing keyword in the body: every PR template writes `Closes HON-XX`, and a
+# bare first `HON-N` would pick up a history reference like HON-860 and review the PR
+# against the wrong issue. A failed fetch leaves the ID empty, which skips the axis
+# with an observable "no issue linked" line rather than failing the review.
+PR_HEAD=$(gh pr view "$PR_NUMBER" --json headRefName --jq '.headRefName' 2>/dev/null || true)
+ISSUE_ID=$( { printf '%s\n' "$PR_HEAD" | grep -oiE '(^|/)hon-[0-9]+' | grep -oiE 'hon-[0-9]+'; printf '%s\n' "$PR_BODY" | grep -oiE '(closes|fixes|resolves) hon-[0-9]+' | grep -oiE 'hon-[0-9]+'; } | head -n 1 | tr '[:lower:]' '[:upper:]' || true)
+
+if [ -n "$ISSUE_ID" ]; then
+  echo -e "${GREEN}PR is linked to ${ISSUE_ID} — adding the spec check.${NC}"
+  cat >> "$PROMPT_FILE" <<'SPEC_PROMPT'
+
+## Also check the diff against the issue (Spec)
+
+This PR implements Linear issue __ISSUE_ID__. Everything above checks the diff against standards; this checks it against what the issue asked for. Report the two separately, so a clean result on one cannot hide a gap in the other.
+
+1. Fetch the issue with `mcp__linear-server__get_issue` (`id: "__ISSUE_ID__"`, `includeRelations: true`) and its comments with `mcp__linear-server__list_comments` (`issueId: "__ISSUE_ID__"`). The plan is the comment whose body starts `# Plan:`; there may be none. If the issue fetch fails, write `**Spec:** issue not readable` in the summary and skip the rest of this section. That line is not a finding.
+2. Compare the diff with the issue's acceptance criteria (and its "What" section where it has no criteria list). Report each of these:
+   - **Missing or partial**: a criterion the diff does not implement, or implements only in part. Quote the criterion.
+   - **Not asked for**: behaviour in the diff that neither the issue nor the plan asked for. A change the plan's Design Decisions choose, with a reason, is asked for; so is a test, story or doc edit that supports a criterion.
+   - **Implemented but wrong**: a criterion the diff appears to implement, but whose result does not match what the criterion says.
+
+   Each line names its kind, the file, and one sentence. A criterion that only a human can check after merge (a production metric, a staging walk-through) is not a finding.
+3. Put the result in the Step 5 summary comment, under its own heading directly below the `**Issues found:**` list and above `**Confidence:**`:
+
+   **Spec:** checked against __ISSUE_ID__ — N findings
+   1. **Missing** (file) — "[quoted criterion]" — [one sentence]
+   2. ...
+
+   `0 findings` is a valid answer: emit the heading line on its own. Do NOT copy a Spec finding into the `**Issues found:**` list, and do not rank one list against the other. Spec findings go in the summary only, not as inline comments.
+
+**A Spec finding is a finding.** Do NOT write "No issues found" anywhere in a summary whose Spec list is non-empty. Automation substring-tests for that phrase to decide the review was clean and merges on it. When the diff has no bugs but the Spec list has entries, write "No bugs found in the diff." in the `**Issues found:**` list instead.
+SPEC_PROMPT
+  sed -i '' "s/__ISSUE_ID__/${ISSUE_ID}/g" "$PROMPT_FILE"
+else
+  echo -e "${YELLOW}No HON issue ID in the branch name or a closing keyword in the body — skipping the spec check.${NC}"
+  cat >> "$PROMPT_FILE" <<'NO_SPEC_PROMPT'
+
+## No issue is linked — the spec check does not apply
+
+Neither the branch name nor a `Closes HON-NNN` line in the body names a Linear issue, so there are no acceptance criteria to check the diff against. In the Step 5 summary comment, directly below the `**Issues found:**` list, write exactly:
+
+**Spec:** no issue linked
+
+That line is not a finding. `<!-- claude-review -->` must still be the very first line of the body.
+NO_SPEC_PROMPT
+fi
 
 REVIEW_PROMPT=$(cat "$PROMPT_FILE")
 

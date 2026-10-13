@@ -1,7 +1,7 @@
 /**
  * The E2E-drift and shared-geometry checklist items in scripts/pr-review.sh (HON-729),
- * the test anti-pattern item (HON-1198), the AI eval report item (HON-904), and the
- * driven-screen item (HON-1188).
+ * the test anti-pattern item (HON-1198), the AI eval report item (HON-904), the
+ * driven-screen item (HON-1188), and the Spec axis's issue-ID gate (HON-1200).
  *
  * All five rules are prose with no mechanical check, so the reviewer prompt is
  * their only enforcement — and it is appended conditionally, by a shell grep over the
@@ -377,5 +377,72 @@ describe('PR body item', () => {
       expect(text, skill).toContain('## Not verified')
       expect(text, skill).not.toContain('## Test plan')
     }
+  })
+})
+
+// HON-1200: the Spec axis. The ID gate decides between two prompts, and a regex that
+// matched nothing would quietly turn every review into "no issue linked".
+describe('Spec axis', () => {
+  function issueId(head: string, body = ''): string {
+    const script = [
+      'set -euo pipefail',
+      lineStartingWith('ISSUE_ID='),
+      'printf %s "$ISSUE_ID"',
+    ].join('\n')
+    return execFileSync('bash', ['-c', script], {
+      env: { ...process.env, PR_HEAD: head, PR_BODY: body },
+      encoding: 'utf8',
+    })
+  }
+
+  it('reads the issue ID from a Linear branch name', () => {
+    expect(issueId('kaupo/hon-1198-foo')).toBe('HON-1198')
+    expect(issueId('posthog/hon-12-bar')).toBe('HON-12')
+  })
+
+  it('finds no ID on a branch without one', () => {
+    expect(issueId('main')).toBe('')
+    expect(issueId('fix/python-12-upgrade')).toBe('')
+  })
+
+  // Every PR template writes `Closes HON-XX`; a bare mention is history, not the subject.
+  it('falls back to a closing keyword in the body, and only to that', () => {
+    expect(issueId('main', 'Some context.\n\nCloses HON-77')).toBe('HON-77')
+    expect(issueId('main', 'Same failure as HON-860, see there.')).toBe('')
+  })
+
+  it('prefers the branch over the body', () => {
+    expect(issueId('kaupo/hon-5-x', 'Closes HON-6')).toBe('HON-5')
+  })
+
+  it('tells the reviewer to fetch the issue and report under its own heading', () => {
+    const spec = heredoc('SPEC_PROMPT')
+    expect(spec).toContain('mcp__linear-server__get_issue')
+    expect(spec).toContain('`includeRelations: true`')
+    expect(spec).toContain('mcp__linear-server__list_comments')
+    expect(spec).toContain('**Spec:** checked against __ISSUE_ID__')
+    expect(spec).toContain('**Spec:** issue not readable')
+    expect(spec).toContain('Do NOT copy a Spec finding into the `**Issues found:**` list')
+  })
+
+  // /auto-implement 6.4 merges on that phrase, so a Spec gap beside it would ship.
+  it('forbids "No issues found" alongside a Spec finding', () => {
+    expect(heredoc('SPEC_PROMPT')).toContain('Do NOT write "No issues found"')
+  })
+
+  it('records the skip when no issue is linked', () => {
+    expect(heredoc('NO_SPEC_PROMPT')).toContain('**Spec:** no issue linked')
+  })
+
+  it('is appended at top level, before the prompt is read', () => {
+    const lines = read(prReview).split('\n')
+    const gate = lines.indexOf('if [ -n "$ISSUE_ID" ]; then')
+    const snapshot = lines.findIndex((l) => l.startsWith('REVIEW_PROMPT=$(cat "$PROMPT_FILE")'))
+    expect(gate).toBeGreaterThan(-1)
+    expect(gate).toBeLessThan(snapshot)
+    const opened = lines
+      .slice(0, gate)
+      .reduce((depth, l) => (/^if /.test(l) ? depth + 1 : /^fi$/.test(l) ? depth - 1 : depth), 0)
+    expect(opened).toBe(0)
   })
 })
