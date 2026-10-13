@@ -13,7 +13,7 @@ describe('GET /.well-known/oauth-protected-resource', () => {
     const body = await response.json()
     expect(body.resource).toBe('https://wobblepot.com/api/mcp')
     expect(body.authorization_servers).toEqual(['https://wobblepot.com'])
-    expect(body.scopes_supported).toEqual(['mcp:read'])
+    expect(body.scopes_supported).toEqual(['mcp:read', 'mcp:write'])
   })
 
   it('allows cross-origin reads', () => {

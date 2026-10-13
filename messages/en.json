@@ -989,12 +989,13 @@
       "scopesHeading": "It will be able to:",
       "scopes": {
         "mcpRead": "Read your meal plan, shopping list, pantry and recipes.",
+        "mcpWrite": "Update your shopping list, pantry and meal plan.",
         "openid": "Confirm that it is you.",
         "profile": "See your name and profile picture.",
         "offlineAccess": "Stay connected, so you do not need to allow it again."
       },
       "readOnly": "It cannot change anything in Wobblepot.",
-      "measured": "Wobblepot records each request it makes: which tool, how long it took and the reason the assistant gave. It does not record what it reads.",
+      "measured": "Wobblepot records each request it makes: which tool, how long it took and the reason the assistant gave. It does not record what it reads or changes.",
       "allow": "Allow",
       "allowing": "Connecting…",
       "deny": "Deny",
@@ -1405,6 +1406,7 @@
       "connectedOn": "Connected: {date}",
       "scopes": {
         "mcpRead": "Reads meal plan, shopping list, pantry and recipes",
+        "mcpWrite": "Updates shopping list, pantry and meal plan",
         "openid": "Confirms it is you",
         "profile": "Sees your name and profile picture",
         "offlineAccess": "Stays connected"

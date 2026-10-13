@@ -18,7 +18,7 @@ vi.mock('sonner', () => ({
 const CLAUDE: ConnectedAssistant = {
   clientId: 'client-claude',
   clientName: 'Claude',
-  scopes: ['openid', 'profile', 'offline_access', 'mcp:read'],
+  scopes: ['openid', 'profile', 'offline_access', 'mcp:read', 'mcp:write'],
   createdAt: '2026-10-02T18:00:00.000Z',
 }
 const UNNAMED: ConnectedAssistant = {
@@ -58,7 +58,7 @@ describe('ConnectedAssistantsList', () => {
     expect(within(rows[0]!).getByText('Connected: October 2, 2026')).toBeInTheDocument()
     expect(
       within(rows[0]!).getByText(
-        'Reads meal plan, shopping list, pantry and recipes · Confirms it is you · Sees your name and profile picture · Stays connected',
+        'Reads meal plan, shopping list, pantry and recipes · Updates shopping list, pantry and meal plan · Confirms it is you · Sees your name and profile picture · Stays connected',
       ),
     ).toBeInTheDocument()
     expect(within(rows[1]!).getByText('Unnamed assistant')).toBeInTheDocument()

@@ -2,15 +2,17 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import {
+  ingredientIdSchema,
+  UNPURCHASE_WINDOW_DAYS,
+  unpurchaseIngredient,
+} from '@/lib/shopping/purchase'
 
 const unpurchaseSchema = z.object({
-  ingredientId: z.string().min(1),
+  ingredientId: ingredientIdSchema,
 })
-
-const UNPURCHASE_WINDOW_DAYS = 7
 
 /**
  * POST /api/shopping-list/unpurchase
@@ -18,6 +20,7 @@ const UNPURCHASE_WINDOW_DAYS = 7
  * Mark a shopping list item as unpurchased by removing from pantry.
  * Only works for non-staple items added within the last 7 days.
  * Works with the rolling window shopping list (not tied to a specific plan).
+ * The `mark_purchased` MCP tool calls the same `unpurchaseIngredient`.
  */
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -55,51 +58,28 @@ export async function POST(request: Request) {
 
     const { ingredientId } = parsed.data
 
-    // Find the pantry item
-    const pantryItem = await prisma.pantryItem.findUnique({
-      where: {
-        householdId_ingredientId: {
-          householdId: household.id,
-          ingredientId,
-        },
-      },
-      select: {
-        id: true,
-        isStaple: true,
-        updatedAt: true,
-      },
-    })
+    const outcome = await unpurchaseIngredient(household.id, ingredientId)
 
-    if (!pantryItem) {
+    if (outcome === 'not_in_pantry') {
       return NextResponse.json({ error: 'Item not found in pantry' }, { status: 404 })
     }
 
-    // Check if item is a staple
-    if (pantryItem.isStaple) {
+    if (outcome === 'staple') {
       return NextResponse.json(
         { error: 'Cannot unpurchase staple items', reason: 'staple' },
         { status: 400 },
       )
     }
 
-    // Check if item was added within the unpurchase window
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - UNPURCHASE_WINDOW_DAYS)
-
-    if (pantryItem.updatedAt < cutoffDate) {
+    if (outcome === 'too_old') {
       return NextResponse.json(
         {
-          error: 'Cannot unpurchase items added more than 7 days ago',
+          error: `Cannot unpurchase items added more than ${UNPURCHASE_WINDOW_DAYS} days ago`,
           reason: 'too_old',
         },
         { status: 400 },
       )
     }
-
-    // Delete the pantry item
-    await prisma.pantryItem.delete({
-      where: { id: pantryItem.id },
-    })
 
     return NextResponse.json(
       {

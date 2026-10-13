@@ -3,7 +3,13 @@ import { describe, it, expect, vi } from 'vitest'
 // The `mcp()` plugin seeds its resource row at init; answer that read so the
 // real auth instance never reaches a database.
 vi.mock('@/lib/prisma', () => ({
-  prisma: { oauthResource: { findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }) } },
+  prisma: {
+    // `merge` seeding reads the row, then updates it (HON-1154).
+    oauthResource: {
+      findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }),
+      update: vi.fn().mockResolvedValue({ id: 'seeded' }),
+    },
+  },
 }))
 
 import { GET, OPTIONS } from './route'
@@ -36,9 +42,11 @@ describe('GET /.well-known/oauth-authorization-server', () => {
     expect(body.code_challenge_methods_supported).toContain('S256')
   })
 
-  it('advertises the MCP read scope and refresh tokens', async () => {
+  it('advertises the MCP read and write scopes and refresh tokens', async () => {
     const { body } = await metadata()
-    expect(body.scopes_supported).toEqual(expect.arrayContaining(['mcp:read', 'offline_access']))
+    expect(body.scopes_supported).toEqual(
+      expect.arrayContaining(['mcp:read', 'mcp:write', 'offline_access']),
+    )
     expect(body.client_id_metadata_document_supported).toBe(true)
   })
 

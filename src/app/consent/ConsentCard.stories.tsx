@@ -38,7 +38,7 @@ const meta = {
     clientName: 'Claude',
     redirectTarget: 'claude.ai',
     householdName: 'Kõrvid',
-    scopes: ['mcp:read', 'openid', 'profile', 'offline_access'],
+    scopes: ['mcp:read', 'mcp:write', 'openid', 'profile', 'offline_access'],
   },
 } satisfies Meta<typeof ConsentCard>
 
@@ -46,6 +46,18 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
+
+export const ReadOnly: Story = {
+  args: { scopes: ['mcp:read', 'openid', 'profile', 'offline_access'] },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'An app that asks only to read. Without `mcp:write` there is no "Update your shopping list" line (HON-1154).',
+      },
+    },
+  },
+}
 
 export const UnnamedApp: Story = {
   args: { clientName: null },

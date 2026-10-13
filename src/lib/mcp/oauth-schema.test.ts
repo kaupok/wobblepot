@@ -4,10 +4,15 @@ import { describe, it, expect, vi } from 'vitest'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@/generated/prisma/client'
 
-// The `mcp()` plugin seeds its resource row at init; answer that read so the
-// import does not reach a database.
+// The `mcp()` plugin seeds its resource row at init, reading it and, in
+// `merge` mode, updating it; answer both so the import does not reach a database.
 vi.mock('@/lib/prisma', () => ({
-  prisma: { oauthResource: { findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }) } },
+  prisma: {
+    oauthResource: {
+      findFirst: vi.fn().mockResolvedValue({ id: 'seeded' }),
+      update: vi.fn().mockResolvedValue({ id: 'seeded' }),
+    },
+  },
 }))
 
 import { auth } from '@/lib/auth'

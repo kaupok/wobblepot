@@ -6,12 +6,12 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/shopping/load-shopping-list', () => ({ loadShoppingList: vi.fn() }))
 
 import { loadShoppingList, type ShoppingListResult } from '@/lib/shopping/load-shopping-list'
-import { mcpHousehold } from '@/test/mcp'
+import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
 import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
 import { getShoppingList } from './get-shopping-list'
 
 const household = mcpHousehold({ id: 'household-1' })
-const ctx = { userId: 'user-1', household }
+const ctx = { userId: 'user-1', household, scopes: READ_SCOPES }
 
 const LIST = {
   windowDays: 7,
@@ -109,7 +109,7 @@ describe('get_shopping_list', () => {
   it('answers with the onboarding message without a household', async () => {
     const result = await runTool(
       getShoppingList,
-      { userId: 'user-1', household: null },
+      { userId: 'user-1', household: null, scopes: READ_SCOPES },
       { days: 7 },
     )
 

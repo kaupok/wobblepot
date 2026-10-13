@@ -7,17 +7,25 @@ import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
 import { buildMcpServer } from '@/lib/mcp/server'
 import type { McpCallerContext } from '@/lib/mcp/context'
-import { MCP_READ_SCOPE, MCP_RESOURCE_PATH, getMcpIssuer, getMcpResource } from '@/lib/mcp/oauth'
+import {
+  MCP_READ_SCOPE,
+  MCP_RESOURCE_PATH,
+  MCP_WRITE_SCOPE,
+  getMcpIssuer,
+  getMcpResource,
+} from '@/lib/mcp/oauth'
 
 /**
- * The read-only Wobblepot MCP server (HON-1151): five tools over the
- * household's meal plan, shopping list, pantry and meals. Streamable HTTP,
- * stateless, so every request builds its own server and holds no session.
+ * The Wobblepot MCP server: read tools over the household's meal plan,
+ * shopping list, pantry and meals (HON-1151), and write tools for the shopping
+ * list (HON-1154). Streamable HTTP, stateless, so every request builds its own
+ * server and holds no session.
  *
  * `requireMcpAuth` verifies the bearer token against the JWKS of the OAuth
  * server from HON-1150: signature, issuer, audience (this resource) and the
  * `mcp:read` scope. A missing or bad token gets 401 with the RFC 9728
- * `WWW-Authenticate` challenge, a token without the scope gets 403. See
+ * `WWW-Authenticate` challenge, a token without the scope gets 403. A write
+ * tool also needs `mcp:write`, which `runTool` checks per call. See
  * docs/MCP_SERVER.md.
  */
 
@@ -122,6 +130,8 @@ async function serveAuthorized(
   const clientId = String(claims.azp ?? claims.client_id ?? '')
   if (!clientId) return invalidTokenResponse(origin, 'no active grant')
 
+  const scopes = typeof claims.scope === 'string' ? claims.scope.split(' ').filter(Boolean) : []
+
   let caller: McpCallerContext
   try {
     // The consent row is the grant: the plugin writes one on every Allow, and
@@ -140,7 +150,7 @@ async function serveAuthorized(
     if (!consent || issuedBeforeGrant(claims.iat, consent.createdAt)) {
       return invalidTokenResponse(origin, 'no active grant')
     }
-    caller = { userId, household: membership?.household ?? null }
+    caller = { userId, household: membership?.household ?? null, scopes }
   } catch (error) {
     // Outside any tool handler, so `@posthog/mcp` does not see it.
     captureApiError(error, { route: ROUTE, userId })
@@ -151,7 +161,7 @@ async function serveAuthorized(
     // The raw token is not needed past verification, so it is not passed on.
     token: '',
     clientId,
-    scopes: typeof claims.scope === 'string' ? claims.scope.split(' ').filter(Boolean) : [],
+    scopes,
     ...(typeof claims.exp === 'number' ? { expiresAt: claims.exp } : {}),
     extra: { caller },
   }
@@ -170,6 +180,11 @@ export async function POST(request: Request): Promise<Response> {
       issuer: getMcpIssuer(origin),
       jwksUrl: `${origin}/api/auth/jwks`,
       requiredScopes: [MCP_READ_SCOPE],
+      // The 401 challenge names the scopes to ask for, and an MCP client reads
+      // it before `scopes_supported`. Left to default to `requiredScopes`, it
+      // says `mcp:read` only, so a client would never ask for `mcp:write` and
+      // "connect again" would loop back to a read-only token (HON-1154).
+      challengeScopes: [MCP_READ_SCOPE, MCP_WRITE_SCOPE],
     },
   )
   try {

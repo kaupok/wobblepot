@@ -6,12 +6,12 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/prisma', () => ({ prisma: { meal: { findFirst: vi.fn() } } }))
 
 import { prisma } from '@/lib/prisma'
-import { mcpHousehold } from '@/test/mcp'
+import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
 import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
 import { getMeal } from './get-meal'
 
 const household = mcpHousehold({ id: 'household-1', locale: 'en' })
-const ctx = { userId: 'user-1', household }
+const ctx = { userId: 'user-1', household, scopes: READ_SCOPES }
 
 function ingredient(overrides: Record<string, unknown>) {
   return {
@@ -153,7 +153,7 @@ describe('get_meal', () => {
   it('answers with the onboarding message without a household', async () => {
     const result = await runTool(
       getMeal,
-      { userId: 'user-1', household: null },
+      { userId: 'user-1', household: null, scopes: READ_SCOPES },
       { mealId: 'meal-1' },
     )
 

@@ -11,14 +11,33 @@
 /** Path of the protected MCP resource. Its absolute URL is the token audience. */
 export const MCP_RESOURCE_PATH = '/api/mcp'
 
-/** The scope the read-only MCP server (HON-1151) requires. */
+/** The scope every MCP request requires: the read tools (HON-1151). */
 export const MCP_READ_SCOPE = 'mcp:read'
+
+/**
+ * The scope a write tool requires (HON-1154): it changes the shopping list,
+ * the pantry or the meal plan. A token without it still lists the write tools,
+ * and calling one answers that the assistant must reconnect.
+ */
+export const MCP_WRITE_SCOPE = 'mcp:write'
 
 /**
  * Scopes the authorization server accepts. `offline_access` gives the client a
  * refresh token, so the household does not consent again every hour.
+ *
+ * A client registers with this whole list stored on its row, and the authorize
+ * endpoint refuses a scope outside it. So a scope added here also needs a
+ * migration that adds it to the existing `oauth_client` rows
+ * (`20261013120000_add_mcp_write_scope`), or every client registered before the
+ * change fails with `invalid_scope` once it asks for the new one.
  */
-export const MCP_SCOPES = ['openid', 'profile', 'offline_access', MCP_READ_SCOPE] as const
+export const MCP_SCOPES = [
+  'openid',
+  'profile',
+  'offline_access',
+  MCP_READ_SCOPE,
+  MCP_WRITE_SCOPE,
+] as const
 
 export type McpScope = (typeof MCP_SCOPES)[number]
 
@@ -80,9 +99,10 @@ export const DISCOVERY_CORS_HEADERS = {
 /** Catalog key under `consent.scopes` for each scope, in display order. */
 export const SCOPE_MESSAGE_KEYS: Record<
   McpScope,
-  'openid' | 'profile' | 'offlineAccess' | 'mcpRead'
+  'openid' | 'profile' | 'offlineAccess' | 'mcpRead' | 'mcpWrite'
 > = {
   [MCP_READ_SCOPE]: 'mcpRead',
+  [MCP_WRITE_SCOPE]: 'mcpWrite',
   openid: 'openid',
   profile: 'profile',
   offline_access: 'offlineAccess',

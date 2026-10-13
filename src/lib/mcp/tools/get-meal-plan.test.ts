@@ -7,14 +7,14 @@ vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn
 
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { toDateString } from '@/lib/meal-planning/dates'
-import { mcpHousehold } from '@/test/mcp'
+import { mcpHousehold, READ_SCOPES } from '@/test/mcp'
 import { NO_HOUSEHOLD_MESSAGE, runTool } from '@/lib/mcp/context'
 import { getMealPlan } from './get-meal-plan'
 
 type Entries = Awaited<ReturnType<typeof loadPlanEntries>>['entries']
 
 const household = mcpHousehold({ id: 'household-1', timezone: 'Europe/Tallinn' })
-const ctx = { userId: 'user-1', household }
+const ctx = { userId: 'user-1', household, scopes: READ_SCOPES }
 
 function entry(overrides: Partial<Entries[number]>): Entries[number] {
   return {
@@ -131,7 +131,11 @@ describe('get_meal_plan', () => {
   })
 
   it('answers with the onboarding message without a household', async () => {
-    const result = await runTool(getMealPlan, { userId: 'user-1', household: null }, {})
+    const result = await runTool(
+      getMealPlan,
+      { userId: 'user-1', household: null, scopes: READ_SCOPES },
+      {},
+    )
 
     expect(result).toEqual({
       isError: true,

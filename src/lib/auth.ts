@@ -363,6 +363,11 @@ export const auth = betterAuth({
           allowedScopes: [...MCP_SCOPES],
         },
       ],
+      // The default, `insertOnly`, never updates an existing row, so a scope
+      // added to `MCP_SCOPES` would be cut from every token by the stale
+      // `allowedScopes` (HON-1154). Nothing edits the row by hand, so this
+      // config is its source of truth.
+      resourceSeedMode: 'merge',
       // Open dynamic client registration (RFC 7591). Claude's connector
       // registers itself this way; `mcp()` enables no registration by default.
       allowDynamicClientRegistration: true,

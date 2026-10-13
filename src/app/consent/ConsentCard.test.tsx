@@ -43,6 +43,26 @@ describe('ConsentCard', () => {
     vi.clearAllMocks()
   })
 
+  it('shows the write-scope sentence when the assistant asks to make changes', () => {
+    renderCard(<ConsentCard {...READY} scopes={['mcp:read', 'mcp:write', 'offline_access']} />)
+
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent)
+    expect(items).toEqual([
+      'Read your meal plan, shopping list, pantry and recipes.',
+      'Update your shopping list, pantry and meal plan.',
+      'Stay connected, so you do not need to allow it again.',
+    ])
+    // The read-only promise would be false with the write scope.
+    expect(screen.queryByText('It cannot change anything in Wobblepot.')).toBeNull()
+  })
+
+  it('leaves the write-scope sentence out for a read-only request, and says it cannot change anything', () => {
+    renderCard(<ConsentCard {...READY} />)
+
+    expect(screen.queryByText('Update your shopping list, pantry and meal plan.')).toBeNull()
+    expect(screen.getByText('It cannot change anything in Wobblepot.')).toBeInTheDocument()
+  })
+
   it('names the app, the household and what it can do', () => {
     renderCard(<ConsentCard {...READY} />)
 
@@ -59,7 +79,7 @@ describe('ConsentCard', () => {
     // Tool-call analytics are server-side, outside the cookie banner (HON-1151).
     expect(
       screen.getByText(
-        'Wobblepot records each request it makes: which tool, how long it took and the reason the assistant gave. It does not record what it reads.',
+        'Wobblepot records each request it makes: which tool, how long it took and the reason the assistant gave. It does not record what it reads or changes.',
       ),
     ).toBeInTheDocument()
   })

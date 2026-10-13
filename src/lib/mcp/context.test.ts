@@ -6,13 +6,18 @@ vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 
 import { checkRateLimit } from '@/lib/rate-limit'
 import { captureApiError } from '@/lib/errors'
-import { mcpHousehold } from '@/test/mcp'
+import { mcpHousehold, READ_SCOPES, WRITE_SCOPES } from '@/test/mcp'
 import {
   defineTool,
+  isWriteTool,
   NO_HOUSEHOLD_MESSAGE,
+  READ_ONLY_ANNOTATIONS,
+  requireWriteScope,
   runTool,
   TOOL_FAILED_MESSAGE,
   ToolInputError,
+  WRITE_ANNOTATIONS,
+  WRITE_SCOPE_MESSAGE,
 } from './context'
 
 const RESET_AT = new Date('2026-10-11T18:00:00.000Z')
@@ -27,7 +32,7 @@ const tool = defineTool({
   run,
 })
 
-const ctx = { userId: 'user-1', household: mcpHousehold() }
+const ctx = { userId: 'user-1', household: mcpHousehold(), scopes: READ_SCOPES }
 
 describe('runTool', () => {
   beforeEach(() => {
@@ -58,7 +63,11 @@ describe('runTool', () => {
   })
 
   it('answers with the onboarding message, and runs nothing, without a household', async () => {
-    const result = await runTool(tool, { userId: 'user-1', household: null }, {})
+    const result = await runTool(
+      tool,
+      { userId: 'user-1', household: null, scopes: READ_SCOPES },
+      {},
+    )
 
     expect(result).toEqual({
       isError: true,
@@ -118,8 +127,51 @@ describe('runTool', () => {
   it('reports nothing for a refusal', async () => {
     run.mockRejectedValue(new ToolInputError('No such meal.'))
     await runTool(tool, ctx, {})
-    await runTool(tool, { userId: 'user-1', household: null }, {})
+    await runTool(tool, { userId: 'user-1', household: null, scopes: READ_SCOPES }, {})
 
     expect(captureApiError).not.toHaveBeenCalled()
+  })
+
+  describe('a write tool', () => {
+    const writeTool = defineTool({ ...tool, name: 'write_tool', annotations: WRITE_ANNOTATIONS })
+
+    it('answers a read-only token with the reconnect message, and runs and counts nothing', async () => {
+      const result = await runTool(writeTool, ctx, {})
+
+      expect(result).toEqual({
+        isError: true,
+        content: [{ type: 'text', text: WRITE_SCOPE_MESSAGE }],
+      })
+      expect(run).not.toHaveBeenCalled()
+      expect(checkRateLimit).not.toHaveBeenCalled()
+    })
+
+    it('runs for a token with mcp:write, on the shared mcp limit', async () => {
+      const result = await runTool(writeTool, { ...ctx, scopes: WRITE_SCOPES }, {})
+
+      expect(result.isError).toBeUndefined()
+      expect(run).toHaveBeenCalledOnce()
+      expect(checkRateLimit).toHaveBeenCalledWith('household-1', 'mcp')
+    })
+  })
+})
+
+describe('isWriteTool', () => {
+  it('treats a tool without annotations as a read', () => {
+    expect(isWriteTool({})).toBe(false)
+    expect(isWriteTool({ annotations: READ_ONLY_ANNOTATIONS })).toBe(false)
+  })
+
+  it('fails closed: annotations without readOnlyHint true mean a write', () => {
+    expect(isWriteTool({ annotations: WRITE_ANNOTATIONS })).toBe(true)
+    expect(isWriteTool({ annotations: { destructiveHint: false } })).toBe(true)
+  })
+})
+
+describe('requireWriteScope', () => {
+  it('passes a token with mcp:write and refuses one without', () => {
+    expect(requireWriteScope({ scopes: WRITE_SCOPES })).toBeNull()
+    expect(requireWriteScope({ scopes: READ_SCOPES })?.isError).toBe(true)
+    expect(requireWriteScope({ scopes: [] })?.isError).toBe(true)
   })
 })

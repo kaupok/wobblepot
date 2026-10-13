@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { authClient } from '@/lib/auth-client'
-import { SCOPE_MESSAGE_KEYS, type McpScope } from '@/lib/mcp/oauth'
+import { MCP_WRITE_SCOPE, SCOPE_MESSAGE_KEYS, type McpScope } from '@/lib/mcp/oauth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Heading, Body, Ul, Li } from '@/components/ui/typography'
@@ -107,7 +107,8 @@ export function ConsentCard({
               ))}
             </Ul>
           </div>
-          <Body variant="muted">{t('readOnly')}</Body>
+          {/* Only true without the write scope (HON-1154). */}
+          {!scopes.includes(MCP_WRITE_SCOPE) && <Body variant="muted">{t('readOnly')}</Body>}
           {/* Server-side MCP analytics skip the cookie banner, so the card says
               what is measured (HON-1151). */}
           <Body variant="muted">{t('measured')}</Body>

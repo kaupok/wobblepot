@@ -18,8 +18,8 @@ describe('MCP OAuth constants', () => {
     expect(getMcpIssuer('https://wobblepot.dev/')).toBe('https://wobblepot.dev')
   })
 
-  it('offers read access to MCP and a refresh token', () => {
-    expect(MCP_SCOPES).toEqual(['openid', 'profile', 'offline_access', 'mcp:read'])
+  it('offers read and write access to MCP and a refresh token', () => {
+    expect(MCP_SCOPES).toEqual(['openid', 'profile', 'offline_access', 'mcp:read', 'mcp:write'])
   })
 })
 
@@ -30,15 +30,16 @@ describe('buildProtectedResourceMetadata', () => {
       authorization_servers: ['https://wobblepot.com'],
       bearer_methods_supported: ['header'],
       // Identity and refresh scopes belong to the authorization server.
-      scopes_supported: ['mcp:read'],
+      scopes_supported: ['mcp:read', 'mcp:write'],
     })
   })
 })
 
 describe('knownScopes', () => {
   it('keeps known scopes in display order, the data access first', () => {
-    expect(knownScopes('openid offline_access mcp:read profile')).toEqual([
+    expect(knownScopes('openid offline_access mcp:write mcp:read profile')).toEqual([
       'mcp:read',
+      'mcp:write',
       'openid',
       'profile',
       'offline_access',
@@ -46,7 +47,7 @@ describe('knownScopes', () => {
   })
 
   it('drops scopes it has no copy for', () => {
-    expect(knownScopes('mcp:read email mcp:write')).toEqual(['mcp:read'])
+    expect(knownScopes('mcp:read email mcp:admin')).toEqual(['mcp:read'])
   })
 
   it('returns nothing for a missing scope parameter', () => {

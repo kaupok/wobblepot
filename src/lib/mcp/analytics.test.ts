@@ -21,12 +21,16 @@ import { createMcpHandler, McpServer } from '@modelcontextprotocol/server'
 import { getPosthogMcpServer } from '@/lib/posthog-server'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { captureApiError } from '@/lib/errors'
-import { mcpHousehold, mcpRequest, readMcpBody } from '@/test/mcp'
+import { mcpHousehold, mcpRequest, READ_SCOPES, readMcpBody } from '@/test/mcp'
 import type { McpCallerContext } from './context'
 import { instrumentMcpServer, stripMcpPayload } from './analytics'
 import { buildMcpServer } from './server'
 
-const ctx: McpCallerContext = { userId: 'user-1', household: mcpHousehold({ id: 'household-1' }) }
+const ctx: McpCallerContext = {
+  userId: 'user-1',
+  household: mcpHousehold({ id: 'household-1' }),
+  scopes: READ_SCOPES,
+}
 
 type CaptureCall = { distinctId: string; event: string; properties: Record<string, unknown> }
 
@@ -129,7 +133,7 @@ describe('MCP analytics', () => {
   })
 
   it('captures no $exception for a refusal, such as an account without a household', async () => {
-    const body = await callPantry({ userId: 'user-2', household: null })
+    const body = await callPantry({ userId: 'user-2', household: null, scopes: READ_SCOPES })
 
     expect(body.result?.isError).toBe(true)
     await vi.waitFor(() => expect(captures('$mcp_tool_call')).toHaveLength(1))

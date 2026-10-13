@@ -21,6 +21,8 @@ vi.mock('@/lib/prisma', () => ({
     user: { findUnique: vi.fn() },
     oauthConsent: { findFirst: vi.fn() },
     meal: { findFirst: vi.fn() },
+    ingredient: { findMany: vi.fn() },
+    $transaction: vi.fn(),
   },
 }))
 vi.mock('@/lib/household', () => ({ getHouseholdMembership: vi.fn() }))
@@ -43,7 +45,7 @@ import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
 import { loadShoppingList } from '@/lib/shopping/load-shopping-list'
 import { loadPantry } from '@/lib/meal-planning/load-pantry'
 import { loadMeals } from '@/lib/meals/load-meals'
-import { NO_HOUSEHOLD_MESSAGE, TOOL_FAILED_MESSAGE } from '@/lib/mcp/context'
+import { NO_HOUSEHOLD_MESSAGE, TOOL_FAILED_MESSAGE, WRITE_SCOPE_MESSAGE } from '@/lib/mcp/context'
 import {
   legacyMcpRequest,
   mcpHousehold,
@@ -65,27 +67,41 @@ const GRANTED_AT = new Date('2026-10-12T12:00:00Z')
 /** Issued 10 s after the Allow that created the row. */
 const TOKEN_IAT = GRANTED_AT.getTime() / 1000 + 10
 
-const TOOL_NAMES = ['get_meal_plan', 'get_shopping_list', 'get_pantry', 'list_meals', 'get_meal']
+const READ_TOOL_NAMES = [
+  'get_meal_plan',
+  'get_shopping_list',
+  'get_pantry',
+  'list_meals',
+  'get_meal',
+]
+const WRITE_TOOL_NAMES = ['mark_purchased', 'add_shopping_item', 'check_shopping_item']
 
 interface ListedTool {
   name: string
-  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean }
+  annotations?: {
+    readOnlyHint?: boolean
+    destructiveHint?: boolean
+    idempotentHint?: boolean
+    openWorldHint?: boolean
+  }
   inputSchema?: unknown
   outputSchema?: unknown
 }
 
 /**
  * Stands in for the token check: the bearer value is the user id, so a test
- * picks the caller with a header. The real wrapper's challenge is covered by
- * the first test, which leaves it in place.
+ * picks the caller with a header. `<user>:write` adds the `mcp:write` scope.
+ * The real wrapper's challenge is covered by the first test, which leaves it
+ * in place.
  */
 function acceptBearerAsUserId() {
   vi.mocked(requireMcpAuth).mockImplementation((_auth, handler) => async (request: Request) => {
     const token = request.headers.get('authorization')?.replace(/^Bearer /, '')
     if (!token) return new Response(null, { status: 401 })
+    const [sub, access] = token.split(':')
     return handler(request, {
-      sub: token,
-      scope: 'openid mcp:read',
+      sub,
+      scope: access === 'write' ? 'openid mcp:read mcp:write' : 'openid mcp:read',
       azp: 'client-1',
       iat: TOKEN_IAT,
     })
@@ -96,8 +112,18 @@ function as(userId: string) {
   return { authorization: `Bearer ${userId}` }
 }
 
-async function callTool(userId: string, name: string, args: Record<string, unknown> = {}) {
-  const response = await POST(mcpRequest('tools/call', { name, arguments: args }, as(userId)))
+/** The caller with a token the user allowed to make changes. */
+function asWriter(userId: string) {
+  return { authorization: `Bearer ${userId}:write` }
+}
+
+async function callTool(
+  userId: string,
+  name: string,
+  args: Record<string, unknown> = {},
+  headers = as(userId),
+) {
+  const response = await POST(mcpRequest('tools/call', { name, arguments: args }, headers))
   expect(response.status).toBe(200)
   const body = await readMcpBody<McpToolResultBody>(response)
   expect(body.error).toBeUndefined()
@@ -155,29 +181,93 @@ describe('/api/mcp', () => {
       issuer: ORIGIN,
       jwksUrl: `${ORIGIN}/api/auth/jwks`,
       requiredScopes: ['mcp:read'],
+      challengeScopes: ['mcp:read', 'mcp:write'],
     })
+  })
+
+  it('asks for the read and write scopes in the 401 challenge, so a client can request both', async () => {
+    const response = await POST(mcpRequest('tools/list'))
+
+    expect(response.status).toBe(401)
+    expect(response.headers.get('www-authenticate')).toContain('scope="mcp:read mcp:write"')
   })
 
   describe('with a valid token', () => {
     beforeEach(acceptBearerAsUserId)
 
-    it('lists exactly the five read-only tools, each with an input and an output schema', async () => {
-      const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
-      const body = await readMcpBody<{ tools: ListedTool[] }>(response)
+    it.each([
+      ['a read-only token', as('user-a')],
+      ['a read and write token', asWriter('user-a')],
+    ])(
+      'lists the five read tools and the three write tools for %s, each with both schemas',
+      async (_label, headers) => {
+        const response = await POST(mcpRequest('tools/list', {}, headers))
+        const body = await readMcpBody<{ tools: ListedTool[] }>(response)
 
-      const tools = body.result!.tools
-      expect(tools.map((tool) => tool.name).sort()).toEqual([...TOOL_NAMES].sort())
-      for (const tool of tools) {
-        expect(tool.annotations).toEqual({
-          readOnlyHint: true,
-          destructiveHint: false,
-          openWorldHint: false,
-        })
-        expect(tool.inputSchema).toMatchObject({ type: 'object' })
-        expect(tool.outputSchema).toMatchObject({ type: 'object' })
-      }
-      // Listing is discovery, not a tool call, so it is not rate-limited.
-      expect(checkRateLimit).not.toHaveBeenCalled()
+        const tools = body.result!.tools
+        expect(tools.map((tool) => tool.name).sort()).toEqual(
+          [...READ_TOOL_NAMES, ...WRITE_TOOL_NAMES].sort(),
+        )
+        for (const tool of tools) {
+          expect(tool.inputSchema).toMatchObject({ type: 'object' })
+          expect(tool.outputSchema).toMatchObject({ type: 'object' })
+        }
+        const annotations = Object.fromEntries(tools.map((tool) => [tool.name, tool.annotations]))
+        for (const name of READ_TOOL_NAMES) {
+          expect(annotations[name]).toEqual({
+            readOnlyHint: true,
+            destructiveHint: false,
+            openWorldHint: false,
+          })
+        }
+        const write = { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
+        expect(annotations.mark_purchased).toEqual({ ...write, idempotentHint: true })
+        expect(annotations.check_shopping_item).toEqual({ ...write, idempotentHint: true })
+        expect(annotations.add_shopping_item).toEqual({ ...write, idempotentHint: false })
+        // Listing is discovery, not a tool call, so it is not rate-limited.
+        expect(checkRateLimit).not.toHaveBeenCalled()
+      },
+    )
+
+    it.each(WRITE_TOOL_NAMES)(
+      'answers %s for a read-only token with the reconnect message',
+      async (name) => {
+        const args = {
+          mark_purchased: { ingredientIds: ['ing-1'], purchased: true },
+          add_shopping_item: { name: 'Dish soap' },
+          check_shopping_item: { id: 'custom-1', checked: true },
+        }[name]
+
+        const result = await callTool('user-a', name, args)
+
+        expect(result.isError).toBe(true)
+        expect(result.content).toEqual([{ type: 'text', text: WRITE_SCOPE_MESSAGE }])
+        expect(checkRateLimit).not.toHaveBeenCalled()
+      },
+    )
+
+    it("runs a write tool for a token with mcp:write, on the caller's household", async () => {
+      // No ingredient found, so the purchase stops before any write.
+      vi.mocked(prisma.ingredient.findMany).mockResolvedValue([])
+
+      const result = await callTool(
+        'user-b',
+        'mark_purchased',
+        { ingredientIds: ['ing-1'], purchased: true },
+        asWriter('user-b'),
+      )
+
+      expect(result.content[0]!.text).toContain('ing-1')
+      expect(result.content[0]!.text).not.toBe(WRITE_SCOPE_MESSAGE)
+      expect(checkRateLimit).toHaveBeenCalledWith('household-b', 'mcp')
+      expect(prisma.ingredient.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [{ householdId: null }, { householdId: 'household-b' }],
+          }),
+        }),
+      )
+      expect(prisma.$transaction).not.toHaveBeenCalled()
     })
 
     it('serves a 2025-era client that sends no per-request envelope', async () => {
@@ -185,7 +275,7 @@ describe('/api/mcp', () => {
 
       expect(response.status).toBe(200)
       const body = await readMcpBody<{ tools: ListedTool[] }>(response)
-      expect(body.result!.tools).toHaveLength(5)
+      expect(body.result!.tools).toHaveLength(READ_TOOL_NAMES.length + WRITE_TOOL_NAMES.length)
     })
 
     it('sends the app icon, website and description in the initialize handshake', async () => {
@@ -258,7 +348,7 @@ describe('/api/mcp', () => {
     it('answers every tool with the onboarding message for an account without a household', async () => {
       const args: Record<string, Record<string, unknown>> = { get_meal: { mealId: 'meal-1' } }
 
-      for (const name of TOOL_NAMES) {
+      for (const name of READ_TOOL_NAMES) {
         const result = await callTool('user-without-household', name, args[name] ?? {})
         expect(result.isError, name).toBe(true)
         expect(result.content, name).toEqual([{ type: 'text', text: NO_HOUSEHOLD_MESSAGE }])

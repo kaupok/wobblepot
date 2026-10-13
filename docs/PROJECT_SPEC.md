@@ -372,6 +372,7 @@ enum ProteinType {
 - Favourite meals
 - Own recipes: create, import from a URL or pasted text, or describe one for the AI to write (`/recipes`)
 - AI preparation tips for a planned meal
+- MCP server for AI assistants such as Claude (`/api/mcp`): reads the meal plan, shopping list, pantry and meals; with the user's `mcp:write` permission, marks items purchased and adds or checks shopping list items (HON-1151, HON-1154)
 
 **Out of scope:**
 
@@ -382,7 +383,7 @@ enum ProteinType {
 - Email-based invites
 - Plan history/archive: the Today timeline shows only the last 7 days
 - Real-time multi-user sync
-- MCP tools that change data (marking items purchased, swapping a meal) and MCP tools that call the AI (plan generation, imagining a meal): the MCP server only reads for now (HON-1151)
+- MCP tools that call the AI (plan generation, imagining a meal): each call costs money and needs a per-household budget first. MCP tools that create or edit recipes, or change members or preferences
 
 ---
 
@@ -473,7 +474,8 @@ The main areas: `auth` (Better Auth, plus account deletion and export under `aut
 
 ### AI assistants (Ongoing)
 
-- Read-only MCP server at `/api/mcp` (HON-1151): an assistant such as Claude reads the household's meal plan, shopping list, pantry and meals through OAuth (HON-1150). See [MCP_SERVER.md](./MCP_SERVER.md)
+- MCP server at `/api/mcp` (HON-1151): an assistant such as Claude reads the household's meal plan, shopping list, pantry and meals through OAuth (HON-1150). See [MCP_SERVER.md](./MCP_SERVER.md)
+- MCP write scope `mcp:write` (HON-1154): the assistant marks shopping list items purchased, adds items and checks them off, if the user allowed it on `/consent`. Pantry quantity (HON-1173) and swapping or rating a meal (HON-1174) follow on the same scope
 
 ### Polish & UX (Ongoing)
 
