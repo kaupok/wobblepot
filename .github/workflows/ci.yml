@@ -20,7 +20,8 @@ on:
       - '.github/ISSUE_TEMPLATE/**'
 
 # One copy for every job (HON-1183): a job that imports src/lib/env.ts needs
-# the variables its schema parses. Step-level `env` entries override these.
+# the variables its schema parses. Step-level `env` entries override these, and
+# `env-audit` blanks the secrets it does not need.
 env:
   # Literal brand string, not a secret: only required so `clientEnv`
   # (src/lib/env.ts) parses. The value is rendered in emails only, which
@@ -593,6 +594,19 @@ jobs:
       contents: read
     # Forked PRs get no secrets, so the audit would fail on an empty token.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    # Blank the secrets the workflow-level `env` carries. This job reads none
+    # of them, and its `pnpm install` runs dependency install scripts that
+    # could. The `ci` job needs no such block: it checks out nothing and runs
+    # only its own shell step.
+    env:
+      BETTER_AUTH_SECRET: ''
+      ANTHROPIC_API_KEY: ''
+      UPSTASH_REDIS_REST_URL: ''
+      UPSTASH_REDIS_REST_TOKEN: ''
+      SMOKE_TEST_EMAIL: ''
+      SMOKE_TEST_PASSWORD: ''
+      FORGOT_PASSWORD_TEST_EMAIL: ''
+      FORGOT_PASSWORD_TEST_PASSWORD: ''
 
     steps:
       - name: Checkout code
