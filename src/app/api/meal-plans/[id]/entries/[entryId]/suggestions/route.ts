@@ -3,40 +3,20 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
 import { prisma } from '@/lib/prisma'
-import {
-  getCandidates,
-  NO_REPEAT_DAYS,
-  type CandidateFilters,
-} from '@/lib/meal-planning/candidates'
-import { toDateString } from '@/lib/meal-planning/dates'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { getPantryIngredientNames } from '@/lib/meal-planning/pantry'
-import {
-  SLOT_FIT_WEIGHTS,
-  randomScoreJitter,
-  ratingSignal,
-  scoreCandidate,
-} from '@/lib/meal-planning/candidate-score'
+import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
-import {
-  ingredientTranslationsInclude,
-  mealTranslationsInclude,
-  translateIngredient,
-  translateMeal,
-} from '@/lib/i18n/content'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
 import { captureApiError } from '@/lib/errors'
-import { presentMealImage } from '@/lib/meal-images/present'
-import type { Allergen, MealType } from '@/generated/prisma/enums'
-import type { AlternativeMeal } from '@/components/meal-plan/types'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 /**
  * POST /api/meal-plans/[id]/entries/[entryId]/suggestions
  *
  * Generate AI suggestions for an empty slot based on slot context (meal type + day).
- * Similar to /regenerate but designed for adding meals to empty slots.
+ * Similar to /regenerate but designed for adding meals to empty slots. The
+ * ranking lives in `suggestForSlot` (`add` mode), which the MCP `swap_meal` tool
+ * shares (HON-1174).
  */
 async function handlePOST(
   request: Request,
@@ -109,135 +89,15 @@ async function handlePOST(
       return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })
     }
 
-    // Get preferences with defaults
-    const preferences = household.preferences
-    const dietaryType = preferences?.dietaryType ?? null
-    const allergensToAvoid = (preferences?.allergensToAvoid ?? []) as Allergen[]
-    const excludedIngredientIds = preferences?.excludedIngredientIds ?? []
-
-    // Get recent meal IDs (entries from plans within NO_REPEAT_DAYS window)
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - NO_REPEAT_DAYS)
-
-    const recentEntries = await prisma.mealPlanEntry.findMany({
-      where: {
-        plan: { householdId: household.id },
-        date: { gte: cutoffDate },
-        mealId: { not: null },
-      },
-      select: { mealId: true },
-    })
-
-    const recentMealIds = [...new Set(recentEntries.map((e) => e.mealId!).filter(Boolean))]
-
-    // Get favorite meal IDs and pantry ingredients for this household
-    const [favorites, pantryIngredients] = await Promise.all([
-      prisma.favoriteMeal.findMany({
-        where: { householdId: household.id },
-        select: { mealId: true },
-      }),
-      getPantryIngredientNames(household.id),
-    ])
-    const favoriteMealIds = favorites.map((f) => f.mealId)
-    const pantryIngredientNames = new Set(pantryIngredients)
-
-    // Build candidate filters. No protein-type filter: generation places its fish and legume
-    // dinners by position in a range that is not stored, so an empty slot cannot know whether
-    // it was reserved for one (HON-892).
-    const filters: CandidateFilters = {
-      mealType: entry.mealType as MealType,
-      allergensToAvoid,
-      excludedIngredientIds,
-      recentMealIds,
-      dietaryType,
-      householdId: household.id,
-      favoriteMealIds,
-      includeNetRating: true,
-    }
-
-    // Get candidates
-    const candidates = await getCandidates(filters)
+    const alternatives = await suggestForSlot(household, entry, 'add', locale)
 
     // No suggestions available
-    if (candidates.length === 0) {
+    if (alternatives.length === 0) {
       return NextResponse.json(
         { error: 'No meals available matching your preferences' },
         { status: 404 },
       )
     }
-
-    // Score and sort candidates by personalization priority and pantry overlap.
-    // The jitter is a fresh per-request tie-break, so reopening the same slot can return a
-    // different top 3 (HON-709). The seed goes unused in production; it is passed so a test
-    // can substitute the seeded `scoreJitter`. See candidate-score.ts.
-    const jitterDate = toDateString(new Date())
-    const scored = candidates.map((c) => ({
-      candidate: c,
-      score:
-        scoreCandidate(c, SLOT_FIT_WEIGHTS, { pantryIngredientNames }) +
-        randomScoreJitter({ entryId, dateString: jitterDate, candidateId: c.id }),
-    }))
-    scored.sort((a, b) => b.score - a.score)
-
-    // Take top 3
-    const selected = scored.slice(0, 3).map((s) => s.candidate)
-
-    // Fetch full meal details for selected candidates
-    const mealDetails = await prisma.meal.findMany({
-      where: { id: { in: selected.map((s) => s.id) } },
-      include: {
-        components: {
-          include: {
-            ingredient: {
-              include: ingredientTranslationsInclude(locale),
-            },
-          },
-        },
-        ...mealTranslationsInclude(locale),
-      },
-    })
-
-    const mealDetailsMap = new Map(mealDetails.map((m) => [m.id, m]))
-
-    // Build response (using 'alternatives' key for compatibility with existing frontend)
-    const alternatives: AlternativeMeal[] = selected.map((candidate) => {
-      const mealDetail = mealDetailsMap.get(candidate.id)
-      const translatedMeal = mealDetail ? translateMeal(mealDetail, locale) : null
-      const components = mealDetail?.components ?? []
-
-      return {
-        id: candidate.id,
-        name: translatedMeal?.name ?? candidate.name,
-        description: translatedMeal?.description ?? null,
-        timeMinutes: mealDetail?.timeMinutes ?? null,
-        kidFriendly: candidate.kidFriendly,
-        primaryProteinType: candidate.primaryProteinType,
-        suitableFor: mealDetail?.suitableFor as MealType[] | undefined,
-        isCustom: candidate.isCustom,
-        components: components.map((comp) => {
-          const translatedIngredient = translateIngredient(comp.ingredient, locale)
-          return {
-            ingredientId: comp.ingredientId,
-            quantityPerServing: comp.quantityPerServing,
-            isVague: comp.isVague,
-            originalPhrase: comp.originalPhrase,
-            ingredient: {
-              id: translatedIngredient.id,
-              name: translatedIngredient.name,
-              category: translatedIngredient.category,
-              defaultUnit: translatedIngredient.defaultUnit as 'g' | 'piece',
-              measuredByVolume: translatedIngredient.measuredByVolume,
-              gramsPerPiece: translatedIngredient.gramsPerPiece,
-            },
-          }
-        }),
-        nutrition: computeMealNutrition(components),
-        ratingSignal: ratingSignal(candidate.netRating),
-        ...(mealDetail
-          ? presentMealImage(mealDetail)
-          : { imageUrl: null, imageStatus: undefined, imageHue: null }),
-      }
-    })
 
     return NextResponse.json({ alternatives }, { status: 200 })
   } catch (error) {

@@ -16,8 +16,9 @@ import { mcpCall, mcpCallTool } from './utils/mcp'
  */
 
 // A day and slot of its own: the other fixture specs plant on days 10 and 12
-// (meal-card-click, modal-focus-restore, note-placement) and on day 2
-// (shopping-to-pantry), in the same household, in parallel.
+// (meal-card-click, modal-focus-restore, note-placement), on day 11
+// (mcp-write) and on day 2 (shopping-to-pantry), in the same household, in
+// parallel.
 const ENTRY_DAY_OFFSET = 13
 const MEAL_TYPE = 'breakfast'
 
@@ -110,6 +111,8 @@ test.describe('MCP server', () => {
         add_shopping_item: false,
         check_shopping_item: false,
         set_pantry_quantity: false,
+        swap_meal: false,
+        rate_meal: false,
       })
 
       const call = await mcpCallTool<{ entries: { mealId: string | null; mealType: string }[] }>(

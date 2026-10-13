@@ -131,7 +131,7 @@ Generation takes any start date, and `endDate` is exclusive. There is no week bo
 2. See three ranked alternatives, or search the library and My recipes
 3. Select replacement → entry updated
 
-The alternatives make no model call. `/regenerate` (an entry with a meal) and `/suggestions` (an empty slot), under `src/app/api/meal-plans/[id]/entries/[entryId]/`, query candidates from the database with the household's filters (dietary type, allergens, excluded ingredients, recent meals) and rank them with `scoreCandidate` (`src/lib/meal-planning/candidate-score.ts`) on favourites, the household's own recipes, kid-friendliness, pantry overlap and the household's net rating of the meal. `/regenerate` also rewards a protein type and prep time close to the meal being replaced (`SIMILARITY_WEIGHTS`); `/suggestions` has no meal to compare against (`SLOT_FIT_WEIGHTS`). They import only the cost-cap helpers from `@/lib/ai/usage`. Neither route restricts candidates to a protein type: generation places its required fish and legume dinners by position in a range that is not stored, so a swap cannot tell which slot was reserved. A swapped fish dinner still ranks fish alternatives first through `SIMILARITY_WEIGHTS`, and an empty slot has no protein preference at all (HON-892).
+The alternatives make no model call. `/regenerate` (an entry with a meal) and `/suggestions` (an empty slot), under `src/app/api/meal-plans/[id]/entries/[entryId]/`, both through `suggestForSlot` (`src/lib/meal-planning/slot-suggestions.ts`, shared with the MCP `swap_meal` tool), query candidates from the database with the household's filters (dietary type, allergens, excluded ingredients, recent meals) and rank them with `scoreCandidate` (`src/lib/meal-planning/candidate-score.ts`) on favourites, the household's own recipes, kid-friendliness, pantry overlap and the household's net rating of the meal. `/regenerate` also rewards a protein type and prep time close to the meal being replaced (`SIMILARITY_WEIGHTS`); `/suggestions` has no meal to compare against (`SLOT_FIT_WEIGHTS`). They import only the cost-cap helpers from `@/lib/ai/usage`. Neither route restricts candidates to a protein type: generation places its required fish and legume dinners by position in a range that is not stored, so a swap cannot tell which slot was reserved. A swapped fish dinner still ranks fish alternatives first through `SIMILARITY_WEIGHTS`, and an empty slot has no protein preference at all (HON-892).
 
 ---
 
@@ -374,7 +374,7 @@ enum ProteinType {
 - Favourite meals
 - Own recipes: create, import from a URL or pasted text, or describe one for the AI to write (`/recipes`)
 - AI preparation tips for a planned meal
-- MCP server for AI assistants such as Claude (`/api/mcp`): reads the meal plan, shopping list, pantry and meals; with the user's `mcp:write` permission, marks items purchased and adds or checks shopping list items (HON-1151, HON-1154)
+- MCP server for AI assistants such as Claude (`/api/mcp`): reads the meal plan, shopping list, pantry and meals; with the user's `mcp:write` permission, marks items purchased, adds or checks shopping list items, sets pantry quantities, swaps a planned meal and rates a cooked one (HON-1151, HON-1154, HON-1173, HON-1174)
 
 **Out of scope:**
 
@@ -477,7 +477,7 @@ The main areas: `auth` (Better Auth, plus account deletion and export under `aut
 ### AI assistants (Ongoing)
 
 - MCP server at `/api/mcp` (HON-1151): an assistant such as Claude reads the household's meal plan, shopping list, pantry and meals through OAuth (HON-1150). See [MCP_SERVER.md](./MCP_SERVER.md)
-- MCP write scope `mcp:write` (HON-1154): the assistant marks shopping list items purchased, adds items and checks them off, if the user allowed it on `/consent`. Pantry quantity (HON-1173) and swapping or rating a meal (HON-1174) follow on the same scope
+- MCP write scope `mcp:write` (HON-1154): the assistant marks shopping list items purchased, adds items and checks them off, if the user allowed it on `/consent`. The same scope sets a pantry quantity (HON-1173) swaps a planned meal and rates a cooked one (HON-1174). A swap through the assistant accepts only a meal the app's swap ranking could offer for that slot
 
 ### Polish & UX (Ongoing)
 

@@ -8,6 +8,7 @@ import { MealPlanEntryStatus, EntryRating } from '@/generated/prisma/enums'
 import { captureApiError } from '@/lib/errors'
 import { getEffectiveServings, sumPortions } from '@/lib/meal-planning/servings'
 import { compareIngredientIds } from '@/lib/meal-planning/pantry'
+import { findSwapMeal, swapEntryData, writeSwappedEntry } from '@/lib/meal-planning/swap-entry'
 
 /**
  * A meal swap that arrived too late: the entry is already `completed` (or has
@@ -324,81 +325,21 @@ export async function PATCH(
     let swapMealComponents: { ingredientId: string; quantityPerServing: number }[] | undefined
 
     if (parsed.data.mealId) {
-      // Verify the meal exists *and* that this household may see it. Without
-      // the visibility filter a caller could attach another household's custom
-      // meal to their entry, which the plan read then serialises back to them
-      // in full — and whose components the deduction below would charge their
-      // pantry for. Same rule as `/api/meals/[id]/favorite`.
-      const meal = await prisma.meal.findFirst({
-        where: {
-          id: parsed.data.mealId,
-          deletedAt: null,
-          OR: [{ householdId: null }, { householdId: household.id }],
-        },
-        select: {
-          id: true,
-          components: {
-            select: {
-              ingredientId: true,
-              quantityPerServing: true,
-            },
-          },
-        },
-      })
+      // Visible to this household only: see `findSwapMeal`.
+      const meal = await findSwapMeal(household.id, parsed.data.mealId)
 
       if (!meal) {
         return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
       }
 
       swapMealComponents = meal.components
-      updateData.mealId = parsed.data.mealId
-
-      // Everything below describes *the meal that was on this entry*, so it is
-      // reset only when the entry is actually repointed. `mealId` being
-      // present in the body is not the same as the meal changing:
-      // `/regenerate` filters the planned meal out of its suggestions, but
-      // search and "my recipes" browse go to `/api/meals` unfiltered
-      // (`meal-selector/use-meal-alternatives.ts`), so the dish already on the
-      // entry can be listed and clicked — and `MealSelectorModal.handleSelect`
-      // PATCHes whatever row was selected. Re-selecting what is already
-      // planned changes nothing and must cost nothing; the same distinction
-      // the `servingOverride` block below draws for a resent count.
-      //
-      // Unguarded, that no-op write silently reverted a deliberate serving
-      // override to the household size and bought a fresh tips generation —
-      // and, carrying `status: 'completed'` + `deductPantry`, charged the
-      // pantry at the household size for an entry stored at the override,
-      // because `effectiveServings` keys off `'servingOverride' in updateData`
-      // (HON-703).
-      if (parsed.data.mealId !== entry.mealId) {
-        // Cached tips describe the previous meal, down to its equipment and
-        // timings (HON-682).
-        updateData.preparationTips = null
-        // The override was chosen for the previous meal; the incoming one
-        // starts at the household's own size (HON-682).
-        updateData.servingOverride = null
-        // Third column describing the meal, same treatment: a rating is a
-        // verdict on *the meal this entry points at*, so it does not survive
-        // the entry being repointed. Left in place it is a thumbs-up the household
-        // gave a dish they then replaced, now attached to one they have said
-        // nothing about — reachable as complete → rate → revert to `planned`
-        // (which the guard above still allows to swap, nothing having been
-        // charged) → swap.
-        //
-        // Cosmetic while nothing reads the column; HON-340 will feed it into
-        // candidate scoring, at which point a rating on the wrong meal stops
-        // being a stale badge and starts steering what the household is
-        // offered (HON-703). Clearing rather than refusing the swap: unlike
-        // the completed-entry guard above there is no pantry accounting to
-        // protect, so a 409 here would only block "we rated it, we changed our
-        // minds". An explicit `rating` in the same request still wins — it is
-        // applied below, the same precedence `servingOverride` has.
-        //
-        // This is also the one of the three that a mistaken reset cannot undo:
-        // tips regenerate and an override can be re-entered, but only the
-        // household can say again what they thought of the meal.
-        updateData.rating = null
-      }
+      // The tips, override and rating describe the previous meal, so they are
+      // reset when the meal actually changes, and only then (HON-682,
+      // HON-703). An explicit `servingOverride` or `rating` in the same
+      // request is applied below and wins. A re-select carries no
+      // `servingOverride` key at all, which matters: `effectiveServings` below
+      // keys off `'servingOverride' in updateData`.
+      Object.assign(updateData, swapEntryData(entry.mealId, parsed.data.mealId))
     }
 
     // Handle note updates (including explicit null to clear)
@@ -733,10 +674,7 @@ export async function PATCH(
     // `completed` (or was deleted) in the meantime, and still returns the row
     // so the response stays row-derived rather than reconstructed.
     if (updateData.mealId) {
-      const [swapped] = await prisma.mealPlanEntry.updateManyAndReturn({
-        where: { id: entryId, status: { not: MealPlanEntryStatus.completed } },
-        data: updateData,
-      })
+      const swapped = await writeSwappedEntry(entryId, { ...updateData, mealId: updateData.mealId })
 
       if (!swapped) {
         return NextResponse.json({ error: 'Cannot swap a completed meal' }, { status: 409 })
