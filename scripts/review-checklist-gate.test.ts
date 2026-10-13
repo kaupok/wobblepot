@@ -205,13 +205,15 @@ describe('driven-screen gate', () => {
     expect(classify('DRIVE_FILES', hits)).toEqual(hits)
   })
 
-  // A primitive is covered by its stories, and an API route renders no screen, so
-  // neither asks the agent to start a server and sign up.
-  it('skips primitives, API routes, stories, tests and non-tsx files', () => {
+  // A primitive is covered by its stories, an API route renders no screen, and an
+  // admin page 404s for the review account, so none asks for a server and a sign-up.
+  it('skips primitives, API routes, admin pages, stories, tests and non-tsx files', () => {
     expect(
       classify('DRIVE_FILES', [
         'src/components/ui/button.tsx',
         'src/app/api/og/route.tsx',
+        'src/app/admin/waitlist/page.tsx',
+        'src/app/admin/signup-codes/SignupCodesClient.tsx',
         'src/components/Header.stories.tsx',
         'src/app/page.test.tsx',
         'src/app/globals.css',
@@ -260,7 +262,7 @@ describe('driven-screen gate', () => {
       '`.claude/skills/implement-issue/SKILL.md` → "Drive changed screens"',
     )
     expect(skill).toMatch(/^#### Drive changed screens$/m)
-    expect(skill).toContain('outside `src/app/api/`')
+    expect(skill).toContain('outside `src/app/api/` and `src/app/admin/`')
     expect(skill).toContain('outside `src/components/ui/`')
     expect(skill).toContain('- Driven: ')
   })

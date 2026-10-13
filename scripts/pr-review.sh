@@ -457,10 +457,11 @@ fi
 # Driven screens: /implement-issue step 9 → "Drive changed screens" opens each changed
 # screen through the Playwright MCP and records a `Driven:` line in the PR body. Pages
 # and route files under src/app, and feature components; a src/components/ui primitive
-# is covered by its stories, and src/app/api renders no screen. The item fires only
+# is covered by its stories, src/app/api renders no screen, and src/app/admin opens
+# only for ADMIN_EMAIL, which a fresh review account is not. The item fires only
 # when the body has no `Driven:` list line, so a PR that carries the evidence pays
 # nothing. A failed body fetch reads as "no line", which fails closed like the gates above.
-DRIVE_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(app|components)/.*\.tsx$' | grep -vE '^src/(app/api|components/ui)/|\.(stories|test)\.tsx$' || true)
+DRIVE_FILES=$(printf '%s\n' "$PR_FILES" | grep -E '^src/(app|components)/.*\.tsx$' | grep -vE '^src/(app/(api|admin)|components/ui)/|\.(stories|test)\.tsx$' || true)
 PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body' 2>/dev/null || true)
 DRIVEN_IN_BODY=$(printf '%s\n' "$PR_BODY" | grep -cE '^[[:space:]]*[-*][[:space:]]+Driven:' || true)
 
@@ -470,7 +471,7 @@ if { [ -n "$DRIVE_FILES" ] || [ "$PR_FILES_COMPLETE" = false ]; } && [ "$DRIVEN_
 
 ## Also check that the changed screens were driven
 
-This diff changes a page or a feature component, and the PR body has no `Driven:` line. `.claude/skills/implement-issue/SKILL.md` → "Drive changed screens" requires one per changed screen: the route, the action, the result the browser showed, and the screenshot on the Linear issue. Report the missing lines as a finding in the summary (the body is not in the diff), naming the screens the diff changes. It is not a finding when the body's "Not verified" list says why the screens could not be driven (the review server could not start, with the reason), or when the changed files render nothing a user sees (a type or prop rename with no visible change). In that case this check has nothing to do.
+This diff changes a page or a feature component, and the PR body has no `Driven:` line. `.claude/skills/implement-issue/SKILL.md` → "Drive changed screens" requires one per changed screen: the route, the action, the result the browser showed, and the screenshot on the Linear issue. Report the missing lines as a finding in the summary (the body is not in the diff), naming the screens the diff changes. It is not a finding when the body's "Not verified" list says why the screens could not be driven (the review server or the Playwright MCP could not start, or the screen needs an account the review server cannot create, with the reason), or when the changed files render nothing a user sees (a type or prop rename with no visible change). In that case this check has nothing to do.
 DRIVE_PROMPT
 fi
 

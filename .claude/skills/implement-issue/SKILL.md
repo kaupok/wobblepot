@@ -210,7 +210,7 @@ Before signalling completion, confirm the definition of done:
 
 Storybook and the E2E grep are static, so a layout break, a wrong empty state or a dead button passes both and is first seen on staging (HON-1188). Run this after the checks above pass, so the screen you drive is the one you ship.
 
-**Trigger:** the branch's changes, uncommitted ones included, list a `.tsx` under `src/app/` (outside `src/app/api/`) or under `src/components/` (outside `src/components/ui/`), not counting `.stories.tsx` and `.test.tsx`. A `ui/` primitive is covered by its stories. `scripts/pr-review.sh` uses the same trigger. Read the list from the merge base and the untracked files, because this step runs before the work is committed:
+**Trigger:** the branch's changes, uncommitted ones included, list a `.tsx` under `src/app/` (outside `src/app/api/` and `src/app/admin/`) or under `src/components/` (outside `src/components/ui/`), not counting `.stories.tsx` and `.test.tsx`. A `ui/` primitive is covered by its stories. Admin pages open only for `ADMIN_EMAIL`, which the review account is not, so do not change the admin gate to reach them. `scripts/pr-review.sh` uses the same trigger. Read the list from the merge base and the untracked files, because this step runs before the work is committed:
 
 ```bash
 { git diff --name-only "$(git merge-base origin/main HEAD)"; git ls-files --others --exclude-standard; } | sort -u
