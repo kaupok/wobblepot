@@ -6,7 +6,7 @@ Read from `SKILL.md` once `ROUND` ≥ 3, or when 6.6 branch C routes to the 6.7 
 
 **Materiality bar — applies from ROUND 3 on.** On rounds 1 and 2 every substantive finding is an Address Now item, per the `SKILL.md` 6.4 triage rules. From round 3 the bar rises, because by then the cheap defects are gone and what is left is usually accretion:
 
-- **Action it** only if it is a **correctness or safety defect** — wrong behaviour, a broken reference (a path, line number, step number, or command that does not resolve), a factual error in the text, a security or data-loss risk.
+- **Action it** only if it is a **correctness or safety defect** — wrong behaviour, a broken reference (a path, line number, step number, or command that does not resolve), a factual error in the text, a security or data-loss risk, or a `**Spec:**` entry of kind Missing or Implemented but wrong (an acceptance criterion the PR does not meet).
 - **Do not action it** if the fix only adds coverage, edge cases, hedging, or qualification to something that already works as written. "This grep would also miss X", "this does not cover the case where Y", "consider noting Z" are coverage-only by definition.
 
 The bar exists because the reviewer is asked "what is wrong with this?" and never "is this now worse than it was three rounds ago?" — an asymmetry that makes the loop self-sustaining. Each HON-627 finding was individually defensible; together they improved grep recall and destroyed the artifact's usability, which was the entire point of the artifact. A finding that makes a document longer and harder to follow is a finding worth dropping.
