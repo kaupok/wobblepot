@@ -184,20 +184,30 @@ jobs:
       # files locally.
       #
       # ESLint's cache tracks each linted file and the config, but not files a
-      # plugin reads on its own. @shadcn/lint reads components.json, the CSS
-      # files under src and the primitives under src/components/ui, so they
-      # are in the key: a token change must re-lint every file. For the same
-      # reason the restore never falls back past that hash.
+      # plugin reads on its own. @shadcn/lint reads components.json,
+      # tsconfig.json, the CSS files under src and the primitives under
+      # src/components/ui, so they are in the key: a token change must re-lint
+      # every file, and the restore never falls back past that hash.
+      #
+      # `shadcn/no-restyle` also follows imports into any component file to
+      # see whether it forwards `className` to a primitive. No key short of
+      # all of src covers that, and that key would almost never hit. So a PR
+      # can keep a cached pass for a file whose imported component changed,
+      # and the push to `main` re-lints every file: it drops the restored
+      # cache, so a violation turns `main` red on the merge that caused it,
+      # not on a later PR. That run also saves a complete cache for the PRs.
       - name: Cache ESLint results
         uses: actions/cache@v6
         with:
           path: .eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs', 'components.json', 'src/**/*.css', 'src/components/ui/**') }}-${{ github.sha }}
+          key: ${{ runner.os }}-eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs', 'components.json', 'tsconfig.json', 'src/**/*.css', 'src/components/ui/**') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs', 'components.json', 'src/**/*.css', 'src/components/ui/**') }}-
+            ${{ runner.os }}-eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs', 'components.json', 'tsconfig.json', 'src/**/*.css', 'src/components/ui/**') }}-
 
       - name: Run linter
-        run: pnpm exec eslint . --cache --cache-location .eslintcache --cache-strategy content
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ]; then rm -f .eslintcache; fi
+          pnpm exec eslint . --cache --cache-location .eslintcache --cache-strategy content
 
       # The lockfile pins Prettier and prettier-plugin-tailwindcss.
       - name: Cache Prettier results
