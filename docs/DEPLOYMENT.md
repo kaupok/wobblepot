@@ -19,7 +19,9 @@ Complete guide for deploying Wobblepot to staging and production environments.
 
 ## CI Pipeline
 
-Every PR and every push to `main` runs the following checks in GitHub Actions (`.github/workflows/ci.yml`, in this order). Docs-only changes (`**/*.md`, `docs/**`) skip CI entirely:
+Every PR and every push to `main` runs the following checks in GitHub Actions (`.github/workflows/ci.yml`). Docs-only changes (`**/*.md`, `docs/**`) skip CI entirely. The checks run as parallel jobs (HON-1177), so a green run takes as long as the slowest job, not the sum of all of them. Within a job the steps run in the order listed:
+
+**`Static checks`** — the only job that checks out the full git history:
 
 - `scripts/check-migrations-immutable.sh` - Applied migrations are unchanged (the PR diff, and the whole tree on `main`)
 - `pnpm lint` - ESLint rules
@@ -27,14 +29,27 @@ Every PR and every push to `main` runs the following checks in GitHub Actions (`
 - `pnpm type-check` - TypeScript type checking
 - `pnpm lockfile:check` - Pinned dependency resolutions (HON-595)
 - `pnpm stories:check` - Every component has a colocated story
-- `pnpm test` - Unit tests
 - `pnpm db:validate` - Seed data
 - `scripts/check-smoke-specs.sh` - `@smoke` specs are staging-safe
+- `pnpm audit --audit-level critical` - Dependency advisories (last, because it is the only step that calls the npm registry)
+
+**`Unit tests`**:
+
+- `pnpm test` - Unit tests
+
+**`Storybook`**:
+
 - `pnpm test-storybook:ci` - Storybook a11y gate
 - `pnpm build-storybook` - Static Storybook build (gate for the GitHub Pages deploy)
-- `pnpm test:e2e --grep-invert=@ai` - Playwright E2E tier 1 (Docker Postgres sidecar)
-- `pnpm audit --audit-level critical` - Dependency advisories
-- `pnpm env:audit --strict` - Vercel env-var drift, as a separate job (see [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) → "Drift audit")
+
+**`E2E`** — with a Docker Postgres sidecar:
+
+- `pnpm prisma migrate deploy` and `pnpm db:seed` - Prepare the sidecar database
+- `pnpm test:e2e --grep-invert=@ai` - Playwright E2E tier 1
+
+**`Lint, Type Check & Test`** — runs no check itself. It waits for the four jobs above and is red when any of them is not green. It keeps the name of the old single job, because the `/merge` and `/auto-implement` settle polls wait for a check with that name.
+
+**`Vercel env-var drift audit`** — `pnpm env:audit --strict`, independent of the jobs above (see [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) → "Drift audit")
 
 **Important notes:**
 
