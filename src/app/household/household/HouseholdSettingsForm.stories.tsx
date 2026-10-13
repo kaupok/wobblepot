@@ -245,6 +245,29 @@ export const HouseholdDetailsDirty: Story = {
   },
 }
 
+export const HouseholdDetailsTimezonePicked: Story = {
+  ...HouseholdDetails,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Another timezone picked from the open menu. Only the selected timezone mounts until the trigger is first focused or pressed, so the play function checks that a press still opens the full list (HON-1180).',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const trigger = canvas.getByRole('combobox', { name: /timezone/i })
+    await userEvent.click(trigger)
+    // Radix portals the menu to the body.
+    const option = await within(document.body).findByRole('option', { name: 'America/New York' })
+    await userEvent.click(option)
+    await expect(trigger).toHaveTextContent('America/New York')
+    // The page stays aria-hidden until the menu's close animation ends.
+    await expect(await canvas.findByRole('button', { name: 'Save' })).toBeVisible()
+  },
+}
+
 export const FoodPreferences: Story = {
   args: Default.args,
   render: (args) => <FoodPreferencesForm preferences={args.preferences} isOwner={args.isOwner} />,
