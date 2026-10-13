@@ -24,6 +24,16 @@ function timezoneLabel(tz: string) {
   return tz.replace(/_/g, ' ')
 }
 
+// Radix renders a closed Select's items too, into a hidden fragment, so 418
+// items cost every render of this section. Built once here, the elements stay
+// the same objects and React skips them while the user types the name
+// (HON-1180).
+const TIMEZONE_ITEMS = TIMEZONES.map((tz) => (
+  <SelectItem key={tz} value={tz}>
+    {timezoneLabel(tz)}
+  </SelectItem>
+))
+
 type DetailsValues = { name: string; timezone: string; locale: Locale }
 
 interface HouseholdDetailsFormProps {
@@ -45,6 +55,13 @@ export function HouseholdDetailsForm({ household, isOwner }: HouseholdDetailsFor
   const [name, setName] = useState(household.name)
   const [timezone, setTimezone] = useState(household.timezone)
   const [locale, setLocale] = useState<Locale>(household.locale)
+  // Mounting the 418 items is the costly part: each one registers with the
+  // Select root, which re-renders all of them. Until the trigger is first
+  // focused or pressed, only the selected item mounts. Pointer-down runs
+  // before Radix opens the menu, and focus before any key reaches the trigger,
+  // so the menu and the trigger's typeahead always see the full list.
+  const [timezoneListMounted, setTimezoneListMounted] = useState(false)
+  const mountTimezoneList = () => setTimezoneListMounted(true)
 
   const handleSaved = (sent: DetailsValues) => {
     // A locale change reaches every entity's names (recipes, the meal
@@ -93,6 +110,8 @@ export function HouseholdDetailsForm({ household, isOwner }: HouseholdDetailsFor
                 className="w-full"
                 aria-invalid={!!errorId}
                 aria-describedby={errorId}
+                onFocus={mountTimezoneList}
+                onPointerDown={mountTimezoneList}
               >
                 {/* Explicit children: without them Radix mirrors the selected
                     item's text only after mount, so the server HTML shows an
@@ -103,11 +122,11 @@ export function HouseholdDetailsForm({ household, isOwner }: HouseholdDetailsFor
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {TIMEZONES.map((tz) => (
-                  <SelectItem key={tz} value={tz}>
-                    {timezoneLabel(tz)}
-                  </SelectItem>
-                ))}
+                {timezoneListMounted ? (
+                  TIMEZONE_ITEMS
+                ) : (
+                  <SelectItem value={timezone}>{timezoneLabel(timezone)}</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

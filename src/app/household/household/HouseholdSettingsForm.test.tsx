@@ -560,6 +560,23 @@ describe('HouseholdSettingsForm', () => {
       )
     })
 
+    // The full timezone list mounts on the trigger's first focus (HON-1180),
+    // so a keyboard user's typeahead on the closed trigger still finds every
+    // timezone, not only the selected one.
+    it('picks a timezone by typing on the closed trigger', async () => {
+      const user = userEvent.setup()
+      renderForm()
+
+      const timezoneTrigger = screen.getByRole('combobox', { name: /timezone/i })
+      await user.tab()
+      await user.tab()
+      expect(timezoneTrigger).toHaveFocus()
+      await user.keyboard('a')
+
+      expect(timezoneTrigger).toHaveTextContent('Africa/Abidjan')
+      expect(timezoneTrigger).toHaveAttribute('aria-expanded', 'false')
+    })
+
     it('saves the new locale', async () => {
       mockFetch.mockResolvedValue(ok())
       renderForm()
