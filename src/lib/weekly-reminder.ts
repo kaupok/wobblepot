@@ -68,6 +68,40 @@ export function reminderUpdate(
   }
 }
 
+/**
+ * Set the reminder of the member that `userId` holds, behind
+ * `PATCH /api/households/me/members/me/reminder` (HON-1214). `reminderUpdate`
+ * says what is written.
+ *
+ * @returns null when the user has no member row. Otherwise `confirmToken` is
+ *   the token to email when this save switched the reminder on for an address
+ *   that is not confirmed yet (HON-1113), and null when no email is due.
+ */
+export async function saveReminder(
+  userId: string,
+  weekday: ReminderWeekday | null,
+): Promise<{ confirmToken: string | null } | null> {
+  const member = await prisma.householdMember.findUnique({
+    where: { userId },
+    select: {
+      id: true,
+      reminderWeekday: true,
+      reminderConsentAt: true,
+      reminderToken: true,
+      reminderConfirmToken: true,
+      reminderConfirmedAt: true,
+    },
+  })
+  if (!member) return null
+
+  const data = reminderUpdate(member, weekday)
+  await prisma.householdMember.update({ where: { id: member.id }, data })
+
+  const switchedOn = member.reminderWeekday === null && data.reminderWeekday !== null
+  const confirmDue = switchedOn && !member.reminderConfirmedAt
+  return { confirmToken: (confirmDue && data.reminderConfirmToken) || null }
+}
+
 export type ReminderConfirmState = 'pending' | 'confirmed' | 'expired'
 
 /**

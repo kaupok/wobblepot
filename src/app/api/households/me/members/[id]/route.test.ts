@@ -1,1022 +1,244 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, PATCH, DELETE } from './route'
 
-// Mock dependencies
+// The member reads and changes live in `@/lib/household/members`, tested
+// against a database in `members.db.test.ts`: the refusals and the prep-tips
+// clear are proved there. This file mocks that module at the seam and asserts
+// what the route owns: the session, the household, the owner check on
+// DELETE, body validation, and the status and body each answer maps to
+// (HON-1214).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    householdMember: {
-      findFirst: vi.fn(),
-      findUnique: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-    },
-    memberPreferences: {
-      upsert: vi.fn(),
-    },
-    mealPlanEntry: {
-      updateMany: vi.fn(),
-    },
-    $transaction: vi.fn(),
-  },
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
+}))
+
+vi.mock('@/lib/household/members', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/household/members')>()),
+  getHouseholdMember: vi.fn(),
+  updateMember: vi.fn(),
+  removeMember: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
+import { captureApiError } from '@/lib/errors'
+import { getHouseholdMembership } from '@/lib/household'
+import {
+  getHouseholdMember,
+  MemberChangeError,
+  removeMember,
+  updateMember,
+  type MemberChangeRefusal,
+} from '@/lib/household/members'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
-const mockFindUnique = vi.mocked(prisma.householdMember.findUnique)
-const mockDelete = vi.mocked(prisma.householdMember.delete)
-const mockTransaction = vi.mocked(prisma.$transaction)
-const mockEntryUpdateMany = vi.mocked(prisma.mealPlanEntry.updateMany)
+const mockGetMembership = vi.mocked(getHouseholdMembership)
+const mockGetMember = vi.mocked(getHouseholdMember)
+const mockUpdate = vi.mocked(updateMember)
+const mockRemove = vi.mocked(removeMember)
 
-/**
- * Run the member-removal transaction against the same `prisma` mock, so
- * `tx.householdMember.delete` and `tx.mealPlanEntry.updateMany` are the same
- * spies the assertions below read. Losing a member changes the household's
- * size, which prices the cached prep tips on every entry without a
- * `servingOverride`, so both writes belong to one transaction (HON-684).
- */
-const mockRemovalTransaction = () =>
-  mockTransaction.mockImplementation(async (fn) =>
-    (fn as (tx: unknown) => never)({
-      householdMember: { delete: mockDelete },
-      mealPlanEntry: { updateMany: mockEntryUpdateMany },
+const mockSession = {
+  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+  session: { id: 'session-123' },
+} as never
+
+const membership = (role: 'owner' | 'member' = 'owner') =>
+  ({
+    id: 'member-123',
+    householdId: 'household-123',
+    userId: 'user-123',
+    role,
+    household: { id: 'household-123', timezone: 'Europe/Tallinn', members: [] },
+  }) as never
+
+const URL = 'http://localhost/api/households/me/members/member-456'
+const params = () => Promise.resolve({ id: 'member-456' })
+
+const get = () => GET(new Request(URL), { params: params() })
+const patch = (body: unknown) =>
+  PATCH(
+    new Request(URL, {
+      method: 'PATCH',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
     }),
+    { params: params() },
   )
+const del = () => DELETE(new Request(URL, { method: 'DELETE' }), { params: params() })
 
-describe('GET /api/households/me/members/[id]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
+}
 
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(membership())
+})
+
+describe.each([
+  ['GET', get],
+  ['PATCH', () => patch({ name: 'Kid' })],
+  ['DELETE', del],
+])('%s /api/households/me/members/[id] before the lib', (_method, call) => {
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await GET(new Request('http://localhost'), {
-      params: Promise.resolve({ id: 'member-123' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(call())).toEqual({ status: 401, body: { error: 'Unauthorized' } })
   })
 
-  it('returns 404 when member not found', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it('returns 404 when no household found', async () => {
+    mockGetMembership.mockResolvedValue(null)
 
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
+    expect(await answer(call())).toEqual({ status: 404, body: { error: 'No household found' } })
+    expect(mockGetMember).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockRemove).not.toHaveBeenCalled()
+  })
+})
 
-    mockFindUnique.mockResolvedValue(null)
+describe('GET /api/households/me/members/[id]', () => {
+  it("returns the member of the caller's household", async () => {
+    const member = { id: 'member-456', name: 'Kid', role: 'member', user: null }
+    mockGetMember.mockResolvedValue(member as never)
 
-    const response = await GET(new Request('http://localhost'), {
-      params: Promise.resolve({ id: 'nonexistent' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Member not found')
+    expect(await answer(get())).toEqual({ status: 200, body: member })
+    expect(mockGetMember).toHaveBeenCalledWith('household-123', 'member-456')
   })
 
-  it('returns member details', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it('returns 404 when the member is not in the household', async () => {
+    mockGetMember.mockResolvedValue(null)
 
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
+    expect(await answer(get())).toEqual({ status: 404, body: { error: 'Member not found' } })
+  })
 
-    mockFindUnique.mockResolvedValue({
-      id: 'member-manual',
-      householdId: 'household-123',
-      userId: null,
-      name: 'Test Child',
-      role: 'member',
-      joinedAt: new Date('2024-01-01'),
-      user: null,
-      preferences: {
-        displayName: null,
-        portionMultiplier: 0.5,
-        dietaryType: null,
-        allergens: ['nuts'],
-        restrictions: [],
-      },
-    } as never)
+  it('returns 500 and logs when the read throws', async () => {
+    mockGetMember.mockRejectedValue(new Error('db down'))
 
-    const response = await GET(new Request('http://localhost'), {
-      params: Promise.resolve({ id: 'member-manual' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.id).toBe('member-manual')
-    expect(data.name).toBe('Test Child')
-    expect(data.preferences.allergens).toEqual(['nuts'])
+    expect(await answer(get())).toEqual({ status: 500, body: { error: 'Failed to fetch member' } })
+    expect(captureApiError).toHaveBeenCalled()
   })
 })
 
 describe('PATCH /api/households/me/members/[id]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+  it('saves the validated patch for the caller and returns the member', async () => {
+    const member = { id: 'member-456', name: 'Kiddo', preferences: { portionMultiplier: 0.75 } }
+    mockUpdate.mockResolvedValue(member as never)
 
-  it('returns 401 when not authenticated', async () => {
-    mockGetSession.mockResolvedValue(null)
-
-    const request = new Request('http://localhost', {
-      method: 'PATCH',
-      body: JSON.stringify({ name: 'Updated' }),
-    })
-
-    const response = await PATCH(request, {
-      params: Promise.resolve({ id: 'member-123' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
-  })
-
-  it('returns 403 when non-owner tries to update another member', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-456', name: 'Jane Doe', email: 'jane@example.com' },
-      session: { id: 'session-456' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue({
-      id: 'member-456',
-      householdId: 'household-123',
-      userId: 'user-456',
-      role: 'member', // Not owner
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    // Target member is different from requester
-    mockFindUnique.mockResolvedValue({
-      id: 'member-other',
-      householdId: 'household-123',
-      userId: 'user-789',
-      name: null,
-      role: 'member',
-    } as never)
-
-    const request = new Request('http://localhost', {
-      method: 'PATCH',
-      body: JSON.stringify({ preferences: { portionMultiplier: 1.5 } }),
-    })
-
-    const response = await PATCH(request, {
-      params: Promise.resolve({ id: 'member-other' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('You can only edit your own preferences')
-  })
-
-  it('allows member to update their own preferences', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-456', name: 'Jane Doe', email: 'jane@example.com' },
-      session: { id: 'session-456' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue({
-      id: 'member-456',
-      householdId: 'household-123',
-      userId: 'user-456',
-      role: 'member', // Not owner
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    // Target member is the same as requester
-    mockFindUnique.mockResolvedValue({
-      id: 'member-456',
-      householdId: 'household-123',
-      userId: 'user-456',
-      name: null,
-      role: 'member',
-    } as never)
-
-    const updatedMember = {
-      id: 'member-456',
-      householdId: 'household-123',
-      userId: 'user-456',
-      name: null,
-      role: 'member',
-      joinedAt: new Date(),
-      user: { id: 'user-456', name: 'Jane Doe', email: 'jane@example.com', image: null },
-      preferences: {
-        displayName: null,
-        portionMultiplier: 1.25,
-        dietaryType: null,
-        allergens: [],
-        restrictions: [],
-        excludedIngredients: [],
-        excludedIngredientIds: [],
-      },
-    }
-
-    mockTransaction.mockImplementation(async (fn) => {
-      const tx = {
-        householdMember: {
-          update: vi.fn().mockResolvedValue({}),
-          findMany: vi.fn().mockResolvedValue([{ preferences: null }]),
-          findUnique: vi.fn().mockResolvedValue(updatedMember),
-        },
-        memberPreferences: {
-          upsert: vi.fn().mockResolvedValue({}),
-        },
-        mealPlanEntry: { updateMany: mockEntryUpdateMany },
-      }
-      return fn(tx as never)
-    })
-
-    const request = new Request('http://localhost', {
-      method: 'PATCH',
-      body: JSON.stringify({
-        preferences: { portionMultiplier: 1.25 },
-      }),
-    })
-
-    const response = await PATCH(request, {
-      params: Promise.resolve({ id: 'member-456' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.preferences.portionMultiplier).toBe(1.25)
-  })
-
-  // A rename leaves the household's servings where they were, so the cached
-  // prep tips are still priced correctly and must not be thrown away — every
-  // needless invalidation costs a paid regeneration (HON-684).
-  it('leaves preparation tips alone on a member PATCH', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' },
-    } as never)
-
-    mockFindUnique.mockResolvedValue({
-      id: 'member-manual',
-      householdId: 'household-123',
-      userId: null,
-      name: 'Test Child',
-      role: 'member',
-    } as never)
-
-    mockTransaction.mockImplementation(async (fn) =>
-      (fn as (tx: unknown) => never)({
-        householdMember: {
-          update: vi.fn().mockResolvedValue({}),
-          findMany: vi.fn().mockResolvedValue([{ preferences: null }]),
-          findUnique: vi.fn().mockResolvedValue({
-            id: 'member-manual',
-            householdId: 'household-123',
-            userId: null,
-            name: 'Renamed',
-            role: 'member',
-            joinedAt: new Date(),
-            user: null,
-            preferences: null,
-          }),
-        },
-        memberPreferences: { upsert: vi.fn().mockResolvedValue({}) },
-        mealPlanEntry: { updateMany: mockEntryUpdateMany },
-      }),
+    expect(
+      await answer(patch({ name: 'Kiddo', preferences: { portionMultiplier: 0.75 } })),
+    ).toEqual({ status: 200, body: member })
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'member-123', householdId: 'household-123' }),
+      'member-456',
+      { name: 'Kiddo', preferences: { portionMultiplier: 0.75 } },
     )
-
-    const response = await PATCH(
-      new Request('http://localhost', {
-        method: 'PATCH',
-        body: JSON.stringify({ name: 'Renamed' }),
-      }),
-      { params: Promise.resolve({ id: 'member-manual' }) },
-    )
-
-    expect(response.status).toBe(200)
-    expect(mockEntryUpdateMany).not.toHaveBeenCalled()
   })
 
-  describe('a portion size change', () => {
-    const asMembers = (portions: number[]) =>
-      portions.map((portionMultiplier) => ({ preferences: { portionMultiplier } }))
-    const mockMembersAfter = vi.fn()
+  // A blank display name clears it, so the member list falls back to the name.
+  it('sends a blank display name as null', async () => {
+    mockUpdate.mockResolvedValue({ id: 'member-456' } as never)
 
-    /**
-     * PATCH the manual member from `stored` to `sent`. `before` is every
-     * member's portion as the membership query read it; `after` is what the
-     * re-read inside the transaction sees.
-     */
-    const patchPortion = async (
-      stored: number | null,
-      sent: number,
-      { before, after }: { before: number[]; after: number[] },
-    ) => {
-      mockGetSession.mockResolvedValue({
-        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-        session: { id: 'session-123' },
-      } as never)
-      mockFindFirst.mockResolvedValue({
-        id: 'member-123',
-        householdId: 'household-123',
-        userId: 'user-123',
-        role: 'owner',
-        household: {
-          id: 'household-123',
-          name: 'Test',
-          timezone: 'Europe/Tallinn',
-          members: asMembers(before),
-        },
-      } as never)
-      mockFindUnique.mockResolvedValue({
-        id: 'member-manual',
-        householdId: 'household-123',
-        userId: null,
-        name: 'Mia',
-        role: 'member',
-        preferences: stored === null ? null : { portionMultiplier: stored },
-      } as never)
-      mockMembersAfter.mockResolvedValue(asMembers(after))
-      mockTransaction.mockImplementation(async (fn) =>
-        (fn as (tx: unknown) => never)({
-          householdMember: {
-            findMany: mockMembersAfter,
-            findUnique: vi.fn().mockResolvedValue({
-              id: 'member-manual',
-              userId: null,
-              name: 'Mia',
-              role: 'member',
-              joinedAt: new Date(),
-              user: null,
-              preferences: null,
-            }),
-          },
-          memberPreferences: { upsert: vi.fn().mockResolvedValue({}) },
-          mealPlanEntry: { updateMany: mockEntryUpdateMany },
-        }),
-      )
+    await patch({ preferences: { displayName: '   ' } })
 
-      return PATCH(
-        new Request('http://localhost', {
-          method: 'PATCH',
-          body: JSON.stringify({ preferences: { portionMultiplier: sent } }),
-        }),
-        { params: Promise.resolve({ id: 'member-manual' }) },
-      )
-    }
-
-    // The portions are summed into the household's servings, which price the
-    // tips on every entry without a `servingOverride` (HON-1040).
-    it('clears cached preparation tips when the household servings move', async () => {
-      const response = await patchPortion(1, 0.5, { before: [1, 1], after: [1, 0.5] })
-
-      expect(response.status).toBe(200)
-      expect(mockTransaction).toHaveBeenCalledTimes(1)
-      expect(mockMembersAfter).toHaveBeenCalledWith({
-        where: { householdId: 'household-123' },
-        select: { preferences: { select: { portionMultiplier: true } } },
-      })
-      expect(mockEntryUpdateMany).toHaveBeenCalledWith({
-        where: {
-          plan: { householdId: 'household-123' },
-          servingOverride: null,
-          preparationTips: { not: null },
-          status: { not: 'completed' },
-          date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
-        },
-        data: { preparationTips: null },
-      })
-    })
-
-    // 1.5 + 0.75 = 2.25 and 1.5 + 1 = 2.5 both round to 2.5 servings, so the
-    // prompt is unchanged and a regeneration would be a paid call for nothing.
-    it('leaves the tips alone when the rounded servings do not move', async () => {
-      const response = await patchPortion(0.75, 1, { before: [1.5, 0.75], after: [1.5, 1] })
-
-      expect(response.status).toBe(200)
-      expect(mockMembersAfter).toHaveBeenCalledTimes(1)
-      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
-    })
-
-    it('counts a member without a preferences row as 1×', async () => {
-      await patchPortion(null, 1, { before: [1, 1], after: [1, 1] })
-
-      expect(mockMembersAfter).not.toHaveBeenCalled()
-      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
-    })
-
-    // The member dialogs send `portionMultiplier` on every save.
-    it('skips the re-read when the portion size is saved unchanged', async () => {
-      const response = await patchPortion(0.5, 0.5, { before: [1, 0.5], after: [1, 0.5] })
-
-      expect(response.status).toBe(200)
-      expect(mockMembersAfter).not.toHaveBeenCalled()
-      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+    expect(mockUpdate).toHaveBeenCalledWith(expect.anything(), 'member-456', {
+      preferences: { displayName: null },
     })
   })
 
-  it('returns 400 when trying to update name of linked member', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    // Member with userId (linked member)
-    mockFindUnique.mockResolvedValue({
-      id: 'member-linked',
-      householdId: 'household-123',
-      userId: 'user-456', // Has userId
-      name: null,
-      role: 'member',
-    } as never)
-
-    const request = new Request('http://localhost', {
-      method: 'PATCH',
-      body: JSON.stringify({ name: 'New Name' }),
+  it('returns 400 for a body that is not JSON', async () => {
+    expect(await answer(patch('not json'))).toEqual({
+      status: 400,
+      body: { error: 'Invalid JSON' },
     })
-
-    const response = await PATCH(request, {
-      params: Promise.resolve({ id: 'member-linked' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Cannot update name for linked members')
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
-  it('updates manual member name and preferences', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it.each([
+    ['an empty name', { name: '' }],
+    ['a portion size above 3', { preferences: { portionMultiplier: 4 } }],
+    ['a display name over 50 characters', { preferences: { displayName: 'x'.repeat(51) } }],
+  ])('returns 400 for %s', async (_label, body) => {
+    const { status, body: json } = await answer(patch(body))
 
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    // Manual member (no userId)
-    mockFindUnique.mockResolvedValue({
-      id: 'member-manual',
-      householdId: 'household-123',
-      userId: null,
-      name: 'Old Name',
-      role: 'member',
-    } as never)
-
-    const updatedMember = {
-      id: 'member-manual',
-      householdId: 'household-123',
-      userId: null,
-      name: 'Updated Child Name',
-      role: 'member',
-      joinedAt: new Date(),
-      user: null,
-      preferences: {
-        displayName: null,
-        portionMultiplier: 0.75,
-        dietaryType: null,
-        allergens: ['dairy'],
-        restrictions: [],
-      },
-    }
-
-    mockTransaction.mockImplementation(async (fn) => {
-      const tx = {
-        householdMember: {
-          update: vi.fn().mockResolvedValue({}),
-          findMany: vi.fn().mockResolvedValue([{ preferences: null }]),
-          findUnique: vi.fn().mockResolvedValue(updatedMember),
-        },
-        memberPreferences: {
-          upsert: vi.fn().mockResolvedValue({}),
-        },
-        mealPlanEntry: { updateMany: mockEntryUpdateMany },
-      }
-      return fn(tx as never)
-    })
-
-    const request = new Request('http://localhost', {
-      method: 'PATCH',
-      body: JSON.stringify({
-        name: 'Updated Child Name',
-        preferences: {
-          portionMultiplier: 0.75,
-          allergens: ['dairy'],
-        },
-      }),
-    })
-
-    const response = await PATCH(request, {
-      params: Promise.resolve({ id: 'member-manual' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.name).toBe('Updated Child Name')
-    expect(data.preferences.portionMultiplier).toBe(0.75)
-    expect(data.preferences.allergens).toEqual(['dairy'])
+    expect(status).toBe(400)
+    expect(json.error).toBe('Validation failed')
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
-  it('lets a manual member clear their display name, falling back to name', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it.each<[MemberChangeRefusal, number, string]>([
+    ['notFound', 404, 'Member not found'],
+    ['notAllowed', 403, 'You can only edit your own preferences'],
+    ['linkedName', 400, 'Cannot update name for linked members'],
+  ])('maps the %s refusal to %i', async (reason, status, error) => {
+    mockUpdate.mockRejectedValue(new MemberChangeError(reason))
 
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    // Manual member (no userId)
-    mockFindUnique.mockResolvedValue({
-      id: 'member-manual',
-      householdId: 'household-123',
-      userId: null,
-      name: 'Child Name',
-      role: 'member',
-    } as never)
-
-    const upsert = vi.fn().mockResolvedValue({})
-    mockTransaction.mockImplementation(async (fn) => {
-      const tx = {
-        householdMember: {
-          update: vi.fn().mockResolvedValue({}),
-          findMany: vi.fn().mockResolvedValue([{ preferences: null }]),
-          findUnique: vi.fn().mockResolvedValue({
-            id: 'member-manual',
-            householdId: 'household-123',
-            userId: null,
-            name: 'Child Name',
-            role: 'member',
-            joinedAt: new Date(),
-            user: null,
-            preferences: {
-              displayName: null,
-              portionMultiplier: 0.5,
-              dietaryType: null,
-              allergens: [],
-              restrictions: [],
-            },
-          }),
-        },
-        memberPreferences: { upsert },
-        mealPlanEntry: { updateMany: mockEntryUpdateMany },
-      }
-      return fn(tx as never)
-    })
-
-    const request = new Request('http://localhost', {
-      method: 'PATCH',
-      body: JSON.stringify({
-        preferences: { displayName: '   ', portionMultiplier: 0.5 }, // Blank converts to null
-      }),
-    })
-
-    const response = await PATCH(request, {
-      params: Promise.resolve({ id: 'member-manual' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: expect.objectContaining({ displayName: null, portionMultiplier: 0.5 }),
-        update: expect.objectContaining({ displayName: null, portionMultiplier: 0.5 }),
-      }),
-    )
-    expect(data.name).toBe('Child Name')
-    expect(data.preferences.displayName).toBeNull()
+    expect(await answer(patch({ name: 'Kid' }))).toEqual({ status, body: { error } })
+    expect(captureApiError).not.toHaveBeenCalled()
   })
 
-  it('returns 500 with the { error } JSON shape when the transaction throws', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  // `apiFetch` surfaces `error`; a bare Next.js 500 would not be JSON at all.
+  it('returns 500 with the { error } JSON shape and logs when the save throws', async () => {
+    mockUpdate.mockRejectedValue(new Error('db down'))
 
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    mockFindUnique.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      name: 'John Doe',
-      role: 'owner',
-    } as never)
-
-    mockTransaction.mockRejectedValue(new Error('db down'))
-
-    const response = await PATCH(
-      new Request('http://localhost', {
-        method: 'PATCH',
-        body: JSON.stringify({ preferences: { dislikes: [] } }),
-      }),
-      { params: Promise.resolve({ id: 'member-123' }) },
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    // `apiFetch` parses the body and surfaces `error` — a bare Next.js 500
-    // would not be JSON at all, which is the regression this guards.
-    expect(typeof data.error).toBe('string')
-    expect(data.error.length).toBeGreaterThan(0)
-  })
-
-  it('still returns 400 for malformed JSON — the inner catch wins over the outer one', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    mockFindUnique.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      name: 'John Doe',
-      role: 'owner',
-    } as never)
-
-    const response = await PATCH(
-      new Request('http://localhost', { method: 'PATCH', body: 'not json' }),
-      { params: Promise.resolve({ id: 'member-123' }) },
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
+    expect(await answer(patch({ name: 'Kid' }))).toEqual({
+      status: 500,
+      body: { error: 'Failed to update member' },
+    })
+    expect(captureApiError).toHaveBeenCalled()
   })
 })
 
 describe('DELETE /api/households/me/members/[id]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
+  it('returns 403 when a member who is not the owner removes someone', async () => {
+    mockGetMembership.mockResolvedValue(membership('member'))
+
+    expect(await answer(del())).toEqual({
+      status: 403,
+      body: { error: 'Only the household owner can remove members' },
+    })
+    expect(mockRemove).not.toHaveBeenCalled()
   })
 
-  it('returns 401 when not authenticated', async () => {
-    mockGetSession.mockResolvedValue(null)
+  it("removes the member from the owner's household", async () => {
+    mockRemove.mockResolvedValue(undefined)
 
-    const response = await DELETE(new Request('http://localhost'), {
-      params: Promise.resolve({ id: 'member-123' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(del())).toEqual({ status: 200, body: { success: true } })
+    expect(mockRemove).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'member-123', householdId: 'household-123' }),
+      'member-456',
+    )
   })
 
-  it('returns 403 when non-owner tries to delete', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-456', name: 'Jane Doe', email: 'jane@example.com' },
-      session: { id: 'session-456' },
-    } as never)
+  it.each<[MemberChangeRefusal, number, string]>([
+    ['notFound', 404, 'Member not found'],
+    ['self', 400, 'Cannot remove yourself from the household'],
+    ['owner', 400, 'Cannot remove the household owner'],
+  ])('maps the %s refusal to %i', async (reason, status, error) => {
+    mockRemove.mockRejectedValue(new MemberChangeError(reason))
 
-    mockFindFirst.mockResolvedValue({
-      id: 'member-456',
-      householdId: 'household-123',
-      userId: 'user-456',
-      role: 'member',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    const response = await DELETE(new Request('http://localhost'), {
-      params: Promise.resolve({ id: 'member-manual' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Only the household owner can remove members')
+    expect(await answer(del())).toEqual({ status, body: { error } })
+    expect(captureApiError).not.toHaveBeenCalled()
   })
 
-  it('returns 400 when owner tries to delete themselves', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it('returns 500 with the { error } JSON shape and logs when the delete throws', async () => {
+    mockRemove.mockRejectedValue(new Error('db down'))
 
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    // Owner's own member record
-    mockFindUnique.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      name: null,
-      role: 'owner',
-    } as never)
-
-    const response = await DELETE(new Request('http://localhost'), {
-      params: Promise.resolve({ id: 'member-123' }),
+    expect(await answer(del())).toEqual({
+      status: 500,
+      body: { error: 'Failed to remove member' },
     })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Cannot remove yourself from the household')
-  })
-
-  it('deletes manual member successfully', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    mockFindUnique.mockResolvedValue({
-      id: 'member-manual',
-      householdId: 'household-123',
-      userId: null,
-      name: 'Test Child',
-      role: 'member',
-    } as never)
-
-    mockRemovalTransaction()
-    mockDelete.mockResolvedValue({} as never)
-
-    const response = await DELETE(new Request('http://localhost'), {
-      params: Promise.resolve({ id: 'member-manual' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(mockDelete).toHaveBeenCalledWith({
-      where: { id: 'member-manual' },
-    })
-  })
-
-  // Losing the member lowers the household's size, which prices the cached
-  // prep-tips prompt on every entry without a `servingOverride` (HON-684).
-  it('clears cached preparation tips on the household future entries', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' },
-    } as never)
-
-    mockFindUnique.mockResolvedValue({
-      id: 'member-manual',
-      householdId: 'household-123',
-      userId: null,
-      name: 'Test Child',
-      role: 'member',
-    } as never)
-
-    mockRemovalTransaction()
-    mockDelete.mockResolvedValue({} as never)
-
-    const response = await DELETE(new Request('http://localhost'), {
-      params: Promise.resolve({ id: 'member-manual' }),
-    })
-
-    expect(response.status).toBe(200)
-    // Inside the same transaction as the membership write, so a failed write
-    // leaves neither the removal nor an emptied cache behind.
-    expect(mockTransaction).toHaveBeenCalledTimes(1)
-    expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
-    expect(mockEntryUpdateMany).toHaveBeenCalledWith({
-      where: {
-        plan: { householdId: 'household-123' },
-        // An entry with an override was priced from the override, not from the
-        // member count, and an entry already in the past is never read again.
-        servingOverride: null,
-        preparationTips: { not: null },
-        status: { not: 'completed' },
-        date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
-      },
-      data: { preparationTips: null },
-    })
-  })
-
-  it.each([
-    ['a non-owner is rejected', 'member', 'user-456', 'member-manual'],
-    ['the owner targets themselves', 'owner', 'user-123', 'member-123'],
-  ])('leaves preparation tips alone when %s', async (_case, role, userId, targetId) => {
-    mockGetSession.mockResolvedValue({
-      user: { id: userId, name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId,
-      role,
-      household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' },
-    } as never)
-
-    mockFindUnique.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      name: null,
-      role: 'owner',
-    } as never)
-
-    const response = await DELETE(new Request('http://localhost'), {
-      params: Promise.resolve({ id: targetId }),
-    })
-
-    expect(response.status).toBeGreaterThanOrEqual(400)
-    expect(mockTransaction).not.toHaveBeenCalled()
-    expect(mockDelete).not.toHaveBeenCalled()
-    expect(mockEntryUpdateMany).not.toHaveBeenCalled()
-  })
-
-  it('returns 500 with the { error } JSON shape when the delete throws', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
-      userId: 'user-123',
-      role: 'owner',
-      household: {
-        id: 'household-123',
-        name: 'Test',
-        preferences: null,
-        timezone: 'Europe/Tallinn',
-        members: [{ preferences: null }],
-      },
-    } as never)
-
-    mockFindUnique.mockResolvedValue({
-      id: 'member-manual',
-      householdId: 'household-123',
-      userId: null,
-      name: 'Test Child',
-      role: 'member',
-    } as never)
-
-    mockRemovalTransaction()
-    mockDelete.mockRejectedValue(new Error('db down'))
-
-    const response = await DELETE(new Request('http://localhost'), {
-      params: Promise.resolve({ id: 'member-manual' }),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    expect(typeof data.error).toBe('string')
-    expect(data.error.length).toBeGreaterThan(0)
+    expect(captureApiError).toHaveBeenCalled()
   })
 })
