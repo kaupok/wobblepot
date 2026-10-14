@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { deletePantryItemByIngredient } from '@/lib/pantry/pantry-items'
 
 export async function DELETE(
   _request: Request,
@@ -26,23 +26,11 @@ export async function DELETE(
 
     const { ingredientId } = await params
 
-    // Find and delete the pantry item by ingredientId for this household
-    const pantryItem = await prisma.pantryItem.findUnique({
-      where: {
-        householdId_ingredientId: {
-          householdId: membership.householdId,
-          ingredientId,
-        },
-      },
-    })
+    const outcome = await deletePantryItemByIngredient(membership.householdId, ingredientId)
 
-    if (!pantryItem) {
+    if (outcome.status === 'not_found') {
       return NextResponse.json({ error: 'Pantry item not found' }, { status: 404 })
     }
-
-    await prisma.pantryItem.delete({
-      where: { id: pantryItem.id },
-    })
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {

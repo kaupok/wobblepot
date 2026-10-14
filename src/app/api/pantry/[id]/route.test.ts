@@ -1,46 +1,50 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PATCH, DELETE } from './route'
 
+// Every query lives in `@/lib/pantry/pantry-items`, tested against a database
+// in `pantry-items.db.test.ts`. This file mocks that module at the seam and
+// asserts what the route owns: the session, the household, body validation,
+// and the status and body each outcome maps to (HON-1209).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    householdMember: {
-      findFirst: vi.fn(),
-    },
-    pantryItem: {
-      findFirst: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-    },
-  },
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
+}))
+
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/pantry/pantry-items', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/pantry/pantry-items')>()),
+  updatePantryItem: vi.fn(),
+  deletePantryItem: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
+import { deletePantryItem, updatePantryItem } from '@/lib/pantry/pantry-items'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockFindFirstMember = vi.mocked(prisma.householdMember.findFirst)
-const mockFindFirstPantry = vi.mocked(prisma.pantryItem.findFirst)
-const mockUpdatePantry = vi.mocked(prisma.pantryItem.update)
-const mockDeletePantry = vi.mocked(prisma.pantryItem.delete)
+const mockGetMembership = vi.mocked(getHouseholdMembership)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockUpdatePantryItem = vi.mocked(updatePantryItem)
+const mockDeletePantryItem = vi.mocked(deletePantryItem)
 
-const mockHousehold = {
-  id: 'household-123',
-  name: 'Test Household',
-  timezone: 'Europe/Tallinn',
-  preferences: null,
-}
+const mockSession = {
+  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+  session: { id: 'session-123' },
+} as never
+
+const mockHousehold = { id: 'household-123', name: 'Test', locale: 'en', timezone: 'UTC' }
 
 const mockMembership = {
   id: 'member-123',
@@ -48,562 +52,199 @@ const mockMembership = {
   userId: 'user-123',
   role: 'owner',
   household: mockHousehold,
-}
+} as never
 
-const mockPantryItem = {
+const savedItem = {
   id: 'pantry-123',
-  householdId: 'household-123',
   ingredientId: 'ing-456',
-  quantity: 500,
+  quantity: 250,
   isStaple: false,
-  updatedAt: new Date('2024-01-10'),
+  updatedAt: new Date('2024-01-10T00:00:00.000Z'),
+  ingredient: {
+    id: 'ing-456',
+    name: 'Olive oil',
+    category: 'fat',
+    defaultUnit: 'g',
+    measuredByVolume: true,
+  },
 }
 
-const mockIngredient = {
-  id: 'ing-456',
-  name: 'Olive oil',
-  category: 'fat',
-  defaultUnit: 'g',
-}
+const URL = 'http://localhost/api/pantry/pantry-123'
+const params = () => Promise.resolve({ id: 'pantry-123' })
+
+const patch = (body: unknown) =>
+  PATCH(
+    new Request(URL, {
+      method: 'PATCH',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+    { params: params() },
+  )
+const del = () => DELETE(new Request(URL, { method: 'DELETE' }), { params: params() })
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(mockMembership)
+})
 
 describe('PATCH /api/pantry/[id]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity: 250 }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
+    const response = await patch({ quantity: 250 })
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await response.json()).toEqual({ error: 'Unauthorized' })
+    expect(mockUpdatePantryItem).not.toHaveBeenCalled()
   })
 
   it('returns 400 for invalid JSON', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: 'not valid json',
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
+    const response = await patch('not valid json')
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
+    expect(await response.json()).toEqual({ error: 'Invalid JSON' })
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
   })
 
-  it('returns 400 for invalid quantity type', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity: 'not a number' }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-  })
-
-  it('returns 400 for a negative quantity and writes nothing', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity: -1 }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.quantity).toBeDefined()
-    // The "and no row is written" half of the guard: validation runs before the
-    // household lookup, so a rejected body must never reach Prisma.
-    expect(mockUpdatePantry).not.toHaveBeenCalled()
-  })
-
-  it('accepts a quantity of 0 — "none left, still tracked"', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
-
-    const updatedItem = {
-      ...mockPantryItem,
-      quantity: 0,
-      ingredient: mockIngredient,
-    }
-    mockUpdatePantry.mockResolvedValue(updatedItem as never)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity: 0 }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.quantity).toBe(0)
-    // Pins the `!== undefined` guard in the route: a truthiness check there would
-    // silently drop the 0 and leave the old quantity in place.
-    expect(mockUpdatePantry).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { quantity: 0 } }),
-    )
-  })
-
-  it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(null)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity: 250 }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
-  })
-
-  it('returns 404 when pantry item not found', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(null)
-
-    const request = new Request('http://localhost/api/pantry/nonexistent', {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity: 250 }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'nonexistent' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Pantry item not found')
-  })
-
-  it('returns 404 when pantry item belongs to different household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    // findFirst returns null because householdId doesn't match
-    mockFindFirstPantry.mockResolvedValue(null)
-
-    const request = new Request('http://localhost/api/pantry/pantry-other', {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity: 250 }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-other' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Pantry item not found')
-  })
-
-  it('updates quantity only', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
-
-    const updatedItem = {
-      ...mockPantryItem,
-      quantity: 250,
-      ingredient: mockIngredient,
-    }
-    mockUpdatePantry.mockResolvedValue(updatedItem as never)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity: 250 }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.quantity).toBe(250)
-    expect(mockUpdatePantry).toHaveBeenCalledWith({
-      where: { id: 'pantry-123' },
-      data: { quantity: 250 },
-      include: {
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            defaultUnit: true,
-            measuredByVolume: true,
-          },
-        },
-      },
-    })
-  })
-
-  it('returns the Estonian ingredient name for an et household (HON-913)', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue({
-      ...mockMembership,
-      household: { ...mockHousehold, locale: 'et' },
-    } as never)
-    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
-    mockUpdatePantry.mockResolvedValue({
-      ...mockPantryItem,
-      quantity: 250,
-      ingredient: { ...mockIngredient, translations: [{ locale: 'et', name: 'Oliiviõli' }] },
-    } as never)
-
-    const response = await PATCH(
-      new Request('http://localhost/api/pantry/pantry-123', {
-        method: 'PATCH',
-        body: JSON.stringify({ quantity: 250 }),
-      }),
-      { params: Promise.resolve({ id: 'pantry-123' }) },
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.ingredient).toEqual({
-      id: 'ing-456',
-      name: 'Oliiviõli',
-      category: 'fat',
-      defaultUnit: 'g',
-    })
-  })
-
-  it('updates isStaple only', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
-
-    const updatedItem = {
-      ...mockPantryItem,
-      isStaple: true,
-      ingredient: mockIngredient,
-    }
-    mockUpdatePantry.mockResolvedValue(updatedItem as never)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify({ isStaple: true }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.isStaple).toBe(true)
-    expect(mockUpdatePantry).toHaveBeenCalledWith({
-      where: { id: 'pantry-123' },
-      data: { isStaple: true },
-      include: {
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            defaultUnit: true,
-            measuredByVolume: true,
-          },
-        },
-      },
-    })
-  })
-
-  it('updates both quantity and isStaple', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
-
-    const updatedItem = {
-      ...mockPantryItem,
-      quantity: 0,
-      isStaple: true,
-      ingredient: mockIngredient,
-    }
-    mockUpdatePantry.mockResolvedValue(updatedItem as never)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity: 0, isStaple: true }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.quantity).toBe(0)
-    expect(data.isStaple).toBe(true)
-    expect(mockUpdatePantry).toHaveBeenCalledWith({
-      where: { id: 'pantry-123' },
-      data: { quantity: 0, isStaple: true },
-      include: {
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            defaultUnit: true,
-            measuredByVolume: true,
-          },
-        },
-      },
-    })
-  })
-
-  it('updates quantity to null', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
-
-    const updatedItem = {
-      ...mockPantryItem,
-      quantity: null,
-      ingredient: mockIngredient,
-    }
-    mockUpdatePantry.mockResolvedValue(updatedItem as never)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity: null }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.quantity).toBe(null)
-    expect(mockUpdatePantry).toHaveBeenCalledWith({
-      where: { id: 'pantry-123' },
-      data: { quantity: null },
-      include: {
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            defaultUnit: true,
-            measuredByVolume: true,
-          },
-        },
-      },
-    })
-  })
-
-  // An empty update still bumps `@updatedAt`, which the shopping-list routes read
-  // as "purchased" — so a body with nothing to write must 400 before Prisma.
   it.each([
+    ['a quantity that is not a number', { quantity: 'not a number' }],
+    ['a negative quantity', { quantity: -1 }],
+    ['a non-boolean isStaple', { isStaple: 'yes' }],
+    // An empty update still bumps `@updatedAt`, which the shopping-list routes
+    // read as "purchased", so a body with nothing to write must 400 (HON-642).
     ['an empty body', {}],
     ['a body with only an unknown key (stripped to {})', { quantitiy: 5 }],
   ])('returns 400 for %s and writes nothing', async (_label, body) => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
+    const response = await patch(body)
     const data = await response.json()
 
     expect(response.status).toBe(400)
     expect(data.error).toBe('Validation failed')
-    expect(mockUpdatePantry).not.toHaveBeenCalled()
+    expect(mockUpdatePantryItem).not.toHaveBeenCalled()
   })
 
-  it('returns 500 with the { error } JSON shape when the update throws', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
-    mockUpdatePantry.mockRejectedValue(new Error('db down'))
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: JSON.stringify({ isStaple: true }),
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
+  it('names the field a negative quantity fails on', async () => {
+    const response = await patch({ quantity: -1 })
     const data = await response.json()
+
+    expect(Object.keys(data.details)).toEqual(['quantity'])
+  })
+
+  it('returns 404 when user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
+
+    const response = await patch({ quantity: 250 })
+
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: 'No household found' })
+    expect(mockUpdatePantryItem).not.toHaveBeenCalled()
+  })
+
+  it("returns 404 when the household's pantry has no such item", async () => {
+    mockUpdatePantryItem.mockResolvedValue({ status: 'not_found' })
+
+    const response = await patch({ quantity: 250 })
+
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: 'Pantry item not found' })
+  })
+
+  it("updates the item in the caller's household and returns it", async () => {
+    mockUpdatePantryItem.mockResolvedValue({ status: 'updated', item: savedItem })
+
+    const response = await patch({ quantity: 250 })
+
+    expect(response.status).toBe(200)
+    // `measuredByVolume` is the MCP tool's; the route does not return it.
+    expect(await response.json()).toEqual({
+      id: 'pantry-123',
+      ingredient: { id: 'ing-456', name: 'Olive oil', category: 'fat', defaultUnit: 'g' },
+      quantity: 250,
+      isStaple: false,
+      updatedAt: '2024-01-10T00:00:00.000Z',
+    })
+    expect(mockUpdatePantryItem).toHaveBeenCalledWith(mockHousehold, 'pantry-123', {
+      quantity: 250,
+    })
+  })
+
+  // Presence is `!== undefined`, not truthiness: each of these is a real update
+  // and must reach the lib as given.
+  it.each([
+    ['a quantity of 0, "none left, still tracked"', { quantity: 0 }],
+    ['a null quantity, "have some"', { quantity: null }],
+    ['isStaple false', { isStaple: false }],
+    ['both fields', { quantity: 0, isStaple: true }],
+  ])('passes %s to the update', async (_label, body) => {
+    mockUpdatePantryItem.mockResolvedValue({ status: 'updated', item: savedItem })
+
+    const response = await patch(body)
+
+    expect(response.status).toBe(200)
+    expect(mockUpdatePantryItem).toHaveBeenCalledWith(mockHousehold, 'pantry-123', body)
+  })
+
+  it('returns 500 with the { error } JSON shape and reports an unexpected error', async () => {
+    mockUpdatePantryItem.mockRejectedValue(new Error('db down'))
+
+    const response = await patch({ isStaple: true })
 
     expect(response.status).toBe(500)
-    // `apiFetch` parses the body and surfaces `error` — a bare Next.js 500
-    // would not be JSON at all, which is the regression this guards.
-    expect(typeof data.error).toBe('string')
-    expect(data.error.length).toBeGreaterThan(0)
-  })
-
-  it('still returns 400 for malformed JSON — the inner catch wins over the outer one', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'PATCH',
-      body: 'not json',
-    })
-
-    const response = await PATCH(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
+    // `apiFetch` parses the body and surfaces `error`; a bare Next.js 500
+    // would not be JSON at all.
+    expect(await response.json()).toEqual({ error: 'Failed to update pantry item' })
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
   })
 })
 
 describe('DELETE /api/pantry/[id]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'DELETE',
-    })
-
-    const response = await DELETE(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
+    const response = await del()
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await response.json()).toEqual({ error: 'Unauthorized' })
+    expect(mockDeletePantryItem).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(null)
+    mockGetMembership.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'DELETE',
-    })
-
-    const response = await DELETE(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
+    const response = await del()
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await response.json()).toEqual({ error: 'No household found' })
+    expect(mockDeletePantryItem).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when pantry item not found', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(null)
+  it("returns 404 when the household's pantry has no such item", async () => {
+    mockDeletePantryItem.mockResolvedValue({ status: 'not_found' })
 
-    const request = new Request('http://localhost/api/pantry/nonexistent', {
-      method: 'DELETE',
-    })
-
-    const response = await DELETE(request, { params: Promise.resolve({ id: 'nonexistent' }) })
-    const data = await response.json()
+    const response = await del()
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('Pantry item not found')
+    expect(await response.json()).toEqual({ error: 'Pantry item not found' })
   })
 
-  it('deletes pantry item and returns 204', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
-    mockDeletePantry.mockResolvedValue(mockPantryItem as never)
+  it("deletes the item from the caller's household and returns 204", async () => {
+    mockDeletePantryItem.mockResolvedValue({ status: 'deleted' })
 
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'DELETE',
-    })
-
-    const response = await DELETE(request, { params: Promise.resolve({ id: 'pantry-123' }) })
+    const response = await del()
 
     expect(response.status).toBe(204)
-    expect(mockDeletePantry).toHaveBeenCalledWith({
-      where: { id: 'pantry-123' },
-    })
+    expect(await response.text()).toBe('')
+    expect(mockDeletePantryItem).toHaveBeenCalledWith('household-123', 'pantry-123')
   })
 
-  it('returns 500 with the { error } JSON shape when the delete throws', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirstMember.mockResolvedValue(mockMembership as never)
-    mockFindFirstPantry.mockResolvedValue(mockPantryItem as never)
-    mockDeletePantry.mockRejectedValue(new Error('db down'))
+  it('returns 500 with the { error } JSON shape and reports an unexpected error', async () => {
+    mockDeletePantryItem.mockRejectedValue(new Error('db down'))
 
-    const request = new Request('http://localhost/api/pantry/pantry-123', {
-      method: 'DELETE',
-    })
-
-    const response = await DELETE(request, { params: Promise.resolve({ id: 'pantry-123' }) })
-    const data = await response.json()
+    const response = await del()
 
     expect(response.status).toBe(500)
-    expect(typeof data.error).toBe('string')
-    expect(data.error.length).toBeGreaterThan(0)
+    expect(await response.json()).toEqual({ error: 'Failed to delete pantry item' })
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
   })
 })

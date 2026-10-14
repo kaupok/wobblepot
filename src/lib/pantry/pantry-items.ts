@@ -6,9 +6,9 @@ import { ingredientTranslationsInclude, translateIngredient } from '@/lib/i18n/c
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 /**
- * Adding an ingredient to the pantry and changing a pantry item, shared by
- * `POST /api/pantry`, `PATCH /api/pantry/[id]` and the `set_pantry_status`
- * MCP tool (HON-1173, HON-1201), so the two paths cannot drift.
+ * Adding an ingredient to the pantry, changing a pantry item and removing one,
+ * shared by `/api/pantry`, `/api/pantry/[id]`, `/api/pantry/by-ingredient` and the
+ * `set_pantry_status` MCP tool (HON-1173, HON-1201, HON-1209), so the paths cannot drift.
  */
 
 // `quantity` floors at 0: `0` is a valid tracked state ("none left, still
@@ -171,4 +171,35 @@ export async function updatePantryItem(
     }
     throw error
   }
+}
+
+/**
+ * - `deleted`: the item is gone from the household's pantry
+ * - `not_found`: the household's pantry has no such item. Another household's
+ *   item reads the same, and is left alone.
+ */
+export type DeletePantryItemOutcome = { status: 'deleted' } | { status: 'not_found' }
+
+/** Removes one item from the household's pantry, by the item's id. */
+export async function deletePantryItem(
+  householdId: string,
+  id: string,
+): Promise<DeletePantryItemOutcome> {
+  // One statement scoped to the household, so another household's id deletes
+  // nothing, and a concurrent delete reads as `not_found`.
+  const { count } = await prisma.pantryItem.deleteMany({ where: { id, householdId } })
+  return count === 0 ? { status: 'not_found' } : { status: 'deleted' }
+}
+
+/**
+ * Removes an ingredient from the household's pantry, by the ingredient's id.
+ * The pantry holds an ingredient at most once (`@@unique([householdId,
+ * ingredientId])`), so this removes one item or none.
+ */
+export async function deletePantryItemByIngredient(
+  householdId: string,
+  ingredientId: string,
+): Promise<DeletePantryItemOutcome> {
+  const { count } = await prisma.pantryItem.deleteMany({ where: { householdId, ingredientId } })
+  return count === 0 ? { status: 'not_found' } : { status: 'deleted' }
 }
