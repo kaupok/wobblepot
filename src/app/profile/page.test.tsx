@@ -93,8 +93,12 @@ vi.mock('./ConnectedAssistantsList', () => ({
 }))
 
 vi.mock('./ApiKeysSection', () => ({
-  ApiKeysSection: ({ initialKeys }: { initialKeys: unknown[] }) => (
-    <div data-testid="api-keys-section" data-count={String(initialKeys.length)} />
+  ApiKeysSection: ({ initialKeys, timeZone }: { initialKeys: unknown[]; timeZone: string }) => (
+    <div
+      data-testid="api-keys-section"
+      data-count={String(initialKeys.length)}
+      data-time-zone={timeZone}
+    />
   ),
 }))
 
@@ -380,6 +384,7 @@ describe('ProfilePage', () => {
 
     const section = screen.getByTestId('api-keys-section')
     expect(section).toHaveAttribute('data-count', '1')
+    expect(section).toHaveAttribute('data-time-zone', 'Europe/Tallinn')
     expect(listApiKeys).toHaveBeenCalledWith('user-123')
     const following = Node.DOCUMENT_POSITION_FOLLOWING
     expect(

@@ -146,7 +146,7 @@ export default async function ProfilePage({
         <Separator />
 
         {/* Read-only keys for a kitchen screen or a script (HON-1220). */}
-        <ApiKeysSection initialKeys={apiKeys} />
+        <ApiKeysSection initialKeys={apiKeys} timeZone={membership.household.timezone} />
 
         <Separator />
 

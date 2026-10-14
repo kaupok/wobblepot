@@ -35,7 +35,7 @@ const NEW_KEY = 'wp_Qr7sTuVwXyZ0123456789abcdefghij'
 const mockApiFetch = vi.mocked(apiFetch)
 
 function renderSection(keys: ApiKeyRow[]) {
-  return render(<ApiKeysSection initialKeys={keys} />, {
+  return render(<ApiKeysSection initialKeys={keys} timeZone="Europe/Tallinn" />, {
     wrapper: createQueryWrapper().wrapper,
   })
 }
@@ -67,6 +67,15 @@ describe('ApiKeysSection (HON-1220)', () => {
     expect(within(rows[0]!).getByText('Created: October 2, 2026')).toBeInTheDocument()
     expect(within(rows[0]!).getByText('Last used: October 13, 2026')).toBeInTheDocument()
     expect(within(rows[1]!).getByText('Not used yet')).toBeInTheDocument()
+  })
+
+  it("prints dates in the household's timezone, not the runtime's", () => {
+    // 22:30 UTC on 13 October is already 14 October in Tallinn.
+    const lateUse = { ...KITCHEN, lastUsedAt: '2026-10-13T22:30:00.000Z' }
+    mockApiFetch.mockResolvedValue([lateUse])
+    renderSection([lateUse])
+
+    expect(screen.getByText('Last used: October 14, 2026')).toBeInTheDocument()
   })
 
   it('creates a key, shows it once with focus on it, and Done returns to the name field', async () => {

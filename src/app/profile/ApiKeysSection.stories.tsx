@@ -67,7 +67,7 @@ const meta = {
     },
     msw: { handlers: handlers([KITCHEN]) },
   },
-  args: { initialKeys: [KITCHEN] },
+  args: { initialKeys: [KITCHEN], timeZone: 'Europe/Tallinn' },
   beforeEach: () => {
     revokeSpy.mockClear()
   },

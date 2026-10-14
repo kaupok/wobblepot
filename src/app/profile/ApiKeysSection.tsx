@@ -40,6 +40,12 @@ const COPIED_RESET_MS = 2000
 interface ApiKeysSectionProps {
   /** Read by the page on the server, so the list is right on the first paint. */
   initialKeys: ApiKeyRow[]
+  /**
+   * The household's IANA timezone. Dates render in it, so the server and the
+   * browser print the same day and a key used near midnight does not cause a
+   * hydration mismatch.
+   */
+  timeZone: string
 }
 
 /**
@@ -52,7 +58,7 @@ interface ApiKeysSectionProps {
  * reader announces it; Done returns it to the name field. A failed Create
  * returns it to Create. Revoke asks first, like Disconnect.
  */
-export function ApiKeysSection({ initialKeys }: ApiKeysSectionProps) {
+export function ApiKeysSection({ initialKeys, timeZone }: ApiKeysSectionProps) {
   const t = useTranslations('profile.apiKeys')
   const locale = useLocale() as Locale
   const queryClient = useQueryClient()
@@ -220,11 +226,15 @@ export function ApiKeysSection({ initialKeys }: ApiKeysSectionProps) {
                     <Code>{`${row.start}…`}</Code>
                   </div>
                   <Body variant="muted">
-                    {t('createdOn', { date: formatLongDate(new Date(row.createdAt), locale) })}
+                    {t('createdOn', {
+                      date: formatLongDate(new Date(row.createdAt), locale, { timeZone }),
+                    })}
                   </Body>
                   <Body variant="muted">
                     {row.lastUsedAt
-                      ? t('lastUsedOn', { date: formatLongDate(new Date(row.lastUsedAt), locale) })
+                      ? t('lastUsedOn', {
+                          date: formatLongDate(new Date(row.lastUsedAt), locale, { timeZone }),
+                        })
                       : t('neverUsed')}
                   </Body>
                 </div>
