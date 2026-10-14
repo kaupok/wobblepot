@@ -3,7 +3,7 @@ import { expect, userEvent, waitFor, within } from 'storybook/test'
 import mealIllustration from '@/stories/assets/meal-illustration-white.png'
 import { createMeal } from '@/stories/fixtures'
 import { assertFocusInDialog, awaitDialogClosed, pressEscape } from '@/stories/a11y-helpers'
-import { assertDesignRules } from '@/stories/design-rules'
+import { assertDesignRules, castsShadow } from '@/stories/design-rules'
 import type { DemoDay } from '@/lib/landing/load-demo-day'
 import { LandingDeck } from './LandingDeck'
 
@@ -87,9 +87,15 @@ const slotOf = (canvasElement: HTMLElement, name: string) =>
     .closest('[data-deck-slot]')
     ?.getAttribute('data-deck-slot')
 
+const slotElement = (canvasElement: HTMLElement, name: string) =>
+  within(canvasElement).getByRole('button', { name }).closest<HTMLElement>('[data-deck-slot]')!
+
+const hasShadow = (element: HTMLElement) => castsShadow(getComputedStyle(element).boxShadow)
+
 /**
  * The demo dinner in front: every card's name is a button, and the hint sits
- * above. No card casts a shadow: the border is the edge (HON-1145).
+ * above. Only the front slot casts a shadow, marked as an illustration's
+ * elevation; the side cards and everything inside a card have none (HON-1225).
  */
 export const Demo: Story = {
   play: async ({ canvasElement }) => {
@@ -101,6 +107,13 @@ export const Demo: Story = {
     await expect(slotOf(canvasElement, 'Chilli con carne')).toBe('front')
     await expect(slotOf(canvasElement, 'Avocado toast with poached egg')).toBe('left')
     await expect(slotOf(canvasElement, 'Beef bibimbap')).toBe('right')
+    const front = slotElement(canvasElement, 'Chilli con carne')
+    await expect(front).toHaveAttribute('data-elevation', 'illustration')
+    await expect(hasShadow(front)).toBe(true)
+    await expect(hasShadow(slotElement(canvasElement, 'Avocado toast with poached egg'))).toBe(
+      false,
+    )
+    await expect(hasShadow(slotElement(canvasElement, 'Beef bibimbap'))).toBe(false)
     await assertDesignRules(canvasElement, ['no-content-shadow'])
   },
 }
@@ -127,7 +140,9 @@ export const OpensCookView: Story = {
 
 /**
  * A side card swings to the front and the dinner takes its place, then the
- * lunch opens. On close, focus returns to the lunch's name, now in front.
+ * lunch opens. The shadow moves with the front slot: once the swap ends, the
+ * lunch casts it and the dinner does not. On close, focus returns to the
+ * lunch's name, now in front.
  */
 export const SwapsToFront: Story = {
   play: async ({ canvasElement }) => {
@@ -138,6 +153,15 @@ export const SwapsToFront: Story = {
     await expect(slotOf(canvasElement, 'Chilli con carne')).toBe('right')
     await expect(canvas.getByText("Monday · Today's lunch")).toBeInTheDocument()
     const dialog = await within(document.body).findByRole('dialog')
+    // Queried by slot, not by name: the open dialog hides the page from the
+    // accessibility tree. The swap and its shadow fade take 500ms.
+    const slot = (position: string) =>
+      canvasElement.querySelector<HTMLElement>(`[data-deck-slot="${position}"]`)!
+    await expect(slot('front')).toHaveAttribute('data-elevation', 'illustration')
+    await expect(slot('right')).not.toHaveAttribute('data-elevation')
+    await waitFor(() => expect(hasShadow(slot('right'))).toBe(false))
+    await expect(hasShadow(slot('front'))).toBe(true)
+    await assertDesignRules(canvasElement, ['no-content-shadow'])
     await expect(within(dialog).getByText('Fry the beef')).toBeInTheDocument()
     await pressEscape()
     await awaitDialogClosed()
@@ -145,7 +169,10 @@ export const SwapsToFront: Story = {
   },
 }
 
-/** No demo day: the static showcase, with no hint, nothing to open, and no shadow. */
+/**
+ * No demo day: the static showcase, with no hint and nothing to open. Only the
+ * front slot casts a shadow.
+ */
 export const Static: Story = {
   args: { day: null, dayLabel: 'Thursday' },
   play: async ({ canvasElement }) => {

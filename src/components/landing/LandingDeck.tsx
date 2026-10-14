@@ -25,9 +25,15 @@ type Slot = 'left' | 'front' | 'right'
  * every card while the static showcase cards are taller than the demo cards;
  * so the grid's top padding always holds the rise. A side card rises or
  * straightens on hover, to say it moves; the front card lifts.
+ *
+ * The front slot casts `shadow-deck`, so the front card separates from the
+ * side cards where it overlaps them. It is the slot's, not the meal's, so it
+ * moves with a swap, fading across with the transform. The deck is the one
+ * illustration of stacked cards, so it is an exception to docs/DESIGN.md →
+ * Elevation, marked `data-elevation="illustration"` (HON-1225).
  */
 const SLOT_CLASSES: Record<Slot, string> = {
-  front: 'z-20 hover:-translate-y-1',
+  front: 'z-20 shadow-deck hover:-translate-y-1',
   left: 'z-0 -translate-y-20 scale-90 hover:-translate-y-22 lg:-translate-x-1/2 lg:-translate-y-28 lg:-rotate-4 lg:hover:-translate-y-28 lg:hover:-rotate-2 lg:hover:scale-95',
   right:
     'z-10 -translate-y-10 scale-95 hover:-translate-y-12 lg:z-0 lg:translate-x-1/2 lg:-translate-y-28 lg:scale-90 lg:rotate-4 lg:hover:-translate-y-28 lg:hover:rotate-2 lg:hover:scale-95',
@@ -119,6 +125,7 @@ export function LandingDeck({ day, dayLabel }: LandingDeckProps) {
             <div
               key={type}
               data-deck-slot={slot}
+              data-elevation={slot === 'front' ? 'illustration' : undefined}
               inert={!demo && slot !== 'front'}
               className={cn(
                 'col-start-1 row-start-1 origin-top self-start rounded-xl transition duration-500 ease-out motion-reduce:transition-none',
