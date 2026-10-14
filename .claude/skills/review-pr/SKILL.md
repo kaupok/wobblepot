@@ -13,6 +13,12 @@ Run the Claude PR reviewer on the current branch's PR using `REVIEW_MODEL` at `R
 - `/review-pr` — Review the PR for the current branch
 - `/review-pr 438` — Review a specific PR by number
 
+## When to run it
+
+PR review is automatic, so do not run this skill by hand in the CLAUDE.md skill sequence. `/commit --pr` chains to `/create-pr`, whose final step invokes this skill → `scripts/pr-review.sh`, which posts findings as a PR comment marked `<!-- claude-review -->`. The reviewer also checks the diff against the linked issue's acceptance criteria and lists any gap under a separate `**Spec:**` heading. `/triage-pr-comments` consumes that marker; `/auto-implement` calls the same script directly.
+
+A PR opened with a raw `gh pr create` skips that first trigger, but the review is not lost: `/triage-pr-comments` step 2 runs the reviewer when the marker count is 0, and `/merge` step 2.5 does the same before merging (bypass with `/merge --force`). Run this skill directly only to re-review after a force-push, or to review a PR you did not open.
+
 ## Workflow
 
 ### 1. Determine PR number

@@ -78,7 +78,7 @@ export function LeaveHouseholdDialog({
   // membership is gone, so the buttons must not come back to life.
   const isLeaving = leave.isPending || leave.isSuccess
   // The confirm is disabled while pending, which blurs it; a failed leave
-  // puts focus back on it (CLAUDE.md → Focus management).
+  // puts focus back on it (docs/DESIGN.md → Focus management).
   const { ref: confirmRef, requestRefocus } = useRefocusAfterPending(leave.isPending)
   const otherAccountCount = accountMemberCount - 1
   const blocked = isOwner && otherAccountCount > 0

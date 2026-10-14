@@ -283,7 +283,7 @@ export function MealDetailModal({
   }, [isEditingNote])
   // The control that opened the view: the card's meal name. The dialog opens
   // from state, with no `DialogTrigger`, so Radix has nothing to return focus
-  // to and drops it on `<body>` (CLAUDE.md → Focus management). Captured as
+  // to and drops it on `<body>` (docs/DESIGN.md → Focus management). Captured as
   // the dialog opens, before focus moves into it.
   const returnFocusRef = useRef<HTMLElement | null>(null)
 

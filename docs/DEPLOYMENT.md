@@ -45,6 +45,8 @@ CI runs lint, format check and type check with a cache (HON-1181): ESLint and Pr
 - **Raise each threshold by at least one point a month.** Run `pnpm test:coverage` on `main` and set each threshold to the measured number, rounded down. When a number has not risen by a point, add tests until it has.
 - **Lower a threshold only in a PR that says why.** `pnpm coverage:ratchet` in `Static checks` compares the thresholds with the PR base and fails when one went down. A line `Coverage threshold lowered: <why>` in the PR body lets it pass. The check reads the body from the event that started the run, so after you edit the body, push a commit: a re-run reads the old body.
 
+**Lockfile gates (HON-595).** `pnpm audit --audit-level critical` and `pnpm lockfile:check` run in `Static checks`. The second asserts specific resolutions in `pnpm-lock.yaml` that were cleared by hand, because `pnpm update` or a regenerated lockfile can silently undo them. When it fails, re-dedupe or upgrade the dependency that pulls the bad version, or edit the pin in `scripts/check-lockfile-pins.ts` and say why in its `why`. Do not add a `pnpm.overrides` entry: an override hides the underlying spec instead of detecting drift.
+
 **`Storybook`**:
 
 - `pnpm test-storybook:ci` - Storybook a11y gate

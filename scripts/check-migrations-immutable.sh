@@ -155,9 +155,9 @@ EOF
     echo "Exception: if the add and the edit arrived in the SAME push (a rebase merge or" >&2
     echo "a multi-commit push), only the final bytes were ever applied — do not revert;" >&2
     echo "pin HEAD's blob in the allowlist instead." >&2
-    echo "See CLAUDE.md → Database Patterns." >&2
+    echo "See docs/GIT_WORKFLOW.md → Migration Immutability." >&2
     if [ "${GITHUB_ACTIONS-}" = true ]; then
-      echo "::error title=Applied migration edited on main::A migration.sql at HEAD differs from the bytes it was merged with. Revert the commit that changed it; see the step log and CLAUDE.md → Database Patterns."
+      echo "::error title=Applied migration edited on main::A migration.sql at HEAD differs from the bytes it was merged with. Revert the commit that changed it; see the step log and docs/GIT_WORKFLOW.md → Migration Immutability."
     fi
     exit 1
   fi
@@ -260,7 +260,7 @@ if [ -n "$violations" ]; then
   echo "Migrations already on main are immutable — fix forward with a new migration." >&2
   echo "Editing an applied migration.sql breaks its recorded checksum and makes" >&2
   echo "\`prisma migrate dev\` demand a full database reset (HON-558)." >&2
-  echo "See CLAUDE.md → Database Patterns." >&2
+  echo "See docs/GIT_WORKFLOW.md → Migration Immutability." >&2
   exit 1
 fi
 

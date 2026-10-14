@@ -56,7 +56,7 @@ Sort each event into one of six categories. An event that fits none is not a can
 
 Before you propose a new check, read the `package.json` scripts and `.github/workflows/`. A check that exists but is not wired into `pnpm test` or CI is the finding, not a new check.
 
-- **Navigation.** Applies when the agent took many reads or greps to find one thing. Fix: a pointer in CLAUDE.md's Documentation Structure table, a `// ROUTES: … · COMPONENTS: …` style header comment, or a line in the relevant `docs/*.md`.
+- **Navigation.** Applies when the agent took many reads or greps to find one thing. Fix: a pointer in CLAUDE.md's Documentation Structure list, a `// ROUTES: … · COMPONENTS: …` style header comment, or a line in the relevant `docs/*.md`.
 - **Automated checks.** Applies when the agent made a mistake that a lint rule, a `scripts/check-*.ts` test, a gate test like `scripts/review-checklist-gate.test.ts`, or a CI step could catch. Fix: the check, in one of the three places under Rules.
 - **Reviewer rules.** Applies when `scripts/pr-review.sh` missed a finding that a human or a later session caught. Fix: a mechanical pattern gets a check (as above). A judgement call gets a reviewer checklist item in `scripts/pr-review.sh`, with a path gate, and a case in `scripts/review-checklist-gate.test.ts`.
 - **Steering no-ops.** Applies when the session did not follow a CLAUDE.md or skill instruction and did not need it. Fix: remove the instruction, or move it to `docs/` with a pointer.

@@ -65,7 +65,7 @@ export function MembersStep({
   // Adding, finishing or reopening a row swaps the focused control for one that
   // renders with the parent's next state, so the target is noted here and
   // focused once that render lands. Without it focus falls to the body
-  // (CLAUDE.md → Focus management).
+  // (docs/DESIGN.md → Focus management).
   const fieldRefs = useRef(new Map<number, HTMLInputElement>())
   const nameRefs = useRef(new Map<number, HTMLButtonElement>())
   const pendingFocus = useRef<{ id: number; target: 'field' | 'name' } | null>(null)
@@ -301,7 +301,7 @@ function MemberGroup({
         </Heading>
         {/* `aria-disabled` when full, not `disabled`: the tap that fills the
             household lands on this button, and a disabled one would drop that
-            focus to the body (CLAUDE.md → Focus management). */}
+            focus to the body (docs/DESIGN.md → Focus management). */}
         <Button
           ref={addRef}
           type="button"

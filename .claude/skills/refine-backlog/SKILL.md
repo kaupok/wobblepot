@@ -9,6 +9,17 @@ context: inherit
 
 You are assisting CPO+CTO in fleshing out draft ideas, features, and issues into actionable, implementation-ready backlog items.
 
+## Title prefixes
+
+`[DRAFT]` and `[AUTO DRAFT]` mean different things. Pick by _who filed it and how_, not by copying a neighbouring title. Both keep an issue out of unattended selection (`/auto-implement` 1.5, `/next-issue --auto` step 5), but different passes clear them:
+
+- **`[DRAFT]`** — filed by a human, or by an agent in a session a human is driving (conversation, research, `/ideate`, `/refine-backlog`, `/chrome-review`), whose spec is not yet ready to implement. It means "unrefined", not "unreviewed". This skill clears it (no arguments) once the spec is written up.
+- **`[AUTO DRAFT]`** — filed **only** by `/auto-implement` 6.8, for a review finding the unattended cycle deferred. No human saw it at birth; the prefix is the gate that stops the cycle implementing work it generated for itself. Cleared only by `/refine-backlog --auto-drafts` after a human judges the finding real and current.
+- **No prefix** — ready for pickup. An issue a human reviewed as it was created (for example a `/branch-review` proposal the user approved) needs no prefix.
+- **`Follow-up` label** — not a prefix, and it gates nothing: the state says who acts. It marks an issue an agent filed as a follow-up to another issue (`/plan-issue` → "A follow-up is an issue"), and the description's first line names the parent and the skill that filed it. It is a label rather than a prefix because both prefixes gate unattended pickup and a prefix leaks into `gitBranchName`.
+
+If you are filing an issue and a human is in the loop, `[AUTO DRAFT]` is wrong, even when the issue is agent-written, well-specced, or related to existing `[AUTO DRAFT]` issues. The `/auto-implement` side is in `.claude/skills/auto-implement/deferral.md`.
+
 ## Asking in rounds
 
 Every time this skill asks the user to decide, it uses this method: the cross-cutting questions in Step 4b, the refinement questions in Step 7, and the new-draft questions in Step 10.

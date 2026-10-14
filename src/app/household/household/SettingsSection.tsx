@@ -115,7 +115,7 @@ export function SettingsSection<T extends Record<keyof T, SettingsValue>>({
     onSuccess: (response, body) => {
       toast.success(savedMessage?.(response) ?? t('savedToast'))
       // The Save button unmounts once the section is clean, and focus on it
-      // would fall to <body>. Move it to the heading first (CLAUDE.md → Focus
+      // would fall to <body>. Move it to the heading first (docs/DESIGN.md → Focus
       // management).
       if (ownsFocus()) headingRef.current?.focus()
       onSaved(body, response)

@@ -1,5 +1,31 @@
 # Storybook — conventions
 
+CLAUDE.md → Storybook holds the rule: a component under `src/components` gets a colocated `.stories.tsx`, kept current, and every story passes the a11y gate. This file is how.
+
+## What a story covers
+
+Every variant and size the props expose; the key states (default, disabled, loading, empty, error); optional props that change rendering, with and without; and an `AllVariants` render story when side-by-side review is useful.
+
+- Title uses `UI/ComponentName` for primitives, `Feature/ComponentName` for feature components (e.g. `Meal plan/MealCardBase`), and `Scenarios/<Screen>` for the composite whole-screen stories in `src/stories/scenarios/` (e.g. `Scenarios/Shopping list`).
+- Add `tags: ['autodocs']` to auto-generate docs pages.
+- Use `satisfies Meta<typeof Component>` for type-safe args.
+- Mock data for feature components lives inline in the story file. Do not reach into fixtures unless they are already shared.
+- `.test.tsx` files remain the home for logic-heavy, non-DOM unit tests (pure functions, hooks, reducers).
+
+## The a11y gate
+
+Every story runs through axe via `@storybook/addon-vitest` in CI. `.storybook/preview.tsx` sets `a11y: { test: 'error' }`, so any violation fails the `Run Storybook a11y tests` step and blocks the PR. Run `pnpm test-storybook:ci` locally before pushing if you touched a story.
+
+- **Fix real violations** in the component or story (missing labels, low contrast, bad ARIA). Most are real bugs worth fixing.
+- **Waive false positives narrowly** at the story level with a `// WHY:` comment that says why the rule does not apply. Keep waivers rule-scoped, not blanket skips:
+
+  ```tsx
+  // WHY: This story renders all palette swatches; contrast is not applicable.
+  parameters: {
+    a11y: { config: { rules: [{ id: 'color-contrast', enabled: false }] } },
+  }
+  ```
+
 ## Viewport — mobile-first default
 
 Honkadori is a mobile-first web app, so every story **opens at a 390×844 mobile
@@ -42,6 +68,14 @@ Stories can include a `play` function to exercise the component under
 watch mode via `pnpm test-storybook`). Use this to cover parent-callback
 contracts that aren't easily tested end-to-end: modal open/close, keyboard
 handling, form submission, selection.
+
+Add one when the component has a behavioural contract worth regression-testing
+in CI: modals (open/close/escape), search-and-select flows, form submission,
+keyboard handling, callback wiring. Assert on `fn()` spies, not just DOM
+presence. Radix portal content requires `within(document.body)`. Example:
+`src/components/meal-plan/MealDetailModal.stories.tsx`. A modal's play function
+also asserts its interaction a11y, see
+[Modal a11y play-function conventions](#modal-a11y-play-function-conventions).
 
 ## Imports
 
@@ -204,7 +238,7 @@ isn't duplicated.
 3. Wire every callback to `fn()`.
 4. Add the `play` function above.
 5. Run `pnpm test-storybook:ci`. Fix real violations in the component; waive an
-   axe false positive narrowly with a `// WHY:` comment, per CLAUDE.md.
+   axe false positive narrowly with a `// WHY:` comment, per [The a11y gate](#the-a11y-gate).
 
 ## Modal a11y play-function conventions
 

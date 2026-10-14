@@ -213,7 +213,7 @@ model Verification {
 // OAuth 2.1 authorization server for MCP clients (HON-1150). Written by hand
 // from the `jwt` plugin schema (better-auth/dist/plugins/jwt/schema.mjs) and
 // the `@better-auth/oauth-provider` schema that `@better-auth/mcp` uses; there
-// is no Better Auth CLI here (CLAUDE.md → Better Auth CLI). Better Auth checks
+// is no Better Auth CLI here (docs/SECURITY.md → Better Auth schema changes). Better Auth checks
 // these at init and rejects auth requests on a missing table or column, so a
 // plugin upgrade that adds a field needs a migration first. Model names are
 // `Oauth…` so the Prisma client property is `oauthClient`, the name the

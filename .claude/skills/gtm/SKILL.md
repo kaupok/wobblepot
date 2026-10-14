@@ -70,7 +70,7 @@ Do not post in a community, send an email or a message, register an account, or 
 
 ### 8. Linear rules
 
-`CLAUDE.md` → Git & Workflow Essentials applies: `get_issue` with `includeRelations: true`, `[DRAFT]` for an issue whose spec is not ready, `blockedBy` in the call that creates the issue, human-only work goes to Todo, and moving an issue to Queued is the maker's act.
+`CLAUDE.md` → Git & Workflow Essentials and `docs/PARALLEL_WORKFLOW.md` → Queued is the queue apply: `get_issue` with `includeRelations: true`, `[DRAFT]` for an issue whose spec is not ready, `blockedBy` in the call that creates the issue, human-only work goes to Todo, and moving an issue to Queued is the maker's act.
 
 ## Step 1: Load the state
 

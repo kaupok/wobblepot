@@ -242,7 +242,7 @@ describe('NoteEditor', () => {
     })
 
     // The textarea is disabled while saving; jsdom keeps focus on it, so the
-    // test drops focus as Chromium does (CLAUDE.md → Focus management).
+    // test drops focus as Chromium does (docs/DESIGN.md → Focus management).
     it('returns focus to the textarea after a failed save', async () => {
       let rejectSave: (error: Error) => void = () => {}
       mockFetch.mockReturnValueOnce(new Promise((_resolve, reject) => (rejectSave = reject)))

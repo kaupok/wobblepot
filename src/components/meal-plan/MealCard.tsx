@@ -149,7 +149,7 @@ export function MealCard({
 
   const detailModalRef = useRef<MealDetailModalHandle>(null)
   // The meal name opens the cook view, and is where focus comes back to once
-  // the completion flow it can start is over (CLAUDE.md → Focus management).
+  // the completion flow it can start is over (docs/DESIGN.md → Focus management).
   const mealNameButtonRef = useRef<HTMLButtonElement>(null)
   const mealNameId = useId()
   // The tint follows an image generated from the detail modal, not only the payload.

@@ -77,7 +77,7 @@ export function PastMealRow({
 
   // Each action swaps the control that was pressed for another: Cooked and
   // Skipped give way to Undo, and Undo to Cooked, so focus would fall to the
-  // page body (CLAUDE.md → Focus management). Exactly one of the two is
+  // page body (docs/DESIGN.md → Focus management). Exactly one of the two is
   // mounted, so it is the target whichever way the status moved, a revert
   // after a failed request included. The buttons are keyed: Skipped and Undo
   // sit in the same place, and React would otherwise reuse one's node for the

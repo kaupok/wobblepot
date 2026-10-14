@@ -11,7 +11,7 @@
 # accepts one specific content, not the path: a further edit fails again. Use
 # the literal `deleted` for a migration removed on purpose. The `why` is
 # required. An entry here is the only sanctioned way to keep a post-add edit —
-# the default recovery is a revert (CLAUDE.md → Database Patterns). The one
+# the default recovery is a revert (docs/GIT_WORKFLOW.md → Migration Immutability). The one
 # case where a pin, not a revert, is the fix: a migration added and then edited
 # within a single push to `main` (a rebase merge or a multi-commit push), where
 # only the final bytes were ever applied.

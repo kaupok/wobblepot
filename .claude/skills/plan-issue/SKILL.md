@@ -257,7 +257,7 @@ Write the plan directly in your response (not to a file). Use this structure:
 - [Edge cases, and the test that covers each]
 ```
 
-`## Follow-ups` holds issues, not intentions. A step the issue needs but this PR does not ship (a golden re-record after a prompt change, a backfill after a migration) is a Linear issue before the plan is posted, per CLAUDE.md → "A follow-up is an issue". "Filed as a follow-up" with no ID is the HON-1053 defect: nothing files it later. Every "not in this PR" row in Design Decisions needs a line here, unless the row says why the step is not needed at all.
+`## Follow-ups` holds issues, not intentions. A step the issue needs but this PR does not ship (a golden re-record after a prompt change, a backfill after a migration) is a Linear issue before the plan is posted, per "A follow-up is an issue" below. "Filed as a follow-up" with no ID is the HON-1053 defect: nothing files it later. Every "not in this PR" row in Design Decisions needs a line here, unless the row says why the step is not needed at all.
 
 `## Verification` is a plain list, not checkboxes, of what the implementing agent will run. It becomes the PR's "Verified" list (`/create-pr` step 6), so a step only a human could perform does not belong here; if a criterion cannot be checked by the agent, say so, and it goes under "Not verified".
 
@@ -285,7 +285,7 @@ If the user wants changes, revise the plan and ask again.
 
 ### 10. File follow-ups, then post plan to Linear
 
-**First file every `to file:` line in `## Follow-ups`.** Approval in step 9 covers these, because the user saw each line. Under `--auto` no one approves the plan, but a human queued or approved the parent, so the follow-ups still take the state CLAUDE.md gives them. An earlier run of this skill can have filed one already, so re-fetch the issue with `get_issue({ id: "HON-XX", includeRelations: true })` and skip a line whose title is already in `relations.blocks` or `relations.relatedTo`. File the rest:
+**First file every `to file:` line in `## Follow-ups`.** Approval in step 9 covers these, because the user saw each line. Under `--auto` no one approves the plan, but a human queued or approved the parent, so the follow-ups still take the state "A follow-up is an issue" below gives them. An earlier run of this skill can have filed one already, so re-fetch the issue with `get_issue({ id: "HON-XX", includeRelations: true })` and skip a line whose title is already in `relations.blocks` or `relations.relatedTo`. File the rest:
 
 ```
 mcp__linear-server__save_issue({
@@ -301,7 +301,7 @@ mcp__linear-server__save_issue({
 })
 ```
 
-Other skills reuse this call. Each one names itself in the first line (`filed by /implement-issue.`, `filed by /create-pr.`, `filed by /merge.`). The `Follow-up` label and that line mark the origin, because an issue with no prefix reads as human-written in a list view (CLAUDE.md → "Linear title prefixes").
+Other skills reuse this call. Each one names itself in the first line (`filed by /implement-issue.`, `filed by /create-pr.`, `filed by /merge.`). The `Follow-up` label and that line mark the origin, because an issue with no prefix reads as human-written in a list view (`/refine-backlog` → "Title prefixes").
 
 `blockedBy` goes in this same call: the orchestrator picks up a Queued issue within a minute, so without the relation a worker runs the step before this issue's change is on `main` (HON-902). No `[DRAFT]` prefix: the step is specified by this plan. Leave it unassigned. Do not copy the run-state labels `Gated`, `Stranded` and `Needs attention`: they describe the parent's run, and the orchestrator skips a Queued issue that carries `Gated` or `Stranded`, so the follow-up would never run.
 
@@ -364,6 +364,16 @@ Run `/implement-issue HON-XX` when ready to start implementation.
 Then end the skill: implementation starts only when the user runs `/implement-issue`.
 
 **If `--auto` was used:** output only the completion marker; `/auto-implement` handles the next step.
+
+## A follow-up is an issue
+
+A step the work needs but this PR does not ship (a golden re-record, a backfill, a manual check) becomes a Linear issue before the parent issue closes. A note on the parent, a "Not verified" line or a hand-off comment does not count, because nobody reads a Done issue again. This section is the rule for every skill that files one (`/implement-issue`, `/create-pr`, `/merge`, `/auto-implement`, `/diagnose`); step 10 has the `save_issue` call they reuse.
+
+- **State:** Queued if an agent can finish it alone, Todo if a human must act. Filing it Queued is not a new queueing decision, because a human queued or approved the parent.
+- **Link it to the parent in the same `save_issue` call:** `blockedBy` when it needs the parent's change on `main` first, so no worker picks it up early; `relatedTo` otherwise.
+- **Mark its origin**, because an issue with no prefix reads as human-written in a list view: `addLabels: ["Follow-up"]`, and a first description line `Follow-up to HON-NNN, filed by /merge.` that names the parent and the skill (and phase) that filed it, so the origin survives if the label is removed. HON-1052 is the reference example.
+- **Who files it:** this skill and `/auto-implement` file plan-time follow-ups before they post the plan, and the plan's `## Follow-ups` section lists the IDs. A follow-up found later is filed before the skill that found it ends. The PR body and the `/merge` summary list IDs, never free text.
+- **Not a review finding.** A finding the unattended cycle defers stays `[AUTO DRAFT]` in Backlog (`/auto-implement` 6.8). A follow-up is a step that a doc rule or the parent's acceptance criteria require (HON-1053).
 
 ## Important
 

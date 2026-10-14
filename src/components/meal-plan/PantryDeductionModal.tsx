@@ -26,7 +26,7 @@ interface PantryDeductionModalProps {
   isLoading?: boolean
   /**
    * The dialog opens from state, with no `DialogTrigger` for Radix to return
-   * focus to, so without this it lands on the page body (CLAUDE.md → Focus
+   * focus to, so without this it lands on the page body (docs/DESIGN.md → Focus
    * management).
    */
   onCloseAutoFocus?: (event: Event) => void

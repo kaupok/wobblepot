@@ -94,6 +94,7 @@ pnpm db:studio                              # Prisma Studio
 | [docs/PARALLEL_WORKFLOW.md](docs/PARALLEL_WORKFLOW.md) | Parallel Claude Code with git worktrees and the orchestrator |
 | [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)           | Branching, commits, PRs, recovery                            |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Staging and production deployment                            |
+| [docs/TESTING.md](docs/TESTING.md)                     | Unit, database, route and E2E tests                          |
 | [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) | Environment variables                                        |
 | [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)             | Transactional email and deliverability                       |
 | [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)         | Feature flags, kill-switches, fail-open semantics            |

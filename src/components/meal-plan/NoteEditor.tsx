@@ -118,7 +118,7 @@ export function NoteEditor({
   })
   const isSaving = saveMutation.isPending
   // The textarea is disabled while saving, which drops focus to the body; a
-  // failed save hands it back so the note can be retried (CLAUDE.md → Focus
+  // failed save hands it back so the note can be retried (docs/DESIGN.md → Focus
   // management).
   const { ref: inputRef, requestRefocus } = useRefocusAfterPending<HTMLTextAreaElement>(isSaving)
   const noteButtonRef = useRef<HTMLButtonElement>(null)

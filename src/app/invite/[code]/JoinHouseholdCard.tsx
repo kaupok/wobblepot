@@ -180,7 +180,7 @@ export function JoinHouseholdCard({
           onConfirm={() => join.mutate({ leaveCurrent: true })}
           onCloseAutoFocus={(event) => {
             // Opened from state, so there is no trigger for Radix to return
-            // focus to (CLAUDE.md → Focus management).
+            // focus to (docs/DESIGN.md → Focus management).
             event.preventDefault()
             leaveTriggerRef.current?.focus()
           }}

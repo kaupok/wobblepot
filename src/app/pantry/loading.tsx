@@ -1,6 +1,6 @@
 // The same two columns as `src/app/shopping/loading.tsx`; only which one a
 // phone sees differs. The column skeletons live there so the geometry is
-// written once (CLAUDE.md → Shared-primitive geometry).
+// written once (CLAUDE.md → Testing → Shared-primitive geometry).
 import { PantryColumnSkeleton, ShoppingColumnSkeleton } from '../shopping/loading'
 
 export default function PantryLoading() {

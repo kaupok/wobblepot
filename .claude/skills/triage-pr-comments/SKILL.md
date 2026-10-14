@@ -16,6 +16,8 @@ Fetches GitHub PR review comments and triages them into actionable categories.
 
 Run this command on a feature branch with an existing PR to see external review feedback.
 
+The Claude review it reads is the comment marked `<!-- claude-review -->`, which `/create-pr` posts through `/review-pr`. A PR opened with a raw `gh pr create` has none, so step 2 runs the reviewer first. `/review-pr` → "When to run it" has the whole chain.
+
 ## Workflow
 
 ### Step 1: Get PR Info
