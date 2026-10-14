@@ -101,7 +101,7 @@ export function HeaderActions({
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/profile">{t('profile')}</Link>
+                  <Link href="/account">{t('myAccount')}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>

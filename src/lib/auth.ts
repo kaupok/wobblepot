@@ -144,13 +144,13 @@ export async function afterEmailSignUp(body: unknown, userId: string | undefined
 
 /**
  * Sends the account verification mail (HON-1155): on sign-up, and on Resend
- * from `/profile`. Exported for unit testing; wired into
+ * from `/account`. Exported for unit testing; wired into
  * `emailVerification.sendVerificationEmail` below.
  *
  * The locale is the household's. A new account has no household yet, so the
  * fallback is the visitor's `Accept-Language`, limited to public locales.
  * Like `sendResetPassword`, it never throws: a failed send is logged, and
- * Resend on `/profile` lets the user try again.
+ * Resend on `/account` lets the user try again.
  */
 export async function sendAccountVerificationEmail(
   { user, url }: { user: { id: string; email: string }; url: string },
@@ -300,9 +300,9 @@ export const auth = betterAuth({
    * Account email verification, in the soft form (HON-1155): sign-up sends a
    * link, and sign-in stays open before it is clicked, so
    * `emailAndPassword.requireEmailVerification` stays unset. The link lands on
-   * `EMAIL_VERIFICATION_CALLBACK_URL` (`/profile?verified=1`), which the sign-up
+   * `EMAIL_VERIFICATION_CALLBACK_URL` (`/account?verified=1`), which the sign-up
    * form and the Resend button send as `callbackURL`. No auto sign-in: the user
-   * is normally signed in already, and `/profile` sends an anonymous visitor
+   * is normally signed in already, and `/account` sends an anonymous visitor
    * through sign-in and back.
    */
   emailVerification: {

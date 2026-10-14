@@ -28,7 +28,7 @@ import { canReadEmail, resolveResetUrl } from './utils/mail-helpers'
  *
  * The fixture account deliberately has no household (only the smoke user gets
  * one), so signed-in assertions here use the session endpoint and the header
- * user menu — `/profile` would bounce to `/onboarding`.
+ * user menu — `/account` would bounce to `/onboarding`.
  */
 
 /**

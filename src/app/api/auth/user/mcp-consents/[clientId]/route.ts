@@ -9,7 +9,7 @@ const ROUTE = '/api/auth/user/mcp-consents/[clientId]'
 /**
  * DELETE /api/auth/user/mcp-consents/[clientId]
  *
- * Disconnect on the profile page (HON-1153): deletes the signed-in user's
+ * Disconnect on My account → Connections (HON-1153): deletes the signed-in user's
  * consent, refresh tokens and stored access tokens for one client, so the
  * assistant's next MCP call gets 401. See `disconnectMcpClient`.
  *

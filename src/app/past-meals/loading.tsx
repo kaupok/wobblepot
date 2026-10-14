@@ -8,7 +8,7 @@ export default function PastMealsLoading() {
   return (
     <div className="w-full px-4 py-8">
       <div className="flex flex-col gap-6">
-        {/* Title (h-7, as /profile) and description */}
+        {/* Title (h-7, as /account) and description */}
         <div className="flex flex-col gap-1">
           <Skeleton className="h-7 w-32" />
           <Skeleton className="h-5 w-full max-w-sm" />

@@ -72,7 +72,9 @@ To regenerate: re-run the `find`, read each new or changed `page.tsx` far enough
 | `/shopping`              | Auth          | Shopping list (urgency grouping) on a phone; from `md` up, pantry left and list right              |
 | `/pantry`                | Auth          | Pantry inventory on a phone (its own tab); from `md` up, the same two-column page as `/shopping`   |
 | `/household`             | Auth          | Household settings, members, and invite links                                                      |
-| `/profile`               | Auth          | User profile, your data (export), and account danger zone (delete)                                 |
+| `/account`               | Auth          | My account → Profile: name, email and its verification, password                                   |
+| `/account/connections`   | Auth          | My account → Connections: AI assistants, read-only API keys                                        |
+| `/account/data`          | Auth          | My account → Your data: export, and account danger zone (delete)                                   |
 | `/admin/signup-codes`    | Admin         | Manage private-beta signup codes                                                                   |
 | `/status`                | Public        | Service status page — probes database, auth, and AI pipeline                                       |
 | `/bot`                   | Public        | About Wobblepot-Bot — crawler user-agent disclosure for site owners                                |
@@ -123,7 +125,7 @@ Each sign-up is a fresh account with no household, so a second sign-up (new code
 
 In branch mode, stopping the server deletes the branch and everything on it. In `--db env` mode, remove the review account through the product's own deletion path:
 
-1. Signed in as the review account, delete it on `/profile`.
+1. Signed in as the review account, delete it on My account → Your data (`/account/data`).
 2. `curl -X POST "http://localhost:3200/api/e2e-support?action=expire-purge&email=<review email>"` — back-dates its purge window.
 3. `curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3200/api/cron/purge-deleted-users` → `{"purged":1,"scanned":1}`. `$CRON_SECRET` is the value the server started with: `CRON_SECRET` from `.env`, or the fallback literal in `scripts/e2e-local.sh` when `.env` has none.
 4. `curl "http://localhost:3200/api/e2e-support?action=user-state&email=<review email>"` → `{"exists":false}`.

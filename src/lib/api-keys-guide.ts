@@ -1,5 +1,5 @@
 /**
- * What the "Use the key" part of the profile page shows (HON-1228): the two
+ * What the "Use the key" part of My account → Connections shows (HON-1228): the two
  * read-only endpoints for this host and a Home Assistant example. Client-safe,
  * unlike `src/lib/api-keys.ts`.
  *

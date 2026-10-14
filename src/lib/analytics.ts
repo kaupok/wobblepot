@@ -43,14 +43,14 @@
  *   URI or token.
  * - `mcp:client_disconnected` (`src/lib/mcp/consents.ts` → `disconnectMcpClient`,
  *   called from `DELETE /api/auth/user/mcp-consents/[clientId]`, HON-1153): a
- *   user clicked Disconnect on the profile page, and the consent and tokens for
+ *   user clicked Disconnect on My account → Connections, and the consent and tokens for
  *   that client were deleted. Captured after the transaction commits. Distinct
  *   id is the user id, as for `mcp:client_connected`. Properties:
  *   `household_id`, `client_name`, `days_connected` (whole days since the
  *   consent's `createdAt`, null when the row has none).
  * - `api_key:created` (`src/lib/api-keys.ts` → `createApiKey`, called from
  *   `POST /api/auth/user/api-keys`, HON-1220): a user made a read-only API key
- *   for a screen or script on the profile page. Captured after the insert.
+ *   for a screen or script on My account → Connections. Captured after the insert.
  *   Distinct id is the user id. Properties: `household_id`, `key_count` (the
  *   user's keys after the create), `expires_in_days` (1 to 365, null for a key
  *   that does not expire, HON-1221). Never the key, its start or its name,
@@ -165,7 +165,7 @@ export type Source =
   | 'shopping_list'
   | 'cook_view'
   | 'past_meals'
-  /** The profile page (HON-1153). */
+  /** My account → Connections, the profile page until HON-1229; the value stays so the funnel does not break (HON-1153). */
   | 'profile'
 
 /** Meal-type literal union. Mirrors `@/generated/prisma/enums.MealType` but kept local so the analytics module has no DB import. */
@@ -231,7 +231,7 @@ export type EventPayload = {
   'mcp:server_url_copied': { source: Source }
   /**
    * The member copied an endpoint URL or the Home Assistant example from
-   * "Use the key" on the profile page (HON-1228). The top of the API key use
+   * "Use the key" on My account → Connections (HON-1228). The top of the API key use
    * funnel, as `mcp:server_url_copied` is for assistants.
    */
   'api_key:guide_copied': { item: 'meal-plan' | 'shopping-list' | 'home-assistant' }

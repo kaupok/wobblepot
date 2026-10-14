@@ -9,7 +9,7 @@ const ROUTE = '/api/auth/user/api-keys/[id]'
 /**
  * DELETE /api/auth/user/api-keys/[id]
  *
- * Revoke on the profile page (HON-1220): deletes one of the signed-in user's
+ * Revoke on My account → Connections (HON-1220): deletes one of the signed-in user's
  * keys, or for a household's owner any member's key (HON-1221), so its next
  * request to `/api/v1/*` answers 401.
  *

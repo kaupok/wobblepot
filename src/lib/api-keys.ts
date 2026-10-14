@@ -7,7 +7,7 @@ import { sanitizeEventProperties } from '@/lib/redact'
 
 /**
  * Read-only API keys for screens and scripts (HON-1220). A member makes one on
- * `/profile`, optionally with an expiry, and the household's owner sees and
+ * `/account/connections`, optionally with an expiry, and the household's owner sees and
  * revokes every member's keys there (HON-1221). `GET /api/v1/meal-plan` and
  * `GET /api/v1/shopping-list` accept a key as `Authorization: Bearer wp_…`
  * (`src/lib/api/v1/caller.ts`).

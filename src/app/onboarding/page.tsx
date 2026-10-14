@@ -25,9 +25,9 @@ export default async function OnboardingPage({
     redirect('/')
   }
 
-  // The verification link lands on `/profile`, which sends a user without a
+  // The verification link lands on `/account`, which sends a user without a
   // household here with the result (HON-1155). Shown only after a landing:
-  // the standing "not verified" notice belongs to `/profile`.
+  // the standing "not verified" notice belongs to `/account`.
   const landing = parseVerificationLanding(await searchParams)
 
   return (

@@ -18,12 +18,12 @@ interface VerifyEmailNoticeProps {
   landing: VerificationLanding | null
 }
 
-/** The params Better Auth's verify-email redirect adds to `/profile`. */
+/** The params Better Auth's verify-email redirect adds to `/account`. */
 const LANDING_PARAMS = ['verified', 'error'] as const
 
 /**
- * The account email's verification state (HON-1155), on `/profile` always and
- * on `/onboarding` after the link landed there (`/profile` forwards a user
+ * The account email's verification state (HON-1155), on `/account` always and
+ * on `/onboarding` after the link landed there (`/account` forwards a user
  * without a household).
  *
  * Unverified: a warning with a Resend button. After an expired or broken link
@@ -32,7 +32,7 @@ const LANDING_PARAMS = ['verified', 'error'] as const
  * a reload does not repeat the message.
  */
 export function VerifyEmailNotice({ email, emailVerified, landing }: VerifyEmailNoticeProps) {
-  const t = useTranslations('profile.verifyEmail')
+  const t = useTranslations('account.verifyEmail')
   const tErrors = useTranslations('errors.auth')
   const sentRef = useRef<HTMLDivElement>(null)
 

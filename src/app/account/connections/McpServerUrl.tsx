@@ -15,12 +15,12 @@ interface McpServerUrlProps {
 const COPIED_RESET_MS = 2000
 
 /**
- * The MCP server URL with a Copy button, on the profile page (HON-1153).
+ * The MCP server URL with a Copy button, on My account → Connections (HON-1153).
  * Copy is the top of the connect funnel, so it captures
  * `mcp:server_url_copied` once per successful copy.
  */
 export function McpServerUrl({ url }: McpServerUrlProps) {
-  const t = useTranslations('profile.assistants')
+  const t = useTranslations('account.assistants')
   const [copied, setCopied] = useState(false)
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 

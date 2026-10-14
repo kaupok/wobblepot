@@ -88,7 +88,7 @@ describe('VerifyEmailNotice', () => {
 
       expect(mockSend).toHaveBeenCalledWith({
         email: 'ann@example.com',
-        callbackURL: '/profile?verified=1',
+        callbackURL: '/account?verified=1',
       })
       expect(await screen.findByText('Sent. Check your inbox.')).toBeInTheDocument()
       expect(screen.queryByRole('button', RESEND)).not.toBeInTheDocument()
@@ -201,17 +201,17 @@ describe('VerifyEmailNotice', () => {
 
   describe('the URL', () => {
     it('clears the verification params and keeps the others', () => {
-      window.history.replaceState(null, '', '/profile?verified=1&error=TOKEN_EXPIRED&tab=x#top')
+      window.history.replaceState(null, '', '/account?verified=1&error=TOKEN_EXPIRED&tab=x#top')
 
       renderNotice({ landing: 'expired' })
 
-      expect(window.location.pathname).toBe('/profile')
+      expect(window.location.pathname).toBe('/account')
       expect(window.location.search).toBe('?tab=x')
       expect(window.location.hash).toBe('#top')
     })
 
     it('leaves the URL alone without a landing', () => {
-      window.history.replaceState(null, '', '/profile?verified=1')
+      window.history.replaceState(null, '', '/account?verified=1')
 
       renderNotice()
 

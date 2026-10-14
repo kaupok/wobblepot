@@ -57,6 +57,14 @@ const nextConfig: NextConfig = {
         destination: '/household',
         permanent: true,
       },
+      // The page was `/profile` until HON-1229. Next keeps the query string, so
+      // a verification mail sent before the move (`/profile?verified=1`,
+      // valid for 24 hours) lands on `/account?verified=1`.
+      {
+        source: '/profile',
+        destination: '/account',
+        permanent: true,
+      },
     ]
   },
   async headers() {

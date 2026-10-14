@@ -203,7 +203,7 @@ export async function hasHouseholdMembership(userId: string): Promise<boolean> {
  * Manual members — people the owner added by name, typically children — have
  * no account and are data the owner entered, not other people with a stake in
  * the household. This is the count account deletion turns on: the sole-owner
- * guard below, the dialog on `/profile`, and `purgeUser`'s decision to delete
+ * guard below, the dialog on `/account/data`, and `purgeUser`'s decision to delete
  * the household (HON-881). `db` lets the purge run it on its transaction.
  */
 export async function countAccountHoldingMembers(

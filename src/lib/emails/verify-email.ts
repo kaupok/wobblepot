@@ -5,7 +5,7 @@ import { emailTranslator } from './i18n'
 /**
  * Account email verification (HON-1155).
  *
- * Sent on sign-up and on Resend from `/profile`. Copy lives in
+ * Sent on sign-up and on Resend from `/account`. Copy lives in
  * `messages/{en,et}.json` under `emails.verifyEmail`. The `ignore` line is a
  * security control: a stranger who signs up with someone else's address must
  * not get it verified by the owner, so the mail tells the owner not to click.

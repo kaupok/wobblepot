@@ -27,6 +27,8 @@ export default function robots(): MetadataRoute.Robots {
         ],
         disallow: [
           '/api',
+          '/account',
+          // The page before HON-1229; it redirects to `/account`.
           '/profile',
           '/household',
           // The trailing slash: a bare '/meal-plan' prefix also blocks the

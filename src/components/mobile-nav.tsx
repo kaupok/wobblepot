@@ -120,8 +120,8 @@ export function MobileNav({
                   <Link href="/household" className={linkClass} onClick={() => setOpen(false)}>
                     {tSettings('household')}
                   </Link>
-                  <Link href="/profile" className={linkClass} onClick={() => setOpen(false)}>
-                    {t('profile')}
+                  <Link href="/account" className={linkClass} onClick={() => setOpen(false)}>
+                    {t('myAccount')}
                   </Link>
                 </>
               )}

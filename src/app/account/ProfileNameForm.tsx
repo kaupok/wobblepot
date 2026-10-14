@@ -19,7 +19,7 @@ import { MAX_ACCOUNT_NAME_LENGTH } from '@/lib/account-name'
  */
 export function ProfileNameForm({ initialName }: { initialName: string }) {
   const router = useRouter()
-  const t = useTranslations('profile.name')
+  const t = useTranslations('account.name')
   const [name, setName] = useState(initialName)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)

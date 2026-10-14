@@ -84,7 +84,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Past meals, Household, Profile, the labelled theme row and Sign out, in that order (HON-775, HON-1007); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row (HON-1028). For the beta admin (`adminLinks`, resolved by `Header`), the admin pages come after the household links and before the theme row, with or without a household (HON-1092).',
+          'Person-icon trigger + right-side `Sheet` — the mobile counterpart to `HeaderActions`, with the same accessible name ("User menu"). Hidden on `md:` and up. Signed in, it lists Past meals, Household, My account, the labelled theme row and Sign out, in that order (HON-775, HON-1007); signed out, Sign in, Sign up and the theme row. Every row and the close control clear the 44px touch floor (HON-783). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row (HON-1028). For the beta admin (`adminLinks`, resolved by `Header`), the admin pages come after the household links and before the theme row, with or without a household (HON-1092).',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -118,7 +118,7 @@ export const ClosedOnboarding: Story = {
     docs: {
       description: {
         story:
-          'Authenticated but no household. The Past meals, Household and Profile links are suppressed (same rule as `HeaderActions`) — the theme row and Sign out remain so the user can escape onboarding.',
+          'Authenticated but no household. The Past meals, Household and My account links are suppressed (same rule as `HeaderActions`) — the theme row and Sign out remain so the user can escape onboarding.',
       },
     },
   },
@@ -147,7 +147,13 @@ export const SignedInWithHousehold: Story = {
     const body = within(document.body)
 
     expect(body.getByRole('heading', { name: 'Account' })).toBeInTheDocument()
-    expect(rowNames(nav)).toEqual(['Past meals', 'Household', 'Profile', 'Dark mode', 'Sign out'])
+    expect(rowNames(nav)).toEqual([
+      'Past meals',
+      'Household',
+      'My account',
+      'Dark mode',
+      'Sign out',
+    ])
     expect(within(nav).getByRole('link', { name: 'Household' })).toHaveAttribute(
       'href',
       '/household',
@@ -204,7 +210,7 @@ export const SignedInAsAdmin: Story = {
     expect(rowNames(nav)).toEqual([
       'Past meals',
       'Household',
-      'Profile',
+      'My account',
       'Signup codes',
       'Dark mode',
       'Sign out',
@@ -253,7 +259,13 @@ export const DarkThemeLabel: Story = {
   play: async ({ canvasElement }) => {
     const nav = await openSheet(canvasElement)
 
-    expect(rowNames(nav)).toEqual(['Past meals', 'Household', 'Profile', 'Light mode', 'Sign out'])
+    expect(rowNames(nav)).toEqual([
+      'Past meals',
+      'Household',
+      'My account',
+      'Light mode',
+      'Sign out',
+    ])
   },
 }
 

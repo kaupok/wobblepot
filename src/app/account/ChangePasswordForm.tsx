@@ -20,7 +20,7 @@ const MIN_PASSWORD_LENGTH = 12
  * user stays signed in here (HON-1129).
  */
 export function ChangePasswordForm() {
-  const t = useTranslations('profile.password')
+  const t = useTranslations('account.password')
   const tSignUp = useTranslations('auth.signUp')
   const tValidation = useTranslations('validation')
   const tErrors = useTranslations('errors.auth')

@@ -38,7 +38,7 @@ describe('getHouseholdMembership', () => {
 
     await getHouseholdMembership('user-123')
 
-    // The `_count` is what lets `/profile` skip a second `household_member`
+    // The `_count` is what lets `/account` skip a second `household_member`
     // read (HON-596); the members' portions give every servings site its
     // `sumPortions` input from the same call (HON-1040).
     expect(mockFindFirst).toHaveBeenCalledTimes(1)

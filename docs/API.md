@@ -6,16 +6,16 @@ An AI assistant uses the MCP server, not this API. The security model is in [SEC
 
 ## The key
 
-Make a key on the profile page, under "Screens and scripts": give it a name that says what will use it, choose Create key, and copy the key. Wobblepot shows it once and keeps only its hash, so a lost key cannot be shown again: revoke it and make a new one.
+Make a key on My account → Connections (`/account/connections`), under "Screens and scripts": give it a name that says what will use it, choose Create key, and copy the key. Wobblepot shows it once and keeps only its hash, so a lost key cannot be shown again: revoke it and make a new one.
 
 Below the form, "Use the key" shows the two endpoint URLs for the current host with Copy, three steps, and the Home Assistant example below with that host filled in (HON-1228).
 
 - A key is `wp_` followed by 32 letters and digits.
 - A key can only read. It works on the two endpoints below and nowhere else.
 - A key belongs to its member and reads the household the member belongs to at the time of each request. After the member leaves a household, the key no longer reads it; deleting the account stops the key.
-- A key can expire. "Expires in (optional)" takes 1 to 365 days; left empty, the key does not expire. After that time the key answers `401`, and the profile page lists it as "Expired" until it is revoked.
+- A key can expire. "Expires in (optional)" takes 1 to 365 days; left empty, the key does not expire. After that time the key answers `401`, and My account → Connections lists it as "Expired" until it is revoked.
 - Revoke deletes the key. Its next request answers `401`.
-- The household's owner sees every member's keys on the profile page, with the member's name, and can revoke any of them. Any other member sees and revokes their own keys only (HON-1221).
+- The household's owner sees every member's keys on My account → Connections, with the member's name, and can revoke any of them. Any other member sees and revokes their own keys only (HON-1221).
 - A member can have 10 keys at most. An expired key counts until it is revoked.
 
 Send the key in the `Authorization` header, never in the URL:
@@ -106,7 +106,7 @@ Poll at most once a minute; every 5 minutes is enough for a meal plan. Home Assi
 
 ## Home Assistant example
 
-Today's dinner, refreshed every 5 minutes. The profile page shows the same block, from `homeAssistantExample()` in `src/lib/api-keys-guide.ts`: change both together. Put the key in `secrets.yaml` as `wobblepot_api_key: "Bearer wp_…"`.
+Today's dinner, refreshed every 5 minutes. My account → Connections shows the same block, from `homeAssistantExample()` in `src/lib/api-keys-guide.ts`: change both together. Put the key in `secrets.yaml` as `wobblepot_api_key: "Bearer wp_…"`.
 
 ```yaml
 # configuration.yaml

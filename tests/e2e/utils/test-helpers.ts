@@ -25,7 +25,7 @@ export function generateUniqueEmail(): string {
 
 /**
  * Pre-grant cookie consent so the bottom-fixed CookieBanner never renders and
- * intercepts clicks on elements low on the page (e.g. the profile page's
+ * intercepts clicks on elements low on the page (e.g. the Your data tab's
  * Delete account button). Keeps the rest of each test focused on its real
  * assertion without a per-test "click Accept all" dance. Uses `essential`,
  * which satisfies the banner without flipping the analytics flag.

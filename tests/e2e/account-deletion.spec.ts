@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /onboarding, /profile, /sign-in, / · COMPONENTS: DeleteAccountDialog, ProfilePage, SignInForm, Header (User menu)
+// ROUTES: /sign-up, /onboarding, /account/data, /sign-in, / · COMPONENTS: DeleteAccountDialog, AccountDataPage, SignInForm, Header (User menu)
 import { test, expect, type Page } from '@playwright/test'
 import { signUpWithHousehold } from './utils/test-helpers'
 import {
@@ -21,7 +21,7 @@ import { canReadEmail, findRecentEmail } from './utils/mail-helpers'
  * first half of that; the rest is this comment plus the tag's absence.
  *
  * What it proves, in order:
- *  1. Deleting from `/profile` soft-deletes — the session is gone, but the
+ *  1. Deleting from `/account/data` soft-deletes — the session is gone, but the
  *     user row, household, and household data survive the grace window.
  *  2. The user is told the exact purge date.
  *  3. A sign-in attempt with the deleted credentials fails *opaquely* — the
@@ -67,7 +67,7 @@ test.describe('Account deletion (grace window)', () => {
     expect(before.memberships).toBe(1)
     expect(before.households).toBe(1)
 
-    await page.goto('/profile')
+    await page.goto('/account/data')
     await page.getByRole('button', { name: 'Delete account' }).click()
 
     const dialog = page.getByRole('alertdialog')

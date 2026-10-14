@@ -141,7 +141,7 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
     dimension: 'ip',
     daily: { limit: 5, window: '1 d' },
   },
-  // Resend of the account verification email on `/profile` (HON-1155). Same
+  // Resend of the account verification email on `/account` (HON-1155). Same
   // limits as forgot-password, but its own counter: a user whose mail went to
   // spam must not lock password reset out for everyone on the same network.
   'verify-email': {

@@ -81,7 +81,7 @@ function handlers(rows: ApiKeyRow[]) {
 }
 
 const meta = {
-  title: 'Feature/Profile/ApiKeysSection',
+  title: 'Feature/Account/ApiKeysSection',
   component: ApiKeysSection,
   tags: ['autodocs'],
   parameters: {
@@ -89,7 +89,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The "Screens and scripts" section on `/profile` (HON-1220): name a read-only API key, optionally set it to expire, create it, copy it from the panel that shows it once, and revoke it. The household\'s owner sees and revokes every member\'s keys (HON-1221). "Use the key" shows the endpoint URLs for the host, the steps and a Home Assistant example (HON-1228). The key reads `GET /api/v1/meal-plan` and `GET /api/v1/shopping-list` only.',
+          'The "Screens and scripts" section on My account → Connections, `/account/connections` (HON-1220): name a read-only API key, optionally set it to expire, create it, copy it from the panel that shows it once, and revoke it. The household\'s owner sees and revokes every member\'s keys (HON-1221). "Use the key" shows the endpoint URLs for the host, the steps and a Home Assistant example (HON-1228). The key reads `GET /api/v1/meal-plan` and `GET /api/v1/shopping-list` only.',
       },
     },
     msw: { handlers: handlers([KITCHEN]) },

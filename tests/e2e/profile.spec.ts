@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /onboarding, /profile, /sign-in, / · COMPONENTS: ProfilePage, ProfileNameForm, ChangePasswordForm, SignInForm, Header (User menu)
+// ROUTES: /sign-up, /onboarding, /account, /sign-in, / · COMPONENTS: AccountProfilePage, AccountTabs, ProfileNameForm, ChangePasswordForm, SignInForm, Header (User menu)
 import { test, expect, type Page } from '@playwright/test'
 import {
   grantEssentialCookieConsent,
@@ -8,7 +8,7 @@ import {
 } from './utils/test-helpers'
 
 /**
- * Account name and password changes on `/profile` (HON-1129).
+ * Account name and password changes on My account → Profile, `/account` (HON-1129).
  *
  * NOT `@smoke`: it signs up a throwaway account through `/api/e2e-seed`, which
  * 404s on preview and staging, and it changes that account's password.
@@ -24,10 +24,49 @@ async function submitSignIn(page: Page, email: string, password: string): Promis
 test.describe('Profile', () => {
   test.setTimeout(90_000)
 
+  // HON-1229: the account menu opens My account, and its three tabs are links
+  // a keyboard reaches in order. The tab list is in the layout, which stays
+  // mounted, so focus stays on the tab and does not fall to <body>.
+  test('the account menu opens My account, and Tab and Enter move between its tabs', async ({
+    page,
+  }) => {
+    await signUpWithHousehold(page)
+
+    await page.goto('/')
+    await page.getByRole('button', { name: 'User menu' }).click()
+    // A dropdown from `md` up, a sheet on a phone.
+    await page
+      .getByRole('menuitem', { name: 'My account' })
+      .or(page.getByRole('dialog').getByRole('link', { name: 'My account' }))
+      .click()
+    await expect(page).toHaveURL('/account')
+    await expect(page.getByRole('heading', { name: 'My account', level: 1 })).toBeVisible()
+
+    const tabs = page.getByRole('navigation', { name: 'Account sections' })
+    await expect(tabs.getByRole('link')).toHaveText(['Profile', 'Connections', 'Your data'])
+    const profileTab = tabs.getByRole('link', { name: 'Profile' })
+    const connectionsTab = tabs.getByRole('link', { name: 'Connections' })
+    await expect(profileTab).toHaveAttribute('aria-current', 'page')
+
+    await profileTab.focus()
+    await page.keyboard.press('Tab')
+    await expect(connectionsTab).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    await expect(page).toHaveURL('/account/connections')
+    await expect(connectionsTab).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('heading', { name: 'Screens and scripts' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Change password' })).toHaveCount(0)
+    await expect(connectionsTab).toBeFocused()
+
+    await page.keyboard.press('Tab')
+    await expect(tabs.getByRole('link', { name: 'Your data' })).toBeFocused()
+  })
+
   test('saves a new account name', async ({ page }) => {
     await signUpWithHousehold(page)
 
-    await page.goto('/profile')
+    await page.goto('/account')
     const nameField = page.getByLabel('Name', { exact: true })
     await expect(nameField).toHaveValue('Test User')
 
@@ -51,10 +90,10 @@ test.describe('Profile', () => {
     const otherPage = await otherContext.newPage()
     await grantEssentialCookieConsent(otherPage)
     await signIn(otherPage, email, oldPassword)
-    await otherPage.goto('/profile')
-    await expect(otherPage).toHaveURL('/profile')
+    await otherPage.goto('/account')
+    await expect(otherPage).toHaveURL('/account')
 
-    await page.goto('/profile')
+    await page.goto('/account')
     await page.getByLabel('Current password').fill(oldPassword)
     await page.getByLabel('New password', { exact: true }).fill(newPassword)
     await page.getByLabel('Confirm new password').fill(newPassword)
@@ -65,11 +104,11 @@ test.describe('Profile', () => {
 
     // This session stays signed in.
     await page.reload()
-    await expect(page).toHaveURL('/profile')
-    await expect(page.getByRole('heading', { name: 'Profile', level: 1 })).toBeVisible()
+    await expect(page).toHaveURL('/account')
+    await expect(page.getByRole('heading', { name: 'My account', level: 1 })).toBeVisible()
 
     // The other session is signed out.
-    await otherPage.goto('/profile')
+    await otherPage.goto('/account')
     await expect(otherPage).toHaveURL(/\/sign-in/)
     await otherContext.close()
 
@@ -82,8 +121,8 @@ test.describe('Profile', () => {
 
     // The new one does.
     await signIn(page, email, newPassword)
-    await page.goto('/profile')
-    await expect(page).toHaveURL('/profile')
+    await page.goto('/account')
+    await expect(page).toHaveURL('/account')
   })
 
   test('a wrong current password shows translated copy and returns focus to the button', async ({
@@ -91,7 +130,7 @@ test.describe('Profile', () => {
   }) => {
     await signUpWithHousehold(page)
 
-    await page.goto('/profile')
+    await page.goto('/account')
     await page.getByLabel('Current password').fill('not-the-password-1234')
     await page.getByLabel('New password', { exact: true }).fill('another-new-password-99')
     await page.getByLabel('Confirm new password').fill('another-new-password-99')

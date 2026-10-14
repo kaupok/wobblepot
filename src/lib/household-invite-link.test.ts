@@ -21,7 +21,7 @@ describe('getHouseholdInviteCodeFromParams', () => {
   it('returns null without a code', () => {
     expect(getHouseholdInviteCodeFromParams({})).toBeNull()
     expect(getHouseholdInviteCodeFromParams({ invite: '', returnUrl: null })).toBeNull()
-    expect(getHouseholdInviteCodeFromParams({ returnUrl: '/profile' })).toBeNull()
+    expect(getHouseholdInviteCodeFromParams({ returnUrl: '/account' })).toBeNull()
   })
 
   it('rejects values that are not a code', () => {

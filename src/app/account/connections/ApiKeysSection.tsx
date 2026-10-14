@@ -71,7 +71,7 @@ interface ApiKeysSectionProps {
 }
 
 /**
- * "Screens and scripts" on the profile page (HON-1220): make a read-only API
+ * "Screens and scripts" on My account → Connections (HON-1220): make a read-only API
  * key for a kitchen screen, Home Assistant or a script, optionally with an
  * expiry, see it once, and revoke it. The key works on `GET /api/v1/meal-plan`
  * and `GET /api/v1/shopping-list` only; see docs/API.md. The owner sees and
@@ -88,7 +88,7 @@ export function ApiKeysSection({
   householdView,
   baseUrl,
 }: ApiKeysSectionProps) {
-  const t = useTranslations('profile.apiKeys')
+  const t = useTranslations('account.apiKeys')
   const locale = useLocale() as Locale
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
@@ -401,7 +401,7 @@ interface NewApiKeyProps {
  * Its heading takes focus when it appears, so a screen reader reads it.
  */
 export function NewApiKey({ created, onDone }: NewApiKeyProps) {
-  const t = useTranslations('profile.apiKeys')
+  const t = useTranslations('account.apiKeys')
   const [copied, setCopied] = useState(false)
   const headingRef = useRef<HTMLDivElement>(null)
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -459,7 +459,7 @@ type GuideItem = 'meal-plan' | 'shopping-list' | 'home-assistant'
  * Always shown, so the next step is there with or without a key.
  */
 export function ApiKeyGuide({ baseUrl }: { baseUrl: string }) {
-  const t = useTranslations('profile.apiKeys.guide')
+  const t = useTranslations('account.apiKeys.guide')
   const [homeAssistantOpen, setHomeAssistantOpen] = useState(false)
   const urls = apiV1Urls(baseUrl)
   const yaml = homeAssistantExample(baseUrl)
@@ -560,7 +560,7 @@ interface GuideCopyButtonProps {
  * captures `api_key:guide_copied`. Never disabled, so focus stays on it.
  */
 function GuideCopyButton({ text, item, name }: GuideCopyButtonProps) {
-  const t = useTranslations('profile.apiKeys')
+  const t = useTranslations('account.apiKeys')
   const [copied, setCopied] = useState(false)
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 

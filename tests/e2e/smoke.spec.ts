@@ -1,4 +1,4 @@
-// ROUTES: /, /sign-in, /profile · COMPONENTS: Header, Home (landing hero, phone closing call to action), LandingWeek, SignInForm, ProfilePage, TimelineView, FillDaysAction
+// ROUTES: /, /sign-in, /account · COMPONENTS: Header, Home (landing hero, phone closing call to action), LandingWeek, SignInForm, AccountProfilePage, TimelineView, FillDaysAction
 import { test, expect, type Page } from '@playwright/test'
 import { signIn } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -88,14 +88,14 @@ test.describe('Smoke', { tag: '@smoke' }, () => {
     await expect(closingLine).toBeHidden()
   })
 
-  test('seeded smoke user signs in and views profile', async ({ page }) => {
+  test('seeded smoke user signs in and views their account', async ({ page }) => {
     const email = await signInSmokeUser(page)
 
     // Read-only assertions: the seeded fixture (user + "Smoke Test
-    // Household" — see prisma/seed.ts seedTestUsers) renders its profile.
-    // Without the household, /profile would redirect to /onboarding.
-    await page.goto('/profile')
-    await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
+    // Household" — see prisma/seed.ts seedTestUsers) renders its account.
+    // Without the household, /account would redirect to /onboarding.
+    await page.goto('/account')
+    await expect(page.getByRole('heading', { name: 'My account', level: 1 })).toBeVisible()
     await expect(page.getByText(email)).toBeVisible()
   })
 

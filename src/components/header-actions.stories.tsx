@@ -22,7 +22,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Right-side header chrome — desktop only (`hidden md:flex` at the component root, hidden below `md:`). Shows sign-in/up CTAs when logged out, a user-menu dropdown (Past meals, Profile, Sign out, theme toggle) when logged in. The Past meals and Profile items are suppressed during onboarding (authenticated but no household yet). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row, and both accessible names say so (HON-1028). For the beta admin (`adminLinks`, resolved by `Header`), the admin pages sit between the household group and Sign out, with or without a household (HON-1092).',
+          'Right-side header chrome — desktop only (`hidden md:flex` at the component root, hidden below `md:`). Shows sign-in/up CTAs when logged out, a user-menu dropdown (Past meals, My account, Sign out, theme toggle) when logged in. The Past meals and My account items are suppressed during onboarding (authenticated but no household yet). While past meals are still to mark (`pastMealsToMark` above 0), a red dot sits on the account icon and on the Past meals row, and both accessible names say so (HON-1028). For the beta admin (`adminLinks`, resolved by `Header`), the admin pages sit between the household group and Sign out, with or without a household (HON-1092).',
       },
     },
     msw: { handlers: { extra: [signOutHandler] } },
@@ -63,7 +63,7 @@ export const AuthenticatedNoHousehold: Story = {
     docs: {
       description: {
         story:
-          'Authenticated but no household — the onboarding state. Profile is suppressed; Sign out and theme toggle remain so the user can still escape.',
+          'Authenticated but no household — the onboarding state. My account is suppressed; Sign out and theme toggle remain so the user can still escape.',
       },
     },
   },
@@ -85,7 +85,7 @@ export const MenuOpensOnClick: Story = {
       'href',
       '/past-meals',
     )
-    expect(body.getByRole('menuitem', { name: 'Profile' })).toBeInTheDocument()
+    expect(body.getByRole('menuitem', { name: 'My account' })).toBeInTheDocument()
     expect(body.getByRole('menuitem', { name: /sign out/i })).toBeInTheDocument()
     // Nothing to mark (the default 0): no dot anywhere.
     expect(document.querySelector('[data-slot="attention-dot"]')).toBeNull()
@@ -115,7 +115,9 @@ export const PastMealsToMark: Story = {
     await waitFor(() => expect(row.querySelector('[data-slot="attention-dot"]')).toBeVisible())
     // Only the Past meals row carries it.
     await expect(
-      body.getByRole('menuitem', { name: 'Profile' }).querySelector('[data-slot="attention-dot"]'),
+      body
+        .getByRole('menuitem', { name: 'My account' })
+        .querySelector('[data-slot="attention-dot"]'),
     ).toBeNull()
   },
 }
@@ -139,7 +141,7 @@ export const EscapeClosesMenu: Story = {
   },
 }
 
-export const OnboardingMenuHidesProfile: Story = {
+export const OnboardingMenuHidesMyAccount: Story = {
   args: { session: authedSession, hasHousehold: false },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -150,7 +152,7 @@ export const OnboardingMenuHidesProfile: Story = {
     const body = within(document.body)
     await body.findByRole('menu')
 
-    expect(body.queryByRole('menuitem', { name: 'Profile' })).not.toBeInTheDocument()
+    expect(body.queryByRole('menuitem', { name: 'My account' })).not.toBeInTheDocument()
     expect(body.getByRole('menuitem', { name: /sign out/i })).toBeInTheDocument()
   },
 }
@@ -180,7 +182,13 @@ export const Admin: Story = {
     const body = within(document.body)
     await body.findByRole('menu')
     const names = body.getAllByRole('menuitem').map((item) => item.textContent?.trim())
-    await expect(names).toEqual(['Past meals', 'Profile', 'Signup codes', 'Sign out', 'Dark mode'])
+    await expect(names).toEqual([
+      'Past meals',
+      'My account',
+      'Signup codes',
+      'Sign out',
+      'Dark mode',
+    ])
     await expect(body.getByRole('menuitem', { name: 'Signup codes' })).toHaveAttribute(
       'href',
       '/admin/signup-codes',

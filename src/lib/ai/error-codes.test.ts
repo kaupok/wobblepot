@@ -62,10 +62,10 @@ const surfaces = [
   // Not an AI surface, but the same contract — kept here so one suite covers
   // every code map `translateErrorCode` is handed (HON-725).
   {
-    name: 'profile.delete.errors',
+    name: 'account.delete.errors',
     keys: ACCOUNT_DELETION_ERROR_KEYS,
-    en: enMessages.profile.delete.errors as Record<string, unknown>,
-    et: etMessages.profile.delete.errors as Record<string, unknown>,
+    en: enMessages.account.delete.errors as Record<string, unknown>,
+    et: etMessages.account.delete.errors as Record<string, unknown>,
     fallback: 'deleteFailed',
   },
 ] as const

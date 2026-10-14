@@ -18,7 +18,7 @@ async function fillIn(
 }
 
 const meta = {
-  title: 'Feature/Profile/ChangePasswordForm',
+  title: 'Feature/Account/ChangePasswordForm',
   component: ChangePasswordForm,
   tags: ['autodocs'],
   parameters: {
@@ -26,7 +26,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Changes the password on `/profile` (HON-1129) and signs out every other device (`revokeOtherSessions`). The form checks, before any request, that the current password is filled, the two new passwords match, and the new one has at least 12 characters. Server errors (a wrong current password, a breached new password) render catalog copy, and focus returns to the submit button.',
+          'Changes the password on My account → Profile, `/account` (HON-1129) and signs out every other device (`revokeOtherSessions`). The form checks, before any request, that the current password is filled, the two new passwords match, and the new one has at least 12 characters. Server errors (a wrong current password, a breached new password) render catalog copy, and focus returns to the submit button.',
       },
     },
     msw: {

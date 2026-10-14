@@ -71,7 +71,7 @@ const UNRELATED = [
 describe('E2E-drift gate', () => {
   it('selects pages, components, the copy catalogs and the proxy', () => {
     const hits = [
-      'src/app/profile/page.tsx',
+      'src/app/account/page.tsx',
       'src/app/meal-plan/MealPlanClient.tsx',
       'src/components/Header.tsx',
       'src/components/meal-plan/MealDetailModal.tsx',
@@ -239,7 +239,7 @@ function drivenLines(body: string): number {
 describe('driven-screen gate', () => {
   it('selects pages, route files and feature components', () => {
     const hits = [
-      'src/app/profile/page.tsx',
+      'src/app/account/page.tsx',
       'src/app/meal-plan/MealPlanClient.tsx',
       'src/app/shopping-list/loading.tsx',
       'src/components/Header.tsx',

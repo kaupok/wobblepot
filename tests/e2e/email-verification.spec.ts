@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /onboarding, /profile, /sign-in, /api/auth/verify-email · COMPONENTS: SignUpForm, ProfilePage, OnboardingPage, VerifyEmailNotice, SignInForm
+// ROUTES: /sign-up, /onboarding, /account, /sign-in, /api/auth/verify-email · COMPONENTS: SignUpForm, AccountProfilePage, OnboardingPage, VerifyEmailNotice, SignInForm
 import { test, expect } from '@playwright/test'
 import { grantEssentialCookieConsent, signUp, signUpWithHousehold } from './utils/test-helpers'
 import { fetchUserState, fetchVerifyEmailPath, expectUserExists } from './utils/e2e-support'
@@ -24,7 +24,7 @@ test.describe('Email verification', () => {
     const { email } = await signUpWithHousehold(page)
 
     // Soft verification: the new account is signed in before the click.
-    await page.goto('/profile')
+    await page.goto('/account')
     await expect(page.getByText(NOT_VERIFIED)).toBeVisible()
     await expect(page.getByRole('button', RESEND)).toBeVisible()
 
@@ -34,7 +34,7 @@ test.describe('Email verification', () => {
     await expect(page.getByText(NOT_VERIFIED)).toBeHidden()
     await expect(page.getByRole('button', RESEND)).toBeHidden()
     // The notice clears the redirect params, so a reload does not repeat it.
-    await expect(page).toHaveURL('/profile')
+    await expect(page).toHaveURL('/account')
     expect(expectUserExists(await fetchUserState(email), email).emailVerified).toBe(true)
 
     await page.reload()
@@ -43,14 +43,14 @@ test.describe('Email verification', () => {
     await expect(page.getByText(NOT_VERIFIED)).toBeHidden()
   })
 
-  test('a broken link lands on the profile with Resend', async ({ page }) => {
+  test('a broken link lands on the Profile tab with Resend', async ({ page }) => {
     const { email } = await signUpWithHousehold(page)
 
     await page.goto(
-      `/api/auth/verify-email?token=not-a-token&callbackURL=${encodeURIComponent('/profile?verified=1')}`,
+      `/api/auth/verify-email?token=not-a-token&callbackURL=${encodeURIComponent('/account?verified=1')}`,
     )
 
-    await expect(page).toHaveURL('/profile')
+    await expect(page).toHaveURL('/account')
     await expect(
       page.getByText('This verification link does not work. Send a new one.'),
     ).toBeVisible()
@@ -58,7 +58,7 @@ test.describe('Email verification', () => {
     expect(expectUserExists(await fetchUserState(email), email).emailVerified).toBe(false)
   })
 
-  test('an expired link lands on the profile with the expired copy and Resend', async ({
+  test('an expired link lands on the Profile tab with the expired copy and Resend', async ({
     page,
   }) => {
     const { email } = await signUpWithHousehold(page)
@@ -66,7 +66,7 @@ test.describe('Email verification', () => {
     // A real token past its expiry, so Better Auth emits its own TOKEN_EXPIRED.
     await page.goto(await fetchVerifyEmailPath(email, { expired: true }))
 
-    await expect(page).toHaveURL('/profile')
+    await expect(page).toHaveURL('/account')
     await expect(
       page.getByText('This verification link has expired. Send a new one.'),
     ).toBeVisible()
@@ -74,13 +74,13 @@ test.describe('Email verification', () => {
     expect(expectUserExists(await fetchUserState(email), email).emailVerified).toBe(false)
   })
 
-  // A new user often opens the mail before onboarding is done. `/profile`
+  // A new user often opens the mail before onboarding is done. `/account`
   // sends a user without a household to `/onboarding`, with the result.
   test('a link opened during onboarding shows its result there', async ({ page }) => {
     const { email } = await signUp(page)
 
     await page.goto(
-      `/api/auth/verify-email?token=not-a-token&callbackURL=${encodeURIComponent('/profile?verified=1')}`,
+      `/api/auth/verify-email?token=not-a-token&callbackURL=${encodeURIComponent('/account?verified=1')}`,
     )
     await expect(page).toHaveURL('/onboarding')
     await expect(
@@ -95,7 +95,7 @@ test.describe('Email verification', () => {
     expect(expectUserExists(await fetchUserState(email), email).emailVerified).toBe(true)
   })
 
-  test('a link opened while signed out verifies, then signs in to the profile', async ({
+  test('a link opened while signed out verifies, then signs in to the Profile tab', async ({
     page,
     browser,
   }) => {
@@ -106,7 +106,7 @@ test.describe('Email verification', () => {
     const otherPage = await otherContext.newPage()
     await grantEssentialCookieConsent(otherPage)
 
-    // The endpoint sets the flag, then `/profile` sends the anonymous visitor
+    // The endpoint sets the flag, then `/account` sends the anonymous visitor
     // through sign-in with the params kept in `returnUrl`.
     await otherPage.goto(verifyPath)
     await expect(otherPage).toHaveURL(/\/sign-in\?returnUrl=/)
@@ -117,7 +117,7 @@ test.describe('Email verification', () => {
     await otherPage.locator('form button[type="submit"]').click()
 
     await expect(otherPage.getByText(VERIFIED)).toBeVisible()
-    await expect(otherPage).toHaveURL('/profile')
+    await expect(otherPage).toHaveURL('/account')
 
     await otherContext.close()
   })
