@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { addFavorite, FavoriteError, removeFavorite } from '@/lib/meals/favorite'
+
+const REFUSALS = {
+  mealNotFound: { error: 'Meal not found', status: 404 },
+  alreadyFavorite: { error: 'Meal is already favorited', status: 409 },
+  notFavorite: { error: 'Favorite not found', status: 404 },
+} as const
+
+const refuse = (error: FavoriteError) => {
+  const { error: message, status } = REFUSALS[error.reason]
+  return NextResponse.json({ error: message }, { status })
+}
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: mealId } = await params
@@ -23,44 +34,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    // Verify meal exists
-    const meal = await prisma.meal.findFirst({
-      where: {
-        id: mealId,
-        deletedAt: null,
-        // Meal can be either a system meal (householdId: null) or custom meal from this household
-        OR: [{ householdId: null }, { householdId: membership.household.id }],
-      },
-    })
-
-    if (!meal) {
-      return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
-    }
-
-    // Check if already favorited
-    const existing = await prisma.favoriteMeal.findUnique({
-      where: {
-        householdId_mealId: {
-          householdId: membership.household.id,
-          mealId,
-        },
-      },
-    })
-
-    if (existing) {
-      return NextResponse.json({ error: 'Meal is already favorited' }, { status: 409 })
-    }
-
-    // Create favorite
-    const favorite = await prisma.favoriteMeal.create({
-      data: {
-        householdId: membership.household.id,
-        mealId,
-      },
-    })
+    const favorite = await addFavorite(membership.household.id, mealId)
 
     return NextResponse.json({ id: favorite.id, mealId, isFavorite: true }, { status: 201 })
   } catch (error) {
+    if (error instanceof FavoriteError) return refuse(error)
     captureApiError(error, { route: '/api/meals/[id]/favorite', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to favorite meal' }, { status: 500 })
   }
@@ -84,20 +62,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    // Delete the favorite if it exists
-    const deleted = await prisma.favoriteMeal.deleteMany({
-      where: {
-        householdId: membership.household.id,
-        mealId,
-      },
-    })
-
-    if (deleted.count === 0) {
-      return NextResponse.json({ error: 'Favorite not found' }, { status: 404 })
-    }
+    await removeFavorite(membership.household.id, mealId)
 
     return NextResponse.json({ mealId, isFavorite: false })
   } catch (error) {
+    if (error instanceof FavoriteError) return refuse(error)
     captureApiError(error, { route: '/api/meals/[id]/favorite', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to unfavorite meal' }, { status: 500 })
   }

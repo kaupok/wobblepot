@@ -35,7 +35,7 @@ interface LandingPageProps {
  * tonight's dinner in front of breakfast and lunch and the rest of the week as
  * a strip of days under it. "Made for family kitchens" follows: four points
  * in a 2×2 grid of tiles, each with its vignette (`LandingFeatures`). The page
- * ends on the maker's line.
+ * ends on the maker's line, with the price and data line under it (HON-1226).
  *
  * The deck and the week strip follow the demo day: today's weekday is
  * tonight, and every card opens its meal in the cook view (`LandingDeck`).
@@ -91,18 +91,13 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
                 {t('privateBeta')}{' '}
                 {tSignUp.rich('requestInvite', {
                   link: (chunks) => (
-                    <Link
-                      href="/request-invite"
-                      className="text-foreground underline underline-offset-2"
-                    >
+                    <Link href="/request-invite" className="text-foreground inline-link">
                       {chunks}
                     </Link>
                   ),
                 })}
               </Body>
             )}
-            {/* One line, so the deck starts above the fold. */}
-            <Body variant="muted">{t('ctaNote')}</Body>
           </div>
 
           <LandingDeck day={dinner ? demo : null} dayLabel={dayLabel} />
@@ -112,8 +107,9 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
 
         <LandingFeatures />
 
-        {/* Phones only, as on the live page (HON-1060). The hero's one line
-            under the call to action is the page's only small print. */}
+        {/* Phones only, as on the live page (HON-1060). The page's only small
+            print, the price and data line, comes after it, under the maker's
+            line. */}
         <div className="mx-auto flex max-w-3xl flex-col gap-6 text-center text-balance md:hidden">
           <Body variant="lead">{t('close.line')}</Body>
           <Button asChild size="lg" className="w-full">
@@ -122,7 +118,9 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
         </div>
 
         <section aria-labelledby="landing-note" className="pb-8 md:pb-16">
-          <div className="mx-auto max-w-3xl text-center text-balance">
+          {/* The price and data line closes the page under the maker's line,
+              so a small gap, not the page's gap between sections (HON-1226). */}
+          <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 text-center text-balance">
             <Heading variant="h1" as="h2" face="brand" id="landing-note">
               {t.rich('note.title', { br: () => <br /> })}
               {' '}
@@ -131,6 +129,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
                 className="inline-block size-7 fill-current align-baseline lg:size-9"
               />
             </Heading>
+            <Body variant="muted">{t('ctaNote')}</Body>
           </div>
         </section>
       </div>

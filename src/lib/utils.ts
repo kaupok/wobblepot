@@ -26,13 +26,13 @@ export const CUSTOM_SPACING_VALUES = ['touch'] as const
 
 /**
  * Every custom value in the `--shadow-*` family, as declared in
- * `src/app/globals.css`. `float` is the header pills' lift (docs/DESIGN.md →
- * Elevation). Same hole as spacing: tailwind-merge's `shadow` scale is
+ * `src/app/globals.css`. `float` is the header pills' lift and `deck` the
+ * landing deck's front card (docs/DESIGN.md → Elevation). Same hole as spacing: tailwind-merge's `shadow` scale is
  * `isTshirtSize`, so an unregistered `shadow-float` keeps both sides of
  * `cn('shadow-float', 'shadow-md')`. Must stay in sync with `globals.css`;
  * `utils.test.ts` fails if the two drift.
  */
-export const CUSTOM_SHADOW_VALUES = ['float', 'modal'] as const
+export const CUSTOM_SHADOW_VALUES = ['float', 'modal', 'deck'] as const
 
 /**
  * Every custom `@utility` declared in `src/app/globals.css`, mapped to the
@@ -68,6 +68,21 @@ export const CUSTOM_UTILITY_CLASS_GROUPS = {
   left: ['left-macro-carbs'],
   p: ['p-safe'],
 } as const
+
+/**
+ * Custom `@utility` names that belong to no tailwind-merge class group, so they
+ * cannot go in `CUSTOM_UTILITY_CLASS_GROUPS`. Each one needs a reason.
+ *
+ * - `inline-link` (HON-1227): sets the underline's line, thickness and offset
+ *   together, so it spans three tailwind-merge families and none of them is
+ *   named by its prefix. It goes on a bare `<a>` or `<Link>` in body text,
+ *   never through a component's `cn(base, className)`, so no override of it
+ *   needs merging.
+ *
+ * `utils.test.ts` fails on a name here that is not declared, or that is also
+ * in `CUSTOM_UTILITY_CLASS_GROUPS`.
+ */
+export const UNMERGED_UTILITIES = ['inline-link'] as const
 
 const twMerge = extendTailwindMerge({
   extend: {

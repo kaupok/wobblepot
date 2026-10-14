@@ -1,559 +1,217 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, PATCH } from './route'
 
-// Mock dependencies
+// The household update and its prep-tips clear live in `@/lib/household`,
+// tested against a database in `household.db.test.ts`. This file mocks that
+// module at the seam and asserts what the route owns: the session, the owner
+// check, body validation, and the status and body each answer maps to
+// (HON-1213).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    householdMember: {
-      findFirst: vi.fn(),
-    },
-    household: {
-      update: vi.fn(),
-    },
-    mealPlanEntry: {
-      updateMany: vi.fn(),
-    },
-    $transaction: vi.fn(),
-  },
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
+  updateHousehold: vi.fn(),
+}))
+
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { getHouseholdMembership, updateHousehold } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
-const mockHouseholdUpdate = vi.mocked(prisma.household.update)
-const mockTransaction = vi.mocked(prisma.$transaction)
-const mockEntryUpdateMany = vi.mocked(prisma.mealPlanEntry.updateMany)
+const mockGetMembership = vi.mocked(getHouseholdMembership)
+const mockUpdateHousehold = vi.mocked(updateHousehold)
+const mockCaptureApiError = vi.mocked(captureApiError)
 
-/**
- * Run the locale-change transaction against the same `prisma` mock, so
- * `tx.household.update` and `tx.mealPlanEntry.updateMany` are the same spies
- * the assertions below read. A locale-changing PATCH takes this path; every
- * other PATCH calls `prisma.household.update` directly and never enters it.
- */
-const mockLocaleTransaction = () =>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the callback's `tx` is Prisma's full client type; the route touches two models of it
-  mockTransaction.mockImplementation((async (fn: any) =>
-    fn({
-      household: { update: mockHouseholdUpdate },
-      mealPlanEntry: { updateMany: mockEntryUpdateMany },
-    })) as never)
+const mockSession = {
+  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+  session: { id: 'session-123' },
+} as never
+
+const CREATED_AT = new Date('2026-01-01T00:00:00.000Z')
+const PREFERENCES = { id: 'pref-1', dietaryType: null, allergensToAvoid: ['nuts'] }
+
+const household = {
+  id: 'household-123',
+  name: 'Test Household',
+  timezone: 'Europe/Tallinn',
+  locale: 'en',
+  createdAt: CREATED_AT,
+  preferences: PREFERENCES,
+}
+
+const membership = (role: 'owner' | 'member' = 'owner') =>
+  ({
+    id: 'member-123',
+    householdId: 'household-123',
+    userId: 'user-123',
+    role,
+    household: { ...household, _count: { members: 2 }, members: [] },
+  }) as never
+
+/** The body every success answers with: the household's fields, no member data. */
+const answerBody = (fields: Partial<typeof household> = {}) =>
+  JSON.parse(JSON.stringify({ ...household, ...fields }))
+
+const URL = 'http://localhost/api/households/me'
+
+const patch = (body: unknown) =>
+  PATCH(
+    new Request(URL, {
+      method: 'PATCH',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+  )
+
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(membership())
+})
 
 describe('GET /api/households/me', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('returns 401 when not authenticated', async () => {
+  it('answers 401 without a session', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(GET())).toEqual({ status: 401, body: { error: 'Unauthorized' } })
   })
 
-  it('returns household with preferences when authenticated', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it('answers 404 when the user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
 
-    const mockHousehold = {
-      id: 'household-123',
-      name: "John Doe's Household",
-      timezone: 'Europe/Tallinn',
-      createdAt: new Date('2024-01-01'),
-      preferences: {
-        id: 'prefs-123',
-        householdId: 'household-123',
-        dietaryType: null,
-        allergensToAvoid: [],
-        restrictions: [],
-        excludedIngredients: [],
-        weekdayMealTypes: ['dinner'],
-        weekendMealTypes: ['dinner'],
-      },
-    }
+    expect(await answer(GET())).toEqual({ status: 404, body: { error: 'No household found' } })
+  })
 
-    mockFindFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-123',
+  it('answers with the household and its preferences', async () => {
+    expect(await answer(GET())).toEqual({ status: 200, body: answerBody() })
+  })
+
+  it('answers 500 and reports a failed read', async () => {
+    const failure = new Error('database down')
+    mockGetMembership.mockRejectedValue(failure)
+
+    expect(await answer(GET())).toEqual({
+      status: 500,
+      body: { error: 'Failed to fetch household' },
+    })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/households/me',
       userId: 'user-123',
-      role: 'owner',
-      household: mockHousehold,
-    } as never)
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.id).toBe('household-123')
-    expect(data.name).toBe("John Doe's Household")
-    expect(data.timezone).toBe('Europe/Tallinn')
-    expect(data.preferences).toBeDefined()
-    expect(data.preferences.dietaryType).toBeNull()
-  })
-
-  it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-789', name: 'Bob', email: 'bob@example.com' },
-      session: { id: 'session-789' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(null)
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    })
   })
 })
 
 describe('PATCH /api/households/me', () => {
-  const mockHousehold = {
-    id: 'household-123',
-    name: "John Doe's Household",
-    timezone: 'Europe/Tallinn',
-    locale: 'en',
-    createdAt: new Date('2024-01-01'),
-    preferences: {
-      id: 'prefs-123',
-      householdId: 'household-123',
-      dietaryType: null,
-      allergensToAvoid: [],
-      restrictions: [],
-      excludedIngredients: [],
-      weekdayMealTypes: ['dinner'],
-      weekendMealTypes: ['dinner'],
-    },
-  }
-
-  const mockMembership = {
-    id: 'member-123',
-    householdId: 'household-123',
-    userId: 'user-123',
-    role: 'owner',
-    household: mockHousehold,
-  }
-
   beforeEach(() => {
-    vi.clearAllMocks()
+    mockUpdateHousehold.mockImplementation(
+      async (_household, data) =>
+        ({
+          ...household,
+          ...data,
+        }) as never,
+    )
   })
 
-  it('returns 401 when not authenticated', async () => {
+  it('answers 401 without a session', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ name: 'New Name' }),
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
-  })
-
-  it('returns 400 for invalid JSON', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: 'not valid json',
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
-  })
-
-  it('returns 400 for name too short', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ name: '' }),
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.name).toBeDefined()
-  })
-
-  it('returns 400 for name too long', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ name: 'a'.repeat(101) }),
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.name).toBeDefined()
-  })
-
-  it('returns 400 for invalid timezone', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ timezone: 'Invalid/Timezone' }),
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.timezone).toBeDefined()
-  })
-
-  it('returns 404 when no household found', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(null)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ name: 'New Name' }),
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
-  })
-
-  it('updates name only', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedHousehold = { ...mockHousehold, name: 'New Household Name' }
-    mockHouseholdUpdate.mockResolvedValue(updatedHousehold as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ name: 'New Household Name' }),
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.name).toBe('New Household Name')
-    expect(mockHouseholdUpdate).toHaveBeenCalledWith({
-      where: { id: 'household-123' },
-      data: { name: 'New Household Name' },
-      include: { preferences: true },
+    expect(await answer(patch({ name: 'New' }))).toEqual({
+      status: 401,
+      body: { error: 'Unauthorized' },
     })
   })
 
-  it('updates timezone only', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedHousehold = { ...mockHousehold, timezone: 'America/New_York' }
-    mockHouseholdUpdate.mockResolvedValue(updatedHousehold as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ timezone: 'America/New_York' }),
+  it('answers 400 for invalid JSON', async () => {
+    expect(await answer(patch('{not json'))).toEqual({
+      status: 400,
+      body: { error: 'Invalid JSON' },
     })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.timezone).toBe('America/New_York')
-    expect(mockHouseholdUpdate).toHaveBeenCalledWith({
-      where: { id: 'household-123' },
-      data: { timezone: 'America/New_York' },
-      include: { preferences: true },
-    })
-  })
-
-  it('updates both name and timezone', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedHousehold = {
-      ...mockHousehold,
-      name: 'The Smith Family',
-      timezone: 'America/Los_Angeles',
-    }
-    mockHouseholdUpdate.mockResolvedValue(updatedHousehold as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({
-        name: 'The Smith Family',
-        timezone: 'America/Los_Angeles',
-      }),
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.name).toBe('The Smith Family')
-    expect(data.timezone).toBe('America/Los_Angeles')
-    expect(data.preferences).toBeDefined()
-    expect(mockHouseholdUpdate).toHaveBeenCalledWith({
-      where: { id: 'household-123' },
-      data: { name: 'The Smith Family', timezone: 'America/Los_Angeles' },
-      include: { preferences: true },
-    })
-  })
-
-  it('handles empty body gracefully', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockHouseholdUpdate.mockResolvedValue(mockHousehold as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({}),
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.name).toBe("John Doe's Household")
-    expect(mockHouseholdUpdate).toHaveBeenCalledWith({
-      where: { id: 'household-123' },
-      data: {},
-      include: { preferences: true },
-    })
-  })
-
-  it('returns 403 when caller is a non-owner member', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-456', name: 'Jane', email: 'jane@example.com' },
-      session: { id: 'session-456' },
-    } as never)
-    mockFindFirst.mockResolvedValue({ ...mockMembership, role: 'member' } as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ name: 'New Name' }),
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('forbidden')
-    expect(mockHouseholdUpdate).not.toHaveBeenCalled()
-  })
-
-  it('updates locale to a known value', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockLocaleTransaction()
-
-    const updatedHousehold = { ...mockHousehold, locale: 'et' }
-    mockHouseholdUpdate.mockResolvedValue(updatedHousehold as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ locale: 'et' }),
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.locale).toBe('et')
-    expect(mockHouseholdUpdate).toHaveBeenCalledWith({
-      where: { id: 'household-123' },
-      data: { locale: 'et' },
-      include: { preferences: true },
-    })
-  })
-
-  // Cached prep tips are generated in the household's locale, and nothing else
-  // clears them — so a household that switches en → et would keep showing
-  // English tips forever (HON-681).
-  it('clears cached preparation tips for the household when the locale changes', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockLocaleTransaction()
-    mockHouseholdUpdate.mockResolvedValue({ ...mockHousehold, locale: 'et' } as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ locale: 'et' }),
-    })
-
-    const response = await PATCH(request)
-
-    expect(response.status).toBe(200)
-    // Inside the same transaction as the household update, so a failed write
-    // leaves neither the new locale nor the emptied cache behind.
-    expect(mockTransaction).toHaveBeenCalledTimes(1)
-    expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
-    expect(mockEntryUpdateMany).toHaveBeenCalledWith({
-      where: {
-        plan: { householdId: 'household-123' },
-        preparationTips: { not: null },
-      },
-      data: { preparationTips: null },
-    })
-  })
-
-  it('leaves preparation tips alone when the PATCH resends the stored locale', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockLocaleTransaction()
-    mockHouseholdUpdate.mockResolvedValue(mockHousehold as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ locale: 'en' }),
-    })
-
-    const response = await PATCH(request)
-
-    expect(response.status).toBe(200)
-    expect(mockHouseholdUpdate).toHaveBeenCalledTimes(1)
-    expect(mockTransaction).not.toHaveBeenCalled()
-    expect(mockEntryUpdateMany).not.toHaveBeenCalled()
   })
 
   it.each([
-    ['name', { name: 'New Name' }],
-    ['timezone', { timezone: 'Europe/Helsinki' }],
-  ])('leaves preparation tips alone on a %s-only PATCH', async (_field, body) => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockLocaleTransaction()
-    mockHouseholdUpdate.mockResolvedValue({ ...mockHousehold, ...body } as never)
+    ['an empty name', { name: '' }, 'name'],
+    ['a name over 100 characters', { name: 'a'.repeat(101) }, 'name'],
+    ['an unknown timezone', { timezone: 'Mars/Olympus' }, 'timezone'],
+    ['an unknown locale', { locale: 'fr' }, 'locale'],
+  ])('answers 400 for %s', async (_label, body, field) => {
+    const { status, body: answered } = await answer(patch(body))
 
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    })
-
-    const response = await PATCH(request)
-
-    expect(response.status).toBe(200)
-    expect(mockTransaction).not.toHaveBeenCalled()
-    expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+    expect(status).toBe(400)
+    expect(answered.error).toBe('Validation failed')
+    expect(Object.keys(answered.details)).toEqual([field])
+    expect(mockUpdateHousehold).not.toHaveBeenCalled()
   })
 
-  it('rejects an unknown locale', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it('answers 404 when the user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ locale: 'fr' }),
+    expect(await answer(patch({ name: 'New' }))).toEqual({
+      status: 404,
+      body: { error: 'No household found' },
     })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.locale).toBeDefined()
   })
 
-  it('ignores unknown fields in request body', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
+  it('answers 403 to a member who is not the owner, and saves nothing', async () => {
+    mockGetMembership.mockResolvedValue(membership('member'))
 
-    const updatedHousehold = { ...mockHousehold, name: 'Valid Name' }
-    mockHouseholdUpdate.mockResolvedValue(updatedHousehold as never)
-
-    const request = new Request('http://localhost/api/households/me', {
-      method: 'PATCH',
-      body: JSON.stringify({
-        name: 'Valid Name',
-        unknownField: 'should be ignored',
-        anotherUnknown: 123,
-      }),
+    expect(await answer(patch({ name: 'New' }))).toEqual({
+      status: 403,
+      body: { error: 'forbidden', message: 'Only the household owner can edit these settings.' },
     })
+    expect(mockUpdateHousehold).not.toHaveBeenCalled()
+  })
 
-    const response = await PATCH(request)
-    const data = await response.json()
+  it('saves the validated fields on the stored household and answers with the result', async () => {
+    const result = await answer(
+      patch({ name: 'Renamed', timezone: 'America/New_York', locale: 'et' }),
+    )
 
-    expect(response.status).toBe(200)
-    expect(data.name).toBe('Valid Name')
-    expect(mockHouseholdUpdate).toHaveBeenCalledWith({
-      where: { id: 'household-123' },
-      data: { name: 'Valid Name' },
-      include: { preferences: true },
+    expect(result).toEqual({
+      status: 200,
+      body: answerBody({ name: 'Renamed', timezone: 'America/New_York', locale: 'et' }),
+    })
+    const [stored, data] = mockUpdateHousehold.mock.calls[0]!
+    expect(stored).toMatchObject({ id: 'household-123', locale: 'en' })
+    expect(data).toEqual({ name: 'Renamed', timezone: 'America/New_York', locale: 'et' })
+  })
+
+  it('drops unknown fields before saving', async () => {
+    await patch({ name: 'Renamed', id: 'other-household', createdAt: 'yesterday' })
+
+    expect(mockUpdateHousehold.mock.calls[0]![1]).toEqual({ name: 'Renamed' })
+  })
+
+  it('accepts an empty body as a save of nothing', async () => {
+    expect(await answer(patch({}))).toEqual({ status: 200, body: answerBody() })
+    expect(mockUpdateHousehold.mock.calls[0]![1]).toEqual({})
+  })
+
+  it('answers 500 and reports a failed save', async () => {
+    const failure = new Error('database down')
+    mockUpdateHousehold.mockRejectedValue(failure)
+
+    expect(await answer(patch({ name: 'Renamed' }))).toEqual({
+      status: 500,
+      body: { error: 'Failed to update household' },
+    })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/households/me',
+      userId: 'user-123',
     })
   })
 })

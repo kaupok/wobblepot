@@ -120,7 +120,7 @@ export function RequestInviteForm({ source }: { source?: string }) {
               <Body variant="muted">
                 {t.rich('privacy', {
                   link: (chunks) => (
-                    <Link href="/privacy" className="text-foreground underline underline-offset-2">
+                    <Link href="/privacy" className="text-foreground inline-link">
                       {chunks}
                     </Link>
                   ),

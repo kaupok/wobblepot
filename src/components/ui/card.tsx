@@ -18,8 +18,18 @@ import { cn } from '@/lib/utils'
 // nothing moves. Inside `[data-meal-surface]` that is the meal's chip colour,
 // the colour of its badges (HON-1027). The focus ring's `has-[…]` selector
 // outweighs `:hover`, so a focused card shows the focus ring when hovered.
-const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl border', {
+//
+// `bordered={false}` is a card on a coloured surface (the landing tiles,
+// HON-1224): the change from the surface's colour to the card's is its edge,
+// so a border would be a second one (docs/DESIGN.md → A card on a coloured
+// surface has no border). With `interactive` the ring alone is the edge: the
+// hover edge is then 1px, and the focus ring is unchanged.
+const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl', {
   variants: {
+    bordered: {
+      true: 'border',
+      false: '',
+    },
     size: {
       default: 'gap-6 py-6',
       sm: 'gap-2 py-2',
@@ -30,6 +40,7 @@ const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl 
     },
   },
   defaultVariants: {
+    bordered: true,
     size: 'default',
     interactive: false,
   },
@@ -37,6 +48,7 @@ const cardVariants = cva('bg-card text-card-foreground flex flex-col rounded-xl 
 
 function Card({
   className,
+  bordered,
   size,
   interactive,
   ...props
@@ -45,7 +57,7 @@ function Card({
     <div
       data-slot="card"
       data-size={size ?? 'default'}
-      className={cn(cardVariants({ size, interactive }), className)}
+      className={cn(cardVariants({ bordered, size, interactive }), className)}
       {...props}
     />
   )

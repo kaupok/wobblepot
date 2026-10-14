@@ -2,166 +2,200 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Prisma } from '@/generated/prisma/client'
 import { POST } from './route'
 
-// Mock dependencies
+// The household create, its claim lock and its rows live in
+// `@/lib/household-claim`: the lock and retry are tested in
+// `household-claim.test.ts`, the rows against a database in
+// `household-claim.db.test.ts`. This file mocks `createHousehold` at the seam
+// and asserts what the route owns: the session, body validation, the locale
+// it picks, and the status and body each answer maps to (HON-1213).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
-}))
-
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    $transaction: vi.fn(),
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
 vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
+vi.mock('@/lib/household-claim', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/household-claim')>()),
+  createHousehold: vi.fn(),
+}))
+
+import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
+import { AlreadyInHouseholdError, createHousehold } from '@/lib/household-claim'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockTransaction = vi.mocked(prisma.$transaction)
 const mockCaptureApiError = vi.mocked(captureApiError)
+const mockCreateHousehold = vi.mocked(createHousehold)
 
-/** Global salt, black pepper and water ids, as `seedDefaultStaples` finds them. */
-const STAPLE_INGREDIENTS = [{ id: 'ing-salt' }, { id: 'ing-pepper' }, { id: 'ing-water' }]
+const mockSession = {
+  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+  session: { id: 'session-123' },
+} as never
 
-/** Transaction delegates `seedDefaultStaples` reads and writes (HON-769). */
-function stapleMocks(ingredients: { id: string }[] = STAPLE_INGREDIENTS) {
-  return {
-    ingredient: { findMany: vi.fn().mockResolvedValue(ingredients) },
-    pantryItem: {
-      findMany: vi.fn().mockResolvedValue([]),
-      createMany: vi.fn(async ({ data }: { data: unknown[] }) => ({ count: data.length })),
-    },
-  }
+const PREFERENCES = { id: 'prefs-123', allergensToAvoid: [], weekdayMealTypes: ['dinner'] }
+
+const HOUSEHOLD = {
+  id: 'household-123',
+  name: 'My Household',
+  timezone: 'Europe/Tallinn',
+  locale: 'en',
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  preferences: PREFERENCES,
 }
 
+const post = (body: unknown) =>
+  POST(
+    new Request('http://localhost/api/households', {
+      method: 'POST',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+  )
+
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
+}
+
+/** What `createHousehold` was asked to create. */
+const created = () => mockCreateHousehold.mock.calls[0]![1]
+
+const ALREADY_IN_HOUSEHOLD = {
+  status: 400,
+  body: { error: 'already_in_household', message: 'You are already a member of a household.' },
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockCreateHousehold.mockResolvedValue(HOUSEHOLD as never)
+})
+
 describe('POST /api/households', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  afterEach(() => {
-    // No-op unless a test installed fake timers for the retry backoff.
-    vi.useRealTimers()
-  })
-
-  it('returns 401 when not authenticated', async () => {
+  it('answers 401 without a session', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'My Household' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
-  })
-
-  it('returns 400 when user already has a household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    // Mock transaction where findFirst returns existing membership
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        $queryRaw: vi.fn().mockResolvedValue([]),
-        householdMember: {
-          findFirst: vi.fn().mockResolvedValue({
-            id: 'member-123',
-            householdId: 'household-123',
-            userId: 'user-123',
-            role: 'owner',
-          }),
-        },
-      }
-      return callback(mockTx as never)
-    })
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'My Household' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('already_in_household')
-    expect(data.message).toBe('You are already a member of a household.')
-  })
-
-  it("creates the membership under the session user's row lock, at read committed", async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    const queryRaw = vi.fn().mockResolvedValue([])
-    const memberFindFirst = vi.fn().mockResolvedValue(null)
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        $queryRaw: queryRaw,
-        householdMember: { findFirst: memberFindFirst, create: vi.fn() },
-        household: {
-          create: vi.fn().mockResolvedValue({ id: 'household-1' }),
-          findUnique: vi.fn().mockResolvedValue({ id: 'household-1', name: 'My Household' }),
-        },
-        ...stapleMocks(),
-        householdPreferences: { create: vi.fn() },
-      }
-      return callback(mockTx as never)
-    })
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'My Household' }),
-    })
-
-    await POST(request)
-
-    // Without the lock this check is a SELECT matching zero rows, so it takes
-    // no lock: two concurrent creates for the same user insert two *different*
-    // member rows and `@@unique([householdId, userId])` never fires. A double
-    // submit is enough (HON-679). The lock must be the *session* user's — the
-    // one this create writes a membership for — and it must be taken before the
-    // check. Read committed, not `Serializable`, so creates by different users
-    // never conflict (HON-838).
-    expect(queryRaw).toHaveBeenCalledTimes(1)
-    expect(queryRaw.mock.calls[0]!.slice(1)).toEqual(['user-123'])
-    expect(queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
-      memberFindFirst.mock.invocationCallOrder[0]!,
-    )
-    expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), {
-      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+    expect(await answer(post({ name: 'My Household' }))).toEqual({
+      status: 401,
+      body: { error: 'Unauthorized' },
     })
   })
 
+  it('answers 400 for invalid JSON', async () => {
+    expect(await answer(post('{not json'))).toEqual({
+      status: 400,
+      body: { error: 'Invalid JSON' },
+    })
+  })
+
+  it.each([
+    ['a missing name', {}, 'name'],
+    ['an empty name', { name: '' }, 'name'],
+    ['a name over 100 characters', { name: 'a'.repeat(101) }, 'name'],
+    // One past the route's bound. Each member costs writes inside the claim
+    // transaction, re-run once per retry, so the rejection comes first.
+    [
+      'more than 20 additional members',
+      { name: 'Home', members: Array.from({ length: 21 }, (_, i) => ({ name: `M${i}` })) },
+      'members',
+    ],
+    [
+      'an unknown allergen',
+      { name: 'Home', allergensToAvoid: ['nuts', 'kiwi'] },
+      'allergensToAvoid',
+    ],
+    [
+      'more allergens than exist',
+      { name: 'Home', allergensToAvoid: Array(10).fill('nuts') },
+      'allergensToAvoid',
+    ],
+  ])('answers 400 for %s, and creates nothing', async (_label, body, field) => {
+    const { status, body: answered } = await answer(post(body))
+
+    expect(status).toBe(400)
+    expect(answered.error).toBe('Validation failed')
+    expect(Object.keys(answered.details)).toEqual([field])
+    expect(mockCreateHousehold).not.toHaveBeenCalled()
+  })
+
+  it('creates the household for the session user and answers 201 with it', async () => {
+    expect(await answer(post({ name: 'My Household' }))).toEqual({
+      status: 201,
+      body: JSON.parse(JSON.stringify(HOUSEHOLD)),
+    })
+    expect(mockCreateHousehold).toHaveBeenCalledWith('user-123', {
+      name: 'My Household',
+      locale: 'en',
+    })
+  })
+
+  it('passes the members, each an adult unless it says child, and the allergens', async () => {
+    await post({
+      name: 'Home',
+      members: [{ name: 'Partner' }, { name: 'Kid', portionType: 'child' }],
+      allergensToAvoid: ['nuts', 'sesame'],
+      unknown: 'dropped',
+    })
+
+    expect(created()).toEqual({
+      name: 'Home',
+      locale: 'en',
+      members: [
+        { name: 'Partner', portionType: 'adult' },
+        { name: 'Kid', portionType: 'child' },
+      ],
+      allergensToAvoid: ['nuts', 'sesame'],
+    })
+  })
+
+  it('accepts a members array exactly at the bound', async () => {
+    const members = Array.from({ length: 20 }, (_, i) => ({ name: `M${i}` }))
+
+    expect((await answer(post({ name: 'Home', members }))).status).toBe(201)
+    expect(created().members).toHaveLength(20)
+  })
+
+  describe('the locale it stores (HON-549)', () => {
+    it.each([
+      ['et,en;q=0.9', 'et'],
+      ['et-EE', 'et'],
+      ['fr-FR,fr;q=0.9', 'en'],
+    ])('stores %s as %s', async (acceptLanguage, locale) => {
+      vi.mocked(headers).mockResolvedValueOnce(
+        new Headers({ 'accept-language': acceptLanguage }) as never,
+      )
+
+      await post({ name: 'Home' })
+
+      expect(created().locale).toBe(locale)
+    })
+
+    it('stores the default locale when the request has no Accept-Language', async () => {
+      await post({ name: 'Home' })
+
+      expect(created().locale).toBe('en')
+    })
+  })
+
+  it('answers already_in_household when the user has a household', async () => {
+    mockCreateHousehold.mockRejectedValue(new AlreadyInHouseholdError())
+
+    expect(await answer(post({ name: 'Home' }))).toEqual(ALREADY_IN_HOUSEHOLD)
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
+  // A concurrent create or invite join committed a membership after the
+  // check ran, and the unique index rejected the owner row (HON-696).
+  // `OnboardingFlow` branches on the string, so the answer is the same.
   it('maps a unique-index rejection of the owner row to already_in_household, not a 500', async () => {
-    // A concurrent create or invite join committed a membership for this user
-    // after the in-transaction check ran, and `household_member_userId_key`
-    // rejected the owner insert (HON-696). `P2002` is not retried, so this is
-    // the first attempt's error. `OnboardingFlow` branches on the string.
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockTransaction.mockRejectedValue(
+    mockCreateHousehold.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed on the fields: (`userId`)',
         {
@@ -172,64 +206,15 @@ describe('POST /api/households', () => {
       ),
     )
 
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'My Household' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('already_in_household')
-    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(await answer(post({ name: 'Home' }))).toEqual(ALREADY_IN_HOUSEHOLD)
     expect(mockCaptureApiError).not.toHaveBeenCalled()
   })
 
-  it('answers a persistent serialization failure with a reported JSON 500', async () => {
-    // This is the one test here that exhausts `runHouseholdClaim`'s retry
-    // budget, so it is the one that would otherwise sit through both real
-    // backoff waits. `afterEach` restores real timers.
-    vi.useFakeTimers()
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockTransaction.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError('could not serialize access', {
-        code: 'P2034',
-        clientVersion: 'test',
-      }),
-    )
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'My Household' }),
-    })
-
-    const responsePromise = POST(request)
-    await vi.runAllTimersAsync()
-    const response = await responsePromise
-    const data = await response.json()
-
-    // Rethrowing would let Next render an HTML error page, and
-    // OnboardingFlow calls `response.json()` outside its network-error
-    // try — so the user would see a raw SyntaxError and nothing would be
-    // reported. A `P2034` that outlasts the retry budget makes this reachable.
-    expect(response.status).toBe(500)
-    expect(data.error).toBe('Failed to create household')
-    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
-  })
-
-  describe('logging a failed create', () => {
+  describe('a failed create', () => {
     const databaseDown = new Error('connection terminated unexpectedly')
 
     beforeEach(() => {
-      mockGetSession.mockResolvedValue({
-        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-        session: { id: 'session-123' },
-      } as never)
-      mockTransaction.mockRejectedValue(databaseDown)
+      mockCreateHousehold.mockRejectedValue(databaseDown)
       // Hermetic against a developer who has the capture opt-in set in `.env`:
       // it makes `shouldSkipLocalCapture()` false whatever the release.
       vi.stubEnv('POSTHOG_CAPTURE_LOCAL', '')
@@ -240,667 +225,39 @@ describe('POST /api/households', () => {
       vi.restoreAllMocks()
     })
 
-    const createRequest = () =>
-      new Request('http://localhost/api/households', {
-        method: 'POST',
-        body: JSON.stringify({ name: 'My Household' }),
-      })
+    // A rethrow would let Next render an HTML error page, which reaches
+    // `OnboardingFlow` with no `error` to branch on, and nothing is reported.
+    it('answers a reported JSON 500', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
 
+      expect(await answer(post({ name: 'Home' }))).toEqual({
+        status: 500,
+        body: { error: 'Failed to create household' },
+      })
+      expect(mockCaptureApiError).toHaveBeenCalledWith(databaseDown, {
+        route: '/api/households',
+        userId: 'user-123',
+      })
+    })
+
+    // Capture returns early on a dev server or a local E2E run, so without
+    // this log a failed onboarding create leaves no trace at all (HON-838).
     it('logs the error on a local machine, where capture is skipped', async () => {
-      // No `VERCEL_GIT_COMMIT_SHA`: a dev server or a local E2E run. Capture
-      // returns early there, so without this log a failed onboarding create
-      // leaves no trace at all (HON-838).
       vi.stubEnv('VERCEL_GIT_COMMIT_SHA', '')
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      const response = await POST(createRequest())
+      await post({ name: 'Home' })
 
-      expect(response.status).toBe(500)
       expect(consoleError).toHaveBeenCalledWith(expect.any(String), databaseDown)
-      expect(mockCaptureApiError).toHaveBeenCalledWith(databaseDown, expect.anything())
     })
 
     it('does not log in a deployment, which reports to PostHog instead', async () => {
       vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'abc123')
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      const response = await POST(createRequest())
-
-      expect(response.status).toBe(500)
-      expect(consoleError).not.toHaveBeenCalled()
-      expect(mockCaptureApiError).toHaveBeenCalledWith(databaseDown, expect.anything())
-    })
-  })
-
-  it('returns 400 for invalid JSON', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: 'not valid json',
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
-  })
-
-  it('returns 400 for missing name', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.name).toBeDefined()
-  })
-
-  it('returns 400 for empty name', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: '' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.name).toBeDefined()
-  })
-
-  it('returns 400 for name too long', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'a'.repeat(101) }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.name).toBeDefined()
-  })
-
-  it('returns 400 without opening a transaction when members exceeds the bound', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    // One past MAX_ADDITIONAL_MEMBERS in the route. Each member costs two
-    // writes inside the claim transaction, re-run once per retry, so the
-    // rejection has to happen before the transaction opens — not inside it.
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'My Household',
-        members: Array.from({ length: 21 }, (_, i) => ({ name: `Member ${i}` })),
-      }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.members).toBeDefined()
-    expect(mockTransaction).not.toHaveBeenCalled()
-  })
-
-  it('accepts a members array exactly at the bound', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        $queryRaw: vi.fn().mockResolvedValue([]),
-        household: {
-          create: vi.fn().mockResolvedValue({ id: 'household-123' }),
-          findUnique: vi.fn().mockResolvedValue({
-            id: 'household-123',
-            name: 'My Household',
-            timezone: 'Europe/Tallinn',
-            createdAt: new Date('2024-01-01'),
-            preferences: { id: 'prefs-123' },
-          }),
-        },
-        householdMember: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
-        },
-        ...stapleMocks(),
-        householdPreferences: {
-          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
-        },
-        memberPreferences: {
-          create: vi.fn().mockResolvedValue({ id: 'member-prefs-123' }),
-        },
-      }
-      return callback(mockTx as never)
-    })
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'My Household',
-        members: Array.from({ length: 20 }, (_, i) => ({ name: `Member ${i}` })),
-      }),
-    })
-
-    const response = await POST(request)
-
-    // The bound is inclusive: a payload at exactly the limit is legitimate and
-    // must not be rejected off by one.
-    expect(response.status).toBe(201)
-  })
-
-  it('writes a member row and a portion multiplier for each additional member', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    // A distinct id per row, so each preferences write can be traced back to
-    // the member it belongs to. The owner's row is `member-1`.
-    let memberCount = 0
-    const memberCreate = vi.fn(async () => ({ id: `member-${++memberCount}` }))
-    const memberPreferencesCreate = vi.fn().mockResolvedValue({ id: 'member-prefs' })
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        $queryRaw: vi.fn().mockResolvedValue([]),
-        household: {
-          create: vi.fn().mockResolvedValue({ id: 'household-123' }),
-          findUnique: vi.fn().mockResolvedValue({ id: 'household-123', name: 'My Household' }),
-        },
-        householdMember: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: memberCreate,
-        },
-        ...stapleMocks(),
-        householdPreferences: { create: vi.fn() },
-        memberPreferences: { create: memberPreferencesCreate },
-      }
-      return callback(mockTx as never)
-    })
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'My Household',
-        members: [
-          { name: 'Anna', portionType: 'adult' },
-          { name: 'Mia', portionType: 'child' },
-          // No portionType: the schema defaults it to adult.
-          { name: 'Karl' },
-        ],
-      }),
-    })
-
-    const response = await POST(request)
-
-    expect(response.status).toBe(201)
-    // The owner's row, then one per additional member.
-    expect(memberCreate).toHaveBeenCalledTimes(4)
-    expect(memberCreate.mock.calls.slice(1)).toEqual(
-      ['Anna', 'Mia', 'Karl'].map((name) => [
-        { data: { householdId: 'household-123', name, role: 'member' } },
-      ]),
-    )
-    // The multiplier feeds portion scaling and so shopping-list quantities:
-    // a child gets half an adult's portion.
-    expect(memberPreferencesCreate.mock.calls).toEqual([
-      [{ data: { memberId: 'member-2', portionMultiplier: 1.0 } }],
-      [{ data: { memberId: 'member-3', portionMultiplier: 0.5 } }],
-      [{ data: { memberId: 'member-4', portionMultiplier: 1.0 } }],
-    ])
-  })
-
-  it('creates household with owner role and returns 201', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const mockHousehold = {
-      id: 'household-123',
-      name: 'My Household',
-      timezone: 'Europe/Tallinn',
-      createdAt: new Date('2024-01-01'),
-      preferences: {
-        id: 'prefs-123',
-        householdId: 'household-123',
-        dietaryType: null,
-        allergensToAvoid: [],
-        restrictions: [],
-        excludedIngredients: [],
-        weekdayMealTypes: ['dinner'],
-        weekendMealTypes: ['dinner'],
-      },
-    }
-
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        $queryRaw: vi.fn().mockResolvedValue([]),
-        household: {
-          create: vi.fn().mockResolvedValue({ id: 'household-123' }),
-          findUnique: vi.fn().mockResolvedValue(mockHousehold),
-        },
-        householdMember: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
-        },
-        ...stapleMocks(),
-        householdPreferences: {
-          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
-        },
-      }
-      return callback(mockTx as never)
-    })
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'My Household' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(data.id).toBe('household-123')
-    expect(data.name).toBe('My Household')
-    expect(data.timezone).toBe('Europe/Tallinn')
-    expect(data.preferences).toBeDefined()
-  })
-
-  describe('allergens to avoid (HON-1082)', () => {
-    function signIn() {
-      mockGetSession.mockResolvedValue({
-        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-        session: { id: 'session-123' },
-      } as never)
-    }
-
-    /** Runs the claim against a mock transaction and returns its preferences `create`. */
-    function mockClaim() {
-      const preferencesCreate = vi.fn().mockResolvedValue({ id: 'prefs-123' })
-      mockTransaction.mockImplementation(async (callback) => {
-        const mockTx = {
-          $queryRaw: vi.fn().mockResolvedValue([]),
-          household: {
-            create: vi.fn().mockResolvedValue({ id: 'household-123' }),
-            findUnique: vi.fn().mockResolvedValue({ id: 'household-123', name: 'Home' }),
-          },
-          householdMember: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            create: vi.fn().mockResolvedValue({ id: 'member-123' }),
-          },
-          ...stapleMocks(),
-          householdPreferences: { create: preferencesCreate },
-        }
-        return callback(mockTx as never)
-      })
-      return preferencesCreate
-    }
-
-    function post(body: unknown) {
-      return POST(
-        new Request('http://localhost/api/households', {
-          method: 'POST',
-          body: JSON.stringify(body),
-        }),
-      )
-    }
-
-    it('writes the allergens on the preferences row', async () => {
-      signIn()
-      const preferencesCreate = mockClaim()
-
-      const response = await post({ name: 'Home', allergensToAvoid: ['nuts', 'sesame'] })
-
-      expect(response.status).toBe(201)
-      expect(preferencesCreate).toHaveBeenCalledWith({
-        data: expect.objectContaining({ allergensToAvoid: ['nuts', 'sesame'] }),
-      })
-    })
-
-    it('stores a duplicate once', async () => {
-      signIn()
-      const preferencesCreate = mockClaim()
-
-      await post({ name: 'Home', allergensToAvoid: ['nuts', 'gluten', 'nuts'] })
-
-      expect(preferencesCreate.mock.calls[0]![0].data.allergensToAvoid).toEqual(['nuts', 'gluten'])
-    })
-
-    it('stores an empty list when the field is missing', async () => {
-      signIn()
-      const preferencesCreate = mockClaim()
-
       await post({ name: 'Home' })
 
-      expect(preferencesCreate.mock.calls[0]![0].data.allergensToAvoid).toEqual([])
-    })
-
-    it('answers 400 without opening a transaction for an unknown allergen', async () => {
-      signIn()
-
-      const response = await post({ name: 'Home', allergensToAvoid: ['nuts', 'kiwi'] })
-
-      expect(response.status).toBe(400)
-      expect(await response.json()).toMatchObject({ error: 'Validation failed' })
-      expect(mockTransaction).not.toHaveBeenCalled()
-    })
-
-    it('answers 400 for more values than allergens exist', async () => {
-      signIn()
-
-      const response = await post({ name: 'Home', allergensToAvoid: Array(10).fill('nuts') })
-
-      expect(response.status).toBe(400)
-      expect(mockTransaction).not.toHaveBeenCalled()
-    })
-  })
-
-  it('persists Estonian when Accept-Language prefers et (HON-549 — public flip)', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const { headers } = await import('next/headers')
-    vi.mocked(headers).mockResolvedValueOnce(
-      new Headers({ 'accept-language': 'et,en;q=0.9' }) as never,
-    )
-
-    const createSpy = vi.fn().mockResolvedValue({ id: 'household-123' })
-    const mockHousehold = {
-      id: 'household-123',
-      name: 'My Household',
-      timezone: 'Europe/Tallinn',
-      locale: 'et',
-      createdAt: new Date('2026-06-02'),
-      preferences: null,
-    }
-
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        $queryRaw: vi.fn().mockResolvedValue([]),
-        household: {
-          create: createSpy,
-          findUnique: vi.fn().mockResolvedValue(mockHousehold),
-        },
-        householdMember: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
-        },
-        ...stapleMocks(),
-        householdPreferences: {
-          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
-        },
-      }
-      return callback(mockTx as never)
-    })
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'My Household' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(createSpy).toHaveBeenCalledWith({ data: { name: 'My Household', locale: 'et' } })
-    expect(data.locale).toBe('et')
-  })
-
-  it('persists Estonian for the regional et-EE Accept-Language tag', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const { headers } = await import('next/headers')
-    vi.mocked(headers).mockResolvedValueOnce(new Headers({ 'accept-language': 'et-EE' }) as never)
-
-    const createSpy = vi.fn().mockResolvedValue({ id: 'household-123' })
-    const mockHousehold = {
-      id: 'household-123',
-      name: 'My Household',
-      timezone: 'Europe/Tallinn',
-      locale: 'et',
-      createdAt: new Date('2026-06-02'),
-      preferences: null,
-    }
-
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        $queryRaw: vi.fn().mockResolvedValue([]),
-        household: {
-          create: createSpy,
-          findUnique: vi.fn().mockResolvedValue(mockHousehold),
-        },
-        householdMember: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
-        },
-        ...stapleMocks(),
-        householdPreferences: {
-          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
-        },
-      }
-      return callback(mockTx as never)
-    })
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'My Household' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(createSpy).toHaveBeenCalledWith({ data: { name: 'My Household', locale: 'et' } })
-    expect(data.locale).toBe('et')
-  })
-
-  it('persists default locale when no Accept-Language header is present', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const createSpy = vi.fn().mockResolvedValue({ id: 'household-123' })
-    const mockHousehold = {
-      id: 'household-123',
-      name: 'My Household',
-      timezone: 'Europe/Tallinn',
-      locale: 'en',
-      createdAt: new Date('2026-04-22'),
-      preferences: null,
-    }
-
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        $queryRaw: vi.fn().mockResolvedValue([]),
-        household: {
-          create: createSpy,
-          findUnique: vi.fn().mockResolvedValue(mockHousehold),
-        },
-        householdMember: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
-        },
-        ...stapleMocks(),
-        householdPreferences: {
-          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
-        },
-      }
-      return callback(mockTx as never)
-    })
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'My Household' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(createSpy).toHaveBeenCalledWith({ data: { name: 'My Household', locale: 'en' } })
-    expect(data.locale).toBe('en')
-  })
-
-  it('ignores unknown fields in request body', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const mockHousehold = {
-      id: 'household-123',
-      name: 'Valid Household',
-      timezone: 'Europe/Tallinn',
-      createdAt: new Date('2024-01-01'),
-      preferences: {
-        id: 'prefs-123',
-        householdId: 'household-123',
-        dietaryType: null,
-        allergensToAvoid: [],
-        restrictions: [],
-        excludedIngredients: [],
-        weekdayMealTypes: ['dinner'],
-        weekendMealTypes: ['dinner'],
-      },
-    }
-
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        $queryRaw: vi.fn().mockResolvedValue([]),
-        household: {
-          create: vi.fn().mockResolvedValue({ id: 'household-123' }),
-          findUnique: vi.fn().mockResolvedValue(mockHousehold),
-        },
-        householdMember: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({ id: 'member-123' }),
-        },
-        ...stapleMocks(),
-        householdPreferences: {
-          create: vi.fn().mockResolvedValue({ id: 'prefs-123' }),
-        },
-      }
-      return callback(mockTx as never)
-    })
-
-    const request = new Request('http://localhost/api/households', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'Valid Household',
-        unknownField: 'should be ignored',
-      }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(data.name).toBe('Valid Household')
-  })
-
-  describe('default staples (HON-769)', () => {
-    function mockCreate(staples: ReturnType<typeof stapleMocks>) {
-      mockGetSession.mockResolvedValue({
-        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-        session: { id: 'session-123' },
-      } as never)
-      mockTransaction.mockImplementation(async (callback) => {
-        const mockTx = {
-          $queryRaw: vi.fn().mockResolvedValue([]),
-          household: {
-            create: vi.fn().mockResolvedValue({ id: 'household-123' }),
-            findUnique: vi.fn().mockResolvedValue({ id: 'household-123', name: 'My Household' }),
-          },
-          householdMember: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            create: vi.fn().mockResolvedValue({ id: 'member-123' }),
-          },
-          ...staples,
-          householdPreferences: { create: vi.fn() },
-        }
-        return callback(mockTx as never)
-      })
-    }
-
-    const request = () =>
-      new Request('http://localhost/api/households', {
-        method: 'POST',
-        body: JSON.stringify({ name: 'My Household' }),
-      })
-
-    it('marks salt, black pepper and water as staples with no quantity', async () => {
-      const staples = stapleMocks()
-      mockCreate(staples)
-
-      const response = await POST(request())
-
-      expect(response.status).toBe(201)
-      expect(staples.ingredient.findMany).toHaveBeenCalledWith({
-        where: { name: { in: ['salt', 'black pepper', 'water'] }, householdId: null },
-        select: { id: true },
-      })
-      expect(staples.pantryItem.createMany).toHaveBeenCalledWith({
-        data: ['ing-salt', 'ing-pepper', 'ing-water'].map((ingredientId) => ({
-          householdId: 'household-123',
-          ingredientId,
-          isStaple: true,
-          quantity: null,
-        })),
-        skipDuplicates: true,
-      })
-    })
-
-    it('still creates the household when a staple ingredient is missing', async () => {
-      const staples = stapleMocks([{ id: 'ing-salt' }, { id: 'ing-water' }])
-      mockCreate(staples)
-
-      const response = await POST(request())
-
-      expect(response.status).toBe(201)
-      const { data } = staples.pantryItem.createMany.mock.calls[0]![0] as {
-        data: { ingredientId: string }[]
-      }
-      expect(data.map((d) => d.ingredientId)).toEqual(['ing-salt', 'ing-water'])
+      expect(consoleError).not.toHaveBeenCalled()
     })
   })
 })

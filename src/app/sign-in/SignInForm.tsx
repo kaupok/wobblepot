@@ -166,7 +166,7 @@ export function SignInForm({ isOAuthRequest = false }: SignInFormProps) {
                 <Label htmlFor="password">{t('passwordLabel')}</Label>
                 <Link
                   href="/forgot-password"
-                  className="text-primary text-sm hover:underline"
+                  className="text-primary inline-link text-sm"
                   tabIndex={-1}
                 >
                   {t('forgotPasswordLink')}
@@ -206,7 +206,7 @@ export function SignInForm({ isOAuthRequest = false }: SignInFormProps) {
                     ? `/sign-up?returnUrl=${encodeURIComponent(returnUrl)}`
                     : '/sign-up'
                 }
-                className="text-primary hover:underline"
+                className="text-primary inline-link"
               >
                 {t('signUpLink')}
               </Link>

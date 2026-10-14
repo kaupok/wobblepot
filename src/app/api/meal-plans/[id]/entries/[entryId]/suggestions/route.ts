@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
 import { suggestForSlot } from '@/lib/meal-planning/slot-suggestions'
+import { loadSlotEntry } from '@/lib/meal-plans/slot-context'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, respondCapExceeded } from '@/lib/ai/usage'
 import { withRequestId } from '@/lib/request-id'
@@ -71,19 +71,9 @@ async function handlePOST(
   }
 
   try {
-    // Fetch entry with plan details
-    const entry = await prisma.mealPlanEntry.findFirst({
-      where: {
-        id: entryId,
-        planId: planId,
-        plan: {
-          householdId: household.id,
-        },
-      },
-      include: {
-        plan: true,
-      },
-    })
+    // Scoped to the plan and to the user's household, so another household's
+    // entry reads as missing.
+    const entry = await loadSlotEntry(household.id, planId, entryId)
 
     if (!entry) {
       return NextResponse.json({ error: 'Entry not found or access denied' }, { status: 404 })

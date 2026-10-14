@@ -2,10 +2,8 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
-import { sumPortions } from '@/lib/meal-planning/servings'
-import { invalidateFutureEntrySteps } from '@/lib/meal-planning/preparation-steps-cache'
+import { getHouseholdMembership } from '@/lib/household'
+import { getOrCreateMemberPreferences, updateMemberPreferences } from '@/lib/household/preferences'
 import { captureApiError } from '@/lib/errors'
 
 const updatePreferencesSchema = z.object({
@@ -47,16 +45,7 @@ export async function GET() {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    // Get or create member preferences
-    let preferences = await prisma.memberPreferences.findUnique({
-      where: { memberId: membership.id },
-    })
-
-    if (!preferences) {
-      preferences = await prisma.memberPreferences.create({
-        data: { memberId: membership.id },
-      })
-    }
+    const preferences = await getOrCreateMemberPreferences(membership.id)
 
     return NextResponse.json(preferences)
   } catch (error) {
@@ -95,44 +84,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    const { portionMultiplier } = parsed.data
-    const preferences = await prisma.$transaction(async (tx) => {
-      const stored =
-        portionMultiplier === undefined
-          ? null
-          : await tx.memberPreferences.findUnique({
-              where: { memberId: membership.id },
-              select: { portionMultiplier: true },
-            })
-      // A missing preferences row is the column default, 1×.
-      const portionChanged =
-        portionMultiplier !== undefined && portionMultiplier !== (stored?.portionMultiplier ?? 1)
-
-      const saved = await tx.memberPreferences.upsert({
-        where: { memberId: membership.id },
-        create: {
-          memberId: membership.id,
-          ...parsed.data,
-        },
-        update: parsed.data,
-      })
-
-      // A portion size is summed into the household's servings, which price
-      // the cached prep tips on every entry without a `servingOverride`
-      // (HON-1040). Clear them only when those servings moved: the sum is
-      // rounded to 0.5, so 1.5 + 0.75 and 1.5 + 1 both price 2.5, and a
-      // needless invalidation costs a paid regeneration per entry (HON-684).
-      // `portionChanged` is the cheap guard that skips the re-read.
-      if (
-        portionChanged &&
-        (await loadHouseholdServings(membership.householdId, tx)) !==
-          sumPortions(membership.household.members)
-      ) {
-        await invalidateFutureEntrySteps(tx, membership.householdId, membership.household.timezone)
-      }
-
-      return saved
-    })
+    // Clears the cached prep tips when the household's servings move (HON-1040).
+    const preferences = await updateMemberPreferences(membership, parsed.data)
 
     return NextResponse.json(preferences)
   } catch (error) {

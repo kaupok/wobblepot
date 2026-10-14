@@ -127,3 +127,26 @@ export const Interactive: Story = {
     await expect(getComputedStyle(target).outlineStyle).toBe('none')
   },
 }
+
+// `bordered={false}`: a card on a coloured surface, here the landing page's sky
+// tile (`[data-landing-tile]` in globals.css). The change from the tile's
+// colour to the card's is the edge, so the card draws no border (HON-1224).
+export const OnColouredSurface: Story = {
+  render: () => (
+    <div data-landing-tile="sky" className="rounded-3xl p-8">
+      <Card bordered={false} className="w-80">
+        <CardHeader>
+          <CardTitle>Portions</CardTitle>
+          <CardDescription>Two adults and a toddler: serves 2.5.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm">Salmon fillet, 300 g.</p>
+        </CardContent>
+      </Card>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    await expect(getComputedStyle(card).borderTopWidth).toBe('0px')
+  },
+}

@@ -82,14 +82,25 @@ describe('LandingPage', () => {
     expect(within(headline).getByText((_, el) => el?.tagName === 'BR')).toBeInTheDocument()
   })
 
-  it('keeps the small print to one line above the deck', async () => {
+  it("ends the page on one line of small print, under the maker's line", async () => {
     const { container } = await renderLanding()
     const text = container.textContent ?? ''
-    const note = text.indexOf("Free while we're in beta · No ads · Your data stays in the EU")
-    expect(note).toBeGreaterThan(-1)
-    expect(note).toBeLessThan(text.indexOf("Thursday · Tonight's dinner"))
+    const line = "Free while we're in beta · No ads · Your data stays in the EU"
+    expect(text.endsWith(line)).toBe(true)
+    expect(text.indexOf(line)).toBeGreaterThan(text.indexOf('Made by a dad, for a family of four'))
+    // Not in the hero: the deck comes before it.
+    expect(text.indexOf(line)).toBeGreaterThan(text.indexOf("Thursday · Tonight's dinner"))
     expect(text).not.toContain('You hear 30 days before')
     expect(text).not.toContain('Your data lives in the EU, and there are no ads.')
+  })
+
+  it("ends the Estonian page on the same line, under the maker's line", async () => {
+    translationLocale = 'et'
+    const { container } = await renderLanding()
+    const text = container.textContent ?? ''
+    expect(
+      text.endsWith('Beeta ajal tasuta · Reklaamideta · Sinu andmed jäävad Euroopa Liitu'),
+    ).toBe(true)
   })
 
   it('shows the static Thursday when there is no demo day, with nothing to open', async () => {

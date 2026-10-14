@@ -1,6 +1,10 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { Suspense, type ComponentProps, type ReactElement } from 'react'
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import Home from './page'
+import { TodayTimeline } from './TodayTimeline'
 import enMessages from '../../messages/en.json'
 import etMessages from '../../messages/et.json'
 import { getServerFlag } from '@/lib/feature-flags'
@@ -65,6 +69,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/components/timeline', () => ({
   TimelineView: vi.fn(() => <div data-testid="timeline-view">Timeline</div>),
   FirstTimeSetup: vi.fn(() => <div data-testid="first-time-setup">First Time Setup</div>),
+  TodaySkeleton: vi.fn(() => <div data-testid="today-skeleton">Today skeleton</div>),
 }))
 
 // The page reads through the same loaders the API routes wrap (HON-789).
@@ -200,13 +205,27 @@ async function renderLanding() {
   return render(await Home(), { wrapper })
 }
 
-// The one line of small print under the hero button, word for word: the price
-// and the data promise (HON-1061, HON-1116).
+/**
+ * The signed-in home: `Home` returns Today inside a Suspense boundary
+ * (HON-1223), and the client renderer cannot resolve the async
+ * `TodayTimeline` inside it, so this awaits it the way the server would.
+ */
+async function signedInHome() {
+  const page = (await Home()) as ReactElement<{ children: ReactElement }>
+  const today = page.props.children as ReactElement<ComponentProps<typeof TodayTimeline>>
+  return TodayTimeline(today.props)
+}
+
+// The page's one line of small print, word for word: the price and the data
+// promise (HON-1061). It closes the page under the maker's line (HON-1226).
 const NOTE_EN = "Free while we're in beta · No ads · Your data stays in the EU"
 const NOTE_ET = 'Beeta ajal tasuta · Reklaamideta · Sinu andmed jäävad Euroopa Liitu'
 // The phone-only closing line above the maker's line (HON-1060).
 const CLOSE_EN = 'Two minutes at setup, then a week of dinners and one shopping list.'
 const CLOSE_ET = 'Kaks minutit alguses, siis nädala õhtusöögid ja üks ostunimekiri.'
+// The maker's line, the last section: its heading names the region.
+const MAKER_EN = 'Made by a dad, for a family of four'
+const MAKER_ET = 'Teinud isa oma neljaliikmelisele perele'
 
 /** Asserts that each element comes after the one before it in document order. */
 function expectInOrder(...elements: HTMLElement[]) {
@@ -260,13 +279,14 @@ describe('Home page component', () => {
       expect(signUpLinks()).toHaveLength(2)
     })
 
-    it('puts the price and data line under the notice while invites are required (HON-1061)', async () => {
+    it("keeps the notice in the hero and the price and data line under the maker's line (HON-1226)", async () => {
       await renderLanding()
 
-      expectInOrder(
-        screen.getByRole('note', { name: 'Private beta notice' }),
-        screen.getByText(NOTE_EN),
-      )
+      const makersLine = screen.getByRole('region', { name: MAKER_EN })
+      const notice = screen.getByRole('note', { name: 'Private beta notice' })
+      expect(within(makersLine).getByText(NOTE_EN)).toBeInTheDocument()
+      expect(makersLine).not.toContainElement(notice)
+      expectInOrder(notice, makersLine)
     })
 
     it('renders no notice when invites are not required', async () => {
@@ -296,7 +316,56 @@ describe('Home page component', () => {
         'href',
         '/request-invite',
       )
-      expectInOrder(notice, screen.getByText(NOTE_ET))
+      const makersLine = screen.getByRole('region', { name: MAKER_ET })
+      expect(within(makersLine).getByText(NOTE_ET)).toBeInTheDocument()
+      expect(makersLine).not.toContainElement(notice)
+    })
+  })
+
+  // The Today skeleton is the signed-in Today's own fallback, not a root
+  // `loading.tsx` that every route inherits (HON-1223).
+  describe('Today skeleton (HON-1223)', () => {
+    it('renders no Today skeleton for a signed-out visitor', async () => {
+      const { TodaySkeleton } = await import('@/components/timeline')
+      const { container } = await renderLanding()
+
+      expect(screen.queryByTestId('today-skeleton')).not.toBeInTheDocument()
+      expect(TodaySkeleton).not.toHaveBeenCalled()
+      expect(container.querySelector('[data-slot="skeleton"]')).toBeNull()
+    })
+
+    // A root `loading.tsx` wraps every route without its own, the landing
+    // page and the public pages included, so it cannot be Today-shaped.
+    it('has no root loading.tsx', () => {
+      expect(existsSync(path.join(process.cwd(), 'src/app/loading.tsx'))).toBe(false)
+    })
+
+    it('wraps Today in a Suspense boundary with the Today skeleton as its fallback', async () => {
+      const { TodaySkeleton } = await import('@/components/timeline')
+      await mockAuthedHouseholdSession(null)
+      await mockLoadersWithPlannedEntry()
+
+      const page = (await Home()) as ReactElement<{
+        fallback: ReactElement
+        children: ReactElement
+      }>
+
+      expect(page.type).toBe(Suspense)
+      expect(page.props.fallback.type).toBe(TodaySkeleton)
+      expect(page.props.children.type).toBe(TodayTimeline)
+      render(page.props.fallback)
+      expect(screen.getByTestId('today-skeleton')).toBeInTheDocument()
+    })
+
+    it('redirects a member without a household before any Today read starts', async () => {
+      const { getHouseholdMembership } = await import('@/lib/household')
+      const { loadPlanEntries } = await import('@/lib/meal-planning/load-plan-entries')
+      await mockAuthedHouseholdSession(null)
+      await mockLoaders()
+      vi.mocked(getHouseholdMembership).mockResolvedValue(null)
+
+      await expect(Home()).rejects.toThrow('NEXT_REDIRECT:/onboarding')
+      expect(loadPlanEntries).not.toHaveBeenCalled()
     })
   })
 
@@ -424,7 +493,8 @@ describe('Home page component', () => {
     expect(wrapper).not.toBeNull()
     const closingBlock = within(wrapper!)
     expect(closingBlock.getByText(CLOSE_EN)).toBeInTheDocument()
-    // The beta notice and the price and data line stay in the hero.
+    // The beta notice stays in the hero; the price and data line comes after
+    // this block, under the maker's line.
     expect(closingBlock.queryByText(NOTE_EN)).not.toBeInTheDocument()
     expect(closingBlock.queryByRole('note')).not.toBeInTheDocument()
     expectInOrder(
@@ -506,8 +576,7 @@ describe('Home page component', () => {
     // No entries, no plan
     await mockLoaders()
 
-    const component = await Home()
-    render(component)
+    render(await signedInHome())
     expect(screen.getByTestId('first-time-setup')).toBeInTheDocument()
   })
 
@@ -556,8 +625,7 @@ describe('Home page component', () => {
 
     await mockLoadersWithPlannedEntry()
 
-    const component = await Home()
-    render(component)
+    render(await signedInHome())
     expect(screen.getByTestId('timeline-view')).toBeInTheDocument()
   })
 
@@ -568,8 +636,7 @@ describe('Home page component', () => {
     await mockAuthedHouseholdSession(null)
     await mockLoadersWithPlannedEntry()
 
-    const component = await Home()
-    render(component)
+    render(await signedInHome())
 
     expect(screen.getByTestId('timeline-view')).toBeInTheDocument()
     expect(vi.mocked(TimelineView).mock.calls[0]?.[0].expectedMealTypes).toEqual({
@@ -586,8 +653,7 @@ describe('Home page component', () => {
     })
     await mockLoadersWithPlannedEntry()
 
-    const component = await Home()
-    render(component)
+    render(await signedInHome())
 
     expect(vi.mocked(TimelineView).mock.calls[0]?.[0].expectedMealTypes).toEqual({
       weekdayMealTypes: ['breakfast', 'dinner'],
@@ -620,7 +686,7 @@ describe('Home page component', () => {
       },
     })
 
-    render(await Home())
+    render(await signedInHome())
 
     expect(vi.mocked(TimelineView).mock.calls[0]?.[0].openCustomItemCount).toBe(2)
   })
@@ -632,7 +698,7 @@ describe('Home page component', () => {
     await mockAuthedHouseholdSession(null)
     await mockLoadersWithPlannedEntry()
 
-    await Home()
+    await signedInHome()
 
     expect(mockFetch).not.toHaveBeenCalled()
   })
@@ -643,7 +709,7 @@ describe('Home page component', () => {
     await mockAuthedHouseholdSession(null)
     await mockLoadersWithPlannedEntry()
 
-    await Home()
+    await signedInHome()
 
     expect(vi.mocked(loadPantry).mock.calls[0]?.[0]).toMatchObject({ id: 'household-123' })
     expect(vi.mocked(loadShoppingList).mock.calls[0]?.[1]).toEqual({ days: 7 })
@@ -657,7 +723,7 @@ describe('Home page component', () => {
     await mockAuthedHouseholdSession(null)
     await mockLoadersWithPlannedEntry()
 
-    await Home()
+    await signedInHome()
 
     const [, query] = vi.mocked(loadPlanEntries).mock.calls[0]!
     expect(query.startDate).toEqual(parseLocalDate(getTodayInTimezone('Europe/Tallinn')))
@@ -708,7 +774,7 @@ describe('Home page component', () => {
       },
     })
 
-    render(await Home())
+    render(await signedInHome())
 
     const props = vi.mocked(TimelineView).mock.calls[0]?.[0]
     expect(props?.pantryIngredients).toEqual([{ ingredientId: 'ing-salt', isStaple: true }])
@@ -727,7 +793,7 @@ describe('Home page component', () => {
     await mockAuthedHouseholdSession(null)
     await mockLoaders({ entries: { entries: [PLANNED_ENTRY], planId: 'plan-1' }, ...failure })
 
-    await expect(Home()).rejects.toThrow(/down/)
+    await expect(signedInHome()).rejects.toThrow(/down/)
     expect(TimelineView).not.toHaveBeenCalled()
   })
 
@@ -736,7 +802,7 @@ describe('Home page component', () => {
     await mockAuthedHouseholdSession(null)
     await mockLoaders({ entries: new Error('entries down') })
 
-    await expect(Home()).rejects.toThrow('entries down')
+    await expect(signedInHome()).rejects.toThrow('entries down')
     expect(FirstTimeSetup).not.toHaveBeenCalled()
   })
 

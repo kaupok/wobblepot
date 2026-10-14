@@ -52,7 +52,7 @@ const meta = {
     },
     msw: { handlers: handlers([CLAUDE]) },
   },
-  args: { initialConsents: [CLAUDE] },
+  args: { initialConsents: [CLAUDE], timeZone: 'Europe/Tallinn' },
   beforeEach: () => {
     disconnectSpy.mockClear()
   },

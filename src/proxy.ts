@@ -117,16 +117,18 @@ function isProtectedPath(pathname: string): boolean {
 
 /**
  * The admin segment must be indistinguishable from a path that does not exist.
- * `src/app/admin/layout.tsx` already renders the not-found UI for non-admins,
- * but the root `src/app/loading.tsx` streams a 200 before that layout runs, and
- * a streamed status cannot change. So a cookie-less request is rewritten here,
+ * `src/app/admin/layout.tsx` already renders the not-found UI for non-admins.
+ * The root `src/app/loading.tsx` used to stream a 200 before that layout ran,
+ * and a streamed status cannot change. There is no root fallback now
+ * (HON-1223), but any future Suspense boundary above the layout would bring
+ * the 200 back. So a cookie-less request is still rewritten here, as defence,
  * before anything streams, to a path no route can ever match — `_`-prefixed
  * folders are private in the App Router — and Next serves its ordinary 404
  * with a 404 status. A rewrite keeps the URL; a redirect would advertise the
  * route (HON-830).
  *
  * A signed-in non-admin still passes through, since the proxy cannot see who
- * is an admin: they get the 404 UI and title, but with a 200.
+ * is an admin: they get the 404 UI and title from the admin layout.
  */
 const ADMIN_PREFIX = '/admin'
 export const NOT_FOUND_REWRITE_PATH = '/_not-a-route'

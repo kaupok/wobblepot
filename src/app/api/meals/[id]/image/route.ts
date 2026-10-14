@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import type { Prisma } from '@/generated/prisma/client'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
@@ -24,8 +22,17 @@ import {
   isRateLimited,
   MealImageUnavailableError,
 } from '@/lib/meal-images/generate'
+import {
+  attachMealImage,
+  claimMealImage,
+  loadMealForImage,
+  markMealImageFailed,
+  MEAL_IMAGE_CLAIM_STALE_MS,
+  MEAL_IMAGE_MAX_ATTEMPTS,
+  readMealImage,
+  releaseMealImageClaim,
+} from '@/lib/meal-images/persist'
 import { presentMealImage } from '@/lib/meal-images/present'
-import { MEAL_IMAGE_PROMPT_VERSION } from '@/lib/meal-images/prompt'
 import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
 
 /**
@@ -38,7 +45,8 @@ import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
  * - 202 `generating` — another request holds the claim; poll again.
  * - 200 `none` — the meal was edited while this request generated, so the
  *   image was thrown away; the next request draws the edited meal.
- * - 200 `failed` — generation has failed `MAX_ATTEMPTS` times; never retried.
+ * - 200 `failed` — generation has failed `MEAL_IMAGE_MAX_ATTEMPTS` times; never
+ *   retried.
  * - 429 `none` — the image provider's rate limit outlasted one short wait;
  *   the claim is released without counting an attempt (HON-742).
  * - 503 `failed` — no OpenAI key, its quota is exhausted, or the
@@ -49,18 +57,12 @@ import { discardMealImage, putMealImage } from '@/lib/meal-images/storage'
  * - The stored status for a global meal (202 while `generating`), which is
  *   never generated here: an operator batch pays for shared assets (HON-738),
  *   so one household's AI cap is never charged for them.
+ *
+ * Every query, the claim and the writes guarded on it live in
+ * `@/lib/meal-images/persist` (HON-1211).
  */
 
 const ROUTE = '/api/meals/[id]/image'
-
-/** A meal whose image failed this many times is never retried. */
-const MAX_ATTEMPTS = 3
-
-/**
- * A `generating` claim older than this belongs to a function that died:
- * `maxDuration` below kills every live one well before it.
- */
-const CLAIM_STALE_MS = 3 * 60_000
 
 /**
  * Wall-clock budget for all AI time in this request, in ms: two images and
@@ -99,39 +101,6 @@ async function hueOf(bytes: Uint8Array, mealId: string): Promise<number | null> 
   }
 }
 
-/**
- * Write image columns only while this request's claim still holds.
- *
- * `clearMealImage` (HON-734) resets `imageClaimedAt` whenever the meal's
- * content is edited, even mid-generation, and a stale-claim takeover replaces
- * it — so matching on it is how this request notices either.
- *
- * The first attempt also pins `updatedAt` and writes the same value back.
- * Prisma's `@updatedAt` would otherwise move on every image write, and the
- * prep-tips route guards its own cache write on `Meal.updatedAt` (HON-683):
- * the modal opens both at once, so a bump here would silently throw away the
- * freshly generated tips. If some other edit already moved `updatedAt`, the
- * fallback writes normally — rolling it back would re-open that guard.
- */
-async function writeUnderClaim(
-  mealId: string,
-  claimedAt: Date,
-  updatedAt: Date,
-  data: Prisma.MealUpdateManyMutationInput,
-): Promise<boolean> {
-  const pinned = await prisma.meal.updateMany({
-    where: { id: mealId, imageClaimedAt: claimedAt, updatedAt },
-    data: { ...data, updatedAt },
-  })
-  if (pinned.count > 0) return true
-
-  const moved = await prisma.meal.updateMany({
-    where: { id: mealId, imageClaimedAt: claimedAt },
-    data,
-  })
-  return moved.count > 0
-}
-
 async function handlePOST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -150,35 +119,7 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
   const { household } = membership
   const { id: mealId } = await params
 
-  const meal = await prisma.meal.findFirst({
-    where: {
-      id: mealId,
-      deletedAt: null,
-      OR: [{ householdId: null }, { householdId: household.id }],
-    },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      preparationNotes: true,
-      householdId: true,
-      updatedAt: true,
-      imageUrl: true,
-      imageStatus: true,
-      imageHue: true,
-      imagePromptVersion: true,
-      imageClaimedAt: true,
-      imageAttempts: true,
-      components: {
-        select: {
-          quantityPerServing: true,
-          ingredient: {
-            select: { name: true, defaultUnit: true, gramsPerPiece: true, densityGPerMl: true },
-          },
-        },
-      },
-    },
-  })
+  const meal = await loadMealForImage(household.id, mealId)
 
   if (!meal) {
     return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
@@ -196,7 +137,7 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
     return respond({ status }, status === 'generating' ? 202 : 200)
   }
 
-  if (meal.imageStatus === 'failed' && meal.imageAttempts >= MAX_ATTEMPTS) {
+  if (meal.imageStatus === 'failed' && meal.imageAttempts >= MEAL_IMAGE_MAX_ATTEMPTS) {
     return respond({ status: 'failed' })
   }
 
@@ -204,7 +145,7 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
   // The guarded claim below is what actually settles a race; this only skips
   // the obvious case early.
   const now = new Date()
-  const staleBefore = new Date(now.getTime() - CLAIM_STALE_MS)
+  const staleBefore = new Date(now.getTime() - MEAL_IMAGE_CLAIM_STALE_MS)
   if (
     meal.imageStatus === 'generating' &&
     meal.imageClaimedAt !== null &&
@@ -250,45 +191,12 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
   }
 
   // Claim before generating, so two households opening the same meal never
-  // both pay. Same guarded-`updateMany` idiom as the prep-tips cache write:
-  // it matches nothing when another request got there first.
-  //
-  // `updatedAt` is pinned for two reasons: the content below was read at that
-  // version, so an edit since then must not be drawn from the stale read; and
-  // writing it back keeps this claim from moving it (see `writeUnderClaim`).
-  //
-  // A `ready` row only reaches here at a stale prompt version (HON-753). Its
-  // claim pins the version read, and resets the attempts: a new prompt is a
-  // new image, owed the full `MAX_ATTEMPTS`.
-  const claimedAt = now
-  const redraw = meal.imageStatus === 'ready'
-  const claim = await prisma.meal.updateMany({
-    where: {
-      id: meal.id,
-      deletedAt: null,
-      updatedAt: meal.updatedAt,
-      OR: redraw
-        ? [{ imageStatus: 'ready', imagePromptVersion: meal.imagePromptVersion }]
-        : [
-            { imageStatus: 'none' },
-            { imageStatus: 'failed', imageAttempts: { lt: MAX_ATTEMPTS } },
-            // A crashed function never releases its claim.
-            { imageStatus: 'generating', imageClaimedAt: { lt: staleBefore } },
-            { imageStatus: 'generating', imageClaimedAt: null },
-          ],
-    },
-    data: {
-      imageStatus: 'generating',
-      imageClaimedAt: claimedAt,
-      updatedAt: meal.updatedAt,
-      ...(redraw ? { imageAttempts: 0 } : {}),
-    },
-  })
-
-  // Usually another request won the claim. Rarely the meal was edited since the
-  // read above; 202 is still right, because the client polls the GET, reads the
-  // edit's `none`, and POSTs again (`useMealImage`).
-  if (claim.count === 0) {
+  // both pay. Usually a null claim means another request won it. Rarely the
+  // meal was edited since the read above; 202 is still right, because the
+  // client polls the GET, reads the edit's `none`, and POSTs again
+  // (`useMealImage`).
+  const claim = await claimMealImage(meal, now)
+  if (!claim) {
     return respond({ status: 'generating' }, 202)
   }
 
@@ -322,14 +230,10 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
     uploadedUrl = await putMealImage(meal.id, Buffer.from(image.bytes), image.mediaType)
     const imageHue = await hueOf(image.bytes, meal.id)
 
-    const attached = await writeUnderClaim(meal.id, claimedAt, meal.updatedAt, {
-      imageStatus: 'ready',
-      imageUrl: uploadedUrl,
-      imagePromptVersion: MEAL_IMAGE_PROMPT_VERSION,
-      imageHue,
-      // Stored so a refit reuses it rather than asking again (HON-1034).
-      imageVessel: image.vessel?.vessel ?? null,
-      imageDiameterCm: image.vessel?.diameterCm ?? null,
+    const attached = await attachMealImage(claim, {
+      url: uploadedUrl,
+      hue: imageHue,
+      vessel: image.vessel,
     })
 
     if (!attached) {
@@ -367,22 +271,15 @@ async function handlePOST(_request: Request, { params }: { params: Promise<{ id:
     // will fail again.
     // A rate limit goes further and releases the claim, so the next open
     // simply asks again once the provider's per-minute window clears
-    // (HON-742): to `none`, or for a stale-version redraw (HON-753) back to
-    // the `ready` row it claimed, which still points at the old blob.
+    // (HON-742).
     const transient = statusCode === 429 || unavailable
 
     try {
-      await writeUnderClaim(
-        meal.id,
-        claimedAt,
-        meal.updatedAt,
-        rateLimited
-          ? { imageStatus: redraw ? 'ready' : 'none', imageClaimedAt: null }
-          : {
-              imageStatus: 'failed',
-              ...(transient ? {} : { imageAttempts: { increment: 1 } }),
-            },
-      )
+      if (rateLimited) {
+        await releaseMealImageClaim(claim)
+      } else {
+        await markMealImageFailed(claim, { countAttempt: !transient })
+      }
     } catch (writeError) {
       // The stale-claim takeover recovers the row; the original error is the one to map.
       captureApiError(writeError, { route: ROUTE, operation: 'meal-image-mark-failed' })
@@ -436,21 +333,14 @@ async function handleGET(_request: Request, { params }: { params: Promise<{ id: 
   const { id: mealId } = await params
 
   try {
-    const meal = await prisma.meal.findFirst({
-      where: {
-        id: mealId,
-        deletedAt: null,
-        OR: [{ householdId: null }, { householdId: membership.household.id }],
-      },
-      select: { imageUrl: true, imageStatus: true, imageHue: true, imagePromptVersion: true },
-    })
+    // A stale prompt version reads as `none`, same as every meal payload (HON-753).
+    const image = await readMealImage(membership.household.id, mealId)
 
-    if (!meal) {
+    if (!image) {
       return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
     }
 
-    // A stale prompt version reads as `none`, same as every meal payload (HON-753).
-    const { imageStatus, imageUrl, imageHue } = presentMealImage(meal)
+    const { imageStatus, imageUrl, imageHue } = image
 
     if (imageStatus === 'ready' && imageUrl) {
       return respond({ status: 'ready', imageUrl, imageHue })
@@ -472,6 +362,6 @@ export const GET = withRequestId(handleGET)
  * lets the function run that long — otherwise the request is killed first and
  * the friendly 504 above never runs. 60 is the value every Vercel plan allows,
  * so this cannot fail to deploy (HON-693). It is also what makes
- * `CLAIM_STALE_MS` safe: no live request can hold a claim for 3 minutes.
+ * `MEAL_IMAGE_CLAIM_STALE_MS` safe: no live request can hold a claim for 3 minutes.
  */
 export const maxDuration = 60

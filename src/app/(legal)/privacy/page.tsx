@@ -90,7 +90,7 @@ export default function PrivacyPage() {
         </Body>
         <Body>
           For anything related to your personal data, contact{' '}
-          <a className="underline" href={PRIVACY_EMAIL_HREF}>
+          <a className="inline-link" href={PRIVACY_EMAIL_HREF}>
             {PRIVACY_EMAIL}
           </a>
           .
@@ -133,7 +133,7 @@ export default function PrivacyPage() {
               Connected AI assistants: which assistants you allowed to read your household data,
               what you allowed each one to do, the access tokens it uses, and a record of each
               request it makes — only if you connect one (see{' '}
-              <a className="underline" href="#ai-assistants">
+              <a className="inline-link" href="#ai-assistants">
                 Connected AI assistants
               </a>
               ).
@@ -142,9 +142,9 @@ export default function PrivacyPage() {
           <Li>
             <Body>
               API keys for screens and scripts: the name you gave each key, its first characters, a
-              one-way fingerprint of it, when you made it and when it was last used — only if you
-              make one (see{' '}
-              <a className="underline" href="#ai-assistants">
+              one-way fingerprint of it, when you made it, when it was last used and when it expires
+              — only if you make one (see{' '}
+              <a className="inline-link" href="#ai-assistants">
                 Connected AI assistants
               </a>
               ).
@@ -154,7 +154,7 @@ export default function PrivacyPage() {
             <Body>
               Usage analytics and error reports from your browser — only if you accept analytics
               cookies (see{' '}
-              <a className="underline" href="#cookies">
+              <a className="inline-link" href="#cookies">
                 Cookies
               </a>
               ).
@@ -179,7 +179,7 @@ export default function PrivacyPage() {
               browser, which stay off until you accept analytics cookies, and keeping your place on
               the invite list after you confirm your email. You can withdraw analytics consent at
               any time from the cookie settings in the footer, and leave the invite list by emailing{' '}
-              <a className="underline" href={PRIVACY_EMAIL_HREF}>
+              <a className="inline-link" href={PRIVACY_EMAIL_HREF}>
                 {PRIVACY_EMAIL}
               </a>
               . The weekly planning reminder email is also consent: we send it only after you switch
@@ -254,7 +254,7 @@ export default function PrivacyPage() {
           To disconnect an assistant, choose Disconnect next to it under &ldquo;Connected
           assistants&rdquo; on your profile page. We delete its access at once, and its next request
           fails. You can also email{' '}
-          <a className="underline" href={PRIVACY_EMAIL_HREF}>
+          <a className="inline-link" href={PRIVACY_EMAIL_HREF}>
             {PRIVACY_EMAIL}
           </a>{' '}
           and we delete its access for you. Deleting your account disconnects every assistant at
@@ -269,8 +269,11 @@ export default function PrivacyPage() {
           it the key. We store the key&rsquo;s name, its first characters, a one-way fingerprint of
           it and when it was last used, never the key itself, and we do not record each request it
           makes in analytics. To stop it, choose Revoke next to the key: its next request fails.
-          Deleting your account stops every key at once. A key reads the household you belong to
-          when it makes a request, so after you leave a household, the key no longer reads it.
+          Your household&rsquo;s owner sees every member&rsquo;s keys, with the member&rsquo;s name,
+          and can revoke any of them. When you make a key, you can also set it to expire after a
+          number of days. Deleting your account stops every key at once. A key reads the household
+          you belong to when it makes a request, so after you leave a household, the key no longer
+          reads it.
         </Body>
       </Section>
 
@@ -291,7 +294,7 @@ export default function PrivacyPage() {
         <Body>
           An AI assistant you connect to Wobblepot is not on this list: it receives data on your
           instruction, not ours (see{' '}
-          <a className="underline" href="#ai-assistants">
+          <a className="inline-link" href="#ai-assistants">
             Connected AI assistants
           </a>
           ).
@@ -299,7 +302,7 @@ export default function PrivacyPage() {
         <Body>
           The full list — data categories shared, processing regions, and transfer safeguards per
           vendor — is on the{' '}
-          <Link className="underline" href="/privacy/subprocessors">
+          <Link className="inline-link" href="/privacy/subprocessors">
             subprocessors page
           </Link>
           .
@@ -313,7 +316,7 @@ export default function PrivacyPage() {
               Account data: if you delete your account, everything is purged after a 30-day grace
               period; the purge runs nightly, so deletion happens within a day of that period
               ending. During the grace period you can change your mind by emailing{' '}
-              <a className="underline" href={PRIVACY_EMAIL_HREF}>
+              <a className="inline-link" href={PRIVACY_EMAIL_HREF}>
                 {PRIVACY_EMAIL}
               </a>
               .
@@ -380,7 +383,7 @@ export default function PrivacyPage() {
                   downloading, and its viewport prefetch would silently run
                   the export and burn a daily rate-limit slot. Mirrors
                   profile/page.tsx. */}
-              <a className="underline" href="/api/auth/user/export" download>
+              <a className="inline-link" href="/api/auth/user/export" download>
                 /api/auth/user/export
               </a>{' '}
               while signed in (Art. 15 and 20).
@@ -407,7 +410,7 @@ export default function PrivacyPage() {
         </Ul>
         <Body>
           To exercise any of these, email{' '}
-          <a className="underline" href={PRIVACY_EMAIL_HREF}>
+          <a className="inline-link" href={PRIVACY_EMAIL_HREF}>
             {PRIVACY_EMAIL}
           </a>{' '}
           from the address on your account, and tell us which request you are making. We acknowledge
@@ -416,7 +419,7 @@ export default function PrivacyPage() {
         <Body>
           You can also complain to your local data protection supervisory authority. In Estonia that
           is the Data Protection Inspectorate (Andmekaitse Inspektsioon,{' '}
-          <a className="underline" href="https://www.aki.ee">
+          <a className="inline-link" href="https://www.aki.ee">
             aki.ee
           </a>
           ); if you live elsewhere in the EU or UK, your own national authority is equally
@@ -455,7 +458,7 @@ export default function PrivacyPage() {
         <Body>
           {LEGAL_ENTITY_NAME} · registry code {LEGAL_ENTITY_REGISTRY_CODE} · {LEGAL_ENTITY_ADDRESS}{' '}
           ·{' '}
-          <a className="underline" href={PRIVACY_EMAIL_HREF}>
+          <a className="inline-link" href={PRIVACY_EMAIL_HREF}>
             {PRIVACY_EMAIL}
           </a>
         </Body>

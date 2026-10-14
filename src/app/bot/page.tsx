@@ -87,7 +87,7 @@ export default async function BotPage() {
             token: WOBBLEPOT_BOT_TOKEN,
             code,
             link: (chunks) => (
-              <a className="underline" href={PRIVACY_EMAIL_HREF}>
+              <a className="inline-link" href={PRIVACY_EMAIL_HREF}>
                 {chunks}
               </a>
             ),

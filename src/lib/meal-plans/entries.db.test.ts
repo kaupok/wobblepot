@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import {
+  createEntry,
+  deleteEntriesInRange,
   deleteEntry,
+  EntryCreateError,
   EntryUpdateError,
+  type EntryCreateRefusal,
   updateEntry,
   type EntryPatch,
   type EntryUpdateRefusal,
@@ -158,6 +162,167 @@ describe('deleteEntry', () => {
 
     expect(await deleteEntry(alder.id, 'plan-birch', 'entry-alder')).toBe(false)
     expect(await prisma.mealPlanEntry.count()).toBe(2)
+  })
+})
+
+describe('deleteEntriesInRange', () => {
+  const day = (d: number) => new Date(Date.UTC(2026, 9, d))
+
+  it("deletes the household's entries dated in [start, end) and counts them", async () => {
+    const { alder } = await world()
+    await entry('entry-before', { date: day(11) })
+    await entry('entry-start', { date: day(12) })
+    await entry('entry-end', { date: day(19) })
+
+    // `entry-alder` is on 14 October, inside the range.
+    expect(await deleteEntriesInRange(alder.id, 'plan-alder', day(12), day(19))).toBe(2)
+
+    const left = await prisma.mealPlanEntry.findMany({
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    })
+    expect(left.map((row) => row.id)).toEqual(['entry-before', 'entry-birch', 'entry-end'])
+  })
+
+  it("answers null for another household's plan and deletes nothing", async () => {
+    const { alder } = await world()
+    await entry('entry-birch-2', { planId: 'plan-birch', date: day(15) })
+
+    expect(await deleteEntriesInRange(alder.id, 'plan-birch', day(1), day(31))).toBeNull()
+    expect(await prisma.mealPlanEntry.count()).toBe(3)
+  })
+})
+
+describe('createEntry', () => {
+  const date = new Date('2026-10-15T00:00:00Z')
+
+  async function createRefusal(promise: Promise<unknown>): Promise<EntryCreateRefusal> {
+    const error = await promise.then(
+      () => null,
+      (caught: unknown) => caught,
+    )
+    if (!(error instanceof EntryCreateError)) throw new Error(`Expected a refusal, got ${error}`)
+    return error.reason
+  }
+
+  it('creates a planned entry in an empty slot and returns it', async () => {
+    const { alder } = await world()
+
+    const created = await createEntry(alder.id, 'plan-alder', {
+      date,
+      mealType: 'lunch',
+      mealId: 'meal-salad',
+    })
+
+    expect(created).toEqual({
+      id: expect.any(String),
+      date: '2026-10-15',
+      mealType: 'lunch',
+      status: 'planned',
+      mealId: 'meal-salad',
+      note: null,
+    })
+    expect(await readEntry(created.id)).toMatchObject({
+      planId: 'plan-alder',
+      date,
+      mealType: 'lunch',
+      mealId: 'meal-salad',
+      status: 'planned',
+      note: null,
+      noteX: null,
+      noteY: null,
+      servingOverride: null,
+      rating: null,
+      pantryDeductedAt: null,
+    })
+  })
+
+  it('creates an empty slot with no meal', async () => {
+    const { alder } = await world()
+
+    const created = await createEntry(alder.id, 'plan-alder', { date, mealType: 'dinner' })
+
+    expect((await readEntry(created.id)).mealId).toBeNull()
+  })
+
+  // Undo after Clear posts the cleared entry back (HON-1123).
+  it("writes a restored entry's fields back, pantry charge included", async () => {
+    const { alder } = await world()
+
+    const created = await createEntry(alder.id, 'plan-alder', {
+      date,
+      mealType: 'dinner',
+      mealId: 'meal-stew',
+      note: 'Leftovers for lunch',
+      noteX: 0.25,
+      noteY: 0.75,
+      status: 'skipped',
+      servingOverride: 6,
+      rating: 'down',
+      pantryDeducted: true,
+    })
+
+    expect(await readEntry(created.id)).toMatchObject({
+      mealId: 'meal-stew',
+      note: 'Leftovers for lunch',
+      noteX: 0.25,
+      noteY: 0.75,
+      status: 'skipped',
+      servingOverride: 6,
+      rating: 'down',
+      pantryDeductedAt: expect.any(Date),
+    })
+  })
+
+  it("accepts the household's own meal", async () => {
+    const { birch } = await world()
+
+    const created = await createEntry(birch.id, 'plan-birch', {
+      date,
+      mealType: 'dinner',
+      mealId: 'meal-birch',
+    })
+
+    expect(created.mealId).toBe('meal-birch')
+  })
+
+  it.each(['meal-birch', 'meal-deleted', 'meal-missing'])(
+    'refuses %s as mealNotFound and writes nothing',
+    async (mealId) => {
+      const { alder } = await world()
+
+      expect(
+        await createRefusal(
+          createEntry(alder.id, 'plan-alder', { date, mealType: 'dinner', mealId }),
+        ),
+      ).toBe('mealNotFound')
+      expect(await prisma.mealPlanEntry.count()).toBe(2)
+    },
+  )
+
+  // A restore after Clear leaves a slot that was refilled meanwhile alone.
+  it('refuses a taken slot as slotTaken and leaves the entry there', async () => {
+    const { alder } = await world()
+
+    expect(
+      await createRefusal(
+        createEntry(alder.id, 'plan-alder', {
+          date: new Date('2026-10-14T00:00:00Z'),
+          mealType: 'dinner',
+          mealId: 'meal-salad',
+        }),
+      ),
+    ).toBe('slotTaken')
+    expect((await readEntry()).mealId).toBe('meal-stew')
+  })
+
+  it("refuses another household's plan as planNotFound and writes nothing", async () => {
+    const { alder } = await world()
+
+    expect(
+      await createRefusal(createEntry(alder.id, 'plan-birch', { date, mealType: 'dinner' })),
+    ).toBe('planNotFound')
+    expect(await prisma.mealPlanEntry.count({ where: { planId: 'plan-birch' } })).toBe(1)
   })
 })
 

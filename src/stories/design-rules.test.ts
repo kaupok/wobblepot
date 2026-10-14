@@ -269,6 +269,30 @@ describe('assertDesignRules', () => {
       )
     })
 
+    it('allows a shadow on an element marked data-elevation="illustration"', async () => {
+      const root = render(
+        `${SHADOW_SM}<div data-elevation="illustration" class="shadow-sm"><span>Card</span></div>`,
+      )
+      await expect(assertDesignRules(root, ['no-content-shadow'])).resolves.toBeUndefined()
+    })
+
+    it('checks a shadowed element inside an illustration-elevation element', async () => {
+      const root = render(
+        `${SHADOW_SM}<div data-elevation="illustration" class="shadow-sm"><button class="shadow-sm" id="inner">Open</button></div>`,
+      )
+      await expect(assertDesignRules(root, ['no-content-shadow'])).rejects.toThrow(/id="inner"/)
+    })
+
+    it.each(['', 'overlay', 'true'])(
+      'does not exempt an element whose data-elevation is "%s"',
+      async (value) => {
+        const root = render(
+          `${SHADOW_SM}<div data-elevation="${value}" class="shadow-sm" id="card">Card</div>`,
+        )
+        await expect(assertDesignRules(root, ['no-content-shadow'])).rejects.toThrow(/id="card"/)
+      },
+    )
+
     it('allows a spread-only focus ring', async () => {
       const root = render('<input style="box-shadow: 0 0 0 3px rgb(0 0 0 / 0.5)">')
       await expect(assertDesignRules(root, ['no-content-shadow'])).resolves.toBeUndefined()

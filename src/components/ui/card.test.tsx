@@ -45,6 +45,27 @@ describe('Card', () => {
     expect(card).not.toHaveAttribute('tabindex')
   })
 
+  // HON-1224: a card on a coloured surface (the landing tiles) has no border.
+  it('draws a border by default', () => {
+    expect(renderCard()).toHaveClass('border')
+  })
+
+  it('draws no border when bordered is false', () => {
+    const card = renderCard({ bordered: false })
+    expect(card).not.toHaveClass('border')
+    expect(card).toHaveClass('rounded-xl', 'bg-card')
+  })
+
+  it('keeps the hover ring and focus ring of an interactive card without a border', () => {
+    const card = renderCard({ bordered: false, interactive: true })
+    expect(card).not.toHaveClass('border')
+    expect(card).toHaveClass(
+      'hover:ring-1',
+      'hover:ring-border',
+      'has-[[data-slot=card-target]:focus-visible]:ring-[3px]',
+    )
+  })
+
   it('is not interactive by default', () => {
     expect(renderCard()).not.toHaveClass('cursor-pointer', 'group/card')
   })

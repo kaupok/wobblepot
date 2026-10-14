@@ -98,6 +98,15 @@
      read it as a shadow colour. Registered with tailwind-merge through
      CUSTOM_SHADOW_VALUES in src/lib/utils.ts. */
   --shadow-float: 0 0 24px 0 rgb(0 0 0 / 0.06);
+  /* The lift under the landing deck's front card (HON-1225): the second
+     exception to docs/DESIGN.md → Elevation. The deck is an illustration of
+     stacked cards, so elevation is what it shows; the slot that carries it is
+     marked `data-elevation="illustration"`, which `no-content-shadow` skips.
+     No offset, so the shadow shows above the card's top edge too, where it
+     overlaps the side cards. Stronger than `shadow-float`, whose 0.06 alpha
+     does not separate one warm tint from another. Registered as
+     `shadow-float` is. */
+  --shadow-deck: 0 0 24px 0 rgb(0 0 0 / 0.16);
   /* The lift under modal overlays (dialog, alert dialog, sheet). Three layers,
      a tight contact shadow, a mid one and a wide soft one, so the panel reads
      as high above the page. On the light overlay the shadow is the panel's
@@ -221,6 +230,27 @@
 }
 @utility max-w-note-slip-actions-md {
   max-width: calc(50% - 3.75rem);
+}
+
+/* A link in body text (docs/DESIGN.md → Color, HON-1227): underlined at rest,
+   the underline thickens on hover. Thickness is paint, not layout, so the hover
+   moves nothing. `@variant hover` is Tailwind's own `hover:` (`(hover: hover)`
+   only), so a tap on a phone leaves no thick underline behind. 150ms on the
+   house curve; the reduced-motion rule below collapses it. No colour: the link
+   keeps its context's. Listed in UNMERGED_UTILITIES (src/lib/utils.ts), not
+   CUSTOM_UTILITY_CLASS_GROUPS: it spans three decoration properties, so no
+   single tailwind-merge family conflicts with it. */
+@utility inline-link {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition-property: text-decoration-thickness;
+  transition-duration: 150ms;
+  transition-timing-function: var(--ease-out);
+
+  @variant hover {
+    text-decoration-thickness: 2px;
+  }
 }
 
 :root {

@@ -25,6 +25,12 @@ export const MCP_CONSENTS_QUERY_KEY = ['mcp-consents'] as const
 interface ConnectedAssistantsListProps {
   /** Read by the page on the server, so the list is right on the first paint. */
   initialConsents: ConnectedAssistant[]
+  /**
+   * The household's IANA timezone. Dates render in it, so the server and the
+   * browser print the same day and a consent made near midnight does not cause
+   * a hydration mismatch.
+   */
+  timeZone: string
 }
 
 /**
@@ -32,7 +38,10 @@ interface ConnectedAssistantsListProps {
  * assistant the user allowed on `/consent`, with Disconnect. Disconnect asks
  * first, because the assistant stops working at once.
  */
-export function ConnectedAssistantsList({ initialConsents }: ConnectedAssistantsListProps) {
+export function ConnectedAssistantsList({
+  initialConsents,
+  timeZone,
+}: ConnectedAssistantsListProps) {
   const t = useTranslations('profile.assistants')
   const locale = useLocale() as Locale
   const queryClient = useQueryClient()
@@ -102,7 +111,7 @@ export function ConnectedAssistantsList({ initialConsents }: ConnectedAssistants
                   {consent.createdAt && (
                     <Body variant="muted">
                       {t('connectedOn', {
-                        date: formatLongDate(new Date(consent.createdAt), locale),
+                        date: formatLongDate(new Date(consent.createdAt), locale, { timeZone }),
                       })}
                     </Body>
                   )}

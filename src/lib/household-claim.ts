@@ -1,6 +1,10 @@
 import 'server-only'
 import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
+import { MealType, type Allergen } from '@/generated/prisma/enums'
+import type { Locale } from '@/lib/i18n/locales'
+import { seedDefaultStaples } from '@/lib/meal-planning/default-staples'
+import { PORTION_BY_TYPE } from '@/lib/meal-planning/servings'
 
 /**
  * One user belongs to at most one household. The schema enforces that: a
@@ -286,4 +290,85 @@ export function inviteMembershipClaim(
       throw new InviteNoLongerClaimableError()
     }
   }
+}
+
+/** What onboarding asks for when it creates a household (`POST /api/households`). */
+export interface NewHousehold {
+  name: string
+  /** The locale `resolveLocale` picked from the request, stored on the household. */
+  locale: Locale
+  /** Members besides the owner, each with the portion size of its type. */
+  members?: { name: string; portionType: keyof typeof PORTION_BY_TYPE }[]
+  /** Asked in onboarding step 3, so the first plan already avoids them (HON-1082). */
+  allergensToAvoid?: Allergen[]
+}
+
+/**
+ * Create a household owned by `userId`, with its preferences row, its default
+ * staples and any additional members, and return it with its preferences.
+ *
+ * Runs through {@link runHouseholdClaim}, not a bare `$transaction`: sharing a
+ * transaction is not enough on its own. At read committed the membership check
+ * is a `SELECT` matching zero rows, so it takes no lock, and two concurrent
+ * creates for the same user would insert two *different* member rows. A double
+ * submit is enough to trigger it (HON-679). The claim holds this user's row
+ * lock, so the second create waits, then sees the first's membership and
+ * throws {@link AlreadyInHouseholdError}. Creates by different users take
+ * different locks and never wait on each other (HON-838).
+ *
+ * Throws {@link AlreadyInHouseholdError}; the unique index on
+ * `household_member."userId"` can also reject it with a `P2002`
+ * ({@link isMembershipConflict}, HON-696).
+ */
+export async function createHousehold(userId: string, input: NewHousehold) {
+  const allergensToAvoid = [...new Set(input.allergensToAvoid ?? [])]
+
+  return runHouseholdClaim(userId, async (tx) => {
+    const existingMembership = await tx.householdMember.findFirst({
+      where: { userId },
+    })
+
+    if (existingMembership) {
+      throw new AlreadyInHouseholdError()
+    }
+
+    const household = await tx.household.create({
+      data: { name: input.name, locale: input.locale },
+    })
+
+    await tx.householdMember.create({
+      data: { householdId: household.id, userId, role: 'owner' },
+    })
+
+    // This is the only household creator, so it must stay the one that writes
+    // the preferences row (the seed's smoke household is the exception; HON-672).
+    await tx.householdPreferences.create({
+      data: {
+        householdId: household.id,
+        weekdayMealTypes: [MealType.dinner],
+        weekendMealTypes: [MealType.dinner],
+        allergensToAvoid,
+      },
+    })
+
+    // Salt, black pepper and water start as staples so "to taste" seasonings
+    // stay off the shopping list (HON-769). The seed's smoke household calls this too.
+    await seedDefaultStaples(tx, household.id)
+
+    for (const member of input.members ?? []) {
+      await tx.householdMember.create({
+        data: {
+          householdId: household.id,
+          name: member.name,
+          role: 'member',
+          preferences: { create: { portionMultiplier: PORTION_BY_TYPE[member.portionType] } },
+        },
+      })
+    }
+
+    return tx.household.findUniqueOrThrow({
+      where: { id: household.id },
+      include: { preferences: true },
+    })
+  })
 }

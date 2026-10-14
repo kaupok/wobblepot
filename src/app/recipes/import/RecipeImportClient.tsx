@@ -447,7 +447,7 @@ export function RecipeImportClient() {
           ) : (
             <Body variant="muted">
               {t('footerOr')}{' '}
-              <Link href="/recipes/create" className="text-primary underline">
+              <Link href="/recipes/create" className="text-primary inline-link">
                 {t('createManuallyLink')}
               </Link>
             </Body>

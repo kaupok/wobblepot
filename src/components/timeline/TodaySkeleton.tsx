@@ -1,7 +1,13 @@
 import { MealCardSkeleton } from '@/components/meal-plan/MealCardSkeleton'
 import { Skeleton } from '@/components/ui/skeleton'
 
-export default function HomeLoading() {
+/**
+ * Today while its plan, pantry and shopping list load. The signed-in branch of
+ * `src/app/page.tsx` renders it as its Suspense fallback; it is not a root
+ * `loading.tsx`, which every route without its own would inherit, so a
+ * signed-out visitor never sees an app they cannot use (HON-1223).
+ */
+export function TodaySkeleton() {
   return (
     <div className="w-full px-4 py-8">
       <div className="lg:grid-cols-timeline grid gap-6">
@@ -28,7 +34,7 @@ export default function HomeLoading() {
         {/* Right column: shopping summary. Hidden below lg like the real
             sidebar (HON-766); no phone placeholder for the compact card, which
             renders nothing when there is nothing to buy. */}
-        <div className="hidden flex-col gap-6 lg:flex">
+        <div data-testid="today-skeleton-shopping" className="hidden flex-col gap-6 lg:flex">
           <Skeleton className="h-7 w-36" />
           <div className="flex flex-col gap-3">
             <Skeleton shape="card" className="h-10 w-full" />

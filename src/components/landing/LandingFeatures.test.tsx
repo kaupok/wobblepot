@@ -98,6 +98,17 @@ describe('LandingFeatures', () => {
     expect(hues).toEqual(['88', '48', null, '160'])
   })
 
+  // HON-1224: on a coloured tile the colour change is the card's edge.
+  it("draws each vignette's card with no border, and keeps the Imagine field's", () => {
+    renderFeatures()
+    for (const point of POINTS) {
+      const cards = drawing(point).querySelectorAll('[data-slot="card"]')
+      expect(cards).toHaveLength(1)
+      expect(cards[0]).not.toHaveClass('border')
+    }
+    expect(drawing('imagine').querySelector('textarea')).toHaveClass('border')
+  })
+
   it('makes every vignette inert, with a caption outside the inert part', () => {
     renderFeatures()
     for (const point of POINTS) {

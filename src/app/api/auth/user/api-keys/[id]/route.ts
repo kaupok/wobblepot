@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { revokeApiKey } from '@/lib/api-keys'
+import { getApiKeyViewer, revokeApiKey } from '@/lib/api-keys'
 
 const ROUTE = '/api/auth/user/api-keys/[id]'
 
@@ -10,10 +10,11 @@ const ROUTE = '/api/auth/user/api-keys/[id]'
  * DELETE /api/auth/user/api-keys/[id]
  *
  * Revoke on the profile page (HON-1220): deletes one of the signed-in user's
- * keys, so its next request to `/api/v1/*` answers 401.
+ * keys, or for a household's owner any member's key (HON-1221), so its next
+ * request to `/api/v1/*` answers 401.
  *
- * 404 when the user has no key with this id, including another user's key:
- * 403 would confirm that the key exists.
+ * 404 when the user may not revoke a key with this id, including a key of
+ * another member or another household: 403 would confirm that the key exists.
  */
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -23,7 +24,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const { id } = await params
   try {
-    const revoked = await revokeApiKey(session.user.id, id)
+    const revoked = await revokeApiKey(await getApiKeyViewer(session.user.id), id)
     if (!revoked) {
       return NextResponse.json({ error: 'API key not found' }, { status: 404 })
     }

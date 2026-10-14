@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
-import { findSynonym } from '@/lib/ingredient-aliases'
-import { countConflictingPlannedEntries } from '@/lib/meal-planning/count-preference-conflicts'
+import {
+  countConflictingPlannedEntries,
+  updateHouseholdPreferences,
+} from '@/lib/household/preferences'
 
 /** The fields a planned meal can break; a save that sends one is counted (HON-1126). */
 const FOOD_FIELDS = ['dietaryType', 'allergensToAvoid', 'excludedIngredients'] as const
@@ -95,44 +96,9 @@ export async function PATCH(request: Request) {
       )
     }
 
-    // Resolve excluded ingredient names to IDs for filtering. Global and this
-    // household's own ingredients only: the ids are returned in the response,
-    // so matching another household's would reveal them (HON-889).
-    let excludedIngredientIds: string[] | undefined
-    if (parsed.data.excludedIngredients) {
-      // A name saved before a rename or merge is now another English name for
-      // a pool row ("shrimp" for prawns, HON-1097), so look up its pool name
-      // too, or a re-save drops the exclusion. Synonyms only: an alias narrows
-      // a word ("beef" → beef mince) and would exclude less than was typed.
-      const names = parsed.data.excludedIngredients.flatMap((name) => {
-        const poolName = findSynonym(name)
-        return poolName ? [name, poolName] : [name]
-      })
-      const ingredients = await prisma.ingredient.findMany({
-        where: {
-          name: {
-            in: names,
-            mode: 'insensitive',
-          },
-          OR: [{ householdId: null }, { householdId: membership.household.id }],
-        },
-        select: { id: true },
-      })
-      excludedIngredientIds = ingredients.map((i) => i.id)
-    }
-
-    const preferencesData = {
-      ...parsed.data,
-      ...(excludedIngredientIds !== undefined && { excludedIngredientIds }),
-    }
-
-    // Upsert, not update: a household whose preferences row is missing self-heals
-    // on first save instead of returning 500 on Prisma's P2025 (HON-672).
-    const preferences = await prisma.householdPreferences.upsert({
-      where: { householdId: membership.household.id },
-      update: preferencesData,
-      create: { householdId: membership.household.id, ...preferencesData },
-    })
+    // Resolves the excluded names to ingredient ids, and creates a missing
+    // preferences row (HON-672, HON-889).
+    const preferences = await updateHouseholdPreferences(membership.household.id, parsed.data)
 
     // A food save says how many planned meals now break the preferences, so
     // the toast can tell the household to look (HON-1126). It reads only: the
