@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
  * wash keeps its air on both sides.
  *
  * The geometry lives here once so the skeletons in `src/app/shopping/loading.tsx`
- * cannot drift from the live list (CLAUDE.md → Shared-primitive geometry).
+ * cannot drift from the live list (CLAUDE.md → Testing → Shared-primitive geometry).
  */
 const rowGroupVariants = cva('', {
   variants: {

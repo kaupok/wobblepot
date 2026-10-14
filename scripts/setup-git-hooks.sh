@@ -69,7 +69,7 @@ if [ "$branch" = "main" ]; then
   echo ""
   echo "  git checkout -b feat/your-feature-name"
   echo ""
-  echo "See CLAUDE.md → Git Branch Workflow for more information."
+  echo "See CLAUDE.md → Git & Workflow Essentials for more information."
   echo ""
   echo "If you absolutely need to commit to main (not recommended):"
   echo "  git commit --no-verify"

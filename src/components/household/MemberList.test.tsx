@@ -104,7 +104,7 @@ describe('MemberList', () => {
   })
 
   // The edit dialog opens from state, with no trigger to hand focus back to
-  // (CLAUDE.md → Focus management).
+  // (docs/DESIGN.md → Focus management).
   it('returns focus to the member name when the edit dialog closes', async () => {
     mockMembers([
       {

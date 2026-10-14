@@ -140,7 +140,7 @@ describe('MemberRow', () => {
   })
 
   // The confirm dialog opens from a menu item that has unmounted by the time it
-  // closes; without the hand-back focus falls to the body (CLAUDE.md → Focus
+  // closes; without the hand-back focus falls to the body (docs/DESIGN.md → Focus
   // management).
   it('returns focus to the menu trigger when the remove dialog closes', async () => {
     renderRow({ member: manual, canRemove: true })

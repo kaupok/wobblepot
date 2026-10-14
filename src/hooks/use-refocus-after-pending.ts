@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef } from 'react'
  * it can hold focus. Nothing happens on a path that did not request it, so a
  * successful submit keeps its own focus behaviour.
  *
- * See CLAUDE.md → Focus management.
+ * See docs/DESIGN.md → Focus management.
  */
 export function useRefocusAfterPending<T extends HTMLElement = HTMLButtonElement>(
   isPending: boolean,

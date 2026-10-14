@@ -122,7 +122,7 @@ export function WaitlistClient({ initialRequests }: WaitlistClientProps) {
                     </div>
                     <div className="flex gap-2">
                       {/* aria-disabled, not disabled, so focus stays on the button
-                          while the request is pending (CLAUDE.md → Focus management). */}
+                          while the request is pending (docs/DESIGN.md → Focus management). */}
                       <Button
                         type="button"
                         size="sm"
@@ -176,7 +176,7 @@ export function WaitlistClient({ initialRequests }: WaitlistClientProps) {
         }}
         onCloseAutoFocus={(event) => {
           // Opened from state, so Radix has no trigger to return focus to, and
-          // after a Remove the button is gone with its row (CLAUDE.md → Focus
+          // after a Remove the button is gone with its row (docs/DESIGN.md → Focus
           // management). Pick the target here every time.
           event.preventDefault()
           const trigger = removeTriggerRef.current

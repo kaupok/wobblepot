@@ -7,6 +7,7 @@ The branch model, recovery procedures, and what enforces the rules. The steps fo
 - [Branch Naming Convention](#branch-naming-convention)
 - [Committing, Opening and Merging a PR](#committing-opening-and-merging-a-pr)
 - [Recovery Procedures](#recovery-procedures)
+- [Migration Immutability](#migration-immutability)
 - [What Enforces What](#what-enforces-what)
 
 ## Branch Naming Convention
@@ -23,6 +24,8 @@ Which scheme to use depends on who is creating the branch and whether a Linear i
 **Anything Linear-sourced must carry the `hon-NN` token.** That token is what makes Linear auto-link
 the branch, move the issue to In Review when the PR opens, and attach the PR — drop it and all three
 stop working silently.
+
+For the PostHog Desktop agent, `posthog/hon-NN-slug` overrides the `posthog/fix-login-redirect` example in its harness prompt whenever a Linear issue is the source. An issue is the source when the task names a HON-NNN, the originating report or thread references one, or the work was picked via `/next-issue`. With no issue, keep `posthog/<descriptive-slug>`; do not create an issue just to name a branch.
 
 For the manual `<type>/<slug>` scheme, use these prefixes:
 
@@ -53,7 +56,7 @@ What the skills do not say:
 
 - [ ] On a feature branch, not `main`
 - [ ] `pnpm lint && pnpm type-check && pnpm test` pass
-- [ ] If you touched `prisma/migrations/`, run the immutability check before `/commit` (or `git commit`): `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. It reads the working tree, so it catches a staged or unstaged edit to an applied migration before it lands in HEAD; the fetch keeps a stale `origin/main` from hiding one that landed since. Rules and recovery are in CLAUDE.md → Database Patterns.
+- [ ] If you touched `prisma/migrations/`, run the immutability check before `/commit` (or `git commit`): `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. It reads the working tree, so it catches a staged or unstaged edit to an applied migration before it lands in HEAD; the fetch keeps a stale `origin/main` from hiding one that landed since. Rules and recovery are in [Migration Immutability](#migration-immutability).
 - [ ] Commit message and planned PR title follow Conventional Commits
 
 ## Recovery Procedures
@@ -98,6 +101,16 @@ git remote -v  # Should show kaupok/wobblepot for both fetch and push
 ```
 
 Worktrees share the main checkout's remote configuration, so running this once there covers every worktree, new or existing. Only separate clones need it individually.
+
+## Migration Immutability
+
+A migration file is frozen once it is on `main`. By then staging and production have applied it, and Prisma stored a checksum of its `migration.sql`, so an edit only guarantees that `prisma migrate dev` demands a full database reset. Do not edit, delete or renumber an applied migration; add a new one that fixes forward. CI enforces this on every PR and again on every push to `main` (`scripts/check-migrations-immutable.sh`).
+
+- **If an edit lands on `main` anyway, revert the commit** rather than fixing forward. Staging and production still hold the checksum of the original SQL, so only restoring it clears the drift. The revert's PR check fails once (expected). `Lint, Type Check & Test` is a required check on `main`, so a human merges it from a terminal with `gh pr merge --admin --squash --delete-branch` and says why in the PR; its `main` push then goes green.
+- **The only way to keep a post-merge edit** is a pin in `scripts/migration-immutability-allowlist.txt`: `<path> <blob-sha|deleted> <why>`.
+- **Run it locally** with `git fetch origin main && bash scripts/check-migrations-immutable.sh origin/main`. Fetch first: a stale `origin/main` omits migrations that landed since, and editing one of those then reads as an addition and passes.
+
+A migration that never applied anywhere holds no checksum, so the revert rule does not cover it: see [`RUNBOOKS/database-recovery.md`](RUNBOOKS/database-recovery.md).
 
 ## What Enforces What
 

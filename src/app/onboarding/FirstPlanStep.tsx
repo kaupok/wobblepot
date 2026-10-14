@@ -70,7 +70,7 @@ export function FirstPlanStep() {
   }
 
   // The button is disabled while the plan generates, which drops focus to the
-  // body (CLAUDE.md → Focus management). An error appears only once the
+  // body (docs/DESIGN.md → Focus management). An error appears only once the
   // request has failed and the button is enabled again, so it takes focus
   // back then. A retry clears the error, so each failure refocuses once.
   const submitRef = useRef<HTMLButtonElement>(null)

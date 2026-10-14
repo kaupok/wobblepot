@@ -66,11 +66,11 @@ Reference other issues as plain text (`HON-NNN`), never as hand-copied `<issue i
 
 ## Follow-ups (`kind: follow-up`)
 
-CLAUDE.md → "A follow-up is an issue" is the rule. This section is how the unattended cycle applies it.
+`/plan-issue` → "A follow-up is an issue" is the rule. This section is how the unattended cycle applies it.
 
 **What is a follow-up, and what is not.** A follow-up is a step that a doc rule or the parent's acceptance criteria require, and that this PR does not ship: re-record a golden after a prompt change (`docs/AI_MODELS.md` → Record the golden), run a backfill after a migration. The cycle produces it on purpose, as part of finishing the parent. A review finding is never a follow-up, even when the fix happens after merge. If the block cannot name the rule or criterion in its `why:` line, it is a finding: file it as one.
 
-The distinction matters because the two get different gates. `[AUTO DRAFT]` exists to keep work the cycle *noticed* out of unattended pickup until a human judges it, and that gate stays. A follow-up is not new work the cycle invented: a human queued the parent, and the follow-up is the rest of it. So it takes no prefix and gets the state the CLAUDE.md rule gives it, which may be Queued. A follow-up that only says "fix this later" is a finding with the wrong tag, and filing it Queued would let the cycle implement its own findings unreviewed.
+The distinction matters because the two get different gates. `[AUTO DRAFT]` exists to keep work the cycle *noticed* out of unattended pickup until a human judges it, and that gate stays. A follow-up is not new work the cycle invented: a human queued the parent, and the follow-up is the rest of it. So it takes no prefix and gets the state that rule gives it, which may be Queued. A follow-up that only says "fix this later" is a finding with the wrong tag, and filing it Queued would let the cycle implement its own findings unreviewed.
 
 **Where it comes from, and when it is filed:**
 
@@ -111,7 +111,7 @@ mcp__linear-server__save_issue({
 ```
 
 - **No `[AUTO DRAFT]` prefix.** Only findings take it.
-- **The `Follow-up` label and the first description line** mark the origin, because an issue with no prefix reads as human-written in a list view (CLAUDE.md → "Linear title prefixes"). The first line names the phase that filed it.
+- **The `Follow-up` label and the first description line** mark the origin, because an issue with no prefix reads as human-written in a list view (`/refine-backlog` → "Title prefixes"). The first line names the phase that filed it.
 - **`blockedBy` the parent in this same call** when the step needs the parent's change on `main`. The orchestrator picks up a Queued issue within a minute, so without the relation it runs before the parent merges (HON-902 for the same-call rule, HON-1053 for the incident).
 - **Unassigned.** A human picks up a Todo follow-up; the orchestrator picks up a Queued one.
 - **No run-state labels.** `Gated`, `Stranded` and `Needs attention` describe the parent's run. The orchestrator skips a Queued issue labelled `Gated` or `Stranded`, so a copied label strands the follow-up.

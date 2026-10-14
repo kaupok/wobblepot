@@ -446,7 +446,7 @@ function CookQuestionPanel({
             onSubmit={(e) => {
               e.preventDefault()
               // `aria-disabled`, not `disabled`, keeps focus on Send while the
-              // answer is on its way (CLAUDE.md → Focus management).
+              // answer is on its way (docs/DESIGN.md → Focus management).
               if (busy) return
               const question = text.trim()
               if (!question) return

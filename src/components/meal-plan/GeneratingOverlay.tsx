@@ -17,7 +17,7 @@ interface GeneratingOverlayProps {
    * The control that started the wait, focused again when the overlay closes.
    * Each callsite disables that control in the same render that opens the
    * overlay, and Chromium blurs a disabled control, so the element Radix
-   * records as focused on open can be the body (CLAUDE.md → Focus management).
+   * records as focused on open can be the body (docs/DESIGN.md → Focus management).
    */
   returnFocusRef?: RefObject<HTMLElement | null>
 }

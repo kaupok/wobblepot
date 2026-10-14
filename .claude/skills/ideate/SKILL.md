@@ -156,7 +156,7 @@ Ask the user conversationally if the proposed issues look good to create. If the
 
 For each approved issue:
 
-Prefix the title with `[DRAFT]` when the spec is not ready to implement; never `[AUTO DRAFT]`, which only `/auto-implement` files (CLAUDE.md → Linear title prefixes). Create the issue in Backlog.
+Prefix the title with `[DRAFT]` when the spec is not ready to implement; never `[AUTO DRAFT]`, which only `/auto-implement` files (`/refine-backlog` → "Title prefixes"). Create the issue in Backlog.
 
 ```typescript
 mcp__linear-server__save_issue({

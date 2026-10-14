@@ -6,7 +6,15 @@ Run several Claude Code sessions at once, each in its own git worktree with its 
 
 The orchestrator (`scripts/orchestrator.sh`, started with `wt start`) is a long-running dispatcher. It polls Linear for issues in the `Queued` state, claims each by moving it to In Progress, spawns a `wt auto` worker for it, and handles the rest of the lifecycle, including failure triage via Claude.
 
-**It reads only `Queued`** (`STATE_QUEUED` in the script). Todo and Backlog are never picked up, and every path that hands an issue back — gated, Neon-cap requeue, pre-claim restore, force-shutdown drain — returns it to Queued. Failures go to Backlog (`handle_failure`). What belongs in Queued, and what goes to Todo instead, is in [CLAUDE.md](../CLAUDE.md) → "Queued is the queue".
+**It reads only `Queued`** (`STATE_QUEUED` in the script). Todo and Backlog are never picked up, and every path that hands an issue back — gated, Neon-cap requeue, pre-claim restore, force-shutdown drain — returns it to Queued. Failures go to Backlog (`handle_failure`). What belongs in Queued, and what goes to Todo instead, is in [Queued is the queue](#queued-is-the-queue) below.
+
+### Queued is the queue
+
+The orchestrator and `/auto-implement` auto-discovery read only the Linear state `Queued`; Todo and Backlog are not picked up unattended, and Todo means a human intends to do the work. Move an issue to Queued only when an agent can finish it without a human. An issue with a human-only step goes to Todo, and any unattended part is split into its own Queued issue. `/next-issue` still lists Todo, Queued and Backlog: it proposes, and moving an issue to Queued stays a human act.
+
+- **What the orchestrator skips.** It runs up to three workers at once by default, each in its own git worktree with its own Neon branch. It skips a Queued issue that has an open `blockedBy`, and one labelled `Gated` (a worker exited without commits) or `Stranded` (a worker ended with an open, unmerged PR). Neither label clears itself: fix the cause or finish the PR, then remove the label.
+- **Queueing issues that touch the same files.** Workers branch from the same `origin/main` and run in parallel, so two Queued issues that edit the same file produce conflicting PRs. Before queueing a batch, compare the files each issue names. Where two overlap, add a `blockedBy` between them and say in the blocked issue that the relation is for sequencing only.
+- **Set `blockedBy` in the call that queues the issue.** The orchestrator sees a Queued issue within a minute, so a `blockedBy` added after the move to Queued can arrive too late: the issue is picked up, fails the blocker check and comes back `Gated`. Create or move the issue with its relation in one `save_issue` call (HON-902).
 
 ### Quick Start
 

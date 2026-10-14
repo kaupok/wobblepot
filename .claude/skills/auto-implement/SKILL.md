@@ -642,7 +642,7 @@ EOF
 1. A line goes under "Verified" only if you ran it and saw the result. Intent is not verification.
 2. Do not write a step for a human to perform. If a fact can be asserted, assert it in a test or a story play function and cite that under "Verified". If it cannot be checked at all, it goes under "Not verified" with the reason.
 3. "Not verified" is not a to-do list and creates no follow-up by itself. It is a statement of remaining risk.
-4. A step that must happen after merge (restart a process, run a workflow, re-record a golden) is not a "Verified" or "Not verified" line. The merge step performs it, or it is an issue, filed before this PR merges, with its ID on the Summary's **Follow-ups** line (CLAUDE.md → "A follow-up is an issue"). One with no issue yet is filed now, by `deferral.md` → Follow-ups.
+4. A step that must happen after merge (restart a process, run a workflow, re-record a golden) is not a "Verified" or "Not verified" line. The merge step performs it, or it is an issue, filed before this PR merges, with its ID on the Summary's **Follow-ups** line (`/plan-issue` → "A follow-up is an issue"). One with no issue yet is filed now, by `deferral.md` → Follow-ups.
 
 Extract PR URL from output.
 

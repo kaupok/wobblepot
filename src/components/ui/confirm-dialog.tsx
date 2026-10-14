@@ -31,7 +31,7 @@ interface ConfirmDialogProps {
   /**
    * Passed to `AlertDialogContent`. A dialog opened from state has no trigger
    * for Radix to return focus to, so the caller calls `preventDefault()` and
-   * focuses the control that opened it (CLAUDE.md → Focus management).
+   * focuses the control that opened it (docs/DESIGN.md → Focus management).
    */
   onCloseAutoFocus?: (event: Event) => void
 }
