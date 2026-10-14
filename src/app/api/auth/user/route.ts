@@ -165,6 +165,9 @@ export async function DELETE() {
       await tx.oauthRefreshToken.deleteMany({ where: { userId } })
       await tx.oauthAccessToken.deleteMany({ where: { userId } })
       await tx.oauthConsent.deleteMany({ where: { userId } })
+      // Read-only API keys stop working at once too (HON-1220). The v1 routes
+      // also refuse a key whose user has `deletedAt` set.
+      await tx.apiKey.deleteMany({ where: { userId } })
     })
 
     // Confirmation email is sent after the soft-delete commits (best-effort).

@@ -9,11 +9,13 @@ import { DeleteAccountDialog } from './DeleteAccountDialog'
 import { ProfileNameForm } from './ProfileNameForm'
 import { ChangePasswordForm } from './ChangePasswordForm'
 import { ConnectedAssistantsList } from './ConnectedAssistantsList'
+import { ApiKeysSection } from './ApiKeysSection'
 import { McpServerUrl } from './McpServerUrl'
 import { VerifyEmailNotice } from '@/components/VerifyEmailNotice'
 import { parseVerificationLanding, verificationLandingSearch } from '@/lib/email-verification'
 import { getServerBaseURL } from '@/lib/env'
 import { listMcpConsents } from '@/lib/mcp/consents'
+import { listApiKeys } from '@/lib/api-keys'
 import { getMcpResource } from '@/lib/mcp/oauth'
 
 /** The source of truth for the Claude steps, which move when Claude's menus do. */
@@ -39,10 +41,11 @@ export default async function ProfilePage({
   // rather than after it, so overlap it with the membership read instead of
   // assuming it is already resolved. Both are awaited before the redirect, so
   // the auth gate's ordering is unchanged.
-  const [membership, t, consents, params] = await Promise.all([
+  const [membership, t, consents, apiKeys, params] = await Promise.all([
     getHouseholdMembership(session.user.id),
     getTranslations('profile'),
     listMcpConsents(session.user.id),
+    listApiKeys(session.user.id),
     searchParams,
   ])
 
@@ -139,6 +142,11 @@ export default async function ProfilePage({
           </div>
           <ConnectedAssistantsList initialConsents={consents} />
         </section>
+
+        <Separator />
+
+        {/* Read-only keys for a kitchen screen or a script (HON-1220). */}
+        <ApiKeysSection initialKeys={apiKeys} timeZone={membership.household.timezone} />
 
         <Separator />
 

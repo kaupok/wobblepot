@@ -127,4 +127,6 @@ A token reaches one household's data and nothing else. It needs the `mcp:read` s
 
 ## Not yet
 
+A screen or script that only shows the meal plan or shopping list does not need this server: a read-only API key and `GET /api/v1/*` serve it without OAuth, and do not count against the `mcp` limit ([API.md](API.md), HON-1220).
+
 No tool adds a meal to a day with no entry. AI tools such as plan generation are not planned yet: they cost money per call and need a per-household budget.

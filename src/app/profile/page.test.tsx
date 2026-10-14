@@ -92,6 +92,16 @@ vi.mock('./ConnectedAssistantsList', () => ({
   ),
 }))
 
+vi.mock('./ApiKeysSection', () => ({
+  ApiKeysSection: ({ initialKeys, timeZone }: { initialKeys: unknown[]; timeZone: string }) => (
+    <div
+      data-testid="api-keys-section"
+      data-count={String(initialKeys.length)}
+      data-time-zone={timeZone}
+    />
+  ),
+}))
+
 vi.mock('@/components/VerifyEmailNotice', () => ({
   VerifyEmailNotice: ({
     email,
@@ -113,6 +123,10 @@ vi.mock('@/components/VerifyEmailNotice', () => ({
 
 vi.mock('@/lib/mcp/consents', () => ({
   listMcpConsents: vi.fn(async () => []),
+}))
+
+vi.mock('@/lib/api-keys', () => ({
+  listApiKeys: vi.fn(async () => []),
 }))
 
 vi.mock('@/lib/env', () => ({
@@ -347,6 +361,39 @@ describe('ProfilePage', () => {
     vi.mocked(getHouseholdMembership).mockResolvedValue(null)
 
     await expect(ProfilePage(props(params))).rejects.toThrow(`NEXT_REDIRECT:${target}`)
+  })
+
+  // HON-1220: "Screens and scripts" sits between the assistants and "Your data".
+  it("passes the user's API keys to the section between the assistants and the data section", async () => {
+    const { getSession } = await import('@/lib/session')
+    const { getHouseholdMembership } = await import('@/lib/household')
+    const { listApiKeys } = await import('@/lib/api-keys')
+    vi.mocked(getSession).mockResolvedValue(session as never)
+    vi.mocked(getHouseholdMembership).mockResolvedValue(membershipWithMemberCount(1) as never)
+    vi.mocked(listApiKeys).mockResolvedValue([
+      {
+        id: 'key-1',
+        name: 'Kitchen screen',
+        start: 'wp_abcdef',
+        createdAt: '2026-10-14T10:00:00.000Z',
+        lastUsedAt: null,
+      },
+    ])
+
+    render(await ProfilePage(props()))
+
+    const section = screen.getByTestId('api-keys-section')
+    expect(section).toHaveAttribute('data-count', '1')
+    expect(section).toHaveAttribute('data-time-zone', 'Europe/Tallinn')
+    expect(listApiKeys).toHaveBeenCalledWith('user-123')
+    const following = Node.DOCUMENT_POSITION_FOLLOWING
+    expect(
+      screen.getByTestId('connected-assistants').compareDocumentPosition(section) & following,
+    ).toBeTruthy()
+    expect(
+      section.compareDocumentPosition(screen.getByRole('heading', { name: 'Your data' })) &
+        following,
+    ).toBeTruthy()
   })
 
   it('shows the MCP server URL for this environment, the Claude steps and the connected assistants', async () => {

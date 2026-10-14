@@ -141,6 +141,17 @@ export default function PrivacyPage() {
           </Li>
           <Li>
             <Body>
+              API keys for screens and scripts: the name you gave each key, its first characters, a
+              one-way fingerprint of it, when you made it and when it was last used — only if you
+              make one (see{' '}
+              <a className="underline" href="#ai-assistants">
+                Connected AI assistants
+              </a>
+              ).
+            </Body>
+          </Li>
+          <Li>
+            <Body>
               Usage analytics and error reports from your browser — only if you accept analytics
               cookies (see{' '}
               <a className="underline" href="#cookies">
@@ -248,6 +259,18 @@ export default function PrivacyPage() {
           </a>{' '}
           and we delete its access for you. Deleting your account disconnects every assistant at
           once.
+        </Body>
+        <Body>
+          You can also connect a screen or script you choose, such as a kitchen display, a Home
+          Assistant dashboard or a program you wrote, with an API key you make under &ldquo;Screens
+          and scripts&rdquo; on your profile page. The key can only read your household&rsquo;s meal
+          plan and shopping list; it cannot change anything or read anything else. Like an
+          assistant, the screen or script is not one of our processors: you choose it and you give
+          it the key. We store the key&rsquo;s name, its first characters, a one-way fingerprint of
+          it and when it was last used, never the key itself, and we do not record each request it
+          makes in analytics. To stop it, choose Revoke next to the key: its next request fails.
+          Deleting your account stops every key at once. A key reads the household you belong to
+          when it makes a request, so after you leave a household, the key no longer reads it.
         </Body>
       </Section>
 
