@@ -140,7 +140,10 @@ export default async function ProfilePage({
               })}
             </Body>
           </div>
-          <ConnectedAssistantsList initialConsents={consents} />
+          <ConnectedAssistantsList
+            initialConsents={consents}
+            timeZone={membership.household.timezone}
+          />
         </section>
 
         <Separator />

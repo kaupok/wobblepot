@@ -31,7 +31,7 @@ const UNNAMED: ConnectedAssistant = {
 const mockApiFetch = vi.mocked(apiFetch)
 
 function renderList(consents: ConnectedAssistant[]) {
-  return render(<ConnectedAssistantsList initialConsents={consents} />, {
+  return render(<ConnectedAssistantsList initialConsents={consents} timeZone="Europe/Tallinn" />, {
     wrapper: createQueryWrapper().wrapper,
   })
 }
@@ -63,6 +63,15 @@ describe('ConnectedAssistantsList', () => {
     ).toBeInTheDocument()
     expect(within(rows[1]!).getByText('Unnamed assistant')).toBeInTheDocument()
     expect(within(rows[1]!).queryByText(/^Connected:/)).not.toBeInTheDocument()
+  })
+
+  it("prints the date in the household's timezone, not the runtime's", () => {
+    // 22:30 UTC on 13 October is already 14 October in Tallinn.
+    const lateConsent = { ...CLAUDE, createdAt: '2026-10-13T22:30:00.000Z' }
+    mockApiFetch.mockResolvedValue([lateConsent])
+    renderList([lateConsent])
+
+    expect(screen.getByText('Connected: October 14, 2026')).toBeInTheDocument()
   })
 
   it('asks first, then disconnects through the DELETE route and removes the row', async () => {
