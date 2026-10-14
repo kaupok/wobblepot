@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { Allergen, MealType } from '@/generated/prisma/enums'
+import { Allergen } from '@/generated/prisma/enums'
 import { resolveLocale } from '@/lib/i18n/resolve-locale'
-import { isMembershipConflict, runHouseholdClaim } from '@/lib/household-claim'
+import {
+  AlreadyInHouseholdError,
+  createHousehold,
+  isMembershipConflict,
+} from '@/lib/household-claim'
 import { captureApiError } from '@/lib/errors'
 import { shouldSkipLocalCapture } from '@/lib/release'
-import { seedDefaultStaples } from '@/lib/meal-planning/default-staples'
-import { PORTION_BY_TYPE } from '@/lib/meal-planning/servings'
 
 /**
  * Upper bound on the `members` array, which is the *additional* members beyond
@@ -74,98 +76,19 @@ export async function POST(request: Request) {
     acceptLanguage: requestHeaders.get('accept-language'),
   })
 
-  // Create household, membership, preferences, and optional members in a transaction
   try {
-    const { name, members } = parsed.data
-    const allergensToAvoid = [...new Set(parsed.data.allergensToAvoid ?? [])]
-
-    // `runHouseholdClaim`, not a bare `$transaction`: sharing a transaction is
-    // not enough on its own. At read committed this check is a `SELECT`
-    // matching zero rows, so it takes no lock, and two concurrent creates for
-    // the same user insert two *different* member rows — `@@unique([householdId,
-    // userId])` never fires because the household ids differ. A double submit
-    // is enough to trigger it (HON-679). The helper holds this user's row lock
-    // for the whole claim, so the second create waits, then sees the first's
-    // membership here and resolves to the `already_in_household` 400 below.
-    // Creates by different users take different locks and never wait on each
-    // other (HON-838).
-    //
-    // Since HON-696 a unique index on `household_member."userId"` enforces the
-    // invariant on its own; a loser that the index rejects surfaces as `P2002`
-    // — mapped to the same 400 below.
-    const household = await runHouseholdClaim(session.user.id, async (tx) => {
-      const existingMembership = await tx.householdMember.findFirst({
-        where: { userId: session.user.id },
-      })
-
-      if (existingMembership) {
-        throw new Error('already_in_household')
-      }
-
-      const newHousehold = await tx.household.create({
-        data: {
-          name,
-          locale,
-        },
-      })
-
-      await tx.householdMember.create({
-        data: {
-          householdId: newHousehold.id,
-          userId: session.user.id,
-          role: 'owner',
-        },
-      })
-
-      // This route is the only household creator, so it must stay the one that
-      // writes the preferences row (the seed's smoke household is the exception; HON-672).
-      await tx.householdPreferences.create({
-        data: {
-          householdId: newHousehold.id,
-          weekdayMealTypes: [MealType.dinner],
-          weekendMealTypes: [MealType.dinner],
-          allergensToAvoid,
-        },
-      })
-
-      // Salt, black pepper and water start as staples so "to taste" seasonings
-      // stay off the shopping list (HON-769). The seed's smoke household calls this too.
-      await seedDefaultStaples(tx, newHousehold.id)
-
-      // Create any additional household members with portion preferences
-      if (members && members.length > 0) {
-        for (const member of members) {
-          const newMember = await tx.householdMember.create({
-            data: {
-              householdId: newHousehold.id,
-              name: member.name,
-              role: 'member',
-            },
-          })
-
-          await tx.memberPreferences.create({
-            data: {
-              memberId: newMember.id,
-              portionMultiplier: PORTION_BY_TYPE[member.portionType],
-            },
-          })
-        }
-      }
-
-      return tx.household.findUnique({
-        where: { id: newHousehold.id },
-        include: { preferences: true, members: true },
-      })
-    })
+    // Under the user's row lock, so a double submit cannot create two
+    // households (HON-679, HON-838).
+    const household = await createHousehold(session.user.id, { ...parsed.data, locale })
 
     return NextResponse.json(
       {
-        id: household!.id,
-        name: household!.name,
-        timezone: household!.timezone,
-        locale: household!.locale,
-        createdAt: household!.createdAt,
-        preferences: household!.preferences,
+        id: household.id,
+        name: household.name,
+        timezone: household.timezone,
+        locale: household.locale,
+        createdAt: household.createdAt,
+        preferences: household.preferences,
       },
       { status: 201 },
     )
@@ -174,10 +97,7 @@ export async function POST(request: Request) {
     // rejected the owner row — a concurrent create or join committed a
     // membership for this user first (HON-696). Same answer as the pre-check,
     // because `OnboardingFlow` branches on this exact `error` string.
-    if (
-      (error instanceof Error && error.message === 'already_in_household') ||
-      isMembershipConflict(error)
-    ) {
+    if (error instanceof AlreadyInHouseholdError || isMembershipConflict(error)) {
       return NextResponse.json(
         {
           error: 'already_in_household',

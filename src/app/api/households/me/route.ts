@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { getHouseholdMembership } from '@/lib/household'
+import { getHouseholdMembership, updateHousehold } from '@/lib/household'
 import { LocaleSchema } from '@/lib/i18n/locales'
 import { captureApiError } from '@/lib/errors'
 
@@ -86,40 +85,8 @@ export async function PATCH(request: Request) {
       )
     }
 
-    const updateArgs = {
-      where: { id: membership.household.id },
-      data: parsed.data,
-      include: { preferences: true },
-    }
-
-    // The household's locale is an input to every cached prep-tips generation
-    // (`MealPlanEntry.preparationTips`), and `docs/LOCALIZATION.md` requires AI
-    // caches not to survive a locale change. Nothing else clears them, and
-    // three read sites serialise the stored value straight into the entry
-    // payload — so a household that switches en → et would keep showing
-    // English tips indefinitely. Drop them here and let the next open of the
-    // modal regenerate through the existing rate-limited path (HON-681).
-    //
-    // Only when the locale actually moves: a name-only or timezone-only PATCH,
-    // or one that resends the stored locale, must not touch a single entry.
-    const localeChanged =
-      parsed.data.locale !== undefined && parsed.data.locale !== membership.household.locale
-
-    const household = localeChanged
-      ? await prisma.$transaction(async (tx) => {
-          const updated = await tx.household.update(updateArgs)
-
-          await tx.mealPlanEntry.updateMany({
-            where: {
-              plan: { householdId: membership.household.id },
-              preparationTips: { not: null },
-            },
-            data: { preparationTips: null },
-          })
-
-          return updated
-        })
-      : await prisma.household.update(updateArgs)
+    // Clears the cached prep tips when the locale moves (HON-681).
+    const household = await updateHousehold(membership.household, parsed.data)
 
     return NextResponse.json({
       id: household.id,

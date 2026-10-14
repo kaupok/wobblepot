@@ -1,6 +1,7 @@
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { getServerBaseURL } from '@/lib/env'
 import { sumPortions } from '@/lib/meal-planning/servings'
+import type { Locale } from '@/lib/i18n/locales'
 
 /**
  * Most members, owner included, a household can hold. `POST /api/households`
@@ -48,6 +49,57 @@ export async function getHouseholdMembership(userId: string) {
         },
       },
     },
+  })
+}
+
+/** The validated body of a household settings update. An absent key is left alone. */
+export interface HouseholdPatch {
+  name?: string
+  timezone?: string
+  locale?: Locale
+}
+
+/**
+ * Save a household's settings, behind `PATCH /api/households/me`, and return
+ * the household with its preferences. `household` is the stored row the
+ * caller holds, so the locale it carries is the one being replaced.
+ *
+ * The household's locale is an input to every cached prep-tips generation
+ * (`MealPlanEntry.preparationTips`), and `docs/LOCALIZATION.md` requires AI
+ * caches not to survive a locale change. Nothing else clears them, and three
+ * read sites serialise the stored value straight into the entry payload — so
+ * a household that switches en → et would keep showing English tips
+ * indefinitely. Drop them here and let the next open of the modal regenerate
+ * through the existing rate-limited path (HON-681).
+ *
+ * Only when the locale actually moves: a name-only or timezone-only update, or
+ * one that resends the stored locale, must not touch a single entry.
+ */
+export async function updateHousehold(
+  household: { id: string; locale: string },
+  patch: HouseholdPatch,
+) {
+  const updateArgs = {
+    where: { id: household.id },
+    data: patch,
+    include: { preferences: true },
+  }
+
+  const localeChanged = patch.locale !== undefined && patch.locale !== household.locale
+  if (!localeChanged) return prisma.household.update(updateArgs)
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.household.update(updateArgs)
+
+    await tx.mealPlanEntry.updateMany({
+      where: {
+        plan: { householdId: household.id },
+        preparationTips: { not: null },
+      },
+      data: { preparationTips: null },
+    })
+
+    return updated
   })
 }
 

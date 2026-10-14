@@ -1,48 +1,54 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, PATCH } from './route'
 
-// Mock dependencies
+// The preferences save and the conflict count live in
+// `@/lib/household/preferences`, tested against a database in
+// `preferences.db.test.ts`. This file mocks that module at the seam and
+// asserts what the route owns: the session, the owner check, body validation,
+// when the conflicts are counted, and the status and body each answer maps to
+// (HON-1213).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    householdMember: {
-      findFirst: vi.fn(),
-    },
-    householdPreferences: {
-      upsert: vi.fn(),
-    },
-    ingredient: {
-      findMany: vi.fn(),
-    },
-  },
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/meal-planning/count-preference-conflicts', () => ({
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/household/preferences', () => ({
+  updateHouseholdPreferences: vi.fn(),
   countConflictingPlannedEntries: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { countConflictingPlannedEntries } from '@/lib/meal-planning/count-preference-conflicts'
+import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
+import {
+  countConflictingPlannedEntries,
+  updateHouseholdPreferences,
+} from '@/lib/household/preferences'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
-const mockUpsert = vi.mocked(prisma.householdPreferences.upsert)
-const mockIngredientFindMany = vi.mocked(prisma.ingredient.findMany)
+const mockGetMembership = vi.mocked(getHouseholdMembership)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockUpdate = vi.mocked(updateHouseholdPreferences)
 const mockCountConflicts = vi.mocked(countConflictingPlannedEntries)
 
-const mockPreferences = {
+const mockSession = {
+  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+  session: { id: 'session-123' },
+} as never
+
+const PREFERENCES = {
   id: 'prefs-123',
   householdId: 'household-123',
   dietaryType: null,
@@ -54,497 +60,214 @@ const mockPreferences = {
   weekendMealTypes: ['dinner'],
 }
 
-const mockMembership = {
-  id: 'member-123',
-  householdId: 'household-123',
-  userId: 'user-123',
-  role: 'owner',
-  household: {
-    id: 'household-123',
-    name: "John Doe's Household",
-    timezone: 'Europe/Tallinn',
-    createdAt: new Date('2024-01-01'),
-    preferences: mockPreferences,
-  },
+const HOUSEHOLD = { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn' }
+
+const membership = ({
+  role = 'owner',
+  preferences = PREFERENCES as typeof PREFERENCES | null,
+} = {}) =>
+  ({
+    id: 'member-123',
+    householdId: 'household-123',
+    userId: 'user-123',
+    role,
+    household: { ...HOUSEHOLD, preferences },
+  }) as never
+
+const URL = 'http://localhost/api/households/me/preferences'
+
+const patch = (body: unknown) =>
+  PATCH(
+    new Request(URL, {
+      method: 'PATCH',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+  )
+
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
 }
 
-// A household whose `household_preferences` row was never created — the state
-// the seeded smoke household was in (HON-672).
-const mockMembershipWithoutPreferences = {
-  ...mockMembership,
-  household: {
-    ...mockMembership.household,
-    preferences: null,
-  },
-}
-
-const mockNonOwnerMembership = {
-  ...mockMembership,
-  id: 'member-456',
-  userId: 'user-456',
-  role: 'member',
-}
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(membership())
+})
 
 describe('GET /api/households/me/preferences', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('returns 401 when not authenticated', async () => {
+  it('answers 401 without a session', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(GET())).toEqual({ status: 401, body: { error: 'Unauthorized' } })
   })
 
-  it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it('answers 404 when the user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
 
-    mockFindFirst.mockResolvedValue(null)
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await answer(GET())).toEqual({ status: 404, body: { error: 'No household found' } })
   })
 
-  it('returns preferences when authenticated', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.id).toBe('prefs-123')
-    expect(data.dietaryType).toBeNull()
-    expect(data.weekdayMealTypes).toEqual(['dinner'])
+  it("answers with the household's preferences", async () => {
+    expect(await answer(GET())).toEqual({ status: 200, body: PREFERENCES })
   })
 
-  it('returns 404 when the household has no preferences row', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  // The state the seeded smoke household was in (HON-672).
+  it('answers 404 when the household has no preferences row', async () => {
+    mockGetMembership.mockResolvedValue(membership({ preferences: null }))
 
-    mockFindFirst.mockResolvedValue(mockMembershipWithoutPreferences as never)
+    expect(await answer(GET())).toEqual({
+      status: 404,
+      body: { error: 'No household preferences found' },
+    })
+  })
 
-    const response = await GET()
-    const data = await response.json()
+  it('answers 500 and reports a failed read', async () => {
+    const failure = new Error('database down')
+    mockGetMembership.mockRejectedValue(failure)
 
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household preferences found')
+    expect(await answer(GET())).toEqual({
+      status: 500,
+      body: { error: 'Failed to fetch household preferences' },
+    })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/households/me/preferences',
+      userId: 'user-123',
+    })
   })
 })
 
 describe('PATCH /api/households/me/preferences', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    mockUpdate.mockImplementation(
+      async (_householdId, data) =>
+        ({
+          ...PREFERENCES,
+          ...data,
+        }) as never,
+    )
+    mockCountConflicts.mockResolvedValue(2)
   })
 
-  const createRequest = (body: object) =>
-    new Request('http://localhost/api/households/me/preferences', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-
-  it('returns 401 when not authenticated', async () => {
+  it('answers 401 without a session', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await PATCH(createRequest({ dietaryType: 'vegetarian' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
-  })
-
-  it('returns 400 on invalid dietary type', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const response = await PATCH(createRequest({ dietaryType: 'invalid-type' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.dietaryType).toBeDefined()
-  })
-
-  it('returns 400 on invalid allergen', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const response = await PATCH(createRequest({ allergensToAvoid: ['invalid-allergen'] }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-  })
-
-  it('returns 400 on invalid meal type', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const response = await PATCH(createRequest({ weekdayMealTypes: ['brunch'] }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-  })
-
-  it('returns 400 on invalid JSON', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/households/me/preferences', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: 'invalid json{',
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
-  })
-
-  it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(null)
-
-    const response = await PATCH(createRequest({ dietaryType: 'vegetarian' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
-  })
-
-  it('returns 403 when non-owner tries to update preferences', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-456', name: 'Jane Doe', email: 'jane@example.com' },
-      session: { id: 'session-456' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockNonOwnerMembership as never)
-
-    const response = await PATCH(createRequest({ dietaryType: 'vegetarian' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Only household owners can update preferences')
-    expect(mockUpsert).not.toHaveBeenCalled()
-  })
-
-  it('updates single field successfully', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedPreferences = { ...mockPreferences, dietaryType: 'vegetarian' }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(createRequest({ dietaryType: 'vegetarian' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.dietaryType).toBe('vegetarian')
-    expect(mockUpsert).toHaveBeenCalledWith({
-      where: { householdId: 'household-123' },
-      update: { dietaryType: 'vegetarian' },
-      create: { householdId: 'household-123', dietaryType: 'vegetarian' },
+    expect(await answer(patch({ restrictions: [] }))).toEqual({
+      status: 401,
+      body: { error: 'Unauthorized' },
     })
   })
 
-  // HON-889: the resolved ids are returned in the response, so another
-  // household's ingredient must never match an excluded name.
-  it("resolves excluded ingredient names against global and this household's ingredients", async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockIngredientFindMany.mockResolvedValue([{ id: 'ing-cilantro' }] as never)
-    mockUpsert.mockResolvedValue(mockPreferences as never)
-
-    const response = await PATCH(createRequest({ excludedIngredients: ['Cilantro'] }))
-
-    expect(response.status).toBe(200)
-    expect(mockIngredientFindMany).toHaveBeenCalledWith({
-      where: {
-        name: { in: ['Cilantro', 'fresh coriander'], mode: 'insensitive' },
-        OR: [{ householdId: null }, { householdId: 'household-123' }],
-      },
-      select: { id: true },
-    })
-    expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: { excludedIngredients: ['Cilantro'], excludedIngredientIds: ['ing-cilantro'] },
-      }),
-    )
-  })
-
-  // HON-1097: "shrimp" was merged into prawns, so a household that typed it
-  // keeps the exclusion when it saves the form again.
-  it('also resolves an excluded name through its other English name', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockIngredientFindMany.mockResolvedValue([{ id: 'ing-prawns' }] as never)
-    mockUpsert.mockResolvedValue(mockPreferences as never)
-
-    const response = await PATCH(createRequest({ excludedIngredients: ['Shrimp', 'beef'] }))
-
-    expect(response.status).toBe(200)
-    expect(mockIngredientFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          // "beef" is an alias (→ beef mince), not a synonym: it is not narrowed.
-          name: { in: ['Shrimp', 'prawns', 'beef'], mode: 'insensitive' },
-        }),
-      }),
-    )
-    expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: { excludedIngredients: ['Shrimp', 'beef'], excludedIngredientIds: ['ing-prawns'] },
-      }),
-    )
-  })
-
-  // HON-1099 renamed "half and half" to single cream. A household that saved
-  // the American word, in any spelling, keeps the exclusion.
-  it('resolves a spelling variant of an excluded name through its other English name', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockIngredientFindMany.mockResolvedValue([{ id: 'ing-single-cream' }] as never)
-    mockUpsert.mockResolvedValue(mockPreferences as never)
-
-    await PATCH(createRequest({ excludedIngredients: ['Half-and-Half'] }))
-
-    expect(mockIngredientFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          name: { in: ['Half-and-Half', 'single cream'], mode: 'insensitive' },
-        }),
-      }),
-    )
-  })
-
-  it('updates multiple fields successfully', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedPreferences = {
-      ...mockPreferences,
-      dietaryType: 'vegan',
-      allergensToAvoid: ['gluten', 'dairy'],
-      weekdayMealTypes: ['lunch', 'dinner'],
-    }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(
-      createRequest({
-        dietaryType: 'vegan',
-        allergensToAvoid: ['gluten', 'dairy'],
-        weekdayMealTypes: ['lunch', 'dinner'],
-      }),
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.dietaryType).toBe('vegan')
-    expect(data.allergensToAvoid).toEqual(['gluten', 'dairy'])
-    expect(data.weekdayMealTypes).toEqual(['lunch', 'dinner'])
-  })
-
-  it('handles nullable dietaryType', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedPreferences = { ...mockPreferences, dietaryType: null }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(createRequest({ dietaryType: null }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.dietaryType).toBeNull()
-    expect(mockUpsert).toHaveBeenCalledWith({
-      where: { householdId: 'household-123' },
-      update: { dietaryType: null },
-      create: { householdId: 'household-123', dietaryType: null },
+  it('answers 400 for invalid JSON', async () => {
+    expect(await answer(patch('{not json'))).toEqual({
+      status: 400,
+      body: { error: 'Invalid JSON' },
     })
   })
 
-  it('updates restrictions array successfully', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it.each([
+    ['an unknown dietary type', { dietaryType: 'carnivore' }, 'dietaryType'],
+    ['an unknown allergen', { allergensToAvoid: ['pollen'] }, 'allergensToAvoid'],
+    ['an unknown meal type', { weekdayMealTypes: ['brunch'] }, 'weekdayMealTypes'],
+    ['no weekday meal type', { weekdayMealTypes: [] }, 'weekdayMealTypes'],
+    ['no weekend meal type', { weekendMealTypes: [] }, 'weekendMealTypes'],
+  ])('answers 400 for %s', async (_label, body, field) => {
+    const { status, body: answered } = await answer(patch(body))
 
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedPreferences = {
-      ...mockPreferences,
-      restrictions: ['low sodium', 'Mediterranean-style'],
-    }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(
-      createRequest({ restrictions: ['low sodium', 'Mediterranean-style'] }),
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.restrictions).toEqual(['low sodium', 'Mediterranean-style'])
+    expect(status).toBe(400)
+    expect(answered.error).toBe('Validation failed')
+    expect(Object.keys(answered.details)).toEqual([field])
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
-  it('returns 400 on empty weekdayMealTypes array', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it('answers 404 when the user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
 
-    const response = await PATCH(createRequest({ weekdayMealTypes: [] }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.weekdayMealTypes).toContain('At least one weekday meal type required')
-  })
-
-  it('returns 400 on empty weekendMealTypes array', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const response = await PATCH(createRequest({ weekendMealTypes: [] }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.weekendMealTypes).toContain('At least one weekend meal type required')
-  })
-
-  it('creates the preferences row when the household has none', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembershipWithoutPreferences as never)
-
-    const createdPreferences = { ...mockPreferences, weekdayMealTypes: ['lunch', 'dinner'] }
-    mockUpsert.mockResolvedValue(createdPreferences as never)
-
-    const response = await PATCH(createRequest({ weekdayMealTypes: ['lunch', 'dinner'] }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.weekdayMealTypes).toEqual(['lunch', 'dinner'])
-    expect(mockUpsert).toHaveBeenCalledWith({
-      where: { householdId: 'household-123' },
-      update: { weekdayMealTypes: ['lunch', 'dinner'] },
-      create: { householdId: 'household-123', weekdayMealTypes: ['lunch', 'dinner'] },
+    expect(await answer(patch({ restrictions: [] }))).toEqual({
+      status: 404,
+      body: { error: 'No household found' },
     })
   })
 
-  // HON-1126: a food save reports how many planned meals now break the
-  // preferences, and reads the plan only. The prisma mock has no
-  // `mealPlanEntry` at all, so any write to an entry would throw.
-  it('returns the number of conflicting planned meals after a food save', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    const updatedPreferences = { ...mockPreferences, allergensToAvoid: ['nuts'] }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-    mockCountConflicts.mockResolvedValue(2)
+  it('answers 403 to a member who is not the owner, and saves nothing', async () => {
+    mockGetMembership.mockResolvedValue(membership({ role: 'member' }))
 
-    const response = await PATCH(createRequest({ allergensToAvoid: ['nuts'] }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.allergensToAvoid).toEqual(['nuts'])
-    expect(data.conflictingEntries).toBe(2)
-    expect(mockCountConflicts).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'household-123', timezone: 'Europe/Tallinn' }),
-      updatedPreferences,
-    )
+    expect(await answer(patch({ restrictions: [] }))).toEqual({
+      status: 403,
+      body: { error: 'Only household owners can update preferences' },
+    })
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
+
+  it("saves the validated fields on the user's household", async () => {
+    await patch({ dietaryType: null, restrictions: ['low-salt'], unknown: 'dropped' })
+
+    expect(mockUpdate).toHaveBeenCalledWith('household-123', {
+      dietaryType: null,
+      restrictions: ['low-salt'],
+    })
+  })
+
+  // A household with no preferences row saves too: the lib upserts (HON-672).
+  it('saves for a household that has no preferences row', async () => {
+    mockGetMembership.mockResolvedValue(membership({ preferences: null }))
+
+    expect((await answer(patch({ weekdayMealTypes: ['lunch'] }))).status).toBe(200)
+    expect(mockUpdate).toHaveBeenCalledWith('household-123', { weekdayMealTypes: ['lunch'] })
+  })
+
+  it.each([
+    ['dietary type', { dietaryType: 'vegan' }],
+    ['allergens', { allergensToAvoid: ['nuts'] }],
+    ['excluded ingredients', { excludedIngredients: ['cilantro'] }],
+  ])(
+    'answers a %s save with the count of planned meals that now break it',
+    async (_label, body) => {
+      expect(await answer(patch(body))).toEqual({
+        status: 200,
+        body: { ...PREFERENCES, ...body, conflictingEntries: 2 },
+      })
+      const [household, saved] = mockCountConflicts.mock.calls[0]!
+      expect(household).toMatchObject({ id: 'household-123', timezone: 'Europe/Tallinn' })
+      expect(saved).toMatchObject(body)
+    },
+  )
 
   it('does not count conflicts after a meal-types save', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockUpsert.mockResolvedValue({ ...mockPreferences, weekdayMealTypes: ['lunch'] } as never)
-
-    const response = await PATCH(createRequest({ weekdayMealTypes: ['lunch'] }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.conflictingEntries).toBeUndefined()
+    expect(await answer(patch({ weekendMealTypes: ['lunch', 'dinner'] }))).toEqual({
+      status: 200,
+      body: { ...PREFERENCES, weekendMealTypes: ['lunch', 'dinner'] },
+    })
     expect(mockCountConflicts).not.toHaveBeenCalled()
   })
 
-  it('still reports the save when the conflict count fails', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockUpsert.mockResolvedValue({ ...mockPreferences, allergensToAvoid: ['nuts'] } as never)
-    mockCountConflicts.mockRejectedValue(new Error('connection reset'))
+  // The preferences are stored by then, so the save still succeeds (HON-1126).
+  it('still answers the save, without a count, and reports it when the count fails', async () => {
+    const failure = new Error('count failed')
+    mockCountConflicts.mockRejectedValue(failure)
 
-    const response = await PATCH(createRequest({ allergensToAvoid: ['nuts'] }))
-    const data = await response.json()
+    expect(await answer(patch({ dietaryType: 'vegan' }))).toEqual({
+      status: 200,
+      body: { ...PREFERENCES, dietaryType: 'vegan' },
+    })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/households/me/preferences',
+      userId: 'user-123',
+      householdId: 'household-123',
+    })
+  })
 
-    expect(response.status).toBe(200)
-    expect(data.allergensToAvoid).toEqual(['nuts'])
-    expect(data.conflictingEntries).toBeUndefined()
+  it('answers 500 and reports a failed save', async () => {
+    const failure = new Error('database down')
+    mockUpdate.mockRejectedValue(failure)
+
+    expect(await answer(patch({ restrictions: [] }))).toEqual({
+      status: 500,
+      body: { error: 'Failed to update household preferences' },
+    })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/households/me/preferences',
+      userId: 'user-123',
+    })
   })
 })
