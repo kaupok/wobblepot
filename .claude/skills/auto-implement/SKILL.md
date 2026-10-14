@@ -696,7 +696,7 @@ PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive,
 Act on the marker:
 
 - `CI_WAITING` — re-issue the same command immediately. **This is not a stopping point.** Never end a turn on it, and never write a message like "CI is still running, I'll merge once it settles" — that sentence is the bug this pattern exists to prevent.
-- **No marker at all** (the Bash call was killed at its timeout, or errored before the poll) — treat it exactly as `CI_WAITING` and re-issue. The chunk counter was already incremented, so the budget shrinks by one and a repeat lands on `CI_TIMEOUT` rather than looping forever. A missing marker is never a reason to end the turn.
+- **No marker at all** (the Bash call was killed at its timeout, or errored inside the poll) — treat it exactly as `CI_WAITING` and re-issue. The chunk counter was already incremented, so the budget shrinks by one and a repeat lands on `CI_TIMEOUT` rather than looping forever. A missing marker is never a reason to end the turn, with one exception: a `Usage:` line on stderr (exit 2). It means `gh pr view` returned no PR number, so no chunk was counted and a re-issue would loop. Report and stop.
 - `CI_TIMEOUT` — terminal: report and stop. Do not merge.
 - `CI_SETTLED` — continue to the verification below.
 
