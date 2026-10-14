@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DELETE } from './route'
 
-// Mock dependencies
+// The sole-owner check and the soft-delete live in `@/lib/auth/account`,
+// tested against a database in `account.db.test.ts`. This file mocks that
+// module at the seam and asserts what the route owns: the session, the
+// confirmation email, and the status and body each answer maps to (HON-1216).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
@@ -14,24 +18,13 @@ vi.mock('@/lib/auth', () => ({
   },
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    user: {
-      update: vi.fn(),
-    },
-    session: {
-      deleteMany: vi.fn(),
-    },
-    // Read by `resolveEmailLocale` to pick the confirmation email's language.
-    householdMember: {
-      findFirst: vi.fn(),
-    },
-    $transaction: vi.fn(),
-  },
+vi.mock('@/lib/auth/account', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/auth/account')>()),
+  requestAccountDeletion: vi.fn(),
 }))
 
-vi.mock('@/lib/household', () => ({
-  isUserSoleOwnerWithOtherMembers: vi.fn(),
+vi.mock('@/lib/emails/locale', () => ({
+  resolveEmailLocale: vi.fn(),
 }))
 
 vi.mock('@/lib/errors', () => ({
@@ -54,51 +47,21 @@ vi.mock('@/lib/emails/account-deletion-requested', () => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { isUserSoleOwnerWithOtherMembers } from '@/lib/household'
+import { AccountDeletionError, requestAccountDeletion } from '@/lib/auth/account'
+import { resolveEmailLocale } from '@/lib/emails/locale'
+import { captureApiError } from '@/lib/errors'
 import { resend, isEmailConfigured } from '@/lib/resend'
 import { generateAccountDeletionRequestedEmail } from '@/lib/emails/account-deletion-requested'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockFindMembership = vi.mocked(prisma.householdMember.findFirst)
+const mockRequestDeletion = vi.mocked(requestAccountDeletion)
+const mockResolveLocale = vi.mocked(resolveEmailLocale)
+const mockCaptureApiError = vi.mocked(captureApiError)
 const mockGenerateEmail = vi.mocked(generateAccountDeletionRequestedEmail)
-const mockIsUserSoleOwner = vi.mocked(isUserSoleOwnerWithOtherMembers)
-const mockTransaction = vi.mocked(prisma.$transaction)
 const mockIsEmailConfigured = vi.mocked(isEmailConfigured)
 const mockSend = vi.mocked(resend!.emails.send)
 
-const DAY_MS = 24 * 60 * 60 * 1000
-const THIRTY_DAYS_MS = 30 * DAY_MS
-
-/** Wires `$transaction` to run the callback against a fake tx, capturing the
- *  soft-delete mocks so tests can assert on them. */
-function mockSoftDeleteTx() {
-  const userUpdate = vi.fn()
-  const sessionDeleteMany = vi.fn()
-  const oauthRefreshTokenDeleteMany = vi.fn()
-  const oauthAccessTokenDeleteMany = vi.fn()
-  const oauthConsentDeleteMany = vi.fn()
-  const apiKeyDeleteMany = vi.fn()
-  mockTransaction.mockImplementation(async (fn) => {
-    const tx = {
-      user: { update: userUpdate },
-      session: { deleteMany: sessionDeleteMany },
-      oauthRefreshToken: { deleteMany: oauthRefreshTokenDeleteMany },
-      oauthAccessToken: { deleteMany: oauthAccessTokenDeleteMany },
-      oauthConsent: { deleteMany: oauthConsentDeleteMany },
-      apiKey: { deleteMany: apiKeyDeleteMany },
-    }
-    return (fn as (tx: unknown) => unknown)(tx)
-  })
-  return {
-    userUpdate,
-    sessionDeleteMany,
-    oauthRefreshTokenDeleteMany,
-    oauthAccessTokenDeleteMany,
-    oauthConsentDeleteMany,
-    apiKeyDeleteMany,
-  }
-}
+const PURGE = new Date('2026-11-14T03:00:00.000Z')
 
 const signedInUser = {
   user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
@@ -108,11 +71,10 @@ const signedInUser = {
 describe('DELETE /api/auth/user', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetSession.mockResolvedValue(signedInUser)
+    mockRequestDeletion.mockResolvedValue({ purgeScheduledFor: PURGE })
+    mockResolveLocale.mockResolvedValue('en')
     mockIsEmailConfigured.mockReturnValue(true)
-    // Default: an English household. Without this the lookup rejects on an
-    // undefined mock, `resolveEmailLocale` swallows it, and every test would
-    // silently exercise the fallback path instead of the real one.
-    mockFindMembership.mockResolvedValue({ household: { locale: 'en' } } as never)
     mockGenerateEmail.mockReturnValue({
       subject: 'Deletion scheduled',
       html: '<p>html</p>',
@@ -124,148 +86,72 @@ describe('DELETE /api/auth/user', () => {
     mockGetSession.mockResolvedValue(null)
 
     const response = await DELETE()
-    const data = await response.json()
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
-    expect(data.code).toBe('unauthorized')
+    expect(await response.json()).toEqual({ code: 'unauthorized', error: 'Unauthorized' })
+    expect(mockRequestDeletion).not.toHaveBeenCalled()
   })
 
-  it('returns 400 when user is sole owner with other account-holding members', async () => {
-    mockGetSession.mockResolvedValue(signedInUser)
-    // `memberCount` is the guard's count of members with an account, owner
-    // included; members without an account are never in it (HON-881, asserted
-    // against the query in `household.test.ts`).
-    mockIsUserSoleOwner.mockResolvedValue({
-      isSoleOwner: true,
-      householdId: 'household-123',
-      householdName: 'Doe Family',
-      memberCount: 3,
-    })
+  it('returns 400 with the household when the user is the sole owner', async () => {
+    mockRequestDeletion.mockRejectedValue(
+      new AccountDeletionError('soleOwner', {
+        id: 'household-123',
+        name: 'Doe Family',
+        otherMemberCount: 2,
+      }),
+    )
 
     const response = await DELETE()
-    const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('Cannot delete account')
-    expect(data.message).toContain('sole owner')
-    expect(data.message).toContain('2 other member(s)')
-    expect(data.householdName).toBe('Doe Family')
-    // HON-725: the client translates `code` and interpolates these two
-    // fields; it never renders the English `message` above.
-    expect(data.code).toBe('sole_owner')
-    expect(data.otherMemberCount).toBe(2)
-    // No soft-delete should have run
-    expect(mockTransaction).not.toHaveBeenCalled()
+    // HON-725: the client translates `code` and interpolates the count; it
+    // never renders the English `message`.
+    expect(await response.json()).toEqual({
+      code: 'sole_owner',
+      error: 'Cannot delete account',
+      message:
+        'You are the sole owner of "Doe Family" which has 2 other member(s). Please remove the other members first.',
+      householdId: 'household-123',
+      householdName: 'Doe Family',
+      otherMemberCount: 2,
+    })
+    expect(mockSend).not.toHaveBeenCalled()
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
   })
 
-  it('revokes OAuth grants with the sessions, so a connected app loses access (HON-1150)', async () => {
-    mockGetSession.mockResolvedValue(signedInUser)
-    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
-    const { oauthRefreshTokenDeleteMany, oauthAccessTokenDeleteMany, oauthConsentDeleteMany } =
-      mockSoftDeleteTx()
-
+  it('requests deletion for the session user and returns the purge instant', async () => {
     const response = await DELETE()
 
+    expect(mockRequestDeletion).toHaveBeenCalledWith('user-123')
     expect(response.status).toBe(200)
-    const where = { where: { userId: 'user-123' } }
-    expect(oauthRefreshTokenDeleteMany).toHaveBeenCalledWith(where)
-    expect(oauthAccessTokenDeleteMany).toHaveBeenCalledWith(where)
-    expect(oauthConsentDeleteMany).toHaveBeenCalledWith(where)
+    expect(await response.json()).toEqual({
+      success: true,
+      purgeScheduledFor: '2026-11-14T03:00:00.000Z',
+    })
   })
 
-  it('deletes the read-only API keys in the soft-delete, so they answer 401 at once (HON-1220)', async () => {
-    mockGetSession.mockResolvedValue(signedInUser)
-    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
-    const { apiKeyDeleteMany } = mockSoftDeleteTx()
-
-    const response = await DELETE()
-
-    expect(response.status).toBe(200)
-    expect(apiKeyDeleteMany).toHaveBeenCalledWith({ where: { userId: 'user-123' } })
-  })
-
-  it('soft-deletes: sets deletedAt + a cron-aligned purge instant and deletes sessions', async () => {
-    mockGetSession.mockResolvedValue(signedInUser)
-    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
-    const { userUpdate, sessionDeleteMany } = mockSoftDeleteTx()
-
-    const response = await DELETE()
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(data.purgeScheduledFor).toBeTruthy()
-
-    expect(userUpdate).toHaveBeenCalledOnce()
-    const updateArg = userUpdate.mock.calls[0]![0] as {
-      where: { id: string }
-      data: { deletedAt: Date; purgeScheduledFor: Date }
-    }
-    expect(updateArg.where).toEqual({ id: 'user-123' })
-    expect(updateArg.data.deletedAt).toBeInstanceOf(Date)
-    expect(updateArg.data.purgeScheduledFor).toBeInstanceOf(Date)
-
-    // Purge is the first 03:00 UTC cron run at/after the 30-day mark: aligned to
-    // 03:00:00.000 UTC, never before 30 days, never more than a cron interval after.
-    const purge = updateArg.data.purgeScheduledFor
-    expect(purge.getUTCHours()).toBe(3)
-    expect(purge.getUTCMinutes()).toBe(0)
-    expect(purge.getUTCSeconds()).toBe(0)
-    expect(purge.getUTCMilliseconds()).toBe(0)
-    const diff = purge.getTime() - updateArg.data.deletedAt.getTime()
-    expect(diff).toBeGreaterThanOrEqual(THIRTY_DAYS_MS)
-    expect(diff).toBeLessThan(THIRTY_DAYS_MS + DAY_MS)
-
-    // sessions invalidated
-    expect(sessionDeleteMany).toHaveBeenCalledWith({ where: { userId: 'user-123' } })
-
-    // returned purge date matches the persisted one
-    expect(new Date(data.purgeScheduledFor).getTime()).toBe(purge.getTime())
-  })
-
-  it('sends the confirmation email after a successful soft-delete', async () => {
-    mockGetSession.mockResolvedValue(signedInUser)
-    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
-    mockSoftDeleteTx()
-
+  it('sends the confirmation email with the purge date after the soft-delete', async () => {
     await DELETE()
 
+    expect(mockGenerateEmail).toHaveBeenCalledWith(expect.objectContaining({ purgeDate: PURGE }))
     expect(mockSend).toHaveBeenCalledOnce()
-    expect(mockSend.mock.calls[0]![0]).toMatchObject({ to: 'john@example.com' })
+    expect(mockSend.mock.calls[0]![0]).toMatchObject({
+      to: 'john@example.com',
+      subject: 'Deletion scheduled',
+    })
   })
 
   it('writes the confirmation email in the household locale (HON-513)', async () => {
-    mockGetSession.mockResolvedValue(signedInUser)
-    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
-    mockFindMembership.mockResolvedValue({ household: { locale: 'et' } } as never)
-    mockSoftDeleteTx()
+    mockResolveLocale.mockResolvedValue('et')
 
     await DELETE()
 
-    expect(mockFindMembership).toHaveBeenCalledWith({
-      where: { userId: 'user-123' },
-      select: { household: { select: { locale: true } } },
-    })
+    expect(mockResolveLocale).toHaveBeenCalledWith('user-123')
     expect(mockGenerateEmail).toHaveBeenCalledWith(expect.objectContaining({ locale: 'et' }))
   })
 
-  it('falls back to English when the user has no household (HON-513)', async () => {
-    mockGetSession.mockResolvedValue(signedInUser)
-    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
-    mockFindMembership.mockResolvedValue(null as never)
-    mockSoftDeleteTx()
-
-    await DELETE()
-
-    expect(mockGenerateEmail).toHaveBeenCalledWith(expect.objectContaining({ locale: 'en' }))
-  })
-
   it('still succeeds when email is not configured (no send attempted)', async () => {
-    mockGetSession.mockResolvedValue(signedInUser)
-    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
     mockIsEmailConfigured.mockReturnValue(false)
-    mockSoftDeleteTx()
 
     const response = await DELETE()
 
@@ -274,28 +160,29 @@ describe('DELETE /api/auth/user', () => {
   })
 
   it('still succeeds when the confirmation email fails to send (non-fatal)', async () => {
-    mockGetSession.mockResolvedValue(signedInUser)
-    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
-    mockSoftDeleteTx()
     mockSend.mockRejectedValueOnce(new Error('Resend down'))
 
     const response = await DELETE()
-    const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
+    expect((await response.json()).success).toBe(true)
   })
 
-  it('returns 500 when the soft-delete transaction throws', async () => {
-    mockGetSession.mockResolvedValue(signedInUser)
-    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
-    mockTransaction.mockRejectedValueOnce(new Error('db down'))
+  it('returns 500 and reports the error when the soft-delete throws', async () => {
+    const error = new Error('db down')
+    mockRequestDeletion.mockRejectedValue(error)
 
     const response = await DELETE()
-    const data = await response.json()
 
     expect(response.status).toBe(500)
-    expect(data.error).toBe('Failed to delete account')
-    expect(data.code).toBe('delete_failed')
+    expect(await response.json()).toEqual({
+      code: 'delete_failed',
+      error: 'Failed to delete account',
+    })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(error, {
+      route: '/api/auth/user',
+      userId: 'user-123',
+    })
+    expect(mockSend).not.toHaveBeenCalled()
   })
 })

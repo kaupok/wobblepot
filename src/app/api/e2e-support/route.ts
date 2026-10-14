@@ -5,8 +5,16 @@ import {
   EMAIL_VERIFICATION_CALLBACK_URL,
   EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
 } from '@/lib/email-verification'
+import {
+  assertEmailUnverified,
+  E2eSupportError,
+  expirePurge,
+  findPendingResetToken,
+  readHouseholdState,
+  readUserState,
+  type E2eSupportRefusal,
+} from '@/lib/auth/e2e-support'
 import { captureApiError } from '@/lib/errors'
-import { prisma } from '@/lib/prisma'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 
 /**
@@ -48,10 +56,22 @@ import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
  * Why HTTP rather than importing Prisma into the spec: the generated client is
  * bundled for Next.js and does not import cleanly in Playwright's plain-Node
  * runtime — same reasoning as `tests/e2e/utils/db-helpers.ts`.
+ *
+ * The queries live in `@/lib/auth/e2e-support` (HON-1216); this route owns
+ * the gate, the parameters, the Better Auth link minting and the status map.
  */
 
-/** Better Auth prefixes password-reset verification rows with this. */
-const RESET_TOKEN_PREFIX = 'reset-password:'
+const REFUSALS: Record<E2eSupportRefusal, { status: number; error: string }> = {
+  userNotFound: { status: 404, error: 'User not found' },
+  noResetToken: { status: 404, error: 'No pending reset token' },
+  alreadyVerified: { status: 409, error: 'Email already verified' },
+  noSoftDeletedUser: { status: 404, error: 'No soft-deleted user with that email' },
+}
+
+function refused(error: E2eSupportError) {
+  const { status, error: message } = REFUSALS[error.reason]
+  return NextResponse.json({ error: message }, { status })
+}
 
 function notFound() {
   return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -71,30 +91,7 @@ function param(url: URL, name: string): string | null {
 }
 
 async function resetToken(email: string) {
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 })
-  }
-
-  // Better Auth stores the reset token in the identifier
-  // (`reset-password:<token>`) and the user id in the value — see
-  // `node_modules/better-auth/dist/api/routes/password.mjs`. There is no index
-  // on `value`, but this table is tiny in a test database.
-  const verification = await prisma.verification.findFirst({
-    where: {
-      value: user.id,
-      identifier: { startsWith: RESET_TOKEN_PREFIX },
-      expiresAt: { gt: new Date() },
-    },
-    orderBy: { createdAt: 'desc' },
-    select: { identifier: true, expiresAt: true },
-  })
-
-  if (!verification) {
-    return NextResponse.json({ error: 'No pending reset token' }, { status: 404 })
-  }
-
-  const token = verification.identifier.slice(RESET_TOKEN_PREFIX.length)
+  const { token, expiresAt } = await findPendingResetToken(email)
 
   return NextResponse.json({
     token,
@@ -102,18 +99,12 @@ async function resetToken(email: string) {
     // token and redirects to /reset-password?token=…, so the spec exercises
     // the real callback rather than deep-linking past it.
     resetPath: `/api/auth/reset-password/${token}?callbackURL=${encodeURIComponent('/reset-password')}`,
-    expiresAt: verification.expiresAt,
+    expiresAt,
   })
 }
 
 async function verifyEmailLink(email: string, expired: boolean) {
-  const user = await prisma.user.findUnique({ where: { email }, select: { emailVerified: true } })
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 })
-  }
-  if (user.emailVerified) {
-    return NextResponse.json({ error: 'Email already verified' }, { status: 409 })
-  }
+  await assertEmailUnverified(email)
 
   // `$context.secret` is the secret Better Auth signs with, which follows
   // `BETTER_AUTH_SECRETS` rotation; `serverEnv.BETTER_AUTH_SECRET` would not.
@@ -134,70 +125,6 @@ async function verifyEmailLink(email: string, expired: boolean) {
   })
 }
 
-async function userState(email: string) {
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, emailVerified: true, deletedAt: true, purgeScheduledFor: true },
-  })
-
-  if (!user) {
-    return NextResponse.json({ exists: false })
-  }
-
-  const memberships = await prisma.householdMember.findMany({
-    where: { userId: user.id },
-    select: { householdId: true },
-  })
-  const householdIds = memberships.map((m) => m.householdId)
-
-  const [sessions, households, pantryItems, mealPlans] = await Promise.all([
-    prisma.session.count({ where: { userId: user.id } }),
-    householdIds.length
-      ? prisma.household.count({ where: { id: { in: householdIds } } })
-      : Promise.resolve(0),
-    householdIds.length
-      ? prisma.pantryItem.count({ where: { householdId: { in: householdIds } } })
-      : Promise.resolve(0),
-    householdIds.length
-      ? prisma.mealPlan.count({ where: { householdId: { in: householdIds } } })
-      : Promise.resolve(0),
-  ])
-
-  return NextResponse.json({
-    exists: true,
-    emailVerified: user.emailVerified,
-    deletedAt: user.deletedAt,
-    purgeScheduledFor: user.purgeScheduledFor,
-    householdIds,
-    sessions,
-    memberships: memberships.length,
-    households,
-    pantryItems,
-    mealPlans,
-  })
-}
-
-async function householdState(householdId: string) {
-  const household = await prisma.household.findUnique({
-    where: { id: householdId },
-    select: { id: true },
-  })
-
-  if (!household) {
-    // Bare shape on purpose, matching userState: fabricated zero counts read
-    // as measurements and let specs assert constants without noticing.
-    return NextResponse.json({ exists: false })
-  }
-
-  const [members, pantryItems, mealPlans] = await Promise.all([
-    prisma.householdMember.count({ where: { householdId } }),
-    prisma.pantryItem.count({ where: { householdId } }),
-    prisma.mealPlan.count({ where: { householdId } }),
-  ])
-
-  return NextResponse.json({ exists: true, members, pantryItems, mealPlans })
-}
-
 export async function GET(request: Request) {
   if (!RATE_LIMIT_BYPASS_ACTIVE) {
     return notFound()
@@ -209,9 +136,11 @@ export async function GET(request: Request) {
 
     if (action === 'household-state') {
       const householdId = param(url, 'householdId')
-      // `await` matters: returning the bare promise would resolve outside this
-      // try/catch, so a Prisma failure would bypass the { error } contract.
-      return householdId ? await householdState(householdId) : missingParam('householdId')
+      // `await` matters: a promise that settles outside this try/catch would
+      // let a query failure bypass the { error } contract.
+      return householdId
+        ? NextResponse.json(await readHouseholdState(householdId))
+        : missingParam('householdId')
     }
 
     if (action === 'reset-token' || action === 'user-state' || action === 'verify-email-link') {
@@ -223,11 +152,12 @@ export async function GET(request: Request) {
       if (action === 'verify-email-link') {
         return await verifyEmailLink(email, url.searchParams.get('expired') === '1')
       }
-      return await userState(email)
+      return NextResponse.json(await readUserState(email))
     }
 
     return unknownAction(action)
   } catch (error) {
+    if (error instanceof E2eSupportError) return refused(error)
     captureApiError(error, { route: '/api/e2e-support' })
     return NextResponse.json({ error: 'Failed to read E2E support state' }, { status: 500 })
   }
@@ -251,19 +181,11 @@ export async function POST(request: Request) {
       return missingParam('email')
     }
 
-    // Only ever touches an account that has already requested deletion, so a
-    // stray call can't schedule a live account for purge.
-    const result = await prisma.user.updateMany({
-      where: { email, deletedAt: { not: null } },
-      data: { purgeScheduledFor: new Date(Date.now() - 60_000) },
-    })
+    const updated = await expirePurge(email)
 
-    if (result.count === 0) {
-      return NextResponse.json({ error: 'No soft-deleted user with that email' }, { status: 404 })
-    }
-
-    return NextResponse.json({ ok: true, updated: result.count })
+    return NextResponse.json({ ok: true, updated })
   } catch (error) {
+    if (error instanceof E2eSupportError) return refused(error)
     captureApiError(error, { route: '/api/e2e-support' })
     return NextResponse.json({ error: 'Failed to update E2E support state' }, { status: 500 })
   }
