@@ -156,27 +156,7 @@ CLAUDE.md is already loaded as project instructions — do not re-read it. Read 
 
 ### 9. Triage issues
 
-After identifying all issues, triage each one using **effort-first** thinking:
-
-**Effort** (primary factor):
-
-- Quick fix (few lines, < 5 min) → **address now**, regardless of severity
-- Moderate fix (15-30 min, in scope) → **address now**
-- Significant work (new feature, major refactor) → defer only if truly out of scope
-
-**Severity** (secondary factor):
-
-- 🔴 Critical → always address now, regardless of effort
-- 🟡 Suggestion → address if quick or moderate effort
-- 🟢 Nitpick → address if quick fix, otherwise skip
-
-**Bias toward action.** Deferred items rarely get done. If something can be fixed in a few minutes, just fix it.
-
-Place each item in one of three buckets:
-
-- **Address Now**: Fix before PR merge. Includes all quick fixes and anything critical.
-- **Defer**: Only for significant work (hours, not minutes) that's genuinely out of scope. Must justify why.
-- **Skip**: Disagree with the suggestion or it's not actionable. Explain why.
+Triage each issue into **Address Now**, **Defer** or **Skip** by `docs/TRIAGE_RUBRIC.md`.
 
 ## Output Format
 

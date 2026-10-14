@@ -17,7 +17,7 @@ Read it rather than the conversation, and rather than the PR: Phase 5 and up to 
 
 A deferral that exists only in a PR comment is gone the moment the PR merges. The bucket exists precisely for findings that are real but out of scope, and a real finding with no ticket is one nobody will see again.
 
-**Filing is not cheaper than fixing.** The effort-first rules in 4.4 and 6.4 still decide the bucket, and this step does not soften them. An `[AUTO DRAFT]` issue for something that was a five-minute fix is a defect in the cycle, not an output.
+**Filing is not cheaper than fixing.** `docs/TRIAGE_RUBRIC.md` decides the bucket in 4.4 and 6.4, and this step does not soften it. An `[AUTO DRAFT]` issue for something that was a five-minute fix is a defect in the cycle, not an output.
 
 **Cap: 3 issues per cycle.** Follow-ups do not count toward it and are never dropped by it. A cycle that files six tickets per PR grows the backlog faster than the cycle drains it. Run the duplicate check below across every deferral **first** — a duplicate adds nothing to the backlog, so it must not consume a slot — then, if more than three still survive, rank by the priority you would assign each one (2 before 3 before 4), break ties by putting correctness and data-loss findings ahead of everything else, and file the top three. List the remainder in the 7.6 report as unfiled, one line each — they are not lost, they are handed to the operator.
 
