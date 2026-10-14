@@ -5,6 +5,25 @@ import { countAccountHoldingMembers } from '@/lib/household'
 import { deletePosthogPersons } from '@/lib/posthog-purge'
 
 /**
+ * The ids of every account whose 30-day grace window has elapsed: deletion
+ * requested (`deletedAt` set) and `purgeScheduledFor` before `now`. The daily
+ * cron (`/api/cron/purge-deleted-users`) calls `purgeUser` on each.
+ */
+export async function findUsersDueForPurge(
+  now: Date,
+  db: PrismaClientType = prisma,
+): Promise<string[]> {
+  const users = await db.user.findMany({
+    where: {
+      deletedAt: { not: null },
+      purgeScheduledFor: { lt: now },
+    },
+    select: { id: true },
+  })
+  return users.map(({ id }) => id)
+}
+
+/**
  * Hard-deletes a user and every record that should not outlive their account.
  *
  * Extracted from the original `DELETE /api/auth/user` cascade (HON-481) so it

@@ -10,15 +10,10 @@ vi.mock('@/lib/env', () => ({
   },
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    user: {
-      findMany: vi.fn(),
-    },
-  },
-}))
-
+// Which users are due lives in `findUsersDueForPurge`, tested against a
+// database in `purge-user.db.test.ts` (HON-1216).
 vi.mock('@/lib/auth/purge-user', () => ({
+  findUsersDueForPurge: vi.fn(),
   purgeUser: vi.fn(),
 }))
 
@@ -36,12 +31,11 @@ vi.mock('@/lib/errors', () => ({
 
 import { GET } from './route'
 import { serverEnv } from '@/lib/env'
-import { prisma } from '@/lib/prisma'
-import { purgeUser } from '@/lib/auth/purge-user'
+import { findUsersDueForPurge, purgeUser } from '@/lib/auth/purge-user'
 import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
 import { purgeExpiredOauthTokens } from '@/lib/auth/purge-expired-oauth-tokens'
 
-const mockFindMany = vi.mocked(prisma.user.findMany)
+const mockFindDue = vi.mocked(findUsersDueForPurge)
 const mockPurgeUser = vi.mocked(purgeUser)
 const mockPurgeWaitlist = vi.mocked(purgeExpiredWaitlistRequests)
 const mockPurgeOauthTokens = vi.mocked(purgeExpiredOauthTokens)
@@ -59,7 +53,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
     vi.clearAllMocks()
     env.CRON_SECRET = VALID_SECRET
     env.NEXT_PUBLIC_APP_ENV = 'test'
-    mockFindMany.mockResolvedValue([] as never)
+    mockFindDue.mockResolvedValue([])
     mockPurgeWaitlist.mockResolvedValue({ unconfirmed: 0, confirmed: 0 })
     mockPurgeOauthTokens.mockResolvedValue({ accessTokens: 0, refreshTokens: 0 })
   })
@@ -67,7 +61,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
   it('returns 401 when the Authorization header is missing', async () => {
     const response = await GET(req())
     expect(response.status).toBe(401)
-    expect(mockFindMany).not.toHaveBeenCalled()
+    expect(mockFindDue).not.toHaveBeenCalled()
   })
 
   it('returns 401 when the Bearer secret does not match', async () => {
@@ -93,7 +87,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
   })
 
   it('purges every expired user and reports the count', async () => {
-    mockFindMany.mockResolvedValue([{ id: 'u1' }, { id: 'u2' }] as never)
+    mockFindDue.mockResolvedValue(['u1', 'u2'])
 
     const response = await GET(req(`Bearer ${VALID_SECRET}`))
     const data = await response.json()
@@ -110,17 +104,31 @@ describe('GET /api/cron/purge-deleted-users', () => {
     expect(mockPurgeUser).toHaveBeenCalledWith('u2')
   })
 
-  it('only targets soft-deleted users past their purge date (leaves in-window intact)', async () => {
-    await GET(req(`Bearer ${VALID_SECRET}`))
+  it('selects the users due as of the request time', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-15T03:00:00.000Z'))
 
-    const where = mockFindMany.mock.calls[0]![0]!.where
-    expect(where!.deletedAt).toEqual({ not: null })
-    expect(where!.purgeScheduledFor).toHaveProperty('lt')
-    expect((where!.purgeScheduledFor as { lt: Date }).lt).toBeInstanceOf(Date)
+    try {
+      await GET(req(`Bearer ${VALID_SECRET}`))
+    } finally {
+      vi.useRealTimers()
+    }
+
+    expect(mockFindDue).toHaveBeenCalledWith(new Date('2026-10-15T03:00:00.000Z'))
+  })
+
+  it('answers 500 when the selection fails, and purges no one', async () => {
+    mockFindDue.mockRejectedValue(new Error('db down'))
+
+    const response = await GET(req(`Bearer ${VALID_SECRET}`))
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: 'Purge failed' })
+    expect(mockPurgeUser).not.toHaveBeenCalled()
   })
 
   it('continues the batch when one purge fails (partial count, still 200)', async () => {
-    mockFindMany.mockResolvedValue([{ id: 'u1' }, { id: 'u2' }] as never)
+    mockFindDue.mockResolvedValue(['u1', 'u2'])
     mockPurgeUser.mockRejectedValueOnce(new Error('cascade failed'))
 
     const response = await GET(req(`Bearer ${VALID_SECRET}`))
@@ -141,9 +149,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
       expect(response.status).toBe(200)
       expect(data.waitlist).toEqual({ unconfirmed: 3, confirmed: 1 })
       // The same instant as the user purge, so both read one clock.
-      expect(mockPurgeWaitlist).toHaveBeenCalledWith(
-        (mockFindMany.mock.calls[0]![0]!.where!.purgeScheduledFor as { lt: Date }).lt,
-      )
+      expect(mockPurgeWaitlist).toHaveBeenCalledWith(mockFindDue.mock.calls[0]![0])
     })
 
     it('does not purge the waitlist on an unauthorized call', async () => {
@@ -171,9 +177,7 @@ describe('GET /api/cron/purge-deleted-users', () => {
       expect(response.status).toBe(200)
       expect(data.oauthTokens).toEqual({ accessTokens: 5, refreshTokens: 2 })
       // The same instant as the user purge, so the run reads one clock.
-      expect(mockPurgeOauthTokens).toHaveBeenCalledWith(
-        (mockFindMany.mock.calls[0]![0]!.where!.purgeScheduledFor as { lt: Date }).lt,
-      )
+      expect(mockPurgeOauthTokens).toHaveBeenCalledWith(mockFindDue.mock.calls[0]![0])
     })
 
     it('does not delete OAuth tokens on an unauthorized call', async () => {

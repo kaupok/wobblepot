@@ -51,7 +51,7 @@ The hard cascade lives in `src/lib/auth/purge-user.ts` (`purgeUser`), shared by 
 
 ### Why `purgeScheduledFor` is aligned to the cron run
 
-`purgeScheduledFor` is not a bare `now + 30 days`; it is the **first 03:00 UTC cron run strictly after** that mark (`computePurgeInstant` in `route.ts`, keyed off `PURGE_CRON_UTC_HOUR`, which must match `vercel.json`). Two consequences:
+`purgeScheduledFor` is not a bare `now + 30 days`; it is the **first 03:00 UTC cron run strictly after** that mark (`computePurgeInstant` in `src/lib/auth/account.ts`, keyed off `PURGE_CRON_UTC_HOUR`, which must match `vercel.json`). Two consequences:
 
 - **The confirmation email's date is the real deletion date**, not an estimate that the once-daily cron then misses by a day.
 - **The user always gets at least the full 30 days** to recover — we never purge early, because deletion is irreversible and erring toward keeping data is the safer failure. The one exception is a user who waives the grace window in writing: see [Immediate erasure](#immediate-erasure-on-written-request).
@@ -161,7 +161,7 @@ Use this when a verified requester ([`dsr-intake.md`](dsr-intake.md) § "Identit
    BEGIN;
 
    -- purgeScheduledFor = the first 03:00 UTC run strictly after now + 30 days,
-   -- the same instant computePurgeInstant (src/app/api/auth/user/route.ts)
+   -- the same instant computePurgeInstant (src/lib/auth/account.ts)
    -- produces. The columns hold UTC without a time zone, hence AT TIME ZONE.
    -- Scoped to an active row: expect exactly 1 row updated.
    UPDATE "user"

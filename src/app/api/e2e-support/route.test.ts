@@ -3,6 +3,11 @@
 // rejects jsdom's cross-realm `Uint8Array`.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// Every query lives in `@/lib/auth/e2e-support`, tested against a database in
+// `e2e-support.db.test.ts`. This file mocks that module at the seam and
+// asserts what the route owns: the gate, the parameters, the Better Auth links
+// and the status and body each answer maps to (HON-1216).
+
 // `RATE_LIMIT_BYPASS_ACTIVE` is computed once at module init, so we mock the
 // module and re-import the route under each gate value — same shape as
 // `src/app/api/e2e-seed/route.test.ts`.
@@ -10,42 +15,49 @@ const setBypass = (active: boolean) => {
   vi.doMock('@/lib/rate-limit', () => ({ RATE_LIMIT_BYPASS_ACTIVE: active }))
 }
 
-const mockPrisma = {
-  user: {
-    findUnique: vi.fn(),
-    updateMany: vi.fn(),
-  },
-  verification: {
-    findFirst: vi.fn(),
-  },
-  householdMember: {
-    findMany: vi.fn(),
-    count: vi.fn(),
-  },
-  session: { count: vi.fn() },
-  household: { count: vi.fn(), findUnique: vi.fn() },
-  pantryItem: { count: vi.fn() },
-  mealPlan: { count: vi.fn() },
-}
-
-vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
-
 const TEST_SECRET = 'e2e-support-test-secret-at-least-32-characters'
 
 vi.mock('@/lib/auth', () => ({
   auth: { $context: Promise.resolve({ secret: TEST_SECRET }) },
 }))
 
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/auth/e2e-support', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/auth/e2e-support')>()),
+  findPendingResetToken: vi.fn(),
+  assertEmailUnverified: vi.fn(),
+  readUserState: vi.fn(),
+  readHouseholdState: vi.fn(),
+  expirePurge: vi.fn(),
+}))
+
+import {
+  assertEmailUnverified,
+  E2eSupportError,
+  expirePurge,
+  findPendingResetToken,
+  readHouseholdState,
+  readUserState,
+} from '@/lib/auth/e2e-support'
+import { captureApiError } from '@/lib/errors'
+
+const mockFindResetToken = vi.mocked(findPendingResetToken)
+const mockAssertUnverified = vi.mocked(assertEmailUnverified)
+const mockReadUserState = vi.mocked(readUserState)
+const mockReadHouseholdState = vi.mocked(readHouseholdState)
+const mockExpirePurge = vi.mocked(expirePurge)
+const mockCaptureApiError = vi.mocked(captureApiError)
+
 const url = (qs: string) => `http://localhost/api/e2e-support${qs}`
+const post = (qs: string) => new Request(url(qs), { method: 'POST' })
 
 beforeEach(() => {
   vi.resetModules()
   vi.clearAllMocks()
-  mockPrisma.session.count.mockResolvedValue(0)
-  mockPrisma.household.count.mockResolvedValue(0)
-  mockPrisma.pantryItem.count.mockResolvedValue(0)
-  mockPrisma.mealPlan.count.mockResolvedValue(0)
-  mockPrisma.householdMember.findMany.mockResolvedValue([])
+  mockAssertUnverified.mockResolvedValue(undefined)
 })
 
 describe('/api/e2e-support — production gate', () => {
@@ -55,16 +67,17 @@ describe('/api/e2e-support — production gate', () => {
 
     const res = await GET(new Request(url('?action=user-state&email=a@b.c')))
     expect(res.status).toBe(404)
-    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled()
+    expect(await res.json()).toEqual({ error: 'Not found' })
+    expect(mockReadUserState).not.toHaveBeenCalled()
   })
 
   it('POST returns 404 when RATE_LIMIT_BYPASS_ACTIVE is false', async () => {
     setBypass(false)
     const { POST } = await import('./route')
 
-    const res = await POST(new Request(url('?action=expire-purge&email=a@b.c'), { method: 'POST' }))
+    const res = await POST(post('?action=expire-purge&email=a@b.c'))
     expect(res.status).toBe(404)
-    expect(mockPrisma.user.updateMany).not.toHaveBeenCalled()
+    expect(mockExpirePurge).not.toHaveBeenCalled()
   })
 })
 
@@ -76,83 +89,83 @@ describe('GET /api/e2e-support?action=reset-token', () => {
 
     const res = await GET(new Request(url('?action=reset-token')))
     expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'Missing ?email=<value>' })
   })
 
   it('returns 404 when the user does not exist', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null)
+    mockFindResetToken.mockRejectedValue(new E2eSupportError('userNotFound'))
     const { GET } = await import('./route')
 
     const res = await GET(new Request(url('?action=reset-token&email=nobody@example.com')))
     expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'User not found' })
   })
 
   it('returns 404 when the user has no pending reset token', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1' })
-    mockPrisma.verification.findFirst.mockResolvedValue(null)
+    mockFindResetToken.mockRejectedValue(new E2eSupportError('noResetToken'))
     const { GET } = await import('./route')
 
     const res = await GET(new Request(url('?action=reset-token&email=a@b.c')))
     expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'No pending reset token' })
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
   })
 
-  it('strips the reset-password: prefix and returns the Better Auth callback path', async () => {
-    const expiresAt = new Date(Date.now() + 3_600_000)
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1' })
-    mockPrisma.verification.findFirst.mockResolvedValue({
-      identifier: 'reset-password:tok-123',
-      expiresAt,
+  it('returns the token with the Better Auth callback path', async () => {
+    mockFindResetToken.mockResolvedValue({
+      token: 'tok-123',
+      expiresAt: new Date('2026-10-15T12:00:00.000Z'),
     })
     const { GET } = await import('./route')
 
-    const res = await GET(new Request(url('?action=reset-token&email=a@b.c')))
+    const res = await GET(new Request(url('?action=reset-token&email=%20a@b.c%20')))
+    expect(mockFindResetToken).toHaveBeenCalledWith('a@b.c')
     expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.token).toBe('tok-123')
-    expect(body.resetPath).toBe('/api/auth/reset-password/tok-123?callbackURL=%2Freset-password')
+    expect(await res.json()).toEqual({
+      token: 'tok-123',
+      resetPath: '/api/auth/reset-password/tok-123?callbackURL=%2Freset-password',
+      expiresAt: '2026-10-15T12:00:00.000Z',
+    })
+  })
 
-    // Only unexpired tokens belonging to this user are eligible.
-    const where = mockPrisma.verification.findFirst.mock.calls[0]![0].where
-    expect(where.value).toBe('u1')
-    expect(where.identifier).toEqual({ startsWith: 'reset-password:' })
-    expect(where.expiresAt.gt).toBeInstanceOf(Date)
+  it('returns 500 and reports the error when the read fails', async () => {
+    const error = new Error('db down')
+    mockFindResetToken.mockRejectedValue(error)
+    const { GET } = await import('./route')
+
+    const res = await GET(new Request(url('?action=reset-token&email=a@b.c')))
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'Failed to read E2E support state' })
+    expect(mockCaptureApiError).toHaveBeenCalledWith(error, { route: '/api/e2e-support' })
   })
 })
 
 describe('GET /api/e2e-support?action=user-state', () => {
   beforeEach(() => setBypass(true))
 
-  it('reports exists: false for a purged account', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null)
-    const { GET } = await import('./route')
-
-    const res = await GET(new Request(url('?action=user-state&email=gone@example.com')))
-    expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ exists: false })
-  })
-
-  it('returns soft-delete columns and related row counts', async () => {
-    const deletedAt = new Date('2026-08-01T00:00:00.000Z')
-    const purgeScheduledFor = new Date('2026-08-31T03:00:00.000Z')
-    mockPrisma.user.findUnique.mockResolvedValue({
-      id: 'u1',
+  it('returns the state the lib reads, as JSON', async () => {
+    mockReadUserState.mockResolvedValue({
+      exists: true,
       emailVerified: false,
-      deletedAt,
-      purgeScheduledFor,
+      deletedAt: new Date('2026-08-01T00:00:00.000Z'),
+      purgeScheduledFor: new Date('2026-08-31T03:00:00.000Z'),
+      householdIds: ['h1'],
+      sessions: 0,
+      memberships: 1,
+      households: 1,
+      pantryItems: 3,
+      mealPlans: 1,
     })
-    mockPrisma.householdMember.findMany.mockResolvedValue([{ householdId: 'h1' }])
-    mockPrisma.session.count.mockResolvedValue(0)
-    mockPrisma.household.count.mockResolvedValue(1)
-    mockPrisma.pantryItem.count.mockResolvedValue(3)
-    mockPrisma.mealPlan.count.mockResolvedValue(1)
     const { GET } = await import('./route')
 
     const res = await GET(new Request(url('?action=user-state&email=a@b.c')))
+    expect(mockReadUserState).toHaveBeenCalledWith('a@b.c')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
       exists: true,
       emailVerified: false,
-      deletedAt: deletedAt.toISOString(),
-      purgeScheduledFor: purgeScheduledFor.toISOString(),
+      deletedAt: '2026-08-01T00:00:00.000Z',
+      purgeScheduledFor: '2026-08-31T03:00:00.000Z',
       householdIds: ['h1'],
       sessions: 0,
       memberships: 1,
@@ -162,29 +175,22 @@ describe('GET /api/e2e-support?action=user-state', () => {
     })
   })
 
-  it('skips household-scoped counts when the user has no memberships', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
-      id: 'u1',
-      deletedAt: null,
-      purgeScheduledFor: null,
-    })
-    mockPrisma.householdMember.findMany.mockResolvedValue([])
+  it('reports exists: false for a purged account', async () => {
+    mockReadUserState.mockResolvedValue({ exists: false })
     const { GET } = await import('./route')
 
-    const res = await GET(new Request(url('?action=user-state&email=a@b.c')))
-    const body = await res.json()
-    expect(body).toMatchObject({ exists: true, memberships: 0, households: 0, pantryItems: 0 })
-    expect(mockPrisma.household.count).not.toHaveBeenCalled()
-    expect(mockPrisma.pantryItem.count).not.toHaveBeenCalled()
+    const res = await GET(new Request(url('?action=user-state&email=gone@example.com')))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ exists: false })
   })
 
   it('rejects an unknown action', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null)
     const { GET } = await import('./route')
 
     const res = await GET(new Request(url('?action=drop-tables&email=a@b.c')))
     expect(res.status).toBe(400)
-    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled()
+    expect(await res.json()).toEqual({ error: 'Unknown action: drop-tables' })
+    expect(mockReadUserState).not.toHaveBeenCalled()
   })
 })
 
@@ -192,10 +198,10 @@ describe('GET /api/e2e-support?action=verify-email-link', () => {
   beforeEach(() => setBypass(true))
 
   it("returns Better Auth's verify-email path with a token for the address", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ emailVerified: false })
     const { GET } = await import('./route')
 
     const res = await GET(new Request(url('?action=verify-email-link&email=New@Example.com')))
+    expect(mockAssertUnverified).toHaveBeenCalledWith('New@Example.com')
     expect(res.status).toBe(200)
     const { verifyPath } = (await res.json()) as { verifyPath: string }
     const link = new URL(verifyPath, 'http://localhost')
@@ -210,7 +216,6 @@ describe('GET /api/e2e-support?action=verify-email-link', () => {
   })
 
   it('mints an already-expired token with expired=1', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ emailVerified: false })
     const { GET } = await import('./route')
 
     const res = await GET(
@@ -231,19 +236,21 @@ describe('GET /api/e2e-support?action=verify-email-link', () => {
   })
 
   it('404s for an unknown address', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null)
+    mockAssertUnverified.mockRejectedValue(new E2eSupportError('userNotFound'))
     const { GET } = await import('./route')
 
     const res = await GET(new Request(url('?action=verify-email-link&email=none@example.com')))
     expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'User not found' })
   })
 
   it('409s for an address that is already verified', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ emailVerified: true })
+    mockAssertUnverified.mockRejectedValue(new E2eSupportError('alreadyVerified'))
     const { GET } = await import('./route')
 
     const res = await GET(new Request(url('?action=verify-email-link&email=done@example.com')))
     expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'Email already verified' })
   })
 
   it('requires an email', async () => {
@@ -265,67 +272,74 @@ describe('GET /api/e2e-support?action=household-state', () => {
     expect(await res.json()).toEqual({ error: 'Missing ?householdId=<value>' })
   })
 
-  it('reports a purged household as gone', async () => {
-    mockPrisma.household.findUnique.mockResolvedValue(null)
-    const { GET } = await import('./route')
-
-    const res = await GET(new Request(url('?action=household-state&householdId=h1')))
-    expect(res.status).toBe(200)
-    // Bare shape, same as user-state: no fabricated zero counts for a row
-    // that no longer exists.
-    expect(await res.json()).toEqual({ exists: false })
-    // No point counting rows that cascade-deleted with the household.
-    expect(mockPrisma.householdMember.count).not.toHaveBeenCalled()
-  })
-
-  it('counts household-scoped rows while the household survives', async () => {
-    mockPrisma.household.findUnique.mockResolvedValue({ id: 'h1' })
-    mockPrisma.householdMember.count.mockResolvedValue(2)
-    mockPrisma.pantryItem.count.mockResolvedValue(5)
-    mockPrisma.mealPlan.count.mockResolvedValue(1)
-    const { GET } = await import('./route')
-
-    const res = await GET(new Request(url('?action=household-state&householdId=h1')))
-    expect(await res.json()).toEqual({
+  it('returns the state the lib reads, as JSON', async () => {
+    mockReadHouseholdState.mockResolvedValue({
       exists: true,
       members: 2,
       pantryItems: 5,
       mealPlans: 1,
     })
+    const { GET } = await import('./route')
+
+    const res = await GET(new Request(url('?action=household-state&householdId=h1')))
+    expect(mockReadHouseholdState).toHaveBeenCalledWith('h1')
+    expect(await res.json()).toEqual({ exists: true, members: 2, pantryItems: 5, mealPlans: 1 })
+  })
+
+  it('answers 500 with the error contract when the read fails', async () => {
+    mockReadHouseholdState.mockRejectedValue(new Error('db down'))
+    const { GET } = await import('./route')
+
+    const res = await GET(new Request(url('?action=household-state&householdId=h1')))
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'Failed to read E2E support state' })
   })
 })
 
 describe('POST /api/e2e-support?action=expire-purge', () => {
   beforeEach(() => setBypass(true))
 
-  it('back-dates purgeScheduledFor only for a soft-deleted account', async () => {
-    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 })
+  it('back-dates the purge for the address and reports the count', async () => {
+    mockExpirePurge.mockResolvedValue(1)
     const { POST } = await import('./route')
 
-    const res = await POST(new Request(url('?action=expire-purge&email=a@b.c'), { method: 'POST' }))
+    const res = await POST(post('?action=expire-purge&email=a@b.c'))
+    expect(mockExpirePurge).toHaveBeenCalledWith('a@b.c')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true, updated: 1 })
-
-    const args = mockPrisma.user.updateMany.mock.calls[0]![0]
-    expect(args.where).toEqual({ email: 'a@b.c', deletedAt: { not: null } })
-    expect(args.data.purgeScheduledFor.getTime()).toBeLessThan(Date.now())
   })
 
   it('returns 404 when no soft-deleted user matches (live accounts are untouchable)', async () => {
-    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 })
+    mockExpirePurge.mockRejectedValue(new E2eSupportError('noSoftDeletedUser'))
     const { POST } = await import('./route')
 
-    const res = await POST(
-      new Request(url('?action=expire-purge&email=live@example.com'), { method: 'POST' }),
-    )
+    const res = await POST(post('?action=expire-purge&email=live@example.com'))
     expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'No soft-deleted user with that email' })
+  })
+
+  it('requires an email', async () => {
+    const { POST } = await import('./route')
+
+    const res = await POST(post('?action=expire-purge'))
+    expect(res.status).toBe(400)
+    expect(mockExpirePurge).not.toHaveBeenCalled()
   })
 
   it('rejects an unknown action', async () => {
     const { POST } = await import('./route')
 
-    const res = await POST(new Request(url('?action=nuke&email=a@b.c'), { method: 'POST' }))
+    const res = await POST(post('?action=nuke&email=a@b.c'))
     expect(res.status).toBe(400)
-    expect(mockPrisma.user.updateMany).not.toHaveBeenCalled()
+    expect(mockExpirePurge).not.toHaveBeenCalled()
+  })
+
+  it('answers 500 when the write fails', async () => {
+    mockExpirePurge.mockRejectedValue(new Error('db down'))
+    const { POST } = await import('./route')
+
+    const res = await POST(post('?action=expire-purge&email=a@b.c'))
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'Failed to update E2E support state' })
   })
 })

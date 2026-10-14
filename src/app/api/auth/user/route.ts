@@ -1,46 +1,13 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { isUserSoleOwnerWithOtherMembers } from '@/lib/household'
+import { AccountDeletionError, requestAccountDeletion } from '@/lib/auth/account'
 import { captureApiError } from '@/lib/errors'
 import { resend, isEmailConfigured, EMAIL_SENDERS, envSubject } from '@/lib/resend'
 import { generateAccountDeletionRequestedEmail } from '@/lib/emails/account-deletion-requested'
 import { resolveEmailLocale } from '@/lib/emails/locale'
 import { PRIVACY_EMAIL } from '@/lib/support'
 import type { AccountDeletionErrorCode } from '@/lib/account-deletion-error-codes'
-
-/** GDPR Art. 17 grace window: days between a deletion request and the hard purge. */
-const GRACE_WINDOW_DAYS = 30
-
-/**
- * UTC hour the purge cron runs. MUST match the schedule in `vercel.json`
- * (`"0 3 * * *"`). Used to align `purgeScheduledFor` to the actual cron run so
- * the confirmation email's date is the real deletion date, not an estimate.
- */
-const PURGE_CRON_UTC_HOUR = 3
-
-/**
- * The instant the account will actually be hard-deleted: the first cron run
- * (PURGE_CRON_UTC_HOUR:00 UTC) strictly after `now + 30 days`.
- *
- * Aligning to the cron run instead of using a bare `now + 30 days` means:
- * - the user always gets at least the full 30-day grace window (we never purge
- *   early — deletion is irreversible, so we err toward keeping data),
- * - the date in the confirmation email/toast is the real deletion date,
- * - retention is therefore 30 days plus up to one cron interval (≤24h). That
- *   bounded overage is the deliberate trade-off for the recovery guarantee;
- *   see docs/RUNBOOKS/gdpr-deletion.md.
- */
-function computePurgeInstant(now: Date): Date {
-  const earliest = new Date(now.getTime() + GRACE_WINDOW_DAYS * 24 * 60 * 60 * 1000)
-  const purge = new Date(earliest)
-  purge.setUTCHours(PURGE_CRON_UTC_HOUR, 0, 0, 0)
-  if (purge <= earliest) {
-    purge.setUTCDate(purge.getUTCDate() + 1)
-  }
-  return purge
-}
 
 /**
  * Sends the deletion-confirmation email. Best-effort: the soft-delete is
@@ -92,7 +59,9 @@ async function sendDeletionConfirmationEmail(
  * - Invalidates all sessions (Better Auth signs the user out everywhere).
  * - Sends a confirmation email stating the purge date and how to cancel.
  *
- * Sign-in is blocked while `deletedAt` is set (see `src/lib/auth.ts`). The
+ * The check and the soft-delete live in `requestAccountDeletion`
+ * (`@/lib/auth/account`); this route owns the session, the email and the
+ * status map. Sign-in is blocked while `deletedAt` is set (see `src/lib/auth.ts`). The
  * actual hard cascade runs later via `purgeUser` from the daily cron
  * (`/api/cron/purge-deleted-users`). Recovery during the window is a manual
  * operator step — see `docs/RUNBOOKS/gdpr-deletion.md`.
@@ -121,60 +90,28 @@ export async function DELETE() {
   const userEmail = session.user.email
 
   try {
-    // Check if user is sole owner with other account-holding members
-    const ownershipCheck = await isUserSoleOwnerWithOtherMembers(userId)
-
-    if (ownershipCheck.isSoleOwner) {
-      const code: AccountDeletionErrorCode = 'sole_owner'
-      const otherMemberCount = ownershipCheck.memberCount! - 1
-      return NextResponse.json(
-        {
-          code,
-          error: 'Cannot delete account',
-          message: `You are the sole owner of "${ownershipCheck.householdName}" which has ${otherMemberCount} other member(s). Please remove the other members first.`,
-          householdId: ownershipCheck.householdId,
-          householdName: ownershipCheck.householdName,
-          otherMemberCount,
-        },
-        { status: 400 },
-      )
-    }
-
-    const now = new Date()
-    const purgeScheduledFor = computePurgeInstant(now)
-
-    // Soft-delete: mark the account, sign the user out everywhere and revoke
-    // connected apps. Household data and the user row are left intact until
-    // the grace window expires.
-    await prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: { deletedAt: now, purgeScheduledFor },
-      })
-
-      await tx.session.deleteMany({
-        where: { userId },
-      })
-
-      // Connected MCP clients lose access with the sessions (HON-1150). The
-      // token endpoint never creates a session, so the soft-delete guard on
-      // session creation does not stop a refresh; deleting the grants does.
-      // A JWT access token already issued stays valid until it expires (at
-      // most an hour). The purge cascade would remove these rows too, but only
-      // after the 30-day grace window.
-      await tx.oauthRefreshToken.deleteMany({ where: { userId } })
-      await tx.oauthAccessToken.deleteMany({ where: { userId } })
-      await tx.oauthConsent.deleteMany({ where: { userId } })
-      // Read-only API keys stop working at once too (HON-1220). The v1 routes
-      // also refuse a key whose user has `deletedAt` set.
-      await tx.apiKey.deleteMany({ where: { userId } })
-    })
+    const { purgeScheduledFor } = await requestAccountDeletion(userId)
 
     // Confirmation email is sent after the soft-delete commits (best-effort).
     await sendDeletionConfirmationEmail(userId, userEmail, purgeScheduledFor)
 
     return NextResponse.json({ success: true, purgeScheduledFor })
   } catch (error) {
+    if (error instanceof AccountDeletionError) {
+      const code: AccountDeletionErrorCode = 'sole_owner'
+      const { id, name, otherMemberCount } = error.household
+      return NextResponse.json(
+        {
+          code,
+          error: 'Cannot delete account',
+          message: `You are the sole owner of "${name}" which has ${otherMemberCount} other member(s). Please remove the other members first.`,
+          householdId: id,
+          householdName: name,
+          otherMemberCount,
+        },
+        { status: 400 },
+      )
+    }
     captureApiError(error, { route: '/api/auth/user', userId: session.user.id })
     const code: AccountDeletionErrorCode = 'delete_failed'
     return NextResponse.json({ code, error: 'Failed to delete account' }, { status: 500 })

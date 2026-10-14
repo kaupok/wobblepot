@@ -123,7 +123,7 @@ model User {
   // GDPR Art. 17 soft-delete (HON-481). `deletedAt` non-null means the user
   // requested deletion; sign-in is blocked while set. `purgeScheduledFor` is
   // when the daily cron hard-cascades the account — the first 03:00 UTC cron
-  // run at/after request time + 30 days (see route.ts computePurgeInstant).
+  // run at/after request time + 30 days (see computePurgeInstant in src/lib/auth/account.ts).
   deletedAt            DateTime?
   purgeScheduledFor    DateTime?
   // Versioned Terms/Privacy consent captured at sign-up (HON-457). Stamped

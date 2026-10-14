@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { serverEnv } from '@/lib/env'
-import { purgeUser } from '@/lib/auth/purge-user'
+import { findUsersDueForPurge, purgeUser } from '@/lib/auth/purge-user'
 import { purgeExpiredWaitlistRequests } from '@/lib/waitlist'
 import { purgeExpiredOauthTokens } from '@/lib/auth/purge-expired-oauth-tokens'
 import { captureApiError } from '@/lib/errors'
@@ -54,16 +53,10 @@ export async function GET(request: Request) {
 
   try {
     const now = new Date()
-    const expired = await prisma.user.findMany({
-      where: {
-        deletedAt: { not: null },
-        purgeScheduledFor: { lt: now },
-      },
-      select: { id: true },
-    })
+    const expired = await findUsersDueForPurge(now)
 
     let purged = 0
-    for (const { id } of expired) {
+    for (const id of expired) {
       try {
         await purgeUser(id)
         purged += 1
