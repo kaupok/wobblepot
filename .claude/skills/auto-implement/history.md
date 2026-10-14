@@ -135,6 +135,6 @@ The reviewer reports acceptance-criteria gaps under a `**Spec:**` heading: Missi
 
 ## What the HON-1230 cut dropped
 
-- The Error Summary table at the end of `SKILL.md`. Each row repeated a stop message that its own step carries.
+- The Error Summary table at the end of `SKILL.md`. Most rows repeated a stop message that its own step carries. Two did not, "Commit/PR fails" and "Merge fails", so 5.4 and 7.3 gained their own stop lines: without one, a failed `gh pr merge` went on to print `[merge:complete]`, which `detect_phase` reads as done, and the PR stayed open with the run logged as a success.
 - The list of fields to note in 2.1. The steps that use each field (the gate, 2.3, 3.1) name it where they use it.
 - The Usage example's literal issue ID: `SKILL.md` carries no issue references, so it uses `<ID>`. `<ID>` is the same string the siblings write as `HON-XX`, so `/tmp/auto-implement-deferrals-<ID>.md` is the file `deferral.md` names.

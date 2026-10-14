@@ -6,7 +6,7 @@ context: inherit
 
 # Auto-Implement
 
-Find issue → plan → implement → review → fix → PR → address reviews → merge. Logic is inlined, because a nested skill loses its context.
+Logic is inlined, because a nested skill loses its context.
 
 ```
 /auto-implement          # Find the next Queued issue an agent can finish alone (discovery.md)
@@ -47,7 +47,7 @@ Different → print `[auto-implement] Detected worktree environment`. The same �
 
 ### 0.2 Check branch state
 
-Worktree mode: the worktree branch is the starting point. No check.
+Worktree mode: no check.
 
 ### 0.3 Check for uncommitted changes
 
@@ -318,6 +318,8 @@ EOF
 )"
 ```
 
+A failed commit, push or `gh pr create` → stop with its error.
+
 **No checkboxes**: this cycle merges with every box open.
 
 1. "Verified" holds only what you ran and saw pass.
@@ -337,7 +339,7 @@ EOF
 
 `[auto-implement] Phase 6/7: Addressing reviews`
 
-**Budget: 3 review rounds.** 6.3 reviews, 6.4 triages, 6.5 fixes, 6.6 pushes and returns to 6.3. `ROUND` is the count of `<!-- claude-review -->` comments on the PR after 6.3, so earlier runs' rounds count. The cap bounds reviews, not merges.
+**Budget: 3 review rounds** (6.3 → 6.6). `ROUND` is the count of `<!-- claude-review -->` comments on the PR after 6.3, so earlier runs' rounds count. The cap bounds reviews, not merges.
 
 ### 6.1 Wait for CI
 
@@ -494,6 +496,8 @@ The hook reads `WOBBLEPOT_ALLOW_MERGE=1` from the command text, so keep it inlin
 ```bash
 WOBBLEPOT_ALLOW_MERGE=1 gh pr merge --squash
 ```
+
+Non-zero exit → stop with the `gh` error: `[auto-implement] ✗ Error: Merge failed. PR left open.` No 7.4, no `[merge:complete]`.
 
 ### 7.4 Post summary to Linear
 

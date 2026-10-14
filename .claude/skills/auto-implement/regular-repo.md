@@ -53,6 +53,8 @@ If the branch exists, `git checkout [gitBranchName]`. If not, `git checkout -b [
 WOBBLEPOT_ALLOW_MERGE=1 gh pr merge --squash --delete-branch
 ```
 
+Non-zero exit → stop with the `gh` error: `[auto-implement] ✗ Error: Merge failed. PR left open.` No 7.4, no `[merge:complete]`.
+
 ## 7.5 Local cleanup
 
 ```bash
