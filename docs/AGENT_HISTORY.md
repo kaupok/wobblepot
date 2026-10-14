@@ -78,4 +78,4 @@ Entries are grouped by the `CLAUDE.md` section they belong to.
 
 ## Steering file size
 
-- **HON-786, HON-1187 — CLAUDE.md regrew.** HON-786 cut CLAUDE.md on 2026-09-30, from 5,675 words. By 2026-10-14 it was 7,096, because each incident added a paragraph and nothing removed one. HON-1187 moved every rule that serves one task into the skill or doc that task reads, cut the file to 2,980 words, and added `scripts/check-steering-size.test.ts`, which fails above 3,300. The failure message says to move content, not to shorten sentences: a rule cut to fit loses its reason, and a rule without its reason gets skipped.
+- **HON-786, HON-1187 — CLAUDE.md regrew.** HON-786 cut CLAUDE.md on 2026-09-30, from 5,675 words. By 2026-10-14 it was 7,096, because each incident added a paragraph and nothing removed one. HON-1187 moved every rule that serves one task into the skill or doc that task reads, cut the file to 2,989 words, and added `scripts/check-steering-size.test.ts`, which fails above 3,300. The failure message says to move content, not to shorten sentences: a rule cut to fit loses its reason, and a rule without its reason gets skipped.
