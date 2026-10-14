@@ -18,14 +18,13 @@ vi.mock('@/lib/household', () => ({
   loadHouseholdServings: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    mealPlanEntry: {
-      findFirst: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn(),
-    },
-  },
+// The lib seam, with the real error class. What the reads return and which
+// rows the cache write matches is tested against a database in
+// `entry-context.db.test.ts`.
+vi.mock('@/lib/meal-plans/entry-context', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-plans/entry-context')>()),
+  loadEntryForAi: vi.fn(),
+  cachePreparationTips: vi.fn(),
 }))
 
 vi.mock('@ai-sdk/anthropic', () => ({
@@ -63,7 +62,11 @@ vi.mock('@/lib/ai/sampling', () => ({
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership, loadHouseholdServings } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import {
+  cachePreparationTips,
+  EntryContextError,
+  loadEntryForAi,
+} from '@/lib/meal-plans/entry-context'
 import { generateObject } from 'ai'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
@@ -75,16 +78,15 @@ import { USAGE_FIXTURE, expectedUsageStats, noObjectGeneratedError } from '@/lib
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockEntryFindFirst = vi.mocked(prisma.mealPlanEntry.findFirst)
-const mockEntryUpdate = vi.mocked(prisma.mealPlanEntry.update)
+const mockLoadEntry = vi.mocked(loadEntryForAi)
 /**
- * The cache write. Conditional (`updateMany`, not `update`) so that a
- * `servingOverride` or locale PATCH committing during the 45s generation wins:
- * that PATCH nulled the cache because the prompt's inputs moved, and writing
- * anyway would put the stale tips straight back, where every later read is a
- * cache hit (HON-681).
+ * The cache write. Guarded by the meal, servings and locale the prompt was
+ * priced from, so that a `servingOverride` or locale PATCH committing during
+ * the 45s generation wins: that PATCH nulled the cache because the prompt's
+ * inputs moved, and writing anyway would put the stale tips straight back,
+ * where every later read is a cache hit (HON-681).
  */
-const mockEntryCacheWrite = vi.mocked(prisma.mealPlanEntry.updateMany)
+const mockEntryCacheWrite = vi.mocked(cachePreparationTips)
 /**
  * The household-servings re-read that guards the cache write against a
  * membership or portion change committing during the 45s generation. The
@@ -211,7 +213,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('returns 429 with Retry-After header when rate limited (and cache miss)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockCheckRateLimit.mockResolvedValue({
       allowed: false,
       remaining: 0,
@@ -233,7 +235,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
     const cached = { equipment: ['P'], steps: ['S'], pitfalls: ['X'], tip: 'T' }
-    mockEntryFindFirst.mockResolvedValue(
+    mockLoadEntry.mockResolvedValue(
       sampleEntry({ preparationTips: JSON.stringify(cached) }) as never,
     )
 
@@ -246,7 +248,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('scopes entry lookup via plan.householdId and returns 404 when not found', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(null)
+    mockLoadEntry.mockRejectedValue(new EntryContextError('not_found'))
 
     const response = await callPost('plan-1', 'entry-1')
     const data = await response.json()
@@ -254,21 +256,14 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(response.status).toBe(404)
     expect(data.error).toBe('Entry not found')
     expect(data.code).toBe('entry_not_found')
-    expect(mockEntryFindFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: 'entry-1',
-          planId: 'plan-1',
-          plan: { householdId: 'household-123' },
-        }),
-      }),
-    )
+    expect(mockLoadEntry).toHaveBeenCalledWith('household-123', 'plan-1', 'entry-1', 'en')
+    expect(mockGenerateObject).not.toHaveBeenCalled()
   })
 
   it('returns 400 when entry has no meal assigned', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry({ meal: null }) as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry({ meal: null }) as never)
 
     const response = await callPost()
     const data = await response.json()
@@ -287,7 +282,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
       pitfalls: ['Burn it'],
       tip: 'Go slow',
     }
-    mockEntryFindFirst.mockResolvedValue(
+    mockLoadEntry.mockResolvedValue(
       sampleEntry({ preparationTips: JSON.stringify(cached) }) as never,
     )
 
@@ -305,7 +300,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('returns 429 with code ai_cap_exceeded when the household is over its AI cap', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockAssertUnderCap.mockRejectedValue(
       new AiCostCapExceededError(new Date(Date.now() + 86_400_000), 'Europe/Tallinn'),
     )
@@ -325,7 +320,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     })
 
     it('returns 503 without calling the model on a cache miss', async () => {
-      mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+      mockLoadEntry.mockResolvedValue(sampleEntry() as never)
 
       const response = await callPost()
 
@@ -339,7 +334,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     it('still returns stored tips', async () => {
       const cached = { equipment: ['Pan'], steps: ['Heat'], pitfalls: ['Burn it'], tip: 'Go slow' }
-      mockEntryFindFirst.mockResolvedValue(
+      mockLoadEntry.mockResolvedValue(
         sampleEntry({ preparationTips: JSON.stringify(cached) }) as never,
       )
 
@@ -380,22 +375,18 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     })
 
     it('regenerates legacy tips priced at the member count', async () => {
-      mockEntryFindFirst.mockResolvedValue(
+      mockLoadEntry.mockResolvedValue(
         sampleEntry({ preparationTips: JSON.stringify(cached) }) as never,
       )
 
       const data = await (await callPost()).json()
 
       expect(data.tips).toEqual(fresh)
-      expect(mockEntryCacheWrite).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { preparationTips: JSON.stringify({ ...fresh, servings: 2.5 }) },
-        }),
-      )
+      expect(mockEntryCacheWrite).toHaveBeenCalledWith(expect.anything(), fresh, 2.5)
     })
 
     it('regenerates tips that record other servings', async () => {
-      mockEntryFindFirst.mockResolvedValue(
+      mockLoadEntry.mockResolvedValue(
         sampleEntry({ preparationTips: JSON.stringify({ ...cached, servings: 3 }) }) as never,
       )
 
@@ -406,7 +397,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     })
 
     it('serves tips that record these servings, without the servings', async () => {
-      mockEntryFindFirst.mockResolvedValue(
+      mockLoadEntry.mockResolvedValue(
         sampleEntry({ preparationTips: JSON.stringify({ ...cached, servings: 2.5 }) }) as never,
       )
 
@@ -420,7 +411,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('regenerates when cached tips are in legacy format and persists new cache', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(
+    mockLoadEntry.mockResolvedValue(
       sampleEntry({ preparationTips: 'legacy plain text tips' }) as never,
     )
     const fresh = {
@@ -436,17 +427,18 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(response.status).toBe(200)
     expect(data.tips).toEqual(fresh)
     expect(mockGenerateObject).toHaveBeenCalledTimes(1)
-    expect(mockEntryCacheWrite).toHaveBeenCalledWith({
-      where: {
-        id: 'entry-1',
+    expect(mockEntryCacheWrite).toHaveBeenCalledWith(
+      {
+        entryId: 'entry-1',
         mealId: 'meal-1',
         servingOverride: null,
-        plan: { household: { locale: 'en' } },
-        meal: { is: { updatedAt: MEAL_UPDATED_AT } },
+        mealUpdatedAt: MEAL_UPDATED_AT,
+        householdLocale: 'en',
       },
+      fresh,
       // The servings the prompt was priced at ride along (HON-1040).
-      data: { preparationTips: JSON.stringify({ ...fresh, servings: 4 }) },
-    })
+      4,
+    )
   })
 
   it('scopes the cache write to the meal, servings and locale the prompt was priced from', async () => {
@@ -457,24 +449,24 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     // because a cache hit short-circuits above (HON-681).
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(buildMembership('et') as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
     const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
     mockGenerateObject.mockResolvedValue({ object: fresh } as never)
 
     const response = await callPost()
 
     expect(response.status).toBe(200)
-    expect(mockEntryUpdate).not.toHaveBeenCalled()
-    expect(mockEntryCacheWrite).toHaveBeenCalledWith({
-      where: {
-        id: 'entry-1',
+    expect(mockEntryCacheWrite).toHaveBeenCalledWith(
+      {
+        entryId: 'entry-1',
         mealId: 'meal-1',
         servingOverride: 6,
-        plan: { household: { locale: 'et' } },
-        meal: { is: { updatedAt: MEAL_UPDATED_AT } },
+        mealUpdatedAt: MEAL_UPDATED_AT,
+        householdLocale: 'et',
       },
-      data: { preparationTips: JSON.stringify({ ...fresh, servings: 6 }) },
-    })
+      fresh,
+      6,
+    )
   })
 
   it('scopes the cache write to the meal contents the prompt was priced from', async () => {
@@ -485,7 +477,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     // `Meal.updatedAt` is the field that moves on such an edit.
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
     mockGenerateObject.mockResolvedValue({ object: fresh } as never)
 
@@ -493,9 +485,9 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     expect(response.status).toBe(200)
     expect(mockEntryCacheWrite).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ meal: { is: { updatedAt: MEAL_UPDATED_AT } } }),
-      }),
+      expect.objectContaining({ mealUpdatedAt: MEAL_UPDATED_AT }),
+      fresh,
+      4,
     )
   })
 
@@ -508,7 +500,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     // (HON-684).
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
     mockGenerateObject.mockResolvedValue({ object: fresh } as never)
     // A member joined at t+5s: 4 when priced, 5 now.
@@ -526,7 +518,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('skips the cache write when a member left during generation', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] },
     } as never)
@@ -541,7 +533,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('skips the cache write when a portion size changed during generation', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] },
     } as never)
@@ -559,7 +551,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     // it and a membership or portion change cannot have invalidated these tips.
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
     const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
     mockGenerateObject.mockResolvedValue({ object: fresh } as never)
     // Would fail the comparison if it were consulted at all.
@@ -575,7 +567,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('caches normally when the household servings are unchanged', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
     mockGenerateObject.mockResolvedValue({ object: fresh } as never)
     mockServingsNow.mockResolvedValue(4)
@@ -592,10 +584,10 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     // guarded, so a lost race costs a regeneration next time, not an error.
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
     const fresh = { equipment: ['Wok'], steps: ['Sear'], pitfalls: ['Crowding'] }
     mockGenerateObject.mockResolvedValue({ object: fresh } as never)
-    mockEntryCacheWrite.mockResolvedValue({ count: 0 } as never)
+    mockEntryCacheWrite.mockResolvedValue(0)
 
     const response = await callPost()
     const data = await response.json()
@@ -607,7 +599,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('generates full tips when meal has no preparationNotes', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     const fullTips = {
       equipment: ['Pan'],
       steps: ['Step 1', 'Step 2'],
@@ -629,7 +621,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('generates supplementary tips when meal has preparationNotes', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(
+    mockLoadEntry.mockResolvedValue(
       sampleEntry({
         meal: {
           ...sampleEntry().meal,
@@ -680,7 +672,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     // The model benchmark (HON-795) sends the builder's output. If the route
     // adds an argument, or builds any of these inline, the two drift apart.
     it('sends exactly the request buildFullStepsRequest builds, plus model and signal', async () => {
-      mockEntryFindFirst.mockResolvedValue(
+      mockLoadEntry.mockResolvedValue(
         sampleEntry({ meal: { ...sampleEntry().meal, components } }) as never,
       )
       mockGenerateObject.mockResolvedValue({
@@ -698,7 +690,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
 
     it('sends exactly the request buildSupplementaryStepsRequest builds, plus model and signal', async () => {
       const preparationNotes = 'Sear the chicken first, then simmer.'
-      mockEntryFindFirst.mockResolvedValue(
+      mockLoadEntry.mockResolvedValue(
         sampleEntry({ meal: { ...sampleEntry().meal, components, preparationNotes } }) as never,
       )
       mockGenerateObject.mockResolvedValue({ object: { pitfalls: [], tip: 'Rest it' } } as never)
@@ -716,7 +708,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('records the SDK usage via toAiUsageStats for full tips', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: [], steps: ['Step 1'], pitfalls: [], tip: 'Tip' },
       usage: USAGE_FIXTURE,
@@ -735,7 +727,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('records the SDK usage via toAiUsageStats for supplementary tips', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(
+    mockLoadEntry.mockResolvedValue(
       sampleEntry({
         meal: { ...sampleEntry().meal, preparationNotes: 'Sear first then simmer' },
       }) as never,
@@ -758,7 +750,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('records the billed usage with success: false when full tips throw NoObjectGeneratedError', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockRejectedValue(noObjectGeneratedError())
 
     const response = await callPost()
@@ -777,7 +769,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('records the billed usage with success: false when supplementary tips throw NoObjectGeneratedError', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(
+    mockLoadEntry.mockResolvedValue(
       sampleEntry({
         meal: { ...sampleEntry().meal, preparationNotes: 'Sear first then simmer' },
       }) as never,
@@ -799,7 +791,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('returns 429 when AI throws rate-limit error', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     const aiError = Object.assign(new Error('rate limited'), { statusCode: 429 })
     mockGenerateObject.mockRejectedValue(aiError)
 
@@ -814,7 +806,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('returns 502 when AI is overloaded (status 529)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockRejectedValue(
       Object.assign(new Error('overloaded'), { statusCode: 529 }),
     )
@@ -829,7 +821,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('returns 502 when AI is unavailable (status 503)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockRejectedValue(
       Object.assign(new Error('unavailable'), { statusCode: 503 }),
     )
@@ -844,7 +836,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('returns 504 on TimeoutError', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     const err = new Error('timed out')
     err.name = 'TimeoutError'
     mockGenerateObject.mockRejectedValue(err)
@@ -860,7 +852,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('returns 500 on generic AI failure', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockRejectedValue(new Error('unexpected'))
 
     const response = await callPost()
@@ -876,7 +868,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('threads household.locale into the AI prompt for non-English households', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(buildMembership('et') as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
     } as never)
@@ -895,7 +887,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     // nothing to clear them (HON-921).
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(buildMembership('xx') as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     const fresh = { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] }
     mockGenerateObject.mockResolvedValue({ object: fresh } as never)
 
@@ -911,7 +903,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('does not inject a LOCALE block for English households (byte-identical English path)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
     } as never)
@@ -958,7 +950,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('builds the et prompt from the Estonian meal name, notes and ingredient names (HON-913)', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(buildMembership('et') as never)
-    mockEntryFindFirst.mockResolvedValue(seededEstonianEntry() as never)
+    mockLoadEntry.mockResolvedValue(seededEstonianEntry() as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: ['Pann'], steps: ['Samm 1'], pitfalls: ['P'] },
     } as never)
@@ -966,15 +958,8 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     const response = await callPost()
 
     expect(response.status).toBe(200)
-    const { include } = mockEntryFindFirst.mock.calls[0]![0] as {
-      include: { meal: { include: Record<string, unknown> } }
-    }
-    expect(include.meal.include).toMatchObject({
-      translations: { where: { locale: 'et' } },
-      components: {
-        include: { ingredient: { select: { translations: { where: { locale: 'et' } } } } },
-      },
-    })
+    // The loader reads the translation rows for this locale (entry-context.db.test.ts).
+    expect(mockLoadEntry).toHaveBeenCalledWith('household-123', 'plan-1', 'entry-1', 'et')
     const { prompt } = mockGenerateObject.mock.calls[0]![0] as { prompt: string }
     expect(prompt).toContain('Kana wokipannil')
     expect(prompt).toContain('- Kanarind: 600g')
@@ -987,7 +972,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('falls back to the English notes when the translation has none', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(buildMembership('et') as never)
-    mockEntryFindFirst.mockResolvedValue(seededEstonianEntry({ preparationNotes: null }) as never)
+    mockLoadEntry.mockResolvedValue(seededEstonianEntry({ preparationNotes: null }) as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: ['Pann'], steps: ['Samm 1'], pitfalls: ['P'] },
     } as never)
@@ -1000,21 +985,17 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     expect(prompt).toContain('Sear the chicken first.')
   })
 
-  it('reads no translation rows for an English household', async () => {
+  it('reads the entry in English for an English household', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
     } as never)
 
     await callPost()
 
-    const { include } = mockEntryFindFirst.mock.calls[0]![0] as {
-      include: { meal: { include: Record<string, unknown> } }
-    }
-    expect(include.meal.include).not.toHaveProperty('translations')
-    expect(JSON.stringify(include)).not.toContain('translations')
+    expect(mockLoadEntry).toHaveBeenCalledWith('household-123', 'plan-1', 'entry-1', 'en')
   })
 
   it('builds the prompt from the entry servingOverride, not the raw member count', async () => {
@@ -1023,7 +1004,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
     // Household of 4 cooking this entry for 6. The card, pantry row and
     // shopping row all scale by 6 (HON-614) — the tips are cached onto the
     // entry, so the prompt has to agree or it advises on 2/3 of the food.
-    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry({ servingOverride: 6 }) as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
     } as never)
@@ -1040,7 +1021,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('falls back to the household servings for the prompt when no servingOverride is set', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(mockMembership as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: null }) as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry({ servingOverride: null }) as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
     } as never)
@@ -1066,7 +1047,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
       },
     } as never)
     mockServingsNow.mockResolvedValue(2.5)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry({ servingOverride: null }) as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry({ servingOverride: null }) as never)
     mockGenerateObject.mockResolvedValue({
       object: { equipment: ['Pan'], steps: ['Step 1'], pitfalls: ['P'] },
     } as never)
@@ -1083,7 +1064,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('logs a preparation-tips-full sample when locale is non-default and meal has no notes', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(buildMembership('et') as never)
-    mockEntryFindFirst.mockResolvedValue(sampleEntry() as never)
+    mockLoadEntry.mockResolvedValue(sampleEntry() as never)
     const fullTips = {
       equipment: ['Pann'],
       steps: ['Eelsoojendage ahi 200°C-ni'],
@@ -1111,7 +1092,7 @@ describe('POST /api/meal-plans/[id]/entries/[entryId]/preparation-tips', () => {
   it('logs a preparation-tips-supplementary sample when locale is non-default and meal has user notes', async () => {
     mockGetSession.mockResolvedValue(mockSession as never)
     mockGetMembership.mockResolvedValue(buildMembership('et') as never)
-    mockEntryFindFirst.mockResolvedValue(
+    mockLoadEntry.mockResolvedValue(
       sampleEntry({
         meal: {
           ...sampleEntry().meal,
