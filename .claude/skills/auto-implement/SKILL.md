@@ -684,65 +684,19 @@ Every round ends in exactly one of these, and only the second one re-enters 6.3:
 
 CI takes 12–45 min. Bash's 600 s cap is per *call*, not per turn, so wait in **foreground chunks**: each call polls for ~8 min and returns a marker, and you re-issue it until the marker is terminal. Do not background this poll — in the headless spawn the process exits when the turn ends and a backgrounded poll dies with it, which is exactly how PRs #650 and #651 were stranded open (see Execution Model).
 
-Run the block below in the **foreground** with `timeout: 540000`:
+Run one chunk of the poll in the **foreground** with `timeout: 540000`:
 
 ```bash
-# One chunk = 16 polls, 15 sleeps × 30 s ≈ 480 s of sleep (510 s on chunk 1,
-# which also waits for GitHub to register the run) plus ~18 gh calls — under the
-# prescribed 540 s timeout with room to spare. The 16th sleep is skipped on
-# purpose: it would only delay CI_WAITING, and it is what used to push chunk 1
-# past the cap, where the call is killed and prints no marker at all.
-# Prints exactly one marker on its last line:
-#   CI_SETTLED  → terminal — proceed to the foreground verification below
-#   CI_WAITING  → NOT terminal — re-issue this exact command (budget: 6 chunks ≈ 48 min,
-#                 which covers ci.yml's timeout-minutes of 45)
-#   CI_TIMEOUT  → terminal — report and stop
-# Settles only when: the ci.yml job "Lint, Type Check & Test" is present and none is
-# pending, and the sorted name=bucket list is identical on two consecutive polls (fast
-# Vercel/smoke statuses register before the ci.yml job does). The job is required on
-# every PR, docs-only ones included: ci.yml has no path filter and the job is a required
-# status check on main (HON-584), so GitHub refuses a merge before it reports. A poll
-# that settled without it, on an empty list before the run registered, would end in a
-# refused `gh pr merge` and a stranded PR (HON-1184). Each Bash call is a
-# fresh shell, so PR_NUMBER is re-derived here and the previous poll's result is carried
-# across chunks in a file — never reuse a shell variable.
-PR_NUMBER=$(gh pr view --json number --jq .number)
-PREV_FILE="/tmp/ci-poll-$PR_NUMBER.prev"; CHUNK_FILE="/tmp/ci-poll-$PR_NUMBER.chunks"
-# Reap state left by an abandoned episode (a killed call, a worker timeout).
-# It is keyed only by PR number, so a RETRY worker on the same PR would inherit
-# the spent budget — 2 chunks instead of 6 — and hit CI_TIMEOUT on CI that was
-# always going to take 30 min, re-stranding the PR through the state file. A
-# stale PREV is worse: it can match the first CUR and settle the poll without
-# ever running the two-consecutive-poll stability check. A live episode
-# re-issues within seconds, so age separates the two cleanly.
-[ -n "$(find "$CHUNK_FILE" -mmin +10 2>/dev/null)" ] && rm -f "$PREV_FILE" "$CHUNK_FILE"
-CHUNKS=$(( $(cat "$CHUNK_FILE" 2>/dev/null || echo 0) + 1 )); echo "$CHUNKS" > "$CHUNK_FILE"
-# INIT is a sentinel no check list can equal, so the first poll of an episode can
-# never count as stable on its own.
-PREV=$(cat "$PREV_FILE" 2>/dev/null || echo INIT)
-[ "$CHUNKS" = 1 ] && sleep 30  # let GitHub register the workflow run for the pushed commit
-for i in $(seq 1 16); do
-  # A third-party commit status (empty workflow — Vercel) is exempt while pending:
-  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
-  # no `next build`, so Vercel is the only build gate.
-  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
-    --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
-  OK=1
-  printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (every PR)
-  printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0           # none pending
-  [ "$CUR" = "$PREV" ] || OK=0                                 # identical to the previous poll
-  PREV=$CUR; printf '%s' "$CUR" > "$PREV_FILE"
-  if [ "$OK" = 1 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_SETTLED; exit 0; fi
-  [ "$i" -lt 16 ] && sleep 30   # the 16th sleep would only delay CI_WAITING
-done
-if [ "$CHUNKS" -ge 6 ]; then rm -f "$PREV_FILE" "$CHUNK_FILE"; echo CI_TIMEOUT; exit 1; fi
-echo "CI_WAITING (chunk $CHUNKS/6)"
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+./scripts/ci-settle.sh "$PR_NUMBER"
 ```
+
+`scripts/ci-settle.sh` polls for about 8 minutes and prints one marker on its last line. Its header says when it settles: the `Lint, Type Check & Test` row is present, nothing is pending, and two polls in a row agree. A pending Vercel status is exempt (HON-600). The chunk count and the last poll carry across calls in `/tmp`, keyed on the PR, so a budget of 6 chunks (about 48 min) covers ci.yml's 45 min timeout.
 
 Act on the marker:
 
 - `CI_WAITING` — re-issue the same command immediately. **This is not a stopping point.** Never end a turn on it, and never write a message like "CI is still running, I'll merge once it settles" — that sentence is the bug this pattern exists to prevent.
-- **No marker at all** (the Bash call was killed at its timeout, or errored before the loop) — treat it exactly as `CI_WAITING` and re-issue. The chunk counter was already incremented, so the budget shrinks by one and a repeat lands on `CI_TIMEOUT` rather than looping forever. A missing marker is never a reason to end the turn.
+- **No marker at all** (the Bash call was killed at its timeout, or errored before the poll) — treat it exactly as `CI_WAITING` and re-issue. The chunk counter was already incremented, so the budget shrinks by one and a repeat lands on `CI_TIMEOUT` rather than looping forever. A missing marker is never a reason to end the turn.
 - `CI_TIMEOUT` — terminal: report and stop. Do not merge.
 - `CI_SETTLED` — continue to the verification below.
 
@@ -791,12 +745,12 @@ This runs synchronously. When it returns, the review has been posted to GitHub. 
 Verify the review was posted:
 
 ```bash
-# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
-gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
-  | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+./scripts/pr-comments.sh "$PR_NUMBER" issue \
+  | jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
 
-Substitute the literal PR number for `{number}` — `gh api` expands only `{owner}` / `{repo}`.
+`scripts/pr-comments.sh` fetches every page and prints one JSON array. When the fetch fails it prints nothing and says why on stderr, so no number here is a failed fetch, not a count of 0: stop and report.
 
 **That count is `ROUND`.** Note it: 6.4 branches on it for the materiality bar and 6.6 branches on it for the cap. It is the total number of review rounds this PR has had, not just the ones this run performed, which is the quantity the cap is meant to bound.
 
@@ -817,26 +771,12 @@ Stop here (non-zero exit)
 Fetch the inline review comments posted by the reviewer, dropping any that are no longer anchored:
 
 ```bash
-# --paginate is mandatory: without it the API returns only the first page, and
-# GitHub orders comments oldest-first, so the newest round is the page that gets
-# dropped. --jq is deliberately NOT used: gh applies it per page, so `| length` /
-# `| last` would emit one result per page. `jq -s 'add'` folds the stream into a
-# single array first. Do not "simplify" this back to --jq (HON-586).
-#
-# Do NOT add an `add // []` fallback either. A PR with genuinely zero comments
-# already yields `[]` here; `// []` would only ever fire when the fetch itself
-# produced no output at all (network, auth, rate limit) — turning a failed fetch
-# into a confident "no findings", which is the exact bug this call site is
-# guarding against.
-#
-# What makes THIS site loud is the `[.[] | …]` below it: `add` over an empty slurp
-# is `null`, and iterating null is a jq error (exit 5). Bare `add` on its own is
-# NOT loud — it prints `null` and exits 0 — so the two gather-only fetches in 7.4
-# spell the guard out with `// error(...)` instead. Uses the system `jq` binary,
-# not gh's embedded one.
-gh api --paginate '/repos/:owner/:repo/pulls/{number}/comments?per_page=100' \
-  | jq -s 'add | [.[] | select(.body | startswith("**")) | select(.line != null)]'
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+./scripts/pr-comments.sh "$PR_NUMBER" inline \
+  | jq '[.[] | select(.body | startswith("**")) | select(.line != null)]'
 ```
+
+Empty output is a failed fetch, not an empty list: a PR with no inline comments prints `[]`. Stop and report.
 
 `select(.line != null)` is required: if a PR has been reviewed more than once, the earlier round's comments are still on the PR, and GitHub orphans them at `line: null` once the code they pointed at moves. Without the filter, 6.5 tries to open a file at a null line (HON-585).
 
@@ -845,9 +785,9 @@ gh api --paginate '/repos/:owner/:repo/pulls/{number}/comments?per_page=100' \
 Also fetch the summary comment — **the most recent one only**, since each review round appends its own:
 
 ```bash
-# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
-gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
-  | jq -rs 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | last | .body'
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+./scripts/pr-comments.sh "$PR_NUMBER" issue \
+  | jq -r '[.[] | select(.body | startswith("<!-- claude-review -->"))] | last | .body'
 ```
 
 Dropping `| last` concatenates every round, so the "No issues found" check below would be judged against a mixture of verdicts from different commits.
@@ -1027,14 +967,9 @@ The PR number and URL are available from Phase 5.4 / Phase 6.2.
 # cosmetic, and truncating a changelog is not a merge gate.
 gh pr view <PR_NUMBER> --json number,title,url,commits,files
 
-# Review comments: inline comments + review-level summaries
-# (`:owner/:repo` is auto-filled by gh from the current git remote)
-# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
-# `// error(...)` is the loud-failure guard: unlike the filtered fetches in the review
-# phase, bare `add` returns `null` (exit 0) on empty stdout, which would read as "no
-# comments". A genuinely empty `[]` still passes — only null/false are falsy to `//`.
-gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/comments?per_page=100' | jq -s 'add // error("fetch produced no output")'
-gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/reviews?per_page=100'  | jq -s 'add // error("fetch produced no output")'
+# Review comments: inline comments + review-level summaries, each one JSON array
+./scripts/pr-comments.sh <PR_NUMBER> inline
+./scripts/pr-comments.sh <PR_NUMBER> reviews
 ```
 
 **Post comment to Linear:**

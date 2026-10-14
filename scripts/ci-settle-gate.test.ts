@@ -1,14 +1,15 @@
 /**
  * The CI-settle gate that decides when a PR may be merged (HON-600).
  *
- * The gate has three implementations that must agree: `pr_ci_state()` in
- * orchestrator.sh (covered in orchestrator.phase.test.ts) and two shell snippets
- * embedded in skill markdown — /auto-implement Phase 6.1 (which 7.2 re-runs),
- * and /merge Step 2. The markdown ones are the ones that actually merge PRs, and until
- * this file existed nothing executed them: the snippets were prose, and every
- * defect in them had to be found by stranding a real PR.
+ * The poll has two implementations that must agree: `pr_ci_state()` in
+ * orchestrator.sh (covered in orchestrator.phase.test.ts) and scripts/ci-settle.sh,
+ * which /auto-implement Phase 6.1 (re-run by 7.2) and /merge Step 2 call. Each skill
+ * also carries a one-line verification that reads the settled state. The poll used
+ * to be a bash block in the skill markdown, and this file extracted it to run it;
+ * HON-1190 moved it into the script, so the test executes the script and checks
+ * that no skill carries a copy of the loop.
  *
- * On 2026-09-01 that cost three runs. Vercel's commit status stuck at
+ * On 2026-09-01 the gate cost three runs. Vercel's commit status stuck at
  * "deploying your app" long after the deployment was Ready — 9 h on PR #678,
  * ~1h45m on #676 — and the loop's "none pending" rule could not settle, so
  * each worker burned its poll budget and left a fully green PR unmerged. The
@@ -17,8 +18,8 @@
  * a failing one still blocks, because ci.yml runs no `next build` and Vercel
  * is therefore the only build gate.
  *
- * Lives in scripts/ rather than .claude/skills/ so it sits next to
- * orchestrator.phase.test.ts, which tests the third implementation of the same rule.
+ * Lives in scripts/ next to orchestrator.phase.test.ts, which tests the other
+ * implementation of the same rule.
  */
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -30,6 +31,9 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const autoImplementSkill = path.join(repoRoot, '.claude/skills/auto-implement')
 const mergeSkill = path.join(repoRoot, '.claude/skills/merge')
+const triageSkill = path.join(repoRoot, '.claude/skills/triage-pr-comments')
+const ciSettle = path.join(repoRoot, 'scripts/ci-settle.sh')
+const orchestrator = path.join(repoRoot, 'scripts/orchestrator.sh')
 
 /** The filter every site must carry, verbatim. */
 const EXEMPTION = 'select(.workflow != "" or .bucket != "pending")'
@@ -55,6 +59,19 @@ function bashBlocks(markdown: string): string[] {
   return [...markdown.matchAll(/^```bash\n([\s\S]*?)^```$/gm)].map((m) => m[1] ?? '')
 }
 
+/** The text with every quoted heredoc body (`<<'EOF'` … `EOF`) removed: it is data, not shell. */
+function stripHeredocs(text: string): string {
+  return text.replace(/<<'(\w+)'\n[\s\S]*?^\s*\1$/gm, "<<'$1'")
+}
+
+/** The body of `pr_ci_state()` in orchestrator.sh, up to its closing brace. */
+function prCiState(): string {
+  const source = read(orchestrator)
+  const start = source.indexOf('pr_ci_state() {')
+  if (start === -1) throw new Error('pr_ci_state() not found in orchestrator.sh')
+  return source.slice(start, source.indexOf('\n}\n', start))
+}
+
 type Check = { name: string; bucket: string; workflow: string }
 
 /** A GitHub Actions job — always reports a non-empty `workflow`. */
@@ -67,26 +84,41 @@ const CI_JOB = 'Lint, Type Check & Test'
 
 describe('CI-settle gate', () => {
   describe('exemption is present at every site', () => {
-    // The AC's own grep, as an assertion: two snippets in /auto-implement (6.1
-    // poll + verify, which 7.2 re-runs) and two in /merge (Step 2 poll +
-    // verify). A site that misses the filter is a site that strands PRs.
-    it('appears twice in /auto-implement and twice in /merge', () => {
-      expect(countOccurrences(readSkill(autoImplementSkill), EXEMPTION)).toBe(2)
-      expect(countOccurrences(readSkill(mergeSkill), EXEMPTION)).toBe(2)
+    // The two polls must filter identically, byte for byte. orchestrator.sh is
+    // not edited to share the script: pr_ci_state() is a one-shot state read, and
+    // a change there reloads the running orchestrator (HON-1190).
+    it('appears verbatim in ci-settle.sh and in pr_ci_state()', () => {
+      expect(countOccurrences(read(ciSettle), EXEMPTION)).toBe(1)
+      expect(prCiState()).toContain(EXEMPTION)
+    })
+
+    // Each skill keeps one runnable line that reads the settled state: the 6.1
+    // verification (which 7.2 re-runs) and /merge Step 2's. A site that misses the
+    // filter is a site that strands PRs.
+    it('appears once in /auto-implement and once in /merge, in the verification', () => {
+      expect(countOccurrences(readSkill(autoImplementSkill), EXEMPTION)).toBe(1)
+      expect(countOccurrences(readSkill(mergeSkill), EXEMPTION)).toBe(1)
     })
 
     // Prose is excluded on purpose — only runnable lines can strand a PR.
-    it('leaves no unfiltered `gh pr checks` call in any shell block', () => {
-      for (const file of [autoImplementSkill, mergeSkill]) {
-        const calls = bashBlocks(readSkill(file))
-          .flatMap((block) => block.split('\n'))
+    it('leaves no unfiltered `gh pr checks` call in any shell block or in the script', () => {
+      const sources = [
+        ...[autoImplementSkill, mergeSkill].map((dir) => ({
+          name: path.basename(dir),
+          lines: bashBlocks(readSkill(dir)).flatMap((block) => block.split('\n')),
+        })),
+        { name: 'ci-settle.sh', lines: read(ciSettle).split('\n') },
+      ]
+      for (const { name, lines } of sources) {
+        const calls = lines
+          .filter((line) => !line.trimStart().startsWith('#'))
           .filter((line) => line.includes('gh pr checks'))
 
-        expect(calls.length, `${path.basename(file)} has no gh pr checks`).toBeGreaterThan(0)
+        expect(calls.length, `${name} has no gh pr checks`).toBeGreaterThan(0)
         for (const line of calls) {
           // The call is split across two lines: the `gh` line names the fields,
           // the `--jq` line carries the filter. Assert on the fields here.
-          expect(line, `${path.basename(file)}: ${line.trim()}`).toContain('workflow')
+          expect(line, `${name}: ${line.trim()}`).toContain('workflow')
         }
       }
     })
@@ -99,57 +131,107 @@ describe('CI-settle gate', () => {
     // refuses. With the classifier gone, nothing reads the file list, so the
     // fetch goes too: no file-list call may remain in a runnable line.
     it('classifies no PR as docs-only and reads no file list', () => {
-      for (const file of [autoImplementSkill, mergeSkill]) {
-        const source = readSkill(file)
-        expect(countOccurrences(source, 'DOCS_ONLY'), path.basename(file)).toBe(0)
-        expect(countOccurrences(source, 'NON_DOCS'), path.basename(file)).toBe(0)
+      const sources = [
+        ...[autoImplementSkill, mergeSkill].map((dir) => ({
+          name: path.basename(dir),
+          source: readSkill(dir),
+          lines: bashBlocks(readSkill(dir)).flatMap((block) => block.split('\n')),
+        })),
+        { name: 'ci-settle.sh', source: read(ciSettle), lines: read(ciSettle).split('\n') },
+      ]
+      for (const { name, source, lines } of sources) {
+        expect(countOccurrences(source, 'DOCS_ONLY'), name).toBe(0)
+        expect(countOccurrences(source, 'NON_DOCS'), name).toBe(0)
 
-        const lines = bashBlocks(source)
-          .flatMap((block) => block.split('\n'))
+        const fileReads = lines
           .filter((line) => !line.trimStart().startsWith('#'))
           .filter((line) => line.includes('/files') || line.includes('changedFiles'))
-        expect(lines, `${path.basename(file)}: ${lines.join(' / ')}`).toEqual([])
+        expect(fileReads, `${name}: ${fileReads.join(' / ')}`).toEqual([])
       }
     })
 
-    // The rule that replaced it: the ci.yml job row, unconditionally, once per
-    // poll loop. A guard in front of it (`[ … ] ||`) would bring an exemption back.
-    it('requires the ci.yml job on every PR in both poll loops', () => {
-      for (const file of [autoImplementSkill, mergeSkill]) {
-        const source = readSkill(file)
-        expect(
-          countOccurrences(source, `  printf '%s\\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0`),
-          path.basename(file),
-        ).toBe(1)
-      }
-    })
-
-    // 7.2 used to carry a second, byte-identical copy of the loop. It now re-runs
-    // 6.1's (HON-787), so there is one copy to keep right — and it has to stay in
-    // SKILL.md, because every run waits on CI and a sibling file is read only on
-    // demand.
-    it('keeps exactly one /auto-implement poll loop, in SKILL.md, which 7.2 re-runs', () => {
-      const skill = read(path.join(autoImplementSkill, 'SKILL.md'))
-      const loops = bashBlocks(skill).filter((b) => b.includes('CI_SETTLED'))
-      const merge = skill.slice(skill.indexOf('### 7.2 Wait for CI'), skill.indexOf('### 7.3'))
-
-      expect(loops).toHaveLength(1)
+    // The rule that replaced it: the ci.yml job row, unconditionally, once in the
+    // poll. A guard in front of it (`[ … ] ||`) would bring an exemption back.
+    it('requires the ci.yml job on every PR in the poll', () => {
       expect(
-        bashBlocks(readSkill(autoImplementSkill)).filter((b) => b.includes('CI_SETTLED')),
-      ).toHaveLength(1)
-      expect(merge).toContain('Re-run the 6.1 poll')
-      expect(merge).toContain('6.1 verification block')
+        countOccurrences(
+          read(ciSettle),
+          `  printf '%s\\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0`,
+        ),
+      ).toBe(1)
     })
   })
 
-  // The loop itself, executed. `gh` and `sleep` are stubbed on PATH: `gh`
-  // replays a fixture through the caller's own jq expression (so the jq is what
+  // HON-1190: the poll is a script, and a skill only calls it. A copy of the loop
+  // in prose drifts from the tested one, which is how the two sites came to need
+  // a byte-identity test in the first place.
+  describe('skills call the script', () => {
+    const section = (file: string, from: string, to: string) => {
+      const text = read(file)
+      const start = text.indexOf(from)
+      const end = text.indexOf(to, start + from.length)
+      expect(start, `${from} in ${path.basename(file)}`).toBeGreaterThan(-1)
+      expect(end, `${to} in ${path.basename(file)}`).toBeGreaterThan(start)
+      return text.slice(start, end)
+    }
+
+    it('calls scripts/ci-settle.sh from /auto-implement 6.1 and /merge Step 2', () => {
+      const waits = [
+        section(path.join(autoImplementSkill, 'SKILL.md'), '### 6.1 Wait for CI', '### 6.2'),
+        section(path.join(mergeSkill, 'SKILL.md'), '### Step 2: Wait for CI', '### Step 2.5'),
+      ]
+      for (const wait of waits) {
+        expect(bashBlocks(wait).filter((b) => b.includes('scripts/ci-settle.sh'))).toHaveLength(1)
+      }
+    })
+
+    // 7.2 re-runs 6.1 by reference rather than carrying its own copy (HON-787).
+    it('has /auto-implement 7.2 re-run 6.1', () => {
+      const merge = section(
+        path.join(autoImplementSkill, 'SKILL.md'),
+        '### 7.2 Wait for CI',
+        '### 7.3',
+      )
+      expect(merge).toContain('Re-run the 6.1 poll')
+      expect(merge).toContain('6.1 verification block')
+    })
+
+    // A poll is a sleep, a counter or a printed marker. The markers may still be
+    // named in prose, which is how a skill tells its reader what to act on.
+    it('leaves no poll in any bash block of either skill', () => {
+      for (const dir of [autoImplementSkill, mergeSkill]) {
+        const polls = bashBlocks(readSkill(dir)).filter((block) =>
+          /\bsleep\b|\bseq\b|echo "?CI_|ci-poll-/.test(block),
+        )
+        expect(polls, path.basename(dir)).toEqual([])
+      }
+    })
+
+    // The acceptance criterion: logic with control flow lives in a script with a
+    // test. English in a comment or in a PR-body heredoc is not control flow, so
+    // the check reads shell keywords in command position.
+    it('leaves no shell control flow in the three skills that fetch PR state', () => {
+      for (const dir of [autoImplementSkill, mergeSkill, triageSkill]) {
+        const lines = bashBlocks(stripHeredocs(read(path.join(dir, 'SKILL.md'))))
+          .flatMap((block) => block.split('\n'))
+          .filter((line) => !line.trimStart().startsWith('#'))
+          .filter(
+            (line) =>
+              /(^|[;&|(]\s*)(for|while|until|if|case)\s/.test(line.trimStart()) ||
+              /(^|;\s*|\s)(then|do|done|fi|esac)\s*(;|$)/.test(line),
+          )
+        expect(lines, path.basename(dir)).toEqual([])
+      }
+    })
+  })
+
+  // The poll itself, executed. `gh` and `sleep` are stubbed on PATH: `gh`
+  // replays a fixture through the script's own jq expression (so the jq is what
   // is under test), and `sleep` is a no-op (so 16 polls × 30 s runs instantly).
-  describe('/auto-implement poll loop', () => {
+  describe('scripts/ci-settle.sh', () => {
     let stubBin: string
-    let pollScript: string
     let callLog: string
-    // The loop keys its chunk/prev state on the PR number under /tmp, so every
+    // The script keys its chunk/prev state on the PR number under /tmp, so every
     // run needs a fresh one. The base is far above any real PR number, so a
     // test can never reap or inherit the state of a live poll on this machine.
     let prNumber = 990000
@@ -165,11 +247,6 @@ describe('CI-settle gate', () => {
         [
           '#!/bin/sh',
           'case "$2" in',
-          '  view)',
-          '    case "$*" in',
-          '      *"--json number"*) printf \'%s\\n\' "$STUB_PR_NUMBER" ;;',
-          '    esac',
-          '    ;;',
           '  checks)',
           `    echo call >> ${JSON.stringify(callLog)}`,
           '    jq_expr=""',
@@ -182,13 +259,6 @@ describe('CI-settle gate', () => {
         { mode: 0o755 },
       )
       fs.writeFileSync(path.join(stubBin, 'sleep'), '#!/bin/sh\nexit 0\n', { mode: 0o755 })
-
-      const [loop] = bashBlocks(read(path.join(autoImplementSkill, 'SKILL.md'))).filter((b) =>
-        b.includes('CI_SETTLED'),
-      )
-      if (!loop) throw new Error('no CI_SETTLED poll loop found in the skill')
-      pollScript = path.join(stubBin, 'poll.sh')
-      fs.writeFileSync(pollScript, loop)
     })
 
     afterAll(() => fs.rmSync(stubBin, { recursive: true, force: true }))
@@ -199,37 +269,48 @@ describe('CI-settle gate', () => {
     })
 
     /**
-     * Run one chunk of the loop. Returns its marker and the poll count.
-     *
-     * The stub serves no file list: the loop must decide from the check list
-     * alone, so a docs-only PR and a code PR with the same checks look the same.
+     * Run the script once against the current PR number, keeping its state
+     * files. Returns its marker, its whole stdout, its exit code and the poll count.
      */
-    function runChunk(checks: Check[]) {
-      prNumber += 1
+    function invoke(checks: Check[], args: string[] = [String(prNumber)]) {
       fs.rmSync(callLog, { force: true })
-      fs.rmSync(`/tmp/ci-poll-${prNumber}.prev`, { force: true })
-      fs.rmSync(`/tmp/ci-poll-${prNumber}.chunks`, { force: true })
 
       let out: string
+      let status = 0
       try {
-        out = execFileSync('bash', [pollScript], {
+        out = execFileSync('bash', [ciSettle, ...args], {
           encoding: 'utf8',
           timeout: 60_000,
+          stdio: ['ignore', 'pipe', 'pipe'],
           env: {
             ...process.env,
             PATH: `${stubBin}:${process.env.PATH}`,
-            STUB_PR_NUMBER: String(prNumber),
             STUB_CHECKS: JSON.stringify(checks),
           },
         })
       } catch (error) {
         // CI_TIMEOUT exits 1; its marker is still on stdout.
-        out = String((error as { stdout?: string }).stdout ?? '')
+        const failure = error as { stdout?: string; status?: number }
+        out = String(failure.stdout ?? '')
+        status = failure.status ?? -1
       }
       const polls = fs.existsSync(callLog)
         ? fs.readFileSync(callLog, 'utf8').trim().split('\n').length
         : 0
-      return { marker: out.trim().split('\n').pop() ?? '', polls }
+      return { marker: out.trim().split('\n').pop() ?? '', out, status, polls }
+    }
+
+    /**
+     * Run one chunk on a fresh PR number, so no earlier test's state carries over.
+     *
+     * The stub serves no file list: the script must decide from the check list
+     * alone, so a docs-only PR and a code PR with the same checks look the same.
+     */
+    function runChunk(checks: Check[]) {
+      prNumber += 1
+      fs.rmSync(`/tmp/ci-poll-${prNumber}.prev`, { force: true })
+      fs.rmSync(`/tmp/ci-poll-${prNumber}.chunks`, { force: true })
+      return invoke(checks)
     }
 
     // The HON-589 scenario, verbatim: GitHub Actions fully green, Vercel's
@@ -295,6 +376,52 @@ describe('CI-settle gate', () => {
 
       expect(marker).toBe('CI_SETTLED')
       expect(polls).toBe(2)
+    })
+
+    // The caller reads the last line, so nothing may follow the marker, and the
+    // exit codes are the ones the skill block used: 0 for SETTLED and WAITING.
+    it('prints only the marker and exits 0 on CI_SETTLED and CI_WAITING', () => {
+      const settled = runChunk([job(CI_JOB, 'pass')])
+      expect(settled.out).toBe('CI_SETTLED\n')
+      expect(settled.status).toBe(0)
+
+      const waiting = runChunk([job(CI_JOB, 'pending')])
+      expect(waiting.out).toBe('CI_WAITING (chunk 1/6)\n')
+      expect(waiting.status).toBe(0)
+    })
+
+    // Each invocation is one chunk; the count lives in /tmp keyed on the PR, so
+    // the sixth chunk of one episode times out with exit 1 and clears its state.
+    it('counts chunks across invocations and times out on the sixth with exit 1', () => {
+      const pending = [job(CI_JOB, 'pending')]
+      const markers = [runChunk(pending).marker]
+      for (let chunk = 2; chunk <= 5; chunk++) markers.push(invoke(pending).marker)
+      const last = invoke(pending)
+
+      expect(markers).toEqual([1, 2, 3, 4, 5].map((n) => `CI_WAITING (chunk ${n}/6)`))
+      expect(last.out).toBe('CI_TIMEOUT\n')
+      expect(last.status).toBe(1)
+      expect(fs.existsSync(`/tmp/ci-poll-${prNumber}.chunks`)).toBe(false)
+    })
+
+    // The previous poll's list carries over between chunks: a chunk whose last
+    // poll saw the final list settles on the next chunk's first poll, while a
+    // first chunk never settles on one poll (the INIT sentinel).
+    it('carries the previous poll across chunks', () => {
+      runChunk([job(CI_JOB, 'pending')])
+      fs.writeFileSync(`/tmp/ci-poll-${prNumber}.prev`, `${CI_JOB}=pass`)
+      const next = invoke([job(CI_JOB, 'pass')])
+
+      expect(next.marker).toBe('CI_SETTLED')
+      expect(next.polls).toBe(1)
+    })
+
+    it('exits 2 with no marker when the PR number is missing', () => {
+      const { out, status, polls } = invoke([], [])
+
+      expect(out).toBe('')
+      expect(status).toBe(2)
+      expect(polls).toBe(0)
     })
   })
 })

@@ -25,7 +25,7 @@ The Claude review it reads is the comment marked `<!-- claude-review -->`, which
 ```bash
 gh pr view --json number,title,headRefName,url,headRepository 2>/dev/null
 
-# Save the PR number for the review script and API calls below
+# The PR number, for the review script and the fetches below
 PR_NUMBER=$(gh pr view --json number --jq .number)
 ```
 
@@ -36,10 +36,12 @@ If no PR exists, inform user: "No PR found for this branch. Create one with `/cr
 Check if a Claude review already exists:
 
 ```bash
-# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
-gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
-  | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+./scripts/pr-comments.sh "$PR_NUMBER" issue \
+  | jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
+
+`scripts/pr-comments.sh` fetches every page and prints one JSON array. When the fetch fails it prints nothing and says why on stderr: report it, do not read it as no review.
 
 If review exists (count > 0):
 
@@ -72,28 +74,23 @@ Proceed to Step 3.
 
 ### Step 3: Fetch Comments
 
-Extract the PR number from Step 1, then fetch both types of comments in parallel.
-
-**Note:** Use the repo name from the current directory context. The `gh api` command can use `:owner/:repo` shorthand which auto-fills from the current git remote, or explicitly use the values from `headRepository.owner.login` and `headRepository.name`.
+Fetch all three kinds of comments in parallel. `scripts/pr-comments.sh` reads the repo from the current git remote.
 
 ```bash
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+
 # PR-level comments (general discussion)
-# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
-gh api --paginate '/repos/:owner/:repo/issues/{number}/comments?per_page=100' \
-  | jq -s 'add | .[] | {id, author: .user.login, body, created_at}'
+./scripts/pr-comments.sh "$PR_NUMBER" issue \
+  | jq '.[] | {id, author: .user.login, body, created_at}'
 
 # Review comments (inline code comments)
-# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
-gh api --paginate '/repos/:owner/:repo/pulls/{number}/comments?per_page=100' \
-  | jq -s 'add | .[] | {id, author: .user.login, path, line, original_line, body, diff_hunk}'
+./scripts/pr-comments.sh "$PR_NUMBER" inline \
+  | jq '.[] | {id, author: .user.login, path, line, original_line, body, diff_hunk}'
 
 # Review summaries (top-level text submitted with Approve/Request Changes)
-# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
-gh api --paginate '/repos/:owner/:repo/pulls/{number}/reviews?per_page=100' \
-  | jq -s 'add | .[] | {id, author: .user.login, state, body}'
+./scripts/pr-comments.sh "$PR_NUMBER" reviews \
+  | jq '.[] | {id, author: .user.login, state, body}'
 ```
-
-Replace `{number}` with the PR number from Step 1.
 
 All three endpoints expose the author as `.user.login` — keep it in the projection. Step 4's bot filter depends on it.
 

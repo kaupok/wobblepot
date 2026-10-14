@@ -16,8 +16,8 @@
  *      the only trace of the check on the PR page and the only thing a later audit
  *      can grep for, so losing it loses the feature without failing anything.
  *
- * Lives in scripts/ next to ci-settle-gate.test.ts, which executes shell snippets
- * from the skill files for the same reason.
+ * Lives in scripts/ next to ci-settle-gate.test.ts, which executes the CI-settle
+ * poll the skills call, for the same reason.
  */
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'

@@ -12,7 +12,7 @@
  * can exercise it — the first execution of any change to it is a real release.
  * This file is therefore the only oracle: it extracts the step's `run:` script
  * out of the YAML and runs it for real against a stubbed `gh`, the same harness
- * shape `ci-settle-gate.test.ts` uses on the skill snippets, and for the same
+ * shape `ci-settle-gate.test.ts` uses on `scripts/ci-settle.sh`, and for the same
  * reason. Executing the script also discharges "`bash -n` passes on the step
  * script" on every CI run rather than once by hand — bash parses it to run it.
  * It does not discharge "the workflow YAML still parses": the extraction below
