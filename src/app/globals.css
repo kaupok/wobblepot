@@ -512,7 +512,7 @@
     pointer-events: none;
   }
 
-  /* A landing tile (`LandingPage`, `LandingFeatures`): each box on the
+  /* A landing tile (`LandingFeatures`): each box on the
      signed-out home page in its own pale colour, so the page reads friendlier
      than a run of grey bands. The tile's text and controls keep the neutral
      tokens, and a vignette on it brings its own surface. The hue is named, not inline, so no tile needs a style prop.
@@ -540,10 +540,6 @@
   [data-landing-tile='mint'] {
     --tile-hue: 160;
     --tile-c: 0.04;
-  }
-  [data-landing-tile='lilac'] {
-    --tile-hue: 300;
-    --tile-c: 0.035;
   }
 
   [data-meal-surface],

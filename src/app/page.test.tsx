@@ -386,29 +386,14 @@ describe('Home page component', () => {
     expect(screen.queryByText('Avocado toast with poached egg')).not.toBeInTheDocument()
   })
 
-  it('renders the three steps and the differences as sections', async () => {
+  it('goes from the hero to the differences, then the maker’s line', async () => {
     await renderLanding()
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'Three steps to a planned week' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { level: 3, name: "Tell it who's at the table" }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { level: 3, name: 'Get a week of meals' }),
-    ).toBeInTheDocument()
-    // A new household's plan is dinner only (HON-1088).
-    expect(
-      screen.getByText(
-        "Dinner for every day, with prep times. Add breakfast and lunch when you want them. Swap any meal you don't like.",
-      ),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { level: 3, name: 'Shop once, then cook' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'Made for family kitchens' }),
-    ).toBeInTheDocument()
+    // No section between the hero and the differences: the steps band was
+    // removed until it has an approved design (HON-1231).
+    const sections = screen.getAllByRole('heading', { level: 2 })
+    expect(sections).toHaveLength(2)
+    expect(sections[0]).toHaveAccessibleName('Made for family kitchens')
+    expect(sections[1]).toHaveAccessibleName('Made by a dad, for a family of four')
     expect(
       screen.getByRole('heading', { level: 3, name: 'It knows your pantry' }),
     ).toBeInTheDocument()
@@ -418,10 +403,6 @@ describe('Home page component', () => {
     await renderLanding()
     const brand = [
       screen.getByRole('heading', { level: 1 }),
-      screen.getByRole('heading', { level: 2, name: 'Three steps to a planned week' }),
-      screen.getByRole('heading', { level: 3, name: "Tell it who's at the table" }),
-      screen.getByRole('heading', { level: 3, name: 'Get a week of meals' }),
-      screen.getByRole('heading', { level: 3, name: 'Shop once, then cook' }),
       screen.getByRole('heading', { level: 2, name: 'Made for family kitchens' }),
       screen.getByRole('heading', { level: 3, name: 'It knows your pantry' }),
     ]
@@ -472,14 +453,6 @@ describe('Home page component', () => {
     await renderLanding()
     expect(
       screen.getByRole('heading', { level: 1, name: 'Õhtusöök otsustatud. Terveks nädalaks.' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'Kolm sammu planeeritud nädalani' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        'Õhtusöök igaks päevaks koos valmistusajaga. Lisa hommikusöök ja lõuna, kui soovid. Vaheta iga toit, mis ei meeldi.',
-      ),
     ).toBeInTheDocument()
     expect(screen.getByText(CLOSE_ET)).toBeInTheDocument()
     // "Made for family kitchens" is a client component, which this file's

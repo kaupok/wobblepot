@@ -5,11 +5,6 @@ import { Body, Heading } from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
 import { LandingDeck } from '@/components/landing/LandingDeck'
 import { LandingFeatures } from '@/components/landing/LandingFeatures'
-import {
-  ShoppingVignette,
-  TableVignette,
-  WeekVignette,
-} from '@/components/landing/LandingStepVignettes'
 import { LandingWeek } from '@/components/landing/LandingWeek'
 import { displayFont } from '@/components/landing/display-font'
 import { formatDayLong } from '@/lib/i18n/format-dates'
@@ -17,8 +12,6 @@ import type { Locale } from '@/lib/i18n/locales'
 import type { DemoDay } from '@/lib/landing/load-demo-day'
 import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { cn } from '@/lib/utils'
-
-const STEPS = ['table', 'week', 'shop'] as const
 
 /** The static example day's weekday, Monday as 0: the showcase's Thursday. */
 const SHOWCASE_DAY_INDEX = 3
@@ -40,9 +33,9 @@ interface LandingPageProps {
 /**
  * The signed-out home page (HON-1116). A centred hero, with
  * tonight's dinner in front of breakfast and lunch and the rest of the week as
- * a strip of days under it. The three steps sit on a lilac band, each above a
- * simple picture of that step, and the four points are a 2×2 grid of tiles,
- * each with its vignette (`LandingFeatures`). The page ends on the maker's line.
+ * a strip of days under it. "Made for family kitchens" follows: four points
+ * in a 2×2 grid of tiles, each with its vignette (`LandingFeatures`). The page
+ * ends on the maker's line.
  *
  * The deck and the week strip follow the demo day: today's weekday is
  * tonight, and every card opens its meal in the cook view (`LandingDeck`).
@@ -117,51 +110,6 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
           <LandingWeek locale={locale} tonightIndex={tonightIndex} tonight={tonight} />
         </section>
 
-        <section
-          aria-labelledby="landing-how"
-          data-landing-tile="lilac"
-          className="flex flex-col gap-8 rounded-3xl px-5 py-7 md:px-12 md:py-11"
-        >
-          <Heading variant="h3" as="h2" face="brand" id="landing-how">
-            {t('how.title')}
-          </Heading>
-          {/* The role restores list semantics WebKit drops from a
-              `list-style: none` list, as on the live page. */}
-          {/* From `md`, each step spans two rows of a subgrid, so the
-              pictures share one height and the step titles line up. */}
-          <ol role="list" className="grid list-none gap-10 md:grid-cols-3 md:gap-x-8 md:gap-y-5">
-            {STEPS.map((step, index) => (
-              <li
-                key={step}
-                className="flex flex-col gap-5 md:row-span-2 md:grid md:grid-rows-subgrid"
-              >
-                <StepPicture step={step} />
-                <div className="flex items-start gap-4">
-                  {/* The numeral in the display face, on a disc in the
-                      foreground's ink; the sr-only line names the step. */}
-                  <div
-                    aria-hidden="true"
-                    className="bg-foreground text-background flex size-10 shrink-0 items-center justify-center rounded-full"
-                  >
-                    <Heading variant="h4" as="span" face="brand">
-                      {index + 1}
-                    </Heading>
-                  </div>
-                  <div className="flex flex-col gap-1.5 pt-1.5">
-                    <span className="sr-only">{t('how.step', { number: index + 1 })}</span>
-                    <Heading variant="h4" as="h3" face="brand">
-                      {t(`how.${step}.title`)}
-                    </Heading>
-                    {/* The default ink: muted text on the tinted band is
-                        under the 4.5:1 contrast floor. */}
-                    <Body>{t(`how.${step}.body`)}</Body>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </section>
-
         <LandingFeatures />
 
         {/* Phones only, as on the live page (HON-1060). The hero's one line
@@ -186,17 +134,6 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
           </div>
         </section>
       </div>
-    </div>
-  )
-}
-
-/** A picture of each step, three rows on a white panel. */
-function StepPicture({ step }: { step: (typeof STEPS)[number] }) {
-  return (
-    <div inert className="bg-background flex flex-col justify-center rounded-2xl px-5 py-2">
-      {step === 'table' && <TableVignette />}
-      {step === 'week' && <WeekVignette />}
-      {step === 'shop' && <ShoppingVignette />}
     </div>
   )
 }

@@ -711,26 +711,6 @@
         "description": "Oven-baked salmon with roasted asparagus and lemon"
       }
     },
-    "how": {
-      "title": "Three steps to a planned week",
-      "step": "Step {number}",
-      "table": {
-        "title": "Tell it who's at the table",
-        "body": "Adults, kids, allergies and what nobody will eat. Two minutes, once."
-      },
-      "week": {
-        "title": "Get a week of meals",
-        "body": "Dinner for every day, with prep times. Add breakfast and lunch when you want them. Swap any meal you don't like."
-      },
-      "shop": {
-        "title": "Shop once, then cook",
-        "body": "One list of what you're missing, grouped by aisle. At the stove, the steps are on your phone, and you can ask about any of them.",
-        "vignette": {
-          "mozzarella": "Mozzarella",
-          "beef": "Stewing beef"
-        }
-      }
-    },
     "note": {
       "title": "Made by a dad, <br></br>for a family of four"
     },

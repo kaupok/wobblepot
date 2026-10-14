@@ -151,7 +151,7 @@ describe('LandingPage', () => {
       screen.getByRole('heading', { level: 1, name: 'Õhtusöök otsustatud. Terveks nädalaks.' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { level: 3, name: 'Ütle, kes on laua ääres' }),
+      screen.getByRole('heading', { level: 2, name: 'Teinud isa oma neljaliikmelisele perele' }),
     ).toBeInTheDocument()
   })
 })
