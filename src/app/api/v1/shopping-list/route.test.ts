@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/api-keys', () => ({
+  API_KEY_PATTERN: /^wp_[A-Za-z0-9]{32}$/,
   verifyApiKey: vi.fn().mockResolvedValue({ userId: 'user-1' }),
   isActiveApiKeyUser: vi.fn().mockResolvedValue(true),
 }))

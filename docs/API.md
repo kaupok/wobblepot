@@ -86,17 +86,17 @@ An item with `purchased: true` is already in the pantry.
 
 Every error is `{ "error": "<a sentence for the developer>", "code": "<code>" }`.
 
-| Status | `code`           | When                                                                                          |
-| ------ | ---------------- | --------------------------------------------------------------------------------------------- |
-| `400`  | `bad_request`    | A date that is not `YYYY-MM-DD`, `to` before `from`, more than 31 days, or `days` not 7 or 14 |
-| `401`  | `invalid_key`    | No key, a malformed key, a revoked key, or the key of an account waiting for deletion         |
-| `403`  | `no_household`   | The account has no household: finish onboarding in Wobblepot first                            |
-| `429`  | `rate_limited`   | The household made too many requests. `Retry-After` says how many seconds to wait             |
-| `500`  | `internal_error` | Wobblepot could not answer. Try again later                                                   |
+| Status | `code`           | When                                                                                                        |
+| ------ | ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| `400`  | `bad_request`    | A date that is not `YYYY-MM-DD`, `to` before `from`, more than 31 days, or `days` not 7 or 14               |
+| `401`  | `invalid_key`    | No key, a malformed key, a revoked key, or the key of an account waiting for deletion                       |
+| `403`  | `no_household`   | The account has no household: finish onboarding in Wobblepot first                                          |
+| `429`  | `rate_limited`   | The household, or your network address, made too many requests. `Retry-After` says how many seconds to wait |
+| `500`  | `internal_error` | Wobblepot could not answer. Try again later                                                                 |
 
 ## How often to poll
 
-A household may make 120 requests an hour across all its keys. That limit is apart from an assistant's MCP limit, so a screen cannot use up the assistant's requests.
+A household may make 120 requests an hour across all its keys. That limit is apart from an assistant's MCP limit, so a screen cannot use up the assistant's requests. One network address may also make 600 requests an hour, valid key or not.
 
 Poll at most once a minute; every 5 minutes is enough for a meal plan. Home Assistant's REST sensor polls every 30 seconds unless you set `scan_interval`, which alone is 120 requests an hour, so always set it.
 

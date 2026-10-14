@@ -68,6 +68,7 @@ describe('rate-limit', () => {
     it('covers all AI + auth + export features', () => {
       expect(Object.keys(RATE_LIMIT_CONFIG).sort()).toEqual([
         'api-key',
+        'api-key-ip',
         'cook-question',
         'data-export',
         'forgot-password',
@@ -97,6 +98,14 @@ describe('rate-limit', () => {
         limit: 120,
         window: '1 h',
         dimension: 'household',
+      })
+    })
+
+    it('configures api-key-ip at 600 requests per hour per IP (HON-1220)', () => {
+      expect(RATE_LIMIT_CONFIG['api-key-ip']).toEqual({
+        limit: 600,
+        window: '1 h',
+        dimension: 'ip',
       })
     })
 

@@ -70,6 +70,7 @@ export type RateLimitFeature =
   | 'meal-image'
   | 'mcp'
   | 'api-key'
+  | 'api-key-ip'
   | 'sign-up'
   | 'sign-in'
   | 'forgot-password'
@@ -118,6 +119,10 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
   // Not 60: that is exactly one Home Assistant poll a minute, and a sliding
   // window at the limit trips. docs/API.md asks for one poll a minute at most.
   'api-key': { limit: 120, window: '1 h', dimension: 'household' },
+  // The same requests per client IP, checked before the key is looked up, so
+  // a caller with no valid key cannot send unlimited database lookups. Five
+  // households' worth, for screens behind one shared address (HON-1220).
+  'api-key-ip': { limit: 600, window: '1 h', dimension: 'ip' },
   'sign-up': {
     limit: 5,
     window: '1 h',

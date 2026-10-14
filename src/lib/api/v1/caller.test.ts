@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/lib/api-keys', () => ({ verifyApiKey: vi.fn(), isActiveApiKeyUser: vi.fn() }))
+vi.mock('@/lib/api-keys', () => ({
+  API_KEY_PATTERN: /^wp_[A-Za-z0-9]{32}$/,
+  verifyApiKey: vi.fn(),
+  isActiveApiKeyUser: vi.fn(),
+}))
 vi.mock('@/lib/household', () => ({ getHouseholdMembership: vi.fn() }))
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: vi.fn(), retryAfterSeconds: vi.fn() }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
@@ -19,7 +23,10 @@ const household = mcpHousehold({ id: 'household-1' })
 
 function request(authorization?: string) {
   return new Request('http://localhost:3000/api/v1/test', {
-    headers: authorization ? { authorization } : {},
+    headers: {
+      'x-forwarded-for': '203.0.113.7',
+      ...(authorization ? { authorization } : {}),
+    },
   })
 }
 
@@ -60,6 +67,7 @@ describe('resolveApiKeyCaller (HON-1220)', () => {
     ['no header', undefined],
     ['another scheme', `Basic ${KEY}`],
     ['no key after the scheme', 'Bearer '],
+    ['a malformed key', 'Bearer wp_short'],
   ])('answers 401 invalid_key for %s, without a lookup', async (_label, header) => {
     const { status, body, headers } = await errorOf(
       await resolveApiKeyCaller(request(header), ROUTE),
@@ -68,6 +76,27 @@ describe('resolveApiKeyCaller (HON-1220)', () => {
     expect(status).toBe(401)
     expect(body.code).toBe('invalid_key')
     expect(headers.get('cache-control')).toBe('no-store')
+    expect(verifyApiKey).not.toHaveBeenCalled()
+    expect(checkRateLimit).not.toHaveBeenCalled()
+  })
+
+  it("answers 429 from the client IP's bucket before it looks the key up", async () => {
+    vi.mocked(checkRateLimit).mockResolvedValueOnce({
+      allowed: false,
+      limit: 600,
+      remaining: 0,
+      resetAt: new Date('2026-10-14T12:00:00Z'),
+    })
+    vi.mocked(retryAfterSeconds).mockReturnValue(30)
+
+    const { status, body, headers } = await errorOf(
+      await resolveApiKeyCaller(request(`Bearer ${KEY}`), ROUTE),
+    )
+
+    expect(status).toBe(429)
+    expect(body.code).toBe('rate_limited')
+    expect(headers.get('retry-after')).toBe('30')
+    expect(checkRateLimit).toHaveBeenCalledWith('203.0.113.7', 'api-key-ip')
     expect(verifyApiKey).not.toHaveBeenCalled()
   })
 
@@ -91,7 +120,7 @@ describe('resolveApiKeyCaller (HON-1220)', () => {
 
     expect(status).toBe(401)
     expect(body.code).toBe('invalid_key')
-    expect(checkRateLimit).not.toHaveBeenCalled()
+    expect(checkRateLimit).not.toHaveBeenCalledWith(expect.anything(), 'api-key')
   })
 
   it('answers 403 no_household with the MCP wording for an account without a household', async () => {
@@ -109,12 +138,12 @@ describe('resolveApiKeyCaller (HON-1220)', () => {
   })
 
   it('answers 429 rate_limited with Retry-After from the api-key bucket, never mcp', async () => {
-    vi.mocked(checkRateLimit).mockResolvedValue({
-      allowed: false,
+    vi.mocked(checkRateLimit).mockImplementation(async (_id, feature) => ({
+      allowed: feature !== 'api-key',
       limit: 120,
       remaining: 0,
       resetAt: new Date('2026-10-14T12:00:00Z'),
-    })
+    }))
     vi.mocked(retryAfterSeconds).mockReturnValue(42)
 
     const { status, body, headers } = await errorOf(
@@ -124,8 +153,8 @@ describe('resolveApiKeyCaller (HON-1220)', () => {
     expect(status).toBe(429)
     expect(body.code).toBe('rate_limited')
     expect(headers.get('retry-after')).toBe('42')
-    expect(checkRateLimit).toHaveBeenCalledTimes(1)
     expect(checkRateLimit).toHaveBeenCalledWith('household-1', 'api-key')
+    expect(checkRateLimit).not.toHaveBeenCalledWith(expect.anything(), 'mcp')
   })
 
   it('reports a failed lookup and answers 500 internal_error', async () => {

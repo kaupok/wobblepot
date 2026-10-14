@@ -197,7 +197,7 @@ export function ApiKeysSection({ initialKeys }: ApiKeysSectionProps) {
       <div className="flex flex-col gap-2">
         {/* Focus lands here when Revoke removed the row that opened the dialog. */}
         <div ref={listHeadingRef} tabIndex={-1} className="outline-none">
-          <Heading variant="section" as="h3">
+          <Heading variant="caption" as="h3">
             {t('listHeading')}
           </Heading>
         </div>
@@ -310,7 +310,7 @@ export function NewApiKey({ created, onDone }: NewApiKeyProps) {
   return (
     <div className="flex flex-col gap-3">
       <div ref={headingRef} tabIndex={-1} className="outline-none">
-        <Heading variant="section" as="h3">
+        <Heading variant="caption" as="h3">
           {t('newKeyHeading', { name: created.name })}
         </Heading>
       </div>
