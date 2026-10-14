@@ -1,658 +1,226 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from './route'
 
+// The plan check, the ingredient scoping and the pantry transaction live in
+// `@/lib/shopping/purchase`, tested against a database in
+// `purchase.db.test.ts`. This file mocks that module at the seam and asserts
+// what the route owns: the session, the household, the body, and the status
+// each answer maps to (HON-1208).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    householdMember: {
-      findFirst: vi.fn(),
-    },
-    mealPlan: {
-      findUnique: vi.fn(),
-    },
-    ingredient: {
-      findMany: vi.fn(),
-    },
-    pantryItem: {
-      findMany: vi.fn(),
-      upsert: vi.fn(),
-    },
-    $transaction: vi.fn(),
-  },
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
+}))
+
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/shopping/purchase', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/shopping/purchase')>()),
+  purchasePlanIngredients: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
+import { ShoppingPlanError } from '@/lib/shopping/load-shopping-list'
+import { purchasePlanIngredients } from '@/lib/shopping/purchase'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
-const mockFindUniquePlan = vi.mocked(prisma.mealPlan.findUnique)
-const mockFindManyIngredient = vi.mocked(prisma.ingredient.findMany)
-const mockFindManyPantry = vi.mocked(prisma.pantryItem.findMany)
-const mockTransaction = vi.mocked(prisma.$transaction)
-
-const mockHousehold = {
-  id: 'household-123',
-  name: 'Test Household',
-  timezone: 'Europe/Tallinn',
-  preferences: null,
-}
-
-const mockMembership = {
-  id: 'member-123',
-  householdId: 'household-123',
-  userId: 'user-123',
-  role: 'owner',
-  household: mockHousehold,
-}
-
-const mockPlan = {
-  id: 'plan-123',
-  householdId: 'household-123',
-}
-
-const createRequest = (body: Record<string, unknown>) =>
-  new Request('http://localhost/api/meal-plans/plan-123/shopping-list/purchase', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
-
-const createParams = () => Promise.resolve({ id: 'plan-123' })
+const mockGetMembership = vi.mocked(getHouseholdMembership)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockPurchase = vi.mocked(purchasePlanIngredients)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
   session: { id: 'session-123' },
+} as never
+
+const household = { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', locale: 'et' }
+
+const membership = {
+  id: 'member-123',
+  householdId: 'household-123',
+  userId: 'user-123',
+  role: 'owner',
+  household,
+} as never
+
+const ricePantryItem = {
+  id: 'pantry-rice',
+  ingredient: { id: 'ing-rice', name: 'riis', category: 'carb', defaultUnit: 'g' },
+  quantity: null,
+  isStaple: false,
+  updatedAt: '2026-10-15T10:00:00.000Z',
 }
 
-describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+const milkPantryItem = {
+  id: 'pantry-milk',
+  ingredient: { id: 'ing-milk', name: 'piim', category: 'dairy', defaultUnit: 'g' },
+  quantity: null,
+  isStaple: false,
+  updatedAt: '2026-10-15T10:00:00.000Z',
+}
 
+function post(body: unknown) {
+  return POST(
+    new Request('http://localhost/api/meal-plans/plan-123/shopping-list/purchase', {
+      method: 'POST',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ id: 'plan-123' }) },
+  )
+}
+
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(membership)
+})
+
+describe('POST /api/meal-plans/[id]/shopping-list/purchase', () => {
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
-      params: createParams(),
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
+      status: 401,
+      body: { error: 'Unauthorized' },
     })
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(mockPurchase).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(null)
+    mockGetMembership.mockResolvedValue(null)
 
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
-      params: createParams(),
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
+      status: 404,
+      body: { error: 'No household found' },
     })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(mockPurchase).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when meal plan does not exist', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(null)
-
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Meal plan not found')
-  })
-
-  it('returns 403 when plan belongs to different household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue({
-      id: 'plan-123',
-      householdId: 'different-household',
-    } as never)
-
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Access denied to this meal plan')
-  })
-
+  // The body is checked before the plan, so a bad body never reaches the
+  // plan check, whatever the plan (HON-1208).
   it('returns 400 for invalid JSON', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-
-    const request = new Request('http://localhost/api/meal-plans/plan-123/shopping-list/purchase', {
-      method: 'POST',
-      body: 'not valid json',
+    expect(await answer(post('not valid json'))).toEqual({
+      status: 400,
+      body: { error: 'Invalid JSON' },
     })
-
-    const response = await POST(request, { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
+    expect(mockPurchase).not.toHaveBeenCalled()
   })
 
-  it('returns 400 when neither ingredientId nor ingredientIds provided', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-
-    const response = await POST(createRequest({}), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
+  it('returns 400 when neither ingredientId nor ingredientIds is given', async () => {
+    expect(await answer(post({}))).toEqual({
+      status: 400,
+      body: { error: 'Validation failed', details: {} },
+    })
+    expect(mockPurchase).not.toHaveBeenCalled()
   })
 
-  it('returns 400 naming ingredientIds for an empty ingredientIds array', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
+  it('returns 400 naming ingredientIds for an empty ingredientIds array (HON-659)', async () => {
+    const { status, body } = await answer(post({ ingredientIds: [] }))
 
-    const response = await POST(createRequest({ ingredientIds: [] }), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.ingredientIds).toBeDefined()
-    expect(mockFindManyIngredient).not.toHaveBeenCalled()
-    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(status).toBe(400)
+    expect(body.error).toBe('Validation failed')
+    expect(Object.keys(body.details)).toEqual(['ingredientIds'])
+    expect(mockPurchase).not.toHaveBeenCalled()
   })
 
-  it('returns 400 rather than dropping ingredientId when ingredientIds is empty', async () => {
+  it('returns 400 rather than dropping ingredientId when ingredientIds is empty (HON-659)', async () => {
     // `ingredientIds ?? [ingredientId]` would pick the empty array and purchase
-    // nothing, so the contradictory request is rejected instead (HON-659).
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
+    // nothing, so the contradictory request is rejected instead.
+    const { status, body } = await answer(post({ ingredientId: 'ing-rice', ingredientIds: [] }))
 
-    const response = await POST(createRequest({ ingredientId: 'ing-1', ingredientIds: [] }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.ingredientIds).toBeDefined()
-    expect(mockFindManyIngredient).not.toHaveBeenCalled()
-    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(status).toBe(400)
+    expect(body.error).toBe('Validation failed')
+    expect(Object.keys(body.details)).toEqual(['ingredientIds'])
+    expect(mockPurchase).not.toHaveBeenCalled()
   })
 
-  it('returns the Estonian ingredient name for an et household, so the pantry row is not English (HON-913)', async () => {
-    mockGetSession.mockResolvedValue(mockSession as never)
-    mockFindFirst.mockResolvedValue({
-      ...mockMembership,
-      household: { ...mockHousehold, locale: 'et' },
-    } as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
-    const upsert = vi.fn().mockResolvedValue({
-      id: 'pantry-new',
-      quantity: null,
-      isStaple: false,
-      updatedAt: new Date('2026-01-31'),
-      ingredient: {
-        id: 'ing-1',
-        name: 'Chicken',
-        category: 'protein',
-        defaultUnit: 'g',
-        translations: [{ locale: 'et', name: 'Kana' }],
+  it('purchases a single ingredientId and leaves replacedQuantity out of the response', async () => {
+    mockPurchase.mockResolvedValue({
+      status: 'purchased',
+      results: [{ ingredientId: 'ing-rice', replacedQuantity: 300, pantryItem: ricePantryItem }],
+    })
+
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
+      status: 200,
+      body: { success: true, results: [{ ingredientId: 'ing-rice', pantryItem: ricePantryItem }] },
+    })
+    expect(mockPurchase).toHaveBeenCalledWith(household, 'plan-123', ['ing-rice'])
+  })
+
+  it('purchases ingredientIds and returns the results in the order given', async () => {
+    mockPurchase.mockResolvedValue({
+      status: 'purchased',
+      results: [
+        { ingredientId: 'ing-milk', replacedQuantity: null, pantryItem: milkPantryItem },
+        { ingredientId: 'ing-rice', replacedQuantity: null, pantryItem: ricePantryItem },
+        { ingredientId: 'ing-milk', replacedQuantity: null, pantryItem: milkPantryItem },
+      ],
+    })
+
+    expect(await answer(post({ ingredientIds: ['ing-milk', 'ing-rice', 'ing-milk'] }))).toEqual({
+      status: 200,
+      body: {
+        success: true,
+        results: [
+          { ingredientId: 'ing-milk', pantryItem: milkPantryItem },
+          { ingredientId: 'ing-rice', pantryItem: ricePantryItem },
+          { ingredientId: 'ing-milk', pantryItem: milkPantryItem },
+        ],
       },
     })
-    mockTransaction.mockImplementation(async (fn) =>
-      (fn as (tx: unknown) => unknown)({ pantryItem: { upsert } }),
-    )
-
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.results[0].pantryItem.ingredient).toEqual({
-      id: 'ing-1',
-      name: 'Kana',
-      category: 'protein',
-      defaultUnit: 'g',
-    })
-    expect(upsert.mock.calls[0]![0].select.ingredient).toMatchObject({
-      select: { translations: { where: { locale: 'et' } } },
-    })
-  })
-
-  it('returns 400 when ingredient does not exist', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([])
-
-    const response = await POST(createRequest({ ingredientId: 'nonexistent' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid ingredient IDs')
-    expect(data.invalidIds).toEqual(['nonexistent'])
-  })
-
-  // HON-889: another household's ingredient must read exactly like an unknown
-  // one, so the lookup is scoped and a foreign id falls out of it as invalid.
-  it("treats another household's ingredient as invalid", async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([])
-
-    const response = await POST(createRequest({ ingredientId: 'ing-other-household' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(mockFindManyIngredient).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          id: { in: ['ing-other-household'] },
-          OR: [{ householdId: null }, { householdId: 'household-123' }],
-        },
-      }),
-    )
-    expect(response.status).toBe(400)
-    expect(data).toEqual({ error: 'Invalid ingredient IDs', invalidIds: ['ing-other-household'] })
-  })
-
-  it('creates new pantry item for single ingredientId', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
-    const mockDate = new Date('2024-01-15T10:00:00Z')
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        pantryItem: {
-          upsert: vi.fn().mockResolvedValue({
-            id: 'pantry-new',
-            quantity: null,
-            isStaple: false,
-            updatedAt: mockDate,
-            ingredient: {
-              id: 'ing-1',
-              name: 'Test Ingredient',
-              category: 'PRODUCE',
-              defaultUnit: 'g',
-            },
-          }),
-        },
-      }
-      return callback(mockTx as never)
-    })
-
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(data.results).toHaveLength(1)
-    // Exact shape: the created/updated `action` label was read from the pantry
-    // before the transaction and could go stale; nothing consumed it, so both
-    // the field and the read are gone (HON-660).
-    expect(mockFindManyPantry).not.toHaveBeenCalled()
-    expect(data.results[0]).toEqual({
-      ingredientId: 'ing-1',
-      pantryItem: {
-        id: 'pantry-new',
-        quantity: null,
-        isStaple: false,
-        updatedAt: mockDate.toISOString(),
-        ingredient: {
-          id: 'ing-1',
-          name: 'Test Ingredient',
-          category: 'PRODUCE',
-          defaultUnit: 'g',
-        },
-      },
-    })
-  })
-
-  it('updates existing pantry item', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
-    const mockDate = new Date('2024-01-15T10:00:00Z')
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        pantryItem: {
-          upsert: vi.fn().mockResolvedValue({
-            id: 'existing-pantry',
-            quantity: null,
-            isStaple: true,
-            updatedAt: mockDate,
-            ingredient: {
-              id: 'ing-1',
-              name: 'Test Ingredient',
-              category: 'PRODUCE',
-              defaultUnit: 'g',
-            },
-          }),
-        },
-      }
-      return callback(mockTx as never)
-    })
-
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(data.results[0].pantryItem.id).toBe('existing-pantry')
-    expect(data.results[0]).not.toHaveProperty('action')
-    expect(mockFindManyPantry).not.toHaveBeenCalled()
-  })
-
-  it('turns a "ran out" quantity of 0 into "have some" when the item is bought', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
-    const row = {
-      id: 'existing-pantry',
-      isStaple: false,
-      updatedAt: new Date('2024-01-15T10:00:00Z'),
-      ingredient: { id: 'ing-1', name: 'Rice', category: 'GRAIN', defaultUnit: 'g' },
-    }
-    const update = vi.fn().mockResolvedValue({ ...row, quantity: null })
-    mockTransaction.mockImplementation(async (callback) =>
-      callback({
-        pantryItem: { upsert: vi.fn().mockResolvedValue({ ...row, quantity: 0 }), update },
-      } as never),
-    )
-
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'existing-pantry' }, data: { quantity: null } }),
-    )
-    expect(data.results[0].pantryItem.quantity).toBeNull()
-  })
-
-  it('replaces a quantity the household entered with "have some" when the item is bought', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
-    const row = {
-      id: 'existing-pantry',
-      isStaple: false,
-      updatedAt: new Date('2024-01-15T10:00:00Z'),
-      ingredient: { id: 'ing-1', name: 'Rice', category: 'GRAIN', defaultUnit: 'g' },
-    }
-    const update = vi.fn().mockResolvedValue({ ...row, quantity: null })
-    mockTransaction.mockImplementation(async (callback) =>
-      callback({
-        pantryItem: { upsert: vi.fn().mockResolvedValue({ ...row, quantity: 200 }), update },
-      } as never),
-    )
-
-    const response = await POST(createRequest({ ingredientId: 'ing-1' }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'existing-pantry' }, data: { quantity: null } }),
-    )
-    expect(data.results[0].pantryItem.quantity).toBeNull()
-  })
-
-  it('processes batch ingredientIds in transaction', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([
-      { id: 'ing-1' },
-      { id: 'ing-2' },
-      { id: 'ing-3' },
-    ] as never)
-
-    const mockDate = new Date('2024-01-15T10:00:00Z')
-    let upsertCallCount = 0
-    const ingredientNames = ['Ingredient 1', 'Ingredient 2', 'Ingredient 3']
-    mockTransaction.mockImplementation(async (callback) => {
-      const mockTx = {
-        pantryItem: {
-          upsert: vi.fn().mockImplementation(() => {
-            upsertCallCount++
-            return Promise.resolve({
-              id: `pantry-${upsertCallCount}`,
-              quantity: null,
-              isStaple: false,
-              updatedAt: mockDate,
-              ingredient: {
-                id: `ing-${upsertCallCount}`,
-                name: ingredientNames[upsertCallCount - 1],
-                category: 'PRODUCE',
-                defaultUnit: 'g',
-              },
-            })
-          }),
-        },
-      }
-      return callback(mockTx as never)
-    })
-
-    const response = await POST(createRequest({ ingredientIds: ['ing-1', 'ing-2', 'ing-3'] }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(data.results).toHaveLength(3)
-    expect(data.results[0].ingredientId).toBe('ing-1')
-    expect(data.results[0].pantryItem.id).toBe('pantry-1')
-    expect(data.results[1].ingredientId).toBe('ing-2')
-    expect(data.results[1].pantryItem.id).toBe('pantry-2')
-    expect(data.results[2].ingredientId).toBe('ing-3')
-    expect(data.results[2].pantryItem.id).toBe('pantry-3')
-  })
-
-  it('returns 400 when some ingredients in batch do not exist', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }] as never)
-
-    const response = await POST(
-      createRequest({ ingredientIds: ['ing-1', 'nonexistent-1', 'nonexistent-2'] }),
-      {
-        params: createParams(),
-      },
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid ingredient IDs')
-    expect(data.invalidIds).toEqual(['nonexistent-1', 'nonexistent-2'])
-  })
-
-  it('locks pantry rows in sorted order but returns results in the caller order', async () => {
-    // Two transactions that lock the same pantry rows in opposite orders
-    // deadlock (Postgres 40P01), so the loop inside the transaction sorts. The
-    // response stays positional, because a client zips `results` against the
-    // ids it sent (HON-632).
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([
-      { id: 'ing-a' },
-      { id: 'ing-b' },
-      { id: 'ing-c' },
-    ] as never)
-    mockFindManyPantry.mockResolvedValue([])
-
-    const mockUpsert = vi.fn().mockImplementation(({ where }) => {
-      const { ingredientId } = where.householdId_ingredientId
-      return Promise.resolve({
-        id: `pantry-${ingredientId}`,
-        quantity: null,
-        isStaple: false,
-        updatedAt: new Date('2024-01-15T10:00:00Z'),
-        ingredient: {
-          id: ingredientId,
-          name: ingredientId,
-          category: 'PRODUCE',
-          defaultUnit: 'g',
-        },
-      })
-    })
-
-    mockTransaction.mockImplementation(async (callback) =>
-      callback({ pantryItem: { upsert: mockUpsert } } as never),
-    )
-
-    // Deliberately reverse-sorted.
-    const response = await POST(createRequest({ ingredientIds: ['ing-c', 'ing-b', 'ing-a'] }), {
-      params: createParams(),
-    })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-
-    const lockOrder = mockUpsert.mock.calls.map(
-      ([args]) => args.where.householdId_ingredientId.ingredientId,
-    )
-    expect(lockOrder).toEqual(['ing-a', 'ing-b', 'ing-c'])
-
-    expect(data.results.map((r: { ingredientId: string }) => r.ingredientId)).toEqual([
-      'ing-c',
-      'ing-b',
-      'ing-a',
+    expect(mockPurchase).toHaveBeenCalledWith(household, 'plan-123', [
+      'ing-milk',
+      'ing-rice',
+      'ing-milk',
     ])
-    // The rows really are paired with the ids, not just ordered like them.
-    expect(data.results[0].pantryItem.id).toBe('pantry-ing-c')
-    expect(data.results[2].pantryItem.id).toBe('pantry-ing-a')
   })
 
-  it('upserts a repeated ingredientId once but keeps both of its result positions', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUniquePlan.mockResolvedValue(mockPlan as never)
-    mockFindManyIngredient.mockResolvedValue([{ id: 'ing-1' }, { id: 'ing-2' }] as never)
-    mockFindManyPantry.mockResolvedValue([])
+  it('returns 400 with the invalid ids', async () => {
+    mockPurchase.mockResolvedValue({ status: 'invalid_ids', invalidIds: ['ing-other-household'] })
 
-    const mockUpsert = vi.fn().mockImplementation(({ where }) => {
-      const { ingredientId } = where.householdId_ingredientId
-      return Promise.resolve({
-        id: `pantry-${ingredientId}`,
-        quantity: null,
-        isStaple: false,
-        updatedAt: new Date('2024-01-15T10:00:00Z'),
-        ingredient: {
-          id: ingredientId,
-          name: ingredientId,
-          category: 'PRODUCE',
-          defaultUnit: 'g',
-        },
-      })
+    expect(await answer(post({ ingredientIds: ['ing-rice', 'ing-other-household'] }))).toEqual({
+      status: 400,
+      body: { error: 'Invalid ingredient IDs', invalidIds: ['ing-other-household'] },
     })
+  })
 
-    mockTransaction.mockImplementation(async (callback) =>
-      callback({ pantryItem: { upsert: mockUpsert } } as never),
-    )
+  it.each([
+    ['planNotFound', 404, 'Meal plan not found'],
+    ['otherHousehold', 403, 'Access denied to this meal plan'],
+  ] as const)('answers %s with %i, unreported', async (reason, status, error) => {
+    mockPurchase.mockRejectedValue(new ShoppingPlanError(reason))
 
-    const response = await POST(createRequest({ ingredientIds: ['ing-2', 'ing-1', 'ing-2'] }), {
-      params: createParams(),
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({ status, body: { error } })
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
+  it('reports an unexpected failure and returns 500', async () => {
+    const failure = new Error('connection lost')
+    mockPurchase.mockRejectedValue(failure)
+
+    expect(await answer(post({ ingredientId: 'ing-rice' }))).toEqual({
+      status: 500,
+      body: { error: 'Failed to mark item as purchased' },
     })
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(mockUpsert).toHaveBeenCalledTimes(2)
-    expect(data.results.map((r: { ingredientId: string }) => r.ingredientId)).toEqual([
-      'ing-2',
-      'ing-1',
-      'ing-2',
-    ])
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/meal-plans/[id]/shopping-list/purchase',
+      userId: 'user-123',
+    })
   })
 })

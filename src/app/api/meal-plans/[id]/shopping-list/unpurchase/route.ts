@@ -2,15 +2,19 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { ShoppingPlanError, type ShoppingPlanRefusal } from '@/lib/shopping/load-shopping-list'
+import { unpurchasePlanIngredient, UNPURCHASE_WINDOW_DAYS } from '@/lib/shopping/purchase'
 
 const unpurchaseSchema = z.object({
   ingredientId: z.string().min(1),
 })
 
-const UNPURCHASE_WINDOW_DAYS = 7
+const REFUSALS: Record<ShoppingPlanRefusal, { status: number; error: string }> = {
+  planNotFound: { status: 404, error: 'Meal plan not found' },
+  otherHousehold: { status: 403, error: 'Access denied to this meal plan' },
+}
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
@@ -31,20 +35,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { household } = membership
     const { id: planId } = await params
 
-    // Verify plan exists and belongs to household
-    const plan = await prisma.mealPlan.findUnique({
-      where: { id: planId },
-      select: { id: true, householdId: true },
-    })
-
-    if (!plan) {
-      return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
-    }
-
-    if (plan.householdId !== household.id) {
-      return NextResponse.json({ error: 'Access denied to this meal plan' }, { status: 403 })
-    }
-
     let body
     try {
       body = await request.json()
@@ -63,61 +53,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { ingredientId } = parsed.data
 
-    // Find the pantry item
-    const pantryItem = await prisma.pantryItem.findUnique({
-      where: {
-        householdId_ingredientId: {
-          householdId: household.id,
-          ingredientId,
-        },
-      },
-      select: {
-        id: true,
-        isStaple: true,
-        updatedAt: true,
-      },
-    })
-
-    if (!pantryItem) {
-      return NextResponse.json({ error: 'Item not found in pantry' }, { status: 404 })
+    switch (await unpurchasePlanIngredient(household.id, planId, ingredientId)) {
+      case 'not_in_pantry':
+        return NextResponse.json({ error: 'Item not found in pantry' }, { status: 404 })
+      case 'staple':
+        return NextResponse.json(
+          { error: 'Cannot unpurchase staple items', reason: 'staple' },
+          { status: 400 },
+        )
+      case 'too_old':
+        return NextResponse.json(
+          {
+            error: `Cannot unpurchase items added more than ${UNPURCHASE_WINDOW_DAYS} days ago`,
+            reason: 'too_old',
+          },
+          { status: 400 },
+        )
+      case 'removed':
+        return NextResponse.json(
+          { success: true, ingredientId, action: 'removed' },
+          { status: 200 },
+        )
     }
-
-    // Check if item is a staple
-    if (pantryItem.isStaple) {
-      return NextResponse.json(
-        { error: 'Cannot unpurchase staple items', reason: 'staple' },
-        { status: 400 },
-      )
-    }
-
-    // Check if item was added within the unpurchase window
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - UNPURCHASE_WINDOW_DAYS)
-
-    if (pantryItem.updatedAt < cutoffDate) {
-      return NextResponse.json(
-        {
-          error: 'Cannot unpurchase items added more than 7 days ago',
-          reason: 'too_old',
-        },
-        { status: 400 },
-      )
-    }
-
-    // Delete the pantry item
-    await prisma.pantryItem.delete({
-      where: { id: pantryItem.id },
-    })
-
-    return NextResponse.json(
-      {
-        success: true,
-        ingredientId,
-        action: 'removed',
-      },
-      { status: 200 },
-    )
   } catch (error) {
+    if (error instanceof ShoppingPlanError) {
+      const { status, error: message } = REFUSALS[error.reason]
+      return NextResponse.json({ error: message }, { status })
+    }
     captureApiError(error, {
       route: '/api/meal-plans/[id]/shopping-list/unpurchase',
       userId: session.user.id,

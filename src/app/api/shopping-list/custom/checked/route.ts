@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getHouseholdMembership } from '@/lib/household'
 import { captureApiError } from '@/lib/errors'
+import { clearCheckedCustomShoppingItems } from '@/lib/shopping/custom-items'
 
 /**
  * DELETE /api/shopping-list/custom/checked
@@ -28,14 +28,9 @@ export async function DELETE() {
   const { household } = membership
 
   try {
-    const result = await prisma.customShoppingItem.deleteMany({
-      where: {
-        householdId: household.id,
-        checked: true,
-      },
-    })
+    const deletedCount = await clearCheckedCustomShoppingItems(household.id)
 
-    return NextResponse.json({ success: true, deletedCount: result.count }, { status: 200 })
+    return NextResponse.json({ success: true, deletedCount }, { status: 200 })
   } catch (error) {
     captureApiError(error, {
       route: '/api/shopping-list/custom/checked',

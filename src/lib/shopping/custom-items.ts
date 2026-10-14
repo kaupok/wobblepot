@@ -7,7 +7,8 @@ import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
 
 /**
  * Items a household adds to its shopping list by hand, shared by
- * `POST /api/shopping-list/custom`, `PATCH /api/shopping-list/custom/[id]` and
+ * `POST /api/shopping-list/custom`, `/api/shopping-list/custom/[id]`,
+ * `DELETE /api/shopping-list/custom/checked` and
  * the `add_shopping_item` and `check_shopping_item` MCP tools (HON-1154), so
  * the two paths cannot drift.
  */
@@ -212,4 +213,22 @@ export async function updateCustomShoppingItem(
   })
 
   return { status: 'updated', item: updatedItem, replacedQuantity }
+}
+
+/**
+ * Removes one item from the household's list. Returns false when the household
+ * has no item with this id; another household's item reads the same, so its id
+ * is not revealed.
+ */
+export async function deleteCustomShoppingItem(householdId: string, id: string): Promise<boolean> {
+  const { count } = await prisma.customShoppingItem.deleteMany({ where: { id, householdId } })
+  return count > 0
+}
+
+/** Removes every checked item from the household's list and returns how many. */
+export async function clearCheckedCustomShoppingItems(householdId: string): Promise<number> {
+  const { count } = await prisma.customShoppingItem.deleteMany({
+    where: { householdId, checked: true },
+  })
+  return count
 }

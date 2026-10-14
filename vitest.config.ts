@@ -128,6 +128,14 @@ export default defineConfig({
       // `pnpm test:db` runs this project alone.
       {
         extends: true,
+        resolve: {
+          alias: {
+            // A `src/lib` read that formats copy calls `getTranslations` with
+            // the household's locale; the shim answers from the real catalogs
+            // (HON-1208).
+            'next-intl/server': path.resolve(dirname, './src/test/next-intl-server-shim.ts'),
+          },
+        },
         test: {
           name: 'unit-db',
           environment: 'node',
