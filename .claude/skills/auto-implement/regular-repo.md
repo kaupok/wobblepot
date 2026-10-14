@@ -65,6 +65,8 @@ git branch -d [branch-name] || git branch -D [branch-name]
 
 ## 7.6 Report completion
 
+Print `templates.md` → Filing report first when it applies, then:
+
 ```
 [auto-implement] ✓ PR merged successfully
 - Remote branch deleted
