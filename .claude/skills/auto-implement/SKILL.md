@@ -439,12 +439,12 @@ EOF
 git push
 ```
 
-Then re-run the 6.1 wait and verification. Then:
+After a push, re-run the 6.1 wait and verification; with nothing pushed, CI has settled. Then decide, first match wins:
 
+- **Any round, a correctness or safety finding unresolved** → 6.7. Defer is for scope, not defects.
 - **A. `ROUND` < 3, pushed** → `[auto-implement] ✓ Round ${ROUND}/3 addressed and pushed → re-reviewing`, back to 6.3.
 - **B. `ROUND` < 3, nothing changed** (all deferred, or a body-only edit) → no re-review of an identical diff: 6.8, Phase 7.
 - **C. `ROUND` ≥ 3** → no 4th review. All resolved (fixed, or dropped with a note) → 6.8, Phase 7.
-- **Any round, a correctness or safety finding unresolved** → 6.7. Defer is for scope, not defects.
 
 On B, or C with all resolved:
 
@@ -458,7 +458,7 @@ The clean exit in 6.4 prints this block itself.
 
 ### 6.7 Review-round cap reached: terminal hand-off
 
-**Follow `review-cap.md` → 6.7 hand-off**: 6.8 first, hand-off comments on PR and issue, Linear state untouched, its markers, stop. No Phase 7.
+**Follow `review-cap.md` → 6.7 hand-off** (6.8 first, then the hand-off comments) and stop. No Phase 7.
 
 ### 6.8 File deferred findings and follow-ups
 
