@@ -8,8 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton'
  * (`@md/meal-image`), so the wrapper is the container and the skeleton takes
  * its width. The heights are the card's rows added up (`MealCard`, the text
  * block's comment); `Meal plan/MealCard` → `One height per breakpoint`
- * measures the two side by side. No 'use client': `src/app/loading.tsx` is a
- * server component.
+ * measures the two side by side. No 'use client': `TodaySkeleton` renders it
+ * as a Server Component, the Suspense fallback of `src/app/page.tsx`.
  */
 export function MealCardSkeleton() {
   return (

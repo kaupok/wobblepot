@@ -232,7 +232,7 @@ Use these selectors, in order of preference:
 
 ### `role="status"` is not a selector
 
-`getByRole('status')` looks like the ideal role query for a success banner, and it is a trap. The `Skeleton` primitive (`src/components/ui/skeleton.tsx`) renders `role="status"` on **every** loader, so an unscoped query matches whatever `loading.tsx` is on screen — seven elements on `/sign-in`, nine on the root segment. Playwright then raises a strict-mode violation instead of waiting for the banner, and the spec passes only when the banner wins the race ([HON-582](https://linear.app/honkadori/issue/HON-582)).
+`getByRole('status')` looks like the ideal role query for a success banner, and it is a trap. The `Skeleton` primitive (`src/components/ui/skeleton.tsx`) renders `role="status"` on **every** loader, so an unscoped query matches whatever `loading.tsx` is on screen — seven elements on `/sign-in`, nine in the signed-in Today fallback. Playwright then raises a strict-mode violation instead of waiting for the banner, and the spec passes only when the banner wins the race ([HON-582](https://linear.app/honkadori/issue/HON-582)).
 
 Target the banner's own handle instead. Both auth forms expose `data-testid="form-success"` on their `role="status"` banner, pinned by a unit test in each form's `.test.tsx`:
 
