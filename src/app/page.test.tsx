@@ -216,13 +216,16 @@ async function signedInHome() {
   return TodayTimeline(today.props)
 }
 
-// The one line of small print under the hero button, word for word: the price
-// and the data promise (HON-1061, HON-1116).
+// The page's one line of small print, word for word: the price and the data
+// promise (HON-1061). It closes the page under the maker's line (HON-1226).
 const NOTE_EN = "Free while we're in beta · No ads · Your data stays in the EU"
 const NOTE_ET = 'Beeta ajal tasuta · Reklaamideta · Sinu andmed jäävad Euroopa Liitu'
 // The phone-only closing line above the maker's line (HON-1060).
 const CLOSE_EN = 'Two minutes at setup, then a week of dinners and one shopping list.'
 const CLOSE_ET = 'Kaks minutit alguses, siis nädala õhtusöögid ja üks ostunimekiri.'
+// The maker's line, the last section: its heading names the region.
+const MAKER_EN = 'Made by a dad, for a family of four'
+const MAKER_ET = 'Teinud isa oma neljaliikmelisele perele'
 
 /** Asserts that each element comes after the one before it in document order. */
 function expectInOrder(...elements: HTMLElement[]) {
@@ -276,13 +279,14 @@ describe('Home page component', () => {
       expect(signUpLinks()).toHaveLength(2)
     })
 
-    it('puts the price and data line under the notice while invites are required (HON-1061)', async () => {
+    it("keeps the notice in the hero and the price and data line under the maker's line (HON-1226)", async () => {
       await renderLanding()
 
-      expectInOrder(
-        screen.getByRole('note', { name: 'Private beta notice' }),
-        screen.getByText(NOTE_EN),
-      )
+      const makersLine = screen.getByRole('region', { name: MAKER_EN })
+      const notice = screen.getByRole('note', { name: 'Private beta notice' })
+      expect(within(makersLine).getByText(NOTE_EN)).toBeInTheDocument()
+      expect(makersLine).not.toContainElement(notice)
+      expectInOrder(notice, makersLine)
     })
 
     it('renders no notice when invites are not required', async () => {
@@ -312,7 +316,9 @@ describe('Home page component', () => {
         'href',
         '/request-invite',
       )
-      expectInOrder(notice, screen.getByText(NOTE_ET))
+      const makersLine = screen.getByRole('region', { name: MAKER_ET })
+      expect(within(makersLine).getByText(NOTE_ET)).toBeInTheDocument()
+      expect(makersLine).not.toContainElement(notice)
     })
   })
 
@@ -506,7 +512,8 @@ describe('Home page component', () => {
     expect(wrapper).not.toBeNull()
     const closingBlock = within(wrapper!)
     expect(closingBlock.getByText(CLOSE_EN)).toBeInTheDocument()
-    // The beta notice and the price and data line stay in the hero.
+    // The beta notice stays in the hero; the price and data line comes after
+    // this block, under the maker's line.
     expect(closingBlock.queryByText(NOTE_EN)).not.toBeInTheDocument()
     expect(closingBlock.queryByRole('note')).not.toBeInTheDocument()
     expectInOrder(
