@@ -1,6 +1,142 @@
 import 'server-only'
+import { nanoid } from 'nanoid'
 import { prisma, type PrismaClientType } from '@/lib/prisma'
+import { getServerBaseURL } from '@/lib/env'
 import { inviteMembershipClaim, runHouseholdClaim } from '@/lib/household-claim'
+import { householdInvitePath } from '@/lib/household-invite-link'
+
+/**
+ * An owner's household invites, behind `GET` and `POST
+ * /api/households/me/invites` and `DELETE /api/households/me/invites/[id]`
+ * (HON-1215). The routes own the session, the membership and the body; these
+ * functions own the owner rule and every query, and are tested against a
+ * database in `household-invite.db.test.ts`.
+ */
+
+/**
+ * Why an invite change or read was refused. The routes map each one to its
+ * status:
+ *
+ * - `notOwner`: only the household owner manages invites (403).
+ * - `memberNotFound`: no such member in this household (404).
+ * - `memberClaimed`: the member already has an account, so there is nothing
+ *   to invite them to (400).
+ * - `inviteNotFound`: no such invite in this household, including one that
+ *   was used, because claiming deletes it (404).
+ */
+export type HouseholdInviteRefusal =
+  'notOwner' | 'memberNotFound' | 'memberClaimed' | 'inviteNotFound'
+
+export class HouseholdInviteError extends Error {
+  constructor(readonly reason: HouseholdInviteRefusal) {
+    super(`Household invite refused: ${reason}`)
+    this.name = 'HouseholdInviteError'
+  }
+}
+
+/** The caller's membership: which household, and whether they own it. */
+export interface InviteManager {
+  householdId: string
+  role: string
+}
+
+function assertOwner(manager: InviteManager) {
+  if (manager.role !== 'owner') throw new HouseholdInviteError('notOwner')
+}
+
+function householdInviteUrl(code: string): string {
+  return `${getServerBaseURL()}${householdInvitePath(code)}`
+}
+
+/** One invite as the invites routes return it. */
+export interface HouseholdInviteView {
+  id: string
+  code: string
+  url: string
+  memberId: string | null
+  memberName: string | null
+  expiresAt: string
+  createdAt: string
+}
+
+/** The household's invites, newest first, each with whether it still works. */
+export async function listHouseholdInvites(
+  manager: InviteManager,
+  now: Date = new Date(),
+): Promise<(HouseholdInviteView & { isActive: boolean })[]> {
+  assertOwner(manager)
+
+  const invites = await prisma.householdInvite.findMany({
+    where: { householdId: manager.householdId },
+    include: { member: { select: { name: true } } },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return invites.map((invite) => ({
+    id: invite.id,
+    code: invite.code,
+    url: householdInviteUrl(invite.code),
+    memberId: invite.memberId,
+    memberName: invite.member?.name ?? null,
+    expiresAt: invite.expiresAt.toISOString(),
+    // Expiry alone: an invite that still has a row has not been used,
+    // because claiming one deletes it (HON-680).
+    isActive: invite.expiresAt >= now,
+    createdAt: invite.createdAt.toISOString(),
+  }))
+}
+
+/**
+ * Invite a member without an account to claim their member row. A member has
+ * at most one invite, so this replaces the code and expiry of an earlier one.
+ */
+export async function createHouseholdInvite(
+  manager: InviteManager,
+  memberId: string,
+  expiresInDays: number,
+): Promise<HouseholdInviteView> {
+  assertOwner(manager)
+
+  const member = await prisma.householdMember.findFirst({
+    where: { id: memberId, householdId: manager.householdId },
+    select: { name: true, userId: true },
+  })
+  if (!member) throw new HouseholdInviteError('memberNotFound')
+  if (member.userId !== null) throw new HouseholdInviteError('memberClaimed')
+
+  const code = nanoid(12)
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + expiresInDays)
+
+  const invite = await prisma.householdInvite.upsert({
+    where: { memberId },
+    create: { householdId: manager.householdId, memberId, code, expiresAt },
+    update: { code, expiresAt },
+  })
+
+  return {
+    id: invite.id,
+    code: invite.code,
+    url: householdInviteUrl(invite.code),
+    memberId: invite.memberId,
+    memberName: member.name,
+    expiresAt: invite.expiresAt.toISOString(),
+    createdAt: invite.createdAt.toISOString(),
+  }
+}
+
+/** Delete one of the household's invites, so its link stops working. */
+export async function revokeHouseholdInvite(
+  manager: InviteManager,
+  inviteId: string,
+): Promise<void> {
+  assertOwner(manager)
+
+  const { count } = await prisma.householdInvite.deleteMany({
+    where: { id: inviteId, householdId: manager.householdId },
+  })
+  if (count === 0) throw new HouseholdInviteError('inviteNotFound')
+}
 
 /**
  * The one read of a household invite. The join route, the invite page, the

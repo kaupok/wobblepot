@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { z } from 'zod'
-import { nanoid } from 'nanoid'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
-import { getServerBaseURL } from '@/lib/env'
+import {
+  createHouseholdInvite,
+  HouseholdInviteError,
+  listHouseholdInvites,
+} from '@/lib/household-invite'
 import { captureApiError } from '@/lib/errors'
 
 const createInviteSchema = z.object({
@@ -29,15 +31,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    if (membership.role !== 'owner') {
-      return NextResponse.json(
-        { error: 'Only household owners can create invites' },
-        { status: 403 },
-      )
-    }
-
-    const baseUrl = getServerBaseURL()
-
     let body: unknown
     try {
       body = await request.json()
@@ -54,62 +47,33 @@ export async function POST(request: Request) {
       )
     }
 
-    const { memberId, expiresInDays } = parsed.data
-
-    // Validate the member exists, belongs to this household, and is a manual member
-    const member = await prisma.householdMember.findFirst({
-      where: {
-        id: memberId,
-        householdId: membership.householdId,
-      },
-    })
-
-    if (!member) {
-      return NextResponse.json({ error: 'Member not found' }, { status: 404 })
-    }
-
-    if (member.userId !== null) {
-      return NextResponse.json(
-        {
-          error:
-            'Can only create invites for manual members (members without a linked user account)',
-        },
-        { status: 400 },
-      )
-    }
-
-    const code = nanoid(12)
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + expiresInDays)
-
-    // Upsert: if an invite already exists for this member, replace it
-    const invite = await prisma.householdInvite.upsert({
-      where: { memberId },
-      create: {
-        householdId: membership.householdId,
-        memberId,
-        code,
-        expiresAt,
-      },
-      update: {
-        code,
-        expiresAt,
-      },
-    })
-
-    return NextResponse.json(
-      {
-        id: invite.id,
-        code: invite.code,
-        url: `${baseUrl}/invite/${invite.code}`,
-        memberId: invite.memberId,
-        memberName: member.name,
-        expiresAt: invite.expiresAt.toISOString(),
-        createdAt: invite.createdAt.toISOString(),
-      },
-      { status: 201 },
+    const invite = await createHouseholdInvite(
+      membership,
+      parsed.data.memberId,
+      parsed.data.expiresInDays,
     )
+
+    return NextResponse.json(invite, { status: 201 })
   } catch (error) {
+    if (error instanceof HouseholdInviteError) {
+      switch (error.reason) {
+        case 'notOwner':
+          return NextResponse.json(
+            { error: 'Only household owners can create invites' },
+            { status: 403 },
+          )
+        case 'memberNotFound':
+          return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+        case 'memberClaimed':
+          return NextResponse.json(
+            {
+              error:
+                'Can only create invites for manual members (members without a linked user account)',
+            },
+            { status: 400 },
+          )
+      }
+    }
     captureApiError(error, { route: '/api/households/me/invites', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to create invite' }, { status: 500 })
   }
@@ -131,42 +95,13 @@ export async function GET() {
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    if (membership.role !== 'owner') {
+    const invites = await listHouseholdInvites(membership)
+
+    return NextResponse.json({ invites })
+  } catch (error) {
+    if (error instanceof HouseholdInviteError && error.reason === 'notOwner') {
       return NextResponse.json({ error: 'Only household owners can view invites' }, { status: 403 })
     }
-
-    const invites = await prisma.householdInvite.findMany({
-      where: { householdId: membership.householdId },
-      include: {
-        member: {
-          select: { id: true, name: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-
-    const baseUrl = getServerBaseURL()
-    const now = new Date()
-
-    return NextResponse.json({
-      invites: invites.map((invite) => {
-        // Expiry alone: an invite that still has a row has not been used,
-        // because claiming one deletes it (HON-680).
-        const isExpired = invite.expiresAt < now
-
-        return {
-          id: invite.id,
-          code: invite.code,
-          url: `${baseUrl}/invite/${invite.code}`,
-          memberId: invite.memberId,
-          memberName: invite.member?.name ?? null,
-          expiresAt: invite.expiresAt.toISOString(),
-          isActive: !isExpired,
-          createdAt: invite.createdAt.toISOString(),
-        }
-      }),
-    })
-  } catch (error) {
     captureApiError(error, { route: '/api/households/me/invites', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch invites' }, { status: 500 })
   }

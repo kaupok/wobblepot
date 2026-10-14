@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import { HouseholdInviteError, revokeHouseholdInvite } from '@/lib/household-invite'
 import { captureApiError } from '@/lib/errors'
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -21,32 +21,22 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'No household found' }, { status: 404 })
     }
 
-    if (membership.role !== 'owner') {
-      return NextResponse.json(
-        { error: 'Only household owners can revoke invites' },
-        { status: 403 },
-      )
-    }
-
     const { id } = await params
-
-    const invite = await prisma.householdInvite.findFirst({
-      where: {
-        id,
-        householdId: membership.householdId,
-      },
-    })
-
-    if (!invite) {
-      return NextResponse.json({ error: 'Invite not found' }, { status: 404 })
-    }
-
-    await prisma.householdInvite.delete({
-      where: { id },
-    })
+    await revokeHouseholdInvite(membership, id)
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {
+    if (error instanceof HouseholdInviteError) {
+      if (error.reason === 'notOwner') {
+        return NextResponse.json(
+          { error: 'Only household owners can revoke invites' },
+          { status: 403 },
+        )
+      }
+      if (error.reason === 'inviteNotFound') {
+        return NextResponse.json({ error: 'Invite not found' }, { status: 404 })
+      }
+    }
     captureApiError(error, { route: '/api/households/me/invites/[id]', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to delete invite' }, { status: 500 })
   }

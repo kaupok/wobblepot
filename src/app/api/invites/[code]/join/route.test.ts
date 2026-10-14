@@ -2,50 +2,41 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Prisma } from '@/generated/prisma/client'
 import { POST } from './route'
 
+// The route reads the invite through `@/lib/household-invite` and claims it
+// through `@/lib/household-claim`. Both are mocked at the seam, with their
+// error classes and `getInviteValidity` / `isMembershipConflict` kept real.
+// The claim's writes, its lock and its retry are tested in
+// `household-claim.test.ts`; the invite read, including the owner deletion
+// probe, in `household-invite.db.test.ts`. This file asserts what the route
+// owns: the body, the validity map, the leave, and each status and body
+// (HON-1215).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
-}))
-
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    // Kept on the mock so the isolation test can assert the route never
-    // reaches for the non-transactional client (HON-679).
-    householdMember: {
-      findFirst: vi.fn(),
-      update: vi.fn(),
-    },
-    householdInvite: {
-      findUnique: vi.fn(),
-      delete: vi.fn(),
-    },
-    $transaction: vi.fn(),
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
 vi.mock('@/lib/errors', () => ({
   captureApiError: vi.fn(),
 }))
 
-// Not mocked away: the route must be seen to delegate its transaction to the
-// helper, because that is what takes the per-user lock. `household-claim`'s
-// own test owns the lock / retry assertions. `isMembershipConflict`
-// stays real, so the P2002 test below exercises the actual classification.
-vi.mock('@/lib/household-claim', async (importActual) => ({
-  ...(await importActual<typeof import('@/lib/household-claim')>()),
+vi.mock('@/lib/household-invite', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/household-invite')>()),
+  findHouseholdInvite: vi.fn(),
+}))
+
+vi.mock('@/lib/household-claim', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/household-claim')>()),
   runHouseholdClaim: vi.fn(),
+  inviteMembershipClaim: vi.fn(),
 }))
 
 // The error classes stay real; `household-leave.test.ts` owns the leave rules.
-vi.mock('@/lib/household-leave', async (importActual) => ({
-  ...(await importActual<typeof import('@/lib/household-leave')>()),
+vi.mock('@/lib/household-leave', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/household-leave')>()),
   leaveHousehold: vi.fn(),
   lockHouseholdsForMove: vi.fn(),
   afterHouseholdLeft: vi.fn(),
@@ -57,9 +48,14 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
-import { InviteNoLongerClaimableError, runHouseholdClaim } from '@/lib/household-claim'
+import { findHouseholdInvite } from '@/lib/household-invite'
+import {
+  AlreadyInHouseholdError,
+  InviteNoLongerClaimableError,
+  inviteMembershipClaim,
+  runHouseholdClaim,
+} from '@/lib/household-claim'
 import {
   afterHouseholdLeft,
   leaveHousehold,
@@ -70,32 +66,21 @@ import {
 import { checkRateLimit } from '@/lib/rate-limit'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockMemberFindFirst = vi.mocked(prisma.householdMember.findFirst)
-const mockInviteFindUnique = vi.mocked(prisma.householdInvite.findUnique)
+const mockFindInvite = vi.mocked(findHouseholdInvite)
 const mockCaptureApiError = vi.mocked(captureApiError)
 const mockRunHouseholdClaim = vi.mocked(runHouseholdClaim)
-const mockPrismaTransaction = vi.mocked(prisma.$transaction)
+const mockInviteMembershipClaim = vi.mocked(inviteMembershipClaim)
 const mockLeaveHousehold = vi.mocked(leaveHousehold)
 const mockAfterHouseholdLeft = vi.mocked(afterHouseholdLeft)
 const mockLockHouseholdsForMove = vi.mocked(lockHouseholdsForMove)
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const RATE_ALLOWED = { allowed: true, limit: 3, remaining: 2, resetAt: new Date('2030-01-01') }
 
-/**
- * Stand-in for the interactive transaction's `tx` client. The route must do
- * both the membership check and the claim on this object, not on `prisma`.
- */
-const tx = {
-  // The household lock in `inviteMembershipClaim` (HON-1133).
-  $queryRaw: vi.fn(),
-  householdMember: {
-    findFirst: vi.fn(),
-    updateMany: vi.fn(),
-  },
-  householdInvite: {
-    deleteMany: vi.fn(),
-  },
-}
+/** The transaction client `runHouseholdClaim` hands the route's callback. */
+const tx = { transaction: 'client' } as never
+
+/** The claim `inviteMembershipClaim` builds; the route must run it on `tx`. */
+const claim = vi.fn<(client: unknown) => Promise<void>>()
 
 const VALID_INVITE = {
   id: 'invite-123',
@@ -103,6 +88,9 @@ const VALID_INVITE = {
   memberId: 'member-456',
   code: 'abc123',
   expiresAt: new Date('2030-01-01'),
+  maxUses: 1,
+  usesCount: 0,
+  createdAt: new Date('2026-01-01'),
   // `members` is the owner-pending-deletion probe: empty while the owner's
   // account is live (HON-881).
   household: { id: 'household-123', name: 'Smith Family', members: [] },
@@ -115,347 +103,224 @@ const OWNER_PENDING_DELETION_INVITE = {
   household: { ...VALID_INVITE.household, members: [{ id: 'owner-member-1' }] },
 }
 
+const NO_MEMBER_INVITE = { ...VALID_INVITE, memberId: null, member: null }
+
 const SESSION = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
   session: { id: 'session-123' },
 }
 
-describe('POST /api/invites/[code]/join', () => {
-  beforeEach(() => {
-    // resetAllMocks, not clearAllMocks: the retry tests below queue
-    // `mockResolvedValueOnce` implementations, and `clearAllMocks` clears call
-    // history without draining that queue — it would leak into the next test.
-    vi.resetAllMocks()
-    tx.householdMember.findFirst.mockResolvedValue(null)
-    tx.householdMember.updateMany.mockResolvedValue({ count: 1 })
-    tx.householdInvite.deleteMany.mockResolvedValue({ count: 1 })
-    // The route uses the interactive form, so the mock has to run the callback
-    // rather than resolve an array.
-    mockRunHouseholdClaim.mockImplementation((_userId: unknown, callback: unknown) =>
-      (callback as (client: typeof tx) => Promise<unknown>)(tx),
-    )
+const SUCCESS_BODY = {
+  success: true,
+  household: { id: 'household-123', name: 'Smith Family' },
+  member: { id: 'member-456', name: 'Baby' },
+}
+
+const ALREADY_IN_HOUSEHOLD_BODY = {
+  error: 'already_in_household',
+  message: 'You are already a member of a household. Leave your current household to join another.',
+}
+
+const EXPIRED_BODY = {
+  error: 'invite_invalid',
+  message: 'This invite has expired or has already been used.',
+}
+
+const NO_LONGER_VALID_BODY = {
+  error: 'invite_invalid',
+  message: 'This invite is no longer valid.',
+}
+
+const createRequest = (body?: unknown) =>
+  new Request('http://localhost/api/invites/abc123/join', {
+    method: 'POST',
+    body: body === undefined ? undefined : JSON.stringify(body),
   })
 
-  const createRequest = () =>
-    new Request('http://localhost/api/invites/abc123/join', {
-      method: 'POST',
-    })
+const join = (body?: unknown) =>
+  POST(createRequest(body), { params: Promise.resolve({ code: 'abc123' }) })
 
-  const createParams = (code: string) => Promise.resolve({ code })
+describe('POST /api/invites/[code]/join', () => {
+  beforeEach(() => {
+    // resetAllMocks, not clearAllMocks: tests below queue
+    // `mockResolvedValueOnce` implementations, and `clearAllMocks` does not
+    // drain that queue, so it would leak into the next test.
+    vi.resetAllMocks()
+    mockGetSession.mockResolvedValue(SESSION as never)
+    mockFindInvite.mockResolvedValue(VALID_INVITE)
+    claim.mockResolvedValue()
+    mockInviteMembershipClaim.mockReturnValue(claim)
+    mockRunHouseholdClaim.mockImplementation((_userId, callback) => callback(tx))
+  })
 
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
+    const response = await join()
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await response.json()).toEqual({ error: 'Unauthorized' })
+    expect(mockFindInvite).not.toHaveBeenCalled()
   })
 
-  it('returns 400 when the in-transaction check finds an existing membership', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
-    tx.householdMember.findFirst.mockResolvedValue({
-      id: 'member-123',
-      householdId: 'household-999',
-      userId: 'user-123',
-      role: 'owner',
-    })
+  it("claims the invite's member for the user and returns the household", async () => {
+    const response = await join()
 
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
-
-    // The response contract JoinHouseholdCard branches on must not move.
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('already_in_household')
-    expect(data.message).toBe(
-      'You are already a member of a household. Leave your current household to join another.',
-    )
-    // The claim must roll back with it.
-    expect(tx.householdMember.updateMany).not.toHaveBeenCalled()
-    expect(tx.householdInvite.deleteMany).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(SUCCESS_BODY)
+    expect(mockFindInvite).toHaveBeenCalledWith('abc123')
+    // The claim runs under the joining user's lock (HON-679, HON-838), on the
+    // transaction client that lock opened.
+    expect(mockInviteMembershipClaim).toHaveBeenCalledWith('user-123', 'member-456', 'invite-123')
+    expect(mockRunHouseholdClaim).toHaveBeenCalledWith('user-123', expect.any(Function))
+    expect(claim).toHaveBeenCalledWith(tx)
   })
 
-  it('runs the membership check on the transaction client, not on prisma', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+  it('returns 404 when the invite code does not resolve', async () => {
+    // A used invite lands here too: claiming deletes the row (HON-680).
+    mockFindInvite.mockResolvedValue(null)
 
-    await POST(createRequest(), { params: createParams('abc123') })
-
-    // This is the assertion that distinguishes fixed from broken: the check
-    // has to share a transaction with the claim, or two concurrent joins can
-    // both observe "no membership" and both commit (HON-679).
-    expect(tx.householdMember.findFirst).toHaveBeenCalledWith({
-      where: { userId: 'user-123' },
-    })
-    expect(mockMemberFindFirst).not.toHaveBeenCalled()
-  })
-
-  it('does not report the already-in-household sentinel as a server error', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
-    tx.householdMember.findFirst.mockResolvedValue({ id: 'member-123' })
-
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-
-    // A misread sentinel would fall through to captureApiError and a 500,
-    // which the client's `already_in_household` branch cannot read.
-    expect(response.status).toBe(400)
-    expect(mockCaptureApiError).not.toHaveBeenCalled()
-  })
-
-  it('delegates the claim to runHouseholdClaim rather than opening its own transaction', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
-
-    await POST(createRequest(), { params: createParams('abc123') })
-
-    // The per-user lock is the whole fix, and it lives in the helper — a
-    // route that opened its own `$transaction` would run the check with no
-    // lock, where the race is wide open (HON-679). The lock must be the
-    // joining user's, the one this claim writes a membership for (HON-838).
-    // See household-claim.test.ts for the lock/retry assertions themselves.
-    expect(mockRunHouseholdClaim).toHaveBeenCalledTimes(1)
-    expect(mockRunHouseholdClaim).toHaveBeenCalledWith(SESSION.user.id, expect.any(Function))
-    expect(mockPrismaTransaction).not.toHaveBeenCalled()
-  })
-
-  it('returns a translated invite_invalid when a concurrent join consumed the invite first', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
-    tx.householdInvite.deleteMany.mockResolvedValue({ count: 0 })
-
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
-
-    // Not a 500, and not the `invite_not_found` 404 either: the code *did*
-    // resolve, so "not found" is the wrong diagnosis, and "expired or already
-    // used" is accurate for the loser of a race on a single-use link. (Since
-    // HON-697 both codes render the same translated copy in
-    // `JoinHouseholdCard`, so this distinction is for logs and PostHog.)
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('invite_invalid')
-    expect(data.message).toBe('This invite has expired or has already been used.')
-    expect(mockCaptureApiError).not.toHaveBeenCalled()
-  })
-
-  it('returns invite_invalid when the member row was already claimed or deleted', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
-    tx.householdMember.updateMany.mockResolvedValue({ count: 0 })
-
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('invite_invalid')
-    // A row that vanished must not be reported as a server fault, and the
-    // invite must not be consumed on its way out.
-    expect(tx.householdInvite.deleteMany).not.toHaveBeenCalled()
-    expect(mockCaptureApiError).not.toHaveBeenCalled()
-  })
-
-  it('maps a unique-index rejection of the claim to already_in_household, not a 500', async () => {
-    // A concurrent create or join committed a membership for this user after
-    // the in-transaction check ran, and `household_member_userId_key` rejected
-    // the claim (HON-696). `JoinHouseholdCard` branches on this exact string.
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
-    tx.householdMember.updateMany.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError(
-        'Unique constraint failed on the fields: (`userId`)',
-        {
-          code: 'P2002',
-          clientVersion: 'test',
-          meta: { modelName: 'HouseholdMember', target: ['userId'] },
-        },
-      ),
-    )
-
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('already_in_household')
-    expect(tx.householdInvite.deleteMany).not.toHaveBeenCalled()
-    expect(mockCaptureApiError).not.toHaveBeenCalled()
-  })
-
-  it('returns 500 when the transaction fails for any other reason', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
-    tx.householdMember.updateMany.mockRejectedValue(new Error('connection lost'))
-
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    expect(data.error).toBe('Failed to join household')
-    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
-  })
-
-  it('returns 404 when invite code not found', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue(null)
-
-    const response = await POST(createRequest(), { params: createParams('invalid') })
-    const data = await response.json()
+    const response = await join()
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('invite_not_found')
-    expect(data.message).toBe('Invite code not found.')
+    expect(await response.json()).toEqual({
+      error: 'invite_not_found',
+      message: 'Invite code not found.',
+    })
     expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
   })
 
-  it('returns 400 when invite is expired', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue({
-      ...VALID_INVITE,
-      expiresAt: new Date('2020-01-01'), // Expired
-    } as never)
+  it('returns 400 when the invite is expired', async () => {
+    mockFindInvite.mockResolvedValue({ ...VALID_INVITE, expiresAt: new Date('2020-01-01') })
 
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
+    const response = await join()
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('invite_invalid')
-    expect(data.message).toBe('This invite has expired or has already been used.')
+    expect(await response.json()).toEqual(EXPIRED_BODY)
     expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
   })
 
-  it('returns invite_not_found on a second join with an already-claimed code', async () => {
-    // Single use is enforced by deleting the invite row, not by a uses
-    // counter (HON-680), so the second join finds no invite at all and never
-    // reaches the validity checks.
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValueOnce(VALID_INVITE as never)
+  it('returns 400 when the invite has no member', async () => {
+    mockFindInvite.mockResolvedValue(NO_MEMBER_INVITE)
 
-    const first = await POST(createRequest(), { params: createParams('abc123') })
-
-    expect(first.status).toBe(200)
-    expect(tx.householdInvite.deleteMany).toHaveBeenCalledWith({ where: { id: 'invite-123' } })
-
-    // The row the first join deleted: the code no longer resolves.
-    mockInviteFindUnique.mockResolvedValueOnce(null as never)
-    mockRunHouseholdClaim.mockClear()
-
-    const second = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await second.json()
-
-    expect(second.status).toBe(404)
-    expect(data.error).toBe('invite_not_found')
-    expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
-  })
-
-  it('returns 400 when invite has no member (invalid invite)', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue({
-      ...VALID_INVITE,
-      memberId: null,
-      member: null,
-    } as never)
-
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
+    const response = await join()
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('invite_invalid')
-    expect(data.message).toBe('This invite is no longer valid.')
+    expect(await response.json()).toEqual(NO_LONGER_VALID_BODY)
+    expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
+  })
+
+  it("returns 400 when the invite's member already has an account", async () => {
+    mockFindInvite.mockResolvedValue({
+      ...VALID_INVITE,
+      member: { ...VALID_INVITE.member, userId: 'user-other' },
+    })
+
+    const response = await join()
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual(NO_LONGER_VALID_BODY)
     expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
   })
 
   // Members without an account no longer block the owner's deletion, and the
   // purge deletes them with the household. Claiming one during the grace
   // window would add an account holder the purge then leaves in an ownerless
-  // household, so the claim is refused — with the exact body an invalid invite
+  // household, so the claim is refused, with the exact body an invalid invite
   // gets, so the invitee is not told the owner is leaving (HON-881).
   describe('while the household owner is pending account deletion', () => {
     it('refuses the claim with the same response as an invalid invite', async () => {
       vi.spyOn(console, 'warn').mockImplementation(() => {})
-      mockGetSession.mockResolvedValue(SESSION as never)
+      mockFindInvite.mockResolvedValue(OWNER_PENDING_DELETION_INVITE)
 
-      mockInviteFindUnique.mockResolvedValue({
-        ...VALID_INVITE,
-        memberId: null,
-        member: null,
-      } as never)
-      const invalid = await POST(createRequest(), { params: createParams('abc123') })
+      const response = await join()
 
-      mockInviteFindUnique.mockResolvedValue(OWNER_PENDING_DELETION_INVITE as never)
-      const refused = await POST(createRequest(), { params: createParams('abc123') })
-
-      expect(refused.status).toBe(invalid.status)
-      expect(await refused.json()).toEqual(await invalid.json())
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual(NO_LONGER_VALID_BODY)
       expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
       expect(mockCaptureApiError).not.toHaveBeenCalled()
       // The reason is logged server-side only.
       expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('pending account deletion'))
     })
 
-    it('reads the owner deletion state with the invite', async () => {
-      mockGetSession.mockResolvedValue(SESSION as never)
-      mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
-
-      await POST(createRequest(), { params: createParams('abc123') })
-
-      expect(mockInviteFindUnique).toHaveBeenCalledWith(
-        expect.objectContaining({
-          include: expect.objectContaining({
-            household: {
-              select: expect.objectContaining({
-                members: expect.objectContaining({
-                  where: { role: 'owner', user: { deletedAt: { not: null } } },
-                }),
-              }),
-            },
-          }),
-        }),
-      )
-    })
-
     it('lets the same claim through once the deletion is cancelled', async () => {
       vi.spyOn(console, 'warn').mockImplementation(() => {})
-      mockGetSession.mockResolvedValue(SESSION as never)
-
-      mockInviteFindUnique.mockResolvedValue(OWNER_PENDING_DELETION_INVITE as never)
-      const refused = await POST(createRequest(), { params: createParams('abc123') })
-      expect(refused.status).toBe(400)
+      mockFindInvite.mockResolvedValueOnce(OWNER_PENDING_DELETION_INVITE)
+      expect((await join()).status).toBe(400)
 
       // Recovery clears `deletedAt`, so the probe comes back empty.
-      mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
-      const claimed = await POST(createRequest(), { params: createParams('abc123') })
+      const claimed = await join()
 
       expect(claimed.status).toBe(200)
       expect(mockRunHouseholdClaim).toHaveBeenCalledTimes(1)
     })
   })
 
-  it('successfully claims member profile with valid invite', async () => {
-    mockGetSession.mockResolvedValue(SESSION as never)
-    mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
+  // The claim's sentinels and the unique index's `P2002` are expected client
+  // errors: each maps to a body `JoinHouseholdCard` branches on, and none is
+  // reported as a server fault.
+  describe('when the claim refuses', () => {
+    it('returns already_in_household when the user already has a household', async () => {
+      claim.mockRejectedValue(new AlreadyInHouseholdError())
 
-    const response = await POST(createRequest(), { params: createParams('abc123') })
-    const data = await response.json()
+      const response = await join()
 
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(data.household.id).toBe('household-123')
-    expect(data.household.name).toBe('Smith Family')
-    expect(data.member.id).toBe('member-456')
-    expect(data.member.name).toBe('Baby')
-
-    // The claim and the invite deletion both happen on the transaction client.
-    expect(mockRunHouseholdClaim).toHaveBeenCalledTimes(1)
-    // Claim-if-unclaimed: a member row a concurrent join already took must
-    // match nothing rather than be silently overwritten.
-    expect(tx.householdMember.updateMany).toHaveBeenCalledWith({
-      where: { id: 'member-456', userId: null },
-      data: { userId: 'user-123' },
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual(ALREADY_IN_HOUSEHOLD_BODY)
+      expect(mockCaptureApiError).not.toHaveBeenCalled()
     })
-    expect(tx.householdInvite.deleteMany).toHaveBeenCalledWith({
-      where: { id: 'invite-123' },
+
+    it('returns already_in_household when the unique index rejects the claim (HON-696)', async () => {
+      claim.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed on the fields: (`userId`)',
+          {
+            code: 'P2002',
+            clientVersion: 'test',
+            meta: { modelName: 'HouseholdMember', target: ['userId'] },
+          },
+        ),
+      )
+
+      const response = await join()
+
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual(ALREADY_IN_HOUSEHOLD_BODY)
+      expect(mockCaptureApiError).not.toHaveBeenCalled()
     })
+
+    it('returns invite_invalid when a concurrent join consumed the invite first', async () => {
+      // Not `invite_not_found`: the code did resolve, and "expired or already
+      // used" is accurate for the loser of a race on a single-use link.
+      claim.mockRejectedValue(new InviteNoLongerClaimableError())
+
+      const response = await join()
+
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual(EXPIRED_BODY)
+      expect(mockCaptureApiError).not.toHaveBeenCalled()
+    })
+
+    it('returns 500 and reports any other failure', async () => {
+      claim.mockRejectedValue(new Error('connection lost'))
+
+      const response = await join()
+
+      expect(response.status).toBe(500)
+      expect(await response.json()).toEqual({ error: 'Failed to join household' })
+      expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('returns 400 for a body that is not JSON', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/invites/abc123/join', { method: 'POST', body: '{' }),
+      { params: Promise.resolve({ code: 'abc123' }) },
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Invalid JSON' })
+    expect(mockFindInvite).not.toHaveBeenCalled()
   })
 
   // A user who already has a household leaves it in the same transaction as
@@ -468,15 +333,7 @@ describe('POST /api/invites/[code]/join', () => {
       imageUrls: ['https://blob/old.png'],
     }
 
-    const createLeaveRequest = (body: unknown = { leaveCurrent: true }) =>
-      new Request('http://localhost/api/invites/abc123/join', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
-
     beforeEach(() => {
-      mockGetSession.mockResolvedValue(SESSION as never)
-      mockInviteFindUnique.mockResolvedValue(VALID_INVITE as never)
       mockLeaveHousehold.mockResolvedValue(LEFT)
       mockCheckRateLimit.mockResolvedValue(RATE_ALLOWED)
     })
@@ -490,15 +347,14 @@ describe('POST /api/invites/[code]/join', () => {
         order.push('leave')
         return LEFT
       })
-      tx.householdMember.updateMany.mockImplementation(async () => {
+      claim.mockImplementation(async () => {
         order.push('claim')
-        return { count: 1 }
       })
 
-      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+      const response = await join({ leaveCurrent: true })
 
       expect(response.status).toBe(200)
-      expect(mockRunHouseholdClaim).toHaveBeenCalledTimes(1)
+      expect(await response.json()).toEqual(SUCCESS_BODY)
       expect(mockLeaveHousehold).toHaveBeenCalledWith(tx, 'user-123')
       // Both households are locked in one order first, so two crossed moves
       // queue rather than deadlock.
@@ -513,22 +369,21 @@ describe('POST /api/invites/[code]/join', () => {
 
     it('rejects the whole transaction when the claim fails after the leave, so the leave rolls back', async () => {
       let transaction: Promise<unknown> | undefined
-      mockRunHouseholdClaim.mockImplementation((_userId: unknown, callback: unknown) => {
-        transaction = (callback as (client: typeof tx) => Promise<unknown>)(tx)
+      mockRunHouseholdClaim.mockImplementation((_userId, callback) => {
+        transaction = callback(tx)
         return transaction
       })
       // The invite was used by someone else between render and click.
-      tx.householdInvite.deleteMany.mockResolvedValue({ count: 0 })
+      claim.mockRejectedValue(new InviteNoLongerClaimableError())
 
-      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
-      const data = await response.json()
+      const response = await join({ leaveCurrent: true })
 
       expect(mockLeaveHousehold).toHaveBeenCalledWith(tx, 'user-123')
       // A rejected callback is what makes Prisma roll the interactive
       // transaction back, and the leave with it.
       await expect(transaction).rejects.toBeInstanceOf(InviteNoLongerClaimableError)
       expect(response.status).toBe(400)
-      expect(data.error).toBe('invite_invalid')
+      expect(await response.json()).toEqual(EXPIRED_BODY)
       // Nothing that assumes a committed leave runs.
       expect(mockAfterHouseholdLeft).not.toHaveBeenCalled()
     })
@@ -536,38 +391,37 @@ describe('POST /api/invites/[code]/join', () => {
     it('returns 409 owner_has_other_accounts and claims nothing', async () => {
       mockLeaveHousehold.mockRejectedValue(new OwnerHasOtherAccountsError(1))
 
-      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+      const response = await join({ leaveCurrent: true })
 
       expect(response.status).toBe(409)
       expect(await response.json()).toEqual({ error: 'owner_has_other_accounts', count: 1 })
-      expect(tx.householdMember.updateMany).not.toHaveBeenCalled()
+      expect(claim).not.toHaveBeenCalled()
       expect(mockCaptureApiError).not.toHaveBeenCalled()
     })
 
     it('claims as usual when the user has no household to leave', async () => {
       mockLeaveHousehold.mockRejectedValue(new NotInHouseholdError())
 
-      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+      const response = await join({ leaveCurrent: true })
 
       expect(response.status).toBe(200)
-      expect(tx.householdMember.updateMany).toHaveBeenCalled()
+      expect(claim).toHaveBeenCalledWith(tx)
       expect(mockAfterHouseholdLeft).not.toHaveBeenCalled()
     })
 
     it('refuses an invite into the household being left', async () => {
       mockLeaveHousehold.mockResolvedValue({ ...LEFT, householdId: 'household-123' })
 
-      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
-      const data = await response.json()
+      const response = await join({ leaveCurrent: true })
 
       expect(response.status).toBe(400)
-      expect(data.error).toBe('already_in_household')
-      expect(tx.householdMember.updateMany).not.toHaveBeenCalled()
+      expect(await response.json()).toEqual(ALREADY_IN_HOUSEHOLD_BODY)
+      expect(claim).not.toHaveBeenCalled()
       expect(mockAfterHouseholdLeft).not.toHaveBeenCalled()
     })
 
     it('does not leave, lock or spend a leave without the flag', async () => {
-      const response = await POST(createLeaveRequest({}), { params: createParams('abc123') })
+      const response = await join({})
 
       expect(response.status).toBe(200)
       expect(mockLeaveHousehold).not.toHaveBeenCalled()
@@ -578,31 +432,31 @@ describe('POST /api/invites/[code]/join', () => {
     it('returns 429 once the user has used their leaves, and claims nothing', async () => {
       mockCheckRateLimit.mockResolvedValue({ ...RATE_ALLOWED, allowed: false, remaining: 0 })
 
-      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+      const response = await join({ leaveCurrent: true })
 
       expect(response.status).toBe(429)
-      expect((await response.json()).error).toBe('rate_limited')
+      expect(response.headers.get('Retry-After')).toBe('60')
+      expect(await response.json()).toEqual({
+        error: 'rate_limited',
+        resetAt: '2030-01-01T00:00:00.000Z',
+      })
       expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
     })
 
     it('does not spend a leave on an invalid invite', async () => {
-      mockInviteFindUnique.mockResolvedValue({
-        ...VALID_INVITE,
-        expiresAt: new Date('2020-01-01'),
-      } as never)
+      mockFindInvite.mockResolvedValue({ ...VALID_INVITE, expiresAt: new Date('2020-01-01') })
 
-      const response = await POST(createLeaveRequest(), { params: createParams('abc123') })
+      const response = await join({ leaveCurrent: true })
 
       expect(response.status).toBe(400)
       expect(mockCheckRateLimit).not.toHaveBeenCalled()
     })
 
     it('returns 400 for a malformed body', async () => {
-      const response = await POST(createLeaveRequest({ leaveCurrent: 'yes' }), {
-        params: createParams('abc123'),
-      })
+      const response = await join({ leaveCurrent: 'yes' })
 
       expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ error: 'Validation failed' })
       expect(mockRunHouseholdClaim).not.toHaveBeenCalled()
     })
   })
