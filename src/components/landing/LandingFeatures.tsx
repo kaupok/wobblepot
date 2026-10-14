@@ -240,12 +240,14 @@ function MemberRows() {
 
 /**
  * A card on a meal's tint, as the cook view's panel is, or with no `hue` on
- * the app's neutral card, as the household page's member rows are.
+ * the app's neutral card, as the household page's member rows are. No border:
+ * on the tile's colour the change to the card's paper is the edge (HON-1224).
  */
 function VignetteSurface({ hue, children }: { hue?: number; children: ReactNode }) {
   return (
     <Card
       size="sm"
+      bordered={false}
       data-meal-surface={hue === undefined ? undefined : ''}
       // eslint-disable-next-line shadcn/no-inline-styles -- --meal-hue is the one per-meal value (docs/DESIGN.md → Imagery); every colour is derived from it by [data-meal-surface] in globals.css.
       style={hue === undefined ? undefined : mealHueStyle(hue)}
@@ -331,6 +333,7 @@ function ImagineVignette() {
           imageHue: BUTTER_CHICKEN.imageHue,
         }}
         size="sm"
+        bordered={false}
         // The planner card's head, as `ShowcaseMealCard` draws it, with the
         // own-recipe mark after the name (`MealCard`).
         head={
