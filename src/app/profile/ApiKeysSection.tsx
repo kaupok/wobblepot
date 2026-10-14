@@ -108,7 +108,11 @@ export function ApiKeysSection({ initialKeys, timeZone, householdView }: ApiKeys
         body: JSON.stringify(input),
       }),
     onSuccess: ({ key, apiKey }) => {
-      queryClient.setQueryData<ApiKeyRow[]>(API_KEYS_QUERY_KEY, (old) => [...(old ?? []), apiKey])
+      // The POST answers without `memberName`, so in the household view the
+      // row comes from the refetch, with its member, not from this answer.
+      if (!householdView) {
+        queryClient.setQueryData<ApiKeyRow[]>(API_KEYS_QUERY_KEY, (old) => [...(old ?? []), apiKey])
+      }
       setCreated({ key, name: apiKey.name })
       setName('')
       setExpiry('')

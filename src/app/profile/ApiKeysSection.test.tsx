@@ -314,6 +314,37 @@ describe('ApiKeysSection (HON-1220)', () => {
       ).toBeInTheDocument()
     })
 
+    it("adds the owner's new key from the refetch, with its member", async () => {
+      const user = userEvent.setup()
+      const fromPost: ApiKeyRow = { ...SCRIPT, id: 'key-new', name: 'Desk screen' }
+      let release: () => void = () => {}
+      const refetched = new Promise<void>((resolve) => (release = resolve))
+      let posted = false
+      mockApiFetch.mockImplementation(async (_url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posted = true
+          return { key: NEW_KEY, apiKey: fromPost }
+        }
+        if (!posted) return []
+        await refetched
+        return [{ ...fromPost, memberName: 'Kaupo' }]
+      })
+      renderSection([], { householdView: true })
+
+      await user.type(screen.getByLabelText('Key name'), 'Desk screen')
+      await user.click(screen.getByRole('button', { name: 'Create key' }))
+      await screen.findByRole('heading', { name: 'New key: Desk screen' })
+
+      // Before the refetch, the POST's row (no member) is not in the list.
+      expect(screen.queryByRole('button', { name: /^Revoke: Desk screen/ })).toBeNull()
+
+      release()
+      expect(
+        await screen.findByRole('button', { name: 'Revoke: Desk screen, Kaupo' }),
+      ).toBeInTheDocument()
+      expect(screen.getByText('Member: Kaupo')).toBeInTheDocument()
+    })
+
     it('says no one in the household has a key', () => {
       mockApiFetch.mockResolvedValue([])
       renderSection([], { householdView: true })
