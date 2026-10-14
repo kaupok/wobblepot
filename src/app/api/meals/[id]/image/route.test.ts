@@ -1,6 +1,13 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+// Every query, the claim and the guarded writes live in
+// `@/lib/meal-images/persist`, tested against a database in
+// `persist.db.test.ts`. This file mocks that module at the seam and asserts
+// what the route owns: the session, the household, flags, rate limits, the AI
+// cap, generation, storage, and the status and body each answer maps to
+// (HON-1211).
+//
 // Never call the real APIs (HON-735): the image and judge SDK calls and
 // `@vercel/blob` are mocked, and the real `generateMealImage` runs on top.
 
@@ -8,45 +15,6 @@ const env = vi.hoisted(() => ({
   OPENAI_API_KEY: 'sk-test' as string | undefined,
   ANTHROPIC_API_KEY: 'sk-ant-test',
 }))
-
-/**
- * One in-memory `meal` row. `updateMany` evaluates the `where` the route
- * builds, so the claim and the guarded writes are tested against real
- * predicate logic rather than scripted counts.
- */
-const db = vi.hoisted(() => {
-  type Row = Record<string, unknown>
-  const state: { row: Row | null } = { row: null }
-
-  const matches = (row: Row, where: Row): boolean =>
-    Object.entries(where).every(([key, expected]) => {
-      if (key === 'OR') return (expected as Row[]).some((w) => matches(row, w))
-      const actual = row[key]
-      if (expected instanceof Date) {
-        return actual instanceof Date && actual.getTime() === expected.getTime()
-      }
-      if (expected !== null && typeof expected === 'object' && 'lt' in expected) {
-        const lt = (expected as { lt: Date | number }).lt
-        if (actual === null || actual === undefined) return false
-        return lt instanceof Date ? (actual as Date) < lt : (actual as number) < lt
-      }
-      return actual === expected
-    })
-
-  const apply = (row: Row, data: Row, bumpUpdatedAt: boolean) => {
-    for (const [key, value] of Object.entries(data)) {
-      if (value !== null && typeof value === 'object' && 'increment' in value) {
-        row[key] = (row[key] as number) + (value as { increment: number }).increment
-      } else {
-        row[key] = value
-      }
-    }
-    // Prisma's `@updatedAt`: set on every write unless the data sets it.
-    if (bumpUpdatedAt && !('updatedAt' in data)) row.updatedAt = new Date(Date.now() + 1)
-  }
-
-  return { state, matches, apply }
-})
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
@@ -62,18 +30,14 @@ vi.mock('@/lib/household', () => ({
 
 vi.mock('@/lib/env', () => ({ serverEnv: env }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    meal: {
-      findFirst: vi.fn(async () => (db.state.row ? { ...db.state.row } : null)),
-      updateMany: vi.fn(async ({ where, data }) => {
-        const row = db.state.row
-        if (!row || !db.matches(row, where)) return { count: 0 }
-        db.apply(row, data, true)
-        return { count: 1 }
-      }),
-    },
-  },
+vi.mock('@/lib/meal-images/persist', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meal-images/persist')>()),
+  loadMealForImage: vi.fn(),
+  readMealImage: vi.fn(),
+  claimMealImage: vi.fn(),
+  attachMealImage: vi.fn(),
+  releaseMealImageClaim: vi.fn(),
+  markMealImageFailed: vi.fn(),
 }))
 
 vi.mock('@/lib/rate-limit', () => ({
@@ -123,15 +87,22 @@ import { APICallError, generateImage, generateObject, RetryError } from 'ai'
 import { del, put } from '@vercel/blob'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { AiCostCapExceededError, assertUnderCap, recordAiUsage } from '@/lib/ai/usage'
-import { clearMealImage } from '@/lib/meal-images/invalidation'
+import {
+  attachMealImage,
+  claimMealImage,
+  loadMealForImage,
+  markMealImageFailed,
+  readMealImage,
+  releaseMealImageClaim,
+  type ImageClaim,
+  type MealForImage,
+} from '@/lib/meal-images/persist'
 import { extractHue } from '@/lib/meal-images/colour'
 import { vesselSchema } from '@/lib/meal-images/vessel'
 import { captureApiError } from '@/lib/errors'
 import { getServerFlag } from '@/lib/feature-flags'
-import type { Prisma } from '@/generated/prisma/client'
 import { GET, POST } from './route'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
@@ -145,6 +116,13 @@ const mockPut = vi.mocked(put)
 const mockDel = vi.mocked(del)
 const mockExtractHue = vi.mocked(extractHue)
 const mockGetServerFlag = vi.mocked(getServerFlag)
+const mockLoadMeal = vi.mocked(loadMealForImage)
+const mockReadImage = vi.mocked(readMealImage)
+const mockClaim = vi.mocked(claimMealImage)
+const mockAttach = vi.mocked(attachMealImage)
+const mockRelease = vi.mocked(releaseMealImageClaim)
+const mockMarkFailed = vi.mocked(markMealImageFailed)
+
 const hue = (value: number | null) => ({
   hue: value,
   chroma: 0.2,
@@ -167,14 +145,14 @@ const membership = {
   household: { id: HOUSEHOLD_ID, timezone: 'Europe/Tallinn', locale: 'en', _count: { members: 2 } },
 }
 
-function seedMeal(over: Record<string, unknown> = {}) {
-  db.state.row = {
+/** The meal `loadMealForImage` answers with: a household meal with no image. */
+function seedMeal(over: Partial<MealForImage> = {}): MealForImage {
+  const meal: MealForImage = {
     id: 'meal-1',
     name: 'Pita with hummus',
     description: 'Warm pita and hummus',
     preparationNotes: null,
     householdId: HOUSEHOLD_ID,
-    deletedAt: null,
     updatedAt: EDITED_AT,
     imageUrl: null,
     imageStatus: 'none',
@@ -182,8 +160,6 @@ function seedMeal(over: Record<string, unknown> = {}) {
     imageAttempts: 0,
     imagePromptVersion: null,
     imageHue: null,
-    imageVessel: null,
-    imageDiameterCm: null,
     components: [
       {
         quantityPerServing: 3,
@@ -196,10 +172,17 @@ function seedMeal(over: Record<string, unknown> = {}) {
     ],
     ...over,
   }
-  return db.state.row
+  mockLoadMeal.mockResolvedValue(meal)
+  return meal
 }
 
-const row = () => db.state.row!
+/** The claim `claimMealImage` grants for a meal read at `EDITED_AT`. */
+const claimFor = (redraw: boolean): ImageClaim => ({
+  mealId: 'meal-1',
+  claimedAt: new Date(),
+  updatedAt: EDITED_AT,
+  redraw,
+})
 
 const cleanJudge = {
   object: {
@@ -230,6 +213,10 @@ describe('POST /api/meals/[id]/image', () => {
     vi.clearAllMocks()
     env.OPENAI_API_KEY = 'sk-test'
     seedMeal()
+    mockClaim.mockImplementation(async (meal) => claimFor(meal.imageStatus === 'ready'))
+    mockAttach.mockResolvedValue(true)
+    mockRelease.mockResolvedValue(true)
+    mockMarkFailed.mockResolvedValue(true)
     mockGetSession.mockResolvedValue(session as never)
     mockGetMembership.mockResolvedValue(membership as never)
     mockCheckRateLimit.mockResolvedValue({
@@ -259,8 +246,12 @@ describe('POST /api/meals/[id]/image', () => {
   })
 
   it('returns 404 for a meal the household cannot see', async () => {
-    db.state.row = null
-    expect((await post()).status).toBe(404)
+    mockLoadMeal.mockResolvedValue(null)
+
+    const response = await post()
+
+    expect(response.status).toBe(404)
+    expect(mockLoadMeal).toHaveBeenCalledWith(HOUSEHOLD_ID, 'meal-1')
   })
 
   it('returns a ready image without generating or spending a rate-limit token', async () => {
@@ -271,27 +262,32 @@ describe('POST /api/meals/[id]/image', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 120 })
     expect(mockCheckRateLimit).not.toHaveBeenCalled()
+    expect(mockClaim).not.toHaveBeenCalled()
     expect(mockGenerateImage).not.toHaveBeenCalled()
   })
 
-  it('generates, uploads and stores the image with its prompt version and hue', async () => {
+  it('claims, generates, uploads and attaches the image with its hue', async () => {
     const response = await post()
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 264 })
+    expect(mockCheckRateLimit).toHaveBeenCalledWith(HOUSEHOLD_ID, 'meal-image')
+    expect(mockClaim).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'meal-1', updatedAt: EDITED_AT }),
+      expect.any(Date),
+    )
     expect(mockGenerateImage).toHaveBeenCalledTimes(1)
     expect(mockPut).toHaveBeenCalledWith('meals/meal-1.png', expect.any(Buffer), expect.anything())
     expect(mockExtractHue).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]))
-    expect(row()).toMatchObject({
-      imageStatus: 'ready',
-      imageUrl: BLOB_URL,
-      imagePromptVersion: 'v4',
-      imageHue: 264,
+    expect(mockAttach).toHaveBeenCalledWith(expect.objectContaining({ mealId: 'meal-1' }), {
+      url: BLOB_URL,
+      hue: 264,
+      vessel: null,
     })
-    expect(mockCheckRateLimit).toHaveBeenCalledWith(HOUSEHOLD_ID, 'meal-image')
+    expect(mockDel).not.toHaveBeenCalled()
   })
 
-  it('stores the vessel estimate the image was fitted at (HON-1034)', async () => {
+  it('attaches the vessel estimate the image was fitted at (HON-1034)', async () => {
     // The vessel calls answer a 22 cm plate, the judge calls a clean verdict.
     // The mocked bytes are not a PNG, so the fit fails and the image is kept
     // as drawn; the estimate is stored all the same, for a refit to fit from.
@@ -306,17 +302,10 @@ describe('POST /api/meals/[id]/image', () => {
     const response = await post()
 
     expect(response.status).toBe(200)
-    expect(row()).toMatchObject({ imageStatus: 'ready', imageVessel: 'plate', imageDiameterCm: 22 })
-  })
-
-  it('stores no vessel estimate when the vessel could not be classified', async () => {
-    // The default mock answers every call with the judge's shape, which names no vessel.
-    seedMeal({ imageVessel: 'bowl', imageDiameterCm: 15 })
-
-    const response = await post()
-
-    expect(response.status).toBe(200)
-    expect(row()).toMatchObject({ imageStatus: 'ready', imageVessel: null, imageDiameterCm: null })
+    expect(mockAttach).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ vessel: { vessel: 'plate', diameterCm: 22 } }),
+    )
   })
 
   it('draws the ingredients by weight, so a piece of pita outranks 3 g of cumin', async () => {
@@ -327,12 +316,6 @@ describe('POST /api/meals/[id]/image', () => {
         prompt: expect.stringContaining('largest amount first: pita, cumin.'),
       }),
     )
-  })
-
-  it('leaves Meal.updatedAt alone, so the prep-tips cache guard still matches', async () => {
-    await post()
-
-    expect(row().updatedAt).toEqual(EDITED_AT)
   })
 
   it('records the image, the judge and the vessel spend as meal_image rows', async () => {
@@ -359,13 +342,15 @@ describe('POST /api/meals/[id]/image', () => {
     )
   })
 
-  it('makes exactly one generateImage call for two concurrent requests', async () => {
-    const [a, b] = await Promise.all([post(), post()])
+  it('answers 202 without generating when another request won the claim', async () => {
+    mockClaim.mockResolvedValue(null)
 
-    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
-    expect([a.status, b.status].sort()).toEqual([200, 202])
-    const loser = a.status === 202 ? a : b
-    expect(await loser.json()).toEqual({ status: 'generating' })
+    const response = await post()
+
+    expect(response.status).toBe(202)
+    expect(await response.json()).toEqual({ status: 'generating' })
+    expect(mockGenerateImage).not.toHaveBeenCalled()
+    expect(mockAttach).not.toHaveBeenCalled()
   })
 
   it('answers 202 to a poll on a fresh claim without spending a rate-limit token', async () => {
@@ -375,17 +360,17 @@ describe('POST /api/meals/[id]/image', () => {
 
     expect(response.status).toBe(202)
     expect(mockCheckRateLimit).not.toHaveBeenCalled()
-    expect(mockGenerateImage).not.toHaveBeenCalled()
+    expect(mockClaim).not.toHaveBeenCalled()
   })
 
-  it('reclaims a claim older than 3 minutes', async () => {
+  it('tries to reclaim a claim older than 3 minutes', async () => {
     seedMeal({ imageStatus: 'generating', imageClaimedAt: new Date(Date.now() - 3 * 60_000 - 1) })
 
     const response = await post()
 
     expect(response.status).toBe(200)
+    expect(mockClaim).toHaveBeenCalledTimes(1)
     expect(mockGenerateImage).toHaveBeenCalledTimes(1)
-    expect(row().imageStatus).toBe('ready')
   })
 
   it('retries a failed image with attempts left', async () => {
@@ -401,7 +386,7 @@ describe('POST /api/meals/[id]/image', () => {
     const response = await post()
 
     expect(await response.json()).toEqual({ status: 'failed' })
-    expect(mockGenerateImage).not.toHaveBeenCalled()
+    expect(mockClaim).not.toHaveBeenCalled()
     expect(mockCheckRateLimit).not.toHaveBeenCalled()
   })
 
@@ -412,7 +397,7 @@ describe('POST /api/meals/[id]/image', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ status: 'none' })
-    expect(mockGenerateImage).not.toHaveBeenCalled()
+    expect(mockClaim).not.toHaveBeenCalled()
     expect(mockAssertUnderCap).not.toHaveBeenCalled()
   })
 
@@ -423,43 +408,7 @@ describe('POST /api/meals/[id]/image', () => {
 
     expect(response.status).toBe(202)
     expect(await response.json()).toEqual({ status: 'generating' })
-    expect(mockGenerateImage).not.toHaveBeenCalled()
-  })
-
-  it('redraws a household image at a stale prompt version and deletes the old blob', async () => {
-    seedMeal({
-      imageStatus: 'ready',
-      imageUrl: OLD_BLOB_URL,
-      imagePromptVersion: 'v3',
-      imageHue: null,
-      imageAttempts: 2,
-    })
-
-    const response = await post()
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 264 })
-    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
-    expect(row()).toMatchObject({
-      imageStatus: 'ready',
-      imageUrl: BLOB_URL,
-      imagePromptVersion: 'v4',
-      imageHue: 264,
-      imageAttempts: 0,
-      updatedAt: EDITED_AT,
-    })
-    expect(mockDel).toHaveBeenCalledTimes(1)
-    expect(mockDel).toHaveBeenCalledWith(OLD_BLOB_URL)
-  })
-
-  it('keeps the old image referenced when a stale-version redraw fails', async () => {
-    seedMeal({ imageStatus: 'ready', imageUrl: OLD_BLOB_URL, imagePromptVersion: 'v3' })
-    mockGenerateImage.mockRejectedValue(new Error('boom'))
-
-    await post()
-
-    expect(row()).toMatchObject({ imageStatus: 'failed', imageUrl: OLD_BLOB_URL, imageAttempts: 1 })
-    expect(mockDel).not.toHaveBeenCalledWith(OLD_BLOB_URL)
+    expect(mockClaim).not.toHaveBeenCalled()
   })
 
   it('never redraws a global image at a stale prompt version', async () => {
@@ -471,8 +420,7 @@ describe('POST /api/meals/[id]/image', () => {
     })
 
     expect(await (await post()).json()).toEqual({ status: 'none' })
-    expect(mockGenerateImage).not.toHaveBeenCalled()
-    expect(row().imageStatus).toBe('ready')
+    expect(mockClaim).not.toHaveBeenCalled()
   })
 
   it('serves a global meal image the batch already made', async () => {
@@ -490,51 +438,53 @@ describe('POST /api/meals/[id]/image', () => {
     })
   })
 
-  it('discards the image when the meal is edited mid-generation', async () => {
-    mockGenerateImage.mockImplementation(async () => {
-      // The meal PATCH commits while the image is being drawn (HON-734).
-      await clearMealImage(
-        {
-          meal: {
-            findUniqueOrThrow: async () => ({ imageUrl: row().imageUrl }),
-            update: async ({ data }: { data: Record<string, unknown> }) =>
-              db.apply(row(), data, true),
-          },
-        } as unknown as Prisma.TransactionClient,
-        'meal-1',
-      )
-      return imageResult
+  it('redraws a household image at a stale prompt version and deletes the old blob', async () => {
+    seedMeal({ imageStatus: 'ready', imageUrl: OLD_BLOB_URL, imagePromptVersion: 'v3' })
+
+    const response = await post()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 264 })
+    expect(mockGenerateImage).toHaveBeenCalledTimes(1)
+    expect(mockDel).toHaveBeenCalledTimes(1)
+    expect(mockDel).toHaveBeenCalledWith(OLD_BLOB_URL)
+  })
+
+  it('keeps the old blob when a stale-version redraw fails', async () => {
+    seedMeal({ imageStatus: 'ready', imageUrl: OLD_BLOB_URL, imagePromptVersion: 'v3' })
+    mockGenerateImage.mockRejectedValue(new Error('boom'))
+
+    await post()
+
+    expect(mockMarkFailed).toHaveBeenCalledWith(expect.objectContaining({ redraw: true }), {
+      countAttempt: true,
     })
+    expect(mockDel).not.toHaveBeenCalledWith(OLD_BLOB_URL)
+  })
+
+  it('discards the image when the claim was lost mid-generation', async () => {
+    seedMeal({ imageStatus: 'failed', imageUrl: OLD_BLOB_URL, imageAttempts: 1 })
+    mockAttach.mockResolvedValue(false)
 
     const response = await post()
 
     expect(await response.json()).toEqual({ status: 'none' })
-    expect(row()).toMatchObject({ imageStatus: 'none', imageUrl: null })
     expect(mockPut).toHaveBeenCalledTimes(1)
+    expect(mockDel).toHaveBeenCalledTimes(1)
     expect(mockDel).toHaveBeenCalledWith(BLOB_URL)
   })
 
-  it('still attaches the image when an unrelated edit moved updatedAt mid-generation', async () => {
-    mockGenerateImage.mockImplementation(async () => {
-      // A servings-only edit: no clearMealImage, but @updatedAt moves.
-      row().updatedAt = new Date('2026-09-21T10:00:00Z')
-      return imageResult
-    })
-
-    const response = await post()
-
-    expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 264 })
-    expect(mockDel).not.toHaveBeenCalled()
-  })
-
-  it('stores a null hue and still returns ready when extraction fails', async () => {
+  it('attaches a null hue and still returns ready when extraction fails', async () => {
     mockExtractHue.mockRejectedValueOnce(new Error('unsupported image format'))
 
     const response = await post()
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: null })
-    expect(row()).toMatchObject({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: null })
+    expect(mockAttach).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ url: BLOB_URL, hue: null }),
+    )
     expect(mockDel).not.toHaveBeenCalled()
     expect(captureApiError).toHaveBeenCalledWith(
       expect.any(Error),
@@ -542,12 +492,15 @@ describe('POST /api/meals/[id]/image', () => {
     )
   })
 
-  it('stores a null hue when the image carries no colour', async () => {
+  it('attaches a null hue when the image carries no colour', async () => {
     mockExtractHue.mockResolvedValueOnce(hue(null))
 
     await post()
 
-    expect(row()).toMatchObject({ imageStatus: 'ready', imageHue: null })
+    expect(mockAttach).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ hue: null }),
+    )
     expect(captureApiError).not.toHaveBeenCalled()
   })
 
@@ -557,8 +510,24 @@ describe('POST /api/meals/[id]/image', () => {
     const response = await post()
 
     expect(response.status).toBe(500)
-    expect(row()).toMatchObject({ imageStatus: 'failed', imageAttempts: 1 })
+    expect(mockMarkFailed).toHaveBeenCalledWith(expect.objectContaining({ mealId: 'meal-1' }), {
+      countAttempt: true,
+    })
+    expect(mockRelease).not.toHaveBeenCalled()
     expect(mockPut).not.toHaveBeenCalled()
+  })
+
+  it('still maps the original error when marking the failure throws', async () => {
+    mockGenerateImage.mockRejectedValue(new Error('boom'))
+    mockMarkFailed.mockRejectedValue(new Error('db down'))
+
+    const response = await post()
+
+    expect(response.status).toBe(500)
+    expect(captureApiError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ operation: 'meal-image-mark-failed' }),
+    )
   })
 
   const rateLimited = (headers?: Record<string, string>, responseBody?: string) =>
@@ -592,10 +561,11 @@ describe('POST /api/meals/[id]/image', () => {
 
       expect(mockGenerateImage).toHaveBeenCalledTimes(2)
       expect(response.status).toBe(200)
-      expect(row()).toMatchObject({ imageStatus: 'ready', imageAttempts: 0 })
+      expect(mockAttach).toHaveBeenCalledTimes(1)
+      expect(mockMarkFailed).not.toHaveBeenCalled()
     })
 
-    it('that persists releases the claim to none and leaves imageAttempts unchanged', async () => {
+    it('that persists releases the claim without counting an attempt', async () => {
       seedMeal({ imageStatus: 'failed', imageAttempts: 2 })
       mockGenerateImage.mockRejectedValue(rateLimited())
 
@@ -607,7 +577,8 @@ describe('POST /api/meals/[id]/image', () => {
       expect(mockGenerateImage).toHaveBeenCalledTimes(2)
       expect(response.status).toBe(429)
       expect(await response.json()).toMatchObject({ status: 'none' })
-      expect(row()).toMatchObject({ imageStatus: 'none', imageAttempts: 2, imageClaimedAt: null })
+      expect(mockRelease).toHaveBeenCalledWith(expect.objectContaining({ mealId: 'meal-1' }))
+      expect(mockMarkFailed).not.toHaveBeenCalled()
     })
 
     it('asking for longer than 15 s is released at once, without waiting', async () => {
@@ -617,10 +588,10 @@ describe('POST /api/meals/[id]/image', () => {
 
       expect(mockGenerateImage).toHaveBeenCalledTimes(1)
       expect(response.status).toBe(429)
-      expect(row()).toMatchObject({ imageStatus: 'none', imageAttempts: 0 })
+      expect(mockRelease).toHaveBeenCalledTimes(1)
     })
 
-    it('released on a stale-version redraw goes back to the ready row it claimed', async () => {
+    it('released on a stale-version redraw keeps the old blob', async () => {
       seedMeal({
         imageStatus: 'ready',
         imageUrl: OLD_BLOB_URL,
@@ -632,13 +603,7 @@ describe('POST /api/meals/[id]/image', () => {
       const response = await post()
 
       expect(response.status).toBe(429)
-      // Still presented as `none` (stale version), and still owns the old blob.
-      expect(row()).toMatchObject({
-        imageStatus: 'ready',
-        imageUrl: OLD_BLOB_URL,
-        imagePromptVersion: 'v3',
-        imageClaimedAt: null,
-      })
+      expect(mockRelease).toHaveBeenCalledWith(expect.objectContaining({ redraw: true }))
       expect(mockDel).not.toHaveBeenCalled()
     })
 
@@ -652,7 +617,8 @@ describe('POST /api/meals/[id]/image', () => {
 
       expect(mockGenerateImage).toHaveBeenCalledTimes(1)
       expect(response.status).toBe(503)
-      expect(row()).toMatchObject({ imageStatus: 'failed', imageAttempts: 1 })
+      expect(mockMarkFailed).toHaveBeenCalledWith(expect.anything(), { countAttempt: false })
+      expect(mockRelease).not.toHaveBeenCalled()
     })
 
     it('still releases when the SDK wraps it in a RetryError', async () => {
@@ -664,17 +630,13 @@ describe('POST /api/meals/[id]/image', () => {
       const response = await post()
 
       expect(response.status).toBe(429)
-      expect(row()).toMatchObject({ imageStatus: 'none', imageAttempts: 0 })
+      expect(mockRelease).toHaveBeenCalledTimes(1)
+      expect(mockMarkFailed).not.toHaveBeenCalled()
     })
   })
 
   it('deletes the uploaded blob when the final write throws', async () => {
-    const { prisma } = await import('@/lib/prisma')
-    const updateMany = vi.mocked(prisma.meal.updateMany)
-    const real = updateMany.getMockImplementation()!
-    updateMany
-      .mockImplementationOnce(real) // claim
-      .mockRejectedValueOnce(new Error('db down')) // finalize
+    mockAttach.mockRejectedValue(new Error('db down'))
 
     const response = await post()
 
@@ -688,17 +650,17 @@ describe('POST /api/meals/[id]/image', () => {
     const response = await post()
 
     expect(response.status).toBe(504)
-    expect(row().imageStatus).toBe('failed')
+    expect(mockMarkFailed).toHaveBeenCalledWith(expect.anything(), { countAttempt: true })
   })
 
-  it('answers 503 without an OpenAI key, and generates nothing', async () => {
+  it('answers 503 without an OpenAI key, and claims nothing', async () => {
     env.OPENAI_API_KEY = undefined
 
     const response = await post()
 
     expect(response.status).toBe(503)
+    expect(mockClaim).not.toHaveBeenCalled()
     expect(mockGenerateImage).not.toHaveBeenCalled()
-    expect(row().imageStatus).toBe('none')
   })
 
   describe('with ai_generation_enabled off (HON-868)', () => {
@@ -713,12 +675,11 @@ describe('POST /api/meals/[id]/image', () => {
       expect(await response.json()).toMatchObject({ status: 'failed' })
       expect(mockGetServerFlag).toHaveBeenCalledWith('ai_generation_enabled', 'user-123')
       expect(mockAssertUnderCap).not.toHaveBeenCalled()
+      // No claim is taken and no attempt counted, so the meal is drawn once
+      // the flag is back on.
+      expect(mockClaim).not.toHaveBeenCalled()
       expect(mockGenerateImage).not.toHaveBeenCalled()
       expect(mockGenerateObject).not.toHaveBeenCalled()
-      // No claim was taken and no attempt counted, so the meal is drawn once
-      // the flag is back on.
-      expect(row().imageStatus).toBe('none')
-      expect(row().imageAttempts).toBe(0)
     })
 
     it('still serves an existing image', async () => {
@@ -737,7 +698,7 @@ describe('POST /api/meals/[id]/image', () => {
     })
   })
 
-  it('returns the shared cap error shape over the cap, and generates nothing', async () => {
+  it('returns the shared cap error shape over the cap, and claims nothing', async () => {
     mockAssertUnderCap.mockRejectedValue(
       new AiCostCapExceededError(new Date(Date.now() + 86_400_000), 'Europe/Tallinn'),
     )
@@ -749,8 +710,8 @@ describe('POST /api/meals/[id]/image', () => {
       error: 'AI usage cap exceeded',
       code: 'ai_cap_exceeded',
     })
+    expect(mockClaim).not.toHaveBeenCalled()
     expect(mockGenerateImage).not.toHaveBeenCalled()
-    expect(row().imageStatus).toBe('none')
   })
 
   it('returns 429 when rate-limited, before claiming', async () => {
@@ -765,7 +726,7 @@ describe('POST /api/meals/[id]/image', () => {
 
     expect(response.status).toBe(429)
     expect(response.headers.get('Retry-After')).toBe('60')
-    expect(row().imageStatus).toBe('none')
+    expect(mockClaim).not.toHaveBeenCalled()
   })
 })
 
@@ -777,8 +738,6 @@ describe('GET /api/meals/[id]/image', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    env.OPENAI_API_KEY = 'sk-test'
-    seedMeal()
     mockGetSession.mockResolvedValue(session as never)
     mockGetMembership.mockResolvedValue(membership as never)
   })
@@ -789,12 +748,16 @@ describe('GET /api/meals/[id]/image', () => {
   })
 
   it('returns 404 for a meal the household cannot see', async () => {
-    db.state.row = null
-    expect((await get()).status).toBe(404)
+    mockReadImage.mockResolvedValue(null)
+
+    const response = await get()
+
+    expect(response.status).toBe(404)
+    expect(mockReadImage).toHaveBeenCalledWith(HOUSEHOLD_ID, 'meal-1')
   })
 
   it('returns a ready image with its hue', async () => {
-    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: 40, imagePromptVersion: 'v4' })
+    mockReadImage.mockResolvedValue({ imageStatus: 'ready', imageUrl: BLOB_URL, imageHue: 40 })
 
     const response = await get()
 
@@ -802,14 +765,14 @@ describe('GET /api/meals/[id]/image', () => {
     expect(await response.json()).toEqual({ status: 'ready', imageUrl: BLOB_URL, imageHue: 40 })
   })
 
-  it('reports an image at a stale prompt version as none', async () => {
-    seedMeal({ imageStatus: 'ready', imageUrl: BLOB_URL, imagePromptVersion: 'v3' })
+  it('reports a ready status with no URL as none', async () => {
+    mockReadImage.mockResolvedValue({ imageStatus: 'ready', imageUrl: null, imageHue: null })
 
     expect(await (await get()).json()).toEqual({ status: 'none' })
   })
 
   it('returns the { error } shape when the read fails', async () => {
-    vi.mocked(prisma.meal.findFirst).mockRejectedValueOnce(new Error('db down'))
+    mockReadImage.mockRejectedValueOnce(new Error('db down'))
 
     const response = await get()
 
@@ -820,13 +783,13 @@ describe('GET /api/meals/[id]/image', () => {
   it.each(['none', 'generating', 'failed'] as const)(
     'returns the stored %s status without claiming or generating',
     async (imageStatus) => {
-      seedMeal({ imageStatus, imageClaimedAt: null })
+      mockReadImage.mockResolvedValue({ imageStatus, imageUrl: null, imageHue: null })
 
       const response = await get()
 
       expect(response.status).toBe(200)
       expect(await response.json()).toEqual({ status: imageStatus })
-      expect(row().imageStatus).toBe(imageStatus)
+      expect(mockClaim).not.toHaveBeenCalled()
       expect(mockGenerateImage).not.toHaveBeenCalled()
       expect(mockCheckRateLimit).not.toHaveBeenCalled()
     },
