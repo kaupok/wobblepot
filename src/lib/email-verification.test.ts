@@ -41,7 +41,7 @@ describe('parseVerificationLanding', () => {
   it('matches the URL Better Auth redirects to', () => {
     const url = new URL(EMAIL_VERIFICATION_CALLBACK_URL, 'https://wobblepot.test')
     url.searchParams.set('error', 'TOKEN_EXPIRED')
-    expect(url.pathname).toBe('/profile')
+    expect(url.pathname).toBe('/account')
     expect(
       parseVerificationLanding({
         verified: url.searchParams.get('verified') ?? undefined,

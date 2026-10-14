@@ -109,7 +109,7 @@ export default async function HouseholdPage() {
             reminderConfirmed={membership.reminderConfirmedAt !== null}
           />
 
-          {/* Last, in the style of the profile page's Danger zone (HON-1133). */}
+          {/* Last, in the style of My account → Your data's Danger zone (HON-1133). */}
           <div className="flex flex-col gap-6">
             <Separator />
             <div className="flex flex-col gap-3">

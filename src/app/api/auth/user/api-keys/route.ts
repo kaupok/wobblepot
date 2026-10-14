@@ -12,7 +12,7 @@ import {
 
 const ROUTE = '/api/auth/user/api-keys'
 
-/** Error codes the profile page translates; the `error` text is English, for logs. */
+/** Error codes My account → Connections translates; the `error` text is English, for logs. */
 export type ApiKeyErrorCode = 'invalid_name' | 'invalid_expiry' | 'key_limit'
 
 /**

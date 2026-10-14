@@ -9,7 +9,7 @@ import { ProfileNameForm } from './ProfileNameForm'
 const UPDATE_USER = '*/api/auth/update-user'
 
 const meta = {
-  title: 'Feature/Profile/ProfileNameForm',
+  title: 'Feature/Account/ProfileNameForm',
   component: ProfileNameForm,
   tags: ['autodocs'],
   parameters: {
@@ -17,7 +17,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Edits the account name on `/profile` (HON-1129). The name is trimmed and must be 1 to 100 characters; an empty name shows catalog copy and makes no request. A failed save shows catalog copy, never the server string, and returns focus to Save.',
+          'Edits the account name on My account → Profile, `/account` (HON-1129). The name is trimmed and must be 1 to 100 characters; an empty name shows catalog copy and makes no request. A failed save shows catalog copy, never the server string, and returns focus to Save.',
       },
     },
     msw: {

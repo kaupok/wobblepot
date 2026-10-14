@@ -9,16 +9,16 @@
  * Where Better Auth's `/api/auth/verify-email` redirects after the link is
  * opened. On a failure it appends `&error=<CODE>` to this URL.
  */
-export const EMAIL_VERIFICATION_CALLBACK_URL = '/profile?verified=1'
+export const EMAIL_VERIFICATION_CALLBACK_URL = '/account?verified=1'
 
 /** 24 hours. The email copy names this number. */
 export const EMAIL_VERIFICATION_EXPIRES_IN_SECONDS = 60 * 60 * 24
 
-/** What the profile shows after the verification link redirected there. */
+/** What the Profile tab shows after the verification link redirected there. */
 export type VerificationLanding = 'verified' | 'expired' | 'invalid'
 
 /**
- * Reads the params Better Auth's verify-email redirect leaves on `/profile`.
+ * Reads the params Better Auth's verify-email redirect leaves on `/account`.
  *
  * `error` wins over `verified`, because a failure is `?verified=1&error=…`.
  * Better Auth 1.7.7 sends the code in upper case (`TOKEN_EXPIRED`,
@@ -38,7 +38,7 @@ export function parseVerificationLanding(params: {
 
 /**
  * The query that carries a landing to another page, in the same params
- * `parseVerificationLanding` reads. `/profile` sends a user without a
+ * `parseVerificationLanding` reads. `/account` sends a user without a
  * household to `/onboarding`, and that redirect must keep the result: a new
  * user often opens the mail during onboarding. Rebuilt from the parsed value,
  * so no raw request input is forwarded.

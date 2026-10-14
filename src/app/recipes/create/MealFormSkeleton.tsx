@@ -7,7 +7,7 @@ import { BackToRecipesLinkSkeleton } from '@/components/recipes/BackToRecipesLin
  * route loading, client pending and the loaded `MealForm` (HON-779). Same
  * container and `max-w-2xl` column as the pages, top-aligned, no bordered
  * wrapper. Bar heights match each rendered line box: title `h-7` in the back
- * arrow's `h-8` row (HON-822), description and section headings as `/profile`,
+ * arrow's `h-8` row (HON-822), description and section headings as `/account`,
  * controls `h-touch md:h-10`.
  */
 export function MealFormSkeleton() {

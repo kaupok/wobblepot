@@ -1,4 +1,4 @@
-// ROUTES: /profile, /invite/[code], /admin/signup-codes, /does-not-exist, / · COMPONENTS: src/proxy.ts (PROTECTED_PREFIXES)
+// ROUTES: /account/connections, /profile, /invite/[code], /admin/signup-codes, /does-not-exist, / · COMPONENTS: src/proxy.ts (PROTECTED_PREFIXES)
 import { test, expect } from '@playwright/test'
 
 /**
@@ -15,10 +15,20 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('Anonymous access to protected routes', () => {
   test('protected route returns a hard 307 to sign-in with a returnUrl', async ({ request }) => {
-    const response = await request.get('/profile', { maxRedirects: 0 })
+    const response = await request.get('/account/connections', { maxRedirects: 0 })
 
     expect(response.status()).toBe(307)
-    expect(response.headers()['location']).toContain('/sign-in?returnUrl=%2Fprofile')
+    expect(response.headers()['location']).toContain('/sign-in?returnUrl=%2Faccount%2Fconnections')
+  })
+
+  // The page was `/profile` until HON-1229. A verification mail sent before
+  // the move still carries `/profile?verified=1`, so the redirect keeps the
+  // query string.
+  test('the old profile URL redirects permanently to /account', async ({ request }) => {
+    const response = await request.get('/profile?verified=1', { maxRedirects: 0 })
+
+    expect(response.status()).toBe(308)
+    expect(response.headers()['location']).toBe('/account?verified=1')
   })
 
   // A signed-out invitee must see the invite card, which offers Create account

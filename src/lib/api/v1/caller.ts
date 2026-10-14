@@ -43,7 +43,7 @@ export function apiError(
 export const INTERNAL_ERROR_MESSAGE = 'Wobblepot could not answer this request. Try again later.'
 
 const INVALID_KEY_MESSAGE =
-  'Send a Wobblepot API key as "Authorization: Bearer wp_…". Make one on your profile page.'
+  'Send a Wobblepot API key as "Authorization: Bearer wp_…". Make one under My account → Connections.'
 
 /** The key from `Authorization: Bearer <key>`, or null. The scheme is case-insensitive (RFC 9110). */
 function bearerToken(request: Request): string | null {

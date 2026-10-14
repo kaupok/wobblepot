@@ -33,7 +33,7 @@ export default function AuthForm() {
         { email, password },
         {
           onSuccess: () => {
-            router.push('/profile')
+            router.push('/account')
             router.refresh()
             isNavigating = true
           },

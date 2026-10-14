@@ -314,7 +314,7 @@ describe('SignUpForm', () => {
 
     await vi.waitFor(() => {
       expect(authClient.signUp.email).toHaveBeenCalledWith(
-        expect.objectContaining({ callbackURL: '/profile?verified=1' }),
+        expect.objectContaining({ callbackURL: '/account?verified=1' }),
         expect.any(Object),
       )
     })
@@ -426,7 +426,7 @@ describe('SignUpForm', () => {
             password: 'password123',
             name: 'Test User',
             acceptedTerms: true,
-            callbackURL: '/profile?verified=1',
+            callbackURL: '/account?verified=1',
           },
           {
             onSuccess: expect.any(Function),
@@ -458,7 +458,7 @@ describe('SignUpForm', () => {
             password: 'password123',
             name: 'Test User',
             acceptedTerms: true,
-            callbackURL: '/profile?verified=1',
+            callbackURL: '/account?verified=1',
             inviteCode: 'beta-001',
           },
           expect.any(Object),
@@ -535,7 +535,7 @@ describe('SignUpForm', () => {
             password: 'password123',
             name: 'Test User',
             acceptedTerms: true,
-            callbackURL: '/profile?verified=1',
+            callbackURL: '/account?verified=1',
             householdInviteCode: 'Ab3_x-9Kq2Lm',
           },
           expect.any(Object),

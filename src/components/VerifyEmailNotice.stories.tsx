@@ -14,7 +14,7 @@ const sendSpy = fn()
 const RESEND = { name: 'Send a verification link' }
 
 const meta = {
-  title: 'Feature/Profile/VerifyEmailNotice',
+  title: 'Feature/Account/VerifyEmailNotice',
   component: VerifyEmailNotice,
   tags: ['autodocs'],
   args: {
@@ -27,7 +27,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The account email\'s verification state (HON-1155): always on `/profile`, and on `/onboarding` after the link landed there. Unverified: a warning with "Send a verification link". After an expired or broken link the warning says so. Verified: nothing, except once after the link landed on `/profile?verified=1`. Errors show catalog copy; focus returns to the button after a failure and moves to the "Sent" message after success.',
+          'The account email\'s verification state (HON-1155): always on `/account` (My account → Profile), and on `/onboarding` after the link landed there. Unverified: a warning with "Send a verification link". After an expired or broken link the warning says so. Verified: nothing, except once after the link landed on `/account?verified=1`. Errors show catalog copy; focus returns to the button after a failure and moves to the "Sent" message after success.',
       },
     },
     msw: {
@@ -62,7 +62,7 @@ export const Sent: Story = {
     )
     await expect(sendSpy).toHaveBeenCalledWith({
       email: 'ann@example.com',
-      callbackURL: '/profile?verified=1',
+      callbackURL: '/account?verified=1',
     })
     await expect(canvas.queryByRole('button', RESEND)).not.toBeInTheDocument()
   },

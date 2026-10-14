@@ -35,7 +35,7 @@ import { isPostHogProxyPath, POSTHOG_UI_HOST } from '@/lib/posthog-proxy'
  * entry is then covered without touching the test.
  */
 export const PROTECTED_PREFIXES = [
-  '/profile',
+  '/account',
   '/past-meals',
   '/recipes',
   '/household',
@@ -106,8 +106,8 @@ export const PUBLIC_ROUTES = [
 ] as const satisfies readonly { path: `/${string}`; reason: string }[]
 
 /**
- * Exact-or-segment-boundary match, so `/profilex` and a hypothetical
- * `/recipes-public` do not match `/profile` / `/recipes`.
+ * Exact-or-segment-boundary match, so `/accountx` and a hypothetical
+ * `/recipes-public` do not match `/account` / `/recipes`.
  */
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(

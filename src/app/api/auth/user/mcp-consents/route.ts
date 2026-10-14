@@ -11,7 +11,7 @@ const ROUTE = '/api/auth/user/mcp-consents'
  *
  * The AI assistants the signed-in user has connected through the OAuth flow
  * (HON-1153): `[{ clientId, clientName, scopes, createdAt }]`. Only the
- * caller's own consents; the profile page's "Connected assistants" list reads
+ * caller's own consents; My account → Connections' "Connected assistants" list reads
  * it. Next to the export and delete routes, so the account-deletion runbook
  * finds every route that touches a user's grants in one folder.
  */

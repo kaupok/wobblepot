@@ -1,4 +1,4 @@
-// ROUTES: /profile, /, /sign-in · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger, TimelineEmptySlot, MealCard, MealSelectorModal
+// ROUTES: /account/data, /, /sign-in · COMPONENTS: DeleteAccountDialog, AlertDialogTrigger, TimelineEmptySlot, MealCard, MealSelectorModal
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test'
 import { signIn, signUpWithHousehold } from './utils/test-helpers'
 import { e2eBaseURL } from './utils/db-helpers'
@@ -75,7 +75,7 @@ async function createCardEntry(
 // test covers the invariant for all Radix modals in the app — this is not
 // per-modal behaviour, so we don't replicate it for each dialog.
 //
-// The profile page's `DeleteAccountDialog` is chosen as the target because it
+// The Your data tab's `DeleteAccountDialog` is chosen as the target because it
 // is the most durable trigger/modal pair in the app: static UI (no AI, no
 // generated content), reachable immediately after onboarding, and uses a plain
 // `<AlertDialogTrigger>` pattern that doesn't risk re-rendering the trigger
@@ -86,7 +86,7 @@ test.describe('Modal focus-restore', () => {
   test('focus returns to the originating trigger after Escape-close', async ({ page }) => {
     await signUpWithHousehold(page)
 
-    await page.goto('/profile')
+    await page.goto('/account/data')
 
     const trigger = page.getByRole('button', { name: 'Delete account' })
     await expect(trigger).toBeVisible()

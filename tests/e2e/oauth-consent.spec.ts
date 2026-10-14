@@ -1,4 +1,4 @@
-// ROUTES: /.well-known/oauth-authorization-server, /.well-known/oauth-protected-resource, /api/auth/oauth2/*, /api/auth/user/mcp-consents, /api/mcp, /consent, /profile, /sign-in · COMPONENTS: ConsentCard, SignInForm, ConnectedAssistantsList, McpServerUrl
+// ROUTES: /.well-known/oauth-authorization-server, /.well-known/oauth-protected-resource, /api/auth/oauth2/*, /api/auth/user/mcp-consents, /api/mcp, /consent, /account/connections, /sign-in · COMPONENTS: ConsentCard, SignInForm, ConnectedAssistantsList, McpServerUrl
 import { test, expect, type APIRequestContext } from '@playwright/test'
 import { signOut, signUpWithHousehold, TEST_PASSWORD } from './utils/test-helpers'
 import {
@@ -209,7 +209,7 @@ test.describe('OAuth for MCP clients', () => {
     await expect(page.getByRole('button', { name: 'Allow' })).toBeVisible()
   })
 
-  test('the profile page lists a connected client, and Disconnect stops its token at once (HON-1153)', async ({
+  test('the Connections tab lists a connected client, and Disconnect stops its token at once (HON-1153)', async ({
     page,
     request,
   }) => {
@@ -217,7 +217,7 @@ test.describe('OAuth for MCP clients', () => {
     const token = await connectMcpClient(page, request)
     expect(await mcpToolsListStatus(request, token)).toBe(200)
 
-    await page.goto('/profile')
+    await page.goto('/account/connections')
     const section = page.getByRole('region', { name: 'Connect to an AI assistant' })
     await expect(section.getByText(/\/api\/mcp$/)).toBeVisible()
     const row = section.getByRole('listitem').filter({ hasText: 'E2E MCP client' })

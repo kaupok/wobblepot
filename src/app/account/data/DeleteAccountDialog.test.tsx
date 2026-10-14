@@ -7,8 +7,8 @@ vi.unmock('next-intl')
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
-import enMessages from '../../../messages/en.json'
-import etMessages from '../../../messages/et.json'
+import enMessages from '../../../../messages/en.json'
+import etMessages from '../../../../messages/et.json'
 import { authClient } from '@/lib/auth-client'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
@@ -41,9 +41,9 @@ async function openAndConfirm(locale: 'en' | 'et') {
       </NextIntlClientProvider>
     </QueryWrapper>,
   )
-  await user.click(screen.getByRole('button', { name: messages.profile.delete.trigger }))
+  await user.click(screen.getByRole('button', { name: messages.account.delete.trigger }))
   const dialog = await screen.findByRole('alertdialog')
-  await user.click(within(dialog).getByRole('button', { name: messages.profile.delete.confirm }))
+  await user.click(within(dialog).getByRole('button', { name: messages.account.delete.confirm }))
 }
 
 describe('DeleteAccountDialog error localization', () => {
@@ -86,7 +86,7 @@ describe('DeleteAccountDialog error localization', () => {
 
     await openAndConfirm('et')
 
-    await screen.findByText(etMessages.profile.delete.errors.deleteFailed)
+    await screen.findByText(etMessages.account.delete.errors.deleteFailed)
     expect(screen.queryByText('Failed to delete account')).not.toBeInTheDocument()
   })
 
@@ -95,7 +95,7 @@ describe('DeleteAccountDialog error localization', () => {
 
     await openAndConfirm('et')
 
-    await screen.findByText(etMessages.profile.delete.errors.deleteFailed)
+    await screen.findByText(etMessages.account.delete.errors.deleteFailed)
     expect(screen.queryByText('Something new went wrong.')).not.toBeInTheDocument()
   })
 
@@ -139,7 +139,7 @@ describe('DeleteAccountDialog owner household line', () => {
         </NextIntlClientProvider>
       </QueryWrapper>,
     )
-    await user.click(screen.getByRole('button', { name: messages.profile.delete.trigger }))
+    await user.click(screen.getByRole('button', { name: messages.account.delete.trigger }))
     return screen.findByRole('alertdialog')
   }
 
@@ -160,7 +160,7 @@ describe('DeleteAccountDialog owner household line', () => {
 
       expect(within(dialog).getByText(line)).toBeInTheDocument()
       expect(
-        within(dialog).getByRole('button', { name: messages.profile.delete.confirm }),
+        within(dialog).getByRole('button', { name: messages.account.delete.confirm }),
       ).toBeEnabled()
     },
   )
@@ -175,7 +175,7 @@ describe('DeleteAccountDialog owner household line', () => {
     ).toBeInTheDocument()
     expect(within(dialog).queryByText(/and all its data/)).not.toBeInTheDocument()
     expect(
-      within(dialog).getByRole('button', { name: enMessages.profile.delete.confirm }),
+      within(dialog).getByRole('button', { name: enMessages.account.delete.confirm }),
     ).toBeDisabled()
   })
 })
@@ -207,7 +207,7 @@ describe('DeleteAccountDialog pending state', () => {
 
     const dialog = screen.getByRole('alertdialog')
     const deleting = await within(dialog).findByRole('button', {
-      name: enMessages.profile.delete.deleting,
+      name: enMessages.account.delete.deleting,
     })
     expect(deleting).toBeDisabled()
     await waitFor(() => expect(authClient.signOut).toHaveBeenCalled())
@@ -219,10 +219,10 @@ describe('DeleteAccountDialog pending state', () => {
     // pass on its first check, before the mutation had left `isPending`.
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
     expect(
-      within(dialog).getByRole('button', { name: enMessages.profile.delete.deleting }),
+      within(dialog).getByRole('button', { name: enMessages.account.delete.deleting }),
     ).toBeDisabled()
     expect(
-      within(dialog).getByRole('button', { name: enMessages.profile.delete.cancel }),
+      within(dialog).getByRole('button', { name: enMessages.account.delete.cancel }),
     ).toBeDisabled()
   })
 })

@@ -1,10 +1,10 @@
-// ROUTES: /profile, /api/v1/meal-plan, /api/v1/shopping-list, /api/auth/user/api-keys · COMPONENTS: ApiKeysSection, NewApiKey, ApiKeyGuide
+// ROUTES: /account/connections, /api/v1/meal-plan, /api/v1/shopping-list, /api/auth/user/api-keys · COMPONENTS: ApiKeysSection, NewApiKey, ApiKeyGuide
 import { test, expect } from '@playwright/test'
 import { grantEssentialCookieConsent, signUpWithHousehold } from './utils/test-helpers'
 
 /**
  * Read-only API keys for screens and scripts (HON-1220): create a key on
- * `/profile`, read the meal plan and shopping list with it the way a kitchen
+ * My account → Connections, read the meal plan and shopping list with it the way a kitchen
  * screen does, check that no other route accepts it, revoke it, and get 401.
  *
  * NOT `@smoke`: it signs up a throwaway account through `/api/e2e-seed`, which
@@ -17,14 +17,14 @@ const KEY_NAME = 'Kitchen screen'
 test.describe('API keys', () => {
   test.setTimeout(90_000)
 
-  test('a key made on the profile page reads the plan until it is revoked', async ({
+  test('a key made on the Connections tab reads the plan until it is revoked', async ({
     page,
     request,
   }) => {
     await grantEssentialCookieConsent(page)
     await signUpWithHousehold(page)
 
-    await page.goto('/profile')
+    await page.goto('/account/connections')
     // "Use the key" shows the endpoints for this host (HON-1228).
     await expect(page.getByRole('heading', { name: 'Use the key' })).toBeVisible()
     await expect(page.getByText(/^https?:\/\/[^/]+\/api\/v1\/meal-plan$/)).toBeVisible()

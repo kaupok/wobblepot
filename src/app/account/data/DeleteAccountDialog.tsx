@@ -45,7 +45,7 @@ export function DeleteAccountDialog({
   isOwner,
   accountMemberCount,
 }: DeleteAccountDialogProps) {
-  const t = useTranslations('profile.delete')
+  const t = useTranslations('account.delete')
   const locale = useLocale() as Locale
   const router = useRouter()
   const [error, setError] = useState('')

@@ -307,12 +307,12 @@ describe('proxy — protected-route redirect (HON-599)', () => {
   }
 
   it('redirects an anonymous request to a protected route with a 307', async () => {
-    const response = await run('https://wobblepot.dev/profile')
+    const response = await run('https://wobblepot.dev/account/connections')
 
     expect(response).toMatchObject({ status: 307 })
     expect(nextMock.redirect).toEqual({
       status: 307,
-      location: 'https://wobblepot.dev/sign-in?returnUrl=%2Fprofile',
+      location: 'https://wobblepot.dev/sign-in?returnUrl=%2Faccount%2Fconnections',
     })
     // The redirect must be an early return — it never reaches the CSP path.
     expect(nextMock.responseHeaders.get('Content-Security-Policy')).toBeUndefined()
@@ -378,14 +378,14 @@ describe('proxy — protected-route redirect (HON-599)', () => {
   })
 
   it('passes through when the session cookie is present', async () => {
-    await run('https://wobblepot.dev/profile', 'better-auth.session_token=abc.def')
+    await run('https://wobblepot.dev/account', 'better-auth.session_token=abc.def')
 
     expect(nextMock.redirect).toBeNull()
     expect(nextMock.responseHeaders.get('Content-Security-Policy')).toBeDefined()
   })
 
   it('passes through with the __Secure- prefixed session cookie', async () => {
-    await run('https://wobblepot.dev/profile', '__Secure-better-auth.session_token=abc.def')
+    await run('https://wobblepot.dev/account', '__Secure-better-auth.session_token=abc.def')
 
     expect(nextMock.redirect).toBeNull()
     expect(nextMock.responseHeaders.get('Content-Security-Policy')).toBeDefined()
@@ -393,7 +393,7 @@ describe('proxy — protected-route redirect (HON-599)', () => {
 
   // A non-session cookie must not be mistaken for one.
   it('redirects when only unrelated cookies are present', async () => {
-    await run('https://wobblepot.dev/profile', 'theme=dark; NEXT_LOCALE=et')
+    await run('https://wobblepot.dev/account', 'theme=dark; NEXT_LOCALE=et')
 
     expect(nextMock.redirect?.status).toBe(307)
   })
@@ -406,7 +406,7 @@ describe('proxy — protected-route redirect (HON-599)', () => {
     ['/sign-up', 'public'],
     ['/status', 'public'],
     ['/api/meals', 'API routes return their own 401 JSON'],
-    ['/profilex', 'prefix boundary — not under /profile'],
+    ['/accountx', 'prefix boundary — not under /account'],
     ['/recipes-public', 'prefix boundary — not under /recipes'],
     ['/administrator', 'prefix boundary — not under /admin'],
   ])('does not redirect anonymous %s (%s)', async (pathname) => {

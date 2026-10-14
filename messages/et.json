@@ -806,7 +806,7 @@
       "accountMenu": "Konto menüü",
       "pastMeals": "Möödunud toidud",
       "pastMealsToMark": "(märkimata)",
-      "profile": "Profiil",
+      "myAccount": "Minu konto",
       "signIn": "Logi sisse",
       "signUp": "Loo konto",
       "signOut": "Logi välja",
@@ -1353,9 +1353,16 @@
       }
     }
   },
-  "profile": {
-    "title": "Profiil",
+  "account": {
+    "title": "Minu konto",
     "description": "Sinu konto andmed",
+    "tabsLabel": "Konto osad",
+    "tabs": {
+      "profile": "Profiil",
+      "connections": "Ühendused",
+      "data": "Sinu andmed"
+    },
+    "pageTitle": "{tab} · Minu konto",
     "name": {
       "label": "Nimi",
       "save": "Salvesta",

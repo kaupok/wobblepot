@@ -275,7 +275,7 @@ export const LoggedInOnboarding: Story = {
     docs: {
       description: {
         story:
-          'Authenticated but no household yet. Nav groups stay hidden; user menu is present but Profile is suppressed so the user focuses on household setup.',
+          'Authenticated but no household yet. Nav groups stay hidden; user menu is present but My account is suppressed so the user focuses on household setup.',
       },
     },
   },

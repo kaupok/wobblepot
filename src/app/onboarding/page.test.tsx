@@ -71,7 +71,7 @@ describe('OnboardingPage', () => {
     expect(screen.queryByTestId('verify-email-notice')).not.toBeInTheDocument()
   })
 
-  // `/profile` forwards the link's result here for a user without a
+  // `/account` forwards the link's result here for a user without a
   // household (HON-1155).
   it.each([
     [{ verified: '1' }, 'verified'],

@@ -18,7 +18,7 @@ export const WARM_ROUTES = [
   '/sign-up',
   '/sign-in',
   '/onboarding',
-  '/profile',
+  '/account',
   '/api/auth/get-session',
 ]
 

@@ -34,7 +34,7 @@ interface ConnectedAssistantsListProps {
 }
 
 /**
- * "Connected assistants" on the profile page (HON-1153): one row per AI
+ * "Connected assistants" on My account → Connections (HON-1153): one row per AI
  * assistant the user allowed on `/consent`, with Disconnect. Disconnect asks
  * first, because the assistant stops working at once.
  */
@@ -42,7 +42,7 @@ export function ConnectedAssistantsList({
   initialConsents,
   timeZone,
 }: ConnectedAssistantsListProps) {
-  const t = useTranslations('profile.assistants')
+  const t = useTranslations('account.assistants')
   const locale = useLocale() as Locale
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)

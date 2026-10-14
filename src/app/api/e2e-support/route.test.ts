@@ -206,7 +206,7 @@ describe('GET /api/e2e-support?action=verify-email-link', () => {
     const { verifyPath } = (await res.json()) as { verifyPath: string }
     const link = new URL(verifyPath, 'http://localhost')
     expect(link.pathname).toBe('/api/auth/verify-email')
-    expect(link.searchParams.get('callbackURL')).toBe('/profile?verified=1')
+    expect(link.searchParams.get('callbackURL')).toBe('/account?verified=1')
 
     // Signed with Better Auth's secret, in the shape its verify-email reads.
     const { verifyJWT } = await import('better-auth/crypto')

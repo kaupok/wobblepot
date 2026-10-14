@@ -157,14 +157,14 @@ describe('HeaderActions', () => {
       expect(screen.queryByRole('link', { name: 'Sign up' })).not.toBeInTheDocument()
     })
 
-    it('shows dropdown with Profile, Sign out, and theme toggle when user menu is clicked', async () => {
+    it('shows dropdown with My account, Sign out, and theme toggle when user menu is clicked', async () => {
       const user = userEvent.setup()
       render(<HeaderActions session={mockSession} hasHousehold={true} />)
 
       const userMenuButton = screen.getByRole('button', { name: 'User menu' })
       await user.click(userMenuButton)
 
-      expect(screen.getByRole('menuitem', { name: 'Profile' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'My account' })).toBeInTheDocument()
       expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeInTheDocument()
       expect(screen.getByRole('menuitem', { name: /dark mode/i })).toBeInTheDocument()
     })
@@ -181,15 +181,15 @@ describe('HeaderActions', () => {
       )
     })
 
-    it('Profile link points to /profile', async () => {
+    it('My account link points to /account', async () => {
       const user = userEvent.setup()
       render(<HeaderActions session={mockSession} hasHousehold={true} />)
 
       const userMenuButton = screen.getByRole('button', { name: 'User menu' })
       await user.click(userMenuButton)
 
-      const profileLink = screen.getByRole('menuitem', { name: 'Profile' })
-      expect(profileLink).toHaveAttribute('href', '/profile')
+      const profileLink = screen.getByRole('menuitem', { name: 'My account' })
+      expect(profileLink).toHaveAttribute('href', '/account')
     })
   })
 
@@ -200,14 +200,14 @@ describe('HeaderActions', () => {
       expect(screen.getByRole('button', { name: 'User menu' })).toBeInTheDocument()
     })
 
-    it('hides Profile link in dropdown', async () => {
+    it('hides My account link in dropdown', async () => {
       const user = userEvent.setup()
       render(<HeaderActions session={mockSession} hasHousehold={false} />)
 
       const userMenuButton = screen.getByRole('button', { name: 'User menu' })
       await user.click(userMenuButton)
 
-      expect(screen.queryByRole('menuitem', { name: 'Profile' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: 'My account' })).not.toBeInTheDocument()
       expect(screen.queryByRole('menuitem', { name: 'Past meals' })).not.toBeInTheDocument()
       expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeInTheDocument()
     })

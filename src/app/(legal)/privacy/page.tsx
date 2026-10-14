@@ -252,8 +252,8 @@ export default function PrivacyPage() {
         </Body>
         <Body>
           To disconnect an assistant, choose Disconnect next to it under &ldquo;Connected
-          assistants&rdquo; on your profile page. We delete its access at once, and its next request
-          fails. You can also email{' '}
+          assistants&rdquo; under My account → Connections. We delete its access at once, and its
+          next request fails. You can also email{' '}
           <a className="inline-link" href={PRIVACY_EMAIL_HREF}>
             {PRIVACY_EMAIL}
           </a>{' '}
@@ -263,17 +263,17 @@ export default function PrivacyPage() {
         <Body>
           You can also connect a screen or script you choose, such as a kitchen display, a Home
           Assistant dashboard or a program you wrote, with an API key you make under &ldquo;Screens
-          and scripts&rdquo; on your profile page. The key can only read your household&rsquo;s meal
-          plan and shopping list; it cannot change anything or read anything else. Like an
-          assistant, the screen or script is not one of our processors: you choose it and you give
-          it the key. We store the key&rsquo;s name, its first characters, a one-way fingerprint of
-          it and when it was last used, never the key itself, and we do not record each request it
-          makes in analytics. To stop it, choose Revoke next to the key: its next request fails.
-          Your household&rsquo;s owner sees every member&rsquo;s keys, with the member&rsquo;s name,
-          and can revoke any of them. When you make a key, you can also set it to expire after a
-          number of days. Deleting your account stops every key at once. A key reads the household
-          you belong to when it makes a request, so after you leave a household, the key no longer
-          reads it.
+          and scripts&rdquo; under My account → Connections. The key can only read your
+          household&rsquo;s meal plan and shopping list; it cannot change anything or read anything
+          else. Like an assistant, the screen or script is not one of our processors: you choose it
+          and you give it the key. We store the key&rsquo;s name, its first characters, a one-way
+          fingerprint of it and when it was last used, never the key itself, and we do not record
+          each request it makes in analytics. To stop it, choose Revoke next to the key: its next
+          request fails. Your household&rsquo;s owner sees every member&rsquo;s keys, with the
+          member&rsquo;s name, and can revoke any of them. When you make a key, you can also set it
+          to expire after a number of days. Deleting your account stops every key at once. A key
+          reads the household you belong to when it makes a request, so after you leave a household,
+          the key no longer reads it.
         </Body>
       </Section>
 
@@ -382,7 +382,7 @@ export default function PrivacyPage() {
                   Route Handler. <Link> would SPA-navigate instead of
                   downloading, and its viewport prefetch would silently run
                   the export and burn a daily rate-limit slot. Mirrors
-                  profile/page.tsx. */}
+                  account/data/page.tsx. */}
               <a className="inline-link" href="/api/auth/user/export" download>
                 /api/auth/user/export
               </a>{' '}

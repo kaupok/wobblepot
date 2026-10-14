@@ -1,4 +1,4 @@
-// ROUTES: /sign-up, /sign-in, /onboarding, /, /profile, /recipes, /recipes/create · COMPONENTS: SignUpForm (with HON-488 invite-code gate + HON-457 terms-consent checkbox), SignInForm, OnboardingFlow, Header (User menu), RecipesPageClient, MealList
+// ROUTES: /sign-up, /sign-in, /onboarding, /, /account, /recipes, /recipes/create · COMPONENTS: SignUpForm (with HON-488 invite-code gate + HON-457 terms-consent checkbox), SignInForm, OnboardingFlow, Header (User menu), RecipesPageClient, MealList
 import { test, expect } from '@playwright/test'
 import {
   generateUniqueEmail,
@@ -238,13 +238,13 @@ test.describe('Authentication flows', () => {
     await signOut(page)
 
     // Sign in with returnUrl pointing to settings/invites
-    await page.goto('/sign-in?returnUrl=/profile')
+    await page.goto('/sign-in?returnUrl=/account')
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password').fill(TEST_PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
 
     // Wait for navigation away from sign-in page and then to settings/invites
     await page.waitForURL((url) => !url.pathname.includes('/sign-in'))
-    await expect(page).toHaveURL('/profile')
+    await expect(page).toHaveURL('/account')
   })
 })

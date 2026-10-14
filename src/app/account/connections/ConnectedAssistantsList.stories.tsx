@@ -39,7 +39,7 @@ function handlers(rows: ConnectedAssistant[]) {
 }
 
 const meta = {
-  title: 'Feature/Profile/ConnectedAssistantsList',
+  title: 'Feature/Account/ConnectedAssistantsList',
   component: ConnectedAssistantsList,
   tags: ['autodocs'],
   parameters: {
@@ -47,7 +47,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The "Connected assistants" list on `/profile` (HON-1153): one row per AI assistant the user allowed on `/consent`, with the date, the scopes in plain words and Disconnect. Disconnect asks first, then deletes the consent and tokens through `DELETE /api/auth/user/mcp-consents/[clientId]`.',
+          'The "Connected assistants" list on My account → Connections, `/account/connections` (HON-1153): one row per AI assistant the user allowed on `/consent`, with the date, the scopes in plain words and Disconnect. Disconnect asks first, then deletes the consent and tokens through `DELETE /api/auth/user/mcp-consents/[clientId]`.',
       },
     },
     msw: { handlers: handlers([CLAUDE]) },

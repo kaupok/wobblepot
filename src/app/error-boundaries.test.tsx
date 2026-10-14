@@ -23,13 +23,34 @@ const boundaries = import.meta.glob('./**/error.tsx', { eager: true }) as unknow
 >
 
 // A boundary replaces the page's content, so its title is the page's h1 (HON-826).
+// The exception is a boundary under a layout that keeps its own h1 on screen:
+// `/account`'s layout holds "My account" and the tabs, so its boundary renders
+// a section of that page, at h2 (HON-1229).
+const UNDER_LAYOUT_TITLE = new Set(['./account/error.tsx'])
+
 describe('route error boundaries', () => {
   it('finds every boundary', () => {
     expect(Object.keys(boundaries).length).toBeGreaterThanOrEqual(16)
   })
 
-  it.each(Object.entries(boundaries))('%s renders its title as the only h1', (_, mod) => {
-    const Boundary = mod.default
+  it.each(Object.entries(boundaries).filter(([path]) => !UNDER_LAYOUT_TITLE.has(path)))(
+    '%s renders its title as the only h1',
+    (_, mod) => {
+      const Boundary = mod.default
+      render(
+        <NextIntlClientProvider locale="en" messages={enMessages}>
+          <Boundary error={new Error('boom')} reset={vi.fn()} />
+        </NextIntlClientProvider>,
+      )
+
+      const headings = screen.getAllByRole('heading')
+      expect(headings).toHaveLength(1)
+      expect(headings[0]?.tagName).toBe('H1')
+    },
+  )
+
+  it.each([...UNDER_LAYOUT_TITLE])('%s renders its title as the only heading, an h2', (path) => {
+    const Boundary = boundaries[path]!.default
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
         <Boundary error={new Error('boom')} reset={vi.fn()} />
@@ -38,6 +59,6 @@ describe('route error boundaries', () => {
 
     const headings = screen.getAllByRole('heading')
     expect(headings).toHaveLength(1)
-    expect(headings[0]?.tagName).toBe('H1')
+    expect(headings[0]?.tagName).toBe('H2')
   })
 })

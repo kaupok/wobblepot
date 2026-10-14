@@ -806,7 +806,7 @@
       "accountMenu": "Account menu",
       "pastMeals": "Past meals",
       "pastMealsToMark": "(to mark)",
-      "profile": "Profile",
+      "myAccount": "My account",
       "signIn": "Sign in",
       "signUp": "Sign up",
       "signOut": "Sign out",
@@ -1353,9 +1353,16 @@
       }
     }
   },
-  "profile": {
-    "title": "Profile",
+  "account": {
+    "title": "My account",
     "description": "Your account information",
+    "tabsLabel": "Account sections",
+    "tabs": {
+      "profile": "Profile",
+      "connections": "Connections",
+      "data": "Your data"
+    },
+    "pageTitle": "{tab} · My account",
     "name": {
       "label": "Name",
       "save": "Save",

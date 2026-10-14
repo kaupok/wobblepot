@@ -411,7 +411,7 @@ model OauthConsent {
   @@map("oauth_consent")
 }
 
-// A read-only API key for a screen or script (HON-1220), made on `/profile`.
+// A read-only API key for a screen or script (HON-1220), made on `/account/connections`.
 // Only the SHA-256 hash of the key is stored, plus its first characters for
 // the list. `GET /api/v1/*` looks the key up by `hash`; see src/lib/api-keys.ts.
 model ApiKey {

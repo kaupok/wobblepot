@@ -32,6 +32,7 @@ describe('robots', () => {
         ],
         disallow: [
           '/api',
+          '/account',
           '/profile',
           '/household',
           '/meal-plan/',

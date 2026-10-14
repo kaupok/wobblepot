@@ -3,7 +3,7 @@ import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { McpServerUrl } from './McpServerUrl'
 
 const meta = {
-  title: 'Feature/Profile/McpServerUrl',
+  title: 'Feature/Account/McpServerUrl',
   component: McpServerUrl,
   tags: ['autodocs'],
   parameters: {
@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The MCP server URL on `/profile` (HON-1153), with Copy. Copy captures `mcp:server_url_copied`, the top of the connect funnel; the capture is asserted in `McpServerUrl.test.tsx`.',
+          'The MCP server URL on My account → Connections, `/account/connections` (HON-1153), with Copy. Copy captures `mcp:server_url_copied`, the top of the connect funnel; the capture is asserted in `McpServerUrl.test.tsx`.',
       },
     },
   },
