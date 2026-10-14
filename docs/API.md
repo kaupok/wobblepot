@@ -118,6 +118,7 @@ rest:
           {% set dinner = value_json.entries
                | selectattr('date', 'eq', value_json.from)
                | selectattr('mealType', 'eq', 'dinner')
+               | rejectattr('isSkipped')
                | list %}
           {{ dinner[0].mealName if dinner and dinner[0].mealName else 'Nothing planned' }}
 ```
