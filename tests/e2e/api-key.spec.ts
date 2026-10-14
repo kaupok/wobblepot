@@ -1,4 +1,4 @@
-// ROUTES: /profile, /api/v1/meal-plan, /api/v1/shopping-list, /api/auth/user/api-keys · COMPONENTS: ApiKeysSection, NewApiKey
+// ROUTES: /profile, /api/v1/meal-plan, /api/v1/shopping-list, /api/auth/user/api-keys · COMPONENTS: ApiKeysSection, NewApiKey, ApiKeyGuide
 import { test, expect } from '@playwright/test'
 import { grantEssentialCookieConsent, signUpWithHousehold } from './utils/test-helpers'
 
@@ -25,6 +25,9 @@ test.describe('API keys', () => {
     await signUpWithHousehold(page)
 
     await page.goto('/profile')
+    // "Use the key" shows the endpoints for this host (HON-1228).
+    await expect(page.getByRole('heading', { name: 'Use the key' })).toBeVisible()
+    await expect(page.getByText(/^https?:\/\/[^/]+\/api\/v1\/meal-plan$/)).toBeVisible()
     await page.getByLabel('Key name').fill(KEY_NAME)
     await page.getByRole('button', { name: 'Create key' }).click()
 

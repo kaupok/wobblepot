@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import { apiFetch, ApiError } from '@/lib/api'
+import { track } from '@/lib/analytics'
 import { dropFocusToBody } from '@/test/focus'
 import { createQueryWrapper } from '@/test/query-wrapper'
 import { ApiKeysSection, type ApiKeyRow } from './ApiKeysSection'
@@ -11,6 +12,8 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
   apiFetch: vi.fn(),
 }))
+
+vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -42,8 +45,20 @@ const mockApiFetch = vi.mocked(apiFetch)
 
 function renderSection(keys: ApiKeyRow[], { householdView = false } = {}) {
   return render(
-    <ApiKeysSection initialKeys={keys} timeZone="Europe/Tallinn" householdView={householdView} />,
+    <ApiKeysSection
+      initialKeys={keys}
+      timeZone="Europe/Tallinn"
+      householdView={householdView}
+      baseUrl="https://wobblepot.com"
+    />,
     { wrapper: createQueryWrapper().wrapper },
+  )
+}
+
+/** The key rows only: "Use the key" has list items of its own (HON-1228). */
+function keyRows() {
+  return within(screen.getByRole('list', { name: /^(Your|Household) keys$/ })).getAllByRole(
+    'listitem',
   )
 }
 
@@ -67,7 +82,7 @@ describe('ApiKeysSection (HON-1220)', () => {
     mockApiFetch.mockResolvedValue([KITCHEN, SCRIPT])
     renderSection([KITCHEN, SCRIPT])
 
-    const rows = screen.getAllByRole('listitem')
+    const rows = keyRows()
     expect(rows).toHaveLength(2)
     expect(within(rows[0]!).getByText('Kitchen screen')).toBeInTheDocument()
     expect(within(rows[0]!).getByText('wp_Ab3dEf…')).toBeInTheDocument()
@@ -118,7 +133,9 @@ describe('ApiKeysSection (HON-1220)', () => {
     expect(
       screen.getByText('Copy the key now. Wobblepot does not show it again.'),
     ).toBeInTheDocument()
-    expect(within(screen.getByRole('list')).getByText('wp_Qr7sTu…')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('list', { name: 'Your keys' })).getByText('wp_Qr7sTu…'),
+    ).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Done' }))
 
@@ -289,7 +306,7 @@ describe('ApiKeysSection (HON-1220)', () => {
     mockApiFetch.mockResolvedValue([expiring, expired])
     renderSection([expiring, expired])
 
-    const rows = screen.getAllByRole('listitem')
+    const rows = keyRows()
     expect(within(rows[0]!).getByText('Expires: November 13, 2026')).toBeInTheDocument()
     expect(within(rows[0]!).queryByText('Expired')).not.toBeInTheDocument()
     expect(within(rows[1]!).getByText('Expired')).toBeInTheDocument()
@@ -306,7 +323,7 @@ describe('ApiKeysSection (HON-1220)', () => {
       renderSection([JANE_KEY, OWN_KEY], { householdView: true })
 
       expect(screen.getByRole('heading', { name: 'Household keys' })).toBeInTheDocument()
-      const rows = screen.getAllByRole('listitem')
+      const rows = keyRows()
       expect(within(rows[0]!).getByText('Member: Jane')).toBeInTheDocument()
       expect(within(rows[1]!).getByText('Member: Kaupo')).toBeInTheDocument()
       expect(
@@ -384,5 +401,116 @@ describe('ApiKeysSection (HON-1220)', () => {
       expect(screen.queryByText('Member: Jane')).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Revoke: Kitchen screen' })).toBeInTheDocument()
     })
+  })
+})
+
+describe('ApiKeysSection "Use the key" (HON-1228)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockApiFetch.mockResolvedValue([])
+  })
+
+  it('shows both endpoint URLs on the given host, above the key list', () => {
+    renderSection([])
+
+    const heading = screen.getByRole('heading', { level: 3, name: 'Use the key' })
+    expect(screen.getByText('https://wobblepot.com/api/v1/meal-plan')).toBeInTheDocument()
+    expect(screen.getByText('https://wobblepot.com/api/v1/shopping-list')).toBeInTheDocument()
+    expect(screen.getByText('Authorization: Bearer wp_…')).toBeInTheDocument()
+    const listHeading = screen.getByRole('heading', { name: 'Your keys' })
+    expect(heading.compareDocumentPosition(listHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it('stays between the new key and the key list while the new key shows', async () => {
+    const user = userEvent.setup()
+    mockApiFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === 'POST' ? { key: NEW_KEY, apiKey: KITCHEN } : [],
+    )
+    renderSection([])
+
+    await user.type(screen.getByLabelText('Key name'), 'Kitchen screen')
+    await user.click(screen.getByRole('button', { name: 'Create key' }))
+
+    const newKey = await screen.findByRole('heading', { name: 'New key: Kitchen screen' })
+    const guide = screen.getByRole('heading', { name: 'Use the key' })
+    const list = screen.getByRole('heading', { name: 'Your keys' })
+    expect(newKey.compareDocumentPosition(guide)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(guide.compareDocumentPosition(list)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it('copies the meal plan URL and captures api_key:guide_copied', async () => {
+    const user = userEvent.setup()
+    renderSection([])
+
+    await user.click(screen.getByRole('button', { name: 'Copy: Meal plan URL' }))
+
+    expect(await navigator.clipboard.readText()).toBe('https://wobblepot.com/api/v1/meal-plan')
+    expect(track).toHaveBeenCalledTimes(1)
+    expect(track).toHaveBeenCalledWith('api_key:guide_copied', { item: 'meal-plan' })
+    expect(toast.success).toHaveBeenCalledWith('URL copied')
+    expect(screen.getByRole('button', { name: 'Copied: Meal plan URL' })).toHaveTextContent(
+      'Copied',
+    )
+  })
+
+  it('copies the shopping list URL', async () => {
+    const user = userEvent.setup()
+    renderSection([])
+
+    await user.click(screen.getByRole('button', { name: 'Copy: Shopping list URL' }))
+
+    expect(await navigator.clipboard.readText()).toBe('https://wobblepot.com/api/v1/shopping-list')
+    expect(track).toHaveBeenCalledWith('api_key:guide_copied', { item: 'shopping-list' })
+  })
+
+  it('captures nothing when the clipboard refuses', async () => {
+    const user = userEvent.setup()
+    renderSection([])
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'))
+
+    await user.click(screen.getByRole('button', { name: 'Copy: Meal plan URL' }))
+
+    expect(track).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith('Not copied. Select the text and copy it by hand.')
+  })
+
+  it('keeps the Home Assistant example closed until opened, then copies all of it', async () => {
+    const user = userEvent.setup()
+    renderSection([])
+
+    const trigger = screen.getByRole('button', { name: 'Home Assistant' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByLabelText('Home Assistant example')).not.toBeInTheDocument()
+
+    await user.click(trigger)
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    const yaml = screen.getByLabelText('Home Assistant example')
+    expect(yaml).toHaveTextContent('resource: https://wobblepot.com/api/v1/meal-plan')
+    expect(yaml).toHaveTextContent('scan_interval: 300')
+
+    await user.click(screen.getByRole('button', { name: 'Copy: Home Assistant example' }))
+
+    const copied = await navigator.clipboard.readText()
+    expect(copied.startsWith('rest:\n  - resource: https://wobblepot.com/api/v1/meal-plan\n')).toBe(
+      true,
+    )
+    expect(copied).toContain(
+      "{{ dinner[0].mealName if dinner and dinner[0].mealName else 'Nothing planned' }}",
+    )
+    expect(track).toHaveBeenCalledWith('api_key:guide_copied', { item: 'home-assistant' })
+    expect(toast.success).toHaveBeenCalledWith('Example copied')
+  })
+
+  it('links the full guide on GitHub in a new tab', () => {
+    renderSection([])
+
+    const link = screen.getByRole('link', { name: 'Wobblepot read-only API' })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://github.com/kaupok/wobblepot/blob/main/docs/API.md',
+    )
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   })
 })

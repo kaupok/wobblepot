@@ -107,16 +107,19 @@ vi.mock('./ApiKeysSection', () => ({
     initialKeys,
     timeZone,
     householdView,
+    baseUrl,
   }: {
     initialKeys: unknown[]
     timeZone: string
     householdView: boolean
+    baseUrl: string
   }) => (
     <div
       data-testid="api-keys-section"
       data-count={String(initialKeys.length)}
       data-time-zone={timeZone}
       data-household-view={String(householdView)}
+      data-base-url={baseUrl}
     />
   ),
 }))
@@ -409,6 +412,8 @@ describe('ProfilePage', () => {
     expect(section).toHaveAttribute('data-time-zone', 'Europe/Tallinn')
     // HON-1221: the owner gets the household's keys.
     expect(section).toHaveAttribute('data-household-view', 'true')
+    // HON-1228: "Use the key" shows this host's endpoint URLs.
+    expect(section).toHaveAttribute('data-base-url', 'https://wobblepot.test')
     expect(listApiKeys).toHaveBeenCalledWith({ userId: 'user-123', householdId: 'household-123' })
     const following = Node.DOCUMENT_POSITION_FOLLOWING
     expect(

@@ -1471,7 +1471,26 @@
       "revoking": "Tühistan…",
       "revoked": "Tühistatud: {name}",
       "revokeFailed": "Võtit ei tühistatud. Proovi uuesti.",
-      "loadFailed": "Sinu võtmeid ei õnnestunud laadida. Laadi leht uuesti."
+      "loadFailed": "Sinu võtmeid ei õnnestunud laadida. Laadi leht uuesti.",
+      "guide": {
+        "heading": "Võtme kasutamine",
+        "mealPlan": "Söögiplaan",
+        "shoppingList": "Ostunimekiri",
+        "mealPlanUrl": "Söögiplaani URL",
+        "shoppingListUrl": "Ostunimekirja URL",
+        "homeAssistantItem": "Home Assistanti näide",
+        "copyItem": "Kopeeri: {item}",
+        "copiedItem": "Kopeeritud: {item}",
+        "urlCopied": "URL kopeeritud",
+        "exampleCopied": "Näide kopeeritud",
+        "copyFailed": "Ei kopeeritud. Vali tekst ja kopeeri käsitsi.",
+        "stepCall": "Pöördu ühe ülaloleva URL-i poole. Saada võti päises: <code>Authorization: Bearer wp_…</code>",
+        "stepPoll": "Küsi kõige rohkem kord minutis. Söögiplaani jaoks piisab iga 5 minuti järel.",
+        "stepJson": "Vastus on JSON. Täielik juhend loetleb kõik väljad.",
+        "help": "Täielikus juhendis on kõik väljad, veakoodid ja curl-i näide: <link>Wobblepoti lugemis-API</link>.",
+        "homeAssistant": "Home Assistant",
+        "homeAssistantIntro": "Pane võti faili <code>secrets.yaml</code> kujul <code>wobblepot_api_key: \"Bearer wp_…\"</code> ja lisa siis see faili <code>configuration.yaml</code>."
+      }
     },
     "emailLabel": "E-post",
     "verifyEmail": {

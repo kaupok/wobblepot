@@ -4,15 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Callout } from '@/components/ui/callout'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Body, Code, Heading } from '@/components/ui/typography'
+import { Body, Code, Heading, Li, Ol, Pre } from '@/components/ui/typography'
 import { FieldError } from '@/components/FieldError'
 import { useRefocusAfterPending } from '@/hooks/use-refocus-after-pending'
 import { apiFetch, ApiError } from '@/lib/api'
+import { track } from '@/lib/analytics'
+import { apiV1Urls, homeAssistantExample } from '@/lib/api-keys-guide'
 import { formatLongDate } from '@/lib/i18n/format-dates'
 import { parseLocalizedNumber } from '@/lib/i18n/parse-number'
 import type { Locale } from '@/lib/i18n/locales'
@@ -45,6 +49,8 @@ const MAX_NAME_LENGTH = 60
 /** Mirrors `MAX_API_KEY_EXPIRY_DAYS` in `src/lib/api-keys.ts`. */
 const MAX_EXPIRY_DAYS = 365
 const COPIED_RESET_MS = 2000
+/** The full guide. The repository is public, so this is the shortest way to it. */
+const API_GUIDE_URL = 'https://github.com/kaupok/wobblepot/blob/main/docs/API.md'
 
 interface ApiKeysSectionProps {
   /** Read by the page on the server, so the list is right on the first paint. */
@@ -60,6 +66,8 @@ interface ApiKeysSectionProps {
    * with the member's name, and Revoke works on any of them (HON-1221).
    */
   householdView: boolean
+  /** `getServerBaseURL()`, so "Use the key" shows this host's endpoint URLs. */
+  baseUrl: string
 }
 
 /**
@@ -67,13 +75,19 @@ interface ApiKeysSectionProps {
  * key for a kitchen screen, Home Assistant or a script, optionally with an
  * expiry, see it once, and revoke it. The key works on `GET /api/v1/meal-plan`
  * and `GET /api/v1/shopping-list` only; see docs/API.md. The owner sees and
- * revokes every member's keys (HON-1221).
+ * revokes every member's keys (HON-1221). "Use the key" says what to call,
+ * how often, and how to set up Home Assistant (HON-1228).
  *
  * Focus: after Create, focus moves to the new key's heading, so a screen
  * reader announces it; Done returns it to the name field. A failed Create
  * returns it to Create. Revoke asks first, like Disconnect.
  */
-export function ApiKeysSection({ initialKeys, timeZone, householdView }: ApiKeysSectionProps) {
+export function ApiKeysSection({
+  initialKeys,
+  timeZone,
+  householdView,
+  baseUrl,
+}: ApiKeysSectionProps) {
   const t = useTranslations('profile.apiKeys')
   const locale = useLocale() as Locale
   const queryClient = useQueryClient()
@@ -272,10 +286,13 @@ export function ApiKeysSection({ initialKeys, timeZone, householdView }: ApiKeys
         </form>
       )}
 
+      {/* Below the new key, so Done lands the user on the next step. */}
+      <ApiKeyGuide baseUrl={baseUrl} />
+
       <div className="flex flex-col gap-2">
         {/* Focus lands here when Revoke removed the row that opened the dialog. */}
         <div ref={listHeadingRef} tabIndex={-1} className="outline-none">
-          <Heading variant="caption" as="h3">
+          <Heading variant="caption" as="h3" id="api-keys-list-heading">
             {householdView ? t('householdListHeading') : t('listHeading')}
           </Heading>
         </div>
@@ -285,7 +302,7 @@ export function ApiKeysSection({ initialKeys, timeZone, householdView }: ApiKeys
         {keys.length === 0 ? (
           <Body variant="muted">{householdView ? t('householdEmpty') : t('empty')}</Body>
         ) : (
-          <ul className="flex flex-col divide-y">
+          <ul aria-labelledby="api-keys-list-heading" className="flex flex-col divide-y">
             {keys.map((row) => (
               <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div className="flex min-w-0 flex-col gap-1">
@@ -431,5 +448,148 @@ export function NewApiKey({ created, onDone }: NewApiKeyProps) {
         </Button>
       </div>
     </div>
+  )
+}
+
+type GuideItem = 'meal-plan' | 'shopping-list' | 'home-assistant'
+
+/**
+ * "Use the key" (HON-1228): the two endpoint URLs for this host, three steps,
+ * the full guide's link, and a Home Assistant example, closed by default.
+ * Always shown, so the next step is there with or without a key.
+ */
+export function ApiKeyGuide({ baseUrl }: { baseUrl: string }) {
+  const t = useTranslations('profile.apiKeys.guide')
+  const [homeAssistantOpen, setHomeAssistantOpen] = useState(false)
+  const urls = apiV1Urls(baseUrl)
+  const yaml = homeAssistantExample(baseUrl)
+  const code = (chunks: React.ReactNode) => <Code>{chunks}</Code>
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Heading variant="section" as="h3">
+        {t('heading')}
+      </Heading>
+      <div className="flex flex-col gap-3">
+        <GuideUrl
+          label={t('mealPlan')}
+          url={urls.mealPlan}
+          item="meal-plan"
+          name={t('mealPlanUrl')}
+        />
+        <GuideUrl
+          label={t('shoppingList')}
+          url={urls.shoppingList}
+          item="shopping-list"
+          name={t('shoppingListUrl')}
+        />
+      </div>
+      <Ol>
+        <Li>{t.rich('stepCall', { code })}</Li>
+        <Li>{t('stepPoll')}</Li>
+        <Li>{t('stepJson')}</Li>
+      </Ol>
+      <Body variant="muted">
+        {t.rich('help', {
+          link: (chunks) => (
+            <a
+              href={API_GUIDE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-link"
+            >
+              {chunks}
+            </a>
+          ),
+        })}
+      </Body>
+      <Collapsible open={homeAssistantOpen} onOpenChange={setHomeAssistantOpen}>
+        <CollapsibleTrigger asChild>
+          <Button type="button" variant="outline">
+            {homeAssistantOpen ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
+            {t('homeAssistant')}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-3 flex flex-col gap-3">
+            <Body>{t.rich('homeAssistantIntro', { code })}</Body>
+            <Pre aria-label={t('homeAssistantItem')}>{yaml}</Pre>
+            <div>
+              <GuideCopyButton text={yaml} item="home-assistant" name={t('homeAssistantItem')} />
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  )
+}
+
+interface GuideUrlProps {
+  label: string
+  url: string
+  item: GuideItem
+  /** Names the Copy button, which the section has four of. */
+  name: string
+}
+
+function GuideUrl({ label, url, item, name }: GuideUrlProps) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Body variant="small" tone="muted">
+        {label}
+      </Body>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* A long preview host must wrap rather than widen the page. */}
+        <div className="min-w-0 break-all">
+          <Code>{url}</Code>
+        </div>
+        <GuideCopyButton text={url} item={item} name={name} />
+      </div>
+    </div>
+  )
+}
+
+interface GuideCopyButtonProps {
+  text: string
+  item: GuideItem
+  name: string
+}
+
+/**
+ * Copy, as in `McpServerUrl`. A copy is the top of the use funnel, so it
+ * captures `api_key:guide_copied`. Never disabled, so focus stays on it.
+ */
+function GuideCopyButton({ text, item, name }: GuideCopyButtonProps) {
+  const t = useTranslations('profile.apiKeys')
+  const [copied, setCopied] = useState(false)
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => clearTimeout(resetTimer.current ?? undefined), [])
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      toast.error(t('guide.copyFailed'))
+      return
+    }
+    void track('api_key:guide_copied', { item })
+    toast.success(item === 'home-assistant' ? t('guide.exampleCopied') : t('guide.urlCopied'))
+    setCopied(true)
+    clearTimeout(resetTimer.current ?? undefined)
+    resetTimer.current = setTimeout(() => setCopied(false), COPIED_RESET_MS)
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      aria-label={
+        copied ? t('guide.copiedItem', { item: name }) : t('guide.copyItem', { item: name })
+      }
+      onClick={handleCopy}
+    >
+      {copied ? t('copied') : t('copy')}
+    </Button>
   )
 }

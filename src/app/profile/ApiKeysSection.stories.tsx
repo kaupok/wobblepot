@@ -89,12 +89,17 @@ const meta = {
     docs: {
       description: {
         component:
-          'The "Screens and scripts" section on `/profile` (HON-1220): name a read-only API key, optionally set it to expire, create it, copy it from the panel that shows it once, and revoke it. The household\'s owner sees and revokes every member\'s keys (HON-1221). The key reads `GET /api/v1/meal-plan` and `GET /api/v1/shopping-list` only.',
+          'The "Screens and scripts" section on `/profile` (HON-1220): name a read-only API key, optionally set it to expire, create it, copy it from the panel that shows it once, and revoke it. The household\'s owner sees and revokes every member\'s keys (HON-1221). "Use the key" shows the endpoint URLs for the host, the steps and a Home Assistant example (HON-1228). The key reads `GET /api/v1/meal-plan` and `GET /api/v1/shopping-list` only.',
       },
     },
     msw: { handlers: handlers([KITCHEN]) },
   },
-  args: { initialKeys: [KITCHEN], timeZone: 'Europe/Tallinn', householdView: false },
+  args: {
+    initialKeys: [KITCHEN],
+    timeZone: 'Europe/Tallinn',
+    householdView: false,
+    baseUrl: 'https://wobblepot.dev',
+  },
   beforeEach: () => {
     revokeSpy.mockClear()
     createSpy.mockClear()
@@ -119,7 +124,8 @@ export const TwoKeys: Story = {
   parameters: { msw: { handlers: handlers(TWO) } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await expect(canvas.getAllByRole('listitem')).toHaveLength(2)
+    const list = canvas.getByRole('list', { name: 'Your keys' })
+    await expect(within(list).getAllByRole('listitem')).toHaveLength(2)
     await expect(canvas.getByText('Not used yet')).toBeInTheDocument()
   },
 }
@@ -135,7 +141,8 @@ export const WithExpiry: Story = {
   args: { initialKeys: WITH_EXPIRY },
   parameters: { msw: { handlers: handlers(WITH_EXPIRY) } },
   play: async ({ canvasElement }) => {
-    const [later, past] = within(canvasElement).getAllByRole('listitem')
+    const list = within(canvasElement).getByRole('list', { name: 'Your keys' })
+    const [later, past] = within(list).getAllByRole('listitem')
     await expect(within(later!).getByText('Expires: November 13, 2026')).toBeInTheDocument()
     await expect(within(past!).getByText('Expired')).toBeInTheDocument()
   },
@@ -213,6 +220,41 @@ export const CreateShowsKeyOnce: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Done' }))
     await expect(canvas.queryByText(NEW_KEY)).not.toBeInTheDocument()
     await waitFor(() => expect(canvas.getByLabelText('Key name')).toHaveFocus())
+  },
+}
+
+/**
+ * "Use the key" with the Home Assistant example open (HON-1228): the URLs and
+ * the YAML carry the host, and the trigger keeps focus.
+ */
+export const HomeAssistantOpen: Story = {
+  args: { initialKeys: [] },
+  parameters: { msw: { handlers: handlers([]) } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getByRole('heading', { name: 'Use the key' })).toBeInTheDocument()
+    await expect(canvas.getByText('https://wobblepot.dev/api/v1/meal-plan')).toBeInTheDocument()
+    await expect(canvas.getByText('https://wobblepot.dev/api/v1/shopping-list')).toBeInTheDocument()
+
+    const trigger = canvas.getByRole('button', { name: 'Home Assistant' })
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(trigger)
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await expect(trigger).toHaveFocus()
+    const yaml = canvas.getByLabelText('Home Assistant example')
+    await expect(yaml).toHaveTextContent('resource: https://wobblepot.dev/api/v1/meal-plan')
+    await expect(yaml).toHaveTextContent('scan_interval: 300')
+    await expect(
+      canvas.getByRole('button', { name: 'Copy: Home Assistant example' }),
+    ).toBeInTheDocument()
+  },
+}
+
+export const HomeAssistantOpenEstonian: Story = {
+  ...HomeAssistantOpen,
+  globals: { locale: 'et' },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Home Assistant' }))
   },
 }
 
