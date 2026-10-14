@@ -225,12 +225,14 @@ describe('API key persistence (HON-1220)', () => {
     vi.setSystemTime(new Date('2026-10-14T10:00:00.000Z'))
     await user('u-ada')
     const { key, apiKey } = await created('u-ada', 'Kitchen screen')
+    expect(apiKey.expiresAt).toBeNull()
 
     vi.setSystemTime(new Date('2028-10-14T10:00:00.000Z'))
 
     expect(await verifyApiKey(key)).toEqual({ userId: 'u-ada' })
-    const row = await prisma.apiKey.findUniqueOrThrow({ where: { id: apiKey.id } })
-    expect(row.expiresAt).toBeNull()
+    const [listed] = await listApiKeys(own('u-ada'))
+    expect(listed!.expiresAt).toBeNull()
+    expect(listed!.expired).toBe(false)
   })
 
   it('treats an account waiting for deletion as inactive', async () => {
