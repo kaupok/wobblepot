@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// The work after the response is `processWaitlistRequest` in `@/lib/waitlist`:
+// its queries are tested against a database in `waitlist.db.test.ts`, its
+// email in `waitlist.test.ts`. This file mocks it at the seam and asserts what
+// the route owns: validation, the limit, the flag, the arguments it hands to
+// `after()`, and the status and body (HON-1217).
+
 // `after()` callbacks are collected and run by the test, so a case can assert
 // on the response before any of the work has happened, as in production.
 const afterCallbacks: Array<() => unknown> = []
@@ -8,11 +14,6 @@ vi.mock('next/server', async (importOriginal) => ({
   after: vi.fn((callback: () => unknown) => {
     afterCallbacks.push(callback)
   }),
-}))
-
-vi.mock('@/lib/env', () => ({
-  serverEnv: { NEXT_PUBLIC_APP_NAME: 'Wobblepot' },
-  getServerBaseURL: () => 'https://wobblepot.com',
 }))
 
 vi.mock('@/lib/rate-limit', () => ({
@@ -24,18 +25,9 @@ vi.mock('@/lib/feature-flags', () => ({
   getServerFlag: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    user: { findUnique: vi.fn() },
-    waitlistRequest: { findUnique: vi.fn(), upsert: vi.fn() },
-  },
-}))
-
-vi.mock('@/lib/resend', () => ({
-  resend: { emails: { send: vi.fn() } },
-  isEmailConfigured: () => true,
-  EMAIL_SENDERS: { auth: 'Wobblepot <auth@mail.wobblepot.com>' },
-  envSubject: (subject: string) => subject,
+vi.mock('@/lib/waitlist', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/waitlist')>()),
+  processWaitlistRequest: vi.fn(),
 }))
 
 vi.mock('@/lib/errors', () => ({
@@ -45,16 +37,12 @@ vi.mock('@/lib/errors', () => ({
 import { POST } from './route'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getServerFlag } from '@/lib/feature-flags'
-import { prisma } from '@/lib/prisma'
-import { resend } from '@/lib/resend'
+import { processWaitlistRequest } from '@/lib/waitlist'
 import { captureApiError } from '@/lib/errors'
 
 const mockCheckRateLimit = vi.mocked(checkRateLimit)
 const mockGetServerFlag = vi.mocked(getServerFlag)
-const mockFindUser = vi.mocked(prisma.user.findUnique)
-const mockFindRequest = vi.mocked(prisma.waitlistRequest.findUnique)
-const mockUpsert = vi.mocked(prisma.waitlistRequest.upsert)
-const mockSend = vi.mocked(resend!.emails.send)
+const mockProcess = vi.mocked(processWaitlistRequest)
 
 function req(body: unknown, headers: Record<string, string> = {}) {
   return new Request('http://localhost/api/waitlist', {
@@ -77,10 +65,7 @@ describe('POST /api/waitlist', () => {
     afterCallbacks.length = 0
     mockCheckRateLimit.mockResolvedValue(ALLOWED)
     mockGetServerFlag.mockResolvedValue(true)
-    mockFindUser.mockResolvedValue(null)
-    mockFindRequest.mockResolvedValue(null)
-    mockUpsert.mockResolvedValue({} as never)
-    mockSend.mockResolvedValue({ data: { id: 'email-1' }, error: null } as never)
+    mockProcess.mockResolvedValue()
   })
 
   describe('rejections', () => {
@@ -92,6 +77,7 @@ describe('POST /api/waitlist', () => {
       const response = await POST(req(body))
 
       expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ error: 'Invalid email' })
       expect(mockCheckRateLimit).not.toHaveBeenCalled()
       expect(afterCallbacks).toHaveLength(0)
     })
@@ -132,112 +118,41 @@ describe('POST /api/waitlist', () => {
   })
 
   describe('accepted requests', () => {
-    it('answers before any lookup, upsert or send has run', async () => {
+    it('answers { ok: true } before the request is processed', async () => {
       const response = await POST(req({ email: 'new@example.com', locale: 'en' }))
 
       expect(response.status).toBe(200)
-      expect(mockFindUser).not.toHaveBeenCalled()
-      expect(mockUpsert).not.toHaveBeenCalled()
-      expect(mockSend).not.toHaveBeenCalled()
+      expect(await response.json()).toEqual({ ok: true })
+      expect(mockProcess).not.toHaveBeenCalled()
       expect(afterCallbacks).toHaveLength(1)
     })
 
-    it('stores a new address trimmed and lowercased, with a token, and sends one email', async () => {
-      await POST(req({ email: '  New.Person@Example.COM ', locale: 'en' }))
+    it('processes the address trimmed and lowercased, in the page locale', async () => {
+      await POST(req({ email: '  New.Person@Example.COM ', locale: 'et' }))
       await runAfter()
 
-      expect(mockFindUser).toHaveBeenCalledWith({
-        where: { email: 'new.person@example.com' },
-        select: { id: true },
+      expect(mockProcess).toHaveBeenCalledTimes(1)
+      expect(mockProcess).toHaveBeenCalledWith({
+        email: 'new.person@example.com',
+        locale: 'et',
+        source: undefined,
       })
-      expect(mockUpsert).toHaveBeenCalledTimes(1)
-      const { where, create, update } = mockUpsert.mock.calls[0]![0]
-      expect(where).toEqual({ email: 'new.person@example.com' })
-      expect(create).toMatchObject({ email: 'new.person@example.com', locale: 'en' })
-      expect(create.confirmToken).toMatch(/^[\w-]{32}$/)
-      expect(update.confirmToken).toBe(create.confirmToken)
-      expect(update.createdAt).toBeInstanceOf(Date)
+    })
 
-      expect(mockSend).toHaveBeenCalledTimes(1)
-      const email = mockSend.mock.calls[0]![0]
-      expect(email).toMatchObject({
-        from: 'Wobblepot <auth@mail.wobblepot.com>',
-        to: 'new.person@example.com',
-        subject: 'Confirm your Wobblepot invite request',
-      })
-      expect(email.text).toContain(
-        `https://wobblepot.com/request-invite/confirm?token=${create.confirmToken}`,
+    it('falls back to Accept-Language when the body has no known locale', async () => {
+      await POST(req({ email: 'uus@example.com', locale: 'xx' }, { 'accept-language': 'et-EE' }))
+      await runAfter()
+
+      expect(mockProcess).toHaveBeenCalledWith(expect.objectContaining({ locale: 'et' }))
+    })
+
+    it('passes a valid ref as the source', async () => {
+      await POST(req({ email: 'new@example.com', locale: 'en', ref: 'reddit-ukparenting' }))
+      await runAfter()
+
+      expect(mockProcess).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'reddit-ukparenting' }),
       )
-    })
-
-    it('reissues the token on a repeat, so an unconfirmed or confirmed address gets a fresh link', async () => {
-      // The last email went out 11 minutes ago, past the per-address cooldown.
-      mockFindRequest.mockResolvedValue({
-        createdAt: new Date(Date.now() - 11 * 60 * 1000),
-      } as never)
-
-      await POST(req({ email: 'listed@example.com', locale: 'en' }))
-      await POST(req({ email: 'listed@example.com', locale: 'en' }))
-      await runAfter()
-
-      expect(mockUpsert).toHaveBeenCalledTimes(2)
-      const first = mockUpsert.mock.calls[0]![0].update.confirmToken
-      const second = mockUpsert.mock.calls[1]![0].update.confirmToken
-      expect(first).not.toBe(second)
-      // `confirmedAt` is never part of the update: a confirmed row stays confirmed.
-      expect(mockUpsert.mock.calls[1]![0].update).not.toHaveProperty('confirmedAt')
-      expect(mockSend).toHaveBeenCalledTimes(2)
-    })
-
-    it('sends nothing to an address emailed less than 10 minutes ago, whatever the IP', async () => {
-      mockFindRequest.mockResolvedValue({
-        createdAt: new Date(Date.now() - 9 * 60 * 1000),
-      } as never)
-
-      const response = await POST(
-        req({ email: 'victim@example.com', locale: 'en' }, { 'x-forwarded-for': '198.51.100.9' }),
-      )
-      await runAfter()
-
-      expect(response.status).toBe(200)
-      expect(await response.json()).toEqual({ ok: true })
-      expect(mockFindRequest).toHaveBeenCalledWith({
-        where: { email: 'victim@example.com' },
-        select: { createdAt: true },
-      })
-      expect(mockUpsert).not.toHaveBeenCalled()
-      expect(mockSend).not.toHaveBeenCalled()
-    })
-
-    it('does nothing for an address with an account', async () => {
-      mockFindUser.mockResolvedValue({ id: 'user-1' } as never)
-
-      await POST(req({ email: 'member@example.com', locale: 'en' }))
-      await runAfter()
-
-      expect(mockUpsert).not.toHaveBeenCalled()
-      expect(mockSend).not.toHaveBeenCalled()
-    })
-
-    it('answers the same status and body whether or not the address has an account', async () => {
-      const fresh = await POST(req({ email: 'new@example.com' }))
-      mockFindUser.mockResolvedValue({ id: 'user-1' } as never)
-      const member = await POST(req({ email: 'member@example.com' }))
-
-      expect(fresh.status).toBe(200)
-      expect(member.status).toBe(200)
-      expect(await fresh.json()).toEqual({ ok: true })
-      expect(await member.json()).toEqual({ ok: true })
-    })
-
-    it('stores a valid ref as the source of a new request', async () => {
-      const response = await POST(
-        req({ email: 'new@example.com', locale: 'en', ref: 'reddit-ukparenting' }),
-      )
-      await runAfter()
-
-      expect(await response.json()).toEqual({ ok: true })
-      expect(mockUpsert.mock.calls[0]![0].create.source).toBe('reddit-ukparenting')
     })
 
     it.each([
@@ -253,71 +168,8 @@ describe('POST /api/waitlist', () => {
 
       expect(response.status).toBe(200)
       expect(await response.json()).toEqual({ ok: true })
-      expect(mockUpsert).toHaveBeenCalledTimes(1)
-      expect(mockUpsert.mock.calls[0]![0].create.source).toBeUndefined()
-      expect(mockSend).toHaveBeenCalledTimes(1)
-    })
-
-    it('stores no source for a request without a ref', async () => {
-      await POST(req({ email: 'new@example.com', locale: 'en' }))
-      await runAfter()
-
-      expect(mockUpsert.mock.calls[0]![0].create.source).toBeUndefined()
-    })
-
-    it('keeps the first source when the same address asks again from another link', async () => {
-      mockFindRequest.mockResolvedValue({
-        createdAt: new Date(Date.now() - 11 * 60 * 1000),
-      } as never)
-
-      await POST(req({ email: 'listed@example.com', locale: 'en', ref: 'facebook' }))
-      await runAfter()
-
-      // The upsert writes `source` on create only, so the stored row keeps its first one.
-      const { create, update } = mockUpsert.mock.calls[0]![0]
-      expect(create.source).toBe('facebook')
-      expect(update).not.toHaveProperty('source')
-    })
-
-    it('sends the email in the page locale', async () => {
-      await POST(req({ email: 'uus@example.com', locale: 'et' }))
-      await runAfter()
-
-      expect(mockUpsert.mock.calls[0]![0].create.locale).toBe('et')
-      expect(mockSend.mock.calls[0]![0].subject).toBe('Kinnita oma Wobblepot kutsesoov')
-    })
-
-    it('falls back to Accept-Language when the body has no known locale', async () => {
-      await POST(req({ email: 'uus@example.com', locale: 'xx' }, { 'accept-language': 'et-EE' }))
-      await runAfter()
-
-      expect(mockUpsert.mock.calls[0]![0].create.locale).toBe('et')
-    })
-
-    it('logs a send failure and still answers 200', async () => {
-      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-      mockSend.mockRejectedValue(new Error('Resend down'))
-
-      const response = await POST(req({ email: 'new@example.com' }))
-      await runAfter()
-
-      expect(response.status).toBe(200)
-      expect(consoleError).toHaveBeenCalledWith(
-        'Failed to send waitlist confirmation email:',
-        expect.any(Error),
-      )
-      consoleError.mockRestore()
-    })
-
-    it('reports a database failure instead of throwing', async () => {
-      const failure = new Error('db down')
-      mockUpsert.mockRejectedValue(failure)
-
-      await POST(req({ email: 'new@example.com' }))
-      await expect(runAfter()).resolves.toBeUndefined()
-
-      expect(captureApiError).toHaveBeenCalledWith(failure, { route: '/api/waitlist' })
-      expect(mockSend).not.toHaveBeenCalled()
+      expect(mockProcess).toHaveBeenCalledTimes(1)
+      expect(mockProcess.mock.calls[0]![0].source).toBeUndefined()
     })
   })
 })

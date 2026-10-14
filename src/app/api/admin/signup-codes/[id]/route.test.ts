@@ -1,28 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// The revoke query lives in `@/lib/signup-codes` (`revokeSignupCode`), tested
+// against a database in `signup-codes.db.test.ts`. This file mocks it at the
+// seam and asserts the admin gate and the status each refusal maps to
+// (HON-1217).
+
 vi.mock('@/lib/auth', () => ({
   auth: { api: { getSession: vi.fn() } },
 }))
 vi.mock('next/headers', () => ({
   headers: vi.fn().mockResolvedValue(new Headers()),
 }))
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    signupCode: {
-      deleteMany: vi.fn(),
-      findUnique: vi.fn(),
-    },
-  },
+vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
+vi.mock('@/lib/signup-codes', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/signup-codes')>()),
+  revokeSignupCode: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
+import { revokeSignupCode, SignupCodeError } from '@/lib/signup-codes'
 import { DELETE } from './route'
 
 const getSession = vi.mocked(auth.api.getSession)
-// Cast Prisma mocks since they are mock functions, not the real client method shapes.
-const deleteMany = prisma.signupCode.deleteMany as unknown as ReturnType<typeof vi.fn>
-const findUnique = prisma.signupCode.findUnique as unknown as ReturnType<typeof vi.fn>
+const mockRevoke = vi.mocked(revokeSignupCode)
 
 // `ADMIN_EMAIL` is pinned to admin@example.com by the unit project's env in
 // vitest.config.ts, so `isAdmin` recognises this session.
@@ -34,6 +35,7 @@ const userSession = {
 } as never
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
+const req = () => new Request('http://x', { method: 'DELETE' })
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -42,65 +44,62 @@ beforeEach(() => {
 describe('DELETE /api/admin/signup-codes/[id]', () => {
   it('returns 401 when there is no session', async () => {
     getSession.mockResolvedValue(null as never)
-
-    const res = await DELETE(new Request('http://x', { method: 'DELETE' }), params('c1'))
-
-    expect(res.status).toBe(401)
-    expect(deleteMany).not.toHaveBeenCalled()
+    expect((await DELETE(req(), params('c1'))).status).toBe(401)
+    expect(mockRevoke).not.toHaveBeenCalled()
   })
 
-  it('returns 404 when the user is not the admin (no leakage of route existence)', async () => {
+  it('returns 404 for non-admin sessions without touching the code', async () => {
     getSession.mockResolvedValue(userSession)
-
-    const res = await DELETE(new Request('http://x', { method: 'DELETE' }), params('c1'))
-
-    expect(res.status).toBe(404)
-    expect(deleteMany).not.toHaveBeenCalled()
+    expect((await DELETE(req(), params('c1'))).status).toBe(404)
+    expect(mockRevoke).not.toHaveBeenCalled()
   })
 
-  it('revokes an unused code', async () => {
+  it('revokes the code and answers ok', async () => {
     getSession.mockResolvedValue(adminSession)
-    deleteMany.mockResolvedValue({ count: 1 })
+    mockRevoke.mockResolvedValue()
 
-    const res = await DELETE(new Request('http://x', { method: 'DELETE' }), params('c1'))
+    const res = await DELETE(req(), params('c1'))
 
     expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.ok).toBe(true)
-    expect(deleteMany).toHaveBeenCalledWith({ where: { id: 'c1', usedAt: null } })
+    expect(await res.json()).toEqual({ ok: true })
+    expect(mockRevoke).toHaveBeenCalledWith('c1')
   })
 
-  it('returns 404 when the code does not exist', async () => {
+  it('returns 404 for an unknown code', async () => {
     getSession.mockResolvedValue(adminSession)
-    deleteMany.mockResolvedValue({ count: 0 })
-    findUnique.mockResolvedValue(null)
+    mockRevoke.mockRejectedValue(new SignupCodeError('notFound'))
 
-    const res = await DELETE(new Request('http://x', { method: 'DELETE' }), params('missing'))
+    const res = await DELETE(req(), params('missing'))
 
     expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'Code not found' })
   })
 
-  it('returns 409 when the code has already been claimed', async () => {
+  it('returns 409 for a claimed code', async () => {
     getSession.mockResolvedValue(adminSession)
-    deleteMany.mockResolvedValue({ count: 0 })
-    findUnique.mockResolvedValue({ usedAt: new Date('2026-04-25T13:00:00Z') })
+    mockRevoke.mockRejectedValue(new SignupCodeError('alreadyUsed'))
 
-    const res = await DELETE(new Request('http://x', { method: 'DELETE' }), params('c1'))
+    const res = await DELETE(req(), params('c1'))
 
     expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({
+      error: 'Code has already been claimed and cannot be revoked.',
+    })
+    expect(captureApiError).not.toHaveBeenCalled()
   })
 
-  it('returns 500 with the { error } JSON shape when the delete throws', async () => {
+  it('returns 500 and reports any other failure', async () => {
     getSession.mockResolvedValue(adminSession)
-    deleteMany.mockRejectedValue(new Error('db down'))
+    const failure = new Error('db down')
+    mockRevoke.mockRejectedValue(failure)
 
-    const res = await DELETE(new Request('http://x', { method: 'DELETE' }), params('c1'))
+    const res = await DELETE(req(), params('c1'))
 
     expect(res.status).toBe(500)
-    const body = await res.json()
-    // `apiFetch` parses the body and surfaces `error` — a bare Next.js 500
-    // would not be JSON at all, which is the regression this guards.
-    expect(typeof body.error).toBe('string')
-    expect(body.error.length).toBeGreaterThan(0)
+    expect(await res.json()).toEqual({ error: 'Failed to revoke signup code' })
+    expect(captureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/admin/signup-codes/[id]',
+      userId: 'admin_1',
+    })
   })
 })

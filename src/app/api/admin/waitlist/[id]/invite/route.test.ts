@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+// The queries live in `@/lib/waitlist` (`prepareWaitlistInvite`,
+// `discardWaitlistInviteCode`, `markWaitlistInvited`), tested against a
+// database in `waitlist.db.test.ts`. This file mocks them at the seam and
+// asserts what the route owns: the admin gate, the email, the order of the
+// send and the link, and the status and body of each answer (HON-1217).
+
 const { send, emailState } = vi.hoisted(() => ({
   send: vi.fn(),
   emailState: { configured: true },
@@ -11,7 +17,6 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('next/headers', () => ({
   headers: vi.fn().mockResolvedValue(new Headers()),
 }))
-vi.mock('nanoid', () => ({ nanoid: vi.fn(() => 'NEWCODE12345') }))
 vi.mock('@/lib/env', () => ({
   serverEnv: { NEXT_PUBLIC_APP_NAME: 'Wobblepot', ADMIN_EMAIL: 'admin@example.com' },
   getServerBaseURL: () => 'https://wobblepot.com',
@@ -24,38 +29,43 @@ vi.mock('@/lib/resend', () => ({
   EMAIL_SENDERS: { auth: 'Wobblepot <auth@mail.wobblepot.com>' },
   envSubject: (subject: string) => subject,
 }))
-vi.mock('@/lib/prisma', () => {
-  const prisma = {
-    waitlistRequest: { findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
-    user: { findUnique: vi.fn() },
-    signupCode: { create: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
-    $transaction: vi.fn(),
-  }
-  return { prisma }
-})
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
+vi.mock('@/lib/waitlist', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/waitlist')>()),
+  prepareWaitlistInvite: vi.fn(),
+  discardWaitlistInviteCode: vi.fn(),
+  markWaitlistInvited: vi.fn(),
+}))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { captureApiError } from '@/lib/errors'
+import {
+  discardWaitlistInviteCode,
+  markWaitlistInvited,
+  prepareWaitlistInvite,
+  WaitlistError,
+  type PreparedWaitlistInvite,
+} from '@/lib/waitlist'
 import { POST } from './route'
 
-type MockFn = ReturnType<typeof vi.fn>
 const getSession = vi.mocked(auth.api.getSession)
-const findFirst = prisma.waitlistRequest.findFirst as unknown as MockFn
-const updateRequest = prisma.waitlistRequest.updateMany as unknown as MockFn
-const createCode = prisma.signupCode.create as unknown as MockFn
-const expireCodes = prisma.signupCode.updateMany as unknown as MockFn
-const deleteCode = prisma.signupCode.delete as unknown as MockFn
-const findRequest = prisma.waitlistRequest.findUnique as unknown as MockFn
-const findUser = prisma.user.findUnique as unknown as MockFn
-const transaction = prisma.$transaction as unknown as MockFn
+const mockPrepare = vi.mocked(prepareWaitlistInvite)
+const mockDiscard = vi.mocked(discardWaitlistInviteCode)
+const mockMark = vi.mocked(markWaitlistInvited)
 
 const adminSession = { user: { id: 'admin_1', email: 'admin@example.com' } } as never
 const userSession = { user: { id: 'user_1', email: 'someone@example.com' } } as never
 
 const NOW = new Date('2026-10-07T10:00:00.000Z')
-const DAY_MS = 24 * 60 * 60 * 1000
+
+const invite = (overrides: Partial<PreparedWaitlistInvite> = {}): PreparedWaitlistInvite => ({
+  email: 'anna@example.com',
+  locale: 'et',
+  previousCodeId: null,
+  codeId: 'code_new',
+  code: 'NEWCODE12345',
+  ...overrides,
+})
 
 const call = (id = 'w1') =>
   POST(new Request(`http://localhost/api/admin/waitlist/${id}/invite`, { method: 'POST' }), {
@@ -67,14 +77,10 @@ beforeEach(() => {
   vi.useFakeTimers({ now: NOW })
   emailState.configured = true
   getSession.mockResolvedValue(adminSession)
-  transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma))
-  createCode.mockResolvedValue({ id: 'code_new' })
-  expireCodes.mockResolvedValue({ count: 1 })
-  updateRequest.mockResolvedValue({ count: 1 })
+  mockPrepare.mockResolvedValue(invite())
+  mockDiscard.mockResolvedValue()
+  mockMark.mockResolvedValue()
   send.mockResolvedValue({ data: { id: 'email_1' }, error: null })
-  findFirst.mockResolvedValue({ email: 'anna@example.com', locale: 'et', signupCodeId: null })
-  findUser.mockResolvedValue(null)
-  findRequest.mockResolvedValue({ id: 'w1' })
 })
 
 afterEach(() => {
@@ -85,38 +91,32 @@ describe('POST /api/admin/waitlist/[id]/invite', () => {
   it('returns 401 when there is no session', async () => {
     getSession.mockResolvedValue(null as never)
     expect((await call()).status).toBe(401)
+    expect(mockPrepare).not.toHaveBeenCalled()
   })
 
   it('returns 404 for a user who is not the admin and sends nothing', async () => {
     getSession.mockResolvedValue(userSession)
     expect((await call()).status).toBe(404)
-    expect(createCode).not.toHaveBeenCalled()
+    expect(mockPrepare).not.toHaveBeenCalled()
     expect(send).not.toHaveBeenCalled()
   })
 
-  it('returns 404 for a request that is unknown or not confirmed', async () => {
-    findFirst.mockResolvedValue(null)
+  it('returns 503 before any write when email is not configured', async () => {
+    emailState.configured = false
 
-    expect((await call('w1')).status).toBe(404)
-    expect(findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'w1', confirmedAt: { not: null } } }),
-    )
-    expect(createCode).not.toHaveBeenCalled()
+    const res = await call()
+
+    expect(res.status).toBe(503)
+    expect(await res.json()).toEqual({ error: 'Email is not configured' })
+    expect(mockPrepare).not.toHaveBeenCalled()
   })
 
-  it('mints a 14-day waitlist code, emails it once in the request locale, then links it', async () => {
+  it('mints a code as the admin, emails it once in the request locale, then links it', async () => {
     const res = await call('w1')
 
     expect(res.status).toBe(200)
-    expect(createCode).toHaveBeenCalledWith({
-      data: {
-        code: 'NEWCODE12345',
-        expiresAt: new Date(NOW.getTime() + 14 * DAY_MS),
-        note: 'waitlist',
-        createdById: 'admin_1',
-      },
-      select: { id: true },
-    })
+    expect(await res.json()).toEqual({ invitedAt: NOW.toISOString() })
+    expect(mockPrepare).toHaveBeenCalledWith({ requestId: 'w1', createdById: 'admin_1', now: NOW })
 
     expect(send).toHaveBeenCalledTimes(1)
     const email = send.mock.calls[0]![0]
@@ -125,130 +125,114 @@ describe('POST /api/admin/waitlist/[id]/invite', () => {
     expect(email.subject).toBe('Sinu Wobblepot kutsekood')
     expect(email.text).toContain('NEWCODE12345')
     expect(email.text).toContain('https://wobblepot.com/sign-up')
+    expect(email.text).toContain('14')
 
-    // The link is written only after the send, together with invitedAt.
-    expect(updateRequest).toHaveBeenCalledTimes(1)
-    expect(updateRequest).toHaveBeenCalledWith({
-      where: { id: 'w1', signupCodeId: null },
-      data: { invitedAt: NOW, signupCodeId: 'code_new' },
+    // The link is written only after the send.
+    expect(mockMark).toHaveBeenCalledWith({
+      requestId: 'w1',
+      previousCodeId: null,
+      codeId: 'code_new',
+      now: NOW,
     })
-    expect(send.mock.invocationCallOrder[0]!).toBeLessThan(
-      updateRequest.mock.invocationCallOrder[0]!,
-    )
-    expect(expireCodes).not.toHaveBeenCalled()
-    expect(await res.json()).toEqual({ invitedAt: NOW.toISOString() })
+    expect(send.mock.invocationCallOrder[0]!).toBeLessThan(mockMark.mock.invocationCallOrder[0]!)
+    expect(mockDiscard).not.toHaveBeenCalled()
   })
 
-  it('expires the previous unused code on Send again', async () => {
-    findFirst.mockResolvedValue({
-      email: 'anna@example.com',
-      locale: 'en',
-      signupCodeId: 'code_old',
-    })
+  it('passes the previous code on Send again, and emails in English for an English request', async () => {
+    mockPrepare.mockResolvedValue(invite({ locale: 'en', previousCodeId: 'code_old' }))
 
     expect((await call('w1')).status).toBe(200)
 
-    expect(expireCodes).toHaveBeenCalledWith({
-      where: { id: 'code_old', usedAt: null },
-      data: { expiresAt: NOW },
-    })
-    expect(createCode).toHaveBeenCalledTimes(1)
+    expect(mockMark).toHaveBeenCalledWith(expect.objectContaining({ previousCodeId: 'code_old' }))
     expect(send.mock.calls[0]![0].subject).toBe('Your Wobblepot invite code')
   })
 
   it('falls back to English for a locale the app does not know', async () => {
-    findFirst.mockResolvedValue({ email: 'x@example.com', locale: 'fr', signupCodeId: null })
+    mockPrepare.mockResolvedValue(invite({ locale: 'fr' }))
 
     await call()
 
     expect(send.mock.calls[0]![0].subject).toBe('Your Wobblepot invite code')
   })
 
-  it('returns 502, deletes the unsent code and leaves the request alone when Resend reports an error', async () => {
-    findFirst.mockResolvedValue({
-      email: 'anna@example.com',
-      locale: 'en',
-      signupCodeId: 'code_old',
-    })
-    send.mockResolvedValue({ data: null, error: { name: 'validation_error', message: 'bad' } })
+  it('returns 502, discards the unsent code and links nothing when Resend reports an error', async () => {
+    const resendError = { name: 'validation_error', message: 'bad' }
+    send.mockResolvedValue({ data: null, error: resendError })
 
     const res = await call('w1')
 
     expect(res.status).toBe(502)
-    expect(captureApiError).toHaveBeenCalled()
-    expect(deleteCode).toHaveBeenCalledWith({ where: { id: 'code_new' } })
-    // The previous code stays valid and linked; invitedAt is untouched.
-    expect(expireCodes).not.toHaveBeenCalled()
-    expect(updateRequest).not.toHaveBeenCalled()
+    expect(await res.json()).toEqual({ error: 'Failed to send the invite email' })
+    expect(captureApiError).toHaveBeenCalledWith(resendError, {
+      route: expect.any(String),
+      userId: 'admin_1',
+    })
+    expect(mockDiscard).toHaveBeenCalledWith('code_new')
+    expect(mockMark).not.toHaveBeenCalled()
   })
 
-  it('returns 404 and expires the sent code when the request is deleted during the send', async () => {
-    findFirst.mockResolvedValue({
-      email: 'anna@example.com',
-      locale: 'en',
-      signupCodeId: 'code_old',
-    })
-    updateRequest.mockResolvedValue({ count: 0 })
-    findRequest.mockResolvedValue(null)
+  it('returns 502 when the send throws, and still answers 502 when the discard fails', async () => {
+    send.mockRejectedValue(new Error('network'))
+    mockDiscard.mockRejectedValue(new Error('db down'))
 
-    expect((await call('w1')).status).toBe(404)
-    expect(expireCodes).toHaveBeenCalledTimes(1)
-    expect(expireCodes).toHaveBeenCalledWith({
-      where: { id: 'code_new', usedAt: null },
-      data: { expiresAt: NOW },
-    })
+    expect((await call()).status).toBe(502)
+    expect(captureApiError).toHaveBeenCalledTimes(2)
+    expect(mockMark).not.toHaveBeenCalled()
   })
 
-  it('returns 409 INVITE_CONFLICT and expires its own code when another send linked first', async () => {
-    findFirst.mockResolvedValue({
-      email: 'anna@example.com',
-      locale: 'en',
-      signupCodeId: 'code_old',
-    })
-    // A concurrent send replaced `code_old` between the read and the link.
-    updateRequest.mockResolvedValue({ count: 0 })
+  it('returns 404 for a request that is unknown or not confirmed', async () => {
+    mockPrepare.mockRejectedValue(new WaitlistError('notFound'))
 
     const res = await call('w1')
 
-    expect(res.status).toBe(409)
-    expect((await res.json()).code).toBe('INVITE_CONFLICT')
-    expect(updateRequest).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'w1', signupCodeId: 'code_old' } }),
-    )
-    // Only this send's code is expired; the winner's code and `code_old`
-    // (which the winner expired) are left alone.
-    expect(expireCodes).toHaveBeenCalledTimes(1)
-    expect(expireCodes).toHaveBeenCalledWith({
-      where: { id: 'code_new', usedAt: null },
-      data: { expiresAt: NOW },
-    })
-  })
-
-  it('returns 409 ACCOUNT_EXISTS before minting when the address has an account', async () => {
-    findUser.mockResolvedValue({ id: 'user_9' })
-
-    const res = await call('w1')
-
-    expect(res.status).toBe(409)
-    expect((await res.json()).code).toBe('ACCOUNT_EXISTS')
-    expect(findUser).toHaveBeenCalledWith({
-      where: { email: 'anna@example.com' },
-      select: { id: true },
-    })
-    expect(createCode).not.toHaveBeenCalled()
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'Request not found' })
     expect(send).not.toHaveBeenCalled()
   })
 
-  it('returns 502 when the send throws', async () => {
-    send.mockRejectedValue(new Error('network'))
-    expect((await call()).status).toBe(502)
+  it('returns 409 ACCOUNT_EXISTS and sends nothing when the address has an account', async () => {
+    mockPrepare.mockRejectedValue(new WaitlistError('accountExists'))
+
+    const res = await call('w1')
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({
+      error: 'This address already has an account',
+      code: 'ACCOUNT_EXISTS',
+    })
+    expect(send).not.toHaveBeenCalled()
   })
 
-  it('returns 503 before any write when email is not configured', async () => {
-    emailState.configured = false
+  it('returns 409 INVITE_CONFLICT when another send linked first', async () => {
+    mockMark.mockRejectedValue(new WaitlistError('inviteConflict'))
 
-    expect((await call()).status).toBe(503)
-    expect(findFirst).not.toHaveBeenCalled()
-    expect(createCode).not.toHaveBeenCalled()
+    const res = await call('w1')
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({
+      error: 'Another invite was sent at the same time',
+      code: 'INVITE_CONFLICT',
+    })
+    expect(captureApiError).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 when the request is deleted during the send', async () => {
+    mockMark.mockRejectedValue(new WaitlistError('notFound'))
+
+    expect((await call('w1')).status).toBe(404)
+  })
+
+  it('returns 500 and reports any other failure', async () => {
+    const failure = new Error('db down')
+    mockPrepare.mockRejectedValue(failure)
+
+    const res = await call('w1')
+
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'Failed to send the invite' })
+    expect(captureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/admin/waitlist/[id]/invite',
+      userId: 'admin_1',
+    })
   })
 })

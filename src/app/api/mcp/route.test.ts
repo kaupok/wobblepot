@@ -16,16 +16,17 @@ vi.mock('@better-auth/mcp', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@better-auth/mcp')>()
   return { ...actual, requireMcpAuth: vi.fn(actual.requireMcpAuth) }
 })
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    user: { findUnique: vi.fn() },
-    oauthConsent: { findFirst: vi.fn() },
-    meal: { findFirst: vi.fn() },
-    ingredient: { findMany: vi.fn() },
-    $transaction: vi.fn(),
-  },
+// The account and grant read is `loadMcpCaller`, tested against a database
+// in `grant.db.test.ts`; the tools' queries are tested next to each tool. This
+// file mocks those modules at the seam (HON-1217).
+vi.mock('@/lib/mcp/grant', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/mcp/grant')>()),
+  loadMcpCaller: vi.fn(),
 }))
-vi.mock('@/lib/household', () => ({ getHouseholdMembership: vi.fn() }))
+vi.mock('@/lib/shopping/purchase', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/shopping/purchase')>()),
+  purchaseIngredients: vi.fn(),
+}))
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: vi.fn() }))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
 vi.mock('@/lib/meal-planning/load-plan-entries', () => ({ loadPlanEntries: vi.fn() }))
@@ -37,8 +38,8 @@ vi.mock('@/lib/meals/load-meals', async (importOriginal) => ({
 }))
 
 import { requireMcpAuth } from '@better-auth/mcp'
-import { prisma } from '@/lib/prisma'
-import { getHouseholdMembership } from '@/lib/household'
+import { loadMcpCaller, McpGrantError } from '@/lib/mcp/grant'
+import { purchaseIngredients } from '@/lib/shopping/purchase'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { captureApiError } from '@/lib/errors'
 import { loadPlanEntries } from '@/lib/meal-planning/load-plan-entries'
@@ -62,10 +63,7 @@ const HOUSEHOLDS = {
   'user-b': mcpHousehold({ id: 'household-b', name: 'B' }),
 }
 
-/** The consent row's `createdAt`, whole seconds as the plugin writes it. */
-const GRANTED_AT = new Date('2026-10-12T12:00:00Z')
-/** Issued 10 s after the Allow that created the row. */
-const TOKEN_IAT = GRANTED_AT.getTime() / 1000 + 10
+const TOKEN_IAT = Date.parse('2026-10-12T12:00:10Z') / 1000
 
 const READ_TOOL_NAMES = [
   'get_meal_plan',
@@ -141,12 +139,11 @@ describe('/api/mcp', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireMcpAuth).mockImplementation(actualRequireMcpAuth)
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ deletedAt: null } as never)
-    vi.mocked(prisma.oauthConsent.findFirst).mockResolvedValue({ createdAt: GRANTED_AT } as never)
-    vi.mocked(getHouseholdMembership).mockImplementation(async (userId: string) => {
-      const household = HOUSEHOLDS[userId as keyof typeof HOUSEHOLDS]
-      return (household ? { householdId: household.id, household } : null) as never
-    })
+    vi.mocked(loadMcpCaller).mockImplementation(async ({ userId, scopes }) => ({
+      userId,
+      household: HOUSEHOLDS[userId as keyof typeof HOUSEHOLDS] ?? null,
+      scopes,
+    }))
     vi.mocked(checkRateLimit).mockResolvedValue({
       allowed: true,
       limit: 120,
@@ -261,7 +258,10 @@ describe('/api/mcp', () => {
 
     it("runs a write tool for a token with mcp:write, on the caller's household", async () => {
       // No ingredient found, so the purchase stops before any write.
-      vi.mocked(prisma.ingredient.findMany).mockResolvedValue([])
+      vi.mocked(purchaseIngredients).mockResolvedValue({
+        status: 'invalid_ids',
+        invalidIds: ['ing-1'],
+      })
 
       const result = await callTool(
         'user-b',
@@ -273,14 +273,7 @@ describe('/api/mcp', () => {
       expect(result.content[0]!.text).toContain('ing-1')
       expect(result.content[0]!.text).not.toBe(WRITE_SCOPE_MESSAGE)
       expect(checkRateLimit).toHaveBeenCalledWith('household-b', 'mcp')
-      expect(prisma.ingredient.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            OR: [{ householdId: null }, { householdId: 'household-b' }],
-          }),
-        }),
-      )
-      expect(prisma.$transaction).not.toHaveBeenCalled()
+      expect(vi.mocked(purchaseIngredients).mock.calls).toEqual([[HOUSEHOLDS['user-b'], ['ing-1']]])
     })
 
     it('serves a 2025-era client that sends no per-request envelope', async () => {
@@ -343,19 +336,15 @@ describe('/api/mcp', () => {
       vi.mocked(loadShoppingList).mockResolvedValue({ groups: [], customItems: [] } as never)
       vi.mocked(loadPantry).mockResolvedValue({ items: [], windowDays: 7 } as never)
       vi.mocked(loadMeals).mockResolvedValue({ meals: [], total: 0, hasMore: false })
-      vi.mocked(prisma.meal.findFirst).mockResolvedValue(null)
 
       await callTool('user-b', 'get_shopping_list')
       await callTool('user-b', 'get_pantry')
       await callTool('user-b', 'list_meals')
-      await callTool('user-b', 'get_meal', { mealId: 'meal-household-a' })
 
       expect(vi.mocked(loadShoppingList).mock.calls[0]![0].id).toBe('household-b')
       expect(vi.mocked(loadPantry).mock.calls[0]![0].id).toBe('household-b')
       expect(vi.mocked(loadMeals).mock.calls[0]![0].id).toBe('household-b')
-      expect(JSON.stringify(vi.mocked(prisma.meal.findFirst).mock.calls[0]![0])).toContain(
-        '"householdId":"household-b"',
-      )
+      // `get_meal` queries on its own; `get-meal.test.ts` covers its household scoping.
     })
 
     it('answers every tool with the onboarding message for an account without a household', async () => {
@@ -384,53 +373,40 @@ describe('/api/mcp', () => {
       })
     })
 
-    it('refuses the token of a deleted account with 401', async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({ deletedAt: new Date() } as never)
+    it('loads the caller from the token claims', async () => {
+      await POST(mcpRequest('tools/list', {}, asWriter('user-a')))
 
-      const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
-
-      expect(response.status).toBe(401)
-      expect(response.headers.get('www-authenticate')).toContain('error="invalid_token"')
+      expect(loadMcpCaller).toHaveBeenCalledWith({
+        userId: 'user-a',
+        clientId: 'client-1',
+        issuedAt: TOKEN_IAT,
+        scopes: ['openid', 'mcp:read', 'mcp:write'],
+      })
     })
 
-    it('refuses the token of a disconnected client with 401 (HON-1153)', async () => {
-      // Disconnect deleted the consent row; the JWT itself is still unexpired.
-      vi.mocked(prisma.oauthConsent.findFirst).mockResolvedValue(null)
+    it.each([
+      ['noAccount', 'no active account'],
+      ['noGrant', 'no active grant'],
+    ] as const)(
+      'refuses a token whose grant is gone (%s) with 401',
+      async (reason, description) => {
+        vi.mocked(loadMcpCaller).mockRejectedValue(new McpGrantError(reason))
 
-      const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
+        const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
 
-      expect(response.status).toBe(401)
-      expect(response.headers.get('www-authenticate')).toContain('error="invalid_token"')
-      expect(response.headers.get('www-authenticate')).toContain('no active grant')
-      expect(prisma.oauthConsent.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: 'user-a', clientId: 'client-1' } }),
-      )
-    })
-
-    it('refuses a token issued before a Disconnect and reconnect with 401', async () => {
-      // The reconnect wrote a new consent row a minute after this token's `iat`.
-      vi.mocked(prisma.oauthConsent.findFirst).mockResolvedValue({
-        createdAt: new Date((TOKEN_IAT + 60) * 1000),
-      } as never)
-
-      const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
-
-      expect(response.status).toBe(401)
-      expect(response.headers.get('www-authenticate')).toContain('no active grant')
-    })
-
-    it('accepts a token issued in the same second as its consent row', async () => {
-      vi.mocked(prisma.oauthConsent.findFirst).mockResolvedValue({
-        createdAt: new Date(TOKEN_IAT * 1000 + 999),
-      } as never)
-
-      const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
-
-      expect(response.status).toBe(200)
-    })
+        expect(response.status).toBe(401)
+        const challenge = response.headers.get('www-authenticate')
+        expect(challenge).toContain('error="invalid_token"')
+        expect(challenge).toContain(`error_description="${description}"`)
+        expect(challenge).toContain(
+          'resource_metadata="http://localhost:3000/.well-known/oauth-protected-resource/api/mcp"',
+        )
+        expect(captureApiError).not.toHaveBeenCalled()
+      },
+    )
 
     it('reports a failed account lookup and answers 500 without the server error', async () => {
-      vi.mocked(getHouseholdMembership).mockRejectedValue(new Error('db down'))
+      vi.mocked(loadMcpCaller).mockRejectedValue(new Error('db down'))
 
       const response = await POST(mcpRequest('tools/list', {}, as('user-a')))
 

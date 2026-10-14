@@ -30,6 +30,7 @@ import { prisma } from '@/lib/prisma'
 import { generateObject } from 'ai'
 import { getRedis } from '@/lib/upstash'
 import {
+  pingDatabase,
   probeDatabase,
   probeAuth,
   probeAi,
@@ -48,6 +49,36 @@ const mockGetRedis = vi.mocked(getRedis)
 function stubRedisPing(impl: () => Promise<string>): void {
   mockGetRedis.mockReturnValue({ ping: impl } as unknown as ReturnType<typeof getRedis>)
 }
+
+describe('pingDatabase', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    __resetProbeCache()
+  })
+
+  it('resolves when the query succeeds, and runs it on every call', async () => {
+    mockQueryRaw.mockResolvedValue([{ '?column?': 1 }])
+
+    await expect(pingDatabase()).resolves.toBeUndefined()
+    await expect(pingDatabase()).resolves.toBeUndefined()
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects when the query rejects', async () => {
+    mockQueryRaw.mockRejectedValueOnce(new Error('Connection refused'))
+
+    await expect(pingDatabase()).rejects.toThrow('Connection refused')
+  })
+
+  it('rejects when the query hangs past 2 seconds', async () => {
+    mockQueryRaw.mockImplementationOnce(
+      () => new Promise((resolve) => setTimeout(resolve, 5000)) as never,
+    )
+
+    await expect(pingDatabase()).rejects.toThrow('Probe timeout after 2000ms')
+  }, 10_000)
+})
 
 describe('probeDatabase', () => {
   beforeEach(() => {
