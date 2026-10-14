@@ -26,13 +26,13 @@ export const CUSTOM_SPACING_VALUES = ['touch'] as const
 
 /**
  * Every custom value in the `--shadow-*` family, as declared in
- * `src/app/globals.css`. `float` is the header pills' lift (docs/DESIGN.md →
- * Elevation). Same hole as spacing: tailwind-merge's `shadow` scale is
+ * `src/app/globals.css`. `float` is the header pills' lift and `deck` the
+ * landing deck's front card (docs/DESIGN.md → Elevation). Same hole as spacing: tailwind-merge's `shadow` scale is
  * `isTshirtSize`, so an unregistered `shadow-float` keeps both sides of
  * `cn('shadow-float', 'shadow-md')`. Must stay in sync with `globals.css`;
  * `utils.test.ts` fails if the two drift.
  */
-export const CUSTOM_SHADOW_VALUES = ['float', 'modal'] as const
+export const CUSTOM_SHADOW_VALUES = ['float', 'modal', 'deck'] as const
 
 /**
  * Every custom `@utility` declared in `src/app/globals.css`, mapped to the
