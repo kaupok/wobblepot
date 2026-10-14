@@ -101,7 +101,10 @@ Publish:
 
 Procedure: docs/DEPLOYMENT.md § "Global meal illustrations".`
 
-/** Same as the route's `CLAIM_STALE_MS`: a claim older than this belongs to a dead process. */
+/**
+ * Same as `MEAL_IMAGE_CLAIM_STALE_MS` in `src/lib/meal-images/persist.ts`: a
+ * claim older than this belongs to a dead process.
+ */
 export const CLAIM_STALE_MS = 3 * 60_000
 
 export interface ParsedArgs {

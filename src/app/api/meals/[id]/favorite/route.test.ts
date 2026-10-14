@@ -1,45 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST, DELETE } from './route'
 
+// Every query lives in `@/lib/meals/favorite`, tested against a database in
+// `favorite.db.test.ts`. This file mocks that module at the seam and asserts
+// what the route owns: the session, the household, and the status and body
+// each answer maps to (HON-1211).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
 vi.mock('@/lib/household', () => ({
   getHouseholdMembership: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    meal: {
-      findFirst: vi.fn(),
-    },
-    favoriteMeal: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      deleteMany: vi.fn(),
-    },
-  },
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/meals/favorite', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/meals/favorite')>()),
+  addFavorite: vi.fn(),
+  removeFavorite: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
+import { addFavorite, FavoriteError, removeFavorite } from '@/lib/meals/favorite'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
 const mockGetMembership = vi.mocked(getHouseholdMembership)
-const mockFindFirstMeal = vi.mocked(prisma.meal.findFirst)
-const mockFindUniqueFavorite = vi.mocked(prisma.favoriteMeal.findUnique)
-const mockCreateFavorite = vi.mocked(prisma.favoriteMeal.create)
-const mockDeleteManyFavorite = vi.mocked(prisma.favoriteMeal.deleteMany)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockAddFavorite = vi.mocked(addFavorite)
+const mockRemoveFavorite = vi.mocked(removeFavorite)
 
 const mockSession = {
   user: { id: 'user-123', name: 'John', email: 'john@example.com' },
@@ -54,134 +52,117 @@ const mockMembership = {
   household: { id: 'household-123', name: 'Test', timezone: 'Europe/Tallinn', preferences: null },
 } as never
 
-const createParams = (id: string = 'meal-123') => Promise.resolve({ id })
+const params = () => Promise.resolve({ id: 'meal-123' })
+const URL = 'http://localhost/api/meals/meal-123/favorite'
 
-const createPostRequest = () =>
-  new Request('http://localhost/api/meals/meal-123/favorite', { method: 'POST' })
+const post = () => POST(new Request(URL, { method: 'POST' }), { params: params() })
+const del = () => DELETE(new Request(URL, { method: 'DELETE' }), { params: params() })
 
-const createDeleteRequest = () =>
-  new Request('http://localhost/api/meals/meal-123/favorite', { method: 'DELETE' })
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(mockMembership)
+})
 
 describe('POST /api/meals/[id]/favorite', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await POST(createPostRequest(), { params: createParams() })
-    const data = await response.json()
+    const response = await post()
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await response.json()).toEqual({ error: 'Unauthorized' })
+    expect(mockAddFavorite).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(null)
 
-    const response = await POST(createPostRequest(), { params: createParams() })
-    const data = await response.json()
+    const response = await post()
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await response.json()).toEqual({ error: 'No household found' })
   })
 
-  it('returns 404 when meal not found', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstMeal.mockResolvedValue(null)
+  it("favourites the meal for the caller's household and returns 201", async () => {
+    mockAddFavorite.mockResolvedValue({ id: 'fav-new' })
 
-    const response = await POST(createPostRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Meal not found')
-  })
-
-  it('returns 409 when meal is already favorited', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstMeal.mockResolvedValue({ id: 'meal-123' } as never)
-    mockFindUniqueFavorite.mockResolvedValue({ id: 'fav-1' } as never)
-
-    const response = await POST(createPostRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(409)
-    expect(data.error).toBe('Meal is already favorited')
-  })
-
-  it('creates favorite and returns 201 on success', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockFindFirstMeal.mockResolvedValue({ id: 'meal-123' } as never)
-    mockFindUniqueFavorite.mockResolvedValue(null)
-    mockCreateFavorite.mockResolvedValue({
-      id: 'fav-new',
-      householdId: 'household-123',
-      mealId: 'meal-123',
-    } as never)
-
-    const response = await POST(createPostRequest(), { params: createParams() })
-    const data = await response.json()
+    const response = await post()
 
     expect(response.status).toBe(201)
-    expect(data.id).toBe('fav-new')
-    expect(data.mealId).toBe('meal-123')
-    expect(data.isFavorite).toBe(true)
+    expect(await response.json()).toEqual({ id: 'fav-new', mealId: 'meal-123', isFavorite: true })
+    expect(mockAddFavorite).toHaveBeenCalledWith('household-123', 'meal-123')
+  })
+
+  it.each([
+    ['mealNotFound', 404, 'Meal not found'],
+    ['alreadyFavorite', 409, 'Meal is already favorited'],
+  ] as const)('maps %s to %i', async (reason, status, error) => {
+    mockAddFavorite.mockRejectedValue(new FavoriteError(reason))
+
+    const response = await post()
+
+    expect(response.status).toBe(status)
+    expect(await response.json()).toEqual({ error })
+    expect(mockCaptureApiError).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 and reports an unexpected error', async () => {
+    mockAddFavorite.mockRejectedValue(new Error('db down'))
+
+    const response = await post()
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: 'Failed to favorite meal' })
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
   })
 })
 
 describe('DELETE /api/meals/[id]/favorite', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('returns 401 when not authenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await DELETE(createDeleteRequest(), { params: createParams() })
-    const data = await response.json()
+    const response = await del()
 
     expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(mockRemoveFavorite).not.toHaveBeenCalled()
   })
 
   it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
     mockGetMembership.mockResolvedValue(null)
 
-    const response = await DELETE(createDeleteRequest(), { params: createParams() })
-    const data = await response.json()
+    const response = await del()
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await response.json()).toEqual({ error: 'No household found' })
   })
 
-  it('returns 404 when favorite not found', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockDeleteManyFavorite.mockResolvedValue({ count: 0 } as never)
+  it("removes the favourite for the caller's household and returns 200", async () => {
+    mockRemoveFavorite.mockResolvedValue(undefined)
 
-    const response = await DELETE(createDeleteRequest(), { params: createParams() })
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Favorite not found')
-  })
-
-  it('removes favorite and returns 200 on success', async () => {
-    mockGetSession.mockResolvedValue(mockSession)
-    mockGetMembership.mockResolvedValue(mockMembership)
-    mockDeleteManyFavorite.mockResolvedValue({ count: 1 } as never)
-
-    const response = await DELETE(createDeleteRequest(), { params: createParams() })
-    const data = await response.json()
+    const response = await del()
 
     expect(response.status).toBe(200)
-    expect(data.mealId).toBe('meal-123')
-    expect(data.isFavorite).toBe(false)
+    expect(await response.json()).toEqual({ mealId: 'meal-123', isFavorite: false })
+    expect(mockRemoveFavorite).toHaveBeenCalledWith('household-123', 'meal-123')
+  })
+
+  it('returns 404 when the meal is not a favourite', async () => {
+    mockRemoveFavorite.mockRejectedValue(new FavoriteError('notFavorite'))
+
+    const response = await del()
+
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: 'Favorite not found' })
+  })
+
+  it('returns 500 and reports an unexpected error', async () => {
+    mockRemoveFavorite.mockRejectedValue(new Error('db down'))
+
+    const response = await del()
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: 'Failed to unfavorite meal' })
+    expect(mockCaptureApiError).toHaveBeenCalledTimes(1)
   })
 })
