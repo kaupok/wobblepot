@@ -18,7 +18,7 @@ interface ConfirmReminderPageProps {
 }
 
 const householdLink = (chunks: ReactNode) => (
-  <Link href="/household" className="text-foreground underline underline-offset-2">
+  <Link href="/household" className="text-foreground inline-link">
     {chunks}
   </Link>
 )

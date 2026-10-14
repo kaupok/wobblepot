@@ -232,6 +232,27 @@
   max-width: calc(50% - 3.75rem);
 }
 
+/* A link in body text (docs/DESIGN.md → Color, HON-1227): underlined at rest,
+   the underline thickens on hover. Thickness is paint, not layout, so the hover
+   moves nothing. `@variant hover` is Tailwind's own `hover:` (`(hover: hover)`
+   only), so a tap on a phone leaves no thick underline behind. 150ms on the
+   house curve; the reduced-motion rule below collapses it. No colour: the link
+   keeps its context's. Listed in UNMERGED_UTILITIES (src/lib/utils.ts), not
+   CUSTOM_UTILITY_CLASS_GROUPS: it spans three decoration properties, so no
+   single tailwind-merge family conflicts with it. */
+@utility inline-link {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition-property: text-decoration-thickness;
+  transition-duration: 150ms;
+  transition-timing-function: var(--ease-out);
+
+  @variant hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);

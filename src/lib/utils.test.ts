@@ -7,6 +7,7 @@ import {
   CUSTOM_SHADOW_VALUES,
   CUSTOM_SPACING_VALUES,
   CUSTOM_UTILITY_CLASS_GROUPS,
+  UNMERGED_UTILITIES,
   cn,
   getValidReturnUrl,
   prefersReducedMotion,
@@ -320,11 +321,25 @@ describe('cn utility function', () => {
     it('registers every @utility with tailwind-merge', () => {
       const declared = declaredUtilities()
       const registered = new Set<string>(Object.values(CUSTOM_UTILITY_CLASS_GROUPS).flat())
+      const unmerged = new Set<string>(UNMERGED_UTILITIES)
 
-      const missing = declared.filter((name) => !registered.has(name))
+      const missing = declared.filter((name) => !registered.has(name) && !unmerged.has(name))
       expect(
         missing,
         `@utility ${missing.join(', ')} is declared in globals.css but not in CUSTOM_UTILITY_CLASS_GROUPS in src/lib/utils.ts. Until it is, tailwind-merge does not know which group it belongs to and keeps both sides of any conflict on it, so every className override of it silently stops working.`,
+      ).toEqual([])
+
+      // The exemption list stays an exemption: a name in it must be declared,
+      // and must not also claim a class group.
+      const staleUnmerged = [...unmerged].filter((name) => !declared.includes(name))
+      expect(
+        staleUnmerged,
+        `UNMERGED_UTILITIES in src/lib/utils.ts lists ${staleUnmerged.join(', ')}, which is no longer declared with @utility in globals.css. Remove it.`,
+      ).toEqual([])
+      const both = [...unmerged].filter((name) => registered.has(name))
+      expect(
+        both,
+        `${both.join(', ')} is in both UNMERGED_UTILITIES and CUSTOM_UTILITY_CLASS_GROUPS in src/lib/utils.ts. Keep it in one.`,
       ).toEqual([])
 
       // Structural, and it has to come before the behavioural check below, which

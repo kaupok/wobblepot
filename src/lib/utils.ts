@@ -69,6 +69,21 @@ export const CUSTOM_UTILITY_CLASS_GROUPS = {
   p: ['p-safe'],
 } as const
 
+/**
+ * Custom `@utility` names that belong to no tailwind-merge class group, so they
+ * cannot go in `CUSTOM_UTILITY_CLASS_GROUPS`. Each one needs a reason.
+ *
+ * - `inline-link` (HON-1227): sets the underline's line, thickness and offset
+ *   together, so it spans three tailwind-merge families and none of them is
+ *   named by its prefix. It goes on a bare `<a>` or `<Link>` in body text,
+ *   never through a component's `cn(base, className)`, so no override of it
+ *   needs merging.
+ *
+ * `utils.test.ts` fails on a name here that is not declared, or that is also
+ * in `CUSTOM_UTILITY_CLASS_GROUPS`.
+ */
+export const UNMERGED_UTILITIES = ['inline-link'] as const
+
 const twMerge = extendTailwindMerge({
   extend: {
     theme: { spacing: [...CUSTOM_SPACING_VALUES], shadow: [...CUSTOM_SHADOW_VALUES] },

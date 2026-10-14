@@ -45,7 +45,7 @@ export const WrappingWithLink: Story = {
     children: (
       <>
         Private beta — sign-up is by invite code only. Don&apos;t have one?{' '}
-        <a href="/request-invite" className="underline">
+        <a href="/request-invite" className="inline-link">
           Ask for an invite
         </a>
         .

@@ -144,7 +144,7 @@ export function MealCardBase({
           href={meal.sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-sm underline"
+          className="text-primary hover:text-primary/80 inline-link inline-flex items-center gap-1 text-sm"
         >
           {tDetail('viewSource')}
           <ExternalLink className="size-3.5" />

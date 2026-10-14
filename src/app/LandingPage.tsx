@@ -99,10 +99,7 @@ export async function LandingPage({ inviteRequired, locale, demo }: LandingPageP
                 {t('privateBeta')}{' '}
                 {tSignUp.rich('requestInvite', {
                   link: (chunks) => (
-                    <Link
-                      href="/request-invite"
-                      className="text-foreground underline underline-offset-2"
-                    >
+                    <Link href="/request-invite" className="text-foreground inline-link">
                       {chunks}
                     </Link>
                   ),

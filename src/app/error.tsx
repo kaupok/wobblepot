@@ -41,7 +41,7 @@ export default function Error({
             {t.rich('supportPrompt', {
               email: SUPPORT_EMAIL,
               link: (chunks) => (
-                <a className="underline" href={SUPPORT_EMAIL_HREF}>
+                <a className="inline-link" href={SUPPORT_EMAIL_HREF}>
                   {chunks}
                 </a>
               ),

@@ -197,7 +197,7 @@ export function SignUpForm({
                   {t('privateBetaBanner')}{' '}
                   {t.rich('requestInvite', {
                     link: (chunks) => (
-                      <Link href="/request-invite" className="underline">
+                      <Link href="/request-invite" className="inline-link">
                         {chunks}
                       </Link>
                     ),
@@ -302,7 +302,7 @@ export function SignUpForm({
                         href="/terms"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline"
+                        className="inline-link"
                       >
                         {chunks}
                       </Link>
@@ -312,7 +312,7 @@ export function SignUpForm({
                         href="/privacy"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline"
+                        className="inline-link"
                       >
                         {chunks}
                       </Link>
@@ -335,7 +335,7 @@ export function SignUpForm({
             </Button>
             <Body variant="muted" className="text-center">
               {t('alreadyHaveAccount')}{' '}
-              <Link href={signInHref} className="text-primary hover:underline">
+              <Link href={signInHref} className="text-primary inline-link">
                 {t('signInLink')}
               </Link>
             </Body>
