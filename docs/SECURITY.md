@@ -10,6 +10,7 @@ This file covers the response headers: the Content Security Policy and the stati
 - **Destructive-command hook** for agents (`.claude/hooks/block-destructive.mts`): CLAUDE.md → Git & Workflow Essentials → Hooks.
 - **Breach response:** [RUNBOOKS/breach-notification.md](./RUNBOOKS/breach-notification.md).
 - **OAuth for MCP clients:** [§ OAuth for MCP clients](#oauth-for-mcp-clients) below.
+- **Read-only API keys:** [§ Read-only API keys](#read-only-api-keys) below.
 
 ## Content Security Policy (CSP)
 
@@ -105,6 +106,16 @@ Wobblepot is an OAuth 2.1 authorization server for MCP clients, such as a custom
 - **Consent.** A signed-in user allows or denies the client on `/consent`. The page checks the signature and expiry of the query before it shows the client's name. Consents are stored in `oauth_consent`, tokens in `oauth_access_token` and `oauth_refresh_token`. A deletion request (`DELETE /api/auth/user`) deletes all three with the sessions, so a connected app cannot refresh during the 30-day grace window. A JWT access token it already holds would stay valid until it expires, at most 1 hour, so the MCP route also refuses a token whose user has `deletedAt` set. The purge cascade removes any that remain. For every user, the same nightly cron deletes access and refresh token rows past `expiresAt` (HON-1165); a rotated refresh token stays until then, so a replay of it still revokes the token family. A client row in `oauth_client` stays, with `userId` cleared. Disconnect on the profile page deletes the three for one client (`DELETE /api/auth/user/mcp-consents/[clientId]`, HON-1153), and the MCP route refuses a token with no consent row for its user and client, so the JWT stops working at once ([MCP_SERVER.md](MCP_SERVER.md) → Connecting and disconnecting).
 - **Registration is open.** Dynamic client registration accepts unauthenticated requests, because Claude registers that way, and a Client ID Metadata Document is fetched with the plugin's Node transport, which resolves the host once, accepts only public addresses and follows no redirects. Anyone can create a client row, but a client reads nothing until a user allows it. Better Auth's built-in rate limiter covers these endpoints. There is no Upstash bucket: Claude registers from shared Anthropic addresses, so a per-IP limit would block every household after a few connections.
 - **The resource server.** `/api/mcp` checks the token, scope and household on every request; see [MCP_SERVER.md](MCP_SERVER.md) → Threat model.
+
+## Read-only API keys
+
+A household member makes a read-only API key on `/profile` for a kitchen screen, Home Assistant or a script (HON-1220). It reads `GET /api/v1/meal-plan` and `GET /api/v1/shopping-list` only; the endpoints are in [API.md](API.md).
+
+- **The key.** `wp_` plus 32 characters from `[A-Za-z0-9]`, from `crypto.randomBytes`. The page shows it once. The `api_key` table stores its hex SHA-256 hash (unique) and its first 9 characters for the list, never the key. The key cannot be guessed, so a fast hash is enough, and the lookup is by hash, so no timing-safe compare is needed. At most 10 keys per user.
+- **Where it works.** Only the two v1 routes read the `Authorization` header for a key (`src/lib/api/v1/caller.ts`). No proxy or Better Auth hook reads it, so `auth.api.getSession` never turns a key into a session, and a key sent to any other route gets the 401 of an anonymous request. `src/lib/api-keys-session.db.test.ts` asserts this. The routes send no CORS headers.
+- **Each request.** The route hashes the key and looks it up, refuses a user with `deletedAt` set, resolves the household with `getHouseholdMembership` (so leaving a household ends the key's access to it), and checks the household's `api-key` rate limit, 120 an hour, apart from the `mcp` bucket. It writes `lastUsedAt` on every successful lookup. No PostHog event per request.
+- **No rotation.** A key does not expire and is not rotated. Its worst case is someone reading one household's meals until Revoke. The protection is the narrow read-only scope, the last-used time on the profile page, and Revoke, which deletes the row so the next request answers 401. A deletion request (`DELETE /api/auth/user`) deletes the user's keys in its transaction; the purge cascade (`onDelete: Cascade`) removes any that remain.
+- **Why not `@better-auth/api-key`.** With `enableSessionForAPIKeys`, its `before` hook turns any request that carries a key into a session for `getSession`, so a read-only key would work on every write route. Its defaults (10 requests a day per key, 32-character names, 64-character keys) and its twenty-odd columns would all need overriding. One model and one `src/lib` file is less to audit.
 
 ## Better Auth schema changes
 

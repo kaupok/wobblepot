@@ -145,6 +145,9 @@ model User {
   oauthAccessTokens    OauthAccessToken[]
   oauthRefreshTokens   OauthRefreshToken[]
   oauthConsents        OauthConsent[]
+  // Read-only keys for screens and scripts (HON-1220). Cascade, and the
+  // soft-delete in `DELETE /api/auth/user` deletes them at once.
+  apiKeys              ApiKey[]
 
   @@unique([email])
   @@index([purgeScheduledFor])
@@ -406,6 +409,23 @@ model OauthConsent {
   @@index([clientId])
   @@index([userId])
   @@map("oauth_consent")
+}
+
+// A read-only API key for a screen or script (HON-1220), made on `/profile`.
+// Only the SHA-256 hash of the key is stored, plus its first characters for
+// the list. `GET /api/v1/*` looks the key up by `hash`; see src/lib/api-keys.ts.
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  start      String
+  hash       String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  @@index([userId])
+  @@map("api_key")
 }
 
 // Replay guard for `private_key_jwt` client assertions: the id is a digest of

@@ -78,6 +78,7 @@ function mockSoftDeleteTx() {
   const oauthRefreshTokenDeleteMany = vi.fn()
   const oauthAccessTokenDeleteMany = vi.fn()
   const oauthConsentDeleteMany = vi.fn()
+  const apiKeyDeleteMany = vi.fn()
   mockTransaction.mockImplementation(async (fn) => {
     const tx = {
       user: { update: userUpdate },
@@ -85,6 +86,7 @@ function mockSoftDeleteTx() {
       oauthRefreshToken: { deleteMany: oauthRefreshTokenDeleteMany },
       oauthAccessToken: { deleteMany: oauthAccessTokenDeleteMany },
       oauthConsent: { deleteMany: oauthConsentDeleteMany },
+      apiKey: { deleteMany: apiKeyDeleteMany },
     }
     return (fn as (tx: unknown) => unknown)(tx)
   })
@@ -94,6 +96,7 @@ function mockSoftDeleteTx() {
     oauthRefreshTokenDeleteMany,
     oauthAccessTokenDeleteMany,
     oauthConsentDeleteMany,
+    apiKeyDeleteMany,
   }
 }
 
@@ -169,6 +172,17 @@ describe('DELETE /api/auth/user', () => {
     expect(oauthRefreshTokenDeleteMany).toHaveBeenCalledWith(where)
     expect(oauthAccessTokenDeleteMany).toHaveBeenCalledWith(where)
     expect(oauthConsentDeleteMany).toHaveBeenCalledWith(where)
+  })
+
+  it('deletes the read-only API keys in the soft-delete, so they answer 401 at once (HON-1220)', async () => {
+    mockGetSession.mockResolvedValue(signedInUser)
+    mockIsUserSoleOwner.mockResolvedValue({ isSoleOwner: false })
+    const { apiKeyDeleteMany } = mockSoftDeleteTx()
+
+    const response = await DELETE()
+
+    expect(response.status).toBe(200)
+    expect(apiKeyDeleteMany).toHaveBeenCalledWith({ where: { userId: 'user-123' } })
   })
 
   it('soft-deletes: sets deletedAt + a cron-aligned purge instant and deletes sessions', async () => {

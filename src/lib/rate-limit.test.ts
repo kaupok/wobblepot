@@ -67,6 +67,7 @@ describe('rate-limit', () => {
   describe('CONFIG', () => {
     it('covers all AI + auth + export features', () => {
       expect(Object.keys(RATE_LIMIT_CONFIG).sort()).toEqual([
+        'api-key',
         'cook-question',
         'data-export',
         'forgot-password',
@@ -89,6 +90,14 @@ describe('rate-limit', () => {
 
     it('configures mcp at 120 tool calls per hour per household (HON-1151)', () => {
       expect(RATE_LIMIT_CONFIG.mcp).toEqual({ limit: 120, window: '1 h', dimension: 'household' })
+    })
+
+    it('configures api-key at 120 requests per hour per household, apart from mcp (HON-1220)', () => {
+      expect(RATE_LIMIT_CONFIG['api-key']).toEqual({
+        limit: 120,
+        window: '1 h',
+        dimension: 'household',
+      })
     })
 
     it('configures household-leave at 3 per 30 days per user (HON-1133)', () => {

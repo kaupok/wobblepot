@@ -69,6 +69,7 @@ export type RateLimitFeature =
   | 'meal-suggestions'
   | 'meal-image'
   | 'mcp'
+  | 'api-key'
   | 'sign-up'
   | 'sign-in'
   | 'forgot-password'
@@ -112,6 +113,11 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitFeature, FeatureConfig> = {
   // only read the database, so this is abuse protection, not a cost cap: two
   // calls a minute is far above what an assistant answering a household needs.
   mcp: { limit: 120, window: '1 h', dimension: 'household' },
+  // One per `GET /api/v1/*` request with a read-only API key (HON-1220), its
+  // own counter so a kitchen screen cannot use up an assistant's `mcp` bucket.
+  // Not 60: that is exactly one Home Assistant poll a minute, and a sliding
+  // window at the limit trips. docs/API.md asks for one poll a minute at most.
+  'api-key': { limit: 120, window: '1 h', dimension: 'household' },
   'sign-up': {
     limit: 5,
     window: '1 h',

@@ -11,8 +11,8 @@
  *
  * Snake_case, namespace-prefixed, past tense. Categories are a closed enum:
  * `auth`, `onboarding`, `meal_plan`, `meal`, `recipe`, `pantry`, `shopping`,
- * `cook_view` and `mcp` for client events, `imagine`, `household` and `mcp` for
- * the server events that have a category. `ai` is reserved for HON-475.
+ * `cook_view` and `mcp` for client events, `imagine`, `household`, `mcp` and
+ * `api_key` for the server events that have a category. `ai` is reserved for HON-475.
  *
  * ## Server events
  *
@@ -48,6 +48,17 @@
  *   id is the user id, as for `mcp:client_connected`. Properties:
  *   `household_id`, `client_name`, `days_connected` (whole days since the
  *   consent's `createdAt`, null when the row has none).
+ * - `api_key:created` (`src/lib/api-keys.ts` → `createApiKey`, called from
+ *   `POST /api/auth/user/api-keys`, HON-1220): a user made a read-only API key
+ *   for a screen or script on the profile page. Captured after the insert.
+ *   Distinct id is the user id. Properties: `household_id`, `key_count` (the
+ *   user's keys after the create). Never the key, its start or its name, which
+ *   is free text. A request with a key captures nothing: polls are not events.
+ * - `api_key:revoked` (`src/lib/api-keys.ts` → `revokeApiKey`, called from
+ *   `DELETE /api/auth/user/api-keys/[id]`, HON-1220): a user clicked Revoke.
+ *   Distinct id is the user id. Properties: `household_id`, `key_count` (after
+ *   the delete), `days_since_created`, `was_used` (true when the key ever
+ *   answered a request).
  * - `external_api_timeout` (`src/lib/errors.ts` → `captureExternalApiTimeout`,
  *   called from `src/lib/external-fetch.ts`): an external dependency missed a
  *   deadline its caller set. An infrastructure signal, not a product event,
