@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// The database check is `pingDatabase` in `@/lib/status/probes`: its failure
+// and 2-second timeout are tested in `probes.test.ts`, its query against a
+// database in `probes.db.test.ts`. This file mocks it at the seam and asserts
+// the status and body (HON-1217).
+
+vi.mock('@/lib/status/probes', () => ({ pingDatabase: vi.fn() }))
+
+import { pingDatabase } from '@/lib/status/probes'
 import { GET } from './route'
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    $queryRaw: vi.fn(),
-  },
-}))
-
-import { prisma } from '@/lib/prisma'
-
-const mockQueryRaw = vi.mocked(prisma.$queryRaw)
+const mockPing = vi.mocked(pingDatabase)
 
 describe('GET /api/health', () => {
   beforeEach(() => {
@@ -17,60 +18,42 @@ describe('GET /api/health', () => {
     vi.unstubAllEnvs()
   })
 
-  it('returns 200 with ok status when DB is reachable', async () => {
-    mockQueryRaw.mockResolvedValue([{ '?column?': 1 }])
+  it('returns 200 with ok status when the database answers', async () => {
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'abc123def')
+    mockPing.mockResolvedValue()
 
     const response = await GET()
-    const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data.status).toBe('ok')
-    expect(data.db).toBe('ok')
-    expect(data.timestamp).toBeDefined()
-    expect(mockQueryRaw).toHaveBeenCalled()
+    expect(await response.json()).toEqual({
+      status: 'ok',
+      db: 'ok',
+      commit: 'abc123def',
+      timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+    })
+    expect(mockPing).toHaveBeenCalledTimes(1)
   })
 
-  it('returns 503 when DB query fails', async () => {
-    mockQueryRaw.mockRejectedValue(new Error('Connection refused'))
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(503)
-    expect(data.status).toBe('error')
-    expect(data.db).toBe('unreachable')
-    expect(data.timestamp).toBeDefined()
-  })
-
-  it('returns 503 when DB query times out', async () => {
-    mockQueryRaw.mockImplementation(
-      () => new Promise((resolve) => setTimeout(resolve, 5000)) as never,
-    )
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(503)
-    expect(data.status).toBe('error')
-    expect(data.db).toBe('unreachable')
-  }, 10000)
-
-  it('includes commit SHA from VERCEL_GIT_COMMIT_SHA env var', async () => {
+  it('returns 503 when the database check fails or times out', async () => {
     vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'abc123def')
-    mockQueryRaw.mockResolvedValue([{ '?column?': 1 }])
+    mockPing.mockRejectedValue(new Error('Probe timeout after 2000ms'))
 
     const response = await GET()
-    const data = await response.json()
 
-    expect(data.commit).toBe('abc123def')
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      db: 'unreachable',
+      commit: 'abc123def',
+      timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+    })
   })
 
   it('returns "local" as commit when VERCEL_GIT_COMMIT_SHA is not set', async () => {
-    delete process.env.VERCEL_GIT_COMMIT_SHA
-    mockQueryRaw.mockResolvedValue([{ '?column?': 1 }])
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', undefined)
+    mockPing.mockResolvedValue()
 
-    const response = await GET()
-    const data = await response.json()
+    const data = await (await GET()).json()
 
     expect(data.commit).toBe('local')
   })

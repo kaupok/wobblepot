@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('@/lib/env', () => ({
   serverEnv: { NEXT_PUBLIC_APP_NAME: 'Wobblepot' },
@@ -11,15 +11,23 @@ vi.mock('@/lib/prisma', () => ({
       findUnique: vi.fn(),
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
+      upsert: vi.fn(),
     },
     signupCode: { updateMany: vi.fn() },
     user: { findUnique: vi.fn() },
   },
 }))
 
+const { send, emailState } = vi.hoisted(() => ({
+  send: vi.fn(),
+  emailState: { configured: false },
+}))
+
 vi.mock('@/lib/resend', () => ({
-  resend: null,
-  isEmailConfigured: () => false,
+  get resend() {
+    return emailState.configured ? { emails: { send } } : null
+  },
+  isEmailConfigured: () => emailState.configured,
   EMAIL_SENDERS: { auth: 'Wobblepot <auth@mail.wobblepot.com>' },
   envSubject: (subject: string) => subject,
 }))
@@ -30,10 +38,12 @@ import {
   clearWaitlistForNewUser,
   confirmWaitlistToken,
   confirmedCutoff,
+  processWaitlistRequest,
   purgeExpiredWaitlistRequests,
   unconfirmedCutoff,
 } from './waitlist'
 import { prisma } from '@/lib/prisma'
+import { captureApiError } from '@/lib/errors'
 
 const mockFindUnique = vi.mocked(prisma.waitlistRequest.findUnique)
 const mockUpdateMany = vi.mocked(prisma.waitlistRequest.updateMany)
@@ -212,5 +222,81 @@ describe('clearWaitlistForNewUser', () => {
       '[waitlist] failed to delete the waitlist request of a new user',
       { userId: 'user_1', err: error },
     )
+  })
+})
+
+// The queries are tested against a database in `waitlist.db.test.ts`. These
+// cases cover the email, which the database test cannot see (HON-1217).
+describe('processWaitlistRequest email', () => {
+  const mockUpsert = vi.mocked(prisma.waitlistRequest.upsert)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    emailState.configured = true
+    mockUserFindUnique.mockResolvedValue(null)
+    mockFindUnique.mockResolvedValue(null)
+    mockUpsert.mockResolvedValue({} as never)
+    send.mockResolvedValue({ data: { id: 'email-1' }, error: null })
+  })
+
+  afterEach(() => {
+    emailState.configured = false
+  })
+
+  it('sends one email with the confirmation link for the stored token', async () => {
+    await processWaitlistRequest({ email: 'new.person@example.com', locale: 'en' })
+
+    const { create } = mockUpsert.mock.calls[0]![0]
+    expect(send).toHaveBeenCalledTimes(1)
+    const email = send.mock.calls[0]![0]
+    expect(email).toMatchObject({
+      from: 'Wobblepot <auth@mail.wobblepot.com>',
+      to: 'new.person@example.com',
+      subject: 'Confirm your Wobblepot invite request',
+    })
+    expect(email.text).toContain(
+      `https://wobblepot.com/request-invite/confirm?token=${create.confirmToken}`,
+    )
+  })
+
+  it('sends the email in the given locale', async () => {
+    await processWaitlistRequest({ email: 'uus@example.com', locale: 'et' })
+
+    expect(send.mock.calls[0]![0].subject).toBe('Kinnita oma Wobblepot kutsesoov')
+  })
+
+  it('sends nothing when the address has an account', async () => {
+    mockUserFindUnique.mockResolvedValue({ id: 'user-1' } as never)
+
+    await processWaitlistRequest({ email: 'member@example.com', locale: 'en' })
+
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('logs a send failure and does not throw', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    send.mockRejectedValue(new Error('Resend down'))
+
+    await expect(
+      processWaitlistRequest({ email: 'new@example.com', locale: 'en' }),
+    ).resolves.toBeUndefined()
+
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to send waitlist confirmation email:',
+      expect.any(Error),
+    )
+    consoleError.mockRestore()
+  })
+
+  it('reports a database failure instead of throwing, and sends nothing', async () => {
+    const failure = new Error('db down')
+    mockUpsert.mockRejectedValue(failure)
+
+    await expect(
+      processWaitlistRequest({ email: 'new@example.com', locale: 'en' }),
+    ).resolves.toBeUndefined()
+
+    expect(captureApiError).toHaveBeenCalledWith(failure, { route: '/api/waitlist' })
+    expect(send).not.toHaveBeenCalled()
   })
 })

@@ -11,16 +11,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Body, Heading } from '@/components/ui/typography'
+import type { SignupCodeRow } from '@/lib/signup-codes'
 
-export interface SignupCodeRow {
-  id: string
-  code: string
-  createdAt: string
-  usedAt: string | null
-  expiresAt: string | null
-  note: string | null
-  usedByEmail: string | null
-}
+export type { SignupCodeRow }
 
 interface CodesResponse {
   codes: SignupCodeRow[]

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { deleteUnusedSignupCode, mintE2eSignupCode } from '@/lib/signup-codes'
 import { RATE_LIMIT_BYPASS_ACTIVE } from '@/lib/rate-limit'
 import { captureApiError } from '@/lib/errors'
 
@@ -26,9 +26,7 @@ export async function POST() {
   }
 
   try {
-    const code = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-    await prisma.signupCode.create({ data: { code } })
-
+    const code = await mintE2eSignupCode()
     return NextResponse.json({ code }, { status: 201 })
   } catch (error) {
     captureApiError(error, { route: '/api/e2e-seed' })
@@ -48,11 +46,9 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Missing ?code=<value>' }, { status: 400 })
     }
 
-    // Mirror the admin DELETE — only remove unused codes. Claimed codes are an
-    // audit record of who signed up with which invite, even in test, so a
-    // helper accidentally targeting a real attribution row stays a no-op.
-    const result = await prisma.signupCode.deleteMany({ where: { code, usedAt: null } })
-    return NextResponse.json({ ok: true, deleted: result.count })
+    // Only unused codes go, as in the admin DELETE: see `deleteUnusedSignupCode`.
+    const deleted = await deleteUnusedSignupCode(code)
+    return NextResponse.json({ ok: true, deleted })
   } catch (error) {
     captureApiError(error, { route: '/api/e2e-seed' })
     return NextResponse.json({ error: 'Failed to delete invite code' }, { status: 500 })

@@ -1,22 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// The query lives in `@/lib/waitlist` (`listConfirmedWaitlistRequests`),
+// tested against a database in `waitlist.db.test.ts`. This file mocks it at
+// the seam and asserts the admin gate and the status and body (HON-1217).
+
 vi.mock('@/lib/auth', () => ({
   auth: { api: { getSession: vi.fn() } },
 }))
 vi.mock('next/headers', () => ({
   headers: vi.fn().mockResolvedValue(new Headers()),
 }))
-vi.mock('@/lib/prisma', () => ({
-  prisma: { waitlistRequest: { findMany: vi.fn() } },
-}))
 vi.mock('@/lib/errors', () => ({ captureApiError: vi.fn() }))
+vi.mock('@/lib/waitlist', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/waitlist')>()),
+  listConfirmedWaitlistRequests: vi.fn(),
+}))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { listConfirmedWaitlistRequests, type WaitlistRow } from '@/lib/waitlist'
 import { GET } from './route'
 
 const getSession = vi.mocked(auth.api.getSession)
-const findMany = prisma.waitlistRequest.findMany as unknown as ReturnType<typeof vi.fn>
+const mockList = vi.mocked(listConfirmedWaitlistRequests)
 
 const adminSession = { user: { id: 'admin_1', email: 'admin@example.com' } } as never
 const userSession = { user: { id: 'user_1', email: 'someone@example.com' } } as never
@@ -29,70 +34,42 @@ describe('GET /api/admin/waitlist', () => {
   it('returns 401 when there is no session', async () => {
     getSession.mockResolvedValue(null as never)
     expect((await GET()).status).toBe(401)
+    expect(mockList).not.toHaveBeenCalled()
   })
 
   it('returns 404 for a user who is not the admin', async () => {
     getSession.mockResolvedValue(userSession)
     expect((await GET()).status).toBe(404)
-    expect(findMany).not.toHaveBeenCalled()
+    expect(mockList).not.toHaveBeenCalled()
   })
 
-  it('lists confirmed requests only, newest confirmation first', async () => {
+  it('returns the confirmed requests for the admin', async () => {
     getSession.mockResolvedValue(adminSession)
-    findMany.mockResolvedValue([
+    const rows: WaitlistRow[] = [
       {
         id: 'w1',
         email: 'anna@example.com',
         locale: 'et',
         source: 'mealime',
-        confirmedAt: new Date('2026-10-05T12:00:00Z'),
-        invitedAt: new Date('2026-10-06T08:00:00Z'),
+        confirmedAt: '2026-10-05T12:00:00.000Z',
+        invitedAt: '2026-10-06T08:00:00.000Z',
       },
-      {
-        id: 'w2',
-        email: 'ben@example.com',
-        locale: 'en',
-        source: null,
-        confirmedAt: new Date('2026-10-04T12:00:00Z'),
-        invitedAt: null,
-      },
-    ])
+    ]
+    mockList.mockResolvedValue(rows)
 
     const res = await GET()
 
     expect(res.status).toBe(200)
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { confirmedAt: { not: null } },
-        orderBy: { confirmedAt: 'desc' },
-        select: expect.objectContaining({ source: true }),
-      }),
-    )
-    expect(await res.json()).toEqual({
-      requests: [
-        {
-          id: 'w1',
-          email: 'anna@example.com',
-          locale: 'et',
-          source: 'mealime',
-          confirmedAt: '2026-10-05T12:00:00.000Z',
-          invitedAt: '2026-10-06T08:00:00.000Z',
-        },
-        {
-          id: 'w2',
-          email: 'ben@example.com',
-          locale: 'en',
-          source: null,
-          confirmedAt: '2026-10-04T12:00:00.000Z',
-          invitedAt: null,
-        },
-      ],
-    })
+    expect(await res.json()).toEqual({ requests: rows })
   })
 
   it('returns 500 when the query fails', async () => {
     getSession.mockResolvedValue(adminSession)
-    findMany.mockRejectedValue(new Error('db down'))
-    expect((await GET()).status).toBe(500)
+    mockList.mockRejectedValue(new Error('db down'))
+
+    const res = await GET()
+
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'Failed to fetch waitlist requests' })
   })
 })

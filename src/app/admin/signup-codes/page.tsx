@@ -3,9 +3,9 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getSession } from '@/lib/session'
 import { isAdmin } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
+import { listSignupCodes } from '@/lib/signup-codes'
 import { Heading, Body } from '@/components/ui/typography'
-import { SignupCodesClient, type SignupCodeRow } from './SignupCodesClient'
+import { SignupCodesClient } from './SignupCodesClient'
 
 export async function generateMetadata(): Promise<Metadata> {
   // Metadata resolves independently of the layout's and page's gates, so it
@@ -25,31 +25,7 @@ export default async function AdminSignupCodesPage() {
   // Return 404 (not 403) so the route does not advertise its existence.
   if (!isAdmin(session)) notFound()
 
-  const codes = await prisma.signupCode.findMany({
-    take: 100,
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      code: true,
-      createdAt: true,
-      usedAt: true,
-      expiresAt: true,
-      note: true,
-      usedBy: { select: { email: true } },
-    },
-  })
-
-  // Serialise dates for the client component (Prisma returns Date objects;
-  // useQuery / JSON would otherwise drop the prototype).
-  const initialCodes: SignupCodeRow[] = codes.map((c) => ({
-    id: c.id,
-    code: c.code,
-    createdAt: c.createdAt.toISOString(),
-    usedAt: c.usedAt ? c.usedAt.toISOString() : null,
-    expiresAt: c.expiresAt ? c.expiresAt.toISOString() : null,
-    note: c.note,
-    usedByEmail: c.usedBy?.email ?? null,
-  }))
+  const initialCodes = await listSignupCodes()
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">

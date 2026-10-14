@@ -1,5 +1,6 @@
 import 'server-only'
 import { APIError } from 'better-auth/api'
+import { nanoid } from 'nanoid'
 import { prisma, type PrismaClientType } from '@/lib/prisma'
 import { getServerFlag, type FlagKey } from '@/lib/feature-flags'
 import {
@@ -169,4 +170,121 @@ export async function releaseClaim(
   } catch (err) {
     console.warn('[signup-code] failed to release claim', { code, err })
   }
+}
+
+/**
+ * A code as `/admin/signup-codes` and its API send it to the client. The page
+ * and the route both read it from here, so a refetch through `useQuery` shows
+ * the same "Used by" as the first render.
+ */
+export interface SignupCodeRow {
+  id: string
+  code: string
+  createdAt: string
+  usedAt: string | null
+  expiresAt: string | null
+  note: string | null
+  usedByEmail: string | null
+}
+
+const CODE_SELECT = {
+  id: true,
+  code: true,
+  createdAt: true,
+  usedAt: true,
+  expiresAt: true,
+  note: true,
+  usedBy: { select: { email: true } },
+} as const
+
+function toSignupCodeRow(row: {
+  id: string
+  code: string
+  createdAt: Date
+  usedAt: Date | null
+  expiresAt: Date | null
+  note: string | null
+  usedBy: { email: string } | null
+}): SignupCodeRow {
+  return {
+    id: row.id,
+    code: row.code,
+    createdAt: row.createdAt.toISOString(),
+    usedAt: row.usedAt ? row.usedAt.toISOString() : null,
+    expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+    note: row.note,
+    usedByEmail: row.usedBy?.email ?? null,
+  }
+}
+
+/**
+ * Why `revokeSignupCode` was refused. The route maps each one to its status:
+ *
+ * - `notFound`: no code with this id (404).
+ * - `alreadyUsed`: the code was claimed, so it is an audit record (409).
+ */
+export type SignupCodeRefusal = 'notFound' | 'alreadyUsed'
+
+export class SignupCodeError extends Error {
+  constructor(readonly reason: SignupCodeRefusal) {
+    super(`Signup code change refused: ${reason}`)
+    this.name = 'SignupCodeError'
+  }
+}
+
+/** The newest 100 codes, newest first, for `/admin/signup-codes`. */
+export async function listSignupCodes(): Promise<SignupCodeRow[]> {
+  const rows = await prisma.signupCode.findMany({
+    take: 100,
+    orderBy: { createdAt: 'desc' },
+    select: CODE_SELECT,
+  })
+  return rows.map(toSignupCodeRow)
+}
+
+/** Mints a single-use code with no expiry, as Mint on `/admin/signup-codes` does. */
+export async function createSignupCode({
+  createdById,
+  note,
+}: {
+  createdById: string
+  note: string | null
+}): Promise<SignupCodeRow> {
+  const created = await prisma.signupCode.create({
+    data: { code: nanoid(12), createdById, note },
+    select: CODE_SELECT,
+  })
+  return toSignupCodeRow(created)
+}
+
+/** Deletes an unused code. A claimed code is an audit record and stays. */
+export async function revokeSignupCode(id: string): Promise<void> {
+  // deleteMany combines the predicate without a SELECT first.
+  const { count } = await prisma.signupCode.deleteMany({ where: { id, usedAt: null } })
+  if (count > 0) return
+
+  // Either the code does not exist or it was claimed. The admin needs the
+  // difference, so the client can suggest a reload.
+  const existing = await prisma.signupCode.findUnique({ where: { id }, select: { id: true } })
+  throw new SignupCodeError(existing ? 'alreadyUsed' : 'notFound')
+}
+
+/**
+ * Mints a code for an E2E test through `/api/e2e-seed`. The `e2e-` prefix
+ * tells these rows apart from real invites.
+ */
+export async function mintE2eSignupCode(): Promise<string> {
+  const code = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  await prisma.signupCode.create({ data: { code } })
+  return code
+}
+
+/**
+ * Deletes the code with this value if it is unused, and returns how many rows
+ * went. A claimed code is an audit record even in test, so a helper that
+ * targets a real attribution row stays a no-op.
+ */
+export async function deleteUnusedSignupCode(code: string): Promise<number> {
+  const { count } = await prisma.signupCode.deleteMany({ where: { code, usedAt: null } })
+  return count
 }

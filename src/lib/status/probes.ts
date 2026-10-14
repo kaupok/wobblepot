@@ -96,14 +96,18 @@ async function measure<T>(
 }
 
 /**
- * Probe the database by running `SELECT 1` with a short timeout. Mirrors the
- * `/api/health` endpoint's DB check (see HON-454).
+ * Run `SELECT 1` and reject if it fails or takes longer than 2 seconds.
+ * Uncached, so `/api/health` reports the database as it is on this request
+ * (HON-454).
  */
+export async function pingDatabase(): Promise<void> {
+  await withTimeout(prisma.$queryRaw`SELECT 1`, DB_TIMEOUT_MS)
+}
+
+/** Probe the database with {@link pingDatabase}, cached for `/status`. */
 export async function probeDatabase(): Promise<ProbeResult> {
   return runCached('db', async () => {
-    const { error, latencyMs } = await measure(() =>
-      withTimeout(prisma.$queryRaw`SELECT 1`, DB_TIMEOUT_MS),
-    )
+    const { error, latencyMs } = await measure(pingDatabase)
     const checkedAt = new Date().toISOString()
     if (error) return { status: 'down', checkedAt, latencyMs, error: error.message }
     return { status: 'ok', checkedAt, latencyMs }

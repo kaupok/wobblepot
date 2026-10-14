@@ -273,3 +273,157 @@ export async function listConfirmedWaitlistRequests(): Promise<WaitlistRow[]> {
     invitedAt: row.invitedAt ? row.invitedAt.toISOString() : null,
   }))
 }
+
+/**
+ * Why an admin action on a waitlist request was refused. The routes map each
+ * one to its status:
+ *
+ * - `notFound`: no such request, or (for an invite) one not yet confirmed (404).
+ * - `accountExists`: the address already has an account, so it needs no code (409).
+ * - `inviteConflict`: another invite linked its code while this one was being
+ *   sent (409).
+ */
+export type WaitlistRefusal = 'notFound' | 'accountExists' | 'inviteConflict'
+
+export class WaitlistError extends Error {
+  constructor(readonly reason: WaitlistRefusal) {
+    super(`Waitlist action refused: ${reason}`)
+    this.name = 'WaitlistError'
+  }
+}
+
+/**
+ * Remove on `/admin/waitlist` (HON-970): how a withdrawal or deletion request
+ * is honoured (docs/RUNBOOKS/dsr-intake.md). The linked signup code, if any,
+ * stays and expires on its own.
+ */
+export async function deleteWaitlistRequest(id: string): Promise<void> {
+  const { count } = await prisma.waitlistRequest.deleteMany({ where: { id } })
+  if (count === 0) throw new WaitlistError('notFound')
+}
+
+/** A minted invite, not yet linked to its request. See {@link prepareWaitlistInvite}. */
+export interface PreparedWaitlistInvite {
+  email: string
+  /** The request's stored locale, unchecked. */
+  locale: string
+  /** The code linked to the request before this invite, if any. */
+  previousCodeId: string | null
+  codeId: string
+  code: string
+}
+
+/**
+ * The first half of Send invite / Send again on `/admin/waitlist` (HON-970):
+ * reads the confirmed request and mints a fresh single-use code that works for
+ * {@link WAITLIST_INVITE_TTL_DAYS} days. The code is not linked to the request
+ * yet: the route emails it, then calls {@link markWaitlistInvited}, or
+ * {@link discardWaitlistInviteCode} when the send fails.
+ *
+ * Linking last keeps the previous code's link intact while the email is in
+ * flight, so a sign-up with that code meanwhile still deletes the request
+ * (`linkUsedBy`).
+ *
+ * Throws `WaitlistError('notFound')` for a missing or unconfirmed request and
+ * `WaitlistError('accountExists')` when the address has an account: like
+ * {@link processWaitlistRequest}, a code sent anyway could only be passed on
+ * to someone else.
+ */
+export async function prepareWaitlistInvite({
+  requestId,
+  createdById,
+  now,
+}: {
+  requestId: string
+  createdById: string
+  now: Date
+}): Promise<PreparedWaitlistInvite> {
+  const request = await prisma.waitlistRequest.findFirst({
+    where: { id: requestId, confirmedAt: { not: null } },
+    select: { email: true, locale: true, signupCodeId: true },
+  })
+  if (!request) throw new WaitlistError('notFound')
+
+  const user = await prisma.user.findUnique({
+    where: { email: request.email },
+    select: { id: true },
+  })
+  if (user) throw new WaitlistError('accountExists')
+
+  const code = nanoid(12)
+  const created = await prisma.signupCode.create({
+    data: {
+      code,
+      expiresAt: new Date(now.getTime() + WAITLIST_INVITE_TTL_DAYS * DAY_MS),
+      note: 'waitlist',
+      createdById,
+    },
+    select: { id: true },
+  })
+
+  return {
+    email: request.email,
+    locale: request.locale,
+    previousCodeId: request.signupCodeId,
+    codeId: created.id,
+    code,
+  }
+}
+
+/** Deletes a code from {@link prepareWaitlistInvite} whose email was not sent. */
+export async function discardWaitlistInviteCode(codeId: string): Promise<void> {
+  await prisma.signupCode.delete({ where: { id: codeId } })
+}
+
+/**
+ * The second half of Send invite: once the email is accepted, links the new
+ * code to the request, sets `invitedAt` and expires the code sent before, if
+ * it is still unused. So `invitedAt` always means "an invite went out".
+ *
+ * When another send linked its code meanwhile, or the request was deleted,
+ * the new code went out linked to nothing, so a sign-up with it would not
+ * delete the request. It is expired, and this throws
+ * `WaitlistError('inviteConflict')` or `WaitlistError('notFound')`.
+ */
+export async function markWaitlistInvited({
+  requestId,
+  previousCodeId,
+  codeId,
+  now,
+}: {
+  requestId: string
+  previousCodeId: string | null
+  codeId: string
+  now: Date
+}): Promise<void> {
+  const linked = await prisma.$transaction(async (tx) => {
+    // Keyed on the code read before the send as well as the id: if another
+    // send linked its code meanwhile, or the request was deleted, this
+    // matches nothing. Postgres re-checks the predicate after waiting on a
+    // concurrent update of the row, so two overlapping sends cannot both
+    // win and leave one code valid but linked to nothing.
+    const { count } = await tx.waitlistRequest.updateMany({
+      where: { id: requestId, signupCodeId: previousCodeId },
+      data: { invitedAt: now, signupCodeId: codeId },
+    })
+    if (count === 0) return false
+    if (previousCodeId) {
+      await tx.signupCode.updateMany({
+        where: { id: previousCodeId, usedAt: null },
+        data: { expiresAt: now },
+      })
+    }
+    return true
+  })
+  if (linked) return
+
+  await prisma.signupCode.updateMany({
+    where: { id: codeId, usedAt: null },
+    data: { expiresAt: now },
+  })
+  const stillThere = await prisma.waitlistRequest.findUnique({
+    where: { id: requestId },
+    select: { id: true },
+  })
+  throw new WaitlistError(stillThere ? 'inviteConflict' : 'notFound')
+}
