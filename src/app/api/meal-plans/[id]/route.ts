@@ -2,17 +2,15 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
-import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
-import { toDateString } from '@/lib/meal-planning/dates'
-import {
-  ingredientTranslationsInclude,
-  mealTranslationsInclude,
-  translateIngredient,
-  translateMeal,
-} from '@/lib/i18n/content'
 import { captureApiError } from '@/lib/errors'
 import { resolveHouseholdLocale } from '@/lib/i18n/resolve-locale'
+import { loadMealPlan, MealPlanReadError, type MealPlanReadRefusal } from '@/lib/meal-plans/plans'
+
+/** The answer to each refusal from `loadMealPlan`; see `MealPlanReadRefusal`. */
+const REFUSALS: Record<MealPlanReadRefusal, { status: number; error: string }> = {
+  planNotFound: { status: 404, error: 'Meal plan not found' },
+  otherHousehold: { status: 403, error: 'Access denied to this meal plan' },
+}
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Auth check
@@ -39,85 +37,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
 
   try {
-    // Query meal plan with nested relations
-    const plan = await prisma.mealPlan.findUnique({
-      where: { id },
-      include: {
-        entries: {
-          include: {
-            meal: {
-              include: {
-                components: {
-                  include: {
-                    ingredient: {
-                      include: ingredientTranslationsInclude(locale),
-                    },
-                  },
-                },
-                ...mealTranslationsInclude(locale),
-              },
-            },
-          },
-          orderBy: { date: 'asc' },
-        },
-      },
-    })
-
-    // Return 404 if plan not found
-    if (!plan) {
-      return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
-    }
-
-    // Return 403 if plan belongs to different household
-    if (plan.householdId !== household.id) {
-      return NextResponse.json({ error: 'Access denied to this meal plan' }, { status: 403 })
-    }
-
-    // Format response
-    const response = {
-      id: plan.id,
-      entries: plan.entries.map((entry) => ({
-        id: entry.id,
-        date: toDateString(entry.date),
-        mealType: entry.mealType as 'dinner', // Cast needed: GeneratePlanResult expects literal 'dinner', not MealType enum
-        status: entry.status,
-        servingOverride: entry.servingOverride,
-        meal: entry.meal
-          ? (() => {
-              const translatedMeal = translateMeal(entry.meal, locale)
-              return {
-                id: translatedMeal.id,
-                name: translatedMeal.name,
-                kidFriendly: translatedMeal.kidFriendly,
-                timeMinutes: translatedMeal.timeMinutes,
-                preparationNotes: translatedMeal.preparationNotes,
-                primaryProteinType: translatedMeal.primaryProteinType,
-                nutrition: computeMealNutrition(entry.meal.components),
-                components: entry.meal.components.map((comp) => {
-                  const translatedIngredient = translateIngredient(comp.ingredient, locale)
-                  return {
-                    ingredientId: comp.ingredientId,
-                    quantityPerServing: comp.quantityPerServing,
-                    isVague: comp.isVague,
-                    originalPhrase: comp.originalPhrase,
-                    ingredient: {
-                      id: translatedIngredient.id,
-                      name: translatedIngredient.name,
-                      category: translatedIngredient.category,
-                      defaultUnit: translatedIngredient.defaultUnit,
-                      measuredByVolume: translatedIngredient.measuredByVolume,
-                      gramsPerPiece: translatedIngredient.gramsPerPiece,
-                    },
-                  }
-                }),
-              }
-            })()
-          : null,
-      })),
-    }
-
-    return NextResponse.json(response, { status: 200 })
+    return NextResponse.json(await loadMealPlan(household.id, id, locale), { status: 200 })
   } catch (error) {
+    if (error instanceof MealPlanReadError) {
+      const { status, error: message } = REFUSALS[error.reason]
+      return NextResponse.json({ error: message }, { status })
+    }
+
     captureApiError(error, { route: '/api/meal-plans/[id]', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to fetch meal plan' }, { status: 500 })
   }

@@ -3,9 +3,14 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
-import { parseLocalDate, toDateString } from '@/lib/meal-planning/dates'
+import { parseLocalDate } from '@/lib/meal-planning/dates'
 import { captureApiError } from '@/lib/errors'
+import {
+  createEntry,
+  deleteEntriesInRange,
+  EntryCreateError,
+  type EntryCreateRefusal,
+} from '@/lib/meal-plans/entries'
 
 /** One axis of the note's place on the card: a fraction of its room (`NotePosition`), or null for the default. */
 const notePositionAxis = z.number().min(0).max(1).nullable().optional()
@@ -42,6 +47,13 @@ const createEntrySchema = z
     }
   })
 
+/** The answer to each refusal from `createEntry`; see `EntryCreateRefusal` for when each is raised. */
+const REFUSALS: Record<EntryCreateRefusal, { status: number; error: string }> = {
+  planNotFound: { status: 404, error: 'Plan not found or access denied' },
+  slotTaken: { status: 409, error: 'Entry already exists for this date and meal type' },
+  mealNotFound: { status: 404, error: 'Meal not found' },
+}
+
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Auth check
   const session = await auth.api.getSession({
@@ -62,43 +74,32 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const { household } = membership
   const { id: planId } = await params
 
-  try {
-    // Verify plan exists and belongs to user's household
-    const plan = await prisma.mealPlan.findFirst({
-      where: {
-        id: planId,
-        householdId: household.id,
-      },
-      select: {
-        id: true,
-      },
-    })
+  // Require date range to prevent accidental deletion of all entries
+  const url = new URL(request.url)
+  const startDateParam = url.searchParams.get('startDate')
+  const endDateParam = url.searchParams.get('endDate')
 
-    if (!plan) {
+  if (!startDateParam || !endDateParam) {
+    return NextResponse.json(
+      { error: 'startDate and endDate query params are required' },
+      { status: 400 },
+    )
+  }
+
+  try {
+    // Scoped to the user's household, so another household's plan reads as missing.
+    const deletedCount = await deleteEntriesInRange(
+      household.id,
+      planId,
+      parseLocalDate(startDateParam),
+      parseLocalDate(endDateParam),
+    )
+
+    if (deletedCount === null) {
       return NextResponse.json({ error: 'Meal plan not found' }, { status: 404 })
     }
 
-    // Require date range to prevent accidental deletion of all entries
-    const url = new URL(request.url)
-    const startDateParam = url.searchParams.get('startDate')
-    const endDateParam = url.searchParams.get('endDate')
-
-    if (!startDateParam || !endDateParam) {
-      return NextResponse.json(
-        { error: 'startDate and endDate query params are required' },
-        { status: 400 },
-      )
-    }
-
-    const weekStart = parseLocalDate(startDateParam)
-    const weekEnd = parseLocalDate(endDateParam)
-
-    // Delete entries within the specified date range
-    const result = await prisma.mealPlanEntry.deleteMany({
-      where: { planId, date: { gte: weekStart, lt: weekEnd } },
-    })
-
-    return NextResponse.json({ success: true, deletedCount: result.count })
+    return NextResponse.json({ success: true, deletedCount })
   } catch (error) {
     captureApiError(error, { route: '/api/meal-plans/[id]/entries', userId: session.user.id })
     return NextResponse.json({ error: 'Failed to delete entries' }, { status: 500 })
@@ -140,101 +141,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id: planId } = await params
-  const {
-    date,
-    mealType,
-    mealId,
-    note,
-    noteX,
-    noteY,
-    status,
-    servingOverride,
-    rating,
-    pantryDeducted,
-  } = parsed.data
+  const { date, ...fields } = parsed.data
 
   try {
-    // Verify plan exists and belongs to user's household
-    const plan = await prisma.mealPlan.findFirst({
-      where: {
-        id: planId,
-        householdId: household.id,
-      },
-      select: {
-        id: true,
-      },
-    })
-
-    if (!plan) {
-      return NextResponse.json({ error: 'Plan not found or access denied' }, { status: 404 })
-    }
-
-    const entryDate = parseLocalDate(date)
-
-    // Check if an entry already exists for this date + mealType
-    const existingEntry = await prisma.mealPlanEntry.findFirst({
-      where: {
-        planId,
-        date: entryDate,
-        mealType,
-      },
-    })
-
-    if (existingEntry) {
-      return NextResponse.json(
-        { error: 'Entry already exists for this date and meal type' },
-        { status: 409 },
-      )
-    }
-
-    // If mealId provided, verify the meal exists and this household may see it
-    // — a system meal or one of its own. Without the filter a foreign meal can
-    // be attached at creation time instead of at swap time.
-    if (mealId) {
-      const meal = await prisma.meal.findFirst({
-        where: {
-          id: mealId,
-          deletedAt: null,
-          OR: [{ householdId: null }, { householdId: household.id }],
-        },
-        select: { id: true },
-      })
-
-      if (!meal) {
-        return NextResponse.json({ error: 'Meal not found' }, { status: 404 })
-      }
-    }
-
-    // Create the entry
-    const entry = await prisma.mealPlanEntry.create({
-      data: {
-        planId,
-        date: entryDate,
-        mealType,
-        mealId: mealId ?? null,
-        status: status ?? 'planned',
-        note: note ?? null,
-        noteX: noteX ?? null,
-        noteY: noteY ?? null,
-        servingOverride: servingOverride ?? null,
-        rating: rating ?? null,
-        // "Not cooked yet" keeps the charge on the entry so it is charged at
-        // most once (HON-651). A restore of such an entry keeps it too, or the
-        // next completion would charge the pantry again. The flag can only
-        // stop a charge, never cause one.
-        pantryDeductedAt: pantryDeducted ? new Date() : null,
-      },
-    })
-
-    return NextResponse.json({
-      id: entry.id,
-      date: toDateString(entry.date),
-      mealType: entry.mealType,
-      status: entry.status,
-      mealId: entry.mealId,
-      note: entry.note,
-    })
+    // The plan, slot and meal checks live in `createEntry`.
+    return NextResponse.json(
+      await createEntry(household.id, planId, { ...fields, date: parseLocalDate(date) }),
+    )
   } catch (error) {
+    // A refusal is a deliberate answer rather than a route failure, so it
+    // takes its status and is not reported as an error.
+    if (error instanceof EntryCreateError) {
+      const { status, error: message } = REFUSALS[error.reason]
+      return NextResponse.json({ error: message }, { status })
+    }
+
     captureApiError(error, {
       route: '/api/meal-plans/[id]/entries',
       userId: session.user.id,
