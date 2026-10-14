@@ -41,11 +41,10 @@ export default async function ProfilePage({
   // rather than after it, so overlap it with the membership read instead of
   // assuming it is already resolved. Both are awaited before the redirect, so
   // the auth gate's ordering is unchanged.
-  const [membership, t, consents, apiKeys, params] = await Promise.all([
+  const [membership, t, consents, params] = await Promise.all([
     getHouseholdMembership(session.user.id),
     getTranslations('profile'),
     listMcpConsents(session.user.id),
-    listApiKeys(session.user.id),
     searchParams,
   ])
 
@@ -64,9 +63,14 @@ export default async function ProfilePage({
   // household (HON-881). Not `household._count.members`, which counts every
   // member row — the household size — and would block an owner whose other
   // members are all children added by name. Skipped for non-owners.
-  const accountMemberCount = isOwner
-    ? await countAccountHoldingMembers(membership.householdId)
-    : undefined
+  // The owner sees every member's API keys, a member their own (HON-1221).
+  const [accountMemberCount, apiKeys] = await Promise.all([
+    isOwner ? countAccountHoldingMembers(membership.householdId) : undefined,
+    listApiKeys({
+      userId: session.user.id,
+      householdId: isOwner ? membership.householdId : null,
+    }),
+  ])
 
   return (
     <div className="w-full px-4 py-8">
@@ -149,7 +153,11 @@ export default async function ProfilePage({
         <Separator />
 
         {/* Read-only keys for a kitchen screen or a script (HON-1220). */}
-        <ApiKeysSection initialKeys={apiKeys} timeZone={membership.household.timezone} />
+        <ApiKeysSection
+          initialKeys={apiKeys}
+          timeZone={membership.household.timezone}
+          householdView={isOwner}
+        />
 
         <Separator />
 

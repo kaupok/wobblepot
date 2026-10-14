@@ -11,11 +11,12 @@ vi.mock('@/lib/errors', () => ({
 }))
 vi.mock('@/lib/api-keys', () => ({
   revokeApiKey: vi.fn(),
+  getApiKeyViewer: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
 import { captureApiError } from '@/lib/errors'
-import { revokeApiKey } from '@/lib/api-keys'
+import { getApiKeyViewer, revokeApiKey } from '@/lib/api-keys'
 import { DELETE } from './route'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
@@ -26,8 +27,14 @@ function revoke(id: string) {
   })
 }
 
+const MEMBER = { userId: 'user-1', householdId: null }
+const OWNER = { userId: 'user-1', householdId: 'household-1' }
+
 describe('DELETE /api/auth/user/api-keys/[id] (HON-1220)', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getApiKeyViewer).mockResolvedValue(MEMBER)
+  })
 
   it('answers 401 when signed out', async () => {
     mockGetSession.mockResolvedValue(null)
@@ -43,10 +50,23 @@ describe('DELETE /api/auth/user/api-keys/[id] (HON-1220)', () => {
     const response = await revoke('key-1')
 
     expect(response.status).toBe(204)
-    expect(revokeApiKey).toHaveBeenCalledWith('user-1', 'key-1')
+    expect(getApiKeyViewer).toHaveBeenCalledWith('user-1')
+    expect(revokeApiKey).toHaveBeenCalledWith(MEMBER, 'key-1')
   })
 
-  it("answers 404 for another user's key, as for an unknown one", async () => {
+  // HON-1221: the lib scopes an owner to the household.
+  it("revokes with the owner's household scope and answers 204", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } } as never)
+    vi.mocked(getApiKeyViewer).mockResolvedValue(OWNER)
+    vi.mocked(revokeApiKey).mockResolvedValue(true)
+
+    const response = await revoke('members-key')
+
+    expect(response.status).toBe(204)
+    expect(revokeApiKey).toHaveBeenCalledWith(OWNER, 'members-key')
+  })
+
+  it("answers 404 for another member's key, as for an unknown one", async () => {
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } } as never)
     vi.mocked(revokeApiKey).mockResolvedValue(false)
 

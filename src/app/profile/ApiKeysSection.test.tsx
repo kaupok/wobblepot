@@ -22,6 +22,9 @@ const KITCHEN: ApiKeyRow = {
   start: 'wp_Ab3dEf',
   createdAt: '2026-10-02T18:00:00.000Z',
   lastUsedAt: '2026-10-13T07:15:00.000Z',
+  expiresAt: null,
+  expired: false,
+  memberName: null,
 }
 const SCRIPT: ApiKeyRow = {
   id: 'key-script',
@@ -29,15 +32,19 @@ const SCRIPT: ApiKeyRow = {
   start: 'wp_Zx9yWv',
   createdAt: '2026-10-05T09:30:00.000Z',
   lastUsedAt: null,
+  expiresAt: null,
+  expired: false,
+  memberName: null,
 }
 const NEW_KEY = 'wp_Qr7sTuVwXyZ0123456789abcdefghij'
 
 const mockApiFetch = vi.mocked(apiFetch)
 
-function renderSection(keys: ApiKeyRow[]) {
-  return render(<ApiKeysSection initialKeys={keys} timeZone="Europe/Tallinn" />, {
-    wrapper: createQueryWrapper().wrapper,
-  })
+function renderSection(keys: ApiKeyRow[], { householdView = false } = {}) {
+  return render(
+    <ApiKeysSection initialKeys={keys} timeZone="Europe/Tallinn" householdView={householdView} />,
+    { wrapper: createQueryWrapper().wrapper },
+  )
 }
 
 describe('ApiKeysSection (HON-1220)', () => {
@@ -103,7 +110,7 @@ describe('ApiKeysSection (HON-1220)', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/api/auth/user/api-keys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Kitchen screen' }),
+      body: JSON.stringify({ name: 'Kitchen screen', expiresInDays: null }),
     })
     const heading = await screen.findByRole('heading', { name: 'New key: Kitchen screen' })
     await waitFor(() => expect(heading.parentElement).toHaveFocus())
@@ -237,5 +244,145 @@ describe('ApiKeysSection (HON-1220)', () => {
       expect(toast.error).toHaveBeenCalledWith('The key was not revoked. Try again.'),
     )
     expect(screen.getByText('Kitchen screen')).toBeInTheDocument()
+  })
+
+  // HON-1221: optional expiry.
+  it('sends the expiry in days with the name', async () => {
+    const user = userEvent.setup()
+    mockApiFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === 'POST' ? { key: NEW_KEY, apiKey: { ...SCRIPT, id: 'key-new' } } : [],
+    )
+    renderSection([])
+
+    await user.type(screen.getByLabelText('Key name'), 'Kitchen screen')
+    await user.type(screen.getByLabelText('Expires in (optional)'), '30')
+    await user.click(screen.getByRole('button', { name: 'Create key' }))
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/auth/user/api-keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Kitchen screen', expiresInDays: 30 }),
+    })
+  })
+
+  it.each(['0', '366', '1,5', 'week'])(
+    'refuses an expiry of %s without calling the route',
+    async (typed) => {
+      const user = userEvent.setup()
+      mockApiFetch.mockResolvedValue([])
+      renderSection([])
+
+      await user.type(screen.getByLabelText('Key name'), 'Kitchen screen')
+      await user.type(screen.getByLabelText('Expires in (optional)'), typed)
+      await user.click(screen.getByRole('button', { name: 'Create key' }))
+
+      expect(screen.getByText('Enter a whole number of days from 1 to 365.')).toBeInTheDocument()
+      expect(screen.getByLabelText('Expires in (optional)')).toHaveAttribute('aria-invalid', 'true')
+      expect(screen.getByLabelText('Expires in (optional)')).toHaveFocus()
+      expect(mockApiFetch).not.toHaveBeenCalledWith('/api/auth/user/api-keys', expect.anything())
+    },
+  )
+
+  it('shows the expiry date, and "Expired" once it is past', () => {
+    const expiring = { ...KITCHEN, expiresAt: '2026-11-13T07:15:00.000Z' }
+    const expired = { ...SCRIPT, expiresAt: '2026-10-06T09:30:00.000Z', expired: true }
+    mockApiFetch.mockResolvedValue([expiring, expired])
+    renderSection([expiring, expired])
+
+    const rows = screen.getAllByRole('listitem')
+    expect(within(rows[0]!).getByText('Expires: November 13, 2026')).toBeInTheDocument()
+    expect(within(rows[0]!).queryByText('Expired')).not.toBeInTheDocument()
+    expect(within(rows[1]!).getByText('Expired')).toBeInTheDocument()
+    expect(within(rows[1]!).queryByText(/^Expires:/)).not.toBeInTheDocument()
+  })
+
+  // HON-1221: the owner's household view.
+  describe('household view', () => {
+    const JANE_KEY = { ...KITCHEN, memberName: 'Jane' }
+    const OWN_KEY = { ...SCRIPT, memberName: 'Kaupo' }
+
+    it("names the list for the household and each key's member", () => {
+      mockApiFetch.mockResolvedValue([JANE_KEY, OWN_KEY])
+      renderSection([JANE_KEY, OWN_KEY], { householdView: true })
+
+      expect(screen.getByRole('heading', { name: 'Household keys' })).toBeInTheDocument()
+      const rows = screen.getAllByRole('listitem')
+      expect(within(rows[0]!).getByText('Member: Jane')).toBeInTheDocument()
+      expect(within(rows[1]!).getByText('Member: Kaupo')).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: 'Revoke: Kitchen screen, Jane' }),
+      ).toBeInTheDocument()
+    })
+
+    it("adds the owner's new key from the refetch, with its member", async () => {
+      const user = userEvent.setup()
+      const fromPost: ApiKeyRow = { ...SCRIPT, id: 'key-new', name: 'Desk screen' }
+      let release: () => void = () => {}
+      const refetched = new Promise<void>((resolve) => (release = resolve))
+      let posted = false
+      mockApiFetch.mockImplementation(async (_url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posted = true
+          return { key: NEW_KEY, apiKey: fromPost }
+        }
+        if (!posted) return []
+        await refetched
+        return [{ ...fromPost, memberName: 'Kaupo' }]
+      })
+      renderSection([], { householdView: true })
+
+      await user.type(screen.getByLabelText('Key name'), 'Desk screen')
+      await user.click(screen.getByRole('button', { name: 'Create key' }))
+      await screen.findByRole('heading', { name: 'New key: Desk screen' })
+
+      // Before the refetch, the POST's row (no member) is not in the list.
+      expect(screen.queryByRole('button', { name: /^Revoke: Desk screen/ })).toBeNull()
+
+      release()
+      expect(
+        await screen.findByRole('button', { name: 'Revoke: Desk screen, Kaupo' }),
+      ).toBeInTheDocument()
+      expect(screen.getByText('Member: Kaupo')).toBeInTheDocument()
+    })
+
+    it('says no one in the household has a key', () => {
+      mockApiFetch.mockResolvedValue([])
+      renderSection([], { householdView: true })
+
+      expect(screen.getByText('No one in the household has a key.')).toBeInTheDocument()
+    })
+
+    it("revokes a member's key", async () => {
+      const user = userEvent.setup()
+      let rows: ApiKeyRow[] = [JANE_KEY]
+      mockApiFetch.mockImplementation(async (_url: string, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          rows = []
+          return undefined
+        }
+        return rows
+      })
+      renderSection([JANE_KEY], { householdView: true })
+
+      await user.click(screen.getByRole('button', { name: 'Revoke: Kitchen screen, Jane' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Revoke Kitchen screen?' })
+      await user.click(within(dialog).getByRole('button', { name: 'Revoke' }))
+
+      await waitFor(() =>
+        expect(screen.getByText('No one in the household has a key.')).toBeInTheDocument(),
+      )
+      expect(mockApiFetch).toHaveBeenCalledWith('/api/auth/user/api-keys/key-kitchen', {
+        method: 'DELETE',
+      })
+    })
+
+    it("does not show member names in a member's own list", () => {
+      mockApiFetch.mockResolvedValue([JANE_KEY])
+      renderSection([JANE_KEY])
+
+      expect(screen.getByRole('heading', { name: 'Your keys' })).toBeInTheDocument()
+      expect(screen.queryByText('Member: Jane')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Revoke: Kitchen screen' })).toBeInTheDocument()
+    })
   })
 })

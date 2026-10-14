@@ -142,8 +142,8 @@ export default function PrivacyPage() {
           <Li>
             <Body>
               API keys for screens and scripts: the name you gave each key, its first characters, a
-              one-way fingerprint of it, when you made it and when it was last used — only if you
-              make one (see{' '}
+              one-way fingerprint of it, when you made it, when it was last used and when it expires
+              — only if you make one (see{' '}
               <a className="inline-link" href="#ai-assistants">
                 Connected AI assistants
               </a>
@@ -269,8 +269,11 @@ export default function PrivacyPage() {
           it the key. We store the key&rsquo;s name, its first characters, a one-way fingerprint of
           it and when it was last used, never the key itself, and we do not record each request it
           makes in analytics. To stop it, choose Revoke next to the key: its next request fails.
-          Deleting your account stops every key at once. A key reads the household you belong to
-          when it makes a request, so after you leave a household, the key no longer reads it.
+          Your household&rsquo;s owner sees every member&rsquo;s keys, with the member&rsquo;s name,
+          and can revoke any of them. When you make a key, you can also set it to expire after a
+          number of days. Deleting your account stops every key at once. A key reads the household
+          you belong to when it makes a request, so after you leave a household, the key no longer
+          reads it.
         </Body>
       </Section>
 

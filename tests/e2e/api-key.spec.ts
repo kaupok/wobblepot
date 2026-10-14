@@ -58,11 +58,15 @@ test.describe('API keys', () => {
     await page.getByRole('button', { name: 'Done' }).click()
     const row = page.getByRole('listitem').filter({ hasText: KEY_NAME })
     await expect(row).toContainText(key.slice(0, 9))
-    await page.getByRole('button', { name: `Revoke: ${KEY_NAME}` }).click()
+    // The account owns its household, so it gets the household view (HON-1221):
+    // each row names its member, and so does Revoke.
+    await expect(page.getByRole('heading', { name: 'Household keys' })).toBeVisible()
+    await expect(row).toContainText('Member: ')
+    await page.getByRole('button', { name: new RegExp(`^Revoke: ${KEY_NAME}, `) }).click()
     const dialog = page.getByRole('alertdialog', { name: `Revoke ${KEY_NAME}?` })
     await dialog.getByRole('button', { name: 'Revoke' }).click()
     await expect(dialog).toBeHidden()
-    await expect(page.getByText('You have no keys.')).toBeVisible()
+    await expect(page.getByText('No one in the household has a key.')).toBeVisible()
 
     const revoked = await request.get('/api/v1/meal-plan', { headers: auth })
     expect(revoked.status()).toBe(401)
