@@ -7,6 +7,8 @@
   "permissions": {
     "allow": [
       "Bash(gh api:*)",
+      "Bash(./scripts/pr-comments.sh:*)",
+      "Bash(./scripts/ci-settle.sh:*)",
       "Bash(gh pr view:*)",
       "Bash(gh pr create:*)",
       "Bash(gh pr list:*)",

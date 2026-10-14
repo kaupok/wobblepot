@@ -30,10 +30,10 @@ The argument is optional.
 - **Free text** → the current conversation, with the text as the focus ("the CI wait", "the review rounds"). Look at the rest of the conversation too, but rank candidates from the focus first.
 - **`HON-NNN`** → the session record is the issue and its PR:
   1. `mcp__linear-server__get_issue({ id, includeRelations: true })` and `mcp__linear-server__list_comments({ issueId })`. The comments hold the plan, any hand-off and the merge summary.
-  2. `gh pr list --head "<gitBranchName>" --state all --json number,title,state,url`, with `gitBranchName` from the `get_issue` result. PR titles carry no issue ID, so an `in:title` search finds nothing. If the list is empty, try `gh pr list --search "HON-NNN in:body" --state all --json number,title,state,url,body` and keep only PRs whose body says `Closes HON-NNN`. If both are empty, say that no PR was found before you continue. For each PR: `gh pr view <n> --json body,commits,reviews` and the comments below. Use `--paginate` with `jq -s 'add'`, because `--jq` runs once per page (HON-586).
+  2. `gh pr list --head "<gitBranchName>" --state all --json number,title,state,url`, with `gitBranchName` from the `get_issue` result. PR titles carry no issue ID, so an `in:title` search finds nothing. If the list is empty, try `gh pr list --search "HON-NNN in:body" --state all --json number,title,state,url,body` and keep only PRs whose body says `Closes HON-NNN`. If both are empty, say that no PR was found before you continue. For each PR: `gh pr view <n> --json body,commits,reviews` and the comments below. `scripts/pr-comments.sh` fetches every page into one JSON array (HON-586).
      ```bash
-     gh api --paginate '/repos/:owner/:repo/pulls/<n>/comments?per_page=100' | jq -s 'add'
-     gh api --paginate '/repos/:owner/:repo/issues/<n>/comments?per_page=100' | jq -s 'add'
+     ./scripts/pr-comments.sh <n> inline
+     ./scripts/pr-comments.sh <n> issue
      ```
      The issue comments hold the reviewer summaries (`<!-- claude-review -->`), one per review round, and any `not actioned:` notes.
 

@@ -35,7 +35,7 @@ The 6.6 branch C merge path: Round 3's fix ships without a 4th review, which is 
 
 ## Newest summary only (6.4; HON-586)
 
-This is also why the fetch cannot be written as `--paginate --jq '… | last'`: gh runs `--jq` once per page, so `last` would yield the newest marker *on each page* rather than the newest overall — reinstating the same defect through a different door. The `jq -s 'add'` form evaluates `last` against the whole set (HON-586).
+This is also why `scripts/pr-comments.sh` does not pass `--jq` to its paginated `gh api` call: gh runs `--jq` once per page, so `… | last` would yield the newest marker *on each page* rather than the newest overall — reinstating the same defect through a different door. The script folds the pages with `jq -s 'add'` first, so the caller's `last` runs against the whole set (HON-586).
 
 ## The pending-Vercel exemption (6.1, 7.2; HON-600)
 

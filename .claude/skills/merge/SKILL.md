@@ -33,7 +33,7 @@ Run these commands in parallel to gather state:
 # Get current branch
 git branch --show-current
 
-# Check for uncommitted changes
+# Uncommitted changes
 git status --porcelain
 
 # Get PR status
@@ -62,48 +62,19 @@ If PR is already MERGED, skip to Step 6 (local cleanup only).
 
 ### Step 2: Wait for CI Checks
 
-Before merging, ensure all CI checks have passed. CI takes 12–45 min, longer than Bash's 600 s foreground cap. Interactive `/merge` runs with a TTY, so it polls with `run_in_background: true` and acts on the completion notification (CLAUDE.md → Working style names this exception). A headless run has no session to receive that notification; its copy of this loop is `/auto-implement` 6.1, which waits in foreground wait-chunks. Poll, then verify in the foreground:
+Before merging, ensure all CI checks have passed. CI takes 12–45 min, longer than Bash's 600 s foreground cap. Interactive `/merge` runs with a TTY, so it runs each chunk of the poll with `run_in_background: true` and acts on the completion notification (CLAUDE.md → Working style names this exception). A headless run has no session to receive that notification; it waits through `/auto-implement` 6.1, which runs the same script in foreground chunks.
 
 ```bash
-# Run with run_in_background: true — emits one completion notification when the loop exits.
-# Bounded to ci.yml's timeout-minutes (45) plus margin: 100 polls × 30 s = 50 min.
-# Settles only when: the ci.yml job "Lint, Type Check & Test" is present and none is
-# pending, and the sorted name=bucket list is identical on two consecutive polls (fast
-# Vercel/smoke statuses register before the ci.yml job does). The job is required on
-# every PR, docs-only ones included: ci.yml has no path filter and the job is a required
-# status check on main (HON-584), so GitHub refuses a merge before it reports. A poll
-# that settled without it, on an empty list before the run registered, would end in a
-# refused `gh pr merge` (HON-1184).
-# Each Bash call is a fresh shell, so PR_NUMBER is derived here — never reused.
-PR_NUMBER=$(gh pr view --json number --jq .number)
-# INIT is a sentinel no check list can equal, so the first poll can never count as
-# stable on its own.
-PREV=INIT
-sleep 30  # let GitHub register the workflow run for the pushed commit before the first poll
-for i in $(seq 1 100); do
-  # A third-party commit status (empty workflow — Vercel) is exempt while pending:
-  # it can stick after the deploy is Ready (HON-600). A fail still blocks: CI runs
-  # no `next build`, so Vercel is the only build gate.
-  CUR=$(gh pr checks "$PR_NUMBER" --json name,bucket,workflow \
-    --jq 'sort_by(.name) | .[] | select(.workflow != "" or .bucket != "pending") | "\(.name)=\(.bucket)"' 2>/dev/null)
-  OK=1
-  printf '%s\n' "$CUR" | grep -q '^Lint, Type Check' || OK=0   # ci.yml job registered (every PR)
-  printf '%s\n' "$CUR" | grep -q '=pending$' && OK=0           # none pending
-  [ "$CUR" = "$PREV" ] || OK=0                                 # identical to the previous poll
-  if [ "$OK" = 1 ]; then echo CI_SETTLED; exit 0; fi
-  PREV=$CUR
-  sleep 30
-done
-echo CI_TIMEOUT; exit 1
+# Run with run_in_background: true — emits one completion notification per chunk.
+PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
+./scripts/ci-settle.sh "$PR_NUMBER"
 ```
 
-If the background task ends with `CI_TIMEOUT`, report and stop — do not merge.
+`scripts/ci-settle.sh` polls for about 8 minutes and prints one marker on its last line. Its header says when it settles: the `Lint, Type Check & Test` row is present, nothing is pending, and two polls in a row agree. A pending Vercel status is exempt (HON-600). Act on the marker:
 
-**Behavior:**
-
-- If checks already passed: the loop settles on its second poll (two identical results, ~90 s including the initial sleep)
-- If checks still running: polls every 30 s until the `Lint, Type Check & Test` row is present, no check is `pending`, and the list is stable (no Bash timeout involved)
-- Pass/fail is decided by the verification below, not by the loop
+- `CI_WAITING` — run the same command again, in the background. The chunk count carries across calls, so 6 chunks (about 48 min) cover ci.yml's 45 min timeout.
+- `CI_TIMEOUT` — report and stop. Do not merge.
+- `CI_SETTLED` — verify below. If checks already passed, it settles on its second poll (about 60 s including the initial sleep). Pass or fail is decided by the verification, not by the poll.
 
 When the notification arrives, verify in the foreground. With `--json`, `gh pr checks` exits 0 even when checks failed or were cancelled, so the `bucket` field is the only signal — anything other than `pass`/`skipping` (`fail` or `cancel`: FAILURE, CANCELLED, TIMED_OUT, ERROR) is a failure. The one exemption matches the poll's: a still-`pending` third-party commit status (empty `workflow`) does not block, because it can stick forever after the deploy is Ready:
 
@@ -132,10 +103,11 @@ Check if review already exists:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
-gh api --paginate "/repos/:owner/:repo/issues/${PR_NUMBER}/comments?per_page=100" \
-  | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
+./scripts/pr-comments.sh "$PR_NUMBER" issue \
+  | jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
+
+`scripts/pr-comments.sh` fetches every page and prints one JSON array. When the fetch fails it prints nothing and says why on stderr: report it, do not read it as no review.
 
 If review exists (count > 0): proceed to Step 3.
 
@@ -152,9 +124,8 @@ After the script returns, verify:
 
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq .number)  # fresh shell — re-derive, never reuse
-# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
-gh api --paginate "/repos/:owner/:repo/issues/${PR_NUMBER}/comments?per_page=100" \
-  | jq -s 'add | [.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
+./scripts/pr-comments.sh "$PR_NUMBER" issue \
+  | jq '[.[] | select(.body | startswith("<!-- claude-review -->"))] | length'
 ```
 
 If review was posted: proceed to Step 3.
@@ -221,14 +192,9 @@ After merging but before local cleanup, post a work summary to the linked Linear
 # `body` carries the Summary's **Follow-ups** line, read for `### Follow-ups` below.
 gh pr view <PR_NUMBER> --json number,title,url,body,commits,files
 
-# Review comments: inline comments + review-level summaries
-# (`:owner/:repo` is auto-filled by gh from the current git remote)
-# --paginate + `jq -s 'add'`: without it the API returns only the first page (30 by default), and --jq cannot be used because gh applies it per page (HON-586).
-# `// error(...)` is the loud-failure guard: unlike the filtered fetches in the review
-# phase, bare `add` returns `null` (exit 0) on empty stdout, which would read as "no
-# comments". A genuinely empty `[]` still passes — only null/false are falsy to `//`.
-gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/comments?per_page=100' | jq -s 'add // error("fetch produced no output")'
-gh api --paginate '/repos/:owner/:repo/pulls/<PR_NUMBER>/reviews?per_page=100'  | jq -s 'add // error("fetch produced no output")'
+# Review comments: inline comments + review-level summaries, each one JSON array
+./scripts/pr-comments.sh <PR_NUMBER> inline
+./scripts/pr-comments.sh <PR_NUMBER> reviews
 ```
 
 **Fetch the plan comment** (the one starting `# Plan:`), for its `## Follow-ups` section:
