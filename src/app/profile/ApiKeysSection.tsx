@@ -86,7 +86,11 @@ export function ApiKeysSection({ initialKeys }: ApiKeysSectionProps) {
       setCreated({ key, name: apiKey.name })
       setName('')
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: API_KEYS_QUERY_KEY }),
+    // Not returned: a returned promise keeps the mutation pending until the
+    // refetch lands, and the name field would come back disabled after Done.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: API_KEYS_QUERY_KEY })
+    },
   })
   const { ref: submitRef, requestRefocus } = useRefocusAfterPending(create.isPending)
 

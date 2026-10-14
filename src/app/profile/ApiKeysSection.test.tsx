@@ -71,19 +71,20 @@ describe('ApiKeysSection (HON-1220)', () => {
 
   it('creates a key, shows it once with focus on it, and Done returns to the name field', async () => {
     const user = userEvent.setup()
-    let rows: ApiKeyRow[] = []
     const created: ApiKeyRow = {
       ...SCRIPT,
       id: 'key-new',
       name: 'Kitchen screen',
       start: 'wp_Qr7sTu',
     }
+    let posted = false
     mockApiFetch.mockImplementation(async (_url: string, init?: RequestInit) => {
       if (init?.method === 'POST') {
-        rows = [created]
+        posted = true
         return { key: NEW_KEY, apiKey: created }
       }
-      return rows
+      // The refetch after Create never lands: Done must not wait for it.
+      return posted ? new Promise(() => {}) : []
     })
     renderSection([])
 
@@ -106,6 +107,7 @@ describe('ApiKeysSection (HON-1220)', () => {
     await user.click(screen.getByRole('button', { name: 'Done' }))
 
     expect(screen.queryByText(NEW_KEY)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Key name')).toBeEnabled()
     await waitFor(() => expect(screen.getByLabelText('Key name')).toHaveFocus())
     expect(screen.getByLabelText('Key name')).toHaveValue('')
   })
