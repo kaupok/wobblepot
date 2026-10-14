@@ -3,7 +3,6 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { getHouseholdMembership } from '@/lib/household'
-import { prisma } from '@/lib/prisma'
 import {
   imagineMeals,
   ImagineNoSafeMealsError,
@@ -29,6 +28,7 @@ import { computeMealNutrition } from '@/lib/meal-planning/nutrition'
 import { withRequestId } from '@/lib/request-id'
 import type { ExtractedIngredient } from '@/lib/ai/recipe-schema'
 import { MAX_ATTACHED_IMAGES, validateImageAttachments } from '@/lib/image-attachments'
+import { loadIngredientNutrition } from '@/lib/meals/imagine-persist'
 import type { ImagineErrorCode } from '@/lib/ai/error-codes'
 // This route's AI budget and its sizing against `maxDuration` live in `@/lib/ai/budgets`.
 import { IMAGINE_AI_BUDGET_MS } from '@/lib/ai/budgets'
@@ -275,21 +275,7 @@ async function handlePOST(request: Request) {
           .filter((r) => r.type === 'matched')
           .map((r) => (r as Extract<typeof r, { type: 'matched' }>).ingredient.id)
 
-        // Fetch nutrition data for matched ingredients
-        const ingredientNutrition =
-          matchedIds.length > 0
-            ? await prisma.ingredient.findMany({
-                where: { id: { in: matchedIds } },
-                select: {
-                  id: true,
-                  calories: true,
-                  protein: true,
-                  carbs: true,
-                  fat: true,
-                  proteinType: true,
-                },
-              })
-            : []
+        const ingredientNutrition = await loadIngredientNutrition(matchedIds)
 
         const nutritionMap = new Map(ingredientNutrition.map((ing) => [ing.id, ing]))
 
