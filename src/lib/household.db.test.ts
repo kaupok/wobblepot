@@ -4,6 +4,7 @@ import {
   countAccountHoldingMembers,
   getHouseholdMembership,
   hasHouseholdMembership,
+  updateHousehold,
 } from '@/lib/household'
 
 // Runs against PGlite through the `unit-db` project (HON-1186), with no mocks:
@@ -82,6 +83,100 @@ describe('household persistence', () => {
 // The two tests run in order: the first leaves a household behind and removes a
 // global ingredient that a migration seeded (20260331140000), and the second
 // sees the state the reset in `src/test/db-setup.ts` restored.
+/**
+ * Gives each household a plan with one dinner entry carrying cached prep tips,
+ * and returns a reader for every entry's tips, keyed by entry id.
+ */
+async function tipsInEachPlan(households: { id: string }[]) {
+  for (const { id } of households) {
+    await prisma.mealPlan.create({
+      data: {
+        id: `plan-${id}`,
+        householdId: id,
+        entries: {
+          create: {
+            id: `entry-${id}`,
+            date: new Date('2026-10-14T00:00:00Z'),
+            mealType: 'dinner',
+            preparationTips: '["Chop the onions"]',
+          },
+        },
+      },
+    })
+  }
+  return async () => {
+    const entries = await prisma.mealPlanEntry.findMany({
+      select: { id: true, preparationTips: true },
+    })
+    return Object.fromEntries(entries.map((e) => [e.id, e.preparationTips]))
+  }
+}
+
+describe('updateHousehold', () => {
+  it('saves the name, timezone and locale, and returns the household with its preferences', async () => {
+    const { alder } = await twoHouseholds()
+    await prisma.householdPreferences.create({
+      data: { householdId: alder.id, allergensToAvoid: ['nuts'] },
+    })
+
+    const updated = await updateHousehold(alder, {
+      name: 'Alder Grove',
+      timezone: 'America/New_York',
+      locale: 'et',
+    })
+
+    expect(updated).toMatchObject({
+      id: alder.id,
+      name: 'Alder Grove',
+      timezone: 'America/New_York',
+      locale: 'et',
+      preferences: { allergensToAvoid: ['nuts'] },
+    })
+    expect(await prisma.household.findUnique({ where: { id: alder.id } })).toMatchObject({
+      name: 'Alder Grove',
+      timezone: 'America/New_York',
+      locale: 'et',
+    })
+  })
+
+  it('leaves the fields the patch does not name alone', async () => {
+    const { alder } = await twoHouseholds()
+
+    await updateHousehold(alder, { name: 'Alder Grove' })
+
+    expect(await prisma.household.findUnique({ where: { id: alder.id } })).toMatchObject({
+      name: 'Alder Grove',
+      timezone: alder.timezone,
+      locale: 'en',
+    })
+  })
+
+  it("clears the cached prep tips in the household's own plan when the locale changes", async () => {
+    const { alder, birch } = await twoHouseholds()
+    const tips = await tipsInEachPlan([alder, birch])
+
+    await updateHousehold(alder, { locale: 'et' })
+
+    expect(await tips()).toEqual({
+      [`entry-${alder.id}`]: null,
+      [`entry-${birch.id}`]: '["Chop the onions"]',
+    })
+  })
+
+  it.each([
+    ['resends the stored locale', { locale: 'en' as const }],
+    ['changes only the name', { name: 'Alder Grove' }],
+    ['changes only the timezone', { timezone: 'America/New_York' }],
+  ])('keeps the cached prep tips when the update %s', async (_label, patch) => {
+    const { alder } = await twoHouseholds()
+    const tips = await tipsInEachPlan([alder])
+
+    await updateHousehold(alder, patch)
+
+    expect(await tips()).toEqual({ [`entry-${alder.id}`]: '["Chop the onions"]' })
+  })
+})
+
 describe('the reset between tests', () => {
   const berbere = { name: 'berbere', householdId: null }
 

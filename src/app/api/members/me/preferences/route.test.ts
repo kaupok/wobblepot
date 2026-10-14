@@ -1,538 +1,215 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, PATCH } from './route'
 
-// Mock dependencies
+// The member preferences read, save and prep-tips clear live in
+// `@/lib/household/preferences`, tested against a database in
+// `preferences.db.test.ts`. This file mocks that module at the seam and
+// asserts what the route owns: the session, the household, body validation,
+// and the status and body each answer maps to (HON-1213).
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
 }))
 
 vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+  auth: { api: { getSession: vi.fn() } },
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    householdMember: {
-      findFirst: vi.fn(),
-      findMany: vi.fn(),
-    },
-    memberPreferences: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      upsert: vi.fn(),
-    },
-    mealPlanEntry: {
-      updateMany: vi.fn(),
-    },
-    $transaction: vi.fn(),
-  },
+vi.mock('@/lib/household', () => ({
+  getHouseholdMembership: vi.fn(),
+}))
+
+vi.mock('@/lib/errors', () => ({
+  captureApiError: vi.fn(),
+}))
+
+vi.mock('@/lib/household/preferences', () => ({
+  getOrCreateMemberPreferences: vi.fn(),
+  updateMemberPreferences: vi.fn(),
 }))
 
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { getStartOfTodayInTimezone } from '@/lib/meal-planning/dates'
+import { getHouseholdMembership } from '@/lib/household'
+import { captureApiError } from '@/lib/errors'
+import { getOrCreateMemberPreferences, updateMemberPreferences } from '@/lib/household/preferences'
 
 const mockGetSession = vi.mocked(auth.api.getSession)
-const mockFindFirst = vi.mocked(prisma.householdMember.findFirst)
-const mockFindUnique = vi.mocked(prisma.memberPreferences.findUnique)
-const mockCreate = vi.mocked(prisma.memberPreferences.create)
-const mockUpsert = vi.mocked(prisma.memberPreferences.upsert)
-const mockEntryUpdateMany = vi.mocked(prisma.mealPlanEntry.updateMany)
-const mockMembersAfter = vi.mocked(prisma.householdMember.findMany)
-const mockTransaction = vi.mocked(prisma.$transaction)
+const mockGetMembership = vi.mocked(getHouseholdMembership)
+const mockCaptureApiError = vi.mocked(captureApiError)
+const mockGetOrCreate = vi.mocked(getOrCreateMemberPreferences)
+const mockUpdate = vi.mocked(updateMemberPreferences)
 
-const mockMemberPreferences = {
+const mockSession = {
+  user: { id: 'user-123', name: 'John', email: 'john@example.com' },
+  session: { id: 'session-123' },
+} as never
+
+const PREFERENCES = {
   id: 'member-prefs-123',
   memberId: 'member-123',
   displayName: 'Dad',
-  portionMultiplier: 1.0,
+  portionMultiplier: 1,
   targetCalories: null,
   targetProtein: null,
   targetCarbs: null,
   targetFat: null,
   dietaryType: null,
+  allergens: [],
   restrictions: [],
   excludedIngredients: [],
   excludedIngredientIds: [],
-  createdAt: new Date('2024-01-01'),
-  updatedAt: new Date('2024-01-01'),
 }
 
-const mockMembership = {
+const MEMBERSHIP = {
   id: 'member-123',
   householdId: 'household-123',
   userId: 'user-123',
-  role: 'owner',
+  role: 'member',
   household: {
     id: 'household-123',
-    name: "John Doe's Household",
     timezone: 'Europe/Tallinn',
-    createdAt: new Date('2024-01-01'),
-    preferences: {},
-    // Each member's portion as the membership query reads it (HON-1040).
     members: [{ preferences: { portionMultiplier: 1 } }, { preferences: { portionMultiplier: 1 } }],
   },
 }
 
-describe('GET /api/members/me/preferences', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+const URL = 'http://localhost/api/members/me/preferences'
 
-  it('returns 401 when not authenticated', async () => {
+const patch = (body: unknown) =>
+  PATCH(
+    new Request(URL, {
+      method: 'PATCH',
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+  )
+
+async function answer(response: Promise<Response>) {
+  const res = await response
+  return { status: res.status, body: await res.json() }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetSession.mockResolvedValue(mockSession)
+  mockGetMembership.mockResolvedValue(MEMBERSHIP as never)
+})
+
+describe('GET /api/members/me/preferences', () => {
+  it('answers 401 without a session', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(await answer(GET())).toEqual({ status: 401, body: { error: 'Unauthorized' } })
   })
 
-  it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it('answers 404 when the user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
 
-    mockFindFirst.mockResolvedValue(null)
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
+    expect(await answer(GET())).toEqual({ status: 404, body: { error: 'No household found' } })
   })
 
-  it('returns existing preferences', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it("answers with the caller's own member preferences", async () => {
+    mockGetOrCreate.mockResolvedValue(PREFERENCES as never)
 
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(mockMemberPreferences as never)
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.id).toBe('member-prefs-123')
-    expect(data.displayName).toBe('Dad')
-    expect(data.portionMultiplier).toBe(1.0)
+    expect(await answer(GET())).toEqual({ status: 200, body: PREFERENCES })
+    expect(mockGetOrCreate).toHaveBeenCalledWith('member-123')
   })
 
-  it('auto-creates default preferences if none exist', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it('answers 500 and reports a failed read', async () => {
+    const failure = new Error('database down')
+    mockGetOrCreate.mockRejectedValue(failure)
 
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-    mockFindUnique.mockResolvedValue(null)
-    mockCreate.mockResolvedValue(mockMemberPreferences as never)
-
-    const response = await GET()
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(mockCreate).toHaveBeenCalledWith({
-      data: { memberId: 'member-123' },
+    expect(await answer(GET())).toEqual({
+      status: 500,
+      body: { error: 'Failed to fetch member preferences' },
     })
-    expect(data.id).toBe('member-prefs-123')
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/members/me/preferences',
+      userId: 'user-123',
+    })
   })
 })
 
 describe('PATCH /api/members/me/preferences', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    // The write runs in a transaction on the same mock, so `tx.*` are the
-    // spies the assertions read.
-    mockTransaction.mockImplementation(async (fn) => (fn as (tx: unknown) => never)(prisma))
-    // The household-servings re-read after a portion change: the household as
-    // `mockMembership` holds it, so the servings stay put by default.
-    mockMembersAfter.mockResolvedValue(mockMembership.household.members as never)
+    mockUpdate.mockImplementation(async (_member, data) => ({ ...PREFERENCES, ...data }) as never)
   })
 
-  const createRequest = (body: object) =>
-    new Request('http://localhost/api/members/me/preferences', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-
-  it('returns 401 when not authenticated', async () => {
+  it('answers 401 without a session', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const response = await PATCH(createRequest({ portionMultiplier: 1.5 }))
-    const data = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
-  })
-
-  it('returns 400 on invalid JSON', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const request = new Request('http://localhost/api/members/me/preferences', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: 'invalid json{',
-    })
-
-    const response = await PATCH(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Invalid JSON')
-  })
-
-  it('returns 400 on portionMultiplier too low', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const response = await PATCH(createRequest({ portionMultiplier: 0.1 }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.portionMultiplier).toBeDefined()
-  })
-
-  it('returns 400 on portionMultiplier too high', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const response = await PATCH(createRequest({ portionMultiplier: 5.0 }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.portionMultiplier).toBeDefined()
-  })
-
-  it('returns 400 on invalid dietary type', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const response = await PATCH(createRequest({ dietaryType: 'invalid-type' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.dietaryType).toBeDefined()
-  })
-
-  it('returns 400 on displayName too long', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const response = await PATCH(createRequest({ displayName: 'a'.repeat(51) }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.displayName).toBeDefined()
-  })
-
-  it('converts empty displayName to null for linked members', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedPreferences = { ...mockMemberPreferences, displayName: null }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(createRequest({ displayName: '' }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.displayName).toBeNull()
-    expect(mockUpsert).toHaveBeenCalledWith({
-      where: { memberId: 'member-123' },
-      create: {
-        memberId: 'member-123',
-        displayName: null,
-      },
-      update: { displayName: null },
+    expect(await answer(patch({ portionMultiplier: 1.5 }))).toEqual({
+      status: 401,
+      body: { error: 'Unauthorized' },
     })
   })
 
-  it('returns 400 on targetCalories out of range', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    const response = await PATCH(createRequest({ targetCalories: 100 }))
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation failed')
-    expect(data.details.targetCalories).toBeDefined()
-  })
-
-  it('returns 404 when user has no household', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(null)
-
-    const response = await PATCH(createRequest({ portionMultiplier: 1.5 }))
-    const data = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('No household found')
-  })
-
-  it('updates single field successfully', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedPreferences = { ...mockMemberPreferences, portionMultiplier: 1.5 }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(createRequest({ portionMultiplier: 1.5 }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.portionMultiplier).toBe(1.5)
-    expect(mockUpsert).toHaveBeenCalledWith({
-      where: { memberId: 'member-123' },
-      create: {
-        memberId: 'member-123',
-        portionMultiplier: 1.5,
-      },
-      update: { portionMultiplier: 1.5 },
+  it('answers 400 for invalid JSON', async () => {
+    expect(await answer(patch('{not json'))).toEqual({
+      status: 400,
+      body: { error: 'Invalid JSON' },
     })
   })
 
-  it('updates multiple fields successfully', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
+  it.each([
+    ['a portion under 0.5×', { portionMultiplier: 0.4 }, 'portionMultiplier'],
+    ['a portion over 3×', { portionMultiplier: 3.5 }, 'portionMultiplier'],
+    ['an unknown dietary type', { dietaryType: 'carnivore' }, 'dietaryType'],
+    ['a display name over 50 characters', { displayName: 'a'.repeat(51) }, 'displayName'],
+    ['a calorie target under 500', { targetCalories: 100 }, 'targetCalories'],
+    ['an unknown allergen', { allergens: ['pollen'] }, 'allergens'],
+  ])('answers 400 for %s', async (_label, body, field) => {
+    const { status, body: answered } = await answer(patch(body))
 
-    mockFindFirst.mockResolvedValue(mockMembership as never)
+    expect(status).toBe(400)
+    expect(answered.error).toBe('Validation failed')
+    expect(Object.keys(answered.details)).toEqual([field])
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
 
-    const updatedPreferences = {
-      ...mockMemberPreferences,
-      displayName: 'Mom',
-      portionMultiplier: 0.8,
+  it('answers 404 when the user has no household', async () => {
+    mockGetMembership.mockResolvedValue(null)
+
+    expect(await answer(patch({ portionMultiplier: 1.5 }))).toEqual({
+      status: 404,
+      body: { error: 'No household found' },
+    })
+  })
+
+  it("saves the validated fields on the caller's membership and answers with the row", async () => {
+    const body = {
+      portionMultiplier: 1.5,
+      targetCalories: null,
       dietaryType: 'vegetarian',
-      targetCalories: 1800,
-    }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(
-      createRequest({
-        displayName: 'Mom',
-        portionMultiplier: 0.8,
-        dietaryType: 'vegetarian',
-        targetCalories: 1800,
-      }),
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.displayName).toBe('Mom')
-    expect(data.portionMultiplier).toBe(0.8)
-    expect(data.dietaryType).toBe('vegetarian')
-    expect(data.targetCalories).toBe(1800)
-  })
-
-  it('handles nullable dietaryType', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedPreferences = { ...mockMemberPreferences, dietaryType: null }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(createRequest({ dietaryType: null }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.dietaryType).toBeNull()
-    expect(mockUpsert).toHaveBeenCalledWith({
-      where: { memberId: 'member-123' },
-      create: {
-        memberId: 'member-123',
-        dietaryType: null,
-      },
-      update: { dietaryType: null },
-    })
-  })
-
-  it('handles nullable targetCalories', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedPreferences = { ...mockMemberPreferences, targetCalories: null }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(createRequest({ targetCalories: null }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.targetCalories).toBeNull()
-  })
-
-  it('updates restrictions array successfully', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedPreferences = {
-      ...mockMemberPreferences,
-      restrictions: ['low sodium', 'high protein'],
-    }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(createRequest({ restrictions: ['low sodium', 'high protein'] }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.restrictions).toEqual(['low sodium', 'high protein'])
-  })
-
-  it('updates excludedIngredients array successfully', async () => {
-    mockGetSession.mockResolvedValue({
-      user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-      session: { id: 'session-123' },
-    } as never)
-
-    mockFindFirst.mockResolvedValue(mockMembership as never)
-
-    const updatedPreferences = {
-      ...mockMemberPreferences,
-      excludedIngredients: ['olives', 'anchovies'],
-    }
-    mockUpsert.mockResolvedValue(updatedPreferences as never)
-
-    const response = await PATCH(createRequest({ excludedIngredients: ['olives', 'anchovies'] }))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.excludedIngredients).toEqual(['olives', 'anchovies'])
-  })
-
-  describe('cached preparation tips', () => {
-    const asMembers = (portions: number[]) =>
-      portions.map((portionMultiplier) => ({ preferences: { portionMultiplier } }))
-
-    /** Signed in; `after` is what the re-read inside the transaction sees. */
-    const signedIn = (after: number[] = [1, 1]) => {
-      mockGetSession.mockResolvedValue({
-        user: { id: 'user-123', name: 'John Doe', email: 'john@example.com' },
-        session: { id: 'session-123' },
-      } as never)
-      mockFindFirst.mockResolvedValue(mockMembership as never)
-      mockUpsert.mockResolvedValue(mockMemberPreferences as never)
-      mockMembersAfter.mockResolvedValue(asMembers(after) as never)
+      allergens: ['nuts'],
+      restrictions: ['low-salt'],
+      excludedIngredients: ['cilantro'],
     }
 
-    // The portions are summed into the household's servings, which price the
-    // tips on every entry without a `servingOverride` (HON-1040).
-    it('clears them on future entries when the household servings move', async () => {
-      signedIn([0.5, 1])
-      mockFindUnique.mockResolvedValue({ portionMultiplier: 1 } as never)
-
-      const response = await PATCH(createRequest({ portionMultiplier: 0.5 }))
-
-      expect(response.status).toBe(200)
-      expect(mockMembersAfter).toHaveBeenCalledWith({
-        where: { householdId: 'household-123' },
-        select: { preferences: { select: { portionMultiplier: true } } },
-      })
-      expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
-      expect(mockEntryUpdateMany).toHaveBeenCalledWith({
-        where: {
-          plan: { householdId: 'household-123' },
-          servingOverride: null,
-          preparationTips: { not: null },
-          status: { not: 'completed' },
-          date: { gte: getStartOfTodayInTimezone('Europe/Tallinn') },
-        },
-        data: { preparationTips: null },
-      })
+    expect(await answer(patch({ ...body, unknown: 'dropped' }))).toEqual({
+      status: 200,
+      body: { ...PREFERENCES, ...body },
     })
+    expect(mockUpdate).toHaveBeenCalledWith(MEMBERSHIP, body)
+  })
 
-    it('clears them when a member without a preferences row leaves 1×', async () => {
-      signedIn([1.5, 1])
-      mockFindUnique.mockResolvedValue(null)
-
-      await PATCH(createRequest({ portionMultiplier: 1.5 }))
-
-      expect(mockEntryUpdateMany).toHaveBeenCalledTimes(1)
+  it('saves an empty display name as none, so the member shows under their account name', async () => {
+    expect(await answer(patch({ displayName: '' }))).toEqual({
+      status: 200,
+      body: { ...PREFERENCES, displayName: null },
     })
+    expect(mockUpdate).toHaveBeenCalledWith(MEMBERSHIP, { displayName: null })
+  })
 
-    // 1 + 1 = 2 and 1.2 + 1 = 2.2 both round to 2 servings, so the prompt is
-    // unchanged and a regeneration would be a paid call for nothing.
-    it('leaves them alone when the rounded servings do not move', async () => {
-      signedIn([1.2, 1])
-      mockFindUnique.mockResolvedValue({ portionMultiplier: 1 } as never)
+  it('answers 500 and reports a failed save', async () => {
+    const failure = new Error('database down')
+    mockUpdate.mockRejectedValue(failure)
 
-      const response = await PATCH(createRequest({ portionMultiplier: 1.2 }))
-
-      expect(response.status).toBe(200)
-      expect(mockMembersAfter).toHaveBeenCalledTimes(1)
-      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+    expect(await answer(patch({ portionMultiplier: 1.5 }))).toEqual({
+      status: 500,
+      body: { error: 'Failed to update member preferences' },
     })
-
-    it('skips the re-read when the portion size is saved unchanged', async () => {
-      signedIn()
-      mockFindUnique.mockResolvedValue({ portionMultiplier: 1.5 } as never)
-
-      const response = await PATCH(createRequest({ portionMultiplier: 1.5, displayName: 'Dad' }))
-
-      expect(response.status).toBe(200)
-      expect(mockMembersAfter).not.toHaveBeenCalled()
-      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
-    })
-
-    it('leaves them alone when the edit has no portion size', async () => {
-      signedIn()
-
-      await PATCH(createRequest({ dietaryType: 'vegan' }))
-
-      expect(mockFindUnique).not.toHaveBeenCalled()
-      expect(mockMembersAfter).not.toHaveBeenCalled()
-      expect(mockEntryUpdateMany).not.toHaveBeenCalled()
+    expect(mockCaptureApiError).toHaveBeenCalledWith(failure, {
+      route: '/api/members/me/preferences',
+      userId: 'user-123',
     })
   })
 })
