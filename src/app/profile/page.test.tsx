@@ -87,8 +87,18 @@ vi.mock('./McpServerUrl', () => ({
 }))
 
 vi.mock('./ConnectedAssistantsList', () => ({
-  ConnectedAssistantsList: ({ initialConsents }: { initialConsents: unknown[] }) => (
-    <div data-testid="connected-assistants" data-count={String(initialConsents.length)} />
+  ConnectedAssistantsList: ({
+    initialConsents,
+    timeZone,
+  }: {
+    initialConsents: unknown[]
+    timeZone: string
+  }) => (
+    <div
+      data-testid="connected-assistants"
+      data-count={String(initialConsents.length)}
+      data-time-zone={timeZone}
+    />
   ),
 }))
 
@@ -424,7 +434,9 @@ describe('ProfilePage', () => {
       screen.getByRole('link', { name: "Claude's guide to custom connectors" }),
     ).toHaveAttribute('href', expect.stringContaining('support.claude.com'))
     expect(listMcpConsents).toHaveBeenCalledWith('user-123')
-    expect(screen.getByTestId('connected-assistants')).toHaveAttribute('data-count', '1')
+    const assistants = screen.getByTestId('connected-assistants')
+    expect(assistants).toHaveAttribute('data-count', '1')
+    expect(assistants).toHaveAttribute('data-time-zone', 'Europe/Tallinn')
   })
 
   // The verification link lands on `/profile?verified=1`, with `&error=…` on a
